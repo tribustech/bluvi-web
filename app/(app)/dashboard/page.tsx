@@ -7,12 +7,12 @@ import { FeedbackSection } from "@/components/domain/dashboard/feedback-section"
 import { LakeRequestBanner } from "@/components/domain/dashboard/lake-request-banner";
 import { LakesHomeCarousel } from "@/components/domain/dashboard/lakes-home-carousel";
 import { LiveCompetitionCard } from "@/components/domain/dashboard/live-competition-card";
-import { PollCard } from "@/components/domain/dashboard/poll-card";
-import { RaffleDashboardCard } from "@/components/domain/dashboard/raffle-dashboard-card";
 import { MyCompetitionsSection } from "@/components/domain/dashboard/my-competitions-section";
 import { NewsSection } from "@/components/domain/dashboard/news-section";
 import { OrganizerBanner } from "@/components/domain/dashboard/organizer-banner";
+import { PollCard } from "@/components/domain/dashboard/poll-card";
 import { ProfileCompletionNudge } from "@/components/domain/dashboard/profile-completion-nudge";
+import { RaffleDashboardCard } from "@/components/domain/dashboard/raffle-dashboard-card";
 import { SponsorsStrip } from "@/components/domain/dashboard/sponsors-strip";
 import type { Competition, NewsArticle, Profile, StrapiPaginatedResponse } from "@/types";
 
