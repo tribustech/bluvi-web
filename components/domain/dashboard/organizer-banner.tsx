@@ -11,18 +11,18 @@ export function OrganizerBanner({ isOrganizer }: OrganizerBannerProps) {
 
   return (
     <Link href="/organizer" className="block">
-      <Card className="border-green-3 bg-green-1 transition-shadow hover:shadow-md">
+      <Card className="border-l-4 border-l-green-5 transition-shadow hover:shadow-md">
         <CardContent className="flex items-center justify-between gap-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-full bg-green-3 p-2 text-green-7">
+            <div className="rounded-full bg-green-2 p-2 text-green-7">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-bold text-green-7">Organizer mode</p>
-              <p className="text-sm text-gray-6">Acceseaza dashboard-ul de organizator pentru a-ti gestiona competitiile.</p>
+              <p className="text-sm font-bold text-gray-7">Organizer mode</p>
+              <p className="text-sm text-gray-5">Acceseaza dashboard-ul de organizator pentru a-ti gestiona competitiile.</p>
             </div>
           </div>
-          <ArrowRight className="h-5 w-5 text-green-7" />
+          <ArrowRight className="h-5 w-5 text-gray-5" />
         </CardContent>
       </Card>
     </Link>

@@ -67,9 +67,11 @@ export function FeedbackSection() {
 
   if (submittedJustNow) {
     return (
-      <Card className="border-green-3 bg-green-1">
+      <Card className="border-l-4 border-l-green-5">
         <CardContent className="flex items-center gap-3 py-4">
-          <Lightbulb className="h-5 w-5 text-green-7" />
+          <div className="rounded-full bg-green-2 p-2 text-green-7">
+            <Lightbulb className="h-5 w-5" />
+          </div>
           <p className="text-sm text-gray-7">
             Multumim pentru feedback! Echipa l-a primit si il va analiza.
           </p>
@@ -79,13 +81,15 @@ export function FeedbackSection() {
   }
 
   return (
-    <Card>
+    <Card className="border-l-4 border-l-yellow-5">
       <CardContent className="space-y-3 py-5">
         <div className="flex items-center gap-3">
-          <Lightbulb className="h-5 w-5 text-yellow-7" />
+          <div className="rounded-full bg-yellow-1 p-2 text-yellow-6">
+            <Lightbulb className="h-5 w-5" />
+          </div>
           <div>
             <p className="text-sm font-bold text-gray-7">Ai sugestii sau intrebari?</p>
-            <p className="text-sm text-gray-6">
+            <p className="text-sm text-gray-5">
               Spune-ne ce poate fi mai bun. Citim fiecare mesaj.
             </p>
           </div>

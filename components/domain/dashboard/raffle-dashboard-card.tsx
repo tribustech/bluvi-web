@@ -76,13 +76,15 @@ function RaffleInner({ raffle, participation }: InnerProps) {
 
   if (isEnded && hasWinners) {
     return (
-      <Card className="border-yellow-3 bg-yellow-1">
+      <Card className="border-l-4 border-l-yellow-5">
         <CardContent className="flex items-center justify-between gap-4 py-5">
           <div className="flex items-center gap-3">
-            <Trophy className="h-6 w-6 text-yellow-7" />
+            <div className="rounded-full bg-yellow-1 p-2 text-yellow-6">
+              <Trophy className="h-5 w-5" />
+            </div>
             <div>
               <p className="text-lg font-bold text-gray-7">Tombola s-a incheiat</p>
-              <p className="text-sm text-gray-6">Vezi castigatorii sesiunii curente.</p>
+              <p className="text-sm text-gray-5">Vezi castigatorii sesiunii curente.</p>
             </div>
           </div>
           <Button asChild>
@@ -94,17 +96,19 @@ function RaffleInner({ raffle, participation }: InnerProps) {
   }
 
   return (
-    <Card className="border-indigo-3 bg-gradient-to-br from-indigo-1 to-white">
+    <Card className="border-l-4 border-l-indigo-5">
       <CardContent className="space-y-4 py-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Gift className="h-6 w-6 text-indigo-7" />
+            <div className="rounded-full bg-indigo-2 p-2 text-indigo-7">
+              <Gift className="h-5 w-5" />
+            </div>
             <div>
               <p className="text-lg font-bold text-gray-7">
                 {session.dashboardTitle ?? "Tombola"}
               </p>
               {session.dashboardSubtitle ? (
-                <p className="text-sm text-gray-6">{session.dashboardSubtitle}</p>
+                <p className="text-sm text-gray-5">{session.dashboardSubtitle}</p>
               ) : null}
             </div>
           </div>
@@ -116,7 +120,7 @@ function RaffleInner({ raffle, participation }: InnerProps) {
         </div>
 
         {countdown && !countdown.ended ? (
-          <div className="grid grid-cols-4 gap-2 rounded-card bg-white p-3 ring-1 ring-indigo-2">
+          <div className="grid grid-cols-4 gap-2 rounded-card bg-gray-1 p-3">
             <CountdownUnit value={countdown.days} label="zile" />
             <CountdownUnit value={countdown.hours} label="ore" />
             <CountdownUnit value={countdown.minutes} label="min" />
@@ -139,7 +143,7 @@ function RaffleInner({ raffle, participation }: InnerProps) {
         ) : isRegistrationOpen ? (
           <JoinControls types={types} disabled={joining} onJoin={handleJoin} />
         ) : (
-          <p className="text-sm text-gray-6">Inscrierile au fost inchise.</p>
+          <p className="text-sm text-gray-7">Inscrierile au fost inchise.</p>
         )}
 
         <input
@@ -213,8 +217,8 @@ function ParticipationStatus({
 }) {
   if (!participation.receiptUploaded) {
     return (
-      <div className="space-y-3 rounded-card bg-white p-3 ring-1 ring-indigo-2">
-        <p className="text-sm text-gray-6">
+      <div className="space-y-3 rounded-card bg-gray-1 p-3">
+        <p className="text-sm text-gray-7">
           Esti inscris. Incarca bonul de cumparaturi pentru a valida participarea.
         </p>
         <Button onClick={onUploadClick} disabled={uploading} className="w-full">
@@ -226,7 +230,7 @@ function ParticipationStatus({
   }
 
   return (
-    <div className="space-y-3 rounded-card bg-white p-3 ring-1 ring-indigo-2">
+    <div className="space-y-3 rounded-card bg-gray-1 p-3">
       <p className="text-sm font-bold text-green-7">
         {participation.receiptUnderVerification
           ? "Bon incarcat, in curs de verificare"

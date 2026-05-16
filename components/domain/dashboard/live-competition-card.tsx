@@ -27,7 +27,7 @@ function LiveCard({ liveCompetition }: { liveCompetition: LiveCompetition }) {
   const visiblePreview = pendingRequests.slice(0, MAX_PREVIEW_REQUESTS);
 
   return (
-    <Card className="border-red-3 bg-gradient-to-br from-red-1 to-white">
+    <Card className="border-l-4 border-l-red-5">
       <CardContent className="space-y-4 py-5">
         <Link
           href={`/competitions/${liveCompetition.competition.documentId}`}
@@ -40,16 +40,16 @@ function LiveCard({ liveCompetition }: { liveCompetition: LiveCompetition }) {
             </span>
             <p className="text-lg font-bold text-gray-7">{liveCompetition.competition.name}</p>
           </div>
-          <ArrowRight className="h-5 w-5 text-gray-6" />
+          <ArrowRight className="h-5 w-5 text-gray-5" />
         </Link>
 
         {pendingRequests.length > 0 ? (
-          <div className="rounded-card bg-white p-3 ring-1 ring-gray-2">
+          <div className="rounded-card bg-gray-1 p-3">
             <div className="flex items-center gap-2 text-sm font-bold text-gray-7">
               <Scale className="h-4 w-4 text-indigo-5" />
               <span>Solicitari cantar extra ({pendingRequests.length})</span>
             </div>
-            <ul className="mt-2 space-y-1.5 text-sm text-gray-6">
+            <ul className="mt-2 space-y-1.5 text-sm text-gray-7">
               {visiblePreview.map((request) => (
                 <li key={request.documentId} className="flex items-center justify-between gap-2">
                   <span className="truncate">

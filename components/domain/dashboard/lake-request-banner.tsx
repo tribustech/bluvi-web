@@ -53,9 +53,11 @@ export function LakeRequestBanner() {
 
   if (submittedJustNow) {
     return (
-      <Card className="border-green-3 bg-green-1">
+      <Card className="border-l-4 border-l-green-5">
         <CardContent className="flex items-center gap-3 py-4">
-          <MapPinPlus className="h-5 w-5 text-green-7" />
+          <div className="rounded-full bg-green-2 p-2 text-green-7">
+            <MapPinPlus className="h-5 w-5" />
+          </div>
           <p className="text-sm text-gray-7">
             Multumim! Sugestia ta a fost trimisa. O vom analiza in cel mai scurt timp.
           </p>
@@ -65,13 +67,15 @@ export function LakeRequestBanner() {
   }
 
   return (
-    <Card className="border-indigo-2 bg-indigo-1">
+    <Card className="border-l-4 border-l-indigo-5">
       <CardContent className="space-y-3 py-5">
         <div className="flex items-center gap-3">
-          <MapPinPlus className="h-5 w-5 text-indigo-7" />
+          <div className="rounded-full bg-indigo-2 p-2 text-indigo-7">
+            <MapPinPlus className="h-5 w-5" />
+          </div>
           <div>
-            <p className="text-sm font-bold text-indigo-7">Sugereaza o balta noua</p>
-            <p className="text-sm text-gray-6">
+            <p className="text-sm font-bold text-gray-7">Sugereaza o balta noua</p>
+            <p className="text-sm text-gray-5">
               Cunosti o balta care nu e inca pe Bluvi? Spune-ne si o adaugam.
             </p>
           </div>

@@ -46,15 +46,17 @@ function PollCardInner({ poll }: { poll: Poll }) {
   const buttonLabel = myVoteOptionId === null ? "Voteaza" : "Schimba votul";
 
   return (
-    <Card className="border-indigo-2 bg-indigo-1">
+    <Card className="border-l-4 border-l-indigo-5">
       <CardContent className="space-y-4 py-5">
-        <div className="flex items-center gap-2">
-          <Vote className="h-5 w-5 text-indigo-7" />
+        <div className="flex items-center gap-3">
+          <div className="rounded-full bg-indigo-2 p-2 text-indigo-7">
+            <Vote className="h-5 w-5" />
+          </div>
           <h2 className="text-xl font-bold text-gray-7">{poll.title}</h2>
         </div>
 
         {poll.description ? (
-          <p className="text-sm text-gray-6">{poll.description}</p>
+          <p className="text-sm text-gray-5">{poll.description}</p>
         ) : null}
 
         <ul className="space-y-2">
@@ -80,18 +82,18 @@ function PollCardInner({ poll }: { poll: Poll }) {
                 >
                   <span
                     aria-hidden
-                    className="absolute inset-y-0 left-0 bg-indigo-2/60 transition-[width]"
+                    className="absolute inset-y-0 left-0 bg-indigo-2/70 transition-[width]"
                     style={{ width: `${percent}%` }}
                   />
                   {isActive ? (
                     <CheckCircle2 className="relative z-10 h-5 w-5 shrink-0 text-indigo-7" />
                   ) : (
-                    <Circle className="relative z-10 h-5 w-5 shrink-0 text-gray-4" />
+                    <Circle className="relative z-10 h-5 w-5 shrink-0 text-gray-5" />
                   )}
                   <span className="relative z-10 flex-1 text-sm font-medium text-gray-7">
                     {option.title}
                   </span>
-                  <span className="relative z-10 text-sm font-bold text-gray-6">{percent}%</span>
+                  <span className="relative z-10 text-sm font-bold text-gray-7">{percent}%</span>
                 </button>
               </li>
             );

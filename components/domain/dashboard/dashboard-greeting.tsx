@@ -12,7 +12,7 @@ export function DashboardGreeting({ username }: DashboardGreetingProps) {
       <CardHeader>
         <CardTitle>Bine ai revenit, {username || "pescar"}.</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm text-gray-5">
+      <CardContent className="space-y-3 text-sm text-gray-7">
         <p>Dashboard-ul combina recomandari publice cu datele private din contul tau Strapi.</p>
         <div className="flex flex-wrap gap-3">
           <Button asChild>
