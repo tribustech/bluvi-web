@@ -3,6 +3,7 @@ import { safeStrapiGet } from "@/lib/strapi";
 import { isOrganizerRole } from "@/lib/utils";
 import { DashboardGreeting } from "@/components/domain/dashboard/dashboard-greeting";
 import { DashboardQuickStats } from "@/components/domain/dashboard/dashboard-quick-stats";
+import { FeedbackSection } from "@/components/domain/dashboard/feedback-section";
 import { LakeRequestBanner } from "@/components/domain/dashboard/lake-request-banner";
 import { LakesHomeCarousel } from "@/components/domain/dashboard/lakes-home-carousel";
 import { LiveCompetitionCard } from "@/components/domain/dashboard/live-competition-card";
@@ -62,6 +63,8 @@ export default async function DashboardPage() {
       <SponsorsStrip />
 
       <NewsSection articles={news?.data ?? []} />
+
+      <FeedbackSection />
     </div>
   );
 }
