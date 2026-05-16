@@ -7,7 +7,11 @@ import {
 } from "@/services/api/registrations";
 import { followCompetition } from "@/services/api/competitions";
 import { updateProfile } from "@/services/api/profile";
-import { joinRaffleSession } from "@/services/api/raffle";
+import {
+  deleteRaffleReceipt,
+  joinRaffleSession,
+  uploadRaffleReceipt,
+} from "@/services/api/raffle";
 import { createWeighing, addCatch } from "@/services/api/weighing";
 import { createDraft, publishDraft, updateDraft } from "@/services/api/organizer";
 import { queryKeys } from "./query-keys";
@@ -69,6 +73,29 @@ export function useJoinRaffle() {
       joinRaffleSession(sessionDocumentId, typeKey),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.raffle.active });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.raffle.participation });
+    },
+  });
+}
+
+export function useUploadRaffleReceipt() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ raffleId, file }: { raffleId: string; file: File }) =>
+      uploadRaffleReceipt(raffleId, file),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.raffle.participation });
+    },
+  });
+}
+
+export function useDeleteRaffleReceipt() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (sessionDocumentId: string) => deleteRaffleReceipt(sessionDocumentId),
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.raffle.participation });
     },
   });

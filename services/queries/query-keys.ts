@@ -48,6 +48,14 @@ export const queryKeys = {
     active: ["raffle", "active"] as const,
     participation: ["raffle", "participation"] as const,
   },
+  polls: {
+    current: ["polls", "current"] as const,
+    past: (page: number) => ["polls", "past", page] as const,
+  },
+  lakesHome: {
+    all: ["lakes-home"] as const,
+    with: (params: Record<string, unknown>) => ["lakes-home", params] as const,
+  },
   organizer: {
     dashboard: ["organizer", "dashboard"] as const,
     competitions: ["organizer", "competitions"] as const,
