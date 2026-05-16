@@ -4,6 +4,7 @@ import { isOrganizerRole } from "@/lib/utils";
 import { DashboardGreeting } from "@/components/domain/dashboard/dashboard-greeting";
 import { DashboardQuickStats } from "@/components/domain/dashboard/dashboard-quick-stats";
 import { LakesHomeCarousel } from "@/components/domain/dashboard/lakes-home-carousel";
+import { LiveCompetitionCard } from "@/components/domain/dashboard/live-competition-card";
 import { MyCompetitionsSection } from "@/components/domain/dashboard/my-competitions-section";
 import { NewsSection } from "@/components/domain/dashboard/news-section";
 import { OrganizerBanner } from "@/components/domain/dashboard/organizer-banner";
@@ -42,6 +43,8 @@ export default async function DashboardPage() {
 
       <OrganizerBanner isOrganizer={isOrganizer} />
       <ProfileCompletionNudge profile={profile} />
+
+      <LiveCompetitionCard />
 
       <MyCompetitionsSection competitions={myCompetitions} />
 

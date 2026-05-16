@@ -65,3 +65,32 @@ export interface OrganizerDashboardStats {
   fillRate: number;
   competitionsByStatus: Record<string, number>;
 }
+
+export interface ExtraScaleRequest {
+  id: number;
+  documentId: string;
+  extraStatus: "new" | "done" | "cancelled";
+  createdAt: string;
+  updatedAt: string;
+  author: {
+    id: number;
+    documentId: string;
+    username: string;
+  };
+  stand: {
+    id?: number;
+    documentId?: string;
+    name: string;
+    sectors: Array<{ id?: number; documentId?: string; name: string }>;
+    sectorDrawPosition?: number | null;
+  };
+}
+
+export interface LiveCompetition {
+  competition: {
+    documentId: string;
+    name: string;
+    rankingType?: RankingType | null;
+  };
+  "extra-scales": ExtraScaleRequest[];
+}

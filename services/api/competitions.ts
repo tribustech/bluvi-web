@@ -1,6 +1,7 @@
 import type {
   Competition,
   CompetitionStatus,
+  LiveCompetition,
   RankingType,
   Registration,
   Sector,
@@ -68,10 +69,11 @@ export async function getCompetition(competitionId: string): Promise<Competition
   return unwrapData(response);
 }
 
-export async function getLiveCompetition(): Promise<Competition | null> {
+export async function getLiveCompetition(): Promise<LiveCompetition | null> {
   try {
-    const response = await getJson<{ data: Competition }>("/competitions/live");
-    return unwrapData(response);
+    const response = await getJson<LiveCompetition>("/competitions/live");
+    if (!response?.competition) return null;
+    return response;
   } catch {
     return null;
   }
