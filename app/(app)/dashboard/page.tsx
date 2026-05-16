@@ -5,6 +5,7 @@ import { DashboardGreeting } from "@/components/domain/dashboard/dashboard-greet
 import { DashboardQuickStats } from "@/components/domain/dashboard/dashboard-quick-stats";
 import { LakesHomeCarousel } from "@/components/domain/dashboard/lakes-home-carousel";
 import { LiveCompetitionCard } from "@/components/domain/dashboard/live-competition-card";
+import { PollCard } from "@/components/domain/dashboard/poll-card";
 import { MyCompetitionsSection } from "@/components/domain/dashboard/my-competitions-section";
 import { NewsSection } from "@/components/domain/dashboard/news-section";
 import { OrganizerBanner } from "@/components/domain/dashboard/organizer-banner";
@@ -49,6 +50,8 @@ export default async function DashboardPage() {
       <MyCompetitionsSection competitions={myCompetitions} />
 
       <LakesHomeCarousel />
+
+      <PollCard />
 
       <SponsorsStrip />
 
