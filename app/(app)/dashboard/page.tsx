@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { safeStrapiGet } from "@/lib/strapi";
 import { isOrganizerRole } from "@/lib/utils";
+import { CompetitionsHorizontalSection } from "@/components/domain/dashboard/competitions-horizontal-section";
 import { DashboardGreeting } from "@/components/domain/dashboard/dashboard-greeting";
 import { DashboardQuickStats } from "@/components/domain/dashboard/dashboard-quick-stats";
 import { FeedbackSection } from "@/components/domain/dashboard/feedback-section";
@@ -51,6 +52,18 @@ export default async function DashboardPage() {
       <LiveCompetitionCard />
 
       <MyCompetitionsSection competitions={myCompetitions} />
+
+      <CompetitionsHorizontalSection
+        status="started"
+        title="Competitii in desfasurare"
+        ctaHref="/competitions?status=started"
+      />
+
+      <CompetitionsHorizontalSection
+        status="notStarted"
+        title="Competitii viitoare"
+        ctaHref="/competitions?status=notStarted"
+      />
 
       <LakesHomeCarousel />
 
