@@ -50,6 +50,8 @@ export interface Lake extends StrapiResponse {
   regime?: string | null;
   distance?: string | null;
   county?: string | null;
+  countyRef?: { documentId?: string; name?: string | null } | null;
+  cityRef?: { documentId?: string; name?: string | null } | null;
   images?: ImageInfo[] | null;
   regulation?: ImageInfo | null;
   competitions?: Competition[] | null;

@@ -27,7 +27,7 @@ export default async function LakesPage({
         "pagination[pageSize]": 9,
         "filters[$or][0][name][$containsi]": q,
         "filters[$or][1][address][$containsi]": q,
-        populate: ["images", "facility", "fishSpecies.fish"],
+        populate: ["images", "facility", "fishSpecies.fish", "price", "countyRef", "cityRef"],
         sort: "updatedAt:desc",
       },
       { tags: ["lakes"], revalidate: 300 },
