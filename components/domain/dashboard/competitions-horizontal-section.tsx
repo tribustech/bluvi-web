@@ -24,7 +24,7 @@ export async function CompetitionsHorizontalSection({
     {
       "filters[competitionStatus][$eq]": status,
       "pagination[pageSize]": pageSize,
-      sort: status === "completed" ? "startDate:desc" : "startDate:asc",
+      sort: [status === "completed" ? "startDate:desc" : "startDate:asc"],
       populate: ["lake", "banner"],
     },
     { tags: ["competitions"], revalidate: 120 },

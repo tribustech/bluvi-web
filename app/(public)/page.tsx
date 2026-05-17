@@ -17,7 +17,7 @@ export default async function HomePage() {
       {
         "filters[competitionStatus][$in]": ["started", "notStarted"],
         "pagination[pageSize]": 6,
-        sort: "startDate:asc",
+        sort: ["startDate:asc"],
         populate: ["lake", "banner"],
       },
       { tags: ["competitions"], revalidate },
@@ -26,8 +26,8 @@ export default async function HomePage() {
       "/lakes",
       {
         "pagination[pageSize]": 6,
-        sort: "updatedAt:desc",
-        populate: ["images", "facility", "fishSpecies.fish"],
+        sort: ["updatedAt:desc"],
+        populate: ["images", "facility", "fishSpecies.fish", "price", "countyRef", "cityRef"],
       },
       { tags: ["lakes"], revalidate },
     ),
@@ -35,7 +35,7 @@ export default async function HomePage() {
       "/announcements",
       {
         "pagination[pageSize]": 4,
-        sort: "createdAt:desc",
+        sort: ["createdAt:desc"],
         populate: ["banner"],
       },
       { tags: ["news"], revalidate },

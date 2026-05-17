@@ -26,7 +26,7 @@ export default async function CompetitionsPage({
         "filters[competitionStatus][$eq]": status,
         "pagination[page]": page,
         "pagination[pageSize]": 9,
-        sort: status === "completed" ? "startDate:desc" : "startDate:asc",
+        sort: [status === "completed" ? "startDate:desc" : "startDate:asc"],
         populate: ["lake", "banner"],
       },
       { tags: ["competitions"], revalidate: 300 },
