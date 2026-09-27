@@ -8,6 +8,8 @@ const eslintConfig = defineConfig([
   {
     // core/ must run anywhere (Next server, browser, later the Expo app): no framework or DOM at runtime.
     files: ["core/**/*.ts"],
+    // Tests may use react-query (a real QueryClient) and DOM-ish globals.
+    ignores: ["core/**/*.test.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
