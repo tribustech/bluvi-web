@@ -21,9 +21,9 @@ pages), anglers using the web as a full app, organizers/operators working on a l
 | D2 | Platform-agnostic `core/` inside bluvi-web, ported from fish. **fish is not touched.** | Later `core/` can become a shared package that fish adopts module by module. |
 | D3 | Verification = unit tests + **contract tests** against the local CMS (guest + logged-in), responses validated by the zod schemas in `core/`. | Only real check without a UI; zod schemas double as runtime validation and types. |
 | D4 | Hybrid transport: JWT in an httpOnly cookie; public reads straight from the server (cacheable, SEO); per-user calls through a thin proxy `/api/cms/[...path]` that attaches the bearer. | Token never readable by JS; public pages keep Cloudflare + Next caching; `core/` stays identical in shape to fish. |
-| D5 | Hosting: Vercel. Uploads are compressed in the browser and sent **directly** to the CMS with a short-lived upload token (proxy body limit is 4.5 MB). | Vercel function body limit. |
+| D5 | Hosting: Vercel. Uploads are compressed in the browser (≤ 2048 px, JPEG) and go through the proxy like any call. | Vercel's 4.5 MB request limit; compressed photos stay far below it, so no upload-token endpoint is needed (revised 2026-09-27, was a CMS upload token). |
 | D6 | Public pages static/ISR with **tag revalidation driven by the CMS**: the same tags the CMS already purges on Cloudflare (`entityTags`) are POSTed to `/api/revalidate`. Time-based revalidation stays as a safety net. | Seconds-fresh static pages; one hook point in the CMS (`cache-purge-queue` flush). |
-| D7 | CMS changes are allowed (revalidate webhook, upload token, Apple on web) but are **delivered as patches + instructions**, not committed into the user's CMS checkout. | Never switch/commit the user's checkout while they are away. |
+| D7 | CMS changes are allowed (revalidate webhook, Apple on web) but are **delivered as patches + instructions**, not committed into the user's CMS checkout. | Never switch/commit the user's checkout while they are away. |
 
 ## Stack
 
@@ -43,12 +43,12 @@ core/                        platform-agnostic; imports only zod, qs, @tanstack/
     queries.ts               query keys + queryOptions factories
     mutations.ts             mutationOptions factories + invalidation lists
     domain/*.ts              pure logic ported from fish (optional)
-    __tests__/               unit tests
+    *.test.ts                colocated unit tests
   realtime/                  Firestore (chat, partide read models) on firebase/firestore
 lib/server/                  server transport (cookie → bearer, next fetch tags/revalidate)
 lib/client/                  browser transport (via proxy), QueryClient factory, upload helper
 lib/auth/                    session cookie helpers, provider verification glue
-app/api/cms/[...path]/       per-user proxy
+app/api/cms/[...path]/       per-user proxy (also carries uploads)
 app/api/auth/[provider]/     social sign-in → cookie; /api/auth/logout, /api/auth/session
 app/api/revalidate/          CMS webhook → revalidateTag
 app/api/firebase-token/      mints Firestore custom token for the signed-in user (via CMS)
@@ -133,6 +133,9 @@ Implementations:
 - Dead session: proxy sees 401 "Missing or invalid credentials" → clears cookie, returns 401 with
   `code: SESSION_DEAD`; the client QueryClient clears user-scoped queries on that code.
 - Apple on web needs a Services ID; CMS currently verifies the app's audience → CMS patch P3.
+- The CMS social routes `JSON.parse(ctx.request.body)`: the web forwards the body as `text/plain`
+  (with `application/json` Koa pre-parses it and the CMS answers 400). Facebook on the web reads the
+  profile from the Graph API server-side, never from the browser.
 
 ## Proxy `/api/cms/[...path]`
 
@@ -167,16 +170,9 @@ adds bearer + app headers, strips `set-cookie`, passes status and JSON through. 
 
 ## CMS patches (delivered, not applied)
 
-- **P1 revalidate webhook** — in `cache-purge-queue.ts` flush, after the Cloudflare call, POST the
-  same batch to `WEB_REVALIDATE_URL` with `x-revalidate-secret`; fire-and-forget, 3s timeout, failures
-  logged once per minute; no-op when env unset.
-- **P2 upload token** — `GET /feed/upload-token` (users-permissions auth, full-UID scope per CLAUDE.md
-  rule) returns a JWT-signed token valid 5 min scoped to `upload`; `/api/upload` accepts it. Web
-  falls back to proxy upload for files ≤ 4 MB when P2 is not deployed.
-- **P3 Apple web** — accept `APPLE_SERVICES_ID` as an extra audience in `verifyIdentityToken`.
-- **P4 CORS** — allow the web origin(s) for direct public GETs.
-
-Each patch lists the grants the user must apply in the admin UI.
+See `docs/cms-patches/README.md` for the diffs and apply notes: **P0** CMS security fix (tracked privately), **P1** revalidate webhook
+from the purge queue, **P3** Apple Services ID for web. The upload token and CORS patches were dropped
+(not needed, see D5 and the README).
 
 ## Testing
 

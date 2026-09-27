@@ -1,7 +1,8 @@
 import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
-const alias = { '@': path.resolve(__dirname) };
+// `server-only` throws outside a React Server Components bundle; tests import server modules directly.
+const alias = { '@': path.resolve(__dirname), 'server-only': path.resolve(__dirname, 'tests/stubs/server-only.ts') };
 
 export default defineConfig({
   resolve: { alias },
