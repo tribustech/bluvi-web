@@ -158,8 +158,10 @@ adds bearer + app headers, strips `set-cookie`, passes status and JSON through. 
 
 ## Realtime (Firestore)
 
-- Firebase JS SDK, same Firebase project as mobile; the collection-prefix-per-environment rule from
-  fish (`features/chat/domain/chatPaths.ts`) is ported verbatim.
+- Firebase JS SDK, same Firebase project as mobile. Chat is isolated per environment by
+  **Firestore database** (`(default)` in production, a database named after the env otherwise),
+  exactly as fish and the CMS do; Partide always uses `(default)`. `core/realtime` receives
+  `{ db, chatDb, auth }` built from an app the web initializes — core never initializes Firebase.
 - Auth: `/api/firebase-token` → CMS `/feed/firebase-token` → `signInWithCustomToken`; re-mint +
   retry once on permission-denied (fish `useChatAuth`).
 - Chat: room/message/receipt/reaction/typing reads and sends ported from `features/chat/*`
