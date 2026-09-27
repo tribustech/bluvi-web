@@ -1,16 +1,5 @@
-/** fish `features/operator/todayCounts.ts` (verbatim; `OperatorUpcomingBooking` is the minimal local slice). */
-/**
- * The slice of fish `OperatorUpcomingBooking` (`models/operatorStats.type.ts`, the operator-stats
- * `today` rows) these helpers read. The full row is owned by the operator-stats domain.
- */
-export type OperatorUpcomingBooking = {
-  standName: string | null;
-  startDate: string;
-  endDate: string;
-  bookingStatus: string;
-  priceTotal: number;
-  noShow: boolean;
-};
+/** fish `features/operator/todayCounts.ts` (verbatim). */
+import type { OperatorUpcomingBooking } from '../../lakes/schemas';
 
 /**
  * The arrival state of one of today's bookings — ONE state machine, shared by the

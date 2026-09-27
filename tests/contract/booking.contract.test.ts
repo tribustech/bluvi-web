@@ -19,9 +19,10 @@ import {
   zonedWallTimeIso,
   type LakeAvailability,
 } from '@/core/booking';
+import { getProfile } from '@/core/social';
 import { contractContext, expectDenied } from './context';
 
-const { guest, user } = contractContext();
+const { guest, user, userDocumentId } = contractContext();
 
 /** Local Chita Lake — booking-enabled, owned by the QA user. */
 const CHITA = 's84u55lo4n9z0emngozttt6e';
@@ -154,9 +155,13 @@ describe('booking — the operator (user owns Chita)', () => {
     await expectDenied(getBlocks(guest, CHITA));
   });
 
-  it('looks up an angler by phone, denied as guest', async () => {
-    const res = await lookupAnglerByPhone(user, CHITA, '0799999991');
-    expect(typeof res.matched).toBe('boolean');
-    await expectDenied(lookupAnglerByPhone(guest, CHITA, '0799999991'));
+  it('looks up an angler by phone (hit + miss), denied as guest', async () => {
+    const profile = await getProfile(user);
+    expect(profile.phone, 'QA user has a phone').toBeTruthy();
+    const hit = await lookupAnglerByPhone(user, CHITA, profile.phone!);
+    expect(hit).toMatchObject({ matched: true, user: { documentId: userDocumentId } });
+    const miss = await lookupAnglerByPhone(user, CHITA, '0700000001');
+    expect(miss).toEqual({ matched: false, user: null });
+    await expectDenied(lookupAnglerByPhone(guest, CHITA, profile.phone!));
   });
 });

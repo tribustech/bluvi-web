@@ -30,8 +30,6 @@ import {
   getSponsorById,
   getSponsors,
   getStandStatsByLakeId,
-  getUSerStatuteForCompetition,
-  postUserStatisticsBatch,
   type CompetitionCardsParams,
   type CompetitionCatchesFilter,
 } from './api';
@@ -41,10 +39,11 @@ import type {
   CompetitionStatus,
   CompetitionWithMyStatus,
   MyCompetitionsResponse,
-  ParticipantStats,
   Poll,
   StandStats,
 } from './schemas';
+import { getUSerStatuteForCompetition, postUserStatisticsBatch } from '../social/api';
+import type { ParticipantStats } from '../social/schemas';
 
 /* ------------------------------------------------------------------ */
 /* Keys — exact fish `queryKeys.*` shapes                              */
@@ -130,19 +129,11 @@ export const competitionNotificationKeys = {
   followedCompetitions: ['notifications', 'followed-competitions'] as const,
 };
 
-/** The competition-scoped slice of fish `queryKeys.profile` (the rest belongs to profile). */
+/** The competition-scoped slice of fish `queryKeys.profile` (`my` is social's `profileKeys.my`). */
 export const competitionProfileKeys = {
-  my: ['my-profile'] as const,
   statuteForCompetition: (competitionId: string) => ['profile-statute', competitionId] as const,
   participantStatisticsBatch: (competitionId: string) =>
     ['profile', 'participant-statistics-batch', competitionId] as const,
-};
-
-/** fish `queryKeys.organizer` prefixes invalidated by registration moderation (owned by organizer). */
-export const organizerDashboardKeys = {
-  dashboard: ['organizer', 'dashboard'] as const,
-  competitionsRoot: ['organizer', 'competitions'] as const,
-  statDetailsRoot: ['organizer', 'stat-details'] as const,
 };
 
 /** Signed-in state the fish hooks read from `useSession()`; the caller passes it in. */

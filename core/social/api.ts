@@ -3,7 +3,6 @@ import { call, type Transport } from '../transport';
 import {
   anglerCatchPageSchema,
   anglerListPageSchema,
-  anglerLookupResultSchema,
   anglerProfileSchema,
   anglerReviewSchema,
   competitionHistoryPageSchema,
@@ -12,6 +11,7 @@ import {
   followResultSchema,
   messageDataSchema,
   notificationsPageSchema,
+  organizerRoleRequestResponseSchema,
   profileSchema,
   publicSessionPageSchema,
   reputationSchema,
@@ -161,19 +161,6 @@ export function getSuggestedHome(t: Transport, { page, pageSize }: PageParams) {
   );
 }
 
-/**
- * fish `services/api/booking.ts#lookupAnglerByPhone` — ported here because `useAnglerLookup` is in
- * this domain. Owner-gated on the server. Duplicate of the booking domain's port, if it has one.
- */
-export async function lookupAnglerByPhone(t: Transport, lake: string, phone: string) {
-  const res = await call(
-    t,
-    { method: 'GET', path: '/feed/bookings/lookup-angler', query: { lake, phone }, auth: 'required' },
-    z.object({ data: anglerLookupResultSchema })
-  );
-  return res.data;
-}
-
 // ── services/api/profile.ts ─────────────────────────────────────────────────────────────────────────
 
 /** fish `services/api/profile.ts#getProfile` */
@@ -196,7 +183,11 @@ export function deleteProfile(t: Transport) {
 
 /** fish `services/api/profile.ts#requestOrganizerRole` */
 export function requestOrganizerRole(t: Transport, message: string) {
-  return call(t, { method: 'POST', path: '/user/organizer-request', body: { message }, auth: 'required' }, z.unknown());
+  return call(
+    t,
+    { method: 'POST', path: '/user/organizer-request', body: { message }, auth: 'required' },
+    organizerRoleRequestResponseSchema
+  );
 }
 
 /** fish `services/api/profile.ts#getStatistics` — the path typo (`statitics`) is the real CMS route. */
@@ -309,8 +300,9 @@ export function sendFeedback(t: Transport, feedbackReqBody: Feedback) {
 
 // ── services/api/media.ts ───────────────────────────────────────────────────────────────────────────
 
-/** fish `MediaFile`, web shape: the already-compressed bytes instead of an RN file URI. */
-export type MediaFile = { filename: string; blob: Blob };
+/** fish `MediaFile`, web shape: the already-compressed bytes instead of an RN file URI. Without a
+ *  `filename` the upload falls back to `image.jpg` (fish's default). */
+export type MediaFile = { blob: Blob; filename?: string };
 
 export type UploadMediaProps = {
   files: MediaFile[];

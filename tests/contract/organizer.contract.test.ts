@@ -3,11 +3,7 @@ import {
   fetchActiveRaffle,
   fetchRaffleParticipation,
   getAllocatedParticipants,
-  getCatchThresholdCounts,
   getCompetitionActiveWeighing,
-  getCompetitionCatches,
-  getCompetitionTimelineSnapshot,
-  getCompetitionWeighingStatistics,
   getDraft,
   getExtraScalesList,
   getOrganizerCompetitionDetail,
@@ -21,6 +17,12 @@ import {
   getWeighingsSummary,
   getWeightingsTotal,
 } from '@/core/organizer';
+import {
+  getCatchThresholdCounts,
+  getCompetitionCatches,
+  getCompetitionTimelineSnapshot,
+  getCompetitionWeighingStatistics,
+} from '@/core/competitions';
 import type { Transport } from '@/core/transport';
 import { contractContext, expectDenied } from './context';
 

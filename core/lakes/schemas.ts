@@ -86,13 +86,24 @@ export const lakeDetailStandSchema = z.object({
 });
 export type LakeDetailStand = z.infer<typeof lakeDetailStandSchema>;
 
-/** fish `models/lake-booking.type.ts` — kept as text: the CMS may add modes. */
+/**
+ * Lake booking config — fish `models/lake-booking.type.ts`, the CMS `toLakeDetailDTO` output (A15).
+ * Modes are kept as text: the CMS may add one, and a new value must not break the lake page.
+ */
 export const paymentModeSchema = z.union([z.enum(['offline', 'deposit', 'full']), z.string()]);
+export type PaymentMode = z.infer<typeof paymentModeSchema>;
 export const confirmationModeSchema = z.union([z.enum(['manual', 'instant']), z.string()]);
+export type ConfirmationMode = z.infer<typeof confirmationModeSchema>;
 export const cancellationPolicySchema = z.object({
   type: z.string().nullable(),
   refundWindowHours: z.number().nullable(),
   notes: z.string().nullable(),
+  /**
+   * Hours of notice the angler must give to cancel from the app. Distinct from
+   * refundWindowHours, which governs money — this governs permission. 0 or null
+   * means no restriction. Inside the window the angler must call the operator.
+   */
+  minCancelNoticeHours: z.number().nullish(),
 });
 export type CancellationPolicy = z.infer<typeof cancellationPolicySchema>;
 
@@ -446,7 +457,7 @@ export const lakeBookingInterestResultSchema = z.object({
 export type LakeBookingInterestResult = z.infer<typeof lakeBookingInterestResultSchema>;
 
 /* ------------------------------------------------------------------------------------------------
- * Lake reviews (fish `features/reviews/types.ts`) + angler reviews / reputation
+ * Lake reviews (fish `features/reviews/types.ts`) — angler reviews / reputation live in core/social
  * ---------------------------------------------------------------------------------------------- */
 
 /** fish `ReviewReqBodyType`. */
@@ -490,40 +501,6 @@ export type GetReviewsForLakeResponse = z.infer<typeof reviewsForLakeResponseSch
 
 /** Legacy `/lakes/:id/review` writes answer with the raw review document (or a message on delete). */
 export const reviewWriteResponseSchema = z.looseObject({});
-
-/** fish `models/anglerReview.type.ts` = CMS `AnglerReviewDTO`. */
-export const anglerReviewSchema = z.object({
-  stars: z.number(),
-  comment: z.string().nullable(),
-  authorName: z.string().nullable(),
-  lakeName: z.string().nullable(),
-  createdAt: z.string(),
-  /** RETIRED per-area sub-scores; only reviews written before 2026-08-18 carry them. */
-  rulesScore: z.number().nullable(),
-  cleanlinessScore: z.number().nullable(),
-  behaviorScore: z.number().nullable(),
-  /** Praise or problems the operator tagged. Absent on a CMS that predates it. */
-  tags: z.array(z.string()).optional(),
-});
-export type AnglerReview = z.infer<typeof anglerReviewSchema>;
-
-export type CreateAnglerReviewInput = {
-  booking: string;
-  stars: number;
-  comment?: string;
-  /** Praise or problems, from the closed set in fish `features/operator/reviewTags.ts`. */
-  tags?: string[];
-};
-
-/** fish `models/reputation.type.ts` = CMS `ReputationDTO`. */
-export const reputationSchema = z.object({
-  avgStars: z.number().nullable(),
-  ratingCount: z.number(),
-  noShowCount: z.number(),
-  areas: z.object({ rules: z.number().nullable(), cleanliness: z.number().nullable(), behavior: z.number().nullable() }),
-  reviews: z.array(anglerReviewSchema),
-});
-export type Reputation = z.infer<typeof reputationSchema>;
 
 /* ------------------------------------------------------------------------------------------------
  * Operator stats (fish `models/operatorStats.type.ts`)
@@ -590,6 +567,9 @@ export const operatorTrendPointSchema = z.object({
 });
 export type OperatorTrendPoint = z.infer<typeof operatorTrendPointSchema>;
 
+export const operatorWindowTotalsSchema = z.object({ cash: z.number(), bookings: z.number(), occupancyAvgPct: z.number() });
+export type OperatorWindowTotals = z.infer<typeof operatorWindowTotalsSchema>;
+
 export const lakeOperatorStatsSchema = z.object({
   occupancyByDay: z.array(z.object({ date: z.string(), booked: z.number(), total: z.number() })),
   /** Absent on a CMS that predates the field → client falls back to today's day count. */
@@ -607,22 +587,6 @@ export const lakeOperatorStatsSchema = z.object({
     .object({ documentId: z.string(), name: z.string(), startDate: z.string(), endDate: z.string() })
     .nullish(),
   days: z.array(operatorTrendPointSchema).optional(),
-  windowTotals: z.object({ cash: z.number(), bookings: z.number(), occupancyAvgPct: z.number() }).nullish(),
+  windowTotals: operatorWindowTotalsSchema.nullish(),
 });
 export type LakeOperatorStats = z.infer<typeof lakeOperatorStatsSchema>;
-
-/* ------------------------------------------------------------------------------------------------
- * Stand stats by lake (`/lakes/:lakeId/statistics`) — fish `models/stand.type.ts#StandStats`
- * ---------------------------------------------------------------------------------------------- */
-
-export const standStatsSchema = z.object({
-  standId: z.string(),
-  name: z.string(),
-  /** fish types these as numbers; the CMS sends nulls for stands without a pin. */
-  coordinates: z.object({ latitude: z.number().nullable(), longitude: z.number().nullable() }),
-  biggestFish: z.number(),
-  totalCatchesCount: z.number(),
-  /** fish types it as number; null on a stand with no catches. */
-  quality: z.number().nullable(),
-});
-export type StandStats = z.infer<typeof standStatsSchema>;

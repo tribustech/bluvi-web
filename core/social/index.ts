@@ -6,5 +6,4 @@ export * from './domain/notificationRoute';
 export * from './domain/suggestedStats';
 export * from './domain/reputation';
 export * from './domain/reviewTags';
-export * from './domain/notificationPreferences';
 export * from './domain/imageUpload';

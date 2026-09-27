@@ -1,7 +1,8 @@
 import { QueryClient } from '@tanstack/react-query';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createFakeTransport } from '@/tests/transport';
 import { ApiError, type TransportRequest } from '../transport';
+import { competitionCardsKeys, competitionsKeys, type Registration } from '../competitions';
 import * as api from './api';
 import {
   activeWeighing,
@@ -14,11 +15,11 @@ import {
   revisionClosed,
   revisionReopen,
   statDetailItem,
-  timeline,
   weighingByStand,
   weighingDetail,
 } from './fixtures.test-data';
 import {
+  acceptRegistrationMutation,
   addCatchToWeighingMutation,
   cancelOrganizerCompetitionMutation,
   createPenaltyMutation,
@@ -28,11 +29,7 @@ import {
   startCompetitionMutation,
 } from './mutations';
 import {
-  catchThresholdCountsQuery,
-  competitionCatchesInfiniteQuery,
   competitionManagementKeys,
-  competitionTimelineSnapshotQuery,
-  competitionWeighingStatisticsQuery,
   organizerCompetitionsInfiniteQuery,
   organizerDashboardQuery,
   organizerKeys,
@@ -43,7 +40,7 @@ import {
   weighingRevisionsQuery,
 } from './queries';
 
-const file = () => ({ file: new Blob(['x'], { type: 'image/jpeg' }), filename: 'a.jpg' });
+const file = () => ({ blob: new Blob(['x'], { type: 'image/jpeg' }), filename: 'a.jpg' });
 
 type Case = {
   name: string;
@@ -146,27 +143,6 @@ const cases: Case[] = [
       },
     },
   },
-  // rankings.ts (statistics subset)
-  {
-    name: 'getCompetitionCatches',
-    run: t => api.getCompetitionCatches(t, C, 'stand', 2, 20, { standKey: 'A2' }),
-    response: { data: [{ id: 'c1', weight: 4.9, standId: 3677, standName: '1', sectorId: 's', sectorName: 'A', teamName: '', guestName: null, participantUsername: 'T', fishName: 'Caras' }], pagination: { page: 2, pageSize: 20, total: 389, pageCount: 20 } },
-    expect: { path: `/competitions/${C}/catches`, query: { sort: 'stand', page: 2, pageSize: 20, standKey: 'A2' }, auth: 'none' },
-  },
-  {
-    name: 'getCompetitionWeighingStatistics',
-    run: t => api.getCompetitionWeighingStatistics(t, C),
-    response: { data: [{ weighingDocumentId: W, startDate: 'a', endDate: 'b', sequenceIndex: 1, totalWeightKg: 19.6, catchCount: 4, weighingType: 'normal', sectorName: 'A', standName: '1' }] },
-    expect: { path: `/competitions/${C}/weighing-statistics`, auth: 'none' },
-  },
-  {
-    name: 'getCatchThresholdCounts',
-    run: t => api.getCatchThresholdCounts(t, C),
-    response: { bySector: [{ sectorName: 'A', count10Plus: 24, count15Plus: 13, count20Plus: 0, count25Plus: 0, count30Plus: 0 }], general: { count10Plus: 24, count15Plus: 13, count20Plus: 0, count25Plus: 0, count30Plus: 0 } },
-    expect: { path: `/competitions/${C}/catch-threshold-counts` },
-  },
-  { name: 'getCompetitionTimelineSnapshot', run: t => api.getCompetitionTimelineSnapshot(t, C), response: { data: timeline }, expect: { path: `/competitions/${C}/timeline-snapshot`, auth: 'optional' }, result: timeline },
-  { name: 'getCompetitionTimelineSnapshot (204)', run: t => api.getCompetitionTimelineSnapshot(t, C), response: null, expect: { path: `/competitions/${C}/timeline-snapshot` }, result: null },
   // penalties.ts
   {
     name: 'createPenalty',
@@ -187,11 +163,8 @@ const cases: Case[] = [
     expect: { method: 'POST', path: '/raffle-sessions/f5jc/receipt', auth: 'required' },
   },
   { name: 'deleteRaffleReceipt', run: t => api.deleteRaffleReceipt(t, 'f5jc'), response: { data: { ...participation, receiptUrl: undefined, receiptUploaded: false } }, expect: { method: 'DELETE', path: '/raffle-sessions/f5jc/receipt' } },
-  // catch.ts, media.ts, profile.ts
+  // catch.ts (media.ts + requestOrganizerRole are tested in core/social)
   { name: 'deleteCatch', run: t => api.deleteCatch(t, 'c1'), response: { data: { statusCode: 204, message: 'Operation was successful' } }, expect: { method: 'DELETE', path: '/catches/c1' } },
-  { name: 'uploadMediaAndAttachToEntity', run: t => api.uploadMediaAndAttachToEntity(t, { files: [file()], id: 4737, ref: 'api::weighing.weighing', field: 'refereeSignature' }), response: [{ id: 1, url: 'https://x/s.png' }], expect: { method: 'POST', path: '/upload' } },
-  { name: 'uploadMedia', run: t => api.uploadMedia(t, { files: [file()] }), response: [{ id: 1, url: 'https://x/b.png' }], expect: { method: 'POST', path: '/upload' } },
-  { name: 'requestOrganizerRole', run: t => api.requestOrganizerRole(t, 'Vreau'), response: { id: 1, documentId: 'u1', email: 'x' }, expect: { method: 'POST', path: '/user/organizer-request', body: { message: 'Vreau' } }, result: { id: 1, documentId: 'u1' } },
 ];
 
 describe('organizer api', () => {
@@ -218,17 +191,6 @@ describe('organizer api', () => {
     const { transport } = createFakeTransport([{ data: competitionDoc }]);
     const draft = await api.getDraft(transport, 'd1');
     expect(draft.author).toEqual({ id: 13, documentId: 'q9kp', username: 'Toni' });
-  });
-
-  it('sends uploads as FormData with the Strapi attach fields', async () => {
-    const { transport, calls } = createFakeTransport([[{ id: 1, url: 'u' }]]);
-    await api.uploadMediaAndAttachToEntity(transport, { files: [file()], id: 42, ref: 'api::catch.catch', field: 'media' });
-    const fd = calls[0].body as FormData;
-    expect(fd.get('ref')).toBe('api::catch.catch');
-    expect(fd.get('refId')).toBe('42');
-    expect(fd.get('field')).toBe('media');
-    expect(fd.get('status')).toBe('published');
-    expect((fd.get('files') as File).name).toBe('a.jpg');
   });
 
   it('resolves relative raffle media against the given origin', async () => {
@@ -263,9 +225,6 @@ describe('organizer queries', () => {
     expect(weighingKeys.revisions('w')).toEqual(['weighings', 'id', 'w', 'revisions']);
     expect(competitionManagementKeys.activeWeighingById('c')).toEqual(['competitions', 'c', 'active-weighing']);
     expect(competitionManagementKeys.extraScalesList('c')).toEqual(['competition', 'c', 'extra-scales-list']);
-    expect(competitionManagementKeys.catchesInfinite('c', 'stand')).toEqual(['competition', 'c', 'catches', 'stand', 'all']);
-    expect(competitionManagementKeys.catchesInfinite('c', 'stand', { sectorName: 'A' })).toEqual(['competition', 'c', 'catches', 'stand', 'sector:A']);
-    expect(competitionManagementKeys.catchesInfinite('c', 'stand', { standKey: 'A2' })).toEqual(['competition', 'c', 'catches', 'stand', 'stand:A2']);
     expect(raffleKeys.participation).toEqual(['raffle', 'participation']);
   });
 
@@ -274,17 +233,6 @@ describe('organizer queries', () => {
     expect(organizerCompetitionsInfiniteQuery(t, { isOrganizer: true, status: 'draft' }).queryKey).toEqual(organizerKeys.competitions('draft', 10));
     expect(organizerStatDetailsInfiniteQuery(t, null, { isOrganizer: true }).enabled).toBe(false);
     expect(organizerStatDetailsInfiniteQuery(t, 'fill', { isOrganizer: true }).queryKey).toEqual(organizerKeys.statDetails('fill', 5));
-  });
-
-  it('carries the statistics enabled rules and stale time', () => {
-    expect(competitionWeighingStatisticsQuery(t, 'c', 'notStarted').enabled).toBe(false);
-    expect(competitionTimelineSnapshotQuery(t, 'c', 'draft').enabled).toBe(false);
-    expect(catchThresholdCountsQuery(t, 'c', 'started', { enabled: false }).enabled).toBe(false);
-    expect(catchThresholdCountsQuery(t, 'c', 'completed').staleTime).toBe(300_000);
-    const q = competitionCatchesInfiniteQuery(t, 'c', 'stand', 'started');
-    const page = (p: number) => ({ data: [], pagination: { page: p, pageSize: 20, total: 40, pageCount: 2 } });
-    expect(q.getNextPageParam(page(1), [page(1)], 1, [1])).toBe(2);
-    expect(q.getNextPageParam(page(2), [page(2)], 2, [2])).toBeUndefined();
   });
 
   it('groups revisions by session', async () => {
@@ -372,5 +320,26 @@ describe('organizer mutations', () => {
     expect(qc.getQueryState(raffleKeys.active)?.isInvalidated).toBe(true);
     expect(qc.getQueryState(raffleKeys.participation)?.isInvalidated).toBe(true);
     expect(qc.getQueryState(['competitions', 'x'])?.isInvalidated).toBe(true);
+  });
+
+  it('accepts a registration optimistically and marks the list stale WITHOUT refetching', async () => {
+    const qc = new QueryClient();
+    const key = competitionsKeys.registrationsListById('c');
+    const list = [
+      { id: 1, documentId: 'reg-1', registrationStatus: 'pending', teamName: null },
+      { id: 2, documentId: 'reg-2', registrationStatus: 'registered', teamName: null },
+    ] as Registration[];
+    qc.setQueryData(key, list);
+    const invalidate = vi.spyOn(qc, 'invalidateQueries');
+    const { transport } = createFakeTransport([null]);
+    const m = acceptRegistrationMutation(transport, qc, 'c');
+    const ctx = await m.onMutate!('reg-1', {} as never);
+    expect(qc.getQueryData<Registration[]>(key)![0].registrationStatus).toBe('registered');
+    m.onError!(new Error('x'), 'reg-1', ctx, {} as never);
+    expect(qc.getQueryData(key)).toEqual(list);
+    await m.onSettled!(undefined, null, 'reg-1', ctx, {} as never);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: key, refetchType: 'none' });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: competitionsKeys.byId('c'), exact: true });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: competitionCardsKeys.root });
   });
 });

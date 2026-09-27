@@ -43,18 +43,6 @@ export const bookingKeys = {
   ) => ['booking-quote', lakeId, standId, startISO, endISO, sortedExtras, walkIn] as const,
 };
 
-/**
- * fish `queryKeys.operatorStats` — owned by the operator-stats domain; only the prefixes booking
- * writes invalidate are mirrored here.
- */
-export const operatorStatsKeys = {
-  // The whole family, used as an invalidation prefix by every booking write —
-  // see invalidateOperatorSurfaces in mutations.ts.
-  all: ['operator-stats'] as const,
-  owned: ['operator-stats', 'owned'] as const,
-  lake: (lakeId: string, window?: string) => ['operator-stats', 'lake', lakeId, window ?? ''] as const,
-};
-
 /** fish `useBooking` */
 export function bookingQuery(t: Transport, id: string) {
   return queryOptions({

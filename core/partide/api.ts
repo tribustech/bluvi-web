@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { getAnglerFollowing } from '../social/api';
 import { call, callVoid, isApiError, type Transport } from '../transport';
 import type { EventUpsertBody, SessionUpsertBody } from './domain/upsertBodies';
 import { communityVenueKey, communityVenuePath, venueParamsSerializer, type CommunityVenueRef } from './domain/venueKeys';
@@ -11,7 +12,6 @@ import {
   communitySessionDetailDTOSchema,
   communityStatsDTOSchema,
   eventDTOSchema,
-  followingPageSchema,
   formatTextResponseSchema,
   joinCodeRotationDTOSchema,
   lakeCatchesPageSchema,
@@ -467,19 +467,15 @@ export function getCommunityVenueCatches(t: Transport, ref: CommunityVenueRef, p
 // ── following set for the community "prieteni" chip ────────────────────────
 
 /**
- * fish `features/partide/community/hooks.ts#fetchAllFollowingUids` (via `services/api/anglers.ts#getAnglerFollowing`).
- * The "prieteni" filter needs the whole following set, so every page is walked up front.
- * The anglers domain owns the full list-item shape; only `documentId` is read here.
+ * fish `features/partide/community/hooks.ts#fetchAllFollowingUids` (via `services/api/anglers.ts#getAnglerFollowing`,
+ * core/social's `getAnglerFollowing`). The "prieteni" filter needs the whole following set, so every
+ * page is walked up front; only `documentId` is read here.
  */
 export async function fetchAllFollowingUids(t: Transport, myDocumentId: string, pageSize = 100): Promise<Set<string>> {
   const uids = new Set<string>();
   let page = 1;
   for (;;) {
-    const result = await call(
-      t,
-      { method: 'GET', path: `/feed/anglers/${seg(myDocumentId)}/following`, query: { page, pageSize }, auth: 'required' },
-      followingPageSchema
-    );
+    const result = await getAnglerFollowing(t, myDocumentId, { page, pageSize });
     result.data.forEach(item => uids.add(item.documentId));
     if (page >= result.meta.pagination.pageCount) break;
     page += 1;
@@ -487,16 +483,7 @@ export async function fetchAllFollowingUids(t: Transport, myDocumentId: string, 
   return uids;
 }
 
-// ── legacy catch + AI ───────────────────────────────────────────────────────
-
-/**
- * fish `services/api/catch.ts#deleteCatch` — legacy `/api/catches/:id`. Strapi answers the delete
- * with either the removed document or an empty 204, and fish never reads it, so the body is not
- * modelled. fish re-threw as a bare `Error(message)`; the transport's `ApiError` already carries it.
- */
-export function deleteCatch(t: Transport, catchId: string) {
-  return call(t, { method: 'DELETE', path: `/catches/${seg(catchId)}`, auth: 'required' }, z.unknown());
-}
+// ── AI (fish `services/api/catch.ts#deleteCatch` is core/organizer's `deleteCatch`) ──
 
 /** fish `services/api/ai.ts#formatText` — note the body is NOT wrapped in `{ data }`. */
 export async function formatText(t: Transport, text: string): Promise<string> {

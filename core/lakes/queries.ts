@@ -20,8 +20,6 @@ import {
   getOwnedLakesStats,
   getReviewForLakeByAuthorId,
   getReviewsForLake,
-  getStandStatsByLakeId,
-  getUserReputation,
 } from './api';
 import type { LakeFilterValues, LakesCommittedSearch } from './domain/filters';
 import {
@@ -90,20 +88,12 @@ export const lakeReviewsKeys = {
 
 /** fish `queryKeys.operatorStats` */
 export const operatorStatsKeys = {
-  // The whole family, used as an invalidation prefix by every booking write.
+  // The whole family, used as an invalidation prefix by every booking write — see
+  // core/booking `invalidateOperatorSurfaces`.
   all: ['operator-stats'] as const,
   owned: ['operator-stats', 'owned'] as const,
   lake: (lakeId: string, window?: string) => ['operator-stats', 'lake', lakeId, window ?? ''] as const,
 };
-
-/** fish `queryKeys.reputation` */
-export const reputationKeys = {
-  all: ['reputation'] as const,
-  byUser: (id: string) => ['reputation', id] as const,
-};
-
-/** fish `queryKeys.stands.statsByLakeId` */
-export const lakeStandStatsKey = (lakeId: string) => ['stands', lakeId, 'stats'] as const;
 
 /** fish `useVenueSearch` inline key (screen-local, deliberately not in `queryKeys`). */
 export const venueSearchKey = (term: string) => ['partide', 'venue-search', term] as const;
@@ -419,19 +409,6 @@ export function myLakeReviewQuery(t: Transport, lakeId: string, userDocumentId: 
 }
 
 /* ------------------------------------------------------------------------------------------------
- * Angler reputation (fish services/api/reviews.ts)
- * ---------------------------------------------------------------------------------------------- */
-
-/** fish `useUserReputation` */
-export function userReputationQuery(t: Transport, userId?: string) {
-  return queryOptions({
-    queryKey: reputationKeys.byUser(userId ?? ''),
-    queryFn: () => getUserReputation(t, userId as string),
-    enabled: !!userId,
-  });
-}
-
-/* ------------------------------------------------------------------------------------------------
  * Operator stats
  * ---------------------------------------------------------------------------------------------- */
 
@@ -454,19 +431,5 @@ export function lakeOperatorStatsQuery(t: Transport, lakeId: string, window?: Op
     // is window-independent, so dropping them to a spinner while a different window loads would
     // be a lie about what changed.
     placeholderData: (previous: LakeOperatorStats | undefined) => previous,
-  });
-}
-
-/* ------------------------------------------------------------------------------------------------
- * Stand stats for the lake map
- * ---------------------------------------------------------------------------------------------- */
-
-/** fish `useStandStatsByLakeId` */
-export function lakeStandStatsQuery(t: Transport, lakeId: string) {
-  return queryOptions({
-    queryKey: lakeStandStatsKey(lakeId),
-    queryFn: () => getStandStatsByLakeId(t, lakeId),
-    enabled: !!lakeId,
-    initialData: [],
   });
 }

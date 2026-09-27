@@ -17,7 +17,6 @@ import {
   getUnreadNotificationsForLoggedInUser,
   getUserReputation,
   getUSerStatuteForCompetition,
-  lookupAnglerByPhone,
   markNotificationAsRead,
   postUserStatisticsBatch,
   searchAnglers,
@@ -28,9 +27,6 @@ import { isApiError } from '@/core/transport';
 import { contractContext, expectDenied } from './context';
 
 const { guest, user, userDocumentId } = contractContext();
-
-/** QA user owns this local lake (core/README.md → Tests). */
-const QA_LAKE = 's84u55lo4n9z0emngozttt6e';
 
 /** The QA user plus the anglers they follow: people with real history on the local DB. */
 async function knownAnglers(): Promise<string[]> {
@@ -126,15 +122,6 @@ describe('anglers — per-viewer routes', () => {
     await expectDenied(unfollowAngler(guest, id));
   });
 
-  it('angler lookup by phone on the owned lake; denied as guest', async () => {
-    const profile = await getProfile(user);
-    expect(profile.phone, 'QA user has a phone').toBeTruthy();
-    const hit = await lookupAnglerByPhone(user, QA_LAKE, profile.phone!);
-    expect(hit).toMatchObject({ matched: true, user: { documentId: userDocumentId } });
-    const miss = await lookupAnglerByPhone(user, QA_LAKE, '0700000001');
-    expect(miss).toEqual({ matched: false, user: null });
-    await expectDenied(lookupAnglerByPhone(guest, QA_LAKE, profile.phone!));
-  });
 });
 
 describe('profile + users', () => {

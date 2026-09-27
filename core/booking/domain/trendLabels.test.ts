@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { trendAxisLabels, trendDetailLabel, trendSummary, todayIndex } from './trendLabels';
-import type { OperatorTrendPoint } from './trendLabels';
+import type { OperatorTrendPoint } from '../../lakes/schemas';
 
 const pt = (date: string): OperatorTrendPoint => ({ date, booked: 0, total: 5, cash: 0, bookings: 0 });
 

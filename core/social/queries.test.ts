@@ -5,7 +5,6 @@ import {
   anglerCompetitionsInfiniteQuery,
   anglerFollowersInfiniteQuery,
   anglerFollowingInfiniteQuery,
-  anglerLookupQuery,
   anglerProfileQuery,
   anglerSearchInfiniteQuery,
   anglerSessionsInfiniteQuery,
@@ -105,18 +104,6 @@ describe('query factories', () => {
       refetchOnMount: false,
       retry: false,
     });
-  });
-
-  it('angler lookup is armed, owner-lake-bound and needs 7 digits', () => {
-    expect(anglerLookupQuery(transport, 'lake', '0712 345', true)).toMatchObject({
-      queryKey: ['bookings', 'angler-lookup', 'lake', '0712 345'],
-      enabled: true,
-      retry: false,
-      staleTime: 300_000,
-    });
-    expect(anglerLookupQuery(transport, 'lake', '071234', true).enabled).toBe(false);
-    expect(anglerLookupQuery(transport, 'lake', '0712345', false).enabled).toBe(false);
-    expect(anglerLookupQuery(transport, '', '0712345', true).enabled).toBe(false);
   });
 
   it('profile, statistics, reputation, users, notifications', () => {

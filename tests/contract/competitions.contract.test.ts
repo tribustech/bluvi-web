@@ -30,13 +30,12 @@ import {
   getSponsorById,
   getSponsors,
   getStandStatsByLakeId,
-  getUSerStatuteForCompetition,
-  postUserStatisticsBatch,
   updateCompetitionNotificationPreferences,
   type CompetitionCatchesSort,
   type CompetitionListItem,
   type CompetitionStatus,
 } from '@/core/competitions';
+import { getUSerStatuteForCompetition, postUserStatisticsBatch } from '@/core/social';
 import { isApiError } from '@/core/transport';
 import { contractContext, expectDenied } from './context';
 

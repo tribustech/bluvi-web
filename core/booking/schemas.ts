@@ -20,24 +20,7 @@ export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
 
 export type CellStatus = 'available' | 'booked' | 'blocked';
 
-// Lake booking config — mirrors the backend toLakeDetailDTO output (A15).
-export const paymentModeSchema = z.enum(['offline', 'deposit', 'full']);
-export type PaymentMode = z.infer<typeof paymentModeSchema>;
-export const confirmationModeSchema = z.enum(['manual', 'instant']);
-export type ConfirmationMode = z.infer<typeof confirmationModeSchema>;
-
-export const cancellationPolicySchema = z.object({
-  type: z.string().nullable(),
-  refundWindowHours: z.number().nullable(),
-  notes: z.string().nullable(),
-  /**
-   * Hours of notice the angler must give to cancel from the app. Distinct from
-   * refundWindowHours, which governs money — this governs permission. 0 or null
-   * means no restriction. Inside the window the angler must call the operator.
-   */
-  minCancelNoticeHours: z.number().nullish(),
-});
-export type CancellationPolicyDTO = z.infer<typeof cancellationPolicySchema>;
+// Lake booking config (payment/confirmation modes, cancellation policy) lives in core/lakes.
 
 const extraUnitSchema = z.enum(['perStay', 'perNight']);
 

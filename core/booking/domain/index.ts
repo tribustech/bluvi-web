@@ -19,6 +19,5 @@ export * from './blockReasons';
 export * from './bookingAge';
 export * from './cancelNotes';
 export * from './cancelReasons';
-export * from './reviewTags';
 export * from './todayCounts';
 export * from './trendLabels';

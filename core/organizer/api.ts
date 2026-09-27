@@ -7,51 +7,40 @@ import { sumWeighingsTotal } from './domain/weighing';
 import {
   allocatedParticipantsResponseSchema,
   cancelOrganizerCompetitionResponseSchema,
-  catchThresholdCountsResponseSchema,
   competitionActiveWeighingSchema,
-  competitionCatchesResponseSchema,
   createdCatchesSchema,
   deleteCantarResponseSchema,
   deleteCatchResponseSchema,
-  extraScaleSchema,
   extraScaleWriteResponseSchema,
   messageResponseSchema,
   organizerCompetitionSchema,
   organizerCompetitionSourceDetailSchema,
   organizerDashboardStatsSchema,
   organizerRecentLakeSchema,
-  organizerRoleRequestResponseSchema,
   organizerStatDetailItemSchema,
   organizerUpdateCompetitionResponseSchema,
-  penaltySchema,
   raffleActiveRawSchema,
   raffleParticipationRawSchema,
   startedWeighingSchema,
-  timelineSnapshotSchema,
-  uploadedFilesSchema,
   uploadRaffleReceiptRawSchema,
   weighingByStandSchema,
   weighingDetailSchema,
   weighingRevisionsResponseSchema,
   weighingsSummaryItemSchema,
-  weighingStatisticsResponseSchema,
   type AllocateStandsToSectorsRequest,
   type AllocateStandToRegistrationRequest,
   type CatchData,
-  type CompetitionCatchesFilter,
-  type CompetitionCatchesSort,
   type CreateDraftPayload,
   type DraftCompetition,
-  type MediaFile,
   type OrganizerCompetitionSourceDetail,
   type OrganizerCompetitionSourceSummary,
   type OrganizerStatKey,
-  type PenaltyAction,
   type RaffleActiveResponse,
   type RaffleParticipationDto,
-  type TimelineSnapshot,
   type UpdateDraftPayload,
 } from './schemas';
+import { extraScaleSchema, penaltySchema, type PenaltyAction } from '../competitions/schemas';
+import type { MediaFile } from '../social/api';
 
 const id = encodeURIComponent;
 
@@ -467,59 +456,6 @@ export function getWeighingRevisions(t: Transport, weighingId: string, page = 1,
 }
 
 /* ================================================================== */
-/* Competition statistics — fish services/api/rankings.ts (subset)     */
-/* ================================================================== */
-
-/** fish `services/api/rankings.ts#getCompetitionCatches` */
-export function getCompetitionCatches(
-  t: Transport,
-  competitionId: string,
-  sort: CompetitionCatchesSort,
-  page: number,
-  pageSize = 20,
-  filter: CompetitionCatchesFilter = null
-) {
-  const query: Record<string, string | number> = { sort, page, pageSize };
-  if (filter) {
-    if ('sectorName' in filter) query.sectorName = filter.sectorName;
-    if ('standKey' in filter) query.standKey = filter.standKey;
-  }
-  return call(
-    t,
-    { method: 'GET', path: `/competitions/${id(competitionId)}/catches`, query, auth: 'none' },
-    competitionCatchesResponseSchema
-  );
-}
-
-/** fish `services/api/rankings.ts#getCompetitionWeighingStatistics` */
-export function getCompetitionWeighingStatistics(t: Transport, competitionId: string) {
-  return call(
-    t,
-    { method: 'GET', path: `/competitions/${id(competitionId)}/weighing-statistics`, auth: 'none' },
-    weighingStatisticsResponseSchema
-  );
-}
-
-/** fish `services/api/rankings.ts#getCatchThresholdCounts` */
-export function getCatchThresholdCounts(t: Transport, competitionId: string) {
-  return call(
-    t,
-    { method: 'GET', path: `/competitions/${id(competitionId)}/catch-threshold-counts`, auth: 'none' },
-    catchThresholdCountsResponseSchema
-  );
-}
-
-/** fish `services/api/rankings.ts#getCompetitionTimelineSnapshot` — 204 (no snapshot yet) → null. */
-export async function getCompetitionTimelineSnapshot(t: Transport, competitionId: string): Promise<TimelineSnapshot | null> {
-  const res = await call(
-    t,
-    { method: 'GET', path: `/competitions/${id(competitionId)}/timeline-snapshot`, auth: 'optional' },
-    z.object({ data: timelineSnapshotSchema.nullish() }).nullable()
-  );
-  return res?.data ?? null;
-}
-
-/* ================================================================== */
 /* Penalties — fish services/api/penalties.ts                          */
 /* ================================================================== */
 
@@ -624,7 +560,7 @@ export async function uploadRaffleReceipt(
   { mediaOrigin }: MediaOriginOption = {}
 ): Promise<{ url: string; participation?: RaffleParticipationDto }> {
   const formData = new FormData();
-  formData.append('files', file.file, file.filename || `receipt-${Date.now()}.jpg`);
+  formData.append('files', file.blob, file.filename || `receipt-${Date.now()}.jpg`);
 
   const res = await call(
     t,
@@ -659,53 +595,10 @@ export async function deleteRaffleReceipt(
 }
 
 /* ================================================================== */
-/* Catches, media, organizer role                                      */
+/* Catches — media uploads + requestOrganizerRole live in core/social  */
 /* ================================================================== */
 
 /** fish `services/api/catch.ts#deleteCatch` */
 export function deleteCatch(t: Transport, catchId: string) {
   return call(t, { method: 'DELETE', path: `/catches/${id(catchId)}`, auth: 'required' }, deleteCatchResponseSchema);
-}
-
-export interface UploadMediaProps {
-  files: MediaFile[];
-  /** The ID of the entity we want to assign the media to (e.g. catch.id, profile.id), NOT the documentId */
-  id: number;
-  /** The reference to the entity (e.g. "api::catch.catch") */
-  ref: string;
-  /** The field to assign the media to (e.g. "media", "avatar") */
-  field: string;
-}
-
-function appendFiles(formData: FormData, files: MediaFile[]) {
-  files.forEach(file => formData.append('files', file.file, file.filename || 'image.jpg'));
-}
-
-/** fish `services/api/media.ts#uploadMediaAndAttachToEntity` (catch photos, weighing signatures, banners). */
-export function uploadMediaAndAttachToEntity(t: Transport, { files, id: refId, ref, field }: UploadMediaProps) {
-  const formData = new FormData();
-  appendFiles(formData, files);
-  // Add metadata fields
-  formData.append('ref', ref);
-  formData.append('refId', refId.toString());
-  formData.append('field', field);
-  formData.append('status', 'published');
-  return call(t, { method: 'POST', path: '/upload', body: formData, auth: 'required' }, uploadedFilesSchema);
-}
-
-/** fish `services/api/media.ts#uploadMedia` — unattached upload (organizer banner re-upload). */
-export function uploadMedia(t: Transport, { files }: { files: MediaFile[] }) {
-  const formData = new FormData();
-  appendFiles(formData, files);
-  formData.append('status', 'published');
-  return call(t, { method: 'POST', path: '/upload', body: formData, auth: 'required' }, uploadedFilesSchema);
-}
-
-/** fish `services/api/profile.ts#requestOrganizerRole` */
-export function requestOrganizerRole(t: Transport, message: string) {
-  return call(
-    t,
-    { method: 'POST', path: '/user/organizer-request', body: { message }, auth: 'required' },
-    organizerRoleRequestResponseSchema
-  );
 }

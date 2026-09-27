@@ -22,28 +22,34 @@ import {
   removeCompetitionReferee,
   reopenWeighing,
   requestExtraScale,
-  requestOrganizerRole,
   startCantar,
   startCompetition,
   updateDraft,
   updateOrganizerCompetition,
-  uploadMediaAndAttachToEntity,
   uploadRaffleReceipt,
   type CreatePenaltyParams,
   type MediaOriginOption,
 } from './api';
 import { applyOptimisticCatches, applyReopenToWeighings } from './domain/weighing';
-import { externalKeys, organizerKeys, raffleKeys, weighingKeys } from './queries';
+import { organizerKeys, raffleKeys, weighingKeys } from './queries';
 import type {
   AllocateStandsToSectorsRequest,
   AllocateStandToRegistrationRequest,
   CatchData,
   CreateDraftPayload,
-  MediaFile,
   UpdateDraftPayload,
   WeighingByStand,
   WeighingDetail,
 } from './schemas';
+import {
+  acceptRegistration,
+  moveRegistrationToWaitingList,
+  rejectRegistration,
+} from '../competitions/api';
+import { competitionCardsKeys, competitionKeys, competitionsKeys, rankingsKeys } from '../competitions/queries';
+import type { Registration } from '../competitions/schemas';
+import { requestOrganizerRole, uploadMediaAndAttachToEntity, type MediaFile } from '../social/api';
+import { profileKeys } from '../social/queries';
 
 /**
  * fish `mutations/invalidateOrganizerDashboardQueries.ts` — everything the organizer
@@ -55,7 +61,7 @@ export async function invalidateOrganizerDashboardQueries(qc: QueryClient) {
     qc.invalidateQueries({ queryKey: organizerKeys.dashboard }),
     qc.invalidateQueries({ queryKey: organizerKeys.competitionsRoot }),
     qc.invalidateQueries({ queryKey: organizerKeys.statDetailsRoot }),
-    qc.invalidateQueries({ queryKey: externalKeys.competitionCardsRoot }),
+    qc.invalidateQueries({ queryKey: competitionCardsKeys.root }),
   ]);
 }
 
@@ -116,7 +122,7 @@ export function updateOrganizerCompetitionMutation(t: Transport, qc: QueryClient
     onSuccess: async (_data, variables) => {
       await Promise.all([
         invalidateOrganizerDashboardQueries(qc),
-        qc.invalidateQueries({ queryKey: externalKeys.competitionsById(variables.id) }),
+        qc.invalidateQueries({ queryKey: competitionsKeys.byId(variables.id) }),
       ]);
     },
   });
@@ -129,7 +135,7 @@ export function cancelOrganizerCompetitionMutation(t: Transport, qc: QueryClient
     onSuccess: async (_data, variables) => {
       await Promise.all([
         invalidateOrganizerDashboardQueries(qc),
-        qc.invalidateQueries({ queryKey: externalKeys.competitionsById(variables.id) }),
+        qc.invalidateQueries({ queryKey: competitionsKeys.byId(variables.id) }),
       ]);
     },
   });
@@ -143,7 +149,7 @@ export function startCompetitionMutation(t: Transport, qc: QueryClient) {
       await invalidateOrganizerDashboardQueries(qc);
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: externalKeys.competitionLive });
+      void qc.invalidateQueries({ queryKey: competitionKeys.live });
     },
   });
 }
@@ -156,7 +162,7 @@ export function endCompetitionMutation(t: Transport, qc: QueryClient) {
       await invalidateOrganizerDashboardQueries(qc);
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: externalKeys.competitionLive });
+      void qc.invalidateQueries({ queryKey: competitionKeys.live });
     },
   });
 }
@@ -198,7 +204,7 @@ export function requestExtraScaleMutation(t: Transport, qc: QueryClient) {
   return mutationOptions({
     mutationFn: (competitionId: string) => requestExtraScale(t, competitionId),
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: externalKeys.competitionLive });
+      void qc.invalidateQueries({ queryKey: competitionKeys.live });
     },
   });
 }
@@ -208,7 +214,7 @@ export function deleteExtraScaleRequestMutation(t: Transport, qc: QueryClient) {
   return mutationOptions({
     mutationFn: (competitionId: string) => deleteExtraScaleRequest(t, competitionId),
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: externalKeys.competitionLive });
+      void qc.invalidateQueries({ queryKey: competitionKeys.live });
     },
   });
 }
@@ -218,7 +224,7 @@ export function requestOrganizerRoleMutation(t: Transport, qc: QueryClient) {
   return mutationOptions({
     mutationFn: (message: string) => requestOrganizerRole(t, message),
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: externalKeys.profileMy });
+      void qc.invalidateQueries({ queryKey: profileKeys.my });
     },
   });
 }
@@ -232,8 +238,8 @@ export function createPenaltyMutation(t: Transport, qc: QueryClient, competition
   return mutationOptions({
     mutationFn: (params: CreatePenaltyParams) => createPenalty(t, params),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: externalKeys.rankingsByCompetitionId(competitionId) });
-      void qc.invalidateQueries({ queryKey: externalKeys.rankingBestN(competitionId) });
+      void qc.invalidateQueries({ queryKey: rankingsKeys.byCompetitionId(competitionId) });
+      void qc.invalidateQueries({ queryKey: competitionKeys.rankingBestN(competitionId) });
     },
   });
 }
@@ -243,8 +249,8 @@ export function deletePenaltyMutation(t: Transport, qc: QueryClient, competition
   return mutationOptions({
     mutationFn: (penaltyId: string) => deletePenalty(t, penaltyId),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: externalKeys.rankingsByCompetitionId(competitionId) });
-      void qc.invalidateQueries({ queryKey: externalKeys.rankingBestN(competitionId) });
+      void qc.invalidateQueries({ queryKey: rankingsKeys.byCompetitionId(competitionId) });
+      void qc.invalidateQueries({ queryKey: competitionKeys.rankingBestN(competitionId) });
     },
   });
 }
@@ -389,7 +395,7 @@ export function uploadWitnessSignatureMutation(t: Transport) {
 function invalidateRaffle(qc: QueryClient) {
   void qc.invalidateQueries({ queryKey: raffleKeys.active });
   void qc.invalidateQueries({ queryKey: raffleKeys.participation });
-  void qc.invalidateQueries({ queryKey: externalKeys.competitionsAll });
+  void qc.invalidateQueries({ queryKey: competitionsKeys.all });
 }
 
 /** fish `useJoinRaffleSession` */
@@ -416,4 +422,70 @@ export function deleteRaffleReceiptMutation(t: Transport, qc: QueryClient, optio
     mutationFn: (sessionDocumentId: string) => deleteRaffleReceipt(t, sessionDocumentId, options),
     onSettled: () => invalidateRaffle(qc),
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* Registration moderation — fish mutations/useRegistrationsList.tsx   */
+/* (organizer-side: every settle refreshes the organizer dashboard)    */
+/* ------------------------------------------------------------------ */
+
+/** fish `useRegistrationListMutations` optimistic status flip for one registration. */
+export function applyRegistrationStatus(
+  previous: Registration[] | undefined,
+  registrationId: string,
+  registrationStatus: 'registered' | 'rejected' | 'pending'
+) {
+  return previous?.map(registration =>
+    registration.documentId === registrationId ? { ...registration, registrationStatus } : registration
+  );
+}
+
+/**
+ * One of fish `useRegistrationListMutations`' three mutations: optimistic status flip, rollback
+ * on error, and on settle the list is marked stale WITHOUT an instant refetch — the refetch would
+ * race the CDN tag purge (~0.65s) and a stale edge body would clobber the optimistic update.
+ */
+function registrationListMutation(
+  qc: QueryClient,
+  competitionId: string,
+  mutationFn: (registrationId: string) => Promise<void>,
+  status: 'registered' | 'rejected' | 'pending'
+) {
+  const QUERY_KEY = competitionsKeys.registrationsListById(competitionId);
+  return mutationOptions({
+    mutationFn,
+    onMutate: async (registrationId: string) => {
+      await qc.cancelQueries({ queryKey: QUERY_KEY });
+      const previousData = qc.getQueryData<Registration[]>(QUERY_KEY);
+      qc.setQueryData(QUERY_KEY, applyRegistrationStatus(previousData, registrationId, status));
+      return { previousData };
+    },
+    // fish onSuccess: success toast (UI).
+    onError: (_err, _variables, context) => {
+      qc.setQueryData(QUERY_KEY, context?.previousData);
+      // fish: error toast with err.message (UI).
+    },
+    onSettled: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: QUERY_KEY, refetchType: 'none' }),
+        qc.invalidateQueries({ queryKey: competitionsKeys.byId(competitionId), exact: true }),
+        invalidateOrganizerDashboardQueries(qc),
+      ]);
+    },
+  });
+}
+
+/** fish `useRegistrationListMutations#acceptRegistrationMutation` */
+export function acceptRegistrationMutation(t: Transport, qc: QueryClient, competitionId: string) {
+  return registrationListMutation(qc, competitionId, id => acceptRegistration(t, id), 'registered');
+}
+
+/** fish `useRegistrationListMutations#rejectRegistrationMutation` */
+export function rejectRegistrationMutation(t: Transport, qc: QueryClient, competitionId: string) {
+  return registrationListMutation(qc, competitionId, id => rejectRegistration(t, id), 'rejected');
+}
+
+/** fish `useRegistrationListMutations#moveRegistrationToWaitingListMutation` */
+export function moveRegistrationToWaitingListMutation(t: Transport, qc: QueryClient, competitionId: string) {
+  return registrationListMutation(qc, competitionId, id => moveRegistrationToWaitingList(t, id), 'pending');
 }

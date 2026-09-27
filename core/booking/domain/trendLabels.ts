@@ -1,9 +1,5 @@
-/** fish `features/operator/dashboard/trendLabels.ts` (verbatim; stats types are minimal local slices). */
-/** Slices of fish `models/operatorStats.type.ts`; the full types are owned by the operator-stats domain. */
-export type OperatorStatsWindowName = 'week' | 'month' | 'year';
-/** One bucket of the trend chart: a local day (`YYYY-MM-DD`), or a month (`YYYY-MM`) at year grain. */
-export type OperatorTrendPoint = { date: string; booked: number; total: number; cash: number; bookings: number };
-export type OperatorWindowTotals = { cash: number; bookings: number; occupancyAvgPct: number };
+/** fish `features/operator/dashboard/trendLabels.ts` (verbatim). */
+import type { OperatorStatsWindowName, OperatorTrendPoint, OperatorWindowTotals } from '../../lakes/schemas';
 
 const RO_MONTHS_SHORT = ['ian', 'feb', 'mar', 'apr', 'mai', 'iun', 'iul', 'aug', 'sep', 'oct', 'noi', 'dec'];
 const RO_MONTHS_FULL = [

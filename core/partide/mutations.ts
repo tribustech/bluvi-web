@@ -20,7 +20,8 @@ import {
   isRevoked,
   type AccessConfirmation,
 } from './domain/sessionAccess';
-import { anglerKeysUsedByPartide, communityKeys, partideKeys, profileStatisticsKey } from './queries';
+import { anglersKeys, profileKeys } from '../social/queries';
+import { communityKeys, partideKeys } from './queries';
 
 // ── session follows ─────────────────────────────────────────────────────────
 
@@ -127,13 +128,13 @@ export async function invalidateMembershipCaches(
   await Promise.all([
     qc.invalidateQueries({ queryKey: partideKeys.mine }),
     qc.invalidateQueries({ queryKey: partideKeys.detail(documentId), exact: true }),
-    qc.invalidateQueries({ queryKey: profileStatisticsKey }),
+    qc.invalidateQueries({ queryKey: profileKeys.statistics }),
     qc.invalidateQueries({ queryKey: communityKeys.all }),
     qc.invalidateQueries({ queryKey: communityKeys.sessionFollows }),
     ...userIds.flatMap(userDocumentId => [
-      qc.invalidateQueries({ queryKey: anglerKeysUsedByPartide.profile(userDocumentId) }),
-      qc.invalidateQueries({ queryKey: anglerKeysUsedByPartide.sessions(userDocumentId) }),
-      qc.invalidateQueries({ queryKey: anglerKeysUsedByPartide.catches(userDocumentId) }),
+      qc.invalidateQueries({ queryKey: anglersKeys.profile(userDocumentId) }),
+      qc.invalidateQueries({ queryKey: anglersKeys.sessions(userDocumentId) }),
+      qc.invalidateQueries({ queryKey: anglersKeys.catches(userDocumentId) }),
     ]),
   ]);
 }
@@ -150,15 +151,15 @@ export async function invalidateSessionAccessCaches(
 ): Promise<void> {
   const userInvalidations = currentUserDocumentId
     ? [
-        qc.invalidateQueries({ queryKey: anglerKeysUsedByPartide.profile(currentUserDocumentId) }),
-        qc.invalidateQueries({ queryKey: anglerKeysUsedByPartide.sessions(currentUserDocumentId) }),
-        qc.invalidateQueries({ queryKey: anglerKeysUsedByPartide.catches(currentUserDocumentId) }),
+        qc.invalidateQueries({ queryKey: anglersKeys.profile(currentUserDocumentId) }),
+        qc.invalidateQueries({ queryKey: anglersKeys.sessions(currentUserDocumentId) }),
+        qc.invalidateQueries({ queryKey: anglersKeys.catches(currentUserDocumentId) }),
       ]
-    : [qc.invalidateQueries({ queryKey: anglerKeysUsedByPartide.all })];
+    : [qc.invalidateQueries({ queryKey: anglersKeys.all })];
   await Promise.all([
     qc.invalidateQueries({ queryKey: partideKeys.mine }),
     Promise.resolve().then(() => qc.removeQueries({ queryKey: partideKeys.detail(documentId), exact: true })),
-    qc.invalidateQueries({ queryKey: profileStatisticsKey }),
+    qc.invalidateQueries({ queryKey: profileKeys.statistics }),
     ...userInvalidations,
     qc.invalidateQueries({ queryKey: communityKeys.all }),
     qc.invalidateQueries({ queryKey: communityKeys.sessionFollows }),

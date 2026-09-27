@@ -390,12 +390,10 @@ describe('partide api — sessions', () => {
     ]);
   });
 
-  it('formats text and deletes a legacy catch', async () => {
-    const { transport, calls } = createFakeTransport([{ data: { formatted: 'Salut' } }, null]);
+  it('formats text', async () => {
+    const { transport, calls } = createFakeTransport([{ data: { formatted: 'Salut' } }]);
     await expect(api.formatText(transport, 'salut')).resolves.toBe('Salut');
-    await api.deleteCatch(transport, '12');
     expect(calls[0]).toMatchObject({ method: 'POST', path: '/ai/format-text', body: { text: 'salut' }, auth: 'required' });
-    expect(calls[1]).toMatchObject({ method: 'DELETE', path: '/catches/12' });
   });
 });
 
@@ -460,9 +458,10 @@ describe('partide api — community', () => {
   });
 
   it('walks every following page for the prieteni set', async () => {
+    const following = (documentId: string) => ({ documentId, username: documentId, avatarUrl: null, isFollowedByMe: true });
     const { transport, calls } = createFakeTransport([
-      { data: [{ documentId: 'a' }], meta: { pagination: { page: 1, pageSize: 100, pageCount: 2, total: 2 } } },
-      { data: [{ documentId: 'b' }], meta: { pagination: { page: 2, pageSize: 100, pageCount: 2, total: 2 } } },
+      { data: [following('a')], meta: { pagination: { page: 1, pageSize: 100, pageCount: 2, total: 2 } } },
+      { data: [following('b')], meta: { pagination: { page: 2, pageSize: 100, pageCount: 2, total: 2 } } },
     ]);
     await expect(api.fetchAllFollowingUids(transport, 'me')).resolves.toEqual(new Set(['a', 'b']));
     expect(calls.map(c => [c.path, c.query?.page, c.auth])).toEqual([

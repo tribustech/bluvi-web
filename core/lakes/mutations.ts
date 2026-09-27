@@ -2,7 +2,6 @@ import type { InfiniteData, Query, QueryClient, QueryKey } from '@tanstack/react
 import { mutationOptions } from '../shared';
 import type { Transport } from '../transport';
 import {
-  createAnglerReview,
   createLakeBookingInterest,
   createLakeClaim,
   deleteReview,
@@ -11,9 +10,8 @@ import {
   sendLakeSuggestion,
 } from './api';
 import { calculateOptimisticReviewMeta } from './domain/reviews';
-import { lakeReviewsKeys, lakesKeys, operatorStatsKeys, reputationKeys } from './queries';
+import { lakeReviewsKeys, lakesKeys } from './queries';
 import type {
-  CreateAnglerReviewInput,
   GetReviewsForLakeResponse,
   LakeBookingInterestSource,
   LakeClaimInput,
@@ -24,7 +22,6 @@ import type {
 } from './schemas';
 
 /** fish `queryKeys.bookings` prefixes these invalidations touch (the bookings domain owns the rest). */
-const BOOKINGS_ALL = ['bookings'] as const;
 const BOOKINGS_TO_REVIEW = ['bookings', 'to-review'] as const;
 
 /* ------------------------------------------------------------------------------------------------
@@ -186,28 +183,6 @@ export function postReviewMutation(t: Transport, qc: QueryClient, lakeId: string
 export function deleteReviewMutation(t: Transport) {
   return mutationOptions({
     mutationFn: ({ reviewId, lakeId }: { reviewId: string; lakeId: string }) => deleteReview(t, reviewId, lakeId),
-  });
-}
-
-/* ------------------------------------------------------------------------------------------------
- * Angler reviews (fish services/mutations/useCreateAnglerReview.ts)
- * ---------------------------------------------------------------------------------------------- */
-
-/** fish `useCreateAnglerReview` */
-export function createAnglerReviewMutation(t: Transport, qc: QueryClient) {
-  return mutationOptions({
-    mutationFn: (input: CreateAnglerReviewInput) => createAnglerReview(t, input),
-    onSuccess: () => {
-      // A new angler review changes that angler's aggregate reputation. We don't know the angler's
-      // userId here (the input keys off the booking), so invalidate the family.
-      qc.invalidateQueries({ queryKey: reputationKeys.all });
-      // The operator inbox's "De evaluat" sub is keyed on review absence — without this the
-      // just-rated booking stays listed until something else refetches it.
-      qc.invalidateQueries({ queryKey: BOOKINGS_ALL });
-      // Home counts the same queue in `pendingFeedback`, from a different query. Invalidating the
-      // whole `operator-stats` family covers the owned-lakes card AND every per-lake window.
-      qc.invalidateQueries({ queryKey: operatorStatsKeys.all });
-    },
   });
 }
 

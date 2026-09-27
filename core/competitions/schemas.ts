@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { paginatedSchema, paginationMetaSchema, richTextSchema, strapiImageSchema } from '../shared';
+import { fishSpeciesSchema } from '../lakes/schemas';
 
 /* ------------------------------------------------------------------ */
 /* Enums                                                              */
@@ -113,14 +114,6 @@ export const sectorSchema = z.object({
   stands: z.array(standRefSchema),
 });
 export type Sector = z.infer<typeof sectorSchema>;
-
-export const fishSpeciesSchema = z.object({
-  ...idDoc,
-  Name: z.string(),
-  competitionPriority: z.number().nullish(),
-  partidaDefaultRank: z.number().nullish(),
-});
-export type FishSpecies = z.infer<typeof fishSpeciesSchema>;
 
 export const competitionSponsorSchema = z.object({
   ...idDoc,
@@ -281,12 +274,15 @@ export type MyCompetitionsResponse = z.infer<typeof myCompetitionsResponseSchema
 /* /competitions/live — fish `LiveCompetition` (queries/useLiveCompetition) */
 /* ------------------------------------------------------------------ */
 
+/** fish `queries/useLiveCompetition.ts#ExtraScale` — also the organizer's extra-scales list item. */
 export const extraScaleSchema = z.object({
   ...idDoc,
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
-  author: z.object({ ...idDoc, username: z.string() }),
-  extraStatus: z.union([z.enum(['new', 'cancelled']), z.string()]),
+  // Null when the requesting account is gone.
+  author: z.object({ ...idDoc, username: z.string() }).nullable(),
+  // CMS enumeration is new | cancelled | done (fish types only new | cancelled).
+  extraStatus: z.union([z.enum(['new', 'cancelled', 'done']), z.string()]),
   stand: z.object({
     ...idDoc,
     name: z.string(),
@@ -448,9 +444,14 @@ export type PulsePerson = z.infer<typeof pulsePersonSchema>;
 /* Rankings — fish models/ranking.type.ts                             */
 /* ------------------------------------------------------------------ */
 
+/** fish `models/penalty.type.ts#PenaltyAction` — what the organizer can write. */
+export const penaltyActionSchema = z.enum(['WARNING', 'DEDUCT_TOTAL_WEIGHT', 'ELIMINATE']);
+export type PenaltyAction = z.infer<typeof penaltyActionSchema>;
+
 export const penaltySchema = z.object({
   documentId: z.string(),
-  action: z.union([z.enum(['WARNING', 'DEDUCT_TOTAL_WEIGHT', 'ELIMINATE']), z.string()]),
+  // Read side stays open: a newer CMS action must not break the whole ranking.
+  action: z.union([penaltyActionSchema, z.string()]),
   value: z.number().nullable(),
   reason: z.string(),
   createdAt: z.string(),
@@ -765,6 +766,16 @@ export const timelineEventSchema = z.object({
 });
 export type TimelineEvent = z.infer<typeof timelineEventSchema>;
 
+export const timelineStandSchema = z.object({
+  standId: z.number(),
+  standName: z.string(),
+  sectorId: z.string(),
+  sectorName: z.string(),
+  teamName: z.string().nullable(),
+  guestName: z.string().nullable(),
+  events: z.array(timelineEventSchema),
+});
+
 export const timelineSnapshotSchema = z.object({
   competitionStart: z.string(),
   competitionEnd: z.string(),
@@ -772,17 +783,7 @@ export const timelineSnapshotSchema = z.object({
   defaultMetric: timelineMetricKeySchema,
   availableMetrics: z.array(timelineMetricKeySchema),
   generatedAt: z.string(),
-  stands: z.array(
-    z.object({
-      standId: z.number(),
-      standName: z.string(),
-      sectorId: z.string(),
-      sectorName: z.string(),
-      teamName: z.string().nullable(),
-      guestName: z.string().nullable(),
-      events: z.array(timelineEventSchema),
-    })
-  ),
+  stands: z.array(timelineStandSchema),
   weighingFingerprints: z.record(z.string(), z.object({ initialEndDate: z.string() })),
 });
 export type TimelineSnapshot = z.infer<typeof timelineSnapshotSchema>;
@@ -937,24 +938,3 @@ export const followedCompetitionSchema = z.object({
   mutedCount: z.number(),
 });
 export type FollowedCompetition = z.infer<typeof followedCompetitionSchema>;
-
-/* ------------------------------------------------------------------ */
-/* Profile ↔ competition — fish services/api/profile.ts                */
-/* ------------------------------------------------------------------ */
-
-export const userStatuteForCompetitionSchema = z.object({
-  userRole: z.enum(['author', 'referee', 'participant']).nullable(),
-  /** Additive flags (CMS 2026-09-20): `userRole` keeps its author > referee > participant
-   * precedence, so a referee who is also on a registered team is only visible through these. */
-  isParticipant: z.boolean().optional(),
-  isReferee: z.boolean().optional(),
-});
-export type UserStatuteForCompetition = z.infer<typeof userStatuteForCompetitionSchema>;
-
-/** fish `models/user-statistics.type.ts#ParticipantStats`. */
-export const participantStatsSchema = z.object({
-  catches: z.number(),
-  biggestCatchKg: z.number().nullable(),
-  competitions: z.number(),
-});
-export type ParticipantStats = z.infer<typeof participantStatsSchema>;

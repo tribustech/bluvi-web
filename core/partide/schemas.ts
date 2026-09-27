@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { paginatedSchema } from '../shared';
+import { anglerCatchSchema, type AnglerCatch } from '../social/schemas';
 
 /*
  * Wire DTOs for Partide (fishing sessions), the community dashboard, session follows,
@@ -197,26 +198,9 @@ export const rodCommandResultSchema = z.object({
 });
 export type RodCommandResult = z.infer<typeof rodCommandResultSchema>;
 
-/**
- * fish `models/angler.type.ts#AnglerCatchDTO` — owned by the anglers domain; minimal local copy
- * for `/feed/sessions/mine/catches` (same DTO and cursor as the profile grid).
- */
-export const myCatchDTOSchema = z.object({
-  key: z.string(),
-  source: z.union([z.enum(['partida', 'competition']), z.string()]),
-  photoUrl: z.string(),
-  photoGridUrl: z.string().optional(),
-  blurhash: z.string().nullish(),
-  photoWidth: z.number().nullish(),
-  photoHeight: z.number().nullish(),
-  weightKg: z.number().nullable(),
-  species: z.string().nullable(),
-  venueName: z.string().nullable(),
-  date: z.string(),
-  competitionName: z.string().nullable(),
-  competitionDocumentId: z.string().nullable(),
-});
-export type MyCatchDTO = z.infer<typeof myCatchDTOSchema>;
+/** fish `models/angler.type.ts#AnglerCatchDTO` (core/social `anglerCatchSchema`) — `/feed/sessions/mine/catches`
+ *  serves the same DTO and cursor as the profile grid. */
+export type MyCatchDTO = AnglerCatch;
 
 /** Cursor-paginated page: no `page`/`pageCount`; `nextCursor === null` means the end. */
 export function cursorPageSchema<T extends z.ZodType>(item: T) {
@@ -229,7 +213,7 @@ export function cursorPageSchema<T extends z.ZodType>(item: T) {
   });
 }
 
-export const myCatchesPageSchema = cursorPageSchema(myCatchDTOSchema);
+export const myCatchesPageSchema = cursorPageSchema(anglerCatchSchema);
 export type MyCatchesPage = z.infer<typeof myCatchesPageSchema>;
 
 // ── /feed/session-follows ───────────────────────────────────────────────────
@@ -537,10 +521,6 @@ export const communityStatsDTOSchema = z.object({
   stands: z.array(standStatSchema).optional(),
 });
 export type CommunityStatsDTO = z.infer<typeof communityStatsDTOSchema>;
-
-// ── anglers following (minimal local copy; the anglers domain owns the full shape) ──
-
-export const followingPageSchema = paginatedSchema(z.object({ documentId: z.string() }));
 
 // ── legacy catch (fish `models/catch.type.ts`) ──────────────────────────────
 

@@ -22,7 +22,6 @@ import {
   getUnreadNotificationsForLoggedInUser,
   getUserReputation,
   getUSerStatuteForCompetition,
-  lookupAnglerByPhone,
   markAllNotificationsAsRead,
   markNotificationAsRead,
   postUserStatisticsBatch,
@@ -169,12 +168,6 @@ describe('anglers api (ported from fish services/api/__tests__/anglers.test.ts)'
     ]);
   });
 
-  it('lookupAnglerByPhone unwraps data', async () => {
-    const { transport, calls } = createFakeTransport([{ data: { matched: false, user: null } }]);
-    await expect(lookupAnglerByPhone(transport, 'lake1', '+40712')).resolves.toEqual({ matched: false, user: null });
-    expect(calls[0]).toMatchObject({ path: '/feed/bookings/lookup-angler', query: { lake: 'lake1', phone: '+40712' }, auth: 'required' });
-  });
-
   it('rejects a response that breaks the contract', async () => {
     const { transport } = createFakeTransport([{ data: { documentId: 'u1' } }]);
     const err = await getAnglerProfile(transport, 'u1').catch(e => e);
@@ -200,10 +193,11 @@ describe('profile + users api', () => {
   });
 
   it('writes the profile (204), deletes it and requests the organizer role', async () => {
-    const { transport, calls } = createFakeTransport([null, { message: 'ok' }, { ok: true }]);
+    const { transport, calls } = createFakeTransport([null, { message: 'ok' }, { id: 1, documentId: 'u1', email: 'x' }]);
     await expect(updateProfile(transport, { bio: 'x' })).resolves.toBeUndefined();
     await deleteProfile(transport);
-    await requestOrganizerRole(transport, 'vreau');
+    // Only the identity survives the schema (the answer is the updated user).
+    await expect(requestOrganizerRole(transport, 'vreau')).resolves.toEqual({ id: 1, documentId: 'u1' });
     expect(calls.map(c => [c.method, c.path, c.body])).toEqual([
       ['PATCH', '/user/profile', { bio: 'x' }],
       ['DELETE', '/user/profile', undefined],

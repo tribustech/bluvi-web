@@ -14,12 +14,10 @@ import {
   competitionMyStatusSchema,
   competitionSuggestionGroupSchema,
   followedCompetitionSchema,
-  fishSpeciesSchema,
   legacyCompetitionSchema,
   liveCompetitionSchema,
   myCompetitionsResponseSchema,
   notificationPreferencesSchema,
-  participantStatsSchema,
   pastPollsPageSchema,
   personSchema,
   pollSchema,
@@ -31,7 +29,6 @@ import {
   sponsorDetailSchema,
   standStatsSchema,
   timelineSnapshotSchema,
-  userStatuteForCompetitionSchema,
   weighingStatisticsResponseSchema,
   type CompetitionCardStatus,
   type CompetitionCatchesSort,
@@ -39,13 +36,14 @@ import {
   type CompetitionRegistrationInput,
   type CreateGuestRegistrationPayload,
   type LiveCompetition,
-  type ParticipantStats,
   type PollSuggestRequest,
   type PollVoteRequest,
+  type TimelineSnapshot,
   type CompetitionStatus,
   type UpdateCompetitionRegistrationInput,
   type UpdateGuestRegistrationPayload,
 } from './schemas';
+import { fishSpeciesSchema } from '../lakes/schemas';
 
 const enc = encodeURIComponent;
 
@@ -357,11 +355,14 @@ export function getCatchThresholdCounts(t: Transport, competitionId: string) {
   );
 }
 
-/** fish `services/api/rankings.ts#getCompetitionTimelineSnapshot` — null on 204 / no snapshot. */
-export async function getCompetitionTimelineSnapshot(t: Transport, competitionId: string) {
+/**
+ * fish `services/api/rankings.ts#getCompetitionTimelineSnapshot` — null on 204 / no snapshot.
+ * `optional`: the route has no `auth: false` and is not edge-cached, so fish's signed-in JWT is sent.
+ */
+export async function getCompetitionTimelineSnapshot(t: Transport, competitionId: string): Promise<TimelineSnapshot | null> {
   const res = await call(
     t,
-    { method: 'GET', path: `/competitions/${enc(competitionId)}/timeline-snapshot`, auth: 'none' },
+    { method: 'GET', path: `/competitions/${enc(competitionId)}/timeline-snapshot`, auth: 'optional' },
     // A 204 reaches the schema as `null`.
     z.object({ data: timelineSnapshotSchema.nullish() }).nullish()
   );
@@ -534,31 +535,4 @@ export async function getFollowedCompetitions(t: Transport) {
     z.object({ data: z.array(followedCompetitionSchema).nullish() }).nullish()
   );
   return res?.data ?? [];
-}
-
-/* ------------------------------------------------------------------ */
-/* fish services/api/profile.ts — the two competition-scoped reads    */
-/* ------------------------------------------------------------------ */
-
-/** fish `services/api/profile.ts#getUSerStatuteForCompetition` (name kept, typo included). */
-export function getUSerStatuteForCompetition(t: Transport, competitionId: string) {
-  return call(
-    t,
-    { method: 'GET', path: `/user/profile/competition/${enc(competitionId)}/statute`, auth: 'required' },
-    userStatuteForCompetitionSchema
-  );
-}
-
-/** fish `services/api/profile.ts#postUserStatisticsBatch` */
-export async function postUserStatisticsBatch(t: Transport, documentIds: string[]): Promise<Record<string, ParticipantStats>> {
-  const body = await call(
-    t,
-    { method: 'POST', path: '/user/statistics/batch', body: { documentIds }, auth: 'required' },
-    z.unknown()
-  );
-  if (!body || typeof body !== 'object') return {};
-  // Strapi may return { data: Record } or the record at top level
-  const map = (body as { data?: unknown }).data ?? body;
-  if (typeof map !== 'object' || map === null || Array.isArray(map)) return {};
-  return parseResponse(z.record(z.string(), participantStatsSchema), map, '/user/statistics/batch');
 }

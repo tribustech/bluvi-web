@@ -23,10 +23,9 @@ import {
   getOwnedLakesStats,
   getReviewForLakeByAuthorId,
   getReviewsForLake,
-  getStandStatsByLakeId,
-  getUserReputation,
   type LakeFilterValues,
 } from '@/core/lakes';
+import { getUserReputation } from '@/core/social';
 import { contractContext, expectDenied } from './context';
 
 const { guest, user, userDocumentId } = contractContext();
@@ -105,12 +104,6 @@ describe('lakes — /feed/lakes', () => {
     await expectDenied(getReviewForLakeByAuthorId(guest, { lakeId: CHITA }));
   });
 
-  it('reads stand stats for the lake map', async () => {
-    for (const t of [guest, user]) {
-      const stats = await getStandStatsByLakeId(t, CHITA);
-      expect(stats.length).toBeGreaterThan(0);
-    }
-  });
 });
 
 describe('lakes — map viewport', () => {

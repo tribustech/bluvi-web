@@ -46,20 +46,6 @@ export const communityKeys = {
   followedAnglerUids: (documentId: string) => ['community', 'followed-angler-uids', documentId] as const,
 };
 
-/**
- * The anglers keys Partide writes invalidate (fish `queryKeys.anglers`; owned by the anglers
- * domain, duplicated here with the exact shapes).
- */
-export const anglerKeysUsedByPartide = {
-  all: ['anglers'] as const,
-  profile: (documentId: string) => ['anglers', documentId] as const,
-  sessions: (documentId: string) => ['anglers', documentId, 'sessions'] as const,
-  catches: (documentId: string) => ['anglers', documentId, 'catches'] as const,
-};
-
-/** fish `queryKeys.profile.statistics` (owned by the profile domain). */
-export const profileStatisticsKey = ['profile-statistics'] as const;
-
 // Matches the CMS default so both community feeds page identically.
 const HISTORY_PAGE_SIZE = 10;
 const LIVE_PAGE_SIZE = 10;

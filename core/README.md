@@ -40,8 +40,17 @@ queries, derived state) become a query factory **plus** a pure function the UI c
 - Enums the CMS may extend (categories, statuses shown as text) → `z.union([z.enum([...]), z.string()])`
   so a new value does not break a whole list. Enums that drive logic (competition status) stay strict.
 - Reuse `core/shared` (`paginatedSchema`, `dataSchema`, `strapiImageSchema`, `feedImageSchema`,
-  `richTextSchema`, `nextPageParam`). If another domain owns a type you need, define the minimal
-  shape you need locally — duplicates are reconciled after all domains land.
+  `richTextSchema`, `nextPageParam`). If another domain owns a schema, api function, query key or
+  helper you need, **import it** — each thing exists once, in the domain that owns its fish file.
+
+## Cross-domain imports
+
+Allowed (enforced by `tests/unit/core-domain-deps.test.ts`; the graph stays acyclic):
+organizer → competitions, social · competitions → social, lakes · booking → lakes, social ·
+lakes → social · partide → social, lakes · social, news → nothing. Nothing imports organizer or
+booking. When the owner is not importable from where you are (e.g. social invalidating a booking
+key), keep a literal key with a comment naming the owner — never a second copy of a schema or api
+function.
 - The contract test is the judge: a schema is right when it parses the real CMS response.
 
 ## Transport requests

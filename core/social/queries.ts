@@ -15,7 +15,6 @@ import {
   getSuggestedHome,
   getUnreadNotificationsForLoggedInUser,
   getUserReputation,
-  lookupAnglerByPhone,
   searchAnglers,
 } from './api';
 import type { CompetitionsHistoryFilter } from './schemas';
@@ -69,10 +68,9 @@ export const reputationKeys = {
   byUser: (id: string) => ['reputation', id] as const,
 };
 
-/** fish `queryKeys.bookings.anglerLookup` (+ the `bookings` / `operator-stats` roots a review invalidates). */
+/** Roots owned by booking / lakes that an angler review invalidates (social imports neither). */
 export const socialForeignKeys = {
   bookingsAll: ['bookings'] as const,
-  anglerLookup: (lakeId: string, phone: string) => ['bookings', 'angler-lookup', lakeId, phone] as const,
   operatorStatsAll: ['operator-stats'] as const,
 };
 
@@ -196,28 +194,6 @@ export function anglerCompetitionsInfiniteQuery(
     initialPageParam: 1,
     getNextPageParam: last => nextPageParam(last.meta),
     placeholderData: keepPreviousData,
-  });
-}
-
-// ── useAnglerLookup ─────────────────────────────────────────────────────────────────────────────────
-
-/** Below this many digits a number can't be a real phone in any country plan. */
-export const MIN_PHONE_DIGITS = 7;
-
-/**
- * fish `useAnglerLookup` — does a typed phone belong to an existing account (walk-in match-confirm
- * sheet)? `armed` fires it: the caller arms it on blur/submit, never per keystroke. Owner-gated on
- * the server. `staleTime` keeps the answer for the session; a miss or a 403 is definitive, so no
- * retry burst.
- */
-export function anglerLookupQuery(t: Transport, lakeId: string, phone: string, armed: boolean) {
-  const digits = phone.replace(/\D/g, '');
-  return queryOptions({
-    queryKey: socialForeignKeys.anglerLookup(lakeId, phone),
-    queryFn: () => lookupAnglerByPhone(t, lakeId, phone),
-    enabled: armed && Boolean(lakeId) && digits.length >= MIN_PHONE_DIGITS,
-    staleTime: 5 * 60 * 1000,
-    retry: false,
   });
 }
 

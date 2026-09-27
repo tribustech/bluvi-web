@@ -6,7 +6,8 @@
  *   `bookingActionGates` — `features/operator/BookingDetailSheet.tsx`
  * - `cancellationPolicyText` — `features/lakes/booking/BookingReview.tsx`
  */
-import type { BookingDTO, CancellationPolicyDTO, PaymentStatus, QuoteExtraLine } from '../schemas';
+import type { CancellationPolicy } from '../../lakes/schemas';
+import type { BookingDTO, PaymentStatus, QuoteExtraLine } from '../schemas';
 import { meaningfulNoShowNote } from './cancelNotes';
 import { capitalize as cap, formatHHmm, formatMonthAbbr, formatWeekdayShort } from './dates';
 
@@ -94,7 +95,7 @@ export function bookingActionGates(b: BookingDTO, nowMs = Date.now()) {
 
 /** Maps a cancellation policy type to plain RO copy. */
 export function cancellationPolicyText(
-  policy: Pick<CancellationPolicyDTO, 'type' | 'refundWindowHours'> | null | undefined
+  policy: Pick<CancellationPolicy, 'type' | 'refundWindowHours'> | null | undefined
 ): string {
   if (!policy) return 'Contactează administratorul lacului pentru detalii despre anulare.';
   const hours = policy.refundWindowHours;

@@ -12,7 +12,6 @@ import {
 } from './domain/filters';
 import type { LakesExploreCountParams, LakesExploreSuggestionsParams, LakesHomeParams } from './domain/signatures';
 import {
-  anglerReviewSchema,
   claimedPublicWaterSchema,
   exploreCountResponseSchema,
   exploreSuggestionsResponseSchema,
@@ -32,12 +31,9 @@ import {
   lakesInBboxResponseSchema,
   lakeSuggestionResponseSchema,
   ownedLakesStatsSchema,
-  reputationSchema,
   reviewSchema,
   reviewsForLakeResponseSchema,
   reviewWriteResponseSchema,
-  standStatsSchema,
-  type CreateAnglerReviewInput,
   type LakeBookingInterestSource,
   type LakeClaimInput,
   type LakesExploreSuggestionsPage,
@@ -374,26 +370,6 @@ export async function getReviewForLakeByAuthorId(t: Transport, { lakeId }: { lak
 }
 
 /* ------------------------------------------------------------------------------------------------
- * fish services/api/reviews.ts (angler reviews + reputation)
- * ---------------------------------------------------------------------------------------------- */
-
-/** fish `services/api/reviews.ts#createAnglerReview` — operator rates an angler for a completed booking. */
-export async function createAnglerReview(t: Transport, input: CreateAnglerReviewInput) {
-  const res = await call(
-    t,
-    { method: 'POST', path: '/feed/angler-reviews', body: { data: input }, auth: 'required' },
-    dataSchema(anglerReviewSchema)
-  );
-  return res.data;
-}
-
-/** fish `services/api/reviews.ts#getUserReputation` — public: an angler's aggregate reputation. */
-export async function getUserReputation(t: Transport, userId: string) {
-  const res = await call(t, { method: 'GET', path: `/feed/users/${enc(userId)}/reputation`, auth: 'none' }, dataSchema(reputationSchema));
-  return res.data;
-}
-
-/* ------------------------------------------------------------------------------------------------
  * fish services/api/operatorStats.ts
  * ---------------------------------------------------------------------------------------------- */
 
@@ -415,13 +391,4 @@ export async function getLakeOperatorStats(t: Transport, lakeId: string, window?
     dataSchema(lakeOperatorStatsSchema)
   );
   return res.data;
-}
-
-/* ------------------------------------------------------------------------------------------------
- * fish services/api/stands.ts#getStandStatsByLakeId (the lake map's stand pins)
- * ---------------------------------------------------------------------------------------------- */
-
-/** fish `services/api/stands.ts#getStandStatsByLakeId` — a bare array, no envelope. */
-export function getStandStatsByLakeId(t: Transport, lakeId: string) {
-  return call(t, { method: 'GET', path: `/lakes/${enc(lakeId)}/statistics`, auth: 'none' }, z.array(standStatsSchema));
 }

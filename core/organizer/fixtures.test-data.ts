@@ -188,24 +188,3 @@ export const participation = {
   receiptImageUrl: null,
   receiptUrl: '/uploads/r.jpg',
 };
-
-export const timeline = {
-  competitionStart: '2026-05-08T14:00:00.000Z',
-  competitionEnd: '2026-05-10T10:00:00.000Z',
-  rankingType: 'quantity',
-  defaultMetric: 'quantity',
-  availableMetrics: ['quantity', 'catchCount', 'biggestFish'],
-  generatedAt: '2026-05-10T10:05:00.000Z',
-  stands: [
-    {
-      standId: 3677,
-      standName: '1',
-      sectorId: 'riy4',
-      sectorName: 'A',
-      teamName: null,
-      guestName: null,
-      events: [{ weighingId: 4737, t: '2026-05-08T15:00:00.000Z', quantity: 19.6, catchCount: 4, biggestFish: 6.1 }],
-    },
-  ],
-  weighingFingerprints: { '4737': { initialEndDate: '2026-05-08T15:00:00.000Z' } },
-};

@@ -4,11 +4,7 @@ import {
   fetchActiveRaffle,
   fetchRaffleParticipation,
   getAllocatedParticipants,
-  getCatchThresholdCounts,
   getCompetitionActiveWeighing,
-  getCompetitionCatches,
-  getCompetitionTimelineSnapshot,
-  getCompetitionWeighingStatistics,
   getExtraScalesList,
   getOrganizerCompetitions,
   getOrganizerDashboard,
@@ -22,7 +18,7 @@ import {
   type MediaOriginOption,
 } from './api';
 import { groupRevisionsBySession } from './domain/weighing';
-import type { CompetitionCatchesFilter, CompetitionCatchesSort, CompetitionStatus, OrganizerStatKey } from './schemas';
+import type { OrganizerStatKey } from './schemas';
 
 /* ------------------------------------------------------------------ */
 /* Keys — exact fish `queryKeys.*` shapes                              */
@@ -68,35 +64,6 @@ export const competitionManagementKeys = {
   activeWeighingById: (id: string) => ['competitions', id, 'active-weighing'] as const,
   allocatedParticipants: (id: string) => ['competitions', id, 'allocated-participants'] as const,
   extraScalesList: (id: string) => ['competition', id, 'extra-scales-list'] as const,
-  weighingStatistics: (competitionId: string) => ['competition', competitionId, 'weighing-statistics'] as const,
-  timelineSnapshot: (competitionId: string) => ['competition', competitionId, 'timeline-snapshot'] as const,
-  catchesInfinite: (
-    competitionId: string,
-    sort: string,
-    filter: { sectorName?: string; standKey?: string } | null = null
-  ) =>
-    [
-      'competition',
-      competitionId,
-      'catches',
-      sort,
-      filter ? ('sectorName' in filter ? `sector:${filter.sectorName}` : `stand:${filter.standKey}`) : 'all',
-    ] as const,
-  catchThresholdCounts: (competitionId: string) => ['competition', competitionId, 'catch-threshold-counts'] as const,
-};
-
-/**
- * Keys owned by other domains that organizer mutations invalidate. Minimal local copies of
- * fish `queryKeys` (reconciled with `core/competitions`, `core/profile` once they land).
- */
-export const externalKeys = {
-  competitionsAll: ['competitions'] as const,
-  competitionsById: (id: string) => ['competitions', id] as const,
-  competitionLive: ['competition', 'live'] as const,
-  competitionCardsRoot: ['competition-cards'] as const,
-  rankingsByCompetitionId: (competitionId: string) => ['rankings', competitionId] as const,
-  rankingBestN: (competitionId: string) => ['competition', competitionId, 'ranking-best-n'] as const,
-  profileMy: ['my-profile'] as const,
 };
 
 /* ------------------------------------------------------------------ */
@@ -246,86 +213,6 @@ export function extraScalesListQuery(t: Transport, competitionId: string) {
     queryKey: competitionManagementKeys.extraScalesList(competitionId),
     queryFn: () => getExtraScalesList(t, competitionId),
     enabled: !!competitionId,
-  });
-}
-
-/* ------------------------------------------------------------------ */
-/* Competition statistics (Statistici tab) — fish queries/useRankings  */
-/* ------------------------------------------------------------------ */
-
-const RANKINGS_STALE_TIME_MS = 1000 * 60 * 5; // 5 minutes
-const CATCHES_PAGE_SIZE = 20;
-
-type StatsOptions = { enabled?: boolean };
-
-/** fish `useCompetitionWeighingStatistics` */
-export function competitionWeighingStatisticsQuery(
-  t: Transport,
-  competitionId: string,
-  competitionStatus?: CompetitionStatus,
-  options?: StatsOptions
-) {
-  return queryOptions({
-    queryKey: competitionManagementKeys.weighingStatistics(competitionId),
-    queryFn: () => getCompetitionWeighingStatistics(t, competitionId),
-    staleTime: RANKINGS_STALE_TIME_MS,
-    enabled: !!competitionId && competitionStatus !== 'notStarted' && options?.enabled !== false,
-  });
-}
-
-/** fish `useCompetitionTimelineSnapshot` */
-export function competitionTimelineSnapshotQuery(
-  t: Transport,
-  competitionId: string,
-  competitionStatus?: CompetitionStatus,
-  options?: StatsOptions
-) {
-  return queryOptions({
-    queryKey: competitionManagementKeys.timelineSnapshot(competitionId),
-    queryFn: () => getCompetitionTimelineSnapshot(t, competitionId),
-    staleTime: RANKINGS_STALE_TIME_MS,
-    enabled:
-      !!competitionId &&
-      competitionStatus !== 'notStarted' &&
-      competitionStatus !== 'draft' &&
-      options?.enabled !== false,
-  });
-}
-
-/** fish `useCompetitionCatchesInfinite` — note the CMS puts `pagination` at the top level. */
-export function competitionCatchesInfiniteQuery(
-  t: Transport,
-  competitionId: string,
-  sort: CompetitionCatchesSort,
-  competitionStatus?: CompetitionStatus,
-  options?: StatsOptions & { filter?: CompetitionCatchesFilter }
-) {
-  const filter = options?.filter ?? null;
-  return infiniteQueryOptions({
-    queryKey: competitionManagementKeys.catchesInfinite(competitionId, sort, filter),
-    queryFn: ({ pageParam }) => getCompetitionCatches(t, competitionId, sort, pageParam, CATCHES_PAGE_SIZE, filter),
-    initialPageParam: 1,
-    getNextPageParam: last => {
-      const { page, pageCount } = last.pagination;
-      return page < pageCount ? page + 1 : undefined;
-    },
-    enabled: !!competitionId && competitionStatus !== 'notStarted' && options?.enabled !== false,
-    staleTime: RANKINGS_STALE_TIME_MS,
-  });
-}
-
-/** fish `useCatchThresholdCounts` */
-export function catchThresholdCountsQuery(
-  t: Transport,
-  competitionId: string,
-  competitionStatus?: CompetitionStatus,
-  options?: StatsOptions
-) {
-  return queryOptions({
-    queryKey: competitionManagementKeys.catchThresholdCounts(competitionId),
-    queryFn: () => getCatchThresholdCounts(t, competitionId),
-    staleTime: RANKINGS_STALE_TIME_MS,
-    enabled: !!competitionId && competitionStatus !== 'notStarted' && options?.enabled !== false,
   });
 }
 

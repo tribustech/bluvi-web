@@ -2,13 +2,10 @@ import type { QueryClient } from '@tanstack/react-query';
 import { mutationOptions } from '../shared';
 import type { Transport } from '../transport';
 import {
-  acceptRegistration,
   addGuestRegistration,
   castPollVote,
   createCompetitionRegistration,
   followCompetition,
-  moveRegistrationToWaitingList,
-  rejectRegistration,
   removeRegistration,
   submitPollSuggestion,
   updateCompetitionNotificationPreferences,
@@ -19,11 +16,10 @@ import { applyMutedTypes } from './domain/notificationPreferences';
 import {
   competitionCardsKeys,
   competitionNotificationKeys,
-  competitionProfileKeys,
   competitionsKeys,
-  organizerDashboardKeys,
   pollKeys,
 } from './queries';
+import { profileKeys } from '../social/queries';
 import type {
   CompetitionRegistrationInput,
   CompetitionWithMyStatus,
@@ -31,7 +27,6 @@ import type {
   NotificationPreferences,
   Poll,
   PollVoteRequest,
-  Registration,
   UpdateCompetitionRegistrationInput,
   UpdateGuestRegistrationPayload,
 } from './schemas';
@@ -65,28 +60,6 @@ export function applyPollVote(previous: Poll, optionId: number): Poll {
       return o;
     }),
   };
-}
-
-/** fish `useRegistrationListMutations` optimistic status flip for one registration. */
-export function applyRegistrationStatus(
-  previous: Registration[] | undefined,
-  registrationId: string,
-  registrationStatus: 'registered' | 'rejected' | 'pending'
-) {
-  return previous?.map(registration =>
-    registration.documentId === registrationId ? { ...registration, registrationStatus } : registration
-  );
-}
-
-/** fish `mutations/invalidateOrganizerDashboardQueries` */
-export async function invalidateOrganizerDashboardQueries(qc: QueryClient) {
-  await Promise.all([
-    qc.invalidateQueries({ queryKey: organizerDashboardKeys.dashboard }),
-    qc.invalidateQueries({ queryKey: organizerDashboardKeys.competitionsRoot }),
-    qc.invalidateQueries({ queryKey: organizerDashboardKeys.statDetailsRoot }),
-    // The Concursuri tab lists the same competitions (status, places, Organizate).
-    qc.invalidateQueries({ queryKey: competitionCardsKeys.root }),
-  ]);
 }
 
 /* ------------------------------------------------------------------ */
@@ -128,7 +101,7 @@ export function createCompetitionRegistrationMutation(t: Transport, qc: QueryCli
       qc.invalidateQueries({ queryKey: competitionsKeys.all });
       qc.invalidateQueries({ queryKey: competitionsKeys.my });
       qc.invalidateQueries({ queryKey: competitionCardsKeys.root });
-      qc.invalidateQueries({ queryKey: competitionProfileKeys.my });
+      qc.invalidateQueries({ queryKey: profileKeys.my });
     },
   });
 }
@@ -192,56 +165,6 @@ export function updateRegistrationGuestMutation(t: Transport, qc: QueryClient) {
       qc.invalidateQueries({ queryKey: competitionsKeys.my });
     },
   });
-}
-
-/**
- * One of fish `useRegistrationListMutations`' three mutations: optimistic status flip, rollback
- * on error, and on settle the list is marked stale WITHOUT an instant refetch — the refetch would
- * race the CDN tag purge (~0.65s) and a stale edge body would clobber the optimistic update.
- */
-function registrationListMutation(
-  qc: QueryClient,
-  competitionId: string,
-  mutationFn: (registrationId: string) => Promise<void>,
-  status: 'registered' | 'rejected' | 'pending'
-) {
-  const QUERY_KEY = competitionsKeys.registrationsListById(competitionId);
-  return mutationOptions({
-    mutationFn,
-    onMutate: async (registrationId: string) => {
-      await qc.cancelQueries({ queryKey: QUERY_KEY });
-      const previousData = qc.getQueryData<Registration[]>(QUERY_KEY);
-      qc.setQueryData(QUERY_KEY, applyRegistrationStatus(previousData, registrationId, status));
-      return { previousData };
-    },
-    // fish onSuccess: success toast (UI).
-    onError: (_err, _variables, context) => {
-      qc.setQueryData(QUERY_KEY, context?.previousData);
-      // fish: error toast with err.message (UI).
-    },
-    onSettled: async () => {
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: QUERY_KEY, refetchType: 'none' }),
-        qc.invalidateQueries({ queryKey: competitionsKeys.byId(competitionId), exact: true }),
-        invalidateOrganizerDashboardQueries(qc),
-      ]);
-    },
-  });
-}
-
-/** fish `useRegistrationListMutations#acceptRegistrationMutation` */
-export function acceptRegistrationMutation(t: Transport, qc: QueryClient, competitionId: string) {
-  return registrationListMutation(qc, competitionId, id => acceptRegistration(t, id), 'registered');
-}
-
-/** fish `useRegistrationListMutations#rejectRegistrationMutation` */
-export function rejectRegistrationMutation(t: Transport, qc: QueryClient, competitionId: string) {
-  return registrationListMutation(qc, competitionId, id => rejectRegistration(t, id), 'rejected');
-}
-
-/** fish `useRegistrationListMutations#moveRegistrationToWaitingListMutation` */
-export function moveRegistrationToWaitingListMutation(t: Transport, qc: QueryClient, competitionId: string) {
-  return registrationListMutation(qc, competitionId, id => moveRegistrationToWaitingList(t, id), 'pending');
 }
 
 /* ------------------------------------------------------------------ */

@@ -1,31 +1,15 @@
 import { z } from 'zod';
-import { paginatedSchema, paginationMetaSchema, richTextSchema, strapiImageSchema } from '../shared';
+import { paginatedSchema, richTextSchema, strapiImageSchema } from '../shared';
+import {
+  competitionStatusSchema,
+  competitionTypeSchema,
+  rankingTypeSchema,
+  type CompetitionType,
+} from '../competitions/schemas';
 
 /* ------------------------------------------------------------------ */
-/* Shared enums (minimal local copies — owned by core/competitions)    */
+/* Enums (competition status/type/ranking type live in core/competitions) */
 /* ------------------------------------------------------------------ */
-
-/** fish `models/competition.type.ts#CompetitionStatus` — drives logic, stays strict. */
-export const competitionStatusSchema = z.enum(['draft', 'notStarted', 'started', 'completed', 'cancelled']);
-export type CompetitionStatus = z.infer<typeof competitionStatusSchema>;
-
-/** fish `models/ranking.type.ts#RankingType` (CMS `competition.rankingType` enumeration). */
-export const rankingTypeSchema = z.enum([
-  'quantity',
-  'quality',
-  'quantityQuality',
-  'qualityQuantity',
-  'bestOf',
-  'nationalChampionship',
-  'fipsed',
-  'calitateCalitate',
-  'calitateCantitateCMMC',
-  'bestOfTiers',
-]);
-export type RankingType = z.infer<typeof rankingTypeSchema>;
-
-export const competitionTypeSchema = z.enum(['single', 'team']);
-export type CompetitionType = z.infer<typeof competitionTypeSchema>;
 
 export const weighingTypeSchema = z.enum(['normal', 'extra']);
 export type WeighingType = z.infer<typeof weighingTypeSchema>;
@@ -307,25 +291,6 @@ export const allocatedParticipantSchema = z.object({
 export const allocatedParticipantsResponseSchema = z.record(z.string(), allocatedParticipantSchema.nullable());
 export type AllocatedParticipantsResponse = z.infer<typeof allocatedParticipantsResponseSchema>;
 
-/** fish `queries/useLiveCompetition.ts#ExtraScale` */
-export const extraScaleSchema = z.object({
-  id: z.number(),
-  documentId: z.string(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  // CMS enumeration is new | cancelled | done (fish types only new | cancelled).
-  extraStatus: z.union([z.enum(['new', 'cancelled', 'done']), z.string()]),
-  author: z.object({ id: z.number(), documentId: z.string(), username: z.string() }).nullable(),
-  stand: z.object({
-    id: z.number(),
-    documentId: z.string(),
-    name: z.string(),
-    sectors: z.array(z.object({ id: z.number(), documentId: z.string(), name: z.string() })),
-    sectorDrawPosition: z.number().nullish(),
-  }),
-});
-export type ExtraScale = z.infer<typeof extraScaleSchema>;
-
 /** Response of the extra-scale request/cancel writes (fish ignores the body). */
 export const extraScaleWriteResponseSchema = z.object({
   data: z.object({ message: z.string() }).optional(),
@@ -441,128 +406,6 @@ export const deleteCantarResponseSchema = z.object({
 export const deleteCatchResponseSchema = z.object({
   data: z.object({ statusCode: z.number(), message: z.string() }),
 });
-
-/* ------------------------------------------------------------------ */
-/* Competition statistics — fish models/ranking.type.ts (subset)       */
-/* ------------------------------------------------------------------ */
-
-export const competitionCatchesSortSchema = z.enum(['weight_asc', 'weight_desc', 'stand', 'sector']);
-export type CompetitionCatchesSort = z.infer<typeof competitionCatchesSortSchema>;
-
-/** Filter for competition catches: sector (by name) or stand (by display key e.g. "A2"). */
-export type CompetitionCatchesFilter = { sectorName: string } | { standKey: string } | null;
-
-export const competitionCatchSchema = z.object({
-  id: z.string(),
-  weight: z.number(),
-  standId: z.union([z.number(), z.string()]).nullable(),
-  standName: z.string(),
-  sectorId: z.string().nullable(),
-  sectorName: z.string().nullable(),
-  teamName: z.string().nullable(),
-  guestName: z.string().nullable(),
-  participantUsername: z.string().nullable(),
-  fishName: z.string().nullable(),
-});
-export type CompetitionCatch = z.infer<typeof competitionCatchSchema>;
-
-/** Note: `pagination` at the top level, not under `meta`. */
-export const competitionCatchesResponseSchema = z.object({
-  data: z.array(competitionCatchSchema),
-  pagination: paginationMetaSchema,
-});
-export type CompetitionCatchesResponse = z.infer<typeof competitionCatchesResponseSchema>;
-
-export const weighingStatisticsItemSchema = z.object({
-  weighingDocumentId: z.string(),
-  startDate: z.string(),
-  endDate: z.string(),
-  weighingType: weighingTypeSchema,
-  sequenceIndex: z.number(),
-  totalWeightKg: z.number(),
-  catchCount: z.number(),
-  sectorName: z.string().optional(),
-  standName: z.string().optional(),
-});
-export const weighingStatisticsResponseSchema = z.object({ data: z.array(weighingStatisticsItemSchema) });
-export type WeighingStatisticsResponse = z.infer<typeof weighingStatisticsResponseSchema>;
-
-const thresholdCounts = {
-  count10Plus: z.number(),
-  count15Plus: z.number(),
-  count20Plus: z.number(),
-  count25Plus: z.number(),
-  count30Plus: z.number(),
-};
-export const catchThresholdCountsResponseSchema = z.object({
-  bySector: z.array(z.object({ sectorName: z.string(), ...thresholdCounts })),
-  general: z.object(thresholdCounts),
-});
-export type CatchThresholdCountsResponse = z.infer<typeof catchThresholdCountsResponseSchema>;
-
-/* Timeline — fish models/timeline-snapshot.type.ts */
-
-export const timelineMetricKeySchema = z.enum([
-  'quantity',
-  'catchCount',
-  'biggestFish',
-  'quality',
-  'quality1',
-  'quality2',
-  'bestOfCount',
-  'topNCatchesAvarage',
-]);
-export type TimelineMetricKey = z.infer<typeof timelineMetricKeySchema>;
-
-export const timelineEventSchema = z.object({
-  weighingId: z.union([z.number(), z.string()]),
-  t: z.string(),
-  quantity: z.number(),
-  catchCount: z.number(),
-  biggestFish: z.number(),
-  quality: z.number().optional(),
-  quality1: z.number().optional(),
-  quality2: z.number().optional(),
-  bestOfCount: z.number().optional(),
-  topNCatchesAvarage: z.number().optional(),
-});
-export const timelineStandSchema = z.object({
-  standId: z.number(),
-  standName: z.string(),
-  sectorId: z.string(),
-  sectorName: z.string(),
-  teamName: z.string().nullable(),
-  guestName: z.string().nullable(),
-  events: z.array(timelineEventSchema),
-});
-export const timelineSnapshotSchema = z.object({
-  competitionStart: z.string(),
-  competitionEnd: z.string(),
-  rankingType: z.string(),
-  defaultMetric: timelineMetricKeySchema,
-  availableMetrics: z.array(timelineMetricKeySchema),
-  generatedAt: z.string(),
-  stands: z.array(timelineStandSchema),
-  weighingFingerprints: z.record(z.string(), z.object({ initialEndDate: z.string() })),
-});
-export type TimelineSnapshot = z.infer<typeof timelineSnapshotSchema>;
-
-/* ------------------------------------------------------------------ */
-/* Penalties — fish models/penalty.type.ts                            */
-/* ------------------------------------------------------------------ */
-
-export const penaltyActionSchema = z.enum(['WARNING', 'DEDUCT_TOTAL_WEIGHT', 'ELIMINATE']);
-export type PenaltyAction = z.infer<typeof penaltyActionSchema>;
-
-export const penaltySchema = z.object({
-  documentId: z.string(),
-  action: penaltyActionSchema,
-  value: z.number().nullable(),
-  reason: z.string(),
-  createdAt: z.string(),
-  author: z.object({ id: z.number(), username: z.string().optional() }).optional(),
-});
-export type Penalty = z.infer<typeof penaltySchema>;
 
 /* ------------------------------------------------------------------ */
 /* Raffle — fish services/api/raffle.ts                               */
@@ -704,12 +547,3 @@ export const uploadRaffleReceiptRawSchema = z.object({
 /* ------------------------------------------------------------------ */
 /* Media upload — fish services/api/media.ts                          */
 /* ------------------------------------------------------------------ */
-
-/** One file for `/upload`. fish sends RN `{ uri, name, type }`; the web sends a Blob/File. */
-export type MediaFile = { file: Blob; filename?: string };
-
-export const uploadedFilesSchema = z.array(strapiImageSchema);
-export type UploadedFile = z.infer<typeof strapiImageSchema>;
-
-/** `POST /user/organizer-request` → the updated user (only identity kept). */
-export const organizerRoleRequestResponseSchema = z.object({ id: z.number(), documentId: z.string() });

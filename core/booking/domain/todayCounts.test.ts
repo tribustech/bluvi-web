@@ -9,10 +9,9 @@ import {
   todayMomentBand,
   todayPhase,
 } from './todayCounts';
-import type { OperatorUpcomingBooking } from './todayCounts';
+import type { OperatorUpcomingBooking } from '../../lakes/schemas';
 
-// The full fish row (`models/operatorStats.type.ts`) carries more than the slice the helpers read.
-type Row = OperatorUpcomingBooking & { anglerName: string | null; anglerAvatar: string | null; code: string | null };
+type Row = OperatorUpcomingBooking;
 
 const NOW = new Date('2026-08-23T12:00:00+03:00').getTime();
 

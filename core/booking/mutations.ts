@@ -13,11 +13,10 @@ import {
   operatorCancelBooking,
   rejectBooking,
 } from './api';
-import { bookingKeys, operatorStatsKeys } from './queries';
+import { operatorStatsKeys } from '../lakes/queries';
+import { reputationKeys } from '../social/queries';
+import { bookingKeys } from './queries';
 import type { AvailabilityBlockInput, CreateBookingInput, LakeReservation, WalkInBookingInput } from './schemas';
-
-/** fish `queryKeys.reputation.byUser` prefix — owned by the social domain. */
-const REPUTATION_ROOT = ['reputation'] as const;
 
 /**
  * What `invalidateOperatorSurfaces` invalidates.
@@ -147,7 +146,7 @@ export function markNoShowMutation(t: Transport, qc: QueryClient) {
       // A no-show changes the inbox, the angler's "mine" list and the panel's money
       // (a no-show owes nothing at the gate), plus the angler's reputation.
       invalidateOperatorSurfaces(qc);
-      qc.invalidateQueries({ queryKey: REPUTATION_ROOT });
+      qc.invalidateQueries({ queryKey: reputationKeys.all });
     },
   });
 }

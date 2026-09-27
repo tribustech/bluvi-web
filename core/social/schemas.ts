@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { imageFormatsSchema, paginatedSchema, paginationMetaSchema } from '../shared';
+import { imageFormatsSchema, paginatedSchema, paginationMetaSchema, strapiImageSchema } from '../shared';
 
 // ── Anglers (fish `models/angler.type.ts`, CMS `api/follow/services/dto/*`) ───────────────────────
 
@@ -177,15 +177,6 @@ export const suggestedAnglerPageSchema = paginatedSchema(suggestedAnglerSchema);
 /** `POST /feed/anglers/:documentId/(un)follow`. */
 export const followResultSchema = z.object({ following: z.boolean(), followersCount: z.number() });
 export type FollowResult = z.infer<typeof followResultSchema>;
-
-/** `GET /feed/bookings/lookup-angler` → `data` (fish `models/lake-booking.type.ts#AnglerLookupResult`). */
-export const anglerLookupResultSchema = z.object({
-  matched: z.boolean(),
-  user: z
-    .object({ documentId: z.string(), username: z.string().nullable(), avatar: z.string().nullable() })
-    .nullable(),
-});
-export type AnglerLookupResult = z.infer<typeof anglerLookupResultSchema>;
 
 // ── Profile (fish `models/profile.type.ts`, CMS `profile.getMyProfile`) ─────────────────────────────
 
@@ -435,19 +426,15 @@ export const feedbackCreatedSchema = z.object({ data: z.looseObject({ documentId
 
 // ── Media upload (Strapi upload plugin) ─────────────────────────────────────────────────────────────
 
-export const uploadedFileSchema = z.object({
-  id: z.number(),
-  documentId: z.string().optional(),
-  name: z.string().nullish(),
-  url: z.string(),
-  mime: z.string().nullish(),
-  width: z.number().nullish(),
-  height: z.number().nullish(),
-  formats: imageFormatsSchema.nullish(),
-});
+/** A Strapi upload-plugin file. The upload answer always carries the numeric `id` (it is what
+ *  `uploadMediaAndAttachToEntity` / a profile avatar attaches by), so it is required here. */
+export const uploadedFileSchema = strapiImageSchema.extend({ id: z.number() });
 export type UploadedFile = z.infer<typeof uploadedFileSchema>;
 export const uploadResponseSchema = z.array(uploadedFileSchema);
 
 // ── Firebase token ──────────────────────────────────────────────────────────────────────────────────
 
 export const firebaseTokenResponseSchema = z.object({ firebaseToken: z.string().nullish() }).nullable();
+
+/** `POST /user/organizer-request` → the updated user (only identity kept). */
+export const organizerRoleRequestResponseSchema = z.object({ id: z.number(), documentId: z.string() });

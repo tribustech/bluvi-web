@@ -6,7 +6,6 @@ import * as api from './api';
 import { EMPTY_LAKE_FILTERS, DEFAULT_LAKES_COMMITTED_SEARCH, type LakeFilterValues } from './domain/filters';
 import {
   applyEditToLakePages,
-  createAnglerReviewMutation,
   editReviewMutation,
   invalidateReviewQueries,
   postReviewMutation,
@@ -111,17 +110,6 @@ const review: Review = {
   createdAt: '2026-06-13T16:00:47.948Z',
   author: { id: 146, documentId: 'pnn9', username: 'Andrew', avatar: { url: 'https://x/av.png', thumbnailUrl: null } },
   verified: false,
-};
-const anglerReview = {
-  stars: 5,
-  comment: null,
-  authorName: 'Op',
-  lakeName: 'Chita Lake',
-  createdAt: '2026-09-01T00:00:00.000Z',
-  rulesScore: null,
-  cleanlinessScore: null,
-  behaviorScore: null,
-  tags: ['punctual'],
 };
 const occupancyDay = { date: '2026-09-27', booked: 0, total: 21 };
 const operatorStats = {
@@ -363,7 +351,7 @@ describe('lakes api — catalogs, claims, interest, suggestions', () => {
   });
 });
 
-describe('lakes api — reviews + reputation', () => {
+describe('lakes api — reviews', () => {
   const body = { quality: 5, facilities: 4, atmosphere: 3, recommendToOthers: true, comment: 'ok' };
 
   it('lists a lake’s reviews', async () => {
@@ -394,14 +382,6 @@ describe('lakes api — reviews + reputation', () => {
     expect(calls[0]).toMatchObject({ path: '/feed/reviews/mine', query: { lakeId: 'L' }, auth: 'required' });
   });
 
-  it('creates an angler review and reads a reputation', async () => {
-    const reputation = { avgStars: 5, ratingCount: 1, noShowCount: 0, areas: { rules: null, cleanliness: null, behavior: null }, reviews: [anglerReview] };
-    const { transport, calls } = createFakeTransport([{ data: anglerReview }, { data: reputation }]);
-    await expect(api.createAnglerReview(transport, { booking: 'bk1', stars: 5, tags: ['punctual'] })).resolves.toEqual(anglerReview);
-    await expect(api.getUserReputation(transport, 'pnn9')).resolves.toEqual(reputation);
-    expect(calls[0]).toMatchObject({ method: 'POST', path: '/feed/angler-reviews', body: { data: { booking: 'bk1', stars: 5 } }, auth: 'required' });
-    expect(calls[1]).toMatchObject({ method: 'GET', path: '/feed/users/pnn9/reputation', auth: 'none' });
-  });
 });
 
 describe('lakes api — operator stats + stand stats', () => {
@@ -416,12 +396,6 @@ describe('lakes api — operator stats + stand stats', () => {
     expect(calls[1].auth).toBe('required');
   });
 
-  it('stand stats are a bare array', async () => {
-    const rows = [{ standId: 's', name: '1', coordinates: { latitude: null, longitude: null }, biggestFish: 12, totalCatchesCount: 2, quality: null }];
-    const { transport, calls } = createFakeTransport([rows]);
-    await expect(api.getStandStatsByLakeId(transport, 'L')).resolves.toEqual(rows);
-    expect(calls[0]).toMatchObject({ path: '/lakes/L/statistics', auth: 'none' });
-  });
 });
 
 /* ---------------------------------------------------------------- queries */
@@ -446,11 +420,9 @@ describe('lakes queries', () => {
     expect(q.claimedPublicWatersQuery(transport).queryKey).toEqual(['public-waters', 'claimed']);
     expect(q.lakeReviewsInfiniteQuery(transport, 'L').queryKey).toEqual(['reviews', 'lakeId=', 'L', 'pageSize', 10]);
     expect(q.myLakeReviewQuery(transport, 'L', 'u').queryKey).toEqual(['reviews', 'lakeId=', 'L', 'my']);
-    expect(q.userReputationQuery(transport, 'u').queryKey).toEqual(['reputation', 'u']);
     expect(q.ownedLakesStatsQuery(transport).queryKey).toEqual(['operator-stats', 'owned']);
     expect(q.lakeOperatorStatsQuery(transport, 'L').queryKey).toEqual(['operator-stats', 'lake', 'L', '']);
     expect(q.lakeOperatorStatsQuery(transport, 'L', 'month').queryKey).toEqual(['operator-stats', 'lake', 'L', 'month']);
-    expect(q.lakeStandStatsQuery(transport, 'L').queryKey).toEqual(['stands', 'L', 'stats']);
     expect(q.venueSearchLakesQuery(transport, 'ab').queryKey).toEqual(['partide', 'venue-search', 'ab']);
     expect(
       q.lakeMapClustersQuery(transport, { bbox: BBOX, zoom: 10, filters: EMPTY_LAKE_FILTERS, committedSearch: DEFAULT_LAKES_COMMITTED_SEARCH, enabled: true })
@@ -463,10 +435,8 @@ describe('lakes queries', () => {
     expect(q.lakeQuery(transport, 'a', { enabled: false }).enabled).toBe(false);
     expect(q.lakesFocusBboxQuery(transport, {}).enabled).toBe(false);
     expect(q.myLakeReviewQuery(transport, 'L', undefined).enabled).toBe(false);
-    expect(q.userReputationQuery(transport).enabled).toBe(false);
     expect(q.venueSearchLakesQuery(transport, ' a ').enabled).toBe(false);
     expect(q.lakesInBboxInfiniteQuery(transport, { bbox: null, filters: EMPTY_LAKE_FILTERS, committedSearch: { mode: null }, enabled: true }).enabled).toBe(false);
-    expect(q.lakeStandStatsQuery(transport, 'L').initialData).toEqual([]);
   });
 
   it('pages in-bbox by hasMore and lists by pageCount', () => {
@@ -498,12 +468,11 @@ describe('lakes queries', () => {
   });
 
   it('queryFns hit the api', async () => {
-    const { transport: t, calls } = createFakeTransport([{ data: detail }, [], { data: { total: 3 } }]);
+    const { transport: t, calls } = createFakeTransport([{ data: detail }, { data: { total: 3 } }]);
     const qc = new QueryClient();
     await qc.fetchQuery(q.lakeQuery(t, 'L'));
-    await qc.fetchQuery({ ...q.lakeStandStatsQuery(t, 'L'), initialData: undefined });
     await expect(qc.fetchQuery(q.lakesExploreCountQuery(t, {}))).resolves.toBe(3);
-    expect(calls.map(c => c.path)).toEqual(['/feed/lakes/L', '/lakes/L/statistics', '/lakes/explore/count']);
+    expect(calls.map(c => c.path)).toEqual(['/feed/lakes/L', '/lakes/explore/count']);
   });
 });
 
@@ -584,14 +553,4 @@ describe('lakes mutations', () => {
     expect(qc.getQueryState(q.lakeReviewsKeys.myReviewByLakeId('OTHER'))?.isInvalidated).toBe(false);
   });
 
-  it('angler review invalidates reputation, bookings and operator-stats', () => {
-    const qc = new QueryClient();
-    for (const key of [['reputation', 'u'], ['bookings', 'mine'], ['operator-stats', 'owned'], ['lakes']]) qc.setQueryData(key, {});
-    const { transport } = createFakeTransport();
-    createAnglerReviewMutation(transport, qc).onSuccess!(anglerReview, { booking: 'b', stars: 5 }, undefined, undefined as never);
-    expect(qc.getQueryState(['reputation', 'u'])?.isInvalidated).toBe(true);
-    expect(qc.getQueryState(['bookings', 'mine'])?.isInvalidated).toBe(true);
-    expect(qc.getQueryState(['operator-stats', 'owned'])?.isInvalidated).toBe(true);
-    expect(qc.getQueryState(['lakes'])?.isInvalidated).toBe(false);
-  });
 });

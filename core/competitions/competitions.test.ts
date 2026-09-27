@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createFakeTransport } from '@/tests/transport';
 import { ApiError } from '../transport';
 import * as api from './api';
@@ -15,7 +15,6 @@ import {
   wantsFeaturedHero,
 } from './domain/pulse';
 import {
-  acceptRegistrationMutation,
   applyFollowToCompetition,
   applyPollVote,
   followCompetitionMutation,
@@ -32,7 +31,9 @@ import {
   competitionProfileKeys,
   competitionQuery,
   competitionsKeys,
+  catchThresholdCountsQuery,
   competitionTimelineSnapshotQuery,
+  competitionWeighingStatisticsQuery,
   filteredCompetitionsInfiniteQuery,
   myCompetitionsInfiniteQuery,
   participantStatisticsBatchQuery,
@@ -43,7 +44,7 @@ import {
   sortPollOptionsByVotes,
   standStatsByLakeIdQuery,
 } from './queries';
-import type { CompetitionCard, CompetitionDetail, NotificationPreferences, Poll, Registration } from './schemas';
+import type { CompetitionCard, CompetitionDetail, NotificationPreferences, Poll } from './schemas';
 
 /* ------------------------------------------------------------------ */
 /* Fixtures — trimmed from real local-CMS responses                    */
@@ -435,21 +436,85 @@ describe('competitions api — requests', () => {
     ]);
     expect(calls[1].body).toEqual({ mutedTypes: ['competition:end'] });
   });
+});
 
-  it('reads the statute and the participant stats batch (either envelope)', async () => {
-    const stats = { u1: { catches: 1, biggestCatchKg: 5.2, competitions: 1 } };
-    const { transport, calls } = createFakeTransport([
-      { userRole: 'participant', isReferee: false, isParticipant: true },
-      { data: stats },
-      stats,
-      [],
-    ]);
-    await expect(api.getUSerStatuteForCompetition(transport, 'c')).resolves.toMatchObject({ userRole: 'participant' });
-    await expect(api.postUserStatisticsBatch(transport, ['u1'])).resolves.toEqual(stats);
-    await expect(api.postUserStatisticsBatch(transport, ['u1'])).resolves.toEqual(stats);
-    await expect(api.postUserStatisticsBatch(transport, ['u1'])).resolves.toEqual({});
-    expect(calls[0]).toMatchObject({ path: '/user/profile/competition/c/statute', auth: 'required' });
-    expect(calls[1]).toMatchObject({ method: 'POST', path: '/user/statistics/batch', body: { documentIds: ['u1'] }, auth: 'required' });
+/* ------------------------------------------------------------------ */
+/* Statistici tab — fish services/api/rankings.ts (from the organizer port) */
+/* ------------------------------------------------------------------ */
+
+const timeline = {
+  competitionStart: '2026-05-08T14:00:00.000Z',
+  competitionEnd: '2026-05-10T10:00:00.000Z',
+  rankingType: 'quantity',
+  defaultMetric: 'quantity',
+  availableMetrics: ['quantity', 'catchCount', 'biggestFish'],
+  generatedAt: '2026-05-10T10:05:00.000Z',
+  stands: [
+    {
+      standId: 3677,
+      standName: '1',
+      sectorId: 'riy4',
+      sectorName: 'A',
+      teamName: null,
+      guestName: null,
+      events: [{ weighingId: 4737, t: '2026-05-08T15:00:00.000Z', quantity: 19.6, catchCount: 4, biggestFish: 6.1 }],
+    },
+  ],
+  weighingFingerprints: { '4737': { initialEndDate: '2026-05-08T15:00:00.000Z' } },
+};
+
+describe('competition statistics api', () => {
+  const C = 'cmp1';
+  const W = 'w1';
+  const cases: {
+    name: string;
+    run: (t: ReturnType<typeof createFakeTransport>['transport']) => Promise<unknown>;
+    response: unknown;
+    expect: Record<string, unknown>;
+    result?: unknown;
+  }[] = [
+    {
+      name: 'getCompetitionCatches',
+      run: t => api.getCompetitionCatches(t, C, 'stand', 2, 20, { standKey: 'A2' }),
+      response: { data: [{ id: 'c1', weight: 4.9, standId: 3677, standName: '1', sectorId: 's', sectorName: 'A', teamName: '', guestName: null, participantUsername: 'T', fishName: 'Caras' }], pagination: { page: 2, pageSize: 20, total: 389, pageCount: 20 } },
+      expect: { path: `/competitions/${C}/catches`, query: { sort: 'stand', page: 2, pageSize: 20, standKey: 'A2' }, auth: 'none' },
+    },
+    {
+      name: 'getCompetitionWeighingStatistics',
+      run: t => api.getCompetitionWeighingStatistics(t, C),
+      response: { data: [{ weighingDocumentId: W, startDate: 'a', endDate: 'b', sequenceIndex: 1, totalWeightKg: 19.6, catchCount: 4, weighingType: 'normal', sectorName: 'A', standName: '1' }] },
+      expect: { path: `/competitions/${C}/weighing-statistics`, auth: 'none' },
+    },
+    {
+      name: 'getCatchThresholdCounts',
+      run: t => api.getCatchThresholdCounts(t, C),
+      response: { bySector: [{ sectorName: 'A', count10Plus: 24, count15Plus: 13, count20Plus: 0, count25Plus: 0, count30Plus: 0 }], general: { count10Plus: 24, count15Plus: 13, count20Plus: 0, count25Plus: 0, count30Plus: 0 } },
+      expect: { path: `/competitions/${C}/catch-threshold-counts` },
+    },
+    { name: 'getCompetitionTimelineSnapshot', run: t => api.getCompetitionTimelineSnapshot(t, C), response: { data: timeline }, expect: { path: `/competitions/${C}/timeline-snapshot`, auth: 'optional' }, result: timeline },
+    { name: 'getCompetitionTimelineSnapshot (204)', run: t => api.getCompetitionTimelineSnapshot(t, C), response: null, expect: { path: `/competitions/${C}/timeline-snapshot` }, result: null },
+  ];
+
+  it.each(cases)('$name', async c => {
+    const { transport, calls } = createFakeTransport([c.response]);
+    const result = await c.run(transport);
+    expect(calls[0]).toMatchObject(c.expect);
+    if ('result' in c) expect(result).toEqual(c.result);
+  });
+});
+
+describe('competition statistics queries', () => {
+  const { transport: t } = createFakeTransport();
+
+  it('carries the statistics enabled rules and stale time', () => {
+    expect(competitionWeighingStatisticsQuery(t, 'c', 'notStarted').enabled).toBe(false);
+    expect(competitionTimelineSnapshotQuery(t, 'c', 'draft').enabled).toBe(false);
+    expect(catchThresholdCountsQuery(t, 'c', 'started', { enabled: false }).enabled).toBe(false);
+    expect(catchThresholdCountsQuery(t, 'c', 'completed').staleTime).toBe(300_000);
+    const q = competitionCatchesInfiniteQuery(t, 'c', 'stand', 'started');
+    const page = (p: number) => ({ data: [], pagination: { page: p, pageSize: 20, total: 40, pageCount: 2 } });
+    expect(q.getNextPageParam(page(1), [page(1)], 1, [1])).toBe(2);
+    expect(q.getNextPageParam(page(2), [page(2)], 2, [2])).toBeUndefined();
   });
 });
 
@@ -632,27 +697,6 @@ describe('competitions mutations', () => {
     expect(qc.getQueryData<Poll>(pollKeys.current)!.myVoteOptionId).toBe(1);
     m.onError!(new Error('x'), { pollId: 'nbcy', optionId: 1 }, ctx, {} as never);
     expect(qc.getQueryData(pollKeys.current)).toEqual(poll);
-  });
-
-  it('accepts a registration optimistically and marks the list stale WITHOUT refetching', async () => {
-    const qc = client();
-    const key = competitionsKeys.registrationsListById('c');
-    const list = [
-      { id: 1, documentId: 'reg-1', registrationStatus: 'pending', teamName: null },
-      { id: 2, documentId: 'reg-2', registrationStatus: 'registered', teamName: null },
-    ] as Registration[];
-    qc.setQueryData(key, list);
-    const invalidate = vi.spyOn(qc, 'invalidateQueries');
-    const { transport } = createFakeTransport([null]);
-    const m = acceptRegistrationMutation(transport, qc, 'c');
-    const ctx = await m.onMutate!('reg-1', {} as never);
-    expect(qc.getQueryData<Registration[]>(key)![0].registrationStatus).toBe('registered');
-    m.onError!(new Error('x'), 'reg-1', ctx, {} as never);
-    expect(qc.getQueryData(key)).toEqual(list);
-    await m.onSettled!(undefined, null, 'reg-1', ctx, {} as never);
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: key, refetchType: 'none' });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: competitionsKeys.byId('c'), exact: true });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: competitionCardsKeys.root });
   });
 
   it('applies muted types optimistically and stores the server answer', async () => {
