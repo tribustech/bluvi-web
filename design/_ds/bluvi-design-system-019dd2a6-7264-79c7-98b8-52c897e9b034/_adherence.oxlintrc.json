@@ -1,0 +1,222 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "banner/**",
+              "chat/**",
+              "ui_kits/mobile/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Nunito))/i]",
+        "message": "Font not provided by the design system. Available: Nunito."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {},
+    "tokens": [
+      "--bg-card",
+      "--bg-input",
+      "--bg-page",
+      "--bg-page-tint",
+      "--bg-tabbar",
+      "--black",
+      "--border-brand",
+      "--border-divider",
+      "--border-subtle",
+      "--brand",
+      "--brand-hover",
+      "--brand-tint",
+      "--cyan-6",
+      "--fg-body",
+      "--fg-link",
+      "--fg-muted",
+      "--fg-on-brand",
+      "--fg-placeholder",
+      "--fg-primary",
+      "--font-family",
+      "--gray-1",
+      "--gray-10",
+      "--gray-12",
+      "--gray-2",
+      "--gray-3",
+      "--gray-4",
+      "--gray-5",
+      "--gray-6",
+      "--gray-7",
+      "--green-2",
+      "--green-3",
+      "--green-3-20",
+      "--green-5",
+      "--green-7",
+      "--indigo-1",
+      "--indigo-2",
+      "--indigo-4",
+      "--indigo-5",
+      "--indigo-7",
+      "--radius-2xl",
+      "--radius-lg",
+      "--radius-md",
+      "--radius-pill",
+      "--radius-sm",
+      "--radius-xl",
+      "--radius-xs",
+      "--red-1",
+      "--red-5",
+      "--red-5-50",
+      "--red-6",
+      "--shadow-button",
+      "--shadow-card",
+      "--shadow-glow",
+      "--shadow-tabbar",
+      "--space-1",
+      "--space-2",
+      "--space-3",
+      "--space-4",
+      "--space-5",
+      "--space-6",
+      "--space-7",
+      "--space-8",
+      "--space-9",
+      "--status-danger",
+      "--status-live",
+      "--status-success",
+      "--status-warning",
+      "--type-body",
+      "--type-body2",
+      "--type-heading1",
+      "--type-heading2",
+      "--type-heading3",
+      "--type-helper",
+      "--type-helper2",
+      "--white",
+      "--yellow-1",
+      "--yellow-1-50",
+      "--yellow-5",
+      "--yellow-6"
+    ],
+    "tokenKinds": {
+      "--indigo-1": "color",
+      "--indigo-2": "color",
+      "--indigo-4": "color",
+      "--indigo-5": "color",
+      "--indigo-7": "color",
+      "--cyan-6": "color",
+      "--green-2": "color",
+      "--green-3": "color",
+      "--green-3-20": "color",
+      "--green-5": "color",
+      "--green-7": "color",
+      "--red-1": "color",
+      "--red-5": "color",
+      "--red-5-50": "color",
+      "--red-6": "color",
+      "--yellow-1": "color",
+      "--yellow-1-50": "color",
+      "--yellow-5": "color",
+      "--yellow-6": "color",
+      "--gray-1": "color",
+      "--gray-2": "color",
+      "--gray-3": "color",
+      "--gray-4": "color",
+      "--gray-5": "color",
+      "--gray-6": "color",
+      "--gray-7": "color",
+      "--gray-10": "color",
+      "--gray-12": "color",
+      "--white": "color",
+      "--black": "color",
+      "--bg-page": "color",
+      "--bg-page-tint": "color",
+      "--bg-card": "color",
+      "--bg-input": "color",
+      "--bg-tabbar": "color",
+      "--fg-primary": "color",
+      "--fg-body": "color",
+      "--fg-muted": "color",
+      "--fg-placeholder": "color",
+      "--fg-on-brand": "color",
+      "--fg-link": "color",
+      "--brand": "color",
+      "--brand-hover": "color",
+      "--brand-tint": "color",
+      "--border-subtle": "color",
+      "--border-divider": "color",
+      "--border-brand": "color",
+      "--status-success": "color",
+      "--status-warning": "color",
+      "--status-danger": "color",
+      "--status-live": "color",
+      "--radius-xs": "radius",
+      "--radius-sm": "radius",
+      "--radius-md": "radius",
+      "--radius-lg": "radius",
+      "--radius-xl": "radius",
+      "--radius-2xl": "radius",
+      "--radius-pill": "radius",
+      "--shadow-card": "shadow",
+      "--shadow-button": "shadow",
+      "--shadow-glow": "shadow",
+      "--shadow-tabbar": "shadow",
+      "--space-1": "spacing",
+      "--space-2": "spacing",
+      "--space-3": "spacing",
+      "--space-4": "spacing",
+      "--space-5": "spacing",
+      "--space-6": "spacing",
+      "--space-7": "spacing",
+      "--space-8": "spacing",
+      "--space-9": "spacing",
+      "--font-family": "font",
+      "--type-heading1": "font",
+      "--type-heading2": "font",
+      "--type-heading3": "font",
+      "--type-body": "font",
+      "--type-body2": "font",
+      "--type-helper": "font",
+      "--type-helper2": "font"
+    },
+    "fontFamilies": [
+      "Nunito"
+    ]
+  }
+}

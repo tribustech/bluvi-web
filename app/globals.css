@@ -1,1 +1,287 @@
 @import "tailwindcss";
+
+/*
+ * Bluvi web tokens — source: design/Fundatii.dc.html (v0.1), itself derived from fish
+ * theme.ts + components/Typography.tsx + Badge.tsx + helpers/table/getColorsBySector.ts.
+ *
+ * Semantic colors are CSS variables so the proposed dark palette can swap them under
+ * [data-theme="dark"]. Dark is PREPARED ONLY (2026-10-03): nothing sets the attribute yet and
+ * prefers-color-scheme is deliberately not wired.
+ */
+
+:root {
+  /* Cool ramp: page is the ground, surface is the card. */
+  --bluvi-page: #f4f5fa;
+  --bluvi-surface: #ffffff;
+  --bluvi-raised: #ffffff;
+  --bluvi-soft-fill: #f2f4f7;
+  --bluvi-hairline: #eff1f5;
+  --bluvi-ink: #101828;
+  --bluvi-ink-2: #475467;
+  --bluvi-muted: #667085;
+  --bluvi-navy: #20263d;
+  --bluvi-lavender: #dce1ff;
+  --bluvi-accent: #6366f1;
+  --bluvi-accent-ink: #4338ca;
+  --bluvi-accent-tint: #f0f3fd;
+  --bluvi-accent-tint-2: #e0e7ff;
+  --bluvi-live: #e11d48;
+  --bluvi-live-dot: #fb7185;
+  --bluvi-success: #15803d;
+  --bluvi-font: var(--font-nunito), ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bluvi-page: #0e1220;
+  --bluvi-surface: #171c2e;
+  --bluvi-raised: #20263d;
+  --bluvi-soft-fill: #20263d;
+  --bluvi-hairline: #262d45;
+  --bluvi-ink: #f2f4fa;
+  --bluvi-ink-2: #b8c0d9;
+  --bluvi-muted: #8c95b0;
+  --bluvi-navy: #20263d;
+  --bluvi-lavender: #dce1ff;
+  --bluvi-accent: #818cf8;
+  --bluvi-accent-ink: #c7d2fe;
+  --bluvi-accent-tint: #2a3160;
+  --bluvi-accent-tint-2: #2a3160;
+  --bluvi-live: #fb7185;
+  --bluvi-live-dot: #fb7185;
+  --bluvi-success: #4ade80;
+  color-scheme: dark;
+}
+
+@theme inline {
+  /* ---- semantic (theme-aware) ---- */
+  --color-page: var(--bluvi-page);
+  --color-surface: var(--bluvi-surface);
+  --color-raised: var(--bluvi-raised);
+  --color-soft-fill: var(--bluvi-soft-fill);
+  --color-hairline: var(--bluvi-hairline);
+  --color-ink: var(--bluvi-ink);
+  --color-ink-2: var(--bluvi-ink-2);
+  --color-muted: var(--bluvi-muted);
+  --color-navy: var(--bluvi-navy);
+  --color-lavender: var(--bluvi-lavender);
+  --color-accent: var(--bluvi-accent);
+  --color-accent-ink: var(--bluvi-accent-ink);
+  --color-accent-tint: var(--bluvi-accent-tint);
+  --color-accent-tint-2: var(--bluvi-accent-tint-2);
+  --color-live: var(--bluvi-live);
+  --color-live-dot: var(--bluvi-live-dot);
+  --color-success: var(--bluvi-success);
+
+  --font-sans: var(--bluvi-font);
+}
+
+@theme {
+  /* ---- brand ramp (fixed, from theme.ts) ---- */
+  --color-indigo-1: #f0f3fd;
+  --color-indigo-2: #e0e7ff;
+  --color-indigo-4: #a5b4fc;
+  --color-indigo-5: #6366f1;
+  --color-indigo-7: #4338ca;
+
+  /* ---- status pairs (Badge.tsx + toastConfig), text AA on background ---- */
+  --color-status-live-bg: #e11d48;
+  --color-status-live-fg: #ffffff;
+  --color-status-success-bg: #dcfce7;
+  --color-status-success-fg: #15803d;
+  --color-status-warning-bg: #fef9c3;
+  --color-status-warning-fg: #854d0e;
+  --color-status-danger-bg: #fee4e2;
+  --color-status-danger-fg: #be123c;
+  --color-status-info-bg: #f0f3fd;
+  --color-status-info-fg: #4338ca;
+  --color-status-neutral-bg: #f2f4f7;
+  --color-status-neutral-fg: #475467;
+  /* Badges stay identical to the app (green3 is 2.3:1 — flagged in Fundații, kept). */
+  --color-green-3: #6bbaa3;
+  --color-yellow-5: #eab308;
+
+  /* ---- sectors A–X (getColorsBySector.ts): only a 4px row stripe + dot, never under text ---- */
+  --color-sector-a: #1976d2;
+  --color-sector-b: #e64a19;
+  --color-sector-c: #388e3c;
+  --color-sector-d: #7b1fa2;
+  --color-sector-e: #f57c00;
+  --color-sector-f: #0097a7;
+  --color-sector-g: #c2185b;
+  --color-sector-h: #5d4037;
+  --color-sector-i: #455a64;
+  --color-sector-j: #afb42b;
+  --color-sector-k: #0288d1;
+  --color-sector-l: #d32f2f;
+  --color-sector-m: #00796b;
+  --color-sector-n: #512da8;
+  --color-sector-o: #ef6c00;
+  --color-sector-p: #689f38;
+  --color-sector-q: #1565c0;
+  --color-sector-r: #ad1457;
+  --color-sector-s: #00838f;
+  --color-sector-t: #6a1b9a;
+  --color-sector-u: #4e342e;
+  --color-sector-v: #2e7d32;
+  --color-sector-w: #f9a825;
+  --color-sector-x: #b71c1c;
+
+  /* ---- spacing: Tailwind's 4px base already matches Fundații 1..16 (4..64px) ---- */
+  --spacing: 4px;
+
+  /* ---- radii ---- */
+  --radius-badge: 2px;
+  --radius-control: 10px;
+  --radius-avatar: 12px;
+  --radius-card: 16px;
+  --radius-bento: 20px;
+
+  /* ---- elevation ---- */
+  --shadow-e0: inset 0 0 0 1px var(--bluvi-hairline);
+  --shadow-e1: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.04);
+  --shadow-e2: 0 12px 32px -8px rgba(16, 24, 40, 0.18);
+  --shadow-glow: 0 2px 10px rgba(99, 102, 241, 0.15);
+  --shadow-button: 0 2px 4px rgba(10, 10, 10, 0.1);
+
+  /* ---- breakpoints: 375 base · 768 tablet/rail · 1280 desktop/menu · 1440 wide ---- */
+  --breakpoint-md: 768px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1440px;
+
+  /* ---- motion: Tamagui springs as CSS linear() (fast/select/medium/slow) ---- */
+  --ease-fast: linear(0, 0.33 12%, 0.71 30%, 0.92 50%, 0.99 70%, 1);
+  --ease-select: linear(0, 0.5 15%, 1.08 40%, 0.98 60%, 1.01 80%, 1);
+  --ease-medium: linear(0, 0.4 15%, 1.06 45%, 0.98 65%, 1);
+  --ease-slow: linear(0, 0.2 15%, 0.62 35%, 0.88 55%, 0.98 75%, 1);
+  --duration-fast: 180ms;
+  --duration-medium: 300ms;
+  --duration-slow: 420ms;
+}
+
+/*
+ * Type scale — "treapta face ierarhia, greutatea face emfaza": 800 = digits, 700 = titles,
+ * 600 = text. Mobile sizes by default; desktop column applies from 1280px. Steps marked ✦ in
+ * Fundații (count, pageTitle) are web additions proposed for Typography.tsx.
+ * Signature number rule: letter-spacing = −6.25% of the size.
+ */
+:root {
+  --t-count: 800 64px/60px var(--bluvi-font);
+  --t-count-ls: -4px;
+  --t-hero: 800 40px/44px var(--bluvi-font);
+  --t-page-title: 700 28px/34px var(--bluvi-font);
+  --t-display: 800 26px/30px var(--bluvi-font);
+  --t-stat: 800 20px/24px var(--bluvi-font);
+  --t-title1: 700 20px/26px var(--bluvi-font);
+  --t-title2: 700 17px/22px var(--bluvi-font);
+  --t-heading: 700 16px/22px var(--bluvi-font);
+  --t-body: 600 14px/20px var(--bluvi-font);
+  --t-body-strong: 700 14px/20px var(--bluvi-font);
+  --t-label: 700 12px/16px var(--bluvi-font);
+  --t-caption: 600 12px/16px var(--bluvi-font);
+  --t-micro: 600 10px/14px var(--bluvi-font);
+}
+@media (min-width: 1280px) {
+  :root {
+    --t-count: 800 96px/88px var(--bluvi-font);
+    --t-count-ls: -6px;
+    --t-hero: 800 48px/52px var(--bluvi-font);
+    --t-page-title: 700 32px/38px var(--bluvi-font);
+    --t-display: 800 32px/36px var(--bluvi-font);
+    --t-stat: 800 22px/26px var(--bluvi-font);
+    --t-title1: 700 28px/34px var(--bluvi-font);
+    --t-title2: 700 20px/26px var(--bluvi-font);
+    --t-body: 600 15px/22px var(--bluvi-font);
+    --t-body-strong: 700 15px/22px var(--bluvi-font);
+    --t-micro: 600 11px/14px var(--bluvi-font);
+  }
+}
+
+@utility t-count {
+  font: var(--t-count);
+  letter-spacing: var(--t-count-ls);
+  font-variant-numeric: tabular-nums;
+}
+@utility t-hero {
+  font: var(--t-hero);
+  letter-spacing: -2px;
+}
+@utility t-page-title {
+  font: var(--t-page-title);
+  letter-spacing: -0.5px;
+  text-wrap: balance;
+}
+@utility t-display {
+  font: var(--t-display);
+  letter-spacing: -1px;
+}
+@utility t-stat {
+  font: var(--t-stat);
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+@utility t-title1 {
+  font: var(--t-title1);
+  text-wrap: balance;
+}
+@utility t-title2 {
+  font: var(--t-title2);
+}
+@utility t-heading {
+  font: var(--t-heading);
+}
+@utility t-body {
+  font: var(--t-body);
+}
+@utility t-body-strong {
+  font: var(--t-body-strong);
+}
+@utility t-label {
+  font: var(--t-label);
+}
+@utility t-caption {
+  font: var(--t-caption);
+}
+@utility t-micro {
+  font: var(--t-micro);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    background: var(--color-page);
+    color: var(--color-ink);
+    font: var(--t-body);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 120ms !important;
+      animation-iteration-count: 1 !important;
+      transition-property: opacity !important;
+      transition-duration: 120ms !important;
+    }
+  }
+}
+
+/* The LIVE dot is the only thing that pulses (Fundații §06: 1.4s loop, opacity). */
+@keyframes bluvi-live {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@utility animate-live {
+  animation: bluvi-live 1.4s ease-in-out infinite;
+}

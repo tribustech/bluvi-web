@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/bluvi-design-system-019dd2a6-7264-79c7-98b8-52c897e9b034/banner/colors_and_type.css">
+<link rel="stylesheet" href="_ds/bluvi-design-system-019dd2a6-7264-79c7-98b8-52c897e9b034/colors_and_type.css">
+<script src="_ds/bluvi-design-system-019dd2a6-7264-79c7-98b8-52c897e9b034/_ds_bundle.js"></script>
+<style>
+html,body{margin:0;background:#E7E9F1;font-family:Nunito,system-ui,sans-serif;color:#000;-webkit-font-smoothing:antialiased}
+a{color:#6366F1;text-decoration:none}a:hover{color:#4338CA;text-decoration:underline}
+*:focus-visible{outline:2px solid #6366F1;outline-offset:2px}
+@keyframes halo{0%{transform:scale(1);opacity:0}6%{opacity:.55}62%{opacity:0;transform:scale(3.6)}100%{opacity:0;transform:scale(3.6)}}
+</style>
+</helmet>
+
+<section style="padding:64px;display:flex;flex-direction:column;gap:32px">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:1100px">
+    <div style="font-size:13px;font-weight:800;color:#6366F1;letter-spacing:1px">ACASĂ · branch develop</div>
+    <div style="font-size:15px;line-height:22px;font-weight:600;color:#475467;text-wrap:pretty">Mobil = ordinea și componentele din (tabs)/index.tsx, 1:1. Desktop = aceleași blocuri, împărțite după rol: coloana principală e pentru pescuit (concursuri, bălți, pescari, noutăți), coloana din dreapta e „ce mă așteaptă pe mine” (partida activă, concursul meu live, panoul de organizator, balta mea, instrumente, sondaj).</div>
+    <div style="font-size:12px;line-height:18px;font-weight:600;color:#667085;text-wrap:pretty">Surse (develop): app/(app)/(tabs)/index.tsx · OrganizerBanner.tsx · OwnedLakesCard.tsx · OperatorQuickAction.tsx · WidgetsList.tsx · partide/community/NoActiveCta.tsx · ActivePartidaDock.tsx · CompetitionCardsRail.tsx · CompetitionRailCard.tsx · PollCard.tsx · RaffleDashboardCard.tsx · SuggestedAnglersRail.tsx · SuggestedAnglerCard.tsx · MiniatureLakeCard.tsx · LakeRequestBanner.tsx · NewsHorizontalList.tsx · NewsCard.tsx · FeedbackSection.tsx · SeeAllTitle.tsx · Typography.tsx</div>
+  </div>
+
+  <div style="display:flex;gap:48px;align-items:flex-start">
+
+    <!-- ================= MOBIL LOGAT ================= -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:13px;font-weight:700;color:#475467">Mobil · logat · organizator + operator · partidă activă</div>
+      <div data-screen-label="Acasă mobil logat" style="width:375px;height:2140px;background:#F2F2F2;border-radius:28px;overflow:hidden;position:relative;box-shadow:0 12px 32px -8px rgba(16,24,40,.18)">
+        <div style="height:47px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-family:system-ui,-apple-system,sans-serif;font-size:15px;font-weight:600"><span>9:41</span><span style="font-size:12px;letter-spacing:1px">▮▮▮ ◠ ▭</span></div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:10px">
+          <!-- profile card -->
+          <div style="margin:0 -5px;padding:12px;background:#FFFFFF;border-radius:16px;box-shadow:0 2px 10px rgba(99,102,241,.15);display:flex;gap:10px">
+            <div style="width:70px;height:70px;flex:0 0 70px;border-radius:12px;background:#6366F1;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#FFFFFF">MP</div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:4px;margin-top:4px">
+              <div style="font-size:20px;line-height:26px;font-weight:700">Salut, mihai.popa!</div>
+              <div style="font-size:14px;line-height:20px;font-weight:600;color:#737373">Pescuitul e mai frumos când ai cu cine să îți spui poveștile!</div>
+            </div>
+            <div style="width:24px;height:24px;position:relative;margin:2px"><span style="position:absolute;inset:0;background:#000;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/bell-alert.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/bell-alert.svg) center/contain no-repeat"></span><span style="position:absolute;top:0;right:0;width:10px;height:10px;border-radius:5px;background:#E11D48"></span></div>
+          </div>
+
+          <!-- OrganizerBanner -->
+          <div style="margin:0 -5px;border-radius:16px;background:linear-gradient(135deg,#312E81,#4338CA,#4F46E5);box-shadow:0 4px 12px rgba(30,27,75,.25);padding:16px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:14px;line-height:20px;font-weight:600;color:#FFFFFF">Panou organizator</div><div style="display:flex;align-items:center;gap:2px;font-size:12px;font-weight:600;color:rgba(255,255,255,.85)">Deschide<span style="width:14px;height:14px;background:rgba(255,255,255,.85);-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat"></span></div></div>
+            <div style="display:flex;align-items:center">
+              <sc-for list="{{ orgStats }}" as="s" hint-placeholder-count="3">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border-left:{{ s.divider }}">
+                  <div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:4px;background:{{ s.dot }}"></span><div style="font-size:20px;line-height:26px;font-weight:700;color:#FFFFFF">{{ s.value }}</div></div>
+                  <div style="font-size:12px;line-height:16px;font-weight:600;color:rgba(255,255,255,.85)">{{ s.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- OwnedLakesCard -->
+          <div style="margin:0 -5px;background:#FFFFFF;border-radius:16px">
+            <div style="display:flex;align-items:center;gap:8px;padding:16px 16px 12px"><div style="flex:1;font-size:16px;line-height:22px;font-weight:700;color:#101828">Balta mea · Balta Siliștea</div><div style="font-size:12px;font-weight:600;color:#667085">18 / 32 standuri</div></div>
+            <sc-for list="{{ ownedRows }}" as="r" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:12px;padding:0 16px 16px">
+                <div style="width:36px;height:36px;flex:0 0 36px;border-radius:18px;background:{{ r.bg }};display:flex;align-items:center;justify-content:center"><span style="width:19px;height:19px;background:{{ r.color }};-webkit-mask:url({{ r.icon }}) center/contain no-repeat;mask:url({{ r.icon }}) center/contain no-repeat"></span></div>
+                <div style="flex:1;min-width:0"><div style="font-size:14px;line-height:20px;font-weight:700;color:#101828">{{ r.title }}</div><div style="font-size:12px;line-height:16px;font-weight:600;color:#667085">{{ r.sub }}</div></div>
+                <div style="font-size:14px;font-weight:700;color:#4338CA">Vezi</div>
+              </div>
+            </sc-for>
+            <div style="height:1px;background:#EFF1F5"></div>
+            <div style="display:flex;padding:14px 8px">
+              <sc-for list="{{ quick }}" as="q" hint-placeholder-count="3">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:4px 0">
+                  <div style="position:relative"><div style="width:28px;height:28px;border-radius:8px;background:{{ q.color }};display:flex;align-items:center;justify-content:center"><span style="width:16px;height:16px;background:#FFFFFF;-webkit-mask:url({{ q.icon }}) center/contain no-repeat;mask:url({{ q.icon }}) center/contain no-repeat"></span></div><sc-if value="{{ q.hasBadge }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-6px;right:-8px;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:999px;background:#DC2626;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#FFFFFF">{{ q.badge }}</div></sc-if></div>
+                  <div style="font-size:11px;line-height:16px;font-weight:600;color:#212121">{{ q.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- WidgetsList -->
+          <div style="display:flex;flex-direction:column">
+            <div style="font-size:17px;line-height:22px;font-weight:700">Instrumente</div>
+            <div style="display:flex;gap:10px;margin:10px 0">
+              <sc-for list="{{ widgets }}" as="w" hint-placeholder-count="3">
+                <div style="width:84px;display:flex;flex-direction:column;align-items:center;gap:6px">
+                  <div style="width:64px;height:64px;position:relative">
+                    <div style="width:64px;height:64px;border-radius:16px;background:url({{ w.img }}) center/cover;opacity:{{ w.op }}"></div>
+                    <sc-if value="{{ w.hasBadge }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#6366F1;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#FFFFFF">{{ w.badge }}</div></sc-if>
+                    <sc-if value="{{ w.hasPill }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:0;right:0;bottom:-4px;display:flex;justify-content:center"><div style="background:{{ w.pillBg }};border-radius:8px;padding:2px 6px;box-shadow:0 1px 2px rgba(0,0,0,.2);font-size:12px;line-height:16px;font-weight:700;color:#FFFFFF">{{ w.pill }}</div></div></sc-if>
+                  </div>
+                  <div style="font-size:14px;line-height:20px;font-weight:600;color:#737373;text-align:center">{{ w.title }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- Live competitions rail -->
+          <div style="display:flex;align-items:center"><div style="flex:1;font-size:17px;line-height:22px;font-weight:700">Concursuri live (3)</div><div style="display:flex;align-items:center;font-size:14px;font-weight:600;color:#6366F1">Vezi toate<span style="width:12px;height:12px;background:#6366F1;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat"></span></div></div>
+          <div style="display:flex;gap:10px;margin:0 -20px;padding:4px 20px 16px;overflow:hidden">
+            <sc-for list="{{ liveCards }}" as="c" hint-placeholder-count="2">
+              <div style="flex:0 0 225px;width:225px;background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 2px 6px rgba(24,34,56,.1);display:flex;flex-direction:column">
+                <div style="height:120px;background:#EBEBEB url({{ c.img }}) center/cover;position:relative">
+                  <div style="position:absolute;top:8px;right:8px;display:flex;gap:6px;align-items:center">
+                    <sc-if value="{{ c.live }}" hint-placeholder-val="{{ true }}"><div style="height:22px;padding:0 8px;border-radius:11px;background:#E11D48;display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:3px;background:#FFFFFF"></span><span style="font-size:11px;font-weight:800;color:#FFFFFF">LIVE</span></div></sc-if>
+                    <div style="height:22px;padding:0 6px;box-sizing:border-box;border-radius:4px;background:#404040;display:flex;align-items:center;gap:3px"><span style="width:12px;height:12px;background:#FFFFFF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat"></span><span style="font-size:10px;font-weight:700;color:#FFFFFF">{{ c.viewers }}</span></div>
+                  </div>
+                </div>
+                <div style="padding:10px 12px;display:flex;flex-direction:column;gap:3px;flex:1">
+                  <div style="font-size:11px;line-height:15px;font-weight:800;letter-spacing:.4px;color:{{ c.dateColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.date }}</div>
+                  <div style="font-size:15px;line-height:20px;font-weight:700;min-height:40px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ c.name }}</div>
+                  <div style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#6266CC;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/map-pin.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/map-pin.svg) center/contain no-repeat"></span><div style="font-size:12px;font-weight:700;color:#6266CC">{{ c.lake }}</div></div>
+                  <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap">
+                    <div style="display:flex;align-items:center;gap:4px;padding:3px 6px;border-radius:6px;background:#EDE9FE"><span style="width:10px;height:10px;background:#5B21B6;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/trophy.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/trophy.svg) center/contain no-repeat"></span><span style="font-size:11px;font-weight:700;color:#5B21B6">{{ c.ranking }}</span></div>
+                    <div style="display:flex;align-items:center;gap:4px;padding:3px 6px;border-radius:6px;background:#E8F0FC"><span style="width:10px;height:10px;background:#1E467A;-webkit-mask:url({{ c.fIcon }}) center/contain no-repeat;mask:url({{ c.fIcon }}) center/contain no-repeat"></span><span style="font-size:11px;font-weight:700;color:#1E467A">{{ c.format }}</span></div>
+                  </div>
+                </div>
+                <div style="height:56px;border-top:1px solid #F2F2F2;display:flex;align-items:center;gap:14px;padding:0 12px">
+                  <sc-for list="{{ c.stats }}" as="s" hint-placeholder-count="2">
+                    <div style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#4F46E5;-webkit-mask:url({{ s.icon }}) center/contain no-repeat;mask:url({{ s.icon }}) center/contain no-repeat"></span><span style="font-size:14px;font-weight:800;color:#101828">{{ s.v }}</span><span style="font-size:12px;font-weight:600;color:#6B7280">{{ s.u }}</span></div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- PollCard -->
+          <div style="background:#F0F3FD;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;font-size:16px;line-height:22px;font-weight:700;color:#404040">Ce momeală folosești toamna?</div><div style="width:36px;height:36px;border-radius:12px;background:#FFFFFF;display:flex;align-items:center;justify-content:center"><span style="width:18px;height:18px;background:#0A0E16;-webkit-mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/share-2.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/share-2.svg) center/contain no-repeat"></span></div></div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ poll }}" as="o" hint-placeholder-count="3">
+                <div style="height:44px;border-radius:12px;background:#FFFFFF;position:relative;overflow:hidden;display:flex;align-items:center;padding:0 14px;box-shadow:{{ o.ring }}">
+                  <div style="position:absolute;left:0;top:0;bottom:0;width:{{ o.pct }}%;background:{{ o.fill }}"></div>
+                  <div style="position:relative;flex:1;font-size:14px;font-weight:700">{{ o.label }}</div>
+                  <div style="position:relative;font-size:14px;font-weight:800;color:{{ o.pctColor }}">{{ o.pct }}%</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="align-self:center;font-size:14px;font-weight:600;color:#4F46E5">Vezi toate opțiunile</div>
+          </div>
+
+          <!-- SuggestedAnglersRail -->
+          <div style="display:flex;flex-direction:column;gap:12px;padding:6px 0 16px">
+            <div style="display:flex;align-items:center"><div style="flex:1;font-size:17px;line-height:22px;font-weight:700">Pescari pe care îi poți urmări</div><div style="display:flex;align-items:center;font-size:14px;font-weight:600;color:#6366F1">Vezi toate<span style="width:12px;height:12px;background:#6366F1;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat"></span></div></div>
+            <div style="display:flex;gap:10px;margin:0 -20px;padding:0 20px;overflow:hidden">
+              <sc-for list="{{ anglers }}" as="a" hint-placeholder-count="3">
+                <div style="flex:0 0 160px;width:160px;box-sizing:border-box;background:#FFFFFF;border-radius:16px;padding:16px 12px 12px;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative">
+                  <span style="position:absolute;top:12px;right:12px;width:14px;height:14px;background:#A3A3A3;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/x-mark.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/x-mark.svg) center/contain no-repeat"></span>
+                  <div style="width:64px;height:64px;border-radius:32px;background:{{ a.bg }};color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700">{{ a.ini }}</div>
+                  <div style="display:flex;flex-direction:column;align-items:center;gap:2px;width:100%"><div style="font-size:14px;line-height:20px;font-weight:700">{{ a.name }}</div><div style="font-size:12px;line-height:16px;font-weight:600;color:#737373">{{ a.followers }}</div></div>
+                  <div style="display:flex;gap:16px;min-height:36px">
+                    <sc-for list="{{ a.stats }}" as="s" hint-placeholder-count="2"><div style="display:flex;flex-direction:column;align-items:center;min-width:48px"><div style="font-size:14px;line-height:20px;font-weight:600;color:#171717">{{ s.v }}</div><div style="font-size:10px;line-height:14px;font-weight:600;color:#737373">{{ s.l }}</div></div></sc-for>
+                  </div>
+                  <div style="width:100%;height:34px;border-radius:10px;background:#6366F1;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#FFFFFF">Urmărește</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- Bălți -->
+          <div style="display:flex;align-items:center"><div style="flex:1;font-size:17px;line-height:22px;font-weight:700">Bălți (214)</div><div style="display:flex;align-items:center;font-size:14px;font-weight:600;color:#6366F1">Vezi toate<span style="width:12px;height:12px;background:#6366F1;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat"></span></div></div>
+          <div style="display:flex;gap:10px;margin:0 -20px;padding:0 20px 16px;overflow:hidden">
+            <sc-for list="{{ lakes }}" as="l" hint-placeholder-count="3">
+              <div style="flex:0 0 200px;width:200px;background:#FFFFFF;border-radius:10px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,.08)">
+                <div style="height:100px;background:url({{ l.img }}) center/cover;border-radius:10px"></div>
+                <div style="padding:10px;display:flex;flex-direction:column;gap:4px">
+                  <div style="display:flex;gap:4px;align-items:flex-start"><div style="flex:1;font-size:14px;line-height:20px;font-weight:700">{{ l.name }}</div><div style="display:flex;align-items:center;gap:2px"><span style="width:14px;height:14px;background:#F59E0B;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/star.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/star.svg) center/contain no-repeat"></span><span style="font-size:12px;font-weight:700">{{ l.rating }}</span></div></div>
+                  <div style="font-size:14px;line-height:20px;font-weight:600;color:#525252">{{ l.county }}</div>
+                  <div style="display:flex;gap:4px">
+                    <sc-for list="{{ l.fac }}" as="f" hint-placeholder-count="4"><span style="width:20px;height:20px;display:flex;align-items:center;justify-content:center"><span style="width:13px;height:13px;background:{{ f.c }};-webkit-mask:url({{ f.i }}) center/contain no-repeat;mask:url({{ f.i }}) center/contain no-repeat"></span></span></sc-for>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- LakeRequestBanner -->
+          <div style="border-radius:16px;overflow:hidden;position:relative;box-shadow:0 2px 10px rgba(99,102,241,.15)">
+            <div style="position:absolute;inset:0;background:url(assets/lake.jpeg) center/cover"></div>
+            <div style="position:absolute;inset:0;background:rgba(0,0,0,.4)"></div>
+            <div style="position:relative;padding:16px;display:flex;flex-direction:column;gap:12px">
+              <div style="font-size:20px;line-height:26px;font-weight:700;color:#FFFFFF;text-shadow:0 1px 2px rgba(0,0,0,.5)">Nu găsești balta preferată?</div>
+              <div style="font-size:14px;line-height:20px;font-weight:600;color:rgba(255,255,255,.9)">Sugerează-ne o baltă care lipseste și o vom adăuga în aplicație! Vom lua legatura cu administratorul bălții pentru a prealua detaliile actualizate.</div>
+              <div style="font-size:14px;line-height:20px;font-weight:600;color:rgba(255,255,255,.9)">🎉 Îți vom trimite un mesaj după ce o adaugam.</div>
+              <div style="display:flex;justify-content:flex-end;margin-top:8px"><div style="padding:8px 20px;border-radius:10px;border:2px solid #FFFFFF;background:rgba(255,255,255,.9);font-size:14px;font-weight:700;color:#000">Sugerează baltă</div></div>
+            </div>
+          </div>
+
+          <!-- Noutăți -->
+          <div style="display:flex;align-items:center;padding-top:6px"><div style="flex:1;font-size:17px;line-height:22px;font-weight:700">Noutăți</div><div style="display:flex;align-items:center;font-size:14px;font-weight:600;color:#6366F1">Vezi toate<span style="width:12px;height:12px;background:#6366F1;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat"></span></div></div>
+          <div style="display:flex;gap:10px;margin:0 -20px;padding:0 20px 16px;overflow:hidden">
+            <sc-for list="{{ news }}" as="n" hint-placeholder-count="2">
+              <div style="flex:0 0 225px;width:225px;background:#FFFFFF;border-radius:10px;overflow:hidden;box-shadow:0 5px 3.84px rgba(0,0,0,.25)">
+                <div style="height:200px;background:url({{ n.img }}) center/cover;border-radius:10px"></div>
+                <div style="padding:10px;display:flex;flex-direction:column;gap:4px">
+                  <div style="display:flex;align-items:center;gap:16px"><div style="flex:1;font-size:12px;font-weight:600;color:#737373">{{ n.date }}</div><div style="padding:1.5px 3px;border-radius:2px;background:rgba(107,186,163,.125);font-size:12px;font-weight:600;color:#6BBAA3">{{ n.cat }}</div></div>
+                  <div style="font-size:16px;line-height:22px;font-weight:700">{{ n.title }}</div>
+                  <div style="font-size:14px;line-height:20px;font-weight:600;color:#737373">{{ n.desc }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- Feedback -->
+          <div style="background:#FFFFFF;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:4px;box-shadow:0 5px 3.84px rgba(0,0,0,.25)">
+            <div style="font-size:16px;line-height:22px;font-weight:700">Sugestii sau întrebări? 💡</div>
+            <div style="font-size:14px;line-height:20px;font-weight:600;color:#737373">În caz că ai întâmpinat probleme, ai o idee nouă sau doar vrei sa lași un mesaj echipei, te rugăm să apeși aici.</div>
+          </div>
+        </div>
+
+        <!-- ActivePartidaDock + tab bar -->
+        <div style="position:absolute;left:0;right:0;bottom:83px;background:#FFFFFF;border-radius:18px 18px 0 0;border-top:1px solid rgba(99,102,241,.22);padding:10px 14px;display:flex;flex-direction:column;gap:8px;box-shadow:0 -5px 12px rgba(15,23,42,.08);z-index:3">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="display:flex;align-items:center;gap:5px;background:#F43F5E;border-radius:999px;padding:5px 9px"><span style="width:6px;height:6px;border-radius:3px;background:#FFFFFF"></span><span style="font-size:10px;line-height:14px;font-weight:800;color:#FFFFFF">ACTIVĂ</span></div>
+            <div style="flex:1;min-width:0"><div style="font-size:14px;line-height:20px;font-weight:700;color:#262626">Lacul Cornu</div><div style="font-size:10px;line-height:14px;font-weight:600;color:#737373">4 capturi · 1 scăpat · 9,4 kg max</div></div>
+            <div style="display:flex;align-items:center;gap:5px;background:#4CB944;border-radius:11px;padding:9px 13px;box-shadow:0 5px 9px rgba(76,185,68,.35)"><span style="width:15px;height:15px;background:#FFFFFF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/fish.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/fish.svg) center/contain no-repeat"></span><span style="font-size:12px;font-weight:700;color:#FFFFFF">Captură</span></div>
+          </div>
+          <div style="display:flex;gap:7px">
+            <sc-for list="{{ rods }}" as="r" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:5px;background:{{ r.bg }};border-radius:8px;padding:3px 7px"><span style="width:7px;height:7px;border-radius:4px;background:{{ r.color }}"></span><span style="font-size:10px;line-height:14px;font-weight:800;color:{{ r.fg }};font-variant-numeric:tabular-nums">{{ r.t }}</span></div></sc-for>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:83px;background:#FFFFFF;display:grid;grid-template-columns:repeat(5,1fr);padding-bottom:34px;box-sizing:border-box;z-index:4">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding-top:4px">
+              <span style="width:24px;height:24px;background:{{ t.color }};-webkit-mask:url({{ t.url }}) center/contain no-repeat;mask:url({{ t.url }}) center/contain no-repeat"></span>
+              <div style="font-family:system-ui,-apple-system,sans-serif;font-size:10px;line-height:12px;font-weight:500;color:{{ t.color }}">{{ t.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= MOBIL NELOGAT ================= -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:13px;font-weight:700;color:#475467">Mobil · nelogat · fără concurs live (cad pe „viitoare”)</div>
+      <div data-screen-label="Acasă mobil nelogat" style="width:375px;height:1180px;background:#F2F2F2;border-radius:28px;overflow:hidden;position:relative;box-shadow:0 12px 32px -8px rgba(16,24,40,.18)">
+        <div style="height:47px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-family:system-ui,-apple-system,sans-serif;font-size:15px;font-weight:600"><span>9:41</span><span style="font-size:12px;letter-spacing:1px">▮▮▮ ◠ ▭</span></div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:10px">
+          <div style="margin:0 -5px;padding:12px;background:#FFFFFF;border-radius:16px;box-shadow:0 2px 10px rgba(99,102,241,.15);display:flex;gap:10px">
+            <img src="assets/logo/logo_bluvi.png" alt="" style="width:70px;height:70px;border-radius:12px;object-fit:cover">
+            <div style="flex:1;display:flex;flex-direction:column;gap:4px;margin-top:4px">
+              <div style="font-size:20px;line-height:26px;font-weight:700">Conectează-te</div>
+              <div style="font-size:14px;line-height:20px;font-weight:600;color:#737373">Intră în contul tău să te poți înscrie la competiții</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column">
+            <div style="font-size:17px;line-height:22px;font-weight:700">Instrumente</div>
+            <div style="display:flex;gap:10px;margin:10px 0">
+              <sc-for list="{{ widgetsGuest }}" as="w" hint-placeholder-count="3">
+                <div style="width:84px;display:flex;flex-direction:column;align-items:center;gap:6px">
+                  <div style="width:64px;height:64px;position:relative">
+                    <div style="width:64px;height:64px;border-radius:16px;background:url({{ w.img }}) center/cover;opacity:{{ w.op }}"></div>
+                    <sc-if value="{{ w.hasPill }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:0;right:0;bottom:-4px;display:flex;justify-content:center"><div style="background:{{ w.pillBg }};border-radius:8px;padding:2px 6px;font-size:12px;line-height:16px;font-weight:700;color:#FFFFFF">{{ w.pill }}</div></div></sc-if>
+                  </div>
+                  <div style="font-size:14px;line-height:20px;font-weight:600;color:#737373;text-align:center">{{ w.title }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <!-- NoActiveCta -->
+          <div style="margin:0 -5px;border-radius:18px;padding:18px 16px 14px;background:linear-gradient(120deg,#5357E0 0%,#6366F1 45%,#818CF8 100%);box-shadow:0 12px 22px -6px rgba(83,87,224,.5);position:relative;overflow:hidden">
+            <svg width="190" height="150" viewBox="0 0 200 160" style="position:absolute;right:-24px;bottom:-30px;opacity:.35"><path d="M10 40 q25 -18 50 0 t50 0 t50 0" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none"></path><path d="M10 80 q25 -18 50 0 t50 0 t50 0" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none"></path><path d="M10 120 q25 -18 50 0 t50 0 t50 0" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none"></path></svg>
+            <div style="position:relative;display:flex;flex-direction:column;gap:5px;margin-bottom:15px"><div style="font-size:20px;line-height:26px;font-weight:700;color:#FFFFFF">Ești la pescuit?</div><div style="font-size:12px;line-height:16px;font-weight:600;color:rgba(255,255,255,.85);max-width:250px">Capturi, lansete și cronometre — totul notat într-o singură partidă.</div></div>
+            <div style="position:relative;display:flex;align-items:center;gap:18px">
+              <div style="display:flex;align-items:center;gap:7px;background:#FFFFFF;border-radius:999px;padding:12px 18px;box-shadow:0 6px 12px rgba(15,18,48,.45)"><img src="assets/icons/fishing-rod.svg" alt="" style="width:15px;height:15px"><span style="font-size:14px;font-weight:700;color:#6366F1">Începe o partidă</span></div>
+              <div style="font-size:12px;font-weight:700;color:#FFFFFF;text-decoration:underline">Intră cu cod</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;padding-top:6px"><div style="flex:1;font-size:17px;line-height:22px;font-weight:700">Concursuri viitoare (12)</div><div style="display:flex;align-items:center;font-size:14px;font-weight:600;color:#6366F1">Vezi toate<span style="width:12px;height:12px;background:#6366F1;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat"></span></div></div>
+          <div style="display:flex;gap:10px;margin:0 -20px;padding:4px 20px 16px;overflow:hidden">
+            <sc-for list="{{ upcomingCards }}" as="c" hint-placeholder-count="2">
+              <div style="flex:0 0 225px;width:225px;background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 2px 6px rgba(24,34,56,.1);display:flex;flex-direction:column">
+                <div style="height:120px;background:#EBEBEB url({{ c.img }}) center/cover;position:relative"><div style="position:absolute;top:8px;right:8px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:4px;background:#404040;display:flex;align-items:center;gap:3px"><span style="width:12px;height:12px;background:#FFFFFF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat"></span><span style="font-size:10px;font-weight:700;color:#FFFFFF">{{ c.viewers }}</span></div></div>
+                <div style="padding:10px 12px;display:flex;flex-direction:column;gap:3px">
+                  <div style="font-size:11px;line-height:15px;font-weight:800;letter-spacing:.4px;color:#6569B8">{{ c.date }}</div>
+                  <div style="font-size:15px;line-height:20px;font-weight:700;min-height:40px">{{ c.name }}</div>
+                  <div style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#6266CC;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/map-pin.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/map-pin.svg) center/contain no-repeat"></span><div style="font-size:12px;font-weight:700;color:#6266CC">{{ c.lake }}</div></div>
+                </div>
+                <div style="height:56px;border-top:1px solid #F2F2F2;display:flex;align-items:center;gap:8px;padding:0 12px">
+                  <div style="display:flex"><sc-for list="{{ c.faces }}" as="f" hint-placeholder-count="3"><div style="width:28px;height:28px;border-radius:14px;border:2px solid #FFFFFF;box-sizing:border-box;background:{{ f.bg }};margin-left:{{ f.ml }}px"></div></sc-for></div>
+                  <div style="flex:1"><div style="font-size:12px;font-weight:700">{{ c.joined }}</div><div style="font-size:11px;font-weight:700;color:#15803D">{{ c.left }}</div></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="background:#FFFFFF;border-radius:10px;padding:10px;display:flex;align-items:center;gap:8px;box-shadow:0 5px 3.84px rgba(0,0,0,.25)"><span style="width:20px;height:20px;background:#000;-webkit-mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.469.0/icons/shield-user.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.469.0/icons/shield-user.svg) center/contain no-repeat"></span><div style="font-size:14px;font-weight:600">Setări de confidențialitate</div></div>
+          <div style="font-size:12px;line-height:16px;font-weight:600;color:#667085;padding-top:6px">… urmează Bălți, sugestie baltă, Noutăți, Feedback și Contact (doar nelogat).</div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:83px;background:#FFFFFF;border-radius:16px 16px 0 0;box-shadow:0 2px 3.84px rgba(0,0,0,.25);display:grid;grid-template-columns:repeat(5,1fr);padding-bottom:34px;box-sizing:border-box">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding-top:4px">
+              <span style="width:24px;height:24px;background:{{ t.color }};-webkit-mask:url({{ t.url }}) center/contain no-repeat;mask:url({{ t.url }}) center/contain no-repeat"></span>
+              <div style="font-family:system-ui,-apple-system,sans-serif;font-size:10px;line-height:12px;font-weight:500;color:{{ t.color }}">{{ t.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= DESKTOP ================= -->
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div style="font-size:13px;font-weight:700;color:#475467">Desktop · 1440 · logat · organizator + operator · partidă activă</div>
+    <div data-screen-label="Acasă desktop" style="width:1440px;background:#F2F2F2;border-radius:16px;overflow:hidden;box-shadow:0 12px 32px -8px rgba(16,24,40,.18)">
+      <!-- top nav -->
+      <div style="height:72px;background:#FFFFFF;box-shadow:0 1px 0 #EDEDED;display:flex;align-items:center;padding:0 40px;gap:40px">
+        <img src="assets/logo_horizontal.svg" alt="Bluvi" style="height:28px;width:auto">
+        <div style="display:flex;gap:6px;height:72px;align-items:stretch">
+          <sc-for list="{{ topNav }}" as="n" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:8px;padding:3px 14px 0;border-bottom:{{ n.border }};box-sizing:border-box">
+              <span style="width:22px;height:22px;background:{{ n.color }};-webkit-mask:url({{ n.url }}) center/contain no-repeat;mask:url({{ n.url }}) center/contain no-repeat"></span>
+              <div style="font-size:15px;line-height:20px;font-weight:700;color:{{ n.color }}">{{ n.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="flex:1"></div>
+        <div style="width:320px;height:42px;border-radius:21px;background:#F2F2F2;display:flex;align-items:center;gap:8px;padding:0 14px;box-sizing:border-box"><span style="width:17px;height:17px;background:#A3A3A3;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/magnifying-glass.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/magnifying-glass.svg) center/contain no-repeat"></span><div style="font-size:13px;font-weight:600;color:#737373">Caută concursuri, bălți, pescari</div></div>
+        <div style="width:42px;height:42px;border-radius:21px;background:#F2F2F2;display:flex;align-items:center;justify-content:center;position:relative"><span style="width:20px;height:20px;background:#171717;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/bell-alert.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/bell-alert.svg) center/contain no-repeat"></span><span style="position:absolute;top:9px;right:10px;width:8px;height:8px;border-radius:4px;background:#E11D48;border:2px solid #F2F2F2"></span></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 14px 4px 4px;border-radius:999px;background:#F2F2F2"><div style="width:34px;height:34px;border-radius:17px;background:#6366F1;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#FFFFFF">MP</div><div style="font-size:14px;font-weight:700">mihai.popa</div></div>
+      </div>
+
+      <div style="max-width:1280px;margin:0 auto;padding:32px 40px 56px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:28px;align-items:start">
+        <!-- MAIN -->
+        <div style="display:flex;flex-direction:column;gap:28px;min-width:0">
+          <!-- greeting -->
+          <div style="display:flex;align-items:flex-end;gap:20px">
+            <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+              <div style="font-size:32px;line-height:38px;font-weight:800;letter-spacing:-.6px">Salut, mihai.popa!</div>
+              <div style="font-size:15px;line-height:22px;font-weight:600;color:#737373">Pescuitul e mai frumos când ai cu cine să îți spui poveștile!</div>
+            </div>
+                      </div>
+
+          <!-- live competitions -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;gap:10px"><span style="position:relative;width:7px;height:7px"><span style="position:absolute;inset:0;border-radius:4px;background:#E11D48;animation:halo 2.4s linear infinite"></span><span style="position:absolute;inset:0;border-radius:4px;background:#E11D48"></span></span><div style="flex:1;font-size:22px;line-height:28px;font-weight:800;letter-spacing:-.4px">Concursuri live (3)</div><div style="display:flex;align-items:center;font-size:14px;font-weight:600;color:#6366F1">Vezi toate<span style="width:12px;height:12px;background:#6366F1;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat"></span></div></div>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
+              <sc-for list="{{ liveCards }}" as="c" hint-placeholder-count="3">
+                <div style="background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 2px 6px rgba(24,34,56,.1);display:flex;flex-direction:column">
+                  <div style="height:150px;background:#EBEBEB url({{ c.img }}) center/cover;position:relative">
+                    <div style="position:absolute;top:10px;right:10px;display:flex;gap:6px;align-items:center">
+                      <div style="height:22px;padding:0 8px;border-radius:11px;background:#E11D48;display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:3px;background:#FFFFFF"></span><span style="font-size:11px;font-weight:800;color:#FFFFFF">LIVE</span></div>
+                      <div style="height:22px;padding:0 6px;box-sizing:border-box;border-radius:4px;background:#404040;display:flex;align-items:center;gap:3px"><span style="width:12px;height:12px;background:#FFFFFF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat"></span><span style="font-size:10px;font-weight:700;color:#FFFFFF">{{ c.viewers }}</span></div>
+                    </div>
+                  </div>
+                  <div style="padding:12px 14px;display:flex;flex-direction:column;gap:3px;flex:1">
+                    <div style="font-size:11px;line-height:15px;font-weight:800;letter-spacing:.4px;color:#E11D48">{{ c.date }}</div>
+                    <div style="font-size:16px;line-height:22px;font-weight:700">{{ c.name }}</div>
+                    <div style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#6266CC;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/map-pin.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/map-pin.svg) center/contain no-repeat"></span><div style="font-size:12px;font-weight:700;color:#6266CC">{{ c.lake }}</div></div>
+                  </div>
+                  <div style="height:56px;border-top:1px solid #F2F2F2;display:flex;align-items:center;gap:14px;padding:0 14px">
+                    <sc-for list="{{ c.stats }}" as="s" hint-placeholder-count="2"><div style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#4F46E5;-webkit-mask:url({{ s.icon }}) center/contain no-repeat;mask:url({{ s.icon }}) center/contain no-repeat"></span><span style="font-size:14px;font-weight:800;color:#101828">{{ s.v }}</span><span style="font-size:12px;font-weight:600;color:#6B7280">{{ s.u }}</span></div></sc-for>
+                    <div style="flex:1"></div>
+                    <div style="font-size:13px;font-weight:700;color:#6366F1">Clasament</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- bălți -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center"><div style="flex:1;font-size:22px;line-height:28px;font-weight:800;letter-spacing:-.4px">Bălți (214)</div><div style="display:flex;align-items:center;font-size:14px;font-weight:600;color:#6366F1">Vezi pe hartă<span style="width:12px;height:12px;background:#6366F1;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat"></span></div></div>
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">
+              <sc-for list="{{ lakes }}" as="l" hint-placeholder-count="4">
+                <div style="background:#FFFFFF;border-radius:14px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,.08)">
+                  <div style="height:130px;background:url({{ l.img }}) center/cover"></div>
+                  <div style="padding:12px;display:flex;flex-direction:column;gap:4px">
+                    <div style="display:flex;gap:4px;align-items:flex-start"><div style="flex:1;font-size:14px;line-height:20px;font-weight:700">{{ l.name }}</div><div style="display:flex;align-items:center;gap:2px"><span style="width:14px;height:14px;background:#F59E0B;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/star.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/star.svg) center/contain no-repeat"></span><span style="font-size:12px;font-weight:700">{{ l.rating }}</span></div></div>
+                    <div style="font-size:13px;line-height:18px;font-weight:600;color:#525252">{{ l.county }}</div>
+                    <div style="display:flex;gap:4px"><sc-for list="{{ l.fac }}" as="f" hint-placeholder-count="4"><span style="width:20px;height:20px;display:flex;align-items:center;justify-content:center"><span style="width:13px;height:13px;background:{{ f.c }};-webkit-mask:url({{ f.i }}) center/contain no-repeat;mask:url({{ f.i }}) center/contain no-repeat"></span></span></sc-for></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            </div>
+
+          <!-- CTA-uri: partidă + sugerează baltă -->
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px">
+            <div style="border-radius:18px;padding:18px 18px 14px;background:linear-gradient(120deg,#5357E0 0%,#6366F1 45%,#818CF8 100%);box-shadow:0 12px 22px -10px rgba(83,87,224,.5);position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;gap:15px">
+              <svg width="190" height="150" viewBox="0 0 200 160" style="position:absolute;right:-24px;bottom:-30px;opacity:.35"><path d="M10 40 q25 -18 50 0 t50 0 t50 0" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none"></path><path d="M10 80 q25 -18 50 0 t50 0 t50 0" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none"></path><path d="M10 120 q25 -18 50 0 t50 0 t50 0" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none"></path></svg>
+              <div style="position:relative;display:flex;flex-direction:column;gap:5px"><div style="font-size:20px;line-height:26px;font-weight:700;color:#FFFFFF">Ești la pescuit?</div><div style="font-size:12px;line-height:16px;font-weight:600;color:rgba(255,255,255,.85);max-width:260px">Capturi, lansete și cronometre — totul notat într-o singură partidă.</div></div>
+              <div style="position:relative;display:flex;align-items:center;gap:18px">
+                <div style="display:flex;align-items:center;gap:7px;background:#FFFFFF;border-radius:999px;padding:12px 18px;box-shadow:0 6px 12px rgba(15,18,48,.45)"><img src="assets/icons/fishing-rod.svg" alt="" style="width:15px;height:15px"><span style="font-size:14px;font-weight:700;color:#6366F1">Începe o partidă</span></div>
+                <div style="font-size:12px;font-weight:700;color:#FFFFFF;text-decoration:underline">Intră cu cod</div>
+              </div>
+            </div>
+            <div style="border-radius:18px;overflow:hidden;position:relative;box-shadow:0 2px 10px rgba(99,102,241,.15)">
+              <div style="position:absolute;inset:0;background:url(assets/lake.jpeg) center/cover"></div>
+              <div style="position:absolute;inset:0;background:rgba(0,0,0,.4)"></div>
+              <div style="position:relative;height:100%;box-sizing:border-box;padding:18px;display:flex;flex-direction:column;justify-content:space-between;gap:15px">
+                <div style="display:flex;flex-direction:column;gap:5px"><div style="font-size:20px;line-height:26px;font-weight:700;color:#FFFFFF;text-shadow:0 1px 2px rgba(0,0,0,.5)">Nu găsești balta preferată?</div><div style="font-size:12px;line-height:16px;font-weight:600;color:rgba(255,255,255,.9);max-width:300px">Sugerează-ne o baltă care lipsește și o vom adăuga în aplicație.</div></div>
+                <div style="align-self:flex-start;padding:10px 18px;border-radius:999px;background:rgba(255,255,255,.95);font-size:14px;font-weight:700;color:#000">Sugerează baltă</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- pescari -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center"><div style="flex:1;font-size:22px;line-height:28px;font-weight:800;letter-spacing:-.4px">Pescari pe care îi poți urmări</div><div style="display:flex;align-items:center;font-size:14px;font-weight:600;color:#6366F1">Vezi toate<span style="width:12px;height:12px;background:#6366F1;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat"></span></div></div>
+            <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px">
+              <sc-for list="{{ anglers }}" as="a" hint-placeholder-count="5">
+                <div style="background:#FFFFFF;border-radius:16px;padding:16px 12px 12px;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative">
+                  <span style="position:absolute;top:12px;right:12px;width:14px;height:14px;background:#A3A3A3;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/x-mark.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/x-mark.svg) center/contain no-repeat"></span>
+                  <div style="width:64px;height:64px;border-radius:32px;background:{{ a.bg }};color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700">{{ a.ini }}</div>
+                  <div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="font-size:14px;line-height:20px;font-weight:700">{{ a.name }}</div><div style="font-size:12px;font-weight:600;color:#737373">{{ a.followers }}</div></div>
+                  <div style="display:flex;gap:16px;min-height:36px"><sc-for list="{{ a.stats }}" as="s" hint-placeholder-count="2"><div style="display:flex;flex-direction:column;align-items:center;min-width:44px"><div style="font-size:14px;line-height:20px;font-weight:600;color:#171717">{{ s.v }}</div><div style="font-size:10px;line-height:14px;font-weight:600;color:#737373">{{ s.l }}</div></div></sc-for></div>
+                  <div style="width:100%;height:34px;border-radius:10px;background:#6366F1;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#FFFFFF">Urmărește</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- noutăți -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center"><div style="flex:1;font-size:22px;line-height:28px;font-weight:800;letter-spacing:-.4px">Noutăți</div><div style="display:flex;align-items:center;font-size:14px;font-weight:600;color:#6366F1">Vezi toate<span style="width:12px;height:12px;background:#6366F1;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat"></span></div></div>
+            <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:14px">
+              <sc-for list="{{ news }}" as="n" hint-placeholder-count="3">
+                <div style="background:#FFFFFF;border-radius:14px;overflow:hidden;display:flex;flex-direction:column">
+                  <div style="height:170px;background:url({{ n.img }}) center/cover"></div>
+                  <div style="padding:12px 14px;display:flex;flex-direction:column;gap:4px">
+                    <div style="display:flex;align-items:center;gap:12px"><div style="flex:1;font-size:12px;font-weight:600;color:#737373">{{ n.date }}</div><div style="padding:1.5px 3px;border-radius:2px;background:rgba(107,186,163,.125);font-size:12px;font-weight:600;color:#6BBAA3">{{ n.cat }}</div></div>
+                    <div style="font-size:16px;line-height:22px;font-weight:700">{{ n.title }}</div>
+                    <div style="font-size:14px;line-height:20px;font-weight:600;color:#737373">{{ n.desc }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT RAIL -->
+        <div style="display:flex;flex-direction:column;gap:14px;position:sticky;top:20px">
+          <!-- active partida -->
+          <div style="background:#FFFFFF;border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px;box-shadow:inset 0 0 0 1px rgba(99,102,241,.22)">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="display:flex;align-items:center;gap:5px;background:#F43F5E;border-radius:999px;padding:5px 9px"><span style="width:6px;height:6px;border-radius:3px;background:#FFFFFF"></span><span style="font-size:10px;line-height:14px;font-weight:800;color:#FFFFFF">ACTIVĂ</span></div>
+              <div style="flex:1;font-size:12px;font-weight:600;color:#737373">Partida ta · de 14h 20min</div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:10px">
+              <div style="flex:1"><div style="font-size:16px;line-height:22px;font-weight:700">Lacul Cornu</div><div style="display:flex;align-items:baseline;gap:4px;margin-top:2px"><div style="font-size:40px;line-height:44px;font-weight:800;letter-spacing:-2px">4</div><div style="font-size:12px;font-weight:600;color:#737373">capturi · 1 scăpat · 9,4 kg max</div></div></div>
+            </div>
+            <div style="display:flex;gap:7px;flex-wrap:wrap"><sc-for list="{{ rods }}" as="r" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:5px;background:{{ r.bg }};border-radius:8px;padding:3px 7px"><span style="width:7px;height:7px;border-radius:4px;background:{{ r.color }}"></span><span style="font-size:11px;line-height:14px;font-weight:800;color:{{ r.fg }}">{{ r.t }}</span></div></sc-for></div>
+            <div style="display:flex;gap:8px">
+              <div style="flex:1;height:40px;border-radius:11px;background:#4CB944;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:700;color:#FFFFFF"><span style="width:15px;height:15px;background:#FFFFFF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/fish.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/fish.svg) center/contain no-repeat"></span>Captură</div>
+              <div style="flex:1;height:40px;border-radius:11px;background:#F0F3FD;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#4338CA">Deschide partida</div>
+            </div>
+          </div>
+
+          <!-- organizer -->
+          <div style="border-radius:16px;background:linear-gradient(135deg,#312E81,#4338CA,#4F46E5);padding:16px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:14px;font-weight:600;color:#FFFFFF">Panou organizator</div><div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.85)">Deschide</div></div>
+            <div style="display:flex;align-items:center"><sc-for list="{{ orgStats }}" as="s" hint-placeholder-count="3"><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border-left:{{ s.divider }}"><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:4px;background:{{ s.dot }}"></span><div style="font-size:20px;line-height:26px;font-weight:700;color:#FFFFFF">{{ s.value }}</div></div><div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.85)">{{ s.label }}</div></div></sc-for></div>
+          </div>
+
+          <!-- owned lake -->
+          <div style="background:#FFFFFF;border-radius:16px">
+            <div style="display:flex;align-items:center;gap:8px;padding:14px 14px 10px"><div style="flex:1;font-size:15px;line-height:20px;font-weight:700;color:#101828">Balta mea · Balta Siliștea</div><div style="font-size:12px;font-weight:600;color:#667085">18 / 32</div></div>
+            <sc-for list="{{ ownedRows }}" as="r" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:10px;padding:0 14px 12px">
+                <div style="width:32px;height:32px;flex:0 0 32px;border-radius:16px;background:{{ r.bg }};display:flex;align-items:center;justify-content:center"><span style="width:17px;height:17px;background:{{ r.color }};-webkit-mask:url({{ r.icon }}) center/contain no-repeat;mask:url({{ r.icon }}) center/contain no-repeat"></span></div>
+                <div style="flex:1;min-width:0"><div style="font-size:13px;line-height:18px;font-weight:700;color:#101828">{{ r.title }}</div><div style="font-size:12px;font-weight:600;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sub }}</div></div>
+                <div style="font-size:13px;font-weight:700;color:#4338CA">Vezi</div>
+              </div>
+            </sc-for>
+            <div style="height:1px;background:#EFF1F5"></div>
+            <div style="display:flex;padding:10px 8px"><sc-for list="{{ quick }}" as="q" hint-placeholder-count="3"><div style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:4px 0"><div style="position:relative"><div style="width:24px;height:24px;border-radius:7px;background:{{ q.color }};display:flex;align-items:center;justify-content:center"><span style="width:14px;height:14px;background:#FFFFFF;-webkit-mask:url({{ q.icon }}) center/contain no-repeat;mask:url({{ q.icon }}) center/contain no-repeat"></span></div></div><div style="font-size:12px;font-weight:700;color:#212121">{{ q.label }}</div><sc-if value="{{ q.hasBadge }}" hint-placeholder-val="{{ false }}"><div style="min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:999px;background:#DC2626;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#FFFFFF">{{ q.badge }}</div></sc-if></div></sc-for></div>
+          </div>
+
+          <!-- instrumente -->
+          <div style="background:#FFFFFF;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:15px;line-height:20px;font-weight:700">Instrumente</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+              <sc-for list="{{ widgets }}" as="w" hint-placeholder-count="3">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+                  <div style="width:56px;height:56px;position:relative"><div style="width:56px;height:56px;border-radius:14px;background:url({{ w.img }}) center/cover;opacity:{{ w.op }}"></div><sc-if value="{{ w.hasBadge }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:999px;background:#6366F1;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#FFFFFF">{{ w.badge }}</div></sc-if><sc-if value="{{ w.hasPill }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:-6px;right:-6px;bottom:-4px;display:flex;justify-content:center"><div style="background:{{ w.pillBg }};border-radius:8px;padding:1px 5px;font-size:10px;line-height:14px;font-weight:700;color:#FFFFFF;white-space:nowrap">{{ w.pill }}</div></div></sc-if></div>
+                  <div style="font-size:12px;font-weight:600;color:#737373">{{ w.title }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- poll -->
+          <div style="background:#F0F3FD;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:15px;line-height:20px;font-weight:700;color:#404040">Ce momeală folosești toamna?</div>
+            <sc-for list="{{ poll }}" as="o" hint-placeholder-count="3">
+              <div style="height:40px;border-radius:10px;background:#FFFFFF;position:relative;overflow:hidden;display:flex;align-items:center;padding:0 12px;box-shadow:{{ o.ring }}">
+                <div style="position:absolute;left:0;top:0;bottom:0;width:{{ o.pct }}%;background:{{ o.fill }}"></div>
+                <div style="position:relative;flex:1;font-size:13px;font-weight:700">{{ o.label }}</div>
+                <div style="position:relative;font-size:13px;font-weight:800;color:{{ o.pctColor }}">{{ o.pct }}%</div>
+              </div>
+            </sc-for>
+            <div style="font-size:12px;font-weight:600;color:#737373">412 voturi · se închide în 3 zile</div>
+          </div>
+
+          <!-- reclamă aplicație -->
+          <div style="border-radius:18px;background:#20263D;padding:18px;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden">
+            <div style="position:absolute;right:-28px;top:-28px;width:120px;height:120px;border-radius:60px;background:rgba(220,225,255,.06)"></div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:40px;height:40px;border-radius:11px;background:#6366F1;display:flex;align-items:center;justify-content:center"><img src="assets/fish-logo.svg" alt="" style="width:26px;height:26px;filter:brightness(0) invert(1)"></div>
+              <div style="flex:1"><div style="font-size:10px;line-height:14px;font-weight:800;letter-spacing:1px;color:#A9B1CA">APLICAȚIA BLUVI</div><div style="font-size:16px;line-height:22px;font-weight:800;color:#FFFFFF">Ia Bluvi pe baltă</div></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;gap:10px"><span style="width:16px;height:16px;flex:0 0 16px;background:#DCE1FF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/bell-alert.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/bell-alert.svg) center/contain no-repeat"></span><div style="font-size:13px;line-height:18px;font-weight:600;color:#C5CCEB">Notificări când începe cântarul la standul tău</div></div><div style="display:flex;align-items:center;gap:10px"><span style="width:16px;height:16px;flex:0 0 16px;background:#DCE1FF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/scale.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/scale.svg) center/contain no-repeat"></span><div style="font-size:13px;line-height:18px;font-weight:600;color:#C5CCEB">Cântar și clasament live, direct de pe mal</div></div><div style="display:flex;align-items:center;gap:10px"><span style="width:16px;height:16px;flex:0 0 16px;background:#DCE1FF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/signal-slash.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/signal-slash.svg) center/contain no-repeat"></span><div style="font-size:13px;line-height:18px;font-weight:600;color:#C5CCEB">Partide care merg și fără semnal</div></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:stretch">
+              <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+                <div style="height:42px;border-radius:10px;background:#FFFFFF;display:flex;align-items:center;gap:8px;padding:0 12px"><span style="width:18px;height:18px;flex:0 0 18px;background:#000000;-webkit-mask:url(https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/apple.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/apple.svg) center/contain no-repeat"></span><div style="display:flex;flex-direction:column"><div style="font-size:9px;line-height:11px;font-weight:600;color:#475467">Descarcă din</div><div style="font-size:13px;line-height:16px;font-weight:800;color:#000">App Store</div></div></div>
+                <div style="height:42px;border-radius:10px;background:#FFFFFF;display:flex;align-items:center;gap:8px;padding:0 12px"><span style="width:16px;height:16px;flex:0 0 16px;background:#000000;-webkit-mask:url(https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/googleplay.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/googleplay.svg) center/contain no-repeat"></span><div style="display:flex;flex-direction:column"><div style="font-size:9px;line-height:11px;font-weight:600;color:#475467">Disponibil pe</div><div style="font-size:13px;line-height:16px;font-weight:800;color:#000">Google Play</div></div></div>
+              </div>
+              <div style="width:92px;flex:0 0 92px;border-radius:12px;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px;box-sizing:border-box">
+                <div style="width:68px;height:68px;border-radius:6px;border:2px dashed #C3C7D2;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#98A2B3">QR</div>
+                <div style="font-size:9px;line-height:12px;font-weight:700;color:#475467;text-align:center">Scanează cu telefonul</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:#FFFFFF;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:2px"><div style="font-size:14px;font-weight:700">Sugestii sau întrebări?</div><div style="font-size:12px;line-height:16px;font-weight:600;color:#737373">Ai întâmpinat o problemă sau ai o idee? Scrie-ne aici.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= STĂRI ================= -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:20px;line-height:26px;font-weight:700">Stări și cazuri limită</div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+      <div style="width:375px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:13px;font-weight:700;color:#475467">Rail concursuri · se încarcă</div>
+        <div style="background:#F2F2F2;border-radius:16px;padding:16px;display:flex;gap:10px;overflow:hidden">
+          <div style="flex:0 0 225px;height:300px;border-radius:16px;background:#E5E5E5"></div><div style="flex:0 0 225px;height:300px;border-radius:16px;background:#E5E5E5"></div>
+        </div>
+      </div>
+      <div style="width:375px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:13px;font-weight:700;color:#475467">Rail concursuri · eroare (restul paginii rămâne)</div>
+        <div style="background:#F2F2F2;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:14px;line-height:20px;font-weight:600">A apărut o eroare la încărcarea datelor.</div>
+          <div style="height:44px;border-radius:10px;background:#6366F1;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#FFFFFF">Încearcă din nou</div>
+        </div>
+      </div>
+      <div style="width:375px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:13px;font-weight:700;color:#475467">Balta mea · nimic de aprobat</div>
+        <div style="background:#FFFFFF;border-radius:16px;padding:16px;display:flex;align-items:center;gap:12px">
+          <div style="width:36px;height:36px;border-radius:18px;background:#DFF2EA;display:flex;align-items:center;justify-content:center"><span style="width:19px;height:19px;background:#12876B;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/check-circle.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/check-circle.svg) center/contain no-repeat"></span></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#101828">Nicio rezervare de aprobat</div><div style="font-size:12px;font-weight:600;color:#667085">0 rezervări mâine</div></div>
+          <div style="font-size:14px;font-weight:700;color:#4338CA">Vezi grila</div>
+        </div>
+      </div>
+      <div style="width:375px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:13px;font-weight:700;color:#475467">Bălți · gol</div>
+        <div style="background:#F2F2F2;border-radius:16px;padding:16px"><div style="font-size:14px;line-height:20px;font-weight:600;color:#737373">Momentan nu este disponibilă nicio baltă.</div></div>
+      </div>
+      <div style="width:375px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:13px;font-weight:700;color:#475467">Eroare pagină (profil / bălți / notificări / știri)</div>
+        <div style="background:#FFFFFF;border-radius:16px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:12px">
+          <img src="assets/icons/sad-search.svg" alt="" style="width:56px;height:56px">
+          <div style="font-size:14px;line-height:20px;font-weight:600;text-align:center">Ceva nu a mers bine, vă rugăm să încercați din nou mai târziu.</div>
+          <div style="height:44px;padding:0 20px;border-radius:10px;background:#6366F1;display:flex;align-items:center;font-size:14px;font-weight:700;color:#FFFFFF">Încearcă din nou</div>
+        </div>
+      </div>
+      <div style="width:375px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:13px;font-weight:700;color:#475467">Note de comportament</div>
+        <div style="font-size:12px;line-height:18px;font-weight:600;color:#475467;text-wrap:pretty">Sloganul se schimbă la fiecare intrare pe ecran. Fără concursuri live, railul arată „Concursuri viitoare”; fără niciunul, dispare. Pescarii sugerați apar doar cu minim 3 carduri vizibile, fără skeleton. Partida activă înlocuiește cardul „Ești la pescuit?” și sheet-ul de concurs live. Pe desktop, coloana dreaptă e lipită la scroll.</div>
+      </div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const H = 'https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/';
+    const HS = 'https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/';
+    const L = 'https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/';
+    const imgs = ['assets/competition-placeholder.jpg', 'assets/lake.jpeg', 'assets/placeholder-lake.jpg'];
+    const faceBg = ['#D6D3CE', '#C9CED6', '#DAD2C8'];
+    const tabDefs = [['Acasă', H + 'home.svg'], ['Bălți', H + 'map.svg'], ['Competiții', H + 'trophy.svg'], ['Partide', L + 'fish.svg'], ['Profil', H + 'user-circle.svg']];
+    // lake.facility → getFacilityIconNew + getFacilityIconColor(index): 'Wi-Fi', 'Parcare', 'Toaletă', 'Prize disponibile'
+    const FAC_COLORS = ['#2563EB', '#0891B2', '#16A34A', '#D97706', '#DC2626', '#7C3AED'];
+    const fac = [H + 'wifi.svg', 'https://cdn.jsdelivr.net/npm/lucide-static@0.469.0/icons/square-parking.svg', 'https://cdn.jsdelivr.net/npm/lucide-static@0.469.0/icons/toilet.svg', H + 'bolt.svg'].map((i, idx) => ({ i, c: FAC_COLORS[idx % 6] }));
+    return {
+      tabs: tabDefs.map(([label, url]) => ({ label, url, color: label === 'Acasă' ? '#6366F1' : '#8E8E93' })),
+      topNav: tabDefs.slice(0, 4).map(([label, url]) => ({ label, url, color: label === 'Acasă' ? '#6366F1' : '#404040', border: label === 'Acasă' ? '3px solid #6366F1' : '3px solid transparent' })),
+      orgStats: [['#818CF8', 3, 'Viitoare'], ['#FBBF24', 5, 'În așteptare'], ['#34D399', 22, 'Locuri libere']].map(([dot, value, label], i) => ({ dot, value, label, divider: i ? '1px solid rgba(255,255,255,.2)' : '0 solid transparent' })),
+      ownedRows: [
+        { icon: HS + 'clock.svg', color: '#F59E0B', bg: '#FEF6D9', title: '2 cereri așteaptă răspuns', sub: 'Andrei Marin · standul 12 · de 2 ore' },
+        { icon: HS + 'x-circle.svg', color: '#C4341F', bg: '#FDE7E7', title: '1 rezervare anulată', sub: 'în ultimele 24 de ore' }
+      ],
+      quick: [['Panou', '#3F51B5', HS + 'chart-bar-square.svg', 0], ['Calendar', '#2196F3', HS + 'calendar-days.svg', 0], ['Rezervări', '#4CAF50', HS + 'ticket.svg', 2]].map(([label, color, icon, b]) => ({ label, color, icon, hasBadge: b > 0, badge: b })),
+      widgets: [
+        { title: 'Rezervări', img: 'assets/rezervari_widget.webp', op: 1, hasBadge: true, badge: 2, hasPill: true, pill: 'NOU', pillBg: '#DC2626' },
+        { title: 'Vremea', img: 'assets/vremea_widget.webp', op: .55, hasBadge: false, hasPill: true, pill: 'În curând', pillBg: '#EAB308' },
+        { title: 'Fazele Lunii', img: 'assets/fazele_lunii.webp', op: .55, hasBadge: false, hasPill: true, pill: 'În curând', pillBg: '#EAB308' }
+      ],
+      widgetsGuest: [
+        { title: 'Rezervări', img: 'assets/rezervari_widget.webp', op: 1, hasPill: true, pill: 'NOU', pillBg: '#DC2626' },
+        { title: 'Vremea', img: 'assets/vremea_widget.webp', op: .55, hasPill: true, pill: 'În curând', pillBg: '#EAB308' },
+        { title: 'Fazele Lunii', img: 'assets/fazele_lunii.webp', op: .55, hasPill: true, pill: 'În curând', pillBg: '#EAB308' }
+      ],
+      liveCards: [
+        ['Cupa Toamnei la Crap', 'Balta Siliștea', '412 urmăritori', 'SÂM, 27 SEPT. · 07:00–15:00', 'Cantitate', false, '222', '1.742,6'],
+        ['Maratonul Crapului Oglindă 72h', 'Lacul Cornu', '693 urmăritori', 'JOI, 25 – DUM, 28 SEPT.', 'Cantitate/Calitate', true, '87', '903,4'],
+        ['Trofeul Prieteniei', 'Pescăria Dunărea', '179 urmăritori', 'DUM, 28 SEPT. · 06:00–14:00', 'Best of 5', false, '41', '96,2']
+      ].map(([name, lake, viewers, date, ranking, team, n, kg], i) => ({
+        name, lake, viewers, date, ranking, live: true, dateColor: '#E11D48', img: imgs[i],
+        format: team ? 'Echipe' : 'Individual', fIcon: HS + (team ? 'users' : 'user') + '.svg',
+        stats: [{ icon: L + 'fish.svg', v: n, u: 'capturi' }, { icon: L + 'scale.svg', v: kg, u: 'kg' }]
+      })),
+      upcomingCards: [
+        ['Memorial Ion Dobre', 'Balta Moara Domnească', '88 urmăritori', 'SÂM, 4 OCT. · 07:00', '38/48 pescari', '10 locuri libere'],
+        ['Cupa Județului Prahova', 'Lacul Cornu', '54 urmăritori', 'SÂM, 11 OCT.', '12/60 pescari', '48 de locuri libere']
+      ].map(([name, lake, viewers, date, joined, left], i) => ({ name, lake, viewers, date, joined, left, img: imgs[i], faces: faceBg.map((bg, k) => ({ bg, ml: k ? -10 : 0 })) })),
+      poll: [['Boilies', 46, true], ['Porumb fiert', 31, false], ['Viermi', 23, false]].map(([label, pct, mine]) => ({ label, pct, fill: mine ? '#E0E7FF' : '#F5F5F5', pctColor: mine ? '#4338CA' : '#737373', ring: mine ? 'inset 0 0 0 2px #6366F1' : 'none' })),
+      anglers: [
+        ['andrei.marin', 'AM', '#6366F1', '1,2k urmăritori', [['31', 'concursuri'], ['7', 'podiumuri']]],
+        ['radu.ionescu', 'RI', '#0EA5E9', '842 urmăritori', [['21,3', 'record kg'], ['18', 'partide']]],
+        ['cristi.toma', 'CT', '#F97316', '310 urmăritori', [['12', 'concursuri'], ['2', 'podiumuri']]],
+        ['vlad.stan', 'VS', '#10B981', '96 urmăritori', [['44', 'capturi'], ['9', 'partide']]],
+        ['ionut.d', 'ID', '#A855F7', 'Niciun urmăritor', []]
+      ].map(([name, ini, bg, followers, stats]) => ({ name, ini, bg, followers, stats: stats.map(([v, l]) => ({ v, l })) })),
+      lakes: [
+        ['Balta Siliștea', 'Siliștea, Brăila', '4.7'], ['Lacul Cornu', 'Cornu, Prahova', '4.5'], ['Pescăria Dunărea', 'Galați', '4.2'], ['Balta Moara Domnească', 'Ilfov', '4.8']
+      ].map(([name, county, rating], i) => ({ name, county, rating, img: imgs[(i + 1) % 3], fac })),
+      news: [
+        ['28 SEPTEMBRIE 2026', 'Competiții', 'Calendarul de toamnă: 12 concursuri până la final de noiembrie', 'Am adunat toate etapele din octombrie și noiembrie într-un singur loc.'],
+        ['24 SEPTEMBRIE 2026', 'Sfaturi', 'Cum pescuiești crapul când scade apa', 'Trei schimbări de montură care fac diferența la final de sezon.'],
+        ['19 SEPTEMBRIE 2026', 'Aplicație', 'Rezervările de standuri sunt acum în Bluvi', 'Alegi balta, ziua și standul — operatorul confirmă din aplicație.']
+      ].map(([date, cat, title, desc], i) => ({ date, cat, title, desc, img: imgs[(i + 2) % 3] })),
+      rods: [['#6366F1', '12:41', false], ['#F59E0B', '04:05', false], ['#10B981', 'expirat', true]].map(([color, t, exp]) => ({ color, t, bg: exp ? 'rgba(244,63,94,.10)' : '#F2F2F2', fg: exp ? '#F43F5E' : '#262626' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

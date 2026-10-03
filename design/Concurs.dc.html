@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/bluvi-design-system-019dd2a6-7264-79c7-98b8-52c897e9b034/banner/colors_and_type.css">
+<link rel="stylesheet" href="_ds/bluvi-design-system-019dd2a6-7264-79c7-98b8-52c897e9b034/colors_and_type.css">
+<script src="_ds/bluvi-design-system-019dd2a6-7264-79c7-98b8-52c897e9b034/_ds_bundle.js"></script>
+<style>
+html,body{margin:0;background:#E7E9F1;font-family:Nunito,system-ui,sans-serif;color:#000;-webkit-font-smoothing:antialiased}
+a{color:#6366F1;text-decoration:none}a:hover{color:#4338CA;text-decoration:underline}
+*:focus-visible{outline:2px solid #6366F1;outline-offset:2px}
+@keyframes halo{0%{transform:scale(1);opacity:0}6%{opacity:.55}62%{opacity:0;transform:scale(3.6)}100%{opacity:0;transform:scale(3.6)}}
+@keyframes breathe{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.35);opacity:.6}}
+@keyframes shimmer{0%{background-position:-600px 0}100%{background-position:600px 0}}
+</style>
+</helmet>
+
+<section style="padding:64px;display:flex;flex-direction:column;gap:40px">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:1100px">
+    <div style="font-size:13px;font-weight:800;color:#6366F1;letter-spacing:1px">ECRAN-ANCORĂ 2 / 3 · PAGINA CONCURSULUI · CLASAMENT · branch develop</div>
+    <div style="font-size:15px;line-height:22px;font-weight:600;color:#475467;text-wrap:pretty">Clasamentul trăiește aici, nu în listă. Mobil = ecranul de azi 1:1 (header, tab-uri, 4 vederi, carduri meta, tabel cu prima coloană fixă, bara de acțiuni, bannerul de cântar). Desktop = același tabel, dar cu toate coloanele vizibile deodată, toți cei 48 de pescari, filtru pe sectoare A–X și acțiunile barei transformate în butoane în header.</div>
+    <div style="font-size:12px;line-height:18px;font-weight:600;color:#667085;text-wrap:pretty">Surse (develop): app/(app)/competitions/[competitionId].tsx · components/competition/CompetitionHeader.tsx · CompetitionRanking.tsx · CompetitionRankingWrapper.tsx · RankingActionBar.tsx · components/ranking-table/RankingTable.tsx · helpers/table/getTableColumns.ts (getQuantityColumns) · getColorsBySector.ts · RankingCardsCarousel.tsx · RankingMetaCard.tsx · ActiveWeighingBanner.tsx · LivePlusViewers.tsx · FollowButton.tsx · BackButton.tsx · ShareButton.tsx · HeaderIconButton.tsx · headerIconSurface.ts · models/ranking.type.ts</div>
+  </div>
+
+  <div style="display:flex;gap:48px;align-items:flex-start">
+
+    <!-- ================= MOBIL ================= -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:13px;font-weight:700;color:#475467">Mobil · 375 · concurs live · Cantitate · 4 sectoare · sortat pe stand (implicit)</div>
+      <div data-screen-label="Concurs clasament mobil" style="width:375px;height:1000px;background:#FFFFFF;border-radius:28px;overflow:hidden;position:relative;box-shadow:0 12px 32px -8px rgba(16,24,40,.18)">
+        <div style="height:47px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-family:system-ui,-apple-system,sans-serif;font-size:15px;font-weight:600"><span>9:41</span><span style="font-size:12px;letter-spacing:1px">▮▮▮ ◠ ▭</span></div>
+        <!-- header -->
+        <div style="display:flex;align-items:flex-start;padding:8px;gap:8px">
+          <div style="width:36px;height:36px;flex:0 0 36px;border-radius:12px;background:#F0F1F5;display:flex;align-items:center;justify-content:center"><span style="width:20px;height:20px;background:#0A0E16;-webkit-mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/chevron-left.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/chevron-left.svg) center/contain no-repeat"></span></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0">
+            <div style="font-size:20px;line-height:26px;font-weight:700;text-align:center;max-width:95%">Cupa Toamnei la Crap</div>
+            <div style="font-size:12px;line-height:16px;font-weight:600;color:#737373">Organizat de mihai.popa</div>
+            <div style="display:flex;align-items:center;gap:4px"><span style="width:14px;height:14px;background:#6366F1;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/map-pin.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/map-pin.svg) center/contain no-repeat"></span><div style="font-size:12px;line-height:16px;font-weight:600;color:#6366F1">Balta Siliștea</div></div>
+            <div style="display:flex;gap:4px;margin-top:8px;align-items:center;flex-wrap:nowrap;white-space:nowrap;justify-content:center;margin-left:-44px;margin-right:-44px">
+              <div style="height:26px;padding:2px 8px;box-sizing:border-box;border-radius:4px;background:#E11D48;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:4px;background:#FFFFFF;animation:breathe 2s infinite"></span><span style="font-size:14px;line-height:20px;font-weight:700;color:#FFFFFF;white-space:nowrap">Live</span></div>
+              <div style="height:26px;padding:2px 8px;box-sizing:border-box;border-radius:4px;background:#404040;display:flex;align-items:center;gap:4px"><span style="width:16px;height:16px;background:#FFFFFF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat"></span><span style="font-size:12px;line-height:15px;font-weight:700;color:#FFFFFF;white-space:nowrap">412 urmăritori</span></div>
+              <div style="height:26px;padding:2px 8px;box-sizing:border-box;border-radius:4px;background:#6366F1;display:flex;align-items:center;gap:4px"><span style="width:16px;height:16px;background:#FFFFFF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat"></span><span style="font-size:14px;line-height:20px;font-weight:700;color:#FFFFFF;white-space:nowrap">Urmărește</span></div>
+            </div>
+          </div>
+          <div style="width:36px;height:36px;flex:0 0 36px;border-radius:12px;background:#F0F1F5;display:flex;align-items:center;justify-content:center"><span style="width:19px;height:19px;background:#0A0E16;-webkit-mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/share-2.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/share-2.svg) center/contain no-repeat"></span></div>
+        </div>
+        <!-- tabs -->
+        <div style="display:flex;border-bottom:1px solid #EDEDED;overflow:hidden">
+          <sc-for list="{{ detailTabs }}" as="t" hint-placeholder-count="5">
+            <div style="flex:0 0 auto;padding:14px;position:relative"><div style="font-size:14px;line-height:20px;font-weight:600;color:{{ t.color }};white-space:nowrap">{{ t.label }}</div><div style="position:absolute;left:0;right:0;bottom:0;height:2px;background:{{ t.line }}"></div></div>
+          </sc-for>
+        </div>
+        <!-- scene -->
+        <div style="padding:16px 16px 0;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between">
+            <sc-for list="{{ viewChips }}" as="v" hint-placeholder-count="4">
+              <div style="width:75px;height:75px;border-radius:14px;background:{{ v.bg }};box-shadow:{{ v.shadow }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+                <span style="width:21px;height:21px;background:{{ v.iconColor }};-webkit-mask:url({{ v.icon }}) center/contain no-repeat;mask:url({{ v.icon }}) center/contain no-repeat"></span>
+                <div style="font-size:11px;line-height:14px;font-weight:700;color:{{ v.fg }};text-align:center">{{ v.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <!-- carousel parallax -->
+        <div style="position:relative;height:132px;margin-top:4px">
+          <div style="position:absolute;left:-190px;top:15px;width:245px;height:90px;border-radius:12px;background:#6366F1 url(assets/confetti-indigo.png) center/cover;opacity:.9"></div>
+          <div style="position:absolute;right:-190px;top:15px;width:245px;height:90px;border-radius:12px;background:#6366F1 url(assets/confetti-indigo.png) center/cover;opacity:.9"></div>
+          <div style="position:absolute;left:65px;right:65px;top:4px;height:112px;border-radius:12px;background:#6366F1 url(assets/confetti-indigo.png) center/cover;box-shadow:0 12px 4px -6px rgba(99,102,241,.25);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
+            <div style="font-size:12px;line-height:16px;font-weight:600;color:#FFFFFF">Cea mai mare captură</div>
+            <div style="font-size:20px;line-height:24px;font-weight:800;color:#FFFFFF">18.42 kg</div>
+            <div style="font-size:12px;line-height:16px;font-weight:600;color:#FFFFFF">Sector A Stand 7</div>
+            <div style="font-size:10px;line-height:14px;font-weight:600;color:#FFFFFF;opacity:.8;margin-top:-4px">Radu Ionescu</div>
+          </div>
+        </div>
+        <!-- table -->
+        <div style="padding:0 16px;overflow:hidden">
+          <div style="display:flex;width:max-content">
+            <div style="display:flex;flex-direction:column">
+              <div style="width:60px;height:60px;box-sizing:border-box;border:1px solid #EBEBEB;background:#E0E7FF;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:16px;font-weight:600;color:#6366F1">Stand</div>
+              <sc-for list="{{ mobileRows }}" as="r" hint-placeholder-count="12">
+                <div style="width:60px;height:40px;box-sizing:border-box;border:1px solid #EBEBEB;border-left:4px solid {{ r.color }};background:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:16px;font-weight:700;color:#000">{{ r.stand }}</div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column">
+              <div style="display:flex">
+                <sc-for list="{{ mobileCols }}" as="c" hint-placeholder-count="7">
+                  <div style="width:{{ c.w }}px;height:60px;box-sizing:border-box;border:1px solid #EBEBEB;background:#E0E7FF;display:flex;align-items:center;justify-content:center;padding:4px;text-align:center;font-size:10px;line-height:14px;font-weight:600;color:#6366F1">{{ c.title }}</div>
+                </sc-for>
+              </div>
+              <sc-for list="{{ mobileRows }}" as="r" hint-placeholder-count="12">
+                <div style="display:flex">
+                  <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="7">
+                    <div style="width:{{ c.w }}px;height:40px;box-sizing:border-box;border:1px solid #EBEBEB;background:{{ c.bg }};display:flex;align-items:center;justify-content:center;gap:4px;padding:4px;position:relative">
+                      <div style="font-size:12px;font-weight:{{ c.fw }};color:{{ c.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.v }}</div>
+                      <sc-if value="{{ c.pen }}" hint-placeholder-val="{{ false }}"><span style="width:12px;height:12px;flex:0 0 12px;background:#F59E0B;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/exclamation-triangle.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/exclamation-triangle.svg) center/contain no-repeat"></span></sc-if>
+                      <sc-if value="{{ c.split }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:2px;bottom:0;font-size:9px;line-height:11px;font-weight:600;color:{{ c.fg }}">SPLIT</div></sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <!-- action bar + banner -->
+        <div style="position:absolute;left:0;right:0;bottom:0;z-index:3">
+          <div style="background:#FFFFFF;padding-top:4px;display:flex;padding-left:16px;overflow:hidden;box-shadow:0 -1px 0 #F0F0F0">
+            <sc-for list="{{ barItems }}" as="b" hint-placeholder-count="6">
+              <div style="flex:0 0 75px;width:75px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;position:relative">
+                <div style="width:28px;height:28px;border-radius:8px;background:{{ b.color }};display:flex;align-items:center;justify-content:center"><span style="width:16px;height:16px;background:#FFFFFF;-webkit-mask:url({{ b.icon }}) center/contain no-repeat;mask:url({{ b.icon }}) center/contain no-repeat"></span></div>
+                <div style="font-size:11px;line-height:12px;font-weight:600;color:#212121;text-align:center;max-width:64px;min-height:24px">{{ b.label }}</div>
+                <sc-if value="{{ b.hasBadge }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-5px;left:44px;min-width:17px;height:17px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:#E11D48;border:1.5px solid #FFFFFF;display:flex;align-items:center;justify-content:center;font-size:9px;line-height:11px;font-weight:800;color:#FFFFFF">{{ b.badge }}</div></sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <div style="background:#6366F1;display:flex;align-items:center;justify-content:center;gap:10px;padding:6px 0 26px">
+            <span style="width:8px;height:8px;border-radius:4px;background:#FFFFFF;animation:breathe 2s infinite"></span>
+            <div style="font-size:12px;line-height:16px;font-weight:600;color:#FFFFFF">Cântar in curs pe standul B14.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= DESKTOP ================= -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:13px;font-weight:700;color:#475467">Desktop · 1440 · statistici sus, 4 vederi ca tab-uri mari, tabel complet · chat ca fereastră andocată, cântarele ca vedere + ultimul cântar</div>
+      <div data-screen-label="Concurs clasament desktop" style="width:1440px;position:relative;background:#F2F2F2;border-radius:16px;overflow:hidden;box-shadow:0 12px 32px -8px rgba(16,24,40,.18)">
+        <!-- chat: dock web, nu buton în header -->
+        <div style="position:absolute;right:32px;bottom:32px;width:360px;background:#FFFFFF;border-radius:18px;box-shadow:0 18px 40px -12px rgba(16,24,40,.28),0 0 0 1px rgba(16,24,40,.06);overflow:hidden;z-index:5">
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #F2F2F2">
+            <div style="width:32px;height:32px;border-radius:10px;background:#E91E63;display:flex;align-items:center;justify-content:center"><span style="width:17px;height:17px;flex:0 0 17px;background:#FFFFFF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/message-circle.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/message-circle.svg) center/contain no-repeat"></span></div>
+            <div style="flex:1"><div style="font-size:14px;line-height:18px;font-weight:800">Chat concurs</div><div style="font-size:11px;line-height:14px;font-weight:600;color:#737373">48 de pescari · 3 mesaje noi</div></div>
+            <div style="min-width:20px;height:20px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#E11D48;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#FFFFFF">3</div>
+            <span style="width:18px;height:18px;flex:0 0 18px;background:#737373;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-down.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-down.svg) center/contain no-repeat"></span>
+          </div>
+          <div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ chatPreview }}" as="m" hint-placeholder-count="3">
+              <div style="display:flex;gap:8px;align-items:flex-start">
+                <div style="width:28px;height:28px;flex:0 0 28px;border-radius:14px;background:{{ m.bg }};color:{{ m.fg }};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800">{{ m.ini }}</div>
+                <div style="flex:1;min-width:0"><div style="display:flex;gap:6px;align-items:baseline"><div style="font-size:12px;font-weight:800">{{ m.name }}</div><div style="font-size:11px;font-weight:600;color:#A3A3A3">{{ m.time }}</div></div><div style="font-size:13px;line-height:18px;font-weight:600;color:#262626">{{ m.text }}</div></div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="padding:0 14px 14px"><div style="height:40px;border-radius:20px;background:#F2F2F2;display:flex;align-items:center;padding:0 14px;font-size:13px;font-weight:600;color:#737373">Scrie un mesaj…</div></div>
+        </div>
+        <!-- top nav -->
+        <div style="height:72px;background:#FFFFFF;box-shadow:0 1px 0 #EDEDED;display:flex;align-items:center;padding:0 40px;gap:40px">
+          <img src="assets/logo_horizontal.svg" alt="Bluvi" style="height:28px;width:auto">
+          <div style="display:flex;gap:6px;height:72px;align-items:stretch">
+            <sc-for list="{{ topNav }}" as="n" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:8px;padding:3px 14px 0;border-bottom:{{ n.border }};box-sizing:border-box">
+                <span style="width:22px;height:22px;background:{{ n.color }};-webkit-mask:url({{ n.url }}) center/contain no-repeat;mask:url({{ n.url }}) center/contain no-repeat"></span>
+                <div style="font-size:15px;line-height:20px;font-weight:700;color:{{ n.color }}">{{ n.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex:1"></div>
+          <div style="width:320px;height:42px;border-radius:21px;background:#F2F2F2;display:flex;align-items:center;gap:8px;padding:0 14px;box-sizing:border-box"><span style="width:17px;height:17px;background:#A3A3A3;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/magnifying-glass.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/magnifying-glass.svg) center/contain no-repeat"></span><div style="font-size:13px;font-weight:600;color:#737373">Caută concursuri, bălți, pescari</div></div>
+          <div style="width:42px;height:42px;border-radius:21px;background:#F2F2F2;display:flex;align-items:center;justify-content:center;position:relative"><span style="width:20px;height:20px;background:#171717;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/bell.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/bell.svg) center/contain no-repeat"></span><span style="position:absolute;top:9px;right:10px;width:8px;height:8px;border-radius:4px;background:#E11D48;border:2px solid #F2F2F2"></span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:4px 14px 4px 4px;border-radius:999px;background:#F2F2F2"><div style="width:34px;height:34px;border-radius:17px;background:#6366F1;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#FFFFFF">MP</div><div style="font-size:14px;font-weight:700">mihai.popa</div></div>
+        </div>
+
+        <!-- header concurs -->
+        <div style="background:#FFFFFF;border-bottom:1px solid #EDEDED">
+          <div style="max-width:1280px;margin:0 auto;padding:22px 40px 0;display:flex;flex-direction:column;gap:18px">
+            <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#737373"><span>Concursuri</span><span style="width:12px;height:12px;background:#A3A3A3;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat"></span><span>Live</span><span style="width:12px;height:12px;background:#A3A3A3;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat"></span><span style="color:#000">Cupa Toamnei la Crap</span></div>
+            <div style="display:flex;gap:20px;align-items:center">
+              <div style="width:96px;height:96px;flex:0 0 96px;border-radius:16px;background:url(assets/competition-placeholder.jpg) center/cover"></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">
+                <div style="font-size:32px;line-height:38px;font-weight:800;letter-spacing:-.6px">Cupa Toamnei la Crap</div>
+                <div style="display:flex;align-items:center;gap:10px;font-size:13px;line-height:18px;font-weight:600;color:#737373">
+                  <span>Organizat de mihai.popa</span><span style="width:3px;height:3px;border-radius:2px;background:#C3C7D2"></span>
+                  <span style="display:flex;align-items:center;gap:4px;color:#6366F1;font-weight:700"><span style="width:14px;height:14px;background:#6366F1;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/map-pin.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/map-pin.svg) center/contain no-repeat"></span>Balta Siliștea</span><span style="width:3px;height:3px;border-radius:2px;background:#C3C7D2"></span>
+                  <span>SÂM, 27 – DUM, 28 SEPT.</span>
+                </div>
+                <div style="display:flex;gap:4px;margin-top:6px">
+                  <div style="height:26px;padding:2px 8px;box-sizing:border-box;border-radius:4px;background:#E11D48;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:4px;background:#FFFFFF;animation:breathe 2s infinite"></span><span style="font-size:14px;line-height:20px;font-weight:700;color:#FFFFFF;white-space:nowrap">Live</span></div>
+                  <div style="height:26px;padding:2px 8px;box-sizing:border-box;border-radius:4px;background:#404040;display:flex;align-items:center;gap:4px"><span style="width:16px;height:16px;background:#FFFFFF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat"></span><span style="font-size:12px;line-height:15px;font-weight:700;color:#FFFFFF;white-space:nowrap">412 urmăritori</span></div>
+                  <div style="height:26px;padding:2px 8px;box-sizing:border-box;border-radius:4px;background:#6366F1;display:flex;align-items:center;gap:4px"><span style="width:16px;height:16px;background:#FFFFFF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/eye.svg) center/contain no-repeat"></span><span style="font-size:14px;line-height:20px;font-weight:700;color:#FFFFFF;white-space:nowrap">Urmărește</span></div>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <sc-if value="{{ isOrganizer }}" hint-placeholder-val="{{ false }}">
+                  <div style="height:44px;padding:0 14px 0 16px;border-radius:12px;background:#6366F1;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:#FFFFFF"><span style="width:18px;height:18px;flex:0 0 18px;background:#FFFFFF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/cog-6-tooth.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/cog-6-tooth.svg) center/contain no-repeat"></span>Organizare<span style="width:16px;height:16px;flex:0 0 16px;background:#FFFFFF;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-down.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-down.svg) center/contain no-repeat"></span></div>
+                </sc-if>
+                <div style="height:44px;padding:0 14px;border-radius:12px;background:#F0F1F5;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:#0A0E16"><span style="width:18px;height:18px;flex:0 0 18px;background:#0A0E16;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/photo.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/photo.svg) center/contain no-repeat"></span>Imagine clasament</div>
+                <div style="width:44px;height:44px;border-radius:12px;background:#F0F1F5;display:flex;align-items:center;justify-content:center" title="Distribuie competiția"><span style="width:19px;height:19px;flex:0 0 19px;background:#0A0E16;-webkit-mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/share-2.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/share-2.svg) center/contain no-repeat"></span></div>
+              </div>
+            </div>
+            <div style="display:flex">
+              <sc-for list="{{ detailTabs }}" as="t" hint-placeholder-count="5">
+                <div style="padding:14px 18px;position:relative"><div style="font-size:15px;line-height:20px;font-weight:700;color:{{ t.color }}">{{ t.label }}</div><div style="position:absolute;left:0;right:0;bottom:0;height:2px;background:{{ t.line }}"></div></div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="max-width:1280px;margin:0 auto;padding:24px 40px 56px;display:flex;flex-direction:column;gap:18px">
+          <!-- statistici sus -->
+          <div style="display:grid;grid-template-columns:1.35fr 1fr 1fr 1.1fr;gap:12px">
+            <div style="border-radius:18px;background:#20263D;padding:18px 20px;display:flex;flex-direction:column;gap:2px">
+              <div style="font-size:10px;line-height:14px;font-weight:800;letter-spacing:1px;color:#A9B1CA">CEA MAI MARE CAPTURĂ</div>
+              <div style="display:flex;align-items:baseline;gap:6px"><div style="font-size:64px;line-height:70px;font-weight:800;letter-spacing:-4px;color:#DCE1FF">18,42</div><div style="font-size:16px;font-weight:700;color:#A9B1CA">kg</div></div>
+              <div style="display:flex;align-items:center;gap:8px"><div style="height:22px;padding:0 7px;border-radius:4px;background:#1976D2;display:flex;align-items:center;font-size:11px;font-weight:800;color:#FFFFFF">A7</div><div style="font-size:14px;font-weight:700;color:#FFFFFF">Radu Ionescu</div><div style="font-size:12px;font-weight:600;color:#A9B1CA">· 04:37</div></div>
+            </div>
+            <sc-for list="{{ statTiles }}" as="t" hint-placeholder-count="2">
+              <div style="border-radius:18px;background:#FFFFFF;padding:18px 20px;display:flex;flex-direction:column;justify-content:space-between;gap:6px">
+                <div style="display:flex;align-items:center;gap:8px"><div style="width:28px;height:28px;border-radius:8px;background:{{ t.tint }};display:flex;align-items:center;justify-content:center"><span style="width:16px;height:16px;background:{{ t.color }};-webkit-mask:url({{ t.icon }}) center/contain no-repeat;mask:url({{ t.icon }}) center/contain no-repeat"></span></div><div style="font-size:13px;font-weight:700;color:#404040">{{ t.label }}</div></div>
+                <div style="display:flex;align-items:baseline;gap:5px"><div style="font-size:40px;line-height:44px;font-weight:800;letter-spacing:-2px">{{ t.value }}</div><div style="font-size:14px;font-weight:700;color:#737373">{{ t.unit }}</div></div>
+                <div style="font-size:12px;line-height:16px;font-weight:600;color:#737373">{{ t.helper }}</div>
+              </div>
+            </sc-for>
+            <div style="border-radius:18px;background:#FFFFFF;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="height:24px;padding:0 9px;border-radius:999px;background:#FFF1F3;display:flex;align-items:center;gap:6px"><span style="position:relative;width:6px;height:6px;flex:0 0 6px"><span style="position:absolute;inset:0;border-radius:3px;background:#E11D48;animation:halo 2.4s linear infinite"></span><span style="position:absolute;inset:0;border-radius:3px;background:#E11D48"></span></span><span style="font-size:11px;line-height:14px;font-weight:800;letter-spacing:.4px;color:#BE123C">CÂNTAR ÎN CURS</span></div>
+                <div style="flex:1"></div>
+                <div style="font-size:12px;font-weight:600;color:#737373">de 3 min</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:40px;height:40px;flex:0 0 40px;border-radius:12px;background:#E64A19;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#FFFFFF"><div style="font-size:10px;line-height:11px;font-weight:700;opacity:.85">B</div><div style="font-size:15px;line-height:16px;font-weight:800">14</div></div>
+                <div style="flex:1;min-width:0"><div style="font-size:15px;line-height:20px;font-weight:800">Vlad Stan</div><div style="font-size:12px;line-height:16px;font-weight:600;color:#737373">Sector B · stand 14</div></div>
+              </div>
+              <div style="flex:1"></div>
+              <div style="display:flex;align-items:center;gap:8px;padding-top:10px;border-top:1px solid #F2F2F2">
+                <div style="font-size:12px;font-weight:600;color:#737373;flex:1">Anterior: <span style="color:#000;font-weight:700">C4 · 6,20 kg</span></div>
+                <div style="font-size:12px;font-weight:700;color:#6366F1">Toate cântarele</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- vederi: tab-uri mari -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#FFFFFF;border-radius:18px;padding:6px">
+            <sc-for list="{{ viewTabs }}" as="v" hint-placeholder-count="4">
+              <div style="height:64px;border-radius:14px;background:{{ v.bg }};display:flex;align-items:center;gap:12px;padding:0 16px;cursor:pointer;box-shadow:{{ v.shadow }}">
+                <div style="width:36px;height:36px;border-radius:10px;background:{{ v.tileBg }};display:flex;align-items:center;justify-content:center"><span style="width:20px;height:20px;background:{{ v.iconColor }};-webkit-mask:url({{ v.icon }}) center/contain no-repeat;mask:url({{ v.icon }}) center/contain no-repeat"></span></div>
+                <div style="flex:1;display:flex;flex-direction:column">
+                  <div style="font-size:16px;line-height:20px;font-weight:800;color:{{ v.fg }}">{{ v.label }}</div>
+                  <div style="font-size:12px;line-height:16px;font-weight:600;color:{{ v.sub }}">{{ v.meta }}</div>
+                </div>
+                <sc-if value="{{ v.live }}" hint-placeholder-val="{{ false }}"><span style="position:relative;width:7px;height:7px;flex:0 0 7px"><span style="position:absolute;inset:0;border-radius:4px;background:#E11D48;animation:halo 2.4s linear infinite"></span><span style="position:absolute;inset:0;border-radius:4px;background:#E11D48"></span></span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- toolbar -->
+          <div style="background:#FFFFFF;border-radius:16px;padding:10px 12px;display:flex;align-items:center;gap:12px">
+            <div style="display:flex;gap:3px;background:#F2F2F2;border-radius:10px;padding:3px;flex:0 0 auto">
+              <div style="padding:7px 12px;border-radius:8px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.1);font-size:13px;font-weight:700;color:#6366F1">General</div>
+              <div style="padding:7px 12px;font-size:13px;font-weight:700;color:#737373">Pe sectoare</div>
+            </div>
+            <div style="width:1px;height:24px;background:#EDEDED;flex:0 0 1px"></div>
+            <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:0;overflow:hidden">
+              <sc-for list="{{ sectorChips }}" as="s" hint-placeholder-count="5">
+                <div style="height:32px;padding:0 11px;border-radius:999px;background:{{ s.bg }};display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:{{ s.fg }};flex:0 0 auto"><span style="width:8px;height:8px;border-radius:4px;background:{{ s.dot }}"></span>{{ s.label }}</div>
+              </sc-for>
+            </div>
+            <div style="height:38px;padding:0 12px;border-radius:10px;background:#F2F2F2;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;flex:0 0 auto;white-space:nowrap"><span style="width:15px;height:15px;background:#009688;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/arrows-up-down.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/arrows-up-down.svg) center/contain no-repeat"></span>Poziția în clasament</div>
+            <div style="width:220px;height:38px;border-radius:10px;background:#F2F2F2;display:flex;align-items:center;gap:8px;padding:0 12px;box-sizing:border-box;flex:0 0 220px"><span style="width:16px;height:16px;background:#A3A3A3;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/magnifying-glass.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/magnifying-glass.svg) center/contain no-repeat"></span><div style="font-size:13px;font-weight:600;color:#737373;white-space:nowrap">Caută pescar sau stand</div></div>
+          </div>
+
+          <!-- big table -->
+          <div style="background:#FFFFFF;border-radius:16px;overflow:hidden;font-variant-numeric:tabular-nums">
+            <div style="display:grid;grid-template-columns:84px 90px minmax(0,1fr) 110px 120px 90px 110px 110px 44px;height:52px;align-items:center;background:#E0E7FF;position:sticky;top:0">
+              <sc-for list="{{ deskCols }}" as="c" hint-placeholder-count="9">
+                <div style="padding:0 12px;font-size:12px;line-height:14px;font-weight:700;color:#6366F1;text-align:{{ c.align }}">{{ c.title }}</div>
+              </sc-for>
+            </div>
+            <sc-for list="{{ deskRows }}" as="r" hint-placeholder-count="20">
+              <div style="display:grid;grid-template-columns:84px 90px minmax(0,1fr) 110px 120px 90px 110px 110px 44px;height:46px;align-items:center;border-top:1px solid #EFEFEF;background:{{ r.rowBg }};position:relative">
+                <div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:{{ r.color }}"></div>
+                <div style="padding:0 12px 0 18px;display:flex;align-items:center;gap:8px">
+                  <div style="min-width:30px;height:28px;padding:0 6px;box-sizing:border-box;border-radius:8px;background:{{ r.posBg }};color:{{ r.posFg }};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">{{ r.gp }}</div>
+                </div>
+                <div style="padding:0 12px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:{{ r.fg }}"><span style="width:8px;height:8px;border-radius:4px;background:{{ r.color }}"></span>{{ r.stand }}</div>
+                <div style="padding:0 12px;display:flex;align-items:center;gap:10px;min-width:0">
+                  <div style="width:28px;height:28px;flex:0 0 28px;border-radius:14px;background:{{ r.avBg }};color:{{ r.avFg }};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800">{{ r.ini }}</div>
+                  <div style="font-size:14px;line-height:18px;font-weight:700;color:{{ r.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div>
+                  <sc-if value="{{ r.pen }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;background:rgba(254,249,195,.9);font-size:11px;font-weight:700;color:#A16207;white-space:nowrap"><span style="width:11px;height:11px;background:#F59E0B;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/exclamation-triangle.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/exclamation-triangle.svg) center/contain no-repeat"></span>−1,00 kg</div></sc-if>
+                </div>
+                <div style="padding:0 12px;text-align:right"><span style="display:inline-block;padding:3px 7px;border-radius:6px;background:{{ r.cmmcBg }};font-size:14px;font-weight:{{ r.cmmcFw }};color:{{ r.fg }}">{{ r.cmmc }}</span></div>
+                <div style="padding:0 12px;text-align:right;font-size:16px;font-weight:800;color:{{ r.fg }}">{{ r.qty }}</div>
+                <div style="padding:0 12px;text-align:right;font-size:14px;font-weight:600;color:{{ r.fg2 }}">{{ r.n }}</div>
+                <div style="padding:0 12px;text-align:right;font-size:14px;font-weight:600;color:{{ r.fg2 }};position:relative">{{ r.pts }}<sc-if value="{{ r.split }}" hint-placeholder-val="{{ false }}"><span style="margin-left:5px;font-size:10px;font-weight:700;color:#6366F1">SPLIT</span></sc-if></div>
+                <div style="padding:0 12px;text-align:right;font-size:14px;font-weight:600;color:{{ r.fg2 }}">{{ r.sp }}</div>
+                <div style="padding:0 16px 0 12px;display:flex;justify-content:flex-end"><span style="width:16px;height:16px;background:#C3C7D2;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/chevron-right.svg) center/contain no-repeat"></span></div>
+              </div>
+            </sc-for>
+            <div style="padding:14px 18px;border-top:1px solid #EFEFEF;display:flex;gap:18px;align-items:center;flex-wrap:wrap;font-size:12px;font-weight:600;color:#737373">
+              <span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:4px;background:rgba(255,215,0,.85)"></span>C.M.M.C a concursului</span>
+              <span style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;font-weight:700;color:#6366F1">SPLIT</span>puncte împărțite la egalitate în sector</span>
+              <span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#F59E0B;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/exclamation-triangle.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/exclamation-triangle.svg) center/contain no-repeat"></span>penalizare aplicată</span>
+              <span>„–” = fără captură (capot)</span>
+              <span style="flex:1"></span>
+              <span>Primii 4 = câștigătorii de sector (numberOfSectors = 4)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= STĂRI ================= -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:20px;line-height:26px;font-weight:700">Stări și cazuri limită · mobil</div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+      <sc-for list="{{ barStates }}" as="s" hint-placeholder-count="5">
+        <div style="width:375px;display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:13px;font-weight:700;color:#475467">{{ s.title }}</div>
+          <div style="background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(16,24,40,.1)">
+            <sc-if value="{{ s.isRow }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;padding:4px 0 8px 16px;overflow:hidden">
+                <sc-for list="{{ s.items }}" as="b" hint-placeholder-count="5">
+                  <div style="flex:0 0 75px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0">
+                    <div style="width:28px;height:28px;border-radius:8px;background:{{ b.color }};display:flex;align-items:center;justify-content:center"><span style="width:16px;height:16px;background:#FFFFFF;-webkit-mask:url({{ b.icon }}) center/contain no-repeat;mask:url({{ b.icon }}) center/contain no-repeat"></span></div>
+                    <div style="font-size:11px;line-height:12px;font-weight:600;color:#212121;text-align:center;max-width:64px;min-height:24px;opacity:{{ b.op }}">{{ b.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ s.isConfirm }}" hint-placeholder-val="{{ false }}">
+              <div style="height:64px;display:flex;align-items:center;gap:12px;padding:0 12px">
+                <div style="flex:1;font-size:12px;line-height:16px;font-weight:600;color:#212121">{{ s.message }}</div>
+                <div style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;color:#212121">Anulează</div>
+                <div style="padding:6px 12px;border-radius:8px;background:#3F51B5;font-size:12px;font-weight:600;color:#FFFFFF">Confirmă</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ s.isMessage }}" hint-placeholder-val="{{ false }}">
+              <div style="height:64px;display:flex;align-items:center;gap:12px;padding:0 16px;border-top:1px solid #E0E0E0">
+                <span style="width:22px;height:22px;flex:0 0 22px;background:#4CAF50;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/check-circle.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/check-circle.svg) center/contain no-repeat"></span>
+                <div style="flex:1;font-size:14px;line-height:20px;font-weight:600;color:#212121">{{ s.message }}</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ s.isLoading }}" hint-placeholder-val="{{ false }}">
+              <div style="height:64px;display:flex;align-items:center;justify-content:center;gap:12px;border-top:1px solid #E0E0E0">
+                <span style="width:18px;height:18px;border-radius:9px;border:2px solid #E0E0E0;border-top-color:#212121;box-sizing:border-box"></span>
+                <div style="font-size:14px;line-height:20px;font-weight:600;color:#212121">{{ s.message }}</div>
+              </div>
+            </sc-if>
+          </div>
+          <div style="font-size:12px;line-height:16px;font-weight:600;color:#667085;text-wrap:pretty">{{ s.note }}</div>
+        </div>
+      </sc-for>
+      <div style="width:375px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:13px;font-weight:700;color:#475467">Se încarcă (CompetitionHeaderSkeleton + tabel)</div>
+        <div style="background:#FFFFFF;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;align-items:center">
+          <div style="width:220px;height:22px;border-radius:6px;background:linear-gradient(90deg,#F2F2F2 0,#E6E6E6 50%,#F2F2F2 100%);background-size:1200px 100%;animation:shimmer 1.4s infinite linear"></div>
+          <div style="width:140px;height:12px;border-radius:4px;background:#F2F2F2"></div>
+          <div style="width:180px;height:26px;border-radius:4px;background:#F2F2F2"></div>
+          <div style="width:100%;height:1px;background:#EDEDED;margin:6px 0"></div>
+          <div style="width:100%;display:flex;flex-direction:column;gap:4px">
+            <div style="height:36px;border-radius:4px;background:#E0E7FF;opacity:.6"></div>
+            <div style="height:28px;border-radius:4px;background:#F2F2F2"></div><div style="height:28px;border-radius:4px;background:#F2F2F2"></div><div style="height:28px;border-radius:4px;background:#F2F2F2"></div>
+          </div>
+        </div>
+      </div>
+      <div style="width:375px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:13px;font-weight:700;color:#475467">Eroare header (CompetitionHeader)</div>
+        <div style="background:#FFFFFF;border-radius:16px;height:115px;display:flex;align-items:center;justify-content:center;padding:0 24px">
+          <div style="font-size:14px;line-height:20px;font-weight:600;text-align:center">Ceva nu a mers bine, vă rugăm să încercați din nou mai târziu.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;tableStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Aerisit&quot;,&quot;Ca în aplicație&quot;],&quot;default&quot;:&quot;Aerisit&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Desktop&quot;},&quot;role&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Vizitator&quot;,&quot;Organizator&quot;],&quot;default&quot;:&quot;Vizitator&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;sectors24&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Desktop&quot;}}">
+class Component extends DCLogic {
+  build() {
+    const first = ['Radu', 'Mihai', 'Andrei', 'Cristian', 'Ionuț', 'Vlad', 'Sorin', 'Paul', 'Florin', 'Dan', 'Gabriel', 'Marius', 'Cătălin', 'Bogdan', 'Alexandru', 'Ștefan', 'Adrian', 'Lucian', 'Tudor', 'Costin', 'Emil', 'George', 'Nicu', 'Ovidiu'];
+    const last = ['Ionescu', 'Popa', 'Marin', 'Toma', 'Dragomir', 'Stan', 'Neagu', 'Enache', 'Radu', 'Munteanu', 'Stoica', 'Dinu', 'Pavel', 'Ene', 'Moldovan', 'Țurcanu', 'Constantin', 'Lungu', 'Barbu', 'Nistor'];
+    const sectors = { A: '#1976D2', B: '#E64A19', C: '#388E3C', D: '#7B1FA2' };
+    let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const rows = [];
+    let k = 0;
+    Object.keys(sectors).forEach((s, si) => {
+      for (let st = 1; st <= 12; st++) {
+        const capot = (s === 'B' && st === 18 - 12) || (s === 'D' && st === 11);
+        const n = capot ? 0 : 2 + Math.floor(rnd() * 10);
+        let qty = capot ? 0 : Math.round((n * (3 + rnd() * 6)) * 100) / 100;
+        let big = capot ? 0 : Math.round((qty / n) * (1.2 + rnd() * .8) * 100) / 100;
+        rows.push({ s, st, stand: s + st, color: sectors[s], name: `${first[k % 24]} ${last[(k * 7) % 20]}`, n, qty, big, pen: false });
+        k++;
+      }
+    });
+    const fix = (stand, o) => Object.assign(rows.find(r => r.stand === stand), o);
+    fix('A7', { name: 'Radu Ionescu', qty: 86.4, n: 9, big: 18.42 });
+    fix('B2', { name: 'Mihai Popa', qty: 71.9, n: 11, big: 9.8 });
+    fix('C4', { name: 'Andrei Marin', qty: 64.15, n: 8, big: 12.05 });
+    fix('D9', { name: 'Cristian Toma', qty: 60.8, n: 10, big: 8.45 });
+    fix('A3', { qty: 52.2, n: 7, big: 11.3 }); fix('A10', { qty: 52.2, n: 9, big: 9.1 });
+    fix('C8', { pen: true });
+    // sector positions with SPLIT on ties
+    Object.keys(sectors).forEach(s => {
+      const sec = rows.filter(r => r.s === s).sort((a, b) => b.qty - a.qty);
+      let i = 0;
+      while (i < sec.length) {
+        let j = i; while (j + 1 < sec.length && sec[j + 1].qty === sec[i].qty) j++;
+        const pts = (i + 1 + j + 1) / 2;
+        for (let q = i; q <= j; q++) { sec[q].sp = i + 1; sec[q].pts = pts; sec[q].split = j > i; }
+        i = j + 1;
+      }
+    });
+    const byPos = [...rows].sort((a, b) => a.pts - b.pts || b.qty - a.qty);
+    byPos.forEach((r, i) => { r.gp = i + 1; r.win = r.gp <= 4; });
+    const maxBig = Math.max(...rows.map(r => r.big));
+    rows.forEach(r => { r.isBiggest = r.big === maxBig; });
+    return { rows, byPos, sectors };
+  }
+  renderVals() {
+    const { rows, byPos, sectors } = this.__b || (this.__b = this.build());
+    const style = this.props.tableStyle ?? 'Aerisit';
+    const role = this.props.role ?? 'Vizitator';
+    const H = 'https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/';
+    const HS = 'https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/';
+    const L = 'https://cdn.jsdelivr.net/npm/lucide-static@0.400.0/icons/';
+    const rgba = (hex, a) => { const b = parseInt(hex.slice(1), 16); return `rgba(${(b >> 16) & 255},${(b >> 8) & 255},${b & 255},${a})`; };
+    const f2 = v => v ? v.toFixed(2) : '-';
+    const ptsLabel = r => (r.pts % 1 ? r.pts.toFixed(1) : String(r.pts));
+    const mobileColsDef = [['Participant', 120, 'name'], ['C.M.M.C', 60, 'big'], ['Cantitate', 60, 'qty'], ['Nr. Buc', 60, 'n'], ['Puncte cantitate', 60, 'pts'], ['Poziție sector', 60, 'sp'], ['Poziție generală', 60, 'gp']];
+    const mobileRows = rows.slice(0, 12).map(r => ({
+      stand: r.stand, color: r.color,
+      cells: mobileColsDef.map(([, w, key]) => {
+        const biggest = key === 'big' && r.isBiggest;
+        const bg = biggest ? 'rgba(255,215,0,.85)' : rgba(r.color, r.win ? 0.9 : 0.4);
+        const fg = biggest ? '#000000' : (r.win ? '#FFFFFF' : '#000000');
+        let v = key === 'name' ? r.name : key === 'big' || key === 'qty' ? f2(r[key]) : key === 'pts' ? ptsLabel(r) : key === 'n' ? (r.n || '-') : String(r[key]);
+        if (key === 'gp' && r.win) v = '🎖️' + v;
+        return { w, v, bg, fg, fw: biggest ? 700 : 500, pen: key === 'name' && r.pen, split: key === 'pts' && r.split };
+      })
+    }));
+    const airy = style === 'Aerisit';
+    const deskRows = byPos.map(r => ({
+      gp: r.gp, stand: r.stand, name: r.name, color: r.color, pen: r.pen, split: r.split,
+      ini: r.name.split(' ').map(w => w[0]).join(''),
+      cmmc: f2(r.big), qty: r.qty ? f2(r.qty) : '–', n: r.n, pts: ptsLabel(r), sp: r.sp,
+      cmmcBg: r.isBiggest ? 'rgba(255,215,0,.85)' : 'transparent', cmmcFw: r.isBiggest ? 800 : 600,
+      rowBg: airy ? (r.win ? rgba(r.color, 0.1) : '#FFFFFF') : rgba(r.color, r.win ? 0.9 : 0.4),
+      fg: !airy && r.win ? '#FFFFFF' : '#000000', fg2: !airy && r.win ? '#FFFFFF' : '#404040',
+      posBg: r.win ? (airy ? r.color : '#FFFFFF') : '#F2F2F2', posFg: r.win ? (airy ? '#FFFFFF' : r.color) : '#000000',
+      avBg: '#F0F3FD', avFg: '#4338CA'
+    }));
+    const bar = (id, label, color, icon, badge) => ({ id, label, color, icon, hasBadge: !!badge, badge: badge || '' });
+    const organizer = role === 'Organizator';
+    let barItems = [bar('vezi-full', 'Vezi full', '#2196F3', HS + 'arrow-top-right-on-square.svg'), bar('cantare', 'Cântare', '#00BCD4', L + 'history.svg'), bar('sortare', 'Sortare', '#009688', HS + 'arrows-up-down.svg'), bar('statistici', 'Statistici', '#673AB7', HS + 'chart-bar.svg'), bar('share', 'Share', '#FFC107', HS + 'share.svg')];
+    if (organizer) barItems.unshift(bar('organizare', 'Organizare', '#3F51B5', HS + 'cog-6-tooth.svg'));
+    barItems.splice(1, 0, bar('chat', 'Chat', '#E91E63', L + 'message-circle.svg', '3'));
+    const deskActions = barItems.filter(b => !['sortare', 'statistici'].includes(b.id)).map(b => ({ ...b, label: b.id === 'vezi-full' ? 'Imagine clasament' : b.label }));
+    const views = [['Clasament', '#3F51B5', HS + 'trophy.svg'], ['Cântare', '#E64A19', HS + 'scale.svg'], ['Statistici', '#5C6BC0', HS + 'presentation-chart-bar.svg'], ['Toți peștii', '#009688', HS + 'queue-list.svg']];
+    const sectorLetters = 'ABCDEFGHIJKLMNOPQRSTUVWX'.split('');
+    const palette = ['#1976D2', '#E64A19', '#388E3C', '#7B1FA2', '#F57C00', '#0097A7', '#C2185B', '#5D4037', '#455A64', '#AFB42B', '#0288D1', '#D32F2F', '#00796B', '#512DA8', '#EF6C00', '#689F38', '#1565C0', '#AD1457', '#00838F', '#6A1B9A', '#4E342E', '#2E7D32', '#F9A825', '#B71C1C'];
+    const showAllSectors = this.props.sectors24 ?? false;
+    const letters = showAllSectors ? sectorLetters : Object.keys(sectors);
+    return {
+      detailTabs: ['Clasament', 'Informații', 'Participanți', 'Extra Cântare', 'Regulament'].map((label, i) => ({ label, color: i === 0 ? '#6366F1' : '#737373', line: i === 0 ? '#6366F1' : 'transparent' })),
+      viewChips: views.map(([label, color, icon], i) => ({ label, color, icon, bg: i === 0 ? color : '#FFFFFF', fg: i === 0 ? '#FFFFFF' : '#212121', iconColor: i === 0 ? '#FFFFFF' : color, shadow: i === 0 ? 'none' : '0 1px 4px rgba(0,0,0,.12)', deskBg: i === 0 ? '#EEF0FB' : 'transparent', deskFg: i === 0 ? '#3F51B5' : '#212121' })),
+      isOrganizer: organizer,
+      statTiles: [
+        { label: 'Capturi', value: String(rows.reduce((s, r) => s + r.n, 0)), unit: '', helper: '46 de standuri cu pește · 2 capot', icon: L + 'fish.svg', color: '#4f46e5', tint: '#F0F3FD' },
+        { label: 'Cantitate totală', value: rows.reduce((s, r) => s + r.qty, 0).toFixed(1).replace('.', ','), unit: 'kg', helper: 'media pe stand ' + (rows.reduce((s, r) => s + r.qty, 0) / 48).toFixed(1).replace('.', ',') + ' kg', icon: HS + 'scale.svg', color: '#E64A19', tint: '#FDECE6' }
+      ],
+      viewTabs: [
+        ['Clasament', '#3F51B5', HS + 'trophy.svg', 'General · 48 de pescari', false],
+        ['Cântare', '#E64A19', HS + 'scale.svg', '1 în curs · 164 finalizate', true],
+        ['Statistici', '#5C6BC0', HS + 'presentation-chart-bar.svg', 'Best 3/5/7 · pe sectoare', false],
+        ['Toți peștii', '#009688', HS + 'queue-list.svg', rows.reduce((s, r) => s + r.n, 0) + ' capturi', false]
+      ].map(([label, color, icon, meta, live], i) => ({ label, icon, meta, live, bg: i === 0 ? color : 'transparent', fg: i === 0 ? '#FFFFFF' : '#000000', sub: i === 0 ? 'rgba(255,255,255,.8)' : '#737373', tileBg: i === 0 ? 'rgba(255,255,255,.18)' : color, iconColor: '#FFFFFF', shadow: i === 0 ? '0 6px 16px -6px ' + color : 'none' })),
+      chatPreview: [
+        { ini: 'MP', name: 'mihai.popa', time: '09:12', text: 'Cântarul trece pe sectorul B în 10 minute.', bg: '#6366F1', fg: '#FFFFFF' },
+        { ini: 'AM', name: 'andrei.marin', time: '09:14', text: 'La C4 a mușcat unul frumos, vedem la cântar!', bg: '#F0F3FD', fg: '#4338CA' },
+        { ini: 'VS', name: 'vlad.stan', time: '09:15', text: 'Mulțumim, suntem pregătiți.', bg: '#F0F3FD', fg: '#4338CA' }
+      ],
+      mobileCols: mobileColsDef.map(([title, w]) => ({ title, w })),
+      mobileRows, barItems, deskActions,
+      metaCards: [
+        { title: 'Cea mai mare captură', heading: '18.42 kg', helper: 'Sector A Stand 7 · Radu Ionescu' },
+        { title: 'Număr total de capturi', heading: String(rows.reduce((s, r) => s + r.n, 0)), helper: '48 de standuri · 2 fără captură' },
+        { title: 'Cantitate totală', heading: rows.reduce((s, r) => s + r.qty, 0).toFixed(3) + ' kg', helper: 'actualizat la ultimul cântar' }
+      ],
+      sectorChips: [{ label: 'Toate', bg: '#6366F1', fg: '#FFFFFF', dot: '#FFFFFF' }].concat(letters.map((l, i) => ({ label: l, bg: '#F2F2F2', fg: '#000000', dot: palette[i] }))),
+      deskGrid: '84px 90px minmax(0,1fr) 110px 120px 90px 110px 110px 44px',
+      deskCols: [['Poziție generală', 'left'], ['Stand', 'left'], ['Participant', 'left'], ['C.M.M.C', 'right'], ['Cantitate', 'right'], ['Nr. Buc', 'right'], ['Puncte cantitate', 'right'], ['Poziție sector', 'right'], ['', 'right']].map(([title, align]) => ({ title, align })),
+      deskRows,
+      topNav: [['Acasă', H + 'home.svg'], ['Bălți', H + 'map.svg'], ['Competiții', H + 'trophy.svg'], ['Partide', L + 'fish.svg']].map(([label, url]) => ({ label, url, color: label === 'Competiții' ? '#6366F1' : '#404040', border: label === 'Competiții' ? '3px solid #6366F1' : '3px solid transparent' })),
+      barStates: [
+        { title: 'Bara · Viitor · vizitator', isRow: true, isConfirm: false, isMessage: false, isLoading: false, items: [bar('i', 'Înscrie-te', '#4CAF50', L + 'clipboard-pen.svg'), bar('c', 'Chat', '#E91E63', L + 'message-circle.svg'), bar('s', 'Share', '#FFC107', HS + 'share.svg')].map(b => ({ ...b, op: 1 })), note: 'notStarted: clasamentul e înlocuit de CompetitionPreview. Înscris sau în așteptare → „Modifică înscrierea”.' },
+        { title: 'Bara · Organizare deschisă (live)', isRow: true, isConfirm: false, isMessage: false, isLoading: false, items: [bar('b', 'Înapoi', '#757575', L + 'chevron-left.svg'), bar('m', 'Modifica competiția', '#6366F1', H + 'pencil-square.svg'), bar('a', 'Adaugă cântar', '#6366F1', HS + 'scale.svg'), bar('ar', 'Adaugă arbitru', '#EAB308', HS + 'user-plus.svg'), bar('sa', 'Șterge arbitru', '#EE7674', HS + 'user-minus.svg'), bar('p', 'Penalizări', '#EAB308', HS + 'exclamation-triangle.svg')].map(b => ({ ...b, op: 1 })), note: 'Urmează „Încheie concurs” (cere confirmare). „Modifica competiția” pe live deschide CannotEditCompetitionSheet.' },
+        { title: 'Bara · confirmare', isRow: false, isConfirm: true, isMessage: false, isLoading: false, items: [], message: 'Ești sigur că vrei să închei competiția?', note: 'Aceeași fâșie pentru „Start concurs”.' },
+        { title: 'Bara · mesaj după acțiune', isRow: false, isConfirm: false, isMessage: true, isLoading: false, items: [], message: 'Sortarea clasamentului după poziția în clasament a fost efectuată.', note: 'Dispare singur după 2,5 s.' },
+        { title: 'Bara · se încarcă', isRow: false, isConfirm: false, isMessage: false, isLoading: true, items: [], message: 'Se înregistrează cererea...', note: 'Participant înscris cere extra cântar.' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

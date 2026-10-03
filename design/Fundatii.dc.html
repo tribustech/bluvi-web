@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/bluvi-design-system-019dd2a6-7264-79c7-98b8-52c897e9b034/banner/colors_and_type.css">
+<link rel="stylesheet" href="_ds/bluvi-design-system-019dd2a6-7264-79c7-98b8-52c897e9b034/colors_and_type.css">
+<script src="_ds/bluvi-design-system-019dd2a6-7264-79c7-98b8-52c897e9b034/_ds_bundle.js"></script>
+<style>
+html,body{margin:0;background:#E7E9F1;font-family:Nunito,system-ui,sans-serif;color:#101828;-webkit-font-smoothing:antialiased}
+a{color:#4338CA;text-decoration:none}a:hover{color:#6366F1;text-decoration:underline}
+*:focus-visible{outline:2px solid #6366F1;outline-offset:2px}
+@keyframes pulseDot{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+</style>
+</helmet>
+
+<section style="padding:64px;display:flex;flex-direction:column;gap:40px;width:1440px;box-sizing:border-box">
+
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:40px">
+  <div style="display:flex;flex-direction:column;gap:12px;max-width:760px">
+    <img src="assets/logo_horizontal.svg" alt="Bluvi" style="height:32px;width:auto;align-self:flex-start">
+    <div style="font-size:48px;line-height:52px;font-weight:700;letter-spacing:-1px">Web · Fundații v0.1</div>
+    <div style="font-size:18px;line-height:28px;font-weight:600;color:#475467;text-wrap:pretty">Sistemul care leagă aplicația mobilă de noul web Next.js. Rampa rece (page / ink / hairline) e solul, indigo e singurul accent, iar cifra-semnătură lavandă-pe-navy duce toate numerele-vedetă: kilograme, poziții, tarife, numărători.</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:18px;font-weight:600;color:#475467;text-align:right">
+    <div>Sursă: <span style="color:#101828;font-weight:700">theme.ts · components/Typography.tsx · Badge.tsx</span></div>
+    <div>Clasament: <span style="color:#101828;font-weight:700">ranking-table/RankingTable.tsx · getColorsBySector.ts</span></div>
+    <div>Cifra-semnătură: <span style="color:#101828;font-weight:700">specificația CountTile din brief</span></div>
+  </div>
+</div>
+
+<!-- 01 CULOARE -->
+<div style="background:#FFFFFF;border-radius:20px;padding:40px;display:flex;flex-direction:column;gap:28px">
+  <div style="display:flex;align-items:baseline;gap:16px"><div style="font-size:13px;font-weight:800;color:#6366F1;letter-spacing:1px">01</div><div style="font-size:28px;line-height:34px;font-weight:700">Culoare</div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:14px;font-weight:700;color:#475467">Light · implicit</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+        <sc-for list="{{ lightSwatches }}" as="s" hint-placeholder-count="12">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="height:64px;border-radius:12px;background:{{ s.hex }};box-shadow:inset 0 0 0 1px rgba(16,24,40,.08)"></div>
+            <div style="font-size:13px;font-weight:700;line-height:16px">{{ s.name }}</div>
+            <div style="font-size:12px;font-weight:600;color:#667085;line-height:16px">{{ s.hex }} · {{ s.use }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:14px;font-weight:700;color:#475467">Dark · propus (derivat din navy #20263D)</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:#0E1220;padding:14px;border-radius:14px">
+        <sc-for list="{{ darkSwatches }}" as="s" hint-placeholder-count="12">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="height:50px;border-radius:10px;background:{{ s.hex }};box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)"></div>
+            <div style="font-size:13px;font-weight:700;line-height:16px;color:#F2F4FA">{{ s.name }}</div>
+            <div style="font-size:12px;font-weight:600;color:#9AA3C7;line-height:16px">{{ s.hex }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:32px">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:14px;font-weight:700;color:#475467">Perechi de stare (din Badge.tsx + toastConfig) — text AA pe fundal</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <sc-for list="{{ statusPairs }}" as="p" hint-placeholder-count="6">
+          <div style="background:{{ p.bg }};border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px">
+            <div style="font-size:14px;font-weight:700;color:{{ p.fg }}">{{ p.name }}</div>
+            <div style="font-size:12px;font-weight:600;color:{{ p.fg }}">{{ p.bg }} / {{ p.fg }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="font-size:12px;line-height:16px;font-weight:600;color:#667085;text-wrap:pretty">Badge-urile rămân identice cu aplicația (Badge.tsx). De discutat: verdele green3 #6BBAA3 are contrast 2.3:1 — sub AA; dacă vreți AA pe web, varianta ar fi green7 #15803D.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:14px;font-weight:700;color:#475467">Sectoare A–X · 24 de culori (getColorsBySector.ts)</div>
+      <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:6px">
+        <sc-for list="{{ sectors }}" as="c" hint-placeholder-count="24">
+          <div style="height:44px;border-radius:8px;background:{{ c.hex }};display:flex;align-items:center;justify-content:center;color:#FFFFFF;font-size:14px;font-weight:800">{{ c.name }}</div>
+        </sc-for>
+      </div>
+      <div style="font-size:12px;line-height:16px;font-weight:600;color:#667085;text-wrap:pretty">Folosite doar ca bară de 4px pe marginea rândului și ca punct lângă sector — niciodată ca fundal sub text (în app: rgba 0.4 pe toată celula; pe web devine prea zgomotos la 24 de sectoare).</div>
+    </div>
+  </div>
+</div>
+
+<!-- 02 TIPOGRAFIE -->
+<div style="background:#FFFFFF;border-radius:20px;padding:40px;display:flex;flex-direction:column;gap:28px">
+  <div style="display:flex;align-items:baseline;gap:16px"><div style="font-size:13px;font-weight:800;color:#6366F1;letter-spacing:1px">02</div><div style="font-size:28px;line-height:34px;font-weight:700">Tipografie · Nunito</div><div style="font-size:14px;font-weight:600;color:#667085">Treapta face ierarhia, greutatea face emfaza. 800 = cifre, 700 = titluri, 600 = text.</div></div>
+  <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:40px">
+    <div style="display:flex;flex-direction:column">
+      <div style="display:grid;grid-template-columns:110px 1fr 110px 110px;gap:16px;padding:0 0 10px;border-bottom:1px solid #EFF1F5;font-size:12px;font-weight:700;color:#667085">
+        <div>Treaptă</div><div>Exemplu</div><div>Mobil</div><div>≥1280</div>
+      </div>
+      <sc-for list="{{ typeScale }}" as="t" hint-placeholder-count="12">
+        <div style="display:grid;grid-template-columns:110px 1fr 110px 110px;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid #EFF1F5">
+          <div style="font-size:13px;font-weight:700;color:#4338CA">{{ t.name }}</div>
+          <div style="font-size:{{ t.dSize }}px;line-height:{{ t.dLh }}px;font-weight:{{ t.w }};letter-spacing:{{ t.ls }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.sample }}</div>
+          <div style="font-size:12px;font-weight:600;color:#475467">{{ t.m }}</div>
+          <div style="font-size:12px;font-weight:700;color:#101828">{{ t.d }}</div>
+        </div>
+      </sc-for>
+      <div style="font-size:12px;line-height:16px;font-weight:600;color:#667085;padding-top:12px;text-wrap:pretty">Treptele noi web (count, pageTitle) sunt marcate — sunt propuse pentru Typography.tsx, nu override-uri locale. Cifrele folosesc font-variant-numeric: tabular-nums în tabele.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="background:#20263D;border-radius:20px;padding:28px;display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12px;font-weight:700;color:#9AA3C7;letter-spacing:.6px">CIFRA-SEMNĂTURĂ · count</div>
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <div style="font-size:96px;line-height:88px;font-weight:800;letter-spacing:-6px;color:#DCE1FF;font-variant-numeric:tabular-nums">412,6</div>
+          <div style="font-size:20px;font-weight:700;color:#9AA3C7">kg</div>
+        </div>
+        <div style="font-size:14px;font-weight:600;color:#C5CCEB">total cântărit · 24 sectoare</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="background:#F4F5FA;border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:2px">
+          <div style="font-size:40px;line-height:44px;font-weight:800;letter-spacing:-2px;color:#101828">18,4<span style="font-size:16px;letter-spacing:0;color:#667085;font-weight:700"> kg</span></div>
+          <div style="font-size:12px;font-weight:600;color:#667085">cel mai mare pește</div>
+        </div>
+        <div style="background:#F4F5FA;border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:2px">
+          <div style="font-size:40px;line-height:44px;font-weight:800;letter-spacing:-2px;color:#4338CA">150<span style="font-size:16px;letter-spacing:0;color:#667085;font-weight:700"> RON</span></div>
+          <div style="font-size:12px;font-weight:600;color:#667085">de la · tură 24h</div>
+        </div>
+      </div>
+      <div style="font-size:13px;line-height:20px;font-weight:600;color:#475467;text-wrap:pretty">Regula cifrei: letter-spacing = −6.25% din mărime (−4px la 64px), unitatea în 700 la treapta heading, gri. Ierarhia vine din contrastul cifră mare + etichetă caption gri — nu din titluri mari.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 03 SPATIERE / RAZE / ELEVATIE / BREAKPOINTS -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+  <div style="background:#FFFFFF;border-radius:20px;padding:40px;display:flex;flex-direction:column;gap:24px">
+    <div style="display:flex;align-items:baseline;gap:16px"><div style="font-size:13px;font-weight:800;color:#6366F1;letter-spacing:1px">03</div><div style="font-size:28px;line-height:34px;font-weight:700">Spațiere &amp; raze</div></div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{ spacing }}" as="s" hint-placeholder-count="9">
+        <div style="display:grid;grid-template-columns:70px 1fr 200px;gap:12px;align-items:center">
+          <div style="font-size:13px;font-weight:700">{{ s.name }}</div>
+          <div style="height:12px;width:{{ s.v }}px;background:#A5B4FC;border-radius:3px"></div>
+          <div style="font-size:12px;font-weight:600;color:#667085">{{ s.v }}px · {{ s.use }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+      <sc-for list="{{ radii }}" as="r" hint-placeholder-count="6">
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+          <div style="width:72px;height:56px;background:#E0E7FF;border:2px solid #6366F1;border-radius:{{ r.v }}px"></div>
+          <div style="font-size:12px;font-weight:700">{{ r.v }}px</div>
+          <div style="font-size:11px;font-weight:600;color:#667085">{{ r.use }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="background:#FFFFFF;border-radius:20px;padding:40px;display:flex;flex-direction:column;gap:24px">
+    <div style="display:flex;align-items:baseline;gap:16px"><div style="font-size:13px;font-weight:800;color:#6366F1;letter-spacing:1px">04</div><div style="font-size:28px;line-height:34px;font-weight:700">Elevație &amp; breakpoints</div></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;background:#F4F5FA;padding:20px;border-radius:16px">
+      <div style="background:#FFFFFF;border-radius:14px;height:84px;padding:12px;box-sizing:border-box;box-shadow:inset 0 0 0 1px #EFF1F5"><div style="font-size:13px;font-weight:700">e0</div><div style="font-size:11px;font-weight:600;color:#667085">hairline · liste, tabele</div></div>
+      <div style="background:#FFFFFF;border-radius:14px;height:84px;padding:12px;box-sizing:border-box;box-shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.04)"><div style="font-size:13px;font-weight:700">e1</div><div style="font-size:11px;font-weight:600;color:#667085">carduri cu foto</div></div>
+      <div style="background:#FFFFFF;border-radius:14px;height:84px;padding:12px;box-sizing:border-box;box-shadow:0 12px 32px -8px rgba(16,24,40,.18)"><div style="font-size:13px;font-weight:700">e2</div><div style="font-size:11px;font-weight:600;color:#667085">sheet, dialog, popover</div></div>
+      <div style="background:#FFFFFF;border-radius:14px;height:84px;padding:12px;box-sizing:border-box;box-shadow:0 2px 10px rgba(99,102,241,.15)"><div style="font-size:13px;font-weight:700">glow</div><div style="font-size:11px;font-weight:600;color:#667085">un singur card/ecran</div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <sc-for list="{{ breakpoints }}" as="b" hint-placeholder-count="4">
+        <div style="display:grid;grid-template-columns:64px 1fr;gap:12px;align-items:center">
+          <div style="font-size:20px;line-height:24px;font-weight:800;letter-spacing:-1px">{{ b.w }}</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="height:8px;width:{{ b.bar }}%;background:#6366F1;border-radius:4px"></div>
+            <div style="font-size:12px;font-weight:600;color:#475467">{{ b.desc }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+
+<!-- 05 ICONOGRAFIE + MISCARE -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+  <div style="background:#FFFFFF;border-radius:20px;padding:40px;display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:baseline;gap:16px"><div style="font-size:13px;font-weight:800;color:#6366F1;letter-spacing:1px">05</div><div style="font-size:28px;line-height:34px;font-weight:700">Iconografie</div></div>
+    <div style="font-size:13px;line-height:20px;font-weight:600;color:#475467">Heroicons 2 outline 24px (1.5 stroke) pentru UI; solid 20px doar pentru prezență (stea, pin, check în badge). SVG-urile Bluvi pentru domeniul pescuit. Fără emoji — inclusiv 🎖️ din RankingTable devine pastila de poziție.</div>
+    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:10px">
+      <sc-for list="{{ heroIcons }}" as="i" hint-placeholder-count="16">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0;background:#F4F5FA;border-radius:12px">
+          <span style="width:24px;height:24px;background:#101828;-webkit-mask:url({{ i.url }}) center/contain no-repeat;mask:url({{ i.url }}) center/contain no-repeat"></span>
+          <div style="font-size:10px;font-weight:600;color:#667085">{{ i.name }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:10px">
+      <sc-for list="{{ brandIcons }}" as="i" hint-placeholder-count="8">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0;background:#F0F3FD;border-radius:12px">
+          <img src="{{ i.url }}" alt="" style="width:28px;height:28px;object-fit:contain">
+          <div style="font-size:10px;font-weight:600;color:#4338CA">{{ i.name }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="background:#FFFFFF;border-radius:20px;padding:40px;display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:baseline;gap:16px"><div style="font-size:13px;font-weight:800;color:#6366F1;letter-spacing:1px">06</div><div style="font-size:28px;line-height:34px;font-weight:700">Mișcare</div></div>
+    <div style="font-size:13px;line-height:20px;font-weight:600;color:#475467">Limbajul e resort, nu ease-in-out. Presetările Tamagui (tamagui.config.ts) se traduc în CSS linear() spring; prefers-reduced-motion ⇒ doar opacitate, 120ms.</div>
+    <div style="display:flex;flex-direction:column">
+      <sc-for list="{{ motion }}" as="m" hint-placeholder-count="5">
+        <div style="display:grid;grid-template-columns:90px 150px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid #EFF1F5;align-items:center">
+          <div style="font-size:14px;font-weight:700;color:#4338CA">{{ m.name }}</div>
+          <div style="font-size:12px;font-weight:600;color:#667085">{{ m.spec }}</div>
+          <div style="font-size:13px;font-weight:600">{{ m.use }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div style="font-size:12px;font-weight:700;background:#F4F5FA;border-radius:999px;padding:6px 12px">Apăsare: opacity .8 (buton) / .7 (card)</div>
+      <div style="font-size:12px;font-weight:700;background:#F4F5FA;border-radius:999px;padding:6px 12px">Hover desktop: fundal #F2F4F7, fără lift</div>
+      <div style="font-size:12px;font-weight:700;background:#F4F5FA;border-radius:999px;padding:6px 12px">Rând nou în clasament: flash indigo-1 800ms</div>
+    </div>
+  </div>
+</div>
+
+<!-- 07 COMPONENTE -->
+<div style="background:#FFFFFF;border-radius:20px;padding:40px;display:flex;flex-direction:column;gap:32px">
+  <div style="display:flex;align-items:baseline;gap:16px"><div style="font-size:13px;font-weight:800;color:#6366F1;letter-spacing:1px">07</div><div style="font-size:28px;line-height:34px;font-weight:700">Componente</div></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:14px;font-weight:700;color:#475467">Butoane · 48px mobil / 40px desktop · raza 10</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <div style="height:44px;padding:0 20px;display:flex;align-items:center;gap:8px;background:#6366F1;color:#FFFFFF;border-radius:10px;font-size:14px;font-weight:700;box-shadow:0 2px 4px rgba(10,10,10,.1)">Înscrie-te</div>
+        <div style="height:44px;padding:0 20px;display:flex;align-items:center;background:#E0E7FF;color:#4338CA;border-radius:10px;font-size:14px;font-weight:700">Urmărește</div>
+        <div style="height:44px;padding:0 18px;display:flex;align-items:center;background:#FFFFFF;color:#4338CA;border:2px solid #6366F1;border-radius:10px;font-size:14px;font-weight:700;box-sizing:border-box">Vezi regulament</div>
+        <div style="height:44px;padding:0 20px;display:flex;align-items:center;background:#FEE4E2;color:#BE123C;border-radius:10px;font-size:14px;font-weight:700">Aplică penalizare</div>
+        <div style="height:44px;padding:0 12px;display:flex;align-items:center;color:#475467;border-radius:10px;font-size:14px;font-weight:700">Anulează</div>
+        <div style="height:44px;padding:0 20px;display:flex;align-items:center;background:#A5B4FC;color:#FFFFFF;border-radius:10px;font-size:14px;font-weight:700">Înscrieri închise</div>
+      </div>
+      <div style="font-size:14px;font-weight:700;color:#475467;padding-top:8px">Pastile de stare · raza 999 (stare) vs badge-uri · raza 2 (atribute)</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div style="height:26px;padding:0 10px;display:flex;align-items:center;gap:6px;background:#E11D48;color:#FFFFFF;border-radius:999px;font-size:12px;font-weight:800;letter-spacing:.4px"><span style="width:6px;height:6px;border-radius:50%;background:#FFFFFF;animation:pulseDot 1.4s infinite"></span>LIVE</div>
+        <div style="height:26px;padding:0 10px;display:flex;align-items:center;background:#DCFCE7;color:#15803D;border-radius:999px;font-size:12px;font-weight:700">Înscrieri deschise</div>
+        <div style="height:26px;padding:0 10px;display:flex;align-items:center;background:#FEF9C3;color:#854D0E;border-radius:999px;font-size:12px;font-weight:700">Ultimele 3 locuri</div>
+        <div style="height:26px;padding:0 10px;display:flex;align-items:center;background:#F0F3FD;color:#4338CA;border-radius:999px;font-size:12px;font-weight:700">Viitor</div>
+        <div style="height:26px;padding:0 10px;display:flex;align-items:center;background:#F2F4F7;color:#475467;border-radius:999px;font-size:12px;font-weight:700">Încheiat</div>
+        <div style="height:26px;padding:0 10px;display:flex;align-items:center;background:#F2F4F7;color:#475467;border-radius:999px;font-size:12px;font-weight:700;text-decoration:line-through">Anulat</div>
+        <div style="height:26px;padding:0 10px;display:flex;align-items:center;background:#F2F4F7;color:#101828;border-radius:999px;font-size:12px;font-weight:700;border:1px dashed #98A2B3;box-sizing:border-box">capot</div>
+        <div style="height:26px;padding:0 10px;display:flex;align-items:center;background:#FFF7ED;color:#C2410C;border-radius:999px;font-size:12px;font-weight:700">2 în așteptare</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <div style="padding:2px 5px;background:rgba(107,186,163,.125);color:#6BBAA3;border-radius:2px;font-size:12px;font-weight:700">Individual</div>
+        <div style="padding:2px 5px;background:rgba(254,249,195,.314);color:#CA8A04;border-radius:2px;font-size:12px;font-weight:700">Cantitate/Calitate</div>
+        <div style="padding:2px 5px;background:#F0F3FD;color:#4338CA;border-radius:2px;font-size:12px;font-weight:700">Best of 5</div>
+        <div style="padding:2px 5px;background:#6366F1;color:#FFFFFF;border-radius:2px;font-size:12px;font-weight:700">Verificată</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:14px;font-weight:700;color:#475467">Tile-uri bento · CountTile (navy) + StatTile (page)</div>
+      <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:10px">
+        <div style="background:#20263D;border-radius:20px;padding:18px;display:flex;flex-direction:column;justify-content:space-between;height:156px;box-sizing:border-box">
+          <div style="font-size:12px;font-weight:700;color:#9AA3C7;letter-spacing:.4px">LIVE ACUM</div>
+          <div style="font-size:64px;line-height:60px;font-weight:800;letter-spacing:-4px;color:#DCE1FF">3</div>
+          <div style="font-size:12px;font-weight:600;color:#C5CCEB">concursuri · 1.284 urmăresc</div>
+        </div>
+        <div style="background:#F4F5FA;border-radius:20px;padding:18px;display:flex;flex-direction:column;justify-content:space-between;height:156px;box-sizing:border-box">
+          <div style="font-size:12px;font-weight:700;color:#667085">Înscrieri</div>
+          <div style="font-size:40px;line-height:44px;font-weight:800;letter-spacing:-2px">38<span style="font-size:18px;color:#98A2B3;letter-spacing:0">/48</span></div>
+          <div style="height:6px;background:#E0E7FF;border-radius:3px;overflow:hidden"><div style="width:79%;height:100%;background:#6366F1"></div></div>
+        </div>
+        <div style="background:#F4F5FA;border-radius:20px;padding:18px;display:flex;flex-direction:column;justify-content:space-between;height:156px;box-sizing:border-box">
+          <div style="font-size:12px;font-weight:700;color:#667085">Începe în</div>
+          <div style="font-size:40px;line-height:44px;font-weight:800;letter-spacing:-2px">4<span style="font-size:18px;color:#667085;letter-spacing:0"> zile</span></div>
+          <div style="font-size:12px;font-weight:600;color:#667085">sâm, 11 oct · 07:00</div>
+        </div>
+      </div>
+      <div style="font-size:14px;font-weight:700;color:#475467;padding-top:8px">Avatare &amp; FaceStack · inițiale (anglerInitials.ts) când lipsește poza</div>
+      <div style="display:flex;gap:24px;align-items:center">
+        <div style="display:flex">
+          <sc-for list="{{ faces }}" as="f" hint-placeholder-count="5">
+            <div style="width:32px;height:32px;border-radius:50%;background:{{ f.bg }};color:{{ f.fg }};border:2px solid #FFFFFF;margin-left:-8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;box-sizing:border-box">{{ f.i }}</div>
+          </sc-for>
+          <div style="height:32px;padding:0 10px;margin-left:-8px;border-radius:999px;background:#F2F4F7;border:2px solid #FFFFFF;display:flex;align-items:center;font-size:12px;font-weight:800;color:#475467;box-sizing:border-box">+33</div>
+        </div>
+        <div style="width:48px;height:48px;border-radius:50%;background:#F0F3FD;color:#4338CA;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800">MP</div>
+        <div style="width:48px;height:48px;border-radius:12px;background:#E0E7FF;color:#4338CA;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800">CR</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cards -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:14px;font-weight:700;color:#475467">Carduri · concurs · baltă · pescar · partidă · captură</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px;align-items:start">
+      <!-- competition -->
+      <div style="background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.04),inset 0 0 0 1px #EFF1F5">
+        <div style="height:132px;background:url(assets/competition-placeholder.jpg) center/cover;position:relative">
+          <div style="position:absolute;top:10px;left:10px;display:flex;gap:6px">
+            <div style="height:24px;padding:0 8px;display:flex;align-items:center;gap:5px;background:#E11D48;color:#FFFFFF;border-radius:999px;font-size:11px;font-weight:800"><span style="width:6px;height:6px;border-radius:50%;background:#FFFFFF"></span>LIVE</div>
+            <div style="height:24px;padding:0 8px;display:flex;align-items:center;gap:4px;background:rgba(16,24,40,.55);color:#FFFFFF;border-radius:999px;font-size:11px;font-weight:700">412 urmăresc</div>
+          </div>
+        </div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:11px;font-weight:700;color:#667085;letter-spacing:.3px">SÂM, 27 - DUM, 28 SEPT</div>
+          <div style="font-size:16px;line-height:22px;font-weight:700">Cupa Toamnei la Crap</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#4338CA"><span style="width:12px;height:12px;background:#6366F1;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/map-pin.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/map-pin.svg) center/contain no-repeat"></span>Balta Siliștea</div>
+          <div style="height:1px;background:#EFF1F5;margin:2px 0"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="font-size:12px;font-weight:700;color:#475467">48/48 pescari</div>
+            <div style="display:flex;gap:4px"><div style="padding:2px 5px;background:rgba(107,186,163,.125);color:#6BBAA3;border-radius:2px;font-size:11px;font-weight:700">Individual</div><div style="padding:2px 5px;background:rgba(254,249,195,.314);color:#CA8A04;border-radius:2px;font-size:11px;font-weight:700">Cantitate</div></div>
+          </div>
+        </div>
+      </div>
+      <!-- lake -->
+      <div style="background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(16,24,40,.06),inset 0 0 0 1px #EFF1F5">
+        <div style="height:132px;background:url(assets/lake.jpeg) center/cover;position:relative">
+          <div style="position:absolute;bottom:10px;left:10px;height:24px;padding:0 8px;display:flex;align-items:center;background:#FFFFFF;color:#101828;border-radius:999px;font-size:11px;font-weight:700">Rezervare online</div>
+        </div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;gap:8px"><div style="font-size:16px;line-height:22px;font-weight:700">Lacul Cornu</div><div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:3px"><span style="width:14px;height:14px;background:#FBBF24;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/star.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/20/solid/star.svg) center/contain no-repeat"></span>4,7</div></div>
+          <div style="font-size:12px;font-weight:600;color:#667085">Cornu, Prahova · Crap, Amur</div>
+          <div style="display:flex;align-items:baseline;gap:4px;padding-top:2px"><div style="font-size:20px;line-height:24px;font-weight:800;letter-spacing:-.5px">120–220</div><div style="font-size:12px;font-weight:700;color:#667085">RON / tură</div></div>
+        </div>
+      </div>
+      <!-- angler -->
+      <div style="background:#FFFFFF;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:inset 0 0 0 1px #EFF1F5">
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="width:44px;height:44px;border-radius:50%;background:#F0F3FD;color:#4338CA;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800">AM</div>
+          <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">andrei.marin</div><div style="font-size:12px;font-weight:600;color:#667085">Ploiești · 1.240 urmăritori</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+          <div><div style="font-size:20px;line-height:24px;font-weight:800">31</div><div style="font-size:11px;font-weight:600;color:#667085">concursuri</div></div>
+          <div><div style="font-size:20px;line-height:24px;font-weight:800">7</div><div style="font-size:11px;font-weight:600;color:#667085">podiumuri</div></div>
+          <div><div style="font-size:20px;line-height:24px;font-weight:800">21,3</div><div style="font-size:11px;font-weight:600;color:#667085">record kg</div></div>
+        </div>
+        <div style="height:40px;display:flex;align-items:center;justify-content:center;background:#E0E7FF;color:#4338CA;border-radius:10px;font-size:14px;font-weight:700">Urmărește</div>
+      </div>
+      <!-- partida -->
+      <div style="background:#FFFFFF;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;box-shadow:inset 0 0 0 1px #EFF1F5">
+        <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:11px;font-weight:700;color:#667085;letter-spacing:.3px">PARTIDĂ · ÎN DESFĂȘURARE</div><span style="width:8px;height:8px;border-radius:50%;background:#E11D48;animation:pulseDot 1.4s infinite"></span></div>
+        <div style="font-size:16px;line-height:22px;font-weight:700">Tura de noapte · Stand 7</div>
+        <div style="font-size:12px;font-weight:600;color:#667085">Lacul Cornu · de 14h 20min</div>
+        <div style="display:flex;align-items:baseline;gap:6px"><div style="font-size:40px;line-height:44px;font-weight:800;letter-spacing:-2px">6</div><div style="font-size:12px;font-weight:700;color:#667085">capturi · 42,8 kg</div></div>
+        <div style="display:flex;align-items:center;gap:6px"><div style="display:flex"><div style="width:24px;height:24px;border-radius:50%;background:#F0F3FD;color:#4338CA;border:2px solid #FFFFFF;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800">IT</div><div style="width:24px;height:24px;border-radius:50%;background:#E0E7FF;color:#4338CA;border:2px solid #FFFFFF;margin-left:-6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800">RD</div></div><div style="font-size:12px;font-weight:600;color:#475467">cu 2 prieteni</div></div>
+      </div>
+      <!-- captura -->
+      <div style="background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:inset 0 0 0 1px #EFF1F5">
+        <div style="height:132px;background:url(assets/placeholder-lake.jpg) center/cover;position:relative">
+          <div style="position:absolute;left:10px;bottom:10px;background:#20263D;border-radius:12px;padding:6px 10px;display:flex;align-items:baseline;gap:3px"><div style="font-size:26px;line-height:28px;font-weight:800;letter-spacing:-1.5px;color:#DCE1FF">14,2</div><div style="font-size:12px;font-weight:700;color:#9AA3C7">kg</div></div>
+        </div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:4px">
+          <div style="font-size:14px;font-weight:700">Crap Oglindă</div>
+          <div style="font-size:12px;font-weight:600;color:#667085">mihai.p · Stand 12 · 04:37</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ranking rows -->
+  <div style="display:grid;grid-template-columns:380px 1fr;gap:32px">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:14px;font-weight:700;color:#475467">Rând clasament · mobil</div>
+      <div style="background:#FFFFFF;border-radius:16px;box-shadow:inset 0 0 0 1px #EFF1F5;overflow:hidden">
+        <div style="display:grid;grid-template-columns:4px 44px 1fr auto;align-items:center;gap:10px;padding:12px 14px 12px 0;border-bottom:1px solid #EFF1F5">
+          <div style="height:40px;background:#1976D2;border-radius:0 2px 2px 0"></div>
+          <div style="width:36px;height:36px;border-radius:10px;background:#20263D;color:#DCE1FF;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;letter-spacing:-.5px">1</div>
+          <div style="min-width:0"><div style="font-size:14px;font-weight:700">Radu Ionescu</div><div style="font-size:12px;font-weight:600;color:#667085">A · Stand 7 · 9 capturi · CMMC 14,2</div></div>
+          <div style="text-align:right"><div style="font-size:20px;line-height:24px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums">86,4</div><div style="font-size:11px;font-weight:600;color:#667085">kg</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:4px 44px 1fr auto;align-items:center;gap:10px;padding:12px 14px 12px 0;border-bottom:1px solid #EFF1F5">
+          <div style="height:40px;background:#E64A19;border-radius:0 2px 2px 0"></div>
+          <div style="width:36px;height:36px;border-radius:10px;background:#F0F3FD;color:#4338CA;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800">=4</div>
+          <div style="min-width:0"><div style="font-size:14px;font-weight:700;display:flex;gap:6px;align-items:center">Echipa Delta<span style="padding:1px 5px;background:rgba(254,249,195,.314);color:#CA8A04;border-radius:2px;font-size:10px;font-weight:700">−2 kg</span></div><div style="font-size:12px;font-weight:600;color:#667085">B · Stand 22 · egalitate · departajat la CMMC</div></div>
+          <div style="text-align:right"><div style="font-size:20px;line-height:24px;font-weight:800;letter-spacing:-.5px">52,0</div><div style="font-size:11px;font-weight:600;color:#667085">kg</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:4px 44px 1fr auto;align-items:center;gap:10px;padding:12px 14px 12px 0;background:#FAFBFC">
+          <div style="height:40px;background:#388E3C;border-radius:0 2px 2px 0"></div>
+          <div style="width:36px;height:36px;border-radius:10px;background:#F2F4F7;color:#475467;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800">12</div>
+          <div style="min-width:0"><div style="font-size:14px;font-weight:700;color:#475467">Vlad Stan</div><div style="font-size:12px;font-weight:600;color:#667085">C · Stand 31 · 0 capturi</div></div>
+          <div style="height:24px;padding:0 9px;display:flex;align-items:center;background:#F2F4F7;color:#101828;border-radius:999px;font-size:12px;font-weight:700;border:1px dashed #98A2B3;box-sizing:border-box">capot</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:14px;font-weight:700;color:#475467">Tabel clasament · desktop · antet lipit, cifre tabulare, sortabil</div>
+      <div style="background:#FFFFFF;border-radius:16px;box-shadow:inset 0 0 0 1px #EFF1F5;overflow:hidden;font-variant-numeric:tabular-nums">
+        <div style="display:grid;grid-template-columns:4px 60px 90px 1fr 90px 90px 90px 90px 80px;gap:0;align-items:center;height:40px;background:#F4F5FA;font-size:12px;font-weight:700;color:#475467">
+          <div></div><div style="padding-left:14px">Loc</div><div>Stand</div><div>Pescar</div><div style="text-align:right">Cantitate</div><div style="text-align:right">Capturi</div><div style="text-align:right">CMMC</div><div style="text-align:right">Loc sector</div><div style="text-align:right;padding-right:14px">Puncte</div>
+        </div>
+        <div style="display:grid;grid-template-columns:4px 60px 90px 1fr 90px 90px 90px 90px 80px;align-items:center;height:52px;border-top:1px solid #EFF1F5;font-size:14px;font-weight:600">
+          <div style="height:100%;background:#1976D2"></div><div style="padding-left:14px;font-size:18px;font-weight:800">1</div><div style="font-weight:700">A7</div><div style="font-weight:700">Radu Ionescu</div><div style="text-align:right;font-size:16px;font-weight:800">86,4</div><div style="text-align:right">9</div><div style="text-align:right">14,2</div><div style="text-align:right">1</div><div style="text-align:right;padding-right:14px;font-weight:700">1</div>
+        </div>
+        <div style="display:grid;grid-template-columns:4px 60px 90px 1fr 90px 90px 90px 90px 80px;align-items:center;height:52px;border-top:1px solid #EFF1F5;font-size:14px;font-weight:600;background:#F0F3FD">
+          <div style="height:100%;background:#E64A19"></div><div style="padding-left:14px;font-size:18px;font-weight:800;color:#4338CA">2</div><div style="font-weight:700">B22</div><div style="font-weight:700">Tu · Mihai Popa</div><div style="text-align:right;font-size:16px;font-weight:800">71,9</div><div style="text-align:right">11</div><div style="text-align:right">9,8</div><div style="text-align:right">1</div><div style="text-align:right;padding-right:14px;font-weight:700">1</div>
+        </div>
+        <div style="display:grid;grid-template-columns:4px 60px 90px 1fr 90px 90px 90px 90px 80px;align-items:center;height:52px;border-top:1px solid #EFF1F5;font-size:14px;font-weight:600;color:#475467">
+          <div style="height:100%;background:#388E3C"></div><div style="padding-left:14px;font-size:18px;font-weight:800">24</div><div style="font-weight:700">C31</div><div style="font-weight:700">Vlad Stan</div><div style="text-align:right"><span style="height:22px;padding:0 8px;display:inline-flex;align-items:center;background:#F2F4F7;color:#101828;border-radius:999px;font-size:12px;font-weight:700;border:1px dashed #98A2B3;box-sizing:border-box">capot</span></div><div style="text-align:right">0</div><div style="text-align:right">–</div><div style="text-align:right">8</div><div style="text-align:right;padding-right:14px;font-weight:700">8</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <div style="display:grid;grid-template-columns:380px 1fr;gap:32px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:14px;font-weight:700;color:#475467">Tab bar · mobil (&lt;768) · raze sus 16</div>
+      <div style="background:#F4F5FA;border-radius:16px;padding:20px 0 0;overflow:hidden">
+        <div style="background:#FFFFFF;border-radius:16px 16px 0 0;box-shadow:0 -2px 8px rgba(16,24,40,.08);display:grid;grid-template-columns:repeat(5,1fr);height:64px;padding-bottom:14px">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px">
+              <span style="width:24px;height:24px;background:{{ t.color }};-webkit-mask:url({{ t.url }}) center/contain no-repeat;mask:url({{ t.url }}) center/contain no-repeat"></span>
+              <div style="font-size:10px;font-weight:700;color:{{ t.color }}">{{ t.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="font-size:12px;line-height:16px;font-weight:600;color:#667085;text-wrap:pretty">Ordinea și etichetele din (tabs)/_layout.tsx. Profil apare doar logat; nelogat devine „Intră”.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:14px;font-weight:700;color:#475467">Meniu lateral · desktop (≥1280, 248px) · rail 72px la 768–1279</div>
+      <div style="display:flex;gap:16px;align-items:stretch">
+        <div style="width:248px;background:#FFFFFF;border-radius:16px;box-shadow:inset 0 0 0 1px #EFF1F5;padding:20px 12px;display:flex;flex-direction:column;gap:4px;box-sizing:border-box">
+          <img src="assets/logo_horizontal.svg" alt="Bluvi" style="height:24px;width:auto;align-self:flex-start;margin:0 8px 16px">
+          <sc-for list="{{ sideNav }}" as="n" hint-placeholder-count="5">
+            <div style="height:44px;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:10px;background:{{ n.bg }};color:{{ n.color }};font-size:14px;font-weight:700">
+              <span style="width:22px;height:22px;background:{{ n.color }};-webkit-mask:url({{ n.url }}) center/contain no-repeat;mask:url({{ n.url }}) center/contain no-repeat"></span>{{ n.label }}
+            </div>
+          </sc-for>
+          <div style="height:1px;background:#EFF1F5;margin:10px 4px"></div>
+          <div style="font-size:11px;font-weight:700;color:#667085;padding:4px 12px;letter-spacing:.4px">ADMINISTRARE</div>
+          <div style="height:40px;display:flex;align-items:center;gap:12px;padding:0 12px;font-size:14px;font-weight:700;color:#475467">Concursurile mele</div>
+          <div style="height:40px;display:flex;align-items:center;gap:12px;padding:0 12px;font-size:14px;font-weight:700;color:#475467">Lacul Cornu · panou</div>
+        </div>
+        <div style="width:72px;background:#FFFFFF;border-radius:16px;box-shadow:inset 0 0 0 1px #EFF1F5;padding:20px 0;display:flex;flex-direction:column;align-items:center;gap:8px">
+          <img src="assets/fish-logo.svg" alt="" style="width:28px;height:28px;margin-bottom:12px">
+          <sc-for list="{{ sideNav }}" as="n" hint-placeholder-count="5">
+            <div style="width:44px;height:44px;border-radius:10px;background:{{ n.bg }};display:flex;align-items:center;justify-content:center">
+              <span style="width:22px;height:22px;background:{{ n.color }};-webkit-mask:url({{ n.url }}) center/contain no-repeat;mask:url({{ n.url }}) center/contain no-repeat"></span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+          <div style="background:#FFFFFF;border-radius:16px;box-shadow:inset 0 0 0 1px #EFF1F5;height:64px;display:flex;align-items:center;padding:0 20px;gap:14px">
+            <div style="font-size:12px;font-weight:600;color:#667085">Competiții /</div><div style="font-size:14px;font-weight:700;flex:1">Cupa Toamnei la Crap</div>
+            <div style="height:40px;width:280px;background:#F2F4F7;border-radius:10px;display:flex;align-items:center;gap:8px;padding:0 12px;box-sizing:border-box;font-size:14px;font-weight:600;color:#667085"><span style="width:18px;height:18px;background:#667085;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/magnifying-glass.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/magnifying-glass.svg) center/contain no-repeat"></span>Caută bălți, concursuri, pescari</div>
+            <div style="width:40px;height:40px;border-radius:10px;background:#F2F4F7;display:flex;align-items:center;justify-content:center;position:relative"><span style="width:20px;height:20px;background:#101828;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/bell.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/bell.svg) center/contain no-repeat"></span><span style="position:absolute;top:8px;right:9px;width:8px;height:8px;border-radius:50%;background:#E11D48;border:2px solid #F2F4F7"></span></div>
+            <div style="width:40px;height:40px;border-radius:50%;background:#F0F3FD;color:#4338CA;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">MP</div>
+          </div>
+          <div style="font-size:12px;line-height:16px;font-weight:600;color:#667085;text-wrap:pretty">Header desktop: breadcrumb (SEO + orientare), căutare globală ⌘K, notificări, avatar. Pe mobil headerul e cel din ecran (BackButton translucid peste foto, VenuePinnedNav la scroll).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sheet / dialog / panel + forms + states -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:14px;font-weight:700;color:#475467">Suprafețe temporare</div>
+      <div style="background:#F4F5FA;border-radius:16px;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;height:260px;box-sizing:border-box">
+        <div style="background:rgba(16,24,40,.35);border-radius:12px;display:flex;align-items:flex-end;overflow:hidden">
+          <div style="background:#FFFFFF;width:100%;border-radius:16px 16px 0 0;padding:10px 12px 14px;display:flex;flex-direction:column;gap:6px;box-sizing:border-box">
+            <div style="width:36px;height:4px;border-radius:2px;background:#D0D5DD;align-self:center"></div>
+            <div style="font-size:13px;font-weight:700">Sheet · mobil</div>
+            <div style="font-size:11px;font-weight:600;color:#667085">glisare, snap 50/90%</div>
+            <div style="height:36px;border-radius:10px;background:#6366F1"></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="flex:1;background:rgba(16,24,40,.35);border-radius:12px;display:flex;align-items:center;justify-content:center"><div style="background:#FFFFFF;border-radius:14px;padding:10px;width:78%;box-shadow:0 12px 32px -8px rgba(16,24,40,.25)"><div style="font-size:12px;font-weight:700">Dialog</div><div style="font-size:10px;font-weight:600;color:#667085">confirmări, max 480</div></div></div>
+          <div style="flex:1;background:#FFFFFF;border-radius:12px;display:flex;justify-content:flex-end;overflow:hidden;box-shadow:inset 0 0 0 1px #EFF1F5"><div style="width:55%;background:#FFFFFF;box-shadow:-8px 0 24px -8px rgba(16,24,40,.18);padding:10px;box-sizing:border-box"><div style="font-size:12px;font-weight:700">Panou lateral</div><div style="font-size:10px;font-weight:600;color:#667085">detalii stand, 420px</div></div></div>
+        </div>
+      </div>
+      <div style="font-size:12px;line-height:16px;font-weight:600;color:#667085;text-wrap:pretty">Regula: ce e sheet pe mobil devine panou lateral dacă utilizatorul trebuie să vadă lista din spate (stand, pescar, cântărire) și dialog dacă e o decizie (anulare, penalizare).</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:14px;font-weight:700;color:#475467">Formulare</div>
+      <div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border-radius:16px;box-shadow:inset 0 0 0 1px #EFF1F5;padding:16px">
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;font-weight:700;color:#475467">Numele concursului</div><div style="height:44px;border-radius:10px;background:#FFFFFF;border:2px solid #6366F1;display:flex;align-items:center;padding:0 12px;font-size:14px;font-weight:600;box-sizing:border-box;box-shadow:0 0 0 4px #E0E7FF">Cupa Toamnei la Crap</div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;font-weight:700;color:#475467">Taxă de participare</div><div style="height:44px;border-radius:10px;background:#F2F4F7;display:flex;align-items:center;padding:0 12px;font-size:14px;font-weight:600;color:#101828;justify-content:space-between">350<span style="color:#667085;font-weight:700">RON</span></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;font-weight:700;color:#475467">Tip</div><div style="display:grid;grid-template-columns:1fr 1fr;background:#F2F4F7;border-radius:10px;padding:3px;height:44px;box-sizing:border-box"><div style="background:#FFFFFF;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;box-shadow:0 1px 2px rgba(16,24,40,.08)">Individual</div><div style="display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#475467">Echipe</div></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;font-weight:700;color:#475467">Număr de sectoare</div><div style="height:44px;border-radius:10px;background:#FEF2F2;border:2px solid #E11D48;display:flex;align-items:center;padding:0 12px;font-size:14px;font-weight:600;box-sizing:border-box">26</div><div style="font-size:12px;font-weight:600;color:#BE123C">Maximum 24 de sectoare (A–X).</div></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:14px;font-weight:700;color:#475467">Gol · se încarcă · eroare</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="background:#FFFFFF;border-radius:16px;box-shadow:inset 0 0 0 1px #EFF1F5;padding:16px;display:flex;gap:12px;align-items:center">
+          <img src="assets/icons/sad-search.svg" alt="" style="width:48px;height:48px">
+          <div style="flex:1"><div style="font-size:14px;font-weight:700">Momentan nu este niciun concurs live.</div><div style="font-size:12px;font-weight:600;color:#667085">Urmărește un concurs viitor ca să afli când începe.</div></div>
+        </div>
+        <div style="background:#FFFFFF;border-radius:16px;box-shadow:inset 0 0 0 1px #EFF1F5;padding:16px;display:flex;gap:12px;align-items:center">
+          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(90deg,#F2F4F7 0,#E4E7EC 50%,#F2F4F7 100%);background-size:800px 100%;animation:shimmer 1.4s infinite linear"></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="height:12px;width:70%;border-radius:6px;background:#F2F4F7"></div><div style="height:10px;width:45%;border-radius:5px;background:#F2F4F7"></div></div>
+        </div>
+        <div style="background:#FFFFFF;border-radius:16px;box-shadow:inset 0 0 0 1px #FECDD3;padding:16px;display:flex;gap:12px;align-items:center">
+          <div style="width:40px;height:40px;border-radius:50%;background:#FEE4E2;display:flex;align-items:center;justify-content:center"><span style="width:22px;height:22px;background:#BE123C;-webkit-mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/exclamation-circle.svg) center/contain no-repeat;mask:url(https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/exclamation-circle.svg) center/contain no-repeat"></span></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700">Nu am putut încărca clasamentul.</div><div style="font-size:12px;font-weight:600;color:#667085">Ultima versiune: acum 3 min</div></div>
+          <div style="height:36px;padding:0 12px;display:flex;align-items:center;background:#E0E7FF;color:#4338CA;border-radius:10px;font-size:13px;font-weight:700">Reîncearcă</div>
+        </div>
+        <div style="font-size:12px;line-height:16px;font-weight:600;color:#667085;text-wrap:pretty">Fotografiile se încarcă cu blurhash (din DTO), nu cu skeleton colorat. Skeleton gri doar pentru text.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const H = 'https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/';
+    const sectorHex = ['#1976D2','#E64A19','#388E3C','#7B1FA2','#F57C00','#0097A7','#C2185B','#5D4037','#455A64','#AFB42B','#0288D1','#D32F2F','#00796B','#512DA8','#EF6C00','#689F38','#1565C0','#AD1457','#00838F','#6A1B9A','#4E342E','#2E7D32','#F9A825','#B71C1C'];
+    const nav = (active) => [['Acasă','home'],['Bălți','map'],['Competiții','trophy'],['Partide','fish'],['Profil','user-circle']].map(([label, ic]) => ({
+      label, url: ic === 'fish' ? 'assets/icons/fish.svg' : H + ic + '.svg',
+      color: label === active ? '#4338CA' : '#475467', bg: label === active ? '#F0F3FD' : 'transparent'
+    }));
+    return {
+      lightSwatches: [
+        {name:'page',hex:'#F4F5FA',use:'solul'},{name:'surface',hex:'#FFFFFF',use:'card'},{name:'softFill',hex:'#F2F4F7',use:'input, hover'},{name:'hairline',hex:'#EFF1F5',use:'separatoare'},
+        {name:'ink',hex:'#101828',use:'text'},{name:'ink2',hex:'#475467',use:'secundar'},{name:'muted',hex:'#667085',use:'caption'},{name:'navy',hex:'#20263D',use:'CountTile'},
+        {name:'indigo5',hex:'#6366F1',use:'accent'},{name:'indigo7',hex:'#4338CA',use:'text accent'},{name:'indigo2',hex:'#E0E7FF',use:'tint'},{name:'lavandă',hex:'#DCE1FF',use:'cifra pe navy'}
+      ],
+      darkSwatches: [
+        {name:'page',hex:'#0E1220'},{name:'surface',hex:'#171C2E'},{name:'raised',hex:'#20263D'},{name:'hairline',hex:'#262D45'},
+        {name:'ink',hex:'#F2F4FA'},{name:'ink2',hex:'#B8C0D9'},{name:'muted',hex:'#8C95B0'},{name:'lavandă',hex:'#DCE1FF'},
+        {name:'accent',hex:'#818CF8'},{name:'accent tint',hex:'#2A3160'},{name:'live',hex:'#FB7185'},{name:'succes',hex:'#4ADE80'}
+      ],
+      statusPairs: [
+        {name:'LIVE',bg:'#E11D48',fg:'#FFFFFF'},{name:'Succes / Individual',bg:'#DCFCE7',fg:'#15803D'},{name:'Avertizare',bg:'#FEF9C3',fg:'#854D0E'},
+        {name:'Pericol',bg:'#FEE4E2',fg:'#BE123C'},{name:'Info / brand',bg:'#F0F3FD',fg:'#4338CA'},{name:'Neutru / Încheiat',bg:'#F2F4F7',fg:'#475467'}
+      ],
+      sectors: sectorHex.map((hex, i) => ({ hex, name: String.fromCharCode(65 + i) })),
+      typeScale: [
+        {name:'count ✦',sample:'412,6',m:'64/60/800 −4',d:'96/88/800 −6',dSize:64,dLh:60,w:800,ls:'-4px'},
+        {name:'hero',sample:'18,4 kg',m:'40/44/800',d:'48/52/800',dSize:40,dLh:44,w:800,ls:'-2px'},
+        {name:'pageTitle ✦',sample:'Competiții',m:'—',d:'32/38/700',dSize:32,dLh:38,w:700,ls:'-0.5px'},
+        {name:'display',sample:'Locul 3',m:'26/30/800',d:'32/36/800',dSize:26,dLh:30,w:800,ls:'-1px'},
+        {name:'stat',sample:'86,4',m:'20/24/800',d:'22/26/800',dSize:20,dLh:24,w:800,ls:'-0.5px'},
+        {name:'title1',sample:'Balta Siliștea',m:'20/26/700',d:'28/34/700',dSize:20,dLh:26,w:700,ls:'0'},
+        {name:'title2',sample:'Concursuri viitoare',m:'17/22/700',d:'20/26/700',dSize:17,dLh:22,w:700,ls:'0'},
+        {name:'heading',sample:'Acțiuni rapide',m:'16/22/700',d:'16/22/700',dSize:16,dLh:22,w:700,ls:'0'},
+        {name:'body',sample:'Pescuit la crap, regim no-kill.',m:'14/20/600',d:'15/22/600',dSize:14,dLh:20,w:600,ls:'0'},
+        {name:'bodyStrong',sample:'150 RON',m:'14/20/700',d:'15/22/700',dSize:14,dLh:20,w:700,ls:'0'},
+        {name:'label / caption',sample:'SÂM, 27 SEPT · 48/48 pescari',m:'12/16/700·600',d:'12/16',dSize:12,dLh:16,w:700,ls:'0'},
+        {name:'micro',sample:'SPLIT · kg',m:'10/14/600',d:'11/14/600',dSize:10,dLh:14,w:600,ls:'0'}
+      ],
+      spacing: [
+        {name:'1',v:4,use:'icon ↔ text'},{name:'2',v:8,use:'rânduri card'},{name:'3',v:12,use:'gap card'},{name:'4',v:16,use:'padding card'},
+        {name:'5',v:20,use:'padding ecran mobil'},{name:'6',v:24,use:'gap coloane'},{name:'8',v:32,use:'padding pagină desktop'},{name:'10',v:40,use:'între secțiuni'},{name:'16',v:64,use:'hero desktop'}
+      ],
+      radii: [{v:2,use:'badge'},{v:10,use:'buton, input'},{v:12,use:'avatar pătrat'},{v:16,use:'card'},{v:20,use:'bento, hero'},{v:999,use:'pill, avatar'}],
+      breakpoints: [
+        {w:'375',bar:26,desc:'bază · 1 coloană · tab bar · sheets · padding 20'},
+        {w:'768',bar:53,desc:'tabletă · 2 coloane · rail 72px · sheets devin dialoguri'},
+        {w:'1280',bar:89,desc:'desktop · meniu 248px · conținut + panou 380–420px · tabele'},
+        {w:'1440',bar:100,desc:'desktop larg · conținut max 1120px centrat · hărți full-bleed'}
+      ],
+      heroIcons: ['home','map','trophy','user-circle','bell','magnifying-glass','map-pin','star','calendar-days','tag','users','chart-bar','paper-airplane','funnel','share','chevron-right'].map(n => ({ name: n, url: H + n + '.svg' })),
+      brandIcons: [['fish','fish'],['scale','cântar'],['fishing-rod','lansetă'],['catch','captură'],['dead-fish','capot'],['stand-pin','stand'],['sad-search','gol'],['sad-star','fără recenzii']].map(([f, name]) => ({ name, url: 'assets/icons/' + f + '.svg' })),
+      motion: [
+        {name:'fast',spec:'damping 20 · k 250 · ~180ms',use:'hover, focus, toggle, chip'},
+        {name:'select',spec:'damping 10 · m .4 · k 85',use:'selectare stand, tab activ (bounce mic)'},
+        {name:'medium',spec:'damping 10 · m .9 · k 100',use:'implicit · crossfade slogan (y: 10)'},
+        {name:'slow',spec:'damping 20 · k 60 · ~420ms',use:'sheet, panou lateral, dialog'},
+        {name:'live',spec:'1.4s loop · opacitate',use:'doar punctul LIVE; nimic altceva nu pulsează'}
+      ],
+      faces: [{i:'RI',bg:'#F0F3FD',fg:'#4338CA'},{i:'MP',bg:'#E0E7FF',fg:'#4338CA'},{i:'AD',bg:'#DCFCE7',fg:'#15803D'},{i:'VS',bg:'#FEF9C3',fg:'#854D0E'},{i:'CT',bg:'#F2F4F7',fg:'#475467'}],
+      tabs: nav('Competiții').map(t => ({ ...t, label: t.label })),
+      sideNav: nav('Competiții')
+    };
+  }
+}
+</script>
+</body>
+</html>

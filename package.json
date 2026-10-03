@@ -10,9 +10,12 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
-    "test:contract": "vitest run --project contract"
+    "test:contract": "vitest run --project contract",
+    "shots": "node scripts/shots.mjs",
+    "design": "node scripts/serve-static.mjs design 4300"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@tanstack/react-query": "^5.104.0",
     "firebase": "^12.19.0",
     "next": "^16.3.6",
@@ -23,6 +26,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.20.4",
     "@types/qs": "^6.15.1",

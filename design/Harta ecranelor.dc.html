@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/bluvi-design-system-019dd2a6-7264-79c7-98b8-52c897e9b034/colors_and_type.css">
+<script src="_ds/bluvi-design-system-019dd2a6-7264-79c7-98b8-52c897e9b034/_ds_bundle.js"></script>
+<style>
+html,body{margin:0;background:#F2F2F2;font-family:Nunito,system-ui,sans-serif;color:#000;-webkit-font-smoothing:antialiased}
+a{color:#6366F1;text-decoration:none}a:hover{color:#4338CA;text-decoration:underline}
+</style>
+</helmet>
+<div style="max-width:1280px;margin:0 auto;padding:48px 32px;display:flex;flex-direction:column;gap:28px">
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <img src="assets/logo_horizontal.svg" alt="Bluvi" style="height:28px;width:auto;align-self:flex-start">
+    <div style="font-size:32px;line-height:38px;font-weight:800;letter-spacing:-.6px;margin-top:8px">Harta ecranelor web</div>
+    <div style="font-size:14px;line-height:20px;font-weight:600;color:#737373;max-width:820px;text-wrap:pretty">Toate rutele din app/ (develop), grupate pe zone. Fiecare ecran se livrează mobil 1:1 cu aplicația + desktop compus din aceleași componente, cu stările reale (nelogat, gol, se încarcă, eroare, cazuri limită). Timer și onboarding rămân doar pe mobil.</div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <sc-for list="{{ legend }}" as="l" hint-placeholder-count="3">
+        <div style="height:26px;padding:0 10px;border-radius:999px;background:{{ l.bg }};color:{{ l.fg }};display:flex;align-items:center;font-size:12px;font-weight:700">{{ l.label }} · {{ l.count }}</div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;align-items:start">
+    <sc-for list="{{ groups }}" as="g" hint-placeholder-count="8">
+      <div style="background:#FFFFFF;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:baseline;gap:8px"><div style="font-size:17px;line-height:22px;font-weight:700;flex:1">{{ g.title }}</div><div style="font-size:12px;font-weight:600;color:#737373">{{ g.count }} ecrane</div></div>
+        <div style="display:flex;flex-direction:column">
+          <sc-for list="{{ g.items }}" as="s" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #F2F2F2">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14px;line-height:20px;font-weight:700">{{ s.name }}</div>
+                <div style="font-size:11px;line-height:14px;font-weight:600;color:#A3A3A3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.route }}</div>
+              </div>
+              <sc-if value="{{ s.hasLink }}" hint-placeholder-val="{{ false }}"><a href="{{ s.link }}" style="font-size:12px;font-weight:700">Deschide</a></sc-if>
+              <div style="height:22px;padding:0 8px;border-radius:999px;background:{{ s.bg }};color:{{ s.fg }};display:flex;align-items:center;font-size:11px;font-weight:700;white-space:nowrap">{{ s.status }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const ST = { g: ['Gata pentru feedback', '#DCFCE7', '#15803D'], n: ['Următorul', '#F0F3FD', '#4338CA'], p: ['Planificat', '#F2F2F2', '#404040'], m: ['Doar mobil', '#FEF9C3', '#854D0E'] };
+    const G = [
+      ['Public / SEO', [['Acasă (logat / nelogat)', '(tabs)/index.tsx', 'p'], ['Concursuri · listă', '(tabs)/competitions/index.tsx', 'g', 'Competitii.dc.html'], ['Concurs · Clasament', 'competitions/[competitionId].tsx', 'g', 'Concurs.dc.html'], ['Concurs · Informații / Participanți / Extra Cântare / Regulament', 'competitions/[competitionId].tsx', 'n'], ['Imagine clasament', 'competitions/ranking-image.tsx', 'p'], ['Bălți · listă + hartă', '(tabs)/lakes/index.tsx', 'n'], ['Pagina bălții', 'lakes/[lakeId].tsx', 'n'], ['Baltă · capturi, clasament, concursuri, galerie, recenzii, standuri, statistici, partide', 'lakes/[lakeId]/*', 'p'], ['Ape publice (ANAR)', 'public-waters/[id].tsx + /*', 'p'], ['Știri · listă + articol', 'news/index.tsx, news/[newsId].tsx', 'p']]],
+      ['Pescar', [['Profil propriu', '(tabs)/profile.tsx', 'p'], ['Profil pescar', 'anglers/[documentId]/index.tsx', 'p'], ['Urmăritori / urmăriți', 'anglers/[documentId]/connections.tsx', 'p'], ['Descoperă pescari', 'anglers/suggested.tsx', 'p'], ['Notificări + preferințe', 'notifications.tsx, notification-*.tsx', 'p'], ['Rezervările mele + detaliu', 'bookings/index.tsx, bookings/[id].tsx', 'p'], ['Rezervă balta (3 pași)', 'book-lake/[lakeId]/*', 'p'], ['Recenzie baltă', 'lakes/review/[lakeId].tsx', 'p'], ['Setări · editare profil', 'settings.tsx, edit-profile.tsx', 'p']]],
+      ['Partide', [['Lista partidelor', '(tabs)/partide.tsx', 'p'], ['Partida live', 'partide/[id].tsx', 'p'], ['Start partidă', 'partide/start.tsx', 'p'], ['Captură + previzualizare foto', 'partide/captura.tsx, photo-preview.tsx', 'p'], ['Istoric · statistici · pescari', 'partide/istoric.tsx, statistici.tsx, pescari.tsx', 'p'], ['Comunitate · capturi · galerie', 'partide/comunitate/*', 'p'], ['Alătură-te (cod)', 'partide/join/*', 'p'], ['Configurare lansete', 'partide/rod-config.tsx', 'm']]],
+      ['Concurs · participant', [['Înscriere (+ echipe, invitați)', 'register/*', 'p'], ['Chatul concursului', 'competitions/[competitionId]/chat', 'p'], ['Sondaje', 'polls/current.tsx, past.tsx', 'p'], ['Sponsor', 'sponsors/[sponsorId].tsx', 'p'], ['Tombolă (6 ecrane)', 'raffle/*', 'p']]],
+      ['Organizator', [['Panoul organizatorului', 'organizer/index.tsx', 'p'], ['Creare concurs · wizard (6 pași)', 'create-competition/*', 'p'], ['Sectoare / standuri', 'configure/sectors/[competitionId].tsx', 'p'], ['Alocare participanți (tragere la sorți)', 'configure/participants/[competitionId].tsx', 'p'], ['Cântar · adaugă · istoric · revizii', 'scale/[competitionId]/*', 'p'], ['Penalizări · aplică · alege stand', 'penalties/[competitionId]/*', 'p'], ['Cronologie standuri', 'competitions/stand-timeline/[competitionId].tsx', 'p']]],
+      ['Operator baltă', [['Alege balta', 'operator/index.tsx', 'p'], ['Panoul bălții', 'operator/[lakeId]/index.tsx', 'p'], ['Rezervări · grila de disponibilitate', 'operator/[lakeId]/bookings.tsx', 'p'], ['Blocări standuri', 'operator/[lakeId]/blocks.tsx', 'p'], ['Walk-in (3 pași)', 'operator/[lakeId]/walk-in/*', 'p'], ['Evaluare pescar', 'operator/rate-angler/[bookingId].tsx', 'p']]],
+      ['Cont', [['Autentificare', 'sign-in.tsx', 'p'], ['Completează profilul', 'complete-profile.tsx', 'p'], ['Onboarding', 'onboarding.tsx', 'm'], ['Timer', 'timer/*', 'm']]]
+    ];
+    const all = [];
+    const groups = G.map(([title, items]) => ({ title, count: items.length, items: items.map(([name, route, s, link]) => { all.push(s); return { name, route: 'app/(app)/' + route, status: ST[s][0], bg: ST[s][1], fg: ST[s][2], hasLink: !!link, link: link || '' }; }) }));
+    const legend = ['g', 'n', 'p', 'm'].map(k => ({ label: ST[k][0], bg: ST[k][1], fg: ST[k][2], count: all.filter(x => x === k).length }));
+    return { groups, legend };
+  }
+}
+</script>
+</body>
+</html>

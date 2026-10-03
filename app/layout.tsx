@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { nunito } from './fonts';
 import './globals.css';
 import { Providers } from './providers';
 
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ro">
+    <html lang="ro" className={nunito.variable}>
       <body>
         <Providers>{children}</Providers>
       </body>
