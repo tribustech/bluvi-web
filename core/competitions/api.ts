@@ -441,13 +441,14 @@ export function getStandStatsByLakeId(t: Transport, lakeId: string) {
 /* ------------------------------------------------------------------ */
 
 /**
- * fish `services/api/polls.ts#getCurrentPoll`. Carries `myVoteOptionId`, and the CMS refuses a
- * guest (Public role has no grant), so it is a per-user read.
+ * fish `services/api/polls.ts#getCurrentPoll`. Public on staging/prod (Public role grant; fish shows
+ * the poll to guests) but personalised (`myVoteOptionId`) when signed in, so `'optional'`: never
+ * served from the shared public cache. The local CMS lacks the Public grant (guest → 403).
  */
 export async function getCurrentPoll(t: Transport) {
   const res = await call(
     t,
-    { method: 'GET', path: '/polls/current', auth: 'required' },
+    { method: 'GET', path: '/polls/current', auth: 'optional' },
     z.object({ data: pollSchema.nullable() })
   );
   return res.data;

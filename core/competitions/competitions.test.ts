@@ -135,6 +135,7 @@ const card: CompetitionCard = {
   startDate: '2026-10-17T06:00:00.000Z',
   endDate: '2026-10-17T18:00:00.000Z',
   dateLabel: '17 oct.',
+  hoursLabel: '09:00–21:00',
   status: 'completed',
   format: { kind: 'single', teamSize: 1, unit: 'pescari' },
   rankingType: 'quantity',
@@ -412,7 +413,7 @@ describe('competitions api — requests', () => {
     await api.getSponsorById(transport, 'g3');
     expect(calls.map(c => `${c.method} ${c.path} ${c.auth}`)).toEqual([
       'GET /lakes/l/statistics none',
-      'GET /polls/current required',
+      'GET /polls/current optional',
       'GET /polls/past required',
       'PUT /polls/p/vote required',
       'POST /polls/p/suggest required',

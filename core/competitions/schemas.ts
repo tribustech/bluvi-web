@@ -340,6 +340,11 @@ export const competitionCardSchema = z.object({
   endDate: z.string().nullable(),
   /** Rendered on the server, in Bucharest. Never format this in the app. */
   dateLabel: z.string(),
+  /**
+   * `08:00–16:00` for a one-day competition, null otherwise (Bucharest, rendered on the server).
+   * Optional as in fish (models/competition-card.type.ts): a CMS older than the field omits it.
+   */
+  hoursLabel: z.string().nullish(),
   status: competitionCardStatusSchema,
   format: cardFormatSchema,
   rankingType: z.string(),
