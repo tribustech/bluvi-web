@@ -21,6 +21,9 @@
   --bluvi-muted: #667085;
   --bluvi-navy: #20263d;
   --bluvi-lavender: #dce1ff;
+  /* On navy (navy does not change in dark): CountTile label/unit and caption, the "kg" chip. */
+  --bluvi-lavender-2: #9aa3c7;
+  --bluvi-lavender-3: #c5cceb;
   --bluvi-accent: #6366f1;
   --bluvi-accent-ink: #4338ca;
   --bluvi-accent-tint: #f0f3fd;
@@ -28,6 +31,53 @@
   --bluvi-live: #e11d48;
   --bluvi-live-dot: #fb7185;
   --bluvi-success: #15803d;
+  /* Text/icons ON a filled accent (primary button, solid badge). */
+  --bluvi-on-accent: #ffffff;
+  /* Primary button when it cannot be pressed ("Înscrieri închise"): indigo-4 in light. */
+  --bluvi-accent-disabled: #a5b4fc;
+  --bluvi-on-accent-disabled: #ffffff;
+  /* One step below muted ("subtle" grey in Fundații): denominators ("/48"), the capot outline. */
+  --bluvi-faint: #98a2b3;
+  /* Rating star (amber-400), LakeCard + the ranking's review column. */
+  --bluvi-rating: #fbbf24;
+  /* Pills on a photo ("412 urmăresc"): ink at 55%, no blur. Not the modal scrim below. */
+  --bluvi-photo-scrim: rgb(16 24 40 / 0.55);
+  --bluvi-on-photo-scrim: #ffffff;
+  /* Pill on a photo that must read as a light chip ("Rezervare online"). */
+  --bluvi-photo-chip: #ffffff;
+  /* LIVE pill: rose-600 + white. */
+  --bluvi-status-live-bg: #e11d48;
+  --bluvi-status-live-fg: #ffffff;
+  /* Status pairs (Badge.tsx + toastConfig), text AA on background. */
+  --bluvi-status-success-bg: #dcfce7;
+  --bluvi-status-success-fg: #15803d;
+  --bluvi-status-warning-bg: #fef9c3;
+  --bluvi-status-warning-fg: #854d0e;
+  --bluvi-status-danger-bg: #fee4e2;
+  --bluvi-status-danger-fg: #be123c;
+  --bluvi-status-info-bg: #f0f3fd;
+  --bluvi-status-info-fg: #4338ca;
+  --bluvi-status-neutral-bg: #f2f4f7;
+  --bluvi-status-neutral-fg: #475467;
+  /* "2 în așteptare": orange-50 / orange-700, not a fish status. */
+  --bluvi-status-pending-bg: #fff7ed;
+  --bluvi-status-pending-fg: #c2410c;
+  /* Badge.tsx green/yellow: fish green3 at 12.5% + green3, fish yellow1 at 31% + yellow6. */
+  --bluvi-badge-green-bg: rgb(107 186 163 / 0.125);
+  --bluvi-badge-green-fg: #6bbaa3;
+  --bluvi-badge-yellow-bg: rgb(254 249 195 / 0.314);
+  --bluvi-badge-yellow-fg: #ca8a04;
+  /* ErrorState outline (rose-200): status-danger-bg is too faint as a hairline on white. */
+  --bluvi-status-danger-line: #fecdd3;
+  /* Sheet drag handle (gray-300). */
+  --bluvi-handle: #d0d5dd;
+  /* Skeleton shimmer: soft-fill → this step → soft-fill. */
+  --bluvi-shimmer: #e4e7ec;
+  /* Edge shadows: TabBar (cast upward) and SidePanel (cast left). */
+  --bluvi-shadow-tabbar: 0 -2px 8px rgb(16 24 40 / 0.08);
+  --bluvi-shadow-panel: -8px 0 24px -8px rgb(16 24 40 / 0.18);
+  /* Modal scrim (Dialog, Sheet): ink at 35%. A token because ink turns light in dark. */
+  --bluvi-scrim: rgb(16 24 40 / 0.35);
   --bluvi-font: var(--font-nunito), ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light;
 }
@@ -36,20 +86,69 @@
   --bluvi-page: #0e1220;
   --bluvi-surface: #171c2e;
   --bluvi-raised: #20263d;
-  --bluvi-soft-fill: #20263d;
+  /* Its own step: raised is #20263D, hairline #262D45. */
+  --bluvi-soft-fill: #2a3150;
   --bluvi-hairline: #262d45;
   --bluvi-ink: #f2f4fa;
   --bluvi-ink-2: #b8c0d9;
   --bluvi-muted: #8c95b0;
   --bluvi-navy: #20263d;
   --bluvi-lavender: #dce1ff;
+  --bluvi-lavender-2: #9aa3c7;
+  --bluvi-lavender-3: #c5cceb;
   --bluvi-accent: #818cf8;
   --bluvi-accent-ink: #c7d2fe;
   --bluvi-accent-tint: #2a3160;
-  --bluvi-accent-tint-2: #2a3160;
+  /* One step above accent-tint, so tint-on-tint (hover, focus halo) still separates. */
+  --bluvi-accent-tint-2: #343c74;
   --bluvi-live: #fb7185;
   --bluvi-live-dot: #fb7185;
   --bluvi-success: #4ade80;
+  /* White on #818CF8 is 2.9:1; the page ink is 6.3:1. */
+  --bluvi-on-accent: #0e1220;
+  --bluvi-accent-disabled: #3a4278;
+  /* Page ink on #3A4278 is ~2:1; ink-2 is 5.2:1. */
+  --bluvi-on-accent-disabled: #b8c0d9;
+  --bluvi-faint: #6b7493;
+  /* No dark value in Fundații: same as light (they sit on photos, or are bright enough). */
+  --bluvi-rating: #fbbf24;
+  --bluvi-photo-scrim: rgb(16 24 40 / 0.55);
+  --bluvi-on-photo-scrim: #ffffff;
+  /* The photo chip carries ink text, which turns light in dark: the chip becomes raised. */
+  --bluvi-photo-chip: #20263d;
+  --bluvi-status-live-bg: #e11d48;
+  --bluvi-status-live-fg: #ffffff;
+  /*
+   * Status pairs in dark are NOT in Fundații (darkSwatches has none) — proposal: a low-alpha
+   * tint of the hue over the surface + a light fg (all ≥ 7:1 on #171C2E). Info = accent tint,
+   * neutral = raised. Confirm with design before dark ships.
+   */
+  --bluvi-status-success-bg: rgb(74 222 128 / 0.14);
+  --bluvi-status-success-fg: #86efac;
+  --bluvi-status-warning-bg: rgb(250 204 21 / 0.14);
+  --bluvi-status-warning-fg: #fde047;
+  --bluvi-status-danger-bg: rgb(251 113 133 / 0.16);
+  --bluvi-status-danger-fg: #fda4af;
+  --bluvi-status-info-bg: #2a3160;
+  --bluvi-status-info-fg: #c7d2fe;
+  --bluvi-status-neutral-bg: #20263d;
+  --bluvi-status-neutral-fg: #b8c0d9;
+  --bluvi-status-pending-bg: rgb(251 146 60 / 0.16);
+  --bluvi-status-pending-fg: #fdba74;
+  /* Badge green/yellow: same hues as light, tint over the surface + a lighter fg (proposal). */
+  --bluvi-badge-green-bg: rgb(107 186 163 / 0.16);
+  --bluvi-badge-green-fg: #8fd3bf;
+  --bluvi-badge-yellow-bg: rgb(250 204 21 / 0.14);
+  --bluvi-badge-yellow-fg: #facc15;
+  /* Proposals (not in Fundații darkSwatches): confirm with design before dark ships. */
+  --bluvi-status-danger-line: rgb(251 113 133 / 0.35);
+  --bluvi-handle: #3a4260;
+  /* One step above the dark soft-fill (#2A3150) so the sweep still shows. */
+  --bluvi-shimmer: #353d62;
+  /* On a dark page a shadow only reads as a deeper black; the hairline does the separating. */
+  --bluvi-shadow-tabbar: 0 -2px 8px rgb(0 0 0 / 0.32);
+  --bluvi-shadow-panel: -8px 0 24px -8px rgb(0 0 0 / 0.5);
+  --bluvi-scrim: rgb(0 0 0 / 0.55);
   color-scheme: dark;
 }
 
@@ -65,6 +164,8 @@
   --color-muted: var(--bluvi-muted);
   --color-navy: var(--bluvi-navy);
   --color-lavender: var(--bluvi-lavender);
+  --color-lavender-2: var(--bluvi-lavender-2);
+  --color-lavender-3: var(--bluvi-lavender-3);
   --color-accent: var(--bluvi-accent);
   --color-accent-ink: var(--bluvi-accent-ink);
   --color-accent-tint: var(--bluvi-accent-tint);
@@ -72,6 +173,36 @@
   --color-live: var(--bluvi-live);
   --color-live-dot: var(--bluvi-live-dot);
   --color-success: var(--bluvi-success);
+  --color-on-accent: var(--bluvi-on-accent);
+  --color-accent-disabled: var(--bluvi-accent-disabled);
+  --color-on-accent-disabled: var(--bluvi-on-accent-disabled);
+  --color-faint: var(--bluvi-faint);
+  --color-rating: var(--bluvi-rating);
+  --color-photo-scrim: var(--bluvi-photo-scrim);
+  --color-on-photo-scrim: var(--bluvi-on-photo-scrim);
+  --color-photo-chip: var(--bluvi-photo-chip);
+  --color-status-live-bg: var(--bluvi-status-live-bg);
+  --color-status-live-fg: var(--bluvi-status-live-fg);
+  --color-status-success-bg: var(--bluvi-status-success-bg);
+  --color-status-success-fg: var(--bluvi-status-success-fg);
+  --color-status-warning-bg: var(--bluvi-status-warning-bg);
+  --color-status-warning-fg: var(--bluvi-status-warning-fg);
+  --color-status-danger-bg: var(--bluvi-status-danger-bg);
+  --color-status-danger-fg: var(--bluvi-status-danger-fg);
+  --color-status-info-bg: var(--bluvi-status-info-bg);
+  --color-status-info-fg: var(--bluvi-status-info-fg);
+  --color-status-neutral-bg: var(--bluvi-status-neutral-bg);
+  --color-status-neutral-fg: var(--bluvi-status-neutral-fg);
+  --color-status-pending-bg: var(--bluvi-status-pending-bg);
+  --color-status-pending-fg: var(--bluvi-status-pending-fg);
+  --color-badge-green-bg: var(--bluvi-badge-green-bg);
+  --color-badge-green-fg: var(--bluvi-badge-green-fg);
+  --color-badge-yellow-bg: var(--bluvi-badge-yellow-bg);
+  --color-badge-yellow-fg: var(--bluvi-badge-yellow-fg);
+  --color-status-danger-line: var(--bluvi-status-danger-line);
+  --color-handle: var(--bluvi-handle);
+  --color-shimmer: var(--bluvi-shimmer);
+  --color-scrim: var(--bluvi-scrim);
 
   --font-sans: var(--bluvi-font);
 }
@@ -84,22 +215,10 @@
   --color-indigo-5: #6366f1;
   --color-indigo-7: #4338ca;
 
-  /* ---- status pairs (Badge.tsx + toastConfig), text AA on background ---- */
-  --color-status-live-bg: #e11d48;
-  --color-status-live-fg: #ffffff;
-  --color-status-success-bg: #dcfce7;
-  --color-status-success-fg: #15803d;
-  --color-status-warning-bg: #fef9c3;
-  --color-status-warning-fg: #854d0e;
-  --color-status-danger-bg: #fee4e2;
-  --color-status-danger-fg: #be123c;
-  --color-status-info-bg: #f0f3fd;
-  --color-status-info-fg: #4338ca;
-  --color-status-neutral-bg: #f2f4f7;
-  --color-status-neutral-fg: #475467;
   /* Badges stay identical to the app (green3 is 2.3:1 — flagged in Fundații, kept). */
   --color-green-3: #6bbaa3;
   --color-yellow-5: #eab308;
+  --color-yellow-6: #ca8a04;
 
   /* ---- sectors A–X (getColorsBySector.ts): only a 4px row stripe + dot, never under text ---- */
   --color-sector-a: #1976d2;
@@ -143,6 +262,8 @@
   --shadow-e2: 0 12px 32px -8px rgba(16, 24, 40, 0.18);
   --shadow-glow: 0 2px 10px rgba(99, 102, 241, 0.15);
   --shadow-button: 0 2px 4px rgba(10, 10, 10, 0.1);
+  --shadow-tabbar: var(--bluvi-shadow-tabbar);
+  --shadow-panel: var(--bluvi-shadow-panel);
 
   /* ---- breakpoints: 375 base · 768 tablet/rail · 1280 desktop/menu · 1440 wide ---- */
   --breakpoint-md: 768px;
@@ -180,6 +301,9 @@
   --t-label: 700 12px/16px var(--bluvi-font);
   --t-caption: 600 12px/16px var(--bluvi-font);
   --t-micro: 600 10px/14px var(--bluvi-font);
+  /* micro at 700: pills, tags, badges (same steps as micro). nano: the small inline tag in rows. */
+  --t-micro-strong: 700 10px/14px var(--bluvi-font);
+  --t-nano: 700 10px/14px var(--bluvi-font);
 }
 @media (min-width: 1280px) {
   :root {
@@ -194,6 +318,7 @@
     --t-body: 600 15px/22px var(--bluvi-font);
     --t-body-strong: 700 15px/22px var(--bluvi-font);
     --t-micro: 600 11px/14px var(--bluvi-font);
+    --t-micro-strong: 700 11px/14px var(--bluvi-font);
   }
 }
 
@@ -245,6 +370,45 @@
 @utility t-micro {
   font: var(--t-micro);
 }
+@utility t-micro-strong {
+  font: var(--t-micro-strong);
+}
+@utility t-nano {
+  font: var(--t-nano);
+}
+/*
+ * Fixed steps (same at every width) used by components rather than page hierarchy.
+ * eyebrow: the caps line over a card title (date range, "PARTIDĂ · …"); callers add `uppercase`.
+ * control: segmented-control labels, the lake rating.
+ * num-40 / num-26: signature numbers inside a card (partidă count + StatTile, catch weight on its
+ * navy chip). num-18: the place in a ranking (table cell, winner pill). t-hero/t-display match them on mobile only, so they are separate, non-responsive.
+ */
+@utility t-eyebrow {
+  font: 700 11px/14px var(--bluvi-font);
+  letter-spacing: 0.3px;
+}
+/* The desktop header search: body text held at 14/600 so the placeholder fits 280px. */
+@utility t-field {
+  font: 600 14px/20px var(--bluvi-font);
+}
+@utility t-control {
+  font: 700 13px/16px var(--bluvi-font);
+}
+@utility t-num-40 {
+  font: 800 40px/44px var(--bluvi-font);
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums;
+}
+@utility t-num-18 {
+  font: 800 18px/22px var(--bluvi-font);
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+@utility t-num-26 {
+  font: 800 26px/28px var(--bluvi-font);
+  letter-spacing: -1.5px;
+  font-variant-numeric: tabular-nums;
+}
 
 @layer base {
   html {
@@ -284,4 +448,27 @@
 }
 @utility animate-live {
   animation: bluvi-live 1.4s ease-in-out infinite;
+}
+
+/* Skeleton shimmer (Fundații §07 LoadingRow): 1.4s linear loop; reduced motion stops it below. */
+@keyframes bluvi-shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+@utility animate-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-soft-fill) 0,
+    var(--color-shimmer) 50%,
+    var(--color-soft-fill) 100%
+  );
+  background-size: 800px 100%;
+  animation: bluvi-shimmer 1.4s linear infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }

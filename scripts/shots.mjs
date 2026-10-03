@@ -37,7 +37,19 @@ try {
       const ctx = await browser.newContext({ viewport: { width: w, height: 900 }, deviceScaleFactor: w < 768 ? 2 : 1 });
       if (cookie) await ctx.addCookies([{ name: 'bluvi_session', value: cookie, url: base }]);
       const page = await ctx.newPage();
-      await page.goto(`${base}${target}`, { waitUntil: 'networkidle' });
+      // Not 'networkidle': the dev server's HMR socket keeps the network busy and times it out.
+      await page.goto(`${base}${target}`, { waitUntil: 'load' });
+      await page.waitForLoadState('domcontentloaded');
+      await page.evaluate(() => document.fonts.ready);
+      // Scroll through the page so lazy images and anything viewport-triggered load before the capture.
+      await page.evaluate(async () => {
+        for (let y = 0; y < document.body.scrollHeight; y += window.innerHeight) {
+          window.scrollTo(0, y);
+          await new Promise(r => setTimeout(r, 120));
+        }
+        window.scrollTo(0, 0);
+      });
+      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
       await page.waitForTimeout(500);
       const file = path.join(OUT, `app${target.replace(/\W+/g, '_')}-${w}.png`);
       await page.screenshot({ path: file, fullPage: true });
