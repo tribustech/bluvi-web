@@ -11,6 +11,7 @@
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:contract": "vitest run --project contract",
+    "test:e2e": "playwright test",
     "shots": "node scripts/shots.mjs",
     "design": "node scripts/serve-static.mjs design 4300"
   },

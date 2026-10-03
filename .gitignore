@@ -43,3 +43,5 @@ next-env.d.ts
 !.env.example
 
 /.shots/
+/test-results/
+/playwright-report/
