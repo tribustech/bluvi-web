@@ -11,7 +11,7 @@ import {
   type TransportResponse,
 } from '@/core/transport';
 import { APP_VERSION, cmsUrl } from './env';
-import { cachedPublicGet, PublicGetError } from './public-get';
+import { cachedPublicGet } from './public-get';
 import { getSessionToken } from './session';
 
 function parseJson(text: string): unknown {
@@ -24,15 +24,17 @@ function parseJson(text: string): unknown {
 }
 
 async function publicGet<T>(req: TransportRequest, url: string): Promise<TransportResponse<T>> {
+  let res;
   try {
-    const res = await cachedPublicGet(url, appHeaders(APP_VERSION));
-    const headers = new Headers();
-    if (res.contentType) headers.set('content-type', res.contentType);
-    return { data: parseJson(res.body) as T, status: res.status, headers };
+    res = await cachedPublicGet(url, appHeaders(APP_VERSION));
   } catch (e) {
-    if (e instanceof PublicGetError) throw apiErrorFromResponse(e.status, parseJson(e.body), req.path);
+    // Only a network failure (fetch itself threw) can land here; HTTP errors come back as values.
     throw networkError(req.path, e);
   }
+  if (!res.ok) throw apiErrorFromResponse(res.status, parseJson(res.body), req.path);
+  const headers = new Headers();
+  if (res.contentType) headers.set('content-type', res.contentType);
+  return { data: parseJson(res.body) as T, status: res.status, headers };
 }
 
 /**
