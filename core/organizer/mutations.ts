@@ -53,7 +53,7 @@ import { profileKeys } from '../social/queries';
 
 /**
  * fish `mutations/invalidateOrganizerDashboardQueries.ts` — everything the organizer
- * dashboard shows, plus the Concursuri tab which lists the same competitions
+ * dashboard shows, plus the Competiții tab which lists the same competitions
  * (status, places, Organizate).
  */
 export async function invalidateOrganizerDashboardQueries(qc: QueryClient) {

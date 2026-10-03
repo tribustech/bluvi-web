@@ -74,7 +74,7 @@ export const competitionKeys = {
 };
 
 /**
- * fish `queryKeys.competitionCards` — the redesigned Concursuri tab. Separate root from
+ * fish `queryKeys.competitionCards` — the redesigned Competiții tab. Separate root from
  * `competitions` so the two endpoints' caches never collide while both exist.
  */
 export const competitionCardsKeys = {
@@ -246,7 +246,7 @@ export const COMPETITION_CARDS_PAGE_SIZE = 20;
 /**
  * The one cache knob a CALLER gets to turn. Polling is a property of what is on screen, so the
  * screen passes it in and everybody who does not pass it gets nothing — which keeps the
- * Concursuri bento (five unconditional observers) from polling. `refetchInterval` is resolved per
+ * Competiții bento (five unconditional observers) from polling. `refetchInterval` is resolved per
  * observer in React Query v5, so the shared cache entry still gets fresh data for free.
  */
 export type CompetitionCardsCachePolicy = {

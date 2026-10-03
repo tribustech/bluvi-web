@@ -135,7 +135,7 @@ const CASES: { type: string; data: Omit<NotificationData, 'type'>; expected: Not
   })),
   { type: T.BOOKING_AUTO_REJECTED_OPERATOR, data: { lakeId: 'lake_42' }, expected: { kind: 'operatorBookings', params: { lakeId: 'lake_42', status: 'rejected' } }, nullWithout: ['lakeId'] },
   { type: T.BOOKING_CANCELLED_OPERATOR, data: { lakeId: 'lake_42' }, expected: { kind: 'operatorBookings', params: { lakeId: 'lake_42', status: 'cancelled' } }, nullWithout: ['lakeId'] },
-  // single new competition → detail; digest → Concursuri tab
+  // single new competition → detail; digest → Competiții tab
   { type: T.NEW_COMPETITIONS, data: { competitionId: 'c1' }, expected: { kind: 'competition', params: { competitionId: 'c1' } } },
   { type: T.COMPETITIONS_DIGEST, data: {}, expected: { kind: 'competitionsTab', params: {} } },
   // /lakes/:id/reviews
@@ -161,7 +161,7 @@ describe('getRedirectLocationForNotification', () => {
     expect(route({ type: T.CHAT_MESSAGE, competitionId: 'abc' })).toEqual({ kind: 'competitionChat', params: { competitionId: 'abc', tab: 'general' } });
   });
 
-  it('a digest single without competitionId goes to the Concursuri tab', () => {
+  it('a digest single without competitionId goes to the Competiții tab', () => {
     expect(route({ type: T.NEW_COMPETITIONS })).toEqual({ kind: 'competitionsTab', params: {} });
   });
 

@@ -120,7 +120,7 @@ describe('competitions — detail', () => {
   it.skip('follow → unfollow round trip — skipped: this task forbids writes to competitions (followers relation)', () => {});
 });
 
-describe('competitions — Concursuri cards', () => {
+describe('competitions — Competiții cards', () => {
   const base = { search: null, filters: DEFAULT_COMPETITION_FILTERS, sort: 'date' as const };
 
   it('reads the public card lists for every status as guest and user', async () => {

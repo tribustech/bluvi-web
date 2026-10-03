@@ -6,7 +6,7 @@ import { pickMoment, type Moment } from './pickMoment';
 import { pulsePersonToMoment } from './pulsePersonToMoment';
 
 /**
- * The pure half of fish `features/competitions/helpers/useCompetitionsPulse.ts` — the Concursuri
+ * The pure half of fish `features/competitions/helpers/useCompetitionsPulse.ts` — the Competiții
  * bento. The hook composes the hero and the count tile from the SAME cached card lists the tab
  * already uses; the person tile reads `/feed/pulse-person`, and the hero reads
  * `/feed/featured-competition` when it would otherwise fall through to a discovery pick.

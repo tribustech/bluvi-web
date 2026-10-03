@@ -318,7 +318,7 @@ export const NotificationTypes = {
   PARTIDA_AUTO_CLOSE_WARN: 'partida:auto-close-warn',
   /** Daily digest, single new competition (push-only). Carries competitionId. */
   NEW_COMPETITIONS: 'new-competitions',
-  /** Daily digest with ≥2 items (push-only). No competitionId → Concursuri tab. */
+  /** Daily digest with ≥2 items (push-only). No competitionId → Competiții tab. */
   COMPETITIONS_DIGEST: 'competitions-digest',
   /** Angler-follow fan-out: competition ones carry `competitionId`, partidă/record ones
    * `sessionDocumentId`, the review one `lakeId`. */

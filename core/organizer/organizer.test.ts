@@ -253,7 +253,7 @@ describe('organizer mutations', () => {
   const run = async (options: object, qc: QueryClient, v: unknown) =>
     qc.getMutationCache().build(qc, options as never).execute(v as never);
 
-  it('invalidates the organizer dashboard family and the Concursuri cards', async () => {
+  it('invalidates the organizer dashboard family and the Competiții cards', async () => {
     const qc = new QueryClient();
     const keys = [organizerKeys.dashboard, organizerKeys.competitions('draft', 10), organizerKeys.statDetails('fill', 5), ['competition-cards', 'list', 'x'], ['news']];
     keys.forEach(k => qc.setQueryData(k, 1));
