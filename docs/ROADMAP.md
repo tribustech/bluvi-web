@@ -77,6 +77,18 @@ of every milestone. A milestone closes only when it reports zero unexplained gap
 
 The bottom tab bar, the rail and the side menu are retired.
 
+**Width (owner decision 2026-10-04, overrides Fundații's "content max 1120px"):** use the screen like
+Facebook does:
+- The top bar is full width.
+- Pages are full width with 24–32px gutters, up to ~1680px, and centred beyond that.
+- Only long reading text (articles, rules, descriptions) is capped at ~720px.
+- Card grids auto-fill: more columns as the screen grows, never wider cards.
+- From 1280px, dashboards and detail pages use a three-column layout:
+  - left: context and filters;
+  - centre: content;
+  - right: "ce mă așteaptă" or details.
+- Maps and tables (ranking, bookings) take all the available width.
+
 **Templates.** Each one ships with all its states and is approved by the owner in M0:
 
 | # | Template | Used by |
