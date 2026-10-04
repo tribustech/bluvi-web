@@ -1,4 +1,5 @@
 import type { TestProject } from 'vitest/node';
+import { qaUser } from '../qa-user';
 
 const CMS_URL = (process.env.CMS_URL ?? 'http://localhost:1337/api').replace(/\/$/, '');
 
@@ -16,8 +17,7 @@ declare module 'vitest' {
  * token is never cached across runs.
  */
 export default async function setup(project: TestProject) {
-  const identifier = process.env.CONTRACT_EMAIL ?? 'sim-qa@bluvi.test';
-  const password = process.env.CONTRACT_PASSWORD ?? '***REMOVED***';
+  const { identifier, password } = qaUser();
 
   let res: Response;
   try {

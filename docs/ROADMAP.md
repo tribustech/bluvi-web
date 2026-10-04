@@ -7,7 +7,7 @@ work it describes.
 Related:
 - Data layer spec: `docs/superpowers/specs/2026-09-27-web-v2-data-layer-design.md`
 - Data layer conventions: `core/README.md`
-- CMS patches: `docs/cms-patches/README.md`
+- CMS patches: kept local-only (`docs/private/cms-patches/`, git-ignored); security items tracked in the private CMS repo
 - Design reference: `design/` (Claude Design export)
 
 ## 1. Goal and rules

@@ -45,3 +45,6 @@ next-env.d.ts
 /.shots/
 /test-results/
 /playwright-report/
+
+# Local-only notes (security-sensitive CMS patches etc.). Never commit.
+/docs/private/

@@ -54,7 +54,7 @@ app/api/revalidate/          CMS webhook → revalidateTag
 app/api/firebase-token/      mints Firestore custom token for the signed-in user (via CMS)
 app/sitemap.ts, robots.ts    SEO plumbing from /feed/lakes/index + competitions
 tests/contract/              contract suite (vitest project "contract")
-docs/cms-patches/            CMS changes as patch files + apply instructions
+docs/private/                 local-only (git-ignored): CMS patches + apply notes
 ```
 
 Domains (mirroring fish `services/api/*`, `models/*`, `services/queries/*`, `services/mutations/*`):
@@ -172,7 +172,8 @@ adds bearer + app headers, strips `set-cookie`, passes status and JSON through. 
 
 ## CMS patches (delivered, not applied)
 
-See `docs/cms-patches/README.md` for the diffs and apply notes: **P0** CMS security fix (tracked privately), **P1** revalidate webhook
+The diffs are kept local-only (`docs/private/cms-patches/`, git-ignored). **P0** is a CMS security fix tracked
+privately (tribustech/bluvi-strapi#104), independent of the web; **P1** revalidate webhook
 from the purge queue, **P3** Apple Services ID for web. The upload token and CORS patches were dropped
 (not needed, see D5 and the README).
 

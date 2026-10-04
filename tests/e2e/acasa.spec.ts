@@ -1,3 +1,4 @@
+import { qaUser } from '../qa-user';
 import { expect, test, type ConsoleMessage, type Page } from '@playwright/test';
 
 /*
@@ -8,7 +9,7 @@ import { expect, test, type ConsoleMessage, type Page } from '@playwright/test';
  */
 
 const CMS = process.env.E2E_CMS_URL ?? 'http://localhost:1337/api';
-const QA_USER = { identifier: 'sim-qa@bluvi.test', password: '***REMOVED***' };
+const QA_USER = qaUser();
 
 const WIDTHS = [
   { name: 'mobile', width: 375, height: 812 },
