@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import bluvi from "./eslint-rules/no-raw-visual-values.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -34,7 +35,26 @@ const eslintConfig = defineConfig([
       "no-restricted-globals": ["error", "window", "document", "localStorage", "sessionStorage", "navigator"],
     },
   },
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  {
+    // ROADMAP §5 «Lint»: no raw colours, font sizes, line heights or z-index outside the tokens
+    // in app/globals.css. See eslint-rules/no-raw-visual-values.mjs.
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.{ts,tsx}"],
+    plugins: { bluvi },
+    rules: { "bluvi/no-raw-visual-values": "error" },
+  },
+  // design/ holds generated design-tool exports; the rest is build / test output.
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "design/**",
+    ".lighthouseci/**",
+    "test-results/**",
+    "playwright-report/**",
+    ".shots/**",
+  ]),
 ]);
 
 export default eslintConfig;

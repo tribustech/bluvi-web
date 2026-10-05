@@ -1,0 +1,56 @@
+# Base gates (ROADMAP §5): types, lint (incl. the design-token rule), unit tests, parity, build.
+# No secrets: the build reads public data from the staging CMS. e2e / axe, visual baselines and
+# Lighthouse need the local CMS with the QA user and run on a dev machine for now.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CMS_URL: https://api-staging.bluvi.ro/api
+      NEXT_PUBLIC_CMS_URL: https://api-staging.bluvi.ro/api
+      NEXT_PUBLIC_SITE_URL: https://bluvi.ro
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint (incl. bluvi/no-raw-visual-values)
+        run: npx eslint . --max-warnings=0
+
+      - name: Unit tests
+        run: npx vitest run --project unit
+
+      - name: Parity
+        run: |
+          if [ -f scripts/parity.mjs ]; then
+            npm run parity
+          else
+            echo "scripts/parity.mjs not present yet — skipped"
+          fi
+
+      - name: Build
+        run: npx next build
