@@ -1,7 +1,8 @@
 import 'server-only';
 import { cache } from 'react';
 import { z } from 'zod';
-import { call, isApiError } from '@/core/transport';
+import { getOwnedLakes } from '@/core/booking';
+import { call, isApiError, type Transport } from '@/core/transport';
 import { getSessionToken } from './session';
 import { createServerTransport } from './transport';
 
@@ -16,6 +17,10 @@ export type Viewer = {
   avatarUrl: string | null;
   /** users-permissions role name: «Authenticated», «Organizer», … */
   role: string | null;
+  /** fish: `profile.role.name === 'Organizer'` → «Concursurile mele» under Administrare. */
+  isOrganizer: boolean;
+  /** Lakes the viewer operates (fish useOwnedLakes) → «<lac> · panou» under Administrare. */
+  ownedLakes: { documentId: string; name: string }[];
 };
 
 const meSchema = z.object({
@@ -46,17 +51,20 @@ const ME_QUERY = {
 export const getViewer = cache(async (): Promise<Viewer | null> => {
   if (!(await getSessionToken())) return null;
   try {
-    const me = await call(
-      createServerTransport(),
-      { method: 'GET', path: '/users/me', query: ME_QUERY, auth: 'required' },
-      meSchema
-    );
+    const t = createServerTransport();
+    const [me, ownedLakes] = await Promise.all([
+      call(t, { method: 'GET', path: '/users/me', query: ME_QUERY, auth: 'required' }, meSchema),
+      readOwnedLakes(t),
+    ]);
+    const role = me.role?.name ?? null;
     return {
       id: me.id,
       documentId: me.documentId,
       username: me.username,
       avatarUrl: me.avatar?.url ?? null,
-      role: me.role?.name ?? null,
+      role,
+      isOrganizer: role === 'Organizer',
+      ownedLakes,
     };
   } catch (e) {
     if (isApiError(e) && (e.status === 401 || e.code === 'SESSION_DEAD')) return null;
@@ -64,3 +72,17 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
     return null;
   }
 });
+
+/**
+ * Owned lakes for the Administrare menu. Read in parallel with /users/me; a failure (missing grant,
+ * CMS hiccup) only hides the operator entries — it never signs the viewer out.
+ */
+async function readOwnedLakes(t: Transport): Promise<Viewer['ownedLakes']> {
+  try {
+    const lakes = await getOwnedLakes(t);
+    return lakes.map((l) => ({ documentId: l.documentId, name: l.name }));
+  } catch (e) {
+    if (!(isApiError(e) && (e.status === 401 || e.status === 403))) console.error('[viewer] /feed/owned-lakes failed', e);
+    return [];
+  }
+}

@@ -2,8 +2,9 @@
 
 import { createContext, Suspense, use, useEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { DesktopHeader, type Crumb } from '@/components/nav/DesktopHeader';
-import { useViewer } from './viewer-context';
+import { BreadcrumbBand, type Crumb } from '@/components/nav/Breadcrumbs';
+
+export type { Crumb };
 
 /** First path segment → label. Sections that are not pages yet still get a readable crumb. */
 const SECTION: Record<string, string> = {
@@ -11,11 +12,14 @@ const SECTION: Record<string, string> = {
   concursuri: 'Competiții',
   partide: 'Partide',
   profil: 'Profil',
+  setari: 'Setări',
   intra: 'Intră',
   notificari: 'Notificări',
   cauta: 'Căutare',
   stiri: 'Știri',
   pescari: 'Pescari',
+  organizator: 'Concursurile mele',
+  operator: 'Panou baltă',
 };
 
 /**
@@ -33,6 +37,8 @@ export function crumbsForPath(pathname: string): Crumb[] {
 type Override = { path: string; trail: Crumb[] } | null;
 const BreadcrumbContext = createContext<((o: Override) => void) | null>(null);
 const OverrideContext = createContext<Override>(null);
+const NotFoundSetContext = createContext<((path: string | null) => void) | null>(null);
+const NotFoundContext = createContext<string | null>(null);
 
 /**
  * Lets a page replace the URL-derived breadcrumb with real titles, e.g.
@@ -50,52 +56,96 @@ export function SetBreadcrumb({ trail }: { trail: Crumb[] }) {
   return null;
 }
 
-export function BreadcrumbProvider({ children }: { children: ReactNode }) {
-  const [override, setOverride] = useState<Override>(null);
-  return (
-    <BreadcrumbContext value={setOverride}>
-      <OverrideContext value={override}>{children}</OverrideContext>
-    </BreadcrumbContext>
-  );
-}
-/** «Intră» returns to the page it was pressed on (not to /intra itself). */
-export function signInHref(pathname: string): string {
-  if (pathname === '/intra' || pathname === '/') return '/intra';
-  return `/intra?next=${encodeURIComponent(pathname)}`;
+/**
+ * Rendered by a 404 (not-found.tsx, the [...rest] catch-all): this URL is no page, so the top bar
+ * highlights no section and no breadcrumb band is shown. Bound to the pathname like SetBreadcrumb.
+ */
+export function MarkNotFound() {
+  const set = use(NotFoundSetContext);
+  const pathname = usePathname() ?? '/';
+  useEffect(() => {
+    set?.(pathname);
+    return () => set?.(null);
+  }, [set, pathname]);
+  return null;
 }
 
-function HeaderWithViewer({ breadcrumb, pathname, className }: { breadcrumb: Crumb[]; pathname: string; className: string }) {
-  const viewer = useViewer();
+/** Whether the current pathname was marked as a 404 by <MarkNotFound>. */
+export function useIsNotFound(pathname: string | undefined): boolean {
+  const path = use(NotFoundContext);
+  return pathname !== undefined && path === pathname;
+}
+
+export function BreadcrumbProvider({ children }: { children: ReactNode }) {
+  const [override, setOverride] = useState<Override>(null);
+  const [notFound, setNotFound] = useState<string | null>(null);
   return (
-    <DesktopHeader
-      breadcrumb={breadcrumb}
-      user={viewer ? { name: viewer.username, avatarUrl: viewer.avatarUrl } : undefined}
-      signInHref={viewer || pathname === '/intra' ? undefined : signInHref(pathname)}
-      className={className}
-    />
+    <BreadcrumbContext value={setOverride}>
+      <NotFoundSetContext value={setNotFound}>
+        <OverrideContext value={override}>
+          <NotFoundContext value={notFound}>{children}</NotFoundContext>
+        </OverrideContext>
+      </NotFoundSetContext>
+    </BreadcrumbContext>
   );
 }
 
 /**
- * Desktop header of the shell (≥1280): breadcrumb, ⌘K search, notifications, avatar.
- * Two boundaries: the pathname (request data on dynamic routes) and then the session. The static
- * shell carries the search field; crumbs and avatar/«Intră» stream in.
+ * «Intră» returns to the page it was pressed on, filters included (`search`: the query string,
+ * with or without its «?»), never to /intra itself. /intra validates `next` as a safe path.
  */
-export function SiteHeader({ className = '' }: { className?: string }) {
+export function signInHref(pathname: string, search = ''): string {
+  if (pathname === '/intra') return '/intra';
+  const query = search.startsWith('?') ? search.slice(1) : search;
+  const back = query ? `${pathname}?${query}` : pathname;
+  if (back === '/') return '/intra';
+  return `/intra?next=${encodeURIComponent(back)}`;
+}
+
+/**
+ * A page's trail with every parent linked: a crumb a page set without `href` («Competiții») takes
+ * the URL-derived section link when its label matches, so the parent stays a link.
+ */
+function withParentLinks(trail: Crumb[], pathname: string): Crumb[] {
+  const derived = crumbsForPath(pathname);
+  return trail.map((c, i) => {
+    if (c.href || i === trail.length - 1) return c;
+    const match = derived.find((d) => d.label === c.label && d.href);
+    return match ? { ...c, href: match.href } : c;
+  });
+}
+
+/**
+ * The breadcrumb band between the bar and <main> (≥768; phones navigate with the screen's own back
+ * button). Shown on pages below a section (/concursuri/<id>, …): a section page already names
+ * itself in its title. Full-bleed bg-surface (BreadcrumbBand), the start of the page header
+ * surface, so bar → crumbs → T3 hero read as one white header at every width.
+ *
+ * The row needs the pathname, which on a dynamic route is request data, so on those routes it
+ * streams in behind this boundary. Only dynamic routes suspend here and nearly all of them are deep
+ * (/concursuri/<id>), so the fallback is a band of the same shape (a placeholder crumb, same 24px
+ * row): the page below it never moves when the real trail lands. The robust fix is still for T3
+ * pages to render <BreadcrumbBand> themselves on the server (real titles, JSON-LD) and for this
+ * layout row to go away. Until the page names itself, a deep URL shows its section as a linked
+ * parent and a neutral placeholder for the current crumb: the section is never announced as the
+ * current page.
+ */
+export function PageBreadcrumbs() {
   return (
-    <Suspense fallback={<DesktopHeader breadcrumb={[]} className={className} />}>
-      <HeaderWithPath className={className} />
+    <Suspense fallback={<BreadcrumbBand trail={[]} pendingCurrent />}>
+      <LiveBreadcrumbs />
     </Suspense>
   );
 }
 
-function HeaderWithPath({ className }: { className: string }) {
+function LiveBreadcrumbs() {
   const pathname = usePathname() ?? '/';
   const override = use(OverrideContext);
-  const breadcrumb = override?.path === pathname ? override.trail : crumbsForPath(pathname);
-  return (
-    <Suspense fallback={<DesktopHeader breadcrumb={breadcrumb} className={className} />}>
-      <HeaderWithViewer breadcrumb={breadcrumb} pathname={pathname} className={className} />
-    </Suspense>
-  );
+  const notFound = useIsNotFound(pathname);
+  const deep = pathname.split('/').filter(Boolean).length > 1;
+  if (notFound) return null;
+  const named = override?.path === pathname;
+  const trail = named ? withParentLinks(override.trail, pathname) : crumbsForPath(pathname);
+  if (!deep && trail.length < 2) return null;
+  return <BreadcrumbBand trail={trail} pendingCurrent={deep && !named} />;
 }
