@@ -17,14 +17,14 @@ export type UnitTone = "muted" | "faint" | "lavender";
 
 const NUMBER: Record<SignatureSize, string> = {
   count: "t-count",
-  tile: "text-[64px] leading-[60px] font-extrabold tracking-[-4px] tabular-nums",
+  tile: "t-num-64",
   stat: "t-num-40",
 };
 
 const UNIT: Record<SignatureSize, string> = {
   count: "t-title1",
   tile: "t-heading",
-  stat: "text-[18px] leading-none font-extrabold",
+  stat: "t-unit-18",
 };
 
 const NUMBER_TONE: Record<SignatureTone, string> = {

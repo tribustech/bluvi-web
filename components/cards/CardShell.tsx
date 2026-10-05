@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 /*
  * Card surface + photo header shared by the five cards (Fundații §07 "Carduri").
  * A card with `href` gets a stretched link on its title: the whole card is clickable, while
- * buttons inside it (Urmărește) stay their own targets above the link (relative z-10).
+ * buttons inside it (Urmărește) stay their own targets above the link (relative z-above).
  */
 
 export function CardShell({

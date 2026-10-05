@@ -1,106 +1,123 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { BellAlertIcon } from '@heroicons/react/24/outline';
-import { Avatar } from '@/components/ui/Avatar';
-import { ButtonLink } from '@/components/ui/Button';
-import { getHomeViewer, loadUnreadNotifications } from './data';
+import { DashboardHeader } from '@/components/templates/T5';
+import { cn } from '@/components/ui/cn';
+import { getHomeViewer } from './data';
+import { HomeRefresh } from './HomeRefresh';
 import { homeLinks } from './links';
 import { Slogan } from './Slogan';
 import logo from './assets/logo_bluvi.png';
 
-const CARD = 'relative -mx-[5px] flex gap-2.5 rounded-card bg-surface p-3 shadow-glow';
+/** fish: «Salut, {username}!», or «Bine ai venit!» without a username; «Conectează-te» signed out. */
+function greeting(viewer: { username: string | null } | null): string {
+  if (!viewer) return 'Conectează-te';
+  return viewer.username ? `Salut, ${viewer.username}!` : 'Bine ai venit!';
+}
 
 /**
- * fish (tabs)/index.tsx profile card. Signed in: avatar, «Salut, <username>!», the rotating
- * slogan, the notifications bell (red dot when anything is unread); the card opens the profile.
- * Signed out: the Bluvi logo, «Conectează-te», the signed-out slogan; the card opens sign-in.
+ * Three columns: avatar · text · refresh. The refresh has its own column spanning both rows, so
+ * neither the greeting nor the slogan ever runs under it, and its top edge is the greeting's.
  */
-export async function ProfileCard() {
+const CARD = 'relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 rounded-card bg-surface p-3 shadow-e0';
+/** The whole card is the link (fish: the card is one Pressable): a stretched ::after. */
+const STRETCHED =
+  'outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent';
+
+/**
+ * Phone (<768) — fish (tabs)/index.tsx profile card, the page's header there (its greeting is the
+ * h1; from 768 HomeHeader's is). Signed in: the avatar thumbnail (the Bluvi logo when the profile
+ * has none), «Salut, <username>!» and the rotating slogan; the card opens the profile. Signed out:
+ * the logo, «Conectează-te», the signed-out slogan; the card opens sign-in.
+ *
+ * Web difference: fish's bell is not here — the phone top bar owns notifications (ROADMAP §4), so
+ * the card never repeats a shell control. Its trailing slot is the refresh instead (the web
+ * stand-in for fish pull-to-refresh, which the ≥768 header carries as a labelled button).
+ */
+export async function ProfileCard({ className }: { className?: string }) {
   const viewer = await getHomeViewer();
-  if (!viewer) return <SignedOutProfileCard />;
-  const unread = await loadUnreadNotifications();
 
   return (
-    <div className={CARD}>
-      <Avatar name={viewer.username} src={viewer.avatarUrl} size={64} shape="square" tone="indigo" />
-      <div className="mt-1 flex min-w-0 flex-1 flex-col gap-1">
-        <p className="t-title1">
-          <Link
-            href="/profil"
-            className="outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent"
-          >
-            {viewer.username ? `Salut, ${viewer.username}!` : 'Bine ai venit!'}
+    <div className={cn(CARD, className)}>
+      {viewer?.avatarUrl ? (
+        // A remote CMS photo at thumbnail size: the image optimizer buys nothing here.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={viewer.avatarUrl} alt="" className="size-16 shrink-0 rounded-avatar bg-soft-fill object-cover" />
+      ) : (
+        <Image src={logo} alt="" width={64} height={64} className="size-16 shrink-0 rounded-avatar object-cover" priority />
+      )}
+      <div className="flex min-w-0 flex-col gap-1">
+        <h1 className="t-title1 text-ink">
+          <Link href={viewer ? homeLinks.profile : homeLinks.signIn} className={STRETCHED}>
+            {greeting(viewer)}
           </Link>
-        </p>
-        <Slogan signedIn />
+        </h1>
+        {/* Two lines (2 × 20) reserved and never more: whichever slogan the visit picks, the card
+            keeps its height (no shift after hydration). */}
+        <Slogan signedIn={!!viewer} className="line-clamp-2 min-h-10 t-body" />
       </div>
-      <Link
-        href={homeLinks.notifications}
-        aria-label={unread ? `Notificări, ${unread} necitite` : 'Notificări'}
-        className="relative z-10 -m-2.5 flex size-11 shrink-0 items-center justify-center self-start rounded-full text-ink hover:bg-soft-fill"
-      >
-        <BellAlertIcon aria-hidden className="size-6 stroke-2" />
-        {unread ? <span aria-hidden className="absolute top-2.5 right-2.5 size-2.5 rounded-full bg-live" /> : null}
-      </Link>
-    </div>
-  );
-}
-
-export function SignedOutProfileCard() {
-  return (
-    <div className={CARD}>
-      <Image src={logo} alt="" width={64} height={64} className="size-16 shrink-0 rounded-avatar object-cover" priority />
-      <div className="mt-1 flex min-w-0 flex-1 flex-col gap-1">
-        <p className="t-title1">
-          <Link
-            href={homeLinks.signIn}
-            className="outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent"
-          >
-            Conectează-te
-          </Link>
-        </p>
-        <Slogan signedIn={false} />
+      {/* Above the card's stretched link. */}
+      <div className="relative z-above">
+        <HomeRefresh />
       </div>
     </div>
   );
 }
 
-/** Same footprint as the card, for the moment the session is still being read. */
-export function ProfileCardSkeleton() {
+/** Same footprint as the card while the session is read. */
+export function ProfileCardSkeleton({ className }: { className?: string }) {
   return (
-    <div className={CARD} role="status" aria-label="Se încarcă profilul">
+    <div className={cn(CARD, className)} role="status" aria-label="Se încarcă profilul">
       <span aria-hidden className="size-16 shrink-0 rounded-avatar bg-soft-fill animate-shimmer" />
-      <span aria-hidden className="mt-2 flex flex-1 flex-col gap-2">
-        <span className="h-4 w-[60%] rounded-full bg-soft-fill" />
-        <span className="h-3 w-[85%] rounded-full bg-soft-fill" />
-        <span className="h-3 w-[50%] rounded-full bg-soft-fill" />
+      {/* Each bone on the line box of the text it stands for: the card's own height. */}
+      <span aria-hidden className="flex min-w-0 flex-col gap-1">
+        <span className="t-title1">
+          <span className="inline-block h-5 w-3/5 rounded-full bg-soft-fill align-middle animate-shimmer" />
+        </span>
+        <span className="flex min-h-10 flex-col t-body">
+          <span>
+            <span className="inline-block h-3.5 w-11/12 rounded-full bg-soft-fill align-middle animate-shimmer" />
+          </span>
+          <span>
+            <span className="inline-block h-3.5 w-1/2 rounded-full bg-soft-fill align-middle animate-shimmer" />
+          </span>
+        </span>
       </span>
+      <span aria-hidden className="size-12 rounded-control" />
     </div>
   );
 }
 
 /**
- * Desktop main column (design): the same greeting as a page heading, without the card. Signed out
- * keeps fish's «Conectează-te» + slogan and adds the sign-in button the card's tap stood for.
+ * From 768 — the T5 header: the greeting as the page title, the slogan as its caption, and the
+ * refresh (fish pull-to-refresh). Signed out the title welcomes rather than asks («Conectează-te»
+ * is the phone card's, where the whole card is the sign-in link): the top bar's «Intră» is the one
+ * sign-in control here, and the signed-out slogan is the prompt.
  */
-export async function DesktopGreeting() {
+export async function HomeHeader() {
   const viewer = await getHomeViewer();
   return (
-    <div className="flex items-end gap-5">
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="t-page-title">{viewer ? (viewer.username ? `Salut, ${viewer.username}!` : 'Bine ai venit!') : 'Conectează-te'}</p>
-        <Slogan signedIn={!!viewer} />
-      </div>
-      {viewer ? null : <ButtonLink href={homeLinks.signIn}>Intră în cont</ButtonLink>}
-    </div>
+    <DashboardHeader
+      className="max-md:hidden"
+      title={viewer ? greeting(viewer) : 'Bine ai venit pe Bluvi'}
+      caption={<Slogan signedIn={!!viewer} as="span" className="" />}
+      actions={<HomeRefresh />}
+    />
   );
 }
 
-export function DesktopGreetingSkeleton() {
+/** The header while the session is read: the real refresh, bones for the words. */
+export function HomeHeaderSkeleton() {
   return (
-    <div className="flex flex-col gap-2" role="status" aria-label="Se încarcă">
-      <span aria-hidden className="h-9 w-80 rounded-full bg-soft-fill animate-shimmer" />
-      <span aria-hidden className="h-4 w-96 rounded-full bg-soft-fill" />
-    </div>
+    <DashboardHeader
+      className="max-md:hidden"
+      title={
+        <>
+          <span className="sr-only">Acasă</span>
+          <span aria-hidden className="inline-block h-8 w-72 max-w-full rounded-full bg-soft-fill align-middle animate-shimmer" />
+        </>
+      }
+      caption={<span aria-hidden className="inline-block h-3.5 w-96 max-w-full rounded-full bg-soft-fill align-middle animate-shimmer" />}
+      actions={<HomeRefresh />}
+    />
   );
 }

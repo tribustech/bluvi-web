@@ -1,61 +1,85 @@
 'use client';
 
-import { useId, useMemo, useRef } from 'react';
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import type { getSponsors } from '@/core/competitions';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { RailArrows } from './HorizontalRail';
+import { cn } from '@/components/ui/cn';
+import { HorizontalRail, RailItem } from './HorizontalRail';
+import { RailSection } from './RailSection';
 import { homeLinks } from './links';
 import { homeSponsorsQuery } from './queries';
 
 type Sponsor = NonNullable<Awaited<ReturnType<typeof getSponsors>>>['data'][number];
 
 /**
- * fish (tabs)/index.tsx «Sponsori»: shown only when there is at least one; 245×150 logos. Rendered
- * inside a <Suspense> whose fallback is SponsorsView from the server's data.
+ * fish (tabs)/index.tsx «Sponsori»: shown only when there is at least one; fish's 245×150 logo tiles
+ * as the 1.6:1 frame (8:5) on the rails' 224 slot and track grid (HorizontalRail — the same rule as
+ * every rail of the column). A tap opens the sponsor (fish also logs `sponsor_dashboard`: GA4 lands
+ * in M8). Rendered inside a <Suspense> whose fallback is SponsorsView from the server's data.
  */
-export function SponsorsSection({ layout }: { layout: 'mobile' | 'desktop' }) {
+export function SponsorsSection() {
   const t = useMemo(() => createBrowserTransport(), []);
   const { data } = useQuery(homeSponsorsQuery(t));
-  return <SponsorsView layout={layout} sponsors={data?.data ?? []} />;
+  return <SponsorsView sponsors={data?.data ?? []} />;
 }
 
 /** The markup of the section, from data alone (no query, no clock). */
-export function SponsorsView({ layout, sponsors }: { layout: 'mobile' | 'desktop'; sponsors: Sponsor[] }) {
-  const scroller = useRef<HTMLUListElement>(null);
-  const listId = useId();
+export function SponsorsView({ sponsors }: { sponsors: Sponsor[] }) {
   if (sponsors.length === 0) return null;
-
   return (
-    <section aria-labelledby={`acasa-sponsori-${layout}`} className="flex flex-col gap-2.5">
-      <h2 id={`acasa-sponsori-${layout}`} className="t-title1 xl:t-title2">
-        Sponsori
-      </h2>
-      <div className="relative">
-      <ul
-        ref={scroller}
-        id={listId}
-        aria-label="Sponsori"
-        className="-mx-5 flex snap-x scroll-px-5 gap-2.5 overflow-x-auto px-5 md:-mx-6 md:scroll-px-6 md:px-6 xl:mx-0 xl:scroll-px-0 xl:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        {sponsors.map((s) => {
-          const src = s.image?.smallUrl ?? s.image?.url ?? null;
-          return (
-            <li key={s.documentId} className="shrink-0 snap-start">
-              <Link
-                href={homeLinks.sponsor(s.documentId)}
-                className="relative block h-[150px] w-[245px] overflow-hidden rounded-control bg-surface shadow-e0"
-              >
-                {src ? <Image src={src} alt={s.name} fill sizes="245px" className="object-cover" /> : <span className="p-3 t-body-strong">{s.name}</span>}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-      <RailArrows scroller={scroller} controls={listId} label="Sponsori" className="top-1/2" />
-      </div>
-    </section>
+    <RailSection title="Sponsori">
+      <HorizontalRail label="Sponsori" width={224}>
+        {sponsors.map((s) => (
+          <RailItem key={s.documentId} width={224}>
+            <SponsorTile sponsor={s} />
+          </RailItem>
+        ))}
+      </HorizontalRail>
+    </RailSection>
+  );
+}
+
+/** Landscape artwork from 4:3 to 2:1 fills the 8:5 frame (a few px of crop on a banner is fine). */
+const FILL_MIN = 4 / 3;
+const FILL_MAX = 2;
+
+/**
+ * One tile, the CardShell interaction (e2 lift on hover, .7 pressed). Landscape artwork (its ratio
+ * known once it loads) fills the frame edge to edge. A square or tall logo sits centred with air
+ * around it (`contain`, p-6) on the soft fill, so a logo with its own white card floats inside a
+ * visible tile instead of reading as a card in a card.
+ */
+function SponsorTile({ sponsor: s }: { sponsor: Sponsor }) {
+  const src = s.image?.smallUrl ?? s.image?.url ?? null;
+  const [fills, setFills] = useState(false);
+  return (
+    <Link
+      href={homeLinks.sponsor(s.documentId)}
+      className={cn(
+        'relative flex aspect-8/5 w-full items-center justify-center overflow-hidden rounded-card shadow-e0 transition-[box-shadow,opacity] duration-(--duration-fast) ease-fast hover:shadow-[var(--shadow-e2),var(--shadow-e0)] active:opacity-70',
+        src && !fills ? 'bg-soft-fill' : 'bg-surface'
+      )}
+    >
+      {src ? (
+        <Image
+          src={src}
+          alt={s.name}
+          fill
+          sizes="(min-width: 768px) 304px, 224px"
+          onLoad={(e) => {
+            const img = e.currentTarget;
+            if (img.naturalHeight === 0) return;
+            const ratio = img.naturalWidth / img.naturalHeight;
+            setFills(ratio >= FILL_MIN && ratio <= FILL_MAX);
+          }}
+          className={cn(fills ? 'object-cover' : 'object-contain p-6')}
+        />
+      ) : (
+        <span className="p-3 text-center t-body-strong text-ink">{s.name}</span>
+      )}
+    </Link>
   );
 }

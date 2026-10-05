@@ -26,6 +26,7 @@ export const RankingType = {
   CALITATE_CALITATE: 'calitateCalitate',
   CALITATE_CANTITATE_CMMC: 'calitateCantitateCMMC',
   BEST_OF_TIERS: 'bestOfTiers',
+  FEEDER_ROUNDS: 'feederRounds',
 } as const;
 export const rankingTypeSchema = z.enum([
   'quantity',
@@ -38,6 +39,9 @@ export const rankingTypeSchema = z.enum([
   'calitateCalitate',
   'calitateCantitateCMMC',
   'bestOfTiers',
+  // fish models/ranking.type.ts FEEDER_ROUNDS. Feeder legs have their own ranking (not built on web
+  // yet); without this value one feeder competition failed validation of every competition list.
+  'feederRounds',
 ]);
 export type RankingType = z.infer<typeof rankingTypeSchema>;
 

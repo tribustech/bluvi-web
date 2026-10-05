@@ -24,10 +24,10 @@ export function PositionPill({
   const tone = winner
     ? 'bg-navy text-lavender t-num-18'
     : capot
-      ? 'bg-soft-fill text-ink-2 text-base'
+      ? 'bg-soft-fill text-ink-2 t-num-16'
       : onTint
-        ? 'bg-surface text-accent-ink text-base'
-        : 'bg-accent-tint text-accent-ink text-base';
+        ? 'bg-surface text-accent-ink t-num-16'
+        : 'bg-accent-tint text-accent-ink t-num-16';
   return (
     <span
       className={`flex size-9 shrink-0 items-center justify-center rounded-control leading-none font-extrabold tabular-nums ${tone}`}

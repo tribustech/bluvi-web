@@ -21,12 +21,12 @@ const TONE: Record<AvatarTone, string> = {
 
 // Initials at ~1/3 of the side (32 → 11, 48 → 16), weight 800.
 const SIZE: Record<AvatarSize, string> = {
-  24: "size-6 text-[9px]",
-  32: "size-8 text-[11px]",
-  40: "size-10 text-[14px]",
-  44: "size-11 text-[15px]",
-  48: "size-12 text-[16px]",
-  64: "size-16 text-[22px]",
+  24: "size-6 text-initials-24",
+  32: "size-8 text-initials-32",
+  40: "size-10 text-initials-40",
+  44: "size-11 text-initials-44",
+  48: "size-12 text-initials-48",
+  64: "size-16 text-initials-64",
 };
 
 export function toneForName(name: string): AvatarTone {
@@ -119,9 +119,9 @@ const OVERLAP: Record<NonNullable<FaceStackProps["size"]>, string> = {
 };
 
 const OVERFLOW_SIZE: Record<NonNullable<FaceStackProps["size"]>, string> = {
-  24: "h-6 px-2 text-[10px]",
-  32: "h-8 px-2.5 text-[12px]",
-  40: "h-10 px-3 text-[14px]",
+  24: "h-6 px-2 text-facestack-24",
+  32: "h-8 px-2.5 text-facestack-32",
+  40: "h-10 px-3 text-facestack-40",
 };
 
 export function FaceStack({

@@ -6,6 +6,7 @@ import { ScaleIcon } from '@/components/icons/brand';
 import { cn } from '@/components/ui/cn';
 import { routes } from '@/lib/routes';
 import { homeLinks } from './links';
+import { MissingStandRow } from './MissingStandRow';
 import { RelativeAge } from './RelativeAge';
 
 /** fish ScaleItem `standLabel`: national championship «A3(12)», otherwise «Sector A Stand 3». */
@@ -32,7 +33,7 @@ function weighingLine(weighings: CompetitionActiveWeighing[], isNc: boolean) {
 /**
  * fish components/DashboardSheet.tsx (DashboardLiveCompetitionsSheet) — «CONCURSUL MEU»: the
  * competition the user is in right now, and its new extra-scale requests (up to three). Mobile:
- * an indigo bar docked above the tab bar, as the app's bottom sheet; desktop: a card in the right
+ * an indigo bar docked to the bottom edge, as the app's bottom sheet; desktop: a card in the right
  * column. The partidă dock wins over it (fish). Below them, while a weighing runs, the app's
  * «Cântar în curs pe standul …» line (fish useActiveWeighing).
  */
@@ -52,10 +53,11 @@ export function MyLiveCompetition({
     <section
       aria-labelledby={`acasa-concursul-meu-${layout}`}
       className={cn(
-        'flex flex-col gap-2.5 bg-accent p-5 text-on-accent',
+        'flex flex-col gap-2.5 bg-accent text-on-accent',
         layout === 'dock'
-          ? 'fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-20 rounded-t-[20px] shadow-tabbar md:bottom-0 md:left-[72px] xl:hidden'
-          : 'rounded-card p-4'
+          ? 'sticky bottom-0 z-sticky -mx-4 -mb-8 rounded-t-bento md:-mx-6 md:-mb-10 px-5 pt-5 pb-[max(--spacing(5),env(safe-area-inset-bottom))] shadow-tabbar xl:hidden'
+          : // Flat, as OrganizerBanner: the indigo fill separates it; e1 is for photo cards.
+            'rounded-card p-4.5'
       )}
     >
       <div className="relative">
@@ -67,7 +69,7 @@ export function MyLiveCompetition({
           >
             {live.competition.name}
           </Link>
-          <ChevronRightIcon aria-hidden className="size-6 shrink-0 stroke-[2.5]" />
+          <ChevronRightIcon aria-hidden className="size-6 shrink-0" />
         </h2>
       </div>
       {scales.length > 0 ? (
@@ -89,18 +91,19 @@ export function MyLiveCompetition({
                     {s.author ? <span className="block truncate t-caption text-muted">{s.author.username}</span> : null}
                   </span>
                   {s.createdAt ? <RelativeAge iso={s.createdAt} className="shrink-0 t-body text-muted" /> : null}
-                  {href ? <ChevronRightIcon aria-hidden className="size-5 shrink-0 stroke-[2.5] text-muted" /> : null}
+                  <ChevronRightIcon aria-hidden className="size-6 shrink-0 text-muted" />
                 </>
               );
-              const row = 'flex items-center gap-2.5 rounded-[4px] bg-surface p-2 text-ink-2';
+              const row =
+                'flex w-full items-center gap-2.5 rounded-control bg-surface p-2 text-left text-ink-2 transition-[background-color,opacity] duration-(--duration-fast) ease-fast hover:bg-soft-fill active:opacity-70 focus-visible:outline-on-accent';
               return (
                 <li key={s.documentId}>
                   {href ? (
-                    <Link href={href} className={cn(row, 'hover:opacity-80')}>
+                    <Link href={href} className={row}>
                       {body}
                     </Link>
                   ) : (
-                    <div className={row}>{body}</div>
+                    <MissingStandRow className={row}>{body}</MissingStandRow>
                   )}
                 </li>
               );

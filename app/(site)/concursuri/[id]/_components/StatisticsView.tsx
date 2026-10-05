@@ -2,7 +2,8 @@
 
 import { useState, type ReactNode } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
-import { ChevronRightIcon } from '@heroicons/react/20/solid';
+import { PAGE_RETRY } from './retry-policy';
+import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import {
   catchThresholdCountsQuery,
   getCompetitorDisplayName,
@@ -15,140 +16,210 @@ import {
 } from '@/core/competitions';
 import type { Transport } from '@/core/transport';
 import { sectorFill } from '@/components/ranking/sector';
-import { formatDecimal } from '@/components/cards/format';
+import { formatWeight } from '@/components/ranking';
 import { Dialog } from '@/components/surfaces/Dialog';
 import { Sheet } from '@/components/surfaces/Sheet';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
-import { ErrorState, LoadingRow } from '@/components/surfaces/StateCard';
+import { ErrorState } from '@/components/surfaces/StateCard';
+import { DetailSection } from '@/components/templates/T3';
+import { StatTile } from '@/components/ui/BentoTile';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
+import { BiggestCatchTile, SummaryStrip, summaryTiles } from './DesktopStats';
+import { isOfflineEmpty, OfflineState } from './offline';
+import { StandMark } from './StandMark';
 import { standLabel } from './stand';
 
 /*
  * fish CompetitionRanking `statisticiContent`: meta cards (RankingCardsCarousel), weighing
  * sessions, Top capturi (Best 3/5/7, tap → BestN ranking), Cantitate pe sector, Capturi
  * (catch-threshold counts). Charts are drawn as plain bars (no chart library on the web).
+ * Every block has its own loading (its shape), error (with «Încearcă din nou») and empty state.
  */
 export function StatisticsView({
   t,
   competition,
   metadata,
   rankings,
+  rankingRows,
   weighingStats,
+  decimals,
 }: {
+  /** The competition's weight precision (weightDecimals). */
+  decimals: number;
   t: Transport;
   competition: CompetitionWithMyStatus;
   metadata: RankingMetadata | undefined;
   rankings: RankingResponse | undefined;
+  rankingRows: Parameters<typeof summaryTiles>[1];
   weighingStats: UseQueryResult<WeighingStatisticsResponse>;
 }) {
   const status = competition.competitionStatus;
-  const bestN = useQuery(rankingBestNQuery(t, competition.documentId, status));
-  const thresholds = useQuery(catchThresholdCountsQuery(t, competition.documentId, status));
+  const bestN = useQuery({ ...rankingBestNQuery(t, competition.documentId, status), ...PAGE_RETRY });
+  const thresholds = useQuery({ ...catchThresholdCountsQuery(t, competition.documentId, status), ...PAGE_RETRY });
 
   return (
-    <div className="flex flex-col gap-5 pb-2">
-      <MetaCards metadata={metadata} />
+    <div className="flex flex-col gap-4 pb-2">
+      <MetaTiles metadata={metadata} rows={rankingRows} completed={status === 'completed'} decimals={decimals} />
       <WeighingSessions query={weighingStats} />
       <TopsCard competition={competition} query={bestN} />
       <SectorQuantity rankings={rankings} />
-      <ThresholdTable data={thresholds.data} />
+      <ThresholdTable query={thresholds} />
     </div>
   );
 }
 
-/** fish StatisticsChartCard: title + description + content on a white card. */
-function ChartCard({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+/** The view while the session is unknown: the summary tiles (phone) and two chart cards. */
+export function StatisticsSkeleton() {
   return (
-    <section className="flex flex-col gap-3 rounded-card bg-surface p-4 shadow-e0">
-      <div>
-        <h2 className="t-heading">{title}</h2>
-        {description ? <p className="t-caption text-muted">{description}</p> : null}
+    <div role="status" aria-label="Se încarcă statisticile" className="flex flex-col gap-4 pb-2">
+      <div aria-hidden className="-mx-4 flex gap-3 overflow-hidden px-4 md:hidden">
+        <span className="h-39 w-4/5 shrink-0 animate-shimmer rounded-bento" />
+        <span className="h-39 w-4/5 shrink-0 animate-shimmer rounded-bento" />
       </div>
-      {children}
-    </section>
+      <ChartBones />
+      <ChartBones />
+    </div>
   );
 }
 
-/** fish RankingCardsCarousel + RankingMetaCard. Phone only: desktop shows these numbers on top. */
-function MetaCards({ metadata }: { metadata: RankingMetadata | undefined }) {
-  if (!metadata) return null;
-  const big = metadata.biggestCatch;
-  const cards = [
-    {
-      title: 'Cea mai mare captură',
-      heading: big
-        ? `${formatDecimal(big.weight, 2, 3)} kg`
-        : metadata.biggestFish
-          ? `${formatDecimal(Number(metadata.biggestFish), 2, 3)} kg`
-          : '-',
-      helper: big ? `Sector ${big.sectorName} Stand ${big.standName}` : '',
-      helper2: big
-        ? getCompetitorDisplayName({
-            teamName: big.teamName,
-            participantNames: big.participants.map(p => p.username),
-            guestName: big.guestName,
-            fallback: '',
-          })
-        : '',
-    },
-    { title: 'Număr total de capturi', heading: `${metadata.totalCatchesCount || '-'}`, helper: '', helper2: '' },
-    {
-      title: 'Cantitate totală',
-      heading: metadata.totalQuantity ? `${formatDecimal(metadata.totalQuantity, 3, 3)} kg` : '-',
-      helper: '',
-      helper2: '',
-    },
-  ];
+/** One chart card's bones: the title bar and three rows. */
+function ChartBones() {
   return (
-    <ul aria-label="Rezumat" className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 [scrollbar-width:none] md:hidden">
-      {cards.map(card => (
-        <li
-          key={card.title}
-          className="flex h-28 w-[80%] shrink-0 snap-center flex-col items-center justify-center gap-1 rounded-[12px] bg-accent px-3 text-center text-on-accent shadow-glow"
-        >
-          <p className="t-caption">{card.title}</p>
-          <p className="t-stat">{card.heading}</p>
-          {card.helper ? <p className="t-caption">{card.helper}</p> : null}
-          {card.helper2 ? <p className="-mt-1 max-w-1/2 truncate t-micro opacity-80">{card.helper2}</p> : null}
-        </li>
+    <div aria-hidden className="flex flex-col gap-4 rounded-card bg-surface px-4 py-5 shadow-e0 md:p-5 xl:p-6">
+      <span className="flex flex-col gap-2">
+        <span className="h-4 w-1/2 animate-shimmer rounded-full" />
+        <span className="h-3 w-3/4 animate-shimmer rounded-full" />
+      </span>
+      {Array.from({ length: 3 }, (_, i) => (
+        <span key={i} className="h-3 animate-shimmer rounded-full" />
       ))}
+    </div>
+  );
+}
+
+/**
+ * fish StatisticsChartCard on the T3 section card: title + description + content. On the phone the
+ * section is a card too (the Statistici view sits on the white ground, inside the view's gutter).
+ */
+function ChartCard({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+  return (
+    <DetailSection title={title} description={description} className="max-md:rounded-card max-md:shadow-e0">
+      {children}
+    </DetailSection>
+  );
+}
+
+/** A chart card while its read is in flight: its bones, announced once. */
+function ChartCardSkeleton({ label }: { label: string }) {
+  return (
+    <div role="status" aria-label={label}>
+      <ChartBones />
+    </div>
+  );
+}
+
+/** A block whose read failed (and has nothing cached): the kit ErrorState with its retry. */
+function BlockError({ title, onRetry }: { title: string; onRetry: () => void }) {
+  return (
+    <ErrorState
+      title={title}
+      action={
+        <Button size="compact" variant="secondary" onClick={onRetry}>
+          Încearcă din nou
+        </Button>
+      }
+    />
+  );
+}
+
+/**
+ * fish RankingCardsCarousel + RankingMetaCard, on the kit tiles the desktop row uses (the navy
+ * CountTile for the biggest catch, StatTiles for the totals). Phone only: from 768 the same tiles
+ * sit above the views.
+ */
+function MetaTiles({
+  metadata,
+  rows,
+  completed,
+  decimals,
+}: {
+  metadata: RankingMetadata | undefined;
+  rows: Parameters<typeof summaryTiles>[1];
+  completed: boolean;
+  decimals: number;
+}) {
+  if (!metadata) return null;
+  // No catch yet: the one line, not three tiles of zeros (as DesktopStats from 768).
+  if (metadata.totalCatchesCount === 0) return <SummaryStrip rankings={rows} completed={completed} className="md:hidden" />;
+  const tiles = summaryTiles(metadata, rows, decimals);
+  const item = 'w-4/5 shrink-0 snap-center [&>*]:h-full';
+  return (
+    <ul aria-label="Rezumat" className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 [scrollbar-width:none] md:hidden">
+      <li className={item}>
+        <BiggestCatchTile {...tiles.biggest} decimals={decimals} />
+      </li>
+      <li className={item}>
+        <StatTile label="Capturi" value={tiles.catches.value} caption={tiles.catches.caption} />
+      </li>
+      <li className={item}>
+        <StatTile
+          label="Cantitate totală"
+          value={tiles.quantity.value}
+          unit="kg"
+          caption={tiles.quantity.caption}
+        />
+      </li>
     </ul>
   );
 }
 
 /** fish CompetitionWeighingCharts «Sesiuni de cântărire»: one bar per weighing, kg on the bar. */
 function WeighingSessions({ query }: { query: UseQueryResult<WeighingStatisticsResponse> }) {
-  if (query.isPending && query.fetchStatus !== 'idle') return <LoadingRow />;
-  if (query.isError) {
-    return (
-      <ErrorState
-        title="Nu s-au putut încărca statisticile cântarilor."
-        action={
-          <Button size="compact" variant="secondary" onClick={() => void query.refetch()}>
-            Încearcă din nou
-          </Button>
-        }
-      />
-    );
+  if (isOfflineEmpty(query)) return <OfflineState onRetry={() => void query.refetch()} />;
+  if (query.isPending && query.fetchStatus !== 'idle') return <ChartCardSkeleton label="Se încarcă sesiunile de cântărire" />;
+  // A failed re-read keeps what was already on screen (TanStack keeps `data` on a refetch error).
+  if (query.isError && !query.data) {
+    return <BlockError title="Nu s-au putut încărca statisticile cântarilor." onRetry={() => void query.refetch()} />;
   }
   const items = [...(query.data?.data ?? [])].sort((a, b) => a.startDate.localeCompare(b.startDate));
-  if (!items.length) return null;
+  const title = 'Sesiuni de cântărire';
+  const description = 'Cronologia cântăririlor și cantitatea totală per sesiune.';
+  if (!items.length) {
+    return (
+      <ChartCard title={title} description={description}>
+        <p className="t-body text-muted">Niciun cântar încă.</p>
+      </ChartCard>
+    );
+  }
   const max = Math.max(...items.map(i => i.totalWeightKg), 0.001);
   return (
-    <ChartCard title="Sesiuni de cântărire" description="Cronologia cântăririlor și cantitatea totală per sesiune.">
+    <ChartCard title={title} description={description}>
+      {query.isError ? <StaleNotice onRetry={() => void query.refetch()} /> : null}
       <ol className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
         {items.map(item => (
-          <li key={item.weighingDocumentId} className="grid grid-cols-[52px_minmax(0,1fr)_72px] items-center gap-2 t-caption">
-            <span className="font-bold">{standLabel(item.sectorName ?? '', item.standName ?? '')}</span>
+          <li key={item.weighingDocumentId} className="grid grid-cols-[--spacing(13)_minmax(0,1fr)_--spacing(20)] items-center gap-2 t-caption">
+            <span className="t-label">{standLabel(item.sectorName ?? '', item.standName ?? '')}</span>
             <span className="h-2.5 overflow-hidden rounded-full bg-soft-fill">
               <span className="block h-full rounded-full bg-accent" style={{ width: `${(item.totalWeightKg / max) * 100}%` }} />
             </span>
-            <span className="text-right tabular-nums text-ink-2">{formatDecimal(item.totalWeightKg, 1, 3)} kg</span>
+            <span className="text-right tabular-nums text-ink-2">{formatWeight(item.totalWeightKg)} kg</span>
           </li>
         ))}
       </ol>
     </ChartCard>
+  );
+}
+
+/** The data on screen is from an earlier read; the latest one failed. */
+function StaleNotice({ onRetry }: { onRetry: () => void }) {
+  return (
+    <p className="mb-3 flex items-center gap-2 t-caption text-muted">
+      Date posibil neactualizate ·
+      <button type="button" onClick={onRetry} className="cursor-pointer t-label text-accent-ink hover:underline">
+        Reîncearcă
+      </button>
+    </p>
   );
 }
 
@@ -177,7 +248,11 @@ function TopsCard({
   query: UseQueryResult<{ best3: BestNStandRanking[]; best5: BestNStandRanking[]; best7: BestNStandRanking[] }>;
 }) {
   const [open, setOpen] = useState<BestNKey | null>(null);
-  if (query.isPending && query.fetchStatus !== 'idle') return <LoadingRow />;
+  if (isOfflineEmpty(query)) return <OfflineState onRetry={() => void query.refetch()} />;
+  if (query.isPending && query.fetchStatus !== 'idle') return <ChartCardSkeleton label="Se încarcă topul capturilor" />;
+  if (query.isError && !query.data) {
+    return <BlockError title="Nu s-a putut încărca topul capturilor." onRetry={() => void query.refetch()} />;
+  }
   const data = query.data;
   if (!data) return null;
   const tops: { key: BestNKey; label: string }[] = [
@@ -187,17 +262,17 @@ function TopsCard({
   ];
   return (
     <ChartCard title="Top capturi (Best 3 / 5 / 7)" description="Cele mai bune medii (3, 5 sau 7 capturi). Apasă rândul pentru clasament.">
-      <ul className="overflow-hidden rounded-[8px] border border-hairline">
+      <ul className="overflow-hidden rounded-control border border-hairline">
         {tops.map(({ key, label }, i) => {
           const first = data[key][0];
           return (
-            <li key={key} className={cn(i > 0 && 'border-t border-hairline', i % 2 === 1 && 'bg-soft-fill/50')}>
-              <button type="button" onClick={() => setOpen(key)} className="flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-soft-fill">
+            <li key={key} className={cn(i > 0 && 'border-t border-hairline')}>
+              <button type="button" onClick={() => setOpen(key)} className="flex w-full cursor-pointer items-center gap-3 px-3 py-3 text-left hover:bg-soft-fill">
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="flex items-center gap-2">
                     <span className="w-13 t-caption">{label}</span>
                     <span className="t-body tabular-nums">
-                      {typeof first?.averageBestN === 'number' ? `${formatDecimal(first.averageBestN, 3, 3)} kg` : '-'}
+                      {typeof first?.averageBestN === 'number' ? `${formatWeight(first.averageBestN)} kg` : '–'}
                     </span>
                   </span>
                   <span className="flex min-w-0 gap-1.5 t-caption text-muted">
@@ -205,7 +280,7 @@ function TopsCard({
                     <span className="truncate">{first ? participantLabel(first, competition) : '-'}</span>
                   </span>
                 </span>
-                <ChevronRightIcon aria-hidden className="size-5 text-faint" />
+                <ChevronRightIcon aria-hidden className="size-6 shrink-0 text-muted" />
               </button>
             </li>
           );
@@ -236,30 +311,30 @@ function BestNSurface({
   const breakpoint = useBreakpoint();
   const title = kind === 'best3' ? 'Best 3 - Clasament' : kind === 'best5' ? 'Best 5 - Clasament' : 'Best 7 - Clasament';
   const body = (
-    <div className="-mx-1 overflow-x-auto">
-      <table className="w-full border-separate border-spacing-0 t-caption tabular-nums">
-        <thead>
-          <tr className="text-left text-ink-2">
-            <th scope="col" className="border-b border-hairline px-2 py-2.5">Stand</th>
-            <th scope="col" className="border-b border-hairline px-2 py-2.5">Participant(e) / Echipă</th>
-            <th scope="col" className="border-b border-hairline px-2 py-2.5">Primele capturi (kg)</th>
-            <th scope="col" className="border-b border-hairline px-2 py-2.5 text-right">Medie</th>
+    <DataTableShell caption={title}>
+      <thead>
+        <tr>
+          <Th>Stand</Th>
+          <Th>Participant(e) / Echipă</Th>
+          <Th>Primele capturi (kg)</Th>
+          <Th align="right">Medie</Th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map(row => (
+          <tr key={`${row.standId}`} className="h-13">
+            <Td>
+              <StandMark sector={row.sectorName} stand={String(row.standName)} />
+            </Td>
+            <Td>{participantLabel(row, competition)}</Td>
+            <Td className="text-ink-2">{(row.catchesUsed ?? []).map(w => formatWeight(w)).join('; ')}</Td>
+            <Td align="right" className="t-body-strong whitespace-nowrap">
+              {typeof row.averageBestN === 'number' ? `${formatWeight(row.averageBestN)} kg` : '–'}
+            </Td>
           </tr>
-        </thead>
-        <tbody>
-          {rows.map(row => (
-            <tr key={`${row.standId}`} className="odd:bg-soft-fill/50">
-              <td className="px-2 py-2.5 font-bold">{standLabel(row.sectorName, String(row.standName))}</td>
-              <td className="px-2 py-2.5">{participantLabel(row, competition)}</td>
-              <td className="px-2 py-2.5 text-muted">{(row.catchesUsed ?? []).map(w => formatDecimal(w, 2, 2)).join('; ')}</td>
-              <td className="px-2 py-2.5 text-right whitespace-nowrap">
-                {typeof row.averageBestN === 'number' ? formatDecimal(row.averageBestN, 3, 3) : '-'} kg
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </DataTableShell>
   );
   if (breakpoint === 'mobile') {
     return (
@@ -269,7 +344,7 @@ function BestNSurface({
     );
   }
   return (
-    <Dialog open={kind !== null} onClose={onClose} title={title} closeButton className="max-w-[640px]">
+    <Dialog open={kind !== null} onClose={onClose} title={title} closeButton>
       <div className="max-h-[60vh] overflow-y-auto">{body}</div>
     </Dialog>
   );
@@ -296,15 +371,20 @@ function SectorQuantity({ rankings }: { rankings: RankingResponse | undefined })
     <ChartCard title="Cantitate pe sector (kg)" description="Cantitatea totală de pește cântărită pe fiecare sector al competiției.">
       <ul className="flex flex-col gap-2">
         {sectors.map(s => {
-          const fill = sectorFill(s.name, 'var(--color-accent)');
+          // The sector says who it is by its dot (Fundații §01: a sector colour is only the dot or
+          // the 4px edge); the bar is the chart's accent, as «Sesiuni de cântărire».
+          const fill = sectorFill(s.name, 'var(--color-muted)');
           return (
-            <li key={s.name} className="grid grid-cols-[72px_minmax(0,1fr)_96px] items-center gap-2 t-caption">
-              <span className="font-bold">Sector {s.name}</span>
-              <span className="h-3 overflow-hidden rounded-full bg-soft-fill">
-                <span className={cn('block h-full rounded-full', fill.className)} style={{ ...fill.style, width: `${(s.value / max) * 100}%` }} />
+            <li key={s.name} className="grid grid-cols-[--spacing(20)_minmax(0,1fr)_--spacing(24)] items-center gap-2 t-caption">
+              <span className="flex items-center gap-1.5 t-label whitespace-nowrap">
+                <span aria-hidden className={cn('size-2 shrink-0 rounded-full', fill.className)} style={fill.style} />
+                Sector {s.name}
+              </span>
+              <span className="h-2.5 overflow-hidden rounded-full bg-soft-fill">
+                <span className="block h-full rounded-full bg-accent" style={{ width: `${(s.value / max) * 100}%` }} />
               </span>
               <span className="text-right tabular-nums text-ink-2">
-                {formatDecimal(s.value, 1, 1)} kg{total > 0 ? ` · ${Math.round((s.value / total) * 100)}%` : ''}
+                {formatWeight(s.value)} kg{total > 0 ? ` · ${Math.round((s.value / total) * 100)}%` : ''}
               </span>
             </li>
           );
@@ -322,17 +402,20 @@ const THRESHOLDS = [
   ['30+', 'count30Plus'],
 ] as const;
 
+type ThresholdKey = (typeof THRESHOLDS)[number][1];
+type ThresholdData = {
+  bySector: ({ sectorName: string } & Record<ThresholdKey, number>)[];
+  general: Record<ThresholdKey, number>;
+};
+
 /** fish CompetitionCatchesTable «Capturi». Hidden when nothing reaches 10 kg. */
-function ThresholdTable({
-  data,
-}: {
-  data:
-    | {
-        bySector: ({ sectorName: string } & Record<(typeof THRESHOLDS)[number][1], number>)[];
-        general: Record<(typeof THRESHOLDS)[number][1], number>;
-      }
-    | undefined;
-}) {
+function ThresholdTable({ query }: { query: UseQueryResult<ThresholdData> }) {
+  if (isOfflineEmpty(query)) return <OfflineState onRetry={() => void query.refetch()} />;
+  if (query.isPending && query.fetchStatus !== 'idle') return <ChartCardSkeleton label="Se încarcă capturile pe praguri" />;
+  if (query.isError && !query.data) {
+    return <BlockError title="Nu s-au putut încărca capturile pe praguri." onRetry={() => void query.refetch()} />;
+  }
+  const data = query.data;
   if (!data) return null;
   if (data.bySector.length === 0 && data.general.count10Plus === 0 && data.general.count15Plus === 0) return null;
   return (
@@ -340,44 +423,98 @@ function ThresholdTable({
       title="Capturi"
       description="Numărul de capturi pe sector, grupate pe praguri de greutate (10kg, 15kg, 20kg, 25kg, 30kg)."
     >
-      <table className="w-full border-separate border-spacing-0 overflow-hidden rounded-[8px] border border-hairline t-caption tabular-nums">
+      <DataTableShell caption="Capturi pe praguri de greutate">
         <thead>
           <tr>
-            <th scope="col" className="px-3 py-2.5 text-left text-ink-2">
-              <span className="sr-only">Sector</span>
-            </th>
+            <Th>Sector</Th>
             {THRESHOLDS.map(([label]) => (
-              <th key={label} scope="col" className="w-11 py-2.5 text-center text-ink-2">
-                {label}
-              </th>
+              <Th key={label} align="right">
+                {label} kg
+              </Th>
             ))}
           </tr>
         </thead>
         <tbody>
           {data.bySector.map(row => (
-            <tr key={row.sectorName} className="odd:bg-soft-fill/50">
-              <th scope="row" className="border-t border-hairline px-3 py-3 text-left font-semibold">
-                {row.sectorName}
-              </th>
+            <tr key={row.sectorName} className="h-13">
+              <Td header>Sector {row.sectorName}</Td>
               {THRESHOLDS.map(([label, key]) => (
-                <td key={label} className="border-t border-hairline text-center text-ink-2">
+                <Td key={label} align="right" className="text-ink-2">
                   {row[key]}
-                </td>
+                </Td>
               ))}
             </tr>
           ))}
-          <tr className="bg-soft-fill">
-            <th scope="row" className="border-t border-hairline px-3 py-3 text-left font-bold">
-              General
-            </th>
+          <tr className="h-13">
+            <Td header>General</Td>
             {THRESHOLDS.map(([label, key]) => (
-              <td key={label} className="border-t border-hairline text-center font-bold">
+              <Td key={label} align="right" className="t-body-strong">
                 {data.general[key]}
-              </td>
+              </Td>
             ))}
           </tr>
         </tbody>
-      </table>
+      </DataTableShell>
     </ChartCard>
+  );
+}
+
+/*
+ * The two small tables of the view (Best N, thresholds) on the competition's ranking table look
+ * (RankingView's embedded RankingTable), embedded in their card / dialog (no second card): a 40px
+ * header row on the card's own white — no fill, no radius, t-label heads, a hairline under it —
+ * 52px rows on hairlines (no zebra), right-aligned tabular numbers, a horizontal scroll when
+ * narrower. TODO(kit): extract RankingTable's shell as a kit DataTable, then use it here.
+ */
+function DataTableShell({ caption, children }: { caption: string; children: ReactNode }) {
+  return (
+    <div role="region" aria-label={caption} tabIndex={0} className="overflow-x-auto [scrollbar-width:thin]">
+      <table className="w-full border-separate border-spacing-0 t-body text-ink tabular-nums">
+        <caption className="sr-only">{caption}</caption>
+        {children}
+      </table>
+    </div>
+  );
+}
+
+function Th({ align = 'left', children }: { align?: 'left' | 'right'; children: ReactNode }) {
+  return (
+    <th
+      scope="col"
+      className={cn(
+        'h-10 border-b border-hairline px-3 t-label whitespace-nowrap text-ink-2 first:pl-4 last:pr-4',
+        align === 'right' ? 'text-right' : 'text-left',
+      )}
+    >
+      {children}
+    </th>
+  );
+}
+
+function Td({
+  align = 'left',
+  header = false,
+  className,
+  children,
+}: {
+  align?: 'left' | 'right';
+  /** The row's name cell (a <th scope="row">). */
+  header?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  const cls = cn(
+    // The first row sits right under the header's hairline: no second line.
+    'border-t border-hairline px-3 first:pl-4 last:pr-4 [tr:first-child>&]:border-t-transparent',
+    align === 'right' ? 'text-right' : 'text-left',
+    header && 't-body-strong',
+    className,
+  );
+  return header ? (
+    <th scope="row" className={cls}>
+      {children}
+    </th>
+  ) : (
+    <td className={cls}>{children}</td>
   );
 }

@@ -10,7 +10,7 @@ import {
   rankingTypeSchema,
   type CompetitionDetail,
 } from '@/core/competitions';
-import { call, isApiError, type Transport } from '@/core/transport';
+import { ApiError, call, isApiError, type Transport } from '@/core/transport';
 import { absoluteUrl, routes } from '@/lib/routes';
 import { createServerTransport } from '@/lib/server/transport';
 import { competitionDateProse } from './dates';
@@ -43,8 +43,35 @@ async function getCompetitionLoose(t: Transport, id: string): Promise<LooseCompe
       z.object({ data: competitionDetailSchema.extend({ rankingType: z.string() }) }),
     );
     return res.data;
-  } catch {
-    return null;
+  } catch (e) {
+    // Only «the shape is still wrong» means invalid; a network failure or a timeout is transient and
+    // goes to error.tsx (with its retry), never to the dead-end «invalid» state.
+    if (isApiError(e) && e.code === 'INVALID_RESPONSE') return null;
+    throw e;
+  }
+}
+
+/** How long the competition read may take before the page shows its error («Încearcă din nou»). */
+const READ_TIMEOUT_MS = 8000;
+
+/**
+ * The read, bounded: the public GET goes through the cached public-get, which takes no
+ * AbortSignal, so a hung CMS would never reach error.tsx. It rejects with a retryable network
+ * error instead (T3 data-loading contract; the demo's mainRead). A cached / prerendered read
+ * answers long before the timer.
+ */
+async function bounded<T>(p: Promise<T>, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new ApiError({ message: `${what}: timeout`, status: 0, code: 'NETWORK', path: what })),
+      READ_TIMEOUT_MS,
+    );
+  });
+  try {
+    return await Promise.race([p, timeout]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -53,12 +80,17 @@ async function getCompetitionLoose(t: Transport, id: string): Promise<LooseCompe
  * and purged by the `competition-<id>` tag). One read per request for metadata + page.
  */
 export const loadCompetition = cache(async (id: string): Promise<CompetitionLoad> => {
+  const what = `/feed/competitions/${id}`;
   try {
-    return { kind: 'ok', competition: await getCompetition(createServerTransport(), id) };
+    const competition = await bounded(getCompetition(createServerTransport(), id), what);
+    // Feeder legs have their own ranking, not built on the web yet (M1): same «indisponibil pe web»
+    // path as a type core cannot parse, so the table builders never see it.
+    if (competition.rankingType === 'feederRounds') return { kind: 'unsupported', competition };
+    return { kind: 'ok', competition };
   } catch (e) {
     if (isApiError(e) && (e.status === 404 || e.status === 400)) return { kind: 'missing' };
     if (isApiError(e) && e.code === 'INVALID_RESPONSE') {
-      const competition = await getCompetitionLoose(createServerTransport(), id);
+      const competition = await bounded(getCompetitionLoose(createServerTransport(), id), what);
       return competition ? { kind: 'unsupported', competition } : { kind: 'invalid' };
     }
     throw e;

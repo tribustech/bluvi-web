@@ -4,8 +4,10 @@ import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
 import { ResponsiveSurface } from '@/components/surfaces/ResponsiveSurface';
+import { CountBadge, DashboardSection } from '@/components/templates/T5';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
+import { StatusPill } from '@/components/ui/StatusPill';
 import { useViewer } from '../_shell/viewer-context';
 import { homeLinks } from './links';
 import rezervari from './assets/rezervari_widget.webp';
@@ -33,8 +35,14 @@ const MOON: Interest = {
 
 /**
  * fish components/WidgetsList.tsx — «Instrumente»: Rezervări (count of upcoming bookings, «NOU»
- * pill), Vremea and Fazele Lunii («În curând», open the interest sheet). Mobile: a row of 64px
- * tiles; desktop right column: a card with three 56px tiles (design).
+ * pill), Vremea and Fazele Lunii («În curând», open the interest sheet). Below 1280: 64px tiles
+ * centred on equal thirds of a surface card under a plain section title — one container from the
+ * phone to the tablet, on the grid of the operator shortcut bar above it, so the icon rows line up.
+ * There a state pill hangs fully under its tile (never over the artwork), in a band every tile
+ * keeps, so all three captions share one baseline, pill or not. Desktop right column (264–320px):
+ * a T5 card with three 56px tiles; a pill would be wider than its tile there, so the state is a
+ * corner dot on the tile plus a t-micro line under the caption. A coming-soon tile is faded to .7 —
+ * still legible artwork, plainly not yet live. Captions are t-caption ink-2 at every width.
  */
 export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop'; bookingsBadge?: ReactNode }) {
   const [interest, setInterest] = useState<Interest | null>(null);
@@ -50,18 +58,20 @@ export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop
     }
   }, []);
 
-  const tile = desktop ? 'size-14 rounded-[14px]' : 'size-16 rounded-card';
+  const tile = desktop ? 'size-14 rounded-card' : 'size-16 rounded-card';
+  const cell = 'flex flex-col items-center';
+  // Below 1280, 36 = 4 of air, the 26px pill, 6 to the caption; desktop states sit in the caption.
+  const target = cn('group flex flex-col items-center rounded-control outline-offset-4 active:opacity-70', desktop ? 'gap-1.5' : 'gap-9');
+  const caption = 'text-center t-caption text-ink-2 group-hover:text-ink';
 
   return (
-    <section
-      aria-labelledby={`acasa-instrumente-${layout}`}
-      className={cn('flex flex-col', desktop && 'gap-2.5 rounded-card bg-surface p-3.5')}
-    >
-      <h2 id={`acasa-instrumente-${layout}`} className={desktop ? 't-heading' : 't-title2'}>
-        Instrumente
-      </h2>
-      <ul className={cn(desktop ? 'grid grid-cols-3 gap-2' : 'my-2.5 flex gap-2.5')}>
-        <li className={cn('flex flex-col items-center gap-1.5', !desktop && 'w-21')}>
+    <DashboardSection variant={desktop ? 'card' : 'plain'} title="Instrumente">
+      <ul
+        className={cn(
+          desktop ? 'grid grid-cols-3 gap-2' : 'grid grid-cols-3 justify-items-center gap-2 rounded-card bg-surface p-4.5 shadow-e0'
+        )}
+      >
+        <li className={cell}>
           <Link
             href={homeLinks.myBookings}
             onClick={() => {
@@ -69,30 +79,33 @@ export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop
                 localStorage.setItem(BOOKINGS_NOU_KEY, '1');
               } catch {}
             }}
-            className="group flex flex-col items-center gap-1.5 rounded-control outline-offset-4"
+            className={target}
           >
             <span className={cn('relative block', tile)}>
               <Image src={rezervari} alt="" className={cn('size-full object-cover', tile)} />
               {bookingsBadge}
-              {showNou ? <Pill className="bg-live text-on-accent">NOU</Pill> : null}
+              {showNou && !desktop ? <TilePill tone="info">NOU</TilePill> : null}
             </span>
-            <span className={cn('text-center text-muted group-hover:text-ink', desktop ? 't-caption' : 't-body')}>Rezervări</span>
+            <TileCaption className={caption} state={showNou && desktop ? 'NOU' : null}>
+              Rezervări
+            </TileCaption>
           </Link>
         </li>
         {[WEATHER, MOON].map((w) => (
-          <li key={w.title} className={cn('flex flex-col items-center', !desktop && 'w-21')}>
-            <button
-              type="button"
-              onClick={() => setInterest(w)}
-              className="group flex flex-col items-center gap-1.5 rounded-control outline-offset-4"
-              aria-label={`${w.title}, în curând`}
-            >
+          <li key={w.title} className={cell}>
+            <button type="button" onClick={() => setInterest(w)} className={target} aria-label={`${w.title}, în curând`}>
               <span className={cn('relative block', tile)}>
-                <Image src={w.image} alt="" className={cn('size-full object-cover opacity-55', tile)} />
-                {/* Dark ink on yellow (≈9.7:1); white on yellow-5 is 1.9:1. */}
-                <Pill className="bg-yellow-5 text-ink">În curând</Pill>
+                <Image src={w.image} alt="" className={cn('size-full object-cover opacity-70', tile)} />
+                {desktop ? (
+                  // The «În curând» corner dot (the CountBadge's place and ring, the warning pair).
+                  <span aria-hidden className="absolute -top-1 -right-1 size-3 rounded-full bg-status-warning-fg ring-2 ring-surface" />
+                ) : (
+                  <TilePill tone="warning">În curând</TilePill>
+                )}
               </span>
-              <span className={cn('text-center text-muted group-hover:text-ink', desktop ? 't-caption' : 't-body')}>{w.title}</span>
+              <TileCaption className={caption} state={desktop ? 'În curând' : null}>
+                {w.title}
+              </TileCaption>
             </button>
           </li>
         ))}
@@ -116,7 +129,7 @@ export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop
           </div>
         ) : null}
       </ResponsiveSurface>
-    </section>
+    </DashboardSection>
   );
 }
 
@@ -140,21 +153,32 @@ function InterestAction({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Pill({ className, children }: { className: string; children: ReactNode }) {
+/** The tile's caption; on desktop, its state («NOU», «În curând») as a t-micro line under it. */
+function TileCaption({ className, state, children }: { className: string; state: string | null; children: ReactNode }) {
   return (
-    <span className="pointer-events-none absolute inset-x-[-6px] -bottom-1 flex justify-center">
-      <span className={cn('rounded-lg px-1.5 py-0.5 t-label whitespace-nowrap shadow-button', className)}>{children}</span>
+    <span className="flex flex-col items-center">
+      <span className={className}>{children}</span>
+      {state ? <span className="t-micro text-muted">{state}</span> : null}
     </span>
   );
 }
 
-/** The count on the Rezervări tile (fish `badge`, indigo, top-right). */
+/** A state hung 4px under its tile (StatusPill: «NOU», «În curând»), centred on the tile. */
+function TilePill({ tone, children }: { tone: 'info' | 'warning'; children: ReactNode }) {
+  return (
+    <span className="pointer-events-none absolute inset-x-0 top-full mt-1 flex justify-center">
+      <StatusPill tone={tone}>{children}</StatusPill>
+    </span>
+  );
+}
+
+/** The count on the Rezervări tile (fish `badge`, top-right): the T5 corner badge. */
 export function BookingsBadge({ count }: { count: number | null }) {
   if (!count) return null;
   return (
-    <span className="absolute -top-1 -right-1 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-accent px-1.5 t-label text-on-accent">
-      {count > 99 ? '99+' : count}
-      <span className="sr-only"> rezervări viitoare</span>
-    </span>
+    <>
+      <CountBadge count={count} className="absolute -top-1 -right-1" />
+      <span className="sr-only">, {count > 99 ? '99+' : count} rezervări viitoare</span>
+    </>
   );
 }

@@ -12,7 +12,7 @@ import { cn } from "./cn";
  * dark, where white on #818CF8 fails AA).
  */
 export type ButtonVariant =
-  "primary" | "secondary" | "outline" | "danger" | "ghost";
+  "primary" | "secondary" | "outline" | "danger" | "ghost" | "success";
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary: "bg-accent text-on-accent shadow-button hover:brightness-95",
@@ -21,6 +21,8 @@ const VARIANT: Record<ButtonVariant, string> = {
     "border-2 border-accent bg-surface text-accent-ink hover:bg-soft-fill",
   danger: "bg-status-danger-bg text-status-danger-fg hover:brightness-95",
   ghost: "text-ink-2 hover:bg-soft-fill",
+  // The partidă «Captură» (fish ActivePartidaDock): green, filled like primary.
+  success: "bg-success text-on-accent shadow-button hover:brightness-95",
 };
 
 const DISABLED: Record<ButtonVariant, string> = {
@@ -30,6 +32,7 @@ const DISABLED: Record<ButtonVariant, string> = {
     "border-2 border-accent bg-surface text-accent-ink opacity-50",
   danger: "bg-status-danger-bg text-status-danger-fg opacity-50",
   ghost: "text-ink-2 opacity-50",
+  success: "bg-success text-on-accent opacity-50",
 };
 
 /**
@@ -40,13 +43,13 @@ export type ButtonSize = "default" | "compact";
 
 const SIZE: Record<ButtonSize, string> = {
   default: "t-body-strong h-12 xl:h-10",
-  compact: "h-9 text-[13px]/[18px] font-bold",
+  compact: "h-9 t-button-compact",
 };
 
 /** Side padding; the outline's 2px border is taken out of it so every variant is the same width. */
 const PAD: Record<ButtonSize, Record<ButtonVariant, string>> = {
-  default: { primary: "px-5", secondary: "px-5", outline: "px-4.5", danger: "px-5", ghost: "px-3" },
-  compact: { primary: "px-3", secondary: "px-3", outline: "px-2.5", danger: "px-3", ghost: "px-3" },
+  default: { primary: "px-5", secondary: "px-5", outline: "px-4.5", danger: "px-5", ghost: "px-3", success: "px-5" },
+  compact: { primary: "px-3", secondary: "px-3", outline: "px-2.5", danger: "px-3", ghost: "px-3", success: "px-3" },
 };
 
 interface ButtonStyleOptions {

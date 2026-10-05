@@ -1,3 +1,4 @@
+import { PATHS } from '@/components/nav/items';
 import { routes } from '@/lib/routes';
 
 /**
@@ -6,7 +7,9 @@ import { routes } from '@/lib/routes';
  * the page that owns each. fish path in the comment.
  */
 export const homeLinks = {
-  signIn: '/intra',
+  signIn: PATHS.signIn,
+  /** fish /profile */
+  profile: PATHS.profile,
   /** fish /bookings */
   myBookings: '/rezervari',
   /** fish /(app)/partide/start */
@@ -14,11 +17,11 @@ export const homeLinks = {
   /** fish /(app)/partide/join */
   partidaJoin: '/partide/cod',
   /** fish /(app)/organizer */
-  organizer: '/organizator',
+  organizer: PATHS.organizer,
   /** fish /polls/current */
   polls: '/sondaje',
   /** fish `router.push('/sign-in', { redirectTo: '/polls/current' })` (guest taps a poll option / suggest) */
-  pollSignIn: `/intra?next=${encodeURIComponent('/sondaje')}`,
+  pollSignIn: `${PATHS.signIn}?next=${encodeURIComponent('/sondaje')}`,
   /** fish /(app)/scale/[competitionId]/history?sectorName&standName&standId (ScaleItem) */
   scaleHistory: (competitionId: string, s: { sectorName: string; standName: string; standId: string }) =>
     `${routes.competition(competitionId)}/cantar?${new URLSearchParams({ sector: s.sectorName, stand: s.standName, standId: s.standId })}`,
@@ -31,7 +34,7 @@ export const homeLinks = {
   /** fish /(app)/anglers/suggested */
   suggestedAnglers: '/pescari/sugerati',
   /** fish /notifications */
-  notifications: '/notificari',
+  notifications: PATHS.notifications,
   /** fish /sponsors/[id] */
   sponsor: (documentId: string) => `/sponsori/${encodeURIComponent(documentId)}`,
   /** fish (tabs)/competitions with `status` */

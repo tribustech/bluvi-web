@@ -4,133 +4,137 @@ import { useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { selectCompetitionCards, type CompetitionCard } from '@/core/competitions';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { Button } from '@/components/ui/Button';
-import { CompetitionRailCard } from './CompetitionRailCard';
-import { CardSkeleton, HorizontalRail, RailItem } from './HorizontalRail';
-import { SeeAllTitle } from './SeeAllTitle';
+import { COMPETITION_CARD_HEIGHT, CompetitionRailCard } from './CompetitionRailCard';
+import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem } from './HorizontalRail';
+import { RailEmpty, RailError, RailSection, RailSkeleton } from './RailSection';
 import { homeLinks } from './links';
 import { liveCardsQuery, SIGNED_OUT, upcomingCardsQuery } from './queries';
-
-const SKELETON_HEIGHT = 300;
 
 /**
  * fish (tabs)/index.tsx competitions block + CompetitionCardsRail.tsx: the live rail while
  * anything is live (or still loading); otherwise «Concursuri viitoare»; neither → nothing.
- * Mobile/tablet: horizontal rail with paging. Desktop main column: the first three as a grid.
+ * A horizontal rail at every width (ROADMAP §4: more cards as the screen grows, never wider ones):
+ * swipe on touch, arrows with a mouse, the next page loads near the end (skeleton card meanwhile).
  *
  * TanStack reads the current time while building query state, so this must render inside a
  * <Suspense> (page.tsx); its fallback is the same CompetitionsView from the server's first page.
  */
-export function CompetitionsSection({ layout }: { layout: 'rail' | 'grid' }) {
+export function CompetitionsSection() {
   const t = useMemo(() => createBrowserTransport(), []);
   const live = useInfiniteQuery(liveCardsQuery(t));
   const upcoming = useInfiniteQuery(upcomingCardsQuery(t));
   const liveCards = selectCompetitionCards(live.data, { scope: 'all' }, SIGNED_OUT);
   const upcomingCards = selectCompetitionCards(upcoming.data, { scope: 'all' }, SIGNED_OUT);
 
-  const hasLive = live.isLoading || liveCards.competitions.length > 0;
-  const hasUpcoming = upcoming.isLoading || upcomingCards.competitions.length > 0;
-  if (!hasLive && !hasUpcoming) return null;
+  const rail = chooseRail(
+    { ...live, count: liveCards.competitions.length },
+    { ...upcoming, count: upcomingCards.competitions.length }
+  );
+  if (!rail) return null;
 
-  const isLive = hasLive;
+  const isLive = rail === 'live';
   const q = isLive ? live : upcoming;
   const cards = isLive ? liveCards : upcomingCards;
   return (
     <CompetitionsView
-      layout={layout}
       isLive={isLive}
       competitions={cards.competitions}
       total={cards.total}
-      status={q.isLoading ? 'loading' : q.isError && cards.competitions.length === 0 ? 'error' : 'ready'}
+      status={railStatus(q, cards.competitions.length)}
       onRetry={() => q.refetch()}
+      retrying={q.isFetching}
       onEndReached={() => {
-        if (q.hasNextPage && !q.isFetchingNextPage) void q.fetchNextPage();
+        if (q.hasNextPage && !q.isFetchingNextPage && !q.isFetchNextPageError) void q.fetchNextPage();
       }}
       fetchingNext={q.isFetchingNextPage}
+      nextError={q.isFetchNextPageError}
+      onRetryNext={() => void q.fetchNextPage()}
     />
   );
 }
 
+type RailRead = { isLoading: boolean; isError: boolean; count: number };
+
+/**
+ * fish: live while anything is live (or still loading), else upcoming, else nothing. A failed read
+ * is a reason to show its rail — with its error and retry (fish c25) — never to fall through to
+ * «Concursuri viitoare» while live competitions may exist, or to nothing.
+ */
+export function chooseRail(live: RailRead, upcoming: RailRead): 'live' | 'upcoming' | null {
+  if (live.isLoading || live.isError || live.count > 0) return 'live';
+  if (upcoming.isLoading || upcoming.isError || upcoming.count > 0) return 'upcoming';
+  return null;
+}
+
+/** Which state the chosen rail shows. A failed refetch that still has cards keeps showing them. */
+export function railStatus(q: { isLoading: boolean; isError: boolean }, count: number): 'loading' | 'error' | 'ready' {
+  if (q.isLoading) return 'loading';
+  return q.isError && count === 0 ? 'error' : 'ready';
+}
+
 /** The markup of the section, from data alone (no query, no clock): also the prerendered fallback. */
 export function CompetitionsView({
-  layout,
   isLive,
   competitions,
   total,
   status,
   onRetry,
+  retrying = false,
   onEndReached,
   fetchingNext = false,
+  nextError = false,
+  onRetryNext,
 }: {
-  layout: 'rail' | 'grid';
   isLive: boolean;
   competitions: CompetitionCard[];
   total: number;
   status: 'loading' | 'error' | 'ready';
   onRetry?: () => void;
+  retrying?: boolean;
   onEndReached?: () => void;
   fetchingNext?: boolean;
+  /** The next page failed: its slot offers the retry. */
+  nextError?: boolean;
+  onRetryNext?: () => void;
 }) {
-  const title = `${isLive ? 'Concursuri live' : 'Concursuri viitoare'}${total ? ` (${total})` : ''}`;
-  const id = `${isLive ? 'acasa-concursuri-live' : 'acasa-concursuri-viitoare'}-${layout}`;
+  const label = isLive ? 'Concursuri live' : 'Concursuri viitoare';
+  const title = `${label}${total ? ` (${total})` : ''}`;
 
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-3">
-      <SeeAllTitle
-        id={id}
-        title={title}
-        href={homeLinks.competitions(isLive ? 'started' : 'notStarted')}
-        leading={
-          isLive && layout === 'grid' ? <span aria-hidden className="size-[7px] shrink-0 rounded-full bg-live animate-live" /> : undefined
-        }
-      />
+    <RailSection
+      title={title}
+      leading={isLive ? <span aria-hidden className="size-2 shrink-0 rounded-full bg-live animate-live motion-reduce:animate-none" /> : undefined}
+      href={homeLinks.competitions(isLive ? 'started' : 'notStarted')}
+    >
       {status === 'loading' ? (
-        <CompetitionsSkeleton layout={layout} />
+        <RailSkeleton label="Se încarcă concursurile" width={224} heightClass={COMPETITION_CARD_HEIGHT} />
       ) : status === 'error' ? (
-        <div className="flex flex-col gap-2.5">
-          <p className="t-body">A apărut o eroare la încărcarea datelor.</p>
-          <Button block onClick={onRetry}>
-            Încearcă din nou
-          </Button>
-        </div>
-      ) : layout === 'grid' ? (
-        // Two across until the main column is wide enough for three rail-width cards (1440).
-        <ul className="grid grid-cols-2 gap-3.5 2xl:grid-cols-3" aria-label={isLive ? 'Concursuri live' : 'Concursuri viitoare'}>
-          {competitions.slice(0, 3).map((c, i) => (
-            <li key={c.documentId} className={i === 2 ? 'hidden min-w-0 2xl:block' : 'min-w-0'}>
-              <CompetitionRailCard competition={c} variant="grid" />
-            </li>
-          ))}
-        </ul>
+        <RailError onRetry={onRetry} retrying={retrying} />
+      ) : competitions.length === 0 ? (
+        <RailEmpty>Momentan nu este disponibil niciun concurs.</RailEmpty>
       ) : (
         <HorizontalRail
-          label={isLive ? 'Concursuri live' : 'Concursuri viitoare'}
+          label={label}
+          width={224}
           onEndReached={onEndReached}
-          footer={fetchingNext ? <CardSkeleton width={225} height={SKELETON_HEIGHT} /> : null}
+          footer={
+            // A retry keeps its slot (and the focus) while it runs; a first next page shows a bone.
+            nextError && onRetryNext ? (
+              <RailRetryItem width={224} heightClass={COMPETITION_CARD_HEIGHT} onRetry={onRetryNext} retrying={fetchingNext} />
+            ) : fetchingNext ? (
+              <CardSkeleton width={224} heightClass={COMPETITION_CARD_HEIGHT} />
+            ) : null
+          }
         >
-          {competitions.map((c) => (
-            <RailItem key={c.documentId} width={225}>
-              <CompetitionRailCard competition={c} />
+          {competitions.map((c, i) => (
+            <RailItem key={c.documentId} width={224}>
+              {/* The rail is the first block of the body at every width: its first poster is the
+                  page's LCP candidate, so it loads eagerly at high priority. */}
+              <CompetitionRailCard competition={c} eager={i === 0} />
             </RailItem>
           ))}
         </HorizontalRail>
       )}
-    </section>
-  );
-}
-
-function CompetitionsSkeleton({ layout }: { layout: 'rail' | 'grid' }) {
-  return layout === 'grid' ? (
-    <div className="grid grid-cols-2 gap-3.5 2xl:grid-cols-3" role="status" aria-label="Se încarcă concursurile">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className={`h-[300px] rounded-card bg-soft-fill animate-shimmer ${i === 2 ? 'hidden 2xl:block' : ''}`} />
-      ))}
-    </div>
-  ) : (
-    <div className="-mx-5 flex gap-2.5 overflow-hidden px-5 pt-1 pb-4 md:-mx-6 md:px-6" role="status" aria-label="Se încarcă concursurile">
-      {[0, 1, 2].map((i) => (
-        <CardSkeleton key={i} width={225} height={SKELETON_HEIGHT} />
-      ))}
-    </div>
+    </RailSection>
   );
 }

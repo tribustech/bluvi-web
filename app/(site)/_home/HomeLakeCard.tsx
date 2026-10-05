@@ -1,19 +1,26 @@
 import Image from 'next/image';
 import { StarIcon } from '@heroicons/react/20/solid';
 import { getLakeLocationSubtitle, type LakeCard } from '@/core/lakes';
-import { CardShell, CardTitle, formatDecimal } from '@/components/cards';
-import { cn } from '@/components/ui/cn';
+import { CardShell, CardTitle, formatDecimal, Pill } from '@/components/cards';
 import { routes } from '@/lib/routes';
 import { facilityIcon } from './facilityIcon';
 
+// fish lakesHomeCardPresentation: four facility icons, then «+N».
 const MAX_FACILITIES = 4;
 
 /**
- * fish components/MiniatureLakeCard.tsx as Acasă configures it (facilities as icons only, at most
- * four, then «+N»; no regime, no species). The kit LakeCard has no facilities row and shows price
- * instead, so the home variant is composed here from the kit shell.
+ * The card's height per breakpoint (photo 100 + name + place + the facilities row; the
+ * type steps grow from 1280). Its rail skeleton uses the same class, so they cannot disagree.
  */
-export function HomeLakeCard({ lake, variant = 'rail' }: { lake: LakeCard; variant?: 'rail' | 'grid' }) {
+export const LAKE_CARD_HEIGHT = 'h-48 xl:h-49';
+
+/**
+ * fish components/MiniatureLakeCard.tsx as Acasă configures it (lakesHomeCardPresentation: the
+ * rating as a badge on the photo, only when the lake has reviews; facilities as icons only, at most
+ * four, then «+N»; no regime, no species). The kit LakeCard has no facilities row and shows price
+ * instead, so the home variant is composed here from the kit shell and its photo Pill.
+ */
+export function HomeLakeCard({ lake }: { lake: LakeCard }) {
   const image = lake.images[0];
   const src = image ? (image.mediumUrl ?? image.url) : null;
   const location = getLakeLocationSubtitle(
@@ -25,43 +32,47 @@ export function HomeLakeCard({ lake, variant = 'rail' }: { lake: LakeCard; varia
   const more = lake.facility.length - facilities.length;
 
   return (
-    <CardShell elevated interactive className="h-full">
-      <div className={cn('relative shrink-0 overflow-hidden bg-soft-fill', variant === 'grid' ? 'h-[130px]' : 'h-[100px] rounded-control')}>
-        {src ? <Image src={src} alt="" fill sizes="(min-width: 1280px) 260px, 200px" className="object-cover" /> : null}
+    // A fixed rhythm instead of stretching to the rail's tallest card, the same three lines on every
+    // card: the name (full width), the place, and the facilities row (kept at its height when a
+    // lake lists none, so every card in the rail has the same height).
+    <CardShell elevated interactive className={LAKE_CARD_HEIGHT}>
+      <div className="relative h-25 shrink-0 overflow-hidden bg-soft-fill">
+        {src ? <Image src={src} alt="" fill sizes="(min-width: 768px) 272px, 200px" className="object-cover" /> : null}
+        {hasReviews ? (
+          // fish: the white rating badge, top-right on the photo.
+          <Pill tone="light" className="absolute top-2 right-2 shadow-e1">
+            <StarIcon aria-hidden className="size-3.5 text-rating" />
+            <span className="sr-only">Rating </span>
+            {formatDecimal(lake.reviewsMeta!.overall ?? 0, 1, 1)}
+          </Pill>
+        ) : null}
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-2.5 xl:p-3">
-        <div className="flex items-start gap-1">
-          <CardTitle href={routes.lake(lake.documentId)} className="min-w-0 flex-1 t-body-strong text-ink">
-            {lake.name}
-          </CardTitle>
-          {hasReviews ? (
-            <p className="flex shrink-0 items-center gap-0.5 t-label text-ink">
-              <StarIcon aria-hidden className="size-3.5 text-rating" />
-              <span className="sr-only">Rating </span>
-              {formatDecimal(lake.reviewsMeta!.overall ?? 0, 1, 1)}
-            </p>
+      <div className="flex flex-col gap-1 p-2.5">
+        <CardTitle href={routes.lake(lake.documentId)} className="line-clamp-1 t-body-strong text-ink">
+          {lake.name}
+        </CardTitle>
+        <p className="line-clamp-1 min-h-[1lh] t-body text-ink-2">{location}</p>
+        <div className="flex h-6 items-center">
+          {facilities.length > 0 ? (
+            <ul className="flex items-center gap-1" aria-label="Facilități">
+              {facilities.map((f) => {
+                const Icon = facilityIcon(f.name);
+                return (
+                  <li key={f.id} className="flex size-6 items-center justify-center text-accent-ink" title={f.name}>
+                    <Icon aria-hidden className="size-6" />
+                    <span className="sr-only">{f.name}</span>
+                  </li>
+                );
+              })}
+              {more > 0 ? (
+                <li className="flex h-6 min-w-6 items-center justify-center t-micro-strong text-ink-2">
+                  +{more}
+                  <span className="sr-only"> facilități</span>
+                </li>
+              ) : null}
+            </ul>
           ) : null}
         </div>
-        {location ? <p className="t-body text-ink-2 xl:t-caption">{location}</p> : null}
-        {facilities.length > 0 ? (
-          <ul className="mt-auto flex items-center gap-1 pt-0.5" aria-label="Facilități">
-            {facilities.map((f) => {
-              const Icon = facilityIcon(f.name);
-              return (
-                <li key={f.id} className="flex size-5 items-center justify-center text-accent-ink" title={f.name}>
-                  <Icon aria-hidden className="size-[13px] stroke-[1.8]" />
-                  <span className="sr-only">{f.name}</span>
-                </li>
-              );
-            })}
-            {more > 0 ? (
-              <li className="flex h-5 min-w-5 items-center justify-center t-micro-strong text-ink-2">
-                +{more}
-                <span className="sr-only"> facilități</span>
-              </li>
-            ) : null}
-          </ul>
-        ) : null}
       </div>
     </CardShell>
   );

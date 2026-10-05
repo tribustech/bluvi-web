@@ -1,8 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { ArrowTrendingDownIcon, ArrowTrendingUpIcon, MapPinIcon, Squares2X2Icon } from '@heroicons/react/20/solid';
+import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import {
   competitionCatchesInfiniteQuery,
   getCompetitorDisplayName,
@@ -13,10 +12,19 @@ import {
 import type { Transport } from '@/core/transport';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
-import { EmptyState, ErrorState, LoadingRow } from '@/components/surfaces/StateCard';
+import { EmptyState, ErrorState } from '@/components/surfaces/StateCard';
 import { cn } from '@/components/ui/cn';
-import { formatDecimal } from '@/components/cards/format';
-import { formatStand, standLabel } from './stand';
+import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
+import { ChoiceChips } from '@/components/templates/T1';
+import { formatWeight } from '@/components/ranking';
+import { isOfflineEmpty, OfflineState } from './offline';
+import { StandMark } from './StandMark';
+import { PAGE_RETRY } from './retry-policy';
+import { formatStand } from './stand';
+
+/** The list card: one column on the phone, two from 768, three from 1280. */
+const LIST = 'overflow-hidden rounded-card bg-surface shadow-e0 md:grid md:grid-cols-2 md:gap-x-6 md:px-2 xl:grid-cols-3';
+const ROW = 'flex items-center gap-2.5 border-b border-hairline px-4 py-2.5 md:px-2';
 
 /*
  * fish CompetitionRanking `rankingView === 'allFish'`: every catch, sortable (Cei mai mari / mici,
@@ -24,16 +32,18 @@ import { formatStand, standLabel } from './stand';
  * the API filters. «Încarcă mai mult» pages in.
  */
 
-const SORTS: { value: CompetitionCatchesSort; label: string; Icon: typeof MapPinIcon }[] = [
-  { value: 'weight_desc', label: 'Cei mai mari', Icon: ArrowTrendingUpIcon },
-  { value: 'weight_asc', label: 'Cei mai mici', Icon: ArrowTrendingDownIcon },
-  { value: 'stand', label: 'Pe stand', Icon: MapPinIcon },
-  { value: 'sector', label: 'Pe sector', Icon: Squares2X2Icon },
+const SORTS: { value: CompetitionCatchesSort; label: string }[] = [
+  { value: 'weight_desc', label: 'Cei mai mari' },
+  { value: 'weight_asc', label: 'Cei mai mici' },
+  { value: 'stand', label: 'Pe stand' },
+  { value: 'sector', label: 'Pe sector' },
 ];
 
 export function AllFishView({ t, competition }: { t: Transport; competition: CompetitionWithMyStatus }) {
   const [sort, setSort] = useState<CompetitionCatchesSort>('weight_desc');
   const [picked, setPicked] = useState<string | null>(null);
+  // Phone: each chip row is one line that scrolls (fish); from 768 the rows wrap.
+  const scroll = useBreakpoint() === 'mobile';
 
   // fish catchesFilterOptions: sector names, or every stand of every sector («A7»).
   const options = useMemo(() => {
@@ -53,9 +63,14 @@ export function AllFishView({ t, competition }: { t: Transport; competition: Com
       ? { sectorName: filterValue }
       : { standKey: filterValue };
 
-  const q = useInfiniteQuery(
-    competitionCatchesInfiniteQuery(t, competition.documentId, sort, competition.competitionStatus, { filter }),
-  );
+  // A new sort / filter keeps the rows on screen (dimmed, aria-busy) until its first page lands,
+  // so the list never collapses to a loading row and the reader keeps their place.
+  const q = useInfiniteQuery({
+    ...competitionCatchesInfiniteQuery(t, competition.documentId, sort, competition.competitionStatus, { filter }),
+    ...PAGE_RETRY,
+    placeholderData: keepPreviousData,
+  });
+  const swapping = q.isFetching && q.isPlaceholderData;
   const catches = useMemo(() => {
     const seen = new Set<string>();
     return (q.data?.pages.flatMap(p => p.data) ?? []).filter(c => {
@@ -85,58 +100,40 @@ export function AllFishView({ t, competition }: { t: Transport; competition: Com
 
   return (
     <div className="flex flex-col gap-3">
-      <div role="group" aria-label="Sortare capturi" className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 [scrollbar-width:none] md:mx-0 md:px-0">
-        {SORTS.map(({ value, label, Icon }) => {
-          const selected = sort === value;
-          return (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => {
-                setSort(value);
-                setPicked(null);
-              }}
-              className={cn(
-                'flex shrink-0 items-center gap-1.5 rounded-full py-1.5 pr-3 pl-1.5 t-caption',
-                selected ? 'bg-sector-m text-on-accent' : 'bg-soft-fill text-ink',
-              )}
-            >
-              <span className={cn('flex size-6 items-center justify-center rounded-md', selected ? 'bg-on-accent/25' : 'bg-hairline')}>
-                <Icon aria-hidden className="size-3.5" />
-              </span>
-              {label}
-            </button>
-          );
-        })}
-      </div>
-      {options.length > 0 ? (
-        <div role="group" aria-label={sort === 'sector' ? 'Sector' : 'Stand'} className="-mx-4 flex gap-1.5 overflow-x-auto px-4 py-0.5 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
-          {options.map(option => {
-            const active = option === filterValue;
-            return (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setPicked(option)}
-                className={cn('shrink-0 rounded-full px-3.5 py-1 t-caption', active ? 'bg-ink-2 text-surface' : 'bg-soft-fill text-ink')}
-              >
-                {option}
-              </button>
-            );
-          })}
-        </div>
+      {/* The kit choice chips (T1), the same pills as the ranking's sector filter. */}
+      <ChoiceChips
+        name="catches-sort"
+        label="Sortare capturi"
+        scroll={scroll}
+        options={SORTS}
+        value={sort}
+        onChange={value => {
+          setSort(value);
+          setPicked(null);
+        }}
+      />
+      {options.length > 0 && filterValue ? (
+        <ChoiceChips
+          name="catches-filter"
+          label={sort === 'sector' ? 'Sector' : 'Stand'}
+          scroll={scroll}
+          options={options.map(option => ({ value: option, label: option }))}
+          value={filterValue}
+          onChange={setPicked}
+        />
       ) : null}
 
-      {q.isPending ? (
-        <LoadingRow label="Se încarcă capturile…" />
-      ) : q.isError ? (
+      {isOfflineEmpty(q) ? (
+        <OfflineState onRetry={() => void q.refetch()} />
+      ) : q.isPending ? (
+        <ListSkeleton />
+      ) : q.isError && !q.data ? (
         <ErrorState
-          title="Ceva nu a mers bine, vă rugăm să încercați din nou mai târziu."
+          title="Nu s-au putut încărca capturile."
+          description="Ceva nu a mers bine, vă rugăm să încercați din nou mai târziu."
           action={
             <Button size="compact" variant="secondary" onClick={() => void q.refetch()}>
-              Reîncearcă
+              Încearcă din nou
             </Button>
           }
         />
@@ -144,7 +141,10 @@ export function AllFishView({ t, competition }: { t: Transport; competition: Com
         <EmptyState title="Nu există capturi" />
       ) : (
         <>
-          <ul className="overflow-hidden rounded-card bg-surface shadow-e0 md:grid md:grid-cols-2 md:gap-x-6 md:px-2 xl:grid-cols-3">
+          <ul
+            aria-busy={swapping || undefined}
+            className={cn(LIST, 'transition-opacity duration-(--duration-fast)', swapping && 'opacity-60')}
+          >
             {catches.map(c => {
               const key = c.standId != null ? String(c.standId) : '';
               const name =
@@ -154,25 +154,35 @@ export function AllFishView({ t, competition }: { t: Transport; competition: Com
                   participantNames: c.participantUsername ? [c.participantUsername] : [],
                   guestName: c.guestName,
                 });
-              const stand = c.standName ? standLabel(c.sectorName ?? '', c.standName) : (c.sectorName ?? '-');
+              // The angler leads (the avatar is a person); the stand is the competition's stand mark.
               return (
-                <li key={String(c.id)} className="flex items-center gap-2.5 border-b border-hairline px-4 py-2.5 md:px-2">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-soft-fill t-label text-ink-2">
-                    {stand}
-                  </span>
+                <li key={String(c.id)} className={ROW}>
+                  <Avatar name={name !== '-' ? name : '?'} src={byStand[key]?.avatar} size={40} />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline gap-1.5">
-                      <span className="t-body tabular-nums">{formatDecimal(c.weight, 1, 3)} kg</span>
-                      {c.fishName ? <span className="t-caption text-sector-m">{c.fishName}</span> : null}
+                      <span className="t-body-strong tabular-nums">{formatWeight(c.weight)} kg</span>
+                      {c.fishName ? <span className="truncate t-caption text-ink-2">{c.fishName}</span> : null}
                     </span>
-                    <span className="block truncate t-caption text-muted">{name}</span>
+                    <span className="flex min-w-0 items-center gap-1.5 t-caption text-muted">
+                      {c.standName || c.sectorName ? <StandMark sector={c.sectorName ?? ''} stand={c.standName ?? ''} /> : null}
+                      <span className="truncate">{name}</span>
+                    </span>
                   </span>
-                  <Avatar name={name !== '-' ? name : '?'} src={byStand[key]?.avatar} size={40} />
                 </li>
               );
             })}
           </ul>
-          {q.hasNextPage ? (
+          {/* A failed next page keeps every catch already loaded (and the reader's place). */}
+          {q.isFetchNextPageError ? (
+            <ErrorState
+              title="Nu am putut încărca mai multe capturi."
+              action={
+                <Button size="compact" variant="secondary" onClick={() => void q.fetchNextPage()}>
+                  Încearcă din nou
+                </Button>
+              }
+            />
+          ) : q.hasNextPage ? (
             <Button variant="secondary" block disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>
               {q.isFetchingNextPage ? 'Se încarcă…' : 'Încarcă mai mult'}
             </Button>
@@ -180,5 +190,34 @@ export function AllFishView({ t, competition }: { t: Transport; competition: Com
         </>
       )}
     </div>
+  );
+}
+
+/** The list's shape while its first page loads: the same card, rows (avatar, two lines) and padding. */
+function ListSkeleton() {
+  return (
+    <div role="status" aria-label="Se încarcă capturile…">
+      <ul aria-hidden className={LIST}>
+        {Array.from({ length: 8 }, (_, i) => (
+          <li key={i} className={ROW}>
+            <span className="size-10 shrink-0 animate-shimmer rounded-full" />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <Bone className="w-24 t-body-strong" />
+              <Bone className="w-3/5 t-caption" />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** A text bone inside a line of the given type step (as tall as the loaded text). */
+function Bone({ className }: { className: string }) {
+  return (
+    <span className={cn('relative block max-w-full', className)}>
+      &nbsp;
+      <span className="absolute inset-x-0 top-1/2 h-[0.62em] -translate-y-1/2 animate-shimmer rounded-full" />
+    </span>
   );
 }

@@ -15,10 +15,10 @@ export function PrivacySettingsCard() {
       href={PRIVACY_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex w-full items-center gap-2 rounded-control bg-surface p-2.5 text-left shadow-e1 transition-opacity hover:opacity-80"
+      className="flex min-h-12 w-full items-center gap-3 rounded-card bg-surface px-4.5 py-3 text-left text-ink shadow-e0 transition-[background-color,opacity] duration-(--duration-fast) ease-fast hover:bg-soft-fill active:opacity-70"
     >
-      <ShieldCheckIcon aria-hidden className="size-5 shrink-0 stroke-2 text-ink" />
-      <span className="t-body">Setări de confidențialitate</span>
+      <ShieldCheckIcon aria-hidden className="size-6 shrink-0" />
+      <span className="t-body-strong">Setări de confidențialitate</span>
       <span className="sr-only"> (se deschide într-o filă nouă)</span>
     </a>
   );

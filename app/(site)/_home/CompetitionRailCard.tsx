@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
-import { EyeIcon, MapPinIcon, TrophyIcon, UserIcon, UsersIcon } from '@heroicons/react/20/solid';
+import { MapPinIcon } from '@heroicons/react/20/solid';
 import type { CompetitionCard } from '@/core/competitions';
 import { CardShell, CardTitle, Pill, Tag, formatDecimal, plural } from '@/components/cards';
 import { FishIcon, ScaleIcon } from '@/components/icons/brand';
@@ -17,7 +16,29 @@ import { routes } from '@/lib/routes';
  * Every card in a row is the same height: the title reserves two lines, the footer is 56px, and
  * the row stretches its cards (flex/grid) so a wrapped badge row never makes the row ragged.
  */
-export function CompetitionRailCard({ competition: c, variant = 'rail' }: { competition: CompetitionCard; variant?: 'rail' | 'grid' }) {
+/**
+ * The rail card's height per breakpoint (poster 120, 144 from 1280 + two-line title + one row of
+ * tags + 56px footer; the type steps change at 1280). The skeleton is drawn at it; the card holds
+ * it as a minimum (a second row of tags may add to it, and the row then stretches its neighbours).
+ */
+export const COMPETITION_CARD_HEIGHT = 'h-76.5 xl:h-82.5';
+const COMPETITION_CARD_MIN_HEIGHT = 'min-h-76.5 xl:min-h-82.5';
+
+/**
+ * From 768 the rail's tracks share the column (HorizontalRail): a track never reaches 4⁄3 of the
+ * 224 slot, so the poster frame (120 / 144 high) stays near the phone's 224×120 and a portrait
+ * poster is never a thin strip inside a wide blur band.
+ */
+const POSTER_SIZES = '(min-width: 768px) 304px, 224px';
+
+export function CompetitionRailCard({
+  competition: c,
+  eager = false,
+}: {
+  competition: CompetitionCard;
+  /** The first card of an above-the-fold rail: the poster is the LCP candidate. */
+  eager?: boolean;
+}) {
   const href = routes.competition(c.documentId);
   const media = c.banner ?? c.lake?.image ?? null;
   const poster = media?.smallUrl ?? media?.url ?? null;
@@ -25,54 +46,63 @@ export function CompetitionRailCard({ competition: c, variant = 'rail' }: { comp
   const isTeam = c.format.kind === 'team';
 
   return (
-    <CardShell elevated interactive className="h-full">
+    <CardShell elevated interactive className={cn('h-full', COMPETITION_CARD_MIN_HEIGHT)}>
       {/* Posters are mostly A4 portrait with the details written on them: `contain` keeps all of
           it, the blurred copy behind fills the frame instead of grey bars (fish). */}
-      <div className={cn('relative shrink-0 overflow-hidden bg-soft-fill', variant === 'grid' ? 'h-[150px]' : 'h-[120px]')}>
+      <div className="relative h-30 shrink-0 overflow-hidden bg-soft-fill xl:h-36">
         {poster ? (
           <>
-            <Image src={poster} alt="" fill sizes="240px" className="scale-110 object-cover blur-xl" aria-hidden />
-            <Image src={poster} alt="" fill sizes="(min-width: 1280px) 240px, 225px" className="object-contain" />
+            {/* Same `sizes` for both copies: one download serves the blur and the poster. */}
+            <Image
+              src={poster}
+              alt=""
+              fill
+              sizes={POSTER_SIZES}
+              loading={eager ? 'eager' : undefined}
+              className="scale-110 object-cover blur-xl"
+              aria-hidden
+            />
+            <Image
+              src={poster}
+              alt=""
+              fill
+              sizes={POSTER_SIZES}
+              loading={eager ? 'eager' : undefined}
+              fetchPriority={eager ? 'high' : undefined}
+              className="object-contain"
+            />
           </>
         ) : null}
         <div className="absolute top-2 right-2 flex items-center gap-1.5">
           {isLive ? <Pill tone="live">LIVE</Pill> : null}
-          <span className="inline-flex h-[22px] items-center gap-[3px] rounded-[4px] bg-photo-scrim px-1.5 t-micro-strong text-on-photo-scrim">
-            <EyeIcon aria-hidden className="size-3" />
-            {c.viewers === 1 ? '1 urmăritor' : `${c.viewers} urmăritori`}
-          </span>
+          <Pill tone="scrim">{c.viewers === 1 ? '1 urmăritor' : `${c.viewers} urmăritori`}</Pill>
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-[3px] px-3 pt-2.5 pb-2.5">
+      <div className="flex flex-1 flex-col gap-1 px-3 py-2.5">
         <p className={cn('truncate t-eyebrow uppercase', isLive ? 'text-live' : 'text-accent-ink')}>{withHours(c)}</p>
-        <CardTitle href={href} className="line-clamp-2 min-h-10 t-heading text-ink">
+        <CardTitle href={href} className="line-clamp-2 min-h-[2lh] t-heading text-ink">
           {c.name}
         </CardTitle>
-        <p className="flex min-h-[17px] min-w-0 items-center gap-1 t-label text-accent-ink">
+        <p className="flex min-h-4.5 min-w-0 items-center gap-1 t-label text-accent-ink">
           {c.lake ? (
             <>
-              <MapPinIcon aria-hidden className="size-3 shrink-0 text-accent" />
+              <MapPinIcon aria-hidden className="size-3.5 shrink-0 text-accent" />
               <span className="truncate">{c.lake.name}</span>
             </>
           ) : null}
         </p>
-        {variant === 'rail' ? (
-          <div className="mt-1 flex flex-wrap gap-[5px]">
-            <Tag tone="indigo" title={c.rankingLabel}>
-              <TrophyIcon aria-hidden className="mr-1 size-2.5" />
-              {c.rankingLabel}
-            </Tag>
-            <Tag tone="gray">
-              {isTeam ? <UsersIcon aria-hidden className="mr-1 size-2.5" /> : <UserIcon aria-hidden className="mr-1 size-2.5" />}
-              {isTeam ? 'Echipe' : 'Individual'}
-            </Tag>
-          </div>
-        ) : null}
+        <div className="mt-1 flex flex-wrap gap-1">
+          {/* The kit attribute badge, text only (it has no icon slot; §05 never shrinks an outline). */}
+          <Tag tone="indigo" title={c.rankingLabel}>
+            {c.rankingLabel}
+          </Tag>
+          <Tag tone="gray">{isTeam ? 'Echipe' : 'Individual'}</Tag>
+        </div>
       </div>
 
       <div className="flex h-14 shrink-0 items-center border-t border-hairline px-3">
-        {isLive ? <LiveFooter c={c} variant={variant} /> : <UpcomingFooter c={c} />}
+        {isLive ? <LiveFooter c={c} /> : <UpcomingFooter c={c} />}
       </div>
     </CardShell>
   );
@@ -81,56 +111,33 @@ export function CompetitionRailCard({ competition: c, variant = 'rail' }: { comp
 /** fish CompetitionRailCard `withHours`: «SÂM, 27 SEPT. · 07:00–15:00» for a one-day competition. */
 const withHours = (c: CompetitionCard) => (c.hoursLabel ? `${c.dateLabel} · ${c.hoursLabel}` : c.dateLabel);
 
-/**
- * Live totals as one line — catches and weighed kilos (fish LiveFooter). The desktop grid card ends
- * with a «Clasament» link (design), above the card's stretched link.
- */
-function LiveFooter({ c, variant }: { c: CompetitionCard; variant: 'rail' | 'grid' }) {
-  const ranking =
-    variant === 'grid' ? (
-      <Link
-        href={routes.competitionRanking(c.documentId)}
-        aria-label={`Clasament: ${c.name}`}
-        className="relative z-10 ml-auto shrink-0 rounded-control t-label text-accent-ink hover:underline"
-      >
-        Clasament
-      </Link>
-    ) : null;
+/** Live totals as one line — catches and weighed kilos (fish LiveFooter). */
+function LiveFooter({ c }: { c: CompetitionCard }) {
   const results = c.results;
   if (!results?.hasCatches) {
     return (
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <FaceStack people={c.participantFaces.slice(0, 3).map((src, i) => ({ name: `Participant ${i + 1}`, src }))} size={24} />
         <p className="line-clamp-2 min-w-0 t-caption text-muted">{results ? 'Încă nu sunt capturi' : 'Statistici indisponibile'}</p>
-        {ranking}
       </div>
     );
   }
   return (
-    // Three grid cards across (1440) leave ~190px: with «Clasament» the units go to screen readers only.
-    <div className={cn('flex min-w-0 flex-1 items-center', variant === 'grid' ? 'gap-3.5 2xl:gap-2.5' : 'gap-3.5')}>
-      <LiveStat
-        icon={<FishIcon size={14} />}
-        value={String(results.catchCount)}
-        unit={results.catchCount === 1 ? 'captură' : 'capturi'}
-        compact={variant === 'grid'}
-      />
-      {results.totalKg !== null ? (
-        <LiveStat icon={<ScaleIcon size={14} />} value={formatDecimal(results.totalKg, 0, 1)} unit="kg" compact={variant === 'grid'} />
-      ) : null}
-      {ranking}
+    <div className="flex min-w-0 flex-1 items-center gap-3.5">
+      <LiveStat icon={<FishIcon size={14} />} value={String(results.catchCount)} unit={results.catchCount === 1 ? 'captură' : 'capturi'} />
+      {results.totalKg !== null ? <LiveStat icon={<ScaleIcon size={14} />} value={formatDecimal(results.totalKg, 0, 1)} unit="kg" /> : null}
     </div>
   );
 }
 
-function LiveStat({ icon, value, unit, compact = false }: { icon: ReactNode; value: string; unit: string; compact?: boolean }) {
+function LiveStat({ icon, value, unit }: { icon: ReactNode; value: string; unit: string }) {
   return (
-    <p className="flex min-w-0 items-center gap-[5px]">
+    <p className="flex min-w-0 items-center gap-1.5">
       <span aria-hidden className="text-accent-ink">
         {icon}
       </span>
       <span className="shrink-0 t-body-strong text-ink tabular-nums">{value}</span>
-      <span className={cn('truncate t-caption text-muted', compact && '2xl:sr-only')}>{unit}</span>
+      <span className="truncate t-caption text-muted">{unit}</span>
     </p>
   );
 }

@@ -1,8 +1,8 @@
 'use client';
 
 import type { KeyboardEvent, ReactNode } from 'react';
+import { LiveDot } from '@/components/templates/T1';
 import { cn } from '@/components/ui/cn';
-import { inkForFill } from './sectorInk';
 import { VIEWS, type RankingViewKey } from './views';
 
 /*
@@ -15,6 +15,9 @@ import { VIEWS, type RankingViewKey } from './views';
 type Props = { value: RankingViewKey; onChange: (view: RankingViewKey) => void };
 
 export const VIEW_PANEL_ID = 'concurs-vedere';
+
+// Tailwind 4: `outline-none` drops the style; the ring needs `outline-solid` back (T3 DetailTabs).
+const FOCUS_RING = 'outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent';
 const chipId = (key: RankingViewKey) => `concurs-vedere-chip-${key}`;
 const tabId = (key: RankingViewKey) => `concurs-vedere-tab-${key}`;
 
@@ -30,11 +33,14 @@ function onTabKey(e: KeyboardEvent<HTMLButtonElement>, value: RankingViewKey, on
   document.getElementById(idOf(key))?.focus();
 }
 
-/** fish `chipRow` (phone): four squares, selected = filled with the view's colour. */
+/**
+ * fish `chipRow` (phone): four squares. Selected = accent-ink + on-accent (accent-ink, not accent:
+ * the 10px label in white on accent is 4.46:1); the others soft-fill with an accent-ink icon.
+ */
 export function ViewChips({ value, onChange }: Props) {
   return (
     <div role="tablist" aria-label="Vederi clasament" className="grid grid-cols-4 gap-3 md:hidden">
-      {VIEWS.map(({ key, label, Icon, fill }) => {
+      {VIEWS.map(({ key, label, Icon }) => {
         const selected = key === value;
         return (
           <button
@@ -48,12 +54,13 @@ export function ViewChips({ value, onChange }: Props) {
             onClick={() => onChange(key)}
             onKeyDown={e => onTabKey(e, value, onChange, chipId)}
             className={cn(
-              'flex aspect-square flex-col items-center justify-center gap-1.5 rounded-[14px] p-1.5 transition-opacity active:opacity-85',
-              selected ? cn(fill, inkForFill(fill)) : 'bg-soft-fill text-ink-2',
+              'flex aspect-square cursor-pointer flex-col items-center justify-center gap-1.5 rounded-card p-1.5 transition-[background-color,opacity] duration-(--duration-fast) active:opacity-80',
+              FOCUS_RING,
+              selected ? 'bg-accent-ink text-on-accent' : 'bg-soft-fill text-ink-2',
             )}
           >
-            <Icon aria-hidden className="size-[22px]" />
-            <span className={cn('t-micro whitespace-nowrap', selected ? 'font-bold' : 'text-ink')}>{label}</span>
+            <Icon aria-hidden className={cn('size-6', !selected && 'text-accent-ink')} />
+            <span className={cn('whitespace-nowrap', selected ? 't-micro-strong' : 't-micro text-ink')}>{label}</span>
           </button>
         );
       })}
@@ -61,7 +68,11 @@ export function ViewChips({ value, onChange }: Props) {
   );
 }
 
-/** Desktop (design «vederi: tab-uri mari»): the same four views as large tabs with a meta line. */
+/**
+ * From 768 (design «vederi: tab-uri mari»): the same four views as one row of tabs. From 1280 each
+ * is 64px with its meta line; 768–1279 a 48px tab without it (the row of four fits, and the
+ * ranking starts above the fold on a tablet).
+ */
 export function ViewTabs({
   value,
   onChange,
@@ -72,11 +83,10 @@ export function ViewTabs({
     <div
       role="tablist"
       aria-label="Vederi clasament"
-      className="hidden grid-cols-2 gap-2 rounded-[18px] bg-surface p-1.5 shadow-e0 md:grid xl:grid-cols-4"
+      className="hidden grid-cols-4 gap-1.5 rounded-card bg-surface p-1.5 shadow-e0 md:grid xl:gap-2"
     >
-      {VIEWS.map(({ key, label, Icon, fill }) => {
+      {VIEWS.map(({ key, label, Icon }) => {
         const selected = key === value;
-        const ink = inkForFill(fill);
         return (
           <button
             key={key}
@@ -89,26 +99,28 @@ export function ViewTabs({
             onClick={() => onChange(key)}
             onKeyDown={e => onTabKey(e, value, onChange, tabId)}
             className={cn(
-              'flex h-16 items-center gap-3 rounded-[14px] px-4 text-left transition-colors duration-(--duration-fast)',
-              selected ? cn(fill, ink, 'shadow-e2') : 'hover:bg-soft-fill',
+              'flex h-12 min-w-0 cursor-pointer items-center gap-2 rounded-control px-2.5 text-left transition-colors duration-(--duration-fast) xl:h-16 xl:gap-3 xl:rounded-card xl:px-4',
+              FOCUS_RING,
+              // The fill marks the selection: no elevation (e2 is for sheets and popovers, §04).
+              selected ? 'bg-accent-ink text-on-accent' : 'text-ink hover:bg-soft-fill',
             )}
           >
             <span
               className={cn(
-                'flex size-9 shrink-0 items-center justify-center rounded-control',
-                selected ? 'bg-on-accent/20' : cn(fill, ink),
+                'flex size-8 shrink-0 items-center justify-center rounded-control xl:size-10',
+                selected ? 'bg-on-accent/15' : 'bg-accent-tint text-accent-ink',
               )}
             >
-              <Icon aria-hidden className="size-5" />
+              <Icon aria-hidden className="size-6" />
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="t-heading font-extrabold">{label}</span>
-              <span className={cn('truncate t-caption', selected ? 'opacity-80' : 'text-muted')}>{meta[key]}</span>
+              <span className="truncate t-body-strong xl:t-heading">{label}</span>
+              <span className={cn('truncate t-caption max-xl:sr-only', selected ? 'opacity-85' : 'text-muted')}>{meta[key]}</span>
             </span>
             {key === 'cantare' && live ? (
               <>
                 <span className="sr-only">, cântar în curs</span>
-                <span aria-hidden className="size-[7px] shrink-0 animate-live rounded-full bg-live" />
+                <LiveDot tone={selected ? 'on-accent' : 'live'} />
               </>
             ) : null}
           </button>
@@ -121,7 +133,7 @@ export function ViewTabs({
 /** The panel both tablists control, labelled by the selected view's tab. */
 export function ViewPanel({ value, children }: { value: RankingViewKey; children: ReactNode }) {
   return (
-    <div id={VIEW_PANEL_ID} role="tabpanel" aria-labelledby={chipId(value)} className="flex flex-col gap-3 md:gap-4.5">
+    <div id={VIEW_PANEL_ID} role="tabpanel" aria-labelledby={chipId(value)} className="flex flex-col gap-3 md:gap-4">
       {children}
     </div>
   );

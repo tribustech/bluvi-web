@@ -3,8 +3,10 @@ import { renderToString } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
 import { pollKeys, type LiveCompetition, type Poll } from '@/core/competitions';
+import { chooseRail, CompetitionsView, railStatus } from './CompetitionsSection';
 import { MyLiveCompetition } from './MyLiveCompetition';
 import { PollCard } from './PollCard';
+import { ToastProvider } from '../_shell/Toast';
 
 const poll: Poll = {
   id: 2,
@@ -24,7 +26,10 @@ const poll: Poll = {
 function renderPoll(signedIn: boolean) {
   const qc = new QueryClient();
   qc.setQueryData(pollKeys.current, poll);
-  return renderToString(createElement(QueryClientProvider, { client: qc }, createElement(PollCard, { layout: 'mobile', signedIn })));
+  // PollCard reports a failed vote through the shell's toast.
+  return renderToString(
+    createElement(QueryClientProvider, { client: qc }, createElement(ToastProvider, null, createElement(PollCard, { layout: 'mobile', signedIn })))
+  );
 }
 
 describe('Acasă PollCard', () => {
@@ -68,5 +73,33 @@ describe('Acasă MyLiveCompetition extra-scale rows (fish ScaleItem)', () => {
   it('national championship: draw position label', () => {
     const html = renderToString(createElement(MyLiveCompetition, { live: scale('nationalChampionship'), weighings: [], layout: 'card' }));
     expect(html).toContain('A4(12)');
+  });
+});
+
+describe('Acasă competitions rail', () => {
+  const ok = (count: number) => ({ isLoading: false, isError: false, count });
+  const failed = { isLoading: false, isError: true, count: 0 };
+
+  it('a failed live read (503) keeps the live rail, in its error state', () => {
+    expect(chooseRail(failed, ok(4))).toBe('live');
+    expect(railStatus(failed, 0)).toBe('error');
+    const html = renderToString(createElement(CompetitionsView, { isLive: true, competitions: [], total: 0, status: 'error', onRetry: () => {} }));
+    expect(html).toContain('Concursuri live');
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('Încearcă din nou');
+  });
+
+  it('both reads failed: the live rail with its retry, not nothing', () => {
+    expect(chooseRail(failed, failed)).toBe('live');
+  });
+
+  it('nothing live: upcoming; upcoming failed: its error', () => {
+    expect(chooseRail(ok(0), ok(3))).toBe('upcoming');
+    expect(chooseRail(ok(0), failed)).toBe('upcoming');
+    expect(chooseRail(ok(0), ok(0))).toBeNull();
+  });
+
+  it('a failed refetch with cards keeps the cards', () => {
+    expect(railStatus(failed, 5)).toBe('ready');
   });
 });

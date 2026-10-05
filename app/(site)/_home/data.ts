@@ -1,6 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
-import { getMyBookingsUpcomingCount, getOwnedLakes } from '@/core/booking';
+import { getMyBookingsUpcomingCount } from '@/core/booking';
 import { getLiveCompetition } from '@/core/competitions';
 import { getOwnedLakesStats } from '@/core/lakes';
 import {
@@ -13,7 +13,7 @@ import {
 } from '@/core/organizer';
 import { getActiveSession, getSession } from '@/core/partide';
 import { getUnreadNotificationsForLoggedInUser } from '@/core/social';
-import { isApiError } from '@/core/transport';
+import { isApiError, type Transport } from '@/core/transport';
 import { cmsUrl } from '@/lib/server/env';
 import { createServerTransport } from '@/lib/server/transport';
 import { getViewer, type Viewer } from '@/lib/server/viewer';
@@ -27,9 +27,29 @@ import { getViewer, type Viewer } from '@/lib/server/viewer';
  * public parts of the page are unaffected.
  */
 
-async function quiet<T>(label: string, read: () => Promise<T>): Promise<T | null> {
+/**
+ * How long one per-user read may hold its block (and, below 1280, the stacked column's single
+ * reveal) before it gives up and the block is hidden as if the read had failed.
+ */
+const READ_BUDGET_MS = 2500;
+
+/**
+ * The server transport with a time budget: every request carries an abort signal that fires after
+ * READ_BUDGET_MS (combined with the caller's own signal, if any). A fresh budget per call, so each
+ * read gets its own. Cached public GETs ignore it (they are answered from the cache).
+ */
+export function boundedTransport(): Transport {
+  const t = createServerTransport();
+  const budget = AbortSignal.timeout(READ_BUDGET_MS);
+  return {
+    request: (req) => t.request({ ...req, signal: req.signal ? AbortSignal.any([req.signal, budget]) : budget }),
+  };
+}
+
+/** A read that may fail or time out (bounded transport): null, never a thrown error. */
+async function quiet<T>(label: string, read: (t: Transport) => Promise<T>): Promise<T | null> {
   try {
-    return await read();
+    return await read(boundedTransport());
   } catch (e) {
     // A 4xx is an answer (no grant for this role, nothing to show), not an outage: stay quiet.
     if (!(isApiError(e) && e.status >= 400 && e.status < 500)) console.error(`[acasa] ${label} failed`, e);
@@ -49,35 +69,35 @@ export const getHomeViewer = cache(async (): Promise<HomeViewer | null> => {
 export const loadOrganizerDashboard = cache(async () => {
   const viewer = await getHomeViewer();
   if (!viewer?.isOrganizer) return null;
-  return quiet('organizer dashboard', () => getOrganizerDashboard(createServerTransport()));
+  return quiet('organizer dashboard', (t) => getOrganizerDashboard(t));
 });
 
 /**
  * fish OwnedLakesCard → `useOwnedLakes` + `useOwnedLakesStats(ownsLakes)`. The owned-lakes list is
- * the authoritative ownership signal: stats are read only when it is non-empty.
+ * the authoritative ownership signal — the session already read it (Viewer.ownedLakes, the same
+ * /feed/owned-lakes) — and stats are read only when it is non-empty. A failed stats read is NOT
+ * «no card»: the operator keeps the card, its shortcuts and a retry (`stats: null`).
  */
 export const loadOwnedLakes = cache(async () => {
   const viewer = await getHomeViewer();
-  if (!viewer) return null;
-  const t = createServerTransport();
-  const lakes = await quiet('owned lakes', () => getOwnedLakes(t));
-  if (!lakes || lakes.length === 0) return null;
-  const stats = await quiet('owned lakes stats', () => getOwnedLakesStats(t));
-  return stats ? { lakes, stats } : null;
+  const lakes = viewer?.ownedLakes ?? [];
+  if (lakes.length === 0) return null;
+  const stats = await quiet('owned lakes stats', (t) => getOwnedLakesStats(t));
+  return { lakes, stats };
 });
 
 /** fish WidgetsList → `useMyBookingsCount({ enabled: isAuthenticated })`. */
 export const loadMyBookingsCount = cache(async () => {
   const viewer = await getHomeViewer();
   if (!viewer) return null;
-  return quiet('bookings count', () => getMyBookingsUpcomingCount(createServerTransport()));
+  return quiet('bookings count', (t) => getMyBookingsUpcomingCount(t));
 });
 
 /** fish `useUnreadNotificationsCount` (the bell on the profile card). */
 export const loadUnreadNotifications = cache(async () => {
   const viewer = await getHomeViewer();
   if (!viewer) return null;
-  const res = await quiet('unread notifications', () => getUnreadNotificationsForLoggedInUser(createServerTransport()));
+  const res = await quiet('unread notifications', (t) => getUnreadNotificationsForLoggedInUser(t));
   return res?.count ?? null;
 });
 
@@ -90,10 +110,9 @@ export const loadUnreadNotifications = cache(async () => {
 export const loadActivePartida = cache(async () => {
   const viewer = await getHomeViewer();
   if (!viewer) return null;
-  const t = createServerTransport();
-  const active = await quiet('active partida', () => getActiveSession(t));
+  const active = await quiet('active partida', (t) => getActiveSession(t));
   if (!active?.documentId) return null;
-  const session = await quiet('active partida detail', () => getSession(t, active.documentId));
+  const session = await quiet('active partida detail', (t) => getSession(t, active.documentId));
   return session && session.status === 'active' ? session : null;
 });
 
@@ -105,7 +124,7 @@ export const loadActivePartida = cache(async () => {
 export const loadMyLiveCompetition = cache(async () => {
   const viewer = await getHomeViewer();
   if (!viewer) return null;
-  const live = await quiet('live competition', () => getLiveCompetition(createServerTransport()));
+  const live = await quiet('live competition', (t) => getLiveCompetition(t));
   if (!live) return null;
   return { ...live, 'extra-scales': live['extra-scales'].filter((s) => s.extraStatus === 'new') };
 });
@@ -116,7 +135,7 @@ export const loadMyLiveCompetition = cache(async () => {
  */
 export const loadActiveWeighing = cache(async (competitionId: string): Promise<CompetitionActiveWeighing[]> => {
   if (!(await getHomeViewer())) return [];
-  return (await quiet('active weighing', () => getCompetitionActiveWeighing(createServerTransport(), competitionId))) ?? [];
+  return (await quiet('active weighing', (t) => getCompetitionActiveWeighing(t, competitionId))) ?? [];
 });
 
 /**
@@ -125,12 +144,14 @@ export const loadActiveWeighing = cache(async (competitionId: string): Promise<C
  * the CMS headers); the participation is the signed-in user's own.
  */
 export const loadRaffle = cache(async () => {
-  const t = createServerTransport();
   const mediaOrigin = new URL(cmsUrl()).origin;
-  const active = await quiet('raffle active', () => fetchActiveRaffle(t, { mediaOrigin }));
-  if (!active?.session) return null;
+  // The participation does not depend on the session's answer: both reads run together.
   const viewer = await getHomeViewer();
-  const participation = viewer ? await quiet('raffle participation', () => fetchRaffleParticipation(t, { mediaOrigin })) : null;
+  const [active, participation] = await Promise.all([
+    quiet('raffle active', (t) => fetchActiveRaffle(t, { mediaOrigin })),
+    viewer ? quiet('raffle participation', (t) => fetchRaffleParticipation(t, { mediaOrigin })) : null,
+  ]);
+  if (!active?.session) return null;
   const state = deriveRaffleState(active, participation, null);
   return state.sessionDocumentId ? { state, signedIn: !!viewer } : null;
 });

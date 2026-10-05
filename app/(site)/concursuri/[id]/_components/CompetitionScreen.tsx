@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   competitionKeys,
@@ -13,36 +13,78 @@ import {
   rankingsQuery,
   SIGNED_OUT_MY_STATUS,
   userStatuteForCompetitionQuery,
+  competitionProfileKeys,
   type CompetitionDetail,
   type CompetitionWithMyStatus,
 } from '@/core/competitions';
-import { activeWeighingQuery, allocatedParticipantsQuery, weighingKeys } from '@/core/organizer';
+import { activeWeighingQuery, allocatedParticipantsQuery, competitionManagementKeys, weighingKeys } from '@/core/organizer';
 import { plural } from '@/components/cards/format';
-import { Button } from '@/components/ui/Button';
-import { EmptyState, ErrorState } from '@/components/surfaces/StateCard';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
-import { pageTransport } from './transport';
+import {
+  DetailActionBar,
+  DetailBackButton,
+  DetailBand,
+  DetailBody,
+  DetailError,
+  DetailPage,
+  DetailSection,
+  DetailSignInAgain,
+  DetailSignInPrompt,
+  DetailTabs,
+} from '@/components/templates/T3';
+import { ButtonLink } from '@/components/ui/Button';
+import { isApiError } from '@/core/transport';
+import { routes } from '@/lib/routes';
 import type { Viewer } from '@/lib/server/viewer';
 import { signInHref } from '../../../_shell/SiteHeader';
 import { useViewer } from '../../../_shell/viewer-context';
 import { ActiveWeighingBanner, MobileActionBar } from './ActionBar';
 import { AllFishView } from './AllFishView';
-import { ChatDock, MobileChatDialog, useChatBadge } from './ChatPanel';
+import { ChatDock, ChatHeaderButton, MobileChatSheet, useChatBadge } from './ChatPanel';
 import { CompetitionSkeleton } from './CompetitionSkeleton';
+import { isOfflineEmpty, OFFLINE_TITLE } from './offline';
+import { QueryRetry } from './QueryRetry';
+import { PAGE_RETRY } from './retry-policy';
+import { LOAD_ERROR_COPY, skeletonVariantOf } from './screen-state';
+import { CompetitionHeader } from './CompetitionHeader';
 import { DesktopStats } from './DesktopStats';
-import { HeaderBand } from './HeaderBand';
+import type { PageViewer } from './Follow';
 import { FullRankingDialog } from './FullRankingDialog';
-import { DesktopHeader, DetailTabs, MobileHeader } from './Header';
 import { CompetitionPreview } from './Preview';
-import { buildRankingTable, type RankingSort } from './ranking';
+import { buildRankingTable, weightDecimals, type RankingSort } from './ranking';
 import { RankingView } from './RankingView';
-import { StatisticsView } from './StatisticsView';
-import { Toast, useToast } from './Toast';
+import { StatisticsSkeleton, StatisticsView } from './StatisticsView';
+import { pageTransport } from './transport';
 import { ViewChips, ViewPanel, ViewTabs } from './ViewSwitch';
-import type { RankingViewKey } from './views';
+import { viewFromPath, viewFromSegment, viewPath, VIEW_PARAM, type RankingViewKey } from './views';
 import { WeighingsView } from './WeighingsView';
 
-export type CompetitionDates = { label: string; start: string; end: string };
+/*
+ * Concurs · Clasament on T3 «Detail with tabs» (components/templates/T3, demo /dev/templates/t3):
+ *
+ *   <DetailPage phoneGround="surface">       fish's white screen on the phone, page grey from 768
+ *     <DetailBand>                           the white band under the top bar, full bleed
+ *       <CompetitionHeader>                  fish CompetitionHeader (T3 DetailHeader, centred on the phone)
+ *       <DetailTabs>                         fish ROUTES_LIST — Clasament is the page; the rest come in M1
+ *     <DetailBody>                           no side columns: the ranking table takes the full width (ROADMAP §4)
+ *       stats (from 768) · the four views · the view's content
+ *     <DetailActionBar>                      phone: fish RankingActionBar, the weighing banner above it
+ *
+ * The page renders once, signed out, and never waits for the session: header, tabs and the whole
+ * ranking are in the static shell. The session (the shell's cookie-bound promise) is read by one
+ * small island behind its own Suspense, which hands it to the screen after hydration; only the
+ * per-viewer parts (follow, statute, action bar, chat, the viewer's own row) change then. Until it
+ * answers the viewer is `undefined` (unknown), never «signed out».
+ */
+
+export type CompetitionDates = {
+  label: string;
+  start: string;
+  end: string;
+  prose: string;
+  /** «sâm, 11 oct. · 07:00»: the countdown's caption. */
+  startShort: string;
+};
 
 /** The competition core with a ranking type core does not parse yet (feederRounds today). */
 export type LooseCompetition = Omit<CompetitionDetail, 'rankingType'> & { rankingType: string };
@@ -52,16 +94,29 @@ type Props = {
   dates: CompetitionDates;
   /** Set when core cannot parse the ranking type: header + preview from this, ranking unavailable. */
   unsupported?: LooseCompetition;
+  /** The status the server read: the client fallback skeleton takes its shape (preview or ranking). */
+  statusHint?: string;
+  /** The view the URL names (/cantare, /statistici, /capturi; Clasament otherwise): rendered by the server. */
+  initialView?: RankingViewKey;
 };
 
+/** fish's universal link (AASA /competitions/*): the app on a phone, the stores page elsewhere. */
+const appLink = (id: string) => `https://bluvi-app.wearetribus.com/competitions/${encodeURIComponent(id)}`;
+
+/** Spoken with a route tab that has no web page yet. */
+const SOON = 'În curând pe web';
+
+/** A tab that comes back after this long re-reads the live parts (fish pull-to-refresh, parity clasament.c6). */
+const REFRESH_ON_RETURN_MS = 30_000;
+
 /**
- * The page renders once, signed out, and never waits for the session: header, tabs and the whole
- * ranking are in the static shell. The session (the shell's cookie-bound promise) is read by one
- * small island behind its own Suspense, which hands it to the screen after hydration; only the
- * per-viewer parts (follow, statute, action bar, chat, the viewer's own row) change then.
+ * A live competition left open re-reads its live parts this often while the tab is visible
+ * (parity b.foreground-refresh; TanStack pauses the interval in a hidden tab).
  */
+const LIVE_POLL_MS = 45_000;
+
 export function CompetitionScreen(props: Props) {
-  const [viewer, setViewer] = useState<Viewer | null>(null);
+  const [viewer, setViewer] = useState<PageViewer>(undefined);
   const onViewer = useCallback((v: Viewer | null) => setViewer(v), []);
   return (
     <>
@@ -79,16 +134,18 @@ function ViewerIsland({ onViewer }: { onViewer: (v: Viewer | null) => void }) {
   return null;
 }
 
-function Screen({ id, dates, viewer, unsupported }: Props & { viewer: Viewer | null }) {
+function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'clasament' }: Props & { viewer: PageViewer }) {
   const t = useMemo(() => pageTransport(), []);
   const qc = useQueryClient();
   const pathname = usePathname() ?? '';
+  const router = useRouter();
   const breakpoint = useBreakpoint();
-  const isAuthenticated = viewer !== null;
+  const isAuthenticated = !!viewer;
   const session = { isAuthenticated };
 
   const competitionQ = useQuery({
     ...competitionQuery(t, id, session),
+    ...PAGE_RETRY,
     // An unsupported core cannot be parsed by the browser either: it stays what the server read
     // (the follow mutation still updates it optimistically).
     ...(unsupported
@@ -96,11 +153,36 @@ function Screen({ id, dates, viewer, unsupported }: Props & { viewer: Viewer | n
       : {}),
   });
   // Unsupported core: the viewer's overlay (isFollowing, registration) is read on its own.
-  const myStatusQ = useQuery({ ...competitionMyStatusQuery(t, id, session), enabled: !!unsupported && isAuthenticated });
+  const myStatusQ = useQuery({ ...competitionMyStatusQuery(t, id, session), ...PAGE_RETRY, enabled: !!unsupported && isAuthenticated });
+  const statuteQ = useQuery({ ...userStatuteForCompetitionQuery(t, id, session), ...PAGE_RETRY });
   // The server hydrated the signed-out overlay (isFollowing false): re-read it once with the session.
+  // Until that answer lands the overlay is stale, so the follow pill waits (a bone) rather than
+  // offering the wrong action — and if the re-read FAILS it is still stale: `failed`, and the follow
+  // button only offers to check again (never a follow / unfollow decided on the signed-out overlay).
+  const [overlayRead, setOverlayRead] = useState<'pending' | 'ok' | 'failed'>('pending');
   useEffect(() => {
-    if (isAuthenticated) void qc.invalidateQueries({ queryKey: competitionsKeys.byId(id), exact: true });
+    if (!isAuthenticated) return;
+    let live = true;
+    void qc.invalidateQueries({ queryKey: competitionsKeys.byId(id), exact: true }).then(() => {
+      if (live) setOverlayRead(qc.getQueryState(competitionsKeys.byId(id))?.status === 'error' ? 'failed' : 'ok');
+    });
+    return () => {
+      live = false;
+    };
   }, [isAuthenticated, id, qc]);
+  /** The follow button's «check again»: re-reads the overlay (and a failed statute); true when both answered. */
+  const recheckOverlay = async (): Promise<boolean> => {
+    await Promise.all([
+      unsupported ? myStatusQ.refetch() : qc.invalidateQueries({ queryKey: competitionsKeys.byId(id), exact: true }),
+      statuteQ.isError ? statuteQ.refetch() : undefined,
+    ]);
+    const overlayKey = unsupported ? competitionMyStatusQuery(t, id, session).queryKey : competitionsKeys.byId(id);
+    const ok =
+      qc.getQueryState(overlayKey)?.status !== 'error' &&
+      qc.getQueryState(userStatuteForCompetitionQuery(t, id, session).queryKey)?.status !== 'error';
+    if (!unsupported) setOverlayRead(ok ? 'ok' : 'failed');
+    return ok;
+  };
 
   const competition =
     unsupported && competitionQ.data && myStatusQ.data ? { ...competitionQ.data, ...myStatusQ.data } : competitionQ.data;
@@ -109,36 +191,76 @@ function Screen({ id, dates, viewer, unsupported }: Props & { viewer: Viewer | n
   // completed, cancelled, draft) gets the views and the ranking (or «Nu există date de afișat»).
   const rankingVisible = !!status && status !== 'notStarted';
 
-  const { data: statute } = useQuery(userStatuteForCompetitionQuery(t, id, session));
-  const chatBadge = useChatBadge(id, viewer, statute);
+  const overlayPending = isAuthenticated && (unsupported ? myStatusQ.isPending : overlayRead === 'pending');
+  const overlayFailed =
+    isAuthenticated &&
+    ((unsupported ? myStatusQ.isError && !myStatusQ.data : overlayRead === 'failed') || (statuteQ.isError && !statuteQ.data));
+  const statute = statuteQ.data;
+  const chatBadge = useChatBadge(id, viewer ?? null, statute);
 
-  const [view, setView] = useState<RankingViewKey>('clasament');
+  // The view is addressable as a path segment (/cantare, /statistici, /capturi — parity
+  // tab-deep-links): the server renders the one the URL names (initialView). Switching keeps it in
+  // the history with pushState (Next keeps its router and usePathname in sync, no navigation);
+  // Back / Forward restore it. An old `?vedere=` link is replaced by its segment.
+  const [view, setView] = useState<RankingViewKey>(initialView);
+  useEffect(() => {
+    const legacy = new URLSearchParams(window.location.search).get(VIEW_PARAM);
+    if (legacy !== null) {
+      // An old link: navigate (replace) to the view's segment, which the server renders open.
+      const url = new URL(window.location.href);
+      url.searchParams.delete(VIEW_PARAM);
+      router.replace(`${viewPath(routes.competition(id), viewFromSegment(legacy))}${url.search}${url.hash}`, { scroll: false });
+    }
+    const read = () => setView(viewFromPath(window.location.pathname));
+    window.addEventListener('popstate', read);
+    return () => window.removeEventListener('popstate', read);
+  }, [id, router]);
   const [sortBy, setSortBy] = useState<RankingSort>('stand');
   const [barMessage, setBarMessage] = useState<string | null>(null);
   const [fullOpen, setFullOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
-  const toast = useToast();
+  const [dockOpen, setDockOpen] = useState(false);
 
-  const rankingsQ = useQuery({ ...rankingsQuery(t, id, status), ...(unsupported ? { enabled: false } : {}) });
-  const { data: activeWeighing } = useQuery(activeWeighingQuery(t, id, session));
+  const live = status === 'started';
+  const poll = { refetchInterval: live ? LIVE_POLL_MS : false } as const;
+  const rankingsQ = useQuery({ ...rankingsQuery(t, id, status), ...PAGE_RETRY, ...poll, ...(unsupported ? { enabled: false } : {}) });
+  const { data: activeWeighing } = useQuery({ ...activeWeighingQuery(t, id, session), ...PAGE_RETRY, ...poll });
   const isDesktop = breakpoint !== 'mobile';
-  const weighingStatsQ = useQuery(
-    competitionWeighingStatisticsQuery(t, id, status, {
+  // The server prefetched it (page body): the stat row is painted with it, before hydration.
+  const weighingStatsQ = useQuery({
+    ...competitionWeighingStatisticsQuery(t, id, status, {
       enabled: !unsupported && (view === 'statistici' || (isDesktop && rankingVisible)),
     }),
-  );
-  const { data: allocated } = useQuery({
+    ...PAGE_RETRY,
+  });
+  // Poll the weighing statistics too (the «Cântar în curs» / «Ultimul cântar» tile).
+  useEffect(() => {
+    if (!live || unsupported) return;
+    const tick = setInterval(() => {
+      if (document.visibilityState === 'visible') void qc.invalidateQueries({ queryKey: competitionKeys.weighingStatistics(id) });
+    }, LIVE_POLL_MS);
+    return () => clearInterval(tick);
+  }, [live, unsupported, id, qc]);
+  const allocatedQ = useQuery({
     ...allocatedParticipantsQuery(t, id),
+    ...PAGE_RETRY,
     enabled: !unsupported && (view === 'cantare' || (isDesktop && !!activeWeighing?.length)),
   });
 
   // fish builds the table from the stand order (default) or the place order (Sortare).
   const table = useMemo(() => buildRankingTable(rankingsQ.data, sortBy), [rankingsQ.data, sortBy]);
-  // Desktop: the table sorts itself (place by default); its rows are built once, in place order.
+  // Desktop: the table sorts itself; its rows are built once, in place order.
   const placeTable = useMemo(() => buildRankingTable(rankingsQ.data, 'position'), [rankingsQ.data]);
+  // One weight precision for the whole competition (the tiles line up on the comma).
+  const decimals = useMemo(() => weightDecimals(placeTable), [placeTable]);
 
-  /** fish `handleChipPress`: switching view refreshes that view's data. */
+  /** fish `handleChipPress`: switching view refreshes that view's data (parity clasament.c5). */
   const selectView = (next: RankingViewKey) => {
+    if (next !== view) {
+      const url = new URL(window.location.href);
+      url.pathname = viewPath(routes.competition(id), next);
+      window.history.pushState(null, '', url);
+    }
     setView(next);
     if (next === 'statistici' || next === 'clasament') {
       void qc.invalidateQueries({ queryKey: rankingsKeys.byCompetitionId(id) });
@@ -154,6 +276,39 @@ function Screen({ id, dates, viewer, unsupported }: Props & { viewer: Viewer | n
     }
   };
 
+  /**
+   * fish `onRefresh` (pull-to-refresh) + refreshActionSheetQueries — on the web, when the reader
+   * comes back to the tab after a while (parity clasament.c6).
+   */
+  const lastRefresh = useRef(0);
+  useEffect(() => {
+    lastRefresh.current = Date.now();
+    const refresh = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - lastRefresh.current < REFRESH_ON_RETURN_MS) return;
+      lastRefresh.current = Date.now();
+      for (const queryKey of [
+        rankingsKeys.byCompetitionId(id),
+        competitionKeys.rankingBestN(id),
+        competitionKeys.weighingStatistics(id),
+        competitionKeys.timelineSnapshot(id),
+        [...competitionKeys.all, id, 'catches'],
+        weighingKeys.byCompetitionId(id),
+        competitionsKeys.byId(id),
+        competitionProfileKeys.statuteForCompetition(id),
+        competitionManagementKeys.allocatedParticipants(id),
+      ]) {
+        void qc.invalidateQueries({ queryKey });
+      }
+    };
+    // A hidden tab coming back, or a window coming back to the front (focus without hiding).
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [id, qc]);
+
   /** fish `handleSortChange` + its bar message. */
   const changeSort = (by: RankingSort) => {
     setSortBy(by);
@@ -164,160 +319,220 @@ function Screen({ id, dates, viewer, unsupported }: Props & { viewer: Viewer | n
     );
   };
 
-  const share = async () => {
-    if (!competition) return;
-    const url = window.location.origin + pathname;
-    // fish handleShareCompetition (without the emoji).
-    const text = `Intră în Bluvi să vezi competiția de pescuit ${competition.name}${
-      competition.lake?.name ? ` de pe balta ${competition.lake.name}` : ''
-    }`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: competition.name, text, url });
-        return;
-      }
-      await navigator.clipboard.writeText(url);
-      toast.show('Linkul competiției a fost copiat.');
-    } catch {
-      // Share sheet dismissed: nothing to report.
-    }
-  };
-
   if (!competition) {
-    if (competitionQ.isError) {
+    const offline = isOfflineEmpty(competitionQ);
+    if (offline || competitionQ.isError) {
+      const error = competitionQ.error;
+      const dead = isApiError(error) && (error.code === 'SESSION_DEAD' || error.status === 401);
       return (
-        <div className="px-4 py-6 md:px-6 xl:px-8">
-          <ErrorState
-            title="Ceva nu a mers bine, vă rugăm să încercați din nou mai târziu."
-            action={
-              <Button size="compact" variant="secondary" onClick={() => void competitionQ.refetch()}>
-                Reîncearcă
-              </Button>
-            }
-          />
-        </div>
+        <DetailError
+          back={<DetailBackButton fallbackHref={routes.home()} ground="page" />}
+          heading="Concursul nu a putut fi încărcat"
+          description={offline ? OFFLINE_TITLE : dead ? 'Sesiunea ta a expirat. Intră din nou în cont.' : LOAD_ERROR_COPY}
+          action={
+            dead && !offline ? (
+              <DetailSignInAgain signIn={signInHref(pathname)} />
+            ) : (
+              <QueryRetry fetching={competitionQ.isFetching} failed={offline || competitionQ.isError} onRetry={() => void competitionQ.refetch()} />
+            )
+          }
+        />
       );
     }
-    return <CompetitionSkeleton />;
+    return <CompetitionSkeleton variant={skeletonVariantOf(statusHint, !!unsupported)} />;
   }
 
-  const hasBanner = !!activeWeighing?.length && !!activeWeighing[0]?.stand;
   const signIn = signInHref(pathname);
+  const registered = competition.registrations.filter(r => r.registrationStatus === 'registered').length;
+  // The bar's tiles (ActionBar.tsx): Înscrie-te before the start, the ranking tiles once there is a
+  // ranking the web can show, Chat when signed in. Share is always the header's chip.
+  const barHasActions =
+    status === 'notStarted' ||
+    ((status === 'started' || status === 'completed') && !unsupported) ||
+    isAuthenticated ||
+    hasBanner(activeWeighing);
 
   return (
-    // fish screen background is white; on md+ the content sits on page grey.
-    <div className={rankingVisible ? 'relative max-md:min-h-dvh max-md:bg-surface' : 'relative'}>
-      <HeaderBand>
-      <MobileHeader competition={competition} viewer={viewer} statute={statute} signIn={signIn} onShare={share} toast={toast.show} />
-      <DesktopHeader
-        competition={competition}
-        viewer={viewer}
-        statute={statute}
-        dates={dates}
-        signIn={signIn}
-        onShare={share}
-        onFullView={rankingVisible && table ? () => setFullOpen(true) : undefined}
-        toast={toast.show}
-      />
-      <DetailTabs />
-      </HeaderBand>
+    <DetailPage phoneGround={rankingVisible ? 'surface' : 'page'}>
+      <DetailBand>
+        <CompetitionHeader
+          competition={competition}
+          viewer={viewer}
+          statute={statute}
+          statutePending={isAuthenticated && ((statuteQ.isPending && statuteQ.fetchStatus !== 'paused') || overlayPending)}
+          overlayFailed={overlayFailed}
+          onRecheckOverlay={recheckOverlay}
+          datesProse={dates.prose}
+          signIn={signIn}
+          // From 768, signed in: the chat is a header action (nothing floats over the table).
+          chat={viewer ? <ChatHeaderButton badge={chatBadge} open={dockOpen} onToggle={() => setDockOpen(o => !o)} /> : undefined}
+        />
+        {/* fish ROUTES_LIST. Clasament is this page; the other tabs come with M1. */}
+        <DetailTabs
+          label="Secțiunile concursului"
+          tabs={[
+            { label: 'Clasament', href: routes.competition(id), current: true },
+            // Not on the web yet (M1): shown greyed, no visible «curând» tag (it cut the phone strip
+            // mid-word); the reason is spoken with each one.
+            { label: 'Informații', absent: SOON },
+            { label: 'Participanți', count: registered, absent: SOON },
+            { label: 'Extra Cântare', absent: SOON },
+            { label: 'Regulament', absent: SOON },
+          ]}
+        />
+      </DetailBand>
 
-      {rankingVisible && unsupported ? (
-        <div className="flex flex-col gap-3 px-4 pt-4 md:gap-4.5 md:px-6 md:pt-6 xl:px-8">
-          {/* fish renders feeder legs (FeederLegTabs + FeederRankingTable); the web has no view for them yet. */}
-          <EmptyState title="Clasamentul acestui tip de concurs nu este încă disponibil pe web." />
-        </div>
-      ) : rankingVisible ? (
-        <div className="flex flex-col gap-3 px-4 pt-4 md:gap-4.5 md:px-6 md:pt-6 xl:px-8">
-          <DesktopStats
-            metadata={rankingsQ.data?.metadata}
-            rankings={table?.rows}
-            competition={competition}
-            activeWeighing={activeWeighing}
-            weighings={weighingStatsQ.data?.data}
-            weighingsLoading={weighingStatsQ.isPending}
-            allocated={allocated}
-            onAllWeighings={() => selectView('cantare')}
-          />
-          <ViewChips value={view} onChange={selectView} />
-          <ViewTabs
-            value={view}
-            onChange={selectView}
-            meta={{
-              clasament: placeTable ? `General · ${plural(placeTable.rows.length, 'pescar', 'pescari')}` : 'General',
-              cantare: weighingsMeta(activeWeighing?.length ?? 0, weighingStatsQ.data?.data, weighingStatsQ.isPending),
-              statistici: 'Best 3/5/7 · pe sectoare',
-              allFish:
-                typeof rankingsQ.data?.metadata.totalCatchesCount === 'number'
-                  ? plural(rankingsQ.data.metadata.totalCatchesCount, 'captură', 'capturi')
-                  : 'Toate capturile',
-            }}
-            live={status === 'started' && !!activeWeighing?.length}
-          />
+      {rankingVisible ? (
+        <DetailBody>
+          {unsupported ? (
+            // fish renders feeder legs (FeederLegTabs + FeederRankingTable); the web has no view for
+            // them yet: a centred state at the prose measure, with the way to see it (the app).
+            <DetailSection tone="plain">
+              <AppOnlyState id={id} title="Clasamentul acestui tip de concurs nu este încă disponibil pe web." />
+            </DetailSection>
+          ) : (
+            <>
+              <div className="max-md:hidden">
+                <DesktopStats
+                  metadata={rankingsQ.data?.metadata}
+                  rankings={table?.rows}
+                  competition={competition}
+                  activeWeighing={activeWeighing}
+                  weighings={weighingStatsQ.data?.data}
+                  weighingsLoading={weighingStatsQ.isPending && weighingStatsQ.fetchStatus !== 'idle'}
+                  weighingsError={(weighingStatsQ.isError || weighingStatsQ.fetchStatus === 'paused') && !weighingStatsQ.data}
+                  reserveWeighing={status === 'started' || status === 'completed'}
+                  decimals={decimals}
+                  onRetryWeighings={() => void weighingStatsQ.refetch()}
+                  allocated={allocatedQ.data}
+                  onAllWeighings={() => selectView('cantare')}
+                />
+              </div>
+              <DetailSection tone="plain" className="flex flex-col gap-4 max-md:pt-2">
+                <ViewChips value={view} onChange={selectView} />
+                <ViewTabs
+                  value={view}
+                  onChange={selectView}
+                  meta={{
+                    clasament: placeTable ? `General · ${plural(placeTable.rows.length, 'pescar', 'pescari')}` : 'General',
+                    cantare: weighingsMeta(
+                      activeWeighing?.length ?? 0,
+                      weighingStatsQ.data?.data,
+                      weighingStatsQ.isPending,
+                      weighingStatsQ.isError && !weighingStatsQ.data,
+                    ),
+                    statistici: 'Top 3/5/7 · pe sectoare',
+                    allFish:
+                      typeof rankingsQ.data?.metadata.totalCatchesCount === 'number'
+                        ? plural(rankingsQ.data.metadata.totalCatchesCount, 'captură', 'capturi')
+                        : 'Toate capturile',
+                  }}
+                  live={status === 'started' && !!activeWeighing?.length}
+                />
 
-          <ViewPanel value={view}>
-          {view === 'clasament' && (
-            <RankingView
-              query={rankingsQ}
-              table={table}
-              placeTable={placeTable}
-              currentUserStandId={currentUserStandId(competition, viewer)}
-            />
+                <ViewPanel value={view}>
+                  {view === 'clasament' && (
+                    <RankingView
+                      appOnly={<AppOnlyState id={id} title="Clasamentul pe cluburi nu este încă disponibil pe web." />}
+                      query={rankingsQ}
+                      table={table}
+                      placeTable={placeTable}
+                      currentUserStandId={currentUserStandId(competition, viewer ?? null)}
+                      onFullView={() => setFullOpen(true)}
+                    />
+                  )}
+                  {view === 'statistici' &&
+                    (viewer === null ? (
+                      <DetailSignInPrompt message="Trebuie să fii autentificat pentru a vedea statisticile." href={signIn} />
+                    ) : viewer ? (
+                      <StatisticsView
+                        t={t}
+                        competition={competition}
+                        metadata={rankingsQ.data?.metadata}
+                        rankings={rankingsQ.data}
+                        rankingRows={table?.rows}
+                        weighingStats={weighingStatsQ}
+                        decimals={decimals}
+                      />
+                    ) : (
+                      // The session is not known yet: the view's shape, not an empty panel.
+                      <StatisticsSkeleton />
+                    ))}
+                  {view === 'cantare' && (
+                    <WeighingsView t={t} competition={competition} allocated={allocatedQ} isAuthenticated={isAuthenticated} />
+                  )}
+                  {view === 'allFish' && <AllFishView t={t} competition={competition} />}
+                </ViewPanel>
+              </DetailSection>
+            </>
           )}
-          {view === 'statistici' &&
-            (isAuthenticated ? (
-              <StatisticsView t={t} competition={competition} metadata={rankingsQ.data?.metadata} rankings={rankingsQ.data} weighingStats={weighingStatsQ} />
-            ) : (
-              <SignInPrompt href={signIn} />
-            ))}
-          {view === 'cantare' && <WeighingsView t={t} competition={competition} allocated={allocated} isAuthenticated={isAuthenticated} />}
-          {view === 'allFish' && <AllFishView t={t} competition={competition} />}
-          </ViewPanel>
-        </div>
+        </DetailBody>
       ) : (
         <CompetitionPreview competition={competition} dates={dates} />
       )}
 
-      {/* Room for the fixed action bar (+ banner) above the mobile tab bar. */}
-      <div aria-hidden className={`md:hidden ${hasBanner ? 'h-32' : 'h-24'}`} />
-      {/* Room for the fixed chat dock (≈60px tall, 24/32px from the bottom). */}
-      <div className="h-24 max-md:hidden xl:h-28" aria-hidden />
+      {/* Nothing to offer but what the header already has (its share chip): no bar at all. */}
+      {barHasActions ? (
+        <DetailActionBar
+          label="Bara de acțiuni"
+          above={hasBanner(activeWeighing) ? <ActiveWeighingBanner weighings={activeWeighing} onPress={() => selectView('cantare')} /> : undefined}
+        >
+          <MobileActionBar
+            competition={competition}
+            isAuthenticated={isAuthenticated}
+            signIn={signIn}
+            onSort={changeSort}
+            onView={selectView}
+            onFullView={() => setFullOpen(true)}
+            fullViewDisabled={!table}
+            onChat={isAuthenticated ? () => setChatOpen(true) : undefined}
+            chatBadge={chatBadge}
+            rankingAvailable={!unsupported}
+            barMessage={barMessage}
+            onBarMessageDismiss={() => setBarMessage(null)}
+          />
+        </DetailActionBar>
+      ) : null}
 
-      <div className="fixed inset-x-0 bottom-[calc(50px+max(14px,env(safe-area-inset-bottom)))] z-20 md:hidden">
-        <MobileActionBar
+      <FullRankingDialog open={fullOpen} onClose={() => setFullOpen(false)} title={competition.name} table={placeTable} />
+      {/* From 768, signed in only: signed out it could only lead to «Intră în cont» (the phone bar has no Chat tile either). */}
+      {viewer ? (
+        <ChatDock
+          open={dockOpen}
+          onClose={() => setDockOpen(false)}
           competition={competition}
-          isAuthenticated={isAuthenticated}
+          viewer={viewer}
+          statute={statute}
           signIn={signIn}
-          onSort={changeSort}
-          onView={selectView}
-          onFullView={() => setFullOpen(true)}
-          fullViewDisabled={!table}
-          onShare={share}
-          onChat={isAuthenticated ? () => setChatOpen(true) : undefined}
-          chatBadge={chatBadge}
-          rankingAvailable={!unsupported}
-          barMessage={barMessage}
-          onBarMessageDismiss={() => setBarMessage(null)}
+          badge={chatBadge}
         />
-        <ActiveWeighingBanner weighings={activeWeighing} onPress={() => selectView('cantare')} />
-      </div>
-
-      <FullRankingDialog
-        open={fullOpen}
-        onClose={() => setFullOpen(false)}
-        title={competition.name}
-        table={placeTable}
-      />
-      <ChatDock competition={competition} viewer={viewer} statute={statute} signIn={signIn} badge={chatBadge} />
-      <MobileChatDialog
+      ) : null}
+      <MobileChatSheet
         open={chatOpen}
         onClose={() => setChatOpen(false)}
         competition={competition}
-        viewer={viewer}
+        viewer={viewer ?? null}
         statute={statute}
         signIn={signIn}
       />
-      <Toast message={toast.message} />
+    </DetailPage>
+  );
+}
+
+const hasBanner = (w: { stand: unknown }[] | undefined) => !!w?.length && !!w[0]?.stand;
+
+/**
+ * A ranking the web cannot draw yet (feeder legs, club rankings): centred at the prose measure, what
+ * is missing and the way to see it — the competition in the Bluvi app.
+ */
+function AppOnlyState({ id, title }: { id: string; title: string }) {
+  return (
+    <div className="mx-auto flex w-full max-w-140 flex-col items-center gap-4 rounded-card bg-surface px-6 py-8 text-center shadow-e0 max-md:shadow-none">
+      <div className="flex flex-col gap-1">
+        <h2 className="t-heading text-ink">{title}</h2>
+        <p className="t-body text-muted">Îl poți urmări în aplicația Bluvi.</p>
+      </div>
+      <ButtonLink href={appLink(id)}>Deschide în aplicație</ButtonLink>
     </div>
   );
 }
@@ -334,19 +549,9 @@ function currentUserStandId(
   return mine?.stand ? String(mine.stand.id) : null;
 }
 
-/** fish: «Trebuie sa fii autentificat pentru a vedea statisticile.» + «Intră în cont». */
-function SignInPrompt({ href }: { href: string }) {
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-4 py-6 text-center shadow-e0">
-      <p className="t-body text-ink-2">Trebuie să fii autentificat pentru a vedea statisticile.</p>
-      <a href={href} className="t-body-strong text-accent-ink underline-offset-2 hover:underline">
-        Intră în cont
-      </a>
-    </div>
-  );
-}
-
-function weighingsMeta(active: number, weighings: { endDate: string | null }[] | undefined, loading: boolean): string {
+function weighingsMeta(active: number, weighings: { endDate: string | null }[] | undefined, loading: boolean, failed: boolean): string {
+  // A failed read is not «Pe standuri» (that reads as «no weighing yet»).
+  if (!weighings && failed) return active > 0 ? `${active} în curs · Indisponibil` : 'Indisponibil';
   const done = weighings?.filter(w => w.endDate).length ?? 0;
   const parts = [active > 0 ? `${active} în curs` : null, weighings ? `${done} ${done === 1 ? 'finalizat' : 'finalizate'}` : null];
   // Until the statistics land the count is unknown: a neutral placeholder, not «Pe standuri».

@@ -23,12 +23,14 @@ const KEY = 'bluvi:acasa:slogan';
 let current: { at: number; index: number } | null = null;
 function visitIndex(): number {
   if (current && performance.now() - current.at < 1000) return current.index;
-  let next = 1;
+  // The tab's first visit keeps index 0 (the server's pick, no swap); later visits rotate.
+  let next = 0;
   try {
-    next = (Number(sessionStorage.getItem(KEY) ?? '0') + 1) % SLOGANS.length;
+    const prev = sessionStorage.getItem(KEY);
+    next = prev == null ? 0 : (Number(prev) + 1) % SLOGANS.length;
     sessionStorage.setItem(KEY, String(next));
   } catch {
-    // Storage blocked: advance per view only.
+    // Storage blocked: keep the server's pick.
   }
   current = { at: performance.now(), index: next };
   return next;
@@ -36,9 +38,13 @@ function visitIndex(): number {
 
 /**
  * fish: the slogan advances every time Acasă is focused. The web equivalent is every visit of the
- * page in this tab (sessionStorage). The server renders the first one; the next fades in.
+ * page in this tab (sessionStorage), which only the browser knows. So the server renders the first
+ * slogan, VISIBLE — without JS, or before hydration, the line still reads — and when the visit picks
+ * another one it replaces it with a fade. The same pick (index 0) keeps the server's node: nothing
+ * swaps. Opacity only, on an ease that does not overshoot: the header caption is `truncate`
+ * (overflow hidden), where a slide would be clipped. The line box is the same either way.
  */
-export function Slogan({ signedIn, className }: { signedIn: boolean; className?: string }) {
+export function Slogan({ signedIn, as: Tag = 'p', className }: { signedIn: boolean; as?: 'p' | 'span'; className?: string }) {
   const list = signedIn ? SLOGANS : SLOGANS_SIGNED_OUT;
   const [index, setIndex] = useState<number | null>(null);
 
@@ -47,19 +53,24 @@ export function Slogan({ signedIn, className }: { signedIn: boolean; className?:
     setIndex(visitIndex());
   }, []);
 
+  const shown = index ?? 0;
   return (
     <>
       {/* React 19 hoists and dedupes a <style> with href + precedence. */}
       <style href="acasa-slogan" precedence="default">
-        {'@keyframes acasa-slogan{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}'}
+        {'@keyframes acasa-slogan{from{opacity:0}to{opacity:1}}'}
       </style>
-      <p
-        key={index ?? 'ssr'}
-        aria-live="off"
-        className={cn('t-body text-muted', index !== null && 'animate-[acasa-slogan_var(--duration-medium)_var(--ease-medium)]', className)}
+      <Tag
+        key={shown}
+        className={cn(
+          'text-muted',
+          Tag === 'span' && 'block',
+          shown !== 0 && 'motion-safe:animate-[acasa-slogan_var(--duration-medium)_var(--ease-slow)]',
+          className ?? 't-body',
+        )}
       >
-        {list[index ?? 0]}
-      </p>
+        {list[shown]}
+      </Tag>
     </>
   );
 }

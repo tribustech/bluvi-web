@@ -3,9 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { fmtDurationCompact, fmtKg, type SessionDetailDTO } from '@/core/partide';
+import { Pill } from '@/components/cards';
 import { FishIcon } from '@/components/icons/brand';
+import { ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { routes } from '@/lib/routes';
+import { useSiteToast } from '../_shell/Toast';
 
 const pluralCapturi = (n: number) => (n === 1 ? 'captură' : 'capturi');
 
@@ -48,7 +51,8 @@ function useTimerRods(s: SessionDetailDTO) {
   return rods.map((r) => {
     const remaining = now != null && r.endsAt != null ? r.endsAt - now : null;
     const expired = remaining != null && remaining <= 0;
-    return { ...r, expired, text: remaining == null ? '––:––' : expired ? 'expirat' : fmtDurationCompact(remaining) };
+    // fish: a countdown from an unsampled clock is a guess — say so instead of a number.
+    return { ...r, expired, text: remaining == null ? 'sincronizare…' : expired ? 'expirat' : fmtDurationCompact(remaining) };
   });
 }
 
@@ -56,17 +60,18 @@ function RodChips({ session, size }: { session: SessionDetailDTO; size: 'dock' |
   const rods = useTimerRods(session);
   if (rods.length === 0) return null;
   return (
-    <ul aria-label="Lansete" className={cn('flex flex-wrap items-center gap-x-[7px]', size === 'dock' ? 'gap-y-[5px]' : 'gap-y-1.5')}>
+    <ul aria-label="Lansete" className={cn('flex flex-wrap items-center gap-x-2', size === 'dock' ? 'gap-y-1' : 'gap-y-1.5')}>
       {rods.map((r) => (
         <li
           key={r.index}
           className={cn(
-            'flex shrink-0 items-center gap-[5px] rounded-lg px-[7px] py-[3px] tabular-nums',
+            'flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 tabular-nums',
             size === 'dock' ? 't-nano' : 't-micro-strong',
-            r.expired ? 'bg-status-danger-bg text-status-live-bg' : 'bg-soft-fill text-ink'
+            // The kit StatusPill pairs (danger / neutral), at the dock's compact size.
+            r.expired ? 'bg-status-danger-bg text-status-danger-fg' : 'bg-status-neutral-bg text-status-neutral-fg'
           )}
         >
-          <span aria-hidden className="size-[7px] rounded-full" style={{ backgroundColor: r.color ?? 'currentColor' }} />
+          <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: r.color ?? 'currentColor' }} />
           <span className="sr-only">Lanseta {r.index + 1}: </span>
           {r.text}
         </li>
@@ -75,20 +80,16 @@ function RodChips({ session, size }: { session: SessionDetailDTO; size: 'dock' |
   );
 }
 
+/** The partidă's state: the kit LIVE pill (pulsing dot), worded as fish. */
 function ActivePill() {
-  return (
-    <span className="flex shrink-0 items-center gap-[5px] rounded-full bg-status-live-bg px-[9px] py-[5px] t-nano text-status-live-fg">
-      <span aria-hidden className="size-1.5 rounded-full bg-current animate-live" />
-      ACTIVĂ
-    </span>
-  );
+  return <Pill tone="live">ACTIVĂ</Pill>;
 }
 
 /**
  * fish features/partide/components/ActivePartidaDock.tsx — the live-partidă bar fused with the tab
  * bar (mobile/tablet): ACTIVĂ, venue + stats, «Captură», per-rod timers. The bar opens the partidă.
  * fish's «Captură» opens the capture flow in place; on the web the capture happens on the partidă
- * page, so it links there.
+ * page, so it links there (offline it is blocked with fish's toast — a capture is a write).
  */
 export function ActivePartidaDock({ session }: { session: SessionDetailDTO }) {
   const href = routes.partida(session.documentId);
@@ -96,7 +97,7 @@ export function ActivePartidaDock({ session }: { session: SessionDetailDTO }) {
   return (
     <section
       aria-label="Partida activă"
-      className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-20 flex flex-col gap-2 rounded-t-[18px] border-t border-accent/20 bg-surface px-3.5 py-2.5 shadow-tabbar md:bottom-0 md:left-[72px] xl:hidden"
+      className="sticky bottom-0 z-sticky -mx-4 -mb-8 flex flex-col gap-2 rounded-t-bento md:-mx-6 md:-mb-10 border-t border-accent/20 bg-surface px-3.5 pt-2.5 pb-[max(--spacing(2.5),env(safe-area-inset-bottom))] shadow-tabbar xl:hidden"
     >
       <div className="relative flex items-center gap-2.5">
         <ActivePill />
@@ -109,13 +110,7 @@ export function ActivePartidaDock({ session }: { session: SessionDetailDTO }) {
           </Link>
           <p className="truncate t-micro text-muted">{label}</p>
         </div>
-        <Link
-          href={href}
-          className="relative z-10 flex shrink-0 items-center gap-[5px] rounded-[11px] bg-success px-[13px] py-[9px] t-label text-on-accent shadow-button"
-        >
-          <FishIcon size={15} />
-          Captură
-        </Link>
+        <CaptureLink href={href} className="relative z-above" />
       </div>
       <RodChips session={session} size="dock" />
     </section>
@@ -127,7 +122,7 @@ export function ActivePartidaCard({ session }: { session: SessionDetailDTO }) {
   const href = routes.partida(session.documentId);
   const { label, captures } = statsLabel(session, false);
   return (
-    <section aria-labelledby="acasa-partida-activa" className="flex flex-col gap-3 rounded-[18px] bg-surface p-3.5 shadow-[inset_0_0_0_1px_var(--color-accent-tint-2)]">
+    <section aria-labelledby="acasa-partida-activa" className="flex flex-col gap-3 rounded-card border border-accent-tint-2 bg-surface p-4.5">
       <div className="flex items-center gap-2.5">
         <ActivePill />
         <p className="min-w-0 flex-1 t-caption text-muted">
@@ -144,16 +139,34 @@ export function ActivePartidaCard({ session }: { session: SessionDetailDTO }) {
         </p>
       </div>
       <RodChips session={session} size="card" />
-      <div className="flex gap-2">
-        <Link href={href} className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-[11px] bg-success t-body-strong text-on-accent">
-          <FishIcon size={15} />
-          Captură
-        </Link>
-        <Link href={href} className="flex h-10 flex-1 items-center justify-center rounded-[11px] bg-accent-tint t-body-strong text-accent-ink hover:bg-accent-tint-2">
+      {/* Side by side when both labels fit, stacked in a narrow aside (labels never truncate). */}
+      <div className="flex flex-wrap gap-2">
+        <CaptureLink href={href} className="grow" />
+        <ButtonLink href={href} variant="secondary" className="grow">
           Deschide partida
-        </Link>
+        </ButtonLink>
       </div>
     </section>
+  );
+}
+
+/** fish onPartidaCapture: offline → «Fără conexiune. Reconectare…», nothing opens. */
+function CaptureLink({ href, className }: { href: string; className?: string }) {
+  const toast = useSiteToast();
+  return (
+    <ButtonLink
+      href={href}
+      variant="success"
+      className={className}
+      icon={<FishIcon size={20} />}
+      onClick={(e) => {
+        if (navigator.onLine) return;
+        e.preventDefault();
+        toast('Fără conexiune. Reconectare…', 'danger');
+      }}
+    >
+      Captură
+    </ButtonLink>
   );
 }
 

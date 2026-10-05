@@ -83,6 +83,13 @@ export function competitionDateTime(iso: string): string {
   return `${WEEKDAYS[p.weekday]}, ${String(p.day).padStart(2, '0')} ${MONTHS[p.month]} ${p.year}, ${p.hour}:${p.minute}`;
 }
 
+/** The countdown caption (Fundații StatTile «Începe în»): «sâm, 11 oct · 07:00». */
+export function competitionStartShort(iso: string): string {
+  const p = parts(iso);
+  if (!p) return '';
+  return `${WEEKDAYS_SHORT[p.weekday].toLocaleLowerCase('ro')}, ${p.day} ${MONTHS_SHORT[p.month].replace('.', '').toLocaleLowerCase('ro')} · ${p.hour}:${p.minute}`;
+}
+
 /** «07:42» in Bucharest. */
 export function clockTime(iso: string): string {
   const p = parts(iso);

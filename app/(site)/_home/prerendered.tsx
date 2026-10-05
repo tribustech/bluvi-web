@@ -1,10 +1,12 @@
 import 'server-only';
-import { cache } from 'react';
+import { cache, type ReactNode } from 'react';
 import type { InfiniteData } from '@tanstack/react-query';
 import { selectCompetitionCards } from '@/core/competitions';
+import { fetchActiveRaffle } from '@/core/organizer';
+import { cmsUrl } from '@/lib/server/env';
 import { createServerTransport } from '@/lib/server/transport';
 import { CompetitionsView } from './CompetitionsSection';
-import { LakesView } from './LakesSection';
+import { LakesSection, LakesView } from './LakesSection';
 import { NewsView } from './NewsSection';
 import { homeLakesQuery, homeNewsQuery, homeSponsorsQuery, liveCardsQuery, SIGNED_OUT, upcomingCardsQuery } from './queries';
 import { SponsorsView } from './SponsorsSection';
@@ -58,38 +60,52 @@ const loadSponsors = cache(() =>
 );
 
 /** Same choice as CompetitionsSection: live while anything is live, else upcoming, else nothing. */
-export async function CompetitionsPrerendered({ layout }: { layout: 'rail' | 'grid' }) {
+export async function CompetitionsPrerendered() {
   const [live, upcoming] = await loadCompetitions();
-  if (!live || !upcoming) {
-    return <CompetitionsView layout={layout} isLive competitions={[]} total={0} status="loading" />;
-  }
+  if (!live || !upcoming) return <CompetitionsView isLive competitions={[]} total={0} status="loading" />;
   const liveCards = selectCompetitionCards(live, { scope: 'all' }, SIGNED_OUT);
   const upcomingCards = selectCompetitionCards(upcoming, { scope: 'all' }, SIGNED_OUT);
   const isLive = liveCards.competitions.length > 0;
   const cards = isLive ? liveCards : upcomingCards;
   if (cards.competitions.length === 0) return null;
-  return <CompetitionsView layout={layout} isLive={isLive} competitions={cards.competitions} total={cards.total} status="ready" />;
+  return <CompetitionsView isLive={isLive} competitions={cards.competitions} total={cards.total} status="ready" />;
 }
 
-export async function LakesPrerendered({ layout }: { layout: 'rail' | 'grid' }) {
+export async function LakesPrerendered() {
   const data = await loadLakes();
-  if (!data) return <LakesView layout={layout} lakes={[]} total={undefined} status="loading" />;
-  return (
-    <LakesView
-      layout={layout}
-      lakes={data.pages.flatMap((p) => p.data)}
-      total={data.pages[0]?.meta.pagination.total}
-      status="ready"
-    />
-  );
+  if (!data) return <LakesView lakes={[]} total={undefined} loading />;
+  return <LakesView lakes={data.pages.flatMap((p) => p.data)} total={data.pages[0]?.meta.pagination.total} loading={false} />;
 }
 
-export async function NewsPrerendered({ layout }: { layout: 'rail' | 'grid' }) {
+export async function NewsPrerendered() {
   const data = await loadNews();
-  return <NewsView layout={layout} news={data ? data.pages.flatMap((p) => p.data) : undefined} />;
+  return <NewsView news={data ? data.pages.flatMap((p) => p.data) : undefined} />;
 }
 
-export async function SponsorsPrerendered({ layout }: { layout: 'mobile' | 'desktop' }) {
+export async function SponsorsPrerendered() {
   const data = await loadSponsors();
-  return <SponsorsView layout={layout} sponsors={data?.data ?? []} />;
+  return <SponsorsView sponsors={data?.data ?? []} />;
+}
+
+/** The live lakes section, handed the server's first page (see LakesSection `initial`). */
+export async function LakesLive() {
+  return <LakesSection initial={await loadLakes()} />;
+}
+
+/*
+ * Gates for the stacked column's skeleton (page.tsx): its bones take the shape of what the column
+ * will hold, from the public reads alone (no session). Each sits in its own <Suspense fallback={null}>
+ * in the skeleton, so a short-lived read never reaches the page root.
+ */
+
+/** Its children only while sponsors exist (the Sponsori rail renders nothing without them). */
+export async function IfSponsors({ children }: { children: ReactNode }) {
+  const data = await loadSponsors();
+  return data?.data.length ? children : null;
+}
+
+/** Its children only while a raffle session is active (the raffle card is public). */
+export async function IfRaffle({ children }: { children: ReactNode }) {
+  const active = await fetchActiveRaffle(createServerTransport(), { mediaOrigin: new URL(cmsUrl()).origin }).catch(() => null);
+  return active?.session ? children : null;
 }

@@ -1,58 +1,72 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
-import { ArrowsUpDownIcon, ExclamationTriangleIcon, MagnifyingGlassIcon, StarIcon } from '@heroicons/react/20/solid';
-import type { RankingResponse } from '@/core/competitions';
+import { StarIcon } from '@heroicons/react/20/solid';
+import { ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
+import type { ColumnDefinition, RankingResponse } from '@/core/competitions';
+import { CapotChip, Tag } from '@/components/cards/parts';
 import { RankingTable, readCell, tiedIndices } from '@/components/ranking';
 import { sectorFill } from '@/components/ranking/sector';
 import { SegmentedControl } from '@/components/forms/SegmentedControl';
+import { IconButton } from '@/components/nav/IconButton';
+import { Select } from '@/components/forms/Select';
+import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
+import { TextInput } from '@/components/forms/TextInput';
+import { ChoiceChips, type Choice } from '@/components/templates/T1';
+import { PRESENCE_ICON } from '@/components/templates/T3';
 import { Button } from '@/components/ui/Button';
-import { EmptyState, ErrorState, LoadingRow } from '@/components/surfaces/StateCard';
+import { EmptyState, ErrorState } from '@/components/surfaces/StateCard';
 import { cn } from '@/components/ui/cn';
-import { MobileRankingGrid } from './MobileRankingGrid';
-import {
-  isTableRankingType,
-  matchesRankingSearch,
-  rowSector,
-  sectorsOf,
-  type RankingSort,
-  type RankingTableData,
-} from './ranking';
+import { MobileRanking } from './MobileRanking';
+import { isOfflineEmpty, OfflineState } from './offline';
+import { isTableRankingType, matchesRankingSearch, rowSector, sectorsOf, type RankingTableData } from './ranking';
+import { EMBEDDED_TABLE, GENERAL_TABLE_LAYOUT, RANKING_TABLE_FIXES, useTablePins } from './tableFixes';
 
 type Mode = 'general' | 'sectors';
 
+const ALL_SECTORS = 'toate';
+
+/** More sectors than this (up to 24, A–X): one compact «Sector» select instead of a row of chips. */
+const SELECT_SECTORS_FROM = 12;
+
+/** One catch per column (catch1…catchN): the per-catch detail, not a deciding total. */
+const isCatchColumn = (c: ColumnDefinition) => /^catch\d+$/.test(c.key);
+
 /**
- * Clasament view. Mobile: fish's table (stand order unless Sortare says otherwise). Desktop
- * (design): every column, every angler, General / Pe sectoare, a sector filter A–X and a search
- * by angler or stand, on the kit RankingTable (sortable headers, place order by default).
+ * Clasament view. Mobile: the kit RankingRow list (stand order unless Sortare says otherwise).
+ * Desktop (design): every column, every angler, General / Pe sectoare, a sector filter A–X and a
+ * search by angler or stand, on the kit RankingTable — its column headers are the sort (from 768
+ * there is no second sort control; the phone keeps «Sortare» in the action bar).
  */
 export function RankingView({
   query,
   table,
   placeTable,
   currentUserStandId,
+  appOnly,
+  onFullView,
 }: {
   query: UseQueryResult<RankingResponse>;
+  /** From 768: «Clasament complet» (every column on the whole screen), in the table's toolbar. */
+  onFullView: () => void;
+  /** A ranking type the web cannot draw (the club rankings): the screen's «open it in the app» state. */
+  appOnly: ReactNode;
   table: RankingTableData | null;
   placeTable: RankingTableData | null;
   currentUserStandId: string | null;
 }) {
-  if (query.isPending && query.fetchStatus !== 'idle') {
-    return (
-      <div className="flex flex-col gap-2">
-        <LoadingRow label="Se încarcă clasamentul…" />
-        <LoadingRow />
-      </div>
-    );
-  }
+  if (isOfflineEmpty(query)) return <OfflineState onRetry={() => void query.refetch()} />;
+  if (query.isPending && query.fetchStatus !== 'idle') return <RankingSkeleton />;
   if (query.isError && !query.data) {
+    // fish: the error screen without a back button; its retry refetches the ranking (parity clasament.c26).
     return (
       <ErrorState
-        title="Ceva nu a mers bine, vă rugăm să încercați din nou mai târziu."
+        title="Clasamentul nu a putut fi încărcat."
+        description="Ceva nu a mers bine, vă rugăm să încercați din nou mai târziu."
         action={
           <Button size="compact" variant="secondary" onClick={() => void query.refetch()}>
-            Reîncearcă
+            Încearcă din nou
           </Button>
         }
       />
@@ -60,7 +74,7 @@ export function RankingView({
   }
   if (query.data && !isTableRankingType(query.data.metadata.rankingType)) {
     // fish has a separate club ranking for nationalChampionship / fipsed (NationalChampionshipRanking).
-    return <EmptyState title="Clasamentul pe cluburi nu este încă disponibil pe web." />;
+    return appOnly;
   }
   if (!table || !placeTable) {
     // fish: «Nu există date de afișat»
@@ -70,211 +84,293 @@ export function RankingView({
   return (
     <>
       <div className="md:hidden">
-        <MobileRankingGrid columns={table.columns} rows={table.rows} caption="Clasament" />
+        <MobileRanking columns={table.columns} rows={table.rows} currentUserStandId={currentUserStandId} />
       </div>
-      <DesktopRanking table={placeTable} currentUserStandId={currentUserStandId} />
+      <DesktopRanking table={placeTable} currentUserStandId={currentUserStandId} onFullView={onFullView} />
     </>
   );
 }
 
-function DesktopRanking({ table, currentUserStandId }: { table: RankingTableData; currentUserStandId: string | null }) {
+function DesktopRanking({
+  table,
+  currentUserStandId,
+  onFullView,
+}: {
+  table: RankingTableData;
+  currentUserStandId: string | null;
+  onFullView: () => void;
+}) {
   const [mode, setMode] = useState<Mode>('general');
-  const [sector, setSector] = useState<string | null>(null);
+  const [sector, setSector] = useState<string>(ALL_SECTORS);
   const [search, setSearch] = useState('');
-  // Design «Poziția în clasament» / «Stand»: the bar's sort (mobile: the Sortare tile).
-  const [sortBy, setSortBy] = useState<RankingSort>('position');
   const sectors = useMemo(() => sectorsOf(table.rows), [table.rows]);
-  const sectionRef = useRef<HTMLElement>(null);
-  const manySectors = sectors.length > 8;
-
+  const selectSectors = sectors.length > SELECT_SECTORS_FROM;
+  const picked = sector === ALL_SECTORS ? null : sector;
+  // 768–1279: the per-catch columns leave the inline table (Loc, Stand, Pescar and the deciding
+  // totals fill the width); every column is still in «Clasament complet». Server render and 1280+:
+  // the whole table.
+  const compact = useBreakpoint() === 'tablet';
+  const hidesCatches = compact && table.columns.some(isCatchColumn);
+  const columns = useMemo(() => (hidesCatches ? table.columns.filter(c => !isCatchColumn(c)) : table.columns), [hidesCatches, table.columns]);
 
   const rows = useMemo(
-    () => table.rows.filter(r => (!sector || rowSector(r) === sector) && matchesRankingSearch(r, search)),
-    [table.rows, sector, search],
+    () => table.rows.filter(r => (!picked || rowSector(r) === picked) && matchesRankingSearch(r, search)),
+    [table.rows, picked, search],
   );
-  // The kit RankingTable owns its sort (no controlled prop yet): the bar drives it through the
-  // table's own header buttons, Loc (1st column) or Stand (2nd), ascending. Re-applied whenever
-  // a table remounts (mode, sector, search).
-  useEffect(() => {
-    const nth = sortBy === 'position' ? 1 : 2;
-    sectionRef.current?.querySelectorAll<HTMLTableCellElement>(`thead th:nth-child(${nth})`).forEach(th => {
-      if (th.getAttribute('aria-sort') !== 'ascending') th.querySelector('button')?.click();
-    });
-  }, [sortBy, mode, sector, search, rows.length]);
+
+  const generalRef = useRef<HTMLDivElement>(null);
+  const pins = useTablePins(generalRef, columns, mode === 'general' ? rows.length : 0);
+
+  // The legend names only what the visible columns draw.
+  const shownKeys = columns.map(c => c.key);
+  const anyShownCell = (test: (cell: ReturnType<typeof readCell>) => boolean) =>
+    table.rows.some(r => shownKeys.some(k => test(readCell(r[k]))));
   const hasPenalty = table.rows.some(r => (r.penalties?.length ?? 0) > 0);
-  const hasSplit = table.rows.some(r => Object.values(r).some(v => typeof v === 'object' && v !== null && 'isSplit' in v && v.isSplit));
+  const hasSplit = anyShownCell(c => c.isSplit);
   const hasTie = useMemo(() => tiedIndices(table.rows).size > 0, [table.rows]);
   // Quantity rankings never flag a cell (fish createQuantityRow): no star on screen, no legend entry.
-  const hasBiggest = table.rows.some(r => Object.values(r).some(v => readCell(v).isBiggest));
-  const legend = <Legend hasBiggest={hasBiggest} hasSplit={hasSplit} hasPenalty={hasPenalty} hasTie={hasTie} />;
+  const hasBiggest = anyShownCell(c => c.isBiggest);
+  const legend = (
+    <Legend hasBiggest={hasBiggest} hasSplit={hasSplit} hasPenalty={hasPenalty} hasTie={hasTie} catchesHidden={hidesCatches} />
+  );
 
-  return (
-    <section ref={sectionRef} aria-label="Clasament" className="hidden flex-col gap-4.5 md:flex">
-      <div className="flex flex-wrap items-center gap-3 rounded-card bg-surface px-3 py-2.5 shadow-e0">
-        <SegmentedControl<Mode>
-          label="Afișare"
-          name="ranking-mode"
-          value={mode}
-          onChange={setMode}
-          options={[
-            { value: 'general', label: 'General' },
-            { value: 'sectors', label: 'Pe sectoare' },
-          ]}
-          className="w-[220px] shrink-0 [&_legend]:sr-only"
-        />
-        <span aria-hidden className={cn('h-6 w-px shrink-0 bg-hairline', manySectors && 'hidden')} />
-        {/*
-         * Up to 24 sectors (A–X): the chips wrap rather than scroll out of sight. With many sectors
-         * they take a full row under the controls (wrapping between them would stack 4 lines).
-         */}
-        <div
-          role="group"
-          aria-label="Filtru sector"
-          className={cn('flex min-w-0 flex-1 flex-wrap gap-1.5 py-0.5', manySectors && 'order-last basis-full')}
-        >
-          <SectorChip label="Toate" selected={sector === null} onClick={() => setSector(null)} />
-          {sectors.map(s => (
-            <SectorChip key={s} label={s} sector={s} selected={sector === s} onClick={() => setSector(sector === s ? null : s)} />
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={() => setSortBy(sortBy === 'position' ? 'stand' : 'position')}
-          aria-label={`Sortare clasament: ${sortBy === 'position' ? 'după poziția în clasament' : 'după stand'}. Schimbă sortarea.`}
-          className="ml-auto flex h-9.5 shrink-0 items-center gap-1.5 rounded-control bg-soft-fill px-3 t-control whitespace-nowrap text-ink transition-colors duration-(--duration-fast) hover:bg-hairline"
-        >
-          <ArrowsUpDownIcon aria-hidden className="size-[15px] text-accent" />
-          {sortBy === 'position' ? 'Poziția în clasament' : 'Stand'}
-        </button>
-        {/* Below xl the search takes its own row, so the sector chips get the full width. */}
-        <label className="flex h-10 w-[220px] shrink-0 items-center md:max-xl:order-last md:max-xl:w-full md:max-xl:basis-full gap-2 rounded-control bg-soft-fill px-3">
-          <MagnifyingGlassIcon aria-hidden className="size-4 shrink-0 text-muted" />
-          <span className="sr-only">Caută pescar sau stand</span>
-          <input
-            type="search"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Caută pescar sau stand"
-            className="h-full min-w-0 flex-1 bg-transparent t-body text-ink outline-none placeholder:text-muted"
-          />
-        </label>
-      </div>
+  const sectorChoices: Choice<string>[] = [
+    { value: ALL_SECTORS, label: 'Toate' },
+    ...sectors.map(s => {
+      const fill = sectorFill(s, 'var(--color-muted)');
+      return {
+        value: s,
+        label: s,
+        // The sector's dot (Fundații §01: a sector colour is only ever the 4px edge and the dot).
+        leading: <span className={cn('size-2 rounded-full', fill.className)} style={fill.style} />,
+      };
+    }),
+  ];
 
-      {rows.length === 0 ? (
-        <EmptyState title="Niciun pescar sau stand nu se potrivește căutării." />
-      ) : mode === 'general' ? (
-        // Design: the whole table in the page flow, the legend as the card's footer row. The kit
-        // table is its own card; inside this one it drops its radius and shadow.
-        <div className="overflow-hidden rounded-card bg-surface shadow-e0 [&>[role=region]]:rounded-none [&>[role=region]]:shadow-none">
-          <RankingTable
-            caption="Clasament general"
-            columns={table.columns}
-            rows={rows}
-            currentUserStandId={currentUserStandId}
-            maxHeight="none"
-          />
-          {legend}
+  const sectorOptions = [{ value: ALL_SECTORS, label: 'Toate sectoarele' }, ...sectors.map(s => ({ value: s, label: `Sector ${s}` }))];
+  const sectorSelect = (className: string) => (
+    <Select
+      label="Sector"
+      value={sector}
+      onChange={e => setSector(e.target.value)}
+      options={sectorOptions}
+      className={cn('shrink-0 [&>label]:sr-only', className)}
+    />
+  );
+
+  // The table's own controls: one band. 768–1279 (one row): Afișare, the sector select, the search
+  // taking the rest, the full-screen icon. From 1280: the sector chips (a select past 12 sectors)
+  // and the labelled «Clasament complet».
+  const toolbar = (
+    <div className="flex items-center gap-3 px-3 py-2.5">
+      <SegmentedControl<Mode>
+        label="Afișare"
+        name="ranking-mode"
+        value={mode}
+        onChange={setMode}
+        options={[
+          { value: 'general', label: 'General' },
+          { value: 'sectors', label: 'Pe sectoare' },
+        ]}
+        className="w-55 shrink-0 [&_legend]:sr-only"
+      />
+      {sectorSelect(cn('w-44', !selectSectors && 'xl:hidden', selectSectors && 'xl:w-50'))}
+      {!selectSectors ? (
+        <div className="min-w-0 flex-1 max-xl:hidden">
+          <ChoiceChips name="ranking-sector" label="Filtru sector" options={sectorChoices} value={sector} onChange={setSector} />
         </div>
       ) : (
-        (sector ? [sector] : sectors).map(s => {
-          const sectorRows = rows.filter(r => rowSector(r) === s);
-          if (!sectorRows.length) return null;
-          const fill = sectorFill(s, sectorRows[0].backgroundColor);
-          return (
-            <section key={s} aria-labelledby={`sector-${s}`} className="flex flex-col gap-2">
-              <h2 id={`sector-${s}`} className="flex items-center gap-2 t-title2">
-                <span aria-hidden className={cn('size-2.5 rounded-full', fill.className)} style={fill.style} />
-                Sector {s}
-              </h2>
+        <span className="flex-1 max-xl:hidden" />
+      )}
+      <TextInput
+        type="search"
+        label="Caută pescar sau stand"
+        placeholder="Caută pescar sau stand"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        autoComplete="off"
+        enterKeyHint="search"
+        className="min-w-0 flex-1 [&>label]:sr-only xl:w-60 xl:flex-none xl:shrink-0"
+      />
+      <Button variant="secondary" icon={<ArrowsPointingOutIcon />} onClick={onFullView} className="max-xl:hidden">
+        Clasament complet
+      </Button>
+      <IconButton aria-label="Clasament complet" title="Clasament complet" onClick={onFullView} size="size-11" className="xl:hidden">
+        <ArrowsPointingOutIcon aria-hidden />
+      </IconButton>
+    </div>
+  );
+
+  const empty = <EmptyState title="Niciun pescar sau stand nu se potrivește căutării." />;
+
+  return (
+    <section aria-label="Clasament" className={cn('hidden flex-col gap-4 md:flex', RANKING_TABLE_FIXES)}>
+      {mode === 'general' ? (
+        // One card: the toolbar is its header band, then the table at its full height (no box
+        // scrolling inside the page) and the legend as its footer row. The card clips (not hides)
+        // its corners, so the header row can stick to the page; the kit table drops its own radius
+        // and shadow inside it.
+        <div
+          ref={generalRef}
+          data-wide={pins.wide}
+          data-fade={pins.fade}
+          style={pins.style}
+          className={cn('overflow-clip rounded-card bg-surface shadow-e0', EMBEDDED_TABLE, GENERAL_TABLE_LAYOUT)}
+        >
+          <div className="border-b border-hairline">{toolbar}</div>
+          {rows.length === 0 ? (
+            <div className="p-4">{empty}</div>
+          ) : (
+            <>
               <RankingTable
-                caption={`Clasament sector ${s}`}
-                columns={table.columns}
-                rows={sectorRows}
+                caption="Clasament general"
+                columns={columns}
+                rows={rows}
                 currentUserStandId={currentUserStandId}
                 maxHeight="none"
               />
-            </section>
-          );
-        })
+              {legend}
+            </>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="rounded-card bg-surface shadow-e0">{toolbar}</div>
+          {rows.length === 0
+            ? empty
+            : (picked ? [picked] : sectors).map(s => {
+                const sectorRows = rows.filter(r => rowSector(r) === s);
+                if (!sectorRows.length) return null;
+                const fill = sectorFill(s, sectorRows[0].backgroundColor);
+                return (
+                  <section key={s} aria-labelledby={`sector-${s}`} className="flex flex-col gap-2">
+                    <h2 id={`sector-${s}`} className="flex items-center gap-2 t-title2">
+                      <span aria-hidden className={cn('size-2.5 rounded-full', fill.className)} style={fill.style} />
+                      Sector {s}
+                    </h2>
+                    <RankingTable
+                      caption={`Clasament sector ${s}`}
+                      columns={columns}
+                      rows={sectorRows}
+                      currentUserStandId={currentUserStandId}
+                      maxHeight="none"
+                    />
+                  </section>
+                );
+              })}
+          {rows.length > 0 ? <div className="rounded-card bg-surface shadow-e0">{legend}</div> : null}
+        </>
       )}
-
-      {mode === 'sectors' && rows.length > 0 ? (
-        <div className="rounded-card bg-surface shadow-e0">{legend}</div>
-      ) : null}
     </section>
   );
 }
 
-/** Design legend (table card footer). The tie entry only when the ranking has ties. */
+/**
+ * Design legend (table card footer). Each key is the very element the cells draw: the star, the
+ * cell's «SPLIT» mark, the penalty Tag, the capot chip, the tied place.
+ */
 function Legend({
   hasBiggest,
   hasSplit,
   hasPenalty,
   hasTie,
+  catchesHidden,
 }: {
   hasBiggest: boolean;
   hasSplit: boolean;
   hasPenalty: boolean;
   hasTie: boolean;
+  /** 768–1279: the per-catch columns are only in «Clasament complet». */
+  catchesHidden: boolean;
 }) {
   return (
-    <ul
-      aria-label="Legendă"
-      className="flex flex-wrap items-center gap-x-4.5 gap-y-2 border-t border-hairline px-4.5 py-3.5 t-caption text-muted first:border-t-0"
-    >
+    <ul aria-label="Legendă" className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-hairline px-5 py-3.5 t-caption text-muted first:border-t-0">
       {hasBiggest ? (
         <li className="flex items-center gap-1.5">
-          <StarIcon aria-hidden className="size-3.5 text-rating" />
+          <StarIcon aria-hidden className={cn(PRESENCE_ICON.meta, 'text-rating')} />
           C.M.M.C a concursului
         </li>
       ) : null}
       {hasSplit ? (
         <li className="flex items-center gap-1.5">
-          <span className="t-micro-strong text-accent">SPLIT</span>
+          <span aria-hidden className="t-micro text-muted">
+            SPLIT
+          </span>
           puncte împărțite la egalitate în sector
         </li>
       ) : null}
       {hasPenalty ? (
         <li className="flex items-center gap-1.5">
-          <ExclamationTriangleIcon aria-hidden className="size-3.5 text-yellow-5" />
+          <span aria-hidden>
+            <Tag tone="yellow" size="sm">
+              −kg
+            </Tag>
+          </span>
           penalizare aplicată
         </li>
       ) : null}
-      <li>„–” = fără captură (capot)</li>
-      {hasTie ? <li>„=” egalitate la loc</li> : null}
+      <li className="flex items-center gap-1.5">
+        <span aria-hidden>
+          <CapotChip size="sm" />
+        </span>
+        fără captură
+      </li>
+      {hasTie ? (
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden className="t-label text-ink tabular-nums">
+            =4
+          </span>
+          egalitate la loc
+        </li>
+      ) : null}
+      {catchesHidden ? <li>Capturile, una câte una: în Clasament complet</li> : null}
     </ul>
   );
 }
 
-function SectorChip({
-  label,
-  sector,
-  selected,
-  onClick,
-}: {
-  label: string;
-  sector?: string;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  const fill = sector ? sectorFill(sector, 'var(--color-muted)') : null;
+/**
+ * Loading, shaped like what lands: on the phone the RankingRow list (edge, pill, two lines, value),
+ * from 768 the table card (40px header, 52px rows). Announced once.
+ */
+export function RankingSkeleton() {
   return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      aria-label={sector ? `Sector ${sector}` : 'Toate sectoarele'}
-      onClick={onClick}
-      className={cn(
-        'flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 t-control transition-colors duration-(--duration-fast)',
-        selected ? 'bg-accent text-on-accent' : 'bg-soft-fill text-ink hover:bg-hairline',
-      )}
-    >
-      <span
-        aria-hidden
-        className={cn('size-2 rounded-full', selected ? 'bg-on-accent' : fill?.className)}
-        style={selected ? undefined : fill?.style}
-      />
-      {label}
-    </button>
+    <div role="status" aria-label="Se încarcă clasamentul">
+      <ul aria-hidden className="-mx-4 border-y border-hairline md:hidden">
+        {Array.from({ length: 8 }, (_, i) => (
+          <li key={i} className="grid grid-cols-[4px_44px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-hairline py-3 pr-3.5 last:border-b-0">
+            <span className="h-10 bg-soft-fill" />
+            <span className="size-9 animate-shimmer rounded-control" />
+            <span className="flex flex-col gap-2">
+              <span className="h-3 w-3/5 animate-shimmer rounded-full" />
+              <span className="h-2.5 w-2/5 animate-shimmer rounded-full" />
+            </span>
+            <span className="h-5 w-12 animate-shimmer rounded-full" />
+          </li>
+        ))}
+      </ul>
+      <div aria-hidden className="overflow-hidden rounded-card bg-surface shadow-e0 max-md:hidden">
+        {/* The toolbar band (Afișare, sector, search, full screen), then the header row and the rows. */}
+        <span className="flex items-center gap-3 border-b border-hairline px-3 py-2.5">
+          <span className="h-11 w-55 shrink-0 animate-shimmer rounded-control" />
+          <span className="h-11 w-44 shrink-0 animate-shimmer rounded-control xl:hidden" />
+          <span className="flex min-w-0 flex-1 gap-2 overflow-hidden max-xl:hidden">
+            {['w-16', 'w-12', 'w-12', 'w-12', 'w-12'].map((w, i) => (
+              <span key={i} className={cn('h-9 shrink-0 animate-shimmer rounded-full', w)} />
+            ))}
+          </span>
+          <span className="h-11 min-w-0 flex-1 animate-shimmer rounded-control xl:w-60 xl:flex-none" />
+          <span className="size-11 shrink-0 animate-shimmer rounded-control xl:h-10 xl:w-48" />
+        </span>
+        <span className="block h-10.25 border-b border-hairline" />
+        {Array.from({ length: 8 }, (_, i) => (
+          <span key={i} className={cn('flex h-13 items-center gap-4 px-5', i > 0 && 'border-t border-hairline')}>
+            <span className="h-3 w-6 animate-shimmer rounded-full" />
+            <span className="h-3 w-10 animate-shimmer rounded-full" />
+            <span className="h-3 w-40 animate-shimmer rounded-full" />
+            <span className="ml-auto h-3 w-16 animate-shimmer rounded-full" />
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }

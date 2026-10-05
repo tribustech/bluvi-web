@@ -6,110 +6,121 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import type { AnnouncementListItem } from '@/core/news';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
-import { CardShell, CardTitle } from '@/components/cards';
-import { Badge } from '@/components/ui/Badge';
-import { cn } from '@/components/ui/cn';
-import { CardSkeleton, HorizontalRail, RailItem } from './HorizontalRail';
-import { SeeAllTitle } from './SeeAllTitle';
+import { CardShell, CardTitle, Tag } from '@/components/cards';
+import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem } from './HorizontalRail';
+import { RailEmpty, RailSection, RailSkeleton } from './RailSection';
 import { newsDate } from './format';
+import { NEWS_CARD_HEIGHT } from './newsCard';
 import { homeNewsQuery } from './queries';
+
 
 /**
  * fish components/NewsHorizontalList.tsx + NewsCard.tsx: «Noutăți» with 225px cards (pages of 10,
  * more on scroll). Hidden while there is no data at all (fish `if (!news) return null`); empty list:
- * «Momentan nu există noutăți.» Desktop: the first three, the newest wider (design 1.4fr 1fr 1fr).
+ * «Momentan nu există noutăți.» One rail at every width.
  * Rendered inside a <Suspense> whose fallback is NewsView from the server's first page.
  */
-export function NewsSection({ layout }: { layout: 'rail' | 'grid' }) {
+export function NewsSection() {
   const t = useMemo(() => createBrowserTransport(), []);
   const q = useInfiniteQuery(homeNewsQuery(t));
   const news = useMemo(() => q.data?.pages.flatMap((p) => p.data), [q.data]);
   if (!q.isLoading && !news) return null;
   return (
     <NewsView
-      layout={layout}
       news={q.isLoading ? undefined : news}
       onEndReached={() => {
-        if (q.hasNextPage && !q.isFetchingNextPage) void q.fetchNextPage();
+        if (q.hasNextPage && !q.isFetchingNextPage && !q.isFetchNextPageError) void q.fetchNextPage();
       }}
       fetchingNext={q.isFetchingNextPage}
+      nextError={q.isFetchNextPageError}
+      onRetryNext={() => void q.fetchNextPage()}
     />
   );
 }
 
 /** The markup of the section, from data alone (undefined = loading): also the prerendered fallback. */
 export function NewsView({
-  layout,
   news,
   onEndReached,
   fetchingNext = false,
+  nextError = false,
+  onRetryNext,
 }: {
-  layout: 'rail' | 'grid';
   news: AnnouncementListItem[] | undefined;
   onEndReached?: () => void;
   fetchingNext?: boolean;
+  /** The next page failed: its slot offers the retry. */
+  nextError?: boolean;
+  onRetryNext?: () => void;
 }) {
-  const id = `acasa-noutati-${layout}`;
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-3">
-      <SeeAllTitle id={id} title="Noutăți" href={routes.news()} />
+    <RailSection title="Noutăți" href={routes.news()}>
       {!news ? (
-        <div className="-mx-5 flex gap-2.5 overflow-hidden px-5 pb-4 md:-mx-6 md:px-6" role="status" aria-label="Se încarcă noutățile">
-          {[0, 1, 2].map((i) => (
-            <CardSkeleton key={i} width={225} height={300} />
-          ))}
-        </div>
+        <RailSkeleton label="Se încarcă noutățile" width={224} heightClass={NEWS_CARD_HEIGHT} />
       ) : news.length === 0 ? (
-        <p className="t-body text-muted">Momentan nu există noutăți.</p>
-      ) : layout === 'grid' ? (
-        <ul className="grid grid-cols-[1.4fr_1fr_1fr] gap-3.5" aria-label="Noutăți">
-          {news.slice(0, 3).map((n) => (
-            <li key={n.documentId} className="min-w-0">
-              <NewsCard news={n} variant="grid" />
-            </li>
-          ))}
-        </ul>
+        <RailEmpty>Momentan nu există noutăți.</RailEmpty>
       ) : (
         <HorizontalRail
           label="Noutăți"
+          width={224}
           onEndReached={onEndReached}
-          footer={fetchingNext ? <CardSkeleton width={225} height={300} /> : null}
+          footer={
+            // A retry keeps its slot (and the focus) while it runs; a first next page shows a bone.
+            nextError && onRetryNext ? (
+              <RailRetryItem width={224} heightClass={NEWS_CARD_HEIGHT} onRetry={onRetryNext} retrying={fetchingNext} />
+            ) : fetchingNext ? (
+              <CardSkeleton width={224} heightClass={NEWS_CARD_HEIGHT} />
+            ) : null
+          }
         >
           {news.map((n) => (
-            <RailItem key={n.documentId} width={225}>
+            <RailItem key={n.documentId} width={224}>
               <NewsCard news={n} />
             </RailItem>
           ))}
         </HorizontalRail>
       )}
-    </section>
+    </RailSection>
   );
 }
 
-/** fish components/NewsCard.tsx — banner, date + category, title (3 lines), description (3 lines). */
-function NewsCard({ news, variant = 'rail' }: { news: AnnouncementListItem; variant?: 'rail' | 'grid' }) {
+/** The CMS enumeration is stored without diacritics; the badge reads it in Romanian. */
+const CATEGORY_LABEL: Record<string, string> = {
+  Noutati: 'Noutăți',
+  Evenimente: 'Evenimente',
+  Interesant: 'Interesant',
+  Concursuri: 'Concursuri',
+  Tehnici: 'Tehnici',
+};
+
+
+/** fish components/NewsCard.tsx — banner, date + category, title, description (fish: 3 + 3 lines; 2 + 2 here, reserved). */
+function NewsCard({ news }: { news: AnnouncementListItem }) {
   const banner = news.banner?.[0];
   const src = banner ? (banner.mediumUrl ?? banner.url) : null;
   return (
-    <CardShell elevated interactive className="h-full">
-      <div className={cn('relative shrink-0 overflow-hidden bg-soft-fill', variant === 'grid' ? 'h-[170px]' : 'h-[200px] rounded-control')}>
-        {src ? <Image src={src} alt="" fill sizes="(min-width: 1280px) 320px, 225px" className="object-cover" /> : null}
+    <CardShell elevated interactive className={NEWS_CARD_HEIGHT}>
+      <div className="relative h-50 shrink-0 overflow-hidden bg-soft-fill">
+        {src ? <Image src={src} alt="" fill sizes="(min-width: 768px) 304px, 224px" className="object-cover" /> : null}
       </div>
-      <div className="flex flex-col gap-1 p-2.5 xl:px-3.5 xl:py-3">
+      <div className="flex flex-col gap-1 p-2.5">
         {/* The date never breaks; when it and the tag do not fit (narrow desktop columns) the tag
             moves to its own line. */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <p className="mr-auto whitespace-nowrap t-caption text-muted">
             <time dateTime={news.createdAt}>{newsDate(news.createdAt)}</time>
           </p>
-          <Badge color="green">{news.category}</Badge>
+          {/* The kit attribute badge, the competition cards' own. The CMS category carries no colour,
+              so every category is the accent pair (fish's green3 on its tint reads 2.1:1, under AA). */}
+          <Tag tone="indigo">{CATEGORY_LABEL[news.category] ?? news.category}</Tag>
         </div>
-        <div className="flex min-h-[132px] flex-col gap-0.5">
-          <CardTitle href={routes.newsItem(news.documentId)} className="line-clamp-3 t-heading text-ink">
-            {news.title}
-          </CardTitle>
-          {news.shortDescription ? <p className="line-clamp-3 t-body text-muted">{news.shortDescription}</p> : null}
-        </div>
+        {/* Two lines for the title (2 × 22) and two for the summary, reserved: every news card is the same
+            height without stretching to the rail's tallest (no white block under a short title). */}
+        <CardTitle href={routes.newsItem(news.documentId)} className="line-clamp-2 min-h-11 t-heading text-ink">
+          {news.title}
+        </CardTitle>
+        {/* Two lines of t-body: 2 × 20, 2 × 22 from 1280. */}
+        <p className="line-clamp-2 min-h-10 t-body text-muted xl:min-h-11">{news.shortDescription}</p>
       </div>
     </CardShell>
   );

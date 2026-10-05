@@ -129,7 +129,7 @@ export function RankingTable({
                   key={col.key}
                   scope="col"
                   aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className={`sticky top-0 z-10 h-10 bg-page p-0 t-label whitespace-nowrap text-ink-2 ${
+                  className={`sticky top-0 z-above h-10 bg-page p-0 t-label whitespace-nowrap text-ink-2 ${
                     WIDTH[col.kind]
                   } ${i === 0 ? 'rounded-tl-card' : ''} ${i === webColumns.length - 1 ? 'rounded-tr-card' : ''}`}
                 >
@@ -172,7 +172,7 @@ export function RankingTable({
             return (
               <tr
                 key={row.standId ?? `${row.position}-${index}`}
-                className={`h-[52px] text-sm leading-5 font-semibold ${
+                className={`h-[52px] t-table ${
                   me ? 'bg-accent-tint' : capot ? 'text-ink-2' : 'text-ink'
                 }`}
               >

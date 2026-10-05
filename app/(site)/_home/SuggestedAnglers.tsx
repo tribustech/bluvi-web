@@ -1,7 +1,6 @@
 'use client';
 
-import { useMemo, useSyncExternalStore } from 'react';
-import Link from 'next/link';
+import { useEffect, useMemo, useState, useSyncExternalStore, type MouseEvent } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -15,11 +14,14 @@ import {
 } from '@/core/social';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
+import { CardShell, CardTitle, FollowButton } from '@/components/cards';
+import { IconButton } from '@/components/nav/IconButton';
 import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/components/ui/cn';
+import { useSiteToast } from '../_shell/Toast';
+import { announce, prepareAnnouncer, restoreFocusTo } from './announce';
 import { HorizontalRail, RailItem } from './HorizontalRail';
-import { SeeAllTitle } from './SeeAllTitle';
-import { SolidFollowButton } from './SolidFollowButton';
+import { RailSection } from './RailSection';
 import { homeLinks } from './links';
 
 /** Under this many VISIBLE cards the whole section disappears (fish, spec 2026-09-04). */
@@ -47,53 +49,90 @@ const dismissedStore = {
  * fish features/anglers/components/SuggestedAnglersRail.tsx — signed in only, page 1 only, no
  * skeleton (a thin pool would watch a placeholder collapse into nothing): the section appears once
  * loaded and only with at least three visible cards.
+ *
+ * fish: a refresh never reshuffles the rail (useSuggestedAnglersHome cache policy). On the web the
+ * page refresh re-renders the server prefetch, which hydrates a fresh page 1 — so the order (and
+ * the set) of the first answer is pinned for the life of the page; later data only updates the
+ * cards it shows (a follow).
  */
-export function SuggestedAnglers({ layout }: { layout: 'rail' | 'grid' }) {
+export function SuggestedAnglers() {
   const t = useMemo(() => createBrowserTransport(), []);
   const qc = useQueryClient();
   const { data, isPending, isError } = useInfiniteQuery(suggestedAnglersHomeInfiniteQuery(t, { isAuthenticated: true }));
   const follow = useMutation(followAnglerMutation(t, qc));
+  const toast = useSiteToast();
   const hidden = useSyncExternalStore(dismissedStore.subscribe, dismissedStore.get, dismissedStore.getServer);
-  const visible = useMemo(() => withoutDismissed(data?.pages[0]?.data ?? [], hidden), [data, hidden]);
+  const latest = data?.pages[0]?.data;
+  const [pinned, setPinned] = useState<SuggestedAngler[] | undefined>(latest);
+  if (pinned === undefined && latest !== undefined) setPinned(latest);
+  const visible = useMemo(() => {
+    const byId = new Map((latest ?? []).map((a) => [a.documentId, a]));
+    return withoutDismissed((pinned ?? []).map((a) => byId.get(a.documentId) ?? a), hidden);
+  }, [pinned, latest, hidden]);
 
   if (isPending || isError || visible.length < MIN_VISIBLE_SUGGESTIONS) return null;
 
-  const id = `acasa-pescari-${layout}`;
-  const card = (a: SuggestedAngler) => (
-    <SuggestedAnglerCard
-      angler={a}
-      onDismiss={() => dismissedStore.dismiss(a.documentId)}
-      onFollow={(next) => follow.mutate({ documentId: a.documentId, follow: next })}
-      pending={follow.isPending && follow.variables?.documentId === a.documentId}
-    />
-  );
-
   return (
-    <section aria-labelledby={id} className={cn('flex flex-col gap-3', layout === 'rail' && 'pt-1.5')}>
-      <SeeAllTitle id={id} title="Pescari pe care îi poți urmări" href={homeLinks.suggestedAnglers} />
-      {layout === 'grid' ? (
-        // Four across on narrower desktops, five from 1440 (design); the fifth is hidden below 2xl.
-        <ul className="grid grid-cols-4 gap-3 2xl:grid-cols-5" aria-label="Pescari sugerați">
-          {visible.slice(0, 5).map((a, i) => (
-            <li key={a.documentId} className={i === 4 ? 'hidden min-w-0 2xl:block' : 'min-w-0'}>
-              {card(a)}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <HorizontalRail label="Pescari sugerați">
-          {visible.map((a) => (
-            <RailItem key={a.documentId} width={160}>
-              {card(a)}
-            </RailItem>
-          ))}
-        </HorizontalRail>
-      )}
-    </section>
+    <RailSection title="Pescari pe care îi poți urmări" href={homeLinks.suggestedAnglers}>
+      <PrepareAnnouncer />
+      <HorizontalRail label="Pescari sugerați" width={160}>
+        {visible.map((a, i) => (
+          <RailItem key={a.documentId} width={160}>
+            <SuggestedAnglerCard
+              angler={a}
+              onDismiss={(e) => dismiss(e, visible, i)}
+              // core rolls a failed follow back silently: say so, or the button just flips back.
+              onFollow={(next) =>
+                follow.mutate(
+                  { documentId: a.documentId, follow: next },
+                  { onError: () => toast('Nu am putut actualiza. Încearcă din nou.', 'danger') }
+                )
+              }
+              pending={follow.isPending && follow.variables?.documentId === a.documentId}
+            />
+          </RailItem>
+        ))}
+      </HorizontalRail>
+    </RailSection>
   );
 }
 
-/** fish features/anglers/components/SuggestedAnglerCard.tsx */
+/** The announcer must exist before its first message (see announce.ts). */
+function PrepareAnnouncer() {
+  useEffect(() => prepareAnnouncer(), []);
+  return null;
+}
+
+/**
+ * Hides one suggestion without dropping keyboard focus: it moves to the next card's dismiss (else
+ * the previous one's); when the rail falls under three cards and the whole section goes, to the
+ * next section's heading. Either way «Sugestie ascunsă» is announced.
+ */
+function dismiss(e: MouseEvent<HTMLButtonElement>, visible: SuggestedAngler[], i: number) {
+  const section = e.currentTarget.closest('section');
+  const neighbour = visible[i + 1] ?? visible[i - 1];
+  const collapses = visible.length - 1 < MIN_VISIBLE_SUGGESTIONS;
+  let target: HTMLElement | null | undefined = null;
+  if (!collapses && neighbour) {
+    target = section?.querySelector<HTMLElement>(`[data-dismiss="${CSS.escape(neighbour.documentId)}"]`);
+  } else {
+    // The next block's heading in the same column, else this column's next focusable heading.
+    let next = section?.nextElementSibling;
+    while (next && !next.querySelector('h2, h3')) next = next.nextElementSibling;
+    target = next?.querySelector<HTMLElement>('h2, h3');
+  }
+  dismissedStore.dismiss(visible[i].documentId);
+  announce('Sugestie ascunsă.');
+  if (target) restoreFocusTo(target);
+}
+
+/**
+ * fish features/anglers/components/SuggestedAnglerCard.tsx, on the kit parts: the Avatar (64, the
+ * name's pastel tone — fish's solid swatches are a kit gap, not a fork here), the kit FollowButton
+ * (its tinted secondary look: a rail of six solid buttons would outweigh the page's real primary
+ * actions), the kit icon button for «Ascunde sugestia». The stats always sit on a two-column grid,
+ * so numbers and captions line up from card to card; a lone stat spans both, centred.
+ */
 function SuggestedAnglerCard({
   angler,
   onDismiss,
@@ -101,49 +140,41 @@ function SuggestedAnglerCard({
   pending,
 }: {
   angler: SuggestedAngler;
-  onDismiss: () => void;
+  onDismiss: (e: MouseEvent<HTMLButtonElement>) => void;
   onFollow: (next: boolean) => void;
   pending: boolean;
 }) {
   const stats = pickTopStats(angler.stats);
   return (
-    <article className="relative flex h-full flex-col items-center gap-2.5 rounded-card bg-surface px-3 pt-4 pb-3">
-      <button
-        type="button"
-        onClick={onDismiss}
-        aria-label={`Ascunde sugestia: ${angler.username}`}
-        className="absolute top-1.5 right-1.5 z-10 flex size-8 items-center justify-center rounded-full text-muted hover:bg-soft-fill"
-      >
-        <XMarkIcon aria-hidden className="size-3.5 stroke-[2.5]" />
-      </button>
+    <CardShell interactive className="h-full items-center gap-2.5 px-3 pt-4 pb-3">
+      <span className="absolute top-0.5 right-0.5 z-above">
+        <IconButton size="size-10" onClick={onDismiss} data-dismiss={angler.documentId} aria-label={`Ascunde sugestia: ${angler.username}`}>
+          <XMarkIcon aria-hidden />
+        </IconButton>
+      </span>
       <Avatar name={angler.username} src={angler.avatarUrl} size={64} />
       <div className="flex w-full flex-col items-center gap-0.5">
-        <h3 className="w-full truncate text-center t-body-strong">
-          <Link
-            href={routes.angler(angler.documentId)}
-            className="outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent"
-          >
-            {angler.username}
-          </Link>
-        </h3>
+        <CardTitle href={routes.angler(angler.documentId)} className="w-full truncate text-center t-body-strong text-ink">
+          {angler.username}
+        </CardTitle>
         {/* Zero followers reads quieter by weight, not by a sub-AA colour: muted (4.8:1) vs ink-2. */}
         <p className={cn('truncate t-caption', angler.stats.followers > 0 ? 'text-ink-2' : 'text-muted')}>{formatFollowers(angler.stats.followers ?? 0)}</p>
       </div>
-      <div className="flex min-h-9 items-start justify-center gap-4">
+      <div className="grid min-h-9 w-full grid-cols-2 items-start gap-x-2">
         {stats.length === 0 ? (
-          <p className="t-caption leading-9 text-muted">Pescar nou</p>
+          <p className="col-span-2 text-center t-caption leading-9 text-muted">Pescar nou</p>
         ) : (
           stats.map((s) => (
-            <p key={s.label} className="flex min-w-12 flex-col items-center">
+            <p key={s.label} className={cn('flex min-w-0 flex-col items-center', stats.length === 1 && 'col-span-2')}>
               <span className="t-body text-ink">{s.value}</span>
-              <span className="t-micro text-muted">{s.label}</span>
+              <span className="max-w-full truncate t-micro text-muted">{s.label}</span>
             </p>
           ))
         )}
       </div>
       <div className="mt-auto w-full">
-        <SolidFollowButton name={angler.username} following={angler.isFollowedByMe} onToggle={onFollow} pending={pending} />
+        <FollowButton name={angler.username} following={angler.isFollowedByMe} onToggle={onFollow} pending={pending} />
       </div>
-    </article>
+    </CardShell>
   );
 }

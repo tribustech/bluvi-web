@@ -25,7 +25,9 @@ import {
   type QuantityStandRanking,
   type RankingResponse,
 } from '@/core/competitions';
-import { sectorColorMap, type RankingRowData } from '@/components/ranking';
+import { cellNumber, sectorColorMap, type RankingRowData } from '@/components/ranking';
+import { toWebColumns } from '@/components/ranking/columns';
+import { formatDecimal } from '@/components/cards/format';
 
 /*
  * The ranking table of fish `components/competition/CompetitionRanking.tsx` (sortedRankings,
@@ -169,7 +171,20 @@ export function buildRankingTable(data: RankingResponse | undefined, sortBy: Ran
     }
   });
 
-  return { columns, rows: rows.map(withPlainStand) };
+  return { columns, rows: rows.map(row => withNamedEmptyStand(withPlainStand(row))) };
+}
+
+/**
+ * The name a stand without an angler gets. The builders print «-» (a bare hyphen read as a
+ * rendering bug on its own line, and the page's «no value» mark is the en dash); the kit row and
+ * table print `participant` as is, so it is named here. Other code compares against it rather than
+ * treating it as a person (the weighing tile, the search).
+ */
+export const EMPTY_STAND = 'Stand liber';
+
+function withNamedEmptyStand<T extends Pick<RankingRowData, 'participant'>>(row: T): T {
+  const name = (row.participant ?? '').trim();
+  return name === '' || name === '-' || name === '–' ? { ...row, participant: EMPTY_STAND } : row;
 }
 
 /**
@@ -199,12 +214,41 @@ export function matchesRankingSearch(row: Pick<RankingRowData, 'position' | 'par
   const stand = row.position.replace('/', '').toLocaleLowerCase('ro');
   const standNumber = row.position.slice(row.position.indexOf('/') + 1).toLocaleLowerCase('ro');
   const compactQ = q.replace(/\s+/g, '');
+  const named = row.participant !== EMPTY_STAND;
   return (
-    row.participant.toLocaleLowerCase('ro').includes(q) || stand === compactQ || standNumber === compactQ || stand.startsWith(compactQ)
+    (named && row.participant.toLocaleLowerCase('ro').includes(q)) || stand === compactQ || standNumber === compactQ || stand.startsWith(compactQ)
   );
 }
 
 /** Sector names present in a ranking, A→X order. */
 export function sectorsOf(rows: ReadonlyArray<Pick<RankingRowData, 'position'>>): string[] {
   return [...new Set(rows.map(rowSector).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * One weight precision per competition: the most decimals any weight of its ranking has (1 to 3),
+ * so every weight of the page's tiles prints the same way and a column of them lines up on the
+ * comma («28,500 / 48,549», never «28,5 / 48,549»).
+ */
+export function weightDecimals(table: RankingTableData | null | undefined): number {
+  if (!table) return 1;
+  const keys = toWebColumns(table.columns)
+    .filter(c => c.kind === 'weight' || c.kind === 'catch')
+    .map(c => c.key);
+  let decimals = 1;
+  for (const row of table.rows) {
+    for (const key of keys) {
+      const n = cellNumber(row[key]);
+      if (n === null) continue;
+      const frac = Math.abs(n).toFixed(3).split('.')[1].replace(/0+$/, '');
+      if (frac.length > decimals) decimals = frac.length;
+      if (decimals === 3) return 3;
+    }
+  }
+  return decimals;
+}
+
+/** A weight at the competition's precision (weightDecimals): «2.961,000». */
+export function formatKg(n: number, decimals: number): string {
+  return formatDecimal(n, decimals, decimals);
 }

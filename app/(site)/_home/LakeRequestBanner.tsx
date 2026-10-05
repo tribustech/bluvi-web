@@ -9,97 +9,98 @@ import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { TextInput } from '@/components/forms/TextInput';
 import { ResponsiveSurface } from '@/components/surfaces/ResponsiveSurface';
-import { Button } from '@/components/ui/Button';
+import { FilterSwitch } from '@/components/templates/T1/Filters';
+import { T4TextArea } from '@/components/templates/T4/T4TextArea';
+import { Button, ButtonLink, buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
+import { useSiteToast } from '../_shell/Toast';
 import { useViewer } from '../_shell/viewer-context';
-import { TextArea } from './TextArea';
 import { homeLinks } from './links';
+import { BANNER, BANNER_ACTIONS, BANNER_COPY, BANNER_ROW, BANNER_TEXT, ON_DARK_FOCUS } from './PartidaCta';
 import lakePhoto from './assets/lake-request.jpeg';
 
 /**
  * fish components/LakeRequestBanner.tsx — «Nu găsești balta preferată?» over the lake photo.
- * Signed in: «Sugerează baltă» opens the suggestion form; signed out: an extra line and
- * «Intră în cont». The session streams in, so until it is known the button is the signed-in label
- * without an action. fish's shark Lottie is not ported. Desktop (design): shorter copy, pill button.
+ * Signed in: «Sugerează baltă» opens the suggestion form; signed out: an extra line and «Intră ca
+ * să sugerezi» (what the sign-in unlocks, not a fourth bare «Intră în cont» on the page). The
+ * session streams in, so until it is known the action is drawn without being one. fish's shark
+ * Lottie is not ported. The banner spec is PartidaCta's (BANNER), at e1 — the glow is the hero's.
+ * The photo's scrim carries the white text (no text shadow).
+ *
+ * Desktop (≥1280) sits beside the «Ești la pescuit?» hero at the same height, so it keeps one
+ * paragraph (web difference): «Îți vom trimite un mesaj…» moves into the form's intro, and signed
+ * out the button's own label («Intră ca să sugerezi») says what the sign-in line said. The phone
+ * keeps fish's full copy.
  */
 export function LakeRequestBanner({ layout, className }: { layout: 'mobile' | 'desktop'; className?: string }) {
-  const desktop = layout === 'desktop';
   return (
-    <section
-      aria-labelledby={`acasa-sugereaza-${layout}`}
-      className={cn('relative isolate overflow-hidden shadow-glow', desktop ? 'rounded-[18px]' : 'rounded-card', className)}
-    >
-      <Image src={lakePhoto} alt="" fill sizes="(min-width: 1280px) 400px, 100vw" className="-z-20 object-cover" placeholder="blur" />
-      <span aria-hidden className="absolute inset-0 -z-10 bg-photo-scrim" />
-      <div className={cn('flex h-full flex-col text-on-photo-scrim', desktop ? 'justify-between gap-[15px] p-[18px]' : 'gap-3 p-4')}>
-        <div className={cn('flex flex-col', desktop ? 'gap-[5px]' : 'gap-3')}>
-          <h2 id={`acasa-sugereaza-${layout}`} className="t-title1 xl:t-title2 [text-shadow:0_1px_2px_rgb(0_0_0/0.5)]">
-            Nu găsești balta preferată?
-          </h2>
-          {desktop ? (
-            <p className="max-w-[300px] t-caption opacity-90">Sugerează-ne o baltă care lipsește și o vom adăuga în aplicație.</p>
-          ) : (
-            <>
-              <p className="t-body opacity-90">
-                Sugerează-ne o baltă care lipseste și o vom adăuga în aplicație! Vom lua legatura cu administratorul bălții pentru a
-                prealua detaliile actualizate.
-              </p>
-              <p className="t-body opacity-90">Îți vom trimite un mesaj după ce o adaugam.</p>
-            </>
-          )}
-        </div>
-        <Suspense fallback={<BannerButton desktop={desktop}>Sugerează baltă</BannerButton>}>
-          <BannerAction desktop={desktop} />
-        </Suspense>
+    <section aria-labelledby={`acasa-sugereaza-${layout}`} className={cn(BANNER, BANNER_ROW, 'text-on-photo-scrim shadow-e1', className)}>
+      <Image src={lakePhoto} alt="" fill sizes="(min-width: 1280px) 50vw, 100vw" className="z-backdrop object-cover" placeholder="blur" />
+      <span aria-hidden className="absolute inset-0 z-behind bg-photo-scrim" />
+      <div className={BANNER_TEXT}>
+        <h2 id={`acasa-sugereaza-${layout}`} className="t-heading">
+          Nu găsești balta preferată?
+        </h2>
+        <p className={BANNER_COPY}>
+          Sugerează-ne o baltă care lipsește și o vom adăuga în aplicație! Vom lua legătura cu administratorul bălții pentru a
+          prelua detaliile actualizate.
+        </p>
+        {layout === 'mobile' ? <p className={BANNER_COPY}>{WILL_MESSAGE}</p> : null}
+        {layout === 'mobile' ? (
+          <Suspense fallback={null}>
+            <SignInLine />
+          </Suspense>
+        ) : null}
       </div>
+      <Suspense
+        fallback={
+          <div className={BANNER_ACTIONS}>
+            <span aria-hidden className={buttonClass({ variant: 'outline' })}>
+              Sugerează baltă
+            </span>
+          </div>
+        }
+      >
+        <BannerAction />
+      </Suspense>
     </section>
   );
 }
 
-function BannerAction({ desktop }: { desktop: boolean }) {
+const WILL_MESSAGE = 'Îți vom trimite un mesaj după ce o adăugăm.';
+
+/** Signed out, the phone's extra line (fish): what the sign-in unlocks. */
+function SignInLine() {
+  return useViewer() ? null : <p className={BANNER_COPY}>Pentru a putea sugera o baltă intră în contul tău.</p>;
+}
+
+function BannerAction() {
   const viewer = useViewer();
   const [open, setOpen] = useState(false);
   if (!viewer) {
     return (
-      <>
-        {desktop ? null : <p className="t-body opacity-90">Pentru a putea sugera o baltă intră în contul tau.</p>}
-        <BannerButton desktop={desktop} href={homeLinks.signIn}>
-          Intră în cont
-        </BannerButton>
-      </>
+      <div className={BANNER_ACTIONS}>
+        <ButtonLink href={homeLinks.signIn} variant="outline" className={ON_DARK_FOCUS}>
+          Intră ca să sugerezi
+        </ButtonLink>
+      </div>
     );
   }
   return (
     <>
-      <BannerButton desktop={desktop} onClick={() => setOpen(true)}>
-        Sugerează baltă
-      </BannerButton>
+      <div className={BANNER_ACTIONS}>
+        <Button variant="outline" onClick={() => setOpen(true)} aria-haspopup="dialog" className={ON_DARK_FOCUS}>
+          Sugerează baltă
+        </Button>
+      </div>
       {open ? <LakeRequestDialog onClose={() => setOpen(false)} /> : null}
     </>
   );
 }
 
-function BannerButton({ desktop, href, onClick, children }: { desktop: boolean; href?: string; onClick?: () => void; children: string }) {
-  const cls = cn(
-    'inline-flex items-center justify-center border-2 border-on-photo-scrim bg-photo-chip/90 t-body-strong text-ink',
-    desktop ? 'self-start rounded-full px-[18px] py-2.5' : 'mt-2 self-end rounded-control px-5 py-2'
-  );
-  if (href) {
-    return (
-      <Link href={href} className={cls}>
-        {children}
-      </Link>
-    );
-  }
-  return (
-    <button type="button" onClick={onClick} disabled={!onClick} className={cls}>
-      {children}
-    </button>
-  );
-}
-
 const DEBOUNCE_MS = 400;
 const MAX_SEARCH_RESULTS = 4;
+const MESSAGE_MAX = 1000;
 
 /** fish components/LakeRequestSheet.tsx — name (with «is this the lake?» matches), details, admin. */
 function LakeRequestDialog({ onClose }: { onClose: () => void }) {
@@ -110,7 +111,7 @@ function LakeRequestDialog({ onClose }: { onClose: () => void }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [term, setTerm] = useState('');
-  const [result, setResult] = useState<'ok' | 'fail' | null>(null);
+  const toast = useSiteToast();
 
   useEffect(() => {
     const trimmed = lakeName.trim();
@@ -126,7 +127,6 @@ function LakeRequestDialog({ onClose }: { onClose: () => void }) {
     setMessage('');
     setIsAdmin(false);
     setError(null);
-    setResult(null);
     onClose();
   };
 
@@ -138,7 +138,13 @@ function LakeRequestDialog({ onClose }: { onClose: () => void }) {
     }
     send.mutate(
       { lakeName, message: message || undefined, isAdmin, matchedLake: matches.length > 0 ? matches[0].documentId : null },
-      { onSuccess: () => setResult('ok'), onError: () => setResult('fail') }
+      {
+        onSuccess: () => {
+          toast('Cererea ta a fost trimisă cu succes!', 'success');
+          close();
+        },
+        onError: () => toast('A apărut o problemă la trimiterea cererii. Te rugăm să încerci mai târziu.', 'danger'),
+      }
     );
   };
 
@@ -149,30 +155,21 @@ function LakeRequestDialog({ onClose }: { onClose: () => void }) {
       intent="decision"
       title="Sugerează o baltă nouă"
       actions={
-        result === 'ok' ? (
-          <Button block onClick={close}>
+        <>
+          <Button variant="danger" onClick={close}>
             Închide
           </Button>
-        ) : (
-          <>
-            <Button variant="danger" onClick={close}>
-              Închide
-            </Button>
-            <Button type="submit" form="acasa-sugereaza-form" disabled={send.isPending}>
-              {send.isPending ? 'Se trimite…' : 'Trimite cerere'}
-            </Button>
-          </>
-        )
+          <Button type="submit" form="acasa-sugereaza-form" aria-disabled={send.isPending || undefined}>
+            {send.isPending ? 'Se trimite…' : 'Trimite cerere'}
+          </Button>
+        </>
       }
     >
-      {result === 'ok' ? (
-        <p role="status" className="t-body text-ink-2">
-          Cererea ta a fost trimisă cu succes!
-        </p>
-      ) : (
-        <form id="acasa-sugereaza-form" onSubmit={submit} className="flex flex-col gap-4" noValidate>
+      {
+        <form id="acasa-sugereaza-form" onSubmit={(e) => (send.isPending ? e.preventDefault() : submit(e))} className="flex flex-col gap-4" noValidate>
           <p className="t-body text-muted">
-            Spune-ne despre balta pe care ai vrea să o vezi în aplicație. Dacă balta există deja, o vei putea găsi mai jos.
+            Spune-ne despre balta pe care ai vrea să o vezi în aplicație. Dacă balta există deja, o vei putea găsi mai jos.{' '}
+            {WILL_MESSAGE}
           </p>
           <TextInput
             label="Numele bălții"
@@ -188,7 +185,7 @@ function LakeRequestDialog({ onClose }: { onClose: () => void }) {
           />
           {matches.length > 0 ? (
             <div className="flex flex-col gap-2">
-              <p className="t-body-strong text-accent">Aceasta este balta pe care o cauți?</p>
+              <p className="t-body-strong text-accent-ink">Aceasta este balta pe care o cauți?</p>
               <ul className="flex flex-wrap gap-2">
                 {matches.map((l) => (
                   <li key={l.documentId}>
@@ -200,25 +197,19 @@ function LakeRequestDialog({ onClose }: { onClose: () => void }) {
               </ul>
             </div>
           ) : null}
-          <TextArea
+          <T4TextArea
             label="Detalii despre baltă"
             helper="Poți include detalii despre locație, facilități și orice altceva consideri important."
             placeholder="Detalii adiționale (opțional)..."
-            maxLength={1000}
+            maxLength={MESSAGE_MAX}
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            // T4TextArea does not forward `maxLength` to the <textarea>: the cap (fish max 1000) is here.
+            onChange={(e) => setMessage(e.target.value.slice(0, MESSAGE_MAX))}
           />
-          <label className="flex items-center gap-3 t-body">
-            <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} className="size-5 accent-accent" />
-            Ești administratorul bălții?
-          </label>
-          {result === 'fail' ? (
-            <p role="alert" className="t-caption text-status-danger-fg">
-              A apărut o problemă la trimiterea cererii. Te rugăm să încerci mai târziu.
-            </p>
-          ) : null}
+          {/* The kit switch (T1 FilterSwitch; TODO(kit): components/forms/Switch.tsx). */}
+          <FilterSwitch label="Ești administratorul bălții?" checked={isAdmin} onChange={setIsAdmin} />
         </form>
-      )}
+      }
     </ResponsiveSurface>
   );
 }
