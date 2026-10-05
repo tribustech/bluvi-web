@@ -1,0 +1,1282 @@
+# Parity inventory — area "lakes" (fish → bluvi-web).
+# Source: fish `app/(app)/(tabs)/lakes/*`, `app/(app)/lakes/**`, `features/lakes/*`, `features/venues/*`
+# plus the shared components they render (features/reviews, features/partide/screens used by lake subpages).
+# Line refs are against fish as read on 2026-10-04. Paths are relative to fish/.
+# Not covered here (other areas): booking grid `features/lakes/booking/*` + `app/(app)/book-lake/*` (area booking, M3),
+# operator walk-in, public waters (`features/public-waters/*`, area public-waters).
+area: lakes
+screens:
+  # ───────────────────────────────────────────── Bălți: home (sections)
+  - id: lakes.home
+    title: "Bălți"
+    fish:
+      - "app/(app)/(tabs)/lakes/index.tsx"
+      - "app/(app)/(tabs)/lakes/_layout.tsx"
+      - "features/lakes/components/LakesHomeSectionRow.tsx"
+      - "features/lakes/helpers/lakesHomeSections.ts"
+      - "features/lakes/helpers/lakesHomeCardPresentation.ts"
+      - "features/lakes/components/LakesNearbyPermissionPlaceholder.tsx"
+      - "features/lakes/components/LakesLocationPermissionSheet.tsx"
+      - "features/lakes/components/LakesSearchBubble.tsx"
+      - "features/lakes/helpers/locationPermissionState.ts"
+      - "features/lakes/helpers/recentViewedLakes.ts"
+      - "components/MiniatureLakeCard.tsx"
+      - "components/LakesListSkeleton.tsx"
+      - "components/ErrorScreen.tsx"
+      - "helpers/lakesSearch.ts"
+      - "services/queries/useLakesHome.ts"
+    web_route: /balti
+    template: T2
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/lakes: lakesHomeQuery, getLakesByDocumentIds, buildLakesHomeSections, getTotalLakesInSections, getLakesHomeCardPresentation"
+      - "core/lakes: parseRecentViewedLakeIds, pushRecentViewedLakeId, MAX_RECENT_VIEWED_LAKE_IDS"
+      - "core/lakes: formatNearbyDistanceKm, getLakeLocationSubtitle, getLakesSearchSummary, DEFAULT_NEARBY_RADIUS_KM, EMPTY_LAKE_FILTERS"
+    states:
+      - "loading (home skeleton while /feed/lakes/home or recent-viewed lakes are pending)"
+      - "error with no sections (error screen + retry)"
+      - "location never_asked (nearby slot = placeholder „Permite locația”)"
+      - "location denied (placeholder „Deschide setările” + permission dialog)"
+      - "location unavailable / services_off (placeholder + services dialog)"
+      - "location granted (nearby section with distances)"
+      - "no recently viewed lakes (section absent)"
+      - "recently viewed lakes present (first section)"
+      - "section with > 10 lakes (Vezi toate link + trailing card)"
+      - "all sections empty (map CTA hidden)"
+      - "signed-out (identical content)"
+    criteria:
+      - id: lakes.home.c1
+        text: "A two-option toggle „Bălți” / „Ape publice” sits above the search; „Bălți” is selected on arrival."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:715"
+      - id: lakes.home.c2
+        text: "The red „NOU” badge on „Ape publice” is date-gated to before 2026-09-06 and must NOT render any more."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:97"
+      - id: lakes.home.c3
+        text: "Choosing „Ape publice” clears every lake filter and the committed search and opens the public-waters map (area public-waters, /ape-publice)."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:564"
+      - id: lakes.home.c4
+        text: "The search field shows a magnifier and the placeholder „Caută bălți, lacuri...”, has the accessible name „Deschide căutarea pentru bălți”, and opens the lakes search (lakes.search)."
+        fish_ref: "features/lakes/components/LakesSearchBubble.tsx:40"
+      - id: lakes.home.c5
+        text: "A round „Filtre” button next to the search opens the filter panel with all sections (lakes.filters, mode all)."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:762"
+      - id: lakes.home.c6
+        text: "Applying filters from the home panel goes to the results map: filtered results when at least one filter is set, the all-lakes map when none is set (never stays on the home)."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:887"
+      - id: lakes.home.c7
+        text: "Sections render in this order: „Vizualizate recent” (only when present, newest first), the nearby section (or its location placeholder), the all-lakes section, then the fixed sections from /feed/lakes/home in server order."
+        fish_ref: "features/lakes/helpers/lakesHomeSections.ts:34"
+      - id: lakes.home.c8
+        text: "A lake already shown in the nearby section or an earlier fixed section is removed from later fixed sections; a fixed section left empty is not rendered."
+        fish_ref: "features/lakes/helpers/lakesHomeSections.ts:78"
+      - id: lakes.home.c9
+        text: "Each section header shows a colored icon badge for its key (recent=clock, nearby=compass, all_lakes=waves, bookable=ticket, top_rated=star, with_retention=fish, with_cabins=home, competition_lakes=trophy, other=telescope) and the section title."
+        fish_ref: "features/lakes/components/LakesHomeSectionRow.tsx:63"
+      - id: lakes.home.c10
+        text: "A section shows at most 10 lakes; when it has more, the header shows „Vezi toate ›” and the row ends with a „Vezi toate” card; /feed/lakes/home is requested with limit 11."
+        fish_ref: "features/lakes/components/LakesHomeSectionRow.tsx:162"
+      - id: lakes.home.c11
+        text: "„Vezi toate” on the bookable section opens the results map with only the Rezervări filter active; on the nearby section (location known) it opens a nearby search with the current radius; on any other section it opens the all-lakes map with filters cleared."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:592"
+      - id: lakes.home.c12
+        text: "The nearby section header shows the radius („50 km ›”, default 50) instead of „Vezi toate”; activating it opens the nearby results map (or triggers the location flow when no position is known)."
+        fish_ref: "features/lakes/components/LakesHomeSectionRow.tsx:214"
+      - id: lakes.home.c13
+        text: "Nearby cards show a dark distance pill: one decimal under 10 km („7.4 km”), rounded above („23 km”)."
+        fish_ref: "features/lakes/components/LakesHomeSectionRow.tsx:286"
+      - id: lakes.home.c14
+        text: "A lake card shows the first image (blurhash placeholder), a white rating pill „★ 4.5” on the image only when the lake has reviews, the name, the county/city subtitle, up to 4 facility icons plus „+N”, and the fishing regime."
+        fish_ref: "features/lakes/helpers/lakesHomeCardPresentation.ts:18"
+      - id: lakes.home.c15
+        text: "Cards in „Vizualizate recent” are the compact variant: narrower, no facilities and no regime."
+        fish_ref: "features/lakes/helpers/lakesHomeCardPresentation.ts:33"
+      - id: lakes.home.c16
+        text: "Activating a card opens /balti/[id]."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:623"
+      - id: lakes.home.c17
+        text: "When location is not granted, the nearby slot is a placeholder card. never_asked: „Descoperă bălți aproape de tine” / „Permite locația și îți arătăm instant locurile din apropiere.” / „Permite locația”; denied: „Activează locația din setări” / „Permisiunea e blocată acum, dar o poți reactiva rapid.” / „Deschide setările”; services_off: „Activează locația dispozitivului” / „Permisiunea e dată, dar locația telefonului este oprită.” / „Deschide setările”."
+        fish_ref: "features/lakes/components/LakesNearbyPermissionPlaceholder.tsx:13"
+      - id: lakes.home.c18
+        text: "Activating the placeholder: never_asked → asks for geolocation and, when granted, loads the position and the nearby section; denied → opens the permission dialog; services_off → opens the services dialog."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:178"
+      - id: lakes.home.c19
+        text: "Permission dialog copy: „Găsește bălți aproape de tine” / „Activează localizarea ca să îți arătăm bălțile din apropiere.” (+ how-to line) / button „Mergi la Setări”; services dialog: „Activează serviciile de locație” / „Locația dispozitivului este oprită. Activeaz-o ca să găsim bălți aproape de tine.” On web the button explains how to allow location in the browser instead of opening OS settings."
+        fish_ref: "features/lakes/components/LakesLocationPermissionSheet.tsx:20"
+      - id: lakes.home.c20
+        text: "The services-off dialog opens by itself once when the location state becomes services_off; the permission dialog opens by itself once when the results map opens while location is denied."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:266"
+      - id: lakes.home.c21
+        text: "/feed/lakes/home is called with the user's latitude/longitude (when granted), radiusKm (default 50) and limit 11, and cached 1h."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:343"
+      - id: lakes.home.c22
+        text: "Recently viewed lakes are read from local storage (max 10) every time the page gains focus and fetched by ids from /feed/lakes/by-ids (cached 24h, previous data kept while refetching)."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:350"
+      - id: lakes.home.c23
+        text: "A floating „Vezi bălțile pe hartă” button (map icon) shows when the sections contain at least one lake; it opens the all-lakes results map with filters cleared."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:825"
+      - id: lakes.home.c24
+        text: "While home sections or recently viewed lakes are loading, the home skeleton is shown instead of the sections."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:663"
+      - id: lakes.home.c25
+        text: "When /feed/lakes/home fails and there are no sections, an error screen with „Încearcă din nou” (refetch) replaces the page."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:659"
+      - id: lakes.home.c26
+        text: "Refresh (pull-to-refresh in fish) reloads the recent ids, the home sections and the recently viewed lakes."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:480"
+      - id: lakes.home.c27
+        text: "The search row stays fixed while sections scroll under it, faded into the page background."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:817"
+      - id: lakes.home.c28
+        text: "Analytics: one lake_home_section_impression per section with content (section_key, section_position, lakes_count) and lake_home_section_click (section_key, section_position, item_position, lake_id)."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:623"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── search overlay
+  - id: lakes.search
+    title: "Caută în Bălți"
+    fish:
+      - "features/lakes/components/LakesSearchScreen.tsx"
+      - "features/lakes/components/LakesSearchSuggestionsList.tsx"
+      - "features/lakes/helpers/suggestionToCommittedSearch.ts"
+      - "features/lakes/helpers/recentLakeSearches.ts"
+      - "features/lakes/models/lakes-search.types.ts"
+      - "services/queries/useLakesExploreSuggestions.ts"
+      - "components/search/CollapsibleSearchInput.tsx"
+      - "components/search/SearchResultsSkeleton.tsx"
+    web_route: "/balti (dialog de căutare; deschis și din /balti/harta)"
+    template: none
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/lakes: lakesExploreSuggestionsInfiniteQuery, defaultLakesExploreSuggestionsInfiniteQuery, flattenLakesExploreSuggestions, LAKES_EXPLORE_SUGGESTIONS_DEBOUNCE_MS"
+      - "core/lakes: suggestionToCommittedSearch, nearbyCommittedSearch, mapApiSuggestion"
+      - "missing in core: recent lake searches store (fish features/lakes/helpers/recentLakeSearches.ts) — port as pure parse/push helpers"
+    states:
+      - "empty term, no recents (În jurul meu + default suggestions)"
+      - "empty term with recents („Căutări recente”)"
+      - "debouncing / first fetch (skeleton)"
+      - "results"
+      - "no results"
+      - "loading next page"
+      - "requesting location for „În jurul meu”"
+      - "location denied / unavailable (hands off to the location dialogs)"
+    criteria:
+      - id: lakes.search.c1
+        text: "Opens as a full-screen layer titled „Caută în Bălți” with a close button named „Închide”; the input gets focus after opening."
+        fish_ref: "features/lakes/components/LakesSearchScreen.tsx:158"
+      - id: lakes.search.c2
+        text: "The input placeholder is „Caută o baltă, județ sau localitate” and shows a loading indicator while suggestions load."
+        fish_ref: "features/lakes/components/LakesSearchScreen.tsx:167"
+      - id: lakes.search.c3
+        text: "With an empty term the first row is always „În jurul meu” / „Bălți în apropiere” (location icon), followed by the default suggestions."
+        fish_ref: "features/lakes/components/LakesSearchScreen.tsx:108"
+      - id: lakes.search.c4
+        text: "With an empty term and saved recents, a „Căutări recente” block lists them above the suggestions with a „Șterge tot” action that clears them; recents keep max 5, newest first, deduped by id, only county/city/lake picks (never „În jurul meu” nor free text)."
+        fish_ref: "features/lakes/helpers/recentLakeSearches.ts:5"
+      - id: lakes.search.c5
+        text: "Typing queries /feed/lakes/explore/suggestions in text mode (debounced); each row shows an icon by type (location, county pin, city building, lake waves) on its colored circle, the title (1 line) and the subtitle (2 lines)."
+        fish_ref: "features/lakes/components/LakesSearchSuggestionsList.tsx:13"
+      - id: lakes.search.c6
+        text: "While the term is debouncing or the first page is in flight with nothing to show, a skeleton is shown and the empty message never flashes."
+        fish_ref: "features/lakes/components/LakesSearchScreen.tsx:94"
+      - id: lakes.search.c7
+        text: "A non-empty term with no results shows „Nu am găsit rezultate pentru căutarea ta.”"
+        fish_ref: "features/lakes/components/LakesSearchScreen.tsx:213"
+      - id: lakes.search.c8
+        text: "Suggestions page 20 at a time; reaching the end loads the next page with a spinner footer."
+        fish_ref: "features/lakes/components/LakesSearchScreen.tsx:188"
+      - id: lakes.search.c9
+        text: "Picking a lake suggestion saves it to recents and navigates straight to /balti/[id] (the search layer closes)."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:842"
+      - id: lakes.search.c10
+        text: "Picking a county or city saves it to recents and opens the results map scoped to it, with the title as the search summary."
+        fish_ref: "features/lakes/helpers/suggestionToCommittedSearch.ts:23"
+      - id: lakes.search.c11
+        text: "Picking „În jurul meu” requests geolocation: denied → permission dialog; position unavailable → services dialog; success → results map in nearby mode with radius 50 km and summary „În jurul meu · 50km”."
+        fish_ref: "features/lakes/components/LakesSearchScreen.tsx:116"
+      - id: lakes.search.c12
+        text: "While the location request runs, a spinner shows in the input and a second tap on „În jurul meu” is ignored."
+        fish_ref: "features/lakes/components/LakesSearchScreen.tsx:118"
+      - id: lakes.search.c13
+        text: "Closing the layer resets the typed term."
+        fish_ref: "features/lakes/components/LakesSearchScreen.tsx:71"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── filter panel
+  - id: lakes.filters
+    title: "Filtre bălți"
+    fish:
+      - "features/lakes/components/LakeFilterPickerSheet.tsx"
+      - "features/lakes/helpers/lakeFilterChips.ts"
+      - "features/lakes/helpers/lakeFilterOptions.ts"
+      - "features/lakes/helpers/lakesWizardSummaries.ts"
+      - "features/lakes/models/lake-filters.types.ts"
+      - "features/lakes/components/FishGlyphs.tsx"
+      - "services/queries/useLakesExploreCount.ts"
+      - "services/queries/useFacilities.ts"
+      - "services/queries/useFishes.ts"
+      - "atoms.ts"
+    web_route: "/balti/harta (panou Filtre; deschis și din /balti)"
+    template: none
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/lakes: facilitiesQuery, fishesQuery, lakesExploreCountQuery, LAKES_EXPLORE_COUNT_DEBOUNCE_MS"
+      - "core/lakes: getRegimeOptions, mapFacilitiesToFilterValues, mapFishToFilterValues, RATING_TIER_ORDER, getRatingTierLabel, getLakeFilterChips, EMPTY_LAKE_FILTERS"
+    states:
+      - "all sections (opened from „Filtre”)"
+      - "single section (opened from a chip)"
+      - "nothing selected (Șterge disabled)"
+      - "counting (button reads „Aplică”)"
+      - "count known („Aplică · N bălți”)"
+      - "long section collapsed / expanded"
+    criteria:
+      - id: lakes.filters.c1
+        text: "Opened from „Filtre” the panel is titled „Filtre” and stacks Regim, Facilități, Rating, Rezervări, Pești in that order; opened from a chip it shows only that section, titled with its name."
+        fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:533"
+      - id: lakes.filters.c2
+        text: "Regim offers „C&R”, „Retinere”, „C&R + Retinere” (multi-select)."
+        fish_ref: "features/lakes/helpers/lakeFilterOptions.ts:25"
+      - id: lakes.filters.c3
+        text: "Facilități options come from /facilities and Pești options from /fishes (both cached 3h); each pill shows the facility glyph / species glyph (generic fish fallback)."
+        fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:273"
+      - id: lakes.filters.c4
+        text: "Multi-select section headers show the uppercase title, „· N” selected count, and a „Selectează tot” / „Deselectează tot” action that flips the whole section."
+        fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:148"
+      - id: lakes.filters.c5
+        text: "Facilități and Pești are clipped to 4 rows with an expand pill „Vezi toate facilitățile (N)” / „Vezi toți peștii (N)” that toggles to „Vezi mai puțin”; clipped options are not reachable by keyboard or screen reader."
+        fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:206"
+      - id: lakes.filters.c6
+        text: "Options already committed before opening are listed first, and order does not change while the user toggles."
+        fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:320"
+      - id: lakes.filters.c7
+        text: "Rating is single-select: „Orice” (no minimum) plus „Excelent”, „Foarte bun”, „Bun”, „Acceptabil” (CMS thresholds 4,5+ / 4,0+ / 3,5+ / 3,0+)."
+        fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:394"
+      - id: lakes.filters.c8
+        text: "Rezervări is a single on/off pill „Acceptă rezervări online” (bookableOnly)."
+        fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:423"
+      - id: lakes.filters.c9
+        text: "Selections are a draft until „Aplică”; closing (X „Închide” or backdrop) discards the draft; reopening starts from the committed filters."
+        fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:296"
+      - id: lakes.filters.c10
+        text: "The apply button shows the live result count for the draft and the current search: „Aplică · N bălți” (or „1 baltă”), plain „Aplică” while counting (/feed/lakes/explore/count)."
+        fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:565"
+      - id: lakes.filters.c11
+        text: "„Șterge” clears the shown section (all sections in all-mode) and is disabled when the draft has nothing selected there."
+        fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:470"
+      - id: lakes.filters.c12
+        text: "Option pills expose their selected state to assistive tech (role button + pressed/selected)."
+        fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:92"
+      - id: lakes.filters.c13
+        text: "Committed filters are app-session state shared by home and results map (not persisted across reloads)."
+        fish_ref: "atoms.ts:8"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── legacy full-screen filters (unreachable)
+  - id: lakes.choose-filters
+    title: "Filtrează bălți (vechi)"
+    fish:
+      - "app/(app)/lakes/choose-lake-filters.tsx"
+      - "app/(app)/_layout.tsx"
+    web_route: "/balti/harta (acoperit de lakes.filters; fără pagină proprie)"
+    merged_into: lakes.filters
+    template: none
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/lakes: same as lakes.filters"
+    states:
+      - "unreachable in fish (no navigation pushes it)"
+    criteria:
+      - id: lakes.choose-filters.c1
+        text: "The route is registered but no fish code navigates to it; the web builds no separate page and treats it as covered by lakes.filters (verify no inbound link exists before closing)."
+        fish_ref: "app/(app)/_layout.tsx:65"
+      - id: lakes.choose-filters.c2
+        text: "Its content (Facilități / Tipuri de pesti / Regim pills, „Șterge filtre”, „Aplică”) is a subset of lakes.filters; nothing here may be missing from lakes.filters."
+        fish_ref: "app/(app)/lakes/choose-lake-filters.tsx:63"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── results map + list
+  - id: lakes.results-map
+    title: "Hartă bălți"
+    fish:
+      - "app/(app)/(tabs)/lakes/index.tsx"
+      - "features/lakes/components/LakesResultsWithMap.tsx"
+      - "features/lakes/components/LakeMapPinCard.tsx"
+      - "features/lakes/components/LakesResultsClearFiltersPill.tsx"
+      - "features/lakes/components/LakesResultsMapLocateButton.tsx"
+      - "features/lakes/helpers/getMapFocusRegion.ts"
+      - "features/lakes/helpers/clusterTargetRegion.ts"
+      - "features/lakes/helpers/frameRegionInBand.ts"
+      - "features/lakes/helpers/lakeFilterChips.ts"
+      - "components/map/MapChrome.tsx"
+      - "components/NewLakeCardWithCarouselHeader.tsx"
+      - "components/NavigationSheet.tsx"
+      - "services/queries/useMapClusters.ts"
+      - "services/queries/useLakesInBbox.ts"
+      - "services/queries/useLakesFocusBbox.ts"
+    web_route: "/balti/harta (?q, ?judet, ?localitate, ?aproape&raza, filtre în query)"
+    template: T2
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/lakes: lakeMapClustersQuery, lakesInBboxInfiniteQuery, lakesFocusBboxQuery, lakeQuery, bboxBucketKey, makeLakesInBboxSignature"
+      - "core/lakes: getLakeFilterChips, getLakesSearchSummary, getDistanceKm, formatNearbyDistanceKm, getLakeLocationSubtitle"
+      - "missing in core: getMapFocusRegion + COUNTRY_OVERVIEW_REGION + isGeographicSearchMode (fish features/lakes/helpers/getMapFocusRegion.ts), computeClusterTargetRegion (clusterTargetRegion.ts)"
+    states:
+      - "first load (full skeleton until the first list page)"
+      - "fetching after a pan/zoom („Se încarcă…” pill)"
+      - "results"
+      - "0 results in viewport"
+      - "pin selected (pin card)"
+      - "list hidden after pan („Vezi lista (N)”)"
+      - "filters/search active („Șterge filtre”)"
+      - "county/city bbox still resolving / bbox request failed (falls back to country)"
+      - "location never_asked / denied / unavailable / granted (locate button)"
+      - "nearby mode"
+    criteria:
+      - id: lakes.results-map.c1
+        text: "Map chrome: back control, a search pill showing the summary („În jurul meu · 50km”, the picked county/city name, or „Caută bălți, lacuri...”) that opens lakes.search, and a Filtre icon inside the pill that opens lakes.filters with all sections."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1345"
+      - id: lakes.results-map.c2
+        text: "Back clears the search and every filter and returns to the Bălți home sections."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:554"
+      - id: lakes.results-map.c3
+        text: "Filter chip rail in order Regim, Facilități, Rating, Rezervări, Pești; a chip is active when its filter is set; multi-select chips show the selected count; the Rating chip label becomes the tier name when set."
+        fish_ref: "features/lakes/helpers/lakeFilterChips.ts:17"
+      - id: lakes.results-map.c4
+        text: "The Rezervări chip toggles bookableOnly directly (no panel); every other chip opens lakes.filters for that one section."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1249"
+      - id: lakes.results-map.c5
+        text: "Initial focus: county/city → padded bbox from /feed/lakes/focus-bbox; picked lake → its point; nearby → circle of the chosen radius around the user; no geographic anchor (all lakes / text / filters only) → Romania overview (45.94, 24.97; 6°×10°)."
+        fish_ref: "features/lakes/helpers/getMapFocusRegion.ts:62"
+      - id: lakes.results-map.c6
+        text: "If the county/city bbox request fails, the map falls back to the Romania overview instead of staying on the skeleton; results stay scoped by the search."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:393"
+      - id: lakes.results-map.c7
+        text: "Re-applying the same search re-centers the map (focus nonce) even though the search did not change."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:504"
+      - id: lakes.results-map.c8
+        text: "For geographic searches, cluster and list requests wait until the focus region is applied, so the first fetch is for the focused viewport."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:763"
+      - id: lakes.results-map.c9
+        text: "Markers come from /feed/lakes/map-clusters for the visible bbox, zoom, filters and search, refetched 250 ms after the map stops moving (cached 60s)."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:784"
+      - id: lakes.results-map.c10
+        text: "Cluster markers show the count; clusters over 10 use the large red style, others blue; activating a cluster zooms to its bbox padded ×1.4, never more than 2 zoom levels in at once."
+        fish_ref: "features/lakes/helpers/clusterTargetRegion.ts:1"
+      - id: lakes.results-map.c11
+        text: "Activating a lake pin selects it: the list closes and a pin card appears."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1103"
+      - id: lakes.results-map.c12
+        text: "Pin card: up to 3 photos (grey block when none; images fetched from the lake detail when the pin carries none), distance pill when location is known, close button, „Direcții” button, name, rating „★ 4.50 (N)” (hidden without reviews), location subtitle; activating the card opens /balti/[id]."
+        fish_ref: "features/lakes/components/LakeMapPinCard.tsx:83"
+      - id: lakes.results-map.c13
+        text: "„Direcții” offers navigation via Google Maps, Waze and Apple Maps to the lake coordinates."
+        fish_ref: "components/NavigationSheet.tsx:83"
+      - id: lakes.results-map.c14
+        text: "Closing the pin card returns to the list; coming back to this page from a lake also resets the pin card to the list."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1564"
+      - id: lakes.results-map.c15
+        text: "The list shows lakes inside the visible bbox (/feed/lakes/in-bbox, 7 per page, infinite scroll, spinner footer), headed „N bălți în această zonă” („1 baltă …”)."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1477"
+      - id: lakes.results-map.c16
+        text: "A list card shows a carousel of up to 3 photos, a distance pill when location is known, name, rating, location subtitle, facilities, fish species and regime; activating it opens /balti/[id]."
+        fish_ref: "components/NewLakeCardWithCarouselHeader.tsx:20"
+      - id: lakes.results-map.c17
+        text: "No lakes in the viewport: „0 bălți în această zonă” + „Mărește harta sau modifică filtrele pentru a vedea bălțile.”"
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1509"
+      - id: lakes.results-map.c18
+        text: "Until the first list page arrives a full results skeleton covers the map; later fetches show a floating „Se încarcă…” pill and a placeholder bar in place of the count."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1339"
+      - id: lakes.results-map.c19
+        text: "Panning the map hides the list (phone); a floating „Vezi lista (N)” button brings it back. On desktop the list stays beside the map."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1372"
+      - id: lakes.results-map.c20
+        text: "A „Șterge filtre” pill shows while any filter or search is active; it resets to all lakes with no filters and zooms back to the Romania overview."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:578"
+      - id: lakes.results-map.c21
+        text: "Locate button: services_off → services dialog; denied → permission dialog; never_asked → asks; then centers on the user at min(radius, 20) km; repeated presses while centered zoom in 5 km at a time down to 5 km."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1042"
+      - id: lakes.results-map.c22
+        text: "The user's position is drawn on the map when location is granted."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1272"
+      - id: lakes.results-map.c23
+        text: "List cards show the distance from the user when the location is known."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1517"
+      - id: lakes.results-map.c24
+        text: "While the filter panel is open the list is hidden and restored to its previous state after."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1128"
+      - id: lakes.results-map.c25
+        text: "Analytics: lakes_map_results_view (once, bbox+zoom+search_mode), lakes_map_results_focus_applied, lakes_map_results_cluster_tap, lakes_map_results_pin_tap, lakes_map_results_locate_me, lakes_map_clear_filters, lakes_map_results_pin_card_view_page / _dismiss, lakes_pin_card_open_maps."
+        fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:771"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── lake detail
+  - id: lakes.detail
+    title: "Baltă"
+    fish:
+      - "app/(app)/lakes/[lakeId].tsx"
+      - "features/lakes/detail/LakeHero.tsx"
+      - "features/lakes/detail/LakeCharacteristics.tsx"
+      - "features/lakes/detail/LakeFacilities.tsx"
+      - "features/lakes/detail/LakePricesSection.tsx"
+      - "features/lakes/detail/LakeCompetitionsSection.tsx"
+      - "features/lakes/detail/LakeContactSection.tsx"
+      - "features/lakes/detail/LakeReviewsPreview.tsx"
+      - "features/lakes/helpers/lakeDetailLogic.ts"
+      - "features/lakes/components/LakeDetailsSkeleton.tsx"
+      - "features/venues/detail/sections.ts"
+      - "features/venues/detail/VenueSection.tsx"
+      - "features/venues/detail/VenueSectionChips.tsx"
+      - "features/venues/detail/VenuePinnedNav.tsx"
+      - "features/venues/detail/VenueQuickActions.tsx"
+      - "features/venues/detail/sectionLogic.ts"
+      - "features/venues/detail/sectionScrollLock.ts"
+      - "features/partide/components/community/VenuePartideSection.tsx"
+      - "features/partide/components/community/LivePartideCard.tsx"
+      - "features/partide/community/useOpenPartida.ts"
+      - "features/reviews/components/ReviewCard.tsx"
+      - "components/ReveiwsInfoSheet.tsx"
+      - "components/HorizontalCompetitionsList.tsx"
+      - "components/NavigationSheet.tsx"
+      - "components/ExpandableText.tsx"
+      - "components/FishSpeciesList.tsx"
+      - "hooks/useNouBadge.ts"
+      - "services/queries/useLake.ts"
+    web_route: "/balti/[id]"
+    template: T3
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/lakes: lakeQuery, lakeReviewsInfiniteQuery, getLakeRatingDisplay, formatReviewsCount, getLakeLocationSubtitle, pushRecentViewedLakeId"
+      - "core/partide: communityVenueSectionQuery, communityVenueCatchesInfiniteQuery"
+      - "core/competitions: filteredCompetitionsInfiniteQuery (status started/notStarted, lakeId, pageSize 5)"
+      - "missing in core: buildLakeSectionChips, hasPartideActivity (fish features/lakes/helpers/lakeDetailLogic.ts), VENUE_SECTION_ORDER/LABELS (features/venues/detail/sections.ts), computeActiveSection"
+    states:
+      - "loading (skeleton + back)"
+      - "error without data (error screen + retry)"
+      - "unknown id (404)"
+      - "no photos (placeholder hero, no photo pill)"
+      - "no reviews („Fără recenzii”, „Scrie prima recenzie”)"
+      - "booking enabled / legacy phone reservations / no booking"
+      - "signed-out vs signed-in (booking CTA, owner profile link)"
+      - "has operator with profile / operator without profile id / no operator (claim link)"
+      - "no coordinates (no Direcții/Hartă tiles, no mini map)"
+      - "no Partide activity (section + chip hidden)"
+      - "no live/upcoming competitions (section + chip hidden once known)"
+      - "optional sections empty (facilities, fish, prices, contact)"
+    criteria:
+      - id: lakes.detail.c1
+        text: "While the lake loads, a detail skeleton with a back control is shown."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:369"
+      - id: lakes.detail.c2
+        text: "When the request fails and no lake is cached, an error screen with „Încearcă din nou” is shown; an unknown id gives a not-found page."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:378"
+      - id: lakes.detail.c3
+        text: "Opening the page records the lake id as most recent in the recently-viewed list (max 10) used by lakes.home."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:149"
+      - id: lakes.detail.c4
+        text: "Hero (300 px on phone): carousel of every lake photo (medium → small → original), placeholder lake image when none; activating a photo opens the gallery when there is at least one photo."
+        fish_ref: "features/lakes/detail/LakeHero.tsx:32"
+      - id: lakes.detail.c5
+        text: "Hero share button (accessible name „Distribuie balta”) opens lakes.share."
+        fish_ref: "features/lakes/detail/LakeHero.tsx:67"
+      - id: lakes.detail.c6
+        text: "Hero shows a red „Rezervă acum” button on every lake (bottom-left), wired to the booking affordance (c16)."
+        fish_ref: "features/lakes/detail/LakeHero.tsx:71"
+      - id: lakes.detail.c7
+        text: "Hero photo pill (bottom-right) shows lake images + total community catches; hidden at 0; opens /balti/[id]/galerie."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:155"
+      - id: lakes.detail.c8
+        text: "Title block: lake name; to its right a star with „4,50” and „· N recenzii” (or only „Fără recenzii”); activating it scrolls to Recenzii; accessible label „Recenzii: 4,50 din 5, N recenzii”."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:434"
+      - id: lakes.detail.c9
+        text: "Under the name a pin icon and the location subtitle (city, county, address)."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:457"
+      - id: lakes.detail.c10
+        text: "Section nav chips, in order and only when visible: Prezentare, Facilități (has facilities), Pești (has species), Partide (has activity), Prețuri (has prices), Concursuri (hidden only once live+upcoming counts are known to be 0), Recenzii, Contact (address, website, phones or coordinates)."
+        fish_ref: "features/lakes/helpers/lakeDetailLogic.ts:46"
+      - id: lakes.detail.c11
+        text: "Activating a chip scrolls its section just below the sticky nav and marks it active immediately (no highlight walking through intermediate sections); scrolling updates the active chip; the chip row scrolls the active chip into view."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:218"
+      - id: lakes.detail.c12
+        text: "After scrolling past the inline chip row a sticky header appears: back, lake name, rating meta „4,50 · N recenzii” (activates Recenzii), share button „Distribuie balta”, and the chip row."
+        fish_ref: "features/venues/detail/VenuePinnedNav.tsx:40"
+      - id: lakes.detail.c13
+        text: "Prezentare: „Descriere” heading with the description truncated and „Vezi mai mult”, which opens the full description titled „Descriere” (rich blocks); hidden when the lake has no description."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:477"
+      - id: lakes.detail.c14
+        text: "„Acțiuni rapide” tiles in order: Rezervă; Prețuri (only with prices, scrolls to Prețuri); Partide (badge = partide active now) → /balti/[id]/partide; Statistici → /balti/[id]/statistici; Concursuri (badge = live count) → /balti/[id]/concursuri; Direcții and Hartă (only with coordinates; Hartă → /balti/[id]/harta); Recenzii (scrolls to Recenzii)."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:298"
+      - id: lakes.detail.c15
+        text: "The „NOU” badge on the Rezervă tile is date-gated to before 2026-10-01 (and only when booking exists) and must NOT render any more."
+        fish_ref: "hooks/useNouBadge.ts:101"
+      - id: lakes.detail.c16
+        text: "Booking affordance (hero CTA and Rezervă tile): bookingEnabled + signed-in → /balti/[id]/rezerva; bookingEnabled + guest → /intra (no redirect back into the grid); acceptsReservations only → scrolls to Contact; neither → opens lakes.booking-interest with source hero_cta or quick_action."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:256"
+      - id: lakes.detail.c17
+        text: "„Caracteristici” grid (2 columns) shows only present stats: Suprafață „X ha”, Adâncime „min – max m” („?” for a missing bound), Standuri pescuit „N locuri”, Regim de pescuit, Tip de pescuit, Loc de pescuit; hidden when none."
+        fish_ref: "features/lakes/detail/LakeCharacteristics.tsx:18"
+      - id: lakes.detail.c18
+        text: "„Facilități” lists every facility with its icon in two columns."
+        fish_ref: "features/lakes/detail/LakeFacilities.tsx:7"
+      - id: lakes.detail.c19
+        text: "„Pești în această zonă” lists the lake's fish species."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:495"
+      - id: lakes.detail.c20
+        text: "Partide section (only when the venue has activity: active now, catches this month, a record, or any monthly count): „Partide la această baltă” + „Vezi tot ›”, the live card (N ACTIVI ACUM, weighed-kg headline, ranked live sessions with roster, kg, rank bar, stand), the „Activitate · ultimele 7 luni” chart, and „Vezi toate partidele ›” → /balti/[id]/partide."
+        fish_ref: "features/partide/components/community/VenuePartideSection.tsx:42"
+      - id: lakes.detail.c21
+        text: "The Partide data (/feed/community/venue-section) refreshes every 60s while the page is open and keeps the last good data when a refresh fails."
+        fish_ref: "features/partide/community/hooks.ts:132"
+      - id: lakes.detail.c22
+        text: "Opening a live session goes to the viewer's own partidă when it is theirs, otherwise to the read-only /partide/[id]."
+        fish_ref: "features/partide/community/useOpenPartida.ts:28"
+      - id: lakes.detail.c23
+        text: "„Prețuri” rows: header, optional description, price „N RON”."
+        fish_ref: "features/lakes/detail/LakePricesSection.tsx:7"
+      - id: lakes.detail.c24
+        text: "„Concursuri”: horizontal „Live” and „Viitoare” lists (5 each, lake-scoped), each hidden when empty after loading; header „Vezi tot” → /balti/[id]/concursuri; a card → /concursuri/[id]; on error „A apărut o eroare la încărcarea datelor.” + „Încearcă din nou”."
+        fish_ref: "features/lakes/detail/LakeCompetitionsSection.tsx:12"
+      - id: lakes.detail.c25
+        text: "„Recenzii” summary: big score „4,50”, star + „N recenzii”, bars for Pescuit / Facilități / Atmosferă with „4,5”; without reviews „Această baltă nu are încă recenzii.”"
+        fish_ref: "features/lakes/detail/LakeReviewsPreview.tsx:32"
+      - id: lakes.detail.c26
+        text: "Link „Vezi cum funcționează recenziile” opens the reviews explainer (Pescuit / Facilități / Atmosferă bullet lists)."
+        fish_ref: "components/ReveiwsInfoSheet.tsx:23"
+      - id: lakes.detail.c27
+        text: "The latest 2 reviews render as read-only review cards; the button reads „Scrie prima recenzie” (0), „Vezi recenzia” (1) or „Vezi toate cele N recenzii” and opens /balti/[id]/recenzii."
+        fish_ref: "features/lakes/detail/LakeReviewsPreview.tsx:80"
+      - id: lakes.detail.c28
+        text: "„Locație & contact”: a static mini map with a marker (activates /balti/[id]/harta) when coordinates parse; „Adresă”; one row per phone labelled with its header or „Telefon”, value „Nume · telefon”, opening tel:; „Website” opening the URL."
+        fish_ref: "features/lakes/detail/LakeContactSection.tsx:9"
+      - id: lakes.detail.c29
+        text: "„Administrator” card when the lake has an operator: initial avatar, trimmed name, „Administrează această baltă în Bluvi”; with ownerDocumentId it links to /pescari/[id] for signed-in users and to /intra for guests (label „{nume} — vezi profilul”); without ownerDocumentId it is not interactive."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:386"
+      - id: lakes.detail.c30
+        text: "Without an operator: „Această baltă nu are încă un administrator în Bluvi.” and the link „Ești administratorul acestei bălți?” opening lakes.claim."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:595"
+      - id: lakes.detail.c31
+        text: "„Direcții” offers Google Maps, Waze and Apple Maps to the lake coordinates."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:337"
+      - id: lakes.detail.c32
+        text: "Partide, Concursuri and Recenzii render after the first paint with a spinner placeholder (web: streamed/suspended sections), never blocking the hero."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:403"
+      - id: lakes.detail.c33
+        text: "Analytics: share_lake_button_pressed (lake_id, lake_name) and lake_booking_cta_pressed (lake_id, lake_name, source, booking_state)."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:243"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── share dialog
+  - id: lakes.share
+    title: "Distribuie balta"
+    fish:
+      - "features/lakes/components/ShareLakeSheet.tsx"
+      - "common/utils/constants.ts"
+    web_route: "/balti/[id] (dialog Distribuie)"
+    template: none
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "lib/routes: absoluteUrl(routes.lake(id))"
+    states:
+      - "default message"
+      - "edited message"
+      - "Web Share API unavailable (copy fallback)"
+    criteria:
+      - id: lakes.share.c1
+        text: "A chat-style preview shows an incoming bubble „Salut! Ce faci sâmbătă? 🎣” from „Prieten” and an outgoing bubble with the message, the line „🎣 {nume baltă}” and the link."
+        fish_ref: "features/lakes/components/ShareLakeSheet.tsx:38"
+      - id: lakes.share.c2
+        text: "Input „Mesajul tău” defaults to „Mergem la pescuit aici?”; the preview updates when the field loses focus."
+        fish_ref: "features/lakes/components/ShareLakeSheet.tsx:186"
+      - id: lakes.share.c3
+        text: "Shared text = message, blank line, „🎣 {nume baltă}”, new line, the lake URL (web: absolute /balti/[id])."
+        fish_ref: "features/lakes/components/ShareLakeSheet.tsx:130"
+      - id: lakes.share.c4
+        text: "„Copiază” copies the full text with the URL and shows the toast „Mesaj copiat în clipboard”."
+        fish_ref: "features/lakes/components/ShareLakeSheet.tsx:158"
+      - id: lakes.share.c5
+        text: "„Distribuie” opens the system share (Web Share API; copy fallback) and closes the dialog."
+        fish_ref: "features/lakes/components/ShareLakeSheet.tsx:140"
+      - id: lakes.share.c6
+        text: "Analytics share_lake on a completed share and copy_lake_share_text on copy (lake_id, lake_name)."
+        fish_ref: "features/lakes/components/ShareLakeSheet.tsx:148"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── claim
+  - id: lakes.claim
+    title: "Ești administratorul acestei bălți?"
+    fish:
+      - "features/lakes/LakeClaimSheet.tsx"
+      - "services/api/lakeClaims.ts"
+    web_route: "/balti/[id] (dialog Revendică)"
+    template: none
+    milestone: M3
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/lakes: createLakeClaimMutation"
+      - "core/social: profileQuery (prefill)"
+    states:
+      - "empty / prefilled from profile"
+      - "invalid after submit attempt"
+      - "submitting"
+      - "CLAIM_EXISTS"
+      - "LAKE_HAS_OWNER"
+      - "generic error"
+      - "signed-out (CMS route needs auth)"
+    criteria:
+      - id: lakes.claim.c1
+        text: "Title „Ești administratorul acestei bălți?” and body „Spune-ne cine ești și te contactăm ca să preiei administrarea pentru {nume baltă} în Bluvi.”"
+        fish_ref: "features/lakes/LakeClaimSheet.tsx:84"
+      - id: lakes.claim.c2
+        text: "Fields „Nume și prenume”, „Număr de telefon” (tel keyboard) and „Mesaj (opțional)” (multiline); name and phone are prefilled from the profile username/phone when empty."
+        fish_ref: "features/lakes/LakeClaimSheet.tsx:37"
+      - id: lakes.claim.c3
+        text: "Valid when trimmed name ≥ 3 chars and phone ≥ 9 chars; after a failed submit „Numele și un număr de telefon valid sunt obligatorii.” is shown."
+        fish_ref: "features/lakes/LakeClaimSheet.tsx:42"
+      - id: lakes.claim.c4
+        text: "„Trimite cererea” posts /feed/lake-claims {lakeId, name, phone, message?}; while sending the button shows loading and both buttons are disabled; success toast „Cerere trimisă — te contactăm noi.” and the dialog closes."
+        fish_ref: "features/lakes/LakeClaimSheet.tsx:44"
+      - id: lakes.claim.c5
+        text: "Errors: CLAIM_EXISTS → „Ai deja o cerere în așteptare pentru această baltă.”; LAKE_HAS_OWNER → „Balta are deja un administrator în Bluvi.”; otherwise „Cererea nu a putut fi trimisă. Încearcă din nou.”"
+        fish_ref: "features/lakes/LakeClaimSheet.tsx:53"
+      - id: lakes.claim.c6
+        text: "„Înapoi” closes the dialog without sending."
+        fish_ref: "features/lakes/LakeClaimSheet.tsx:102"
+      - id: lakes.claim.c7
+        text: "Signed-out: fish offers the form to guests and the POST needs auth (falls to the generic error); web sends a guest to /intra before showing the form (documented web divergence, see lakes.b.claim-signed-out)."
+        fish_ref: "app/(app)/lakes/[lakeId].tsx:612"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── booking interest
+  - id: lakes.booking-interest
+    title: "Rezervări prin Bluvi"
+    fish:
+      - "features/lakes/LakeBookingInterestSheet.tsx"
+      - "services/api/lakeBookingInterest.ts"
+    web_route: "/balti/[id] (dialog Rezervări prin Bluvi)"
+    template: none
+    milestone: M3
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/lakes: createLakeBookingInterestMutation"
+    states:
+      - "default"
+      - "signed-out submit (→ /intra)"
+      - "submitting"
+      - "registered (new / already registered)"
+      - "error"
+    criteria:
+      - id: lakes.booking-interest.c1
+        text: "Calendar icon, title „Rezervări prin Bluvi”, body „{nume baltă} nu acceptă încă rezervări prin Bluvi.”"
+        fish_ref: "features/lakes/LakeBookingInterestSheet.tsx:110"
+      - id: lakes.booking-interest.c2
+        text: "Box „Ești administratorul bălții?” / „Ia legătura cu noi — îți putem crește numărul de rezervări.” with link „Contactează-ne” that closes this dialog and opens lakes.claim."
+        fish_ref: "features/lakes/LakeBookingInterestSheet.tsx:123"
+      - id: lakes.booking-interest.c3
+        text: "„Aș vrea să pot rezerva aici”: guest → closes and goes to /intra; signed-in → posts /feed/lake-booking-interests {lakeId, source}."
+        fish_ref: "features/lakes/LakeBookingInterestSheet.tsx:69"
+      - id: lakes.booking-interest.c4
+        text: "Success toast „Am notat. Te anunțăm când balta acceptă rezervări.” or, when already registered, „Ne-ai spus deja — te anunțăm când balta acceptă rezervări.”; the button is then replaced by a green check row „Am notat că ai vrea să rezervi aici. Te anunțăm când balta acceptă rezervări.”"
+        fish_ref: "features/lakes/LakeBookingInterestSheet.tsx:87"
+      - id: lakes.booking-interest.c5
+        text: "Failure toast „Nu am putut trimite. Încearcă din nou.”; repeated submits are ignored while sending or once registered."
+        fish_ref: "features/lakes/LakeBookingInterestSheet.tsx:70"
+      - id: lakes.booking-interest.c6
+        text: "„Închide” closes; the registered state resets when the dialog is shown for another lake."
+        fish_ref: "features/lakes/LakeBookingInterestSheet.tsx:50"
+      - id: lakes.booking-interest.c7
+        text: "Analytics lake_booking_interest_sheet_viewed, lake_booking_interest_submitted (already_registered), lake_booking_interest_owner_pressed (lake_id, source)."
+        fish_ref: "features/lakes/LakeBookingInterestSheet.tsx:57"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── gallery
+  - id: lakes.gallery
+    title: "Galerie"
+    fish:
+      - "app/(app)/lakes/[lakeId]/gallery.tsx"
+      - "features/lakes/helpers/lakeDetailLogic.ts"
+      - "components/GalleryScreenHeader.tsx"
+      - "components/ImageLightbox.tsx"
+      - "components/CatchLightboxFooter.tsx"
+    web_route: "/balti/[id]/galerie"
+    template: none
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/lakes: lakeQuery"
+      - "core/partide: communityVenueCatchesInfiniteQuery"
+      - "missing in core: buildGalleryPhotoItems, buildGalleryCatchItems, interleaveGalleryItems (fish features/lakes/helpers/lakeDetailLogic.ts:93)"
+    states:
+      - "loading"
+      - "Toate / Foto baltă / Capturi comunitate"
+      - "empty photos"
+      - "empty catches"
+      - "loading more catches"
+      - "lightbox open"
+    criteria:
+      - id: lakes.gallery.c1
+        text: "Header „Galerie”, subtitle „{nume baltă} · N fotografii” („1 fotografie”), N = lake photos + total community catches; a close control returns to the lake."
+        fish_ref: "app/(app)/lakes/[lakeId]/gallery.tsx:187"
+      - id: lakes.gallery.c2
+        text: "Filter chips „Toate”, „Foto baltă”, „Capturi comunitate” (default Toate), in a row that scrolls when it does not fit."
+        fish_ref: "app/(app)/lakes/[lakeId]/gallery.tsx:27"
+      - id: lakes.gallery.c3
+        text: "„Toate” alternates lake photo / catch photo, then appends the rest of the longer list."
+        fish_ref: "features/lakes/helpers/lakeDetailLogic.ts:123"
+      - id: lakes.gallery.c4
+        text: "Two-column masonry; lake photos at 4:3 with blurhash placeholder, catch photos at their own aspect ratio (4:3 fallback); catches without a photo are skipped."
+        fish_ref: "app/(app)/lakes/[lakeId]/gallery.tsx:231"
+      - id: lakes.gallery.c5
+        text: "Catch tiles overlay the weight (big number + „kg”), a species pill and the angler's initials avatar + name („Pescar” fallback)."
+        fish_ref: "app/(app)/lakes/[lakeId]/gallery.tsx:52"
+      - id: lakes.gallery.c6
+        text: "Empty: „Nicio captură cu poză la această baltă încă.” on Capturi comunitate, „Nicio fotografie încă.” otherwise."
+        fish_ref: "app/(app)/lakes/[lakeId]/gallery.tsx:248"
+      - id: lakes.gallery.c7
+        text: "Catches page 20 at a time, prefetched half a viewport before the end, with a spinner footer; „Foto baltă” never pages."
+        fish_ref: "app/(app)/lakes/[lakeId]/gallery.tsx:166"
+      - id: lakes.gallery.c8
+        text: "Activating a tile opens a lightbox at that item (original resolution for lake photos); catch items carry a footer with weight, species, date and angler; reaching the lightbox end loads more catches."
+        fish_ref: "app/(app)/lakes/[lakeId]/gallery.tsx:141"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── catches gallery
+  - id: lakes.catches
+    title: "Capturi"
+    fish:
+      - "app/(app)/lakes/[lakeId]/capturi.tsx"
+      - "features/partide/screens/VenueCatchesGalleryScreen.tsx"
+      - "features/partide/components/community/MasonryPhotoList.tsx"
+    web_route: "/balti/[id]/capturi (?foto=clientId)"
+    template: none
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/lakes: lakeQuery"
+      - "core/partide: communityVenueCatchesInfiniteQuery"
+    states:
+      - "loading (masonry skeleton)"
+      - "empty"
+      - "results"
+      - "opened at a specific catch (?foto)"
+      - "loading more"
+    criteria:
+      - id: lakes.catches.c1
+        text: "Header „Capturi”, subtitle „{nume baltă} · N capturi” („1 captură”), close control."
+        fish_ref: "features/partide/screens/VenueCatchesGalleryScreen.tsx:103"
+      - id: lakes.catches.c2
+        text: "Masonry of every catch photo at this lake (grid → thumb → original URL), caption „{specie} · X kg” when known."
+        fish_ref: "features/partide/screens/VenueCatchesGalleryScreen.tsx:20"
+      - id: lakes.catches.c3
+        text: "Loading shows a masonry skeleton; empty shows „Nicio captură cu fotografie încă.”"
+        fish_ref: "features/partide/screens/VenueCatchesGalleryScreen.tsx:108"
+      - id: lakes.catches.c4
+        text: "With ?foto=clientId the lightbox opens once on that catch as soon as it is loaded."
+        fish_ref: "features/partide/screens/VenueCatchesGalleryScreen.tsx:89"
+      - id: lakes.catches.c5
+        text: "Activating a tile opens the lightbox with the full photo and a footer (weight, species, date, angler)."
+        fish_ref: "features/partide/screens/VenueCatchesGalleryScreen.tsx:70"
+      - id: lakes.catches.c6
+        text: "Pages of 20 load on scroll with a loading footer."
+        fish_ref: "features/partide/screens/VenueCatchesGalleryScreen.tsx:95"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── partide at lake
+  - id: lakes.partide
+    title: "Partide la baltă"
+    fish:
+      - "app/(app)/lakes/[lakeId]/partide.tsx"
+      - "features/partide/screens/VenueSessionsScreen.tsx"
+      - "features/partide/components/community/LivePartideCard.tsx"
+      - "features/partide/components/community/VenueLatestCatchesRail.tsx"
+      - "features/partide/components/community/VenueStatsCta.tsx"
+      - "features/partide/components/community/CommunityHistoryCard.tsx"
+      - "features/partide/community/useOpenPartida.ts"
+      - "features/partide/community/hooks.ts"
+    web_route: "/balti/[id]/partide"
+    template: T1
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/partide: communityVenueSectionQuery, communityHistoryInfiniteQuery, communityVenueCatchesInfiniteQuery, venueKeys/communityVenueKey"
+    states:
+      - "loading (history skeleton)"
+      - "both feeds failed"
+      - "never had a partidă (empty + start CTA)"
+      - "live sessions present"
+      - "history only"
+      - "loading more history"
+    criteria:
+      - id: lakes.partide.c1
+        text: "Title is the lake name (fallback „Partide”) with a back control."
+        fish_ref: "app/(app)/lakes/[lakeId]/partide.tsx:10"
+      - id: lakes.partide.c2
+        text: "While the live section or history is pending, a history skeleton is shown."
+        fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:133"
+      - id: lakes.partide.c3
+        text: "When both live and history requests fail: „Nu am putut încărca partidele.” + a retry hint (web: retry button instead of pull-to-refresh) — never the empty copy."
+        fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:137"
+      - id: lakes.partide.c4
+        text: "No live and no finished partide: „Nicio partidă înregistrată la această baltă încă.” and a green „Începe o partidă aici” → /partide/incepe?balta={id}."
+        fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:155"
+      - id: lakes.partide.c5
+        text: "With live sessions, the live card (same as on the lake page) leads the page."
+        fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:174"
+      - id: lakes.partide.c6
+        text: "Latest catches rail (3 tiles): „Ultimele capturi”, or „Capturi în partidele active” when several partide are live; with exactly one live partidă its catches are excluded; a tile opens /balti/[id]/capturi?foto={clientId}; hidden when empty."
+        fish_ref: "features/partide/components/community/VenueLatestCatchesRail.tsx:128"
+      - id: lakes.partide.c7
+        text: "A „Statisticile bălții” / „Top pescari, standuri și recorduri” card opens /balti/[id]/statistici."
+        fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:186"
+      - id: lakes.partide.c8
+        text: "„Partide încheiate” lists finished partide (deduped, infinite scroll) as cards ribboned „Încheiată” with „Vezi rezumatul”, each opening the partidă."
+        fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:188"
+      - id: lakes.partide.c9
+        text: "Opening a partidă goes to the viewer's own partidă when it is theirs, else /partide/[id]."
+        fish_ref: "features/partide/community/useOpenPartida.ts:28"
+      - id: lakes.partide.c10
+        text: "Live data refreshes every 60s; refresh reloads live + history together."
+        fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:57"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── stats at lake
+  - id: lakes.stats
+    title: "Statistici baltă"
+    fish:
+      - "app/(app)/lakes/[lakeId]/statistici.tsx"
+      - "features/partide/screens/VenueStatsScreen.tsx"
+      - "features/partide/components/stats/PeriodChips.tsx"
+      - "features/partide/components/stats/StatStrip.tsx"
+      - "features/partide/components/stats/ActivityCard.tsx"
+      - "features/partide/components/stats/TopAnglerRow.tsx"
+      - "features/partide/components/stats/RecordHero.tsx"
+      - "features/partide/components/stats/TopStandsCard.tsx"
+      - "features/partide/components/stats/StandRow.tsx"
+      - "features/partide/components/stats/SpeciesCard.tsx"
+      - "features/partide/helpers/statsPeriod.ts"
+      - "features/partide/helpers/standSort.ts"
+    web_route: "/balti/[id]/statistici (?perioada=week|month|year)"
+    template: T5
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/partide: communityStatsQuery(period, {kind:'lake', id}), parseStatsPeriodParam"
+      - "missing in core: sortStands, standSortValue, STAND_SORT_OPTIONS (fish features/partide/helpers/standSort.ts)"
+    states:
+      - "loading (stats skeleton)"
+      - "error"
+      - "empty for selected period"
+      - "switching period (dimmed + spinner)"
+      - "data"
+    criteria:
+      - id: lakes.stats.c1
+        text: "Title is the lake name (fallback „Statistici”) with a back control."
+        fish_ref: "app/(app)/lakes/[lakeId]/statistici.tsx:10"
+      - id: lakes.stats.c2
+        text: "Period chips „Săptămâna”, „Luna”, „Anul curent”; default Luna; the period is read from and written to the URL without adding history entries."
+        fish_ref: "features/partide/screens/VenueStatsScreen.tsx:52"
+      - id: lakes.stats.c3
+        text: "While a new period loads the previous numbers stay but are dimmed and non-interactive, with a spinner next to the chips."
+        fish_ref: "features/partide/screens/VenueStatsScreen.tsx:76"
+      - id: lakes.stats.c4
+        text: "First load shows the stats skeleton; a failed fetch shows „Nu am putut încărca statisticile.” + retry hint and never the empty state or stale data."
+        fish_ref: "features/partide/screens/VenueStatsScreen.tsx:125"
+      - id: lakes.stats.c5
+        text: "Zero partide in the period: „Nicio partidă în perioada selectată.” with the chips still visible."
+        fish_ref: "features/partide/screens/VenueStatsScreen.tsx:167"
+      - id: lakes.stats.c6
+        text: "Stat strip: partide, pescari, capturi (no total kg)."
+        fish_ref: "features/partide/components/stats/StatStrip.tsx:14"
+      - id: lakes.stats.c7
+        text: "Activity chart for the weekly series when non-empty."
+        fish_ref: "features/partide/screens/VenueStatsScreen.tsx:178"
+      - id: lakes.stats.c8
+        text: "„Top pescari” with „Clasament ›” → /balti/[id]/clasament?perioada=…; top 3 rows each open /pescari/[uid]."
+        fish_ref: "features/partide/screens/VenueStatsScreen.tsx:182"
+      - id: lakes.stats.c9
+        text: "Record card for the period; opens the partidă when it has a session id."
+        fish_ref: "features/partide/screens/VenueStatsScreen.tsx:193"
+      - id: lakes.stats.c10
+        text: "„Top standuri”: sort chips „Kg total” / „Capturi” / „Record” (default Kg total), top 5 stands with bars relative to the leader, „Clasament ›” → /balti/[id]/standuri?perioada=…&sortare=…; hidden when no stand has data."
+        fish_ref: "features/partide/components/stats/TopStandsCard.tsx:10"
+      - id: lakes.stats.c11
+        text: "„Specii prinse” card when any species was caught in the period."
+        fish_ref: "features/partide/screens/VenueStatsScreen.tsx:203"
+      - id: lakes.stats.c12
+        text: "Venue stats are cached 60s and keep the previous period's data while switching."
+        fish_ref: "features/partide/community/hooks.ts:168"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── anglers leaderboard at lake
+  - id: lakes.anglers-ranking
+    title: "Clasament pescari la baltă"
+    fish:
+      - "app/(app)/lakes/[lakeId]/clasament.tsx"
+      - "features/partide/screens/AnglersLeaderboardScreen.tsx"
+      - "features/partide/community/view.ts"
+    web_route: "/balti/[id]/clasament (?perioada=)"
+    template: T1
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/partide: communityStatsQuery, parseStatsPeriodParam, communityView (initialsOf, firstNameOf, periodPhraseFor, rankColor, avatarColorFor)"
+      - "core/social: profileQuery (own rank)"
+    states:
+      - "loading (ranking skeleton)"
+      - "error"
+      - "empty period"
+      - "only podium"
+      - "Pescari / Specii segment"
+      - "signed-in user ranked (EU pill)"
+      - "switching period"
+    criteria:
+      - id: lakes.anglers-ranking.c1
+        text: "Title „Clasament · {nume baltă}” (fallback „baltă”) with a back control."
+        fish_ref: "app/(app)/lakes/[lakeId]/clasament.tsx:10"
+      - id: lakes.anglers-ranking.c2
+        text: "Period chips Săptămâna / Luna / Anul curent synced with the URL; switching dims the content."
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:244"
+      - id: lakes.anglers-ranking.c3
+        text: "Podium: 2nd left, 1st center (larger), 3rd right; avatar or initials, first name, total kg, numbered step; each opens /pescari/[uid]."
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:76"
+      - id: lakes.anglers-ranking.c4
+        text: "Segments „Pescari” and „Specii” only — „Bălți” is hidden for a lake-scoped ranking."
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:238"
+      - id: lakes.anglers-ranking.c5
+        text: "Pescari list continues from rank 4: name (or „Pescar”), „N partide · N capturi”, kg; when only the podium has data: „Doar podiumul are date pentru perioada asta.”"
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:328"
+      - id: lakes.anglers-ranking.c6
+        text: "Specii list: rank, species, „N capturi”, share „X%”; empty „Nicio specie înregistrată în această perioadă.”"
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:357"
+      - id: lakes.anglers-ranking.c7
+        text: "On Pescari, when the signed-in user is ranked: pill „EU” + „Ești pe locul N din M {perioadă} — X kg”."
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:369"
+      - id: lakes.anglers-ranking.c8
+        text: "Empty period: „Niciun clasament pentru perioada selectată încă.”; error: „Nu am putut încărca statisticile.” + retry hint."
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:304"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── stands leaderboard
+  - id: lakes.stands-ranking
+    title: "Clasament standuri"
+    fish:
+      - "app/(app)/lakes/[lakeId]/standuri.tsx"
+      - "features/partide/screens/StandsLeaderboardScreen.tsx"
+      - "features/partide/components/stats/StandRow.tsx"
+      - "features/partide/helpers/standSort.ts"
+    web_route: "/balti/[id]/standuri (?perioada=, ?sortare=kg|catches|record)"
+    template: T1
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/partide: communityStatsQuery, parseStatsPeriodParam"
+      - "missing in core: sortStands, STAND_SORT_OPTIONS"
+    states:
+      - "loading"
+      - "error"
+      - "no stand activity"
+      - "sorted by kg / capturi / record"
+    criteria:
+      - id: lakes.stands-ranking.c1
+        text: "Title „Clasament standuri” with the lake name as subtitle and a back control."
+        fish_ref: "features/partide/screens/StandsLeaderboardScreen.tsx:72"
+      - id: lakes.stands-ranking.c2
+        text: "Sort chips „Kg total” / „Capturi” / „Record”, initial value from ?sortare (unknown → kg), written back to the URL; the period comes from ?perioada (default month) with no chips here."
+        fish_ref: "features/partide/screens/StandsLeaderboardScreen.tsx:33"
+      - id: lakes.stands-ranking.c3
+        text: "Count line „N standuri cu activitate” / „1 stand cu activitate”, then every stand ranked by the sort."
+        fish_ref: "features/partide/screens/StandsLeaderboardScreen.tsx:131"
+      - id: lakes.stands-ranking.c4
+        text: "Stands without a value (e.g. no weighed catch for Record) sink to the bottom; ties order by name (Romanian collation)."
+        fish_ref: "features/partide/helpers/standSort.ts:20"
+      - id: lakes.stands-ranking.c5
+        text: "Loading shows the stats skeleton; a failed fetch shows „Nu am putut încărca statisticile.” + retry hint, never „0 standuri”."
+        fish_ref: "features/partide/screens/StandsLeaderboardScreen.tsx:84"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── competitions at lake
+  - id: lakes.competitions
+    title: "Concursuri la baltă"
+    fish:
+      - "app/(app)/lakes/[lakeId]/concursuri.tsx"
+      - "components/CompetitionTabs.tsx"
+      - "components/CompetitionsFullList.tsx"
+    web_route: "/balti/[id]/concursuri (?tab=live|viitoare|trecute)"
+    template: T1
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/competitions: filteredCompetitionsInfiniteQuery / getCompetitionsByStatus(status, {pageSize:10}, lakeId)"
+      - "core/lakes: lakeQuery"
+    states:
+      - "loading"
+      - "error per tab"
+      - "empty tab"
+      - "results"
+      - "loading more"
+    criteria:
+      - id: lakes.competitions.c1
+        text: "Header: back control beside the lake name (fallback „baltă”), no promotional subtitle."
+        fish_ref: "app/(app)/lakes/[lakeId]/concursuri.tsx:146"
+      - id: lakes.competitions.c2
+        text: "Tabs „Live” (started), „Viitoare” (notStarted), „Trecute” (completed); Live is selected first."
+        fish_ref: "app/(app)/lakes/[lakeId]/concursuri.tsx:102"
+      - id: lakes.competitions.c3
+        text: "Each tab lists that lake's competitions 10 per page with infinite scroll; a card opens /concursuri/[id]."
+        fish_ref: "app/(app)/lakes/[lakeId]/concursuri.tsx:46"
+      - id: lakes.competitions.c4
+        text: "Empty tab: „Momentan nu este disponibil niciun concurs.”"
+        fish_ref: "components/CompetitionsFullList.tsx:119"
+      - id: lakes.competitions.c5
+        text: "A failed tab shows the error screen with „Încearcă din nou”; refresh refetches the active tab."
+        fish_ref: "app/(app)/lakes/[lakeId]/concursuri.tsx:73"
+      - id: lakes.competitions.c6
+        text: "?tab=live|viitoare|trecute selects the open tab (default Live) and changing tab updates the URL; the lake page rails' „Vezi toate” (fish /competitions/{started|notStarted|completed}/{lakeId}) land here with the matching tab, so the per-lake status lists of competitions-list (*-balta, merged_into this screen) need no page of their own."
+        fish_ref: "components/HorizontalCompetitionsList.tsx:75"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── lake map with stands
+  - id: lakes.map
+    title: "Hartă baltă"
+    fish:
+      - "app/(app)/lakes/[lakeId]/map.tsx"
+      - "features/lakes/LakeMap.tsx"
+      - "features/lakes/hooks/useLakeMap.ts"
+      - "features/lakes/LakeStandPins.tsx"
+      - "features/lakes/LakeStandPin.tsx"
+      - "features/lakes/LakeStandsCarousel.tsx"
+      - "features/lakes/LakeStandCard.tsx"
+      - "components/NavigationSheet.tsx"
+      - "services/queries/useStandStatsByLakeId.ts"
+    web_route: "/balti/[id]/harta"
+    template: T2
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/lakes: lakeQuery"
+      - "core/competitions: standStatsByLakeIdQuery"
+    states:
+      - "no coordinates"
+      - "no stands (address pin only)"
+      - "stands with coordinates"
+      - "stand selected"
+    criteria:
+      - id: lakes.map.c1
+        text: "Satellite (hybrid) map centered on the lake coordinates at close zoom, with a back control."
+        fish_ref: "features/lakes/LakeMap.tsx:69"
+      - id: lakes.map.c2
+        text: "Without coordinates: „Coordonatele bălții nu sunt disponibile”."
+        fish_ref: "features/lakes/LakeMap.tsx:60"
+      - id: lakes.map.c3
+        text: "The lake address pin shows the callout „Navighează către locație”, which opens Google Maps / Waze / Apple Maps navigation."
+        fish_ref: "features/lakes/LakeMap.tsx:14"
+      - id: lakes.map.c4
+        text: "A pin per stand that has coordinates (from stand stats); the selected stand uses the highlighted pin; the first stand is selected initially."
+        fish_ref: "features/lakes/LakeStandPins.tsx:13"
+      - id: lakes.map.c5
+        text: "Stand cards carousel: „Stand {nume}”, „Cea mai mare captură: X kg”, „Calitate: X kg”, „Capturi: N” („N/A” when missing)."
+        fish_ref: "features/lakes/LakeStandCard.tsx:13"
+      - id: lakes.map.c6
+        text: "Selecting a pin selects its stand, centers the map on it and moves the carousel; moving the carousel selects that stand's pin, centers the map and shows its callout."
+        fish_ref: "features/lakes/hooks/useLakeMap.ts:58"
+      - id: lakes.map.c7
+        text: "A stand pin's callout „Navighează către locație” opens navigation to that stand."
+        fish_ref: "features/lakes/LakeStandPin.tsx:32"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── reviews list
+  - id: lakes.reviews
+    title: "Recenzii"
+    fish:
+      - "app/(app)/lakes/[lakeId]/reviews.tsx"
+      - "features/reviews/components/ReviewList.tsx"
+      - "features/reviews/components/ReviewCard.tsx"
+      - "features/reviews/components/ReviewListEmptyComponent.tsx"
+      - "features/reviews/components/CustomStarRatingDisplay.tsx"
+      - "features/reviews/queries.ts"
+      - "features/reviews/mutations.ts"
+      - "components/AddReviewButton.tsx"
+      - "components/ReviewsCount.tsx"
+      - "components/ReveiwsInfoSheet.tsx"
+    web_route: "/balti/[id]/recenzii"
+    template: T1
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/lakes: lakeReviewsInfiniteQuery, myLakeReviewQuery, deleteReviewMutation, invalidateReviewQueries, lakeQuery, formatReviewsCount"
+    states:
+      - "loading"
+      - "error (no back on the error view)"
+      - "no reviews"
+      - "reviews"
+      - "own review present (edit/delete, no add bar)"
+      - "signed-in without review (Adaugă)"
+      - "signed-out (sign-in bar)"
+      - "verified review"
+    criteria:
+      - id: lakes.reviews.c1
+        text: "Header „Recenzii” with a back control."
+        fish_ref: "app/(app)/lakes/[lakeId]/reviews.tsx:16"
+      - id: lakes.reviews.c2
+        text: "When the lake has reviews, the list starts with three cards Pescuit / Facilități / Atmosferă (icon, value with 1 decimal, stars) and „N recenzii” + „Vezi cum funcționează recenziile” (opens the explainer)."
+        fish_ref: "features/reviews/components/ReviewList.tsx:52"
+      - id: lakes.reviews.c3
+        text: "Reviews load 10 per page with infinite scroll."
+        fish_ref: "features/reviews/components/ReviewList.tsx:40"
+      - id: lakes.reviews.c4
+        text: "Review card: author avatar (when set), username, green „Verificat” badge for verified reviews, relative date „acum …” (Romanian), „Recomandă” (green, thumbs up) / „Nu recomandă” (red, thumbs down), star rows Pescuit / Facilități / Atmosferă, comment."
+        fish_ref: "features/reviews/components/ReviewCard.tsx:73"
+      - id: lakes.reviews.c5
+        text: "Activating another author's name/avatar opens /pescari/[id]."
+        fish_ref: "features/reviews/components/ReviewCard.tsx:79"
+      - id: lakes.reviews.c6
+        text: "The viewer's own review shows „Editează” (→ /balti/[id]/recenzie?editare=1) and „Șterge” (red)."
+        fish_ref: "features/reviews/components/ReviewCard.tsx:144"
+      - id: lakes.reviews.c7
+        text: "„Șterge” asks „Ești sigur că vrei să îți ștergi recenzia?” (Închide / Șterge); confirming deletes, shows „Recenzia ta a fost ștearsă cu succes.” (error toast with the message on failure) and invalidates the review queries."
+        fish_ref: "features/reviews/components/ReviewCard.tsx:52"
+      - id: lakes.reviews.c8
+        text: "No reviews: „0 recenzii” + explainer link, sad-star illustration, „Momentan nu există recenzii pentru această baltă”, „Fii primul care adaugă una!”."
+        fish_ref: "features/reviews/components/ReviewListEmptyComponent.tsx:13"
+      - id: lakes.reviews.c9
+        text: "Bottom bar: hidden when the viewer already reviewed; signed-in → „Adaugă o recenzie” (→ /balti/[id]/recenzie); guest → outlined „Autentifică-te pentru a putea adăuga o recenzie” (→ /intra; fish copy lacks the diacritic in „adăuga”)."
+        fish_ref: "components/AddReviewButton.tsx:20"
+      - id: lakes.reviews.c10
+        text: "Loading shows a loading view; a failed request shows the error view with retry and no back button."
+        fish_ref: "features/reviews/components/ReviewList.tsx:84"
+      - id: lakes.reviews.c11
+        text: "Reviews are cached 5 minutes."
+        fish_ref: "features/reviews/queries.ts:19"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────── review form
+  - id: lakes.review-form
+    title: "Adaugă / editează recenzia"
+    fish:
+      - "app/(app)/lakes/review/[lakeId].tsx"
+      - "features/reviews/components/LakeReviewForms.tsx"
+      - "features/reviews/mutations.ts"
+      - "features/reviews/queries.ts"
+      - "features/reviews/types.ts"
+    web_route: "/balti/[id]/recenzie (?editare=1, ?rezervare={bookingId})"
+    template: T4
+    milestone: M3
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/lakes: postReviewMutation, editReviewMutation, myLakeReviewQuery, invalidateReviewQueries, applyEditToMyReview, applyEditToReviewPages, applyEditToLakeMeta"
+    states:
+      - "add"
+      - "add from a completed booking (verified)"
+      - "edit loading"
+      - "edit load error"
+      - "validation errors"
+      - "submitting"
+      - "signed-out (→ /intra)"
+    criteria:
+      - id: lakes.review-form.c1
+        text: "Title „Adaugă o recenzie” or, with editare, „Editează recenzia”; back control."
+        fish_ref: "app/(app)/lakes/review/[lakeId].tsx:26"
+      - id: lakes.review-form.c2
+        text: "Heading „Cum evaluezi această baltă?” and three whole-star ratings „Pescuit”, „Facilități”, „Atmosferă”, 1–5, default 5, never below 1."
+        fish_ref: "features/reviews/components/LakeReviewForms.tsx:66"
+      - id: lakes.review-form.c3
+        text: "Comment (placeholder „Împărtășiți cu noi experiența dvs.”) is required: empty → „Pentru o experiență mai bună, te rugăm să lași un comentariu.”, under 10 trimmed chars → „Acest câmp trebuie să aibă cel puțin 10 caractere”, over 2000 → „Acest câmp trebuie să aibă cel mult 2000 de caractere”."
+        fish_ref: "features/reviews/components/LakeReviewForms.tsx:87"
+      - id: lakes.review-form.c4
+        text: "Checkbox „Recomand această baltă”, checked by default."
+        fish_ref: "features/reviews/components/LakeReviewForms.tsx:123"
+      - id: lakes.review-form.c5
+        text: "Submit button reads „Adaugă o recenzie” / „Editează recenzia”, shows loading and is disabled while sending."
+        fish_ref: "features/reviews/components/LakeReviewForms.tsx:154"
+      - id: lakes.review-form.c6
+        text: "Add posts the review with the booking id when opened from a completed booking (so it is marked verified); success → „Recenzia a fost adăugată cu succes!” and the form closes; failure → error toast with the message."
+        fish_ref: "features/reviews/components/LakeReviewForms.tsx:15"
+      - id: lakes.review-form.c7
+        text: "Edit loads the viewer's review (spinner; on failure „A apărut o eroare, te rugăm să încerci mai târziu”) and prefills every field."
+        fish_ref: "features/reviews/components/LakeReviewForms.tsx:24"
+      - id: lakes.review-form.c8
+        text: "Edit updates optimistically my review, the review list and the lake's rating meta, rolls back on error (error toast), and on success shows „Recenzia a fost editată cu succes!” and closes."
+        fish_ref: "features/reviews/mutations.ts:28"
+      - id: lakes.review-form.c9
+        text: "After add/edit/delete these are refetched: lake reviews, the lake, my review for the lake, every lakes list, and bookings awaiting a review."
+        fish_ref: "features/reviews/mutations.ts:11"
+      - id: lakes.review-form.c10
+        text: "Signed-out visitors are sent to /intra (fish only reaches the form through signed-in entry points)."
+        fish_ref: "components/AddReviewButton.tsx:24"
+    mobile_only: false
+    status: todo
+
+behaviours:
+  - id: lakes.b.share-link
+    text: "Shared lake links use https://bluvi-app.wearetribus.com/lakes/{documentId} (universal link to the app); the web must serve /lakes/{id} as a permanent redirect to /balti/{id} (and /lakes/{id}/reviews → /balti/{id}/recenzii) so links already in circulation open on the web (M8 universal-link coordination)."
+    fish_ref: "features/lakes/components/ShareLakeSheet.tsx:118"
+  - id: lakes.b.notification-follow-lake-review
+    text: "Notification FOLLOW_LAKE_REVIEW (data.lakeId) routes to the lake's reviews list (/balti/[id]/recenzii); no lakeId → no navigation. Web in-app notification list must use the same target."
+    fish_ref: "helpers/getRedirectLocationForNotification.ts:188"
+  - id: lakes.b.inbound-links
+    text: "Lake page /balti/[id] is entered from: the home lakes rail, competition header (lake of a competition), Partide community/home scenes and leaderboard venue rows, public-water detail when the water is claimed by a lake, lake request sheet; the review form from Rezervările mele (with booking id) and own review cards."
+    fish_ref: "components/competition/CompetitionHeader.tsx:75"
+  - id: lakes.b.claimed-public-water-reroute
+    text: "A public water whose ANAR linkCode is claimed by a bookable lake (/feed/public-waters/claimed, cached 1h) opens /balti/[lakeId] instead of the public-water page — from search, list rows, pins and map taps."
+    fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:609"
+  - id: lakes.b.recently-viewed
+    text: "Recently viewed lakes: ids stored per device (max 10, deduped, newest last), pushed when a lake page opens, shown newest first on the Bălți home. Web: per-browser storage wrapped in try/catch, page renders without it."
+    fish_ref: "features/lakes/helpers/recentViewedLakes.ts:30"
+  - id: lakes.b.recent-searches
+    text: "Recent lake searches: per device, max 5, only county/city/lake picks, deduped by id, „Șterge tot” clears them."
+    fish_ref: "features/lakes/helpers/recentLakeSearches.ts:39"
+  - id: lakes.b.location-state
+    text: "Location state machine never_asked / denied / services_off / granted drives the nearby section, placeholder copy, dialogs and the locate button; state is re-read whenever the app returns to the foreground (web: on visibilitychange / Permissions API change)."
+    fish_ref: "app/(app)/(tabs)/lakes/index.tsx:283"
+  - id: lakes.b.signin-gating
+    text: "Signed-out gates: booking CTA on a bookable lake → /intra; owner profile link → /intra; booking-interest submit → /intra; add review → sign-in button; everything else on the lakes area (home, map, lake page, subpages, reviews list) is public."
+    fish_ref: "app/(app)/lakes/[lakeId].tsx:276"
+  - id: lakes.b.claim-signed-out
+    text: "FLAG for owner: fish lets a guest open the claim form but POST /feed/lake-claims requires auth (CMS route 19-lake-claims.ts), so a guest only gets the generic error. Web proposal: gate the form behind /intra."
+    fish_ref: "features/lakes/LakeClaimSheet.tsx:44"
+  - id: lakes.b.refresh-intervals
+    text: "Live refresh: lake Partide section and /balti/[id]/partide live data every 60s (staleTime 30s); no other polling in the area. Cache times: home 1h, map clusters and in-bbox 60s, explore count 5m, focus bbox 5m, suggestions per hook, facilities/fishes 3h, claimed waters 1h, reviews 5m, venue stats 60s, venue catches 60s."
+    fish_ref: "features/partide/community/hooks.ts:132"
+  - id: lakes.b.review-invalidation
+    text: "Any review write (add/edit/delete) invalidates lake reviews, the lake detail, my review, all lakes lists and bookings-to-review, so the lake rating and the Rezervările mele prompt update."
+    fish_ref: "features/reviews/mutations.ts:11"
+  - id: lakes.b.route-error-boundary
+    text: "The Bălți tab, lake page and lake competitions page each have their own error boundary: a crash shows a retry card for that route only, the shell keeps working (web: route-level error.tsx)."
+    fish_ref: "app/(app)/lakes/[lakeId].tsx:680"
+  - id: lakes.b.nav-guard
+    text: "Navigations from cards/tiles are guarded against double activation (fish guardNavigation); web must not push duplicate history entries on double click."
+    fish_ref: "app/(app)/(tabs)/lakes/index.tsx:631"
+  - id: lakes.b.expired-nou-badges
+    text: "Both launch badges in the area are date-gated and expired („Ape publice” NOU until 2026-09-06, Rezervă NOU until 2026-10-01): the web ships neither."
+    fish_ref: "hooks/useNouBadge.ts:101"
+  - id: lakes.b.period-and-sort-in-url
+    text: "Venue stats, angler ranking and stand ranking keep period (and stand sort) in the URL, replacing the current entry instead of pushing; links between them carry the current period (and sort)."
+    fish_ref: "features/partide/screens/VenueStatsScreen.tsx:94"
+  - id: lakes.b.analytics
+    text: "GA4 events emitted by the area (to wire in M8): lake_home_section_impression/click, lakes_map_* (view, focus_applied, cluster_tap, pin_tap, locate_me, clear_filters, pin_card_view_page, pin_card_dismiss), lakes_pin_card_open_maps, share_lake_button_pressed, share_lake, copy_lake_share_text, lake_booking_cta_pressed, lake_booking_interest_*, contact_pressed (phone)."
+    fish_ref: "features/lakes/detail/LakeContactSection.tsx:15"
+  - id: lakes.b.dead-code
+    text: "fish features/lakes contains unused components (LakeCompetitions, LakeReservation, LakeListEmptyComponent, LakeIntroOverlay + useLakeIntroTransition, LakePrices, booking/LakeAvailabilityTab) and the unreachable route lakes/choose-lake-filters; none of them is a parity target."
+    fish_ref: "app/(app)/_layout.tsx:65"

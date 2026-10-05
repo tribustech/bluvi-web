@@ -1,0 +1,1121 @@
+# Parity inventory — area "competitions-list" (tab Competiții: Descoperă/Viitoare/Live/Rezultate/Ale mele/Urmărite,
+# bento, search, filters, results; legacy status lists global + per lake).
+# Extracted from fish (read-only) on 2026-10-04. Line refs are fish file:line at that date.
+# Note: search, filters, results and cards are parts of the (tabs)/competitions screen split out for batching.
+# The three per-lake status lists (*-balta) have no page of their own on web: they are merged_into
+# lakes.competitions (/balti/[id]/concursuri?tab=…). Where they conflict with it (header title, page size,
+# card layout) lakes.competitions wins; their states and card criteria apply to that page.
+area: competitions-list
+screens:
+  - id: competitions-list.index
+    title: Competiții (Concursuri)
+    fish:
+      - app/(app)/(tabs)/competitions/index.tsx
+      - app/(app)/(tabs)/competitions/_layout.tsx
+      - app/(app)/(tabs)/_layout.tsx
+      - features/competitions/components/CompetitionsHeader.tsx
+      - features/competitions/components/CompetitionsStatusControl.tsx
+      - features/competitions/components/cards/preview/CompetitionDensityPreviewToggle.tsx
+      - features/competitions/hooks/useCompetitionCardDensity.ts
+      - features/competitions/models/competition-filters.types.ts
+      - features/competitions/models/competitions-search.types.ts
+      - services/queries/useCompetitionCards.ts
+      - services/api/competitionCards.ts
+      - models/competition-card.type.ts
+      - components/ErrorScreen.tsx
+      - components/CompetitionsListSkeleton.tsx
+      - components/ListLodingStateFooter.tsx
+      - components/errors/RouteErrorBoundary.tsx
+      - features/chat/components/viewer/MediaViewer.tsx
+      - features/competitions/components/cards/CompetitionPhotoCaption.tsx
+      - features/competitions/helpers/competitionsAnalytics.ts
+      - hooks/useNavigationGuard.ts
+    web_route: /concursuri
+    template: T1
+    milestone: M1
+    roles: &a1
+      - guest
+      - angler
+      - organizer
+      - referee
+      - operator
+    core:
+      - core/competitions/queries.ts#competitionCardsInfiniteQuery
+      - core/competitions/queries.ts#selectCompetitionCards
+      - core/competitions/queries.ts#competitionCardsKeys
+      - core/competitions/api.ts#getCompetitionCards
+      - core/competitions/api.ts#buildCompetitionCardsQuery
+      - core/competitions/domain/filters.ts (DEFAULT_COMPETITION_FILTERS, countActiveFilters, hasActiveFilters, CompetitionCardsScope)
+    states:
+      - "signed-out: Descoperă lists load (public endpoint); Ale mele tab hidden; Urmărite (eye) shows the sign-in prompt instead of a list"
+      - "loading (first page): heading count is a skeleton bar, list area shows CompetitionsListSkeleton"
+      - "error: ErrorScreen inline under the heading (no back button), retry / sign-out per describeError"
+      - "empty: Descoperă tab with no competitions"
+      - "empty: Urmărite scope with no followed competitions"
+      - "loading next page: spinner footer"
+      - pull-to-refresh in progress (spinner only for the gesture, never for a tab switch)
+      - "tab switch: previous list stays on screen until the new one lands (keepPreviousData)"
+      - status = Viitoare (default) with the bento above the list
+      - status = Live, polling every 60s while visible; red pulse dot on the tab when counts.started > 0
+      - status = Rezultate (completed)
+      - "scope = Ale mele (registered): mixed statuses, no status tab underlined, badge with competitions still ahead"
+      - "Ale mele tab with registrations that are all finished: tab shown without a number"
+      - scope = Urmărite (followed), eye button active
+      - density = Listă (compact, default) vs Afiș (expanded)
+      - arrived with ?status= from Acasă (param consumed and removed)
+      - "chrome state: search row visible vs scrolled away (magnifier + filter icons fade into the title row)"
+      - photo viewer open over the list
+      - render error caught by the route error boundary (retry card)
+    criteria:
+      - id: competitions-list.index.c1
+        text: A fixed chrome holds the title "Concursuri" and the status tab row; the list scrolls underneath it and fades into it through a short gradient instead of a hard edge.
+        fish_ref: features/competitions/components/CompetitionsHeader.tsx:84
+      - id: competitions-list.index.c2
+        text: Status tabs are, in order, "Viitoare" (notStarted), "Live" (started), "Rezultate" (completed), styled as underline tabs with the active label and a 2.5 underline in indigo; Viitoare is selected on first open.
+        fish_ref: features/competitions/components/CompetitionsStatusControl.tsx:29
+      - id: competitions-list.index.c3
+        text: The Live tab is prefixed by the pulsing red live dot only when the current list response reports counts.started > 0.
+        fish_ref: features/competitions/components/CompetitionsStatusControl.tsx:81
+      - id: competitions-list.index.c4
+        text: A fourth tab "Ale mele" appears only when the signed-in user has at least one registration in any status (sum of counts of the registered scope > 0); it carries a badge with notStarted + started registrations (no badge at 0, "99+" above 99) and its accessible name is "Ale mele, N".
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:245
+      - id: competitions-list.index.c5
+        text: Selecting a status tab sets that status, leaves "Ale mele" if it was active (scope registered → all) and logs competitions_status_changed {status, scope}.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:332
+      - id: competitions-list.index.c6
+        text: Selecting "Ale mele" toggles scope registered ↔ all; while active the list is requested without any status (one mixed list, server order live → soonest → finished) and no status tab is shown as selected.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:378
+      - id: competitions-list.index.c7
+        text: The eye button in the title row toggles scope followed ↔ all; it is tinted indigo when active and is labelled "Concursuri urmărite" (inactive) / "Toate concursurile" (active).
+        fish_ref: features/competitions/components/CompetitionsHeader.tsx:106
+      - id: competitions-list.index.c8
+        text: 'The list header starts with a search row: a pill "Concurs, baltă sau organizator" (accessible name "Caută un concurs, o baltă sau un organizator") that opens the search, and a round filters button that opens the filters sheet; with active filters the button is filled indigo and labelled "Filtre, N active".'
+        fish_ref: features/competitions/components/CompetitionsHeader.tsx:134
+      - id: competitions-list.index.c9
+        text: When the search row has scrolled under the chrome, a magnifier ("Caută concursuri") and a filters icon button fade into the title row; the two pairs are never interactive at the same time.
+        fish_ref: features/competitions/components/CompetitionsHeader.tsx:42
+      - id: competitions-list.index.c10
+        text: 'List heading (not results mode): Viitoare "Alege următorul start", Live "Live acum", Rezultate "După ultima cântărire"; scope registered "Înscrierile mele", scope followed "Urmărite", scope organized "Organizate de mine".'
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:62
+      - id: competitions-list.index.c11
+        text: 'Under the heading a count line uses meta.pagination.total with Romanian agreement: "1 concurs viitor" / "N concursuri viitoare", "… în desfășurare", "1 concurs încheiat" / "N concursuri încheiate"; in Ale mele it is "1 concurs" / "N concursuri".'
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:69
+      - id: competitions-list.index.c12
+        text: While the first page loads the count line is a skeleton bar, never "0 concursuri".
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:523
+      - id: competitions-list.index.c13
+        text: A two-segment control "Listă" / "Afiș" sits right of the heading; tapping the active segment does nothing; the choice is one value for the whole tab, persisted across sessions (storage key COMPETITION_CARD_DENSITY_V1), compact until storage answers and for anyone who never chose.
+        fish_ref: features/competitions/components/cards/preview/CompetitionDensityPreviewToggle.tsx:58
+      - id: competitions-list.index.c14
+        text: The gap between cards is larger in Afiș (expanded) than in Listă (compact) (16 vs 10 in fish).
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:573
+      - id: competitions-list.index.c15
+        text: Scope "all" reads the public GET /feed/competition-cards; registered / followed / organized read GET /feed/my-competition-cards; page size 20, sort=date, status from the tab; default values are omitted from the query string so identical lists share one URL.
+        fish_ref: services/api/competitionCards.ts:41
+      - id: competitions-list.index.c16
+        text: Scrolling near the end (FlashList threshold 0.6) loads the next page when hasNextPage and not already fetching; a spinner footer shows while it loads.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:282
+      - id: competitions-list.index.c17
+        text: Pull-to-refresh refetches the visible list, re-draws the pulse person and the featured hero, and invalidates every competition-cards list; its spinner is bound to the gesture only, so a tab switch never shows it.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:308
+      - id: competitions-list.index.c18
+        text: The Live tab refetches every 60s, only while the screen is visible, status is Live and Ale mele is not active; Viitoare, Rezultate, Ale mele and results never poll.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:211
+      - id: competitions-list.index.c19
+        text: Switching tabs keeps the previous list on screen while the new list loads (placeholder = previous data) instead of flashing an empty state.
+        fish_ref: services/queries/useCompetitionCards.ts:71
+      - id: competitions-list.index.c20
+        text: Each tab/scope list remembers its scroll offset when you leave it and is restored when you come back; a list not opened yet starts at the top.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:365
+      - id: competitions-list.index.c21
+        text: 'Signed out with a personal scope (Urmărite): no request is made and the list area shows "🔑 Intră în cont ca să vezi concursurile tale." with an outlined "Intră în cont" button that goes to sign-in.'
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:446
+      - id: competitions-list.index.c22
+        text: 'A failed list request shows the shared error screen inside the list (no back button): title and message from describeError, "Încearcă din nou" refetches, "Deconectează-te" only for a dead session.'
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:457
+      - id: competitions-list.index.c23
+        text: First-page loading shows the competitions list skeleton under the heading.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:458
+      - id: competitions-list.index.c24
+        text: 'Empty list outside results mode: followed scope → "Niciun concurs urmărit aici" + "Salvează concursurile care te interesează sau verifică celelalte taburi."; otherwise "Niciun concurs găsit" + "Schimbă tabul pentru a vedea alte concursuri."'
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:594
+      - id: competitions-list.index.c25
+        text: Tapping a card opens the competition page (/concursuri/[id]); rapid double taps navigate once (navigation guard, 800ms window).
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:97
+      - id: competitions-list.index.c26
+        text: Tapping a card poster opens the photo full screen over the page with the competition caption, the competition name as sender and its dateLabel as time, and an action "Vezi concursul" that closes the viewer and opens the competition; closing returns to the list unchanged.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:667
+      - id: competitions-list.index.c27
+        text: A ?status=started|notStarted|completed parameter (used by Acasă "Vezi toate") clears search and filters, switches to that tab, and is then removed so a later visit does not snap back to it; any other value is ignored.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:350
+      - id: competitions-list.index.c28
+        text: The Descoperă bento (competitions-list.pulse) is rendered above the heading only on Viitoare, scope all, outside results mode.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:279
+      - id: competitions-list.index.c29
+        text: A render error in this route shows a retry card for this route only (route error boundary), not a blank page.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:726
+    mobile_only: false
+    status: todo
+  - id: competitions-list.cards
+    title: Card concurs (lista Competiții, Listă și Afiș)
+    fish:
+      - features/competitions/components/cards/preview/CompetitionCardPreview.tsx
+      - features/competitions/components/cards/preview/UpcomingFooter.tsx
+      - features/competitions/components/cards/preview/LiveFooter.tsx
+      - features/competitions/components/cards/preview/ResultsFooter.tsx
+      - features/competitions/components/cards/preview/CardStatRow.tsx
+      - features/competitions/components/cards/preview/CompetitionRailCard.tsx
+      - features/competitions/components/cards/cardRankingLabel.ts
+      - features/competitions/components/cards/CompetitionPhotoCaption.tsx
+      - features/competitions/components/cards/FaceStack.tsx
+      - features/competitions/components/cards/PodiumCup.tsx
+      - components/FollowersPill.tsx
+      - components/FollowersListSheet.tsx
+      - components/Badge.tsx
+      - features/competitions/helpers/formatKg.ts
+      - helpers/formatCount.ts
+      - models/competition-card.type.ts
+    web_route: /concursuri
+    template: T1
+    milestone: M1
+    roles: *a1
+    core:
+      - core/competitions/schemas.ts (CompetitionCard)
+      - core/competitions/queries.ts#competitionFollowersQuery (FollowersListSheet)
+      - cardRankingLabel / formatKg / formatTotalKg / formatCount (port if missing)
+    states:
+      - compact (Listă) vs expanded (Afiș)
+      - status notStarted (upcoming footer), started (live footer), completed (results footer)
+      - no poster (no banner, no lake image)
+      - poster with DTO width/height vs without (ratio from decoded image)
+      - extreme poster ratio (clamped, contain)
+      - "live: results null / no catches / with catches (totalKg or biggestFishKg null)"
+      - live feeder on legs (rounds present)
+      - "upcoming: no capacity, pending registrations, places left = 0"
+      - "completed: results null / no catches / weighed but empty podium / podium with ties / team rows with 2 avatars / guest without photo"
+      - "followers sheet: loading, empty, list"
+    criteria:
+      - id: competitions-list.cards.c1
+        text: The whole card is one button whose accessible name is the competition name; activating it opens the competition page.
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:272
+      - id: competitions-list.cards.c2
+        text: "Poster source order: banner small → banner original → lake image small → lake image original; the full-screen photo uses the same media's original URL."
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:101
+      - id: competitions-list.cards.c3
+        text: 'Compact: a 76px rounded square poster on the left is its own button "Vezi imaginea pentru {nume}" that opens the photo viewer; without a poster a plain grey square keeps the layout.'
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:340
+      - id: competitions-list.cards.c4
+        text: 'Compact date line: live → red dot + "LIVE · {dateLabel}" in red; otherwise dateLabel in uppercase indigo.'
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:230
+      - id: competitions-list.cards.c5
+        text: A followers pill (eye + "{n} urmăritor" / "{n} urmăritori", viewers count) sits on the compact date line and over the expanded poster; it shows how many follow, it is not a follow toggle.
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:235
+      - id: competitions-list.cards.c6
+        text: 'Tapping the followers pill opens the followers list: spinner while loading, title "Urmăritori" + "{n} urmăresc", rows (avatar + username) that open the angler profile, empty "Nu există urmăritori".'
+        fish_ref: components/FollowersListSheet.tsx:45
+      - id: competitions-list.cards.c7
+        text: Name on at most 2 lines; when the competition has a lake, a pin + lake name line in link indigo.
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:241
+      - id: competitions-list.cards.c8
+        text: 'Two chips on every card: the ranking chip (trophy, lavender) with cardRankingLabel and the format chip "Individual" (user icon) or "Echipe" (users icon), blue.'
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:150
+      - id: competitions-list.cards.c9
+        text: 'cardRankingLabel: a live competition with rounds reads "{rankingLabel} · Manșa {current}/{count}"; otherwise the CMS rankingLabel unchanged.'
+        fish_ref: features/competitions/components/cards/cardRankingLabel.ts:8
+      - id: competitions-list.cards.c10
+        text: "Expanded (Afiș): the poster spans the full card width at its own aspect ratio (DTO width/height, else the decoded image size), clamped to 0.55–2.4; only a clamped poster switches to contain; medium-size image with blurhash placeholder."
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:119
+      - id: competitions-list.cards.c11
+        text: 'Expanded: over the poster, top-right, a red "LIVE" chip (live only) then the followers pill; with no poster those two render inline at the top of the card instead of disappearing.'
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:313
+      - id: competitions-list.cards.c12
+        text: 'Expanded copy: uppercase "{dateLabel} · {hoursLabel}" (just dateLabel when no hoursLabel) with the two chips right-aligned and wrapping, then the name (2 lines), then pin + lake name · organizer username.'
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:176
+      - id: competitions-list.cards.c13
+        text: 'Upcoming footer: participant faces; "{joined}/{capacity} {unit}" when capacity is set, otherwise "N pescar/pescari" or "N echipă/echipe"; "{pending} în așteptare" when pendingCount > 0; green "{n} loc liber" / "{n} locuri libere" when placesLeft > 0.'
+        fish_ref: features/competitions/components/cards/preview/UpcomingFooter.tsx:8
+      - id: competitions-list.cards.c14
+        text: 'Live footer: results null → "Statisticile nu sunt disponibile."; no catches → "Încă nu sunt capturi înregistrate."; otherwise a participants row (faces + "{n} pescari/echipe în concurs", omitted when joinedCount is 0) followed by the stats row.'
+        fish_ref: features/competitions/components/cards/preview/LiveFooter.tsx:19
+      - id: competitions-list.cards.c15
+        text: 'Stats row: "capturi" (catchCount, fish icon), "kg cântărite" (totalKg, ro-RO, max 1 decimal) only when not null, "kg CMMC" (biggestFishKg, ro-RO, max 3 decimals, brown award icon) only when not null; equal centred columns, near-black figures.'
+        fish_ref: features/competitions/components/cards/preview/CardStatRow.tsx:48
+      - id: competitions-list.cards.c16
+        text: 'Results footer: podium rows sorted by position, each with up to 2 avatars (initials disc for a guest without photo), displayName, a "{club} · Stand {stand}" line when known, "La egalitate" when tied or the position is shared; places 1–3 end in a gold/silver/bronze cup, any other place as a number; the first-place row has a gold tint.'
+        fish_ref: features/competitions/components/cards/preview/ResultsFooter.tsx:11
+      - id: competitions-list.cards.c17
+        text: 'Results footer without rows: results null → "Rezultatele nu sunt disponibile."; no catches → "Fără capturi înregistrate."; weighed but empty podium → "Deschide concursul pentru clasament."'
+        fish_ref: features/competitions/components/cards/preview/ResultsFooter.tsx:20
+      - id: competitions-list.cards.c18
+        text: 'Photo caption in the viewer: name (≤3 lines), lake and date ("LIVE · " prefix when live), ranking chip, format chip ("Echipe de {teamSize}" when known), entrants chip ("{joined}/{capacity} {unit}" for upcoming with capacity, else "{joined} {unit}"), and capturi / kg cântărite / kg CMMC when there are catches.'
+        fish_ref: features/competitions/components/cards/CompetitionPhotoCaption.tsx:22
+      - id: competitions-list.cards.c19
+        text: "The card formats nothing that depends on timezone or ranking rules: dateLabel, hoursLabel, rankingLabel, counts, unit and podium come from the DTO as-is."
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:18
+    mobile_only: false
+    status: todo
+  - id: competitions-list.pulse
+    title: "Descoperă (bento: concurs, pescar, număr)"
+    fish:
+      - features/competitions/components/pulse/PulseBento.tsx
+      - features/competitions/components/pulse/HeroStack.tsx
+      - features/competitions/components/pulse/HeroCard.tsx
+      - features/competitions/components/pulse/MomentCard.tsx
+      - features/competitions/components/pulse/CountTile.tsx
+      - features/competitions/components/pulse/FollowInviteCard.tsx
+      - features/competitions/components/pulse/LivePulseDot.tsx
+      - features/competitions/components/pulse/BentoSkeleton.tsx
+      - features/competitions/helpers/useCompetitionsPulse.ts
+      - features/competitions/helpers/pickHero.ts
+      - features/competitions/helpers/heroOrder.ts
+      - features/competitions/helpers/pickMoment.ts
+      - features/competitions/helpers/pulsePersonToMoment.ts
+      - features/competitions/helpers/heroCopy.ts
+      - features/competitions/helpers/competitionsAnalytics.ts
+      - services/api/pulsePerson.ts
+      - services/api/featuredCompetition.ts
+      - services/queries/usePulsePerson.ts
+      - services/queries/useFeaturedCompetition.ts
+      - features/competitions/components/cards/FaceStack.tsx
+    web_route: /concursuri
+    template: T1
+    milestone: M1
+    roles: *a1
+    core:
+      - core/competitions/domain/pulse.ts (pulseLists, pulseLiveKey, pickPulse, wantsFeaturedHero, featuredHeroPick, resolvePulseSlots, pulseCountTile, PULSE_CARD_PARAMS)
+      - core/competitions/domain/pickHero.ts#pickHero
+      - core/competitions/domain/heroOrder.ts#heroStack
+      - core/competitions/domain/pickMoment.ts#pickMoment
+      - core/competitions/domain/pulsePersonToMoment.ts
+      - core/competitions/queries.ts#pulsePersonQuery
+      - core/competitions/queries.ts#featuredCompetitionQuery
+      - core/competitions/queries.ts#competitionCardsInfiniteQuery (live, upcoming, completed, registered, followed+started)
+    states:
+      - "loading: hero skeleton (+ dots row when liveCount > 1); person + count tiles as two skeletons until both settle"
+      - "no hero after loading: bento not rendered"
+      - "live day: hero stack of every live competition with peek, dots and auto-advance"
+      - my own live competition leads the stack
+      - "my own start within 2 days: leads (or sits behind my live one)"
+      - "nothing live: discovery pick, or featured competition (RECOMANDAT) when the server offers one"
+      - "nothing upcoming: most recent results card (REZULTATE)"
+      - server person (/feed/pulse-person) vs local fallback moment vs no moment (count tile takes the full row)
+      - count tile live vs next 7 days
+      - "follow invite: something live and the viewer follows none of it (also shown to guests)"
+      - "signed-out: angler destination sends to sign-in"
+      - "reduced motion: live dot does not animate"
+    criteria:
+      - id: competitions-list.pulse.c1
+        text: The bento shows only on Viitoare with scope all, no committed search and no active filters; it is not rendered at all when there is no hero once loading finished.
+        fish_ref: features/competitions/components/pulse/PulseBento.tsx:88
+      - id: competitions-list.pulse.c2
+        text: While loading, the hero slot is a skeleton of the hero height (plus the dots row when more than one competition is live) and the person + count row is two equal skeletons; the row reveals both tiles together.
+        fish_ref: features/competitions/components/pulse/PulseBento.tsx:100
+      - id: competitions-list.pulse.c3
+        text: Pulse inputs are the live (first 6), upcoming (first 12) and completed (first 6) card lists; upcoming drops notStarted competitions whose start is more than 24h past, merges in my own notStarted registrations, removes anything already in live, and is sorted by start date.
+        fish_ref: features/competitions/helpers/useCompetitionsPulse.ts:102
+      - id: competitions-list.pulse.c4
+        text: "Hero ladder: my live competition → my start within 2 days → first live → upcoming starting within 14 days (prefer ones with places, most joined, then soonest) → soonest dated upcoming → first upcoming → most recently ended completed → none."
+        fish_ref: features/competitions/helpers/pickHero.ts:89
+      - id: competitions-list.pulse.c5
+        text: "The local pick is frozen for the visit: it changes only when the set of live competitions changes or on pull-to-refresh, never on unrelated re-renders."
+        fish_ref: features/competitions/helpers/useCompetitionsPulse.ts:127
+      - id: competitions-list.pulse.c6
+        text: GET /feed/featured-competition is requested only when nothing is live and the hero is not my own upcoming competition; when it returns a card it replaces the local hero as an upcoming card with the chip "RECOMANDAT".
+        fish_ref: features/competitions/helpers/useCompetitionsPulse.ts:172
+      - id: competitions-list.pulse.c7
+        text: "When there are two or more pages (live competitions, my imminent start), the hero is a horizontal stack: my live one first, my imminent start next (first if nothing of mine is live), the other live ones shuffled once per visit; the next card peeks at the edge and a dots row tracks the position."
+        fish_ref: features/competitions/helpers/heroOrder.ts:95
+      - id: competitions-list.pulse.c8
+        text: The stack auto-advances every 5s while the page is visible; the first touch (swipe or tap) stops it for the rest of the visit; leaving the page pauses it and returning resumes it unless stopped. The dots are hidden from assistive tech.
+        fish_ref: features/competitions/components/pulse/HeroStack.tsx:148
+      - id: competitions-list.pulse.c9
+        text: A single hero page renders as a plain card without pager or dots.
+        fish_ref: features/competitions/components/pulse/HeroStack.tsx:173
+      - id: competitions-list.pulse.c10
+        text: 'Hero chip: live → "LIVE" (or "CONCURSUL TĂU · LIVE" when mine) in red with a white dot; upcoming → "RECOMANDAT" (featured), "CONCURSUL TĂU" (mine) or "ÎN CURÂND"; results → "REZULTATE".'
+        fish_ref: features/competitions/components/pulse/HeroCard.tsx:31
+      - id: competitions-list.pulse.c11
+        text: 'Hero top-right pill: live → "{n} captură/capturi" with a fish icon or "Fără capturi"; upcoming → dateLabel with a calendar icon; results → dateLabel with a trophy icon.'
+        fish_ref: features/competitions/components/pulse/HeroCard.tsx:99
+      - id: competitions-list.pulse.c12
+        text: 'Live hero body: "CEA MAI MARE CAPTURĂ" + "{kg} kg" when there are catches and a biggest fish, otherwise "DE PE BALTĂ" + "Așteptăm prima captură"; note line "{N pescari/echipe în concurs} · {ranking label}".'
+        fish_ref: features/competitions/components/pulse/HeroCard.tsx:59
+      - id: competitions-list.pulse.c13
+        text: 'Upcoming hero body: "PESCARI ÎNSCRIȘI" or "ECHIPE ÎNSCRISE", joinedCount (+ "/ {capacity}" when capped); note "{dateLabel} · {N locuri libere | complet} · {N în așteptare}" with empty parts dropped.'
+        fish_ref: features/competitions/components/pulse/HeroCard.tsx:72
+      - id: competitions-list.pulse.c14
+        text: 'Results hero body: "CÂȘTIGĂTOR" / "ECHIPA CÂȘTIGĂTOARE" / "LOCUL 1 LA EGALITATE", the winner name or "Fără capturi"; note "{total} kg cântărite" or the dateLabel.'
+        fish_ref: features/competitions/components/pulse/HeroCard.tsx:91
+      - id: competitions-list.pulse.c15
+        text: 'Hero card: lake photo (fallback banner) under a dark scrim, pin + lake name, name (2 lines), a divider and the action "Vezi clasamentul" (live) / "Vezi concursul" (upcoming) / "Vezi rezultatele" (results) with an arrow; the whole card opens the competition and is named "{nume}. {acțiune}".'
+        fish_ref: features/competitions/components/pulse/HeroCard.tsx:98
+      - id: competitions-list.pulse.c16
+        text: "Person tile: the server person from GET /feed/pulse-person wins as soon as it answers; until then, or when it is empty or fails, the local ladder fills it: CÂȘTIGĂTOR / ECHIPA CÂȘTIGĂTOARE (or PODIUM for a shared first place) → PE PODIUM (2nd, 3rd) → ORGANIZATOR; a win older than 14 days adds the date to the meta line."
+        fish_ref: features/competitions/helpers/pickMoment.ts:72
+      - id: competitions-list.pulse.c17
+        text: 'Person tile shows the kicker, up to 3 overlapping round avatars (an initials disc when none), the name (2 lines), "Locul {rank} · {line}" when ranked, and the meta line; accessible name "{kicker}: {nume}, locul {rank} în top".'
+        fish_ref: features/competitions/components/pulse/MomentCard.tsx:40
+      - id: competitions-list.pulse.c18
+        text: "Person tap: server destination angler → angler profile (signed out → sign-in, since the profile is 403 anonymously); server destination competition → the competition's ranking (/concursuri/[id]/clasament); local fallback → the competition page."
+        fish_ref: features/competitions/components/pulse/PulseBento.tsx:126
+      - id: competitions-list.pulse.c19
+        text: 'Count tile: with anything live → pulsing dot, "LIVE", the live count and "concurs live" / "concursuri live"; otherwise "URMĂTOARELE 7 ZILE", the number of upcoming competitions starting within 7 days and "concurs începe" / "concursuri încep"; below, up to 6 distinct participant faces from those same competitions.'
+        fish_ref: features/competitions/components/pulse/CountTile.tsx:24
+      - id: competitions-list.pulse.c20
+        text: Count tile tap switches to the Live tab when something is live, otherwise stays on Viitoare; accessible name "{n} concursuri live" / "{n} concursuri încep în 7 zile".
+        fish_ref: features/competitions/components/pulse/PulseBento.tsx:148
+      - id: competitions-list.pulse.c21
+        text: With no person to show, the count tile takes the whole row.
+        fish_ref: features/competitions/components/pulse/PulseBento.tsx:121
+      - id: competitions-list.pulse.c22
+        text: When something is live and the viewer follows none of the live competitions (always true signed out), an invite card shows "Nu urmărești niciun concurs live" + "Unul e LIVE acum. Urmărește-l și ești la curent cu fiecare cântărire." / "{n} sunt LIVE acum. Urmărește unul …"; tapping it opens the Live tab.
+        fish_ref: features/competitions/components/pulse/PulseBento.tsx:157
+      - id: competitions-list.pulse.c23
+        text: Pull-to-refresh re-draws the person (bypassing its 5 min freshness) and the featured hero (only when featured is wanted) and re-picks the hero from refetched lists.
+        fish_ref: features/competitions/helpers/useCompetitionsPulse.ts:216
+      - id: competitions-list.pulse.c24
+        text: "Analytics: hero impression once per competition per visit for the card actually leading the stack, hero press, person press, count tile press (competitions_hero_impression / _hero_pressed / _moment_pressed / _count_tile_pressed)."
+        fish_ref: features/competitions/helpers/competitionsAnalytics.ts:68
+      - id: competitions-list.pulse.c25
+        text: The live pulse dot honours reduced motion (static dot).
+        fish_ref: features/competitions/components/pulse/LivePulseDot.tsx:45
+    mobile_only: false
+    status: todo
+  - id: competitions-list.search
+    title: Caută în Concursuri (dialog)
+    fish:
+      - features/competitions/components/CompetitionsSearchScreen.tsx
+      - features/competitions/components/CompetitionsSuggestionsList.tsx
+      - features/competitions/helpers/recentCompetitionSearches.ts
+      - features/competitions/models/competitions-search.types.ts
+      - services/queries/useCompetitionCards.ts
+      - services/api/competitionCards.ts
+      - components/search/CollapsibleSearchInput.tsx
+      - components/search/SearchResultsSkeleton.tsx
+      - features/competitions/helpers/competitionsAnalytics.ts
+    web_route: /concursuri
+    template: none
+    milestone: M1
+    roles: *a1
+    core:
+      - core/competitions/queries.ts#competitionSuggestionsQuery
+      - core/competitions/api.ts#getCompetitionSuggestions
+      - core/competitions/domain/filters.ts (CompetitionsCommittedSearch, MAX_RECENT_SEARCHES)
+      - "recent searches store (web: per-browser storage, port of recentCompetitionSearches)"
+    states:
+      - empty term, default suggestion groups
+      - empty term with recent searches
+      - "typing (debouncing / fetching: loading border)"
+      - "first load with no groups yet: skeleton rows"
+      - typed term with suggestions
+      - typed term with no suggestions
+      - request error (suggestions empty, free-text row still available)
+    criteria:
+      - id: competitions-list.search.c1
+        text: Opens full screen from the search pill, from the header magnifier, and (in results mode with a committed search) from the results label.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:630
+      - id: competitions-list.search.c2
+        text: Header "Caută în Concursuri" with a close button "Închide"; closing returns to the tab unchanged — typing never filters the list behind.
+        fish_ref: features/competitions/components/CompetitionsSearchScreen.tsx:139
+      - id: competitions-list.search.c3
+        text: The input (placeholder "Concurs, baltă sau organizator", label "Caută un concurs, o baltă sau un organizator") is focused when the dialog opens; Enter commits the trimmed text as a free-text search (ignored when empty).
+        fish_ref: features/competitions/components/CompetitionsSearchScreen.tsx:162
+      - id: competitions-list.search.c4
+        text: Suggestions come from GET /feed/competition-suggestions?q={term}, debounced 260ms; with an empty term the request has no q and returns the default groups; cached 60s and the previous groups stay visible while a new term loads.
+        fish_ref: features/competitions/components/CompetitionsSearchScreen.tsx:102
+      - id: competitions-list.search.c5
+        text: While debouncing or fetching, the input shows the animated loading border; before any group has arrived the list shows skeleton rows, never an empty message.
+        fish_ref: features/competitions/components/CompetitionsSearchScreen.tsx:112
+      - id: competitions-list.search.c6
+        text: Groups render exactly as the server sends them (order, titles, subtitles); groups with no items are dropped.
+        fish_ref: features/competitions/components/CompetitionsSuggestionsList.tsx:123
+      - id: competitions-list.search.c7
+        text: 'Each row: a tinted icon tile by kind (baltă: pin/indigo, organizator: user/yellow, concurs: trophy/green, recentă: clock, text: magnifier), bold title, muted subtitle, chevron; accessible name "{title}. {subtitle}".'
+        fish_ref: features/competitions/components/CompetitionsSuggestionsList.tsx:34
+      - id: competitions-list.search.c8
+        text: Picking a competition suggestion closes the dialog and opens that competition page.
+        fish_ref: features/competitions/components/CompetitionsSearchScreen.tsx:118
+      - id: competitions-list.search.c9
+        text: Picking a lake or organizer commits a search by documentId with the suggestion title as label and enters results mode (competitions-list.results).
+        fish_ref: features/competitions/components/CompetitionsSearchScreen.tsx:122
+      - id: competitions-list.search.c10
+        text: With a typed term, a first row "Caută „{term}”" / "În nume, bălți și organizatori" commits the free text.
+        fish_ref: features/competitions/components/CompetitionsSearchScreen.tsx:206
+      - id: competitions-list.search.c11
+        text: A typed term with no suggestions shows "Nu am găsit sugestii. Poți căuta textul liber de mai sus."
+        fish_ref: features/competitions/components/CompetitionsSearchScreen.tsx:223
+      - id: competitions-list.search.c12
+        text: With an empty term and saved recents, a "Căutări recente" group with a "Șterge tot" action lists up to 5 recent picks (clock icon); picking one behaves like picking that suggestion; "Șterge tot" clears them.
+        fish_ref: features/competitions/components/CompetitionsSearchScreen.tsx:192
+      - id: competitions-list.search.c13
+        text: "Recents are stored on the device, newest first, deduplicated by id, max 5, only lake / organizer / competition picks (never free text); unreadable storage yields an empty list. FISH DISCREPANCY: CompetitionsSearchScreen calls onCommit without the suggestion and never on a competition pick, so pushRecentCompetitionSearch is never reached and fish recents stay empty — owner to decide whether web records picks as the helper intends."
+        fish_ref: features/competitions/helpers/recentCompetitionSearches.ts:51
+      - id: competitions-list.search.c14
+        text: Committing logs competitions_search_committed with the pick type only, never the typed text.
+        fish_ref: features/competitions/helpers/competitionsAnalytics.ts:44
+    mobile_only: false
+    status: todo
+  - id: competitions-list.filters
+    title: Filtre concursuri (dialog)
+    fish:
+      - features/competitions/components/CompetitionFiltersSheet.tsx
+      - features/competitions/components/CompetitionRangeCalendar.tsx
+      - features/competitions/helpers/competitionPeriods.ts
+      - features/competitions/models/competition-filters.types.ts
+      - services/queries/useLakesExploreSuggestions.ts
+      - services/queries/useCompetitionCards.ts
+      - features/competitions/helpers/competitionsAnalytics.ts
+    web_route: /concursuri
+    template: none
+    milestone: M1
+    roles: *a1
+    core:
+      - core/competitions/domain/competitionPeriods.ts (periodOptions, periodFitsStatus, periodChipLabel, customPeriodValue, parseCustomPeriod, customPeriodLabel)
+      - core/competitions/domain/filters.ts (DEFAULT_COMPETITION_FILTERS, hasActiveFilters)
+      - core/competitions/queries.ts#competitionCardsInfiniteQuery (preview count)
+      - core/lakes/queries.ts#lakesExploreSuggestionsInfiniteQuery (counties)
+    states:
+      - filters view (default) with nothing active
+      - filters view with active draft (Resetează enabled)
+      - preview count unknown vs known (singular / plural)
+      - Locuri libere shown (Viitoare) vs hidden (other statuses)
+      - "county view: loading, list, search with no match, selected county"
+      - "range view: nothing picked, start picked, full range"
+      - state change that invalidates the chosen period
+    criteria:
+      - id: competitions-list.filters.c1
+        text: Opens from any filters button; every open resets the draft to the committed filters and status, returns to the main view and asks for the preview count of the committed set.
+        fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:324
+      - id: competitions-list.filters.c2
+        text: Header title "Filtre" / "Județ" / "Perioadă" per view, a back chevron ("Înapoi la filtre") in the sub-views and a close button ("Închide"); closing without applying discards the draft.
+        fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:603
+      - id: competitions-list.filters.c3
+        text: 'STARE section: "Orice stare", "Viitoare", "Live" (red dot), "Încheiate" as single-choice pills (draft until applied).'
+        fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:471
+      - id: competitions-list.filters.c4
+        text: Changing STARE to a state the chosen period cannot describe resets the period to "Oricând" (e.g. Încheiate + Următoarele 7 zile; a month/range entirely ahead for Încheiate or entirely behind for Viitoare); Live and Orice stare accept any period.
+        fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:342
+      - id: competitions-list.filters.c5
+        text: '"Locuri libere" switch with "Doar concursurile care mai au locuri" appears only when the committed status is Viitoare; elsewhere it is hidden and its stored value is kept.'
+        fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:496
+      - id: competitions-list.filters.c6
+        text: 'PERIOADĂ presets depend on the draft state: Încheiate → Oricând, current month, previous two months; Viitoare → Oricând, "Următoarele 7 zile", "Weekendul acesta · {dates}", current month, next month; Live / Orice stare → Oricând, 7 zile, weekend, current month, previous month; month labels are generated from today ("Octombrie 2026").'
+        fish_ref: features/competitions/helpers/competitionPeriods.ts:199
+      - id: competitions-list.filters.c7
+        text: '"Weekendul acesta" is Saturday–Sunday of the current weekend (on Sunday it steps back to Saturday); dates read "26–27 sept." in one month and "31 oct.–1 nov." across two.'
+        fish_ref: features/competitions/helpers/competitionPeriods.ts:86
+      - id: competitions-list.filters.c8
+        text: A row "Alege din calendar" (or the chosen range label when a custom range is active, highlighted) opens the range view.
+        fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:544
+      - id: competitions-list.filters.c9
+        text: 'Range view: heading "Alege perioada", hint "Apasă prima zi, apoi ultima." → "Acum alege ultima zi." → the range label; a Monday-first month grid (Lu Ma Mi Jo Vi Sâ Du), capitalised Romanian month title, previous-month arrow disabled on the current month, next disabled after 24 months, past days disabled; "Renunță" goes back, "Gata" (enabled only with both ends) stores the period as "YYYY-MM-DD..YYYY-MM-DD" in order.'
+        fish_ref: features/competitions/components/CompetitionRangeCalendar.tsx:22
+      - id: competitions-list.filters.c10
+        text: 'FORMAT section: "Orice format", "Individual", "Echipe".'
+        fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:557
+      - id: competitions-list.filters.c11
+        text: 'JUDEȚ row ("Toate județele" or the county name) opens the county view: a "Caută un județ" field (diacritic- and case-insensitive contains), "Toate județele" then counties sorted in Romanian order with a check on the selected one; picking returns to the main view; "Se încarcă județele…" while loading, "Niciun județ găsit." when nothing matches.'
+        fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:387
+      - id: competitions-list.filters.c12
+        text: Counties come from GET /lakes/explore/suggestions without a query (counties ranked first), paged until a city or lake appears or 4 pages; id and name are kept together.
+        fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:92
+      - id: competitions-list.filters.c13
+        text: The apply button reads "Arată {n} concurs" / "Arată {n} concursuri" from a live count of the draft (same scope, status and search, draft filters); "Arată concursurile" before a count is known.
+        fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:363
+      - id: competitions-list.filters.c14
+        text: '"Resetează" resets the draft to the defaults and is disabled when the draft has no active filter.'
+        fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:651
+      - id: competitions-list.filters.c15
+        text: Applying commits filters and status together, closes the dialog and logs competitions_filters_applied {period, format, available_only, county_id, county_name} ("none" when no county); any active filter puts the screen in results mode.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:653
+      - id: competitions-list.filters.c16
+        text: There is one filter set for the whole page, shared by all status tabs (not remembered per tab).
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:137
+    mobile_only: false
+    status: todo
+  - id: competitions-list.results
+    title: Rezultate căutare / Concursuri filtrate
+    fish:
+      - app/(app)/(tabs)/competitions/index.tsx
+      - features/competitions/components/CompetitionResultsChrome.tsx
+      - features/competitions/components/CompetitionFilterChips.tsx
+      - features/competitions/helpers/competitionPeriods.ts
+      - features/competitions/components/CompetitionFiltersSheet.tsx
+      - services/api/competitionCards.ts
+      - services/queries/useCompetitionCards.ts
+    web_route: /concursuri?q=|lakeId=|organizerId=&period=&format=&availableOnly=&countyId=&status=
+    template: T1
+    milestone: M1
+    roles: *a1
+    core:
+      - core/competitions/queries.ts#competitionCardsInfiniteQuery
+      - core/competitions/api.ts#buildCompetitionCardsQuery
+      - core/competitions/domain/competitionPeriods.ts#periodChipLabel
+      - core/competitions/domain/filters.ts (CompetitionsCommittedSearch, hasActiveFilters)
+    states:
+      - committed lake search
+      - committed organizer search
+      - committed free-text search
+      - filters only (no search)
+      - status narrowed by chip vs all states
+      - no chips (fresh search)
+      - more than two chips (Șterge tot)
+      - "empty: search, search + status, filters only"
+      - loading, error, next page (as index)
+    criteria:
+      - id: competitions-list.results.c1
+        text: Results mode is on whenever a search is committed or at least one filter is active.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:268
+      - id: competitions-list.results.c2
+        text: Committing a search remembers the current scope and status, then shows every state (no status) under scope all.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:394
+      - id: competitions-list.results.c3
+        text: 'In results mode the title, eye button, search row and status tabs are replaced by: a square back button "Înapoi la concursuri" and a pill with a magnifier and the label (search label, else "Concursuri filtrate") named "{label}. Schimbă căutarea", plus a filters circle inside the pill.'
+        fish_ref: features/competitions/components/CompetitionResultsChrome.tsx:53
+      - id: competitions-list.results.c4
+        text: Tapping the label reopens the search when a search is committed, otherwise the filters; the filters circle opens the filters.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:630
+      - id: competitions-list.results.c5
+        text: Back clears search and filters and restores the scope and status from before results mode.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:410
+      - id: competitions-list.results.c6
+        text: Applying filters while on Urmărite keeps Urmărite as the scope to return to.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:654
+      - id: competitions-list.results.c7
+        text: 'A chip rail under the pill lists only active choices, in order: status ("Viitoare", "Live" with red dot, "Încheiate"), "Locuri libere", county name, period label, format ("Individual"/"Echipe"); each chip removes just that choice (status → all); accessible name "{label}. Apasă pentru a renunța la acest filtru". No chips → no rail.'
+        fish_ref: features/competitions/components/CompetitionFilterChips.tsx:59
+      - id: competitions-list.results.c8
+        text: With more than two chips a "Șterge tot" chip clears every filter and the status.
+        fish_ref: features/competitions/components/CompetitionFilterChips.tsx:140
+      - id: competitions-list.results.c9
+        text: 'Period chip labels: "Weekendul acesta", "Următoarele 7 zile", "{Lună} {an}", custom ranges like "3–5 oct." or "31 oct.–1 nov." (year shown only outside the current year); an unknown value reads "Perioadă".'
+        fish_ref: features/competitions/helpers/competitionPeriods.ts:270
+      - id: competitions-list.results.c10
+        text: Heading "Rezultate pentru „{label}”" for a search, "Concursuri filtrate" for filters only; count "1 concurs" / "N concursuri" when all states are shown, otherwise the status-agreed count.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:513
+      - id: competitions-list.results.c11
+        text: The request carries lakeId, organizerId or q by search type, plus period, format, availableOnly=true, countyId and status only when set.
+        fish_ref: services/api/competitionCards.ts:41
+      - id: competitions-list.results.c12
+        text: 'Empty: search over all states → "Niciun concurs pentru „{label}”"; search narrowed to a state → "Niciun concurs {viitor|în desfășurare|încheiat} pentru „{label}”"; filters only → "Niciun concurs cu aceste filtre"; captions "Încearcă alt tab de stare sau caută altceva." / "Încearcă alt tab de stare sau elimină câteva filtre."'
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:597
+      - id: competitions-list.results.c13
+        text: Results always open scrolled to the top and their scroll position is never remembered.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:372
+      - id: competitions-list.results.c14
+        text: No bento in results mode; cards, density, pagination, loading, error and pull-to-refresh behave as on the index.
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:279
+    mobile_only: false
+    status: todo
+  - id: competitions-list.viitoare
+    title: Concursuri viitoare
+    fish:
+      - app/(app)/competitions/notStarted/index.tsx
+      - components/CompetitionsFullList.tsx
+      - components/CompetitionCard.tsx
+      - services/queries/useCompetitions.ts
+      - services/api/competitions.ts
+      - components/CompetitionsListSkeleton.tsx
+      - components/ListLodingStateFooter.tsx
+      - components/ErrorScreen.tsx
+      - components/BackButton.tsx
+      - components/FollowersPill.tsx
+      - components/LivePlusViewers.tsx
+      - components/HorizontalCompetitionsList.tsx
+    web_route: /concursuri/viitoare
+    template: T1
+    milestone: M1
+    roles: *a1
+    core:
+      - core/competitions/queries.ts#filteredCompetitionsInfiniteQuery
+      - core/competitions/api.ts#getCompetitionsByStatus
+    states:
+      - loading (skeleton)
+      - error (error screen with back)
+      - empty
+      - loading next page
+      - refreshing
+      - card with pending registrations
+    criteria:
+      - id: competitions-list.viitoare.c1
+        text: Header with a back button and the title "Concursuri viitoare".
+        fish_ref: app/(app)/competitions/notStarted/index.tsx:45
+      - id: competitions-list.viitoare.c2
+        text: "Data: GET /feed/competitions?status=notStarted&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards)."
+        fish_ref: app/(app)/competitions/notStarted/index.tsx:17
+      - id: competitions-list.viitoare.c3
+        text: Competitions render as a two-column grid of the compact legacy competition card.
+        fish_ref: components/CompetitionsFullList.tsx:53
+      - id: competitions-list.viitoare.c4
+        text: First load shows the competitions list skeleton instead of the grid.
+        fish_ref: components/CompetitionsFullList.tsx:78
+      - id: competitions-list.viitoare.c5
+        text: A failed request replaces the screen with the shared error screen (with back button), retry and sign-out per describeError.
+        fish_ref: app/(app)/competitions/notStarted/index.tsx:36
+      - id: competitions-list.viitoare.c6
+        text: 'Empty list: "Momentan nu este disponibil niciun concurs."'
+        fish_ref: components/CompetitionsFullList.tsx:116
+      - id: competitions-list.viitoare.c7
+        text: Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads.
+        fish_ref: app/(app)/competitions/notStarted/index.tsx:24
+      - id: competitions-list.viitoare.c8
+        text: Tapping a card opens the competition page.
+        fish_ref: components/CompetitionsFullList.tsx:66
+      - id: competitions-list.viitoare.c9
+        text: "Card image: banner, else the lake's first image, shown whole (contain) over a blurred fill, small format; blurhash placeholder."
+        fish_ref: components/CompetitionCard.tsx:64
+      - id: competitions-list.viitoare.c10
+        text: "Card overlay: live competitions show the LIVE + viewers pill; upcoming and finished ones show the followers pill."
+        fish_ref: components/CompetitionCard.tsx:123
+      - id: competitions-list.viitoare.c11
+        text: "Card date: start–end from getDisplayedDate in uppercase, a single day when start and end are the same day."
+        fish_ref: components/CompetitionCard.tsx:74
+      - id: competitions-list.viitoare.c12
+        text: 'Card body: name (2 lines), pin + lake name when present, avatars of registered + pending entrants, "{registered}/{participantsLimit, fallback 21} pescari|echipe".'
+        fish_ref: components/CompetitionCard.tsx:144
+      - id: competitions-list.viitoare.c13
+        text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare").'
+        fish_ref: components/CompetitionCard.tsx:191
+      - id: competitions-list.viitoare.c14
+        text: 'Card badges: "Individual" / "Echipe" (green) and the ranking type (yellow).'
+        fish_ref: components/CompetitionCard.tsx:234
+      - id: competitions-list.viitoare.c15
+        text: A render error shows the route error boundary's retry card.
+        fish_ref: app/(app)/competitions/notStarted/index.tsx:57
+    mobile_only: false
+    status: todo
+  - id: competitions-list.viitoare-balta
+    title: Concursuri viitoare pe baltă
+    fish:
+      - app/(app)/competitions/notStarted/[lakeId].tsx
+      - components/CompetitionsFullList.tsx
+      - components/CompetitionCard.tsx
+      - services/queries/useCompetitions.ts
+      - services/api/competitions.ts
+      - components/CompetitionsListSkeleton.tsx
+      - components/ListLodingStateFooter.tsx
+      - components/ErrorScreen.tsx
+      - components/BackButton.tsx
+      - components/FollowersPill.tsx
+      - components/LivePlusViewers.tsx
+      - components/HorizontalCompetitionsList.tsx
+    web_route: /balti/[id]/concursuri?tab=viitoare
+    merged_into: lakes.competitions
+    template: T1
+    milestone: M1
+    roles: *a1
+    core:
+      - core/competitions/queries.ts#filteredCompetitionsInfiniteQuery
+      - core/competitions/api.ts#getCompetitionsByStatus
+    states:
+      - loading (skeleton)
+      - error (error screen with back)
+      - empty
+      - loading next page
+      - refreshing
+      - card with pending registrations
+      - "unknown or missing lakeId (fish: request still sent; empty or error)"
+    criteria:
+      - id: competitions-list.viitoare-balta.c1
+        text: Header with a back button and the title "Concursuri viitoare".
+        fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:47
+      - id: competitions-list.viitoare-balta.c2
+        text: "Data: GET /feed/competitions?status=notStarted&lakeId={lakeId}&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards)."
+        fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:19
+      - id: competitions-list.viitoare-balta.c3
+        text: The lake comes from the lakeId route parameter; only that lake's competitions are listed.
+        fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:9
+      - id: competitions-list.viitoare-balta.c4
+        text: Competitions render as a two-column grid of the compact legacy competition card.
+        fish_ref: components/CompetitionsFullList.tsx:53
+      - id: competitions-list.viitoare-balta.c5
+        text: First load shows the competitions list skeleton instead of the grid.
+        fish_ref: components/CompetitionsFullList.tsx:78
+      - id: competitions-list.viitoare-balta.c6
+        text: A failed request replaces the screen with the shared error screen (with back button), retry and sign-out per describeError.
+        fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:38
+      - id: competitions-list.viitoare-balta.c7
+        text: 'Empty list: "Momentan nu este disponibil niciun concurs."'
+        fish_ref: components/CompetitionsFullList.tsx:116
+      - id: competitions-list.viitoare-balta.c8
+        text: Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads.
+        fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:26
+      - id: competitions-list.viitoare-balta.c9
+        text: Tapping a card opens the competition page.
+        fish_ref: components/CompetitionsFullList.tsx:66
+      - id: competitions-list.viitoare-balta.c10
+        text: "Card image: banner, else the lake's first image, shown whole (contain) over a blurred fill, small format; blurhash placeholder."
+        fish_ref: components/CompetitionCard.tsx:64
+      - id: competitions-list.viitoare-balta.c11
+        text: "Card overlay: live competitions show the LIVE + viewers pill; upcoming and finished ones show the followers pill."
+        fish_ref: components/CompetitionCard.tsx:123
+      - id: competitions-list.viitoare-balta.c12
+        text: "Card date: start–end from getDisplayedDate in uppercase, a single day when start and end are the same day."
+        fish_ref: components/CompetitionCard.tsx:74
+      - id: competitions-list.viitoare-balta.c13
+        text: 'Card body: name (2 lines), pin + lake name when present, avatars of registered + pending entrants, "{registered}/{participantsLimit, fallback 21} pescari|echipe".'
+        fish_ref: components/CompetitionCard.tsx:144
+      - id: competitions-list.viitoare-balta.c14
+        text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare").'
+        fish_ref: components/CompetitionCard.tsx:191
+      - id: competitions-list.viitoare-balta.c15
+        text: 'Card badges: "Individual" / "Echipe" (green) and the ranking type (yellow).'
+        fish_ref: components/CompetitionCard.tsx:234
+      - id: competitions-list.viitoare-balta.c16
+        text: A render error shows the route error boundary's retry card.
+        fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:59
+    mobile_only: false
+    status: todo
+  - id: competitions-list.live
+    title: Concursuri live
+    fish:
+      - app/(app)/competitions/started/index.tsx
+      - components/CompetitionsFullList.tsx
+      - components/CompetitionCard.tsx
+      - services/queries/useCompetitions.ts
+      - services/api/competitions.ts
+      - components/CompetitionsListSkeleton.tsx
+      - components/ListLodingStateFooter.tsx
+      - components/ErrorScreen.tsx
+      - components/BackButton.tsx
+      - components/FollowersPill.tsx
+      - components/LivePlusViewers.tsx
+      - components/HorizontalCompetitionsList.tsx
+    web_route: /concursuri/live
+    template: T1
+    milestone: M1
+    roles: *a1
+    core:
+      - core/competitions/queries.ts#filteredCompetitionsInfiniteQuery
+      - core/competitions/api.ts#getCompetitionsByStatus
+    states:
+      - loading (skeleton)
+      - error (error screen with back)
+      - empty
+      - loading next page
+      - refreshing
+      - live card overlay (LIVE + viewers)
+    criteria:
+      - id: competitions-list.live.c1
+        text: Header with a back button and the title "Concursuri live".
+        fish_ref: app/(app)/competitions/started/index.tsx:45
+      - id: competitions-list.live.c2
+        text: "Data: GET /feed/competitions?status=started&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards)."
+        fish_ref: app/(app)/competitions/started/index.tsx:17
+      - id: competitions-list.live.c3
+        text: Competitions render as a two-column grid of the compact legacy competition card.
+        fish_ref: components/CompetitionsFullList.tsx:53
+      - id: competitions-list.live.c4
+        text: First load shows the competitions list skeleton instead of the grid.
+        fish_ref: components/CompetitionsFullList.tsx:78
+      - id: competitions-list.live.c5
+        text: A failed request replaces the screen with the shared error screen (with back button), retry and sign-out per describeError.
+        fish_ref: app/(app)/competitions/started/index.tsx:36
+      - id: competitions-list.live.c6
+        text: 'Empty list: "Momentan nu este disponibil niciun concurs."'
+        fish_ref: components/CompetitionsFullList.tsx:116
+      - id: competitions-list.live.c7
+        text: Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads.
+        fish_ref: app/(app)/competitions/started/index.tsx:24
+      - id: competitions-list.live.c8
+        text: Tapping a card opens the competition page.
+        fish_ref: components/CompetitionsFullList.tsx:66
+      - id: competitions-list.live.c9
+        text: "Card image: banner, else the lake's first image, shown whole (contain) over a blurred fill, small format; blurhash placeholder."
+        fish_ref: components/CompetitionCard.tsx:64
+      - id: competitions-list.live.c10
+        text: "Card overlay: live competitions show the LIVE + viewers pill; upcoming and finished ones show the followers pill."
+        fish_ref: components/CompetitionCard.tsx:123
+      - id: competitions-list.live.c11
+        text: "Card date: start–end from getDisplayedDate in uppercase, a single day when start and end are the same day."
+        fish_ref: components/CompetitionCard.tsx:74
+      - id: competitions-list.live.c12
+        text: 'Card body: name (2 lines), pin + lake name when present, avatars of registered + pending entrants, "{registered}/{participantsLimit, fallback 21} pescari|echipe".'
+        fish_ref: components/CompetitionCard.tsx:144
+      - id: competitions-list.live.c13
+        text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare").'
+        fish_ref: components/CompetitionCard.tsx:191
+      - id: competitions-list.live.c14
+        text: 'Card badges: "Individual" / "Echipe" (green) and the ranking type (yellow).'
+        fish_ref: components/CompetitionCard.tsx:234
+      - id: competitions-list.live.c15
+        text: A render error shows the route error boundary's retry card.
+        fish_ref: app/(app)/competitions/started/index.tsx:57
+    mobile_only: false
+    status: todo
+  - id: competitions-list.live-balta
+    title: Concursuri live pe baltă
+    fish:
+      - app/(app)/competitions/started/[lakeId].tsx
+      - components/CompetitionsFullList.tsx
+      - components/CompetitionCard.tsx
+      - services/queries/useCompetitions.ts
+      - services/api/competitions.ts
+      - components/CompetitionsListSkeleton.tsx
+      - components/ListLodingStateFooter.tsx
+      - components/ErrorScreen.tsx
+      - components/BackButton.tsx
+      - components/FollowersPill.tsx
+      - components/LivePlusViewers.tsx
+      - components/HorizontalCompetitionsList.tsx
+    web_route: /balti/[id]/concursuri?tab=live
+    merged_into: lakes.competitions
+    template: T1
+    milestone: M1
+    roles: *a1
+    core:
+      - core/competitions/queries.ts#filteredCompetitionsInfiniteQuery
+      - core/competitions/api.ts#getCompetitionsByStatus
+    states:
+      - loading (skeleton)
+      - error (error screen with back)
+      - empty
+      - loading next page
+      - refreshing
+      - live card overlay (LIVE + viewers)
+      - "unknown or missing lakeId (fish: request still sent; empty or error)"
+    criteria:
+      - id: competitions-list.live-balta.c1
+        text: Header with a back button and the title "Concursuri live".
+        fish_ref: app/(app)/competitions/started/[lakeId].tsx:47
+      - id: competitions-list.live-balta.c2
+        text: "Data: GET /feed/competitions?status=started&lakeId={lakeId}&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards)."
+        fish_ref: app/(app)/competitions/started/[lakeId].tsx:19
+      - id: competitions-list.live-balta.c3
+        text: The lake comes from the lakeId route parameter; only that lake's competitions are listed.
+        fish_ref: app/(app)/competitions/started/[lakeId].tsx:9
+      - id: competitions-list.live-balta.c4
+        text: Competitions render as a two-column grid of the compact legacy competition card.
+        fish_ref: components/CompetitionsFullList.tsx:53
+      - id: competitions-list.live-balta.c5
+        text: First load shows the competitions list skeleton instead of the grid.
+        fish_ref: components/CompetitionsFullList.tsx:78
+      - id: competitions-list.live-balta.c6
+        text: A failed request replaces the screen with the shared error screen (with back button), retry and sign-out per describeError.
+        fish_ref: app/(app)/competitions/started/[lakeId].tsx:38
+      - id: competitions-list.live-balta.c7
+        text: 'Empty list: "Momentan nu este disponibil niciun concurs."'
+        fish_ref: components/CompetitionsFullList.tsx:116
+      - id: competitions-list.live-balta.c8
+        text: Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads.
+        fish_ref: app/(app)/competitions/started/[lakeId].tsx:26
+      - id: competitions-list.live-balta.c9
+        text: Tapping a card opens the competition page.
+        fish_ref: components/CompetitionsFullList.tsx:66
+      - id: competitions-list.live-balta.c10
+        text: "Card image: banner, else the lake's first image, shown whole (contain) over a blurred fill, small format; blurhash placeholder."
+        fish_ref: components/CompetitionCard.tsx:64
+      - id: competitions-list.live-balta.c11
+        text: "Card overlay: live competitions show the LIVE + viewers pill; upcoming and finished ones show the followers pill."
+        fish_ref: components/CompetitionCard.tsx:123
+      - id: competitions-list.live-balta.c12
+        text: "Card date: start–end from getDisplayedDate in uppercase, a single day when start and end are the same day."
+        fish_ref: components/CompetitionCard.tsx:74
+      - id: competitions-list.live-balta.c13
+        text: 'Card body: name (2 lines), pin + lake name when present, avatars of registered + pending entrants, "{registered}/{participantsLimit, fallback 21} pescari|echipe".'
+        fish_ref: components/CompetitionCard.tsx:144
+      - id: competitions-list.live-balta.c14
+        text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare").'
+        fish_ref: components/CompetitionCard.tsx:191
+      - id: competitions-list.live-balta.c15
+        text: 'Card badges: "Individual" / "Echipe" (green) and the ranking type (yellow).'
+        fish_ref: components/CompetitionCard.tsx:234
+      - id: competitions-list.live-balta.c16
+        text: A render error shows the route error boundary's retry card.
+        fish_ref: app/(app)/competitions/started/[lakeId].tsx:59
+    mobile_only: false
+    status: todo
+  - id: competitions-list.incheiate
+    title: Concursuri trecute
+    fish:
+      - app/(app)/competitions/completed/index.tsx
+      - components/CompetitionsFullList.tsx
+      - components/CompetitionCard.tsx
+      - services/queries/useCompetitions.ts
+      - services/api/competitions.ts
+      - components/CompetitionsListSkeleton.tsx
+      - components/ListLodingStateFooter.tsx
+      - components/ErrorScreen.tsx
+      - components/BackButton.tsx
+      - components/FollowersPill.tsx
+      - components/LivePlusViewers.tsx
+      - components/HorizontalCompetitionsList.tsx
+    web_route: /concursuri/incheiate
+    template: T1
+    milestone: M1
+    roles: *a1
+    core:
+      - core/competitions/queries.ts#filteredCompetitionsInfiniteQuery
+      - core/competitions/api.ts#getCompetitionsByStatus
+    states:
+      - loading (skeleton)
+      - error (error screen with back)
+      - empty
+      - loading next page
+      - refreshing
+    criteria:
+      - id: competitions-list.incheiate.c1
+        text: Header with a back button and the title "Concursuri trecute".
+        fish_ref: app/(app)/competitions/completed/index.tsx:45
+      - id: competitions-list.incheiate.c2
+        text: "Data: GET /feed/competitions?status=completed&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards)."
+        fish_ref: app/(app)/competitions/completed/index.tsx:17
+      - id: competitions-list.incheiate.c3
+        text: Competitions render as a two-column grid of the compact legacy competition card.
+        fish_ref: components/CompetitionsFullList.tsx:53
+      - id: competitions-list.incheiate.c4
+        text: First load shows the competitions list skeleton instead of the grid.
+        fish_ref: components/CompetitionsFullList.tsx:78
+      - id: competitions-list.incheiate.c5
+        text: A failed request replaces the screen with the shared error screen (with back button), retry and sign-out per describeError.
+        fish_ref: app/(app)/competitions/completed/index.tsx:36
+      - id: competitions-list.incheiate.c6
+        text: 'Empty list: "Momentan nu este disponibil niciun concurs."'
+        fish_ref: components/CompetitionsFullList.tsx:116
+      - id: competitions-list.incheiate.c7
+        text: Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads.
+        fish_ref: app/(app)/competitions/completed/index.tsx:24
+      - id: competitions-list.incheiate.c8
+        text: Tapping a card opens the competition page.
+        fish_ref: components/CompetitionsFullList.tsx:66
+      - id: competitions-list.incheiate.c9
+        text: "Card image: banner, else the lake's first image, shown whole (contain) over a blurred fill, small format; blurhash placeholder."
+        fish_ref: components/CompetitionCard.tsx:64
+      - id: competitions-list.incheiate.c10
+        text: "Card overlay: live competitions show the LIVE + viewers pill; upcoming and finished ones show the followers pill."
+        fish_ref: components/CompetitionCard.tsx:123
+      - id: competitions-list.incheiate.c11
+        text: "Card date: start–end from getDisplayedDate in uppercase, a single day when start and end are the same day."
+        fish_ref: components/CompetitionCard.tsx:74
+      - id: competitions-list.incheiate.c12
+        text: 'Card body: name (2 lines), pin + lake name when present, avatars of registered + pending entrants, "{registered}/{participantsLimit, fallback 21} pescari|echipe".'
+        fish_ref: components/CompetitionCard.tsx:144
+      - id: competitions-list.incheiate.c13
+        text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare").'
+        fish_ref: components/CompetitionCard.tsx:191
+      - id: competitions-list.incheiate.c14
+        text: 'Card badges: "Individual" / "Echipe" (green) and the ranking type (yellow).'
+        fish_ref: components/CompetitionCard.tsx:234
+      - id: competitions-list.incheiate.c15
+        text: A render error shows the route error boundary's retry card.
+        fish_ref: app/(app)/competitions/completed/index.tsx:57
+    mobile_only: false
+    status: todo
+  - id: competitions-list.incheiate-balta
+    title: Concursuri trecute pe baltă
+    fish:
+      - app/(app)/competitions/completed/[lakeId].tsx
+      - components/CompetitionsFullList.tsx
+      - components/CompetitionCard.tsx
+      - services/queries/useCompetitions.ts
+      - services/api/competitions.ts
+      - components/CompetitionsListSkeleton.tsx
+      - components/ListLodingStateFooter.tsx
+      - components/ErrorScreen.tsx
+      - components/BackButton.tsx
+      - components/FollowersPill.tsx
+      - components/LivePlusViewers.tsx
+      - components/HorizontalCompetitionsList.tsx
+    web_route: /balti/[id]/concursuri?tab=trecute
+    merged_into: lakes.competitions
+    template: T1
+    milestone: M1
+    roles: *a1
+    core:
+      - core/competitions/queries.ts#filteredCompetitionsInfiniteQuery
+      - core/competitions/api.ts#getCompetitionsByStatus
+    states:
+      - loading (skeleton)
+      - error (error screen with back)
+      - empty
+      - loading next page
+      - refreshing
+      - "unknown or missing lakeId (fish: request still sent; empty or error)"
+    criteria:
+      - id: competitions-list.incheiate-balta.c1
+        text: Header with a back button and the title "Concursuri trecute".
+        fish_ref: app/(app)/competitions/completed/[lakeId].tsx:47
+      - id: competitions-list.incheiate-balta.c2
+        text: "Data: GET /feed/competitions?status=completed&lakeId={lakeId}&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards)."
+        fish_ref: app/(app)/competitions/completed/[lakeId].tsx:19
+      - id: competitions-list.incheiate-balta.c3
+        text: The lake comes from the lakeId route parameter; only that lake's competitions are listed.
+        fish_ref: app/(app)/competitions/completed/[lakeId].tsx:9
+      - id: competitions-list.incheiate-balta.c4
+        text: Competitions render as a two-column grid of the compact legacy competition card.
+        fish_ref: components/CompetitionsFullList.tsx:53
+      - id: competitions-list.incheiate-balta.c5
+        text: First load shows the competitions list skeleton instead of the grid.
+        fish_ref: components/CompetitionsFullList.tsx:78
+      - id: competitions-list.incheiate-balta.c6
+        text: A failed request replaces the screen with the shared error screen (with back button), retry and sign-out per describeError.
+        fish_ref: app/(app)/competitions/completed/[lakeId].tsx:38
+      - id: competitions-list.incheiate-balta.c7
+        text: 'Empty list: "Momentan nu este disponibil niciun concurs."'
+        fish_ref: components/CompetitionsFullList.tsx:116
+      - id: competitions-list.incheiate-balta.c8
+        text: Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads.
+        fish_ref: app/(app)/competitions/completed/[lakeId].tsx:26
+      - id: competitions-list.incheiate-balta.c9
+        text: Tapping a card opens the competition page.
+        fish_ref: components/CompetitionsFullList.tsx:66
+      - id: competitions-list.incheiate-balta.c10
+        text: "Card image: banner, else the lake's first image, shown whole (contain) over a blurred fill, small format; blurhash placeholder."
+        fish_ref: components/CompetitionCard.tsx:64
+      - id: competitions-list.incheiate-balta.c11
+        text: "Card overlay: live competitions show the LIVE + viewers pill; upcoming and finished ones show the followers pill."
+        fish_ref: components/CompetitionCard.tsx:123
+      - id: competitions-list.incheiate-balta.c12
+        text: "Card date: start–end from getDisplayedDate in uppercase, a single day when start and end are the same day."
+        fish_ref: components/CompetitionCard.tsx:74
+      - id: competitions-list.incheiate-balta.c13
+        text: 'Card body: name (2 lines), pin + lake name when present, avatars of registered + pending entrants, "{registered}/{participantsLimit, fallback 21} pescari|echipe".'
+        fish_ref: components/CompetitionCard.tsx:144
+      - id: competitions-list.incheiate-balta.c14
+        text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare").'
+        fish_ref: components/CompetitionCard.tsx:191
+      - id: competitions-list.incheiate-balta.c15
+        text: 'Card badges: "Individual" / "Echipe" (green) and the ranking type (yellow).'
+        fish_ref: components/CompetitionCard.tsx:234
+      - id: competitions-list.incheiate-balta.c16
+        text: A render error shows the route error boundary's retry card.
+        fish_ref: app/(app)/competitions/completed/[lakeId].tsx:59
+    mobile_only: false
+    status: todo
+behaviours:
+  - id: competitions-list.b.tab-entry
+    text: The area is a main tab labelled "Competiții" with a trophy icon; on web it is the top-bar link "Competiții" → /concursuri, open to guests (the (app) group does not redirect signed-out users).
+    fish_ref: app/(app)/(tabs)/_layout.tsx:66
+  - id: competitions-list.b.status-param
+    text: 'Acasă "Vezi toate" under the live rail opens the tab on Live and under the upcoming rail on Viitoare (router param status=started|notStarted); web: /concursuri?status=… (homeLinks.competitions). The param resets search and filters and is consumed.'
+    fish_ref: app/(app)/(tabs)/index.tsx:480
+  - id: competitions-list.b.notification-routes
+    text: Notification NEW_COMPETITIONS without competitionId and COMPETITIONS_DIGEST open the competitions tab; NEW_COMPETITIONS with competitionId opens that competition.
+    fish_ref: helpers/getRedirectLocationForNotification.ts:159
+  - id: competitions-list.b.lake-see-all
+    text: 'Lake competition rails ("Live", "Viitoare", and on the lake competitions page also past) link "Vezi toate" to /(app)/competitions/{status}/{lakeId}; with no lakeId the same push lands on the global status list. Web: /balti/[id]/concursuri?tab=live|viitoare|trecute (one page, owned by lakes.competitions; the three per-lake entries here are merged_into it) and /concursuri/{live|viitoare|incheiate}.'
+    fish_ref: components/HorizontalCompetitionsList.tsx:75
+  - id: competitions-list.b.live-poll
+    text: "Only the Live tab polls (60s), only while the page is visible and not on Ale mele; the interval belongs to the tab's observer, so the bento sharing the same live cache key never polls on its own. Web: pause on document hidden."
+    fish_ref: app/(app)/(tabs)/competitions/index.tsx:211
+  - id: competitions-list.b.cache-freshness
+    text: "Competition-card lists: staleTime 5 min and gcTime 30 min for every status, previous data kept on key change; suggestions: staleTime 60s; pulse person and featured: staleTime 5 min, no refetch on focus or reconnect (pull-to-refresh bypasses)."
+    fish_ref: services/queries/useCompetitionCards.ts:104
+  - id: competitions-list.b.public-vs-personal
+    text: scope all hits the edge-cached public /feed/competition-cards; registered/followed/organized hit per-user /feed/my-competition-cards and are never requested signed out (requiresSignIn).
+    fish_ref: services/api/competitionCards.ts:63
+  - id: competitions-list.b.signed-out-gating
+    text: "Signed out: Descoperă, bento, search and filters work; Ale mele is hidden; Urmărite shows the sign-in prompt; a pulse person whose destination is an angler sends to sign-in (web: /intra?next=…); the follow invite is shown (followed count is 0)."
+    fish_ref: app/(app)/(tabs)/competitions/index.tsx:500
+  - id: competitions-list.b.navigation-guard
+    text: Every navigation from this area goes through guardNavigation so a double tap opens one page (800ms window).
+    fish_ref: hooks/useNavigationGuard.ts:48
+  - id: competitions-list.b.analytics
+    text: "GA4 events: competitions_status_changed {status, scope}, competitions_scope_changed {scope}, competitions_search_committed {type}, competitions_filters_applied {period, format, available_only, county_id, county_name}, plus the four pulse events; failures are swallowed; free text is never sent."
+    fish_ref: features/competitions/helpers/competitionsAnalytics.ts:85
+  - id: competitions-list.b.route-error-boundary
+    text: Each route in this area exports the route error boundary, so a crash shows a retry card for that route only.
+    fish_ref: app/(app)/(tabs)/competitions/index.tsx:726
+  - id: competitions-list.b.recents-bug
+    text: "FISH DISCREPANCY: recent competition searches are read and cleared but never written, because the search screen calls onCommit(committed) without the suggestion; flag to the owner before porting."
+    fish_ref: features/competitions/components/CompetitionsSearchScreen.tsx:122

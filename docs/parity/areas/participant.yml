@@ -1,0 +1,1060 @@
+# Parity inventory — area "participant" (Înscriere, Despre concursurile pe echipe, Participanți fără cont,
+# Chat concurs + decupare poză, Sondaj curent, Sondaje anterioare, Tombolă: intro, încărcare bon,
+# confirmare, bon încărcat, șansele mele, câștigători).
+# Extracted from fish (read-only) on 2026-10-04. Line refs are fish file:line at that date.
+# Web sign-in is /intra?next=<path> (fish: /sign-in + redirectTo). The poll and raffle cards on Acasă are
+# inventoried in home.yml; the registration entry button on the competition page belongs to the competition
+# screen and appears here only as behaviours.
+# Web route conventions used here: /concursuri/[id]/inscriere[/echipa|/fara-cont], /concursuri/[id]/chat[/foto],
+# /sondaje[/anterioare] (home.yml already uses /sondaje), /tombola[/...].
+area: participant
+screens:
+  # ---------------------------------------------------------------------------------------------
+  - id: participant.register
+    title: Înscriere
+    fish:
+      - "app/(app)/register/[competitionId].tsx"
+      - "components/RegistrationStatusModalSheet.tsx"
+      - "components/EmptyTeamMembersSheet.tsx"
+      - "components/competition/CompetitionParticipantsSelect.tsx"
+      - "services/mutations/useCreateCompetitionRegistration.ts"
+      - "services/mutations/useUpdateCompetitionRegistration.ts"
+      - "services/mutations/useLeaveCompetition.ts"
+      - "services/api/registrations.ts"
+      - "services/queries/useUsers.ts"
+      - "services/api/users.ts"
+      - "services/queries/useCompetition.ts"
+      - "services/queries/useProfile.ts"
+    web_route: "/concursuri/[id]/inscriere?organizator=1&inscriere=[registrationId]"
+    template: T4
+    milestone: M5
+    roles: [guest, angler, organizer]
+    core:
+      - competitions.competitionQuery
+      - competitions.competitionMyStatusQuery
+      - social.profileQuery
+      - social.paginatedUsersInfiniteQuery
+      - competitions.createCompetitionRegistrationMutation
+      - competitions.updateCompetitionRegistrationMutation (CDN_PURGE_SETTLE_MS)
+      - competitions.leaveCompetitionMutation
+      - competitions.competitionKeys
+    states:
+      - loading (profile or competition)
+      - signed-out (sign-in gate)
+      - new registration, single competition
+      - new registration, team competition
+      - existing pending registration (editable, can leave)
+      - existing approved registration, team, competition notStarted (editable, cannot leave)
+      - existing registration after start (locked, contact organizer)
+      - organizer mode (edits another team's registration, never locked by status)
+      - phone already on profile (read-only) / phone missing (required)
+      - team with zero teammates (confirm dialog)
+      - team at max size (add teammates disabled)
+      - teammate search loading / error / no results / next page loading
+      - submit pending / success (auto-close, back to competition) / error
+      - leave confirm / pending / success / error
+      - dirty form on leave (discard confirm)
+    criteria:
+      - id: participant.register.c1
+        text: "While the profile or the competition is loading, a full-page loading state is shown instead of the form."
+        fish_ref: "app/(app)/register/[competitionId].tsx:288-298"
+      - id: participant.register.c2
+        text: "Signed out, the page titled „Înscriere” shows the fisherman illustration, the heading „Înscrie-te la competiție”, the text „Autentifică-te pentru a putea participa la competiție. După ce te conectezi, revino aici pentru a-ți finaliza înscrierea.” and a „Intră în cont” button that opens sign-in (web: /intra?next=<this page>)."
+        fish_ref: "app/(app)/register/[competitionId].tsx:300-334"
+      - id: participant.register.c3
+        text: "The registration being edited is, in normal mode, the competition registration with status registered or pending whose participants include the viewer's documentId; in organizer mode (asOrganizer=1) it is the registration whose documentId is registrationId. No match = new registration."
+        fish_ref: "app/(app)/register/[competitionId].tsx:52-66"
+      - id: participant.register.c4
+        text: "A read-only field „Nume utilizator*” shows the viewer's username (organizer mode: the registration author's username)."
+        fish_ref: "app/(app)/register/[competitionId].tsx:385-392"
+      - id: participant.register.c5
+        text: "The phone field „Număr de telefon*” (placeholder „Introdu numărul de telefon”, numeric keyboard) appears only for a new registration; it is prefilled from profile.phone and read-only when the profile already has one; it is required („Acest câmp este obligatoriu”) and must be 7–15 characters („Numărul de telefon trebuie să conțină minim 7 și maximum 15 caractere”)."
+        fish_ref: "app/(app)/register/[competitionId].tsx:394-419"
+      - id: participant.register.c6
+        text: "Team competitions only: an optional „Numele echipei” field (placeholder „Introdu numele echipei”, helper „Numele echipei este opțional și poate fi adăugat ulterior”) limited to 30 characters („Numele echipei poate conține maximum 30 de caractere.”)."
+        fish_ref: "app/(app)/register/[competitionId].tsx:421-444"
+      - id: participant.register.c7
+        text: "Team competitions only: a „Coechipieri” section; when teamParticipants is set, the caption „Această competiție permite înscrierea unui număr maxim de {N} participanți/echipă. Vă rugăm să adăugați un număr maxim de {N-1} coechipieri.” is shown."
+        fish_ref: "app/(app)/register/[competitionId].tsx:446-454"
+      - id: participant.register.c8
+        text: "The „Adaugă coechipieri” control is disabled once teammates + 1 (the viewer) reaches teamParticipants."
+        fish_ref: "app/(app)/register/[competitionId].tsx:455-473"
+      - id: participant.register.c9
+        text: "The teammate picker has a search field „Introdu numele” and lists users from GET /user/all?page&pageSize=20&search (infinite, next page at the end of the list with a „Se încarcă...” footer); each row shows the thumb avatar (fallback disc), the username and „#{username}{id}”; users already added are disabled and dimmed; states „Se încarcă...”, „Eroare la încărcarea datelor”, „Nu s-au găsit rezultate”; closing the picker clears the search. The viewer is not filtered out of the results."
+        fish_ref: "components/competition/CompetitionParticipantsSelect.tsx:40-212; services/queries/useUsers.ts:5-20; services/api/users.ts:5-20"
+      - id: participant.register.c10
+        text: "Choosing a user appends them to the team; each chosen teammate is listed with their username and a remove (X) control that drops them from the form."
+        fish_ref: "components/competition/CompetitionParticipantsSelect.tsx:93-95; app/(app)/register/[competitionId].tsx:474-497"
+      - id: participant.register.c11
+        text: "The form is seeded with the registration's participants minus the viewer (organizer mode: minus the author), its team name and the profile phone, and re-seeded whenever that server data changes unless the user has already edited the form."
+        fish_ref: "app/(app)/register/[competitionId].tsx:96-151"
+      - id: participant.register.c12
+        text: "Footer: no registration → „Finalizează”; registration in normal mode with competitionStatus other than notStarted → only the text „Nu poți face modificări. Contactează organizatorul.”; otherwise „Salvează modificările” (disabled until the form changes) plus, in normal mode with status pending, a red „Părăsește concursul”."
+        fish_ref: "app/(app)/register/[competitionId].tsx:341-383"
+      - id: participant.register.c13
+        text: "For a team competition with zero teammates, „Finalizează” and „Salvează modificările” first open a non-dismissable confirmation „Nu ați adăugat niciun coechipier. Sunteți sigur că doriți să înregistrați echipa fără coechipieri?” with „Sunt sigur” (continues the submit) and „Închide” (cancels)."
+        fish_ref: "app/(app)/register/[competitionId].tsx:155-164; components/EmptyTeamMembersSheet.tsx:22-70"
+      - id: participant.register.c14
+        text: "Create sends POST /registrations {data:{competition, teamName, registrationStatus, participants:[...teammate documentIds, viewer documentId], phone}} where phone is null when the profile already has one."
+        fish_ref: "app/(app)/register/[competitionId].tsx:166-180; services/api/registrations.ts:4-11"
+      - id: participant.register.c15
+        text: "After create, the competition (byId), competitions.all, competitions.my, competitionCards root and profile.my are invalidated; analytics event competition_registration_created {competition_id, participants}."
+        fish_ref: "app/(app)/register/[competitionId].tsx:182-205; services/mutations/useCreateCompetitionRegistration.ts:16-24"
+      - id: participant.register.c16
+        text: "Submitting opens a status dialog: pending „Înscriere în curs...”; success „Felicitări!” / „Solicitarea ta a fost înregistrată cu succes.” / „Vei fi contactat în cel mai scurt timp pentru confirmarea locului.”, closing itself after 3 s and returning to the competition page; error shows the server message (fallback „A apărut o problemă în cadrul solicitării, te rugăm să încerci mai târziu.”) and „Închide”. It cannot be dismissed while pending."
+        fish_ref: "components/RegistrationStatusModalSheet.tsx:63-160"
+      - id: participant.register.c17
+        text: "Update sends PUT /registrations/{registrationId} {data:{competition, participants:[...teammates, anchor], teamName}} where anchor is the viewer, or the registration author in organizer mode; a missing registration fails with „Nu s-a găsit înscrierea!”."
+        fish_ref: "app/(app)/register/[competitionId].tsx:209-230; services/api/registrations.ts:13-26"
+      - id: participant.register.c18
+        text: "After a successful update the saved values become the form baseline; the competition (byId) is marked stale at once and refetched 2000 ms later (after the edge purge); competitions.my is invalidated; the dialog shows „Modificare în curs...” then „Felicitări!” / „Înregistrarea ta a fost modificată cu succes.”; analytics competition_registration_updated."
+        fish_ref: "app/(app)/register/[competitionId].tsx:232-245; services/mutations/useUpdateCompetitionRegistration.ts:13-39; components/RegistrationStatusModalSheet.tsx:162-191"
+      - id: participant.register.c19
+        text: "„Părăsește concursul” asks „Ești sigur că dorești să părăsești concursul?” („Închide” / destructive „Părăsește concursul”), then sends PATCH /registrations/{id}/leave; the dialog shows „Modificare în curs...” then „Ai părăsit competiția.”; an error shows the message as a toast; competition byId, competitions.all, my and competitionCards are invalidated."
+        fish_ref: "app/(app)/register/[competitionId].tsx:253-286; services/mutations/useLeaveCompetition.ts:6-19; components/RegistrationStatusModalSheet.tsx:193-221"
+      - id: participant.register.c20
+        text: "Leaving with unsaved changes asks „Ești sigur că vrei să renunți la modificările făcute?” / „Toate schimbările făcute vor fi pierdute.” with „Închide” and destructive „Renunță” (web: also on browser back/unload)."
+        fish_ref: "app/(app)/register/[competitionId].tsx:270-277,340"
+      - id: participant.register.c21
+        text: "In organizer mode the save button stays available whatever the competition status and the leave button is never shown."
+        fish_ref: "app/(app)/register/[competitionId].tsx:345,363"
+      - id: participant.register.c22
+        text: "Leaving the page drops the cached user-search pages (users.paginated)."
+        fish_ref: "app/(app)/register/[competitionId].tsx:290-294"
+    mobile_only: false
+    status: todo
+
+  # ---------------------------------------------------------------------------------------------
+  - id: participant.team-disclaimer
+    title: Câteva lucruri de menționat (concurs pe echipe)
+    fish:
+      - "app/(app)/register/team-competition-disclaimer.tsx"
+      - "components/NormalUserSheetItems.tsx"
+    web_route: /concursuri/[id]/inscriere/echipa
+    template: T4
+    milestone: M5
+    roles: [angler, organizer]
+    core: [competitions.competitionQuery]
+    states:
+      - default
+      - signed-out (sign-in gate before reaching it)
+    criteria:
+      - id: participant.team-disclaimer.c1
+        text: "The page has a back control, the fisherman illustration and the title „Câteva lucruri de menționat”."
+        fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:28-46"
+      - id: participant.team-disclaimer.c2
+        text: "Intro: „Acesta este un concurs pe echipe, astfel vă rugăm să luați în considerare următoarele:” with „echipe” highlighted."
+        fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:49-55"
+      - id: participant.team-disclaimer.c3
+        text: "Card „Înscrierea în concurs”: „Doar o singură persoană din echipă trebuie să facă înregistrarea în concurs și să adauge toți coechipierii. Aceștia vor fi înregistrați și notificați automat.” with „o singură persoană din echipă” emphasised."
+        fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:59-71"
+      - id: participant.team-disclaimer.c4
+        text: "Card „Modificări”: „Datele înscrierii pot fi modificate doar până când organizatorul competiției acceptă înscrierea. După ce înscrierea a fost aprobată, nicio modificare nu mai este permisă.” with the last sentence emphasised."
+        fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:72-84"
+      - id: participant.team-disclaimer.c5
+        text: "„Am înțeles” opens the registration page of the same competition (one navigation even on double click)."
+        fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:17-19,87-89"
+      - id: participant.team-disclaimer.c6
+        text: "It is shown only on the way to a NEW registration in a team competition; single competitions and users already pending/registered go straight to the registration page."
+        fish_ref: "components/NormalUserSheetItems.tsx:38-61"
+    mobile_only: false
+    status: todo
+
+  # ---------------------------------------------------------------------------------------------
+  - id: participant.register-guests
+    title: Adaugă participanți fără cont
+    fish:
+      - "app/(app)/register/register-guests.tsx"
+      - "app/(app)/register/team-competition-disclaimer.tsx"
+      - "services/mutations/useRegistrationGuest.ts"
+      - "services/mutations/useUpdateRegistrationGuest.ts"
+      - "services/api/registrations.ts"
+      - "components/CollapsableActions.tsx"
+      - "components/competition/CompetitionRanking.tsx"
+    web_route: "/concursuri/[id]/inscriere/fara-cont?inscriere=[registrationId]&doarEchipa=1"
+    template: T4
+    milestone: M5
+    roles: [organizer]
+    core:
+      - competitions.competitionQuery
+      - competitions.registrationGuestMutation
+      - competitions.updateRegistrationGuestMutation
+    states:
+      - loading
+      - error (retry)
+      - add, single competition
+      - add, team competition
+      - edit guest names (+ team name for teams)
+      - edit team name only (membersOnly)
+      - validation errors
+      - submit pending / success / error
+      - dirty form on leave
+    criteria:
+      - id: participant.register-guests.c1
+        text: "Loading shows the loading state; a missing competition or a fetch error shows the error state with a retry that refetches the competition."
+        fish_ref: "app/(app)/register/register-guests.tsx:142-148"
+      - id: participant.register-guests.c2
+        text: "Title „Adaugă participanți fără cont” (edit mode, i.e. with registrationId: „Editează participanți”); submit button „Finalizează” (edit: „Salvează”) with a loading state while saving."
+        fish_ref: "app/(app)/register/register-guests.tsx:150-160"
+      - id: participant.register-guests.c3
+        text: "Add mode only: a notice „⚠️ Observații importante” with 1. „{Echipa adăugată|Pescarul adăugat} aici va fi înregistrat{ă} automat cu statusul „Aprobat” în lista de participanți.” and 2. „Dacă {un membru al echipei|pescarul} dorește să participe folosind contul personal Bluvi®, poți folosi butonul „Elimină” din pagina de participanți pentru a elimina {echipa|participantul} adăugat{ă} manual înainte să înceapă concursul.”"
+        fish_ref: "app/(app)/register/register-guests.tsx:162-188"
+      - id: participant.register-guests.c4
+        text: "Single competition: one field „Pescar” (placeholder „Introdu numele pescarului”, helper „Poți scrie numele pescarului așa cum vrei să apară în clasament”)."
+        fish_ref: "app/(app)/register/register-guests.tsx:257-283"
+      - id: participant.register-guests.c5
+        text: "Team competition: one field per member labelled „Participant {n}”; a remove control appears only while there is more than one field; „Adaugă participant” is shown while fields < teamParticipants; caption „Maxim {N} participanți/echipă” when teamParticipants is set."
+        fish_ref: "app/(app)/register/register-guests.tsx:190-256"
+      - id: participant.register-guests.c6
+        text: "Each name is required („Acest câmp este obligatoriu”) and may contain only letters (Romanian diacritics included), digits, spaces and hyphens („Numele poate conține doar litere, cifre și cratime”); typing strips leading spaces and collapses repeated spaces."
+        fish_ref: "app/(app)/register/register-guests.tsx:20-21,195-217,268-279"
+      - id: participant.register-guests.c7
+        text: "Team only: optional „Numele echipei” (helper „Numele echipei este opțional”), max 30 („Numele echipei poate conține maximum 30 de caractere.”), same character rule („Numele echipei poate conține doar litere, cifre și cratime”)."
+        fish_ref: "app/(app)/register/register-guests.tsx:285-314"
+      - id: participant.register-guests.c8
+        text: "Edit mode prefills the members by splitting guestName on „, ” and the team name from the teamName parameter."
+        fish_ref: "app/(app)/register/register-guests.tsx:60-77"
+      - id: participant.register-guests.c9
+        text: "With membersOnly=true the name fields are hidden and only the team name is saved (guestName is not sent)."
+        fish_ref: "app/(app)/register/register-guests.tsx:47,100,109,190"
+      - id: participant.register-guests.c10
+        text: "On submit names are trimmed, empty ones dropped and joined with „, ”; with no name left (not membersOnly) a toast says „Trebuie să adaugi cel puțin un participant” and nothing is sent."
+        fish_ref: "app/(app)/register/register-guests.tsx:94-103"
+      - id: participant.register-guests.c11
+        text: "Add sends POST /registrations/guests {data:{competitionId, guestName, teamName}}; success toast „Înregistrarea a fost adăugată cu succes!” and back to the previous page; error toast with the message."
+        fish_ref: "app/(app)/register/register-guests.tsx:122-139; services/api/registrations.ts:59-73"
+      - id: participant.register-guests.c12
+        text: "Edit sends PUT /registrations/guests/{registrationId} {data:{guestName?, teamName}}; success toast „Înregistrarea a fost actualizată cu succes!” and back; error toast with the message."
+        fish_ref: "app/(app)/register/register-guests.tsx:105-121; services/api/registrations.ts:75-92"
+      - id: participant.register-guests.c13
+        text: "Add and edit both invalidate competitions.all and competitions.my."
+        fish_ref: "services/mutations/useRegistrationGuest.ts:10-13; services/mutations/useUpdateRegistrationGuest.ts:10-13"
+      - id: participant.register-guests.c14
+        text: "Leaving with unsaved changes asks „Ești sigur că vrei să renunți la modificările făcute?” / „Toate schimbările făcute vor fi pierdute.” („Închide” / „Renunță”)."
+        fish_ref: "app/(app)/register/register-guests.tsx:88-92,153"
+      - id: participant.register-guests.c15
+        text: "Reached by the organizer only: from the organizer menu „Adaugă participanți fără cont” (hidden once the participants limit is reached), or from „Editează” on a guest registration in the participants list (passes registrationId, guestName and, for teams, teamName)."
+        fish_ref: "components/competition/CompetitionRanking.tsx:593-603; components/CollapsableActions.tsx:38-64"
+    mobile_only: false
+    status: todo
+
+  # ---------------------------------------------------------------------------------------------
+  - id: participant.chat
+    title: Chat concurs
+    fish:
+      - "app/(app)/competitions/[competitionId]/chat/index.tsx"
+      - "app/(app)/competitions/[competitionId]/chat/_layout.tsx"
+      - "features/chat/screens/ChatScreen.tsx"
+      - "features/chat/components/ChatHeader.tsx"
+      - "features/chat/components/ChatTabs.tsx"
+      - "features/chat/components/ChatFollowPrompt.tsx"
+      - "features/chat/components/ChatClosedNotice.tsx"
+      - "features/chat/components/ChatEmptyRoom.tsx"
+      - "features/chat/components/ChatRulesSheet.tsx"
+      - "features/chat/components/MuteSheet.tsx"
+      - "features/chat/components/ReactionsSheet.tsx"
+      - "features/chat/components/MessageList.tsx"
+      - "features/chat/components/MessageBubble.tsx"
+      - "features/chat/components/LinkedText.tsx"
+      - "features/chat/components/DateChip.tsx"
+      - "features/chat/components/SystemMessageRow.tsx"
+      - "features/chat/components/SystemGroupRow.tsx"
+      - "features/chat/components/SystemEventIcon.tsx"
+      - "features/chat/components/UploadRing.tsx"
+      - "features/chat/components/ChatComposer.tsx"
+      - "features/chat/components/composer/ActionSlot.tsx"
+      - "features/chat/components/composer/AttachmentTray.tsx"
+      - "features/chat/components/composer/EditBanner.tsx"
+      - "features/chat/components/composer/ReplyPreview.tsx"
+      - "features/chat/components/actions/MessageActionsOverlay.tsx"
+      - "features/chat/components/actions/ActionCard.tsx"
+      - "features/chat/components/actions/ReactionBar.tsx"
+      - "features/chat/components/viewer/MediaViewer.tsx"
+      - "features/chat/components/viewer/ViewerChrome.tsx"
+      - "features/chat/hooks/useChatAuth.ts"
+      - "features/chat/hooks/useChatAttachments.ts"
+      - "features/chat/hooks/useChatPrefs.ts"
+      - "features/chat/hooks/useChatReactions.ts"
+      - "features/chat/hooks/useChatReceipts.ts"
+      - "features/chat/hooks/useChatRoom.ts"
+      - "features/chat/hooks/useChatRoomBundle.ts"
+      - "features/chat/hooks/useChatRulesConsent.ts"
+      - "features/chat/hooks/useChatSend.ts"
+      - "features/chat/hooks/useChatStatus.ts"
+      - "features/chat/hooks/useChatTyping.ts"
+      - "features/chat/hooks/useRoomUnreadBadge.ts"
+      - "features/chat/hooks/useCompetitionChatBadge.ts"
+      - "features/chat/domain/attachmentLayout.ts"
+      - "features/chat/domain/chatClosing.ts"
+      - "features/chat/domain/chatPaths.ts"
+      - "features/chat/domain/conversationStart.ts"
+      - "features/chat/domain/format.ts"
+      - "features/chat/domain/hiddenNewest.ts"
+      - "features/chat/domain/lastTab.ts"
+      - "features/chat/domain/linkify.ts"
+      - "features/chat/domain/listItems.ts"
+      - "features/chat/domain/membership.ts"
+      - "features/chat/domain/roomGallery.ts"
+      - "features/chat/domain/sendFallback.ts"
+      - "features/chat/domain/systemMessages.ts"
+      - "features/chat/domain/transforms.ts"
+      - "features/chat/media/compressChatPhoto.ts"
+      - "features/chat/outbox/worker.ts"
+      - "features/chat/outbox/state.ts"
+      - "features/chat/outbox/uploader.ts"
+      - "features/chat/outbox/useOutbox.ts"
+      - "features/notifications/components/FollowNotificationsSheet.tsx"
+      - "components/FollowersListSheet.tsx"
+      - "components/WeighingDetailSheet.tsx"
+      - "services/queries/useGetUserStatuteForCompetition.ts"
+      - "services/queries/useGetAllocatedParticipants.ts"
+      - "services/mutations/useFollowCompetition.ts"
+      - "services/queries/useCompetitionNotificationPreferences.ts"
+    web_route: "/concursuri/[id]/chat?tab=general|participanti"
+    template: none
+    milestone: M5
+    roles: [angler, organizer, referee]
+    core:
+      - realtime.firebase (createChatAuth, ensureSignedIn, withAuthRetry, refreshFirebaseAuth)
+      - realtime.chat.room (subscribeChatRoom, loadMoreMessages, loadUntilMessage, readCachedLatestMessages, CHAT_PAGE_SIZE)
+      - realtime.chat.messages (sendChatMessage, editChatMessage, deleteChatMessage, canDeleteChatMessage, buildOutboxEntry)
+      - realtime.chat.receipts (subscribeReceipts, createReadMarker, subscribeReactions, toggleReaction)
+      - realtime.chat.status (subscribeChatMeta, needsRulesAcknowledgement, acknowledgeRules)
+      - realtime.chat.typing (createTypingWriter, subscribeTypingNames, typingLabel)
+      - realtime.chat.unread (subscribeRoomUnreadCount, formatUnread, subscribeCompetitionChatBadge)
+      - realtime.chat.listItems (buildChatListItems, collapseSystemRuns, latestLeaderMessageId, systemGroupBreakdown)
+      - realtime.chat.systemMessages
+      - realtime.chat.domain (chatMembershipOf, resolveChatClosing, shouldShowConversationStart, splitHiddenNewest, summarizeReactions, buildRoomGallery)
+      - realtime.chat.format / linkify / transforms / paths
+      - realtime.chat.outbox (createOutboxWorker, afterFailure, RETRY_DELAYS_MS)
+      - competitions.competitionQuery
+      - competitions.userStatuteForCompetitionQuery
+      - competitions.followCompetitionMutation
+      - competitions.competitionNotificationPreferencesQuery + updateCompetitionNotificationPreferencesMutation
+      - competitions.competitionFollowersQuery
+      - organizer.allocatedParticipantsQuery + weighingByIdQuery
+    states:
+      - "signed-out (fish shows „Nu am putut autentifica chat-ul…” over an empty room; web: sign-in gate)"
+      - header loading (no name handed over yet)
+      - room loading (bubble skeleton)
+      - rules not yet acknowledged (blocking dialog)
+      - follower / spectator (General only, no switcher)
+      - member (Participanți + General)
+      - not following (follow prompt)
+      - empty room (with / without greeting)
+      - history loading older pages / whole history loaded (conversation start)
+      - unread history (Mesaje noi divider)
+      - new messages while scrolled up (pill with count)
+      - someone typing
+      - composing / replying / editing / attachments (up to 10, full)
+      - pending message / failed message (retry or delete)
+      - deleted message (by sender / by organizer)
+      - message actions menu open
+      - media viewer open
+      - reactions list open
+      - mute confirm open
+      - weighing detail open
+      - chat closed (read-only notice)
+      - offline (sends queued)
+    criteria:
+      - id: participant.chat.c1
+        text: "Header: back control; round competition banner (thumbnail → small → original) or, without a banner, the name's initials on an indigo disc; title = competition name, else the name handed over by the link/push, else „Chat”; while nothing names the room yet, grey placeholder bars instead of title and subtitle."
+        fish_ref: "features/chat/screens/ChatScreen.tsx:723-740; features/chat/components/ChatHeader.tsx:62-117"
+      - id: participant.chat.c2
+        text: "Header subtitle: the typing label when someone types; otherwise in General „{n} urmăritor/urmăritori” (competition.viewers) and in Participanți „{n} participant/participanți” (registrations with status registered)."
+        fish_ref: "features/chat/screens/ChatScreen.tsx:626-635"
+      - id: participant.chat.c3
+        text: "Clicking the banner (when there is one) opens it full-screen in the media viewer (large format); clicking the subtitle in General (not while it shows typing) opens the competition followers list."
+        fish_ref: "features/chat/screens/ChatScreen.tsx:637-716,738-739,838-844; features/chat/components/ChatHeader.tsx:66-72,104-114"
+      - id: participant.chat.c4
+        text: "Rooms: the author, referees and registered participants (including a referee who is also on a team, via statute.isParticipant) see a switcher „Participanți” | „General” in that order; everyone else has only General and no switcher."
+        fish_ref: "features/chat/screens/ChatScreen.tsx:141-152; features/chat/domain/membership.ts:23-33; features/chat/components/ChatTabs.tsx:42"
+      - id: participant.chat.c5
+        text: "Initial room: the link's tab (participants|general); else, for a member who did not choose, Participanți once the statute arrives; a non-member asking for Participanți falls back to General; a new link into the same chat (tab, or a push nonce) re-selects the room; opening another competition resets it."
+        fish_ref: "features/chat/screens/ChatScreen.tsx:111,155-185"
+      - id: participant.chat.c6
+        text: "Switching room dismisses the keyboard, clears edit/reply/attachments, and remembers the room per competition (key chat:lastTab:{competitionId}; web: localStorage) — only when the room is readable."
+        fish_ref: "features/chat/screens/ChatScreen.tsx:214-216,274-279,604-613; features/chat/domain/lastTab.ts:4-14"
+      - id: participant.chat.c7
+        text: "The room not on screen shows a red unread pill (messages newer than my receipt, capped „99+”, counted only when its newest message is newer than my receipt and not mine); a muted room shows a red crossed bell; each tab is a tab with an accessible name like „General, notificări oprite, 3 mesaje noi”."
+        fish_ref: "features/chat/components/ChatTabs.tsx:66-115; features/chat/hooks/useRoomUnreadBadge.ts:19-107; features/chat/screens/ChatScreen.tsx:199-212"
+      - id: participant.chat.c8
+        text: "A non-follower who is not the author sees, in General, a card „Nu urmărești concursul” / „Urmărește-l ca să primești mesajele și evenimentele.” with „Urmărește”: it follows the competition (busy while pending), on isFollowing opens the follow-notifications panel, on error toasts „Nu am putut urmări concursul.”, refreshes the followers list, and the card disappears once the competition reports isFollowing."
+        fish_ref: "features/chat/screens/ChatScreen.tsx:144-147,430-450,749-751,845-852; features/chat/components/ChatFollowPrompt.tsx:14-61"
+      - id: participant.chat.c9
+        text: "A bell is shown for General when the viewer follows or is the author, and for Participanți when a member; it is disabled while preferences load or save; it opens a confirm with title „Oprește notificările”/„Pornește notificările”, a chip „Chat general”/„Chat participanți”, body „Ceilalți nu văd asta. Primești în continuare notificări pentru {cealaltă cameră}.” (no other room: „Ceilalți nu văd asta.”; when muted: „Vei primi din nou notificări pentru mesajele noi din {cameră}.”) and a button „Oprește”/„Pornește”. Accessible name „Oprește notificările” / „Activează notificările”."
+        fish_ref: "features/chat/components/ChatHeader.tsx:118-128; features/chat/components/MuteSheet.tsx:11-79; features/chat/screens/ChatScreen.tsx:593-602,733-736,864-871"
+      - id: participant.chat.c10
+        text: "Confirming toggles the room key chat:message:general|chat:message:participants in the competition notification preferences (PUT mutedTypes); toast „Notificările pentru {Chat general|Chat participanți} au fost oprite.” / „… au fost pornite.”; failure „Nu am putut salva preferința de notificări.”."
+        fish_ref: "features/chat/hooks/useChatPrefs.ts:8-49"
+      - id: participant.chat.c11
+        text: "The first chat an account ever opens (no consent doc in Firestore) shows a blocking dialog „Reguli de bun-simț”, „Chat-ul e al tuturor celor din concurs. Câteva reguli simple:”, four rules („Fără injurii, jigniri sau limbaj vulgar.”, „Fără spam, reclame sau mesaje repetate.”, „Fără hărțuire; respect față de participanți și organizatori.”, „Discuții despre concurs și pescuit — nimic ilegal sau ofensator.”), the warning „Încălcarea regulilor duce la blocarea accesului la chat și, la nevoie, la aplicație.”, „Am înțeles” (records acceptedAt and closes; failure toast „Nu am putut salva confirmarea. Te rugăm să încerci din nou.”) and „Nu accept” (leaves the chat, records nothing). An unreadable consent doc shows no dialog."
+        fish_ref: "features/chat/components/ChatRulesSheet.tsx:10-76; features/chat/hooks/useChatRulesConsent.ts:14-62; features/chat/screens/ChatScreen.tsx:281-299"
+      - id: participant.chat.c12
+        text: "Each room subscribes live to its newest 50 messages and loads older pages of 50 as the reader nears the top (≈1.5 screens early); once the whole history is loaded the top shows „Acesta este începutul conversației.” plus „Mesajele se văd de către urmăritorii concursului.” (General) or „Mesajele se văd de către participanți și organizatori.” (Participanți)."
+        fish_ref: "features/chat/hooks/useChatRoom.ts:27,199; features/chat/components/MessageList.tsx:696-747,811-827; features/chat/domain/conversationStart.ts:9-21"
+      - id: participant.chat.c13
+        text: "While a room loads, bubble-shaped skeleton rows are shown (left/right, varying widths) instead of a spinner."
+        fish_ref: "features/chat/components/MessageList.tsx:681-683,748-760,829-855"
+      - id: participant.chat.c14
+        text: "An empty room shows „Niciun mesaj încă” and „Fii primul care le scrie urmăritorilor concursului.” (General) / „Fii primul care scrie participanților.” (Participanți); when the viewer can write, a waving-hand button „Trimite un salut” with „Apasă ca să saluți 👋👋👋” sends „👋👋👋” through the normal send path."
+        fish_ref: "features/chat/components/ChatEmptyRoom.tsx:15-86; features/chat/screens/ChatScreen.tsx:370-377"
+      - id: participant.chat.c15
+        text: "Day separators read „Astăzi”, „Ieri”, „{weekday}, {d} {lună abreviată}” or „{d} {lună} {an}” for another year; while scrolling a floating chip shows the day of the topmost row (hidden when a real separator is at the top)."
+        fish_ref: "features/chat/domain/format.ts:1-27; features/chat/components/MessageList.tsx:217-240,528-545,761-768"
+      - id: participant.chat.c16
+        text: "Consecutive messages of one sender within 5 minutes form a group (shared corners); others' groups show the avatar (photo or initials) and name on the first message, the avatar links to /pescari/{senderId}, and in General a role label „Participant”, „Organizator” or „Arbitru” under the name."
+        fish_ref: "features/chat/domain/listItems.ts:12,93-106; features/chat/components/MessageBubble.tsx:196-233,306-319,365-375,658-683; features/chat/screens/ChatScreen.tsx:574-577"
+      - id: participant.chat.c17
+        text: "Bubbles: mine on the right (indigo), others on the left (grey); URLs (http/https/www) and Romanian phone numbers are links (tel:); time HH:mm (24 h); „(editat)” when edited; my messages show ✓ while pending, ✓✓ delivered, ✓✓ blue once every other known reader's receipt is at or after it."
+        fish_ref: "features/chat/components/MessageBubble.tsx:210-263,401-471; features/chat/components/LinkedText.tsx:7-27; features/chat/domain/linkify.ts:1-40; features/chat/domain/transforms.ts:129-144"
+      - id: participant.chat.c18
+        text: "A deleted message keeps its place as „Acest mesaj a fost șters” (or „Acest mesaj a fost șters de organizator” when deletedBy differs from the sender), italic with a ban icon, without photos, reactions or quote."
+        fish_ref: "features/chat/components/MessageBubble.tsx:198-206,252-255,378-399"
+      - id: participant.chat.c19
+        text: "A reply shows a quote with the original sender and the original's current text (its edited version), „Mesaj șters” when the original was deleted, else the snapshot text / „Imagine” / „Mesaj”; clicking it scrolls to the original (loading older pages as needed, toast „Nu am găsit mesajul la care s-a răspuns.” if absent) and briefly highlights it."
+        fish_ref: "features/chat/components/MessageBubble.tsx:473-518; features/chat/components/MessageList.tsx:405-444,592-605; features/chat/hooks/useChatRoom.ts:469-510"
+      - id: participant.chat.c20
+        text: "Photos: one photo fills a 260-wide frame with its ratio clamped between 3:4 and 16:10; 2–4 photos form a square 2-column grid; more than 4 show the first 4 with „+{n-3}” over the fourth; blurhash placeholder; a progress ring over photos still uploading; each tile is a button „Imagine {i} din {n}”."
+        fish_ref: "features/chat/components/MessageBubble.tsx:520-596; features/chat/domain/attachmentLayout.ts:1-26; features/chat/components/UploadRing.tsx:10-44"
+      - id: participant.chat.c21
+        text: "Clicking a photo opens a full-screen viewer that pages through every photo of the room (oldest first, deleted and pending skipped), titled with the sender (mine: „{nume} (eu)”) and the time of the current photo, with close „Închide”, share and „Salvează” (download); zoom up to 4×, drag down to dismiss; web: arrow keys page, Escape closes."
+        fish_ref: "features/chat/screens/ChatScreen.tsx:544-572,961-973; features/chat/domain/roomGallery.ts:18-39; features/chat/components/viewer/MediaViewer.tsx:231-243,285-327; features/chat/components/viewer/ViewerChrome.tsx:40-127"
+      - id: participant.chat.c22
+        text: "Reactions show as a pill under the bubble (each emoji with its count, mine highlighted); clicking it opens „Reacții”, a live list of emoji → user (mine „{nume} (eu)”), or „Nicio reacție.”."
+        fish_ref: "features/chat/components/MessageBubble.tsx:276-282,598-656; features/chat/components/ReactionsSheet.tsx:10-60; features/chat/screens/ChatScreen.tsx:641-648,682-688"
+      - id: participant.chat.c23
+        text: "Message actions (fish long-press; web: a per-message menu reachable by pointer and keyboard) are unavailable on system rows, pending rows and in a closed chat — except a failed send. The menu shows the bubble with a reaction bar 👍 ❤️ 😂 😮 😢 🙏 (my current one highlighted) and the actions „Răspunde”, „Copiază” (text messages; toast „Text copiat”), „Editează” (my text messages), „Șterge” (mine, or any when I am the author) which asks inline „Sigur? Șterge”; a failed send offers only „Reîncearcă” and „Șterge”. It closes on backdrop click, Escape or swipe."
+        fish_ref: "features/chat/screens/ChatScreen.tsx:510-542,888-960; features/chat/components/actions/ActionCard.tsx:26-103; features/chat/components/actions/ReactionBar.tsx:8-83; features/chat/components/actions/MessageActionsOverlay.tsx:91-104,140-170,206-262"
+      - id: participant.chat.c24
+        text: "Choosing an emoji sets my reaction on that message; choosing my current emoji removes it; a different one replaces it; failure toast „Reacția nu a putut fi salvată.”; no reactions on pending messages or in a closed chat."
+        fish_ref: "features/chat/hooks/useChatReactions.ts:63-94; features/chat/screens/ChatScreen.tsx:382-388"
+      - id: participant.chat.c25
+        text: "Reply (action, or swiping a bubble right past the threshold in fish): the composer shows the quoted sender and text/„Imagine”/„Mesaj” with „Renunță la răspuns” and focuses the input; not available on deleted, pending or closed rows."
+        fish_ref: "features/chat/components/MessageBubble.tsx:138-194; features/chat/components/composer/ReplyPreview.tsx:7-32; features/chat/components/ChatComposer.tsx:73-76,97; features/chat/screens/ChatScreen.tsx:579-582,783"
+      - id: participant.chat.c26
+        text: "Edit: the composer is filled with the text under a banner „Editezi mesajul” („Renunță la editare” clears it), photo buttons are hidden; sending updates the text and editedAt of the same message; failure toast „Mesajul nu a putut fi editat.”."
+        fish_ref: "features/chat/components/ChatComposer.tsx:66-71,98-125; features/chat/components/composer/EditBanner.tsx:6-27; features/chat/hooks/useChatSend.ts:62-80; features/chat/screens/ChatScreen.tsx:584-591"
+      - id: participant.chat.c27
+        text: "Delete is a soft delete (deletedAt, deletedBy = me, text emptied); a failed/queued send is discarded locally instead; failure toast „Mesajul nu a putut fi șters.”."
+        fish_ref: "features/chat/hooks/useChatSend.ts:141-175; features/chat/screens/ChatScreen.tsx:527-536"
+      - id: participant.chat.c28
+        text: "Composer: „Adaugă poze” (+), a multi-line input „Mesaj” (max 1000 characters, grows to 5 lines), and a right slot that is a camera „Fă o poză” when empty and a „Trimite” button (spinner while sending) when there is text, a photo or an edit; the whole composer is disabled without a profile."
+        fish_ref: "features/chat/components/ChatComposer.tsx:30-171; features/chat/components/composer/ActionSlot.tsx:15-136"
+      - id: participant.chat.c29
+        text: "Up to 10 photos per message from the gallery (multi-select up to the remaining slots) or the camera; refused permissions toast „Nu ai acordat permisiuni pentru galerie.” / „Nu ai acordat permisiuni pentru cameră.”; front-camera shots are un-mirrored; the tray shows thumbnails — click „Decupează poza” opens the crop page, X „Elimină poza” removes."
+        fish_ref: "features/chat/hooks/useChatAttachments.ts:8-93; features/chat/components/composer/AttachmentTray.tsx:7-57"
+      - id: participant.chat.c30
+        text: "Sending shows my bubble at once (pending, 60% opacity) from the outbox; photos are compressed (long edge ≤ 1280 px, JPEG 0.8, original kept when smaller), uploaded to /upload, then the message doc {senderId, senderName, senderAvatar, text, attachments, replyTo, senderRole, createdAt, type:'text'} is written; if preparing fails, the photos and reply are restored and the toast „Mesajul nu a putut fi pregătit pentru trimitere.” is shown."
+        fish_ref: "features/chat/hooks/useChatSend.ts:82-120; features/chat/media/compressChatPhoto.ts:11-24; features/chat/outbox/worker.ts:169-229; features/chat/outbox/uploader.ts:33-63"
+      - id: participant.chat.c31
+        text: "A send that fails is retried after 2 s, 8 s and 30 s (4 attempts); being offline does not spend attempts; closed chat („Chat-ul s-a închis.”), upload 401/403/413 or another account's row fail at once; a failed row shows „Nu s-a trimis · apasă lung” under my bubble; a permission-denied write with a role chip is retried once without the chip."
+        fish_ref: "features/chat/outbox/state.ts:7-33; features/chat/outbox/worker.ts:23,149-150,231-283; features/chat/components/MessageBubble.tsx:271-275; features/chat/domain/sendFallback.ts:5-14"
+      - id: participant.chat.c32
+        text: "Typing: typing text marks me typing (written at most every 2.5 s, cleared after 5 s idle, on send, blur and leaving); others typing in the last 8 s (max 3 names) show in the header as „{A} scrie...”, „{A} și {B} scriu...” or „{A} și încă {n} scriu...”, held at least 1.5 s."
+        fish_ref: "features/chat/hooks/useChatTyping.ts:15-163; features/chat/components/ChatComposer.tsx:138-147"
+      - id: participant.chat.c33
+        text: "Read receipts: messages at least 50% visible for 250 ms advance my receipt (own messages included, pending excluded), only for the room on screen and only while the chat page is focused; returning to the page or switching room marks the newest message read."
+        fish_ref: "features/chat/components/MessageList.tsx:241,528-582; features/chat/hooks/useChatReceipts.ts:71-101; features/chat/screens/ChatScreen.tsx:335-347,787-788"
+      - id: participant.chat.c34
+        text: "Entering a room with unread history inserts a „Mesaje noi” divider before the first message newer than my receipt as it was when the room opened, and scrolls it into view unless the reader has already scrolled."
+        fish_ref: "features/chat/components/MessageList.tsx:446-473,857-867; features/chat/hooks/useChatReceipts.ts:56-60"
+      - id: participant.chat.c35
+        text: "Scrolled more than 120 px from the end, new messages from others are held back and a round scroll-to-end button appears with a red count („99+” cap); clicking it scrolls to the end and reveals them; my own sends always bring the list to the end."
+        fish_ref: "features/chat/components/MessageList.tsx:45,154-179,376-403,475-526,769-804"
+      - id: participant.chat.c36
+        text: "Competition events are cards (never bubbles): tinted icon per family (flag, scale, trophy, warning, user, lock, pin, info), stand chip + name in bold, a detail line („Cântar · …”, „Avertisment · …”, „Eliminare · …”, „Penalizare …”, „Urcă pe locul N”, „S-a înscris”, „A renunțat”, „Cântar modificat”, „A cerut cântar extra”) and the time; the leading emoji of the CMS copy is dropped; Participanți shows only chat:closing/chat:closed events."
+        fish_ref: "features/chat/components/SystemMessageRow.tsx:63-129; features/chat/domain/systemMessages.ts:5-27,114-135,166-234; features/chat/components/SystemEventIcon.tsx:6-56; features/chat/components/MessageList.tsx:112-116"
+      - id: participant.chat.c37
+        text: "Linked events have a chevron and open: ranking → the competition's Clasament tab; allocation/registrations → its Participanți tab; penalties → the penalties page; weighing (with id, standId, standName) → the weighing detail over the chat (allocated participants loaded then)."
+        fish_ref: "features/chat/domain/systemMessages.ts:29-112; features/chat/components/SystemMessageRow.tsx:33-46; features/chat/screens/ChatScreen.tsx:649-680,859-863"
+      - id: participant.chat.c38
+        text: "The newest move to 1st place is a highlighted card: 🥇, „LIDER NOU · HH:mm”, stand chip + name, „A urcat pe locul 1” and a „Clasament” link when linked."
+        fish_ref: "features/chat/components/SystemMessageRow.tsx:136-221; features/chat/domain/listItems.ts:135-150"
+      - id: participant.chat.c39
+        text: "Uninterrupted runs of at least 2 routine events (podium, weighing end/modified, extra request, sign-up, withdrawal) fold into one card „{n} evenimente” with a breakdown (e.g. „3 cântăriri, 1 schimbare pe podium”) and „Vezi”/„Ascunde” that expands the events inside the card; folded again on the next visit."
+        fish_ref: "features/chat/components/SystemGroupRow.tsx:33-93; features/chat/domain/listItems.ts:120-200; features/chat/components/MessageList.tsx:183-205"
+      - id: participant.chat.c40
+        text: "Closing: the Firestore meta doc's closesAt decides; without one a cancelled competition is closed and a completed one closes 24 h after endDate; the page flips live at closesAt. Closed: the composer is replaced by „Chat-ul s-a închis astăzi.” / „… ieri.” / „… pe {zi}.” (or „Chat-ul s-a închis.”); history and reactions stay visible, no new messages, reactions, replies or actions."
+        fish_ref: "features/chat/domain/chatClosing.ts:1-34; features/chat/hooks/useChatStatus.ts:10-106; features/chat/components/ChatClosedNotice.tsx:7-29; features/chat/screens/ChatScreen.tsx:197,382-388,781-783,799-802"
+      - id: participant.chat.c41
+        text: "Back returns to the competition: a plain back when the competition is underneath, otherwise the competition page replaces the chat (opened from a link or a notification)."
+        fish_ref: "features/chat/screens/ChatScreen.tsx:461-508"
+      - id: participant.chat.c42
+        text: "Chat auth uses the Firebase custom token (uid = profile documentId); one re-mint and retry on permission-denied/unauthenticated; failures toast „Nu am putut autentifica chat-ul. Te rugăm să încerci din nou.” or „Nu am putut încărca chat-ul. Te rugăm să încerci din nou.”."
+        fish_ref: "features/chat/hooks/useChatAuth.ts:7-53; features/chat/hooks/useChatRoom.ts:179-246"
+    mobile_only: false
+    status: todo
+
+  # ---------------------------------------------------------------------------------------------
+  - id: participant.chat-photo
+    title: Decupează poza
+    fish:
+      - "app/(app)/competitions/[competitionId]/chat/photo.tsx"
+      - "features/partide/components/PhotoCropOverlay.tsx"
+      - "features/partide/helpers/photoCropPipeline.ts"
+      - "features/chat/domain/chatPhotoEditResult.ts"
+      - "features/chat/hooks/useChatAttachments.ts"
+      - "features/chat/screens/ChatScreen.tsx"
+    web_route: "/concursuri/[id]/chat/foto (or an in-page dialog over the chat)"
+    template: T6
+    milestone: M5
+    roles: [angler, organizer, referee]
+    core: [partide.domain (crop geometry, if ported) ]
+    states:
+      - measuring the image
+      - editing (preset, rotation, flip, zoom/pan)
+      - saving
+      - image unreadable
+      - crop failed
+    criteria:
+      - id: participant.chat-photo.c1
+        text: "Opened by clicking a pending photo in the composer tray; shows that photo on black with the crop frame once its real size is measured."
+        fish_ref: "features/chat/screens/ChatScreen.tsx:263-272; app/(app)/competitions/[competitionId]/chat/photo.tsx:19-43,61-65"
+      - id: participant.chat-photo.c2
+        text: "Ratio presets „Original”, „Liber”, „4:3”, „1:1”, „3:4”, „16:9”; the free frame can be resized from its edges down to 60 px."
+        fish_ref: "features/partide/components/PhotoCropOverlay.tsx:49-74,205-225"
+      - id: participant.chat-photo.c3
+        text: "Top bar: rotate 90° clockwise, flip horizontally, and „Reset” (rotation 0, unflipped, initial preset)."
+        fish_ref: "features/partide/components/PhotoCropOverlay.tsx:360-364,405-422"
+      - id: participant.chat-photo.c4
+        text: "In ratio mode the photo can be zoomed and panned inside the frame without leaving gaps (fish pinch/pan; web: wheel/drag and keyboard)."
+        fish_ref: "features/partide/components/PhotoCropOverlay.tsx:255-346"
+      - id: participant.chat-photo.c5
+        text: "„Anulează” returns to the chat leaving the photo unchanged; „Salvează” applies the crop and replaces that pending photo (uri, width, height) in the composer; a second quick „Salvează” is ignored."
+        fish_ref: "app/(app)/competitions/[competitionId]/chat/photo.tsx:24-58; features/chat/screens/ChatScreen.tsx:253-262; features/partide/components/PhotoCropOverlay.tsx:348-358,489-499"
+      - id: participant.chat-photo.c6
+        text: "An unreadable photo toasts „Nu am putut citi poza. Încearcă din nou.” and returns; a failed crop toasts „Nu am putut aplica decuparea. Încearcă din nou.” and stays."
+        fish_ref: "app/(app)/competitions/[competitionId]/chat/photo.tsx:34-38,53-56"
+      - id: participant.chat-photo.c7
+        text: "If the photo was removed from the tray meanwhile, the saved crop is ignored."
+        fish_ref: "features/chat/hooks/useChatAttachments.ts:80-85"
+    mobile_only: false
+    status: todo
+
+  # ---------------------------------------------------------------------------------------------
+  - id: participant.poll-current
+    title: Sondaj
+    fish:
+      - "app/(app)/polls/current.tsx"
+      - "app/(app)/polls/_layout.tsx"
+      - "components/PollOption.tsx"
+      - "components/PollSuggestInput.tsx"
+      - "components/PollSuggestionSentSheet.tsx"
+      - "services/queries/usePollCurrent.ts"
+      - "services/mutations/usePollVote.ts"
+      - "services/mutations/usePollSuggest.ts"
+      - "services/api/polls.ts"
+      - "models/poll.type.ts"
+      - "helpers/sharePoll.ts"
+      - "helpers/goBackOrHome.ts"
+    web_route: "/sondaje?focus=sugestie"
+    template: T6
+    milestone: M5
+    roles: [guest, angler]
+    core:
+      - competitions.currentPollQuery
+      - competitions.sortPollOptionsByVotes
+      - competitions.pollVoteMutation / applyPollVote
+      - competitions.pollSuggestMutation
+      - competitions.pollKeys
+    states:
+      - loading
+      - no active poll
+      - open, not voted
+      - open, voted
+      - pending selection (first vote / switching)
+      - voting closed
+      - signed-out (vote and suggest go to sign-in)
+      - suggestion sending / sent / error
+    criteria:
+      - id: participant.poll-current.c1
+        text: "Header: back (home when there is nothing behind), title „Sondaj”, a history button „Sondaje anterioare” to the past polls, and a share button „Distribuie sondajul” only when a poll exists."
+        fish_ref: "app/(app)/polls/current.tsx:37-39,51-64; helpers/goBackOrHome.ts:15-21"
+      - id: participant.poll-current.c2
+        text: "While loading, the header stays and the body shows „Se încarcă...”."
+        fish_ref: "app/(app)/polls/current.tsx:66-77"
+      - id: participant.poll-current.c3
+        text: "Without an active poll: „Niciun sondaj activ”, „Revino mai târziu pentru următorul sondaj al comunității.” and a link „Vezi sondajele anterioare”."
+        fish_ref: "app/(app)/polls/current.tsx:79-98"
+      - id: participant.poll-current.c4
+        text: "The poll title is the page heading, followed by its description when present."
+        fish_ref: "app/(app)/polls/current.tsx:132-141"
+      - id: participant.poll-current.c5
+        text: "Options are sorted by votes descending, ties by the admin order."
+        fish_ref: "services/queries/usePollCurrent.ts:6-13"
+      - id: participant.poll-current.c6
+        text: "Each option shows an optional chip „Sugerat de {name}”, its title, an optional description, „{p}%” (rounded; 0 when there are no votes) and „{n} vot/voturi”; my voted option has a stronger border and a fill bar to its percentage that re-animates from 0 when my vote changes."
+        fish_ref: "components/PollOption.tsx:32-170"
+      - id: participant.poll-current.c7
+        text: "Clicking an option: voting closed → nothing (options dimmed); signed out → sign-in with return to this page; my current vote with nothing pending → nothing; the pending option again → deselects; otherwise it becomes the pending selection (tinted; dashed border when it switches an existing vote)."
+        fish_ref: "app/(app)/polls/current.tsx:100-112; components/PollOption.tsx:62-99"
+      - id: participant.poll-current.c8
+        text: "The pending option replaces its percentage with an inline button „Votează” (no vote yet) or „Schimbă votul”, which casts PUT /polls/{documentId}/vote {optionId} and clears the selection."
+        fish_ref: "app/(app)/polls/current.tsx:114-121,143-157; components/PollOption.tsx:142-157; services/api/polls.ts:19-21"
+      - id: participant.poll-current.c9
+        text: "A vote updates the counts optimistically (moves one vote from my previous option, +1 total only on a first vote), rolls back on error and refetches the poll when settled."
+        fish_ref: "services/mutations/usePollVote.ts:7-47"
+      - id: participant.poll-current.c10
+        text: "While voting is open, a row „Sugerează o opțiune” with a multi-line input „Scrie ideea ta...” (max 200) and „Trimite”, enabled for 3–200 trimmed characters; for guests the input is disabled but „Trimite” goes to sign-in with return to this page; disabled while sending."
+        fish_ref: "components/PollSuggestInput.tsx:43-172; app/(app)/polls/current.tsx:158-167"
+      - id: participant.poll-current.c11
+        text: "A suggestion sends POST /polls/{documentId}/suggest {text}; success clears the input and opens „Sugestie trimisă!” / „Sugestia ta a fost trimisă spre verificare. Dacă este aprobată, va fi adăugată ca opțiune în sondaj și vei primi o notificare.” / „Am înțeles”; failure toasts the message or „Nu am putut trimite sugestia.”."
+        fish_ref: "components/PollSuggestInput.tsx:108-122; components/PollSuggestionSentSheet.tsx:14-56; services/api/polls.ts:23-25"
+      - id: participant.poll-current.c12
+        text: "?focus=suggest (web ?focus=sugestie, used by the Acasă card) focuses the suggestion input once the page has loaded."
+        fish_ref: "app/(app)/polls/current.tsx:24-25; components/PollSuggestInput.tsx:55-78"
+      - id: participant.poll-current.c13
+        text: "Data: GET /polls/current, personalised (myVoteOptionId) when signed in; stale after 10 s, refetched on focus and by a manual refresh; no polling."
+        fish_ref: "services/queries/usePollCurrent.ts:15-26; services/api/polls.ts:4-7; app/(app)/polls/current.tsx:27-30,130"
+      - id: participant.poll-current.c14
+        text: "Share text is „🗳️ Votează în sondajul comunității Bluvi:” + blank line + the title, with the poll URL (web: absolute /sondaje; Web Share API, else copy the link); cancelling is silent."
+        fish_ref: "helpers/sharePoll.ts:4-15"
+      - id: participant.poll-current.c15
+        text: "Analytics: poll_view once per poll {poll_document_id, voting_closed, has_voted}; poll_vote or poll_vote_change {poll_document_id, option_id}; poll_suggest {poll_document_id, text_length}."
+        fish_ref: "app/(app)/polls/current.tsx:41-49; services/mutations/usePollVote.ts:17-22; services/mutations/usePollSuggest.ts:8-13"
+    mobile_only: false
+    status: todo
+
+  # ---------------------------------------------------------------------------------------------
+  - id: participant.polls-past
+    title: Sondaje anterioare
+    fish:
+      - "app/(app)/polls/past.tsx"
+      - "components/PollOption.tsx"
+      - "services/queries/usePollsPast.ts"
+      - "services/api/polls.ts"
+      - "models/poll.type.ts"
+    web_route: /sondaje/anterioare
+    template: T1
+    milestone: M5
+    roles: [guest, angler]
+    core:
+      - competitions.pastPollsInfiniteQuery (PAST_POLLS_PAGE_SIZE)
+      - competitions.getPastPolls (auth must be 'optional', see criterion c8)
+    states:
+      - loading
+      - empty
+      - list
+      - loading next page
+      - refreshing
+    criteria:
+      - id: participant.polls-past.c1
+        text: "Header: back (home when nothing is behind) and title „Sondaje anterioare”."
+        fish_ref: "app/(app)/polls/past.tsx:93-99"
+      - id: participant.polls-past.c2
+        text: "While loading, a centred spinner."
+        fish_ref: "app/(app)/polls/past.tsx:101-104"
+      - id: participant.polls-past.c3
+        text: "Empty: „Niciun sondaj încheiat” and „Pe măsură ce sondajele se închid, vor apărea aici cu rezultatele finale.”."
+        fish_ref: "app/(app)/polls/past.tsx:105-113"
+      - id: participant.polls-past.c4
+        text: "Each poll is a card: title, „Închis · {d lună yyyy}” (ro-RO long month, from closedAt else closesAt; empty if neither) and „· {n} vot/voturi”, the description when present, then every option read-only with percentage, vote count and my vote highlighted (order as returned)."
+        fish_ref: "app/(app)/polls/past.tsx:14-19,43-90"
+      - id: participant.polls-past.c5
+        text: "GET /polls/past?page&pageSize=10, next page loaded near the end of the list with a spinner footer."
+        fish_ref: "services/queries/usePollsPast.ts:5-17; app/(app)/polls/past.tsx:39-41,115-130; services/api/polls.ts:9-17"
+      - id: participant.polls-past.c6
+        text: "A manual refresh reloads the list."
+        fish_ref: "app/(app)/polls/past.tsx:120"
+      - id: participant.polls-past.c7
+        text: "Analytics poll_past_view once per visit."
+        fish_ref: "app/(app)/polls/past.tsx:35-37"
+      - id: participant.polls-past.c8
+        text: "Guests can open it (fish has no sign-in gate; the CMS grants /polls/past to Public and Authenticated, guests get myVoteOptionId null). The web core currently declares getPastPolls auth 'required' — it must be 'optional'."
+        fish_ref: "app/(app)/polls/current.tsx:37-39,90; services/api/polls.ts:9-17"
+    mobile_only: false
+    status: todo
+
+  # ---------------------------------------------------------------------------------------------
+  - id: participant.raffle-intro
+    title: Tragere la sorți
+    fish:
+      - "app/(app)/raffle/index.tsx"
+      - "app/(app)/raffle/_layout.tsx"
+      - "contexts/RaffleContext.tsx"
+      - "hooks/useRaffle.ts"
+      - "hooks/useCamera.ts"
+      - "components/raffle/ExpandablePrizeRow.tsx"
+      - "components/raffle/RaffleRegulationSheet.tsx"
+      - "components/raffle/RafflePhoneRequiredSheet.tsx"
+      - "constants/raffleCopy.ts"
+      - "services/api/raffle.ts"
+      - "services/queries/useRaffleActive.ts"
+      - "services/queries/useRaffleParticipation.ts"
+      - "services/mutations/useJoinRaffleSession.ts"
+      - "services/mutations/useUploadRaffleReceipt.ts"
+      - "services/mutations/useUpdateProfile.ts"
+    web_route: /tombola
+    template: T6
+    milestone: M5
+    roles: [angler]
+    core:
+      - organizer.raffleActiveQuery
+      - organizer.raffleParticipationQuery
+      - organizer.domain.raffle.deriveRaffleState
+      - organizer.joinRaffleSessionMutation
+      - organizer.uploadRaffleReceiptMutation
+      - social.updateProfileMutation
+      - social.profileQuery
+    states:
+      - no active session (redirect home)
+      - already joined (redirect home)
+      - ended with winners (redirect to winners) / ended without (redirect home)
+      - signed-out (sign-in gate)
+      - registration closed
+      - no types configured
+      - session prizes / fallback static prizes
+      - receipt chosen before joining
+      - validation error card
+      - phone missing (phone dialog)
+      - joining (button busy)
+      - join failed
+    criteria:
+      - id: participant.raffle-intro.c1
+        text: "Redirects: already joined → home; no active session → home; ended with winners → winners page; ended without winners → home."
+        fish_ref: "app/(app)/raffle/index.tsx:116-125"
+      - id: participant.raffle-intro.c2
+        text: "Page title „Tragere la sorți” and a hero lake image."
+        fish_ref: "app/(app)/raffle/index.tsx:128-136; constants/raffleCopy.ts:66-67"
+      - id: participant.raffle-intro.c3
+        text: "Intro card with a gift icon: „Participă la tragerea la sorți pentru șansa de a câștiga echipamente de pescuit și premii speciale” and „Alătură-te competiției noastre și ai șansa să câștigi echipamente premium de pescuit și alte premii exclusive de la Bluvi Expo.”."
+        fish_ref: "app/(app)/raffle/index.tsx:138-159; constants/raffleCopy.ts:69-71"
+      - id: participant.raffle-intro.c4
+        text: "When the session has types: a card „Alege tipul premiilor” / „Selectează secțiunea în care vrei să intri: Crap, Feeder sau Răpitor. Poți schimba tipul mai târziu, până aproape de încheierea tombolei.” with one toggle per type (its label), the selected one filled; choosing clears the error."
+        fish_ref: "app/(app)/raffle/index.tsx:161-196"
+      - id: participant.raffle-intro.c5
+        text: "„Premii” lists the session prizes, falling back to the static prizes when the session has none; every prize starts expanded."
+        fish_ref: "app/(app)/raffle/index.tsx:42-43,53-58,198-256; constants/raffleCopy.ts:14-42"
+      - id: participant.raffle-intro.c6
+        text: "A prize row shows its image (or a tinted placeholder), title, a subtitle „{description} · {price} LEI × {count}” (or „{count} ×” before the title when there is no price), „{n} înscriși” for its type and a type badge in the type's badgeColor; prizes with items get a „1 produs/{n} produse” toggle listing each item's image, label and description."
+        fish_ref: "components/raffle/ExpandablePrizeRow.tsx:67-228; constants/raffleCopy.ts:178-182"
+      - id: participant.raffle-intro.c7
+        text: "„Cum funcționează” lists 3 numbered steps: „Înscrie-te în tragerea la sorți prin aplicație”, „Primești automat 1 șansă de câștig”, „Cumpără de minim 150 lei de la PescarMania, înscrie bonul fiscal și primești 2 șanse în plus la tragerea la sorți.”."
+        fish_ref: "app/(app)/raffle/index.tsx:258-283; constants/raffleCopy.ts:10-11,72-77"
+      - id: participant.raffle-intro.c8
+        text: "A green box „Bonus pentru clienți” with the PescarMania receipt text."
+        fish_ref: "app/(app)/raffle/index.tsx:285-307; constants/raffleCopy.ts:78-79"
+      - id: participant.raffle-intro.c9
+        text: "„Adaugă bon fiscal PescarMania” + hint, with „Fotografiază” and „Din galerie” (web: one file picker accepting images, camera capture on phones); once chosen the receipt is previewed with „Elimină imaginea”."
+        fish_ref: "app/(app)/raffle/index.tsx:60-68,309-355; constants/raffleCopy.ts:85-86"
+      - id: participant.raffle-intro.c10
+        text: "Disclaimer „Dacă câștigi, vom verifica bonul fiscal. Dacă bonul nu este corect sau este duplicat, vei fi descalificat.”."
+        fish_ref: "app/(app)/raffle/index.tsx:357-361; constants/raffleCopy.ts:87-88"
+      - id: participant.raffle-intro.c11
+        text: "A checkbox „Am citit regulamentul tombolei” (the label toggles it too) and a link „Vezi regulament” opening a dialog with the CMS regulationTitle (only when set), each section's title and body, and „Închide”."
+        fish_ref: "app/(app)/raffle/index.tsx:388-415; components/raffle/RaffleRegulationSheet.tsx:15-61; hooks/useRaffle.ts:104-114"
+      - id: participant.raffle-intro.c12
+        text: "„Intră în tragerea la sorți” checks in order: regulation not ticked → „Te rugăm să accepți regulamentul tombolei (bifează că ai citit regulamentul).”; registration closed → „Înscrierile pentru tombolă nu mai sunt deschise.”; no type → „Te rugăm să alegi tipul premiilor (Crap, Feeder sau Răpitor).” (so a session without types can never be joined); errors appear in a card titled „Erori”."
+        fish_ref: "app/(app)/raffle/index.tsx:70-87,161,363-386"
+      - id: participant.raffle-intro.c13
+        text: "Without a phone on the profile the phone dialog opens instead: „Completează numărul de telefon”, „Avem nevoie de numărul tău de telefon pentru a te contacta dacă câștigi.”, field „Număr de telefon” (placeholder 07xxxxxxxx, required „Introdu numărul de telefon”, min 7 „Minim 7 caractere”), „Închide” / „Salvează” → updates the profile phone, toast „Număr salvat.”, refreshes the profile and closes (error toast: message or „Eroare la salvare.”); the user then joins again."
+        fish_ref: "app/(app)/raffle/index.tsx:88-91; components/raffle/RafflePhoneRequiredSheet.tsx:29-120; contexts/RaffleContext.tsx:35-54"
+      - id: participant.raffle-intro.c14
+        text: "Joining sends POST /raffle-sessions/{session}/join {typeKey}, then, when a receipt was chosen, POST /raffle-sessions/{session}/receipt (multipart files), then opens the confirmation; the button is busy meanwhile; any failure shows „Nu am putut finaliza înscrierea. Te rugăm să încerci din nou.”."
+        fish_ref: "app/(app)/raffle/index.tsx:92-104,417-419; hooks/useRaffle.ts:205-225; services/api/raffle.ts:185-233"
+      - id: participant.raffle-intro.c15
+        text: "Join and upload invalidate raffle active, raffle participation and competitions.all."
+        fish_ref: "services/mutations/useJoinRaffleSession.ts:12-16; services/mutations/useUploadRaffleReceipt.ts:23-27"
+    mobile_only: false
+    status: todo
+
+  # ---------------------------------------------------------------------------------------------
+  - id: participant.raffle-upload-receipt
+    title: Încarcă bonul fiscal
+    fish:
+      - "app/(app)/raffle/upload-receipt.tsx"
+      - "hooks/useRaffle.ts"
+      - "hooks/useCamera.ts"
+      - "constants/raffleCopy.ts"
+      - "services/api/raffle.ts"
+    web_route: "/tombola/bon?mod=adauga|inlocuieste"
+    template: T6
+    milestone: M5
+    roles: [angler]
+    core: [organizer.uploadRaffleReceiptMutation, organizer.raffleParticipationQuery]
+    states:
+      - first / add / replace mode
+      - replace with an existing receipt (preview)
+      - uploading
+      - "upload failed (fish: silent)"
+      - orphan (no fish navigation reaches it)
+    criteria:
+      - id: participant.raffle-upload-receipt.c1
+        text: "No fish screen navigates here (the confirmation uses the upload dialog instead); the route takes mode=add|replace, anything else = first. Web may keep it as the deep-linkable form of the same upload dialog."
+        fish_ref: "app/(app)/raffle/upload-receipt.tsx:14-18; app/(app)/raffle/confirmation.tsx:211-224"
+      - id: participant.raffle-upload-receipt.c2
+        text: "Title per mode: „Încarcă bonul fiscal” (first), „Adaugă bon fiscal” (add), „Înlocuiește bonul fiscal” (replace)."
+        fish_ref: "app/(app)/raffle/upload-receipt.tsx:24-29; constants/raffleCopy.ts:110-112"
+      - id: participant.raffle-upload-receipt.c3
+        text: "Replace mode with a receipt already uploaded: a card „Bonul tău încărcat” with the image and „Înlocuiește cu o nouă fotografie mai jos.”."
+        fish_ref: "app/(app)/raffle/upload-receipt.tsx:22,59-78"
+      - id: participant.raffle-upload-receipt.c4
+        text: "Instructions box „Instrucţiuni” / „Fă o fotografie bonului tău fiscal. Cumpără de minim 150 lei de la PescarMania, …” with the red disqualification disclaimer."
+        fish_ref: "app/(app)/raffle/upload-receipt.tsx:80-109; constants/raffleCopy.ts:113-116"
+      - id: participant.raffle-upload-receipt.c5
+        text: "Upload card: camera icon, „Încarcă bonul fiscal”, „Alege o metodă de încărcare”, „Fotografiază acum” and „Încarcă din galerie”, both busy and disabled while uploading."
+        fish_ref: "app/(app)/raffle/upload-receipt.tsx:111-138; constants/raffleCopy.ts:117-120"
+      - id: participant.raffle-upload-receipt.c6
+        text: "Tips card „Sfaturi pentru o fotografie bună” with „Asigură-te că bonul este complet vizibil”, „Verifică ca data și numele magazinului să fie lizibile”, „Folosește lumină naturală pentru claritate”."
+        fish_ref: "app/(app)/raffle/upload-receipt.tsx:140-168; constants/raffleCopy.ts:121-126"
+      - id: participant.raffle-upload-receipt.c7
+        text: "A chosen file is uploaded (replace uses the same POST receipt endpoint) and the page is replaced by „Bon încărcat”; a failed upload shows nothing in fish (no catch) — web must show an error and keep the page."
+        fish_ref: "app/(app)/raffle/upload-receipt.tsx:31-54; hooks/useRaffle.ts:216-227"
+    mobile_only: false
+    status: todo
+
+  # ---------------------------------------------------------------------------------------------
+  - id: participant.raffle-confirmation
+    title: Confirmare participare
+    fish:
+      - "app/(app)/raffle/confirmation.tsx"
+      - "components/raffle/RaffleUploadReceiptSheet.tsx"
+      - "components/raffle/ExpandablePrizeRow.tsx"
+      - "contexts/RaffleContext.tsx"
+      - "hooks/useRaffle.ts"
+      - "constants/raffleCopy.ts"
+      - "services/mutations/useUploadRaffleReceipt.ts"
+      - "services/mutations/useDeleteRaffleReceipt.ts"
+      - "services/api/raffle.ts"
+    web_route: /tombola/confirmare
+    template: T6
+    milestone: M5
+    roles: [angler]
+    core:
+      - organizer.raffleActiveQuery
+      - organizer.raffleParticipationQuery
+      - organizer.domain.raffle.deriveRaffleState
+      - organizer.uploadRaffleReceiptMutation
+      - organizer.deleteRaffleReceiptMutation
+    states:
+      - joined, no receipt
+      - joined, receipt uploaded (with / without image URL)
+      - after the change deadline (receipt locked)
+      - ended with winners
+      - ended without winners
+      - not joined (fish renders zero chances, no redirect)
+      - upload dialog (first / replace), uploading
+      - deleting receipt
+    criteria:
+      - id: participant.raffle-confirmation.c1
+        text: "Title „Confirmare participare”; back and „Închide” both return to home."
+        fish_ref: "app/(app)/raffle/confirmation.tsx:60-63,314-316; constants/raffleCopy.ts:91,104"
+      - id: participant.raffle-confirmation.c2
+        text: "A celebration animation, the heading „Ești înscris în tragerea la sorți pentru categoria {tip}!” (or „Ești înscris în tragerea la sorți!” without a type) and „Mult succes! Îți ținem pumnii!”."
+        fish_ref: "app/(app)/raffle/confirmation.tsx:34-35,85-101; constants/raffleCopy.ts:92-95"
+      - id: participant.raffle-confirmation.c3
+        text: "„ŞANSELE TALE ACTUALE” with the entries count and „șansă” (1) / „șanse”."
+        fish_ref: "app/(app)/raffle/confirmation.tsx:103-115; constants/raffleCopy.ts:96-98"
+      - id: participant.raffle-confirmation.c4
+        text: "„Premii” lists session prizes (static fallback) with the same expandable rows as the intro, all expanded at first."
+        fish_ref: "app/(app)/raffle/confirmation.tsx:38-48,117-177"
+      - id: participant.raffle-confirmation.c5
+        text: "Not ended and no receipt: card „Mărește-ți șansele de câștig!”, the PescarMania receipt text, a dashed „+2” „Şanse bonus pentru încărcarea bonului fiscal” and „Încarcă bonul fiscal”, which opens the upload dialog (first)."
+        fish_ref: "app/(app)/raffle/confirmation.tsx:179-226; constants/raffleCopy.ts:99-103"
+      - id: participant.raffle-confirmation.c6
+        text: "Not ended with a receipt: card „Mărește-ți șansele de câștig!” / „Bonul tău încărcat” / „Ai 2 șanse de câștig în plus pentru că ai adăugat bonul.”, the receipt image (or „Bon încărcat. Poți înlocui sau șterge până la termenul limită.”), „Înlocuiește bonul” (upload dialog, replace) and „Șterge bonul” (busy while deleting)."
+        fish_ref: "app/(app)/raffle/confirmation.tsx:228-306; constants/raffleCopy.ts:105-107,158-159"
+      - id: participant.raffle-confirmation.c7
+        text: "Replace and delete are disabled, with „Nu mai poți modifica bonul după termenul limită.”, unless the session is not ended AND registration is still open (canChangeType)."
+        fish_ref: "app/(app)/raffle/confirmation.tsx:268-302; hooks/useRaffle.ts:140; constants/raffleCopy.ts:163"
+      - id: participant.raffle-confirmation.c8
+        text: "„Șterge bonul” sends DELETE /raffle-sessions/{session}/receipt (server removes the receipt and 2 entries, min 1); a failure shows nothing in fish — web must show an error."
+        fish_ref: "app/(app)/raffle/confirmation.tsx:50-57; hooks/useRaffle.ts:229-235; services/api/raffle.ts:235-250"
+      - id: participant.raffle-confirmation.c9
+        text: "Ended with winners: a „Vezi câștigători” button to the winners page."
+        fish_ref: "app/(app)/raffle/confirmation.tsx:308-312"
+      - id: participant.raffle-confirmation.c10
+        text: "Upload dialog: title „Încarcă bonul fiscal” / „Adaugă bon fiscal” / „Înlocuiește bonul fiscal”, in replace mode a preview „Bonul tău încărcat”, the instructions and disclaimer, „Alege o metodă de încărcare”, „Fotografiază acum” / „Încarcă din galerie” (busy while uploading) and the tips on one line; success closes the dialog."
+        fish_ref: "components/raffle/RaffleUploadReceiptSheet.tsx:27-187; contexts/RaffleContext.tsx:30-53"
+      - id: participant.raffle-confirmation.c11
+        text: "Upload and delete invalidate raffle active, raffle participation and competitions.all, so chances and receipt state refresh."
+        fish_ref: "services/mutations/useUploadRaffleReceipt.ts:23-27; services/mutations/useDeleteRaffleReceipt.ts:10-14"
+    mobile_only: false
+    status: todo
+
+  # ---------------------------------------------------------------------------------------------
+  - id: participant.raffle-receipt-submitted
+    title: Bon încărcat
+    fish:
+      - "app/(app)/raffle/receipt-submitted.tsx"
+      - "hooks/useRaffle.ts"
+      - "helpers/navigationHelpers.ts"
+      - "constants/raffleCopy.ts"
+    web_route: /tombola/bon-trimis
+    template: T6
+    milestone: M5
+    roles: [angler]
+    core: [organizer.raffleParticipationQuery, organizer.domain.raffle.deriveRaffleState]
+    states:
+      - receipt under verification
+      - receipt approved
+      - orphan (reached only from the orphan upload page)
+    criteria:
+      - id: participant.raffle-receipt-submitted.c1
+        text: "Reached only from the upload-receipt page (itself not linked in fish)."
+        fish_ref: "app/(app)/raffle/upload-receipt.tsx:40"
+      - id: participant.raffle-receipt-submitted.c2
+        text: "Title „Bon încărcat”, a green check and „Bonul a fost aprobat! Ai primit 2 șanse bonus.” when receiptUploaded, else „Bonul tău este în curs de verificare.”."
+        fish_ref: "app/(app)/raffle/receipt-submitted.tsx:19-30; constants/raffleCopy.ts:128-131"
+      - id: participant.raffle-receipt-submitted.c3
+        text: "„Detalii șanse”: „Înainte” 1; „Bonus (în așteptare)” while under verification else „Bonus”, value 2 when uploaded or under verification else 0; „Total” 3 while under verification else the entries count."
+        fish_ref: "app/(app)/raffle/receipt-submitted.tsx:14-63; constants/raffleCopy.ts:132-136"
+      - id: participant.raffle-receipt-submitted.c4
+        text: "„Vezi șansele mele” goes back, or home when there is nothing behind."
+        fish_ref: "app/(app)/raffle/receipt-submitted.tsx:66-68; helpers/navigationHelpers.ts:7-14"
+    mobile_only: false
+    status: todo
+
+  # ---------------------------------------------------------------------------------------------
+  - id: participant.raffle-status
+    title: Şansele mele
+    fish:
+      - "app/(app)/raffle/status.tsx"
+      - "components/raffle/ExpandablePrizeRow.tsx"
+      - "components/raffle/RaffleUploadReceiptSheet.tsx"
+      - "contexts/RaffleContext.tsx"
+      - "hooks/useRaffle.ts"
+      - "constants/raffleCopy.ts"
+    web_route: /tombola/sansele-mele
+    template: T6
+    milestone: M5
+    roles: [angler]
+    core:
+      - organizer.raffleActiveQuery
+      - organizer.raffleParticipationQuery
+      - organizer.domain.raffle.deriveRaffleState
+      - organizer.joinRaffleSessionMutation
+      - organizer.uploadRaffleReceiptMutation
+      - organizer.deleteRaffleReceiptMutation
+    states:
+      - running (countdown)
+      - ended
+      - receipt / no receipt
+      - type change in progress / failed
+      - after the change deadline
+      - session prizes / static prizes
+      - orphan (no fish navigation reaches it)
+    criteria:
+      - id: participant.raffle-status.c1
+        text: "No fish screen navigates here; it is the fuller „my chances” page that the confirmation page replaced."
+        fish_ref: "app/(app)/raffle/_layout.tsx:16; components/raffle/RaffleDashboardCard.tsx:259"
+      - id: participant.raffle-status.c2
+        text: "Title „Şansele mele”; a hero card „ŞANSELE TALE TOTALE”, the entries count, „şanse de câștig”, with a receipt „Total șanse cu bon: {n} șanse”, and a breakdown „Intrare” 1, „Bonus” 2|0, „Total” entries."
+        fish_ref: "app/(app)/raffle/status.tsx:59-117; constants/raffleCopy.ts:140-145,162"
+      - id: participant.raffle-status.c3
+        text: "Not ended and with an end date: „Câştigătorul anunțat în:” with days/hours/minutes („Zile”, „Ore”, „Minute”), computed when the page renders (fish does not tick)."
+        fish_ref: "app/(app)/raffle/status.tsx:15-26,119-153; constants/raffleCopy.ts:146-149"
+      - id: participant.raffle-status.c4
+        text: "Ended: „Tragerea s-a încheiat.”."
+        fish_ref: "app/(app)/raffle/status.tsx:155-161"
+      - id: participant.raffle-status.c5
+        text: "With types: „Tipul premiilor alese” / „Poți schimba tipul (Crap, Feeder sau Răpitor) până la termenul limită stabilit în timpul tombolei.”; other types are disabled after the deadline; choosing another re-joins with that type (POST join, busy on the selected one); failure „Nu am putut schimba tipul. Te rugăm să încerci din nou.”."
+        fish_ref: "app/(app)/raffle/status.tsx:163-217"
+      - id: participant.raffle-status.c6
+        text: "„Premii pe care le poți câștiga”: session prizes (one expanded at a time) or, without them, three static prizes („Echipament premium de pescuit”, „Merchandise Bluvi”, „Premii speciale expoziție”) with their descriptions."
+        fish_ref: "app/(app)/raffle/status.tsx:219-296; constants/raffleCopy.ts:150-156"
+      - id: participant.raffle-status.c7
+        text: "Not ended: a receipt card „Bonul tău încărcat” (preview or „Bon încărcat. Poți înlocui sau șterge până la termenul limită.”, deadline hint, „Înlocuiește bonul” / „Șterge bonul” disabled after the deadline) or „Bon fiscal PescarMania (min. 150 lei)” with „Încarcă bon fiscal” (upload dialog, add)."
+        fish_ref: "app/(app)/raffle/status.tsx:298-367; constants/raffleCopy.ts:157-163"
+      - id: participant.raffle-status.c8
+        text: "„Înapoi acasă” replaces the page with home."
+        fish_ref: "app/(app)/raffle/status.tsx:369-371"
+    mobile_only: false
+    status: todo
+
+  # ---------------------------------------------------------------------------------------------
+  - id: participant.raffle-winners
+    title: Câștigători
+    fish:
+      - "app/(app)/raffle/winners.tsx"
+      - "components/raffle/ExpandablePrizeRow.tsx"
+      - "hooks/useRaffle.ts"
+      - "constants/raffleCopy.ts"
+      - "services/api/raffle.ts"
+    web_route: /tombola/castigatori
+    template: T6
+    milestone: M5
+    roles: [guest, angler]
+    core: [organizer.raffleActiveQuery, organizer.domain.raffle.deriveRaffleState]
+    states:
+      - not ended or no winners (redirect home)
+      - winners not announced (empty)
+      - winners per type
+    criteria:
+      - id: participant.raffle-winners.c1
+        text: "Unless the session is ended and has winners, the page redirects to home."
+        fish_ref: "app/(app)/raffle/winners.tsx:59-61"
+      - id: participant.raffle-winners.c2
+        text: "Title „Câștigători”; with no winner groups: „Câștigătorii nu au fost anunțați încă.” and „Înapoi acasă”."
+        fish_ref: "app/(app)/raffle/winners.tsx:63-77; constants/raffleCopy.ts:172-177"
+      - id: participant.raffle-winners.c3
+        text: "A notice „Câștigătorii vor fi contactați de către echipa Bluvi. În cazul în care nu răspund în timp util, se va mai face o tragere la sorți.”."
+        fish_ref: "app/(app)/raffle/winners.tsx:82-99"
+      - id: participant.raffle-winners.c4
+        text: "One card per type in winnersByTypeKey: a badge „Categoria {label}” in the type's badgeColor (default indigo), the prize of that type (session prize, else static) as an expandable row, then „Câștigători”."
+        fish_ref: "app/(app)/raffle/winners.tsx:101-212"
+      - id: participant.raffle-winners.c5
+        text: "Each winner row shows the avatar (default guest image), the username or „Câștigător #{i}”, a trophy on the first, and links to /pescari/{documentId}."
+        fish_ref: "app/(app)/raffle/winners.tsx:18-47"
+      - id: participant.raffle-winners.c6
+        text: "„Înapoi acasă” replaces the page with home."
+        fish_ref: "app/(app)/raffle/winners.tsx:215-217"
+      - id: participant.raffle-winners.c7
+        text: "Public: guests can open it (winners are public; the active session endpoint is public, avatar URLs resolved to absolute)."
+        fish_ref: "components/raffle/RaffleDashboardCard.tsx:249-252; services/api/raffle.ts:118-155"
+    mobile_only: false
+    status: todo
+
+behaviours:
+  - id: participant.b.register-entry
+    text: "Competition page „Înscrie-te”: users already pending/registered and single competitions go to the registration page; a new team registration goes through the team disclaimer first. Signed-out users see the sign-in gate (web: /intra?next=…)."
+    fish_ref: "components/NormalUserSheetItems.tsx:38-61; components/competition/CompetitionRanking.tsx:481-494"
+  - id: participant.b.register-entry-disabled
+    text: "The registration button is disabled when the user was rejected, is a non-author teammate of a pending team, is approved (unless team competition still notStarted), or — for new/pending — when the competition has started or the registration deadline has passed, or the participants limit (registered count = participantsLimit) is reached."
+    fish_ref: "components/competition/CompetitionRanking.tsx:453-480; components/NormalUserSheetItems.tsx:30-36"
+  - id: participant.b.disclaimer-copy-mismatch
+    text: "Flag to owner: the team disclaimer says no change is allowed after approval, but an approved team registration stays editable while the competition is notStarted (fish behaviour wins until decided)."
+    fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:72-83; components/competition/CompetitionRanking.tsx:476"
+  - id: participant.b.organizer-edit-registration
+    text: "Organizer „Editează” on a participant row (hidden for rejected rows and cancelled/completed competitions): guest registrations open the guests form with registrationId/guestName/teamName; account registrations open the registration page in organizer mode (asOrganizer=1, registrationId)."
+    fish_ref: "components/CollapsableActions.tsx:38-80,160-167"
+  - id: participant.b.chat-entry
+    text: "The chat entry on the competition page exists only for signed-in users; it opens the last room used in that competition (if any) and passes the competition name so the header is titled immediately."
+    fish_ref: "components/competition/CompetitionRanking.tsx:352-365,1234,1961; features/chat/domain/lastTab.ts:7-10"
+  - id: participant.b.chat-badge
+    text: "Chat entry badge: total unread across readable rooms (General; Participanți for members), „99+” cap, alert tone; „Nou” (info tone) when the account never opened this chat (no receipt in any readable room) and it has messages; nothing when 0; unreadable receipt never claims „Nou”."
+    fish_ref: "features/chat/hooks/useCompetitionChatBadge.ts:10-79"
+  - id: participant.b.chat-notification-route
+    text: "CHAT_MESSAGE notification → /competitions/{competitionId}/chat?tab={tab|chatRoom|general}&name={competitionName} (web: /concursuri/{id}/chat?tab=…); no competitionId → no route; opening it does not mark the notification read differently from the list rules in account.yml."
+    fish_ref: "helpers/getRedirectLocationForNotification.ts:82-88"
+  - id: participant.b.chat-open-room-push
+    text: "Mobile only: while a room is open its own foreground pushes are suppressed and already-presented ones cleared. Web equivalent: do not raise an in-app toast for messages of the room on screen."
+    fish_ref: "features/chat/activeChatRoom.ts:10-40; features/chat/domain/notificationRoom.ts:3-21"
+  - id: participant.b.chat-signed-out
+    text: "fish has no auth gate on the chat route (a signed-out deep link shows the auth error toast over an empty room); web shows the sign-in gate and returns to the chat after sign-in."
+    fish_ref: "features/chat/hooks/useChatRoom.ts:188-196; app/(app)/_layout.tsx:44-47"
+  - id: participant.b.chat-realtime
+    text: "Chat is Firestore realtime (messages, reactions, receipts, typing, meta), signed in with the CMS-minted Firebase custom token; one shared Firebase project across envs with env-prefixed paths; never write to Partide collections."
+    fish_ref: "features/chat/domain/chatPaths.ts:1-85; features/chat/hooks/useChatAuth.ts:12-28"
+  - id: participant.b.chat-outbox
+    text: "Sends survive reloads: queued rows are kept locally (fish SQLite; web: IndexedDB/localStorage via core outbox storage) and drained at app start and when the network returns; a row already written is never re-dated."
+    fish_ref: "features/chat/outbox/worker.ts:169-229; features/chat/outbox/ChatOutboxMount.tsx:1-32"
+  - id: participant.b.poll-notification-route
+    text: "POLL_OPENED, POLL_CLOSED and POLL_SUGGESTION_APPROVED notifications open the current poll (web /sondaje)."
+    fish_ref: "helpers/getRedirectLocationForNotification.ts:92-95"
+  - id: participant.b.poll-deeplink
+    text: "Universal links cover /polls/*; the shared poll URL is {WEB_DOMAIN}/polls/current, so the web must answer /polls/current (and /polls/past) with a redirect to /sondaje (/sondaje/anterioare)."
+    fish_ref: "helpers/sharePoll.ts:4-6; features/partide/helpers/deepLinks.ts:15"
+  - id: participant.b.poll-signin-redirect
+    text: "Voting or suggesting signed out goes to sign-in with redirectTo=/polls/current (web next=/sondaje) and comes back to the poll."
+    fish_ref: "app/(app)/polls/current.tsx:102-104,163-165; components/PollCard.tsx:38"
+  - id: participant.b.raffle-entry
+    text: "Acasă raffle card: ended → winners page if it has winners, else nothing; signed out → sign-in; joined → confirmation; otherwise → raffle intro."
+    fish_ref: "components/raffle/RaffleDashboardCard.tsx:247-261"
+  - id: participant.b.raffle-data
+    text: "Active session GET /raffle-sessions/active (public; 404 → no session) and participation GET /raffle-sessions/participation (only signed in with an active session; 401 → none), both stale after 2 minutes; relative media URLs are made absolute; prizes accept items or subItems."
+    fish_ref: "services/queries/useRaffleActive.ts:9-15; services/queries/useRaffleParticipation.ts:11-22; services/api/raffle.ts:5-183"
+  - id: participant.b.raffle-orphans
+    text: "fish declares raffle/upload-receipt, raffle/receipt-submitted and raffle/status but nothing navigates to them (the upload became a dialog, „my chances” became the confirmation page). Port them for parity but flag to the owner whether to keep them."
+    fish_ref: "app/(app)/raffle/_layout.tsx:12-17; components/raffle/RaffleDashboardCard.tsx:259"

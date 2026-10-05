@@ -1,0 +1,548 @@
+# Parity inventory — area "global": the app frame and everything cross-cutting that is not one
+# screen. Root layout (providers, error boundary, splash, toasts, network banner, version check),
+# the (app) group layout (session-loading gate, navigation guard, live mounts), the tab bar layout
+# (→ web top bar), the root index redirect, deep links, notification → route mapping, auth gating,
+# session expiry and push.
+# Extracted from fish (read-only) on 2026-10-04. Line refs are fish file:line at that date.
+#
+# Overlap, on purpose: account.yml already inventories sign-in, sign-out, session expiry and the
+# notification → fish-route map (account.b.*). Here the same facts are restated only where the web
+# needs something extra — the web route each fish target becomes, the legacy-URL redirects, and the
+# app-wide frame. app/(app)/(tabs)/index.tsx (Acasă) is inventoried in home.yml (home.acasa).
+#
+# Web routes for areas not yet inventoried (polls, partide, organizer, operator, penalties, chat)
+# are PROPOSALS in the lib/routes.ts style; the owning area file wins when it lands.
+area: global
+screens:
+  - id: global.shell
+    title: Bara de navigare
+    fish:
+      - app/(app)/(tabs)/_layout.tsx
+      - app/(app)/_layout.tsx
+      - app/_layout.tsx
+      - app/(app)/(tabs)/profile.tsx
+      - features/partide/domain/viewAtoms.ts
+      - features/partide/domain/nouBadge.ts
+      - services/queries/useProfile.ts
+      - helpers/getImageFormat.tsx
+      - hooks/useNavigationGuard.ts
+      - contexts/auth/AuthContext.tsx
+      - contexts/NetInfoContextProvider.tsx
+      - components/errors/RouteErrorBoundary.tsx
+    web_route: "/** (layout: app/(site)/layout.tsx → _shell/SiteTopBar.tsx)"
+    template: none
+    milestone: M0
+    roles: [guest, angler, organizer, referee, operator]
+    core: [social.profileQuery, social.getProfile, social.unreadNotificationsCountQuery, booking.ownedLakesQuery]
+    states:
+      - signed out (no avatar entry, „Intră” instead)
+      - signed in, profile has avatar
+      - signed in, profile without avatar (Bluvi logo fallback)
+      - signed in, profile still loading
+      - organizer (Administrare menu)
+      - operator of at least one lake (Administrare menu)
+      - organizer and operator
+      - unread notifications > 0
+      - phone width, menu panel closed / open
+      - current route is one of the main destinations (active state)
+      - current route is a nested page (no main destination active, or its parent active)
+      - network banner visible
+      - page below throws (shell must survive)
+    criteria:
+      - id: global.shell.c1
+        text: "The main destinations are, in this order, Acasă, Bălți, Competiții, Partide (fish tab order index → lakes → competitions → partide); on desktop they are links in the top bar, on phone they are in the ☰ panel."
+        fish_ref: "app/(app)/(tabs)/_layout.tsx:45-95"
+      - id: global.shell.c2
+        text: "The destination labels are exactly „Acasă”, „Bălți”, „Competiții”, „Partide” and „Profil” (with diacritics)."
+        fish_ref: "app/(app)/(tabs)/_layout.tsx:51,62,73,93,101"
+      - id: global.shell.c3
+        text: "Acasă links to /, Bălți to /balti, Competiții to /concursuri, Partide to /partide (lib/routes.ts)."
+        fish_ref: "app/(app)/(tabs)/_layout.tsx:46,56,67,77"
+      - id: global.shell.c4
+        text: "The destination of the current route is marked active with the accent color (fish tint indigo5) and exposes aria-current=\"page\"; the others are not marked."
+        fish_ref: "app/(app)/(tabs)/_layout.tsx:28"
+      - id: global.shell.c5
+        text: "The profile entry (avatar) exists only for a signed-in user; signed out it is absent (fish href: null), and the top bar offers „Intră” → /intra instead."
+        fish_ref: "app/(app)/(tabs)/_layout.tsx:17,99"
+      - id: global.shell.c6
+        text: "The avatar shows the profile avatar in its thumb format; when the profile has no avatar (or is still loading) it shows the Bluvi logo; it is round."
+        fish_ref: "app/(app)/(tabs)/_layout.tsx:19,110-123"
+      - id: global.shell.c7
+        text: "While the current route is the own profile (/profil) the avatar carries an accent ring; elsewhere it has none."
+        fish_ref: "app/(app)/(tabs)/_layout.tsx:108,120-121"
+      - id: global.shell.c8
+        text: "Activating the avatar opens /profil (the own angler profile in own mode); /profil visited signed out renders nothing personal and goes to sign-in (fish: profile tab is unreachable signed out and null-renders as a fallback)."
+        fish_ref: "app/(app)/(tabs)/profile.tsx:7-17"
+      - id: global.shell.c9
+        text: "The Partide „NOU” pill shows only before 2026-09-18T00:00Z and only for a user who never opened Partide; while the visited flag is unknown no pill renders (no flash). Since the deadline has passed the web never shows it — the criterion is that it is NOT rendered."
+        fish_ref: "features/partide/domain/nouBadge.ts:3,13-18; features/partide/domain/viewAtoms.ts:66-87; app/(app)/(tabs)/_layout.tsx:22,83-89"
+      - id: global.shell.c10
+        text: "Destination labels never truncate or wrap at any width or at 200% text zoom (fish locked tab label scaling because „Competiții” was cut to „Competi…”)."
+        fish_ref: "app/(app)/(tabs)/_layout.tsx:30-34"
+      - id: global.shell.c11
+        text: "The notifications entry is shown to signed-in users with an unread dot when the unread count is > 0 (see account.b.unread-badge); signed out it is not shown."
+        fish_ref: "app/(app)/(tabs)/index.tsx:180-184,392-404"
+      - id: global.shell.c12
+        text: "An „Administrare” menu is shown only to organizers (profile role name „Organizer” → /organizator) and to operators (non-empty /feed/owned-lakes → /operator); a user who is both sees both entries; anglers and referees never see it (fish: OrganizerBanner / OwnedLakesCard on Home, operator stack titled „Administrare lacuri”)."
+        fish_ref: "services/queries/useOrganizerDashboard.ts:7-12; components/OwnedLakesCard.tsx:57-64; app/(app)/_layout.tsx:122-129"
+      - id: global.shell.c13
+        text: "A page that throws renders the error fallback inside the page area while the top bar keeps working, so the user can navigate elsewhere (fish per-route ErrorBoundary keeps the tab bar)."
+        fish_ref: "components/errors/RouteErrorBoundary.tsx:8-11,16-18; app/(app)/(tabs)/profile.tsx:22"
+      - id: global.shell.c14
+        text: "A rapid double activation of any navigation link or card produces one navigation (one history entry), not two (fish installs an 800 ms guard on every push/navigate; back/dismiss reset it so a deliberate second navigation after Back is never swallowed)."
+        fish_ref: "hooks/useNavigationGuard.ts:5,17-23,58-65,81-99; app/(app)/_layout.tsx:13-17"
+      - id: global.shell.c15
+        text: "Going to a main destination from a nested page replaces the content under the same single shell; the shell never renders twice (fish routes tab targets through dismissTo so a second Tabs is never mounted)."
+        fish_ref: "contexts/NotificationsContextProvider.tsx:225-228"
+      - id: global.shell.c16
+        text: "When the network banner is visible it never covers the top bar, the menu panel or the page's primary action, and no empty strip opens between banner and content."
+        fish_ref: "app/(app)/(tabs)/_layout.tsx:37-42; contexts/NetInfoContextProvider.tsx:20-24"
+      - id: global.shell.c17
+        text: "The shell is the same for guests and signed-in users: no route group is wholesale auth-gated (fish keeps the (app) redirect to sign-in commented out); each page decides its own gating."
+        fish_ref: "app/(app)/_layout.tsx:42-48"
+      - id: global.shell.c18
+        text: "Landmarks: the top bar is a <header> with a <nav> labelled for the main destinations; the page body is the single <main>; every icon-only control (search, notifications, avatar, ☰) has a Romanian accessible name and a visible focus ring."
+        fish_ref: "app/(app)/(tabs)/_layout.tsx:45-127"
+    mobile_only: false
+    status: todo
+
+  - id: global.root-redirect
+    title: Pornire aplicație
+    fish:
+      - app/index.tsx
+      - common/utils/constants.ts
+      - helpers/AsyncStore.ts
+      - analytics/ScreenViewTracker.tsx
+    web_route: /
+    template: none
+    milestone: M0
+    roles: [guest, angler, organizer, referee, operator]
+    core: []
+    states:
+      - onboarding flag being read
+      - onboarding never completed
+      - onboarding completed
+    criteria:
+      - id: global.root-redirect.c1
+        text: "While the onboarding flag is being read from storage nothing is rendered."
+        fish_ref: "app/index.tsx:12-22"
+      - id: global.root-redirect.c2
+        text: "Without the ONBOARDING_COMPLETE flag the app goes to /onboarding; with it, to the tabs home."
+        fish_ref: "app/index.tsx:24-28; common/utils/constants.ts:2"
+      - id: global.root-redirect.c3
+        text: "The transient root redirect is never logged as a screen_view."
+        fish_ref: "analytics/ScreenViewTracker.tsx:40-43"
+    mobile_only: true
+    web_replacement: "No onboarding gate on web: / is the home for everyone, and the signed-out home acts as the landing page (ROADMAP §3). A first visit must never redirect away from the requested URL."
+    status: todo
+
+  - id: global.loading
+    title: Încărcare sesiune
+    fish:
+      - components/SplashGate/SplashGate.tsx
+      - components/LoadingScreen.tsx
+      - app/(app)/_layout.tsx
+      - contexts/auth/AuthContext.tsx
+      - hooks/useStorageState.ts
+    web_route: "/** (app/(site)/layout.tsx + per-route loading/skeletons)"
+    template: none
+    milestone: M0
+    roles: [guest, angler, organizer, referee, operator]
+    core: []
+    states:
+      - session being resolved
+      - session resolved signed out
+      - session resolved signed in
+      - slow backend (resolution exceeds 3 s)
+    criteria:
+      - id: global.loading.c1
+        text: "While the stored session is still being read, the (app) area shows a single centered spinner instead of any screen, so no screen renders a signed-out variant and then flips to signed in (web: the viewer is resolved on the server before the shell paints; no signed-out → signed-in flash)."
+        fish_ref: "app/(app)/_layout.tsx:31-40; contexts/auth/AuthContext.tsx:77,107"
+      - id: global.loading.c2
+        text: "The loading indicator is exposed to assistive tech as a progress indicator labelled „Se încarcă”."
+        fish_ref: "components/SplashGate/SplashGate.tsx:74-80"
+      - id: global.loading.c3
+        text: "The start overlay waits for the session, the version check and the first screen's ready signal, but never longer than 3 s; after the ceiling the app is shown regardless (web: a slow CMS never keeps the whole page blank — the shell paints and the slow section streams in later)."
+        fish_ref: "components/SplashGate/SplashGate.tsx:12,29,32-35"
+      - id: global.loading.c4
+        text: "The overlay plays at least its 400 ms intro and then fades out in 180 ms; it blocks touches while visible (web: no splash; loading placeholders use the kit skeletons and respect prefers-reduced-motion)."
+        fish_ref: "components/SplashGate/SplashGate.tsx:11,13,40-65"
+      - id: global.loading.c5
+        text: "The spinner uses the brand accent (indigo5) and is centered in the available area."
+        fish_ref: "components/LoadingScreen.tsx:4-9"
+    mobile_only: false
+    status: todo
+
+  - id: global.app-error
+    title: Eroare neașteptată
+    fish:
+      - components/errors/AppErrorFallback.tsx
+      - components/errors/RouteErrorBoundary.tsx
+      - app/_layout.tsx
+    web_route: "/** (app/(site)/error.tsx; app/global-error.tsx for the root)"
+    template: none
+    milestone: M0
+    roles: [guest, angler, organizer, referee, operator]
+    core: []
+    states:
+      - route-level error with retry
+      - root-level error (shell itself failed)
+      - error reported, reference code available
+      - reference code not available (reporting disabled / failed)
+    criteria:
+      - id: global.app-error.c1
+        text: "A render error shows the title „Ceva n-a mers” as the page heading."
+        fish_ref: "components/errors/AppErrorFallback.tsx:38"
+      - id: global.app-error.c2
+        text: "Under it the text „A apărut o problemă neașteptată pe acest ecran. Am trimis automat detaliile către echipă.” is shown."
+        fish_ref: "components/errors/AppErrorFallback.tsx:39-41"
+      - id: global.app-error.c3
+        text: "A „Reîncearcă” button is shown when the boundary can retry; activating it re-renders the failed subtree (web: reset())."
+        fish_ref: "components/errors/AppErrorFallback.tsx:43-51; components/errors/RouteErrorBoundary.tsx:16-18"
+      - id: global.app-error.c4
+        text: "When the error was reported, „Cod: ” followed by the first 8 characters of the error event id is shown under the button (web: Next error digest or Sentry event id)."
+        fish_ref: "components/errors/AppErrorFallback.tsx:53-55"
+      - id: global.app-error.c5
+        text: "Each error is reported exactly once, tagged with where the boundary sits (error_boundary = root | route); the root boundary, which already reported, does not report a second time."
+        fish_ref: "components/errors/AppErrorFallback.tsx:30-34; app/_layout.tsx:79-83"
+      - id: global.app-error.c6
+        text: "A route-level error keeps the shell (top bar) usable; only a failure of the shell itself falls back to the root fallback."
+        fish_ref: "components/errors/RouteErrorBoundary.tsx:8-11; app/_layout.tsx:73-78"
+      - id: global.app-error.c7
+        text: "The root fallback renders without the providers, queries, profile or theme machinery that could have crashed (web: global-error.tsx is self-contained, with its own <html>/<body> and only token CSS)."
+        fish_ref: "components/errors/AppErrorFallback.tsx:5-14"
+      - id: global.app-error.c8
+        text: "The retry control is a real button (role button, keyboard operable, visible focus)."
+        fish_ref: "components/errors/AppErrorFallback.tsx:44-48"
+      - id: global.app-error.c9
+        text: "The fallback content is centered with the heading, text and button stacked; it is never a blank page."
+        fish_ref: "components/errors/AppErrorFallback.tsx:60-73"
+    mobile_only: false
+    status: todo
+
+  - id: global.error-screen
+    title: Ecran de eroare (date)
+    fish:
+      - components/ErrorScreen.tsx
+      - helpers/errors/describeError.ts
+      - services/api/api.ts
+      - contexts/NetInfoContextProvider.tsx
+      - components/BackButton.tsx
+    web_route: "/** (kit ErrorState used by every page whose data failed)"
+    template: none
+    milestone: M0
+    roles: [guest, angler, organizer, referee, operator]
+    core: [transport.ApiError, transport.isApiError]
+    states:
+      - offline / no response
+      - server error (5xx)
+      - session rejected (401)
+      - forbidden (403)
+      - not found (404)
+      - refused with server message (400)
+      - other 4xx with server message
+      - unknown
+      - unknown while connection probe says serverDown / offline / poor
+      - with back control / without
+    criteria:
+      - id: global.error-screen.c1
+        text: "No response at all (network error, timeout, offline code) shows „Nu putem ajunge la server” / „Verifică conexiunea la internet și încearcă din nou.” with a retry."
+        fish_ref: "helpers/errors/describeError.ts:47-49,102-126,180-181"
+      - id: global.error-screen.c2
+        text: "A 5xx shows „Serverul nu răspunde” / „Lucrăm la asta. Încearcă din nou în câteva minute.” with a retry."
+        fish_ref: "helpers/errors/describeError.ts:128-134,184"
+      - id: global.error-screen.c3
+        text: "A 401 shows „Sesiunea a expirat” / „Autentifică-te din nou ca să continui.” with NO retry and a „Deconectează-te” button that signs out."
+        fish_ref: "helpers/errors/describeError.ts:136-142,185; components/ErrorScreen.tsx:57"
+      - id: global.error-screen.c4
+        text: "A 403 shows „Nu ai acces” / „Contul tău nu are drepturi pentru aceste date.” with a retry and never offers sign-out."
+        fish_ref: "helpers/errors/describeError.ts:10-13,144-150,186"
+      - id: global.error-screen.c5
+        text: "A 404 shows „Nu am găsit datele” / „Poate au fost șterse între timp.” with a retry."
+        fish_ref: "helpers/errors/describeError.ts:152-158,187"
+      - id: global.error-screen.c6
+        text: "A 400 that carries a readable server message shows „A apărut o eroare” with that message and NO retry."
+        fish_ref: "helpers/errors/describeError.ts:191-197"
+      - id: global.error-screen.c7
+        text: "Any other 4xx shows the server's own message when it wrote one (keeping the retry); otherwise „A apărut o eroare” / „Încearcă din nou. Dacă persistă, scrie-ne.” with a retry."
+        fish_ref: "helpers/errors/describeError.ts:160-166,199-203"
+      - id: global.error-screen.c8
+        text: "The generic transport message „A apărut o eroare necunoscută. Te rugăm să reîncerci mai târziu.” and code-like messages (e.g. INVALID_STATUS) are never shown as the server's message."
+        fish_ref: "helpers/errors/describeError.ts:40-52,93-100; services/api/api.ts:175-185"
+      - id: global.error-screen.c9
+        text: "An error wrapped as the cause of another error is diagnosed from the innermost cause that carries status/code/bluCode (max 5 levels)."
+        fish_ref: "helpers/errors/describeError.ts:60-77"
+      - id: global.error-screen.c10
+        text: "When the error itself is unknown but the connection probe says serverDown the server copy (c2) is shown; offline or poor shows the offline copy (c1)."
+        fish_ref: "helpers/errors/describeError.ts:206-220; components/ErrorScreen.tsx:41-42"
+      - id: global.error-screen.c11
+        text: "The retry button reads „Încearcă din nou” and refetches the failed query only."
+        fish_ref: "components/ErrorScreen.tsx:56"
+      - id: global.error-screen.c12
+        text: "A warning icon in the danger color sits above the title; the title is a heading and the message sits under it, all centered."
+        fish_ref: "components/ErrorScreen.tsx:47-54"
+      - id: global.error-screen.c13
+        text: "A back control is shown above the error unless the page opts out (goBack=false) — on web: a page-level error inside a detail page keeps its back link."
+        fish_ref: "components/ErrorScreen.tsx:26,46"
+      - id: global.error-screen.c14
+        text: "A string, null, undefined or plain Error never crashes the error state; it shows the unknown copy (or offline copy if the text looks like a network failure)."
+        fish_ref: "helpers/errors/describeError.ts:168-176"
+    mobile_only: false
+    status: todo
+
+  - id: global.network-banner
+    title: Stare conexiune
+    fish:
+      - contexts/NetInfoContextProvider.tsx
+      - helpers/network/connectionQuality.ts
+      - helpers/network/probeConnection.ts
+      - hooks/useAppState.ts
+    web_route: "/** (shell)"
+    template: none
+    milestone: M0
+    roles: [guest, angler, organizer, referee, operator]
+    core: []
+    states:
+      - ok (no banner)
+      - offline (radio down, or probe internet down)
+      - poor (internet slow, or API slow)
+      - serverDown (internet ok, API down)
+      - first bad reading awaiting confirmation (no banner yet)
+      - recovered (banner leaves, data refetched)
+    criteria:
+      - id: global.network-banner.c1
+        text: "Offline shows the danger-colored banner „Nu ești conectat la internet.” in white text."
+        fish_ref: "helpers/network/connectionQuality.ts:52-53; contexts/NetInfoContextProvider.tsx:70-72,86"
+      - id: global.network-banner.c2
+        text: "Poor connection shows the warning (amber) banner „Conexiune slabă la internet.” with dark text."
+        fish_ref: "helpers/network/connectionQuality.ts:54; contexts/NetInfoContextProvider.tsx:72,86"
+      - id: global.network-banner.c3
+        text: "Internet ok but the API down shows the warning banner „Serverul nu răspunde momentan.”."
+        fish_ref: "helpers/network/connectionQuality.ts:35,55"
+      - id: global.network-banner.c4
+        text: "With quality ok no banner is rendered at all."
+        fish_ref: "helpers/network/connectionQuality.ts:38,56"
+      - id: global.network-banner.c5
+        text: "Quality is derived as: disconnected → offline; no probe yet → ok; probe internet down → offline; internet slow → poor; API down → serverDown; API slow → poor; otherwise ok. An unknown connection state counts as connected."
+        fish_ref: "helpers/network/connectionQuality.ts:24-39"
+      - id: global.network-banner.c6
+        text: "The probe checks two targets in parallel: HEAD https://www.gstatic.com/generate_204 (internet) and GET <CMS root>/_health (API, the /api suffix stripped), both with Cache-Control: no-cache and outside the authenticated transport (no token, no error reporting)."
+        fish_ref: "helpers/network/probeConnection.ts:36,47-56,77-82,102-113"
+      - id: global.network-banner.c7
+        text: "A target answering 2xx in more than 1500 ms is slow; a 4 s timeout counts as slow; a non-2xx or a network/DNS/TLS failure counts as down."
+        fish_ref: "helpers/network/probeConnection.ts:37-40,85-96"
+      - id: global.network-banner.c8
+        text: "The first bad reading after a good state is not shown: it is re-measured after 4 s and the banner appears only if the second reading is also bad."
+        fish_ref: "contexts/NetInfoContextProvider.tsx:49-52,125-140"
+      - id: global.network-banner.c9
+        text: "Probes are triggered on mount, on connectivity change to connected and on return to the foreground (delayed 2 s); triggers less than 3 s apart collapse into one, no probe starts while one is running, and none runs while disconnected."
+        fish_ref: "contexts/NetInfoContextProvider.tsx:42-48,158-200"
+      - id: global.network-banner.c10
+        text: "While quality is not ok a probe re-runs every 30 s; the interval stops as soon as quality returns to ok."
+        fish_ref: "contexts/NetInfoContextProvider.tsx:44-45,211-216"
+      - id: global.network-banner.c11
+        text: "Going offline marks the query layer offline (no requests fire); when quality returns to ok from any bad state, every active query is refetched so pages stuck on an error state recover by themselves."
+        fish_ref: "contexts/NetInfoContextProvider.tsx:169-178,218-227"
+      - id: global.network-banner.c12
+        text: "Going to the background cancels a pending confirmation re-measure (web: page hidden), so it never fires on stale sockets at return."
+        fish_ref: "contexts/NetInfoContextProvider.tsx:187-194"
+      - id: global.network-banner.c13
+        text: "The banner enters with a short fade/slide (260 ms) and leaves with a fade (200 ms), anchored at the bottom of the viewport, and its height is exposed so bottom actions are padded above it (web: announced politely via role=status; no motion under prefers-reduced-motion)."
+        fish_ref: "contexts/NetInfoContextProvider.tsx:20-24,231-252"
+    mobile_only: false
+    status: todo
+
+  - id: global.toasts
+    title: Mesaje toast
+    fish:
+      - toastConfig.tsx
+      - helpers/showToast.ts
+      - app/_layout.tsx
+    web_route: "/** (shell toast host)"
+    template: none
+    milestone: M0
+    roles: [guest, angler, organizer, referee, operator]
+    core: []
+    states:
+      - success toast
+      - error toast
+      - custom duration
+      - no toast
+    criteria:
+      - id: global.toasts.c1
+        text: "One toast host exists for the whole app, mounted once at the root above every page (web: in the root layout, outside page boundaries)."
+        fish_ref: "app/_layout.tsx:101"
+      - id: global.toasts.c2
+        text: "A success toast shows a check-circle icon and the message in the success color on a light success surface with a success border."
+        fish_ref: "toastConfig.tsx:11-27"
+      - id: global.toasts.c3
+        text: "An error toast shows an exclamation-circle icon and the message in the danger color on a light danger surface with a danger border."
+        fish_ref: "toastConfig.tsx:28-44"
+      - id: global.toasts.c4
+        text: "Toasts appear at the top of the screen, below the status bar / top bar, never under it."
+        fish_ref: "helpers/showToast.ts:5-19,25-26,35-36"
+      - id: global.toasts.c5
+        text: "A success toast stays 2000 ms and an error toast 3000 ms unless the caller passes another duration."
+        fish_ref: "helpers/showToast.ts:21-39"
+      - id: global.toasts.c6
+        text: "A toast carries a single message (text1), wraps long text instead of truncating, and has a fixed narrow width (fish 300) centered horizontally (web: max width from tokens, full width minus gutters on phone)."
+        fish_ref: "toastConfig.tsx:12-26"
+      - id: global.toasts.c7
+        text: "Toasts are announced to assistive tech: error toasts assertively (role=alert), success toasts politely (role=status), and they stay visible while hovered or focused (web addition for WCAG 2.2.1)."
+        fish_ref: "helpers/showToast.ts:21-39"
+      - id: global.toasts.c8
+        text: "A toast shown right before a navigation survives it (fish: the sign-out toast is shown after router.replace('/sign-in'))."
+        fish_ref: "contexts/auth/AuthContext.tsx:284-290"
+    mobile_only: false
+    status: todo
+
+  - id: global.version-check
+    title: Actualizare aplicație
+    fish:
+      - components/VersionWrapper.tsx
+      - services/api/version.ts
+      - models/version.type.ts
+      - helpers/openAppStoreListing.ts
+      - atoms.ts
+    web_route: none
+    template: none
+    milestone: M0
+    roles: [guest, angler, organizer, referee, operator]
+    core: []
+    states:
+      - stable
+      - update_available (skippable)
+      - unsupported (blocking)
+      - check failed (fail open)
+      - check in flight
+    criteria:
+      - id: global.version-check.c1
+        text: "GET /version/check runs at start and on every return to the foreground; while it is in flight the app is shown (fail open); any failure counts as stable."
+        fish_ref: "components/VersionWrapper.tsx:133-146,148-188,207-213"
+      - id: global.version-check.c2
+        text: "update_available shows „🎉 Versiune nouă disponibilă” with „Actualizare” and „Sari peste”; skip is remembered for that app version."
+        fish_ref: "components/VersionWrapper.tsx:26-35,113-120,164-170,190-195"
+      - id: global.version-check.c3
+        text: "unsupported shows „👇 Actualizare necesară” with only „Actualizare” (blocking)."
+        fish_ref: "components/VersionWrapper.tsx:36-45,214-218"
+      - id: global.version-check.c4
+        text: "„Actualizare” opens the store listing and logs update_app_ios_clicked / update_app_android_clicked."
+        fish_ref: "components/VersionWrapper.tsx:197-205"
+    mobile_only: true
+    web_replacement: "None: the web is always the deployed version, so there is no update wall. The web transport sends x-app-platform: web, which the CMS must never treat as an outdated app (contract to keep, see global.b.api-headers)."
+    status: todo
+
+  - id: global.push
+    title: Notificări push
+    fish:
+      - contexts/NotificationsContextProvider.tsx
+      - helpers/notificationPressDedup.ts
+      - helpers/notifications/getNotificationPresentation.ts
+      - helpers/getRedirectLocationForNotification.ts
+      - services/api/push-tokens.ts
+      - features/chat/domain/pushPresentation.ts
+      - features/chat/push/chatPush.ts
+      - constants/notifications.ts
+    web_route: none
+    template: none
+    milestone: M2
+    roles: [angler, organizer, referee, operator]
+    core: [social.getRedirectLocationForNotification, social.markNotificationAsReadMutation]
+    states:
+      - signed out (no registration)
+      - permission granted / denied
+      - simulator (no FCM, silent)
+      - foreground push
+      - background tap
+      - cold-start tap
+      - duplicate delivery of one tap
+    criteria:
+      - id: global.push.c1
+        text: "Only when signed in and without a token yet: Android channels are created, permission is requested, the FCM token is fetched and registered (createPushToken)."
+        fish_ref: "contexts/NotificationsContextProvider.tsx:62-127,248-270,350-353"
+      - id: global.push.c2
+        text: "A push received in the foreground invalidates notification queries (and competitions/competition/rankings for competition types, news for NEWS) and is re-presented as a local notification; chat pushes for the room already open are not presented."
+        fish_ref: "contexts/NotificationsContextProvider.tsx:274-321"
+      - id: global.push.c3
+        text: "Taps from background, foreground-presented and cold start all go through one handler; the same payload within 1.5 s is ignored as a duplicate delivery."
+        fish_ref: "contexts/NotificationsContextProvider.tsx:147-155,323-337,356-372; helpers/notificationPressDedup.ts:20-32"
+      - id: global.push.c4
+        text: "Rod-alarm and partida-rod local notifications route to the timer / the partidă without the server mapper."
+        fish_ref: "contexts/NotificationsContextProvider.tsx:157-177"
+      - id: global.push.c5
+        text: "A tap logs notification_clicked_from_badge (type, notificationId, redirect_url) and marks the notification read unless it is a chat push."
+        fish_ref: "contexts/NotificationsContextProvider.tsx:237-245"
+    mobile_only: true
+    web_replacement: "In-app notifications only: /notificari list + unread dot in the top bar (account.notifications, account.b.unread-badge). A list tap routes through the same mapper (global.b.notification-routes-web) and marks read. Web push is a later option (ROADMAP §3)."
+    status: todo
+
+behaviours:
+  - id: global.b.guest-browsing
+    text: "Nothing is auth-gated at the layout level: guests can open every public page; screens that need a user gate themselves (Redirect to sign-in, a sign-in prompt, or a disabled query). On web, per-user pages redirect to /intra?next=<path>, public pages render their guest variant (see account.b.signed-out-gate)."
+    fish_ref: "app/(app)/_layout.tsx:42-48; app/(app)/(tabs)/profile.tsx:9-15; app/(app)/partide/join/[code].tsx:27-31"
+  - id: global.b.session-loading-gate
+    text: "Until the stored session is read, the (app) area renders only a spinner, so no screen decides signed-in vs signed-out on a not-yet-known session. Web: the viewer is resolved server-side from the session cookie before rendering."
+    fish_ref: "app/(app)/_layout.tsx:31-40"
+  - id: global.b.session-expired
+    text: "Session expiry on web: the first ApiError with code SESSION_DEAD (401 „Missing or invalid credentials” / „Invalid credentials”) clears the session cookie once, sends the user to /intra?next=<current path> and shows the error toast „Sesiunea ta a expirat. Te rugăm să te autentifici din nou.”; further 401/403 in the same burst (60 s) do nothing and are not reported. A 401 with a bluCode is a handled error, not a dead session. The JWT has no refresh (1 year). Detail: account.b.session-expired."
+    fish_ref: "services/api/api.ts:55-124,141-157; contexts/auth/AuthContext.tsx:257-307"
+  - id: global.b.sign-out-failure
+    text: "If any sign-out step throws, the session is still cleared and the error toast „A aparut o problema. Te rugăm să încerci mai târziu.” is shown (fish copy lacks diacritics in „aparut o problema” — web uses „A apărut o problemă. Te rugăm să încerci mai târziu.”, flagged as a copy fix)."
+    fish_ref: "contexts/auth/AuthContext.tsx:291-295"
+  - id: global.b.api-headers
+    text: "Every CMS request carries Authorization: Bearer <jwt> when signed in, x-app-version and x-app-platform (fish: ios/android; web: web); the request timeout is 45 s. A direct public browser GET stays a CORS simple request (no x-app-* headers); per-user calls go through the web proxy, which adds them."
+    fish_ref: "services/api/api.ts:26-53"
+  - id: global.b.error-normalisation
+    text: "Every failed request rejects with { message, status, code, bluCode?, details? }: a bluCode response keeps the server message and details (handled by the screen); everything else gets the generic message „A apărut o eroare necunoscută. Te rugăm să reîncerci mai târziu.”. Web equivalent: core/transport ApiError."
+    fish_ref: "services/api/api.ts:12-24,141-149,175-185"
+  - id: global.b.focus-refetch
+    text: "Returning to the app invalidates every query (fish AppState active → invalidateQueries()). Web: refetch on window focus / visibilitychange for queries that do not opt out (queries that set refetchOnWindowFocus: false keep it off, as in fish)."
+    fish_ref: "app/_layout.tsx:58-64; hooks/useAppState.ts:12-43"
+  - id: global.b.reconnect-refetch
+    text: "Losing connectivity pauses requests (onlineManager offline); regaining it, or the probe returning to ok, refetches every active query."
+    fish_ref: "contexts/NetInfoContextProvider.tsx:169-178,218-227"
+  - id: global.b.nav-guard
+    text: "Only one forward navigation per 800 ms is accepted app-wide (push/navigate); replace is never gated (redirects, sign-out); back/dismiss end the window. Web: links and programmatic router.push from cards/buttons must not double-push on a double click."
+    fish_ref: "hooks/useNavigationGuard.ts:4-23,63-99; app/(app)/_layout.tsx:13-17"
+  - id: global.b.deep-link-scheme
+    text: "The app answers the custom scheme bluvi:// and universal/app links on https://bluvi-app.wearetribus.com for the path prefixes /competitions, /lakes, /polls and /partide (Android intent filters with autoVerify; iOS associatedDomains + AASA paths /competitions/*, /lakes/*, /polls/*, /partide/*). Any other path on that host falls through to the redirect-stores site, which sends the visitor to the store (catch-all SmartStoreRedirect). Web (M8): the same host/paths must keep opening the app on phones and open the web page elsewhere."
+    fish_ref: "app.json:8,33-35,63-124; ../bluvi-redirect-stores/public/.well-known/apple-app-site-association.json; ../bluvi-redirect-stores/src/App.tsx:27-40"
+  - id: global.b.legacy-path-redirects
+    text: "Every URL the app has ever shared or a push can target must resolve on web (permanent redirect to the Romanian route, query preserved where meaningful, timestamp dropped): /competitions/{id} → /concursuri/{id}; ?activeTabId=clasament → /concursuri/{id}/clasament; =participanti → /participanti (participantsFilter=pending → ?filtru=in-asteptare); =extracantare → /extra-cantare; =informatii → /informatii; =regulament → /regulament; ?openWeighingSheet=1&standId&weighingId → /concursuri/{id}/cantare?cantar={weighingId}&stand={standId}; /competitions/{id}/chat?tab= → /concursuri/{id}/chat?camera=; /lakes/{id} → /balti/{id}; /lakes/{id}/reviews → /balti/{id}/recenzii; /polls/current → /sondaje; /partide/join/{code} → /partide/intra/{code}; /partide/comunitate/{documentId} → /partide/{documentId}; /partide/comunitate/capturi/{documentId} → /partide/{documentId}/capturi; /anglers/{documentId} → /pescari/{documentId}; /news/{id} → /stiri/{id}; /bookings/{id} → /rezervari/{id}; /operator/{lakeId}/bookings?status= → /operator/{lakeId}/rezervari?status=; /organizer → /organizator; /penalties/{competitionId} → /concursuri/{competitionId}/penalizari. Unknown ids render a not-found state, never a blank page."
+    fish_ref: "helpers/getRedirectLocationForNotification.ts:30-193; common/utils/competitionRoutes.ts:1-7; app.json:63-124"
+  - id: global.b.share-urls
+    text: "Links the app shares are built on WEB_DOMAIN (https://bluvi-app.wearetribus.com): competition /competitions/{id}, lake /lakes/{documentId}, poll /polls/current, partidă join /partide/join/{code}, partidă spectate /partide/comunitate/{documentId}. Web share actions build absolute web URLs with lib/routes absoluteUrl(); until the domain decision (M8) both URL shapes must resolve (global.b.legacy-path-redirects)."
+    fish_ref: "common/utils/constants.ts:35; app/(app)/competitions/[competitionId].tsx:324-325; features/lakes/components/ShareLakeSheet.tsx:118; helpers/sharePoll.ts:5; features/partide/components/CoopCard.tsx:38-39; features/partide/helpers/deepLinks.ts:19-20"
+  - id: global.b.unmatched-route
+    text: "fish has no not-found route: an unmatched link renders a black page, which is why every notification/link target must exist in all app versions. Web: any unmatched path inside the site renders „Pagina nu există” inside the shell with a link home, with HTTP 404 or noindex (app/(site)/[...rest] → not-found.tsx)."
+    fish_ref: "app/_layout.tsx:95; ../bluvi-redirect-stores/src/App.tsx:34-40"
+  - id: global.b.notification-routes-web
+    text: "Notification type → web route (same rules and same null cases as fish; a missing required id means no navigation): COMPETITION_NEW_REGISTRATION_USER/TEAM, NEW_REJECTION_TEAM/USER, PENDING_USER, REGISTRATION_MODIFIED_PARTICIPANT, START, FOLLOW_COMPETITION_START, NEW_COMPETITIONS with id → /concursuri/{competitionId}; COMPETITION_END, ROUND_END, FOLLOW_COMPETITION_END/PODIUM → /concursuri/{id}/clasament; NEW_REGISTRATION_ORGANIZER → /concursuri/{id}/participanti?filtru=in-asteptare; PARTICIPANTS_ALLOCATION, ROUND_START, NEW_CANCELLATION_ORGANIZER, REGISTRATION_MODIFIED_ORGANIZER, FOLLOW_COMPETITION_REGISTERED/DIGEST → /concursuri/{id}/participanti; WEIGHING_MODIFIED/END (needs sectorName, standName, standId, weighingId — weighihngId accepted as legacy spelling) → /concursuri/{id}/cantare?cantar={weighingId}&stand={standId}; EXTRA_WEIGHT_REQUEST → /concursuri/{id}/extra-cantare; CHAT_MESSAGE → /concursuri/{id}/chat?camera={tab|chatRoom|general}; PENALTY → /concursuri/{id}/penalizari; POLL_OPENED/CLOSED/SUGGESTION_APPROVED → /sondaje; NEWS → /stiri/{newsId}; NEW_LAKES → /balti; NEW_FOLLOWER → /pescari/{followerDocumentId}; PARTIDA_INVITE → /partide/intra/{partidaCode}; PARTIDA_FINISHED, PARTIDA_AUTO_CLOSE_WARN → own partidă by client sessionId (route owned by partide area); PARTIDA_CATCH, PARTIDA_FINISHED_FOLLOWED, FOLLOW_PARTIDA_START/FIRST_CATCH → /partide/{sessionDocumentId}; FOLLOW_RECORD_PERSONAL/LAKE → /partide/{sessionDocumentId}/capturi; FOLLOW_LAKE_REVIEW → /balti/{lakeId}/recenzii; COMPETITION_AUTO_CANCELLED_ORGANIZER → /organizator; BOOKING_*_ANGLER → /rezervari/{bookingId}; BOOKING_NEW_REQUEST_OPERATOR, PENDING_NUDGE_OPERATOR → /operator/{lakeId}/rezervari?status=pending; AUTO_REJECTED_OPERATOR → ?status=rejected; CANCELLED_OPERATOR → ?status=cancelled; NEW_COMPETITIONS without id, COMPETITIONS_DIGEST → /concursuri; SCHEDULED_NOTIFICATION, COMPETITION_CANCELLED_USER, unknown → none. One pure function in core/social/domain builds these from lib/routes."
+    fish_ref: "helpers/getRedirectLocationForNotification.ts:30-193; contexts/NotificationsContextProvider.tsx:54-58"
+  - id: global.b.notification-same-page
+    text: "Opening a notification whose target is the page already shown still acts: fish appends a timestamp so the same route re-navigates; a weighing notification for the competition already open opens that weighing in place; a chat notification for the chat already open switches the room in place instead of stacking another chat. Web: same URL → refetch + open the target in place, never a duplicate history entry."
+    fish_ref: "helpers/getRedirectLocationForNotification.ts:31-32; contexts/NotificationsContextProvider.tsx:188-223"
+  - id: global.b.notification-tap-invalidation
+    text: "Opening a NEWS notification invalidates the news cache; opening any competition-type notification invalidates the competitions and competition caches, so the target page shows fresh data."
+    fish_ref: "contexts/NotificationsContextProvider.tsx:179-186"
+  - id: global.b.firebase-bridge
+    text: "With a session but no Firebase user (cold start, revoked token), a Firebase custom token is re-minted once per session value and signed in, non-fatally — needed for chat and live partide. Web: lib/client/firebase signs in from /firebase-token after the session is known."
+    fish_ref: "contexts/auth/AuthContext.tsx:109-132"
+  - id: global.b.partide-live-mount
+    text: "For a signed-in user one live-partidă subscription is mounted once for the whole app (hydrated from the active-session pointer, Firestore listener on the active session, detached on sign-out), so every page knows about the running partidă. Web: mounted once in the shell for signed-in viewers (partide area owns the details)."
+    fish_ref: "app/(app)/_layout.tsx:19-29,52; features/partide/domain/useLiveMount.ts:1-17"
+  - id: global.b.chat-outbox
+    text: "The chat outbox is drained at start, whenever the device comes back online and on return to the foreground; it is discarded on sign-out so nothing uploads under the next account. Web: drained on load/online/visibility (chat area owns it)."
+    fish_ref: "features/chat/outbox/ChatOutboxMount.tsx:7-31; app/(app)/_layout.tsx:53; contexts/auth/AuthContext.tsx:269-272"
+  - id: global.b.capture-spam-guard
+    text: "One app-wide host shows the „ești sigur?” soft confirmation when a capture is started less than 30 s after the previous one on the same rod bucket; confirming continues to the capture and records a spam signal, cancelling clears it. Web: one host in the shell (partide area owns the flow)."
+    fish_ref: "features/partide/components/CaptureSpamGuardHost.tsx:1-12,25-38; app/(app)/_layout.tsx:54"
+  - id: global.b.observability
+    text: "Errors are reported to Sentry only on production/staging; the user is identified from the stored JWT's id before any request (tag session.state = none|valid|expired|unreadable); the Authorization header is never attached to events; API errors are tagged api_url + api_status and deduped per (status, endpoint) per session. Web: M8 (Sentry)."
+    fish_ref: "app/_layout.tsx:35-51; contexts/auth/AuthContext.tsx:80-105; services/api/api.ts:86-95,158-172"
+  - id: global.b.screen-view-analytics
+    text: "Exactly one screen_view per (pathname, route pattern): navigating between two lakes logs twice, re-rendering the same route logs once; entity ids from the params are attached. Web: GA4 page_view with the same dedupe, after consent (M8)."
+    fish_ref: "analytics/ScreenViewTracker.tsx:7-58"
+  - id: global.b.mobile-only-bits
+    text: "Not ported (mobile only): native splash + animated loader, status bar style / Android edge-to-edge, keyboard provider, bottom-sheet/portal providers, gesture root, timer bootstrap and rod alarms (useTimerBootstrap), Android notification channels, push token registration, app version wall, CMP SDK provider (web: cookie banner, M8), Reanimated logger."
+    fish_ref: "app/_layout.tsx:27-28,53-56,65,68-107"

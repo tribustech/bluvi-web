@@ -1,0 +1,960 @@
+# Parity inventory — area "operator" (Administrare lacuri: alege balta → panoul bălții → rezervări,
+# blocaje, calendar/walk-in, evaluează pescarul).
+# Extracted from fish (read-only) on 2026-10-04. Line refs are fish file:line at that date.
+# The walk-in grid / extras / review steps share BookingFlowProvider, useBookingGridFlow, AvailabilityGrid,
+# ExtrasStep and BookingReview with the angler flow inventoried in booking.yml (booking.rezerva-*); the
+# criteria here list the operator-specific behaviour and point at the shared booking criteria.
+# The home "Balta mea / Bălțile mele" card (components/OwnedLakesCard.tsx) is inventoried in home.yml;
+# its links INTO this area are listed under operator.b.entry-points.
+# The booking detail sheet and the accept / reject / cancel / no-show sheets have no route in fish; they
+# are listed as their own entries (web: dialogs) because three screens open them.
+area: operator
+screens:
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: operator.alege-balta
+    title: Administrare lacuri
+    fish:
+      - app/(app)/operator/index.tsx
+      - components/OwnedLakeCard.tsx
+      - services/queries/useOwnedLakes.ts
+      - services/api/booking.ts
+      - components/ErrorScreen.tsx
+    web_route: /operator
+    template: T1
+    milestone: M7
+    roles: [operator]
+    core:
+      - booking.ownedLakesQuery (GET /feed/owned-lakes; private, per user)
+    states:
+      - signed-out (redirect to /intra and back)
+      - loading (full-area loader)
+      - error (shared error screen with retry; sign-out only for a dead session)
+      - empty — the user administers no lake („Nu administrezi niciun lac.”)
+      - exactly one lake → replaced by that lake's panel
+      - several lakes → list of lake cards
+      - lake without cover image (fallback photo)
+    criteria:
+      - id: operator.alege-balta.c1
+        text: "Header: back button + title „Administrare lacuri”. Back goes to the previous page when there is one, otherwise to Acasă (/)."
+        fish_ref: app/(app)/operator/index.tsx:40-45
+      - id: operator.alege-balta.c2
+        text: "The list is the signed-in user's owned lakes from GET /feed/owned-lakes; while it loads a full-area loader is shown."
+        fish_ref: app/(app)/operator/index.tsx:18,47-48; services/api/booking.ts:231-237
+      - id: operator.alege-balta.c3
+        text: "A failed load shows the shared error screen with „Încearcă din nou” (refetch); a dead session additionally offers „Deconectează-te”."
+        fish_ref: app/(app)/operator/index.tsx:49-50; components/ErrorScreen.tsx:42-57
+      - id: operator.alege-balta.c4
+        text: "When the user owns exactly one lake the picker is skipped: the route is REPLACED (not pushed) by /operator/[lakeId], so Back does not bounce through the picker."
+        fish_ref: app/(app)/operator/index.tsx:20-26
+      - id: operator.alege-balta.c5
+        text: "With no owned lake the list shows the centred empty text „Nu administrezi niciun lac.”"
+        fish_ref: app/(app)/operator/index.tsx:58-64
+      - id: operator.alege-balta.c6
+        text: "One card per lake, in server order; activating a card opens that lake's panel /operator/[lakeId] (push)."
+        fish_ref: app/(app)/operator/index.tsx:28-33,52-57
+      - id: operator.alege-balta.c7
+        text: "Card: lake cover photo as background (bundled lake photo when coverImageUrl is missing) under a dark scrim, the lake name (one line, truncated) and a right chevron."
+        fish_ref: components/OwnedLakeCard.tsx:31,46-62
+      - id: operator.alege-balta.c8
+        text: "Card stats row, three tiles: amber dot + pending count „În așteptare”; teal dot + active count „Active”; cashToCollect formatted ro-RO „De încasat azi (lei)”. Missing values read 0."
+        fish_ref: components/OwnedLakeCard.tsx:65-72
+      - id: operator.alege-balta.c9
+        text: "The whole card is one control (keyboard-focusable on web, named by the lake)."
+        fish_ref: components/OwnedLakeCard.tsx:34-45
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: operator.panou
+    title: Panoul bălții
+    fish:
+      - app/(app)/operator/[lakeId]/index.tsx
+      - features/operator/OperatorQuickAction.tsx
+      - features/operator/todayCounts.ts
+      - features/operator/dashboard/LakeTrendCard.tsx
+      - features/operator/dashboard/trendLabels.ts
+      - features/operator/OperatorBookingSheet.tsx
+      - features/bookings/ui/AlertCard.tsx
+      - features/bookings/ui/StatTile.tsx
+      - features/partide/components/ActivityLineChart.tsx
+      - helpers/formatBookingPeriod.ts
+      - services/queries/useLakeOperatorStats.ts
+      - services/queries/useOwnedLakes.ts
+      - services/api/operatorStats.ts
+      - models/operatorStats.type.ts
+    web_route: /operator/[lakeId]
+    template: T5
+    milestone: M7
+    roles: [operator]
+    core:
+      - lakes.lakeOperatorStatsQuery (GET /feed/lakes/:id/operator-stats?window=; placeholder = previous)
+      - booking.ownedLakesQuery (lake name for the header)
+      - booking.domain.todayCounts (todayPhase, todayMoment, todayMomentBand, todayListRows, groupTodayByStand, stayProgress, cashDueToday)
+      - booking.domain.trendLabels (trendAxisLabels, trendDetailLabel, trendScrubOccupancy, trendSummary)
+      - booking.domain.bookingCard (formatLei)
+      - formatBookingPeriod — not in core yet (fish helpers/formatBookingPeriod.ts)
+    states:
+      - signed-out (redirect to /intra and back)
+      - not the owner of this lake (server refuses → error state)
+      - first load (header + spinner, no quick actions)
+      - error with no data (header + shared error screen)
+      - loaded, no pending requests (request card hidden)
+      - loaded, 1 / N pending requests, with / without oldestPending (older CMS)
+      - today empty / empty except a competition („Nicio rezervare în afara concursului.”)
+      - today with plain stands, turnover stands, more than 5 stands („Vezi toate”)
+      - booking live (progress bar), done / no-show (dimmed), next
+      - cancellations in last 24h and/or stays to review (card shown) / neither (card hidden)
+      - occupancyNow present vs absent (label „acum” vs „azi”)
+      - cash tile with 7-day figure / no arrivals today / all paid / none of these
+      - trend window switching (chart dimmed, rest of the page unchanged)
+      - trend card hidden when the window has no points
+      - scrubbing a chart point (header shows the day's numbers)
+      - booking detail dialog open (see operator.detaliu-rezervare)
+    criteria:
+      - id: operator.panou.c1
+        text: "Header: back button, title = the lake's name from the owned-lakes list (fallback „Balta”), caption „Azi, {weekday d MMM}” in Romanian (e.g. „Azi, sâmbătă 4 oct.”); title centred."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:459-460,494-516
+      - id: operator.panou.c2
+        text: "Data is GET /feed/lakes/{lakeId}/operator-stats?window={week|month|year}; the window starts at „week” and is the only parameter — every figure above the trend card is anchored to now/today."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:449-452,462-464; services/api/operatorStats.ts:15-22
+      - id: operator.panou.c3
+        text: "First load: header plus a centred spinner; quick actions are not shown until data exists."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:545-558
+      - id: operator.panou.c4
+        text: "Error with no cached data: the header stays and the shared error screen (retry) replaces the body. A failed refetch with data keeps the data on screen."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:519-529
+      - id: operator.panou.c5
+        text: "Refresh (pull-to-refresh in fish; web: a refresh control) refetches the stats for the current window."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:466-470,538
+      - id: operator.panou.c6
+        text: "Quick actions row, three tiles in this order: „Calendar” (blue, calendar icon) → /operator/[lakeId]/calendar; „Rezervări” (indigo, ticket icon, red badge = pending count, „99+” above 99, no badge at 0) → /operator/[lakeId]/rezervari?status=pending when pending > 0, else /operator/[lakeId]/rezervari; „Blocaje” (red, no-symbol icon) → /operator/[lakeId]/blocaje."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:171-201; features/operator/OperatorQuickAction.tsx:72-89
+      - id: operator.panou.c7
+        text: "The quick actions row sticks to the top once the header scrolls away (fish: floating card at rest, full-bleed bar when pinned with labels fading out). Web: the row stays reachable while scrolling without covering content."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:122-204,472-487,540
+      - id: operator.panou.c8
+        text: "Pending-requests alert (amber, clock icon) shown only when pending > 0: title „1 cerere așteaptă răspuns” / „{n} cereri așteaptă răspuns”; action „Răspunde” → /operator/[lakeId]/rezervari?status=pending."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:630-653
+      - id: operator.panou.c9
+        text: "Alert subtitle = oldest pending request: „{anglerName|Pescar} · standul {standName} · de {age}” (parts omitted when missing); age reads „de {m} min” under 60 min, „de {h} oră|ore” under 24 h, else „de {d} zi|zile”. Without oldestPending (older CMS) the subtitle is „Nu sunt confirmate până le răspunzi”."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:63-71,637-647
+      - id: operator.panou.c10
+        text: "„Azi la baltă” card: heading, then a caption band of what today holds — „{n} vine|vin · {n} stă|stau · {n} pleacă”, empty segments dropped, pending requests excluded; no caption when the band is empty."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:605,662-671; features/operator/todayCounts.ts:99-103,159-167
+      - id: operator.panou.c11
+        text: "When a competition runs today (todayCompetition), an indigo row with a trophy shows its name and „Concurs · {period}”; activating it opens /concursuri/[id]."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:673-696
+      - id: operator.panou.c12
+        text: "Today's rows come from data.today (not upcoming, so a stay that began at 06:00 is still listed), pending excluded, grouped by stand in natural order (9 before 10), bookings inside a stand by start time."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:599-601,655-657; features/operator/todayCounts.ts:92-103,171-183
+      - id: operator.panou.c13
+        text: "At most 5 stands are listed; with more, a footer link „Vezi toate ({n} standuri)” opens /operator/[lakeId]/rezervari (default bucket Confirmate · Azi)."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:206-207,601,719-732
+      - id: operator.panou.c14
+        text: "Empty today: „Nicio rezervare azi.”, or „Nicio rezervare în afara concursului.” when a competition is shown."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:734-740
+      - id: operator.panou.c15
+        text: "Single-booking stand row: angler avatar (initials fallback), name (fallback „Pescar”), caption „Standul {stand}” (bold indigo) · „{Wd HH:mm} → {Wd HH:mm}” (2-letter Romanian weekday at both ends); the money column on the right."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:275-333
+      - id: operator.panou.c16
+        text: "A live stay (confirmed, now inside its window, not no-show) shows a progress bar with „{elapsed}h din {total}h”; a finished or no-show row is dimmed."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:256-268,287-288,304,329; features/operator/todayCounts.ts:18-26,109-121
+      - id: operator.panou.c17
+        text: "Money column: „{total} lei” when priceTotal > 0; under it „N-a venit” (red) for a no-show, else „Numerar” when balanceDue > 0 or „Plătit” otherwise; nothing when the price is 0."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:211-254
+      - id: operator.panou.c18
+        text: "Turnover stand (2+ bookings on one stand today): one block, anglers in time order joined by a thread; each avatar carries a green in-badge (arrives) or red out-badge (leaves/stays); the caption is the moment label — „vine HH:mm · {h}h”, „a venit HH:mm · pleacă HH:mm”, „a venit HH:mm · a plecat HH:mm”, „a venit HH:mm → Wd HH:mm”, „pleacă HH:mm”, „a plecat HH:mm” or „Wd HH:mm → Wd HH:mm”."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:343-439; features/operator/todayCounts.ts:131-156
+      - id: operator.panou.c19
+        text: "Activating a today row (one with a documentId) opens the booking detail dialog on that booking (operator.detaliu-rezervare); rows without documentId are not interactive."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:454-455,373-374,715,574
+      - id: operator.panou.c20
+        text: "Drop-outs line, shown when cancelledLast24h > 0: red x icon, „1 rezervare anulată de un pescar” / „{n} rezervări anulate de pescari”, caption „în ultimele 24 de ore · standurile sunt din nou libere”, text link „Vezi” → /operator/[lakeId]/rezervari?status=cancelled."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:747-778
+      - id: operator.panou.c21
+        text: "Review-queue line, shown when pendingFeedback > 0 (below the drop-outs, hairline between): star icon, „1 partidă de evaluat” / „{n} partide de evaluat”, caption „încheiate fără notă”, link „Vezi” → /operator/[lakeId]/rezervari?status=toreview. The card is hidden when both counts are 0."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:780-820
+      - id: operator.panou.c22
+        text: "Occupancy tile: value occupancyNow.booked „/{total}” labelled „standuri ocupate acum”; when the CMS sends no occupancyNow, the last entry of occupancyByDay labelled „standuri ocupate azi”; 0/0 when neither."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:614-623,825-831
+      - id: operator.panou.c23
+        text: "Cash tile: deIncasatAzi (fallback: client sum of today's ARRIVALS that are confirmed/completed and not no-show) as „{n} lei”, label „de încasat azi, la sosire”."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:606-610,832-837; features/operator/todayCounts.ts:80-90
+      - id: operator.panou.c24
+        text: "Cash tile sub-line: „Următoarele 7 zile: {deIncasat7z} lei (azi inclus)” when deIncasat7z > 0; else „Nicio sosire azi” when today is empty; else „Totul e achitat” when today's cash is 0; else nothing."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:842-852
+      - id: operator.panou.c25
+        text: "Trend card „Cum merge balta” shown only when data.days is non-empty: window chips „Săptămâna”, „Luna”, „Anul” (active filled indigo) and a metric switch „Ocupare” / „Încasări” (default Ocupare)."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:859-868; features/operator/dashboard/LakeTrendCard.tsx:10-14,43-67,101,126-151
+      - id: operator.panou.c26
+        text: "Changing the window refetches only with the new window and keeps the previous data on screen (chart dimmed to half opacity while fetching); no number above the chart changes or blanks."
+        fish_ref: services/queries/useLakeOperatorStats.ts:6-15; features/operator/dashboard/LakeTrendCard.tsx:153
+      - id: operator.panou.c27
+        text: "Chart: one series at a time (booked stands or cash); occupancy y-axis scaled to the lake's stand total, not the busiest day; y labels rounded to whole numbers; points drawn when ≤ 12."
+        fish_ref: features/operator/dashboard/LakeTrendCard.tsx:105-120,155-169
+      - id: operator.panou.c28
+        text: "X labels: week → day initials D L M M J V S; month → day number every 5th bucket plus the last; year → month short names (ian … dec). Date keys are parsed without timezone shift."
+        fish_ref: features/operator/dashboard/trendLabels.ts:18-42
+      - id: operator.panou.c29
+        text: "Scrubbing (pointer/keyboard on web) a point shows in the header „{day label} · {occupancy} · {cash} lei”; day label „{weekday} d mmm” for week, „d mmm” for month, full month name for year; occupancy „booked/total”, or „{n} rezervare|rezervări” for year buckets. Scrubbing must not scroll the page."
+        fish_ref: features/operator/dashboard/LakeTrendCard.tsx:122-137,164-168; features/operator/dashboard/trendLabels.ts:44-60; app/(app)/operator/[lakeId]/index.tsx:456-457,537
+      - id: operator.panou.c30
+        text: "Summary under the chart: „{Săptămâna asta|Luna asta|Anul acesta} · {avg}% ocupare medie · {cash} lei · {n} rezervare|rezervări”; just the window title when windowTotals is missing."
+        fish_ref: features/operator/dashboard/trendLabels.ts:62-82; features/operator/dashboard/LakeTrendCard.tsx:173-177
+      - id: operator.panou.c31
+        text: "Section order: quick actions, pending alert, Azi la baltă, drop-outs/review card, two stat tiles side by side, trend card."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:625-869
+      - id: operator.panou.c32
+        text: "Back from the panel returns to the previous page (picker, Acasă or wherever the operator came from)."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:503
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: operator.rezervari
+    title: Administrare rezervări
+    fish:
+      - app/(app)/operator/[lakeId]/bookings.tsx
+      - features/operator/bookingBuckets.ts
+      - features/operator/OperatorBookingRow.tsx
+      - features/operator/AnglerRatingBadge.tsx
+      - features/operator/bookingAge.ts
+      - features/operator/cancelNotes.ts
+      - features/operator/todayCounts.ts
+      - features/operator/BookingDetailSheet.tsx
+      - features/operator/useOperatorBookingActions.tsx
+      - features/bookings/ui/SegmentedTabs.tsx
+      - features/bookings/ui/SubFilterRow.tsx
+      - features/bookings/ui/InlineErrorState.tsx
+      - features/bookings/ui/BookingListSkeleton.tsx
+      - features/bookings/ui/statusModel.ts
+      - contexts/CollapsibleHeaderContext.tsx
+      - services/queries/useLakeBookings.ts
+      - services/queries/useUserReputation.ts
+      - services/api/booking.ts
+    web_route: /operator/[lakeId]/rezervari?status=pending|cancelled|rejected|toreview|all
+    template: T1
+    milestone: M7
+    roles: [operator]
+    core:
+      - booking.lakeBookingsInfiniteQuery (GET /feed/bookings/lake/:lakeId?bucket&sub&page&pageSize=20; meta.pendingCount)
+      - booking.domain.operatorBookingBuckets (BUCKETS, BUCKET_LABELS, SUB_LABELS, subsFor, defaultSub, bucketFromLegacyStatus, emptyCopy)
+      - booking.domain.bookingCard (bookingName, bookingPeriod, bookingHours, bookingActionGates, PAYMENT, formatLei)
+      - booking.domain.statusModel (statusAppearance, viewer operator)
+      - booking.domain.bookingAge (bookingAgeLabel, isRequestStale)
+      - booking.domain.cancelNotes (stripAppendedCancelReason, meaningfulNoShowNote)
+      - booking.domain.todayCounts (todayMoment for turnover cards)
+      - social.userReputationQuery (rating badge + no-show pill per row)
+    states:
+      - signed-out (redirect to /intra and back)
+      - first load of a tab (skeleton, not the previous tab's rows)
+      - first-page error (inline error with retry, no sign-out)
+      - empty per bucket/sub (dedicated copy)
+      - loaded; next page loading (footer spinner); next page failed (inline footer retry)
+      - Confirmate · Azi with turnover stands (grouped card)
+      - De aprobat with requests (Acceptă / Refuză on cards), stale request (age in red)
+      - De evaluat (Evaluează pescarul on cards)
+      - cancelled / rejected / no-show rows (quiet card + reason)
+      - opened with ?status= from a notification, the panel or Acasă
+    criteria:
+      - id: operator.rezervari.c1
+        text: "Header: back, title „Administrare rezervări”, trailing round calendar button (accessible name „Calendarul bălții”) → /operator/[lakeId]/calendar."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:344-368
+      - id: operator.rezervari.c2
+        text: "Tabs in order „De aprobat” (clock), „Confirmate” (calendar), „Nefinalizate” (x-circle), „Toate” (list), each with its icon."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:30-36,176-187; features/operator/bookingBuckets.ts:17-26
+      - id: operator.rezervari.c3
+        text: "„De aprobat” carries a count = meta.pendingCount of the FIRST page of the current list; the count is omitted at 0 (and during first load)."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:143-145,181-184; services/api/booking.ts:166-172
+      - id: operator.rezervari.c4
+        text: "Sub-filters appear only for Confirmate (Toate, Azi, Viitoare, Trecute, De evaluat) and Nefinalizate (Toate, Cereri neacceptate, Anulate, Neprezentări); „Toate” is the bucket's unfiltered view. Default sub: Confirmate → Azi, others → Toate."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:189-195,199-200; features/operator/bookingBuckets.ts:28-52
+      - id: operator.rezervari.c5
+        text: "Each tab remembers the sub-filter last chosen in it while the page is open."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:74-78,168-174
+      - id: operator.rezervari.c6
+        text: "Initial tab from ?status: pending → De aprobat; cancelled → Nefinalizate · Anulate; rejected → Nefinalizate · Cereri neacceptate; toreview → Confirmate · De evaluat; all → Toate; anything else/absent → Confirmate · Azi."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:66-73; features/operator/bookingBuckets.ts:63-75
+      - id: operator.rezervari.c7
+        text: "Changing tab or sub-filter scrolls the list back to the top and brings the header back."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:156-174
+      - id: operator.rezervari.c8
+        text: "One infinite list per (bucket, sub): GET /feed/bookings/lake/{lakeId}?bucket&sub&page&pageSize=20; a page shorter than pageSize is the last; next page loads near the end of the list (web: on scroll near bottom or a „Mai multe” control)."
+        fish_ref: services/queries/useLakeBookings.ts:16-25; services/api/booking.ts:152-176; app/(app)/operator/[lakeId]/bookings.tsx:287-290
+      - id: operator.rezervari.c9
+        text: "An uncached tab shows a list skeleton (the previous tab's rows are not kept); a cached tab paints at once and revalidates."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:234-240; services/queries/useLakeBookings.ts:11-15
+      - id: operator.rezervari.c10
+        text: "First-page failure: inline error „Nu am putut încărca rezervările.” / „Verifică conexiunea și încearcă din nou.” + „Încearcă din nou”; no back button duplicate, no sign-out."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:241-250; features/bookings/ui/InlineErrorState.tsx:13-33
+      - id: operator.rezervari.c11
+        text: "Next-page failure keeps loaded rows and shows a footer „Nu am putut încărca mai multe.” + „Încearcă din nou” that refetches the next page; while loading the next page a footer spinner shows."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:291-316
+      - id: operator.rezervari.c12
+        text: "Empty copy: De aprobat „Nimic de aprobat.”; Confirmate „Nicio rezervare confirmată.”, · Azi „Nicio rezervare azi.”, · Viitoare „Nicio rezervare viitoare.”, · Trecute „Nicio rezervare încheiată.”, · De evaluat „Nimic de evaluat.”; Nefinalizate „Nimic nefinalizat.”, · Cereri neacceptate „Nicio cerere neacceptată.”, · Anulate „Nicio anulare.”, · Neprezentări „Nicio neprezentare.”; Toate „Nicio rezervare.”"
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:325-331; features/operator/bookingBuckets.ts:77-95
+      - id: operator.rezervari.c13
+        text: "Refresh (pull-to-refresh; web: refresh control) refetches the current list."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:148-154,317-324
+      - id: operator.rezervari.c14
+        text: "Confirmate · Azi only: rows grouped by stand (natural order); a stand with 2+ stays today becomes one turnover card — rows without their own card, in/out badge on the avatar, the moment label instead of the period, thread between rows. Other lists keep server start-time order."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:90-110,207-217; features/operator/OperatorBookingRow.tsx:127-147,183,279-324
+      - id: operator.rezervari.c15
+        text: "Card header: avatar (initials fallback) with a star rating pill „★ {avg 1 decimal}” when the angler has ratings; name = angler username, else contact name, else „Pescar”; a red „{n} neprezentare|neprezentări” pill when the angler has no-shows."
+        fish_ref: features/operator/OperatorBookingRow.tsx:117-154; features/operator/AnglerRatingBadge.tsx:12-40; features/operator/BookingDetailSheet.tsx:46,81-99
+      - id: operator.rezervari.c16
+        text: "Pending request age next to the name: „acum câteva secunde”, „acum {m} min”, „acum {h} h[ {m} min]”, „acum o zi”, „acum {d} zile”; shown in red once the request waited ≥ 5 h."
+        fish_ref: features/operator/OperatorBookingRow.tsx:77-78,155-159; features/operator/bookingAge.ts:7-42
+      - id: operator.rezervari.c17
+        text: "Second line: „Standul {name}” bold indigo plus a green chip per booked extra (label)."
+        fish_ref: features/operator/OperatorBookingRow.tsx:161-180
+      - id: operator.rezervari.c18
+        text: "Third line: „{Wd d mmm HH:mm} → {Wd d mmm HH:mm} · {h}h” (duration from basis.durationHours, else rounded hours, min 1); while the stay runs the duration is dropped and a progress bar „{elapsed}h din {h}h” is shown."
+        fish_ref: features/operator/OperatorBookingRow.tsx:69-74,181-198; features/operator/BookingDetailSheet.tsx:43-52
+      - id: operator.rezervari.c19
+        text: "Right column: „{priceTotal} lei”; under it the status pill (operator wording) for any status other than confirmed or for a no-show, else the money pill: Numerar / Avans / Plătit / Rambursat from paymentStatus."
+        fish_ref: features/operator/OperatorBookingRow.tsx:63-68,89-91,200-224; features/operator/BookingDetailSheet.tsx:34-39
+      - id: operator.rezervari.c20
+        text: "Cancelled, rejected, finished-quiet and no-show bookings render as a quiet (muted) card."
+        fish_ref: features/operator/OperatorBookingRow.tsx:76,115,274-277
+      - id: operator.rezervari.c21
+        text: "The angler's note shows one line in „…” quotes with the appended „[Anulare operator] …” / „[Refuz operator] …” part stripped; hidden when empty."
+        fish_ref: features/operator/OperatorBookingRow.tsx:80,227-231; features/operator/cancelNotes.ts:10-15
+      - id: operator.rezervari.c22
+        text: "Reason line: „Motiv anulare: …” (cancelled) / „Motiv refuz: …” (rejected) from cancelReason; otherwise „Neprezentare: …” for a no-show whose note is not the default „Pescarul nu s-a prezentat.”; clamped to 2 lines with a „vezi mai mult / vezi mai puțin” toggle when longer than 90 characters."
+        fish_ref: features/operator/OperatorBookingRow.tsx:81-87,233-247; features/operator/cancelNotes.ts:23-29
+      - id: operator.rezervari.c23
+        text: "Action buttons on the card only in De aprobat and Confirmate · De evaluat: pending → [Sună] „Refuză” + „Acceptă”; rateable → [Sună] „Evaluează pescarul”. All other lists keep actions in the detail dialog only."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:224; features/operator/OperatorBookingRow.tsx:249-252
+      - id: operator.rezervari.c24
+        text: "Activating a card opens the booking detail dialog for that booking (operator.detaliu-rezervare) with the same actions, stretched; Acceptă / Evaluează close the detail first."
+        fish_ref: features/operator/OperatorBookingRow.tsx:93-114,267
+      - id: operator.rezervari.c25
+        text: "While an action runs on a booking its buttons are disabled (actingId)."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:146,223; features/operator/useOperatorBookingActions.tsx:23-33
+      - id: operator.rezervari.c26
+        text: "?focus={bookingId}: once that booking is in the loaded rows the list scrolls it under the header, once only (not again on refetch); at index 0 it only reveals the header."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:68-71,112-142,267-286
+      - id: operator.rezervari.c27
+        text: "The title row collapses on scroll while the tabs/sub-filters stay pinned at the top; the tab row runs edge to edge so an off-screen tab is visibly cut (web: horizontally scrollable tab row with focusable tabs)."
+        fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:43-64,335-387
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: operator.detaliu-rezervare
+    title: Detaliu rezervare (operator)
+    fish:
+      - features/operator/BookingDetailSheet.tsx
+      - features/operator/OperatorBookingSheet.tsx
+      - features/operator/AnglerRatingBadge.tsx
+      - features/operator/cancelNotes.ts
+      - features/bookings/ui/statusModel.ts
+      - services/queries/useBooking.ts
+      - services/queries/useUserReputation.ts
+    web_route: "dialog on /operator/[lakeId], /operator/[lakeId]/rezervari and /operator/[lakeId]/calendar (?rezervare=[bookingId])"
+    template: none
+    milestone: M7
+    roles: [operator]
+    core:
+      - booking.bookingQuery (GET /feed/bookings/:id — when opened from the panel or calendar)
+      - booking.domain.bookingCard (bookingName, bookingPeriod, bookingHours, bookingActionGates, PAYMENT, formatLei)
+      - booking.domain.statusModel (statusAppearance)
+      - booking.domain.cancelNotes
+      - social.userReputationQuery
+    states:
+      - loading (skeleton) when opened from the panel on an id
+      - stale booking from a previous open (never shown)
+      - with / without price basis
+      - fully paid / partly paid / unpaid
+      - with note / cancel reason / reject reason / meaningful no-show note
+      - angler with account (profile link) / walk-in without account
+      - pending / cancellable / rateable / none (action row variants)
+    criteria:
+      - id: operator.detaliu-rezervare.c1
+        text: "Opened from the panel or calendar on an id, the dialog fetches GET /feed/bookings/{id} and shows a skeleton (avatar, two lines, two blocks) until it arrives; a booking fetched for a previous id is never displayed."
+        fish_ref: features/operator/OperatorBookingSheet.tsx:18-35; features/operator/BookingDetailSheet.tsx:213-228,260
+      - id: operator.detaliu-rezervare.c2
+        text: "Opened from the list or the calendar grid, the dialog shows the row's booking immediately (fish seeds the detail cache) and revalidates in the background."
+        fish_ref: features/operator/OperatorBookingRow.tsx:267; app/(app)/operator/[lakeId]/walk-in/index.tsx:65-68
+      - id: operator.detaliu-rezervare.c3
+        text: "Header as the card: avatar (48) with rating pill, name, no-show pill, „Standul …” + extras chips, „{period} · {h}h”, price and the status pill (always shown here)."
+        fish_ref: features/operator/BookingDetailSheet.tsx:295-363
+      - id: operator.detaliu-rezervare.c4
+        text: "When the booking has an angler account, avatar and name (indigo) open /pescari/[anglerId] and close the dialog; walk-in bookings without account have no link."
+        fish_ref: features/operator/BookingDetailSheet.tsx:279-285,298,309-318
+      - id: operator.detaliu-rezervare.c5
+        text: "„Cum s-a calculat” block when basis exists: tour line (rowLabel, else „Tur {h}h”) with its price, one line per extra („{label} × {qty}” when qty > 1) with its total, divider, bold „Total {priceTotal} lei”."
+        fish_ref: features/operator/BookingDetailSheet.tsx:365-378
+      - id: operator.detaliu-rezervare.c6
+        text: "„Plată” block: „Stare” = money label; „Încasat {amountPaid} lei” when > 0; bold „Rest de plată {total − paid} lei” when paid < total."
+        fish_ref: features/operator/BookingDetailSheet.tsx:380-386
+      - id: operator.detaliu-rezervare.c7
+        text: "„Rezervare” block: „Cod” = booking code; „Cerută” = createdAt as „Wd d mmm, HH:mm”; „Telefon” = contactPhone when present."
+        fish_ref: features/operator/BookingDetailSheet.tsx:388-408
+      - id: operator.detaliu-rezervare.c8
+        text: "Optional blocks: „Mesaj de la pescar” (note in „…”, appended operator reason stripped); „Motiv refuz” / „Motiv anulare” from cancelReason; „Neprezentare” with a meaningful no-show note."
+        fish_ref: features/operator/BookingDetailSheet.tsx:410-433
+      - id: operator.detaliu-rezervare.c9
+        text: "Action row at the bottom (stretched buttons): pending → „Refuză” (danger) + „Acceptă” (solid); confirmed, not ended, not no-show → „Anulează rezervarea”; confirmed/completed, ended, not no-show, not reviewedByOperator → „Evaluează pescarul”; a „Sună” icon button precedes them whenever contactPhone exists; nothing else otherwise."
+        fish_ref: features/operator/BookingDetailSheet.tsx:54-62,107-183,434
+      - id: operator.detaliu-rezervare.c10
+        text: "„Sună” opens tel:{contactPhone} (web: tel: link) and logs analytics contact_pressed {contact_type: 'Operator guest contact', lake_id, lake_name}."
+        fish_ref: features/operator/BookingDetailSheet.tsx:124-138
+      - id: operator.detaliu-rezervare.c11
+        text: "„Acceptă” closes the detail and opens the accept confirmation; „Refuză” opens the reject reason dialog; „Anulează rezervarea” opens the cancel reason dialog (operator.actiuni-rezervare)."
+        fish_ref: features/operator/OperatorBookingSheet.tsx:45-59; features/operator/OperatorBookingRow.tsx:95-111
+      - id: operator.detaliu-rezervare.c12
+        text: "„Evaluează pescarul” closes the detail and opens /operator/evalueaza/[bookingId] carrying angler name, id, avatar, stand and period."
+        fish_ref: features/operator/BookingDetailSheet.tsx:64-78; features/operator/OperatorBookingSheet.tsx:55-58
+      - id: operator.detaliu-rezervare.c13
+        text: "Closing (Esc, backdrop, close button on web) clears the open id; it can be reopened on another booking immediately."
+        fish_ref: features/operator/OperatorBookingSheet.tsx:25-31; app/(app)/operator/[lakeId]/index.tsx:574
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: operator.actiuni-rezervare
+    title: Acceptă / Respinge / Anulează / Neprezentare
+    fish:
+      - features/operator/useOperatorBookingActions.tsx
+      - features/operator/AcceptBookingSheet.tsx
+      - features/operator/cancelReasons.ts
+      - features/bookings/CancelBookingSheet.tsx
+      - services/mutations/useAcceptBooking.ts
+      - services/mutations/useRejectBooking.ts
+      - services/mutations/useOperatorCancelBooking.ts
+      - services/mutations/useMarkNoShow.ts
+      - services/mutations/invalidateOperatorSurfaces.ts
+      - services/api/booking.ts
+    web_route: "dialogs over operator.rezervari / operator.panou / operator.detaliu-rezervare"
+    template: none
+    milestone: M7
+    roles: [operator]
+    core:
+      - booking.acceptBookingMutation (PATCH /feed/bookings/:id/accept)
+      - booking.rejectBookingMutation (PATCH /feed/bookings/:id/reject {reason})
+      - booking.operatorCancelBookingMutation (PATCH /feed/bookings/:id/operator-cancel {reason})
+      - booking.markNoShowMutation (POST /feed/bookings/:id/no-show {data:{comment}}; also invalidates reputation)
+      - booking.invalidateOperatorSurfaces
+      - booking.domain.cancelReasons (OPERATOR_CANCEL_REASONS, NO_SHOW_REASON_KEY, friendlyActionError)
+    states:
+      - accept confirmation open / submitting
+      - reject reason empty / too short / valid / submitting
+      - cancel reason not picked / picked with prefill / edited / submitting
+      - server refusal (STAND_TAKEN, INVALID_STATUS, reason required, other)
+    criteria:
+      - id: operator.actiuni-rezervare.c1
+        text: "Accept never acts directly: it opens a confirmation „Accepți rezervarea?” with „Pescarul primește notificare, iar standul se blochează pentru acest interval.”"
+        fish_ref: features/operator/AcceptBookingSheet.tsx:23-63
+      - id: operator.actiuni-rezervare.c2
+        text: "Accept confirmation body: stand badge (when stand), angler name, period; rows „Stand” and „Extra” (comma-joined labels, only when present); total „Încasezi” / „la fața locului” / „{amount} lei”."
+        fish_ref: features/operator/AcceptBookingSheet.tsx:65-83
+      - id: operator.actiuni-rezervare.c3
+        text: "Buttons „Renunță” (closes) and „Confirmă” (check icon, disabled while submitting); Confirmă closes the dialog and PATCHes /accept; success toast „Rezervare confirmată”."
+        fish_ref: features/operator/AcceptBookingSheet.tsx:85-95; features/operator/useOperatorBookingActions.tsx:25-35; features/operator/OperatorBookingRow.tsx:262-265
+      - id: operator.actiuni-rezervare.c4
+        text: "Reject opens a reason dialog „Respinge rezervarea”, text „Această acțiune este definitivă. Spune-ne motivul — îl trimitem celeilalte părți.”, free-text placeholder „Motivul refuzului...”, buttons „Înapoi” / „Da, respinge”."
+        fish_ref: features/operator/useOperatorBookingActions.tsx:140-146; features/bookings/CancelBookingSheet.tsx:108-115,151-190
+      - id: operator.actiuni-rezervare.c5
+        text: "Reason is mandatory, ≥ 5 characters after trim; on an invalid confirm the field turns red and shows „Motivul este obligatoriu (minim 5 caractere).”"
+        fish_ref: features/bookings/CancelBookingSheet.tsx:14,64-80,159-176
+      - id: operator.actiuni-rezervare.c6
+        text: "Reject success: toast „Rezervare respinsă” and the dialog closes; the request leaves De aprobat (lists and counts refetch)."
+        fish_ref: features/operator/useOperatorBookingActions.tsx:46-64; services/mutations/useRejectBooking.ts:8-12
+      - id: operator.actiuni-rezervare.c7
+        text: "Cancel opens „Anulează rezervarea” with a required radio list: „Pescarul nu s-a prezentat”, „Pescarul a anunțat telefonic”, „Condiții meteo”, „Lucrări sau închidere”, „Standul nu e disponibil”, „Alt motiv”; picking one prefills the editable text (Alt motiv leaves it empty)."
+        fish_ref: features/operator/cancelReasons.ts:12-33; features/bookings/CancelBookingSheet.tsx:69-74,117-149
+      - id: operator.actiuni-rezervare.c8
+        text: "Confirming without a picked reason shows „Alege un motiv din listă.”; the confirm label is „Da, anulează”, or „Da, marchează” while „Pescarul nu s-a prezentat” is picked."
+        fish_ref: features/bookings/CancelBookingSheet.tsx:67,172-174,181-188; features/operator/cancelReasons.ts:14-19
+      - id: operator.actiuni-rezervare.c9
+        text: "„Pescarul nu s-a prezentat” is not a cancellation: it POSTs /no-show with the text as comment (booking stays confirmed, counts against reputation, no review afterwards); toast „Neprezentare înregistrată”."
+        fish_ref: features/operator/useOperatorBookingActions.tsx:81-99; features/operator/cancelReasons.ts:3-11
+      - id: operator.actiuni-rezervare.c10
+        text: "Any other reason PATCHes /operator-cancel with the text; toast „Rezervare anulată”; the dialog closes."
+        fish_ref: features/operator/useOperatorBookingActions.tsx:101-111
+      - id: operator.actiuni-rezervare.c11
+        text: "Errors are toasted by bluCode: STAND_TAKEN „Standul are deja o rezervare confirmată pe acel interval.”; INVALID_STATUS „Rezervarea nu mai poate fi modificată.”; REJECT_/CANCEL_REASON_REQUIRED „Motivul este obligatoriu (minim 5 caractere).”; else the server message, else „Acțiunea nu a putut fi finalizată. Încearcă din nou.”"
+        fish_ref: features/operator/cancelReasons.ts:44-58
+      - id: operator.actiuni-rezervare.c12
+        text: "While a request runs the confirm button shows loading and both buttons are disabled; the reason dialogs reset (text, pick, error) when closed."
+        fish_ref: features/bookings/CancelBookingSheet.tsx:97-101,179-190; features/operator/useOperatorBookingActions.tsx:121
+      - id: operator.actiuni-rezervare.c13
+        text: "Every success invalidates all bookings queries and all operator-stats queries (panel, home card, inbox, availability); no-show also invalidates reputation."
+        fish_ref: services/mutations/invalidateOperatorSurfaces.ts:18-21; services/mutations/useMarkNoShow.ts:10-15
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: operator.blocaje
+    title: Blocaje și închideri
+    fish:
+      - app/(app)/operator/[lakeId]/blocks.tsx
+      - features/operator/BlockRow.tsx
+      - features/operator/blockListModel.ts
+      - features/operator/blockReasons.ts
+      - services/queries/useLakeBlocks.ts
+      - services/mutations/useDeleteBlock.ts
+      - services/api/booking.ts
+    web_route: /operator/[lakeId]/blocaje
+    template: T1
+    milestone: M7
+    roles: [operator]
+    core:
+      - booking.lakeBlocksQuery (GET /feed/availability-blocks?lakeId=)
+      - booking.deleteBlockMutation (DELETE /feed/availability-blocks/:id; invalidates operator surfaces)
+      - booking.domain.blockListModel (groupBlocks, sectionBlocks, scopeLabel, formatBlockPeriodShort)
+      - booking.domain.blockReasons (BLOCK_REASON_LABELS, BLOCK_REASON_TINT)
+    states:
+      - signed-out (redirect to /intra and back)
+      - loading
+      - error (shared error screen with retry)
+      - empty
+      - upcoming blocks in month sections
+      - past blocks hidden behind „Afișează trecutul (n)” / shown dimmed
+      - multi-stand group row
+      - legacy offlineReservation row with contact name/phone
+      - deleting (spinner on the row)
+    criteria:
+      - id: operator.blocaje.c1
+        text: "Header: back, title „Blocaje și închideri”, trailing round indigo „+” button (accessible name „Adaugă blocaj”) that opens the add form (operator.blocaj-nou)."
+        fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:123-139,145-149
+      - id: operator.blocaje.c2
+        text: "Data GET /feed/availability-blocks?lakeId={lakeId}; loading shows a loader, failure the shared error screen with retry."
+        fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:27,162-165; services/api/booking.ts:247-255
+      - id: operator.blocaje.c3
+        text: "Blocks sharing start, end, reason, note and contact are one row (a multi-stand save); stand names natural-sorted; rows ordered by start."
+        fish_ref: features/operator/blockListModel.ts:48-74
+      - id: operator.blocaje.c4
+        text: "Blocks not yet ended are grouped under month headers „{Luna yyyy}” (by start month, uppercase caption); each section is one card with hairline separators."
+        fish_ref: features/operator/blockListModel.ts:83-99; app/(app)/operator/[lakeId]/blocks.tsx:89-121,174-180
+      - id: operator.blocaje.c5
+        text: "Ended blocks are hidden; a footer link „Afișează trecutul ({n})” reveals them in a last section „Trecut”, newest first, dimmed."
+        fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:37,40-44,183-191; features/operator/blockListModel.ts:89-90; features/operator/BlockRow.tsx:36
+      - id: operator.blocaje.c6
+        text: "Row: tinted square with a reason-coloured dot (Concurs indigo, Închidere red, Întreținere amber, Rezervare telefonică green, Altele grey), the period, „{reason label} · {scope}”, and an optional third line „{contact name · phone} — {note}” (2 lines max)."
+        fish_ref: features/operator/BlockRow.tsx:18-59; features/operator/blockReasons.ts:6-12,24-30
+      - id: operator.blocaje.c7
+        text: "Period formats: same day „Vi 25 sep · 06:00–18:00”; whole days (both midnight) „Vi 4 – Lu 7 sep” showing the last included day (months on both ends when they differ); otherwise „Vi 18 sep 18:00 – Du 20 sep 06:00”."
+        fish_ref: features/operator/blockListModel.ts:29-46
+      - id: operator.blocaje.c8
+        text: "Scope: „Tot lacul” (no stand), „Standul {n}”, „Standurile {a, b, c}”."
+        fish_ref: features/operator/blockListModel.ts:76-81
+      - id: operator.blocaje.c9
+        text: "Trash button (accessible name „Șterge blocajul”) asks for confirmation: single „Șterge blocajul?” / „Această acțiune nu poate fi anulată.”; group „Șterge {n} blocaje?” / „{scope} — se deblochează toate.”; buttons „Înapoi” / „Șterge” (destructive)."
+        fish_ref: features/operator/BlockRow.tsx:24-33,60-73
+      - id: operator.blocaje.c10
+        text: "Delete removes every block of the row, one DELETE after another; the row shows a spinner meanwhile; success toast „Blocaj șters” / „{n} blocaje șterse”; failure toast with the server message or „Nu am putut șterge blocajul.”"
+        fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:52-66; features/operator/BlockRow.tsx:67,72
+      - id: operator.blocaje.c11
+        text: "Empty: „Niciun blocaj.” with „Apasă + pentru a închide lacul sau standuri într-o perioadă.”"
+        fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:192-208
+      - id: operator.blocaje.c12
+        text: "Refresh (pull-to-refresh; web: refresh control) refetches the blocks; a delete invalidates bookings (availability) and operator stats."
+        fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:46-50,182; services/mutations/useDeleteBlock.ts:5-14
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: operator.blocaj-nou
+    title: Adaugă blocaj
+    fish:
+      - app/(app)/operator/[lakeId]/blocks.tsx
+      - features/operator/CreateBlockForm.tsx
+      - features/operator/BlockCalendar.tsx
+      - features/operator/blockCalendarLogic.ts
+      - features/operator/blockReasons.ts
+      - features/lakes/booking/availabilityPaging.ts
+      - helpers/formatBookingPeriod.ts
+      - services/queries/useLakeAvailability.ts
+      - services/mutations/useCreateBlock.ts
+      - services/api/booking.ts
+    web_route: /operator/[lakeId]/blocaje/nou
+    template: T6
+    milestone: M7
+    roles: [operator]
+    core:
+      - booking.lakeAvailabilityInfiniteQuery (stands, slotStartTimes, bookings + blocks per month page)
+      - booking.domain.mergePages
+      - booking.domain.blockCalendarLogic (nextRange, isInRange, busyDaySet, blockTimeOptions, buildBlockInterval, localDayKey)
+      - booking.domain.blockReasons (BLOCK_REASONS, BLOCK_REASON_LABELS)
+      - booking.createBlockMutation (POST /feed/availability-blocks; invalidates operator surfaces)
+    states:
+      - signed-out (redirect to /intra and back)
+      - nothing picked
+      - start day picked, end pending
+      - range picked (summary + „Blocat:” line)
+      - month page loading (spinner next to month name)
+      - validation errors (no range, end not after start, period in the past, note too long)
+      - submitting
+      - partial failure on a multi-stand save
+      - saved and closed / saved and reset for another
+    criteria:
+      - id: operator.blocaj-nou.c1
+        text: "In fish the form replaces the blocks list on the same screen with title „Adaugă blocaj” and no „+”; Back (and „Anulează”) returns to the list. Web: its own route; back/cancel return to /operator/[lakeId]/blocaje."
+        fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:145-161
+      - id: operator.blocaj-nou.c2
+        text: "„Aplică pentru”: chip „Tot lacul” (active when no stand is picked; activating it clears stands) followed by one chip per stand, multi-select toggle."
+        fish_ref: features/operator/CreateBlockForm.tsx:167-193
+      - id: operator.blocaj-nou.c3
+        text: "Stands and tour start times come from the first availability page of the lake."
+        fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:28-30
+      - id: operator.blocaj-nou.c4
+        text: "„Perioadă” month calendar: Monday-first weekday header (Lu … Du), current month first, previous arrow disabled on the current month, next arrow unbounded; title „{Luna yyyy}”."
+        fish_ref: features/operator/BlockCalendar.tsx:12,56-100
+      - id: operator.blocaj-nou.c5
+        text: "Day colours: selected range indigo; past days grey and not selectable; days touched by any booking or block red („Ocupat”); others green („Liber”); legend „Liber” / „Ocupat” below."
+        fish_ref: features/operator/BlockCalendar.tsx:47-54,107-133,135-165; features/operator/blockCalendarLogic.ts:34-50
+      - id: operator.blocaj-nou.c6
+        text: "Navigating to a month not yet loaded fetches further availability pages until it is covered, with a spinner beside the month name meanwhile."
+        fish_ref: features/operator/BlockCalendar.tsx:35-42,84
+      - id: operator.blocaj-nou.c7
+        text: "Range picking: first tap = start; a second tap on the same or a later day = end; a tap before the start, or after a complete range, restarts from that day."
+        fish_ref: features/operator/blockCalendarLogic.ts:12-24
+      - id: operator.blocaj-nou.c8
+        text: "Summary line: „Apasă ziua de început, apoi ziua de sfârșit.” → „{Ziua, d mmm} → apasă ziua de sfârșit (aceeași zi = o singură zi)” → „{start} → {end} · {n} zi|zile” (bold)."
+        fish_ref: features/operator/CreateBlockForm.tsx:44-48,151-157,208-216
+      - id: operator.blocaj-nou.c9
+        text: "Boundary hours: „De la ora” chips 00:00 + the lake's tour start times (no 24:00); „Până la ora” chips the tour start times + 24:00 (no 00:00); defaults 00:00 → 24:00 (whole days); start applies to the start day, end to the end day, 24:00 = next midnight."
+        fish_ref: features/operator/CreateBlockForm.tsx:64-65,217-258; features/operator/blockCalendarLogic.ts:52-79
+      - id: operator.blocaj-nou.c10
+        text: "With a complete range a line „Blocat: {formatted period}” shows the resulting interval."
+        fish_ref: features/operator/CreateBlockForm.tsx:259-263
+      - id: operator.blocaj-nou.c11
+        text: "„Motiv” chips: Concurs, Închidere, Întreținere, Altele (default Închidere); „Rezervare telefonică” is not offered."
+        fish_ref: features/operator/CreateBlockForm.tsx:84-90,279-291; features/operator/blockReasons.ts:14-21
+      - id: operator.blocaj-nou.c12
+        text: "„Notă (opțional)” multiline, placeholder „Detalii suplimentare”, max 500 („Nota poate avea cel mult 500 de caractere.”); trimmed, omitted when blank."
+        fish_ref: features/operator/CreateBlockForm.tsx:27,128,294-307
+      - id: operator.blocaj-nou.c13
+        text: "Validation: start required („Alege data de început.”), end required („Alege data de sfârșit.”), end after start („Data de sfârșit trebuie să fie după data de început.”), end in the future („Perioada trebuie să fie în viitor.”); errors show under the calendar."
+        fish_ref: features/operator/CreateBlockForm.tsx:20-37,264-275
+      - id: operator.blocaj-nou.c14
+        text: "A rejected save toasts the first invalid field's message — „Apasă și ziua de sfârșit (aceeași zi pentru o singură zi).” when only the start was picked, else the field message or „Verifică datele blocajului.” — and scrolls the calendar into view for date errors."
+        fish_ref: features/operator/CreateBlockForm.tsx:41-42,135-148
+      - id: operator.blocaj-nou.c15
+        text: "Buttons: „Salvează și închide” (solid, loading while saving), „Salvează și adaugă altul” (outline), „Anulează” (soft); all disabled while saving."
+        fish_ref: features/operator/CreateBlockForm.tsx:309-324
+      - id: operator.blocaj-nou.c16
+        text: "Save sends one POST /feed/availability-blocks per picked stand (in order), or one whole-lake block when none is picked, with {lake, stand?, startDate, endDate, reason, note?}."
+        fish_ref: features/operator/CreateBlockForm.tsx:120-134; app/(app)/operator/[lakeId]/blocks.tsx:68-80; services/api/booking.ts:239-245
+      - id: operator.blocaj-nou.c17
+        text: "Success toast „Blocaj adăugat” / „{n} blocaje adăugate”; „Salvează și închide” returns to the list; „Salvează și adaugă altul” keeps the form and resets only the period (range and hours), keeping scope, reason and note."
+        fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:78-80; features/operator/CreateBlockForm.tsx:103-112
+      - id: operator.blocaj-nou.c18
+        text: "Failure toast: the server reason (or „Nu am putut adăuga blocajul.”), prefixed „{done} din {n} blocaje adăugate.” when some stands already saved; saved blocks stay."
+        fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:81-85
+      - id: operator.blocaj-nou.c19
+        text: "A created block invalidates bookings (availability, grid) and operator stats."
+        fish_ref: services/mutations/useCreateBlock.ts:6-16
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: operator.calendar
+    title: Calendarul bălții (adaugă rezervare la poartă)
+    fish:
+      - app/(app)/operator/[lakeId]/walk-in/_layout.tsx
+      - app/(app)/operator/[lakeId]/walk-in/index.tsx
+      - features/lakes/booking/BookingFlowProvider.tsx
+      - features/lakes/booking/useBookingGridFlow.ts
+      - features/lakes/booking/BookingGridStep.tsx
+      - features/lakes/booking/AvailabilityGrid.tsx
+      - features/lakes/booking/BookingSelectionSheetHost.tsx
+      - features/lakes/booking/BookingSelectionSheet.tsx
+      - features/operator/OperatorBookingSheet.tsx
+      - services/queries/useLakeBookings.ts
+      - services/queries/useLakeAvailability.ts
+      - services/queries/useBookingQuote.ts
+    web_route: /operator/[lakeId]/calendar
+    template: T4
+    milestone: M7
+    roles: [operator]
+    core:
+      - booking.lakeAvailabilityInfiniteQuery + booking.domain grid modules (as booking.rezerva-grila)
+      - booking.bookingQuoteQuery with walkIn true
+      - booking.lakeBookingsInfiniteQuery (bucket all — identity join for booked cells)
+      - lakes.lakeQuery
+    states:
+      - signed-out (redirect to /intra and back)
+      - grid loading (skeleton) / error with retry
+      - grid loaded, no selection
+      - in-progress slot selectable (operator only)
+      - selection with quote loading / priced / refused / failed
+      - booked cell activated before the lake's bookings list loaded (ignored)
+      - booked cell beyond loaded booking pages (nothing opens)
+      - booking detail dialog open
+    criteria:
+      - id: operator.calendar.c1
+        text: "Same grid, legend, selection, paging and selection panel as booking.rezerva-grila (all its grid criteria apply), except the deltas below; title = the lake's name (fallback „Balta”), not a verb — it is both the lake's calendar and the walk-in step."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/index.tsx:14-18,79-94
+      - id: operator.calendar.c2
+        text: "Reached from the panel's „Calendar”, the inbox header calendar button and Acasă („Calendar”, „Vezi grila”)."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:175-181; app/(app)/operator/[lakeId]/bookings.tsx:353-364; components/OwnedLakesCard.tsx:168,259-264
+      - id: operator.calendar.c3
+        text: "In-progress slots stay selectable until they end (allowInProgress): only slots whose end has passed count as past."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/index.tsx:83-86; features/lakes/booking/AvailabilityGrid.tsx:298-310
+      - id: operator.calendar.c4
+        text: "No lead-time rule for the operator: no too-soon (yellow) state, no too-soon panel, legend without the too-soon entry."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/index.tsx:79-94; features/lakes/booking/BookingGridStep.tsx:102,120
+      - id: operator.calendar.c5
+        text: "Blocked cells open nothing (no block/competition panel on the operator grid)."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/index.tsx:79-94
+      - id: operator.calendar.c6
+        text: "Activating a booked cell opens the operator booking detail dialog: the booking is found in the lake's own bookings (bucket all, loaded pages) by same stand and time overlap with the tapped slot; ignored while that list is still loading; nothing opens when no loaded booking matches."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/index.tsx:34-71,99; features/lakes/booking/AvailabilityGrid.tsx:856-871
+      - id: operator.calendar.c7
+        text: "The quote for a selection is requested with walkIn true (the server skips the end-time rule for a walk-in, so the panel must not refuse what the submit accepts)."
+        fish_ref: features/lakes/booking/useBookingGridFlow.ts:156-170; services/queries/useBookingQuote.ts:30-43; app/(app)/operator/[lakeId]/walk-in/_layout.tsx:6-15
+      - id: operator.calendar.c8
+        text: "Each time the grid comes back into view (returning from extras/review or a dialog) availability is refetched."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/index.tsx:23-32
+      - id: operator.calendar.c9
+        text: "Continuă from the selection panel goes to /operator/[lakeId]/calendar/extra when the stand offers extras for this tour, otherwise straight to /operator/[lakeId]/calendar/confirmare."
+        fish_ref: features/lakes/booking/useBookingGridFlow.ts:280-302
+      - id: operator.calendar.c10
+        text: "Availability error with no cached data: „A apărut o eroare la încărcarea disponibilității.” + „Încearcă din nou”; loading shows the grid skeleton; next month pages load at the end of the grid."
+        fish_ref: features/lakes/booking/BookingGridStep.tsx:123-139; app/(app)/operator/[lakeId]/walk-in/index.tsx:87-93
+      - id: operator.calendar.c11
+        text: "Back leaves the flow (blocked while a walk-in submit is in flight)."
+        fish_ref: features/lakes/booking/BookingGridStep.tsx:96; features/lakes/booking/useBookingGridFlow.ts:304-308
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: operator.calendar-extra
+    title: Extra (rezervare la poartă)
+    fish:
+      - app/(app)/operator/[lakeId]/walk-in/extras.tsx
+      - features/lakes/booking/ExtrasStep.tsx
+      - features/lakes/booking/offeredExtras.ts
+      - features/lakes/booking/nights.ts
+      - features/lakes/booking/BookingFlowProvider.tsx
+    web_route: /operator/[lakeId]/calendar/extra
+    template: T4
+    milestone: M7
+    roles: [operator]
+    core:
+      - booking.domain.offeredExtras + countNights
+      - booking.bookingQuoteQuery (walkIn true, with extras)
+    states:
+      - reached without a selection → back to the calendar
+      - extras listed / selected / re-quoting / priced / refused or failed
+    criteria:
+      - id: operator.calendar-extra.c1
+        text: "Without a selection, selected stand or availability (direct link, reload) it redirects to /operator/[lakeId]/calendar."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/extras.tsx:17-18
+      - id: operator.calendar-extra.c2
+        text: "Title „Extra”; the extras list, per-night pricing and toggle re-quote are identical to booking.rezerva-extra c3–c6, with the quote in walk-in mode."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/extras.tsx:25-46
+      - id: operator.calendar-extra.c3
+        text: "Footer „Continuă” disabled while re-quoting or without a priced quote; enabled it opens /operator/[lakeId]/calendar/confirmare."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/extras.tsx:20,29-37
+      - id: operator.calendar-extra.c4
+        text: "Back returns to the calendar with the selection kept and the extras cleared."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/extras.tsx:27; features/lakes/booking/useBookingGridFlow.ts:127-132
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: operator.calendar-confirmare
+    title: Confirmă rezervarea (la poartă)
+    fish:
+      - app/(app)/operator/[lakeId]/walk-in/review.tsx
+      - features/lakes/booking/BookingReview.tsx
+      - features/lakes/booking/QuoteUnavailable.tsx
+      - features/lakes/booking/AnglerAccountPicker.tsx
+      - features/lakes/booking/AnglerMatchSheet.tsx
+      - features/lakes/booking/AnglerReputationLine.tsx
+      - features/lakes/booking/BookingFlowProvider.tsx
+      - schemas/phone.schema.ts
+      - services/mutations/useCreateWalkInBooking.ts
+      - services/queries/useAnglerLookup.ts
+      - services/queries/useAnglerDiscovery.ts
+      - services/queries/useUserReputation.ts
+      - services/api/booking.ts
+    web_route: /operator/[lakeId]/calendar/confirmare
+    template: T4
+    milestone: M7
+    roles: [operator]
+    core:
+      - booking.createWalkInBookingMutation (POST /feed/bookings/walk-in; invalidates bookings + operator stats)
+      - booking.anglerLookupQuery (GET /feed/bookings/lookup-angler?lake&phone; armed, ≥ 7 digits, staleTime 5 min, no retry)
+      - social.anglerSearchInfiniteQuery (username search)
+      - social.userReputationQuery
+      - booking.bookingQuoteQuery (walkIn true)
+      - phone rule (PHONE_REGEX / sanitizePhoneInput) — check core/shared before adding
+    states:
+      - reached without a selection → back to the calendar
+      - quote loading („Se calculează prețul…”) / refused (server sentence) / failed (retry)
+      - account mode — search hint, searching, no result, results, account selected
+      - guest mode — empty, invalid name/phone, phone matches an account (dialog), linked / not linked banner
+      - submitting (back blocked)
+      - server refusal codes
+    criteria:
+      - id: operator.calendar-confirmare.c1
+        text: "Without a selection, selected stand or loaded lake (direct link, reload) it redirects to /operator/[lakeId]/calendar."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:442-451
+      - id: operator.calendar-confirmare.c2
+        text: "Title „Confirmă rezervarea”; back steps to the previous step of the flow and is blocked while submitting."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:117-121,247-249; features/lakes/booking/useBookingGridFlow.ts:304-308
+      - id: operator.calendar-confirmare.c3
+        text: "Without a priced quote: „Se calculează prețul…” while quoting; else the lake's refusal sentence + „Alege alt interval sau alt stand.”, or „Nu am putut calcula prețul pentru acest interval.” + „Verifică legătura la internet și încearcă din nou.” with „Încearcă din nou” (only on failure) and „Înapoi la selecție” (back to the calendar). No submit button then."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:250-288; features/lakes/booking/QuoteUnavailable.tsx:22-72
+      - id: operator.calendar-confirmare.c4
+        text: "With a priced quote: the booking summary as booking.rezerva-confirmare (stand, period, price lines) but WITHOUT the „cerere / confirmare manuală” notice."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:290-297; features/lakes/booking/BookingReview.tsx:50-51
+      - id: operator.calendar-confirmare.c5
+        text: "„Date pescar” card with a two-way switch „Cont Bluvi” / „Fără cont”, default „Cont Bluvi”."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:58-96,125,300-306
+      - id: operator.calendar-confirmare.c6
+        text: "Cont Bluvi: field „Caută contul” (placeholder „Nume de utilizator”), debounced 300 ms; under 2 characters the hint „Scrie cel puțin 2 litere din numele de utilizator.”; a spinner while searching with no results yet; „Niciun cont găsit. Treci pe „Fără cont” dacă pescarul nu are aplicația.” when empty; else up to 8 results (avatar, username, subline)."
+        fish_ref: features/lakes/booking/AnglerAccountPicker.tsx:11-15,43-53,90-140
+      - id: operator.calendar-confirmare.c7
+        text: "Picking a result shows it as a selected card (avatar, username, reputation line: „★ {avg} · {n} evaluare|evaluări” or „Fără evaluări încă”, plus „{n} neprezentare|neprezentări” when any) with „Schimbă”, which clears the pick and the search."
+        fish_ref: features/lakes/booking/AnglerAccountPicker.tsx:55-88; features/lakes/booking/AnglerReputationLine.tsx:15-47
+      - id: operator.calendar-confirmare.c8
+        text: "Submitting in Cont Bluvi mode without a picked account toasts „Alege un cont sau treci pe „Fără cont”.” and sends nothing; with an account it sends {angler, notes} only (the server snapshots the account's name and phone)."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:226-241
+      - id: operator.calendar-confirmare.c9
+        text: "Fără cont: „Nume și prenume” (placeholder „Numele pescarului”, required „Acest câmp este obligatoriu”) and „Număr telefon” (placeholder „07XX XXX XXX”, telephone keypad incl. +, input reduced to digits and one leading +, 7–15 digits: „Adaugă un număr de telefon.” / „Numărul de telefon trebuie să aibă între 7 și 15 cifre”)."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:98-102,316-354; schemas/phone.schema.ts:9-20
+      - id: operator.calendar-confirmare.c10
+        text: "Leaving the phone field (or submitting) arms an account lookup for that number (≥ 7 digits, cached 5 min, no retry); never per keystroke."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:128-131,150-154,346-350; services/queries/useAnglerLookup.ts:6-30
+      - id: operator.calendar-confirmare.c11
+        text: "When the number matches an account a dialog „Cont Bluvi găsit” opens: „Numărul introdus aparține unui cont existent. Legăm rezervarea de acest cont?”, avatar, username, the typed number, reputation line; „Leagă contul” / „Nu, rezervare separată”; dismissing counts as not linking. It is not shown again for the same number."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:156-181,429-436; features/lakes/booking/AnglerMatchSheet.tsx:17-86
+      - id: operator.calendar-confirmare.c12
+        text: "After the decision a banner shows the account (avatar, username or „Cont existent”) with „Rezervarea se leagă de acest cont” (teal) or „Rezervare separată, fără cont”, and „Schimbă” reopens the dialog. Changing the number drops the link and re-arms the prompt."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:156-164,356-397
+      - id: operator.calendar-confirmare.c13
+        text: "A submit while a match is undecided opens the match dialog instead of booking; guest mode sends {contactFullname, contactPhone, notes, angler: linked match id or none}."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:208-232
+      - id: operator.calendar-confirmare.c14
+        text: "„Detalii adiționale” multiline (placeholder „Detalii adiționale, ora estimată de sosire, etc.”, max 1000: „Ai voie maxim 1000 de caractere”) in both modes."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:101,401-415
+      - id: operator.calendar-confirmare.c15
+        text: "Info card with a teal check: „Rezervarea va fi confirmată automat și plătită cash la fața locului.”"
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:418-425
+      - id: operator.calendar-confirmare.c16
+        text: "Submit button „Adaugă rezervarea” only with a priced quote, kept visible above the on-screen keyboard; loading and disabled while submitting."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:250-276
+      - id: operator.calendar-confirmare.c17
+        text: "POST /feed/bookings/walk-in with {lake, stand, startDate, endDate, extras, …contact or angler, notes}; success leaves the whole flow (back to where the calendar was opened from) and toasts „Rezervare adăugată! Cod: {code}.” (code part only when returned)."
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:185-206; features/lakes/booking/BookingFlowProvider.tsx:59; services/api/booking.ts:53-60
+      - id: operator.calendar-confirmare.c18
+        text: "Error toasts by code: STAND_TAKEN „Standul tocmai a fost rezervat. Alege altul.”; NAME_REQUIRED „Adaugă numele pescarului.”; PHONE_REQUIRED „Adaugă un număr de telefon.”; PHONE_MISMATCH „Numărul nu corespunde contului selectat. Reîncearcă.”; ANGLER_NOT_FOUND „Contul selectat nu mai există. Alege altul.”; WINDOW_ENDED „Intervalul ales s-a încheiat deja.”; INVALID_DURATION „Durata selectată nu este validă.”; INVALID_SLOT_ALIGNMENT „Intervalul ales nu începe la o oră de start validă.”; BOOKING_DISABLED „Rezervările nu sunt active pentru acest lac.”; FORBIDDEN „Nu ai dreptul să adaugi rezervări pentru acest lac.”; else the message or „A apărut o eroare. Încearcă din nou.”"
+        fish_ref: app/(app)/operator/[lakeId]/walk-in/review.tsx:29-56
+      - id: operator.calendar-confirmare.c19
+        text: "A created walk-in invalidates all bookings queries, the owned-lakes stats and every per-lake operator stats query."
+        fish_ref: services/mutations/useCreateWalkInBooking.ts:6-17
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: operator.evalueaza-pescar
+    title: Evaluează pescarul
+    fish:
+      - app/(app)/operator/rate-angler/[bookingId].tsx
+      - features/operator/reviewTags.ts
+      - features/operator/BookingDetailSheet.tsx
+      - helpers/formatBookingPeriod.ts
+      - services/mutations/useCreateAnglerReview.ts
+      - services/api/reviews.ts
+    web_route: /operator/evalueaza/[bookingId]?anglerName&anglerId&anglerAvatar&standName&startDate&endDate
+    template: T6
+    milestone: M7
+    roles: [operator]
+    core:
+      - social.createAnglerReviewMutation (POST /feed/angler-reviews {booking, stars, comment?, tags})
+      - social.domain.reviewTags (groupsForRating, keepValidTags, reviewTagLabel)
+      - formatBookingPeriod — not in core yet
+    states:
+      - signed-out (redirect to /intra and back)
+      - opened with full params (name + stay line)
+      - "opened without params (direct link: „pescarul”, no stay line)"
+      - 5 stars (praise only) / 3–4 stars (praise + faults) / < 3 stars (comment required)
+      - submitting
+      - server refusal (no-show, already reviewed, not ended, comment required)
+    criteria:
+      - id: operator.evalueaza-pescar.c1
+        text: "Opened from „Evaluează pescarul” (card or detail) with angler name, id, avatar, stand and period passed along; nothing is fetched on this page."
+        fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:110-127; features/operator/BookingDetailSheet.tsx:64-78
+      - id: operator.evalueaza-pescar.c2
+        text: "Header: back + title „Evaluează pescarul”."
+        fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:196-201
+      - id: operator.evalueaza-pescar.c3
+        text: "Stay card: avatar (initials fallback), the name (fallback „pescarul”), caption „Standul {stand} · {period}” with missing parts omitted and the line hidden when both are missing."
+        fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:137,141-148,203-224
+      - id: operator.evalueaza-pescar.c4
+        text: "Question „Cum a fost cu {name}?” over five large stars, preset to 5; full stars only; activating the current value does not clear it (a score is always set); web: keyboard-operable radio group."
+        fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:23-32,129,153-158,229-249
+      - id: operator.evalueaza-pescar.c5
+        text: "Verdict under the stars: 5 „Excelent” and 4 „Bine” (green), 3 „Acceptabil” (neutral), 2 „Slab” and 1 „Foarte slab” (red)."
+        fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:51-59,246-248
+      - id: operator.evalueaza-pescar.c6
+        text: "Tags: at 5 stars only „A mers bine” (A respectat regulile, A lăsat locul curat, Prietenos, Liniștit); below 5 also „Nu a mers” (Nu a respectat regulile, A lăsat mizerie, Comportament nepotrivit, Gălăgios). Chips toggle; selected praise fills green, selected faults red."
+        fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:61-95,252-275; features/operator/reviewTags.ts:16-52
+      - id: operator.evalueaza-pescar.c7
+        text: "Raising the score to 5 drops any fault tags already picked; praise tags are kept on every change."
+        fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:150-158; features/operator/reviewTags.ts:54-59
+      - id: operator.evalueaza-pescar.c8
+        text: "„Comentariu” card: marker „opțional”, or „obligatoriu” (red) under 3 stars; placeholder „Ceva de menționat despre această rezervare?” / „Spune pe scurt ce nu a mers.” under 3 stars; with an empty comment under 3 stars the line „Adaugă un comentariu pentru o notă sub 3 stele” is shown."
+        fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:135,277-302
+      - id: operator.evalueaza-pescar.c9
+        text: "Sticky „Trimite evaluarea” disabled while invalid (comment required and empty) or submitting; loading while submitting."
+        fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:135-136,305-315
+      - id: operator.evalueaza-pescar.c10
+        text: "Submit POSTs /feed/angler-reviews {booking: bookingId, stars, comment (trimmed, omitted when empty), tags}; success toasts „Evaluare trimisă” and goes back."
+        fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:165-182; services/api/reviews.ts:18-25
+      - id: operator.evalueaza-pescar.c11
+        text: "Error toasts: ANGLER_DID_NOT_SHOW „Pescarul e marcat ca neprezentat — neprezentarea ține deja loc de evaluare.”; ALREADY_REVIEWED „Ai evaluat deja această rezervare.”; INVALID_STATUS „Poți evalua doar după ce se încheie rezervarea.”; COMMENT_REQUIRED „La un punctaj mic, comentariul este obligatoriu.”; else the message or „Evaluarea nu a putut fi trimisă.”"
+        fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:34-49
+      - id: operator.evalueaza-pescar.c12
+        text: "Success invalidates all reputation queries, all bookings queries (the De evaluat list drops the row) and all operator-stats queries (panel and home review counts)."
+        fish_ref: services/mutations/useCreateAnglerReview.ts:5-21
+    mobile_only: false
+    status: todo
+
+behaviours:
+  - id: operator.b.role-gating
+    text: "Being an operator = the owned-lakes list (GET /feed/owned-lakes) is non-empty; there is no client role check on /operator/[lakeId]/* — the CMS owner-gates every operator endpoint and a refusal lands in the page's error state. Web: all /operator routes require sign-in (redirect to /intra and back); a non-owner sees an error/403 state; the top bar's „Administrare” menu shows the operator entry only when owned lakes exist (ROADMAP §4)."
+    fish_ref: components/OwnedLakesCard.tsx:58-64; app/(app)/operator/[lakeId]/index.tsx:519-529
+  - id: operator.b.entry-points
+    text: "Entry points into the area: Acasă operator card (whole card → panel; „Vezi” pending → rezervari?status=pending; „Vezi ziua” → panel or „Vezi grila” → calendar; drop-outs „Vezi” → ?status=cancelled; reviews „Vezi” → ?status=toreview; quick actions Panou / Calendar / Rezervări with pending badge). With one lake each link targets /operator/[lakeId]{suffix}, with several they all open the picker /operator."
+    fish_ref: components/OwnedLakesCard.tsx:77-79,88,132,168,204,239,250-276
+  - id: operator.b.notification-routes
+    text: "Notifications: BOOKING_NEW_REQUEST_OPERATOR and BOOKING_PENDING_NUDGE_OPERATOR → /operator/{lakeId}/rezervari?status=pending; BOOKING_AUTO_REJECTED_OPERATOR → ?status=rejected; BOOKING_CANCELLED_OPERATOR → ?status=cancelled; no route without lakeId."
+    fish_ref: helpers/getRedirectLocationForNotification.ts:146-157
+  - id: operator.b.status-param
+    text: "The inbox's ?status= is the single deep-link vocabulary (pending, cancelled, rejected, toreview, all) used by the panel, Acasă and notifications; it maps to bucket + sub-filter via bucketFromLegacyStatus and must keep working for links shipped by older apps."
+    fish_ref: features/operator/bookingBuckets.ts:54-75
+  - id: operator.b.focus-param
+    text: "?focus={bookingId} on the inbox brings one booking into view once it is loaded (no fish caller passes it today; pair it with status=all, the only bucket guaranteed to hold it)."
+    fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:66-72,112-142; features/operator/bookingBuckets.ts:71-73
+  - id: operator.b.write-invalidation
+    text: "Every booking write (accept, reject, operator cancel, no-show, block create/delete) invalidates both ['bookings'] and ['operator-stats'] roots; walk-in also invalidates the owned-lakes stats and per-lake stats; an angler review invalidates reputation, bookings and operator-stats. These endpoints are private (no CDN), so client cache is the only stale copy."
+    fish_ref: services/mutations/invalidateOperatorSurfaces.ts:4-21; services/mutations/useCreateWalkInBooking.ts:10-16; services/mutations/useCreateAnglerReview.ts:9-20
+  - id: operator.b.refresh
+    text: "No polling anywhere in the area (no refetchInterval): freshness comes from manual refresh, write invalidation and the calendar refetching availability whenever it regains focus. Web: offer an explicit refresh control and refetch on window focus."
+    fish_ref: app/(app)/operator/[lakeId]/index.tsx:466-470; app/(app)/operator/[lakeId]/bookings.tsx:150-154; app/(app)/operator/[lakeId]/walk-in/index.tsx:23-32
+  - id: operator.b.single-lake
+    text: "An operator with exactly one lake never sees the picker: /operator replaces itself with /operator/{lakeId}, and Acasă links straight to that lake."
+    fish_ref: app/(app)/operator/index.tsx:20-26; components/OwnedLakesCard.tsx:77-79
+  - id: operator.b.reputation
+    text: "Angler reputation (GET /feed/users/:id/reputation) is fetched per angler for the rating pill, no-show pill and reputation line; nothing renders until it loads and a missing rating shows no pill (never an empty/zero rating)."
+    fish_ref: features/operator/AnglerRatingBadge.tsx:7-15; features/operator/BookingDetailSheet.tsx:80-99; features/lakes/booking/AnglerReputationLine.tsx:7-19
+  - id: operator.b.local-day
+    text: "„Today” on the panel (arrivals, cash, moments) and the block calendar's day keys are device-local calendar days, never UTC (toISOString would file a Friday-00:00 block under Thursday); trend bucket keys are server lake-local and parsed without timezone shift."
+    fish_ref: features/operator/todayCounts.ts:55-60; features/operator/blockCalendarLogic.ts:26-32; features/operator/dashboard/trendLabels.ts:11-21
+  - id: operator.b.analytics
+    text: "Calling a guest from the operator action row logs analytics event contact_pressed {contact_type: 'Operator guest contact', lake_id, lake_name} (GA4 via the web consent layer, M8)."
+    fish_ref: features/operator/BookingDetailSheet.tsx:126-133
+  - id: operator.b.double-submit
+    text: "Double submits are guarded: actions disable while a booking is acting (actingId), the walk-in flow blocks Back and the button while creating, block saves disable all three buttons, rating disables submit while sending."
+    fish_ref: features/operator/useOperatorBookingActions.tsx:23,121; features/lakes/booking/useBookingGridFlow.ts:304-308; features/operator/CreateBlockForm.tsx:309-324; app/(app)/operator/rate-angler/[bookingId].tsx:165-166
+  - id: operator.b.walk-in-shared-flow
+    text: "The walk-in flow is the angler booking flow (grid → extras → review) mounted under /operator/{lakeId}/walk-in with walkIn mode: quote and submit skip the end-time rule, in-progress slots are sellable, no lead time, auto-confirmed and paid cash at the gate."
+    fish_ref: app/(app)/operator/[lakeId]/walk-in/_layout.tsx:6-17; features/lakes/booking/BookingFlowProvider.tsx:44-63

@@ -1,0 +1,1535 @@
+# Parity inventory — area: partide (personal fishing sessions + Partide community)
+#
+# fish sources: app/(app)/(tabs)/partide.tsx, app/(app)/partide/** (15 screens), app/(app)/timer/**,
+# features/partide/**. Paths below are relative to fish/.
+#
+# Identity note (read before building any route here): fish has TWO ids for a partidă.
+#   - clientId  — client-minted, the Firestore session id; the param of fish /partide/[id] (own/member view),
+#                 of /partide/captura?sessionClientId= and of the PARTIDA_FINISHED / AUTO_CLOSE_WARN push.
+#   - documentId — Strapi id; the param of fish /partide/comunitate/[id] (spectator view), of the share link
+#                 and of every community DTO.
+# The web keys every partidă page on the documentId (lib/routes.ts `partida(documentId)` = /partide/[id]) and
+# renders the member view or the spectator view on the same URL depending on whether the viewer is a member
+# (fish does the same switch: comunitate/[id] replaces itself with the own view for the live session, and
+# useOpenPartida picks own vs spectator). A clientId arriving from a push/deep link is resolved to the
+# documentId through the cached /feed/sessions/mine list (core/partide findMineListItem) — see behaviours.
+#
+# Live data note: the active partidă is a Firestore projection (core/realtime/partide) — rods, rod runtimes,
+# catches and markers stream from Firestore, writes go through the CMS (/feed/sessions/*). Rod TIMERS and
+# their alarms are device features (ROADMAP §3): the web shows a running countdown read-only but schedules
+# no alarm, and the rod configuration screen (rod-config) is mobile only.
+area: partide
+screens:
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.comunitate
+    title: Partide — Comunitate
+    fish:
+      - "app/(app)/(tabs)/partide.tsx"
+      - features/partide/components/PartideChrome.tsx
+      - features/partide/domain/viewAtoms.ts
+      - features/partide/scenes/AcasaScene.tsx
+      - features/partide/components/community/NoActiveCta.tsx
+      - features/partide/components/community/QuickNavRow.tsx
+      - features/partide/components/community/LatestCatchesRail.tsx
+      - features/partide/components/community/VenueGroup.tsx
+      - features/partide/components/community/CommunityHistoryCard.tsx
+      - features/partide/components/community/ExploreCta.tsx
+      - features/partide/components/community/RecordsGrid.tsx
+      - features/partide/components/community/PopularVenues.tsx
+      - features/partide/components/community/AnglerAvatars.tsx
+      - features/partide/components/card/PartidaCard.tsx
+      - features/partide/components/card/CardHeader.tsx
+      - features/partide/components/card/StatStrip.tsx
+      - features/partide/components/card/PhotoStrip.tsx
+      - features/partide/components/card/Duel.tsx
+      - features/partide/components/card/Leaderboard.tsx
+      - features/partide/components/card/CardFooter.tsx
+      - features/partide/components/card/cardModel.ts
+      - features/partide/components/ActivePartidaDock.tsx
+      - features/partide/components/PartideSkeletons.tsx
+      - features/partide/community/hooks.ts
+      - features/partide/community/view.ts
+      - features/partide/community/venuePartideHref.ts
+      - features/partide/community/photoSources.ts
+      - features/partide/hooks/useNowTick.ts
+    web_route: /partide
+    template: T5
+    milestone: M4
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/partide communityOverviewQuery (GET /feed/community/overview, staleTime 30s, refetchInterval 60s)"
+      - "core/partide communityHistoryInfiniteQuery([]) (only page 0, only when overview has no live venue)"
+      - "core/partide/domain communityView (buildDashboardPartideSection, buildRecordSlots, relativeRo, membersLabel)"
+      - "core/partide/domain cardModel (liveCardShape, venueCountLabel, standLabel/standSuffix, barFraction, fmtSpan, fmtRange, agoRo, isDuelLeader)"
+      - "core/partide/domain venuePartideHref, photoSources (gridSource, thumbSource)"
+      - "core/partide/domain format (fmtKg, fmtDurationCompact)"
+      - "core/realtime/partide (active partidă for the top CTA vs live dock)"
+    states:
+      - loading (overview in flight, or no live venue and history page 0 in flight) → dashboard skeleton
+      - live — „În direct” with up to 5 live venue cards (solo / duel / leaderboard shapes)
+      - finished fallback — „Ultimele partide” with up to 3 finished cards
+      - empty — „Partide active” with the tutorial prose
+      - Ultimele capturi rail hidden when overview.latestCatches is empty
+      - Locuri populare hidden when overview.popularVenues is empty
+      - record windows empty → invitation tiles
+      - viewer has an active partidă (top CTA hidden, start pill hidden, live dock shown)
+      - signed-out (browsable read-only; Pescari tile → sign-in)
+      - overview error (retry false → renders as empty sections)
+    criteria:
+      - id: partide.comunitate.c1
+        text: "The page header shows the title „Partide” and, only when the viewer has NO active partidă, an indigo „Începe” pill (plus icon) that opens /partide/incepe."
+        fish_ref: "features/partide/components/PartideChrome.tsx:39-65"
+      - id: partide.comunitate.c2
+        text: "Under the title an underline tab row offers „Comunitate” (this page, default), „Explorează” and „Ale mele”; the active tab is indigo with a 2.5px underline; re-selecting the active tab scrolls the page back to the top."
+        fish_ref: "features/partide/components/PartideChrome.tsx:12-16"
+      - id: partide.comunitate.c3
+        text: "The sub-tab choice is not persisted: opening Partide fresh always lands on „Comunitate”."
+        fish_ref: "features/partide/domain/viewAtoms.ts:6-8"
+      - id: partide.comunitate.c4
+        text: "Without an active partidă the page opens with the indigo hero card „Ești la pescuit?” / „Capturi, lansete și cronometre — totul notat într-o singură partidă.” with a white „Începe o partidă” pill (→ /partide/incepe) and an underlined „Intră cu cod” link (→ /partide/intra)."
+        fish_ref: "features/partide/components/community/NoActiveCta.tsx:72-111"
+      - id: partide.comunitate.c5
+        text: "With an active partidă the hero card is not rendered; the live partidă is shown in the ActivePartidaDock instead (no duplicate)."
+        fish_ref: "app/(app)/(tabs)/partide.tsx:223-229"
+      - id: partide.comunitate.c6
+        text: "A quick-nav row of three tiles: „Statistici” (→ /partide/statistici), „Clasamente” (→ /partide/clasament), „Pescari” (→ /pescari when signed in, → sign-in when signed out)."
+        fish_ref: "features/partide/scenes/AcasaScene.tsx:115-130"
+      - id: partide.comunitate.c7
+        text: "„Ultimele capturi” is a horizontal rail of overview.latestCatches, shown only when non-empty; each landscape 4:3 card shows the photo (lake placeholder fallback), a relative-time badge (relativeRo), the weight in kg (omitted when weightKg is null — never „0,0 kg”), species (fallback „Captură”), venue name with a pin icon and the angler avatars (+ extra members)."
+        fish_ref: "features/partide/components/community/LatestCatchesRail.tsx:23-107"
+      - id: partide.comunitate.c8
+        text: "Activating a latest-catch card opens that catch's partidă (/partide/[sessionDocumentId]); rail keys are sessionDocumentId:clientId (clientId alone is not unique across sessions)."
+        fish_ref: "features/partide/components/community/LatestCatchesRail.tsx:126-132"
+      - id: partide.comunitate.c9
+        text: "The middle section title is „În direct” when overview.activeVenues is non-empty (up to 5 venue cards), else „Ultimele partide” (first 3 rows of /feed/community/history page 1), else „Partide active” — live and finished cards never render together."
+        fish_ref: "features/partide/scenes/AcasaScene.tsx:143-145"
+      - id: partide.comunitate.c10
+        text: "The community history request is made only after overview resolved with zero live venues; while it is pending the whole dashboard keeps its skeleton (no flash of the empty prose)."
+        fish_ref: "features/partide/scenes/AcasaScene.tsx:76-86"
+      - id: partide.comunitate.c11
+        text: "Empty middle section shows two captions: „O partidă poate fi solo sau cu 2-3 pescari împreună.” and „Nicio partidă publică activă acum.”"
+        fish_ref: "features/partide/scenes/AcasaScene.tsx:181-191"
+      - id: partide.comunitate.c12
+        text: "The middle section header has a „Vezi toate” link that switches to the „Explorează” tab; below the section the indigo banner „Vrei să vezi ce au prins alții?” / „Explorează capturile din comunitate” does the same."
+        fish_ref: "features/partide/scenes/AcasaScene.tsx:160-195"
+      - id: partide.comunitate.c13
+        text: "A live venue with exactly 1 session renders the solo card: ribbon „Live”, members avatars + members label as title, venue name (+ stand suffix) as meta, stats (capturi count, „kg total” accent or „—”, duration „de pescuit”), photo strip, footer „Ultima captură {ago}” or „Începută {ago}” and link „Vezi partida”; the whole card opens that partidă."
+        fish_ref: "features/partide/components/community/VenueGroup.tsx:38-72"
+      - id: partide.comunitate.c14
+        text: "A live venue with exactly 2 sessions renders the duel card: ribbon „Duel live”, venue image + name, meta „{localitate} · {N standuri în duel}”, two sides (members, stand, captures, kg, leader highlighted by isDuelLeader); each side opens its own partidă; the shell and the „Vezi duelul” link open the venue's partide page (venuePartideHref), falling back to side A's partidă."
+        fish_ref: "features/partide/components/community/VenueGroup.tsx:75-131"
+      - id: partide.comunitate.c15
+        text: "A live venue with more than 2 sessions renders the leaderboard card: ribbon „Live”, venue header, one row per session (stand, members, kg, relative bar vs the leader; rows containing the viewer are marked „self”); each row opens its partidă; shell + „Vezi partidele ›” open the venue's partide page, else the lake page, else the leading partidă."
+        fish_ref: "features/partide/components/community/VenueGroup.tsx:134-188"
+      - id: partide.comunitate.c16
+        text: "Venue partide page links: lake venue → /balti/[lakeId]/partide; publicWater venue → /ape-publice/[code]/partide (code from key „water:<code>”); manual pin → no page."
+        fish_ref: "features/partide/community/venuePartideHref.ts:15-24"
+      - id: partide.comunitate.c17
+        text: "A finished card (fallback) shows ribbon „Încheiată”, members as title, venue + stand meta, stats (capturi, „kg total”, „durată”), photo strip, footer date range (fmtRange) and link „Vezi rezumatul”; it opens /partide/[documentId]."
+        fish_ref: "features/partide/components/community/CommunityHistoryCard.tsx:11-42"
+      - id: partide.comunitate.c18
+        text: "„Recorduri” is always rendered as a 2×2 grid of equal tiles: slots AZI (amber), SĂPTĂMÂNA (teal), LUNA (deep indigo, trophy) and a 4th tile „Statistici comunitate” / „Vezi cifrele” (→ /partide/statistici)."
+        fish_ref: "features/partide/components/community/RecordsGrid.tsx:30-34"
+      - id: partide.comunitate.c19
+        text: "A filled record tile shows the photo with the window badge, weight kg, species (fallback „Captură”), venue and angler avatars, and opens /partide/[sessionDocumentId] when the record has one (else not interactive)."
+        fish_ref: "features/partide/components/community/RecordsGrid.tsx:42-128"
+      - id: partide.comunitate.c20
+        text: "An empty record window shows an invitation tile („Recordul de azi/săptămânii/lunii te așteaptă” + „Începe o partidă ›”) that opens /partide/incepe."
+        fish_ref: "features/partide/components/community/RecordsGrid.tsx:36-40"
+      - id: partide.comunitate.c21
+        text: "„Locuri populare” (only when overview.popularVenues is non-empty) shows the top 2 venues side by side: image (placeholder fallback), rose „{n} live” badge when liveCount > 0, name, „{localitate} · {n} partidă/partide” (last 30 days); only venues with a lakeId are links (→ /balti/[lakeId])."
+        fish_ref: "features/partide/components/community/PopularVenues.tsx:11-81"
+      - id: partide.comunitate.c22
+        text: "Relative times on the cards tick on a shared clock (useNowTick), not a per-card timer."
+        fish_ref: "features/partide/scenes/AcasaScene.tsx:88-92"
+      - id: partide.comunitate.c23
+        text: "The overview is refetched every 60 s while the page is open (staleTime 30 s, no retry)."
+        fish_ref: "features/partide/community/hooks.ts:65-73"
+      - id: partide.comunitate.c24
+        text: "Pull-to-refresh (web: a refresh action) refetches the own-sessions list and invalidates every community query (queryKeys.community.all)."
+        fish_ref: "app/(app)/(tabs)/partide.tsx:113-120"
+      - id: partide.comunitate.c25
+        text: "While loading, the scene shows the dashboard skeleton (AcasaSceneSkeleton) instead of zero-filled sections."
+        fish_ref: "features/partide/scenes/AcasaScene.tsx:132-134"
+      - id: partide.comunitate.c26
+        text: "With an active partidă a dock is pinned at the bottom: rose „ACTIVĂ” pill with pulsing dot, venue name, stats line „{n} captură/capturi · {n} scăpat/scăpate (if any) · {kg} kg max (if any)”, a green „Captură” button and one chip per running rod timer; activating the dock opens the partidă."
+        fish_ref: "features/partide/components/ActivePartidaDock.tsx:67-153"
+      - id: partide.comunitate.c27
+        text: "Dock timer chips tick each second only while a rod is counting down, use the server-corrected clock, show the remaining time (fmtDurationCompact), „expirat” in rose when elapsed, and „sincronizare…” while the projection comes from cache or the server clock is unsampled."
+        fish_ref: "features/partide/components/ActivePartidaDock.tsx:40-65,157-185"
+      - id: partide.comunitate.c28
+        text: "The dock's „Captură” is blocked offline with the toast „Fără conexiune. Reconectare…”; online it opens the capture flow for a free (no-rod) capture of the active partidă."
+        fish_ref: "app/(app)/(tabs)/partide.tsx:125-132"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.exploreaza
+    title: Partide — Explorează
+    fish:
+      - "app/(app)/(tabs)/partide.tsx"
+      - features/partide/scenes/CommunityScene.tsx
+      - features/partide/components/community/VenueSearchScreen.tsx
+      - features/partide/components/community/recentVenueSearches.ts
+      - features/partide/components/community/VenueGroup.tsx
+      - features/partide/components/community/CommunityHistoryCard.tsx
+      - features/partide/components/community/NoActiveCta.tsx
+      - features/partide/community/hooks.ts
+      - features/partide/community/view.ts
+      - features/partide/community/useOpenPartida.ts
+      - features/partide/community/venuePartideHref.ts
+      - features/partide/components/PartideSkeletons.tsx
+      - services/queries/useVenueSearch.ts
+    web_route: /partide/exploreaza
+    template: T1
+    milestone: M4
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/partide communityActiveInfiniteQuery(venueKeys) (cursor, pageSize 10, staleTime 30s)"
+      - "core/partide communityHistoryInfiniteQuery(venueKeys) (page, pageSize 10, staleTime 120s)"
+      - "core/partide sessionFollowsQuery (signed in only), followedAnglerUidsQuery (all /following pages, pageSize 100)"
+      - "core/partide/domain communityView (filterVenues, filterHistoryRows, endReachedTarget, shouldShowLiveHeader, lakeCardToVenue, publicWaterToVenue)"
+      - "core/partide/domain historySelectors resolveOwnPartidaClientId (own vs spectator open)"
+      - "core/lakes lakesIndexQuery + public-waters search (venue picker) — MISSING web equivalent of fish useVenueSearch (lakes + public waters by name)"
+    states:
+      - loading (live page 1 in flight and never loaded before) → list skeleton
+      - live section present / absent; live page filtered to zero with more pages (hint row)
+      - finished section present / absent
+      - LIVE-only mode („Vezi toate” / LIVE chip)
+      - chip „Cu notificări” (followed sessions), chip „Prieteni” (followed anglers)
+      - venue filter applied (single venue, lake or public water)
+      - overall empty with no filters
+      - empty for filters (prieteni / other) with „Șterge filtrele”
+      - LIVE-only empty
+      - history error with no rows
+      - history first page in flight (no empty message)
+      - "venue picker dialog: browse (recents + live venues) / search results / no results"
+      - signed-out (Cu notificări and Prieteni match nothing)
+    criteria:
+      - id: partide.exploreaza.c1
+        text: "A horizontal filter row: a „LIVE” chip (red when active, toggles live-only mode), „Cu notificări”, „Prieteni” and a venue chip labelled „Toate bălțile” or the selected venue name (pin + chevron) that opens the venue picker."
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:416-447"
+      - id: partide.exploreaza.c2
+        text: "„Cu notificări” and „Prieteni” are mutually exclusive toggles; tapping the active one returns to the unfiltered state."
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:401-404"
+      - id: partide.exploreaza.c3
+        text: "„Cu notificări” keeps only sessions whose documentId the viewer follows (bell); „Prieteni” keeps only sessions with at least one member the viewer follows; a venue with no remaining session is dropped."
+        fish_ref: "features/partide/community/view.ts:31-46"
+      - id: partide.exploreaza.c4
+        text: "Selecting a venue refetches both live and finished lists server-side for that venue key (lake:<documentId> or water:<linkCode>) — the query key changes with the selection."
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:170-176"
+      - id: partide.exploreaza.c5
+        text: "Section „ÎN DIRECT” renders when at least one live venue survives the filters OR the first live page has a next cursor; it carries a „Vezi toate” link (→ live-only mode) when there is a next page and live-only is off."
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:284-308"
+      - id: partide.exploreaza.c6
+        text: "When the live page filtered to zero but more pages exist, a hint row reads „Niciun rezultat pe această pagină cu acest filtru. Atinge „Vezi toate” pentru toate partidele live.”"
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:300-306"
+      - id: partide.exploreaza.c7
+        text: "Outside live-only mode the live section uses only live page 1; in live-only mode every loaded live page is shown (deduplicated by venue key) and the finished section is hidden."
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:203-216"
+      - id: partide.exploreaza.c8
+        text: "Section „ÎNCHEIATE” lists finished partide (card D: „Încheiată”, members, venue, capturi, kg total, durată, photos, date range, „Vezi rezumatul”), deduplicated by documentId and filtered by the active chip/venue."
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:258-312"
+      - id: partide.exploreaza.c9
+        text: "Live venue cards use the same solo / duel / leaderboard shapes as the Comunitate page (VenueGroup)."
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:504-513"
+      - id: partide.exploreaza.c10
+        text: "Scrolling to the end loads the next live page in live-only mode, otherwise the next finished page; after 3 consecutive fetches that add no visible row for the current filters, auto-loading stops until a filter changes."
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:328-372"
+      - id: partide.exploreaza.c11
+        text: "Opening a session goes to the viewer's own partidă view when it is the viewer's active partidă or appears in the viewer's own sessions list, otherwise to the spectator view (both /partide/[documentId] on web)."
+        fish_ref: "features/partide/community/useOpenPartida.ts:28-43"
+      - id: partide.exploreaza.c12
+        text: "With no filters, no live venue, no finished row and history settled, the list shows „Nicio partidă publică activă acum.” and the NoActiveCta hero („Începe o partidă” / „Intră cu cod”)."
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:581-591"
+      - id: partide.exploreaza.c13
+        text: "Live-only empty: dead-fish illustration, „Nicio partidă live acum.” and a „Șterge filtrele” button that resets chip, venue and live-only."
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:547-601"
+      - id: partide.exploreaza.c14
+        text: "Filtered empty: dead-fish illustration and „Nu ești singur — pescuitul leagă prietenii. Urmărește profilul unui pescar și vei fi mereu la curent cu partidele lui.” for „Prieteni”, else „Nicio partidă încheiată pentru filtrele alese.”, plus „Șterge filtrele”."
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:602-613"
+      - id: partide.exploreaza.c15
+        text: "History error with no rows (not live-only): „Nu am putut încărca partidele încheiate.” / „Trage în jos pentru a reîncerca.” (web: a retry action)."
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:570-580"
+      - id: partide.exploreaza.c16
+        text: "While the first finished page is in flight no empty message is shown; the full skeleton shows only until live page 1 has loaded once (later refetches never blank the list)."
+        fish_ref: "features/partide/scenes/CommunityScene.tsx:193-195,568-569"
+      - id: partide.exploreaza.c17
+        text: "The venue picker is titled „Filtrează după baltă” with a close control („Închide”) and a search field „Caută o baltă sau o apă publică”, focused on open."
+        fish_ref: "features/partide/components/community/VenueSearchScreen.tsx:243-252"
+      - id: partide.exploreaza.c18
+        text: "With no search term the picker lists: „Toate bălțile” („Fără filtru — tot ce e public”, clears the filter), „Căutări recente” (up to 5 remembered picks, with „Șterge tot”) and „Cu partide acum” (venues present in the loaded live pages)."
+        fish_ref: "features/partide/components/community/VenueSearchScreen.tsx:150-180"
+      - id: partide.exploreaza.c19
+        text: "Typing searches lakes and public waters by name; lakes render first, waters follow under „Ape publice” (waters without a linkCode are excluded); no match shows „Nu am găsit nicio baltă sau apă publică pentru căutarea ta.”"
+        fish_ref: "features/partide/components/community/VenueSearchScreen.tsx:223-275"
+      - id: partide.exploreaza.c20
+        text: "Picking a venue applies it (single pick), closes the picker and remembers it in recents (key lake:/water:, name, helper, image); invalid persisted entries are ignored."
+        fish_ref: "features/partide/components/community/VenueSearchScreen.tsx:118"
+      - id: partide.exploreaza.c21
+        text: "„Cu notificări” uses GET /feed/session-follows only when signed in; signed out the followed set is empty, so the chip shows the filtered-empty state."
+        fish_ref: "features/partide/community/hooks.ts:319-338"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.ale-mele
+    title: Partide — Ale mele
+    fish:
+      - "app/(app)/(tabs)/partide.tsx"
+      - features/partide/scenes/AleMeleScene.tsx
+      - features/partide/components/MyCatchesRail.tsx
+      - features/partide/components/MonthlyCatchesChart.tsx
+      - features/partide/components/card/OwnPartidaCard.tsx
+      - features/partide/components/ShareCatchSheet.tsx
+      - features/partide/helpers/shareCatchHandoff.ts
+      - features/partide/helpers/historyView.ts
+      - features/partide/helpers/monthlyStats.ts
+      - features/partide/domain/hooks.ts
+      - services/queries/useMyCatches.ts
+      - components/ImageLightbox.tsx
+      - components/profile/CatchDetailFooter.tsx
+    web_route: /partide/ale-mele
+    template: T5
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/partide partideHistoryQuery (GET /feed/sessions/mine all pages, staleTime 5 min; enabled only on this tab)"
+      - "core/partide myCatchesInfiniteQuery (GET /feed/sessions/mine/catches)"
+      - "core/partide/domain historyView (computeHistoryStats, openHistoryEntries, aggForSession, sessionVenueName)"
+      - "core/partide/domain monthlyStats, historyMappers (listItemToSummaryLocalSession), format (fmtKg, fmtKgStat)"
+      - "core/partide/domain cardModel (fmtSpan, fmtRange, venueSubtitle)"
+    states:
+      - signed-out → sign-in wall
+      - first load (nothing cached) → skeleton
+      - refreshing („Se actualizează…”)
+      - empty journal (no partidă, none active)
+      - has active partidă (ÎN DESFĂȘURARE section)
+      - no finished partidă yet
+      - no catch photos (rail hidden)
+      - lightbox open → share card
+    criteria:
+      - id: partide.ale-mele.c1
+        text: "Signed out, the tab body is a wall: illustration, „Jurnalul tău de pescuit”, „Autentifică-te pentru a-ți vedea partidele, capturile și statisticile într-un singur loc.” and a green „Autentifică-te” button (→ sign-in); Comunitate and Explorează stay browsable."
+        fish_ref: "app/(app)/(tabs)/partide.tsx:30-53"
+      - id: partide.ale-mele.c2
+        text: "The own-sessions list (all pages of /feed/sessions/mine) is requested only while this tab is active; cached data stays when switching away."
+        fish_ref: "app/(app)/(tabs)/partide.tsx:100-107"
+      - id: partide.ale-mele.c3
+        text: "While the first load is in flight with nothing cached the scene shows its skeleton, never four zero stats."
+        fish_ref: "features/partide/scenes/AleMeleScene.tsx:195-198"
+      - id: partide.ale-mele.c4
+        text: "During a background refetch a spinner row „Se actualizează…” sits above the content."
+        fish_ref: "features/partide/scenes/AleMeleScene.tsx:202-209"
+      - id: partide.ale-mele.c5
+        text: "A single flat stat card with four equal columns: „Partide”, „Capturi” (indigo), „Cantitate” and „Record” (kg via fmtKgStat, which trades decimals for magnitude); counts include the live partidă."
+        fish_ref: "features/partide/scenes/AleMeleScene.tsx:211-233"
+      - id: partide.ale-mele.c6
+        text: "With no partidă and none active the page shows the empty journal: illustration, „Jurnalul tău de pescuit”, „Începe prima partidă ca să-ți urmărești capturile, cronometrele și tiparele.”; all sections below are hidden."
+        fish_ref: "features/partide/scenes/AleMeleScene.tsx:193,235-247"
+      - id: partide.ale-mele.c7
+        text: "Without an active partidă the NoActiveCta hero is shown above the content („Începe o partidă” / „Intră cu cod”)."
+        fish_ref: "app/(app)/(tabs)/partide.tsx:225-229"
+      - id: partide.ale-mele.c8
+        text: "„Capturile mele” (only when the server catches feed is non-empty) is a horizontal rail of up to 12 catch photo cards (relative time, kg, species, venue) ending with a „Vezi tot” card → /partide/capturile-mele; the header has no separate link."
+        fish_ref: "features/partide/scenes/AleMeleScene.tsx:251-263"
+      - id: partide.ale-mele.c9
+        text: "The catches rail reads /feed/sessions/mine/catches (deduplicated by key), not the public profile feed — partide hidden from the profile still appear here."
+        fish_ref: "features/partide/scenes/AleMeleScene.tsx:162-171"
+      - id: partide.ale-mele.c10
+        text: "Activating a rail card opens a fullscreen lightbox at that index with CatchDetailFooter; reaching the end loads the next catches page; the lightbox share action opens the composed Bluvi share card (ShareCatchSheet), not the bare photo."
+        fish_ref: "features/partide/scenes/AleMeleScene.tsx:366-384"
+      - id: partide.ale-mele.c11
+        text: "„Statistici” card: „Capturi pe lună” chart for the last 7 months (label „ultimele 7 luni”)."
+        fish_ref: "features/partide/scenes/AleMeleScene.tsx:265-288"
+      - id: partide.ale-mele.c12
+        text: "Tile „Cea mai bună captură”: „{kg} kg” with „{specie} · {baltă}” (or the venue only), or „—” / „Nicio captură încă”."
+        fish_ref: "features/partide/scenes/AleMeleScene.tsx:291-303"
+      - id: partide.ale-mele.c13
+        text: "Tile „Ore pescuite”: rounded total hours „{n} h” and „~{x,x} h / partidă” (comma decimal) or „—”."
+        fish_ref: "features/partide/scenes/AleMeleScene.tsx:304-314"
+      - id: partide.ale-mele.c14
+        text: "Section „ÎN DESFĂȘURARE” lists the viewer's open partide as own cards with a „Continuă partida” button; it is hidden when there is none."
+        fish_ref: "features/partide/scenes/AleMeleScene.tsx:317-339"
+      - id: partide.ale-mele.c15
+        text: "„Istoric partide” shows the 3 most recent finished partide (newest start first) as own cards and a „Vezi tot” link → /partide/istoric; with none and nothing open: „Nicio partidă încheiată încă.”"
+        fish_ref: "features/partide/scenes/AleMeleScene.tsx:185-191,341-362"
+      - id: partide.ale-mele.c16
+        text: "An own card shows the venue image, venue name, „{localitate} · {stand}”, stats (capturi, kg total or „—”, durată / „de pescuit”), photo strip, date range or live elapsed, a „Live” ribbon + glow when running, and the action „Continuă partida” / „Vezi partida” / „Vezi rezumatul”; activating it opens /partide/[id]."
+        fish_ref: "features/partide/components/card/OwnPartidaCard.tsx:40-83"
+      - id: partide.ale-mele.c17
+        text: "The live partidă is excluded from the rendered history list (the dock shows it) but still counted in the stat card."
+        fish_ref: "app/(app)/(tabs)/partide.tsx:138-141"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.partida
+    title: Partidă (membru) — antet, stări și acțiuni
+    fish:
+      - "app/(app)/partide/[id].tsx"
+      - features/partide/helpers/partidaTabs.ts
+      - features/partide/helpers/deepLinks.ts
+      - features/partide/helpers/venueRef.ts
+      - features/partide/helpers/format.ts
+      - features/partide/components/PartidaCompactHeader.tsx
+      - features/partide/components/PartidaFeedbackBar.tsx
+      - features/partide/components/PartidaFeedbackSheet.tsx
+      - features/partide/helpers/feedbackNudge.ts
+      - features/partide/hooks/useFeedbackNudge.ts
+      - features/partide/components/FinishPartidaSheet.tsx
+      - features/partide/components/DeletePartidaSheet.tsx
+      - features/partide/components/SessionMembershipSheet.tsx
+      - features/partide/components/RotateJoinCodeSheet.tsx
+      - features/partide/components/AutoCloseWarnSheet.tsx
+      - features/partide/components/MapPointPicker.tsx
+      - features/partide/components/PartideSkeletons.tsx
+      - features/partide/domain/hooks.ts
+      - features/partide/domain/useLiveMount.ts
+      - features/partide/domain/sessionAccess.ts
+      - features/partide/domain/firestore/sessionRepo.ts
+    web_route: "/partide/[id] (vizualizare membru; [id] = documentId; ?tab=lansete|jurnal|galerie|statistici|setari)"
+    template: T3
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/realtime/partide (live subscription, activePartidaOf, applyLiveSnapshot, pointer, waitForProjection)"
+      - "core/partide partidaDetailQuery (GET /feed/sessions/:documentId for non-live partide), partideHistoryQuery"
+      - "core/partide mutations finishPartidaMutation, leavePartidaMutation, deletePartidaMutation, kickPartidaMemberMutation, rotatePartidaJoinCodeMutation, invalidateMembershipCaches"
+      - "core/partide api extendSession (auto-close „Da, continui”), patchSession (anchor)"
+      - "core/partide/domain historyMappers (dtoToLocalSession, dtoToLocalEvent), historySelectors (findMineListItem), venueRef (sessionSubtitle), format (fmtEndedSubtitle), sessionAccess"
+      - "core/social sendFeedback (feedback sheet)"
+      - "MISSING pure ports: helpers/partidaTabs (visibleTabs, initialTab), helpers/deepLinks (partidaSpectateDeepLink, shareVisible), helpers/feedbackNudge (shouldShowNudge, history)"
+    states:
+      - preparing (active pointer known, snapshot not yet arrived) → „Se pregătește partida…”
+      - not found
+      - summary only (list row known, detail in flight) → skeleton
+      - detail download failed → „Nu am putut descărca partida” + retry
+      - live (5 tabs) / ended (4 tabs, no Lansete)
+      - live and offline → „Reconectare…” banner
+      - owner vs member (guest) vs not-synced (no membershipDocumentId)
+      - private partidă (no share)
+      - auto-close warning pending (owner)
+      - access revoked while open (kicked / deleted)
+      - feedback nudge visible / hint after dismiss
+    criteria:
+      - id: partide.partida.c1
+        text: "The header shows a back control („Înapoi”), the venue name (lake → public water → manual name → anchor name → „Partidă”) and a subtitle: for a live partidă „{sessionSubtitle} · {n lansetă/lansete}” (rod part only when rods exist), for an ended one fmtEndedSubtitle(start, end)."
+        fish_ref: "app/(app)/partide/[id].tsx:70-79,520-526"
+      - id: partide.partida.c2
+        text: "A red „Termină” header action („Termină partida”) appears only for the owner (hostUid = viewer) of a live, synced partidă and opens the finish confirmation."
+        fish_ref: "app/(app)/partide/[id].tsx:524"
+      - id: partide.partida.c3
+        text: "A share action („Distribuie partida”) appears only when the partidă is public (visibleOnProfile !== false) and its documentId is known; it shares „Vezi partida mea pe Bluvi 🎣 https://bluvi-app.wearetribus.com/partide/comunitate/{documentId}” (web: system share or copy link)."
+        fish_ref: "app/(app)/partide/[id].tsx:164-174"
+      - id: partide.partida.c4
+        text: "Tabs: live → „Lansete”, „Jurnal”, „Galerie”, „Statistici”, „Setări”; ended → the same without „Lansete”. The „Jurnal” tab carries a count badge of all events when > 0."
+        fish_ref: "features/partide/helpers/partidaTabs.ts:8-10"
+      - id: partide.partida.c5
+        text: "Initial tab: ended → Jurnal; live with ≥1 rod → Lansete; live with no rod → Jurnal. When the partidă ends while open, the selected tab is kept if it still exists, else the initial tab is chosen."
+        fish_ref: "features/partide/helpers/partidaTabs.ts:13-16"
+      - id: partide.partida.c6
+        text: "If the session is not known yet but it is the device's active pointer, the page shows a spinner and „Se pregătește partida…”."
+        fish_ref: "app/(app)/partide/[id].tsx:433-446"
+      - id: partide.partida.c7
+        text: "Unknown session: „Partida nu a fost găsită” / „Poate a fost ștearsă sau încă nu s-a sincronizat.”"
+        fish_ref: "app/(app)/partide/[id].tsx:447-459"
+      - id: partide.partida.c8
+        text: "Only the list summary known: the detail skeleton; if the detail request failed: cloud-off icon, „Nu am putut descărca partida”, „Ai nevoie de conexiune pentru a descărca această partidă.” and „Reîncearcă” (invalidates the detail query)."
+        fish_ref: "app/(app)/partide/[id].tsx:462-492"
+      - id: partide.partida.c9
+        text: "A live partidă viewed while offline shows an amber banner „Reconectare…” under the header."
+        fish_ref: "app/(app)/partide/[id].tsx:529-543"
+      - id: partide.partida.c10
+        text: "The finish confirmation shows „Termină partida?”, venue · stand/anchor, three stats (Durată „{h}h {mm}m”, Capturi, „Cea mai mare” kg or „—”), „Partida va fi arhivată în partidele tale. Cronometrele active se vor opri.” and buttons „Termină partida” (red) / „Continuă”."
+        fish_ref: "features/partide/components/FinishPartidaSheet.tsx:70-145"
+      - id: partide.partida.c11
+        text: "Finishing the device's live partidă stops all rod timers, POSTs finish, clears the active pointer and navigates back; finishing a non-live synced partidă calls finish, invalidates the mine list + detail and, after a 2 s purge grace, every community query; failure → „Ceva n-a mers. Încearcă din nou.”"
+        fish_ref: "app/(app)/partide/[id].tsx:223-258"
+      - id: partide.partida.c12
+        text: "Finish is possible only for the owner of an active partidă with a synced membership documentId; otherwise „Partida nu s-a sincronizat încă.”"
+        fish_ref: "app/(app)/partide/[id].tsx:224,238-241"
+      - id: partide.partida.c13
+        text: "When the owner's live partidă carries warnedAt (server auto-close sweep), a dialog „Încă pescuiești?” / „Se închide automat în {countdown}” opens with „Da, continui” (extends the session; failure → „Nu am putut prelungi partida. Încearcă din nou.”) and „Nu, închid partida” (finishes)."
+        fish_ref: "app/(app)/partide/[id].tsx:278-303"
+      - id: partide.partida.c14
+        text: "Delete (owner with documentId only): dialog „Ștergi această partidă?” stating what is lost („Se șterg definitiv {n capturi} și {n fotografii}, împreună cu tot jurnalul partidei.” + teammate sentence + „Acțiunea nu poate fi anulată.”) and a hold-to-confirm „Ține apăsat pentru a șterge”; success toast „Partida a fost ștearsă.”, failure inline „Nu am putut șterge partida. Încearcă din nou.”"
+        fish_ref: "features/partide/components/DeletePartidaSheet.tsx:30-104"
+      - id: partide.partida.c15
+        text: "Leave (non-owner member of a live partidă): dialog „Părăsești partida?” with the access-loss explanation and „Părăsește partida”; success „Ai părăsit partida.”, failure „Nu am putut părăsi partida. Încearcă din nou.”"
+        fish_ref: "features/partide/components/SessionMembershipSheet.tsx:29-41"
+      - id: partide.partida.c16
+        text: "Kick (owner, not on the host): dialog „Elimini participantul?” naming the member, stating the code is rotated automatically, button „Elimină participantul”; success „Participant eliminat. Codul a fost schimbat.”, failure „Nu am putut elimina participantul. Încearcă din nou.”"
+        fish_ref: "app/(app)/partide/[id].tsx:340-391"
+      - id: partide.partida.c17
+        text: "Rotate join code (owner, live): dialog „Schimbi codul de acces?” / „Codul și linkurile trimise anterior nu vor mai funcționa.” / „Schimbă codul”; success „Codul de acces a fost schimbat.”, failure inline „Codul nu a putut fi schimbat. Încearcă din nou.”"
+        fish_ref: "features/partide/components/RotateJoinCodeSheet.tsx:52-70"
+      - id: partide.partida.c18
+        text: "Every membership/delete/rotate confirmation is single-flight: the confirm button shows pending and repeated activation is ignored until it settles."
+        fish_ref: "app/(app)/partide/[id].tsx:315-330,367-375,408-412"
+      - id: partide.partida.c19
+        text: "„Ajustează poziția” opens a map point picker centred on the anchor (satellite, close zoom) or on Romania (standard, wide) when there is no anchor; confirming patches anchorLat/anchorLng."
+        fish_ref: "app/(app)/partide/[id].tsx:683-696"
+      - id: partide.partida.c20
+        text: "If the viewer loses access while the live partidă is open (kicked → „Ai fost eliminat din partidă.”, deleted → „Partida a fost ștearsă.”), local live state is cleared and the page navigates away."
+        fish_ref: "features/partide/domain/useLiveMount.ts:215-241"
+      - id: partide.partida.c21
+        text: "For a live partidă with ≥3 captures or ≥4 h elapsed, a feedback nudge row „Ceva de îmbunătățit?” / „Spune-ne ce nu merge sau ce ți-ar plăcea să existe.” appears under the tabs; its X („Ascunde”) records the answer and shows „Bine. O găsești oricând în Info › Raportează o problemă.” for 3.5 s."
+        fish_ref: "features/partide/components/PartidaFeedbackBar.tsx:40-139"
+      - id: partide.partida.c22
+        text: "The feedback dialog „Spune-ne ce nu merge” offers categories „Problemă tehnică” / „Idee nouă”, a text field (max 1000) and „Trimite”; sends feedback with session metadata (clientId, documentId, captures, elapsed); toasts „Mulțumim! Mesajul a ajuns la echipă.” / „N-am putut trimite mesajul. Mai încearcă o dată.”"
+        fish_ref: "features/partide/components/PartidaFeedbackSheet.tsx:23-225"
+      - id: partide.partida.c23
+        text: "The live partidă reads from the realtime projection (Firestore); a non-live partidă reads GET /feed/sessions/:documentId; the documentId is taken from the active pointer or the cached mine list."
+        fish_ref: "features/partide/domain/hooks.ts:592-672"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.partida-lansete
+    title: Partidă — Lansete
+    fish:
+      - features/partide/scenes/CronometreScene.tsx
+      - features/partide/components/PartidaRodCard.tsx
+      - features/partide/components/StopRodSheet.tsx
+      - features/partide/components/CaptureSpamGuardHost.tsx
+      - features/partide/scenes/useCaptureFlow.tsx
+      - features/partide/helpers/partideSpam.ts
+      - features/partide/helpers/derivedLane.ts
+      - features/partide/helpers/stats.ts
+      - features/partide/domain/rodPhase.ts
+      - features/partide/domain/rodCycle.ts
+      - features/partide/domain/serverClock.ts
+      - features/partide/domain/spamTelemetry.ts
+      - features/partide/types.ts
+    web_route: "/partide/[id]?tab=lansete"
+    template: T3
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/realtime/partide (rod docs + runtimes)"
+      - "core/partide api castRod, stopRod, upsertEvent (lost / blank outcomes), createRodCommandAvailability"
+      - "core/partide/domain stats (computeRodStats), rodPhase (effectivePhase), rodCycle, serverClock"
+      - "MISSING pure ports: helpers/partideSpam (lastOutcomeAgeMs, lastCaptureAgeMs, cooldownMessage, COOLDOWN_MS, CONFIRM_MS), helpers/derivedLane (laneForRod), helpers/castGeometry (anchorCoord)"
+    states:
+      - no rods → empty state
+      - rods idle / timer counting down / expired (firing) / provisional („Se sincronizează”)
+      - max 4 rods reached (no add tile)
+      - offline (writes blocked)
+      - outcome cooldown hit
+      - ended partidă (tab hidden)
+    criteria:
+      - id: partide.partida-lansete.c1
+        text: "No rods: illustration, „Nicio lansetă încă”, „Adaugă o lansetă ca să-ți notezi momeala și capturile. Cronometrul e opțional.” and „Adaugă lansetă”."
+        fish_ref: "features/partide/scenes/CronometreScene.tsx:252-266"
+      - id: partide.partida-lansete.c2
+        text: "Each rod card has a left border in the rod colour, a badge „L{index}” (indigo ring + clock bubble when a timer is configured), the lane + distance title („Stânga/Centru/Dreapta · {m} m”), and, when the rod has bites, captures count, best kg and „{n} trăsătură/trăsături”."
+        fish_ref: "features/partide/components/PartidaRodCard.tsx:170-258"
+      - id: partide.partida-lansete.c3
+        text: "Idle rods show the bait line (or „Momeală necunoscută”); a running rod shows „Timp rămas” with a live countdown, an expired one „Expirat” in red, a provisional one „Se sincronizează” in grey."
+        fish_ref: "features/partide/components/PartidaRodCard.tsx:329-339,643"
+      - id: partide.partida-lansete.c4
+        text: "Every rod card has three outcome buttons: „Fără trăsătură”, „Scăpat”, „Captură” (green, emphasised); Captură opens the capture flow for that rod."
+        fish_ref: "features/partide/components/PartidaRodCard.tsx:385-401"
+      - id: partide.partida-lansete.c5
+        text: "„Scăpat” / „Fără trăsătură” on the same rod within 60 s of the previous identical outcome is refused with „Ai marcat deja «scăpat» pe lanseta asta acum {s}s. Un pește nu scapă de două ori într-un minut 🎣” / „Ai marcat deja «fără trăsătură» acum {s}s. Stai un pic până la următoarea aruncare 🎣”."
+        fish_ref: "features/partide/helpers/partideSpam.ts:8-55"
+      - id: partide.partida-lansete.c6
+        text: "A recorded lost/blank outcome briefly covers the card with a takeover („Scăpat” / „Fără trăsătură” + a random joke such as „Peștele: 1 — Tu: 0”) and blocks re-taps while it plays."
+        fish_ref: "features/partide/components/PartidaRodCard.tsx:404-452"
+      - id: partide.partida-lansete.c7
+        text: "An outcome on a running/expired rod resolves the timer cycle; on an idle rod it only logs the event."
+        fish_ref: "features/partide/scenes/CronometreScene.tsx:147-157"
+      - id: partide.partida-lansete.c8
+        text: "A capture in the same rod bucket (or the free bucket) within 30 s of the previous one asks „Sigur adaugi altă captură?” / „Ai adăugat o captură acum {s}s. Ești sigur că vrei să adaugi alta?” with „Da, adaug” / „Anulează”."
+        fish_ref: "features/partide/scenes/useCaptureFlow.tsx:38-60"
+      - id: partide.partida-lansete.c9
+        text: "Rods with a configured timer show a start pill („Pornește cronometrul”); a running rod shows a stop control („Oprește cronometrul”) that asks for confirmation before force-stopping (label „{lane} · {m} m”)."
+        fish_ref: "features/partide/scenes/CronometreScene.tsx:125-142"
+      - id: partide.partida-lansete.c10
+        text: "Countdowns tick every second on the server-corrected clock; when a rod's deadline passes the rod moves to the fired state."
+        fish_ref: "features/partide/scenes/CronometreScene.tsx:66-99"
+      - id: partide.partida-lansete.c11
+        text: "Below the cards a dashed „Adaugă lansetă” tile is shown while fewer than 4 rods exist."
+        fish_ref: "features/partide/scenes/CronometreScene.tsx:37,101-104,232-250"
+      - id: partide.partida-lansete.c12
+        text: "Offline, outcome, capture, add and configure actions are refused with „Fără conexiune. Reconectare…”."
+        fish_ref: "features/partide/scenes/CronometreScene.tsx:49-60,164-169"
+      - id: partide.partida-lansete.c13
+        text: "Web: rod configuration (add rod, edit rod, timer duration/alarm sound, cast pin) is the mobile-only rod-config screen — the web offers no alarm; „Adaugă lansetă” / configure entries need a web replacement decided by the owner (see partide.rod-config)."
+        fish_ref: "features/partide/scenes/CronometreScene.tsx:186-198"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.partida-jurnal
+    title: Partidă — Jurnal
+    fish:
+      - features/partide/scenes/JurnalScene.tsx
+      - features/partide/components/JurnalRow.tsx
+      - features/partide/components/CatchPhoto.tsx
+      - features/partide/components/ShareCatchSheet.tsx
+      - features/partide/components/CatchCard.tsx
+      - features/partide/components/PartidaMap.tsx
+      - features/partide/helpers/eventView.ts
+      - features/partide/domain/awaitProjection.ts
+      - features/partide/types.ts
+    web_route: "/partide/[id]?tab=jurnal"
+    template: T3
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/partide/domain eventView (jurnalRowModel, filterEvents, EMPTY_JURNAL_FILTER, eventPhotoUri)"
+      - "core/partide api deleteEventByClientId, getMarkers, upsertMarker, deleteMarker"
+      - "core/realtime/partide waitForProjection, eventGone"
+    states:
+      - no events → empty state
+      - events but filtered to zero
+      - deleting an event (pending row)
+      - "live vs ended (ended: no Captură button, no delete/edit)"
+      - map dialog with catches + markers
+      - offline (delete / add marker blocked)
+    criteria:
+      - id: partide.partida-jurnal.c1
+        text: "Filter chips: „Capturi”, „Scăpate”, „Fără trăsătură” (multi-select) and one „L{n}” chip per rod coloured with the rod colour; filters combine; changing a filter resets paging."
+        fish_ref: "features/partide/scenes/JurnalScene.tsx:37-41,306-365"
+      - id: partide.partida-jurnal.c2
+        text: "Rows are newest first and loaded 30 at a time as the list scrolls."
+        fish_ref: "features/partide/scenes/JurnalScene.tsx:35,81-95"
+      - id: partide.partida-jurnal.c3
+        text: "A row shows a lead column (weight in kg + „ESTIMAT” badge when estimated, or „SCĂPAT”, or „FĂRĂ TRĂSĂTURĂ”, or a fish glyph), the rod pill „L{n}”, species, a meta line, a 38px photo thumb when present and the time."
+        fish_ref: "features/partide/components/JurnalRow.tsx:83-160"
+      - id: partide.partida-jurnal.c4
+        text: "Activating a row opens the share dialog for that event (title „Distribuie captura” / „Scăpat” / „Fără trăsătură”); for a live partidă the dialog also offers „Editează captura” (→ capture edit) and „Șterge captura”."
+        fish_ref: "features/partide/scenes/JurnalScene.tsx:278-290"
+      - id: partide.partida-jurnal.c5
+        text: "The share card lets the user toggle the fields „Baltă”, „Specie”, „Data”, „Competiție” and shares a PNG of the composed card („Distribuie”, „Se pregătește…” while rendering)."
+        fish_ref: "features/partide/components/ShareCatchSheet.tsx:17-108"
+      - id: partide.partida-jurnal.c6
+        text: "Deleting (live partidă only, long-press or dialog action) asks „Ștergi această înregistrare?” (Închide / Șterge); while pending the row dims with „Ștergem captura…”; failure → „Nu am putut șterge captura. Încearcă din nou.”; offline → „Fără conexiune. Reconectare…”."
+        fish_ref: "features/partide/scenes/JurnalScene.tsx:102-136,398-407"
+      - id: partide.partida-jurnal.c7
+        text: "No events: illustration, „Liniște pe baltă… deocamdată” and „Tot ce se întâmplă la partidă se strânge aici — capturi, scăpate și trăsături, în ordinea în care le trăiești.”; events filtered to zero: „Niciun rezultat pentru filtrele alese”."
+        fish_ref: "features/partide/scenes/JurnalScene.tsx:370-395"
+      - id: partide.partida-jurnal.c8
+        text: "A floating „Captură” button (live only, dimmed offline) opens the free-capture flow; a white „Hartă” button is always shown."
+        fish_ref: "features/partide/scenes/JurnalScene.tsx:224-275"
+      - id: partide.partida-jurnal.c9
+        text: "„Hartă” opens a full map centred on the anchor showing the filtered non-blank events with coordinates and the venue's markers."
+        fish_ref: "features/partide/scenes/JurnalScene.tsx:95,292-300"
+      - id: partide.partida-jurnal.c10
+        text: "Long-pressing the map adds a marker after asking „Adaugă un reper” / „Ce ai găsit aici?” with „Zonă tare”, „Pat nadă”, „Agățătură”, „Anulează”; pressing a marker asks „Ștergi reperul?”. Adding is blocked offline."
+        fish_ref: "features/partide/scenes/JurnalScene.tsx:140-166"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.partida-galerie
+    title: Partidă — Galerie
+    fish:
+      - features/partide/scenes/GalerieScene.tsx
+      - features/partide/components/community/MasonryGallery.tsx
+      - features/partide/helpers/gifExport.ts
+      - components/ImageLightbox.tsx
+      - components/CatchLightboxFooter.tsx
+    web_route: "/partide/[id]?tab=galerie"
+    template: T3
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/partide/domain eventView (eventPhotoUri), format (fmtKg)"
+    states:
+      - no photo catches → empty
+      - photos (masonry)
+      - lightbox open
+      - GIF export in progress (≥2 photos)
+    criteria:
+      - id: partide.partida-galerie.c1
+        text: "The gallery shows only capture events that have a photo, newest first, in a masonry grid with captions „{specie} · {kg} kg”."
+        fish_ref: "features/partide/scenes/GalerieScene.tsx:46-65"
+      - id: partide.partida-galerie.c2
+        text: "No photo: „Nicio captură cu poză încă” / „Pozele capturilor din această partidă apar aici.”"
+        fish_ref: "features/partide/scenes/GalerieScene.tsx:129-137"
+      - id: partide.partida-galerie.c3
+        text: "Activating a photo opens the lightbox at that index with a footer (weight, species, time); its share action closes the lightbox and opens the share card for that catch."
+        fish_ref: "features/partide/scenes/GalerieScene.tsx:189-204"
+      - id: partide.partida-galerie.c4
+        text: "With ≥2 photo catches a floating „Exportă GIF” action builds an animated GIF (venue · stand, kg, species, date per frame) showing „{done}/{total}” progress and shares it; failure → „Eroare la generarea GIF-ului”."
+        fish_ref: "features/partide/scenes/GalerieScene.tsx:83-125,149-180"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.partida-statistici
+    title: Partidă — Statistici
+    fish:
+      - features/partide/scenes/StatisticiScene.tsx
+      - features/partide/components/Leaderboard.tsx
+      - features/partide/components/HourHeatmap.tsx
+      - features/partide/helpers/patterns.ts
+      - features/partide/domain/hooks.ts
+    web_route: "/partide/[id]?tab=statistici"
+    template: T3
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/partide/domain stats (computeHourHeatmap), venueRef (sessionVenueRef)"
+      - "MISSING pure port: helpers/patterns (scopeEvents, computeTripStats, computeBaitRanking, computeArrivalRecap)"
+    states:
+      - scope „Această partidă” with events / without events
+      - scope „Toate partidele” with data / not enough data
+      - rods present (per-rod bars) / no rods
+    criteria:
+      - id: partide.partida-statistici.c1
+        text: "A segmented toggle „Această partidă” (default) / „Toate partidele”."
+        fish_ref: "features/partide/scenes/StatisticiScene.tsx:48-51,124-151"
+      - id: partide.partida-statistici.c2
+        text: "„Această partidă” cards: „Capturi” (indigo), „Cea mai mare” (kg), „Greutate totală” (kg)."
+        fish_ref: "features/partide/scenes/StatisticiScene.tsx:53-59"
+      - id: partide.partida-statistici.c3
+        text: "„Toate partidele” cards for the venue: „Partide”, „Top momeală”, „Distanță ideală”, „Ore de vârf” („—” when unknown)."
+        fish_ref: "features/partide/scenes/StatisticiScene.tsx:61-68"
+      - id: partide.partida-statistici.c4
+        text: "„Capturi pe lansetă” bars (one per rod label, relative to the max) appear only in partidă scope when the partidă has rods."
+        fish_ref: "features/partide/scenes/StatisticiScene.tsx:97,199-239"
+      - id: partide.partida-statistici.c5
+        text: "Both scopes show a bait leaderboard and a 24-hour heatmap counting non-blank events by hour."
+        fish_ref: "features/partide/scenes/StatisticiScene.tsx:84-96,113-117"
+      - id: partide.partida-statistici.c6
+        text: "Empty: „Niciun eveniment încă în această partidă.” (partidă scope) / „Încă nu sunt suficiente date pentru această baltă.” (venue scope with zero sessions)."
+        fish_ref: "features/partide/scenes/StatisticiScene.tsx:99-111"
+      - id: partide.partida-statistici.c7
+        text: "Venue scope is computed client-side from the sessions/events loaded in the live projection for the same venue (anchor radius 40 m), not from a server endpoint."
+        fish_ref: "features/partide/domain/hooks.ts:672-694"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.partida-setari
+    title: Partidă — Setări
+    fish:
+      - features/partide/scenes/InfoScene.tsx
+      - features/partide/components/CoopCard.tsx
+      - features/partide/components/SpeciesPickerSheet.tsx
+      - features/partide/components/StandPickerSheet.tsx
+      - features/partide/components/PartidaFeedbackSheet.tsx
+      - features/partide/domain/fishCatalog.ts
+    web_route: "/partide/[id]?tab=setari"
+    template: T3
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/partide api patchSession (targetSpecies, visibleOnProfile, anchor/stand)"
+      - "core/partide/domain fishCatalog (catalog, sameSpecies), format (fmtClock, fmtElapsedShort, fmtPlannedDuration), venueRef (sessionSubtitle)"
+      - "core/lakes lakeQuery (stands of the lake)"
+    states:
+      - live vs ended (read-only details, no Editează)
+      - co-op (join code present) vs solo
+      - owner vs member
+      - lake with stands vs without
+      - online vs offline (sync row)
+    criteria:
+      - id: partide.partida-setari.c1
+        text: "When the partidă has a join code, a „Partidă în echipă” card shows „Cod de acces” with the code large and spaced, an „Invită” button (live only) that shares „Hai în partida mea pe Bluvi! Folosește codul {cod} sau deschide linkul: https://bluvi-app.wearetribus.com/partide/join/{cod}”."
+        fish_ref: "features/partide/components/CoopCard.tsx:38-105"
+      - id: partide.partida-setari.c2
+        text: "The co-op card offers „Schimbă codul” (owner, live) and lists members („1 membru” / „{n} membri”) with avatar, name (fallback „Pescar”), „Organizator” under the host and, for the owner on a live partidă, an „Elimină {name}” action on every non-host member."
+        fish_ref: "features/partide/components/CoopCard.tsx:107-170"
+      - id: partide.partida-setari.c3
+        text: "A row „Raportează o problemă” / „Ceva nu merge sau ai o idee? Scrie-ne direct din partidă.” is always shown and opens the feedback dialog."
+        fish_ref: "features/partide/scenes/InfoScene.tsx:179-198"
+      - id: partide.partida-setari.c4
+        text: "„Detalii” lists „Baltă” (name + subtitle), „Început”, then for ended „Sfârșit” + „Durată”, for live „Sfârșit estimat” + „Durată estimată”, „Reper” when set, and for ended also „Poziție” (5 decimals), „Specii vizate”, „Stand”."
+        fish_ref: "features/partide/scenes/InfoScene.tsx:106-124,200-238"
+      - id: partide.partida-setari.c5
+        text: "„Editează” (live only) offers „Poziție” (→ adjust map), „Specii vizate” (→ species picker, saves targetSpecies) and, when the lake has stands, „Stand” („Alege standul” when none)."
+        fish_ref: "features/partide/scenes/InfoScene.tsx:127-148,240-264"
+      - id: partide.partida-setari.c6
+        text: "Choosing a stand sets anchor to the stand coordinates (when present), standId and standName, then opens the position adjust map once the picker closes."
+        fish_ref: "features/partide/scenes/InfoScene.tsx:88-103"
+      - id: partide.partida-setari.c7
+        text: "A „Sincronizare” row shows „Sincronizat” (green) online or „Offline” (amber)."
+        fish_ref: "features/partide/scenes/InfoScene.tsx:152,266-281"
+      - id: partide.partida-setari.c8
+        text: "„Partidă publică” with „Vizibilă în comunitate și pe profil — ceilalți văd doar capturile, nu locul exact sau alte detalii.” is a switch on a live partidă and read-only „Publică” / „Privată” once ended."
+        fish_ref: "features/partide/scenes/InfoScene.tsx:283-314"
+      - id: partide.partida-setari.c9
+        text: "Live: a non-owner member sees „Părăsește partida”, the owner sees „Termină partida”; a quiet red „Șterge partida” link is shown whenever the viewer can delete (owner with documentId)."
+        fish_ref: "features/partide/scenes/InfoScene.tsx:316-336"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.incepe
+    title: Începe o partidă
+    fish:
+      - "app/(app)/partide/start.tsx"
+      - features/partide/components/VenuePicker.tsx
+      - features/partide/components/VenueRow.tsx
+      - features/partide/components/AnchorMapPreview.tsx
+      - features/partide/components/MapPointPicker.tsx
+      - features/partide/components/StandPickerSheet.tsx
+      - features/partide/components/SpeciesPickerSheet.tsx
+      - features/partide/components/NearbyLocationRetryCard.tsx
+      - features/partide/helpers/pinVenue.ts
+      - features/partide/helpers/venueSearch.ts
+      - features/partide/helpers/venueSuggestions.ts
+      - features/partide/helpers/useVenueSuggestions.ts
+      - features/partide/helpers/nearbyWater.ts
+      - features/partide/domain/fishCatalog.ts
+      - features/partide/domain/hooks.ts
+      - services/queries/useVenueSearch.ts
+    web_route: "/partide/incepe (?balta=lakeId, ?apa=linkCode)"
+    template: T4
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/partide api createSession (POST /feed/sessions), getActiveSession"
+      - "core/partide/domain captureEdits (StartPartidaInput, sessionFromInput), fishCatalog (resolveDefaultTargets, mergeSpeciesChips, sameSpecies), upsertBodies"
+      - "core/realtime/partide pointer (set active session)"
+      - "core/lakes lakeQuery (stands, coordinates), lakesIndexQuery, claimedPublicWatersQuery"
+      - "MISSING ports: helpers/pinVenue (resolvePinVenue), helpers/venueSuggestions (nearby / recent / random), venue search (lakes + public waters), public-water point lookup + county lookup (needs the public-waters data source)"
+    states:
+      - signed-out → sign-in
+      - "step venue: suggestions loading / location blocked (never asked / denied / services off) / location unresolved / nearby / recent / random"
+      - "step venue: search results / no results"
+      - pin dropped → resolving („Verificăm locul...”) → resolved to lake / public water / plain pin (name it)
+      - "step detail: lake with stands (stand not chosen → dimmed map) / without stands"
+      - anchor loading / lake without coordinates
+      - preselected from ?balta / ?apa
+      - starting (button loading) / already active / error
+    criteria:
+      - id: partide.incepe.c1
+        text: "Signed out, the route redirects to sign-in."
+        fish_ref: "app/(app)/partide/start.tsx:68-72"
+      - id: partide.incepe.c2
+        text: "Title „Începe o partidă” with a back control; step 1 is the venue picker, step 2 the details."
+        fish_ref: "app/(app)/partide/start.tsx:313-338"
+      - id: partide.incepe.c3
+        text: "The venue picker has a search field „Caută o baltă sau o apă publică...” (results from 2 characters, lakes and public waters merged, „Niciun rezultat pentru „{term}”.” when none) and a dashed card „Pune un pin pe hartă” / „Pentru un loc care nu e în listă”."
+        fish_ref: "features/partide/components/VenuePicker.tsx:247-293,374-409"
+      - id: partide.incepe.c4
+        text: "Without a search term the picker shows suggestions: „Aproape de tine” (≤3 lakes + waters within 150 km, max 5 rows), „Folosite recent” (max 3 when nearby exists, else 5), „Sugestii” (random lakes); a location-permission card when blocked and a retry card when the position could not be resolved."
+        fish_ref: "features/partide/components/VenuePicker.tsx:297-371"
+      - id: partide.incepe.c5
+        text: "A dropped pin is resolved before continuing („Verificăm locul...”): a catalog lake within 400 m wins, else a public water at the point (claimed by a lake → that lake), else the water itself, else a plain pin; the pin coordinate stays the anchor."
+        fish_ref: "features/partide/helpers/pinVenue.ts:1-90"
+      - id: partide.incepe.c6
+        text: "An unresolved pin asks for „Nume loc” (placeholder „ex. Cot Dunăre”, default „Loc nou”) under „Loc nou pe hartă” with the coordinates (4 decimals) and „Înapoi” / „Continuă”."
+        fish_ref: "features/partide/components/VenuePicker.tsx:170-245"
+      - id: partide.incepe.c7
+        text: "Step 2 opens with the venue card (name, locality / water type / „Jud. {county}” / „Loc pe hartă”) and „Schimbă”, which resets venue, anchor, anchor name and stand and returns to step 1."
+        fish_ref: "app/(app)/partide/start.tsx:166-173,304-376"
+      - id: partide.incepe.c8
+        text: "Lake with stands: „Stand” selector („Alege standul”, clearable with „Șterge standul”); the position preview is dimmed and routes to the stand picker until a stand is chosen, with „Alege standul, apoi poți ajusta poziția pe hartă.”; choosing a stand moves the anchor to its coordinates and opens the adjust map."
+        fish_ref: "app/(app)/partide/start.tsx:117-137,383-435"
+      - id: partide.incepe.c9
+        text: "Venue without stands: „Poziție” preview (opens the adjust map) and an optional name field „Nume standul / locul (opțional)”."
+        fish_ref: "app/(app)/partide/start.tsx:436-463"
+      - id: partide.incepe.c10
+        text: "„Durată estimată” presets „12h”, „1 zi” (default), „2 zile”, „3 zile”, „7 zile” and „Alta” (day/hour picker up to 7 days)."
+        fish_ref: "app/(app)/partide/start.tsx:44-53,469-514"
+      - id: partide.incepe.c11
+        text: "„Ce pescuiești?” shows species chips (the first 6 catalog fish, or default targets, merged with the selection) as multi-select toggles plus „Vezi toate” opening the full species picker."
+        fish_ref: "app/(app)/partide/start.tsx:209-221,519-556"
+      - id: partide.incepe.c12
+        text: "„Partidă publică” switch (on by default) with „Vizibilă în comunitate și pe profil — ceilalți văd doar capturile, nu locul exact sau alte detalii.”"
+        fish_ref: "app/(app)/partide/start.tsx:94,560-584"
+      - id: partide.incepe.c13
+        text: "„Începe partida” is enabled only with a venue and an anchor (lake anchor loads from the lake's coordinates); it creates the session with venue, venueName, locality, anchor, anchorName (only without a stand), stand, planned duration, no rods, targets and visibility, then replaces the page with the new partidă."
+        fish_ref: "app/(app)/partide/start.tsx:227-270"
+      - id: partide.incepe.c14
+        text: "If the user already has an active partidă: toast „Ai deja o partidă activă” and navigate to that partidă; auth missing → sign-in; other errors → „Ceva n-a mers. Încearcă din nou.”"
+        fish_ref: "app/(app)/partide/start.tsx:271-285"
+      - id: partide.incepe.c15
+        text: "?balta=lakeId or ?apa=linkCode preselects that venue once and opens step 2 directly."
+        fish_ref: "app/(app)/partide/start.tsx:180-206"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.intra
+    title: Alătură-te unei partide (cod)
+    fish:
+      - "app/(app)/partide/join/index.tsx"
+      - features/partide/helpers/partidaJoinError.ts
+      - features/partide/domain/hooks.ts
+    web_route: /partide/intra
+    template: T6
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/partide joinPartidaMutation (POST join), core/partide/domain partidaJoinError (partidaJoinErrorMessage)"
+      - "core/realtime/partide pointer (set active session)"
+    states:
+      - signed-out → sign-in
+      - code incomplete (button disabled) / complete / joining / error toast
+    criteria:
+      - id: partide.intra.c1
+        text: "Signed out, the route redirects to sign-in."
+        fish_ref: "app/(app)/partide/join/index.tsx:23-27"
+      - id: partide.intra.c2
+        text: "Title „Alătură-te unei partide”, helper „Introdu codul de acces primit de la organizatorul partidei.”, an autofocused centred code field (placeholder „COD”) and a green „Alătură-te” button."
+        fish_ref: "app/(app)/partide/join/index.tsx:62-112"
+      - id: partide.intra.c3
+        text: "Input is uppercased, stripped to A–Z0–9 and capped at 6 characters; the button is enabled only at exactly 6 characters; Enter submits."
+        fish_ref: "app/(app)/partide/join/index.tsx:16,38-47"
+      - id: partide.intra.c4
+        text: "Joining sets the active pointer and replaces the page with the partidă."
+        fish_ref: "app/(app)/partide/join/index.tsx:49-60"
+      - id: partide.intra.c5
+        text: "Failures map to „Cod invalid”, „Partida s-a încheiat”, „Partida este plină”, „Ai deja o partidă în desfășurare. Încheie-o înainte să intri în alta.”, else „Ceva n-a mers. Încearcă din nou.”"
+        fish_ref: "features/partide/helpers/partidaJoinError.ts:1-30"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.intra-cod
+    title: Alătură-te unei partide (link cu cod)
+    fish:
+      - "app/(app)/partide/join/[code].tsx"
+      - features/partide/helpers/partidaJoinError.ts
+    web_route: /partide/intra/[cod]
+    template: T6
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/partide joinPartidaMutation, core/partide/domain partidaJoinError"
+    states:
+      - signed-out → sign-in
+      - confirm
+      - joining
+      - error (incl. empty code)
+    criteria:
+      - id: partide.intra-cod.c1
+        text: "Signed out, the route redirects to sign-in."
+        fish_ref: "app/(app)/partide/join/[code].tsx:28-32"
+      - id: partide.intra-cod.c2
+        text: "Confirmation step: „Intri în partida cu codul {cod}?” / „Vei apărea ca participant, iar capturile pe care le adaugi intră în această partidă.” with „Alătură-te” and „Nu acum”."
+        fish_ref: "app/(app)/partide/join/[code].tsx:104-118"
+      - id: partide.intra-cod.c3
+        text: "While joining: spinner and „Te conectăm la partidă…”; repeated activation is ignored; success replaces the page with the partidă."
+        fish_ref: "app/(app)/partide/join/[code].tsx:57-69,97-103"
+      - id: partide.intra-cod.c4
+        text: "Error (mapped message, or „Cod invalid” for an empty code) shows the message, „Verifică codul și încearcă din nou.” and „Înapoi”; a retry is possible after an error."
+        fish_ref: "app/(app)/partide/join/[code].tsx:53-55,85-96"
+      - id: partide.intra-cod.c5
+        text: "„Înapoi” / „Nu acum” go back, or to the Partide tab when there is no history."
+        fish_ref: "app/(app)/partide/join/[code].tsx:46-49"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.captura
+    title: Captură nouă / Editează captura
+    fish:
+      - "app/(app)/partide/captura.tsx"
+      - features/partide/scenes/captureDetail.ts
+      - features/partide/scenes/useCaptureFlow.tsx
+      - features/partide/components/CaptureSpamGuardHost.tsx
+      - features/partide/components/SaveCurtain.tsx
+      - features/partide/helpers/saveCurtainCopy.ts
+      - features/partide/components/BaitEditorSheet.tsx
+      - features/partide/components/BaitEditor.tsx
+      - features/partide/components/SpeciesPickerSheet.tsx
+      - features/partide/components/MapPointPicker.tsx
+      - features/partide/domain/commitCatch.ts
+      - features/partide/domain/awaitProjection.ts
+      - features/partide/domain/fishCatalog.ts
+      - features/partide/domain/hooks.ts
+      - features/partide/helpers/castGeometry.ts
+      - features/partide/helpers/derivedLane.ts
+    web_route: "/partide/[id]/captura (?lanseta=n, ?editare=eventClientId)"
+    template: T6
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/partide commitCatch, api upsertEvent / uploadSessionPhoto / patchEventPhoto / patchEventTags, invalidateCommunityAfterCatch"
+      - "core/partide/domain captureEdits (buildLogCaptureEvent, applyCaptureUpdate), fishCatalog, format (fmtKg, pad2), retryWrite"
+      - "core/realtime/partide waitForProjection (eventPresent, eventUpdatedSince, revAdvanced)"
+      - "MISSING ports: castGeometry (anchorCoord, distanceFromAnchor, haversineMeters), derivedLane (laneForRod)"
+    states:
+      - session not found
+      - new capture (free / from a rod) vs edit
+      - weight absent / entering / set (cântărită vs estimată)
+      - photo none / preparing / chosen
+      - saving (curtain) / save error (Reîncearcă) / offline
+    criteria:
+      - id: partide.captura.c1
+        text: "Unknown session: „Partida nu a fost găsită.” with „Înapoi”."
+        fish_ref: "app/(app)/partide/captura.tsx:641-654"
+      - id: partide.captura.c2
+        text: "Indigo hero with back control, title „Captură nouă” or „Editează captura” and the helper „Completează datele pentru o statistică personală cât mai completă.”"
+        fish_ref: "app/(app)/partide/captura.tsx:713-725"
+      - id: partide.captura.c3
+        text: "„CE AI PRINS?” species chips = the partidă's target species (or the catalog defaults), single-select, plus „Mai mult” opening the species picker; species added there become targets of the partidă and the first newly added one is selected; „Altele” is selectable."
+        fish_ref: "app/(app)/partide/captura.tsx:170-186,343-373,744-796"
+      - id: partide.captura.c4
+        text: "„GREUTATE” is optional: prompt „Adaugă greutatea” / „Opțional — captura se salvează și fără”; once set, − / + steppers of 0,1 kg, a keypad (max 3 decimals, max 60 kg, comma decimal) and a „Cântărită” / „Estimată” toggle."
+        fish_ref: "app/(app)/partide/captura.tsx:111-113,318-331,805-905"
+      - id: partide.captura.c5
+        text: "„DETALII” rows: „Lansetă” (rod chooser „Fără lansetă” / the partidă's rods, helper „Aici îți apar lansetele pe care le-ai configurat în cadrul partidei”), „Poziția pe hartă” („{m} m · pe hartă” / „la pinul lansetei · {m} m” / „{lane} · {m} m” / „Alege pe hartă”), „Momeală” („Adaugă” or the rod's bait), „Poză” („Adaugă” or a thumb with remove), „Ora” („acum · HH:MM” or the picked time)."
+        fish_ref: "app/(app)/partide/captura.tsx:912-1048,1086-1112"
+      - id: partide.captura.c6
+        text: "Opening from a rod preselects that rod; changing rod resets a custom bait; the position defaults to the rod's cast pin when it has one (not in edit)."
+        fish_ref: "app/(app)/partide/captura.tsx:166,251-268,334-338"
+      - id: partide.captura.c7
+        text: "The time picker „Ora capturii” sets hours/minutes on the capture's day and moves it back 24 h if the result would be in the future."
+        fish_ref: "app/(app)/partide/captura.tsx:122-128,1480"
+      - id: partide.captura.c8
+        text: "„Poză” asks „Adaugă o poză” → „Fă o poză” / „Alege din galerie” / „Anulează” (web: file input / camera capture), then opens the photo preview step; failure → „Nu am putut pregăti poza. Încearcă din nou.”"
+        fish_ref: "app/(app)/partide/captura.tsx:431-451"
+      - id: partide.captura.c9
+        text: "„Salvează captura” / „Salvează modificările” saves; offline → inline „Fără conexiune. Reconectare…”; while saving a curtain with rotating messages covers the form for a minimum time; failure → inline „Nu am putut salva captura. Încearcă din nou.” and the button becomes „Reîncearcă” (replays the same event id)."
+        fish_ref: "app/(app)/partide/captura.tsx:498-614,1062-1071"
+      - id: partide.captura.c10
+        text: "A capture from a running/expired rod resolves that rod's timer cycle; otherwise a capture event is logged with rod snapshot, weight, estimated flag, species, bait, photo, photo tags, coordinates, distance and time."
+        fish_ref: "app/(app)/partide/captura.tsx:582-613"
+      - id: partide.captura.c11
+        text: "Edit sends only changed fields (photo only when changed; rod snapshot only when the rod changed) and waits until the projection shows the update."
+        fish_ref: "app/(app)/partide/captura.tsx:531-579"
+      - id: partide.captura.c12
+        text: "After a successful save the angler galleries and the partidă detail query are invalidated, then the page waits for the realtime projection before going back."
+        fish_ref: "app/(app)/partide/captura.tsx:475-521"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.captura-poza
+    title: Previzualizare poză captură
+    fish:
+      - "app/(app)/partide/photo-preview.tsx"
+      - features/partide/components/PhotoCropOverlay.tsx
+      - features/partide/components/PhotoTagPicker.tsx
+      - features/partide/helpers/photoCropPipeline.ts
+      - features/partide/helpers/cropGeometry.ts
+      - features/partide/scenes/photoPreviewResult.ts
+    web_route: "/partide/[id]/captura (pas Previzualizare poză, dialog)"
+    template: T6
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/partide/domain captureEdits (sameTagSelection)"
+      - "MISSING ports: helpers/cropGeometry + photoCropPipeline (rotate/flip before crop, crop rect on the rotated size)"
+    states:
+      - solo partidă (no tag picker)
+      - co-op partidă (tag picker)
+      - cropping
+      - image read / crop failure
+    criteria:
+      - id: partide.captura-poza.c1
+        text: "Full-bleed photo with „Renunță” (back; discards and returns) and „Decupează” (disabled until the image is measured or while cropping) at the top and „Gata” at the bottom."
+        fish_ref: "app/(app)/partide/photo-preview.tsx:179-217"
+      - id: partide.captura-poza.c2
+        text: "Crop is non-destructive and repeatable: each crop is measured against the current working image; rotate/flip apply before the crop."
+        fish_ref: "app/(app)/partide/photo-preview.tsx:1-21"
+      - id: partide.captura-poza.c3
+        text: "Errors: „Nu am putut citi poza. Încearcă din nou.”, „Poza nu este încă pregătită. Încearcă din nou.”, „Nu am putut aplica decuparea. Încearcă din nou.”"
+        fish_ref: "app/(app)/partide/photo-preview.tsx:79-102"
+      - id: partide.captura-poza.c4
+        text: "In a partidă with more than one member, „Cine e în poză?” offers „Toți” (default) and one chip per member; deselecting everyone returns to „Toți”; helper „Poza apare pe profilul tuturor membrilor, dacă partida e publică.” / „Poza apare doar pe profilul celor selectați, dacă partida e publică.” A solo partidă shows no picker."
+        fish_ref: "features/partide/components/PhotoTagPicker.tsx:40-96"
+      - id: partide.captura-poza.c5
+        text: "Photo tags decide only whose gallery shows the photo — the catch always counts for every member."
+        fish_ref: "app/(app)/partide/photo-preview.tsx:11-13"
+      - id: partide.captura-poza.c6
+        text: "„Gata” returns the working image and the tag selection to the capture form (preselected tags are restored when re-opening an existing photo)."
+        fish_ref: "app/(app)/partide/photo-preview.tsx:104-127"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.istoric
+    title: Istoric partide
+    fish:
+      - "app/(app)/partide/istoric.tsx"
+      - features/partide/components/community/VenueFilterScreen.tsx
+      - features/partide/components/card/OwnPartidaCard.tsx
+      - features/partide/helpers/historyView.ts
+      - features/partide/helpers/history.ts
+      - features/partide/domain/viewAtoms.ts
+    web_route: "/partide/istoric (?sortare=greutate, ?balti=, ?cu-capturi=1)"
+    template: T1
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/partide partideHistoryQuery"
+      - "core/partide/domain historyView (applyHistoryView, sessionVenueName, aggForSession), history (groupSessionsByMonth), format (fmtMonthHeader)"
+    states:
+      - loading (empty + hydrating) → skeleton
+      - grouped by month (default) / flat sorted by weight
+      - filters → no results
+      - signed-out (route under (app); sign-in required)
+    criteria:
+      - id: partide.istoric.c1
+        text: "Title „Istoric partide” with back; chips „Greutate” (sort toggle), venue chip („Baltă” / the venue name / „{n} bălți”) and „Cu capturi”."
+        fish_ref: "app/(app)/partide/istoric.tsx:59-63,226-289"
+      - id: partide.istoric.c2
+        text: "Only finished partide are listed; default view groups them by month (newest month first, sticky month headers), newest first inside each month."
+        fish_ref: "features/partide/helpers/historyView.ts:114-141"
+      - id: partide.istoric.c3
+        text: "„Greutate” switches to a flat list sorted by each partidă's record kg descending."
+        fish_ref: "features/partide/helpers/historyView.ts:121-130"
+      - id: partide.istoric.c4
+        text: "The venue filter dialog „Filtrează după baltă” is multi-select over the venues of the finished partide (alphabetical, ro collation) with helper = locality or „{n} partidă/partide”; applying filters by venue name."
+        fish_ref: "app/(app)/partide/istoric.tsx:111-136,294-301"
+      - id: partide.istoric.c5
+        text: "„Cu capturi” keeps only partide with at least one capture."
+        fish_ref: "features/partide/helpers/historyView.ts:108-112"
+      - id: partide.istoric.c6
+        text: "Rows are own partidă cards, rendered 10 at a time as the list scrolls; changing any filter resets the window."
+        fish_ref: "app/(app)/partide/istoric.tsx:57,168-197"
+      - id: partide.istoric.c7
+        text: "Empty after filtering: „Nicio partidă pentru filtrele selectate.”; while the list is still loading: skeleton."
+        fish_ref: "app/(app)/partide/istoric.tsx:303-314"
+      - id: partide.istoric.c8
+        text: "Filter state is shared in memory with the session (not persisted) and refresh refetches the own-sessions list."
+        fish_ref: "features/partide/domain/viewAtoms.ts:10-14"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.statistici
+    title: Statistici comunitate
+    fish:
+      - "app/(app)/partide/statistici.tsx"
+      - features/partide/components/stats/PeriodChips.tsx
+      - features/partide/components/stats/StatStrip.tsx
+      - features/partide/components/stats/ActivityCard.tsx
+      - features/partide/components/ActivityLineChart.tsx
+      - features/partide/components/stats/TopAnglerRow.tsx
+      - features/partide/components/stats/RecordHero.tsx
+      - features/partide/components/stats/SpeciesCard.tsx
+      - features/partide/components/stats/SectionHeaderRow.tsx
+      - features/partide/community/hooks.ts
+    web_route: "/partide/statistici (?perioada=week|month|year)"
+    template: T5
+    milestone: M4
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/partide communityStatsQuery(period) (GET /feed/community/stats, staleTime 120s, keepPreviousData)"
+      - "core/partide/domain statsPeriod, communityView (recordTagFor, periodPhraseFor), format (fmtKg)"
+    states:
+      - first load → skeleton
+      - switching period (previous data dimmed, chips busy)
+      - error
+      - empty period (0 partide)
+      - sections hidden when their arrays are empty
+    criteria:
+      - id: partide.statistici.c1
+        text: "Title „Statistici comunitate” with back; period chips „Săptămâna”, „Luna” (default), „Anul curent”."
+        fish_ref: "features/partide/components/stats/PeriodChips.tsx:8-10"
+      - id: partide.statistici.c2
+        text: "Switching period keeps the previous numbers dimmed (40%) and non-interactive until the new period arrives."
+        fish_ref: "app/(app)/partide/statistici.tsx:101,127"
+      - id: partide.statistici.c3
+        text: "Error (no data or only placeholder): „Nu am putut încărca statisticile.” / „Verifică conexiunea și trage în jos pentru a reîncerca.”; empty: „Nicio partidă în comunitate pentru perioada selectată.”"
+        fish_ref: "app/(app)/partide/statistici.tsx:104-142"
+      - id: partide.statistici.c4
+        text: "Totals strip: partide, pescari, capturi."
+        fish_ref: "features/partide/components/stats/StatStrip.tsx:15-17"
+      - id: partide.statistici.c5
+        text: "Activity chart (when the series is non-empty) with scrubbing that shows „{n} captură/capturi · {label}”."
+        fish_ref: "features/partide/components/stats/ActivityCard.tsx:20-31"
+      - id: partide.statistici.c6
+        text: "„Top pescari” (top 3: avatar, name or „Pescar”, „{n} partidă/partide · {n} captură/capturi”) links to the angler profile; the header link „Clasament ›” opens /partide/clasament."
+        fish_ref: "app/(app)/partide/statistici.tsx:151-160"
+      - id: partide.statistici.c7
+        text: "Record hero (when present): photo or indigo gradient, the period tag, weight kg · species and meta; opens the record's partidă when it has a sessionDocumentId."
+        fish_ref: "features/partide/components/stats/RecordHero.tsx:10-70"
+      - id: partide.statistici.c8
+        text: "„Top bălți” (top 5: image, name, „{localitate} · {n} partide”, rose „{n} LIVE” badge or „{n} capturi”) — rows with a lakeId open the lake page."
+        fish_ref: "app/(app)/partide/statistici.tsx:28-58,164-173"
+      - id: partide.statistici.c9
+        text: "„Specii prinse”: one bar per species with its percentage."
+        fish_ref: "app/(app)/partide/statistici.tsx:175-180"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.clasament
+    title: Clasamente
+    fish:
+      - "app/(app)/partide/clasament.tsx"
+      - features/partide/screens/AnglersLeaderboardScreen.tsx
+      - features/partide/components/stats/PeriodChips.tsx
+      - features/partide/helpers/statsPeriod.ts
+      - features/partide/community/view.ts
+    web_route: "/partide/clasament (?perioada=week|month|year, ?tab=pescari|balti|specii)"
+    template: T1
+    milestone: M4
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/partide communityStatsQuery(period)"
+      - "core/partide/domain statsPeriod (parseStatsPeriodParam), communityView (rankColor, initialsOf, firstNameOf, periodPhraseFor)"
+    states:
+      - first load → skeleton
+      - switching period
+      - error
+      - empty period
+      - only podium data
+      - Bălți / Specii empty
+      - viewer ranked (EU pill) / not ranked / signed-out
+    criteria:
+      - id: partide.clasament.c1
+        text: "Title „Clasamente”; period chips „Săptămâna” / „Luna” / „Anul curent”; the period is read from and written to the URL (invalid → luna)."
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:229-250"
+      - id: partide.clasament.c2
+        text: "A podium of the top 3 anglers (2nd · 1st (bigger) · 3rd): avatar or initials, first name, total kg, step coloured gold / silver / bronze; each opens the angler profile."
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:23-87"
+      - id: partide.clasament.c3
+        text: "Segmented control „Pescari” / „Bălți” / „Specii”."
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:90-96"
+      - id: partide.clasament.c4
+        text: "„Pescari” lists ranks 4+ (rank badge, avatar, name, „{n} partide · {n} capturi”, total kg); with only the podium: „Doar podiumul are date pentru perioada asta.”"
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:328-339"
+      - id: partide.clasament.c5
+        text: "„Bălți” lists ranked venues (image, name, locality · partide, „{n} capturi”; lakes link to the lake page) or „Nicio baltă cu partide în această perioadă.”"
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:343-355"
+      - id: partide.clasament.c6
+        text: "„Specii” lists ranked species („{n} captură/capturi”, percentage) or „Nicio specie înregistrată în această perioadă.”"
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:357-366"
+      - id: partide.clasament.c7
+        text: "On „Pescari”, a signed-in viewer present in the ranking sees an „EU” pill: „Ești pe locul {rank} din {total} {perioadă} — {kg} kg”."
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:188-210,266-270,369-371"
+      - id: partide.clasament.c8
+        text: "Error: „Nu am putut încărca statisticile.” / „Verifică conexiunea și trage în jos pentru a reîncerca.”; empty: „Niciun clasament pentru perioada selectată încă.”; period switch dims the previous data."
+        fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:272-318"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.pescari
+    title: Pescari
+    fish:
+      - "app/(app)/partide/pescari.tsx"
+      - components/profile/ConnectionRow.tsx
+      - services/queries/useAnglerDiscovery.ts
+    web_route: /pescari
+    template: T1
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/social anglerSearchInfiniteQuery, suggestedAnglersInfiniteQuery"
+    states:
+      - signed-out → sign-in
+      - browse (Urmăriți de prietenii tăi + Activi recent)
+      - searching (≥2 chars, debounced) with total / no results
+      - loading → list skeleton
+    criteria:
+      - id: partide.pescari.c1
+        text: "Signed out, the route redirects to sign-in."
+        fish_ref: "app/(app)/partide/pescari.tsx:23-27"
+      - id: partide.pescari.c2
+        text: "Title „Pescari” with back and a search field „Caută pescari”; the query is debounced 300 ms and searching starts at 2 characters."
+        fish_ref: "app/(app)/partide/pescari.tsx:19,34-41,110-126"
+      - id: partide.pescari.c3
+        text: "Without a search: „Urmăriți de prietenii tăi” (friends-of-follows, when any) above „Activi recent” (recently active, excluding those already listed)."
+        fish_ref: "app/(app)/partide/pescari.tsx:55-69,128-161"
+      - id: partide.pescari.c4
+        text: "Searching: header „Rezultate {total}” (or „Rezultate”), results deduplicated by documentId, infinite scroll."
+        fish_ref: "app/(app)/partide/pescari.tsx:47-51,161,165"
+      - id: partide.pescari.c5
+        text: "Rows are connection rows (avatar, name, subline; own row marked as self) opening /pescari/[id]; empty: „Niciun pescar găsit.”; loading: skeleton (7 rows)."
+        fish_ref: "app/(app)/partide/pescari.tsx:93-101,173-181"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.capturile-mele
+    title: Capturile mele
+    fish:
+      - "app/(app)/partide/capturi.tsx"
+      - features/partide/screens/MyCatchesGalleryScreen.tsx
+      - features/partide/components/community/MasonryPhotoList.tsx
+      - features/partide/components/ShareCatchSheet.tsx
+      - services/queries/useMyCatches.ts
+    web_route: /partide/capturile-mele
+    template: T1
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core:
+      - "core/partide myCatchesInfiniteQuery"
+    states:
+      - loading → masonry skeleton
+      - empty
+      - photos + infinite scroll
+      - lightbox → share card
+    criteria:
+      - id: partide.capturile-mele.c1
+        text: "Header „Capturile mele” with subtitle „{total} captură/capturi” (when any) and a close control."
+        fish_ref: "features/partide/screens/MyCatchesGalleryScreen.tsx:60-70"
+      - id: partide.capturile-mele.c2
+        text: "Masonry grid of every own catch photo (deduplicated by key), loading more at the end."
+        fish_ref: "features/partide/screens/MyCatchesGalleryScreen.tsx:34-58"
+      - id: partide.capturile-mele.c3
+        text: "Empty: „Nicio captură cu fotografie încă.”"
+        fish_ref: "features/partide/screens/MyCatchesGalleryScreen.tsx:95"
+      - id: partide.capturile-mele.c4
+        text: "A photo opens the lightbox with CatchDetailFooter; share opens the composed share card (lake, competition name when the catch comes from a competition)."
+        fish_ref: "features/partide/screens/MyCatchesGalleryScreen.tsx:52-56,100-122"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.spectator
+    title: Partidă (spectator)
+    fish:
+      - "app/(app)/partide/comunitate/[id].tsx"
+      - features/partide/components/community/FollowSessionButton.tsx
+      - features/partide/components/community/BellIntroSheet.tsx
+      - features/partide/components/community/NotificationsOffSheet.tsx
+      - features/partide/components/ActivityLineChart.tsx
+      - features/partide/community/hooks.ts
+      - features/partide/community/view.ts
+      - features/partide/community/photoSources.ts
+      - features/partide/helpers/evolution.ts
+      - components/FollowButton.tsx
+    web_route: "/partide/[id] (vizualizare spectator; [id] = documentId)"
+    template: T3
+    milestone: M4
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/partide communitySessionQuery (GET /feed/community/sessions/:id; refetchInterval 60s while live; refetch on focus/reconnect), refetchCommunitySessionOnFocus"
+      - "core/partide api getActiveSession (own-live redirect), sessionFollowsQuery + followSessionMutation / unfollowSessionMutation"
+      - "core/partide/domain communityView (deriveSessionView, buildWeightSegments, venueHref, elapsedRoCompact, initialsOf), evolution (buildEvolutionLineSeries), format (fmtKg, fmtClock, fmtDurationShort, fmtRecordDate, fmtPastCardMeta), photoSources"
+      - "core/social anglerProfileQuery + follow mutation (members list)"
+    states:
+      - loading / checking ownership → skeleton
+      - own live partidă → redirect to member view
+      - not found / not visible
+      - error (retry)
+      - live (ÎN DESFĂȘURARE, polling) / ended (ÎNCHEIATĂ)
+      - no photos (venue image or fish placeholder hero)
+      - no catches
+      - more catches than shown
+      - signed-out (follow → sign-in)
+    criteria:
+      - id: partide.spectator.c1
+        text: "Before rendering, the page checks the viewer's active session; if it is this partidă the viewer is sent to the member view instead (skeleton meanwhile; a failed check renders the spectator view)."
+        fish_ref: "app/(app)/partide/comunitate/[id].tsx:207-242"
+      - id: partide.spectator.c2
+        text: "Not found: „Partida nu a fost găsită.” / „Poate a fost ștearsă sau nu mai este vizibilă.”; error: „Nu am putut încărca partida.” / „Verifică conexiunea și reîncearcă.” + „Reîncearcă”."
+        fish_ref: "app/(app)/partide/comunitate/[id].tsx:291-323"
+      - id: partide.spectator.c3
+        text: "Hero: carousel of catch photos (fallback venue image, else a fish placeholder) opening the gallery; a photo-count badge when photoCount > 0; status pill „ÎN DESFĂȘURARE” (pulsing) or „ÎNCHEIATĂ”; venue name as title linking to the lake / public-water page when it has one; meta „{localitate} · {date} · {duration or elapsed}”."
+        fish_ref: "app/(app)/partide/comunitate/[id].tsx:349-451"
+      - id: partide.spectator.c4
+        text: "A follow control on the hero: „Urmărește” / „Notificări active”; signed out → sign-in; following again unfollows („Notificări dezactivate.”)."
+        fish_ref: "features/partide/components/community/FollowSessionButton.tsx:119-150"
+      - id: partide.spectator.c5
+        text: "First follow shows an intro dialog „Notificări pentru această partidă” („Activează notificările”); with Bluvi notifications off in the profile it shows „Notificările Bluvi sunt dezactivate” („Activează și urmărește”, also re-enables notifications); success toast „Vei primi notificări pentru capturile din această partidă.”, failure „Nu am putut actualiza notificările. Încearcă din nou.” with rollback."
+        fish_ref: "features/partide/components/community/BellIntroSheet.tsx:38-45"
+      - id: partide.spectator.c6
+        text: "„TOTAL CÂNTĂRIT” card: total kg (or „—”), a segmented bar of the top 3 species by kg + „altele”, legend „{specie} {kg}” and „medie {kg} kg”."
+        fish_ref: "app/(app)/partide/comunitate/[id].tsx:457-533"
+      - id: partide.spectator.c7
+        text: "Three tiles: max kg „cea mai mare”, catch count „capturi”, duration „durată” (ended) or elapsed „în desfășurare” (live)."
+        fish_ref: "app/(app)/partide/comunitate/[id].tsx:538-611"
+      - id: partide.spectator.c8
+        text: "„Pescari {n}” lists members (avatar or initials, name or „Pescar”, „{n} urmăritor/urmăritori”) linking to /pescari/[uid], with a follow button for anyone but the viewer."
+        fish_ref: "app/(app)/partide/comunitate/[id].tsx:102-145,620-631"
+      - id: partide.spectator.c9
+        text: "„Evoluția capturilor” cumulative kg line chart with scrubbing (header shows the scrubbed label, else „cumulat · {kg} kg”)."
+        fish_ref: "app/(app)/partide/comunitate/[id].tsx:42-100,635-637"
+      - id: partide.spectator.c10
+        text: "„CEA MAI MARE CAPTURĂ” highlight (photo or star, kg, species · time) opening the lightbox when it has a photo."
+        fish_ref: "app/(app)/partide/comunitate/[id].tsx:640-710"
+      - id: partide.spectator.c11
+        text: "„CAPTURILE ECHIPEI” (or „CAPTURI” for one member): up to the server's first catches (thumb or fish, species or „Captură”, time, kg; the max catch in indigo); photo rows open the lightbox with caption „{specie} · {kg} kg · HH:MM”; empty „Nicio captură încă.”"
+        fish_ref: "app/(app)/partide/comunitate/[id].tsx:714-744"
+      - id: partide.spectator.c12
+        text: "When hasMoreCatches, „Vezi toate ({catchCount})” opens /partide/[id]/capturi."
+        fish_ref: "app/(app)/partide/comunitate/[id].tsx:746-758"
+      - id: partide.spectator.c13
+        text: "A venue card at the bottom (image or pin, name, locality + past-card meta) links to the venue page when one exists."
+        fish_ref: "app/(app)/partide/comunitate/[id].tsx:766-800"
+      - id: partide.spectator.c14
+        text: "A live partidă is refetched every 60 s and on focus / reconnect; an ended one is not polled."
+        fish_ref: "features/partide/community/hooks.ts:203-213"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.spectator-capturi
+    title: Capturile partidei
+    fish:
+      - "app/(app)/partide/comunitate/capturi/[id].tsx"
+      - features/partide/community/hooks.ts
+    web_route: /partide/[id]/capturi
+    template: T1
+    milestone: M4
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/partide sessionCatchesInfiniteQuery(documentId) (cursor), communitySessionQuery (maxKg)"
+    states:
+      - loading → list skeleton
+      - empty
+      - list + infinite scroll
+      - lightbox
+    criteria:
+      - id: partide.spectator-capturi.c1
+        text: "Title „Capturi ({total})” (total from page 1; without it just „Capturi”) with back."
+        fish_ref: "app/(app)/partide/comunitate/capturi/[id].tsx:71-78"
+      - id: partide.spectator-capturi.c2
+        text: "Every catch as a row (thumb, species, time, kg; the session's max catch highlighted), loading more at the end."
+        fish_ref: "app/(app)/partide/comunitate/capturi/[id].tsx:80-98"
+      - id: partide.spectator-capturi.c3
+        text: "Rows with a photo open the lightbox (photos only) with caption „{specie} · {kg} kg · HH:MM”."
+        fish_ref: "app/(app)/partide/comunitate/capturi/[id].tsx:18-58"
+      - id: partide.spectator-capturi.c4
+        text: "Empty: „Nicio captură încă.”; first load: list skeleton."
+        fish_ref: "app/(app)/partide/comunitate/capturi/[id].tsx:100-112"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.spectator-galerie
+    title: Galeria partidei
+    fish:
+      - "app/(app)/partide/comunitate/galerie/[id].tsx"
+      - features/partide/screens/SessionGalleryScreen.tsx
+      - features/partide/components/community/MasonryPhotoList.tsx
+      - features/partide/components/community/MemberAvatars.tsx
+    web_route: /partide/[id]/galerie
+    template: T1
+    milestone: M4
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "core/partide sessionCatchesInfiniteQuery(documentId, { photosOnly: true, pageSize: 30 }), communitySessionQuery"
+    states:
+      - loading → masonry skeleton
+      - empty
+      - photos + infinite scroll
+      - lightbox
+    criteria:
+      - id: partide.spectator-galerie.c1
+        text: "Header „Galerie” with member avatars and subtitle „{members} · {photoCount} fotografii” and a close control."
+        fish_ref: "features/partide/screens/SessionGalleryScreen.tsx:115-121"
+      - id: partide.spectator-galerie.c2
+        text: "Masonry grid of the partidă's photo catches (30 per page), loading more at the end; a photo opens the lightbox with the catch footer."
+        fish_ref: "features/partide/screens/SessionGalleryScreen.tsx:38-70"
+      - id: partide.spectator-galerie.c3
+        text: "Empty: „Nicio fotografie încă.”"
+        fish_ref: "features/partide/screens/SessionGalleryScreen.tsx:134"
+      - id: partide.spectator-galerie.c4
+        text: "Returning to the page refetches the session (focus)."
+        fish_ref: "features/partide/screens/SessionGalleryScreen.tsx:42-46"
+    mobile_only: false
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.rod-config
+    title: Configurează lanseta
+    fish:
+      - "app/(app)/partide/rod-config.tsx"
+      - features/partide/components/RodConfigSheet.tsx
+      - features/partide/components/AlarmSoundSheet.tsx
+      - features/partide/components/CastMapPreview.tsx
+      - features/partide/components/MapPointPicker.tsx
+    web_route: none
+    template: none
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core: []
+    states:
+      - add rod (rodIndex=new) / edit rod
+      - tabs Poziție / Momeală / Cronometru / Setări
+      - rod limit reached („Nu mai poți adăuga lansete pentru această partidă.”)
+    criteria:
+      - id: partide.rod-config.c1
+        text: "Mobile only: the full rod editor (position Hartă/Schemă, cast pin, distance, bait, colour, timer with presets 15m–2h and alarm sound) is not ported; the web never schedules rod alarms."
+        fish_ref: "app/(app)/partide/rod-config.tsx:1-9,78-95"
+    mobile_only: true
+    web_replacement: "None on web (ROADMAP §3). The web Lansete tab lists the rods configured in the app and records outcomes/captures on them; add/edit rod entries say the rod is configured in the Bluvi app. Owner to confirm whether a minimal web rod editor (bait + distance, no timer) is wanted."
+    status: todo
+
+  # ───────────────────────────────────────────────────────────────────────────────────────────────
+  - id: partide.timer
+    title: Cronometre (legacy)
+    fish:
+      - "app/(app)/timer/_layout.tsx"
+      - "app/(app)/timer/index.tsx"
+    web_route: none
+    template: none
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core: []
+    states:
+      - timers list / edit mode / delete confirm / unsaved changes
+    criteria:
+      - id: partide.timer.c1
+        text: "Mobile only: the standalone rod-timer list (reorder, delete, actions) with local alarms is not ported."
+        fish_ref: "app/(app)/timer/index.tsx:26-38"
+    mobile_only: true
+    web_replacement: "None (ROADMAP §3: background alarms have no web equivalent)."
+    status: todo
+
+  - id: partide.timer-configure
+    title: Configurează cronometrul (legacy)
+    fish:
+      - "app/(app)/timer/configure.tsx"
+    web_route: none
+    template: none
+    milestone: M4
+    roles: [angler, organizer, referee, operator]
+    core: []
+    states:
+      - configure duration / sound / bait taxonomy
+    criteria:
+      - id: partide.timer-configure.c1
+        text: "Mobile only: timer configuration (duration slider, alarm sound usage, bait type/size/flavour) is not ported."
+        fish_ref: "app/(app)/timer/configure.tsx:92-124"
+    mobile_only: true
+    web_replacement: "None (ROADMAP §3)."
+    status: todo
+
+behaviours:
+  - id: partide.b.deep-link-spectate
+    text: "Share link https://bluvi-app.wearetribus.com/partide/comunitate/{documentId} (AASA covers /partide/*) must open the web spectator/member page: /partide/comunitate/[id] redirects (308) to /partide/[id]."
+    fish_ref: "features/partide/helpers/deepLinks.ts:19-31"
+  - id: partide.b.deep-link-join
+    text: "Invite link https://bluvi-app.wearetribus.com/partide/join/{code} must work on web: /partide/join/[code] redirects to /partide/intra/[cod] (sign-in first when signed out, then back)."
+    fish_ref: "features/partide/components/CoopCard.tsx:38-39"
+  - id: partide.b.notif-invite
+    text: "Notification PARTIDA_INVITE (data.partidaCode) routes to /partide/intra/[cod]; missing code → no navigation."
+    fish_ref: "helpers/getRedirectLocationForNotification.ts:104-106"
+  - id: partide.b.notif-finished-autoclose
+    text: "PARTIDA_FINISHED and PARTIDA_AUTO_CLOSE_WARN carry the session CLIENT id (data.sessionId); the web resolves it to the documentId through the own sessions list (or the live pointer) and opens /partide/[documentId]; unresolvable → Partide „Ale mele”."
+    fish_ref: "helpers/getRedirectLocationForNotification.ts:107-116"
+  - id: partide.b.notif-community
+    text: "PARTIDA_CATCH, PARTIDA_FINISHED_FOLLOWED, FOLLOW_PARTIDA_START and FOLLOW_PARTIDA_FIRST_CATCH (data.sessionDocumentId) open /partide/[documentId]; FOLLOW_RECORD_PERSONAL / FOLLOW_RECORD_LAKE open /partide/[documentId]/capturi."
+    fish_ref: "helpers/getRedirectLocationForNotification.ts:117-123,178-185"
+  - id: partide.b.signin-gating
+    text: "Signed-out: start, join (both), pescari redirect to sign-in; the Ale mele tab shows the sign-in wall; the Pescari quick-nav tile and the follow bell push sign-in; Comunitate, Explorează, statistici, clasament and spectator pages are public."
+    fish_ref: "features/partide/scenes/AcasaScene.tsx:119-126"
+  - id: partide.b.own-vs-spectator
+    text: "Opening a community partidă resolves own vs spectator: the device's active pointer or the cached own list → member view, otherwise spectator; the spectator page also self-redirects when getActiveSession matches."
+    fish_ref: "features/partide/community/useOpenPartida.ts:28-43"
+  - id: partide.b.live-subscription
+    text: "Signed in, the active partidă pointer is hydrated from GET /feed/sessions/active at start and the session is followed live (Firestore: meta, rods, catches, markers); unsubscribed on sign-out; listener permission errors confirm access over REST (kicked / deleted → cleanup + toast, valid → backoff retry 1/2/4 s, unknown → wait for online)."
+    fish_ref: "features/partide/domain/useLiveMount.ts:1-60,215-260"
+  - id: partide.b.offline-writes
+    text: "Every partidă write (capture, outcome, delete, marker, add/configure rod) is refused offline with „Fără conexiune. Reconectare…”; reads of the live projection stay available."
+    fish_ref: "features/partide/scenes/CronometreScene.tsx:49-60"
+  - id: partide.b.refetch-intervals
+    text: "Polling: community overview 60 s, venue section 60 s, community session 60 s while live (+ on focus/reconnect); stale times: active/history 30 s / 120 s, stats 120 s (60 s per venue), own sessions 5 min."
+    fish_ref: "features/partide/community/hooks.ts:65-213"
+  - id: partide.b.community-purge-grace
+    text: "After finishing a partidă or saving a catch, community queries are invalidated after a 2 s grace (edge-cache purge), not immediately."
+    fish_ref: "app/(app)/partide/[id].tsx:247-252"
+  - id: partide.b.private-partida
+    text: "A private partidă (visibleOnProfile false) offers no share link and does not appear in community feeds; photo tags only affect galleries when the partidă is public."
+    fish_ref: "features/partide/helpers/deepLinks.ts:30-31"
+  - id: partide.b.nou-badge
+    text: "The Partide nav entry shows a „NOU” pill until the first visit (persisted flag) and only before PARTIDE_NEW_BADGE_UNTIL (2026-09-18, already past — so no badge today); an unknown flag shows no badge. Web: not needed unless the owner re-dates it."
+    fish_ref: "features/partide/domain/viewAtoms.ts:54-100"
+  - id: partide.b.venue-partide-pages
+    text: "Venue partide pages and venue stats/leaderboards (/balti/[id]/partide, /ape-publice/[code]/partide …) are inventoried in the lakes and public-waters areas; this area links to them via venuePartideHref."
+    fish_ref: "features/partide/community/venuePartideHref.ts:15-24"
+  - id: partide.b.server-clock
+    text: "Rod countdowns everywhere (dock, Lansete) use the server-corrected clock and show a provisional „sincronizare…” label while the projection is from cache or the clock is unsampled — never a false „expirat”."
+    fish_ref: "features/partide/components/ActivePartidaDock.tsx:47-58"
+  - id: partide.b.active-dock-global
+    text: "The live-partidă dock appears on the Partide pages whenever the viewer has an active partidă; on web the home page already has its own ActivePartida card (home area)."
+    fish_ref: "app/(app)/(tabs)/partide.tsx:279-282"

@@ -1,0 +1,996 @@
+# Parity inventory — area "account" (Intră, Completează profilul, Profil, Pescar, Conexiuni,
+# Sugestii, Notificări, Setări notificări, Concursuri urmărite, Setări, Editează profilul,
+# Onboarding, Setări de confidențialitate).
+# Extracted from fish (read-only) on 2026-10-04. Line refs are fish file:line at that date.
+# Web sign-in lives at /intra and takes `?next=<path>` (app/(site)/intra/SignIn.tsx#safeNext) where fish
+# used `redirectTo`. The Home suggestions rail and CompleteProfileSheet are inventoried as screens in
+# home.yml; here they appear only as behaviours that link into this area.
+area: account
+screens:
+  - id: account.sign-in
+    title: Intră în Bluvi
+    fish:
+      - app/sign-in.tsx
+      - features/onboarding/useWelcomeSignIn.ts
+      - features/onboarding/WelcomeControls.tsx
+      - features/onboarding/WelcomeBackdrop.tsx
+      - features/onboarding/welcomeTheme.ts
+      - contexts/auth/AuthContext.tsx
+      - services/api/profile.ts
+      - common/utils/constants.ts
+    web_route: /intra
+    template: T6
+    milestone: M2
+    roles: [guest]
+    core: [social.getProfile, social.getFirebaseToken]
+    states:
+      - idle
+      - provider pending (one button spinning, everything else disabled)
+      - Apple unavailable (button hidden)
+      - provider cancelled (silent, back to idle)
+      - error generic
+      - error Facebook without email
+      - legal link failed to open
+      - profile incomplete after sign-in (goes to complete profile)
+      - next/redirectTo present and safe
+      - next/redirectTo unsafe (ignored)
+    criteria:
+      - id: account.sign-in.c1
+        text: "The page shows the eyebrow „MAI APROAPE DE CE IUBEȘTI”, the heading „Hai la pescuit.” (a real heading) and the line „Locurile tale. Capturile tale. Comunitatea ta.”."
+        fish_ref: "app/sign-in.tsx:88-96"
+      - id: account.sign-in.c2
+        text: "A „Continuă cu Apple” button is shown only when Apple sign-in is available (fish: iOS with AppleAuthentication available; web: Apple Services ID configured); otherwise it is absent, not disabled."
+        fish_ref: "app/sign-in.tsx:40-45,99-111"
+      - id: account.sign-in.c3
+        text: "„Continuă cu Google” and „Continuă cu Facebook” buttons are always shown, in that order after Apple, each with its provider mark."
+        fish_ref: "app/sign-in.tsx:112-133"
+      - id: account.sign-in.c4
+        text: "While any provider is pending, all provider buttons and „Explorează fără cont” are disabled and only the pressed provider shows a loading state."
+        fish_ref: "app/sign-in.tsx:36,100-104,141"
+      - id: account.sign-in.c5
+        text: "A second sign-in attempt while one is in flight is ignored (no second request)."
+        fish_ref: "features/onboarding/useWelcomeSignIn.ts:38-40"
+      - id: account.sign-in.c6
+        text: "A provider cancellation (AUTH_CANCELLED, ERR_REQUEST_CANCELED, SIGN_IN_CANCELLED, 12501, or the Facebook dialog cancelled) shows no error."
+        fish_ref: "features/onboarding/useWelcomeSignIn.ts:15-17,45,71"
+      - id: account.sign-in.c7
+        text: "When Facebook gives no email (declined permission or CMS bluCode AUTH:EMAIL_REQUIRED) the error reads „Facebook nu ne-a dat adresa ta de email. Permite accesul la email în fereastra Facebook sau intră cu Google ori Apple.”."
+        fish_ref: "features/onboarding/useWelcomeSignIn.ts:22-28,72; contexts/auth/AuthContext.tsx:163-165"
+      - id: account.sign-in.c8
+        text: "Any other failure shows „Autentificarea nu a reușit. Te rugăm să încerci din nou.”."
+        fish_ref: "features/onboarding/useWelcomeSignIn.ts:26,72"
+      - id: account.sign-in.c9
+        text: "The error is rendered under the provider buttons with an alert role and is cleared when a new attempt starts."
+        fish_ref: "app/sign-in.tsx:134-138; features/onboarding/useWelcomeSignIn.ts:41"
+      - id: account.sign-in.c10
+        text: "Google posts {accessToken, idToken} to /auth/google; Facebook posts {userData:{email,name,imageURL,accessToken}, accessToken} to /auth/facebook with permissions public_profile + email; Apple posts {identityToken, authorizationCode, fullName, email} to /auth/apple."
+        fish_ref: "contexts/auth/AuthContext.tsx:185-198,216-219,237-248; features/onboarding/useWelcomeSignIn.ts:44"
+      - id: account.sign-in.c11
+        text: "A non-OK /auth/* response surfaces the CMS bluCode (error.details.bluCode) as the error code, so the missing-email case is recognised."
+        fish_ref: "contexts/auth/AuthContext.tsx:28-38"
+      - id: account.sign-in.c12
+        text: "The returned jwt must be a three-part JWT whose decoded payload is valid and has a user id; otherwise the attempt fails with the generic error and nothing is stored."
+        fish_ref: "contexts/auth/AuthContext.tsx:136-143"
+      - id: account.sign-in.c13
+        text: "After the session is stored the Firebase session is bridged with the returned firebaseToken (needed for chat and live partide); a Firebase failure does not fail the sign-in."
+        fish_ref: "contexts/auth/AuthContext.tsx:147-148"
+      - id: account.sign-in.c14
+        text: "After a successful sign-in the active-partidă probe runs once (fire-and-forget) so a session still running server-side is restored."
+        fish_ref: "contexts/auth/AuthContext.tsx:149-154"
+      - id: account.sign-in.c15
+        text: "After the session is stored GET /user/profile is fetched; if it fails the attempt shows the generic error."
+        fish_ref: "features/onboarding/useWelcomeSignIn.ts:52-53"
+      - id: account.sign-in.c16
+        text: "If profile.isProfileComplete is false the user is sent (replace) to the complete-profile screen, before any redirect target."
+        fish_ref: "features/onboarding/useWelcomeSignIn.ts:61-62"
+      - id: account.sign-in.c17
+        text: "Otherwise, a redirect target (fish redirectTo, web next) is honoured only if it starts with a single slash and contains no backslash or whitespace (web additionally rejects /intra); else the user goes back, or to home when there is no history."
+        fish_ref: "features/onboarding/useWelcomeSignIn.ts:63-69"
+      - id: account.sign-in.c18
+        text: "„Explorează fără cont” goes back when there is history, otherwise to home; it does nothing while a sign-in is pending."
+        fish_ref: "app/sign-in.tsx:140-144; features/onboarding/useWelcomeSignIn.ts:81-85"
+      - id: account.sign-in.c19
+        text: "The legal caption reads „Continuând, accepți Termenii și condițiile. Află cum îți prelucrăm datele în Politica de confidențialitate.” followed by the links „Termeni și condiții” and „Confidențialitate” (Termly URLs), each at least 44px tall."
+        fish_ref: "app/sign-in.tsx:145-168,185; common/utils/constants.ts:30-33"
+      - id: account.sign-in.c20
+        text: "If a legal link cannot be opened the page shows „Nu am putut deschide pagina. Încearcă din nou.” in the same alert slot."
+        fish_ref: "app/sign-in.tsx:61-68,134-137"
+      - id: account.sign-in.c21
+        text: "A sign_in analytics event with the provider is logged after success and never blocks or fails navigation."
+        fish_ref: "features/onboarding/useWelcomeSignIn.ts:55-60"
+      - id: account.sign-in.c22
+        text: "Motion on the backdrop respects reduced motion and stops while a sign-in is pending."
+        fish_ref: "app/sign-in.tsx:31,73"
+    mobile_only: false
+    status: todo
+
+  - id: account.complete-profile
+    title: Completează profilul
+    fish:
+      - app/(app)/complete-profile.tsx
+      - components/EditProfileScreen.tsx
+      - schemas/userProfile.schema.ts
+      - schemas/phone.schema.ts
+      - helpers/buildAvatarUrl.ts
+      - services/mutations/useUpdateProfile.ts
+      - services/mutations/useUploadProfilePicture.ts
+      - services/queries/useProfile.ts
+    web_route: /profil/completeaza
+    template: T6
+    milestone: M2
+    roles: [angler, organizer, referee, operator]
+    core: [social.profileQuery, social.updateProfileMutation, social.uploadProfilePictureMutation, social.domain.profilePictureFilename]
+    states:
+      - signed-out (redirect to /intra)
+      - loading profile
+      - profile error (retry)
+      - no avatar yet (generated avatar, dirty)
+      - validation errors
+      - username taken / phone taken / bio too long (server)
+      - uploading avatar + saving
+    criteria:
+      - id: account.complete-profile.c1
+        text: "The screen is titled „Completează profilul” and has no back control."
+        fish_ref: "app/(app)/complete-profile.tsx:10-11"
+      - id: account.complete-profile.c2
+        text: "„Finalizează” is enabled even when nothing was changed (unlike edit profile), so a user can accept the prefilled values."
+        fish_ref: "app/(app)/complete-profile.tsx:15; components/EditProfileScreen.tsx:405"
+      - id: account.complete-profile.c3
+        text: "On success the user is sent (replace) to home, with no toast."
+        fish_ref: "app/(app)/complete-profile.tsx:12-14"
+      - id: account.complete-profile.c4
+        text: "The form is prefilled from the profile; when the profile has no avatar a random generated avatar (DiceBear personas URL) is set and marked changed, so it is uploaded on submit."
+        fish_ref: "components/EditProfileScreen.tsx:87-100; helpers/buildAvatarUrl.ts:30-43"
+      - id: account.complete-profile.c5
+        text: "Fields, validation, server errors and the save sequence are those of account.edit-profile c3–c14."
+        fish_ref: "components/EditProfileScreen.tsx:102-158,293-410"
+      - id: account.complete-profile.c6
+        text: "The user arrives here right after sign-in when profile.isProfileComplete is false (replace, so Back does not return to sign-in)."
+        fish_ref: "features/onboarding/useWelcomeSignIn.ts:61-62"
+    mobile_only: false
+    status: todo
+
+  - id: account.edit-profile
+    title: Editează profilul
+    fish:
+      - app/(app)/edit-profile.tsx
+      - components/EditProfileScreen.tsx
+      - components/ScrollScreen.tsx
+      - schemas/userProfile.schema.ts
+      - schemas/phone.schema.ts
+      - helpers/buildAvatarUrl.ts
+      - hooks/useCamera.ts
+      - services/api/profile.ts
+      - services/api/media.ts
+      - services/mutations/useUpdateProfile.ts
+      - services/mutations/useUploadProfilePicture.ts
+      - services/queries/useProfile.ts
+    web_route: /setari/profil
+    template: T6
+    milestone: M2
+    roles: [angler, organizer, referee, operator]
+    core: [social.profileQuery, social.updateProfileMutation, social.uploadProfilePictureMutation, social.domain.uploadImageTarget, social.domain.profilePictureFilename]
+    states:
+      - signed-out (redirect to /intra)
+      - loading profile
+      - profile error (retry)
+      - pristine (submit disabled)
+      - dirty
+      - validation errors (username length, phone format, bio length)
+      - server errors (USERNAME_ALREADY_IN_USE, PHONE_NUMBER_ALREADY_IN_USE, UPDATE_PROFILE:BIO_TOO_LONG, other)
+      - uploading avatar
+      - saving
+    criteria:
+      - id: account.edit-profile.c1
+        text: "The screen is titled „Editează profilul” and has a back control."
+        fish_ref: "app/(app)/edit-profile.tsx:11; components/EditProfileScreen.tsx:294"
+      - id: account.edit-profile.c2
+        text: "While the profile loads a full loading state is shown; on error an error state with a retry that refetches the profile."
+        fish_ref: "components/EditProfileScreen.tsx:171-173"
+      - id: account.edit-profile.c3
+        text: "The current avatar is shown as a 150px circle with a camera badge; activating it opens the image picker."
+        fish_ref: "components/EditProfileScreen.tsx:296-322"
+      - id: account.edit-profile.c4
+        text: "Under the avatar: „Regenerează avatar” · „sau” · „Încarcă fotografie”; regenerate sets a new random generated avatar, upload opens the image picker; both mark the avatar changed."
+        fish_ref: "components/EditProfileScreen.tsx:160-169,324-336"
+      - id: account.edit-profile.c5
+        text: "Field „Nume utilizator*” is required, 3–20 characters, with errors „Numele de utilizator trebuie să conțină minim 3 caractere” / „Numele de utilizator poate conține maximum 20 de caractere”."
+        fish_ref: "schemas/userProfile.schema.ts:5-8; components/EditProfileScreen.tsx:340-354"
+      - id: account.edit-profile.c6
+        text: "Field „Telefon (optional)” accepts empty, otherwise an optional leading + and 7–15 digits, error „Numărul de telefon trebuie să aibă între 7 și 15 cifre”; typed input is sanitised to digits plus one leading + (as the sheet variant does)."
+        fish_ref: "schemas/phone.schema.ts:9-17,23-26; components/EditProfileScreen.tsx:247-249,357-371"
+      - id: account.edit-profile.c7
+        text: "Field „Biografie” is a 3-line textarea limited to 200 characters, error „Biografia poate conține maximum 200 de caractere”."
+        fish_ref: "schemas/userProfile.schema.ts:11; components/EditProfileScreen.tsx:374-390"
+      - id: account.edit-profile.c8
+        text: "Below the fields the text „Autentificat cu: {provider}” is shown, „-” when unknown."
+        fish_ref: "components/EditProfileScreen.tsx:393-395"
+      - id: account.edit-profile.c9
+        text: "„Finalizează” is disabled until the form is changed and shows loading while the upload or the update is pending."
+        fish_ref: "components/EditProfileScreen.tsx:397-408"
+      - id: account.edit-profile.c10
+        text: "When the avatar changed, the image is uploaded first (filename profile_id_{id}_{timestamp}.jpg) and then PATCH /user/profile is sent with {avatar: uploadedId, username, phone, bio}."
+        fish_ref: "components/EditProfileScreen.tsx:108-139"
+      - id: account.edit-profile.c11
+        text: "When the avatar did not change, PATCH /user/profile is sent with {username, phone, bio} only."
+        fish_ref: "components/EditProfileScreen.tsx:141-157"
+      - id: account.edit-profile.c12
+        text: "An empty phone is sent as null and a blank (whitespace-only) bio is sent as null."
+        fish_ref: "components/EditProfileScreen.tsx:126-127,145-146"
+      - id: account.edit-profile.c13
+        text: "Server bluCode USERNAME_ALREADY_IN_USE puts the server message on the username field, PHONE_NUMBER_ALREADY_IN_USE on phone, UPDATE_PROFILE:BIO_TOO_LONG on bio."
+        fish_ref: "components/EditProfileScreen.tsx:69-85"
+      - id: account.edit-profile.c14
+        text: "Any update failure also shows an error toast with the server message."
+        fish_ref: "components/EditProfileScreen.tsx:133-135,152-154"
+      - id: account.edit-profile.c15
+        text: "On success the screen closes and a success toast „Profilul a fost actualizat cu succes” is shown."
+        fish_ref: "app/(app)/edit-profile.tsx:12-15"
+      - id: account.edit-profile.c16
+        text: "After the update (success or error) the own profile query and every angler query are invalidated, so the profile page, settings card and top-bar avatar show the new name, bio and avatar."
+        fish_ref: "services/mutations/useUpdateProfile.ts:12-17"
+      - id: account.edit-profile.c17
+        text: "Entry points: the profile card on Settings and „Editează profil” in the organizer-request phone alert."
+        fish_ref: "app/(app)/settings.tsx:116,174"
+    mobile_only: false
+    status: todo
+
+  - id: account.own-profile
+    title: Profilul meu
+    fish:
+      - app/(app)/(tabs)/profile.tsx
+      - app/(app)/(tabs)/_layout.tsx
+      - components/profile/AnglerProfileScreen.tsx
+      - components/profile/ProfileHeader.tsx
+      - components/profile/ProfileSkeleton.tsx
+      - services/queries/useProfile.ts
+      - services/mutations/useUpdateProfile.ts
+      - components/errors/RouteErrorBoundary.tsx
+    web_route: /profil
+    template: T3
+    milestone: M2
+    roles: [angler, organizer, referee, operator]
+    core: [social.profileQuery, social.anglerProfileQuery, social.anglerCatchesInfiniteQuery, social.anglerSessionsInfiniteQuery, social.anglerCompetitionsInfiniteQuery, social.userReputationQuery]
+    states:
+      - signed-out (redirect to /intra?next=/profil)
+      - profile not loaded yet
+      - all states of account.angler-profile
+      - render error (route error boundary with retry)
+    criteria:
+      - id: account.own-profile.c1
+        text: "Signed out, the profile entry is not offered (tab hidden) and the route renders nothing; on web the route redirects to /intra?next=/profil."
+        fish_ref: "app/(app)/(tabs)/profile.tsx:10-15; app/(app)/(tabs)/_layout.tsx:99"
+      - id: account.own-profile.c2
+        text: "Signed in, the page renders the angler profile of profile.documentId in own mode; every criterion of account.angler-profile c2–c37 applies."
+        fish_ref: "app/(app)/(tabs)/profile.tsx:17"
+      - id: account.own-profile.c3
+        text: "Own mode shows a settings (cog) control at the top right that opens /setari, and no back control."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:324-339"
+      - id: account.own-profile.c4
+        text: "Own mode shows no follow button (profile.isSelf) and its header skeleton has no follow-button placeholder."
+        fish_ref: "components/profile/ProfileHeader.tsx:115-119; components/profile/ProfileSkeleton.tsx:33-37"
+      - id: account.own-profile.c5
+        text: "The navigation entry for the profile shows the user's avatar thumbnail (Bluvi logo when none) with an accent ring when the profile is the current page."
+        fish_ref: "app/(app)/(tabs)/_layout.tsx:96-126"
+      - id: account.own-profile.c6
+        text: "Changes saved in edit profile appear here without a manual refresh (all angler queries invalidated)."
+        fish_ref: "services/mutations/useUpdateProfile.ts:14-17"
+      - id: account.own-profile.c7
+        text: "If the page throws while rendering, a route-level error with retry is shown and the rest of the app keeps working."
+        fish_ref: "app/(app)/(tabs)/profile.tsx:20-22"
+      - id: account.own-profile.c8
+        text: "The Home profile card opens /profil when signed in and /intra („Conectează-te”) when signed out."
+        fish_ref: "app/(app)/(tabs)/index.tsx:270-276,343-345"
+    mobile_only: false
+    status: todo
+
+  - id: account.angler-profile
+    title: Profil pescar
+    fish:
+      - app/(app)/anglers/[documentId]/index.tsx
+      - app/(app)/anglers/_layout.tsx
+      - components/profile/AnglerProfileScreen.tsx
+      - components/profile/ProfileHeader.tsx
+      - components/profile/StatStrip.tsx
+      - components/profile/TrophyRow.tsx
+      - components/profile/BioText.tsx
+      - components/profile/FollowButton.tsx
+      - components/profile/FilterChips.tsx
+      - components/profile/SessionHistoryCard.tsx
+      - components/profile/CompetitionHistoryCard.tsx
+      - components/profile/CatchDetailFooter.tsx
+      - components/profile/ProfileSkeleton.tsx
+      - components/InitialsAvatar.tsx
+      - components/ImageLightbox.tsx
+      - components/BackButton.tsx
+      - features/partide/components/ShareCatchSheet.tsx
+      - features/partide/components/card/cardModel.ts
+      - features/reputation/ReputationBlock.tsx
+      - helpers/groupSessionsByMonth.ts
+      - helpers/fmtCompetitionRange.ts
+      - helpers/dedupeByKey.ts
+      - helpers/chunkIntoRows.ts
+      - helpers/anglerCatchToShareEvent.ts
+      - services/api/anglers.ts
+      - services/api/reviews.ts
+      - services/queries/useAnglerProfile.ts
+      - services/queries/useAnglerHistory.ts
+      - services/queries/useUserReputation.ts
+      - services/mutations/useFollowAngler.ts
+    web_route: /pescari/[id]
+    template: T3
+    milestone: M2
+    roles: [angler, organizer, referee, operator]
+    core:
+      - social.anglerProfileQuery
+      - social.anglerCatchesInfiniteQuery (cursor, pageSize 20)
+      - social.anglerSessionsInfiniteQuery (pageSize 10)
+      - social.anglerCompetitionsInfiniteQuery (filter, year; keepPreviousData)
+      - social.userReputationQuery
+      - social.followAnglerMutation
+      - social.domain.anglerReviewOverall
+      - social.domain.anglerReviewTagLabels
+      - social.domain.anglerReviewSubtitle
+      - social.domain.ratingCountLabel
+      - social.domain.noShowLabel
+      - "to port: helpers/groupSessionsByMonth (PublicSession), fmtCompetitionRange, dedupeByKey, partide card fmtSpan/fmtRange/venueSubtitle"
+    states:
+      - signed-out (redirect to /intra?next=/pescari/[id])
+      - header loading (skeleton)
+      - tab loading (skeleton per tab)
+      - tab empty (per tab)
+      - loading next page
+      - "self (isSelf: no follow button)"
+      - followed / not followed / follow pending
+      - no avatar (initials)
+      - no ratings (rating pill hidden)
+      - no podiums (trophy row hidden)
+      - no bio
+      - no biggest catch („–”)
+      - live session card
+      - finished session without endedAt
+      - competitions filter with no results
+      - legacy three-score review / unknown review tag
+      - catch lightbox open
+      - reputation panel open
+    criteria:
+      - id: account.angler-profile.c1
+        text: "Signed out, the route sends the visitor to sign-in (the profile endpoints require auth); on web /intra?next=/pescari/[id]."
+        fish_ref: "app/(app)/anglers/[documentId]/index.tsx:9-11"
+      - id: account.angler-profile.c2
+        text: "The header loads GET /feed/anglers/{id} (authenticated)."
+        fish_ref: "services/api/anglers.ts:16-17; services/queries/useAnglerProfile.ts:6-12"
+      - id: account.angler-profile.c3
+        text: "Until the profile arrives a header skeleton mirrors the layout: 100px avatar circle, name bar, followers bar, four stat columns and (other mode) a follow pill."
+        fish_ref: "components/profile/ProfileSkeleton.tsx:14-40"
+      - id: account.angler-profile.c4
+        text: "The avatar is a 100px circle (initials avatar when there is no photo); when there is a photo, activating it opens it full screen."
+        fish_ref: "components/profile/ProfileHeader.tsx:36-55,123-129"
+      - id: account.angler-profile.c5
+        text: "When the angler has operator ratings, a pill on the avatar's lower right shows a star and avgStars with one decimal; activating it opens the reputation panel. With no ratings the pill is absent."
+        fish_ref: "components/profile/ProfileHeader.tsx:28-32,56-84,131-144"
+      - id: account.angler-profile.c6
+        text: "The username is the page title."
+        fish_ref: "components/profile/ProfileHeader.tsx:86-88"
+      - id: account.angler-profile.c7
+        text: "Under the name: „{followers} urmăritori · {following} urmărește”; each part opens /pescari/[id]/conexiuni on the matching tab (followers / following)."
+        fish_ref: "components/profile/ProfileHeader.tsx:90-110; components/profile/AnglerProfileScreen.tsx:165-169,183-184"
+      - id: account.angler-profile.c8
+        text: "A trophy row shows 🥇 🥈 🥉 with their counts, only for tiers above zero; the row is absent when all three are zero."
+        fish_ref: "components/profile/TrophyRow.tsx:5-26"
+      - id: account.angler-profile.c9
+        text: "A four-column stat strip shows Capturi, Partide, Concursuri counts and C.M.M.C as „{kg with one decimal, comma} kg” or „–”; a verified badge follows C.M.M.C when biggestCatch.source is competition."
+        fish_ref: "components/profile/StatStrip.tsx:36-52"
+      - id: account.angler-profile.c10
+        text: "For another angler a follow button shows „Urmărește” (accent, user-plus icon) or „Urmăresc” (neutral, check icon) and is disabled while the request is pending."
+        fish_ref: "components/profile/ProfileHeader.tsx:115-119; components/profile/FollowButton.tsx:28-74"
+      - id: account.angler-profile.c11
+        text: "Follow posts /feed/anglers/{id}/follow, unfollow posts /feed/anglers/{id}/unfollow."
+        fish_ref: "services/api/anglers.ts:92-99; services/mutations/useFollowAngler.ts:78-79"
+      - id: account.angler-profile.c12
+        text: "Follow is optimistic: isFollowedByMe flips and the followers count moves by ±1 (never below 0) immediately; the same angler's row flips in every loaded connections, search and suggestion list; everything is rolled back on error."
+        fish_ref: "services/mutations/useFollowAngler.ts:7-16,81-133"
+      - id: account.angler-profile.c13
+        text: "After follow/unfollow the angler's profile and followers list, the viewer's own profile (exact key) and own following list are refetched, and the Home suggestion pool is marked stale without refetching."
+        fish_ref: "services/mutations/useFollowAngler.ts:135-151"
+      - id: account.angler-profile.c14
+        text: "The bio, when present, is shown centred under the header with #hashtags (letters, digits, underscore) in the accent colour; no bio, no block."
+        fish_ref: "components/profile/BioText.tsx:4-23; components/profile/ProfileHeader.tsx:121"
+      - id: account.angler-profile.c15
+        text: "Three tabs „Capturi | Sesiuni | Concursuri”, Capturi selected by default; the selected tab is underlined in the accent colour."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:52-84,90"
+      - id: account.angler-profile.c16
+        text: "Only the selected tab's data is requested; switching tabs loads the other list lazily."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:105-110"
+      - id: account.angler-profile.c17
+        text: "Capturi is a three-column square photo grid with a 2px gap using photoGridUrl (fallback photoUrl) and the blurhash placeholder when present."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:32-33,112,196-222"
+      - id: account.angler-profile.c18
+        text: "Catches load from GET /feed/anglers/{id}/catches with cursor pagination (pageSize 20, nextCursor null ends the list)."
+        fish_ref: "services/queries/useAnglerHistory.ts:25-45; services/api/anglers.ts:48-56"
+      - id: account.angler-profile.c19
+        text: "Activating a catch opens a lightbox at that catch; the footer shows „{kg} · {species}” (whichever exist), the venue, the competition name for competition catches, and the date as „d MMM yyyy” with Romanian month abbreviations."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:204,342-347; components/profile/CatchDetailFooter.tsx:7-40"
+      - id: account.angler-profile.c20
+        text: "Paging to the end of the lightbox loads the next page of catches."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:347"
+      - id: account.angler-profile.c21
+        text: "The lightbox has a share action that opens the catch share card (photo with kg, venue, species, and competition name for competition catches)."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:348-370"
+      - id: account.angler-profile.c22
+        text: "Sesiuni lists public sessions from GET /feed/anglers/{id}/sessions (pageSize 10) grouped under month headers „{Luna} {an}” (full Romanian month), keeping server order."
+        fish_ref: "helpers/groupSessionsByMonth.ts:8-22; components/profile/AnglerProfileScreen.tsx:133-139,224-239; services/queries/useAnglerHistory.ts:12-23"
+      - id: account.angler-profile.c23
+        text: "A session card shows the venue as title (fallback „Partidă”) with locality · stand subtitle, stats „{n} captură/capturi”, „{total} kg total” („—” when unknown), duration labelled „durată” (or „de pescuit” when live), a photo strip with the total photo count; the angler's name is not repeated."
+        fish_ref: "components/profile/SessionHistoryCard.tsx:16-71"
+      - id: account.angler-profile.c24
+        text: "A live session card has a „Live” ribbon and glow, a footer „Începută acum {span}” that keeps ticking, and the link „Vezi partida”; a finished one shows its date range (omitted when endedAt is missing) and „Vezi rezumatul”."
+        fish_ref: "components/profile/SessionHistoryCard.tsx:31-50,52-79"
+      - id: account.angler-profile.c25
+        text: "Activating a session card opens the community partidă detail (fish /partide/comunitate/{documentId})."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:171-175,240-244"
+      - id: account.angler-profile.c26
+        text: "Concursuri shows two chip rows: „Toate | Pe podium | Individual | Echipe” and „Oricând | {anul curent} | {anul trecut}”; the rows are independent and selecting one keeps the other."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:38-50,275-280; components/profile/FilterChips.tsx:8-40"
+      - id: account.angler-profile.c27
+        text: "Competitions load from GET /feed/anglers/{id}/competitions (pageSize 20) with filter (podium|individual|team) and year; the previous results stay visible while a new filter loads."
+        fish_ref: "services/queries/useAnglerHistory.ts:47-65; components/profile/AnglerProfileScreen.tsx:103-110"
+      - id: account.angler-profile.c28
+        text: "A competition card shows the image (lake placeholder when none), a „Locul N” badge (gold for 1, grey for 2–3, accent otherwise; absent when placement is null), the date range (e.g. „5–7 SEP 2025”, „30 SEP – 2 OCT 2025”), the name on up to two lines, the lake with a pin, and a type tag „Echipe” or „Individual”."
+        fish_ref: "components/profile/CompetitionHistoryCard.tsx:9-88; helpers/fmtCompetitionRange.ts:3-31"
+      - id: account.angler-profile.c29
+        text: "Activating a competition card opens /concursuri/{id}."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:246-255"
+      - id: account.angler-profile.c30
+        text: "Empty tabs read „Nicio captură încă”, „Nicio partidă publică încă” and „Niciun concurs încă”."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:296-307"
+      - id: account.angler-profile.c31
+        text: "While a tab loads its skeleton shows: four rows of three squares (Capturi), a month header bar plus three cards (Sesiuni), three cards (Concursuri)."
+        fish_ref: "components/profile/ProfileSkeleton.tsx:43-93; components/profile/AnglerProfileScreen.tsx:297-298"
+      - id: account.angler-profile.c32
+        text: "Scrolling near the end of the selected tab loads its next page and shows a spinner while it loads."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:283-295"
+      - id: account.angler-profile.c33
+        text: "Refreshing refetches the profile header and the selected tab together."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:154-163,285-292"
+      - id: account.angler-profile.c34
+        text: "Items repeated across pages are shown once (first occurrence kept): catches by key, sessions by documentId, competitions by competition documentId."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:114-148; helpers/dedupeByKey.ts:1-15"
+      - id: account.angler-profile.c35
+        text: "Another angler's profile has a back control at top left; with no history it goes to home."
+        fish_ref: "components/profile/AnglerProfileScreen.tsx:324-326; components/BackButton.tsx:39-50"
+      - id: account.angler-profile.c36
+        text: "The reputation panel (ReputationBlock) is titled „Reputație”, shows a spinner while loading, then the average with a star and „{n} evaluare/evaluări” or „Fără evaluări”, plus „{n} neprezentare/neprezentări” in red only when the no-show count is above zero, then the reviews; data from GET /feed/users/{id}/reputation."
+        fish_ref: "features/reputation/ReputationBlock.tsx:22-78; services/api/reviews.ts:28-31"
+      - id: account.angler-profile.c37
+        text: "Each review shows star rating and value with one decimal (legacy reviews with three sub-scores use their exact mean), „acum {durată}” in Romanian, „{autor} · {baltă}”, tag chips (unknown tag keys dropped) and the comment when present."
+        fish_ref: "features/reputation/ReputationBlock.tsx:80-134"
+      - id: account.angler-profile.c38
+        text: "Visiting your own documentId here shows your profile without a follow button (isSelf) but with the back control, not the settings control."
+        fish_ref: "components/profile/ProfileHeader.tsx:115; components/profile/AnglerProfileScreen.tsx:326-339; app/(app)/anglers/[documentId]/index.tsx:13"
+    mobile_only: false
+    status: todo
+
+  - id: account.connections
+    title: Conexiuni
+    fish:
+      - app/(app)/anglers/[documentId]/connections.tsx
+      - components/profile/ConnectionRow.tsx
+      - components/profile/FollowButton.tsx
+      - features/partide/components/PartideSkeletons.tsx
+      - helpers/dedupeByKey.ts
+      - services/api/anglers.ts
+      - services/queries/useAnglerConnections.ts
+      - services/queries/useProfile.ts
+      - services/mutations/useFollowAngler.ts
+    web_route: /pescari/[id]/conexiuni
+    template: T1
+    milestone: M2
+    roles: [angler, organizer, referee, operator]
+    core: [social.anglerFollowersInfiniteQuery, social.anglerFollowingInfiniteQuery, social.profileQuery, social.followAnglerMutation]
+    states:
+      - signed-out (redirect to /intra)
+      - loading (skeleton)
+      - empty followers
+      - empty following
+      - list
+      - loading next page
+      - own row (no follow button)
+    criteria:
+      - id: account.connections.c1
+        text: "Signed out, the route sends the visitor to sign-in."
+        fish_ref: "app/(app)/anglers/[documentId]/connections.tsx:18-23"
+      - id: account.connections.c2
+        text: "The header has a back control and the title „Conexiuni”."
+        fish_ref: "app/(app)/anglers/[documentId]/connections.tsx:48-53"
+      - id: account.connections.c3
+        text: "Two tabs „Urmăritori” and „Urmărește”; the initial tab is following when ?tab=following, otherwise followers; switching tabs does not change the URL in fish (web may reflect it)."
+        fish_ref: "app/(app)/anglers/[documentId]/connections.tsx:26-27,55-72"
+      - id: account.connections.c4
+        text: "Lists load from GET /feed/anglers/{id}/followers or /following, pageSize 20, page-numbered; only the selected tab is requested."
+        fish_ref: "services/queries/useAnglerConnections.ts:7-34; app/(app)/anglers/[documentId]/connections.tsx:32-34"
+      - id: account.connections.c5
+        text: "A row shows a 40px avatar (initials fallback), the username on one line and a follow button; the signed-in user's own row has no follow button."
+        fish_ref: "components/profile/ConnectionRow.tsx:9-57; app/(app)/anglers/[documentId]/connections.tsx:79-83"
+      - id: account.connections.c6
+        text: "Activating a row opens /pescari/{id} of that angler."
+        fish_ref: "app/(app)/anglers/[documentId]/connections.tsx:82"
+      - id: account.connections.c7
+        text: "While the first page loads, seven skeleton rows (no subline) are shown."
+        fish_ref: "app/(app)/anglers/[documentId]/connections.tsx:92-93"
+      - id: account.connections.c8
+        text: "Empty states read „Niciun urmăritor încă” (followers) and „Nu urmărește pe nimeni încă” (following)."
+        fish_ref: "app/(app)/anglers/[documentId]/connections.tsx:94-98"
+      - id: account.connections.c9
+        text: "Scrolling near the end loads the next page with a spinner footer."
+        fish_ref: "app/(app)/anglers/[documentId]/connections.tsx:86-90"
+      - id: account.connections.c10
+        text: "Rows repeated across pages are shown once (by documentId, first kept)."
+        fish_ref: "app/(app)/anglers/[documentId]/connections.tsx:35-44"
+      - id: account.connections.c11
+        text: "Following from a row flips that row immediately in every loaded connections list and updates the counts on the profiles involved (see account.angler-profile c12–c13)."
+        fish_ref: "services/mutations/useFollowAngler.ts:90-104,135-145"
+    mobile_only: false
+    status: todo
+
+  - id: account.suggested
+    title: Sugestii pentru tine
+    fish:
+      - app/(app)/anglers/suggested.tsx
+      - features/anglers/components/SuggestedAnglerCard.tsx
+      - features/anglers/helpers/pickTopStats.ts
+      - features/anglers/state/dismissedSuggestionsAtom.ts
+      - components/profile/FollowButton.tsx
+      - helpers/dedupeByKey.ts
+      - services/api/anglers.ts
+      - services/queries/useSuggestedAnglersHome.ts
+      - services/mutations/useFollowAngler.ts
+    web_route: /pescari/sugerati
+    template: T1
+    milestone: M2
+    roles: [angler, organizer, referee, operator]
+    core: [social.suggestedAnglersHomeInfiniteQuery, social.suggestedHomeQueryOptions, social.domain.pickTopStats, social.domain.formatFollowers, social.domain.dismissSuggestion, social.domain.withoutDismissed, social.followAnglerMutation]
+    states:
+      - signed-out (redirect to /intra)
+      - loading (spinner)
+      - error („Nu am putut încărca sugestiile.”)
+      - empty („Nu avem sugestii momentan.”)
+      - grid
+      - loading next page
+      - card dismissed
+      - card followed (stays, „Urmăresc”)
+      - new angler with no stats („Pescar nou”)
+    criteria:
+      - id: account.suggested.c1
+        text: "Signed out, the route sends the visitor to sign-in."
+        fish_ref: "app/(app)/anglers/suggested.tsx:45"
+      - id: account.suggested.c2
+        text: "The header has a back control, the title „Sugestii pentru tine” and a search button labelled „Caută pescari” that opens the angler search (fish /partide/pescari)."
+        fish_ref: "app/(app)/anglers/suggested.tsx:49-64"
+      - id: account.suggested.c3
+        text: "Cards load from GET /feed/anglers/suggested-home, pageSize 10; the query is fetched once per app start (staleTime 6h, no refetch on focus, reconnect or mount, no retry) so cards never reshuffle under the user."
+        fish_ref: "services/queries/useSuggestedAnglersHome.ts:7-50"
+      - id: account.suggested.c4
+        text: "Cards are laid out two per row on a phone (fish computes (width − 2·20 − 12)/2); wider screens may show more columns."
+        fish_ref: "app/(app)/anglers/suggested.tsx:19-27,69-79"
+      - id: account.suggested.c5
+        text: "A card shows a 64px avatar, the username on one line, the followers line („fără urmăritori”, „1 urmăritor”, „1.284 urmăritori”), up to two stats picked podiums → concursuri → CMMC → partide with singular/plural labels (zeros skipped) or „Pescar nou” when none, and a full-width small follow button."
+        fish_ref: "features/anglers/components/SuggestedAnglerCard.tsx:27-112; features/anglers/helpers/pickTopStats.ts:8-29"
+      - id: account.suggested.c6
+        text: "Activating the card (outside its buttons) opens /pescari/{id}."
+        fish_ref: "features/anglers/components/SuggestedAnglerCard.tsx:39-41; app/(app)/anglers/suggested.tsx:43"
+      - id: account.suggested.c7
+        text: "A dismiss button labelled „Ascunde sugestia” at the card's top right removes the card; dismissals last for the session (in memory, shared with the Home rail) and the angler may reappear on the next load."
+        fish_ref: "features/anglers/components/SuggestedAnglerCard.tsx:43-60; features/anglers/state/dismissedSuggestionsAtom.ts:3-15; app/(app)/anglers/suggested.tsx:30-40"
+      - id: account.suggested.c8
+        text: "While the first page loads a spinner is shown."
+        fish_ref: "app/(app)/anglers/suggested.tsx:66-67"
+      - id: account.suggested.c9
+        text: "With no cards the page reads „Nu am putut încărca sugestiile.” when the request failed, otherwise „Nu avem sugestii momentan.”."
+        fish_ref: "app/(app)/anglers/suggested.tsx:80-84"
+      - id: account.suggested.c10
+        text: "Scrolling near the end loads the next page with a spinner footer; cards repeated across pages are shown once."
+        fish_ref: "app/(app)/anglers/suggested.tsx:33-41,75-86"
+      - id: account.suggested.c11
+        text: "Following from a card keeps the card in place with „Urmăresc” (patched in cache) and only marks the pool stale for the next start."
+        fish_ref: "services/mutations/useFollowAngler.ts:94-104,147-150"
+      - id: account.suggested.c12
+        text: "Analytics events suggested_angler_follow (only when following, not unfollowing) and suggested_angler_dismiss carry source see_all."
+        fish_ref: "features/anglers/components/SuggestedAnglerCard.tsx:50-54,108-110; app/(app)/anglers/suggested.tsx:78"
+    mobile_only: false
+    status: todo
+
+  - id: account.notifications
+    title: Notificări
+    fish:
+      - app/(app)/notifications.tsx
+      - helpers/getRedirectLocationForNotification.ts
+      - helpers/goBackOrHome.ts
+      - components/ListLodingStateFooter.tsx
+      - components/ErrorScreen.tsx
+      - models/notification.type.ts
+      - services/api/notifications.ts
+      - services/queries/useNotificationsForLoggedUser.ts
+      - services/queries/notifications.ts
+      - services/mutations/useMarkAllNotificationsAsRead.ts
+      - services/mutations/useMarkNotificationAsRead.ts
+    web_route: /notificari
+    template: T1
+    milestone: M2
+    roles: [angler, organizer, referee, operator]
+    core: [social.notificationsForLoggedUserInfiniteQuery, social.unreadNotificationsCountQuery, social.markNotificationAsReadMutation, social.markAllNotificationsAsReadMutation, social.domain.getRouteForNotificationItem]
+    states:
+      - signed-out (redirect to /intra?next=/notificari)
+      - loading (full)
+      - error (retry)
+      - empty
+      - list with unread
+      - list all read („Citește tot” hidden)
+      - notification without a route (not actionable)
+      - loading next page
+    criteria:
+      - id: account.notifications.c1
+        text: "While the first page loads a full loading state is shown; on error an error state with retry that refetches."
+        fish_ref: "app/(app)/notifications.tsx:57-64"
+      - id: account.notifications.c2
+        text: "The header has a back control (to home when there is no history) and the title „Notificări”."
+        fish_ref: "app/(app)/notifications.tsx:68-74; helpers/goBackOrHome.ts:15-21"
+      - id: account.notifications.c3
+        text: "„Citește tot” is shown in the header only when at least one loaded notification is unread."
+        fish_ref: "app/(app)/notifications.tsx:46-49,75-79"
+      - id: account.notifications.c4
+        text: "„Citește tot” posts /notification-users/mark-all-as-read, marks every loaded item read immediately, shows an error toast on failure, and refetches all notification queries (list and unread count) afterwards."
+        fish_ref: "services/mutations/useMarkAllNotificationsAsRead.ts:14-43; services/api/notifications.ts:72-79"
+      - id: account.notifications.c5
+        text: "The list loads GET /notification-users with pagination[page] and pagination[pageSize]=10, paging until page equals pageCount."
+        fish_ref: "app/(app)/notifications.tsx:40; services/api/notifications.ts:32-50; services/queries/useNotificationsForLoggedUser.ts:9-21"
+      - id: account.notifications.c6
+        text: "An item shows the Bluvi fish mark, the title (bold when unread) with an accent dot when unread, the body, and the sent time „d MMMM, 'ora' HH:mm” (Romanian) — with the year added when it is not the current year."
+        fish_ref: "app/(app)/notifications.tsx:156-175"
+      - id: account.notifications.c7
+        text: "Read items are dimmed (60% opacity in fish)."
+        fish_ref: "app/(app)/notifications.tsx:152"
+      - id: account.notifications.c8
+        text: "Activating an item opens the route given by the notification-route map (whole data payload spread, type from the notification, weighihngId normalised to weighingId); items with no route do nothing and give no press feedback."
+        fish_ref: "app/(app)/notifications.tsx:112-126,154"
+      - id: account.notifications.c9
+        text: "Activating an unread item posts /notification-users/{documentId}/mark-as-read and then refetches all notification queries."
+        fish_ref: "app/(app)/notifications.tsx:135-137; services/mutations/useMarkNotificationAsRead.ts:5-15; services/api/notifications.ts:63-70"
+      - id: account.notifications.c10
+        text: "With no notifications the page reads „Nu există notificări”."
+        fish_ref: "app/(app)/notifications.tsx:93-97"
+      - id: account.notifications.c11
+        text: "Pull/refresh refetches; scrolling near the end loads the next page and the footer shows loading / end state."
+        fish_ref: "app/(app)/notifications.tsx:90,98-102"
+      - id: account.notifications.c12
+        text: "The query is skipped while signed out; on web the route redirects to /intra?next=/notificari."
+        fish_ref: "services/queries/useNotificationsForLoggedUser.ts:7-13"
+      - id: account.notifications.c13
+        text: "An analytics event notification_clicked_from_list records type, documentId, title and redirect url (or none)."
+        fish_ref: "app/(app)/notifications.tsx:127-133"
+    mobile_only: false
+    status: todo
+
+  - id: account.notification-settings
+    title: Notificări (setări)
+    fish:
+      - app/(app)/notification-settings.tsx
+      - components/settings/SettingsRows.tsx
+      - services/queries/useProfile.ts
+      - services/mutations/useToggleNotifications.ts
+      - services/api/notifications.ts
+    web_route: /setari/notificari
+    template: none
+    milestone: M2
+    roles: [angler, organizer, referee, operator]
+    core: [social.profileQuery, social.toggleNotificationsMutation]
+    states:
+      - signed-out (redirect to /intra)
+      - notifications on
+      - notifications off (competitions section dimmed and inert)
+      - toggle pending (optimistic)
+      - toggle failed (reverts after refetch)
+    criteria:
+      - id: account.notification-settings.c1
+        text: "The header has a back control and the title „Notificări”."
+        fish_ref: "app/(app)/notification-settings.tsx:23-37"
+      - id: account.notification-settings.c2
+        text: "A master switch „Permite notificări” with the helper „Oprește tot: concursuri, chat, rezervări.” reflects profile.notificationsEnabled."
+        fish_ref: "app/(app)/notification-settings.tsx:17-18,49-59"
+      - id: account.notification-settings.c3
+        text: "Toggling the switch sends PATCH /notifications/enable-disable-pns {enabled}, flips profile.notificationsEnabled immediately, and refetches the profile when the request settles (so a failure reverts it)."
+        fish_ref: "components/settings/SettingsRows.tsx:67-93; services/mutations/useToggleNotifications.ts:6-35; services/api/notifications.ts:52-61"
+      - id: account.notification-settings.c4
+        text: "A section „CONCURSURI” holds the row „Concursuri urmărite” with a chevron and the helper „Alege ce primești din fiecare concurs urmărit.”, opening /setari/notificari/concursuri."
+        fish_ref: "app/(app)/notification-settings.tsx:61-82"
+      - id: account.notification-settings.c5
+        text: "When the master switch is off the CONCURSURI card is dimmed to half opacity and its row is not activatable."
+        fish_ref: "app/(app)/notification-settings.tsx:66-74"
+    mobile_only: false
+    status: todo
+
+  - id: account.notification-preferences
+    title: Concursuri urmărite
+    fish:
+      - app/(app)/notification-preferences.tsx
+      - features/notifications/components/FollowNotificationsSheet.tsx
+      - features/notifications/components/PreferenceGroupRow.tsx
+      - features/notifications/domain/preferenceState.ts
+      - features/chat/domain/format.ts
+      - helpers/anglerInitials.ts
+      - models/notification-preferences.type.ts
+      - services/api/notification-preferences.ts
+      - services/queries/useFollowedCompetitions.ts
+      - services/queries/useCompetitionNotificationPreferences.ts
+      - services/mutations/useUpdateCompetitionNotificationPreferences.ts
+    web_route: /setari/notificari/concursuri
+    template: T1
+    milestone: M2
+    roles: [angler, organizer, referee, operator]
+    core:
+      - competitions.followedCompetitionsQuery
+      - competitions.competitionNotificationPreferencesQuery (staleTime 60s)
+      - competitions.updateCompetitionNotificationPreferencesMutation
+      - competitions.domain.mutedTypesOf
+      - competitions.domain.toggleGroup
+      - competitions.domain.toggleType
+      - competitions.domain.groupState
+    states:
+      - signed-out (redirect to /intra)
+      - loading list
+      - empty list
+      - list (all on / some types off)
+      - preferences panel loading
+      - preferences panel error
+      - group partially muted („parțial”)
+      - group expanded
+      - saving
+      - save failed (toast, rollback)
+    criteria:
+      - id: account.notification-preferences.c1
+        text: "The header has a back control and the title „Concursuri urmărite”."
+        fish_ref: "app/(app)/notification-preferences.tsx:35-49"
+      - id: account.notification-preferences.c2
+        text: "The list loads GET /feed/followed-competitions; while loading a centred spinner is shown."
+        fish_ref: "services/api/notification-preferences.ts:17-20; app/(app)/notification-preferences.tsx:21,50-53"
+      - id: account.notification-preferences.c3
+        text: "With no followed competitions the page reads „Nu urmărești niciun concurs în desfășurare.”."
+        fish_ref: "app/(app)/notification-preferences.tsx:59-65"
+      - id: account.notification-preferences.c4
+        text: "A row shows the competition banner thumbnail as a 36px circle, or its initials (letters only) on an accent circle; the name bold on one line; and „Toate notificările pornite” or „{n} tip oprit / {n} tipuri oprite” in red when some types are muted; plus a chevron."
+        fish_ref: "app/(app)/notification-preferences.tsx:66-99"
+      - id: account.notification-preferences.c5
+        text: "Activating a row (accessible name = competition name) opens the preferences panel for that competition; each competition gets a fresh panel."
+        fish_ref: "app/(app)/notification-preferences.tsx:22-30,67,103-112"
+      - id: account.notification-preferences.c6
+        text: "The panel is titled „Ce notificări vrei?” with the competition name under it and loads GET /feed/competitions/{id}/notification-preferences only while open."
+        fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:49-50,127-138; services/api/notification-preferences.ts:4-7"
+      - id: account.notification-preferences.c7
+        text: "While preferences load the panel shows four skeleton rows announced as „Se încarcă notificările”; on error it reads „Nu am putut încărca notificările. Le poți seta mai târziu din Setări.”."
+        fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:139-150"
+      - id: account.notification-preferences.c8
+        text: "Each group row has an expand control („Desfășoară {grup}” / „Restrânge {grup}”), the group label, „parțial” under it when some but not all types are muted, and a switch that is on unless every type is muted."
+        fish_ref: "features/notifications/components/PreferenceGroupRow.tsx:20-56; features/notifications/domain/preferenceState.ts:22-27"
+      - id: account.notification-preferences.c9
+        text: "Toggling a group switch turns all its types on or off; expanded, each type has its own labelled switch (on = not muted)."
+        fish_ref: "features/notifications/components/PreferenceGroupRow.tsx:57-77; features/notifications/domain/preferenceState.ts:12-20"
+      - id: account.notification-preferences.c10
+        text: "Edits are local until „Salvează”; every time the panel opens the local state is reset from the server (closing without saving discards edits)."
+        fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:52-59"
+      - id: account.notification-preferences.c11
+        text: "„Salvează” stays pinned at the bottom and shows loading while saving or while preferences have not loaded."
+        fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:71-84"
+      - id: account.notification-preferences.c12
+        text: "Saving sends PUT /feed/competitions/{id}/notification-preferences {mutedTypes} including muted keys outside the catalog (extraMuted, e.g. chat rooms); the cache is updated optimistically and replaced with the response."
+        fish_ref: "features/notifications/domain/preferenceState.ts:3-10,35-46; services/mutations/useUpdateCompetitionNotificationPreferences.ts:7-25"
+      - id: account.notification-preferences.c13
+        text: "On success the panel closes and the followed-competitions list is refetched (muted counts update)."
+        fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:61-65; app/(app)/notification-preferences.tsx:109; services/mutations/useUpdateCompetitionNotificationPreferences.ts:24"
+      - id: account.notification-preferences.c14
+        text: "On failure the cache is rolled back and a toast says „Nu am putut salva preferințele. Te rugăm să încerci din nou.”; the panel stays open."
+        fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:66-68; services/mutations/useUpdateCompetitionNotificationPreferences.ts:20-22"
+      - id: account.notification-preferences.c15
+        text: "The panel ends with „Poți schimba oricând din clopoțelul din chat sau din Setări → Notificări.”."
+        fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:160-162"
+      - id: account.notification-preferences.c16
+        text: "The panel is not dismissed by dragging or clicking the backdrop (fish: only „Salvează” closes it); the web dialog must still offer an accessible close (Escape) that discards edits."
+        fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:25-26,87-95"
+    mobile_only: false
+    status: todo
+
+  - id: account.settings
+    title: Setări
+    fish:
+      - app/(app)/settings.tsx
+      - components/settings/SettingsRows.tsx
+      - components/OrganizerRoleRequestSheet.tsx
+      - components/Contact.tsx
+      - components/ContactSheet.tsx
+      - components/InitialsAvatar.tsx
+      - features/reputation/ReputationBlock.tsx
+      - contexts/auth/AuthContext.tsx
+      - common/utils/constants.ts
+      - services/api/profile.ts
+      - services/queries/useProfile.ts
+      - services/queries/useUserReputation.ts
+      - services/mutations/useDeleteProfile.ts
+      - services/mutations/useRequestOrganizerRole.ts
+    web_route: /setari
+    template: none
+    milestone: M2
+    roles: [angler, organizer, referee, operator]
+    core: [social.profileQuery, social.userReputationQuery, social.deleteProfileMutation, organizer.requestOrganizerRoleMutation]
+    states:
+      - signed-out (redirect to /intra)
+      - loading (full)
+      - error (retry, no back)
+      - normal user (Devino organizator)
+      - organizer request pending (În așteptare)
+      - organizer
+      - no phone (organizer request blocked)
+      - organizer request panel open / validation error / sending
+      - no ratings / ratings / no-shows (reputation)
+      - sign-out confirm
+      - delete-account confirm
+      - contact panel open
+    criteria:
+      - id: account.settings.c1
+        text: "While the profile loads a full loading state is shown; on error an error state with retry (no back control)."
+        fish_ref: "app/(app)/settings.tsx:144-145"
+      - id: account.settings.c2
+        text: "The header has a back control and the title „Setări”."
+        fish_ref: "app/(app)/settings.tsx:151-156"
+      - id: account.settings.c3
+        text: "A profile card shows the avatar (thumb, initials fallback), the username (fallback „Nume de utilizator”) and the email (fallback „-”) with a chevron, and opens /setari/profil."
+        fish_ref: "app/(app)/settings.tsx:169-193"
+      - id: account.settings.c4
+        text: "Row „Notificări” opens /setari/notificari."
+        fish_ref: "app/(app)/settings.tsx:197-202"
+      - id: account.settings.c5
+        text: "A user who is not an organizer and has not requested the role sees „Devino organizator”."
+        fish_ref: "app/(app)/settings.tsx:136,204-214"
+      - id: account.settings.c6
+        text: "A user who requested the role but is not yet an organizer sees „Cerere organizator” with a „În așteptare” badge, not activatable."
+        fish_ref: "app/(app)/settings.tsx:129-134,216-225,357-363"
+      - id: account.settings.c7
+        text: "An organizer (role.name Organizer) sees „Organizator” with a yellow star, not activatable."
+        fish_ref: "app/(app)/settings.tsx:127,227-232"
+      - id: account.settings.c8
+        text: "„Devino organizator” without a phone on the profile shows a dialog „Nu poți trimite cererea pentru a deveni organizator fără număr de telefon” / „Te rugăm să adaugi un număr de telefon în profilul tău pentru a putea trimite cererea” with „Închide” and „Editează profil” (opens /setari/profil)."
+        fish_ref: "app/(app)/settings.tsx:99-122"
+      - id: account.settings.c9
+        text: "With a phone it opens the request panel: title „Devino organizator”, the explanation „După trimiterea cererii, echipa Bluvi te va contacta…”, a „Mesaj” textarea (max 1000, placeholder „Spune-ne despre experiența ta și ce competiții vrei să organizezi...”), and buttons „Închide” and „Trimite cerere”."
+        fish_ref: "components/OrganizerRoleRequestSheet.tsx:21,59-129"
+      - id: account.settings.c10
+        text: "An empty or whitespace-only message shows „Te rugăm să adaugi un mesaj înainte de a trimite cererea” and nothing is sent."
+        fish_ref: "components/OrganizerRoleRequestSheet.tsx:105-112"
+      - id: account.settings.c11
+        text: "Sending posts /user/organizer-request {message (trimmed)}; „Trimite cerere” shows loading; success toast „Solicitarea ta a fost trimisă cu succes” and the panel closes; failure shows an error toast; afterwards the profile is refetched so the row becomes „Cerere organizator · În așteptare”."
+        fish_ref: "components/OrganizerRoleRequestSheet.tsx:51-57; services/mutations/useRequestOrganizerRole.ts:6-20; services/api/profile.ts:40-47"
+      - id: account.settings.c12
+        text: "Closing the request panel resets the message."
+        fish_ref: "components/OrganizerRoleRequestSheet.tsx:87"
+      - id: account.settings.c13
+        text: "Row „Rezervările mele” opens /rezervari."
+        fish_ref: "app/(app)/settings.tsx:235-240"
+      - id: account.settings.c14
+        text: "The user's own reputation block („Reputație”) is shown, as in account.angler-profile c36–c37."
+        fish_ref: "app/(app)/settings.tsx:243-244"
+      - id: account.settings.c15
+        text: "Section „INFORMAȚII” lists Email (or „-”), Telefon formatted „0712 345 678” for a 10-digit number (or „-”), „Activ de la” as createdAt „dd LLL yyyy” in Romanian (or „-”), and „Autentificat cu” the provider capitalised (or „-”)."
+        fish_ref: "app/(app)/settings.tsx:246-288"
+      - id: account.settings.c16
+        text: "Legal card: „Termeni și condiții” and „Politica de confidențialitate” open the Termly pages; „Setări de confidențialitate” opens privacy settings (web: the cookie-consent preferences)."
+        fish_ref: "app/(app)/settings.tsx:290-312"
+      - id: account.settings.c17
+        text: "„Contactează-ne” opens a contact panel titled „Contact” with „Ai nevoie de ajutor sau ai întrebări? Suntem aici pentru tine!”, a tel: link to +40 733 017 091 (logs contact_pressed) and a mailto: link to the support address."
+        fish_ref: "components/Contact.tsx:8-48; components/ContactSheet.tsx:14-66; common/utils/constants.ts:38-39"
+      - id: account.settings.c18
+        text: "„Deconectare” (red) asks „Ești sigur că dorești să te deconectezi?” with „Închide” / „Deconectare”; confirming signs out (account.b.sign-out)."
+        fish_ref: "app/(app)/settings.tsx:63-79,317-333"
+      - id: account.settings.c19
+        text: "„Șterge contul” (small, muted) asks „Ești sigur că îți dorești să ștergi contul?” / „Această acțiune este ireversibilă” with „Închide” / „Ștergere”; confirming sends DELETE /user/profile and then signs out."
+        fish_ref: "app/(app)/settings.tsx:58-61,81-97,335-347; services/mutations/useDeleteProfile.ts:7-17; services/api/profile.ts:31-38"
+      - id: account.settings.c20
+        text: "Pull/refresh refetches the profile."
+        fish_ref: "app/(app)/settings.tsx:138-142,166"
+    mobile_only: false
+    status: todo
+
+  - id: account.onboarding
+    title: Introducere Bluvi
+    fish:
+      - app/onboarding.tsx
+      - app/index.tsx
+      - features/onboarding/FeatureScene.tsx
+      - features/onboarding/WelcomeControls.tsx
+      - features/onboarding/WelcomeBackdrop.tsx
+    web_route: /
+    template: none
+    milestone: M1
+    roles: [guest]
+    core: []
+    states: [first launch, story 1–4, finishing, save failed]
+    criteria:
+      - id: account.onboarding.c1
+        text: "On first launch (no ONBOARDING_COMPLETE flag) the app opens the onboarding, otherwise home."
+        fish_ref: "app/index.tsx:9-28"
+      - id: account.onboarding.c2
+        text: "Four stories: „DESCOPERĂ / Următoarea partidă începe aici.”, „TRĂIEȘTE PARTIDA / Fiecare lansetă. Fiecare moment.”, „INTRĂ ÎN COMPETIȚIE / Emoția concursului. Captură cu captură.”, „ÎNȚELEGE PESCUITUL / Mai mult decât o captură.” with their descriptions — copy the signed-out landing may reuse."
+        fish_ref: "app/onboarding.tsx:36-57"
+      - id: account.onboarding.c3
+        text: "„Sari peste” and „Ai deja cont? Intră în Bluvi” store the flag and go to sign-in; the last story's CTA is „Hai la pescuit”, the others „Continuă”."
+        fish_ref: "app/onboarding.tsx:110-136,164-166,259,263-265"
+    mobile_only: true
+    web_replacement: "No onboarding pager on web: the signed-out home (/) acts as the landing page (ROADMAP §3) and the top-bar „Intră” leads to /intra."
+    status: todo
+
+  - id: account.cmp-personalize
+    title: Setări de confidențialitate
+    fish:
+      - app/(app)/cmp-personalize.tsx
+      - CMP/ui/PersonalizeScreen.tsx
+      - app/(app)/_layout.tsx
+    web_route: none
+    template: none
+    milestone: M2
+    roles: [angler, organizer, referee, operator]
+    core: []
+    states: [consent categories shown]
+    criteria:
+      - id: account.cmp-personalize.c1
+        text: "Opened from Settings → „Setări de confidențialitate”; the native header is titled „Setări de confidențialitate” and lets the user change consent per category (GDPR SDK)."
+        fish_ref: "app/(app)/_layout.tsx:153-160; app/(app)/settings.tsx:306-311; CMP/ui/PersonalizeScreen.tsx:81"
+    mobile_only: true
+    web_replacement: "Cookie consent banner with a preferences dialog (M8); the Settings row „Setări de confidențialitate” reopens that dialog."
+    status: todo
+
+behaviours:
+  - id: account.b.signed-out-gate
+    text: "Angler profile, connections, suggested anglers, notifications, settings, notification settings/preferences and edit profile require a session; signed-out visitors are sent to /intra?next=<current path> (fish: Redirect to /sign-in or a skipped query that renders nothing)."
+    fish_ref: "app/(app)/anglers/[documentId]/index.tsx:11; app/(app)/anglers/[documentId]/connections.tsx:21; app/(app)/anglers/suggested.tsx:45; app/(app)/(tabs)/profile.tsx:15; services/queries/useNotificationsForLoggedUser.ts:11-13; services/queries/useProfile.ts:15-22"
+  - id: account.b.guest-follow
+    text: "The follow button is visible to guests wherever it appears; pressing it while signed out opens sign-in instead of following, and onPressed analytics never fire for that tap."
+    fish_ref: "components/profile/FollowButton.tsx:23-56"
+  - id: account.b.sign-in-redirect
+    text: "Sign-in returns to the page that asked for it only through a safe relative redirect (fish redirectTo, used by polls; web next, which also refuses /intra). Without one it returns to the previous page, else home. Incomplete profiles always go to complete profile first."
+    fish_ref: "features/onboarding/useWelcomeSignIn.ts:61-69; app/(app)/polls/current.tsx:103; components/PollCard.tsx:38"
+  - id: account.b.sign-out
+    text: "Sign-out unsubscribes the push token, clears recently viewed lakes, resets the live partidă store, signs out of Google/Facebook, discards the chat outbox, cancels and clears the whole query cache, signs out of Firebase, clears the session and goes to sign-in. If any step throws, the session is still cleared and a toast says „A aparut o problema. Te rugăm să încerci mai târziu.”."
+    fish_ref: "contexts/auth/AuthContext.tsx:257-296"
+  - id: account.b.session-expired
+    text: "The first 401 from the API while signed in drops the stored token and triggers one forced sign-out with the toast „Sesiunea ta a expirat. Te rugăm să te autentifici din nou.”; further 401/403s in the same burst are swallowed until the next sign-in re-arms the guard. The JWT has no refresh (1-year expiry)."
+    fish_ref: "services/api/api.ts:55-102; contexts/auth/AuthContext.tsx:144-146,285-290,298-307"
+  - id: account.b.complete-profile-gate
+    text: "A signed-in user whose profile is incomplete (no username, username „null null”, or isProfileComplete false) is asked to complete it: right after sign-in via the complete-profile screen, and on Home via a non-dismissable sheet opened 1.1s after load while online."
+    fish_ref: "features/onboarding/useWelcomeSignIn.ts:61-62; components/CompleteProfileSheet.tsx:22-33,40-47"
+  - id: account.b.profile-cache
+    text: "The own profile (GET /user/profile) is cached for 24h (staleTime and gcTime) and refetched after profile update, delete, organizer request and notification toggle; signed out it is disabled, not just skipped."
+    fish_ref: "services/queries/useProfile.ts:8-27; services/mutations/useUpdateProfile.ts:12-13; services/mutations/useRequestOrganizerRole.ts:17-19; services/mutations/useToggleNotifications.ts:32-34; services/mutations/useDeleteProfile.ts:14-16"
+  - id: account.b.unread-badge
+    text: "The notifications entry (fish: bell on Home; web: top bar) shows an unread dot when GET /notification-users/unread returns count > 0 (signed in only; staleTime Infinity); it is recounted whenever a notification query is invalidated (mark read, mark all read, incoming push)."
+    fish_ref: "app/(app)/(tabs)/index.tsx:180-184,392-404; services/queries/notifications.ts:6-15; services/api/notifications.ts:21-30"
+  - id: account.b.notification-route-map
+    text: "Notification → route: registration/pending/modified/start → competition; END, ROUND_END, FOLLOW_COMPETITION_END/PODIUM → competition ranking tab; NEW_REGISTRATION_ORGANIZER → participants tab filtered pending; ALLOCATION, ROUND_START, CANCELLATION/MODIFIED_ORGANIZER, FOLLOW_COMPETITION_REGISTERED/DIGEST → participants tab; WEIGHING_MODIFIED/END (needs sector, stand, standId, weighingId) → competition with that weighing open; EXTRA_WEIGHT_REQUEST → extra-scales tab; CHAT_MESSAGE → competition chat (tab from tab/chatRoom, default general; name passed); PENALTY → penalties; POLL_* → current poll; NEWS → news item; NEW_LAKES → lakes; NEW_FOLLOWER → /pescari/{followerDocumentId}; PARTIDA_INVITE → join with code; PARTIDA_FINISHED/AUTO_CLOSE_WARN → own partidă; PARTIDA_CATCH, PARTIDA_FINISHED_FOLLOWED, FOLLOW_PARTIDA_START/FIRST_CATCH → community partidă; FOLLOW_RECORD_PERSONAL/LAKE → community catches; FOLLOW_LAKE_REVIEW → lake reviews; COMPETITION_AUTO_CANCELLED_ORGANIZER → organizer panel; booking angler types → booking detail; operator booking types → operator bookings with status pending/rejected/cancelled; NEW_COMPETITIONS → competition or competitions list; COMPETITIONS_DIGEST → competitions list; SCHEDULED_NOTIFICATION, COMPETITION_CANCELLED_USER and unknown → no route. Missing required ids → no route. Ported as core social.domain.getRedirectLocationForNotification."
+    fish_ref: "helpers/getRedirectLocationForNotification.ts:30-193"
+  - id: account.b.push-tap
+    text: "A push tap (mobile only; web has in-app notifications) dedupes double delivery, routes like the list, opens the weighing in place when already on that competition, switches chat tab in place when already in that chat, invalidates news/competition caches by type and marks the notification read (except chat). Web keeps only the in-app equivalents: list tap routing and mark-as-read."
+    fish_ref: "contexts/NotificationsContextProvider.tsx:147-244"
+  - id: account.b.foreground-refresh
+    text: "When the app returns to the foreground every query is invalidated; an incoming push invalidates notification queries (and competitions/rankings or news by type). Web equivalent: refetch on window focus, and refetch the unread count on focus."
+    fish_ref: "app/_layout.tsx:58-64; contexts/NotificationsContextProvider.tsx:254-268"
+  - id: account.b.suggested-rail
+    text: "Home shows the rail „Pescari pe care îi poți urmări” only to signed-in users, built from page 1 of suggested-home minus dismissed cards, hidden while loading, on error, or with fewer than 3 visible cards (no skeleton); „Vezi toate” opens /pescari/sugerati. Inventoried as part of home.acasa."
+    fish_ref: "features/anglers/components/SuggestedAnglersRail.tsx:13-53; app/(app)/(tabs)/index.tsx:504; components/SeeAllTitle.tsx:30"
+  - id: account.b.suggestion-dismissals
+    text: "Dismissed suggestions are held in memory for the app session only (not persisted), shared by the Home rail and /pescari/sugerati."
+    fish_ref: "features/anglers/state/dismissedSuggestionsAtom.ts:3-15"
+  - id: account.b.follow-celebrate
+    text: "Following a competition opens the same preferences panel in celebrate mode („Te-ai abonat 🎉”, competition name, „Alege ce notificări vrei să primești.”) with preferences prefetched; inventoried with the competition screen, it reuses account.notification-preferences c6–c16."
+    fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:43-45,106-126; services/queries/useCompetitionNotificationPreferences.ts:16-29"
+  - id: account.b.profile-entry
+    text: "The top bar's avatar opens /profil when signed in (avatar thumb, Bluvi logo fallback); signed out it offers „Intră” (fish: profile tab hidden, Home card „Conectează-te” → sign-in)."
+    fish_ref: "app/(app)/(tabs)/_layout.tsx:96-126; app/(app)/(tabs)/index.tsx:270-276,343-345,420-445"
+  - id: account.b.deep-link-angler
+    text: "/anglers/{documentId} links (NEW_FOLLOWER) must resolve on web to /pescari/{documentId}; an unknown documentId must render a not-found state, not a blank page."
+    fish_ref: "helpers/getRedirectLocationForNotification.ts:101-103"

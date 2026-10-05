@@ -1,0 +1,570 @@
+# Parity inventory — area "home" (Acasă, Noutăți, Știre, Sponsor).
+# Extracted from fish (read-only) on 2026-10-04. Line refs are fish file:line at that date.
+area: home
+screens:
+  - id: home.acasa
+    title: Acasă
+    fish:
+      - app/(app)/(tabs)/index.tsx
+      - components/SeeAllTitle.tsx
+      - components/ErrorScreen.tsx
+      - components/OrganizerBanner.tsx
+      - components/OwnedLakesCard.tsx
+      - components/WidgetsList.tsx
+      - components/WidgetNotificationSheet.tsx
+      - features/partide/components/community/NoActiveCta.tsx
+      - features/partide/components/ActivePartidaDock.tsx
+      - features/competitions/components/CompetitionCardsRail.tsx
+      - features/competitions/components/cards/preview/CompetitionRailCard.tsx
+      - components/PollCard.tsx
+      - components/PollOption.tsx
+      - components/PollSuggestInput.tsx
+      - helpers/sharePoll.ts
+      - components/raffle/RaffleDashboardCard.tsx
+      - constants/raffleCopy.ts
+      - hooks/useRaffle.ts
+      - features/anglers/components/SuggestedAnglersRail.tsx
+      - features/anglers/components/SuggestedAnglerCard.tsx
+      - features/anglers/helpers/pickTopStats.ts
+      - features/anglers/state/dismissedSuggestionsAtom.ts
+      - components/profile/FollowButton.tsx
+      - components/MiniatureLakeCard.tsx
+      - features/lakes/helpers/lakesHomeCardPresentation.ts
+      - components/LakeRequestBanner.tsx
+      - components/LakeRequestSheet.tsx
+      - components/NewsHorizontalList.tsx
+      - components/NewsCard.tsx
+      - components/FeedbackSection.tsx
+      - components/FeedbackSheet.tsx
+      - components/Contact.tsx
+      - components/ContactSheet.tsx
+      - components/DashboardSheet.tsx
+      - components/ScaleItem.tsx
+      - components/CompleteProfileSheet.tsx
+      - hooks/useNouBadge.ts
+      - services/queries/useProfile.ts
+      - services/queries/notifications.ts
+      - services/queries/useCompetitionCards.ts
+      - services/queries/useLiveCompetition.ts
+      - services/queries/useActiveWeighing.ts
+      - services/queries/useLakes.ts
+      - services/queries/useNews.ts
+      - services/queries/useSponsors.ts
+      - services/queries/usePollCurrent.ts
+      - services/mutations/usePollVote.ts
+      - services/queries/useOrganizerDashboard.ts
+      - services/queries/useOwnedLakes.ts
+      - services/queries/useOwnedLakesStats.ts
+      - services/queries/useSuggestedAnglersHome.ts
+      - services/queries/useMyBookingsCount.ts
+      - services/queries/useMyWidgetNotification.ts
+      - services/queries/useRaffleActive.ts
+      - services/queries/useRaffleParticipation.ts
+    web_route: /
+    template: T5
+    milestone: M0
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - social.profileQuery
+      - social.unreadNotificationsCountQuery
+      - social.suggestedAnglersHomeInfiniteQuery
+      - social.followAnglerMutation
+      - social.sendFeedbackMutation
+      - social.domain.suggestedStats (formatFollowers, pickTopStats)
+      - competitions.competitionCardsInfiniteQuery (scope all, status started / notStarted, default filters, sort date)
+      - competitions.liveCompetitionQuery (fish calls /competitions/live?extraStatus=new — core has only the plain variant; gap)
+      - competitions.currentPollQuery + sortPollOptionsByVotes
+      - competitions.pollVoteMutation / applyPollVote
+      - competitions.sponsorsQuery
+      - organizer.organizerDashboardQuery + isOrganizerProfile
+      - organizer.activeWeighingQuery
+      - organizer.raffleActiveQuery + raffleParticipationQuery + deriveRaffleState
+      - lakes.getLakes (/feed/lakes/search, pageSize 10) — home lake rail
+      - lakes.ownedLakesStatsQuery
+      - lakes.sendLakeSuggestionMutation
+      - booking.ownedLakesQuery
+      - booking.myBookingsCountQuery
+      - news.newsInfiniteQuery (pageSize 10)
+      - realtime.partide.activePartidaOf
+      - widget-notifications (/feed/widget-notifications/mine, POST /feed/widget-notifications) — not in core yet
+    states:
+      - signed-out (guest card „Conectează-te”, no organizer/operator/suggested/live-competition blocks, Contact + Setări de confidențialitate shown)
+      - signed-in, profile loading
+      - signed-in, profile incomplete (username missing / „null null” / isProfileComplete false) → complete-profile prompt
+      - full-page error (lakes, profile, unread count or news query failed)
+      - session expired (profile 401/403 → sign-out)
+      - live competitions present → „Concursuri live (n)” rail
+      - no live competitions, upcoming present → „Concursuri viitoare (n)” rail
+      - no live and no upcoming competitions → no competition rail
+      - competition rail loading (3 skeletons) / rail error with retry
+      - user registered in a live competition → „CONCURSUL MEU” panel (with 0..3 extra-scale requests, active weighing line)
+      - active partidă → live partidă dock (replaces the start-partidă CTA and wins over the competition panel)
+      - organizer → organizer banner with stats
+      - operator with 1 lake / several lakes; pending requests / none; cancellations; reviews owed
+      - poll present / absent / voting closed / ≤3 options / >3 options collapsed / expanded / voted / pending selection
+      - raffle absent / active not joined / joined without receipt / joined with receipt / ended without winners / ended with winners
+      - suggested anglers fewer than 3 visible → section hidden
+      - lakes loading (3 skeletons) / empty / next page loading
+      - sponsors empty → section hidden
+      - news loading (3 skeletons) / empty
+      - offline (partidă capture blocked with toast)
+    criteria:
+      - id: home.acasa.c1
+        text: "Signed in: the profile card shows the avatar thumbnail (Bluvi logo when the profile has no avatar), the title „Salut, {username}!” (or „Bine ai venit!” when there is no username) and a rotating slogan from the 4 signed-in slogans."
+        fish_ref: app/(app)/(tabs)/index.tsx:344-389
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c2
+        text: "Signed out: the card shows the Bluvi logo, the title „Conectează-te” and the slogan from the signed-out list at the same index (e.g. „Creează-ți cont pentru a te alătura comunității”)."
+        fish_ref: app/(app)/(tabs)/index.tsx:407-447
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts. Web: the profile card is the phone's header (<768); from 768 the T5 header welcomes signed-out visitors («Bine ai venit pe Bluvi», signed-out slogan) and the top bar's «Intră» is the sign-in (ROADMAP §4 top bar)."
+      - id: home.acasa.c3
+        text: "The slogan advances to the next one (mod 4) every time Acasă is shown again, with a fade-up enter animation."
+        fish_ref: app/(app)/(tabs)/index.tsx:214-218
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c4
+        text: "Pressing the profile card opens the own profile when signed in and sign-in when signed out."
+        fish_ref: app/(app)/(tabs)/index.tsx:270-276
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts. From 768 the card is the T5 header: the top bar's avatar / «Intră» carry these destinations (ROADMAP §4)."
+      - id: home.acasa.c5
+        text: "Signed in, the profile card carries a notifications bell that opens Notificări; a red dot is shown on it only when the unread count is > 0."
+        fish_ref: app/(app)/(tabs)/index.tsx:391-405
+        status: passing
+        note: "Web: the bell is the top bar's at every width (ROADMAP §4: notifications live in the shell), not repeated in the card; e2e asserts it opens /notificari and that its «ai notificări noi» dot state matches GET /notification-users/unread."
+      - id: home.acasa.c6
+        text: "If the profile request fails with 401 or 403 the user is signed out."
+        fish_ref: app/(app)/(tabs)/index.tsx:196-201
+        status: passing
+        note: "web: lib/server/viewer.ts renders a 401/403 /users/me as signed out and the proxy clears the dead cookie (shell-level; verified in code)."
+      - id: home.acasa.c7
+        text: "If the lakes, profile, unread-count or news query errors, the whole screen is replaced by the error screen (no back button) whose retry refetches everything; competition-rail errors do NOT trigger it."
+        fish_ref: app/(app)/(tabs)/index.tsx:227-233,319-326
+        status: passing
+        note: "web: _home/HomeErrorGate.tsx replaces the body when the lakes or news read fails with nothing on screen (a failed refetch keeps its data, T5 rule); profile and unread are server reads (dead session → signed-out page, failed count → no dot). Verified in code; not forced in e2e (the server prefetch must fail too)."
+      - id: home.acasa.c8
+        text: "The error screen shows the title and message from describeError, a „Încearcă din nou” button when the error is retryable and „Deconectează-te” when it is a dead session."
+        fish_ref: components/ErrorScreen.tsx:41-58
+        status: passing
+        note: "web: describeError copy + «Încearcă din nou» / «Deconectează-te» (POST /api/auth/logout) in HomeErrorGate. Verified in code."
+      - id: home.acasa.c9
+        text: "Pull to refresh (web: a refresh action) invalidates profile, competitions, both competition rails, lakes, notifications, news, bookings, operator stats and the raffle — but NOT the suggested-anglers rail."
+        fish_ref: app/(app)/(tabs)/index.tsx:247-268
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c10
+        text: "Organizer banner is shown only when signed in and the profile role is Organizer and the dashboard stats loaded; it reads „Panou organizator” / „Deschide” and three stats: Viitoare (byStatus.notStarted, 0 when absent), În așteptare (pendingRegistrations), Locuri libere (emptySpots). Pressing it opens the organizer panel."
+        fish_ref: components/OrganizerBanner.tsx:61-120
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c11
+        text: "Operator card is shown only when signed in, the owned-lakes list is non-empty and the owned-lakes stats loaded; title „Balta mea · {name}” for one lake, „Bălțile mele · {n} bălți” for several, plus „{booked} / {total} standuri” when occupancy total > 0."
+        fish_ref: components/OwnedLakesCard.tsx:55-99
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts. Web copy «{booked} / {total} standuri ocupate» (says what the ratio counts); while the stats load the card shows its skeleton and a failed stats read keeps the card with an inline retry (fish hides it)."
+      - id: home.acasa.c12
+        text: "Operator card with pending requests: „1 cerere așteaptă răspuns” / „{n} cereri așteaptă răspuns”, a detail line of the oldest request (angler · stand „standul X” for one lake or the lake name for several · waited „de N min/oră/ore/zi/zile”) and „Vezi” opening the lake's bookings filtered to pending."
+        fish_ref: components/OwnedLakesCard.tsx:22-41,102-137
+        status: passing
+        note: "verified in code (local Chita has no pending request; e2e asserts the branch that is live)."
+      - id: home.acasa.c13
+        text: "Operator card with nothing pending: „Nicio rezervare de aprobat” and „0 rezervări mâine” / „1 rezervare mâine” / „{n} rezervări mâine” (reservationsByDay[1]); the link reads „Vezi ziua” (opens the panel) when tomorrow > 0, else „Vezi grila” (opens the calendar)."
+        fish_ref: components/OwnedLakesCard.tsx:138-174
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts (the «Vezi grila» → calendar branch is the live one locally)."
+      - id: home.acasa.c14
+        text: "Operator card shows „{n} rezervări anulate” / „1 rezervare anulată” · „în ultimele 24 de ore” with „Vezi” → bookings status=cancelled only when cancelledLast24h > 0, and „{n} evaluări de dat” with „Vezi” → bookings status=toreview only when pendingFeedback > 0."
+        fish_ref: components/OwnedLakesCard.tsx:181-245
+        status: passing
+        note: "verified in code (no cancellations / owed reviews locally)."
+      - id: home.acasa.c15
+        text: "Operator quick actions Panou, Calendar, Rezervări (badge = pending count; opens bookings status=pending when pending > 0); with one lake every target is that lake, with several every target is the lake picker; pressing the card body opens the panel."
+        fish_ref: components/OwnedLakesCard.tsx:79-88,249-276
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c16
+        text: "„Instrumente” lists the Rezervări tile (opens my bookings; badge = upcoming-bookings count, „99+” above 99, count fetched only when signed in) and the „În curând” tiles Vremea and Fazele Lunii (dimmed)."
+        fish_ref: components/WidgetsList.tsx:71-110,166-214
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c17
+        text: "The Rezervări tile shows a „NOU” pill only before 2026-10-01T00:00Z and only until the user first visits bookings (so it no longer shows after that date)."
+        fish_ref: hooks/useNouBadge.ts:13-15,92-93
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c18
+        text: "A „În curând” tile opens an interest panel with the feature image, title and description; signed in it offers „Anunță-mă când e disponibil” (POST widget-notification), signed out „Intră în cont”; once registered it shows „Ești pe listă! 🎉 Te anunțăm imediat ce {title} e disponibil.” and „Închide”; a failed save toasts „Nu am putut salva. Încearcă din nou.”"
+        fish_ref: components/WidgetNotificationSheet.tsx:41-94
+        status: failing
+        note: "«Anunță-mă când e disponibil» (POST /feed/widget-notifications) is not in core/ yet: signed in the panel only closes. Guest «Intră în cont» passes in e2e."
+      - id: home.acasa.c19
+        text: "When no partidă is active the start-partidă hero „Ești la pescuit?” / „Capturi, lansete și cronometre — totul notat într-o singură partidă.” is shown with „Începe o partidă” and „Intră cu cod”; for guests both go to sign-in."
+        fish_ref: app/(app)/(tabs)/index.tsx:460-469
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c20
+        text: "When signed in with an active partidă, a live dock replaces the hero: „ACTIVĂ” pill, venue name, stats „{n} captură/capturi · {n} scăpat/scăpate · {kg} kg max” (parts only when > 0), and a „Captură” action; pressing the dock opens that partidă."
+        fish_ref: features/partide/components/ActivePartidaDock.tsx:67-153
+        status: passing
+        note: "verified in code; the QA user has no active partidă locally, so not exercised in e2e."
+      - id: home.acasa.c21
+        text: "The partidă dock shows one chip per rod that is fishing or firing: a live countdown ticking each second, „expirat” once elapsed, „sincronizare…” while the clock is unsampled or data is from cache."
+        fish_ref: features/partide/components/ActivePartidaDock.tsx:40-65,157-185
+        status: passing
+        note: "«sincronizare…» before the clock is sampled, «expirat», 1s tick only while counting. Verified in code (no active partidă locally)."
+      - id: home.acasa.c22
+        text: "„Captură” in the dock opens the free-capture flow; offline it is blocked with the toast „Fără conexiune. Reconectare…”."
+        fish_ref: app/(app)/(tabs)/index.tsx:130-137
+        status: passing
+        note: "web: «Captură» opens the partidă page (where the capture flow lives); offline it toasts «Fără conexiune. Reconectare…». Verified in code."
+      - id: home.acasa.c23
+        text: "Competition rail: when live competitions exist (or are loading) the rail is titled „Concursuri live ({total})” and „Vezi toate” opens Competiții with status=started; otherwise, when upcoming ones exist (or load), „Concursuri viitoare ({total})” → status=notStarted; with neither, no rail. The count is omitted when total is 0."
+        fish_ref: app/(app)/(tabs)/index.tsx:471-498
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts. Web: a FAILED live read keeps the live rail with its error + retry (fish would fall through to «Concursuri viitoare» and hide that live competitions may exist)."
+      - id: home.acasa.c24
+        text: "The rails query the public competition cards with scope all, default filters, sort date, page size 20, and load the next page when scrolled near the end (skeleton card while loading)."
+        fish_ref: app/(app)/(tabs)/index.tsx:148-161
+        status: passing
+        note: "page size 20 (core COMPETITION_CARDS_PAGE_SIZE), next page near the end with a skeleton card; verified in code (3 live competitions locally, one page)."
+      - id: home.acasa.c25
+        text: "Rail loading shows 3 skeleton cards; rail error shows „A apărut o eroare la încărcarea datelor.” and „Încearcă din nou” (refetches that rail); an empty loaded rail shows „Momentan nu este disponibil niciun concurs.”"
+        fish_ref: features/competitions/components/CompetitionCardsRail.tsx:62-108
+        status: passing
+        note: "3 skeletons / error + retry / empty line in CompetitionsView; verified in code."
+      - id: home.acasa.c26
+        text: "Each rail card: poster (banner, else lake image) contained over a blurred copy, LIVE chip when started, followers pill, date (+ hours) uppercase (red when live), name (2 lines reserved), lake name with pin, ranking badge and Individual/Echipe badge; pressing opens the competition."
+        fish_ref: features/competitions/components/cards/preview/CompetitionRailCard.tsx:59-178
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c27
+        text: "Live card footer: „{n} captură/capturi” and „{kg} kg” when there are catches; else participant faces with „Încă nu sunt capturi” (results present) or „Statistici indisponibile”."
+        fish_ref: features/competitions/components/cards/preview/CompetitionRailCard.tsx:197-216
+        status: passing
+        note: "e2e covers the live card footers present locally; the rest verified in code."
+      - id: home.acasa.c28
+        text: "Upcoming card footer: participant faces, „{joined}/{capacity} {unit}” (or the counted noun when no capacity) and under it „{n} loc liber/locuri libere” (green) when places left > 0, else „{n} în așteptare” when pending > 0."
+        fish_ref: features/competitions/components/cards/preview/CompetitionRailCard.tsx:231-257
+        status: passing
+        note: "verified in code (no upcoming rail locally while live ones exist)."
+      - id: home.acasa.c29
+        text: "All cards of one rail have the same height (the tallest card's), so footers line up."
+        fish_ref: features/competitions/components/CompetitionCardsRail.tsx:39-54
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c30
+        text: "Poll card appears only when a current poll exists: title, share button („Distribuie sondajul”), optional description, options sorted by votes desc (ties by admin order), each with title, optional „Sugerat de {name}”, optional description, percentage and „{n} vot/voturi”."
+        fish_ref: components/PollCard.tsx:28-80
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c31
+        text: "With more than 3 options only the first 3 show, the third faded and expanding on press; „Vezi toate opțiunile” / „Restrânge” toggles."
+        fish_ref: components/PollCard.tsx:30-33,83-109,138-144
+        status: passing
+        note: "verified in code (the local poll has 3 options)."
+      - id: home.acasa.c32
+        text: "Pressing an option: does nothing when voting is closed; signed out goes to sign-in with redirect to the poll page; otherwise selects it (pressing it again deselects) and reveals an inline „Votează” (no vote yet) / „Schimbă votul” button that casts the vote."
+        fish_ref: components/PollCard.tsx:35-56
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c33
+        text: "A vote updates the counts optimistically (moves the vote from the previous option, +1 total only on a first vote), rolls back on error and refetches the poll when settled; the voted option shows a fill bar to its percentage."
+        fish_ref: services/mutations/usePollVote.ts:12-46
+        status: passing
+        note: "core pollVoteMutation (optimistic, rollback, settle refetch) + the fill bar; verified in code — no vote is cast in e2e (the local poll is closed)."
+      - id: home.acasa.c34
+        text: "While voting is open and all options are visible, a „Sugerează o opțiune” / „Scrie ideea ta...” row is shown; on Acasă pressing it opens the poll page focused on the suggestion field."
+        fish_ref: components/PollCard.tsx:59-60,126-135
+        status: failing
+        note: "web deviation: the suggestion is an inline field on Acasă (PollSuggestInput behaviour) because /sondaje has no page yet (M5); switch to «open the poll page focused» when it exists."
+      - id: home.acasa.c35
+        text: "Sharing the poll shares „🗳️ Votează în sondajul comunității Bluvi:\\n\\n{title}” and the poll URL (web: /sondaje)."
+        fish_ref: helpers/sharePoll.ts:4-14
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts. Web drops fish's leading 🗳️ (Fundații: no emoji), text «Votează în sondajul comunității Bluvi:\\n\\n{title}» + /sondaje."
+      - id: home.acasa.c36
+        text: "Raffle card appears only when there is an active raffle session: both header logos (server URLs or Bluvi / Pescarmania fallbacks), optional title and subtitle, „{n} participanți”, and a ZILE/ORE/MIN/SEC flip countdown while not ended and an end date exists."
+        fish_ref: components/raffle/RaffleDashboardCard.tsx:265-378
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts. Web: with no CMS title the heading reads «Tragere la sorți» (the section needs a name); fish shows none."
+      - id: home.acasa.c37
+        text: "Raffle prize rows come from the session (fallback: built-in prizes), each with type badge, value in lei, registrations for its type and an image, expandable one at a time."
+        fish_ref: components/raffle/RaffleDashboardCard.tsx:244-245,382-423
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c38
+        text: "Raffle CTA area: not joined → pulsing „Înscrie-te la tombolă” (signed out: „Intra in cont”) plus the bon-fiscal description; joined → „Vezi șansele tale” and „{entries} șanse” with a trophy, and the „Mărește-ți șansele! …” receipt prompt while no receipt is uploaded; ended without winners → „Tombola încheiată – câștigătorii vor fi anunțați”; ended with winners → „Vezi câștigători”. A previous-winner announcement is shown when present."
+        fish_ref: components/raffle/RaffleDashboardCard.tsx:426-572
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts. Web: the guest CTA reads «Intră ca să participi» (what the sign-in unlocks, not one more bare «Intră în cont»); the decorative pulse / snake border is not ported."
+      - id: home.acasa.c39
+        text: "Pressing the raffle card: ended with winners → winners page (public, no sign-in); ended without winners → nothing; signed out → sign-in; joined → confirmation; else → raffle sign-up."
+        fish_ref: components/raffle/RaffleDashboardCard.tsx:247-261
+        status: passing
+        note: "web: the CTA link carries the destination (interactive prize rows cannot nest in one link); guest → /intra, joined → /tombola/confirmare, ended with winners → /tombola/castigatori. Verified in e2e (guest) and code."
+      - id: home.acasa.c40
+        text: "Suggested anglers (signed in only): „Pescari pe care îi poți urmări” with „Vezi toate” to the suggested list; page 1 only, minus cards dismissed this session; hidden while loading, on error, or when fewer than 3 cards remain (no skeleton)."
+        fish_ref: features/anglers/components/SuggestedAnglersRail.tsx:13-38
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c41
+        text: "Each suggestion card: avatar (initials fallback), username, followers line („fără urmăritori” / „1 urmăritor” / „1.284 urmăritori”), up to 2 stats by priority podiumuri → concursuri → CMMC kg → partide (else „Pescar nou”), a Urmărește/Urmăresc button and an „Ascunde sugestia” ✕; pressing the card opens the angler."
+        fish_ref: features/anglers/components/SuggestedAnglerCard.tsx:27-111
+        status: todo
+        note: "FAILS: a followed suggestion reads «Urmărești» — the kit components/cards/FollowButton.tsx hard-codes it; fish FollowButton.tsx:72 reads «Urmăresc». Fix in the kit (outside _home); e2e has an expected-fail test for it. Everything else on the card passes in e2e."
+      - id: home.acasa.c42
+        text: "Dismissing a suggestion hides it for the current session only (in-memory, returns next launch)."
+        fish_ref: features/anglers/state/dismissedSuggestionsAtom.ts:3-15
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c43
+        text: "„Bălți ({total})” heading with „Vezi toate” to the lakes list (count omitted when 0), then a horizontal rail of 10 lakes per page with infinite load; 3 skeletons while loading; empty → „Momentan nu este disponibilă nicio baltă.”"
+        fish_ref: app/(app)/(tabs)/index.tsx:506-547
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c44
+        text: "Each home lake card: image, rating badge (★ overall, 1 decimal) on the image only when the lake has reviews, name, location subtitle (county/city), up to 4 facility icons and „+n” when more; no regime and no species; pressing opens the lake."
+        fish_ref: app/(app)/(tabs)/index.tsx:236-245,549-571
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts. Fixed 2026-10-05 (parity verifier): the rating was a bottom-row label with «Fără recenzii» for unrated lakes and only 3 facility icons; now fish's badge on the photo (reviews only) and 4 icons + «+n»."
+      - id: home.acasa.c45
+        text: "Lake-request banner „Nu găsești balta preferată?” with its description and „🎉 Îți vom trimite un mesaj după ce o adaugam.”; signed out it adds „Pentru a putea sugera o baltă intră în contul tau.” and the button reads „Intră în cont” (→ sign-in); signed in the button „Sugerează baltă” opens the suggestion form."
+        fish_ref: components/LakeRequestBanner.tsx:24-135
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts. Web: signed out the button reads «Intră ca să sugerezi» (what the sign-in unlocks); «Îți vom trimite un mesaj după ce o adăugăm.» without the 🎉 (Fundații: no emoji); on desktop (≥1280, beside the partidă hero) that line moves into the form's intro."
+      - id: home.acasa.c46
+        text: "Lake-suggestion form: „Numele bălții” (required, „Te rugăm să introduci numele bălții”, max 255), live search after 2+ chars debounced 400ms showing up to 4 matching lakes under „Aceasta este balta pe care o cauți?” (pressing one closes the form and opens the lake), „Detalii despre baltă” (optional, max 1000), switch „Ești administratorul bălții?”, buttons „Închide” / „Trimite cerere”."
+        fish_ref: components/LakeRequestSheet.tsx:72-285
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts. Fixed 2026-10-05: «Detalii despre baltă» did not enforce max 1000 (the T4 textarea drops `maxLength`); now capped in the form, asserted in e2e."
+      - id: home.acasa.c47
+        text: "Submitting a lake suggestion sends lakeName, message, isAdmin and matchedLake (first search hit or null); success closes the form with „Cererea ta a fost trimisă cu succes!”, failure toasts „A apărut o problemă la trimiterea cererii. Te rugăm să încerci mai târziu.”; closing resets the form."
+        fish_ref: components/LakeRequestSheet.tsx:108-141
+        status: passing
+        note: "validation and reset in e2e; success («Cererea ta a fost trimisă cu succes!», closes) and failure toasts verified in code — a real suggestion is a CMS write."
+      - id: home.acasa.c48
+        text: "„Sponsori” section appears only when the sponsors list is non-empty: horizontal sponsor images; pressing one logs sponsor_dashboard and opens that sponsor."
+        fish_ref: app/(app)/(tabs)/index.tsx:592-636
+        status: passing
+        note: "link verified in e2e; the sponsor_dashboard event lands with GA4 in M8 (home.b.analytics)."
+      - id: home.acasa.c49
+        text: "„Noutăți” heading with „Vezi toate” to the news list, then a horizontal rail of news cards (10 per page, infinite load); 3 skeletons while loading; empty → „Momentan nu există noutăți.”"
+        fish_ref: components/NewsHorizontalList.tsx:32-75
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c50
+        text: "Feedback card „Sugestii sau întrebări? 💡” opens the feedback form: required rating 1–5 („Nota este obligatorie”, shows „Experiență: {text}”), required category (Funcționalitate nouă, Problemă tehnică, Conținut, Cont, Interfață, Altele — „Te rugăm să selectezi o categorie”), optional details (max 500), „Închide” / „Trimite feedback”."
+        fish_ref: components/FeedbackSheet.tsx:101-168
+        status: passing
+        note: "web drops the 💡 emoji (Fundații: no emoji in UI copy); the card's one control is «Scrie-ne». Fixed 2026-10-05: details did not enforce max 500 (T4 textarea drops `maxLength`), now capped; the rest in e2e."
+      - id: home.acasa.c51
+        text: "Sending feedback attaches device/app metadata; success closes with „Feedback-ul tău a fost trimis cu succes!”, failure toasts „A apărut o problemă la trimiterea feedback-ului. Te rugăm să încerci mai târziu.”"
+        fish_ref: components/FeedbackSheet.tsx:51-65
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+      - id: home.acasa.c52
+        text: "Signed out only: a „Contactează-ne” card opening Contact („Ai nevoie de ajutor sau ai întrebări? Suntem aici pentru tine!”) with the support phone (tel:, logs contact_pressed) and email (mailto:)."
+        fish_ref: app/(app)/(tabs)/index.tsx:648; components/ContactSheet.tsx:21-63
+        status: passing
+        note: "contact_pressed lands with GA4 in M8."
+      - id: home.acasa.c53
+        text: "Signed out only: a „Setări de confidențialitate” card (fish opens the CMP; web opens the cookie-consent settings)."
+        fish_ref: app/(app)/(tabs)/index.tsx:650,678-699
+        status: failing
+        note: "the web has no consent manager yet: the card opens the privacy policy. Cookie-consent settings land in M8."
+      - id: home.acasa.c54
+        text: "Signed in and registered in a live competition (and no active partidă): a „CONCURSUL MEU” panel with the competition name (opens the competition)."
+        fish_ref: components/DashboardSheet.tsx:39-56; app/(app)/(tabs)/index.tsx:654-663
+        status: passing
+        note: "verified in code (the QA user is in no live competition locally)."
+      - id: home.acasa.c55
+        text: "The „CONCURSUL MEU” panel lists „SOLICITĂRI EXTRA CÂNTAR ({n})” with at most 3 new extra-scale requests (stand label — national format for national championships —, author, „acum …”); pressing one opens that stand's scale history, or toasts „Nu exista suficiente date pentru a deschide acest stand” when stand data is missing."
+        fish_ref: components/DashboardSheet.tsx:58-75; components/ScaleItem.tsx:38-89
+        status: passing
+        note: "verified in code; a request with incomplete stand data toasts «Nu există suficiente date pentru a deschide acest stand»."
+      - id: home.acasa.c56
+        text: "When a weighing is in progress the panel shows a pulsing line „Cântar/Extra-cântar in curs pe standul/standurile {list}.” (national stand format for NC)."
+        fish_ref: components/DashboardSheet.tsx:77-94
+        status: passing
+        note: "verified in code («în curs» with diacritics)."
+      - id: home.acasa.c57
+        text: "Signed in with an incomplete profile (no username, „null null” or isProfileComplete false) and online, a non-dismissable „Completează profilul” form opens about 1.1s after load and closes on successful submit."
+        fish_ref: components/CompleteProfileSheet.tsx:22-66
+        status: failing
+        note: "complete-profile form not built (M2, needs the profile update form)."
+      - id: home.acasa.c58
+        text: "Section order: profile card, organizer banner, operator card, Instrumente, partidă hero, competition rail, poll, raffle, suggested anglers, Bălți, lake-request banner, Sponsori, Noutăți, feedback, Contact (guest), confidentiality (guest)."
+        fish_ref: app/(app)/(tabs)/index.tsx:343-650
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts"
+    mobile_only: false
+    # proposed: built on T5 (2026-10-05), every criterion has a check (status per criterion);
+    # c18, c34, c53, c57 still fail and c41 is todo (kit label) — see their notes.
+    status: proposed
+
+  - id: home.stiri
+    title: Noutăți
+    fish:
+      - app/(app)/news/index.tsx
+      - components/NewsCard.tsx
+      - components/ListLodingStateFooter.tsx
+      - components/ErrorScreen.tsx
+      - services/queries/useNews.ts
+      - services/api/news.ts
+    web_route: /stiri
+    template: T1
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - news.newsInfiniteQuery (pageSize 5)
+      - news.getNews (/feed/announcements)
+    states: [loading, error, empty, list, loading next page, end of list]
+    criteria:
+      - id: home.stiri.c1
+        text: "Header „Noutăți” with a back button, then the intro „Descoperă cele mai recente noutăți din lumea pescarilor.”"
+        fish_ref: app/(app)/news/index.tsx:49-64
+      - id: home.stiri.c2
+        text: "News are loaded 5 per page from /feed/announcements and the next page loads when the end of the list is reached; a spinner shows while the next page loads."
+        fish_ref: app/(app)/news/index.tsx:27,36-40,68-72
+      - id: home.stiri.c3
+        text: "First load shows a full-page loader; an error shows the error screen with retry."
+        fish_ref: app/(app)/news/index.tsx:42-46
+      - id: home.stiri.c4
+        text: "Empty list shows „Momentan nu există noutăți.”"
+        fish_ref: app/(app)/news/index.tsx:66
+      - id: home.stiri.c5
+        text: "Each card shows the first banner image (medium, blurhash placeholder), the creation date as „DD MMMM YYYY” in Romanian, uppercase, a green category badge, the title (max 3 lines) and the short description (max 3 lines); the text block has a fixed height so cards align."
+        fish_ref: components/NewsCard.tsx:12-46
+      - id: home.stiri.c6
+        text: "Pressing a card opens that news item."
+        fish_ref: components/NewsCard.tsx:24
+      - id: home.stiri.c7
+        text: "Pull to refresh (web: revalidation) refetches the list."
+        fish_ref: app/(app)/news/index.tsx:30-34,67
+      - id: home.stiri.c8
+        text: "News data is considered fresh for 1 hour."
+        fish_ref: services/queries/useNews.ts:5,18-19
+    mobile_only: false
+    status: todo
+
+  - id: home.stire
+    title: Știre
+    fish:
+      - app/(app)/news/[newsId].tsx
+      - components/ScreenWithFakeSheet.tsx
+      - components/CarouselWithPagination.tsx
+      - components/Badge.tsx
+      - helpers/renderNewsContentBlock.tsx
+      - components/CustomBlocksRenderer.tsx
+      - components/ErrorScreen.tsx
+      - services/queries/useNewsById.ts
+      - services/api/news.ts
+    web_route: /stiri/[id]
+    template: T3
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - news.newsByIdQuery
+      - news.getNewsById (/feed/announcements/:id)
+    states: [loading, error, not found, no banner, one banner, several banners, each content block type]
+    criteria:
+      - id: home.stire.c1
+        text: "Loading shows a full-page loader; an error or missing item shows the error screen with retry and back."
+        fish_ref: app/(app)/news/[newsId].tsx:27-33
+      - id: home.stire.c2
+        text: "The banner images (medium, blurhash placeholder) form a swipeable gallery with page dots; with no banner a grey header is shown."
+        fish_ref: app/(app)/news/[newsId].tsx:18-25; components/CarouselWithPagination.tsx:48-86
+      - id: home.stire.c3
+        text: "A back button floats over the gallery."
+        fish_ref: components/ScreenWithFakeSheet.tsx:45-48
+      - id: home.stire.c4
+        text: "Under the gallery: the creation date „DD MMMM YYYY” in Romanian, uppercase, with a green category badge on the same row, then the title as heading."
+        fish_ref: app/(app)/news/[newsId].tsx:39-49
+      - id: home.stire.c5
+        text: "The short description is shown under the title in muted semibold text."
+        fish_ref: app/(app)/news/[newsId].tsx:51-54
+      - id: home.stire.c6
+        text: "Content blocks render in order: simple-text (rich text), simple-image (medium → small → original, full width, 200 high), image-right-text-left (text then image), image-left-text-right (image then text); unknown block types render nothing."
+        fish_ref: helpers/renderNewsContentBlock.tsx:7-74
+      - id: home.stire.c7
+        text: "Rich text supports paragraphs, headings level 1–3, ordered/unordered lists („ - ” items), bold, italic, underline and links; tel links render as „📞 …” and dial; other links open the URL; link clicks log news_link_clicked with newsId and url."
+        fish_ref: components/CustomBlocksRenderer.tsx:20-122
+      - id: home.stire.c8
+        text: "Reachable from a NEWS push notification (newsId) and from news cards on Acasă and Noutăți."
+        fish_ref: helpers/getRedirectLocationForNotification.ts:96-98
+    mobile_only: false
+    status: todo
+
+  - id: home.sponsor
+    title: Sponsor
+    fish:
+      - app/(app)/sponsors/[sponsorId].tsx
+      - components/ScreenWithFakeSheet.tsx
+      - components/CarouselWithPagination.tsx
+      - components/CustomBlocksRenderer.tsx
+      - components/ErrorScreen.tsx
+      - services/queries/useSponsors.ts
+      - services/api/sponsors.ts
+    web_route: /sponsori/[id]
+    template: T3
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - competitions.sponsorByIdQuery
+      - competitions.getSponsorById (/feed/sponsors/:id)
+    states: [loading, error, not found, no image, empty description]
+    criteria:
+      - id: home.sponsor.c1
+        text: "Loading shows a full-page loader; an error or missing sponsor shows the error screen with retry and back."
+        fish_ref: app/(app)/sponsors/[sponsorId].tsx:26-32
+      - id: home.sponsor.c2
+        text: "Header image is the sponsor image (large → original, blurhash placeholder); grey header when there is none; a back button floats over it."
+        fish_ref: app/(app)/sponsors/[sponsorId].tsx:16-24; components/ScreenWithFakeSheet.tsx:45-50
+      - id: home.sponsor.c3
+        text: "The sponsor name is shown as the page title."
+        fish_ref: app/(app)/sponsors/[sponsorId].tsx:37-39
+      - id: home.sponsor.c4
+        text: "The description renders as rich text (same rules as news); an empty description renders nothing."
+        fish_ref: app/(app)/sponsors/[sponsorId].tsx:41-48; components/CustomBlocksRenderer.tsx:20
+      - id: home.sponsor.c5
+        text: "Link clicks in the description log sponsor_link_clicked with sponsor_id, sponsor_name and url."
+        fish_ref: app/(app)/sponsors/[sponsorId].tsx:43-47
+    mobile_only: false
+    status: todo
+
+behaviours:
+  - id: home.b.notification-news
+    text: "NEWS notification with newsId routes to the news item (web /stiri/[id]); without newsId it routes nowhere."
+    fish_ref: helpers/getRedirectLocationForNotification.ts:96-98
+  - id: home.b.focus-refresh
+    text: "Every time Acasă regains focus it refetches the live-competition rail (its cache is otherwise fresh 5 min and shared with Competiții) and invalidates the user's live competition (extra-scale requests). Web: refetch on window focus / return navigation."
+    fish_ref: app/(app)/(tabs)/index.tsx:214-225
+  - id: home.b.rails-shared-cache
+    text: "Acasă rails use exactly the Competiții tab's Live/Viitoare params so both share one cache entry; Acasă never polls (refetchInterval off unless the caller asks)."
+    fish_ref: app/(app)/(tabs)/index.tsx:146-161; services/queries/useCompetitionCards.ts:104-116
+  - id: home.b.cache-times
+    text: "Freshness: news 1h, lakes 1h, profile 24h, unread count until invalidated, poll 10s, raffle 2 min, live competition (plain) 1 min, widget-notification status 5 min, competition cards 5 min (gc 30 min)."
+    fish_ref: services/queries/useNews.ts:5; services/queries/useLakes.ts:7; services/queries/useProfile.ts:23; services/queries/notifications.ts:13; services/queries/usePollCurrent.ts:24; services/queries/useRaffleActive.ts:13; services/queries/useCompetitionCards.ts:104-110
+  - id: home.b.suggested-cache-policy
+    text: "Suggested-anglers rail: one request per launch (stale 6h, gc 24h, no refetch on focus/reconnect/mount, no retry); only a follow/unfollow marks it stale; pull-to-refresh never reshuffles it."
+    fish_ref: services/queries/useSuggestedAnglersHome.ts:9-34; app/(app)/(tabs)/index.tsx:263-264
+  - id: home.b.signed-out-gating
+    text: "Guests see Acasă fully (public rails, poll, raffle, lakes, sponsors, news); actions needing an account go to sign-in: profile card, partidă start/join, poll vote/suggest (with return to the poll), raffle join, lake suggestion, widget interest, follow. Signed-in-only blocks: bell, organizer, operator, suggested anglers, CONCURSUL MEU, partidă dock, complete-profile."
+    fish_ref: app/(app)/(tabs)/index.tsx:270-276,450-504; components/PollCard.tsx:37-39; components/raffle/RaffleDashboardCard.tsx:255-257; components/LakeRequestBanner.tsx:26-29; components/profile/FollowButton.tsx:51-52
+  - id: home.b.role-gating
+    text: "Organizer banner requires profile role name „Organizer”; the operator card requires a non-empty /feed/owned-lakes (authoritative ownership signal, even with zero bookings); referees see the angler home."
+    fish_ref: services/queries/useOrganizerDashboard.ts:7-12; components/OwnedLakesCard.tsx:57-64
+  - id: home.b.precedence-dock
+    text: "The active-partidă dock wins over the CONCURSUL MEU panel; only one is shown."
+    fish_ref: app/(app)/(tabs)/index.tsx:653-663
+  - id: home.b.analytics
+    text: "Events: sponsor_dashboard (sponsor tap), sponsor_link_clicked, news_link_clicked, contact_pressed, suggested_angler_dismiss / suggested_angler_follow (source home_rail), poll_vote / poll_vote_change (GA4 lands in M8)."
+    fish_ref: app/(app)/(tabs)/index.tsx:606-610; components/ContactSheet.tsx:35; features/anglers/components/SuggestedAnglerCard.tsx:52,109; services/mutations/usePollVote.ts:19
+  - id: home.b.consent-link
+    text: "After the profile loads, the stored consent is linked to the user's documentId (fish CMP; web: cookie consent in M8)."
+    fish_ref: app/(app)/(tabs)/index.tsx:203-211
+  - id: home.b.mobile-only-bits
+    text: "Not ported: Android hardware back exits the app from Acasă, splash-ready signal, app icon badge count set from the unread count."
+    fish_ref: app/(app)/(tabs)/index.tsx:117-120,305-317; services/api/notifications.ts:24

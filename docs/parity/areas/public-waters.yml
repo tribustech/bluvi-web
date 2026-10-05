@@ -1,0 +1,677 @@
+# Parity inventory — area: public-waters (Ape publice, ANAR "Hidrografie", CC-BY 4.0)
+#
+# Data-source note (read before building any screen here): fish reads public waters from a
+# BUNDLED, read-only SQLite DB (fish/assets/db/public-waters.sqlite3, DB_VERSION 4, opened by
+# features/public-waters/db.ts). There is NO CMS endpoint for the waters themselves — only for
+# the claim map (/feed/public-waters/claimed) and for community activity keyed by `water:<linkCode>`.
+# bluvi-web has the model types + pure helpers (core/lakes/domain/publicWaters.ts) but no data
+# source yet: every screen below needs a web equivalent of features/public-waters/queries.ts
+# (by id, by linkCode, viewport rows, markers, search, nearest, counties, county names,
+# attribution, geometry). Listed under `core` as "MISSING core/publicWaters source".
+area: public-waters
+screens:
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: public-waters.harta-ape
+    title: Ape publice — hartă și listă
+    fish:
+      - "app/(app)/(tabs)/lakes/index.tsx"
+      - features/lakes/components/LakesResultsWithMap.tsx
+      - features/public-waters/PublicWatersSheet.tsx
+      - features/public-waters/PublicWatersSearch.tsx
+      - features/public-waters/PublicWaterCountyFilter.tsx
+      - features/public-waters/PublicWaterDetailCard.tsx
+      - features/public-waters/PublicWatersLayer.tsx
+      - features/public-waters/PublicWaterClusters.tsx
+      - features/public-waters/SelectedWaterHighlight.tsx
+      - features/public-waters/WaterTypeIcon.tsx
+      - features/public-waters/usePublicWatersInViewport.ts
+      - features/public-waters/usePublicWaterMarkers.ts
+      - features/public-waters/usePublicWaterClusters.ts
+      - features/public-waters/usePublicWaterSelection.ts
+      - features/public-waters/publicWaterSelectionMachine.ts
+      - features/public-waters/useMapCamera.ts
+      - features/public-waters/regionForWater.ts
+      - features/public-waters/clusterIndex.ts
+      - features/public-waters/band.ts
+      - features/public-waters/hitTest.ts
+      - features/public-waters/geometryStore.ts
+      - features/public-waters/geometryCache.ts
+      - features/public-waters/recentSearches.ts
+      - features/public-waters/helpers/waterDistance.ts
+      - features/public-waters/queries.ts
+      - features/public-waters/db.ts
+      - models/publicWater.type.ts
+      - services/queries/useClaimedPublicWaters.ts
+      - services/api/publicWaters.ts
+    web_route: /ape-publice
+    template: T2
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - core/lakes/domain/publicWaters (types, publicWaterFilterToTypes, publicWaterLocationLabel, publicWaterAreaHaLabel, waterDistanceKm, formatWaterDistance)
+      - core/lakes claimedPublicWatersQuery + toClaimedPublicWatersMap
+      - "MISSING core/publicWaters source: getWaterRowsInViewport, getGeometriesByIds, getMarkerWatersInViewport, getPublicWaterById, searchPublicWaters, nearestWatersTo, getCounties"
+      - "MISSING pure ports: band.ts (resolveBand, displayedSpans), clusterIndex.ts (supercluster), hitTest.ts (findWaterAtPoint), regionForWater.ts, publicWaterSelectionMachine.ts (reduceSelection)"
+    states:
+      - clusters band (zoom below geometry gate) — cluster badges + single-water icon pins
+      - geometry band — river lines + lake polygons, small waters as pins
+      - geometry band loading with no rows yet („Se încarcă apele…”)
+      - empty viewport („Nicio apă în această zonă” / „Nicio apă publică în această zonă.”)
+      - list sheet open / hidden after pan („Vezi lista (N)” pill)
+      - water selected loading → previewing (amber highlight + preview card)
+      - selection load failed (silently back to none)
+      - claimed water (reroutes to the lake page)
+      - Lacuri vs Râuri filter; county filter active (badge N)
+      - search overlay — empty (recents / În jurul meu), searching (skeleton), results grouped Râuri/Lacuri, no results, nearby list
+      - location permission denied / services off (from În jurul meu or locate button)
+      - county filter overlay with draft selection
+      - signed-out (identical — no auth gate)
+    criteria:
+      - id: public-waters.harta-ape.c1
+        text: "The Bălți tab home shows a two-option toggle „Bălți” / „Ape publice”; choosing „Ape publice” switches to map mode, clears lake filters and the committed search and forces the all-results map view."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:563-576"
+      - id: public-waters.harta-ape.c2
+        text: "While Date.now() < 2026-09-06 a red „NOU” badge sits on the „Ape publice” toggle option; after that date it is not shown (date-gated, no persistence)."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:95-97"
+      - id: public-waters.harta-ape.c3
+        text: "In Ape publice mode the private-lake queries (bbox lakes + lakes list) are disabled — no lake network request fires while browsing public waters."
+        fish_ref: features/lakes/components/LakesResultsWithMap.tsx:781-789
+      - id: public-waters.harta-ape.c4
+        text: "The map chrome shows a back control (returns to the Bălți home sections and resets mode to Bălți), a search pill labelled „Caută un râu sau lac” that opens the public-waters search, and a filter icon in the pill that opens the county filter."
+        fish_ref: features/lakes/components/LakesResultsWithMap.tsx:1345-1361
+      - id: public-waters.harta-ape.c5
+        text: "Filter chips: „Lacuri” (default active, lake icon), „Râuri” (river icon) — exactly one type active at a time; tapping the active one is a no-op; „Județe” chip with chevron is active and shows a count badge when ≥1 county is selected and opens the county filter."
+        fish_ref: features/lakes/components/LakesResultsWithMap.tsx:1196-1231
+      - id: public-waters.harta-ape.c6
+        text: "„Lacuri” maps to types natural_lake, reservoir_lake, coastal_lake, transitional_lake; „Râuri” maps to river only."
+        fish_ref: models/publicWater.type.ts:141-153
+      - id: public-waters.harta-ape.c7
+        text: "Zoom band with hysteresis: entering geometry when continuous zoom ≥ 11.2, leaving it only when ≤ 10.6 (zoom = log2(360/longitudeDelta)); below it the map shows clusters, above it shapes."
+        fish_ref: features/public-waters/band.ts:9-35
+      - id: public-waters.harta-ape.c8
+        text: "Clusters band: centroids are clustered (supercluster, maxZoom 11); from zoom 8.5 clusters of ≤4 waters expand into individual icon pins; a single water renders as a lake/river icon pin, not a „1” badge."
+        fish_ref: features/public-waters/band.ts:13-19
+      - id: public-waters.harta-ape.c9
+        text: "Tapping a multi-water cluster closes the list sheet and zooms to max(expansionZoom, current+1.2), capped at 11.5 (gate + 0.3), centred on the badge; tapping a single-water pin selects that water."
+        fish_ref: features/lakes/components/LakesResultsWithMap.tsx:637-670
+      - id: public-waters.harta-ape.c10
+        text: "Geometry band: rivers draw as indigo lines (width 3), lakes as indigo-outlined polygons with an 18% indigo wash; waters whose projected bbox is < 24px render as icon pins instead of shapes."
+        fish_ref: features/public-waters/PublicWatersLayer.tsx:10-17
+      - id: public-waters.harta-ape.c11
+        text: "Geometry band viewport query returns at most 1500 waters intersecting the visible bbox, filtered by type and (primary) county; clusters band markers are the 150 largest waters by bbox area in view."
+        fish_ref: features/public-waters/queries.ts:133-171
+      - id: public-waters.harta-ape.c12
+        text: "While the geometry band's first viewport query is in flight with zero rows, a floating pill „Se încarcă apele…” with a spinner is shown under the chrome."
+        fish_ref: features/lakes/components/LakesResultsWithMap.tsx:1402-1424
+      - id: public-waters.harta-ape.c13
+        text: "Tapping the map: the selected water's pin re-frames it; else the nearest cluster/pin within 36px is pressed; in the clusters band an empty tap closes the preview; in the geometry band shapes are hit-tested with ~14px tolerance (polygon containment wins), a miss closes the preview."
+        fish_ref: features/lakes/components/LakesResultsWithMap.tsx:672-761
+      - id: public-waters.harta-ape.c14
+        text: "Every selection origin (map tap, pin, list row, search) first checks the claim map: a water whose linkCode is claimed by a bookable lake opens /balti/[lakeId] instead of the public-water preview."
+        fish_ref: features/lakes/components/LakesResultsWithMap.tsx:600-627
+      - id: public-waters.harta-ape.c15
+        text: "Selecting a water loads its full record, frames it on the map (amber highlight: river width 6 / lake stroke 4.5 + 25% amber fill) and shows the preview card; re-selecting the same water is a no-op; a failed load returns silently to no selection."
+        fish_ref: features/public-waters/publicWaterSelectionMachine.ts:52-87
+      - id: public-waters.harta-ape.c16
+        text: "Closing the preview restores the camera to the region captured at the first selection (survives chained selections); if the user panned during the preview the camera is not moved back."
+        fish_ref: features/public-waters/publicWaterSelectionMachine.ts:89-103
+      - id: public-waters.harta-ape.c17
+        text: "Preview card shows the name (fallback „Apă publică”), subtitle „<type label> · <location label>”, a close X („Închide”) and „Vezi detalii ›”; tapping the card opens /ape-publice/[id] (numeric row id)."
+        fish_ref: features/public-waters/PublicWaterDetailCard.tsx:30-80
+      - id: public-waters.harta-ape.c18
+        text: "Type labels: river „Râu”, natural_lake „Lac natural”, reservoir_lake „Lac de acumulare”, coastal_lake „Lac costier”, transitional_lake „Apă de tranziție”."
+        fish_ref: features/public-waters/PublicWaterDetailCard.tsx:15-21
+      - id: public-waters.harta-ape.c19
+        text: "Location label: a river touching more than one county shows „N județe”; otherwise the primary county name."
+        fish_ref: models/publicWater.type.ts:88-97
+      - id: public-waters.harta-ape.c20
+        text: "The preview card and the list sheet are mutually exclusive: selecting closes the sheet; closing the preview re-opens the sheet only if it was open before the selection."
+        fish_ref: features/lakes/components/LakesResultsWithMap.tsx:455-473
+      - id: public-waters.harta-ape.c21
+        text: "List sheet title: clusters band → „Cele mai mari ape din zonă” (or „Nicio apă în această zonă” when empty); geometry band → „Se încarcă…” while loading with no rows, else „N apă/ape în această zonă”; the count N is shown at the right of the header."
+        fish_ref: features/lakes/components/LakesResultsWithMap.tsx:1460-1472
+      - id: public-waters.harta-ape.c22
+        text: "List rows are sorted by surface area descending (rivers, which have no area, last); each row shows name (fallback „Apă publică”), meta „<location> · <N ha>” (area rounded, ro-RO thousands) and a type badge „Râu” or „Lac”; tapping a row selects the water (or reroutes if claimed)."
+        fish_ref: features/public-waters/PublicWatersSheet.tsx:43-98
+      - id: public-waters.harta-ape.c23
+        text: "Empty list: spinner while the viewport query loads, else „Nicio apă publică în această zonă.”."
+        fish_ref: features/public-waters/PublicWatersSheet.tsx:102-114
+      - id: public-waters.harta-ape.c24
+        text: "Panning hides the list sheet; a floating pill „Vezi lista (N)” (N = markers in clusters band, rows in geometry band) re-opens it; the pill is hidden while a water is selected."
+        fish_ref: features/lakes/components/LakesResultsWithMap.tsx:1372-1400
+      - id: public-waters.harta-ape.c25
+        text: "Locate button: asks for location (permission / services-off sheets on failure), then zooms to a 20 km radius around the user; pressing again while centred tightens by 5 km down to 5 km."
+        fish_ref: features/lakes/components/LakesResultsWithMap.tsx:1060-1083
+      - id: public-waters.harta-ape.c26
+        text: "Search overlay: title „Caută ape publice”, close X „Închide”, input placeholder „Caută un râu sau lac”, autofocus after opening; closing clears term, results and nearby state."
+        fish_ref: features/public-waters/PublicWatersSearch.tsx:76-88
+      - id: public-waters.harta-ape.c27
+        text: "Search runs 250ms debounced once the term has ≥2 characters; matches name OR county, case-insensitive, names starting with the term first, then shorter names; max 40 results; results grouped under „Râuri” and „Lacuri” section headers."
+        fish_ref: features/public-waters/PublicWatersSearch.tsx:90-140
+      - id: public-waters.harta-ape.c28
+        text: "Search rows show the name (fallback „Apă publică”) and „<type label> · <location label>”; while searching a skeleton is shown; zero results show „Niciun rezultat pentru „<term>”.”."
+        fish_ref: features/public-waters/PublicWatersSearch.tsx:249-279
+      - id: public-waters.harta-ape.c29
+        text: "With <2 characters typed the overlay shows „În jurul meu / Ape publice în apropiere” and, if any, „Căutări recente” with a „Șterge tot” action that clears them."
+        fish_ref: features/public-waters/PublicWatersSearch.tsx:127-133
+      - id: public-waters.harta-ape.c30
+        text: "„În jurul meu” requests location (denied → permission sheet, services off or error → services-off sheet), then lists the 20 nearest waters that have a linkCode under „Cele mai apropiate”, each subtitle prefixed with distance („420 m” / „3.2 km” / „13 km”); typing ≥2 chars exits nearby mode, and a result arriving after the user typed or closed is dropped."
+        fish_ref: features/public-waters/PublicWatersSearch.tsx:152-175
+      - id: public-waters.harta-ape.c31
+        text: "Selecting a search result stores it as most-recent (max 8, de-duplicated by id, no geometry) and navigates to /balti/[lakeId] when its linkCode is claimed, else /ape-publice/[id]."
+        fish_ref: "app/(app)/(tabs)/lakes/index.tsx:858-866"
+      - id: public-waters.harta-ape.c32
+        text: "County filter overlay: header „Județe”, „Anulează” closes without applying; search box „Caută un județ” (diacritic-insensitive); each row shows the county name and „N apă/ape” with a checkbox."
+        fish_ref: features/public-waters/PublicWaterCountyFilter.tsx:41-140
+      - id: public-waters.harta-ape.c33
+        text: "County filter edits a draft seeded from the applied selection; „Toate” (shown when ≥1 is selected) clears the draft; footer button „Aplică (N)” / „Aplică” commits it and closes; an empty selection means all counties."
+        fish_ref: features/public-waters/PublicWaterCountyFilter.tsx:33-39
+      - id: public-waters.harta-ape.c34
+        text: "The applied county filter constrains markers, clusters, viewport rows and map hit-tests on the primary county_id."
+        fish_ref: features/public-waters/queries.ts:116-123
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: public-waters.detaliu
+    title: Apă publică
+    fish:
+      - "app/(app)/public-waters/[id].tsx"
+      - features/public-waters/useResolvedPublicWater.ts
+      - features/public-waters/routeParam.ts
+      - features/public-waters/publicWaterDetailLogic.ts
+      - features/public-waters/PublicWaterCatchGrid.tsx
+      - features/public-waters/PublicWaterSpeciesChips.tsx
+      - features/public-waters/PublicWatersLayer.tsx
+      - features/public-waters/SelectedWaterHighlight.tsx
+      - features/public-waters/queries.ts
+      - features/venues/detail/VenueSectionChips.tsx
+      - features/venues/detail/VenuePinnedNav.tsx
+      - features/venues/detail/VenueQuickActions.tsx
+      - features/venues/detail/VenueSection.tsx
+      - features/venues/detail/sections.ts
+      - features/venues/detail/sectionLogic.ts
+      - features/venues/detail/sectionScrollLock.ts
+      - features/partide/components/community/VenuePartideSection.tsx
+      - features/partide/components/community/LivePartideCard.tsx
+      - features/partide/components/ActivityLineChart.tsx
+      - features/partide/community/hooks.ts
+      - features/partide/community/useOpenPartida.ts
+      - features/partide/components/community/MasonryGallery.tsx
+      - features/partide/components/ShareCatchSheet.tsx
+      - components/ImageLightbox.tsx
+      - components/CatchLightboxFooter.tsx
+      - components/NavigationSheet.tsx
+      - features/lakes/helpers/lakeDetailLogic.ts
+      - services/queries/useClaimedPublicWaters.ts
+      - models/publicWater.type.ts
+    web_route: /ape-publice/[id]
+    template: T3
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "MISSING core/publicWaters source: getPublicWaterById, getPublicWaterByLinkCode, getCountyNamesByIds, getAttribution"
+      - core/lakes/domain/publicWaters (publicWaterLocationLabel)
+      - core/lakes claimedPublicWatersQuery + toClaimedPublicWatersMap
+      - core/partide communityVenueSectionQuery, communityVenueCatchesInfiniteQuery (venue {kind:'water', code})
+      - core/partide/domain/venueKeys (communityVenueKey)
+      - "MISSING pure ports: parsePublicWaterRouteParam, buildPublicWaterSectionChips, hasPartideActivity (lakes domain), computeActiveSection, sectionScrollTargetY"
+    states:
+      - loading (spinner + back)
+      - not-found (empty/invalid param or no matching row)
+      - error (DB/source failure, retry)
+      - claimed water (replaced by /balti/[lakeId])
+      - water without linkCode (no community sections, no link-code row)
+      - no partide activity (Partide section + chip hidden)
+      - no catches and no species (Capturi section + chip + quick action hidden)
+      - species but zero photo catches (Capturi section with „Nicio captură cu poză…”)
+      - community or catches fetch failed (inline red banner with retry)
+      - catches paginating (spinner under grid)
+      - multi-county river (Județe (N) chips)
+      - no facts (Detalii block hidden)
+      - live partide now (badge on Partide tile, ACTIVI ACUM card)
+      - signed-out (identical; own partidă resolution needs session)
+    criteria:
+      - id: public-waters.detaliu.c1
+        text: "The [id] param resolves as a numeric row id when it is a positive safe integer, otherwise as an ANAR linkCode (trimmed); an empty param is not-found without any lookup."
+        fish_ref: features/public-waters/routeParam.ts:6-21
+      - id: public-waters.detaliu.c2
+        text: "Loading shows a centred spinner and a back control; a param change never shows the previous water for a frame (shown as loading until the new lookup resolves)."
+        fish_ref: features/public-waters/useResolvedPublicWater.ts:65-72
+      - id: public-waters.detaliu.c3
+        text: "Not-found shows a warning icon and „Apa publică nu a fost găsită.” with no retry; error shows „Nu am putut încărca apa publică.” and a „Încearcă din nou” button that re-runs the lookup."
+        fish_ref: "app/(app)/public-waters/[id].tsx:127-147"
+      - id: public-waters.detaliu.c4
+        text: "When the water's linkCode is in the claim map (/feed/public-waters/claimed), the page is REPLACED (not pushed) by /balti/[lakeDocumentId]."
+        fish_ref: "app/(app)/public-waters/[id].tsx:375-384"
+      - id: public-waters.detaliu.c5
+        text: "Hero: a 280-high static map (no pan/zoom/rotate/pitch) fitted to the water's geometry with 34px padding (centre ± 0.1° fallback when <2 coordinates), the water drawn with the amber outline and an indigo wash; the whole hero is a button „Deschide harta pentru <name>” opening /ape-publice/[id]/harta."
+        fish_ref: "app/(app)/public-waters/[id].tsx:150-202"
+      - id: public-waters.detaliu.c6
+        text: "Header: name (fallback „Apă publică”) as title, then a pin icon with „<type label> · <location label>”, then the English name when present and different from the name."
+        fish_ref: "app/(app)/public-waters/[id].tsx:618-644"
+      - id: public-waters.detaliu.c7
+        text: "Section chips, in order: Prezentare, Partide (only with partide activity), Capturi (only with ≥1 photo catch OR species counts), Locație."
+        fish_ref: features/public-waters/publicWaterDetailLogic.ts:3-23
+      - id: public-waters.detaliu.c8
+        text: "Partide activity = activeNow > 0 OR catchesThisMonth > 0 OR recordKg != null OR any monthlyActivity count > 0."
+        fish_ref: features/lakes/helpers/lakeDetailLogic.ts:39-44
+      - id: public-waters.detaliu.c9
+        text: "Tapping a chip scrolls its section to just under the pinned nav and marks it active immediately; the scroll-spy does not walk the highlight through intermediate sections during that scroll; when the chip set changes and the active one disappears, the first chip becomes active."
+        fish_ref: "app/(app)/public-waters/[id].tsx:403-504"
+      - id: public-waters.detaliu.c10
+        text: "Scroll-spy: the active chip is the last section whose top has passed under the pinned nav (+12px)."
+        fish_ref: features/venues/detail/sectionLogic.ts:7-19
+      - id: public-waters.detaliu.c11
+        text: "Once the chips row scrolls past the top, a pinned bar fades in with the name, the pin + subtitle meta and the same chips (synced active state)."
+        fish_ref: features/venues/detail/VenuePinnedNav.tsx:57-115
+      - id: public-waters.detaliu.c12
+        text: "A back control stays fixed top-left over the hero."
+        fish_ref: "app/(app)/public-waters/[id].tsx:823-830"
+      - id: public-waters.detaliu.c13
+        text: "Prezentare opens with „Acțiuni rapide” tiles in this order: Direcții, Hartă, Partide, Statistici, and Capturi only when the photo-catch total > 0."
+        fish_ref: "app/(app)/public-waters/[id].tsx:521-568"
+      - id: public-waters.detaliu.c14
+        text: "Partide tile carries a red count badge = stats.activeNow when > 0 and opens /ape-publice/[id]/partide; Statistici opens /ape-publice/[id]/statistici; Hartă opens /ape-publice/[id]/harta; Capturi carries the photo-catch total as badge and scrolls to the Capturi section."
+        fish_ref: "app/(app)/public-waters/[id].tsx:533-558"
+      - id: public-waters.detaliu.c15
+        text: "Direcții opens a directions chooser with Google Maps (dir api, driving) and Waze (navigate=yes) to the water's centre point; Apple Maps only on Apple platforms; missing coordinates show „Coordonatele nu sunt disponibile…”."
+        fish_ref: components/NavigationSheet.tsx:14-101
+      - id: public-waters.detaliu.c16
+        text: "„Detalii” facts list, each only when present: Bazin hidrografic, Suprafață „x.xx km²”, Volum „N mil. m³”, Altitudine „N m”, Cod corp de apă (euCode); the block is hidden when no fact exists."
+        fish_ref: "app/(app)/public-waters/[id].tsx:580-597"
+      - id: public-waters.detaliu.c17
+        text: "If the water has a linkCode and the venue-section or catches request failed, Prezentare shows „Activitatea comunității nu a putut fi încărcată.” with „Încearcă din nou”, which refetches only the failed query(ies)."
+        fish_ref: "app/(app)/public-waters/[id].tsx:598-701"
+      - id: public-waters.detaliu.c18
+        text: "Partide section: heading „Partide pe această apă” with „Vezi tot ›” (→ partide page), the live card, an „Activitate” card with „ultimele 7 luni” monthly line chart (when monthlyActivity non-empty), and a full-width „Vezi toate partidele ›” button."
+        fish_ref: features/partide/components/community/VenuePartideSection.tsx:42-107
+      - id: public-waters.detaliu.c19
+        text: "The Partide section keeps rendering last-good data when a background refetch fails and renders nothing (no skeleton) until data arrives."
+        fish_ref: features/partide/components/community/VenuePartideSection.tsx:32-52
+      - id: public-waters.detaliu.c20
+        text: "Live card when activeNow > 0: rose pill „N ACTIVI ACUM” with pulsing dot, headline = live total kg (only if weighed > 0, else catch count), secondary catch count, „cea mai mare” box with max kg, one row per active session ranked by kg; idle: catches this month + „luna aceasta · record istoric N kg”."
+        fish_ref: features/partide/components/community/LivePartideCard.tsx:242-345
+      - id: public-waters.detaliu.c21
+        text: "Tapping a live session opens it as YOUR partidă when it is the viewer's (active on this device or in the „Ale mele” list), otherwise the spectator view /partide/[documentId]."
+        fish_ref: features/partide/community/useOpenPartida.ts:28-44
+      - id: public-waters.detaliu.c22
+        text: "Capturi section: heading „Capturi pe această apă”, then species chips (server aggregate over all captures, most-caught first, max 6 then „+N”, each „<species> <count>”), then the photo masonry grid."
+        fish_ref: features/public-waters/PublicWaterSpeciesChips.tsx:28-64
+      - id: public-waters.detaliu.c23
+        text: "With species but no photo catches the grid area shows „Nicio captură cu poză pe această apă încă.”."
+        fish_ref: features/public-waters/PublicWaterCatchGrid.tsx:68-77
+      - id: public-waters.detaliu.c24
+        text: "Grid tiles use photoGridUrl (fallback photoUrl) and caption „<species> · <kg> kg”; tapping opens a lightbox at that photo with footer (weight, species, date, angler name) and a share button that hands the catch to the Bluvi share card (water name burned in)."
+        fish_ref: features/public-waters/PublicWaterCatchGrid.tsx:27-103
+      - id: public-waters.detaliu.c25
+        text: "Catches paginate 20 per page: the next page loads when the page scrolls within 600px of the bottom (or the lightbox reaches its end), one request at a time; a spinner shows under the grid while fetching."
+        fish_ref: "app/(app)/public-waters/[id].tsx:435-464"
+      - id: public-waters.detaliu.c26
+        text: "Locație section: „Județ” with one chip, or „Județe (N)” with one chip per county (names fetched for multi-county waters, primary county shown as fallback while/if that fails)."
+        fish_ref: "app/(app)/public-waters/[id].tsx:343-374"
+      - id: public-waters.detaliu.c27
+        text: "Locație shows a card „Vezi apa pe hartă / Deschide geometria completă și zona din jur” (button „Deschide apa pe hartă”) opening /ape-publice/[id]/harta."
+        fish_ref: "app/(app)/public-waters/[id].tsx:777-801"
+      - id: public-waters.detaliu.c28
+        text: "When the water has a linkCode, a row „Cod apă (pentru asociere)” shows the code; activating it copies the code to the clipboard and swaps „Copiază” for „Copiat” for 1.5s (label „Copiază codul apei <code>”)."
+        fish_ref: "app/(app)/public-waters/[id].tsx:204-251"
+      - id: public-waters.detaliu.c29
+        text: "The CC-BY attribution string from the data source is shown at the bottom of Locație when available."
+        fish_ref: "app/(app)/public-waters/[id].tsx:363-369"
+      - id: public-waters.detaliu.c30
+        text: "Navigating to a different water on the same mounted page resets scroll to top, active chip to Prezentare, pinned-nav state and pagination ownership."
+        fish_ref: features/public-waters/publicWaterDetailLogic.ts:57-95
+      - id: public-waters.detaliu.c31
+        text: "Venue-section data (live card, stats, species, badge) is refetched every 60s while the page is open (staleTime 30s, no automatic retry)."
+        fish_ref: features/partide/community/hooks.ts:132-141
+      - id: public-waters.detaliu.c32
+        text: "A water without a linkCode shows no Partide/Capturi sections, no community banner and no link-code row (community queries are disabled)."
+        fish_ref: "app/(app)/public-waters/[id].tsx:280-283"
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: public-waters.harta
+    title: Apă publică — hartă
+    fish:
+      - "app/(app)/public-waters/[id]/map.tsx"
+      - features/public-waters/useResolvedPublicWater.ts
+      - features/public-waters/PublicWatersLayer.tsx
+      - features/public-waters/SelectedWaterHighlight.tsx
+    web_route: /ape-publice/[id]/harta
+    template: none
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "MISSING core/publicWaters source: getPublicWaterById, getPublicWaterByLinkCode (with geometry)"
+    states:
+      - loading
+      - not-found
+      - error (retry)
+      - loaded
+      - geometry with <2 coordinates (falls back to centre ± 0.1°)
+    criteria:
+      - id: public-waters.harta.c1
+        text: "Loading shows a centred spinner with a back control."
+        fish_ref: "app/(app)/public-waters/[id]/map.tsx:44-50"
+      - id: public-waters.harta.c2
+        text: "Not-found shows „Apa publică nu a fost găsită.” without retry; error shows „Nu am putut încărca harta.” with „Încearcă din nou”."
+        fish_ref: "app/(app)/public-waters/[id]/map.tsx:51-74"
+      - id: public-waters.harta.c3
+        text: "Full-screen interactive map (pan + zoom; rotate and pitch disabled), initial region centre ± 0.1°, then fitted to the water's geometry leaving room for the top back control and the bottom card."
+        fish_ref: "app/(app)/public-waters/[id]/map.tsx:28-94"
+      - id: public-waters.harta.c4
+        text: "The water is drawn with the amber selection outline and the indigo lake wash."
+        fish_ref: "app/(app)/public-waters/[id]/map.tsx:93"
+      - id: public-waters.harta.c5
+        text: "A floating back control sits top-left over the map."
+        fish_ref: "app/(app)/public-waters/[id]/map.tsx:96-103"
+      - id: public-waters.harta.c6
+        text: "A bottom card shows the water name (one line, fallback „Apă publică”) and the primary county when present."
+        fish_ref: "app/(app)/public-waters/[id]/map.tsx:105-126"
+      - id: public-waters.harta.c7
+        text: "The [id] param accepts both the numeric row id and the ANAR linkCode (same resolver as the detail page)."
+        fish_ref: "app/(app)/public-waters/[id]/map.tsx:22-24"
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: public-waters.partide
+    title: Partide pe apă
+    fish:
+      - "app/(app)/public-waters/[id]/partide.tsx"
+      - features/partide/screens/VenueSessionsScreen.tsx
+      - features/partide/components/community/LivePartideCard.tsx
+      - features/partide/components/community/VenueLatestCatchesRail.tsx
+      - features/partide/components/community/VenueStatsCta.tsx
+      - features/partide/components/community/CommunityHistoryCard.tsx
+      - features/partide/components/PartideSkeletons.tsx
+      - features/partide/community/hooks.ts
+      - features/partide/community/useOpenPartida.ts
+      - features/public-waters/useResolvedPublicWater.ts
+    web_route: /ape-publice/[id]/partide
+    template: T1
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "MISSING core/publicWaters source: getPublicWaterById, getPublicWaterByLinkCode"
+      - core/partide communityVenueSectionQuery, communityHistoryInfiniteQuery, communityVenueCatchesInfiniteQuery
+      - core/partide/domain/venueKeys (communityVenueKey)
+    states:
+      - resolving water (loading / not-found / error with retry)
+      - water without linkCode (not-found)
+      - loading feeds (skeleton)
+      - both feeds failed
+      - empty venue (no live, no history) with start CTA
+      - live sessions present (1 vs ≥2 changes the catches rail)
+      - history only
+      - paginating history
+    criteria:
+      - id: public-waters.partide.c1
+        text: "Resolves the water like the detail page; loading/error/not-found reuse the detail page's states; a resolved water without a linkCode is not-found (no retry)."
+        fish_ref: "app/(app)/public-waters/[id]/partide.tsx:21-36"
+      - id: public-waters.partide.c2
+        text: "Header: back control + title = water name (fallback „Partide”)."
+        fish_ref: "app/(app)/public-waters/[id]/partide.tsx:36"
+      - id: public-waters.partide.c3
+        text: "While either the venue section or the history is pending, a list skeleton is shown under the header."
+        fish_ref: features/partide/screens/VenueSessionsScreen.tsx:133
+      - id: public-waters.partide.c4
+        text: "When both feeds failed: „Nu am putut încărca partidele.” + „Verifică conexiunea și trage în jos pentru a reîncerca.” with a manual refresh that refetches both."
+        fish_ref: features/partide/screens/VenueSessionsScreen.tsx:137-153
+      - id: public-waters.partide.c5
+        text: "No live and no finished partide: „Nicio partidă înregistrată pe această apă încă.” and a green „Începe o partidă aici” button opening the start-partidă flow pre-set to this water (waterCode = linkCode)."
+        fish_ref: features/partide/screens/VenueSessionsScreen.tsx:155-170
+      - id: public-waters.partide.c6
+        text: "With live sessions, the live card (same as the detail page, same cache entry) is shown first."
+        fish_ref: features/partide/screens/VenueSessionsScreen.tsx:174-181
+      - id: public-waters.partide.c7
+        text: "Latest-catches rail shows up to 3 photo catches: with ≥2 live sessions the live sessions' catches („Capturi în partidele active”), with exactly 1 live session the venue's OTHER catches, otherwise the latest („Ultimele capturi”); hidden when none."
+        fish_ref: features/partide/components/community/VenueLatestCatchesRail.tsx:122-146
+      - id: public-waters.partide.c8
+        text: "Rail tiles show kg, angler initials avatar and „acum / acum N min / acum N h” for catches < 24h old, else a short date; tapping opens /ape-publice/[id]/capturi?foto=<clientId>."
+        fish_ref: features/partide/components/community/VenueLatestCatchesRail.tsx:24-80
+      - id: public-waters.partide.c9
+        text: "A stats CTA card „Statisticile apei / Top pescari, standuri și recorduri / Vezi statisticile” opens /ape-publice/[id]/statistici."
+        fish_ref: features/partide/components/community/VenueStatsCta.tsx:132-151
+      - id: public-waters.partide.c10
+        text: "Finished partide appear under „Partide încheiate” as history cards, 10 per page, de-duplicated by documentId, loading the next page near the end of the list."
+        fish_ref: features/partide/screens/VenueSessionsScreen.tsx:188-208
+      - id: public-waters.partide.c11
+        text: "Tapping a live or history partidă opens it as the viewer's own partidă when it is theirs, otherwise the spectator view."
+        fish_ref: features/partide/community/useOpenPartida.ts:28-44
+      - id: public-waters.partide.c12
+        text: "Pull-to-refresh (web: a refresh action) refetches the venue section and the history together."
+        fish_ref: features/partide/screens/VenueSessionsScreen.tsx:57-64
+      - id: public-waters.partide.c13
+        text: "Live data polls every 60s (staleTime 30s); history staleTime 120s; neither retries automatically."
+        fish_ref: features/partide/community/hooks.ts:283-295
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: public-waters.statistici
+    title: Statisticile apei
+    fish:
+      - "app/(app)/public-waters/[id]/statistici.tsx"
+      - features/partide/screens/VenueStatsScreen.tsx
+      - features/partide/components/stats/PeriodChips.tsx
+      - features/partide/components/stats/index.ts
+      - features/partide/helpers/statsPeriod.ts
+      - features/partide/components/PartideSkeletons.tsx
+      - features/partide/community/hooks.ts
+      - features/public-waters/useResolvedPublicWater.ts
+    web_route: /ape-publice/[id]/statistici
+    template: T5
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "MISSING core/publicWaters source: getPublicWaterById, getPublicWaterByLinkCode"
+      - core/partide communityStatsQuery(period, venue)
+      - "MISSING pure port: parseStatsPeriodParam (if not already in core/partide/domain)"
+    states:
+      - resolving water (loading / not-found / error with retry)
+      - water without linkCode (not-found)
+      - first load (skeleton)
+      - error (no data or placeholder data)
+      - empty period (chips stay)
+      - switching period (previous data dimmed)
+      - loaded with/without weekly series, top anglers, record, species
+    criteria:
+      - id: public-waters.statistici.c1
+        text: "Resolves the water like the detail page; loading/error/not-found reuse its states; no linkCode → not-found."
+        fish_ref: "app/(app)/public-waters/[id]/statistici.tsx:21-36"
+      - id: public-waters.statistici.c2
+        text: "Header: back control + title = water name (fallback „Statistici”)."
+        fish_ref: "app/(app)/public-waters/[id]/statistici.tsx:36"
+      - id: public-waters.statistici.c3
+        text: "Period chips „Săptămâna” / „Luna” / „Anul curent”; the initial period comes from ?perioada= (week|year, anything else → month); changing it updates the URL without adding history."
+        fish_ref: features/partide/screens/VenueStatsScreen.tsx:42-58
+      - id: public-waters.statistici.c4
+        text: "First load shows the statistics skeleton."
+        fish_ref: features/partide/screens/VenueStatsScreen.tsx:125-132
+      - id: public-waters.statistici.c5
+        text: "Error (no data, or only the previous period's placeholder): „Nu am putut încărca statisticile.” + „Verifică conexiunea și trage în jos pentru a reîncerca.” with a manual refresh."
+        fish_ref: features/partide/screens/VenueStatsScreen.tsx:134-157
+      - id: public-waters.statistici.c6
+        text: "Zero partide in the period: chips stay and „Nicio partidă în perioada selectată.” is shown."
+        fish_ref: features/partide/screens/VenueStatsScreen.tsx:162-173
+      - id: public-waters.statistici.c7
+        text: "While a new period loads, the previous period's content stays dimmed (40%) and non-interactive and the chips show busy."
+        fish_ref: features/partide/screens/VenueStatsScreen.tsx:164-166
+      - id: public-waters.statistici.c8
+        text: "Content order: stat strip (totals), „Activitate” chart when the weekly series is non-empty, „Top pescari” (top 3 rows) with „Clasament ›”, record hero, „Specii prinse” species card when non-empty."
+        fish_ref: features/partide/screens/VenueStatsScreen.tsx:174-210
+      - id: public-waters.statistici.c9
+        text: "„Clasament ›” opens /ape-publice/[id]/clasament carrying the current period."
+        fish_ref: features/partide/screens/VenueStatsScreen.tsx:94-102
+      - id: public-waters.statistici.c10
+        text: "A top-angler row opens /pescari/[uid]; the record hero opens its partidă (spectator route) when it carries a sessionDocumentId."
+        fish_ref: features/partide/screens/VenueStatsScreen.tsx:87-91
+      - id: public-waters.statistici.c11
+        text: "The „Top standuri” card is never shown for a public water (lake venues only)."
+        fish_ref: features/partide/screens/VenueStatsScreen.tsx:201
+      - id: public-waters.statistici.c12
+        text: "Stats are cached per period + venue (staleTime 60s, previous data kept while switching, no automatic retry)."
+        fish_ref: features/partide/community/hooks.ts:168-181
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: public-waters.clasament
+    title: Clasament apă
+    fish:
+      - "app/(app)/public-waters/[id]/clasament.tsx"
+      - features/partide/screens/AnglersLeaderboardScreen.tsx
+      - features/partide/components/stats/PeriodChips.tsx
+      - features/partide/helpers/statsPeriod.ts
+      - features/partide/community/view.ts
+      - features/partide/components/PartideSkeletons.tsx
+      - features/partide/community/hooks.ts
+      - features/public-waters/useResolvedPublicWater.ts
+    web_route: /ape-publice/[id]/clasament
+    template: T1
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "MISSING core/publicWaters source: getPublicWaterById, getPublicWaterByLinkCode"
+      - core/partide communityStatsQuery(period, venue)
+      - core/partide/domain view helpers (avatarColorFor, firstNameOf, initialsOf, periodPhraseFor, rankColor)
+      - core/social profile query (viewer documentId for the EU pill)
+    states:
+      - resolving water (loading / not-found / error with retry)
+      - water without linkCode (not-found)
+      - first load (skeleton)
+      - error
+      - empty period
+      - podium only (≤3 anglers)
+      - switching period (dimmed)
+      - signed-in viewer ranked (EU pill) / not ranked / signed-out
+    criteria:
+      - id: public-waters.clasament.c1
+        text: "Resolves the water like the detail page; loading/error/not-found reuse its states; no linkCode → not-found."
+        fish_ref: "app/(app)/public-waters/[id]/clasament.tsx:21-34"
+      - id: public-waters.clasament.c2
+        text: "Title „Clasament · <water name>” (fallback „Clasament · apă”) next to a back control."
+        fish_ref: "app/(app)/public-waters/[id]/clasament.tsx:36-40"
+      - id: public-waters.clasament.c3
+        text: "Period chips Săptămâna/Luna/Anul curent seeded from ?perioada= (default month), reflected into the URL without new history entries."
+        fish_ref: features/partide/screens/AnglersLeaderboardScreen.tsx:233-250
+      - id: public-waters.clasament.c4
+        text: "First load shows the leaderboard skeleton; error shows „Nu am putut încărca statisticile.” + retry hint; zero partide shows „Niciun clasament pentru perioada selectată încă.”."
+        fish_ref: features/partide/screens/AnglersLeaderboardScreen.tsx:293-318
+      - id: public-waters.clasament.c5
+        text: "Podium for the top 3 laid out 2 – 1 – 3 (1st larger), each with avatar or initials on a per-uid colour, first name, „N kg” and a gold/silver/bronze step with the rank; tapping opens /pescari/[uid]."
+        fish_ref: features/partide/screens/AnglersLeaderboardScreen.tsx:23-88
+      - id: public-waters.clasament.c6
+        text: "Segment toggle has only „Pescari” and „Specii” for a water (the „Bălți” segment is hidden when scoped to a venue)."
+        fish_ref: features/partide/screens/AnglersLeaderboardScreen.tsx:238
+      - id: public-waters.clasament.c7
+        text: "Pescari: rows from rank 4 with rank, avatar, name (fallback „Pescar”), „N partidă/partide · N captură/capturi” and „N kg”; with ≤3 anglers „Doar podiumul are date pentru perioada asta.”."
+        fish_ref: features/partide/screens/AnglersLeaderboardScreen.tsx:328-339
+      - id: public-waters.clasament.c8
+        text: "Specii: rows with rank, species name, „N captură/capturi” and „N%”; empty → „Nicio specie înregistrată în această perioadă.”."
+        fish_ref: features/partide/screens/AnglersLeaderboardScreen.tsx:357-366
+      - id: public-waters.clasament.c9
+        text: "On Pescari, when the signed-in viewer is in the ranking an „EU” pill reads „Ești pe locul R din T <period phrase> — N kg” (T = total anglers)."
+        fish_ref: features/partide/screens/AnglersLeaderboardScreen.tsx:188-211
+      - id: public-waters.clasament.c10
+        text: "While switching period the previous content is dimmed to 40% and non-interactive; refresh refetches the stats."
+        fish_ref: features/partide/screens/AnglersLeaderboardScreen.tsx:252-282
+    mobile_only: false
+    status: todo
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  - id: public-waters.capturi
+    title: Capturi pe apă
+    fish:
+      - "app/(app)/public-waters/[id]/capturi.tsx"
+      - features/partide/screens/VenueCatchesGalleryScreen.tsx
+      - features/partide/components/community/MasonryPhotoList.tsx
+      - components/GalleryScreenHeader.tsx
+      - components/ImageLightbox.tsx
+      - components/CatchLightboxFooter.tsx
+      - features/partide/components/PartideSkeletons.tsx
+      - features/partide/community/hooks.ts
+      - features/public-waters/useResolvedPublicWater.ts
+      - "app/(app)/_layout.tsx"
+    web_route: /ape-publice/[id]/capturi
+    template: T1
+    milestone: M1
+    roles: [guest, angler, organizer, referee, operator]
+    core:
+      - "MISSING core/publicWaters source: getPublicWaterById, getPublicWaterByLinkCode"
+      - core/partide communityVenueCatchesInfiniteQuery
+    states:
+      - resolving water (loading / not-found / error with retry)
+      - water without linkCode (not-found)
+      - first load (masonry skeleton)
+      - empty (no photo catches)
+      - loaded, paginating
+      - deep-linked to one photo (?foto=) — lightbox open on it, or ignored when not found
+    criteria:
+      - id: public-waters.capturi.c1
+        text: "Resolves the water like the detail page; loading/error/not-found reuse its states; no linkCode → not-found."
+        fish_ref: "app/(app)/public-waters/[id]/capturi.tsx:25-33"
+      - id: public-waters.capturi.c2
+        text: "Header: title „Capturi”, subtitle „<water name> · N captură/capturi” (N = server total), close X on the right that goes back."
+        fish_ref: features/partide/screens/VenueCatchesGalleryScreen.tsx:103-107
+      - id: public-waters.capturi.c3
+        text: "First load shows a masonry skeleton; empty shows „Nicio captură cu fotografie încă.”."
+        fish_ref: features/partide/screens/VenueCatchesGalleryScreen.tsx:108-126
+      - id: public-waters.capturi.c4
+        text: "Photos in a virtualised masonry (grid → thumb → full URL fallback) captioned „<species> · <kg> kg” (no caption when neither exists); the next page of 20 loads near the end."
+        fish_ref: features/partide/screens/VenueCatchesGalleryScreen.tsx:58-118
+      - id: public-waters.capturi.c5
+        text: "Tapping a photo opens the lightbox with footer (weight, species, date, angler) for every loaded catch."
+        fish_ref: features/partide/screens/VenueCatchesGalleryScreen.tsx:70-133
+      - id: public-waters.capturi.c6
+        text: "With ?foto=<clientId> the lightbox opens directly on that catch once it is loaded (once only; ignored if not found)."
+        fish_ref: features/partide/screens/VenueCatchesGalleryScreen.tsx:87-93
+      - id: public-waters.capturi.c7
+        text: "The page is presented as a sheet/modal over the previous page in fish; same query cache as the detail grid and the partide rail (arriving from them renders from cache)."
+        fish_ref: "app/(app)/_layout.tsx:100-103"
+    mobile_only: false
+    status: todo
+
+behaviours:
+  - id: public-waters.b.route-param
+    text: "Every /ape-publice/[id]* route accepts either the bundled numeric row id or the stable ANAR linkCode (e.g. „R:<guid>”); links must URL-encode the code (it contains „:” and „.”)."
+    fish_ref: features/public-waters/publicWaterDetailLogic.ts:25-47
+  - id: public-waters.b.claimed-redirect
+    text: "A public water whose linkCode is claimed by a bookable lake (GET /feed/public-waters/claimed, public, staleTime 1h, gcTime 24h; empty map until loaded = no reroute) never shows as a public water: map/list/search open /balti/[lakeId], the detail page replaces itself with it."
+    fish_ref: services/queries/useClaimedPublicWaters.ts:16-29
+  - id: public-waters.b.inbound-partida-hero
+    text: "A partidă's venue hero links to /balti/[lakeId] when it has a lakeId, else to /ape-publice/[publicWaterCode] for venueType publicWater, else nothing (pins)."
+    fish_ref: features/partide/community/view.ts:346-354
+  - id: public-waters.b.inbound-community-cards
+    text: "Live venue cards in the Partide Acasă/Comunitate feeds open /ape-publice/[code]/partide for a publicWater venue (code read from key „water:<code>”); manual pins have no page and fall back to opening the leading partidă."
+    fish_ref: features/partide/community/venuePartideHref.ts:15-24
+  - id: public-waters.b.inbound-start-partida
+    text: "The start-partidă flow accepts a public water as pre-selected venue (?waterCode=<linkCode>, resolved with the same resolver) — the web start route must accept the equivalent query param."
+    fish_ref: "app/(app)/partide/start.tsx:33-34"
+  - id: public-waters.b.no-auth-gate
+    text: "All public-water screens are reachable signed-out (the (app) layout has its auth redirect commented out) and every request they make is public (auth none); only the own-partidă resolution and the EU pill use the session."
+    fish_ref: "app/(app)/_layout.tsx:42-47"
+  - id: public-waters.b.no-notifications
+    text: "No notification type routes to a public-water screen (getRedirectLocationForNotification has no public-water target); there are no public-water deep links other than in-app routes."
+    fish_ref: helpers/getRedirectLocationForNotification.ts:1
+  - id: public-waters.b.refresh-intervals
+    text: "Venue section polls every 60s (stale 30s); venue catches stale 60s, 20/page; history stale 120s, 10/page; stats stale 60s per venue with keepPreviousData; all with retry false."
+    fish_ref: features/partide/community/hooks.ts:132-295
+  - id: public-waters.b.offline-data-source
+    text: "Waters, geometry, counties and the CC-BY attribution come from a bundled read-only SQLite DB (no network); the web must serve the same dataset (same ids, linkCodes, names without diacritics, attribution) from its own source before any screen in this area can pass."
+    fish_ref: features/public-waters/db.ts:1-59
+  - id: public-waters.b.attribution
+    text: "The ANAR CC-BY 4.0 attribution must be shown wherever the dataset is displayed (fish shows it on the detail page's Locație section)."
+    fish_ref: features/public-waters/queries.ts:386-391
+  - id: public-waters.b.recent-searches
+    text: "Recently selected public waters are persisted per device (max 8, newest first, de-duplicated by id, rows only, no geometry) and can be cleared with „Șterge tot”."
+    fish_ref: features/public-waters/recentSearches.ts:4-30
+  - id: public-waters.b.period-param
+    text: "Statistici and Clasament keep the selected period in the URL (fish ?period=week|month|year; web ?perioada=) via replace, so refresh/back keeps it; unknown values fall back to month."
+    fish_ref: features/partide/helpers/statsPeriod.ts:7-9
+  - id: public-waters.b.navigation-guard
+    text: "Every push from these screens goes through guardNavigation to prevent double navigation on fast double taps (web: links must not double-submit client navigations)."
+    fish_ref: "app/(app)/public-waters/[id].tsx:506-519"
