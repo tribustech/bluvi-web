@@ -5,26 +5,28 @@ import { routes } from '@/lib/routes';
 import { DetailBackButton, DetailError } from '@/components/templates/T3';
 import { ButtonLink } from '@/components/ui/Button';
 import { notFound } from 'next/navigation';
-import { SetBreadcrumb } from '../../../_shell/SiteHeader';
+import { BreadcrumbBand } from '@/components/nav/Breadcrumbs';
+import { COMPETITIONS_CRUMB } from './crumbs';
 import { CompetitionScreen } from './CompetitionScreen';
 import { CompetitionSkeleton } from './CompetitionSkeleton';
 import { HEADER_ERROR_COPY, skeletonVariantOf } from './screen-state';
-import { competitionDateLabel, competitionDateProse, competitionDateTime, competitionStartShort } from './dates';
+import { competitionDateLabel, competitionDateProse, competitionDateTime, competitionStartShort, competitionDateTimeCompact } from './dates';
 import { competitionJsonLd, loadCompetition } from './load';
 import type { RankingViewKey } from './views';
+import { tabLabel, type CompetitionTab } from './tabs';
+import type { HeaderCore } from './headerMeta';
+import { jsonLdHtml } from '@/lib/json-ld';
+
+/** Only what the fallback header shows crosses to the client (not the whole core: registrations, sectors…). */
+function headerCore(c: HeaderCore): HeaderCore {
+  return { name: c.name, author: c.author, lake: c.lake, banner: c.banner, competitionStatus: c.competitionStatus };
+}
 
 /*
  * The competition page's body, shared by /concursuri/<id> (and /clasament) and the view segments
  * /cantare, /statistici, /capturi (parity competition-page.b.tab-deep-links): each segment renders
  * the same screen with its view already open, so the server sends that view's panel.
  */
-
-/**
- * The parent crumb. /concursuri has no page yet (404), and the shell links a crumb set without an
- * `href` to its section URL — so until the list ships (M1) «Competiții» leads home, where the
- * competitions are listed. Then: `routes.competitions()`.
- */
-const COMPETITIONS_CRUMB = { label: 'Competiții', href: routes.home() };
 
 /** The server prefetch of the ranking may take this long before the browser takes it over. */
 const RANKING_BUDGET_MS = 2500;
@@ -52,7 +54,16 @@ function withBudget<Q extends Prefetchable>(q: Q, ms: number): Q {
   return { ...q, queryFn } as Q;
 }
 
-export async function CompetitionRoute({ id, initialView }: { id: string; initialView: RankingViewKey }) {
+export async function CompetitionRoute({
+  id,
+  initialView = 'clasament',
+  tab = 'clasament',
+}: {
+  id: string;
+  initialView?: RankingViewKey;
+  /** The route tab (tabs.ts): Clasament (the ranking views) or Informații / Participanți / Extra Cântare / Regulament. */
+  tab?: CompetitionTab;
+}) {
   const load = await loadCompetition(id);
   if (load.kind === 'missing') notFound();
   if (load.kind === 'invalid') {
@@ -61,8 +72,8 @@ export async function CompetitionRoute({ id, initialView }: { id: string; initia
     // (the same answer would come back) — the way on is Acasă.
     return (
       <>
-        <SetBreadcrumb trail={[COMPETITIONS_CRUMB, { label: 'Eroare' }]} />
         <DetailError
+          trail={[COMPETITIONS_CRUMB]}
           back={<DetailBackButton fallbackHref={routes.home()} ground="page" />}
           heading="Concursul nu a putut fi afișat"
           description={HEADER_ERROR_COPY}
@@ -84,6 +95,8 @@ export async function CompetitionRoute({ id, initialView }: { id: string; initia
     start: competitionDateTime(c.startDate),
     end: competitionDateTime(c.endDate),
     startShort: competitionStartShort(c.startDate),
+    startCompact: competitionDateTimeCompact(c.startDate),
+    endCompact: competitionDateTimeCompact(c.endDate),
   };
 
   return (
@@ -91,28 +104,52 @@ export async function CompetitionRoute({ id, initialView }: { id: string; initia
       <script
         type="application/ld+json"
         // JSON-LD: `<` escaped so CMS text can never close the script tag.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(competitionJsonLd(c)).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={jsonLdHtml(competitionJsonLd(c))}
       />
-      <SetBreadcrumb trail={[COMPETITIONS_CRUMB, { label: c.name }]} />
+      {/* The breadcrumb band, server-rendered with the real title and its BreadcrumbList JSON-LD
+          (the layout's band skips this route: SiteHeader ownsBreadcrumbBand), as the T3 demo. */}
+      <BreadcrumbBand
+        trail={tab === 'clasament' ? [COMPETITIONS_CRUMB, { label: c.name }] : [COMPETITIONS_CRUMB, { label: c.name, href: routes.competition(id) }, { label: tabLabel(tab) }]}
+        jsonLd
+      />
       {load.kind === 'ok' ? (
-        <Suspense fallback={<CompetitionSkeleton variant={skeletonVariantOf(c.competitionStatus)} />}>
+        // The fallback is what the static shell carries (the screen is a TanStack client tree, which
+        // suspends while prerendering): the header's real title and meta, so the first paint has
+        // the competition's name (CompetitionSkeleton `head`).
+        <Suspense
+          fallback={
+            <CompetitionSkeleton
+              variant={skeletonVariantOf(c.competitionStatus)}
+              rankingType={c.rankingType}
+              head={{ competition: headerCore(c), datesProse: dates.prose }}
+              tab={tab}
+            />
+          }
+        >
           <HydrateQueries
-            queries={t => [
-              withBudget(competitionQuery(t, id, { isAuthenticated: false }), CORE_BUDGET_MS),
-              withBudget(rankingsQuery(t, id, c.competitionStatus), RANKING_BUDGET_MS),
-              // The stat row's weighing tile (from 768): read here, so the row is painted once with
-              // its four tiles instead of three, then four (CLS).
-              withBudget(competitionWeighingStatisticsQuery(t, id, c.competitionStatus), RANKING_BUDGET_MS),
-            ]}
+            queries={t =>
+              tab === 'clasament'
+                ? [
+                    withBudget(competitionQuery(t, id, { isAuthenticated: false }), CORE_BUDGET_MS),
+                    withBudget(rankingsQuery(t, id, c.competitionStatus), RANKING_BUDGET_MS),
+                    // The stat row's weighing tile (from 768): read here, so the row is painted once with
+                    // its four tiles instead of three, then four (CLS).
+                    withBudget(competitionWeighingStatisticsQuery(t, id, c.competitionStatus), RANKING_BUDGET_MS),
+                  ]
+                : // The other tabs draw from the core alone (Extra Cântare reads its list in the browser).
+                  [withBudget(competitionQuery(t, id, { isAuthenticated: false }), CORE_BUDGET_MS)]
+            }
             tags={[`competition-${id}`]}
           >
-            <CompetitionScreen id={id} dates={dates} statusHint={c.competitionStatus} initialView={initialView} />
+            <CompetitionScreen id={id} dates={dates} statusHint={c.competitionStatus} initialView={initialView} tab={tab} />
           </HydrateQueries>
         </Suspense>
       ) : (
-        // Feeder (or a newer ranking type): header + preview from the loosened core, the ranking
-        // as «indisponibil pe web». The browser cannot parse this core either, so it is handed down.
-        <CompetitionScreen id={id} dates={dates} unsupported={c} statusHint={c.competitionStatus} initialView={initialView} />
+        // A ranking type newer than this build (core cannot parse it): header + preview from the
+        // loosened core, the ranking as «indisponibil pe web». Feeder legs and the club rankings are
+        // parsed and drawn (FeederRanking.tsx, NcRanking.tsx). The browser cannot parse this core
+        // either, so it is handed down.
+        <CompetitionScreen id={id} dates={dates} unsupported={c} statusHint={c.competitionStatus} initialView={initialView} tab={tab} />
       )}
     </>
   );

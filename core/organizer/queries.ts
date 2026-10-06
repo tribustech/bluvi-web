@@ -150,11 +150,20 @@ export function activeWeighingQuery(t: Transport, competitionId: string, { isAut
   });
 }
 
-/** fish `useWeighings` */
-export function weighingsQuery(t: Transport, competitionId: string, standId: string, options?: { enabled?: boolean }) {
+/**
+ * fish `useWeighings`. Feeder: the leg is part of the key, so starting the next leg fetches that
+ * leg's weighings (the queryFn's round alone would not refetch). Other types keep the plain key.
+ */
+export function weighingsQuery(
+  t: Transport,
+  competitionId: string,
+  standId: string,
+  options?: { enabled?: boolean; round?: number }
+) {
+  const round = options?.round;
   return queryOptions({
-    queryKey: weighingKeys.byCompetitionIdAndStandId(competitionId, standId),
-    queryFn: () => getWeighings(t, competitionId, standId),
+    queryKey: [...weighingKeys.byCompetitionIdAndStandId(competitionId, standId), ...(round != null ? [{ round }] : [])],
+    queryFn: () => getWeighings(t, competitionId, standId, round),
     enabled: options?.enabled ?? true,
   });
 }
@@ -187,11 +196,20 @@ export function weighingsSummaryQuery(t: Transport, competitionId: string, enabl
   });
 }
 
-/** fish `useWeighingsTotal` */
-export function weighingsTotalQuery(t: Transport, competitionId: string, standId: string, options?: { enabled?: boolean }) {
+/** fish `useWeighingsTotal` (feeder: the leg in the key, as weighingsQuery). */
+export function weighingsTotalQuery(
+  t: Transport,
+  competitionId: string,
+  standId: string,
+  options?: { enabled?: boolean; round?: number }
+) {
+  const round = options?.round;
   return queryOptions({
-    queryKey: weighingKeys.totalWeightByCompetitionIdAndStandId(competitionId, standId),
-    queryFn: () => getWeightingsTotal(t, competitionId, standId),
+    queryKey: [
+      ...weighingKeys.totalWeightByCompetitionIdAndStandId(competitionId, standId),
+      ...(round != null ? [{ round }] : []),
+    ],
+    queryFn: () => getWeightingsTotal(t, competitionId, standId, round),
     enabled: options?.enabled ?? true,
   });
 }

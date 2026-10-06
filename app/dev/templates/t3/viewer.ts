@@ -1,13 +1,12 @@
 import 'server-only';
 import { cache } from 'react';
-import { z } from 'zod';
+import * as z from 'zod';
 import { getOwnedLakes } from '@/core/booking';
 import { call, isApiError, type Transport } from '@/core/transport';
 import { getSessionToken } from '@/lib/server/session';
 import { createServerTransport } from '@/lib/server/transport';
 import type { Viewer } from '@/lib/server/viewer';
 import { bounded } from './data';
-import type { DemoViewer } from './DemoTopBar';
 
 /*
  * The T3 session read, TRI-STATE (the DetailPage data-loading contract): the viewer, null ONLY when
@@ -17,6 +16,9 @@ import type { DemoViewer } from './DemoTopBar';
  * whose /users/me read failed would be shown the sign-in gate and «Intră».
  * TODO(shell): give lib/server/viewer.ts this read (getViewerState) and drop this copy.
  */
+
+/** The session as the demo reads it: a viewer, signed out, or not known in time (bounded read). */
+export type DemoViewer = Viewer | null | 'unknown';
 
 const meSchema = z.object({
   id: z.number(),

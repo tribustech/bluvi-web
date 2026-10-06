@@ -7,7 +7,7 @@ import type { AnnouncementListItem } from '@/core/news';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { CardShell, CardTitle, Tag } from '@/components/cards';
-import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem } from './HorizontalRail';
+import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem, useRailRead } from './HorizontalRail';
 import { RailEmpty, RailSection, RailSkeleton } from './RailSection';
 import { newsDate } from './format';
 import { NEWS_CARD_HEIGHT } from './newsCard';
@@ -23,7 +23,8 @@ import { homeNewsQuery } from './queries';
 export function NewsSection() {
   const t = useMemo(() => createBrowserTransport(), []);
   const q = useInfiniteQuery(homeNewsQuery(t));
-  const news = useMemo(() => q.data?.pages.flatMap((p) => p.data), [q.data]);
+  const read = useRailRead(q);
+  const news = useMemo(() => read.pages?.flatMap((p) => p.data), [read.pages]);
   if (!q.isLoading && !news) return null;
   return (
     <NewsView
@@ -31,8 +32,8 @@ export function NewsSection() {
       onEndReached={() => {
         if (q.hasNextPage && !q.isFetchingNextPage && !q.isFetchNextPageError) void q.fetchNextPage();
       }}
-      fetchingNext={q.isFetchingNextPage}
-      nextError={q.isFetchNextPageError}
+      fetchingNext={read.fetchingNext}
+      nextError={read.nextError}
       onRetryNext={() => void q.fetchNextPage()}
     />
   );

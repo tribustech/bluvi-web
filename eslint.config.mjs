@@ -43,9 +43,25 @@ const eslintConfig = defineConfig([
     plugins: { bluvi },
     rules: { "bluvi/no-raw-visual-values": "error" },
   },
+  {
+    // Turbopack cannot tree-shake zod's `z` re-export (it keeps every member of the namespace, every
+    // locale and the JSON-schema code included): `import { z }` put ~100 KB of compressed, unused
+    // zod in the first-load JS of every page. The namespace import shakes to what is used.
+    files: ["**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "ImportDeclaration[source.value='zod'][importKind!='type'] > ImportSpecifier[imported.name='z'][importKind!='type']",
+          message: "Use `import * as z from 'zod'`: Turbopack bundles all of zod (every locale) for `import { z }`.",
+        },
+      ],
+    },
+  },
   // design/ holds generated design-tool exports; the rest is build / test output.
   globalIgnores([
     ".next/**",
+    ".next-*/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

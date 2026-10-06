@@ -5,10 +5,13 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { selectCompetitionCards, type CompetitionCard } from '@/core/competitions';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { COMPETITION_CARD_HEIGHT, CompetitionRailCard } from './CompetitionRailCard';
-import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem } from './HorizontalRail';
+import { TrophyIcon } from '@heroicons/react/24/outline';
+import { plural } from '@/components/cards/format';
+import { CardSkeleton, HorizontalRail, RailEndCard, RailItem, RailRetryItem, useRailRead } from './HorizontalRail';
 import { RailEmpty, RailError, RailSection, RailSkeleton } from './RailSection';
 import { homeLinks } from './links';
 import { liveCardsQuery, SIGNED_OUT, upcomingCardsQuery } from './queries';
+import { LiveDot } from '@/components/templates/LiveDot';
 
 /**
  * fish (tabs)/index.tsx competitions block + CompetitionCardsRail.tsx: the live rail while
@@ -23,8 +26,10 @@ export function CompetitionsSection() {
   const t = useMemo(() => createBrowserTransport(), []);
   const live = useInfiniteQuery(liveCardsQuery(t));
   const upcoming = useInfiniteQuery(upcomingCardsQuery(t));
-  const liveCards = selectCompetitionCards(live.data, { scope: 'all' }, SIGNED_OUT);
-  const upcomingCards = selectCompetitionCards(upcoming.data, { scope: 'all' }, SIGNED_OUT);
+  const liveRead = useRailRead(live);
+  const upcomingRead = useRailRead(upcoming);
+  const liveCards = selectCompetitionCards(live.data && { ...live.data, pages: liveRead.pages ?? [] }, { scope: 'all' }, SIGNED_OUT);
+  const upcomingCards = selectCompetitionCards(upcoming.data && { ...upcoming.data, pages: upcomingRead.pages ?? [] }, { scope: 'all' }, SIGNED_OUT);
 
   const rail = chooseRail(
     { ...live, count: liveCards.competitions.length },
@@ -46,8 +51,8 @@ export function CompetitionsSection() {
       onEndReached={() => {
         if (q.hasNextPage && !q.isFetchingNextPage && !q.isFetchNextPageError) void q.fetchNextPage();
       }}
-      fetchingNext={q.isFetchingNextPage}
-      nextError={q.isFetchNextPageError}
+      fetchingNext={(isLive ? liveRead : upcomingRead).fetchingNext}
+      nextError={(isLive ? liveRead : upcomingRead).nextError}
       onRetryNext={() => void q.fetchNextPage()}
     />
   );
@@ -103,7 +108,7 @@ export function CompetitionsView({
   return (
     <RailSection
       title={title}
-      leading={isLive ? <span aria-hidden className="size-2 shrink-0 rounded-full bg-live animate-live motion-reduce:animate-none" /> : undefined}
+      leading={isLive ? <LiveDot /> : undefined}
       href={homeLinks.competitions(isLive ? 'started' : 'notStarted')}
     >
       {status === 'loading' ? (
@@ -133,6 +138,16 @@ export function CompetitionsView({
               <CompetitionRailCard competition={c} eager={i === 0} />
             </RailItem>
           ))}
+          {/* From 768 the rail ends on «Vezi toate» (a short rail never leaves an empty track). */}
+          {!fetchingNext && !nextError ? (
+            <RailEndCard
+              href={homeLinks.competitions(isLive ? 'started' : 'notStarted')}
+              label={isLive ? 'Vezi toate concursurile live' : 'Vezi toate concursurile'}
+              caption={total ? plural(total, 'concurs', 'concursuri') : undefined}
+              icon={<TrophyIcon />}
+              heightClass={COMPETITION_CARD_HEIGHT}
+            />
+          ) : null}
         </HorizontalRail>
       )}
     </RailSection>

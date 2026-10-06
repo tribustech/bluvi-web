@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { notificationsKeys } from '@/core/social';
@@ -64,4 +64,35 @@ async function refetchHome(qc: QueryClient, t: ReturnType<typeof createBrowserTr
 export function HomeRefresh() {
   const refresh = useHomeRefresh();
   return <DashboardRefresh onRefresh={refresh} />;
+}
+
+/** A tab that comes back after this long re-reads Acasă (the competition page's rule). */
+const REFRESH_ON_RETURN_MS = 30_000;
+
+/**
+ * fish (tabs)/index.tsx useFocusEffect: when Acasă regains focus it invalidates the live rail and
+ * the «concursul meu» extra scales. On the web: when the tab becomes visible again (or the window
+ * comes back to the front) after REFRESH_ON_RETURN_MS, the same refetch as the refresh control —
+ * the rails and the server blocks (my live competition, its weighing line, the partidă dock) —
+ * quietly (no toast: nobody asked). A client navigation back to / mounts this anew, and the router
+ * re-renders the server blocks on its own; the throttle starts at mount. Renders nothing; mounted
+ * once by page.tsx.
+ */
+export function HomeFocusRefresh() {
+  const refetch = useHomeRefetch();
+  useEffect(() => {
+    let last = Date.now();
+    const onReturn = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - last < REFRESH_ON_RETURN_MS) return;
+      last = Date.now();
+      void refetch();
+    };
+    document.addEventListener('visibilitychange', onReturn);
+    window.addEventListener('focus', onReturn);
+    return () => {
+      document.removeEventListener('visibilitychange', onReturn);
+      window.removeEventListener('focus', onReturn);
+    };
+  }, [refetch]);
+  return null;
 }

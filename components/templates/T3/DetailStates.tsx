@@ -9,6 +9,9 @@ import { DetailHeader, headerChipClass } from './DetailHeader';
 import { DetailBand, DetailPage } from './DetailPage';
 import { photoHeroHeight } from './DetailPhotoHero';
 import { FULL_BLEED_HAIRLINE, FULL_BLEED_SURFACE } from './metrics';
+import { STATE_CARD_FRAME } from '../stateCard';
+import { TRACK_GAP, TRACKS } from '../tracks';
+import { RING_DANGER } from '../rings';
 
 /*
  * T3 states. Empty sections use the kit EmptyState inside their <DetailSection>; these cover the
@@ -209,14 +212,10 @@ export function DetailSkeleton({
           aria-hidden
           data-t3="body"
           className={cn(
-            'flex flex-1 flex-col gap-2 pt-2 pb-8 md:gap-4 md:px-6 md:pt-6 md:pb-12 xl:grid xl:items-start xl:gap-8 xl:px-8 xl:pt-8',
-            columns.left && columns.aside
-              ? 'xl:grid-cols-[--spacing(60)_minmax(0,1fr)_--spacing(90)] 2xl:grid-cols-[--spacing(64)_minmax(0,1fr)_--spacing(96)]'
-              : columns.aside
-                ? 'xl:grid-cols-[minmax(0,1fr)_--spacing(90)] 2xl:grid-cols-[minmax(0,1fr)_--spacing(96)]'
-                : columns.left
-                  ? 'xl:grid-cols-[--spacing(60)_minmax(0,1fr)] 2xl:grid-cols-[--spacing(64)_minmax(0,1fr)]'
-                  : '',
+            'flex flex-1 flex-col gap-2 pt-2 pb-8 md:gap-4 md:px-6 md:pt-6 md:pb-12 xl:grid xl:items-start xl:px-8 xl:pt-8',
+            TRACK_GAP,
+            // DetailBody's tracks (../tracks.ts), so the skeleton has the page's geometry.
+            columns.left && columns.aside ? TRACKS.three : columns.aside ? TRACKS.mainRight : columns.left ? TRACKS.leftMain : '',
           )}
         >
           {columns.left === 'toc' ? (
@@ -382,7 +381,7 @@ function PageState({
           role={tone === 'error' ? 'alert' : undefined}
           className={cn(
             'flex w-full flex-col items-center gap-3 rounded-card bg-surface px-5 py-8 text-center md:max-w-120 md:px-8 md:py-10',
-            tone === 'error' ? 'shadow-[inset_0_0_0_1px_var(--color-status-danger-line)]' : 'shadow-e0',
+            tone === 'error' ? RING_DANGER : 'shadow-e0',
           )}
         >
           {icon}
@@ -499,6 +498,40 @@ export function DetailSignInPrompt({ message, href, cta = 'Intră în cont', cla
       <ButtonLink href={href} variant="secondary">
         {cta}
       </ButtonLink>
+    </div>
+  );
+}
+
+/**
+ * A state INSIDE the body (the page around it stands): something the web cannot show here yet, or
+ * an empty view — what is missing and the way on (`action`: «Deschide în aplicație», a list). The
+ * page-level frame (STATE_CARD_FRAME: the 720 reading measure, centred in the column) and the
+ * PageState card's look, with an h2 under the page's h1. On the phone the card is the white block
+ * of the screen (no hairline), from 768 a card.
+ */
+export function DetailSectionState({
+  heading,
+  description,
+  action,
+  icon,
+  className,
+}: {
+  heading: string;
+  description?: ReactNode;
+  action?: ReactNode;
+  icon?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn(STATE_CARD_FRAME, className)}>
+      <div className="flex w-full flex-col items-center gap-3 bg-surface px-5 py-8 text-center md:rounded-card md:px-8 md:py-10 md:shadow-e0">
+        {icon}
+        <div className="flex flex-col gap-1.5">
+          <h2 className="t-title2 text-balance text-ink">{heading}</h2>
+          {description ? <p className="t-body text-pretty text-muted">{description}</p> : null}
+        </div>
+        {action ? <div className="mt-2 flex flex-col items-center gap-2">{action}</div> : null}
+      </div>
     </div>
   );
 }

@@ -77,7 +77,7 @@ import {
   type Status,
   type UrlParams,
 } from './demoInitial';
-import { describeError } from './describeError';
+import { describeError } from '@/components/templates/T1/describeError';
 import { PulseHero, PulseHeroSkeleton } from './PulseHero';
 import { DEMO_PATH, type DemoState } from './StateSwitcher';
 
@@ -400,7 +400,7 @@ export function CompetitionsDemo({
   const header = (
     <ListHeader
       titleId={titleId}
-      title={resultsMode ? heading : 'Concursuri'}
+      title={resultsMode ? heading : 'Competiții'}
       back={resultsMode ? { label: 'Înapoi la concursuri', onClick: () => exitResults(true) } : undefined}
       // From 1280 the tab row's band stays in results mode (a pick in the live-apply column must not
       // pull the column up under the pointer) and carries the answer's size instead of a blank row.

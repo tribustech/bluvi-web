@@ -6,15 +6,169 @@
 export const routes = {
   home: () => '/',
   lakes: () => '/balti',
+  /** The lakes results map (lakes.results-map); search and filters ride in the query (balti/_list/url.ts). */
+  lakesMap: (query = '') => (query ? `/balti/harta?${query}` : '/balti/harta'),
+  /** Public waters map (area public-waters); the Bălți / Ape publice toggle links here. */
+  publicWaters: () => '/ape-publice',
   lake: (documentId: string) => `/balti/${encodeURIComponent(documentId)}`,
-  competitions: () => '/concursuri',
+  // The lake page's subpages (parity docs/parity/areas/lakes.yml, fish app/(app)/lakes/[lakeId]/*).
+  lakeGallery: (documentId: string) => `/balti/${encodeURIComponent(documentId)}/galerie`,
+  lakePartide: (documentId: string) => `/balti/${encodeURIComponent(documentId)}/partide`,
+  /** The lake's statistics (lakes.stats); `perioada`: week | month (default, left out) | year. */
+  lakeStats: (documentId: string, perioada?: 'week' | 'month' | 'year') =>
+    `/balti/${encodeURIComponent(documentId)}/statistici${perioada && perioada !== 'month' ? `?perioada=${perioada}` : ''}`,
+  /** `tab`: live (default, left out) | viitoare | trecute (lakes.competitions.c6). */
+  lakeCompetitions: (documentId: string, tab?: 'live' | 'viitoare' | 'trecute') =>
+    `/balti/${encodeURIComponent(documentId)}/concursuri${tab && tab !== 'live' ? `?tab=${tab}` : ''}`,
+  /** Every catch photo at the lake (lakes.catches); `foto` opens the lightbox on that catch (clientId). */
+  lakeCatches: (documentId: string, foto?: string) =>
+    `/balti/${encodeURIComponent(documentId)}/capturi${foto ? `?foto=${encodeURIComponent(foto)}` : ''}`,
+  /** Anglers' ranking at the lake (lakes.anglers-ranking); `perioada`: week | month (default, left out) | year. */
+  lakeRanking: (documentId: string, perioada?: 'week' | 'month' | 'year') =>
+    `/balti/${encodeURIComponent(documentId)}/clasament${perioada && perioada !== 'month' ? `?perioada=${perioada}` : ''}`,
+  /** Stand ranking (lakes.stands-ranking); defaults (month, kg) are left out of the URL. */
+  lakeStands: (documentId: string, { perioada, sortare }: { perioada?: 'week' | 'month' | 'year'; sortare?: 'kg' | 'catches' | 'record' } = {}) => {
+    const q = new URLSearchParams();
+    if (perioada && perioada !== 'month') q.set('perioada', perioada);
+    if (sortare && sortare !== 'kg') q.set('sortare', sortare);
+    const s = q.toString();
+    return `/balti/${encodeURIComponent(documentId)}/standuri${s ? `?${s}` : ''}`;
+  },
+  lakeMap: (documentId: string) => `/balti/${encodeURIComponent(documentId)}/harta`,
+  lakeReviews: (documentId: string) => `/balti/${encodeURIComponent(documentId)}/recenzii`,
+  /** Add / edit the viewer's review (lakes.review-form, M3); `rezervare`: the completed booking it verifies. */
+  lakeReview: (documentId: string, { editare, rezervare }: { editare?: boolean; rezervare?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (editare) q.set('editare', '1');
+    if (rezervare) q.set('rezervare', rezervare);
+    const s = q.toString();
+    return `/balti/${encodeURIComponent(documentId)}/recenzie${s ? `?${s}` : ''}`;
+  },
+  lakeBooking: (documentId: string) => `/balti/${encodeURIComponent(documentId)}/rezerva`,
+  /** Sign in, returning to `next` (a path with its query; /intra validates it). Home and /intra itself: plain /intra. */
+  signIn: (next?: string) => (!next || next === '/' || next === '/intra' ? '/intra' : `/intra?next=${encodeURIComponent(next)}`),
+  /** `status` opens that tab of the list (fish (tabs)/competitions `status`, competitions-list.index.c27). */
+  competitions: (status?: 'started' | 'notStarted' | 'completed') => (status ? `/concursuri?status=${status}` : '/concursuri'),
+  /**
+   * /concursuri in results mode (competitions-list.results): a lake / organizer pick (by documentId,
+   * its name as `label`) or a free-text search (`q`).
+   */
+  competitionsSearch: (search: { type: 'lake' | 'organizer' | 'text'; value: string; label: string }) => {
+    const q = new URLSearchParams();
+    if (search.type === 'text') q.set('q', search.value);
+    else {
+      q.set(search.type === 'lake' ? 'lakeId' : 'organizerId', search.value);
+      q.set('label', search.label);
+    }
+    return `/concursuri?${q.toString()}`;
+  },
+  /**
+   * The global status lists (competitions-list.viitoare / .live / .incheiate — fish
+   * /competitions/{notStarted|started|completed}, a lake rail's «Vezi toate» without a lake).
+   */
+  competitionsByStatus: (list: 'viitoare' | 'live' | 'incheiate') => `/concursuri/${list}`,
   competition: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}`,
   competitionRanking: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/clasament`,
+  competitionInfo: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/informatii`,
+  competitionParticipants: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/participanti`,
+  competitionExtraScales: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/extra-cantare`,
+  competitionRules: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/regulament`,
+  /**
+   * The Clasament's Cântare view (competition-page.cantare); `stand` (a stand documentId) opens that
+   * stand's weighings — the web's way into a stand's history until the scale area (M6) ships.
+   */
+  competitionWeighings: (documentId: string, stand?: string) =>
+    `/concursuri/${encodeURIComponent(documentId)}/cantare${stand ? `?stand=${encodeURIComponent(stand)}` : ''}`,
+  /**
+   * The weighing detail over the Cântare view (competition-page.cantar-detaliu): `stand` (a stand
+   * documentId) is opened behind it, the dialog starts on `weighing` (fish openWeighingSheet).
+   */
+  competitionWeighing: (documentId: string, weighing: string, stand: string) =>
+    `/concursuri/${encodeURIComponent(documentId)}/cantare?cantar=${encodeURIComponent(weighing)}&stand=${encodeURIComponent(stand)}`,
+  /**
+   * The ranking as an image (competition-page.imagine-clasament; fish ranking-image / ranking-image-cn).
+   * `query` names the table (clasament/imagine/model.ts imageQueryString: «?sortare=loc&sector=B»).
+   */
+  competitionRankingImage: (documentId: string, query = '') => `/concursuri/${encodeURIComponent(documentId)}/clasament/imagine${query}`,
+  /** The PNG itself (the same `query`): what the image page shows, «Descarcă» saves and «Distribuie» shares. */
+  competitionRankingImageFile: (documentId: string, query = '') =>
+    `/concursuri/${encodeURIComponent(documentId)}/clasament/imagine/png${query}`,
+  /** The Clasament's Statistici view (competition-page.statistici). */
+  competitionStatistics: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/statistici`,
+  /** The Clasament's «Toți peștii» view (competition-page.toti-pestii). */
+  competitionCatches: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/capturi`,
+  /** «Cronologia standurilor», full page (competition-page.cronologie; fish stand-timeline/[id]). */
+  competitionStandTimeline: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/statistici/cronologie`,
+  /** The ranking with an angler's stats open (competition-page.statistici-pescar): `registration` documentId. */
+  competitionAngler: (documentId: string, registration: string) =>
+    `/concursuri/${encodeURIComponent(documentId)}?pescar=${encodeURIComponent(registration)}`,
   news: () => '/stiri',
   newsItem: (documentId: string) => `/stiri/${encodeURIComponent(documentId)}`,
+  sponsor: (documentId: string) => `/sponsori/${encodeURIComponent(documentId)}`,
   angler: (documentId: string) => `/pescari/${encodeURIComponent(documentId)}`,
   partida: (documentId: string) => `/partide/${encodeURIComponent(documentId)}`,
+  partide: () => '/partide',
+  /**
+   * Start a partidă (M4, ON_WEB.startPartida; parity partide.yml «/partide/incepe»): at a lake
+   * (`balta` = its documentId) or a public water (`apa` = its linkCode) — fish partide/start
+   * ?lakeId= / ?waterCode=.
+   */
+  startPartida: (at: { balta?: string; apa?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (at.balta) q.set('balta', at.balta);
+    if (at.apa) q.set('apa', at.apa);
+    const s = q.toString();
+    return `/partide/incepe${s ? `?${s}` : ''}`;
+  },
+  /** Join a partidă with a code (M4; fish partide/join). */
+  partidaJoin: () => '/partide/intra',
+  suggestedAnglers: () => '/pescari/sugerati',
+  profile: () => '/profil',
+  settings: () => '/setari',
+  notifications: () => '/notificari',
+  /** The viewer's bookings (booking.yml, fish /bookings). */
+  myBookings: () => '/rezervari',
+  /** The current poll (fish /polls/current). */
+  polls: () => '/sondaje',
+  raffle: () => '/tombola',
+  raffleConfirmation: () => '/tombola/confirmare',
+  raffleWinners: () => '/tombola/castigatori',
+  organizer: () => '/organizator',
+  /** The operator panel: one lake's, or the lake picker without one (operator.yml). */
+  operator: (lakeId?: string) => (lakeId ? `/operator/${encodeURIComponent(lakeId)}` : '/operator'),
+  operatorCalendar: (lakeId: string) => `/operator/${encodeURIComponent(lakeId)}/calendar`,
+  operatorBookings: (lakeId: string, status?: 'pending' | 'cancelled' | 'toreview') =>
+    `/operator/${encodeURIComponent(lakeId)}/rezervari${status ? `?status=${status}` : ''}`,
+  // Public waters (ANAR): `id` is the bundled numeric row id or the stable linkCode («R:RO11_01.018_R1»),
+  // which carries «:» and «.» — always encoded (parity public-waters.b.route-param).
+  publicWater: (idOrCode: string | number) => `/ape-publice/${encodeURIComponent(String(idOrCode))}`,
+  publicWaterMap: (idOrCode: string | number) => `/ape-publice/${encodeURIComponent(String(idOrCode))}/harta`,
+  publicWaterPartide: (idOrCode: string | number) => `/ape-publice/${encodeURIComponent(String(idOrCode))}/partide`,
+  /** `perioada`: week | month (default, left out) | year (public-waters.b.period-param). */
+  publicWaterStats: (idOrCode: string | number, perioada?: 'week' | 'month' | 'year') =>
+    `/ape-publice/${encodeURIComponent(String(idOrCode))}/statistici${perioada && perioada !== 'month' ? `?perioada=${perioada}` : ''}`,
+  publicWaterRanking: (idOrCode: string | number, perioada?: 'week' | 'month' | 'year') =>
+    `/ape-publice/${encodeURIComponent(String(idOrCode))}/clasament${perioada && perioada !== 'month' ? `?perioada=${perioada}` : ''}`,
+  /** `foto` opens the lightbox on that catch (clientId), as from the partide rail (public-waters.partide.c8). */
+  publicWaterCatches: (idOrCode: string | number, foto?: string) =>
+    `/ape-publice/${encodeURIComponent(String(idOrCode))}/capturi${foto ? `?foto=${encodeURIComponent(foto)}` : ''}`,
 } as const;
+
+/**
+ * Pages the web does not have yet, shared by every area (one switch per page, never one per
+ * area): until the batch that ships a page flips its entry, its targets render as plain rows /
+ * text — never a dead link to the catch-all 404.
+ *  - angler → /pescari/[id], the angler profile (M2, docs/parity/areas/account.yml);
+ *  - partida → /partide/[id], with the own-vs-spectator resolution (M4);
+ *  - startPartida → the start-partidă flow (M4).
+ */
+export const ON_WEB = { angler: false, partida: false, startPartida: false } as const;
+
+/** The angler's profile, or null while the web has none (render the person without a link). */
+export const anglerHref = (documentId: string): string | null => (ON_WEB.angler ? routes.angler(documentId) : null);
+
+/** A partidă's page, or null while the web has none. */
+export const partidaHref = (documentId: string): string | null => (ON_WEB.partida ? routes.partida(documentId) : null);
 
 export function siteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '');

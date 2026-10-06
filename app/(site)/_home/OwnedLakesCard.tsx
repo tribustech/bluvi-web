@@ -72,7 +72,7 @@ export async function OwnedLakesCard({ layout, className }: { layout: Layout; cl
         // The whole card opens the lake panel.
         <Link
           href={operatorHref(lakeId, 'panel')}
-          className="outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent"
+          className="outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-[-2px] focus-visible:after:outline-accent"
         >
           {title}
         </Link>

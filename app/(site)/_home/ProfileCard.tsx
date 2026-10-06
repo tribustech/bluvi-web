@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { DashboardHeader } from '@/components/templates/T5';
 import { cn } from '@/components/ui/cn';
-import { getHomeViewer } from './data';
+import { getHomeSession } from './data';
 import { HomeRefresh } from './HomeRefresh';
 import { homeLinks } from './links';
 import { Slogan } from './Slogan';
@@ -21,7 +21,7 @@ function greeting(viewer: { username: string | null } | null): string {
 const CARD = 'relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 rounded-card bg-surface p-3 shadow-e0';
 /** The whole card is the link (fish: the card is one Pressable): a stretched ::after. */
 const STRETCHED =
-  'outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent';
+  'outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-[-2px] focus-visible:after:outline-accent';
 
 /**
  * Phone (<768) — fish (tabs)/index.tsx profile card, the page's header there (its greeting is the
@@ -34,7 +34,11 @@ const STRETCHED =
  * stand-in for fish pull-to-refresh, which the ≥768 header carries as a labelled button).
  */
 export async function ProfileCard({ className }: { className?: string }) {
-  const viewer = await getHomeViewer();
+  const session = await getHomeSession();
+  // Unknown (the session read failed): a neutral card, neither the greeting nor «Conectează-te» —
+  // the column under it shows the session error with its retry (HomeSessionError).
+  if (session === 'unknown') return <NeutralProfileCard className={className} />;
+  const viewer = session;
 
   return (
     <div className={cn(CARD, className)}>
@@ -51,11 +55,28 @@ export async function ProfileCard({ className }: { className?: string }) {
             {greeting(viewer)}
           </Link>
         </h1>
-        {/* Two lines (2 × 20) reserved and never more: whichever slogan the visit picks, the card
-            keeps its height (no shift after hydration). */}
-        <Slogan signedIn={!!viewer} className="line-clamp-2 min-h-10 t-body" />
+        {/* Three lines (3 × 20) reserved: the longest slogan fits whole beside the refresh chip at
+            375 (~190px of measure — a brand line never ends in «…»), and whichever one the visit
+            picks, the card keeps its height (no shift after hydration). */}
+        <Slogan signedIn={!!viewer} className="line-clamp-3 min-h-15 t-body" />
       </div>
       {/* Above the card's stretched link. */}
+      <div className="relative z-above">
+        <HomeRefresh />
+      </div>
+    </div>
+  );
+}
+
+/** The card when the session could not be read: the logo and «Acasă», no link, no slogan prompt. */
+function NeutralProfileCard({ className }: { className?: string }) {
+  return (
+    <div className={cn(CARD, className)}>
+      <Image src={logo} alt="" width={64} height={64} className="size-16 shrink-0 rounded-avatar object-cover" priority />
+      <div className="flex min-w-0 flex-col gap-1">
+        <h1 className="t-title1 text-ink">Acasă</h1>
+        <p className="line-clamp-3 min-h-15 t-body text-muted">Nu am putut verifica contul tău.</p>
+      </div>
       <div className="relative z-above">
         <HomeRefresh />
       </div>
@@ -73,7 +94,7 @@ export function ProfileCardSkeleton({ className }: { className?: string }) {
         <span className="t-title1">
           <span className="inline-block h-5 w-3/5 rounded-full bg-soft-fill align-middle animate-shimmer" />
         </span>
-        <span className="flex min-h-10 flex-col t-body">
+        <span className="flex min-h-15 flex-col t-body">
           <span>
             <span className="inline-block h-3.5 w-11/12 rounded-full bg-soft-fill align-middle animate-shimmer" />
           </span>
@@ -94,7 +115,13 @@ export function ProfileCardSkeleton({ className }: { className?: string }) {
  * sign-in control here, and the signed-out slogan is the prompt.
  */
 export async function HomeHeader() {
-  const viewer = await getHomeViewer();
+  const session = await getHomeSession();
+  if (session === 'unknown') {
+    // The session read failed: a neutral title (never the signed-out welcome) and no caption — the
+    // ONE page-level session error (HomeSessionError) heads the main column below, with its retry.
+    return <DashboardHeader className="max-md:hidden" title="Acasă" actions={<HomeRefresh />} />;
+  }
+  const viewer = session;
   return (
     <DashboardHeader
       className="max-md:hidden"

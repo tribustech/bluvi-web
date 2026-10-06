@@ -19,6 +19,7 @@ import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { T2FrameContext, T2LayoutBridgeContext, type T2SheetSnap } from './context';
 import { T2_FLOATING_BUTTON } from './T2MapOverlay';
 import { T2Panel, type T2PanelProps } from './T2Panel';
+import { SHELL_EDGE_PAD } from '@/components/nav/shell';
 
 /*
  * T2 «Listă cu hartă» (ROADMAP §4) — lakes, public waters, community venues.
@@ -80,8 +81,8 @@ function skipTo(e: MouseEvent<HTMLAnchorElement>, id: string, inner?: string) {
   target?.focus({ preventScroll: true });
 }
 
-/** Left padding that aligns with the shell column (SHELL_MAX 1744 + 32px gutter) once wider. */
-export const ALIGN_LEFT = 'md:pl-6 xl:pl-[max(var(--spacing)*8,calc((100vw_-_var(--spacing)*436)/2_+_var(--spacing)*8))]';
+/** Left padding that aligns with the shell column (nav/shell.tsx SHELL_EDGE_PAD, next to SHELL_MAX). */
+export const ALIGN_LEFT = SHELL_EDGE_PAD;
 
 /** fish RESULTS_SHEET_FRACTION: the sheet opens at 40–45% of the screen. */
 const HALF = 0.45;

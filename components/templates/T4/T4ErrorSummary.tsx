@@ -4,6 +4,7 @@ import { useEffect, useId, useRef } from 'react';
 import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/components/ui/cn';
 import type { T4FieldError } from './types';
+import { RING_DANGER } from '../rings';
 
 type Props = {
   errors: T4FieldError[];
@@ -40,7 +41,7 @@ export function T4ErrorSummary({ errors, attempt, className }: Props) {
       role="group"
       aria-labelledby={titleId}
       className={cn(
-        'flex scroll-mt-40 gap-3 rounded-card bg-surface p-4 md:p-5 xl:p-6 shadow-[inset_0_0_0_1px_var(--color-status-danger-line)] outline-none focus-visible:outline-2 focus-visible:outline-accent xl:scroll-mt-24',
+        'flex scroll-mt-40 gap-3 rounded-card bg-surface p-4 md:p-5 xl:p-6', RING_DANGER, 'outline-none focus-visible:outline-2 focus-visible:outline-accent xl:scroll-mt-24',
         className,
       )}
     >

@@ -1,3 +1,5 @@
+import { STATE_CARD_FRAME } from '../stateCard';
+
 /**
  * The tinted icon square that fronts a KPI tile, an alert or a summary line (fish
  * features/bookings/ui/StatTile.tsx `IconSquare`: indigo / green / amber / rust), on the status
@@ -58,8 +60,8 @@ export const LINK_ACTION = `inline-flex min-h-11 shrink-0 items-center rounded-c
 export const BAR_CELL = 'flex flex-1 flex-col items-center justify-center gap-1.5 py-1 md:flex-row md:gap-2.5';
 
 /**
- * The page-state cards (error, empty, signed out): 720px at most. From 768 the card starts at the
- * content edge, under the left-aligned page title — one axis per page, never a title at the
- * gutter over a card floating in the middle. Below 768 it fills the column.
+ * The page-state cards (error, empty, signed out): the templates' one state frame
+ * (../stateCard.ts) — 720px at most, centred in the page column at every width, so a signed-out
+ * dashboard at 1920 is not a card hugging the left edge beside ~1000px of blank page.
  */
-export const STATE_CARD = 'mx-auto w-full max-w-180 md:mx-0';
+export const STATE_CARD = STATE_CARD_FRAME;

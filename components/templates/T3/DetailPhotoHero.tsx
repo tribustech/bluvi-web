@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { PhotoIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/components/ui/cn';
 import { DetailPhotoStrip } from './DetailPhotoStrip';
+import { TRACKS } from '../tracks';
 
 /*
  * T3 photo hero — fish LakeHero (lake, public water).
@@ -72,7 +73,8 @@ export function DetailPhotoHero({
       ? 'md:grid-cols-1'
       : cn(
           shown === 2 ? 'md:grid-cols-2' : 'md:grid-cols-[2fr_1fr] md:grid-rows-2',
-          'xl:grid-cols-[minmax(0,1fr)_--spacing(90)] 2xl:grid-cols-[minmax(0,1fr)_--spacing(96)]',
+          // The body's centre · right split (../tracks.ts), so the side photos sit over the right column.
+          TRACKS.mainRight,
         );
   const height = photoHeroHeight(shown);
 

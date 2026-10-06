@@ -1,0 +1,146 @@
+'use client';
+
+import { useId, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { labelIndices, yAxisScale } from '@/core/partide';
+import { cn } from '@/components/ui/cn';
+
+/*
+ * «Activitate» — fish ActivityCard + ActivityLineChart: the buckets of a period as a line over a
+ * tinted area. ONE chart for the water's pages (the detail page's «ultimele 7 luni», Statistici's
+ * period); hovering, touching or arrowing through it names one bucket in the header
+ * («3 capturi · mie 29 iul»). The chart is one summary image for screen readers plus an sr-only table.
+ * TODO(kit): the lake's PartideSection draws a third copy (balti/[id]) — this file belongs in the
+ * kit once that unit can import it (out of this unit's scope).
+ */
+
+export type ActivityPoint = { label: string; count: number; /** The bucket in full («mie 29 iul»); the label when omitted. */ detail?: string };
+
+const W = 600;
+const H = 160;
+const PAD = { top: 10, right: 8, bottom: 6, left: 30 };
+
+export function ActivityChart({
+  points,
+  noun,
+  caption,
+  summary,
+  heading: Heading = 'h2',
+  className,
+  testId,
+}: {
+  points: ActivityPoint[];
+  /** What a bucket counts: [one, many] («captură», «capturi»). */
+  noun: [string, string];
+  /** A quiet line at the header's end while nothing is picked («ultimele 7 luni»). */
+  caption?: ReactNode;
+  /** The image's accessible name. */
+  summary: string;
+  /** h3 inside a titled section (the detail page's «Partide pe această apă»). */
+  heading?: 'h2' | 'h3';
+  className?: string;
+  testId?: string;
+}) {
+  const [active, setActive] = useState(-1);
+  const titleId = useId();
+  const n = points.length;
+  const max = Math.max(0, ...points.map((s) => s.count));
+  const scale = yAxisScale(max);
+  const x = (i: number) => PAD.left + (n <= 1 ? (W - PAD.left - PAD.right) / 2 : (i * (W - PAD.left - PAD.right)) / (n - 1));
+  const y = (v: number) => PAD.top + (1 - v / scale.maxValue) * (H - PAD.top - PAD.bottom);
+  const line = points.map((s, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(s.count).toFixed(1)}`).join(' ');
+  const area = `${line} L${x(n - 1).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`;
+  const shown = new Set(labelIndices(n));
+  const point = active >= 0 && active < n ? points[active] : null;
+  const count = (c: number) => `${c} ${c === 1 ? noun[0] : noun[1]}`;
+
+  const pick = (e: PointerEvent<SVGSVGElement>) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - box.left) / box.width) * W;
+    const i = Math.round(((px - PAD.left) / (W - PAD.left - PAD.right)) * (n - 1));
+    setActive(Math.max(0, Math.min(n - 1, i)));
+  };
+  const keys = (e: KeyboardEvent) => {
+    if (e.key === 'ArrowRight') setActive((i) => Math.min(n - 1, i + 1));
+    else if (e.key === 'ArrowLeft') setActive((i) => (i < 0 ? n - 1 : Math.max(0, i - 1)));
+    else if (e.key === 'Home') setActive(0);
+    else if (e.key === 'End') setActive(n - 1);
+    else if (e.key === 'Escape') setActive(-1);
+    else return;
+    e.preventDefault();
+  };
+
+  return (
+    <section aria-labelledby={titleId} className={cn('flex flex-col gap-3 rounded-card bg-surface p-4.5 shadow-e0', className)} data-testid={testId}>
+      <div className="flex min-h-6 items-baseline justify-between gap-3">
+        <Heading id={titleId} className="t-heading text-ink">
+          Activitate
+        </Heading>
+        <p aria-live="polite" className={cn('truncate', point ? 't-label text-accent-ink' : 't-micro text-muted')}>
+          {point ? `${count(point.count)} · ${point.detail ?? point.label}` : caption}
+        </p>
+      </div>
+      <div className="relative">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          className="block h-40 w-full touch-none overflow-visible rounded-control focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+          role="img"
+          aria-label={`${summary} Folosește săgețile pentru fiecare interval.`}
+          tabIndex={0}
+          onPointerMove={pick}
+          onPointerDown={pick}
+          onPointerLeave={() => setActive(-1)}
+          onKeyDown={keys}
+          onBlur={() => setActive(-1)}
+        >
+          {Array.from({ length: scale.noOfSections + 1 }, (_, k) => {
+            const v = k * scale.stepValue;
+            return <line key={k} x1={PAD.left} x2={W - PAD.right} y1={y(v)} y2={y(v)} className="stroke-hairline" strokeWidth={1} vectorEffect="non-scaling-stroke" />;
+          })}
+          <path d={area} className="fill-accent-tint" />
+          <path d={line} className="fill-none stroke-accent" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          {point ? (
+            <line x1={x(active)} x2={x(active)} y1={PAD.top} y2={y(0)} className="stroke-accent-ink" strokeWidth={1} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+          ) : null}
+        </svg>
+        {/* Y labels and the marker as HTML, so the stretched viewBox never squashes them. */}
+        {Array.from({ length: scale.noOfSections + 1 }, (_, k) => {
+          const v = k * scale.stepValue;
+          return (
+            <span key={k} aria-hidden className="absolute left-0 -translate-y-1/2 t-micro text-muted tabular-nums" style={{ top: `${(y(v) / H) * 100}%` }}>
+              {v}
+            </span>
+          );
+        })}
+        {point ? (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface bg-accent shadow-e1"
+            style={{ left: `${(x(active) / W) * 100}%`, top: `${(y(point.count) / H) * 100}%` }}
+          />
+        ) : null}
+      </div>
+      <div aria-hidden className="relative h-4">
+        {points.map((s, i) =>
+          shown.has(i) ? (
+            <span key={i} className="absolute -translate-x-1/2 t-micro text-muted" style={{ left: `${(x(i) / W) * 100}%` }}>
+              {s.label}
+            </span>
+          ) : null,
+        )}
+      </div>
+      {/* The chart as a table, for screen readers (the image above is one summary). */}
+      <table className="sr-only">
+        <caption>Activitate pe fiecare interval</caption>
+        <tbody>
+          {points.map((s, i) => (
+            <tr key={i}>
+              <th scope="row">{s.detail ?? s.label}</th>
+              <td>{count(s.count)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}

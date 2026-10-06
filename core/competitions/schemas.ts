@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { paginatedSchema, paginationMetaSchema, richTextSchema, strapiImageSchema } from '../shared';
 import { fishSpeciesSchema } from '../lakes/schemas';
 
@@ -39,8 +39,7 @@ export const rankingTypeSchema = z.enum([
   'calitateCalitate',
   'calitateCantitateCMMC',
   'bestOfTiers',
-  // fish models/ranking.type.ts FEEDER_ROUNDS. Feeder legs have their own ranking (not built on web
-  // yet); without this value one feeder competition failed validation of every competition list.
+  // fish models/ranking.type.ts FEEDER_ROUNDS: feeder on legs, its own ranking (domain/feeder.ts).
   'feederRounds',
 ]);
 export type RankingType = z.infer<typeof rankingTypeSchema>;
@@ -157,6 +156,10 @@ export const competitionDetailSchema = z.object({
   gridRule: z.string().nullable(),
   bestOfTierSizes: z.array(z.number()).nullable(),
   numberOfWinners: z.number().nullable(),
+  // Feeder on legs («manșe»): null for every other ranking type; absent on a CMS older than feeder.
+  roundsCount: z.number().nullish(),
+  currentRound: z.number().nullish(),
+  roundStatus: z.enum(['running', 'closed']).nullish(),
   registerFee: z.string().nullable(),
   participantsLimit: z.number().nullable(),
   teamParticipants: z.number().nullable(),
@@ -380,6 +383,14 @@ export const competitionCardSchema = z.object({
       podium: z.array(cardPodiumRowSchema),
     })
     .nullable(),
+  /**
+   * Feeder on legs: the leg the competition is in; null for every other type. Optional, as in fish
+   * (models/competition-card.type.ts): a CMS older than the field omits it. `status` stays open
+   * (the CMS may add one) — only `current` / `count` drive the card.
+   */
+  rounds: z
+    .object({ current: z.number(), count: z.number(), status: z.union([z.enum(['running', 'closed']), z.string()]) })
+    .nullish(),
 });
 export type CompetitionCard = z.infer<typeof competitionCardSchema>;
 
@@ -602,6 +613,47 @@ export const nationalChampionshipStandRankingSchema = z.object({
 });
 export type NationalChampionshipStandRanking = z.infer<typeof nationalChampionshipStandRankingSchema>;
 
+/**
+ * fish `FeederRoundCell` — one leg of a feeder-on-legs entrant (CMS
+ * src/api/competition/services/rankings/feeder-rounds.ts). `points` null = no stand in that leg.
+ */
+export const feederRoundCellSchema = z.object({
+  round: z.number(),
+  sectorName: z.string().nullable(),
+  standId: standIdSchema.nullable(),
+  standName: z.string().nullable(),
+  quantity: z.number(),
+  catchCount: z.number(),
+  biggestFish: z.number(),
+  points: z.number().nullable(),
+  sectorPosition: z.number().nullable(),
+});
+export type FeederRoundCell = z.infer<typeof feederRoundCellSchema>;
+
+/**
+ * fish `FeederRoundsRanking` — one row per ENTRANT, not per stand: the entrant sits on a different
+ * stand in every leg; `standId` / `standName` / `sectorName` are the current leg's.
+ */
+export const feederRoundsRankingSchema = z.object({
+  registrationId: z.string(),
+  participant: z.object({ username: z.string() }).loose().nullable(),
+  participants: z.array(z.object({ id: z.number().optional(), documentId: z.string().optional(), username: z.string() })),
+  teamName: z.string().nullable(),
+  guestName: z.string().nullable(),
+  sectorDrawPosition: z.number().nullable(),
+  standId: standIdSchema.nullable(),
+  standName: z.string().nullable(),
+  sectorName: z.string().nullable(),
+  rounds: z.array(feederRoundCellSchema),
+  totalPoints: z.number(),
+  quantity: z.number(),
+  catchCount: z.number(),
+  biggestFish: z.number(),
+  roundsFished: z.number(),
+  generalPosition: z.number(),
+});
+export type FeederRoundsRanking = z.infer<typeof feederRoundsRankingSchema>;
+
 const biggestCatchSchema = z
   .object({
     participants: z.array(z.object({ ...idDoc, username: z.string() })),
@@ -641,6 +693,13 @@ export const rankingMetadataSchema = z.discriminatedUnion('rankingType', [
   z.object({ ...baseMetadataShape, rankingType: z.literal('calitateCantitateCMMC') }),
   z.object({
     ...baseMetadataShape,
+    rankingType: z.literal('feederRounds'),
+    roundsCount: z.number().nullable(),
+    currentRound: z.number().nullable(),
+    roundStatus: z.enum(['running', 'closed']).nullable(),
+  }),
+  z.object({
+    ...baseMetadataShape,
     rankingType: z.literal('bestOfTiers'),
     bestOfTierSizes: z.array(z.number()),
     tierWinners: z.array(z.object({ standId: standIdSchema, position: z.number() }).nullable()),
@@ -667,6 +726,7 @@ export const rankingResponseSchema = z.union([
   rankingResponse(calitateCalitateStandRankingSchema, ['calitateCalitate']),
   rankingResponse(qualityQuantityCMMCStandRankingSchema, ['calitateCantitateCMMC']),
   rankingResponse(nationalChampionshipStandRankingSchema, ['nationalChampionship', 'fipsed']),
+  rankingResponse(feederRoundsRankingSchema, ['feederRounds']),
 ]);
 export type RankingResponse = z.infer<typeof rankingResponseSchema>;
 

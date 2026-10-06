@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import SiteLayout from '@/app/(site)/layout';
+import { SiteShell } from '@/app/(site)/_shell/SiteShell';
 
-/** The T2 demo renders inside the real shell (top bar), so its heights and edges are the page's. */
+/** The T2 demo renders inside THE app shell (top bar), so its heights and edges are the page's. */
 export default function T2DemoLayout({ children }: { children: ReactNode }) {
-  return <SiteLayout>{children}</SiteLayout>;
+  return <SiteShell>{children}</SiteShell>;
 }

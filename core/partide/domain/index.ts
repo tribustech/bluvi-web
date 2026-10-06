@@ -25,3 +25,7 @@ export * from './monthlyStats';
 export * from './evolution';
 export * from './stats';
 export * from './eventView';
+export * from './liveCompare';
+export * from './standSort';
+export * from './activitySeries';
+export * from './venueRail';

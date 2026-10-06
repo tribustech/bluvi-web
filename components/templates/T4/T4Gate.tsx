@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { cn } from '@/components/ui/cn';
+import { STATE_CARD_FRAME } from '../stateCard';
+import { RING_DANGER } from '../rings';
 
 type Props = {
   /** 24px outline icon (rendered at the kit's 24), in a 56px tinted disc. */
@@ -42,11 +44,11 @@ type Props = {
 
 /**
  * Every «the flow cannot run here» block and every outcome, in one anatomy (56px disc, title2,
- * body, actions): signed out (fish keeps these flows under the signed-in stack), no right to run
- * it, nothing to book (booking off, no availability), the data could not be read (`tone="danger"`,
+ * body, actions): no right to run it, nothing to book (booking off, no availability), the data could not be read (`tone="danger"`,
  * `role="alert"`, with a retry), already done (sent). Takes the place of the step content inside
  * the frame, so the header still says where the user is. In-step problems (a refused price, a
- * failed submit) are <T4Notice>s with the 40px disc, never gates. T6 uses the same gate.
+ * failed submit) are <T4Notice>s with the 40px disc, never gates. T6 uses the same gate. Signed out
+ * is NOT a T4Gate: every template renders the one <SignInGate> (../SignInGate.tsx).
  *
  * `align="start"` + `indent` puts the content on the header title's left edge rather than leaving
  * centred text in a left-anchored box.
@@ -83,8 +85,8 @@ export function T4Gate({
         'flex flex-col gap-3 rounded-card bg-surface',
         align === 'start'
           ? cn('items-start p-4 text-left md:p-5 xl:p-6', indent === true && GATE_INDENT, indent === 'below-xl' && 'md:ml-10 xl:ml-0')
-          : 'items-center px-5 py-8 text-center md:px-8 md:py-12 xl:max-w-140',
-        tone === 'danger' ? 'shadow-[inset_0_0_0_1px_var(--color-status-danger-line)]' : 'shadow-e0',
+          : cn(STATE_CARD_FRAME, 'items-center px-5 py-8 text-center md:px-8 md:py-12'),
+        tone === 'danger' ? RING_DANGER : 'shadow-e0',
         className,
       )}
     >

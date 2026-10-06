@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 /**
  * fish `models/lake-booking.type.ts` + `models/lake-reservation.type.ts` + the inline types of

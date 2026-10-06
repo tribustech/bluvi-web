@@ -3,6 +3,7 @@
 import { Fragment, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { RichTextNode } from '@/core/shared';
 import { cn } from '@/components/ui/cn';
+import { PROSE_MAX } from '@/components/nav/shell';
 
 /*
  * T3 long text — a Strapi «blocks» rich text (lake description, competition rules) held to the
@@ -46,7 +47,7 @@ export function DetailProse({
 
   const folded = collapsed && !open;
   return (
-    <div className={cn('flex max-w-180 flex-col gap-2', className)}>
+    <div className={cn('flex flex-col gap-2', PROSE_MAX, className)}>
       <div
         id={id}
         ref={ref}

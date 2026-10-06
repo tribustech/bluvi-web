@@ -18,6 +18,7 @@ import {
   type BestOfStandRanking,
   type BestOfTiersStandRanking,
   type CalitateCalitateStandRanking,
+  isNationalChampionshipRankings,
   type ColumnDefinition,
   type QualityQuantityCMMCStandRanking,
   type QualityQuantityStandRanking,
@@ -251,4 +252,14 @@ export function weightDecimals(table: RankingTableData | null | undefined): numb
 /** A weight at the competition's precision (weightDecimals): «2.961,000». */
 export function formatKg(n: number, decimals: number): string {
   return formatDecimal(n, decimals, decimals);
+}
+
+/**
+ * The precision for the rankings the shared builders do not draw (feeder legs, the club rankings):
+ * their tables always print three decimals (fish), so the page's tiles do too — one precision on
+ * one screen («21,000 kg» over «34,700», never «21,0»).
+ */
+export function rawWeightDecimals(data: RankingResponse | undefined): number {
+  if (!data) return 1;
+  return data.metadata.rankingType === 'feederRounds' || isNationalChampionshipRankings(data.rankings) ? 3 : 1;
 }

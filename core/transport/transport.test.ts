@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { z } from 'zod';
+import * as z from 'zod';
 import { ApiError, apiErrorFromResponse, GENERIC_ERROR_MESSAGE } from './errors';
 import { baseInit, buildPath, performFetch } from './http';
 import { call } from './parse';

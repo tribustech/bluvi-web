@@ -1,5 +1,5 @@
 import { ErrorState } from '@/components/surfaces/StateCard';
-import { Button } from '@/components/ui/Button';
+import { QueryRetry } from './QueryRetry';
 
 /*
  * Offline with nothing cached (parity shell states: «offline → error screen»). TanStack pauses a
@@ -16,17 +16,10 @@ export function isOfflineEmpty(q: PausableQuery): boolean {
 
 export const OFFLINE_TITLE = 'Ești offline. Conținutul se va încărca când revine conexiunea.';
 
-/** The views' offline state: the kit ErrorState with the same retry as a failed read. */
-export function OfflineState({ onRetry, className }: { onRetry: () => void; className?: string }) {
-  return (
-    <ErrorState
-      className={className}
-      title={OFFLINE_TITLE}
-      action={
-        <Button size="compact" variant="secondary" onClick={onRetry}>
-          Încearcă din nou
-        </Button>
-      }
-    />
-  );
+/**
+ * The views' offline state: the kit ErrorState with the page's retry (QueryRetry: busy while it
+ * runs, «Tot nu s-a putut încărca.» when it is still offline).
+ */
+export function OfflineState({ onRetry, fetching = false, className }: { onRetry: () => void; fetching?: boolean; className?: string }) {
+  return <ErrorState className={className} title={OFFLINE_TITLE} action={<QueryRetry fetching={fetching} failed onRetry={onRetry} size="compact" />} />;
 }

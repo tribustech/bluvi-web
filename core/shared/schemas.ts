@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 /** Strapi pagination meta (`meta.pagination`). */
 export const paginationMetaSchema = z.object({

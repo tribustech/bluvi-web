@@ -165,7 +165,6 @@ the most complex and mostly used on a laptop.
 - **Local CMS grants** missing compared to staging: Public `polls/current`, lakes home/explore/bbox,
   `mineCount`, `suggested`, `timeline-snapshot`, map markers.
 - **Kit gaps:**
-  - a solid initials avatar tone;
   - a per-sector foreground token (sectors B, C and K are under AA);
   - a feeder ranking table;
   - a 22/800 desktop section title step, if Fundații confirms it.

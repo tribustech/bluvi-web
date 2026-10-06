@@ -102,7 +102,6 @@ export function PrimitivesSection() {
                   label="Înscrieri"
                   value="38"
                   unit="/48"
-                  unitTone="faint"
                   progress={{
                     value: 38,
                     max: 48,
@@ -127,6 +126,7 @@ export function PrimitivesSection() {
                 />
                 <Avatar name="Mihai Popa" tone="indigo" />
                 <Avatar name="Cristian Radu" tone="tint" shape="square" />
+                <Avatar name="Vlad Stan" tone="solid" />
               </div>
             </Group>
           </div>
@@ -162,6 +162,8 @@ export function PrimitivesSection() {
               <Badge color="gray">Echipe</Badge>
               <Badge color="yellow">Cantitate</Badge>
               <Badge color="red">Penalizare</Badge>
+              <Badge color="violet">Cantitate · Manșa 2/3</Badge>
+              <Badge color="blue">Individual</Badge>
               <Badge color="indigo" icon={<FishIcon />}>
                 No-kill
               </Badge>

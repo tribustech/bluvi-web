@@ -4,6 +4,7 @@ import { ScaleIcon } from '@/components/icons/brand';
 import { FishLogo } from '@/components/nav/brand';
 import { DashboardSection } from '@/components/templates/T5';
 import { buttonClass } from '@/components/ui/Button';
+import { cn } from '@/components/ui/cn';
 import { ON_DARK_FOCUS } from './PartidaCta';
 import { AppleGlyph, GooglePlayGlyph } from './StoreGlyphs';
 
@@ -12,21 +13,21 @@ const APP_STORE = 'https://apps.apple.com/ro/app/bluvi-aplicatia-pescarilor/id67
 const PLAY_STORE = 'https://play.google.com/store/apps/details?id=com.tribustech.bluvi';
 
 /**
- * Desktop right column, «Ia Bluvi pe baltă» (design only — the app has no equivalent): what the
+ * From 1280, the main column's last block, beside the feedback card — «Ia Bluvi pe baltă» (design only — the app has no equivalent): what the
  * phone does that the web does not, and the two store links. The design's QR tile is a placeholder
  * and is left out until there is a real code to show; without it the design's stacked buttons
- * (a column beside the QR) would leave half the card empty, so from a 320px card (@xs: 1440, the
- * phone) they sit side by side. In the 264px column at 1280 they stack, one full-width row each:
- * a store name is never truncated. The feature bullets are UI glyphs: the 24 outline set at its own
+ * (a column beside the QR) would leave half the card empty, so from a 320px card (@xs) they sit
+ * side by side; a narrower card stacks them, one full-width row each: a store name is never
+ * truncated. The feature bullets are UI glyphs: the 24 outline set at its own
  * size (§05), the brand scale at the same 24.
  */
-export function AppPromo() {
+export function AppPromo({ className }: { className?: string }) {
   return (
     // The T5 card on its navy tone: white heading, lavender-3 for the secondary copy only.
     <DashboardSection
       variant="card"
       tone="navy"
-      className="@container"
+      className={cn('@container h-full flex flex-col [&>:last-child]:flex [&>:last-child]:flex-1 [&>:last-child]:flex-col', className)}
       title={
         <span className="flex items-center gap-3">
           <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-control bg-accent text-on-accent">
@@ -55,7 +56,7 @@ export function AppPromo() {
           Partide care merg și fără semnal
         </li>
       </ul>
-      <div className="mt-3.5 flex flex-col gap-2 @xs:flex-row">
+      <div className="mt-auto flex flex-col gap-2 pt-3.5 @xs:flex-row">
         <StoreLink href={APP_STORE} kicker="Descarcă din" store="App Store" glyph={<AppleGlyph className="size-4.5" />} />
         <StoreLink href={PLAY_STORE} kicker="Disponibil pe" store="Google Play" glyph={<GooglePlayGlyph className="size-4" />} />
       </div>

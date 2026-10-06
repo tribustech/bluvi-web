@@ -25,13 +25,28 @@ export interface DashboardLayoutProps {
    * copies form one group and the visible one loses its checked radio.
    */
   stacked?: ReactNode;
+  /**
+   * Without `stacked`, what the side columns do below 1280: `stack` (default) — context, main,
+   * aside in one column; `hidden` — only the main column shows, for a page whose main column
+   * already carries, below 1280, the side blocks it needs in its own order (Acasă). Prefer this
+   * to `stacked`: the big blocks (rails, lists) then exist once, and only the small side cards a
+   * phone shows inside the main column are written twice.
+   */
+  sidesBelowXl?: 'stack' | 'hidden';
+  /**
+   * Where the left (context) column starts: `xl` (default) — three columns from 1280; `2xl` — at
+   * 1280 centre · right only (the context column is display:none; the page repeats its blocks at
+   * the top of the right column, 2xl:hidden) and three columns from 1440. For a centre made of
+   * rails or grids that would drop to two cards in 1280's 608 (Acasă): it gets 872 there instead.
+   */
+  contextFrom?: 'xl' | '2xl';
   contextLabel?: string;
   asideLabel?: string;
   className?: string;
 }
 
 /**
- * T5 body. From 1280 (ROADMAP §4): three columns — context · content · «ce mă așteaptă» — the
+ * T5 body. From 1280 (ROADMAP §4): three columns (from 1440 with `contextFrom="2xl"`) — context · content · «ce mă așteaptă» — the
  * side columns sticky under the top bar, the centre fluid up to the shell's 1680. Below 1280 one
  * column: the `stacked` composition when given, else the columns in a row.
  */
@@ -40,21 +55,28 @@ export function DashboardLayout({
   context,
   aside,
   stacked,
+  sidesBelowXl = 'stack',
+  contextFrom = 'xl',
   contextLabel = 'Scurtături',
   asideLabel = 'Ce mă așteaptă',
   className,
 }: DashboardLayoutProps) {
-  const tracks = dashboardTracks(Boolean(context), Boolean(aside));
+  const tracks = dashboardTracks(Boolean(context), Boolean(aside), contextFrom);
+  const sides = sidesBelowXl === 'hidden' ? 'max-xl:hidden' : undefined;
+  // `2xl`: the context column is out of the layout (and the accessibility tree) at 1280 too.
+  const contextSides = contextFrom === '2xl' ? (sidesBelowXl === 'hidden' ? 'max-2xl:hidden' : 'xl:max-2xl:hidden') : sides;
   const columns = (
     <>
       {context ? (
-        <StickyColumn as="aside" label={contextLabel}>
+        <StickyColumn as="aside" label={contextLabel} className={contextSides}>
           {context}
         </StickyColumn>
       ) : null}
-      <div className="flex min-w-0 flex-col gap-4 md:gap-5 xl:gap-6">{main}</div>
+      {/* A size container: a block lays itself out by the room this column has (a pair of cards
+          side by side only once the column is wide enough), not by the window. */}
+      <div className="@container flex min-w-0 flex-col gap-4 md:gap-5 xl:gap-6">{main}</div>
       {aside ? (
-        <StickyColumn as="aside" label={asideLabel}>
+        <StickyColumn as="aside" label={asideLabel} className={sides}>
           {aside}
         </StickyColumn>
       ) : null}

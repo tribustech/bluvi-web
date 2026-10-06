@@ -1,6 +1,7 @@
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import { expect, test, type ConsoleMessage, type Locator, type Page, type Request } from '@playwright/test';
+import { ON_WEB } from '@/lib/routes';
 
 /*
  * Concurs · Clasament (/concursuri/[id], template T3) — parity inventory
@@ -25,8 +26,6 @@ const ID = {
   upcomingOwn: process.env.E2E_COMPETITION_UPCOMING_OWN ?? 'a6xjl65ooe9eadrtvvqj9hn1',
   /** started, no ranking rows. */
   liveEmpty: process.env.E2E_COMPETITION_LIVE_EMPTY ?? 'uql25w776iris1wqnsc20wyg',
-  /** completed feederRounds (core cannot parse the ranking type yet). */
-  feeder: process.env.E2E_COMPETITION_FEEDER ?? 'bi9ptgcag7nbakrglxh16vx4',
   quality: process.env.E2E_COMPETITION_QUALITY ?? 'k5c9427518736c92684018b9',
   quantityQuality: process.env.E2E_COMPETITION_QQ ?? 'k646t4o4x3wadzqxn1yqf49l',
   bestOf: process.env.E2E_COMPETITION_BESTOF ?? 'r4pofq9vbn7vufsw37wxrsu6',
@@ -174,15 +173,17 @@ test('shell.c4 — notStarted: the followers pill and the follow button, no Live
 });
 
 for (const vp of [PHONE, DESKTOP]) {
-  test(`shell.c6 — the followers list (${vp.width}px): title, «N urmăresc», rows to the angler page`, async ({ page }) => {
+  test(`shell.c6 — the followers list (${vp.width}px): title, «N urmăresc», rows (to the angler page once it ships)`, async ({ page }) => {
     await open(page, ID.live, vp);
     await settle(page); // hydrated: the pill's handler is attached
     await followersPill(page).click();
     const dialog = page.getByRole('dialog', { name: 'Urmăritori' });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText(/^\d+ urmăresc$/)).toBeVisible();
-    const first = dialog.getByRole('link').first();
-    await expect(first).toHaveAttribute('href', /^\/pescari\/[a-z0-9]+$/);
+    await expect(dialog.getByRole('listitem').first()).toBeVisible();
+    // /pescari/[id] is M2 (lib/routes.ts ON_WEB.angler): until then a row is the person, never a dead link.
+    if (ON_WEB.angler) await expect(dialog.getByRole('link').first()).toHaveAttribute('href', /^\/pescari\/[a-z0-9]+$/);
+    else await expect(dialog.locator('a[href^="/pescari/"]')).toHaveCount(0);
     await expectNoA11yViolations(page);
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
@@ -335,8 +336,13 @@ test('shell «unknown id» — the T3 not-found card, noindex', async ({ page })
 /* competition-page.clasament                                          */
 /* ------------------------------------------------------------------ */
 
+// Every ranking type of the local CMS now renders (feeder legs and the club rankings too:
+// concurs-clasamente.spec.ts); the unknown-type path (load.ts `unsupported`) has no local data —
+// verified in code. Set E2E_COMPETITION_UNKNOWN_TYPE to a competition of a newer type to run it.
+const UNKNOWN_TYPE = process.env.E2E_COMPETITION_UNKNOWN_TYPE;
 test('clasament.c2 — a ranking type the web cannot render says so instead of a table', async ({ page }) => {
-  await open(page, ID.feeder, DESKTOP);
+  test.skip(!UNKNOWN_TYPE, 'no local competition of a ranking type core does not know');
+  await open(page, UNKNOWN_TYPE!, DESKTOP);
   await expect(page.getByText('Clasamentul acestui tip de concurs nu este încă disponibil pe web.')).toBeVisible();
   await expect(page.getByRole('tablist', { name: 'Vederi clasament' })).toHaveCount(0);
 });

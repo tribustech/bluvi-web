@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import type { DraftCompetition, DraftMeta, OrganizerEditRiskCode } from '../schemas';
 import { htmlToStrapiBlocks, strapiBlocksToHtml } from './richText';
 

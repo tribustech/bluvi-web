@@ -1,13 +1,14 @@
 'use client';
 
-import { useRef } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useRef, type ReactNode } from 'react';
+import { PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ButtonLink } from '@/components/ui/Button';
 import { IconButton } from '@/components/nav/IconButton';
 import { RankingTable } from '@/components/ranking';
 import { useModalDialog } from '@/components/surfaces/useModalDialog';
 import { cn } from '@/components/ui/cn';
 import type { RankingTableData } from './ranking';
-import { GENERAL_TABLE_LAYOUT, RANKING_TABLE_FIXES, useTablePins } from './tableFixes';
+import { GENERAL_TABLE_LAYOUT, RANKING_TABLE_FIXES, STICKY_HEAD_DIALOG, numericShare, useTablePins } from './tableFixes';
 
 /**
  * fish «Vezi full» (/competitions/ranking-image: the whole table, every column) — on the web the
@@ -20,12 +21,27 @@ export function FullRankingDialog({
   open,
   onClose,
   title,
+  subtitle = 'Clasament complet',
   table,
+  imageHref,
+  onImage,
+  children,
 }: {
+  /**
+   * fish «Vezi full» opens the ranking IMAGE (competition-page.imagine-clasament): on the web the
+   * full table opens here, and «Imagine» goes on to the image of this same table.
+   */
+  imageHref?: string;
+  /** fish ranking_image_pressed. */
+  onImage?: () => void;
   open: boolean;
   onClose: () => void;
   title: string;
+  /** What the table is («Clasament complet», «Manșa 2», «Sector B»). */
+  subtitle?: string;
   table: RankingTableData | null;
+  /** A ranking the shared table does not draw (feeder legs, the club ranking): its own table. */
+  children?: ReactNode;
 }) {
   const dialog = useModalDialog(open, onClose);
   const hostRef = useRef<HTMLDivElement>(null);
@@ -45,19 +61,25 @@ export function FullRankingDialog({
           <h2 id="clasament-complet-titlu" className="truncate t-heading">
             {title}
           </h2>
-          <p className="t-caption text-muted">Clasament complet</p>
+          <p className="t-caption text-muted">{subtitle}</p>
         </div>
+        {imageHref ? (
+          <ButtonLink href={imageHref} variant="secondary" size="compact" icon={<PhotoIcon />} onClick={onImage} aria-label="Imagine clasament">
+            <span className="max-md:sr-only">Imagine clasament</span>
+          </ButtonLink>
+        ) : null}
         <IconButton aria-label="Închide" onClick={onClose}>
           <XMarkIcon aria-hidden />
         </IconButton>
       </div>
-      {open && table ? (
+      {open && children ? <div className="flex min-h-0 flex-1 flex-col p-3 md:p-6 [&>*]:max-h-full">{children}</div> : null}
+      {open && table && !children ? (
         <div
           ref={hostRef}
           data-wide={pins.wide ? 'true' : undefined}
           data-fade={pins.wide && pins.fade ? 'true' : undefined}
-          style={pins.style}
-          className={cn('min-h-0 flex-1 p-3 md:p-6', RANKING_TABLE_FIXES, GENERAL_TABLE_LAYOUT)}
+          style={{ ...numericShare(table?.columns ?? []), ...pins.style }}
+          className={cn('min-h-0 flex-1 p-3 md:p-6', RANKING_TABLE_FIXES, GENERAL_TABLE_LAYOUT, STICKY_HEAD_DIALOG)}
         >
           <RankingTable caption="Clasament complet" columns={table.columns} rows={table.rows} maxHeight="100%" />
         </div>

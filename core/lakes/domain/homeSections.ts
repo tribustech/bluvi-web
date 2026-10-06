@@ -130,3 +130,25 @@ const RECENT_VIEWED_LAKES_HOME_CARD_PRESENTATION: LakesHomeCardPresentation = {
 export function getLakesHomeCardPresentation(sectionKey: LakeHomeSectionKey | (string & {})): LakesHomeCardPresentation {
   return sectionKey === 'recent_viewed' ? RECENT_VIEWED_LAKES_HOME_CARD_PRESENTATION : DEFAULT_LAKES_HOME_CARD_PRESENTATION;
 }
+
+/**
+ * fish `app/(app)/(tabs)/lakes/index.tsx` — the /lakes/home answer split into the builder's inputs:
+ * the nearby row, the all-lakes row and the fixed rows in server order.
+ *
+ * fish bug: its `fixedSections` keeps `all_lakes` (it only drops `nearby`), so buildLakesHomeSections
+ * adds the all-lakes row twice — once in its own slot, again at its server position with whatever
+ * the earlier rows did not show (a duplicate list key). The web leaves `all_lakes` out of the fixed
+ * rows: it shows once, in its slot after the nearby row (parity lakes.home.c7).
+ */
+export function splitLakesHomeSections(homeSections: LakeHomeSection[]): {
+  nearbySection: NearbyLakeHomeSection | null;
+  allLakesSection: LakeHomeSection | null;
+  fixedSections: LakeHomeSection[];
+} {
+  const nearby = homeSections.find(section => section.key === 'nearby');
+  return {
+    nearbySection: nearby ? (nearby as NearbyLakeHomeSection) : null,
+    allLakesSection: homeSections.find(section => section.key === 'all_lakes') ?? null,
+    fixedSections: homeSections.filter(section => section.key !== 'nearby' && section.key !== 'all_lakes'),
+  };
+}

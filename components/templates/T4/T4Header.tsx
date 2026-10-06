@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { ChevronLeftIcon } from '@heroicons/react/24/outline';
-import { SHELL_GUTTERS, SHELL_MAX } from '@/components/nav/shell';
+import { FULL_BLEED_RULE, SHELL_GUTTERS, SHELL_MAX } from '@/components/nav/shell';
 import { headerChipClass } from '@/components/templates/T3/DetailHeader';
 import { cn } from '@/components/ui/cn';
 import { T4_HEADER_TOP, type T4Offset } from './T4Frame';
@@ -101,7 +101,17 @@ export function T4Header({
   const lineClass = progress && !status && !reserveStatus ? 'hidden md:flex' : 'flex';
   return (
     <header
-      className={cn('z-sticky border-b border-hairline bg-surface', 'sticky xl:static', T4_HEADER_TOP[offset], className)}
+      // Full bleed wherever it is rendered (inside the shell's <main>, whose column stops at
+      // SHELL_MAX): its white and hairline are pseudo-elements run edge to edge (nav/shell.tsx
+      // FULL_BLEED_BG / _RULE, without their `relative`: the header is sticky, or relative from 1280).
+      className={cn(
+        'isolate z-sticky',
+        "before:absolute before:inset-y-0 before:-inset-x-[100vmax] before:z-behind before:bg-surface before:content-['']",
+        FULL_BLEED_RULE,
+        'sticky xl:relative xl:top-0',
+        T4_HEADER_TOP[offset],
+        className,
+      )}
     >
       <div className={cn('mx-auto pt-2 pb-3 md:pt-4 md:pb-4 xl:py-6', SHELL_MAX, SHELL_GUTTERS)}>
         <div className="flex items-center gap-3 xl:gap-4">

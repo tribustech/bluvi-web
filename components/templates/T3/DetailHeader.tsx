@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { ICON_BUTTON_SIZE } from '@/components/nav/IconButton';
 import { cn } from '@/components/ui/cn';
 
@@ -108,23 +108,31 @@ export function DetailHeader({
           ) : null}
         </div>
         {items.length ? (
-          <ul
-            className={cn(
-              'flex t-caption text-muted',
-              centred
-                ? 'flex-col items-center gap-0.5 md:flex-row md:flex-wrap md:items-center md:gap-x-2.5 md:gap-y-1'
-                : 'flex-wrap items-center gap-x-2.5 gap-y-1',
-            )}
-          >
-            {items.map((item, i) => (
-              <Fragment key={i}>
-                {i > 0 ? (
-                  <li aria-hidden className={cn('size-0.75 shrink-0 rounded-full bg-faint', centred && 'max-md:hidden')} />
-                ) : null}
-                <li className="inline-flex min-w-0 items-center gap-1">{item}</li>
-              </Fragment>
-            ))}
-          </ul>
+          // The dot belongs to the item after it (its ::before), and every line's leading dot falls in
+          // the list's clipped negative start margin (13 = the dot's 3 + its 10 gap): a wrapped line
+          // never ends or starts on a lone dot. Stacked and centred on the phone: no dots.
+          <div className={cn('overflow-x-clip [overflow-clip-margin:--spacing(1)]', centred && 'max-md:overflow-x-visible')}>
+            <ul
+              className={cn(
+                'flex t-caption text-muted',
+                centred
+                  ? 'flex-col items-center gap-0.5 md:-ml-3.25 md:flex-row md:flex-wrap md:items-center md:gap-x-2.5 md:gap-y-1'
+                  : '-ml-3.25 flex-wrap items-center gap-x-2.5 gap-y-1',
+              )}
+            >
+              {items.map((item, i) => (
+                <li
+                  key={i}
+                  className={cn(
+                    "inline-flex min-w-0 items-center gap-1 before:mr-1.5 before:size-0.75 before:shrink-0 before:rounded-full before:bg-faint before:content-['']",
+                    centred && 'max-md:before:hidden',
+                  )}
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
         {badges ? (
           <div className={cn('mt-2 flex flex-wrap items-center gap-1 md:mt-1.5', centred && 'max-md:justify-center', badgesFromMd && 'max-md:hidden')}>

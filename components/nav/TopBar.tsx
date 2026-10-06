@@ -14,6 +14,7 @@ import {
   UserIcon,
 } from '@heroicons/react/24/outline';
 import { Avatar } from '@/components/ui/Avatar';
+import { FishLogo } from './brand';
 import { ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { LogoHorizontal } from './brand';
@@ -50,6 +51,12 @@ type Props = {
    */
   activeCurrent?: 'page' | 'true';
   admin?: AdminLink[];
+  /**
+   * The viewer's lakes could not be read: Administrare stays (even with no other entry) and ends in
+   * a «Nu am putut încărca bălțile tale · Reîncearcă» row that calls this — «not an operator» and
+   * «could not check» never look the same.
+   */
+  onAdminRetry?: () => void;
   hasUnread?: boolean;
   onSearch?: () => void;
   onMenu?: () => void;
@@ -117,6 +124,9 @@ const NAV_ACTIVE =
 /** Dropdown and phone-menu rows share one icon size: outline 24 (Fundații §05). */
 const MENU_ICON = 'size-6 shrink-0 text-ink-2';
 
+/** The Administrare row when the viewer's lakes could not be read (onAdminRetry). */
+const ADMIN_RETRY_LABEL = 'Nu am putut încărca bălțile tale · Reîncearcă';
+
 /**
  * The top bar — the only navigation, at every width (ROADMAP §4, owner decision 2026-10-04).
  * - <768: logo · search · bell (signed in) · avatar or «Intră» · ☰ (opens the menu panel).
@@ -136,6 +146,7 @@ export function TopBar({
   active,
   activeCurrent = 'page',
   admin = [],
+  onAdminRetry,
   hasUnread = false,
   onSearch,
   onMenu,
@@ -193,7 +204,7 @@ export function TopBar({
                 </li>
               );
             })}
-            {admin.length > 0 ? (
+            {admin.length > 0 || onAdminRetry ? (
               <li>
                 <MenuButton
                   label="Administrare"
@@ -216,15 +227,28 @@ export function TopBar({
                     // Active keeps its accent text and bar while open; an inactive trigger turns ink.
                     adminActive ? NAV_ACTIVE : cn(NAV_IDLE, 'aria-expanded:text-ink'),
                   )}
-                  entries={admin.map((a) => ({
-                    kind: 'link',
-                    key: a.key,
-                    label: a.label,
-                    caption: a.caption,
-                    href: a.href,
-                    current: a.key === active ? activeCurrent : undefined,
-                    icon: a.Icon ? <a.Icon className={MENU_ICON} aria-hidden /> : undefined,
-                  }))}
+                  entries={[
+                    ...admin.map((a): MenuEntry => ({
+                      kind: 'link',
+                      key: a.key,
+                      label: a.label,
+                      caption: a.caption,
+                      href: a.href,
+                      current: a.key === active ? activeCurrent : undefined,
+                      icon: a.Icon ? <a.Icon className={MENU_ICON} aria-hidden /> : undefined,
+                    })),
+                    ...(onAdminRetry
+                      ? [
+                          {
+                            kind: 'action',
+                            key: 'admin-retry',
+                            label: ADMIN_RETRY_LABEL,
+                            onSelect: onAdminRetry,
+                            icon: <ArrowPathIcon className={MENU_ICON} aria-hidden />,
+                          } satisfies MenuEntry,
+                        ]
+                      : []),
+                  ]}
                 />
               </li>
             ) : null}
@@ -485,9 +509,10 @@ function AccountSlot({
         ] satisfies MenuEntry[])
       : []),
   ];
-  // On /profil and /setari the avatar carries the active state: an accent ring round the 32px
-  // avatar (the trigger's 4px inset is the gap) and the same «current page inside» name as Administrare.
-  const accountActive = active === 'profil' || active === 'setari';
+  // The avatar is fish's Profil tab: its accent ring (round the 32px avatar, the trigger's 4px
+  // inset is the gap) and the «current page inside» name show on /profil only (parity
+  // global.shell.c7). /setari is marked by its own menu row («current»), never by the ring.
+  const accountActive = active === 'profil';
   // «Ieși din cont» is on its way: the trigger stays mounted (focus stays on it) but is busy — no
   // menu, a spinner in place of the avatar; SiteTopBar announces it in its polite status.
   return (
@@ -504,7 +529,7 @@ function AccountSlot({
       // lines up with the row icons below it.
       header={
         <div className="flex items-center gap-2.5">
-          <Avatar name={viewer.name} src={viewer.avatarUrl} size={40} tone="indigo" />
+          <AccountAvatar name={viewer.name} src={viewer.avatarUrl} size={40} />
           <div className="flex min-w-0 flex-col">
             <p className="t-body-strong truncate text-ink">{viewer.name}</p>
             <p className="t-caption truncate text-muted">{roleCaption(admin)}</p>
@@ -517,7 +542,7 @@ function AccountSlot({
             <ArrowPathIcon className="size-6 animate-spin" aria-hidden />
           </span>
         ) : (
-          <Avatar name={viewer.name} src={viewer.avatarUrl} size={32} tone="indigo" />
+          <AccountAvatar name={viewer.name} src={viewer.avatarUrl} size={32} />
         )
       }
       triggerClassName={cn(
@@ -528,5 +553,18 @@ function AccountSlot({
       )}
       entries={entries}
     />
+  );
+}
+
+/**
+ * The account's picture: the profile photo, or — without one — the round Bluvi mark, as fish's
+ * Profil tab draws it (global.shell.c6), never initials on a colour disc.
+ */
+function AccountAvatar({ name, src, size }: { name: string; src?: string | null; size: 32 | 40 }) {
+  if (src) return <Avatar name={name} src={src} size={size} tone="indigo" />;
+  return (
+    <span aria-hidden className={cn('flex shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent', size === 40 ? 'size-10' : 'size-8')}>
+      <FishLogo className={size === 40 ? 'size-6' : 'size-5'} />
+    </span>
   );
 }

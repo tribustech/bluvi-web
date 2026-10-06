@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { COLUMN_CARD, ColumnHeader, TextAction } from './ColumnCard';
 import { FOCUS_RING, PILL_H } from './toolbarStyles';
+import { RING_SELECTED_CHECKED } from '../rings';
 
 /*
  * The filter UI of T1. One set of sections, two hosts:
@@ -223,7 +224,7 @@ export function ChoiceChips<V extends string>({
                     'bg-soft-fill text-ink-2 hover:text-ink',
                     // TODO(kit): a `--shadow-selected` token in globals.css (shared with every selected
                     // pill), then `has-checked:shadow-selected` — globals.css is outside this task.
-                    'has-checked:bg-accent-tint has-checked:text-accent-ink has-checked:shadow-[inset_0_0_0_1.5px_var(--color-accent)]',
+                    'has-checked:bg-accent-tint has-checked:text-accent-ink', RING_SELECTED_CHECKED,
                   ),
             )}
           >

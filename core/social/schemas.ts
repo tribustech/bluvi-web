@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { imageFormatsSchema, paginatedSchema, paginationMetaSchema, strapiImageSchema } from '../shared';
 
 // ── Anglers (fish `models/angler.type.ts`, CMS `api/follow/services/dto/*`) ───────────────────────

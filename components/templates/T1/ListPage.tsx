@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { SHELL_GUTTERS } from '@/components/nav/shell';
 import { cn } from '@/components/ui/cn';
 import { LIST_GUTTER } from './ListBody';
+import { TRACK_GAP, TRACKS } from '../tracks';
 
 /**
  * T1 «Listă cu filtre» — the page frame (ROADMAP §4). Used by Concursuri, Știri, Pescari,
@@ -28,11 +29,12 @@ import { LIST_GUTTER } from './ListBody';
  *
  * Widths (owner decision 2026-10-04): full width with the shell gutters, the content column grows;
  * the card grid inside it auto-fills (ListGrid) so a wide screen gets more columns, never wider
- * cards. The side columns stay narrow — filters 240 (60) in every combination, aside 288 (72), 24
- * gaps — so the centre keeps two 240px cards at 1280 and three at 1440 (pass ListGrid min="sm"):
- * a wider screen never shows fewer columns. A poster list whose pages would end on a lone card at
- * 1280 (two columns in the ~640 centre) takes `asideFrom="2xl"`: three columns from 1280. `asideFrom="2xl"` is the opt-in for a page whose
- * centre needs the width more than the aside needs to be seen (it then docks from 1440 only).
+ * cards. The side columns are the shared template tracks (../tracks.ts): filters 240 → 256 from
+ * 1440, aside 320 → 360, 24 gaps — so the centre holds two 240px cards (ListGrid min="sm") at
+ * 1280 (608) and at 1440 (712), three once it reaches 752 (a ~1480 window). A poster list whose pages would end on a lone card at
+ * 1280 (two columns in the 608 centre) takes `asideFrom="2xl"`: the aside docks from 1440 only, on
+ * the late 320 track (TRACKS.*ThenRight), so the centre is 952 at 1280 and 752 at 1440 — three
+ * posters at both, a wider screen never shows fewer columns.
  */
 /** The aside's inline grid below the dock: two blocks share a row from 768, a lone block spans it. */
 export const ASIDE_INLINE = 'grid gap-4 md:grid-cols-2 md:[&>:only-child]:col-span-2';
@@ -81,14 +83,16 @@ export function ListPage({
         className={cn(
           'mt-4 md:mt-5 xl:mt-6',
           'xl:grid xl:items-start',
-          // ONE filter track (240) and ONE gap (24) whatever the aside does: the column never changes
-          // width when the aside lands, empties or retries, so the centre and its cards never reflow
-          // sideways. A pending aside is a skeleton (AsideSkeleton), never undefined, for the same reason.
-          hasFilters && hasAside && xl && 'xl:grid-cols-[--spacing(60)_minmax(0,1fr)_--spacing(72)] xl:gap-6',
-          hasFilters && hasAside && !xl && 'xl:grid-cols-[--spacing(60)_minmax(0,1fr)] xl:gap-6 2xl:grid-cols-[--spacing(60)_minmax(0,1fr)_--spacing(72)]',
-          hasFilters && !hasAside && 'xl:grid-cols-[--spacing(60)_minmax(0,1fr)] xl:gap-6',
-          !hasFilters && hasAside && xl && 'xl:grid-cols-[minmax(0,1fr)_--spacing(80)] xl:gap-8',
-          !hasFilters && hasAside && !xl && 'xl:grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_--spacing(80)] 2xl:gap-8',
+          // ONE filter track and ONE gap whatever the aside does: the column never changes width when
+          // the aside lands, empties or retries, so the centre and its cards never reflow sideways. A
+          // pending aside is a skeleton (AsideSkeleton), never undefined, for the same reason.
+          // The shared template tracks (../tracks.ts: 240 / 256 · 1fr · 320 / 360, 24 apart).
+          (hasFilters || hasAside) && TRACK_GAP,
+          hasFilters && hasAside && xl && TRACKS.three,
+          hasFilters && hasAside && !xl && TRACKS.leftMainThenRight,
+          hasFilters && !hasAside && TRACKS.leftMain,
+          !hasFilters && hasAside && xl && TRACKS.mainRight,
+          !hasFilters && hasAside && !xl && TRACKS.mainThenRight,
         )}
       >
         {hasFilters ? (

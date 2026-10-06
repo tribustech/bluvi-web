@@ -1,5 +1,5 @@
 import qs from 'qs';
-import { z } from 'zod';
+import * as z from 'zod';
 import type { PaginationParams } from '../shared';
 import { call, callVoid, isApiError, parseResponse, type Transport } from '../transport';
 import type { CompetitionCardsScope, CompetitionFilterValues, CompetitionSort, CompetitionsCommittedSearch } from './domain/filters';

@@ -31,6 +31,13 @@ import {
   getSponsors,
   getStandStatsByLakeId,
   updateCompetitionNotificationPreferences,
+  feederGeneralModel,
+  feederLegModel,
+  feederTabCount,
+  isNationalChampionshipRankings,
+  ncGeneralModel,
+  ncSectorRows,
+  type FeederRoundsRanking,
   type CompetitionCatchesSort,
   type CompetitionListItem,
   type CompetitionStatus,
@@ -147,6 +154,23 @@ describe('competitions — Competiții cards', () => {
       const groups = await getCompetitionSuggestions(t, '');
       expect(Array.isArray(groups)).toBe(true);
       await getCompetitionSuggestions(t, 'cupa');
+      // competitions-list.results.c11: a lake / organizer pick narrows the cards by documentId, with
+      // every filter the sheet sends (a county from the explore suggestions, a custom range).
+      const lake = groups.flatMap(g => g.items).find(s => s.type === 'lake');
+      const organizer = groups.flatMap(g => g.items).find(s => s.type === 'organizer');
+      for (const pick of [lake, organizer]) {
+        if (!pick) continue;
+        const search = { type: pick.type as 'lake' | 'organizer', value: pick.value, label: pick.title };
+        const page = await getCompetitionCards(t, { ...base, scope: 'all', search });
+        expect(page.meta.pagination.total).toBeGreaterThan(0);
+        await getCompetitionCards(t, {
+          ...base,
+          scope: 'all',
+          search,
+          status: 'notStarted',
+          filters: { period: '2026-01-01..2026-12-31', format: 'single', availableOnly: true, countyId: 'none', countyName: null },
+        });
+      }
       await getFeaturedCompetition(t);
       // The server draws one of ten criteria per request: sample several to cover more shapes.
       for (let i = 0; i < 5; i++) await getPulsePerson(t);
@@ -166,6 +190,31 @@ describe('competitions — rankings', () => {
     // The local DB carries every ranking type the table builders dispatch on.
     expect(types.size).toBeGreaterThan(3);
     await getRankings(user, ranked()[0].documentId);
+  });
+
+  it('feeds the feeder-legs and club (NC / FIPSed) rankings into their view models', async () => {
+    let feeder = 0;
+    let clubs = 0;
+    for (const c of ranked()) {
+      const r = await getRankings(guest, c.documentId);
+      if (r.metadata.rankingType === 'feederRounds') {
+        const rows = r.rankings as FeederRoundsRanking[];
+        const legs = feederTabCount(rows, r.metadata.roundsCount);
+        expect(feederGeneralModel(rows, legs).rows).toHaveLength(rows.length);
+        for (let leg = 1; leg <= legs; leg++) {
+          const { sections } = feederLegModel(rows, leg);
+          expect(sections.reduce((n, s) => n + s.rows.length, 0)).toBe(rows.length);
+        }
+        feeder++;
+      } else if (isNationalChampionshipRankings(r.rankings)) {
+        expect(ncGeneralModel(r.rankings, r.metadata.numberOfSectors)).toHaveLength(r.rankings.length);
+        for (const sectorId of new Set(r.rankings.flatMap(club => club.teams.map(t => t.sectorId)))) {
+          expect(ncSectorRows(r.rankings, sectorId, 'position').length).toBeGreaterThan(0);
+        }
+        clubs++;
+      }
+    }
+    expect(feeder + clubs).toBeGreaterThan(0);
   });
 
   it('reads best-N, catches (every sort and filter), weighing stats and thresholds', async () => {

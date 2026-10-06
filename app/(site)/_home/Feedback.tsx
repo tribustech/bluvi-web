@@ -11,38 +11,33 @@ import { DashboardSection } from '@/components/templates/T5';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { useSiteToast } from '../_shell/Toast';
-import { useViewer } from '../_shell/viewer-context';
+import { useViewerState } from '../_shell/viewer-context';
 import { homeLinks } from './links';
 
 /**
  * fish components/FeedbackSection.tsx — «Sugestii sau întrebări?» opens the feedback form
  * (FeedbackSheet). The emoji of the app copy and rating scale are dropped (Fundații: no emoji).
- * The T5 card at every width (fish's whole-card press becomes the card's one button); the desktop
- * right column takes the short copy (design).
+ * The T5 card at every width (fish's whole-card press becomes the card's one button), fish's copy,
+ * one instance on Acasă — it lays itself out by its own width (a size container): the button
+ * fills a phone-narrow card, sits beside the copy from a 576px card, under it in between.
  */
-export function FeedbackSection({ layout }: { layout: 'mobile' | 'desktop' }) {
+export function FeedbackSection({ className }: { className?: string }) {
   const [open, setOpen] = useState(false);
-  const desktop = layout === 'desktop';
   return (
     <>
-      {/* Desktop: beside the app promo in one grid row, the card stretches to the row's height and
-          the button sits at the bottom (mt-auto), on the store buttons' line. */}
-      <DashboardSection
-        variant="card"
-        title="Sugestii sau întrebări?"
-        className={desktop ? 'flex h-full flex-col *:last:flex *:last:flex-1 *:last:flex-col' : undefined}
-      >
-        {/* The button fills the phone's card; from 768 it keeps its own width — beside the copy in
-            the wide stacked column, under it in the narrow desktop column. Never a field-wide bar. */}
-        <div className={cn('flex flex-col gap-3', desktop ? 'flex-1' : 'md:flex-row md:items-center md:justify-between md:gap-6')}>
-          <p className="t-body text-muted">
-            {desktop
-              ? 'Ai întâmpinat o problemă sau ai o idee? Scrie-ne aici.'
-              : 'În caz că ai întâmpinat probleme, ai o idee nouă sau doar vrei să lași un mesaj echipei, scrie-ne aici.'}
-          </p>
-          <Button variant="secondary" className={cn('shrink-0', desktop ? 'mt-auto self-start' : 'w-full md:w-auto')} onClick={() => setOpen(true)} aria-haspopup="dialog">
-            Scrie-ne
-          </Button>
+      {/* Fills the height its row gives it (beside the app promo from 1280): the button sits on
+          the card's bottom edge, on the promo's store buttons' line. */}
+      <DashboardSection variant="card" title="Sugestii sau întrebări?" className={cn('h-full flex flex-col [&>:last-child]:flex [&>:last-child]:flex-1 [&>:last-child]:flex-col', className)}>
+        <div className="@container flex flex-1 flex-col">
+          {/* Never a field-wide bar beside the copy: its own width once the card has room. */}
+          <div className="flex flex-1 flex-col gap-3 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6">
+            <p className="t-body text-muted">
+              În caz că ai întâmpinat probleme, ai o idee nouă sau doar vrei să lași un mesaj echipei, scrie-ne aici.
+            </p>
+            <Button variant="secondary" className="mt-auto w-full shrink-0 @sm:w-auto @sm:self-start @xl:mt-0 @xl:self-auto" onClick={() => setOpen(true)} aria-haspopup="dialog">
+              Scrie-ne
+            </Button>
+          </div>
         </div>
       </DashboardSection>
       {open ? (
@@ -73,7 +68,9 @@ const CATEGORIES: { value: FeedbackCategory; label: string }[] = [
  * success toast; a failure keeps it open with fish's error toast.
  */
 function FeedbackDialog({ onClose }: { onClose: () => void }) {
-  const viewer = useViewer();
+  // Only a known signed-out visitor is asked to sign in. An unknown session (a cookie whose read
+  // failed) gets the form: the POST carries the cookie, and a dead one answers with the error toast.
+  const signedOut = useViewerState() === null;
   const toast = useSiteToast();
   const t = useMemo(() => createBrowserTransport(), []);
   const send = useMutation(sendFeedbackMutation(t));
@@ -119,7 +116,7 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
       intent="decision"
       title="Lasă-ne feedback"
       actions={
-        !viewer ? (
+        signedOut ? (
           <ButtonLink href={homeLinks.signIn} block>
             Intră în cont
           </ButtonLink>
@@ -135,7 +132,7 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
         )
       }
     >
-      {!viewer ? (
+      {signedOut ? (
         <p className="t-body text-ink-2">Intră în contul tău ca să ne poți trimite feedback.</p>
       ) : (
         <form

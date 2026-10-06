@@ -1,6 +1,4 @@
-import Link from 'next/link';
-import { SHELL_GUTTERS, SHELL_MAX } from '@/components/nav/shell';
-import { cn } from '@/components/ui/cn';
+import { DemoStateBar } from '@/components/templates/DemoStateBar';
 
 export const DEMO_PATH = '/dev/templates/t1';
 
@@ -46,29 +44,20 @@ export function parseDemoState(value: string | string[] | undefined): DemoState 
   return DEMO_STATES.some((s) => s.key === v) ? (v as DemoState) : 'live';
 }
 
-/** Dev-only band under the top bar: jumps between the template's states. */
+/** Dev-only band under the top bar: jumps between the template's states (the shared DemoStateBar). */
 export function StateSwitcher({ current }: { current?: DemoState }) {
   return (
-    <nav aria-label="Stări demonstrație T1" className="border-b border-hairline bg-soft-fill">
-      <div className={cn('mx-auto flex items-center gap-3 py-2', SHELL_MAX, SHELL_GUTTERS)}>
-        <span className="t-label shrink-0 text-muted">T1 · stare</span>
-        <ul className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {DEMO_STATES.map((s) => (
-            <li key={s.key} className="shrink-0">
-              <Link
-                href={s.key === 'live' ? DEMO_PATH : `${DEMO_PATH}?state=${s.key}`}
-                aria-current={s.key === current ? 'page' : undefined}
-                className={cn(
-                  'flex h-8 items-center rounded-full px-3 t-label whitespace-nowrap',
-                  s.key === current ? 'bg-navy text-lavender' : 'bg-surface text-ink-2 shadow-e0 hover:text-ink',
-                )}
-              >
-                {s.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </nav>
+    <DemoStateBar
+      label="Stări demonstrație T1"
+      title="T1 · stare"
+      groups={[
+        DEMO_STATES.map((s) => ({
+          key: s.key,
+          label: s.label,
+          href: s.key === 'live' ? DEMO_PATH : `${DEMO_PATH}?state=${s.key}`,
+          current: s.key === current,
+        })),
+      ]}
+    />
   );
 }

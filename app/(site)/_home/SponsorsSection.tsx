@@ -47,10 +47,11 @@ const FILL_MIN = 4 / 3;
 const FILL_MAX = 2;
 
 /**
- * One tile, the CardShell interaction (e2 lift on hover, .7 pressed). Landscape artwork (its ratio
- * known once it loads) fills the frame edge to edge. A square or tall logo sits centred with air
- * around it (`contain`, p-6) on the soft fill, so a logo with its own white card floats inside a
- * visible tile instead of reading as a card in a card.
+ * One tile, the CardShell interaction (e2 lift on hover, .7 pressed), on the surface with the e0
+ * hairline at every width. Landscape artwork (its ratio known once it loads) fills the frame edge
+ * to edge. A square or tall logo sits centred with air around it (`contain`, p-6) on the same
+ * white: most logos ship on their own opaque white, which then melts into the tile instead of
+ * reading as a white card inside a tinted one.
  */
 function SponsorTile({ sponsor: s }: { sponsor: Sponsor }) {
   const src = s.image?.smallUrl ?? s.image?.url ?? null;
@@ -59,8 +60,7 @@ function SponsorTile({ sponsor: s }: { sponsor: Sponsor }) {
     <Link
       href={homeLinks.sponsor(s.documentId)}
       className={cn(
-        'relative flex aspect-8/5 w-full items-center justify-center overflow-hidden rounded-card shadow-e0 transition-[box-shadow,opacity] duration-(--duration-fast) ease-fast hover:shadow-[var(--shadow-e2),var(--shadow-e0)] active:opacity-70',
-        src && !fills ? 'bg-soft-fill' : 'bg-surface'
+        'relative flex aspect-8/5 w-full items-center justify-center overflow-hidden rounded-card bg-surface shadow-e0 transition-[box-shadow,opacity] duration-(--duration-fast) ease-fast hover:shadow-[var(--shadow-e2),var(--shadow-e0)] active:opacity-70'
       )}
     >
       {src ? (

@@ -40,6 +40,12 @@ export type DetailPageProps = {
   children: ReactNode;
 };
 
+/**
+ * A sticky tab band: under the 64px top bar from 768 (above the page's content, below the bar's
+ * menus; the bar comes first in the DOM, so at the same z-index it stays on top).
+ */
+const DETAIL_TABS_STICKY = 'md:sticky md:top-16 md:z-sticky';
+
 /** The page frame. It must be the parent of the sticky nav, so the nav sticks for the whole page. */
 export function DetailPage({ phoneGround = 'page', className, children }: DetailPageProps) {
   return (
@@ -52,6 +58,12 @@ export function DetailPage({ phoneGround = 'page', className, children }: Detail
 export type DetailBandProps = {
   /** Hairline under the band (off when a nav right below draws its own). */
   hairline?: boolean;
+  /**
+   * From 768 the band sticks under the top bar (64) — for a band holding only <DetailTabs>, so the
+   * route tabs stay in reach under a long table (parity competition-page.shell.c19). Not on the
+   * phone, where the top bar hides on scroll down and the tabs are part of the header.
+   */
+  sticky?: boolean;
   className?: string;
   children: ReactNode;
 };
@@ -62,9 +74,11 @@ export type DetailBandProps = {
  * child can move itself with `order`: the photo hero comes first in the DOM (it leads on the
  * phone, Tab order included) and takes `md:order-1` to sit under the title from 768.
  */
-export function DetailBand({ hairline = true, className, children }: DetailBandProps) {
+export function DetailBand({ hairline = true, sticky = false, className, children }: DetailBandProps) {
   return (
-    <div className={cn('flex flex-col', FULL_BLEED_SURFACE, hairline && FULL_BLEED_HAIRLINE, className)}>
+    <div
+      className={cn('flex flex-col', FULL_BLEED_SURFACE, hairline && FULL_BLEED_HAIRLINE, sticky && DETAIL_TABS_STICKY, className)}
+    >
       {children}
     </div>
   );

@@ -38,6 +38,8 @@ import {
   raffleParticipationQuery,
   weighingKeys,
   weighingRevisionsQuery,
+  weighingsQuery,
+  weighingsTotalQuery,
 } from './queries';
 
 const file = () => ({ blob: new Blob(['x'], { type: 'image/jpeg' }), filename: 'a.jpg' });
@@ -116,6 +118,7 @@ const cases: Case[] = [
   // weighing.ts
   { name: 'getWeighingsSummary', run: t => api.getWeighingsSummary(t, C), response: { data: [{ standId: 's1', totalKg: 108.6, regularCount: 5, extraCount: 0 }] }, expect: { path: `/competitions/${C}/weighings-summary`, auth: 'optional' } },
   { name: 'getWeighings', run: t => api.getWeighings(t, C, 's1'), response: { data: [weighingByStand] }, expect: { path: '/feed/weighings/by-stand', query: { competitionId: C, standId: 's1' }, auth: 'none' } },
+  { name: 'getWeighings (feeder leg)', run: t => api.getWeighings(t, C, 's1', 2), response: { data: [weighingByStand] }, expect: { path: '/feed/weighings/by-stand', query: { competitionId: C, standId: 's1', round: 2 }, auth: 'none' } },
   { name: 'getWeightingsTotal', run: t => api.getWeightingsTotal(t, C, 's1'), response: { data: [weighingByStand, weighingByStand] }, expect: { path: '/feed/weighings/by-stand' }, result: '39.200' },
   { name: 'getWeighingById', run: t => api.getWeighingById(t, W), response: weighingDetail, expect: { path: `/feed/weighings/${W}`, auth: 'none' } },
   {
@@ -226,6 +229,16 @@ describe('organizer queries', () => {
     expect(competitionManagementKeys.activeWeighingById('c')).toEqual(['competitions', 'c', 'active-weighing']);
     expect(competitionManagementKeys.extraScalesList('c')).toEqual(['competition', 'c', 'extra-scales-list']);
     expect(raffleKeys.participation).toEqual(['raffle', 'participation']);
+  });
+
+  it('scopes a feeder stand\'s weighings to the leg (fish useWeighings / useWeighingsTotal)', () => {
+    expect(weighingsQuery(t, 'c', 's').queryKey).toEqual(weighingKeys.byCompetitionIdAndStandId('c', 's'));
+    expect(weighingsQuery(t, 'c', 's', { round: 2 }).queryKey).toEqual([...weighingKeys.byCompetitionIdAndStandId('c', 's'), { round: 2 }]);
+    expect(weighingsQuery(t, 'c', 's', { enabled: false }).enabled).toBe(false);
+    expect(weighingsTotalQuery(t, 'c', 's', { round: 1 }).queryKey).toEqual([
+      ...weighingKeys.totalWeightByCompetitionIdAndStandId('c', 's'),
+      { round: 1 },
+    ]);
   });
 
   it('gates organizer queries on the role', () => {

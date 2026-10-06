@@ -6,7 +6,7 @@ import type { LakeCard, LakeCardListResponse } from '@/core/lakes';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { HomeLakeCard, LAKE_CARD_HEIGHT } from './HomeLakeCard';
-import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem } from './HorizontalRail';
+import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem, useRailRead } from './HorizontalRail';
 import { RailEmpty, RailSection, RailSkeleton } from './RailSection';
 import { homeLakesQuery } from './queries';
 
@@ -40,17 +40,18 @@ export function LakesSection({ initial }: { initial?: { pages: LakeCardListRespo
     const key = homeLakesQuery(t).queryKey;
     if (qc.getQueryData(key) === undefined) qc.setQueryData(key, placeholder, { updatedAt: 0 });
   }, [qc, t, placeholder]);
-  const lakes = useMemo(() => q.data?.pages.flatMap((p) => p.data) ?? [], [q.data]);
+  const read = useRailRead(q);
+  const lakes = useMemo(() => read.pages?.flatMap((p) => p.data) ?? [], [read.pages]);
   return (
     <LakesView
       lakes={lakes}
-      total={q.data?.pages[0]?.meta.pagination.total}
+      total={read.pages?.[0]?.meta.pagination.total}
       loading={q.isLoading}
       onEndReached={() => {
         if (q.hasNextPage && !q.isFetchingNextPage && !q.isFetchNextPageError) void q.fetchNextPage();
       }}
-      fetchingNext={q.isFetchingNextPage}
-      nextError={q.isFetchNextPageError}
+      fetchingNext={read.fetchingNext}
+      nextError={read.nextError}
       onRetryNext={() => void q.fetchNextPage()}
     />
   );

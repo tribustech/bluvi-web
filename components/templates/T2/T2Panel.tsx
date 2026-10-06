@@ -5,6 +5,7 @@ import { Sheet } from '@/components/surfaces/Sheet';
 import { SidePanel } from '@/components/surfaces/SidePanel';
 import { cn } from '@/components/ui/cn';
 import { useT2Frame } from './context';
+import { SHELL_EDGE_LEFT } from '@/components/nav/shell';
 
 export type T2PanelProps = {
   open: boolean;
@@ -112,9 +113,9 @@ function DockedPanel({ onClose, title, subtitle, children, footer }: T2PanelProp
     <div
       ref={ref}
       // Left: the column's edge, or the shell column's edge once the window is wider than the shell
-      // (T2Layout ALIGN_LEFT less its 32px gutter). Below 1280 the box is the column (360px), so
+      // (nav/shell.tsx SHELL_EDGE_LEFT: ALIGN_LEFT less its 32px gutter). Below 1280 the box is the column (360px), so
       // SidePanel's max-w-full keeps it inside; from 1280 the column is wider and it is 420.
-      className="absolute inset-y-0 right-0 left-0 z-above flex xl:right-auto xl:left-[max(0px,calc((100vw_-_var(--spacing)*436)/2))] [&_h2]:outline-none"
+      className={cn('absolute inset-y-0 right-0 left-0 z-above flex xl:right-auto [&_h2]:outline-none', SHELL_EDGE_LEFT)}
     >
       <SidePanel title={title} subtitle={subtitle} onClose={onClose} footer={footer} className="h-full">
         {children}

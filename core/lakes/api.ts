@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { dataSchema } from '../shared';
 import { call, type Transport } from '../transport';
 import {

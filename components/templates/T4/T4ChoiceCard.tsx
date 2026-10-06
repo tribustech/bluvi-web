@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { CheckIcon } from '@heroicons/react/20/solid';
 import { cn } from '@/components/ui/cn';
+import { RING_DANGER, RING_SELECTED } from '../rings';
 
 type Layout = 'row' | 'stack' | 'tile' | 'tile-row';
 
@@ -105,9 +106,9 @@ export function T4ChoiceCard({
           : cn(
               'cursor-pointer bg-surface hover:bg-soft-fill active:opacity-70',
               checked
-                ? 'shadow-[inset_0_0_0_2px_var(--color-accent)]'
+                ? RING_SELECTED
                 : invalid
-                  ? 'shadow-[inset_0_0_0_1px_var(--color-status-danger-line)]'
+                  ? RING_DANGER
                   : 'shadow-e0',
             ),
         'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent',

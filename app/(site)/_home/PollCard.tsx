@@ -208,7 +208,8 @@ function Option({
           </span>
         ) : null}
         <span className={cn('block', compact ? 't-body-strong' : 't-heading', strong ? 'text-accent-ink' : closed ? 'text-ink' : 'text-ink-2')}>{option.title}</span>
-        {option.description ? <span className="mt-0.5 block t-caption text-muted">{option.description}</span> : null}
+        {/* ink-2, not muted: a bar (accent-tint-2 / -3) can sit under it, and muted is 4.0:1 there. */}
+        {option.description ? <span className="mt-0.5 block t-caption text-ink-2">{option.description}</span> : null}
       </span>
       {pending ? null : (
         // The share is the row's signature: ink (accent ink on the vote / the leader), the count
@@ -232,13 +233,13 @@ function Option({
     >
       {/* The share bar: on the viewer's vote while open, on every option once closed. Every bar
           is accent-tint-2 (accent-tint is a near-white on the white row); the leader's a step
-          stronger, lavender-3 (ink and accent ink stay above 4.5:1 on both). */}
+          stronger, accent-tint-3 (ink, ink-2 and accent ink stay above 4.5:1 on both, in both themes). */}
       {voted || closed ? (
         <span
           aria-hidden
           className={cn(
             'absolute inset-y-0 left-0 transition-[width] duration-(--duration-slow) ease-slow',
-            leader ? 'bg-lavender-3' : 'bg-accent-tint-2'
+            leader ? 'bg-accent-tint-3' : 'bg-accent-tint-2'
           )}
           style={{ width: `${pct}%` }}
         />

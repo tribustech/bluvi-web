@@ -1,7 +1,7 @@
 'use client';
 
 import type { KeyboardEvent, ReactNode } from 'react';
-import { LiveDot } from '@/components/templates/T1';
+import { LiveDot } from '@/components/templates/LiveDot';
 import { cn } from '@/components/ui/cn';
 import { VIEWS, type RankingViewKey } from './views';
 
@@ -69,9 +69,11 @@ export function ViewChips({ value, onChange }: Props) {
 }
 
 /**
- * From 768 (design «vederi: tab-uri mari»): the same four views as one row of tabs. From 1280 each
- * is 64px with its meta line; 768–1279 a 48px tab without it (the row of four fits, and the
- * ranking starts above the fold on a tablet).
+ * From 768: the same four views as a sub-level control under the route tabs (DetailTabs) — the kit
+ * Segmented look (forms/SegmentedControl): a soft-fill track, the selected view a surface thumb, and
+ * only its icon takes the accent. The solid accent stays for primary actions, so the ranking, not
+ * this switch, is the loudest thing below the header. From 1280 each tab carries its meta line;
+ * 768–1279 it is a 44px tab without it.
  */
 export function ViewTabs({
   value,
@@ -80,11 +82,7 @@ export function ViewTabs({
   live,
 }: Props & { meta: Record<RankingViewKey, string>; live: boolean }) {
   return (
-    <div
-      role="tablist"
-      aria-label="Vederi clasament"
-      className="hidden grid-cols-4 gap-1.5 rounded-card bg-surface p-1.5 shadow-e0 md:grid xl:gap-2"
-    >
+    <div role="tablist" aria-label="Vederi clasament" className="hidden grid-cols-4 gap-1 rounded-card bg-soft-fill p-1 md:grid">
       {VIEWS.map(({ key, label, Icon }) => {
         const selected = key === value;
         return (
@@ -99,28 +97,20 @@ export function ViewTabs({
             onClick={() => onChange(key)}
             onKeyDown={e => onTabKey(e, value, onChange, tabId)}
             className={cn(
-              'flex h-12 min-w-0 cursor-pointer items-center gap-2 rounded-control px-2.5 text-left transition-colors duration-(--duration-fast) xl:h-16 xl:gap-3 xl:rounded-card xl:px-4',
+              'flex h-11 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-[calc(var(--radius-card)-4px)] px-2.5 transition-[background-color,color,box-shadow] duration-(--duration-fast) ease-select xl:h-14 xl:justify-start xl:gap-3 xl:px-4',
               FOCUS_RING,
-              // The fill marks the selection: no elevation (e2 is for sheets and popovers, §04).
-              selected ? 'bg-accent-ink text-on-accent' : 'text-ink hover:bg-soft-fill',
+              selected ? 'bg-surface text-ink shadow-e1' : 'text-ink-2 hover:text-ink',
             )}
           >
-            <span
-              className={cn(
-                'flex size-8 shrink-0 items-center justify-center rounded-control xl:size-10',
-                selected ? 'bg-on-accent/15' : 'bg-accent-tint text-accent-ink',
-              )}
-            >
-              <Icon aria-hidden className="size-6" />
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate t-body-strong xl:t-heading">{label}</span>
-              <span className={cn('truncate t-caption max-xl:sr-only', selected ? 'opacity-85' : 'text-muted')}>{meta[key]}</span>
+            <Icon aria-hidden className={cn('size-5 shrink-0 xl:size-6', selected ? 'text-accent-ink' : 'text-ink-2')} />
+            <span className="flex min-w-0 flex-col text-left">
+              <span className="truncate t-body-strong">{label}</span>
+              <span className="truncate t-caption text-muted max-xl:sr-only">{meta[key]}</span>
             </span>
             {key === 'cantare' && live ? (
               <>
                 <span className="sr-only">, cântar în curs</span>
-                <LiveDot tone={selected ? 'on-accent' : 'live'} />
+                <LiveDot tone="live" />
               </>
             ) : null}
           </button>

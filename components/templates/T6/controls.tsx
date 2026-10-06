@@ -5,6 +5,7 @@ import { MinusIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { controlShell, Field } from '@/components/forms/Field';
 import { iconButtonClass } from '@/components/nav/IconButton';
 import { cn } from '@/components/ui/cn';
+import { RING_DANGER, RING_SELECTED_CHECKED } from '../rings';
 
 /*
  * Big-target inputs for a task done standing up, often with wet hands: every target is ≥ 48px
@@ -73,7 +74,7 @@ export function BigNumberInput({
           aria-describedby={error || helper ? helpId : undefined}
           className="t-num-64 h-16 min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-faint focus-visible:outline-none disabled:cursor-not-allowed"
         />
-        <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center overflow-hidden px-3">
+        <span aria-hidden aria-disabled={disabled || undefined} className="pointer-events-none absolute inset-0 flex items-center overflow-hidden px-3">
           {/* SignatureNumber's `tile` pairing (64px digits, then a space and the unit in t-heading), so «kg»
               here has the same weight against its digits as every other 64px number. */}
           <span className="inline-flex min-w-0 items-baseline">
@@ -164,7 +165,7 @@ export function QuantityStepper({
             className="t-num-26 h-12 min-w-0 appearance-none bg-transparent text-right text-ink outline-none [-moz-appearance:textfield] focus-visible:outline-none disabled:cursor-not-allowed [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
           {unit ? (
-            <span aria-hidden className="t-body-strong text-muted">
+            <span aria-hidden aria-disabled={disabled || undefined} className="t-body-strong text-muted">
               {unit}
             </span>
           ) : null}
@@ -217,8 +218,8 @@ export function ChoiceChips<V extends string>({ label, name, options, value, onC
             key={o.value}
             className={cn(
               't-body-strong flex h-12 items-center rounded-control bg-surface px-4 text-ink transition-[background-color,color,box-shadow] duration-(--duration-fast) ease-select xl:h-10',
-              error ? 'shadow-[inset_0_0_0_1px_var(--color-status-danger-line)]' : 'shadow-e0',
-              'has-checked:bg-accent-tint has-checked:text-accent-ink has-checked:shadow-[inset_0_0_0_2px_var(--color-accent)]',
+              error ? RING_DANGER : 'shadow-e0',
+              'has-checked:bg-accent-tint has-checked:text-accent-ink', RING_SELECTED_CHECKED,
               'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent',
               'has-[[data-focus-ring]:focus]:outline-2 has-[[data-focus-ring]:focus]:outline-offset-2 has-[[data-focus-ring]:focus]:outline-accent',
               disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-soft-fill has-checked:hover:bg-accent-tint',

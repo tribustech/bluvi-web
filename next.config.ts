@@ -3,6 +3,8 @@ import type { NextConfig } from 'next';
 import pkg from './package.json';
 
 const nextConfig: NextConfig = {
+  // Lets several dev servers run side by side (one per parallel workflow unit): NEXT_DIST_DIR=.next-3101.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   // The workspace root (fir-intins/) has its own lockfile; pin tracing to this app.
   outputFileTracingRoot: path.resolve(__dirname),
   // Public CMS reads go through `'use cache'` + cacheTag/cacheLife (lib/server/public-get.ts),

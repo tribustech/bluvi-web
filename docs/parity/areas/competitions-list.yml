@@ -155,7 +155,7 @@ screens:
         text: A render error in this route shows a retry card for this route only (route error boundary), not a blank page.
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:726
     mobile_only: false
-    status: todo
+    status: proposed
   - id: competitions-list.cards
     title: Card concurs (lista Competiții, Listă și Afiș)
     fish:
@@ -253,7 +253,7 @@ screens:
         text: "The card formats nothing that depends on timezone or ranking rules: dateLabel, hoursLabel, rankingLabel, counts, unit and podium come from the DTO as-is."
         fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:18
     mobile_only: false
-    status: todo
+    status: proposed
   - id: competitions-list.pulse
     title: "Descoperă (bento: concurs, pescar, număr)"
     fish:
@@ -380,7 +380,7 @@ screens:
         text: The live pulse dot honours reduced motion (static dot).
         fish_ref: features/competitions/components/pulse/LivePulseDot.tsx:45
     mobile_only: false
-    status: todo
+    status: proposed
   - id: competitions-list.search
     title: Caută în Concursuri (dialog)
     fish:
@@ -448,13 +448,13 @@ screens:
         text: With an empty term and saved recents, a "Căutări recente" group with a "Șterge tot" action lists up to 5 recent picks (clock icon); picking one behaves like picking that suggestion; "Șterge tot" clears them.
         fish_ref: features/competitions/components/CompetitionsSearchScreen.tsx:192
       - id: competitions-list.search.c13
-        text: "Recents are stored on the device, newest first, deduplicated by id, max 5, only lake / organizer / competition picks (never free text); unreadable storage yields an empty list. FISH DISCREPANCY: CompetitionsSearchScreen calls onCommit without the suggestion and never on a competition pick, so pushRecentCompetitionSearch is never reached and fish recents stay empty — owner to decide whether web records picks as the helper intends."
+        text: "Recents are stored on the device, newest first, deduplicated by id, max 5, only lake / organizer / competition picks (never free text); unreadable storage yields an empty list. FISH DISCREPANCY: CompetitionsSearchScreen calls onCommit without the suggestion and never on a competition pick, so pushRecentCompetitionSearch is never reached and fish recents stay empty — owner to decide whether web records picks as the helper intends. WEB (2026-10-05): records lake / organizer / competition picks as the helper intends (localStorage key recentCompetitionSearches); one line in app/(site)/concursuri/_list/recents.ts to undo if the owner prefers fish's empty list."
         fish_ref: features/competitions/helpers/recentCompetitionSearches.ts:51
       - id: competitions-list.search.c14
         text: Committing logs competitions_search_committed with the pick type only, never the typed text.
         fish_ref: features/competitions/helpers/competitionsAnalytics.ts:44
     mobile_only: false
-    status: todo
+    status: passing
   - id: competitions-list.filters
     title: Filtre concursuri (dialog)
     fish:
@@ -490,7 +490,7 @@ screens:
         text: Header title "Filtre" / "Județ" / "Perioadă" per view, a back chevron ("Înapoi la filtre") in the sub-views and a close button ("Închide"); closing without applying discards the draft.
         fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:603
       - id: competitions-list.filters.c3
-        text: 'STARE section: "Orice stare", "Viitoare", "Live" (red dot), "Încheiate" as single-choice pills (draft until applied).'
+        text: 'STARE section: "Orice stare", "Viitoare", "Live" (red dot), "Încheiate" as single-choice pills (draft until applied). WEB: from 1280 the docked column shows STARE too (pills, applied as picked); on the index a state is a tab switch and "Orice stare" applied is the tab-less "Toate concursurile" (?status=all), as fish onApply → changeStatus(''all'').'
         fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:471
       - id: competitions-list.filters.c4
         text: Changing STARE to a state the chosen period cannot describe resets the period to "Oricând" (e.g. Încheiate + Următoarele 7 zile; a month/range entirely ahead for Încheiate or entirely behind for Viitoare); Live and Orice stare accept any period.
@@ -508,31 +508,31 @@ screens:
         text: A row "Alege din calendar" (or the chosen range label when a custom range is active, highlighted) opens the range view.
         fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:544
       - id: competitions-list.filters.c9
-        text: 'Range view: heading "Alege perioada", hint "Apasă prima zi, apoi ultima." → "Acum alege ultima zi." → the range label; a Monday-first month grid (Lu Ma Mi Jo Vi Sâ Du), capitalised Romanian month title, previous-month arrow disabled on the current month, next disabled after 24 months, past days disabled; "Renunță" goes back, "Gata" (enabled only with both ends) stores the period as "YYYY-MM-DD..YYYY-MM-DD" in order.'
+        text: 'Range view (WEB: no "Alege perioada" heading under the "Perioadă" header — one line, focused on entry: "Apasă prima zi, apoi ultima." → "Acum alege ultima zi." → the range label in bold ink; the confirm reads "Aplică {range}" instead of "Gata"; the range draws as one continuous band); a Monday-first month grid (Lu Ma Mi Jo Vi Sâ Du), capitalised Romanian month title, previous-month arrow disabled on the current month, next disabled after 24 months, past days disabled; "Renunță" goes back, "Gata" (enabled only with both ends) stores the period as "YYYY-MM-DD..YYYY-MM-DD" in order.'
         fish_ref: features/competitions/components/CompetitionRangeCalendar.tsx:22
       - id: competitions-list.filters.c10
         text: 'FORMAT section: "Orice format", "Individual", "Echipe".'
         fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:557
       - id: competitions-list.filters.c11
-        text: 'JUDEȚ row ("Toate județele" or the county name) opens the county view: a "Caută un județ" field (diacritic- and case-insensitive contains), "Toate județele" then counties sorted in Romanian order with a check on the selected one; picking returns to the main view; "Se încarcă județele…" while loading, "Niciun județ găsit." when nothing matches.'
+        text: 'JUDEȚ row ("Toate județele" or the county name) opens the county view: a "Caută un județ" field (diacritic- and case-insensitive contains), "Toate județele" then counties sorted in Romanian order with a check on the selected one; picking returns to the main view; "Se încarcă județele…" while loading, "Niciun județ găsit." when nothing matches. WEB: the rows are the kit single-choice list (radios, tint + check), the arrows move the choice and Enter / a click picks it; a failed read says "Județele nu s-au încărcat." with "Încearcă din nou".'
         fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:387
       - id: competitions-list.filters.c12
         text: Counties come from GET /lakes/explore/suggestions without a query (counties ranked first), paged until a city or lake appears or 4 pages; id and name are kept together.
         fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:92
       - id: competitions-list.filters.c13
-        text: The apply button reads "Arată {n} concurs" / "Arată {n} concursuri" from a live count of the draft (same scope, status and search, draft filters); "Arată concursurile" before a count is known.
+        text: 'The apply button reads "Arată {n} concurs" / "Arată {n} concursuri" from a live count of the draft (same scope, status and search, draft filters); "Arată concursurile" before a count is known. FISH DISCREPANCY: fish counts with the committed status, so after a STARE change its button names a number the applied list will not show; WEB counts the draft STARE too (the list the button opens), and from 20 says "de" (formatCount, «24 de concursuri»). WEB: with "Locuri libere" in the draft the button says "Arată concursurile" — the CMS filters that per page while meta.pagination.total counts the unfiltered set (fir-intins-cms competition-cards.ts, documented as deliberate; flagged to the owner 2026-10-05).'
         fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:363
       - id: competitions-list.filters.c14
         text: '"Resetează" resets the draft to the defaults and is disabled when the draft has no active filter.'
         fish_ref: features/competitions/components/CompetitionFiltersSheet.tsx:651
       - id: competitions-list.filters.c15
-        text: Applying commits filters and status together, closes the dialog and logs competitions_filters_applied {period, format, available_only, county_id, county_name} ("none" when no county); any active filter puts the screen in results mode.
+        text: 'Applying commits filters and status together, closes the dialog and logs competitions_filters_applied {period, format, available_only, county_id, county_name} ("none" when no county) — and, for a new state, competitions_status_changed {status, scope} (fish onApply → changeStatus); any active filter puts the screen in results mode. A chip ✕ / "Șterge tot" logs nothing (fish). WEB: the docked column (≥1280) has no apply step, so it logs competitions_filters_applied once per change (deliberate).'
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:653
       - id: competitions-list.filters.c16
         text: There is one filter set for the whole page, shared by all status tabs (not remembered per tab).
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:137
     mobile_only: false
-    status: todo
+    status: passing
   - id: competitions-list.results
     title: Rezultate căutare / Concursuri filtrate
     fish:
@@ -570,7 +570,7 @@ screens:
         text: Committing a search remembers the current scope and status, then shows every state (no status) under scope all.
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:394
       - id: competitions-list.results.c3
-        text: 'In results mode the title, eye button, search row and status tabs are replaced by: a square back button "Înapoi la concursuri" and a pill with a magnifier and the label (search label, else "Concursuri filtrate") named "{label}. Schimbă căutarea", plus a filters circle inside the pill.'
+        text: 'In results mode the title, eye button, search row and status tabs are replaced by: a square back button "Înapoi la concursuri" and a pill with a magnifier and the label (search label, else "Concursuri filtrate") named "{label}. Schimbă căutarea", plus a filters circle inside the pill. WEB: the pill keeps the search field''s shape; from 1280 the back + pill sit in the centre column (the search row''s slot) with no circle and no chip rail — the docked column shows the choices, and the label without a search moves focus to it. Filtered on Urmărite (c6) the label reads "Urmărite · filtrate" (fish: "Concursuri filtrate"), so the pill says the list is still the followed one.'
         fish_ref: features/competitions/components/CompetitionResultsChrome.tsx:53
       - id: competitions-list.results.c4
         text: Tapping the label reopens the search when a search is committed, otherwise the filters; the filters circle opens the filters.
@@ -582,7 +582,7 @@ screens:
         text: Applying filters while on Urmărite keeps Urmărite as the scope to return to.
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:654
       - id: competitions-list.results.c7
-        text: 'A chip rail under the pill lists only active choices, in order: status ("Viitoare", "Live" with red dot, "Încheiate"), "Locuri libere", county name, period label, format ("Individual"/"Echipe"); each chip removes just that choice (status → all); accessible name "{label}. Apasă pentru a renunța la acest filtru". No chips → no rail.'
+        text: 'A chip rail under the pill lists only active choices, in order: status ("Viitoare", "Live" with red dot, "Încheiate"), "Locuri libere", county name, period label, format ("Individual"/"Echipe"); each chip removes just that choice (status → all); accessible name "{label}. Apasă pentru a renunța la acest filtru". No chips → no rail. WEB: when a chip ✕ (or c8 "Șterge tot", or the docked column''s "Resetează") leaves no search, no filter and no state, the list returns to the tab it came from (results.c5''s restore) instead of fish''s tab-less "Toate concursurile" (status all with no tab underlined); an explicit "Orice stare" applied from the dialog still opens "Toate concursurile" (filters.c3).'
         fish_ref: features/competitions/components/CompetitionFilterChips.tsx:59
       - id: competitions-list.results.c8
         text: With more than two chips a "Șterge tot" chip clears every filter and the status.
@@ -591,22 +591,22 @@ screens:
         text: 'Period chip labels: "Weekendul acesta", "Următoarele 7 zile", "{Lună} {an}", custom ranges like "3–5 oct." or "31 oct.–1 nov." (year shown only outside the current year); an unknown value reads "Perioadă".'
         fish_ref: features/competitions/helpers/competitionPeriods.ts:270
       - id: competitions-list.results.c10
-        text: Heading "Rezultate pentru „{label}”" for a search, "Concursuri filtrate" for filters only; count "1 concurs" / "N concursuri" when all states are shown, otherwise the status-agreed count.
+        text: 'Heading "Rezultate pentru „{label}”" for a search, "Concursuri filtrate" for filters only (WEB: "Urmărite · filtrate" when the filtered list is still Urmărite); count "1 concurs" / "N concursuri" when all states are shown, otherwise the status-agreed count. WEB: no count line at 0 (the empty state says it); with "Locuri libere" the count is the loaded one, shown once every page is in (the CMS total counts the unfiltered set).'
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:513
       - id: competitions-list.results.c11
         text: The request carries lakeId, organizerId or q by search type, plus period, format, availableOnly=true, countyId and status only when set.
         fish_ref: services/api/competitionCards.ts:41
       - id: competitions-list.results.c12
-        text: 'Empty: search over all states → "Niciun concurs pentru „{label}”"; search narrowed to a state → "Niciun concurs {viitor|în desfășurare|încheiat} pentru „{label}”"; filters only → "Niciun concurs cu aceste filtre"; captions "Încearcă alt tab de stare sau caută altceva." / "Încearcă alt tab de stare sau elimină câteva filtre."'
+        text: 'Empty: search over all states → "Niciun concurs pentru „{label}”"; search narrowed to a state → "Niciun concurs {viitor|în desfășurare|încheiat} pentru „{label}”"; filters only → "Niciun concurs cu aceste filtre"; captions "Încearcă alt tab de stare sau caută altceva." / "Încearcă alt tab de stare sau elimină câteva filtre." WEB: the heading above already names the search, so the title does not repeat it — "Niciun rezultat" / "Niciun concurs {viitor|în desfășurare|încheiat}" / "Niciun concurs cu aceste filtre" ("Niciun concurs urmărit cu aceste filtre" on Urmărite); captions "Încearcă altă stare sau caută altceva." / "Încearcă altă stare sau elimină câteva filtre." (results mode has no tabs).'
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:597
       - id: competitions-list.results.c13
         text: Results always open scrolled to the top and their scroll position is never remembered.
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:372
       - id: competitions-list.results.c14
-        text: No bento in results mode; cards, density, pagination, loading, error and pull-to-refresh behave as on the index.
+        text: 'No bento in results mode; cards, density, pagination, loading, error and pull-to-refresh behave as on the index. WEB: "Reîmprospătează" in the results chrome; results narrowed to Live poll every 60s; no aside (it repeated the answer''s first cards); a new question (entering results, another search) shows card bones while it reads, never the previous list.'
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:279
     mobile_only: false
-    status: todo
+    status: passing
   - id: competitions-list.viitoare
     title: Concursuri viitoare
     fish:
@@ -641,10 +641,10 @@ screens:
         text: Header with a back button and the title "Concursuri viitoare".
         fish_ref: app/(app)/competitions/notStarted/index.tsx:45
       - id: competitions-list.viitoare.c2
-        text: "Data: GET /feed/competitions?status=notStarted&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards)."
+        text: "Data: GET /feed/competitions?status=notStarted&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards). WEB: pageSize=20 — the grid auto-fills up to six columns on a wide screen, where 5 is under one row a page and the footer would fetch page after page (app/(site)/concursuri/(lists)/_status/config.ts)."
         fish_ref: app/(app)/competitions/notStarted/index.tsx:17
       - id: competitions-list.viitoare.c3
-        text: Competitions render as a two-column grid of the compact legacy competition card.
+        text: 'Competitions render as a two-column grid of the compact legacy competition card. WEB: two columns below 768 as in fish, auto-filling from 768 (ROADMAP §4 full-width rule).'
         fish_ref: components/CompetitionsFullList.tsx:53
       - id: competitions-list.viitoare.c4
         text: First load shows the competitions list skeleton instead of the grid.
@@ -653,10 +653,10 @@ screens:
         text: A failed request replaces the screen with the shared error screen (with back button), retry and sign-out per describeError.
         fish_ref: app/(app)/competitions/notStarted/index.tsx:36
       - id: competitions-list.viitoare.c6
-        text: 'Empty list: "Momentan nu este disponibil niciun concurs."'
+        text: 'Empty list: "Momentan nu este disponibil niciun concurs." WEB adds a «Vezi toate concursurile» link to /concursuri.'
         fish_ref: components/CompetitionsFullList.tsx:116
       - id: competitions-list.viitoare.c7
-        text: Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads.
+        text: 'Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads. WEB: «Reîmprospătează» in the header (DashboardRefresh) stands in for the gesture; the footer says «Se încarcă…».'
         fish_ref: app/(app)/competitions/notStarted/index.tsx:24
       - id: competitions-list.viitoare.c8
         text: Tapping a card opens the competition page.
@@ -674,7 +674,7 @@ screens:
         text: 'Card body: name (2 lines), pin + lake name when present, avatars of registered + pending entrants, "{registered}/{participantsLimit, fallback 21} pescari|echipe".'
         fish_ref: components/CompetitionCard.tsx:144
       - id: competitions-list.viitoare.c13
-        text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare").'
+        text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare"). WEB writes «în așteptare».'
         fish_ref: components/CompetitionCard.tsx:191
       - id: competitions-list.viitoare.c14
         text: 'Card badges: "Individual" / "Echipe" (green) and the ranking type (yellow).'
@@ -683,7 +683,7 @@ screens:
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/notStarted/index.tsx:57
     mobile_only: false
-    status: todo
+    status: passing
   - id: competitions-list.viitoare-balta
     title: Concursuri viitoare pe baltă
     fish:
@@ -765,7 +765,10 @@ screens:
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:59
     mobile_only: false
-    status: todo
+    # Merged into lakes.competitions (header, page size and card layout are that page's). c3, c5–c7 are
+    # checked there by tests/e2e/competitions-list-status.spec.ts (c8, c9 for the Trecute tab); the rest is
+    # superseded by the owner's criteria — left to the parity verifier.
+    status: proposed
   - id: competitions-list.live
     title: Concursuri live
     fish:
@@ -800,10 +803,10 @@ screens:
         text: Header with a back button and the title "Concursuri live".
         fish_ref: app/(app)/competitions/started/index.tsx:45
       - id: competitions-list.live.c2
-        text: "Data: GET /feed/competitions?status=started&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards)."
+        text: "Data: GET /feed/competitions?status=started&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards). WEB: pageSize=20 — the grid auto-fills up to six columns on a wide screen, where 5 is under one row a page and the footer would fetch page after page (app/(site)/concursuri/(lists)/_status/config.ts)."
         fish_ref: app/(app)/competitions/started/index.tsx:17
       - id: competitions-list.live.c3
-        text: Competitions render as a two-column grid of the compact legacy competition card.
+        text: 'Competitions render as a two-column grid of the compact legacy competition card. WEB: two columns below 768 as in fish, auto-filling from 768 (ROADMAP §4 full-width rule).'
         fish_ref: components/CompetitionsFullList.tsx:53
       - id: competitions-list.live.c4
         text: First load shows the competitions list skeleton instead of the grid.
@@ -812,10 +815,10 @@ screens:
         text: A failed request replaces the screen with the shared error screen (with back button), retry and sign-out per describeError.
         fish_ref: app/(app)/competitions/started/index.tsx:36
       - id: competitions-list.live.c6
-        text: 'Empty list: "Momentan nu este disponibil niciun concurs."'
+        text: 'Empty list: "Momentan nu este disponibil niciun concurs." WEB adds a «Vezi toate concursurile» link to /concursuri.'
         fish_ref: components/CompetitionsFullList.tsx:116
       - id: competitions-list.live.c7
-        text: Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads.
+        text: 'Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads. WEB: «Reîmprospătează» in the header (DashboardRefresh) stands in for the gesture; the footer says «Se încarcă…».'
         fish_ref: app/(app)/competitions/started/index.tsx:24
       - id: competitions-list.live.c8
         text: Tapping a card opens the competition page.
@@ -833,7 +836,7 @@ screens:
         text: 'Card body: name (2 lines), pin + lake name when present, avatars of registered + pending entrants, "{registered}/{participantsLimit, fallback 21} pescari|echipe".'
         fish_ref: components/CompetitionCard.tsx:144
       - id: competitions-list.live.c13
-        text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare").'
+        text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare"). WEB writes «în așteptare».'
         fish_ref: components/CompetitionCard.tsx:191
       - id: competitions-list.live.c14
         text: 'Card badges: "Individual" / "Echipe" (green) and the ranking type (yellow).'
@@ -842,7 +845,7 @@ screens:
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/started/index.tsx:57
     mobile_only: false
-    status: todo
+    status: passing
   - id: competitions-list.live-balta
     title: Concursuri live pe baltă
     fish:
@@ -924,7 +927,10 @@ screens:
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/started/[lakeId].tsx:59
     mobile_only: false
-    status: todo
+    # Merged into lakes.competitions (header, page size and card layout are that page's). c3, c5–c7 are
+    # checked there by tests/e2e/competitions-list-status.spec.ts (c8, c9 for the Trecute tab); the rest is
+    # superseded by the owner's criteria — left to the parity verifier.
+    status: proposed
   - id: competitions-list.incheiate
     title: Concursuri trecute
     fish:
@@ -958,10 +964,10 @@ screens:
         text: Header with a back button and the title "Concursuri trecute".
         fish_ref: app/(app)/competitions/completed/index.tsx:45
       - id: competitions-list.incheiate.c2
-        text: "Data: GET /feed/competitions?status=completed&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards)."
+        text: "Data: GET /feed/competitions?status=completed&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards). WEB: pageSize=20 — the grid auto-fills up to six columns on a wide screen, where 5 is under one row a page and the footer would fetch page after page (app/(site)/concursuri/(lists)/_status/config.ts)."
         fish_ref: app/(app)/competitions/completed/index.tsx:17
       - id: competitions-list.incheiate.c3
-        text: Competitions render as a two-column grid of the compact legacy competition card.
+        text: 'Competitions render as a two-column grid of the compact legacy competition card. WEB: two columns below 768 as in fish, auto-filling from 768 (ROADMAP §4 full-width rule).'
         fish_ref: components/CompetitionsFullList.tsx:53
       - id: competitions-list.incheiate.c4
         text: First load shows the competitions list skeleton instead of the grid.
@@ -970,10 +976,10 @@ screens:
         text: A failed request replaces the screen with the shared error screen (with back button), retry and sign-out per describeError.
         fish_ref: app/(app)/competitions/completed/index.tsx:36
       - id: competitions-list.incheiate.c6
-        text: 'Empty list: "Momentan nu este disponibil niciun concurs."'
+        text: 'Empty list: "Momentan nu este disponibil niciun concurs." WEB adds a «Vezi toate concursurile» link to /concursuri.'
         fish_ref: components/CompetitionsFullList.tsx:116
       - id: competitions-list.incheiate.c7
-        text: Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads.
+        text: 'Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads. WEB: «Reîmprospătează» in the header (DashboardRefresh) stands in for the gesture; the footer says «Se încarcă…».'
         fish_ref: app/(app)/competitions/completed/index.tsx:24
       - id: competitions-list.incheiate.c8
         text: Tapping a card opens the competition page.
@@ -991,7 +997,7 @@ screens:
         text: 'Card body: name (2 lines), pin + lake name when present, avatars of registered + pending entrants, "{registered}/{participantsLimit, fallback 21} pescari|echipe".'
         fish_ref: components/CompetitionCard.tsx:144
       - id: competitions-list.incheiate.c13
-        text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare").'
+        text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare"). WEB writes «în așteptare».'
         fish_ref: components/CompetitionCard.tsx:191
       - id: competitions-list.incheiate.c14
         text: 'Card badges: "Individual" / "Echipe" (green) and the ranking type (yellow).'
@@ -1000,7 +1006,7 @@ screens:
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/completed/index.tsx:57
     mobile_only: false
-    status: todo
+    status: passing
   - id: competitions-list.incheiate-balta
     title: Concursuri trecute pe baltă
     fish:
@@ -1081,7 +1087,10 @@ screens:
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/completed/[lakeId].tsx:59
     mobile_only: false
-    status: todo
+    # Merged into lakes.competitions (header, page size and card layout are that page's). c3, c5–c7 are
+    # checked there by tests/e2e/competitions-list-status.spec.ts (c8, c9 for the Trecute tab); the rest is
+    # superseded by the owner's criteria — left to the parity verifier.
+    status: proposed
 behaviours:
   - id: competitions-list.b.tab-entry
     text: The area is a main tab labelled "Competiții" with a trophy icon; on web it is the top-bar link "Competiții" → /concursuri, open to guests (the (app) group does not redirect signed-out users).

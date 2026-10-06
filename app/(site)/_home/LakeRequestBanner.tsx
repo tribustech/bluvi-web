@@ -14,7 +14,7 @@ import { T4TextArea } from '@/components/templates/T4/T4TextArea';
 import { Button, ButtonLink, buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { useSiteToast } from '../_shell/Toast';
-import { useViewer } from '../_shell/viewer-context';
+import { useViewerState } from '../_shell/viewer-context';
 import { homeLinks } from './links';
 import { BANNER, BANNER_ACTIONS, BANNER_COPY, BANNER_ROW, BANNER_TEXT, ON_DARK_FOCUS } from './PartidaCta';
 import lakePhoto from './assets/lake-request.jpeg';
@@ -27,15 +27,16 @@ import lakePhoto from './assets/lake-request.jpeg';
  * Lottie is not ported. The banner spec is PartidaCta's (BANNER), at e1 — the glow is the hero's.
  * The photo's scrim carries the white text (no text shadow).
  *
- * Desktop (≥1280) sits beside the «Ești la pescuit?» hero at the same height, so it keeps one
- * paragraph (web difference): «Îți vom trimite un mesaj…» moves into the form's intro, and signed
- * out the button's own label («Intră ca să sugerezi») says what the sign-in line said. The phone
- * keeps fish's full copy.
+ * One row of its own at every width, after the lakes rail (fish order, home.acasa.c58), with
+ * fish's full copy; it lays out by the room of Acasă's main column (PartidaCta BANNER_ROW).
+ * `layout="desktop"` (a narrow slot beside another card) keeps one paragraph: «Îți vom trimite un
+ * mesaj…» moves into the form's intro, and signed out the button's label says what the sign-in
+ * line said.
  */
-export function LakeRequestBanner({ layout, className }: { layout: 'mobile' | 'desktop'; className?: string }) {
+export function LakeRequestBanner({ layout = 'mobile', className }: { layout?: 'mobile' | 'desktop'; className?: string }) {
   return (
     <section aria-labelledby={`acasa-sugereaza-${layout}`} className={cn(BANNER, BANNER_ROW, 'text-on-photo-scrim shadow-e1', className)}>
-      <Image src={lakePhoto} alt="" fill sizes="(min-width: 1280px) 50vw, 100vw" className="z-backdrop object-cover" placeholder="blur" />
+      <Image src={lakePhoto} alt="" fill sizes="(min-width: 1280px) 60vw, 100vw" className="z-backdrop object-cover" placeholder="blur" />
       <span aria-hidden className="absolute inset-0 z-behind bg-photo-scrim" />
       <div className={BANNER_TEXT}>
         <h2 id={`acasa-sugereaza-${layout}`} className="t-heading">
@@ -71,13 +72,15 @@ const WILL_MESSAGE = 'Îți vom trimite un mesaj după ce o adăugăm.';
 
 /** Signed out, the phone's extra line (fish): what the sign-in unlocks. */
 function SignInLine() {
-  return useViewer() ? null : <p className={BANNER_COPY}>Pentru a putea sugera o baltă intră în contul tău.</p>;
+  return useViewerState() === null ? <p className={BANNER_COPY}>Pentru a putea sugera o baltă intră în contul tău.</p> : null;
 }
 
 function BannerAction() {
-  const viewer = useViewer();
+  // Only a known signed-out visitor gets the sign-in action; an unknown session (a cookie whose read
+  // failed) keeps the real one — the request carries the cookie.
+  const signedOut = useViewerState() === null;
   const [open, setOpen] = useState(false);
-  if (!viewer) {
+  if (signedOut) {
     return (
       <div className={BANNER_ACTIONS}>
         <ButtonLink href={homeLinks.signIn} variant="outline" className={ON_DARK_FOCUS}>

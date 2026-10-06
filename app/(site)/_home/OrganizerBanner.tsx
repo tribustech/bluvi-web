@@ -38,7 +38,7 @@ export async function OrganizerBanner({ layout, className }: { layout: 'mobile' 
         <h2 id={`acasa-organizator-${layout}`} className="t-heading">
           <Link
             href={homeLinks.organizer}
-            className="outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-on-accent"
+            className="outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-[-2px] focus-visible:after:outline-on-accent"
           >
             Panou organizator
           </Link>
@@ -53,13 +53,13 @@ export async function OrganizerBanner({ layout, className }: { layout: 'mobile' 
         <dl className="flex items-center">
           {items.map((s, i) => (
             <div key={s.label} className={cn('flex flex-1 flex-col-reverse items-center gap-1', i > 0 && 'border-l border-on-accent/20')}>
-              <dt className="text-center t-caption text-on-accent/85">{s.label}</dt>
-              <dd className="flex items-center gap-1.5 t-stat">
-                {/* Status inks, ringed in the card's ink so they hold on the inverse ground in
-                    both themes (status-info-fg = the light ground: Viitoare reads as a ring). */}
-                <span aria-hidden className={cn('size-2.5 rounded-full ring-2 ring-on-accent', s.dot)} />
-                {s.value}
-              </dd>
+              {/* The status dot sits on the label line, never beside the number (beside it, a dot
+                  reads as a glyph: «O2»). A plain filled dot, no ring. */}
+              <dt className="flex items-center justify-center gap-1.5 text-center t-caption text-on-accent/85">
+                <span aria-hidden className={cn('size-2 shrink-0 rounded-full', s.dot)} />
+                {s.label}
+              </dt>
+              <dd className="t-stat tabular-nums">{s.value}</dd>
             </div>
           ))}
         </dl>

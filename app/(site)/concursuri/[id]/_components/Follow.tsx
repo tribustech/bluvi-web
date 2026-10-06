@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowPathIcon, BellAlertIcon, ChevronDownIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, ChevronDownIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { BellAlertIcon as BellAlertSolidIcon } from '@heroicons/react/24/solid';
 import { EyeIcon as EyeSolidIcon } from '@heroicons/react/20/solid';
 import {
   competitionFollowersQuery,
@@ -26,10 +26,10 @@ import { PRESENCE_ICON } from '@/components/templates/T3';
 import { Dialog } from '@/components/surfaces/Dialog';
 import { Sheet } from '@/components/surfaces/Sheet';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
-import { Avatar } from '@/components/ui/Avatar';
+import { FollowersList, followersSubtitle } from '@/components/cards/FollowersList';
 import { Button, type ButtonSize } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
-import { routes } from '@/lib/routes';
+import { anglerHref } from '@/lib/routes';
 import type { Viewer } from '@/lib/server/viewer';
 import { useSiteToast } from '../../../_shell/Toast';
 import { pageTransport } from './transport';
@@ -38,9 +38,8 @@ import { pageTransport } from './transport';
  * The header's follow cluster — fish CompetitionHeader `handleOnFollowCompetition`, FollowButton,
  * FollowersPill + FollowersListSheet and FollowNotificationsSheet (parity competition-page.shell
  * c5–c14). Fundații §07: a pill (radius 999) is a STATE; «Urmărește» is an action, so it is the kit
- * Button — the tonal `secondary` of the button sheet, in both states (the pressed state is said by
- * its label and aria-pressed: «Urmărește» → «Urmăresc», fish's eye → the ringing bell, outline 24
- * as every action, Fundații §05) — and the follower count (it opens the list) a text link with
+ * Button — the tonal `secondary` to follow, the quiet neutral `ghost` on soft fill once following
+ * (and aria-pressed: «Urmărește» → «Urmăresc», fish's eye → the solid ringing bell) — and the follower count (it opens the list) a text link with
  * the solid 20 eye (a presence mark).
  */
 
@@ -99,46 +98,11 @@ export function FollowersPill({ competition }: { competition: CompetitionWithMyS
 function FollowersSurface({ open, onClose, competitionId }: { open: boolean; onClose: () => void; competitionId: string }) {
   const breakpoint = useBreakpoint();
   const t = useMemo(() => pageTransport(), []);
-  const { data: followers, isPending, isError, refetch } = useQuery({ ...competitionFollowersQuery(t, competitionId), enabled: open });
-  const subtitle = followers ? `${followers.length} urmăresc` : undefined;
-
+  const { data: followers, isPending, isError, refetch, isFetching } = useQuery({ ...competitionFollowersQuery(t, competitionId), enabled: open });
+  const subtitle = followersSubtitle(followers);
+  // Rows link the angler profile once the web has it (lib/routes.ts anglerHref, M2).
   const body = (
-    <div className="flex flex-col">
-      {isPending && !followers ? (
-        // Fundații «se încarcă»: grey rows shaped like the list (avatar + name), not a spinner.
-        <ul role="status" aria-label="Se încarcă urmăritorii" className="-mx-2 flex flex-col gap-1">
-          {Array.from({ length: 5 }, (_, i) => (
-            <li key={i} aria-hidden className="flex min-h-12 items-center gap-3 px-2 py-1.5">
-              <span className="size-10 shrink-0 animate-shimmer rounded-full" />
-              <span className="h-3 w-2/5 animate-shimmer rounded-full" />
-            </li>
-          ))}
-        </ul>
-      ) : isError && !followers ? (
-        <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <p className="t-body text-ink-2">Urmăritorii nu au putut fi încărcați.</p>
-          <Button size="compact" variant="secondary" onClick={() => void refetch()}>
-            Încearcă din nou
-          </Button>
-        </div>
-      ) : followers && followers.length > 0 ? (
-        <ul className="-mx-2 flex flex-col gap-1">
-          {followers.map(f => (
-            <li key={f.documentId}>
-              <Link
-                href={routes.angler(f.documentId)}
-                className="flex min-h-12 items-center gap-3 rounded-control px-2 py-1.5 text-left transition-colors duration-(--duration-fast) hover:bg-soft-fill focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent"
-              >
-                <SolidAvatar name={f.username} src={f.avatar?.url} />
-                <span className="min-w-0 flex-1 truncate t-body text-ink">{f.username}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="py-8 text-center t-body text-muted">Nu există urmăritori</p>
-      )}
-    </div>
+    <FollowersList followers={followers} pending={isPending} error={isError} retrying={isFetching} onRetry={() => void refetch()} hrefFor={anglerHref} />
   );
 
   if (breakpoint === 'mobile') {
@@ -155,22 +119,12 @@ function FollowersSurface({ open, onClose, competitionId }: { open: boolean; onC
   );
 }
 
-/**
- * fish FollowersListSheet: the photo, or fish's indigo placeholder — the kit Avatar for both, so
- * shape and type come from one place (its indigo tone with the initials, so a list of people
- * without photos still tells them apart). 40px.
- * TODO(kit): a `solid` tone for components/ui/Avatar (ROADMAP §8 kit gaps) for fish's solid disc.
- */
-function SolidAvatar({ name, src }: { name: string; src?: string | null }) {
-  return <Avatar name={name} src={src} size={40} tone="indigo" />;
-}
-
 /* ------------------------------------------------------------------ */
 /* Follow toggle                                                       */
 /* ------------------------------------------------------------------ */
 
 /** The follow button's width in every state (Urmărește / Urmăresc / Reîncearcă), so it never shifts. */
-const FOLLOW_MIN_W = 'min-w-36';
+export const FOLLOW_MIN_W = 'min-w-36';
 
 /** fish FollowButton debounce: presses within 200 ms make one toggle. */
 const FOLLOW_DEBOUNCE_MS = 200;
@@ -277,13 +231,15 @@ export function FollowToggle({
   return (
     <>
       <Button
-        // Tonal in both states (Fundații §07 button sheet); on an upcoming competition «Înscrie-te»
-        // stays the one filled action.
-        variant="secondary"
+        // The call to action is tonal (Fundații §07 button sheet; on an upcoming competition
+        // «Înscrie-te» stays the one filled action); once following it steps back to the quiet,
+        // selected look — neutral ground, ink-2 label, the solid bell — so the two states differ at
+        // a glance, not only by their label. Same width in both (FOLLOW_MIN_W).
+        variant={isFollowing ? 'ghost' : 'secondary'}
         size={size}
         // fish FollowButton: the eye to start following, the ringing bell once following (parity shell.c7).
-        icon={isFollowing ? <BellAlertIcon /> : <EyeIcon />}
-        className={FOLLOW_MIN_W}
+        icon={isFollowing ? <BellAlertSolidIcon /> : <EyeIcon />}
+        className={cn(FOLLOW_MIN_W, isFollowing && 'bg-soft-fill')}
         aria-pressed={viewer ? isFollowing : undefined}
         aria-busy={follow.isPending || undefined}
         onClick={onPress}

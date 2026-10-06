@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { paginationMetaSchema } from '../shared';
 import { call, callVoid, isApiError, type Transport } from '../transport';
 import { normalizePaginatedResponse } from './domain/organizer';
@@ -360,19 +360,28 @@ export async function getWeighingsSummary(t: Transport, competitionId: string) {
   return res.data ?? [];
 }
 
-/** fish `services/api/weighing.ts#getWeighings` */
-export async function getWeighings(t: Transport, competitionId: string, standId: string) {
+/**
+ * fish `services/api/weighing.ts#getWeighings`. `round`: feeder-on-legs competitions only — a stand
+ * holds a different entrant in every leg, so the stand's weighings are the current leg's. Omitted
+ * everywhere else (the server then returns them all).
+ */
+export async function getWeighings(t: Transport, competitionId: string, standId: string, round?: number) {
   const res = await call(
     t,
-    { method: 'GET', path: '/feed/weighings/by-stand', query: { competitionId, standId }, auth: 'none' },
+    {
+      method: 'GET',
+      path: '/feed/weighings/by-stand',
+      query: { competitionId, standId, ...(round != null ? { round } : {}) },
+      auth: 'none',
+    },
     z.object({ data: z.array(weighingByStandSchema) })
   );
   return res.data;
 }
 
 /** fish `services/api/weighing.ts#getWeightingsTotal` — total kg on a stand, 3 decimals. */
-export async function getWeightingsTotal(t: Transport, competitionId: string, standId: string): Promise<string> {
-  return sumWeighingsTotal(await getWeighings(t, competitionId, standId));
+export async function getWeightingsTotal(t: Transport, competitionId: string, standId: string, round?: number): Promise<string> {
+  return sumWeighingsTotal(await getWeighings(t, competitionId, standId, round));
 }
 
 /** fish `services/api/weighing.ts#getWeighingById` — the DTO is NOT wrapped in `data`. */

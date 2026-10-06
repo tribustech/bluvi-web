@@ -145,7 +145,10 @@ function HeroCard({ competition: c, featured }: { competition: CompetitionCard; 
 function MomentTile({ person }: { person: PulsePerson }) {
   return (
     <BentoTile tone="surface" className="justify-start! gap-3! shadow-e0">
-      <p className="t-eyebrow line-clamp-1 text-muted uppercase">{person.kicker}</p>
+      {/* The kicker says what the person is the top of («Cea mai mare captură»): on the phone's
+          half-width tile it may take two lines, never «CEA MAI MARE…»; one line from 768. The grid
+          row stretches both tiles to the taller one. */}
+      <p className="t-eyebrow line-clamp-2 text-muted uppercase md:line-clamp-1">{person.kicker}</p>
       <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-3">
         <Avatar name={person.displayName} src={person.avatarUrls[0]} size={40} />
         <div className="min-w-0 flex-1">

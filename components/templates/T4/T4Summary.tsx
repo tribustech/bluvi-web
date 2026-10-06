@@ -77,7 +77,7 @@ export function T4Rows({ rows, className }: { rows: T4Row[]; className?: string 
       {rows.map((r) => (
         <div key={r.label} className="flex items-baseline justify-between gap-3">
           <dt className="t-body shrink-0 text-muted">{r.label}</dt>
-          <dd className={cn('t-body-strong min-w-0 text-right', r.value == null ? 'text-faint' : 'text-ink')}>
+          <dd className={cn('t-body-strong min-w-0 text-right', r.value == null ? 'text-muted' : 'text-ink')}>
             {r.value ?? '—'}
           </dd>
         </div>
@@ -105,13 +105,13 @@ export function T4TotalLine({ total, live = false }: { total: T4Total; live?: bo
         ) : null}
       </div>
       {total.value == null ? (
-        // The display line's height, with the rows' faint «—» on its baseline (none while busy).
+        // The display line's height, with the rows' muted «—» on its baseline (none while busy).
         <span className="grid shrink-0 justify-items-end">
           <span aria-hidden className="t-display invisible col-start-1 row-start-1">
             0
           </span>
           {total.busy ? null : (
-            <span className="t-body-strong col-start-1 row-start-1 self-end text-faint">—</span>
+            <span className="t-body-strong col-start-1 row-start-1 self-end text-muted">—</span>
           )}
         </span>
       ) : (

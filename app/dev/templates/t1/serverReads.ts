@@ -1,9 +1,7 @@
 import 'server-only';
-import type { TopBarViewer } from '@/components/nav/TopBar';
 import type { Transport, TransportRequest } from '@/core/transport';
 import { getSessionToken } from '@/lib/server/session';
 import { getViewer, type Viewer } from '@/lib/server/viewer';
-import { DEMO_PATH } from './StateSwitcher';
 
 /*
  * The demo's server reads, each bounded by READ_BUDGET_MS: past the budget a read counts as failed
@@ -85,5 +83,3 @@ export async function readViewer(): Promise<DemoViewer> {
   if (!token) return null;
   return within(getViewer()).catch(() => 'unknown' as const);
 }
-
-export const SIGNED_OUT: TopBarViewer = { status: 'out', signInHref: `/intra?next=${encodeURIComponent(DEMO_PATH)}` };

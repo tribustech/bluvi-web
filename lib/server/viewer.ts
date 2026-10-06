@@ -1,6 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
-import { z } from 'zod';
+import * as z from 'zod';
 import { getOwnedLakes } from '@/core/booking';
 import { call, isApiError, type Transport } from '@/core/transport';
 import { getSessionToken } from './session';

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { SHELL_GUTTERS, SHELL_MAX } from '@/components/nav/shell';
 import { cn } from '@/components/ui/cn';
+import { TRACK_GAP, TRACKS } from '../tracks';
 
 /**
  * Where the page's sticky parts start: under the site top bar (56 / 64 from 768) or at the very
@@ -50,19 +51,19 @@ const COLUMN_TOP: Record<T4Offset, string> = {
 /**
  * Column tracks from 1280 (ROADMAP §4: three columns — context left, content centre, details
  * right — filling the shell's column up to ~1680). The form track takes the rest (1fr), so the
- * summary and its CTA always end on the shell's right gutter, under the top bar's avatar; the
- * field stack inside it is capped (FORM_CAP) so fields stay readable on a very wide screen.
- * Rail 240 / 256, summary 352 / 384 at 1280 / 1440.
+ * summary and its CTA always end on the shell's right gutter, under the top bar's avatar. The
+ * form cards fill that track (ROADMAP §4 caps only long reading text, never a form or a card
+ * grid): readability lives inside the cards — T4Section field grids go md:grid-cols-2 /
+ * xl:grid-cols-3, the stand grid and the day strip auto-fill more columns, long help text takes
+ * PROSE_MAX — so the summary column always reads as attached to the form, no dead strip between.
+ * The shared template tracks (../tracks.ts): rail 240 / 256, summary 320 / 360, 24 apart.
  */
-const TRACKS = {
-  full: 'xl:grid-cols-[--spacing(60)_minmax(0,1fr)_--spacing(88)] 2xl:grid-cols-[--spacing(64)_minmax(0,1fr)_--spacing(96)]',
-  rail: 'xl:grid-cols-[--spacing(60)_minmax(0,1fr)] 2xl:grid-cols-[--spacing(64)_minmax(0,1fr)]',
-  aside: 'xl:grid-cols-[minmax(0,1fr)_--spacing(88)] 2xl:grid-cols-[minmax(0,1fr)_--spacing(96)]',
+const FRAME_TRACKS = {
+  full: TRACKS.three,
+  rail: TRACKS.leftMain,
+  aside: TRACKS.mainRight,
   none: 'xl:grid-cols-[minmax(0,1fr)]',
 } as const;
-
-/** The form column's content cap (220 = 880px): the stack stays readable, left on its track. */
-const FORM_CAP = 'xl:max-w-220';
 
 type Props = {
   /** <T4Header>: full-bleed band above the columns. */
@@ -91,6 +92,15 @@ type Props = {
   offset?: T4Offset;
   /** Accessible name of the form column (e.g. «Pasul 1: Interval și stand»). */
   label?: string;
+  /**
+   * The children are a page-level state (a T4Gate: error, signed out, nothing to book, gone): the
+   * frame drops its rail and its summary column (`rail` / `aside` / `actions` are not rendered —
+   * there is no step to track and nothing chosen to sum up; what the page is about stays in the
+   * header's eyebrow) and the content spans the whole shell column, so the gate
+   * (STATE_CARD_FRAME) is centred under the header at every width — never a 720 card parked left
+   * of an empty band before an aside (T1, T3, T5, T6 do the same).
+   */
+  pageState?: boolean;
   className?: string;
 };
 
@@ -130,23 +140,29 @@ const PAGE_CLEAR = cn(
  */
 export function T4Frame({
   header,
-  rail,
-  aside,
+  rail: railProp,
+  aside: asideProp,
   asideBelow = false,
-  actions,
+  actions: actionsProp,
   busy = false,
   children,
   offset = 'shell',
   label,
+  pageState = false,
   className,
 }: Props) {
-  const tracks = rail && aside ? TRACKS.full : rail ? TRACKS.rail : aside ? TRACKS.aside : TRACKS.none;
+  // A page-level state has no step list, no summary and no step actions (see `pageState`).
+  const rail = pageState ? undefined : railProp;
+  const aside = pageState ? undefined : asideProp;
+  const actions = pageState ? undefined : actionsProp;
+  const tracks = rail && aside ? FRAME_TRACKS.full : rail ? FRAME_TRACKS.rail : aside ? FRAME_TRACKS.aside : FRAME_TRACKS.none;
   return (
     <div className={cn('flex flex-col bg-page', FRAME_MIN[offset], PAGE_CLEAR, className)}>
       {header}
       <div
         className={cn(
-          'mx-auto flex w-full flex-1 flex-col pt-4 md:pt-6 xl:grid xl:gap-8 xl:pt-8',
+          'mx-auto flex w-full flex-1 flex-col pt-4 md:pt-6 xl:grid xl:pt-8',
+          TRACK_GAP,
           SHELL_MAX,
           SHELL_GUTTERS,
           tracks,
@@ -162,7 +178,7 @@ export function T4Frame({
           aria-busy={busy || undefined}
           className={cn('flex min-w-0 flex-1 flex-col', FOCUS_CLEAR)}
         >
-          <div className={cn('flex flex-col gap-4 pb-6 md:gap-5 xl:pb-8', FORM_CAP)}>
+          <div className="flex flex-col gap-4 pb-6 md:gap-5 xl:pb-8">
             {children}
             {aside && asideBelow ? <div className="xl:hidden">{aside}</div> : null}
           </div>

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { getAnglerFollowing } from '../social/api';
 import { call, callVoid, isApiError, type Transport } from '../transport';
 import type { EventUpsertBody, SessionUpsertBody } from './domain/upsertBodies';

@@ -33,7 +33,7 @@ import { routes } from '@/lib/routes';
 import { competitionDateProse } from '../../../(site)/concursuri/[id]/_components/dates';
 import type { LooseCompetitionDetail as CompetitionDetail } from '../../../(site)/concursuri/[id]/_components/load';
 import type { Settled } from './data';
-import type { DemoViewer } from './DemoTopBar';
+import type { DemoViewer } from './viewer';
 import { demoHref, LONG_TITLE, type DemoState } from './states';
 
 /*
@@ -57,6 +57,9 @@ import { demoHref, LONG_TITLE, type DemoState } from './states';
  * The session (`viewer`, a promise) is never awaited by the page: only the parts that depend on it
  * — the viewer's own row in the list, the action bar's «Intră» — wait for it, behind Suspense.
  */
+
+/** Spoken with a route tab that has no web page yet (as the live page). */
+const SOON = 'În curând pe web';
 
 /** `?state=mine` without a signed-in viewer: the registration the demo marks as the viewer's. */
 const DEMO_ME = 'demo-tu';
@@ -242,10 +245,12 @@ export function CompetitionScreen({ competition: raw, state, viewer, signIn }: P
             tabs={[
               // No ranking for a cancelled or draft competition: the tab is not a link.
               ranked ? { label: 'Clasament', href: routes.competition(c.documentId) } : { label: 'Clasament', absent: 'fără clasament' },
-              { label: 'Informații' },
+              // As the live page (concursuri/[id] CompetitionScreen): the absent tabs greyed, the
+              // reason spoken, no visible «curând» tag.
+              { label: 'Informații', absent: SOON },
               { label: 'Participanți', href: demoHref('competition', state), current: true, count: count ?? undefined },
-              { label: 'Extra Cântare' },
-              { label: 'Regulament' },
+              { label: 'Extra Cântare', absent: SOON },
+              { label: 'Regulament', absent: SOON },
             ]}
           />
         </DetailBand>

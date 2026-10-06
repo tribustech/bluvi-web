@@ -32,7 +32,7 @@ export default function T1Error({ error, retry }: { error: Error & { digest?: st
 
   return (
     <ListPage
-      header={<ListHeader title="Concursuri" below={<ListTabs label="Stare concursuri" tabs={TABS} active={active} />} />}
+      header={<ListHeader title="Competiții" below={<ListTabs label="Stare concursuri" tabs={TABS} active={active} />} />}
       filters={<FilterColumnSkeleton switchRow sections={[5, 3]} />}
     >
       <ListError

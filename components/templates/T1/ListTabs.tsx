@@ -208,18 +208,5 @@ export function TabContent({
   );
 }
 
-/**
- * The on-air dot (6px, pulsing) — the one light Fundații gives LIVE, used wherever a live state is
- * marked (the tab, the «Live» choice, the active-filter chip). `tone="on-accent"` swaps to the
- * lighter live-dot for a dot drawn on a filled accent-ink chip, where live is too dark to read.
- */
-export function LiveDot({ label, tone = 'live' }: { label?: string; tone?: 'live' | 'on-accent' }) {
-  return (
-    <span
-      role={label ? 'img' : undefined}
-      aria-label={label}
-      aria-hidden={label ? undefined : true}
-      className={cn('size-1.5 shrink-0 animate-live rounded-full', tone === 'live' ? 'bg-live' : 'bg-live-dot')}
-    />
-  );
-}
+/** The on-air dot: shared by every template (components/templates/LiveDot), re-exported for T1's users. */
+export { LiveDot } from '../LiveDot';

@@ -1,4 +1,6 @@
 export { RankingRow, PositionPill, type RankingRowProps } from './RankingRow';
+export { MEDAL, MEDAL_TEXT, isMedalPlace, type MedalPlace } from './medal';
+export { PodiumCup } from './PodiumCup';
 export { RankingTable, type RankingTableProps } from './RankingTable';
 export { toWebColumns, type WebColumn } from './columns';
 export {

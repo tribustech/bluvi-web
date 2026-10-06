@@ -11,3 +11,9 @@ export const PAGE_RETRY = {
     failures < 1 && !(isApiError(error) && error.status >= 400 && error.status < 500),
   retryDelay: 600,
 } as const;
+
+/**
+ * A live competition left open re-reads its live parts this often while the tab is visible
+ * (parity b.foreground-refresh / b.live-refresh; TanStack pauses the interval in a hidden tab).
+ */
+export const LIVE_POLL_MS = 45_000;

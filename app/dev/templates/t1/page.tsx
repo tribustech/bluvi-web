@@ -139,12 +139,12 @@ function DemoFallback({ place }: { place: DemoPlace }) {
   return (
     <div aria-busy>
       <ListPageSkeleton
-        title="Concursuri"
+        title="Competiții"
         header={
           results ? (
             <ListHeader title={heading} back={{ label: 'Înapoi la concursuri', href: DEMO_PATH }} reserveBelow="Se caută…" />
           ) : (
-            <ListHeader title="Concursuri" below={<TabsSkeleton count={3} />} />
+            <ListHeader title="Competiții" below={<TabsSkeleton count={3} />} />
           )
         }
         filters={<FilterColumnSkeleton switchRow sections={[5, 3]} />}

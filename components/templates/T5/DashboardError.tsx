@@ -11,9 +11,11 @@ import { STATE_CARD } from './tones';
  * page-state card (T1 ListError: centred, danger disc, the retry inside the card). A failed
  * refetch WITH data keeps the data on screen instead — don't render this then.
  *
- * `retry` re-renders the server page (router.refresh). Each attempt that fails again mounts a
- * fresh sr-only alert (the card itself stays, so the focused button keeps focus), so the repeated
- * failure is announced again; nothing claims success — a success replaces this card with the panel.
+ * `retry` re-renders the server page (router.refresh, in a transition: the button stays focusable
+ * and busy). A refresh that settles with this card still mounted failed again: the attempt count
+ * goes up, the card's alert re-mounts (spoken again) and «Tot nu merge. Încercarea N.» shows under
+ * the button (ListError). Nothing claims success — a success replaces this card with the panel.
+ * `attempt` overrides the count for a caller that has its own (TanStack errorUpdateCount).
  */
 export function DashboardError({
   title = 'Panoul nu s-a putut încărca.',
@@ -21,6 +23,7 @@ export function DashboardError({
   retry = false,
   retryLabel = 'Încearcă din nou',
   action,
+  attempt: attemptOverride,
   className,
 }: {
   title?: string;
@@ -33,11 +36,19 @@ export function DashboardError({
    * 404) has nothing to retry, so it offers where to go instead («Vezi bălțile tale»).
    */
   action?: ReactNode;
+  /** How many times the read has failed (1 = the first failure); counted here when omitted. */
+  attempt?: number;
   className?: string;
 }) {
   const router = useRouter();
   const [retrying, start] = useTransition();
-  const [attempt, setAttempt] = useState(0);
+  const [attempt, setAttempt] = useState(1);
+  const [wasRetrying, setWasRetrying] = useState(retrying);
+  if (wasRetrying !== retrying) {
+    setWasRetrying(retrying);
+    // A refresh that settles with this card still mounted failed again.
+    if (!retrying) setAttempt((n) => n + 1);
+  }
   return (
     <div className={cn(STATE_CARD, className)}>
       <ListError
@@ -45,23 +56,10 @@ export function DashboardError({
         description={description}
         retryLabel={retryLabel}
         retrying={retrying}
+        attempt={attemptOverride ?? attempt}
         secondaryAction={action}
-        onRetry={
-          retry
-            ? () =>
-                start(() => {
-                  router.refresh();
-                  // Commits with the refreshed tree: if this card is still there, the read failed again.
-                  setAttempt((n) => n + 1);
-                })
-            : undefined
-        }
+        onRetry={retry ? () => start(() => router.refresh()) : undefined}
       />
-      {attempt > 0 ? (
-        <p key={attempt} role="alert" className="sr-only">
-          {title}
-        </p>
-      ) : null}
     </div>
   );
 }

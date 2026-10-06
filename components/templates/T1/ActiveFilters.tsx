@@ -48,6 +48,7 @@ export function ActiveFilters({
   onClearAll,
   label = 'Filtre active',
   fallbackFocusIds = [],
+  itemLabel = (l: string) => `${l}, elimină filtrul`,
   className,
 }: {
   filters: ActiveFilter[];
@@ -55,6 +56,8 @@ export function ActiveFilters({
   label?: string;
   /** Where focus goes when no chip is left to take it — first id found wins (tabIndex=-1 headings). */
   fallbackFocusIds?: string[];
+  /** Each chip's accessible name, from its label (default «{label}, elimină filtrul»). */
+  itemLabel?: (label: string) => string;
   className?: string;
 }) {
   const buttons = useRef(new Map<string, HTMLButtonElement>());
@@ -108,7 +111,7 @@ export function ActiveFilters({
       <div
         ref={scroller}
         className={cn(
-          'flex min-w-0 flex-1 gap-2 overflow-x-auto py-0.5 pl-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:contents',
+          '-my-1 flex min-w-0 flex-1 gap-2 overflow-x-auto py-1.5 pl-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:contents',
           clearAll ? null : 'pr-4',
           edges.start && edges.end ? FADE.both : edges.end ? FADE.end : edges.start ? FADE.start : null,
         )}
@@ -125,7 +128,7 @@ export function ActiveFilters({
               pending.current = filters[i + 1]?.key ?? filters[i - 1]?.key ?? '';
               f.onClear();
             }}
-            aria-label={`${f.label}, elimină filtrul`}
+            aria-label={itemLabel(f.label)}
             className={cn(
               PILL_H,
               'flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-accent-tint pr-2.5 pl-3 t-label whitespace-nowrap text-accent-ink',

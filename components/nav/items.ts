@@ -25,16 +25,21 @@ export type NavItem = {
   Icon: ComponentType<SVGProps<SVGSVGElement>>;
 };
 
-// /partide, /profil, /setari, /notificari and /intra are not in lib/routes.ts yet; their pages own them.
 export const PATHS = {
-  partide: '/partide',
-  profile: '/profil',
-  settings: '/setari',
-  notifications: '/notificari',
-  signIn: '/intra',
-  organizer: '/organizator',
-  operator: (lakeId: string) => `/operator/${encodeURIComponent(lakeId)}`,
+  partide: routes.partide(),
+  profile: routes.profile(),
+  settings: routes.settings(),
+  notifications: routes.notifications(),
+  signIn: routes.signIn(),
+  organizer: routes.organizer(),
+  operator: (lakeId: string) => routes.operator(lakeId),
 } as const;
+
+/**
+ * The sign-in URL that returns to `next` (a path with its query) — /intra validates it as a safe
+ * path. Without `next`, or for the home page and /intra itself, plain /intra (lib/routes.ts signIn).
+ */
+export const signInPath = (next?: string): string => routes.signIn(next);
 
 export const SECTIONS: NavItem[] = [
   { key: 'acasa', label: 'Acasă', href: routes.home(), Icon: HomeIcon },

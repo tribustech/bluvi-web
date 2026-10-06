@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode, type Ref, type RefObject } from 'react';
+import { SignInGate } from '@/components/templates/SignInGate';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ArrowRightEndOnRectangleIcon,
   ArrowUturnLeftIcon,
   BanknotesIcon,
   BoltIcon,
@@ -496,17 +496,16 @@ export function BookingDemo({
   const gateHeader = (inPlace: boolean) => (
     <T4Header eyebrow={eyebrow} title={GATE_TITLE} back={backToLake} reserve={inPlace ? 3 : undefined} />
   );
-  // From 1280 a gate keeps the frame's right column: the lake being booked, so the page keeps the
-  // step layout's shape instead of one card under the title and an empty canvas.
+  // The lake being booked, for the sent outcome's right column. Page states (signed out, error,
+  // nothing to book) drop it: T4Frame `pageState` centres the gate under the header, and the lake
+  // is named in the header's eyebrow and the gate's copy.
   const lakeAside = lake ? <T4Summary title="Balta" header={<LakeIdentity lake={lake} />} rows={[]} /> : undefined;
 
   if (problem === 'missing') {
     // The lake does not exist (deleted, a bad link): no retry can fix it, so none is offered.
     return (
-      <T4Frame header={<T4Header eyebrow="Rezervare" title={GATE_TITLE} back={{ label: 'Înapoi la bălți', href: routes.lakes() }} />}>
+      <T4Frame pageState header={<T4Header eyebrow="Rezervare" title={GATE_TITLE} back={{ label: 'Înapoi la bălți', href: routes.lakes() }} />}>
         <T4Gate
-          align="start"
-          indent
           icon={<MapPinIcon />}
           title="Balta nu mai există"
           description="Linkul duce la o baltă care nu mai e pe Bluvi. Caută alta în lista de bălți."
@@ -518,20 +517,15 @@ export function BookingDemo({
   // Signed out: only the lake was read (its name), never the availability — the gate is the answer.
   if (!signedIn && lake) {
     return (
-      <T4Frame header={gateHeader(true)} aside={lakeAside}>
-        <T4Gate
-          align="start"
-          indent
-          icon={<ArrowRightEndOnRectangleIcon />}
+      <T4Frame pageState header={gateHeader(true)}>
+        <SignInGate
           title="Intră în cont ca să rezervi"
           description={`Rezervarea la ${lake.name} se face din contul tău: așa primești confirmarea și o găsești la Rezervările mele.`}
-          actions={
-            <>
-              <ButtonLink href={signInHref}>Intră în cont</ButtonLink>
-              <ButtonLink href={lakeHref} variant="secondary">
-                Înapoi la baltă
-              </ButtonLink>
-            </>
+          href={signInHref}
+          secondaryAction={
+            <ButtonLink href={lakeHref} variant="secondary">
+              Înapoi la baltă
+            </ButtonLink>
           }
         />
       </T4Frame>
@@ -539,12 +533,11 @@ export function BookingDemo({
   }
   if (!lake || !av) {
     return (
-      <T4Frame header={gateHeader(true)} aside={lakeAside}>
+      // A page state: the gate is centred in the whole column (no summary column).
+      <T4Frame pageState header={gateHeader(true)}>
         <T4Gate
           tone="danger"
           role="alert"
-          align="start"
-          indent
           icon={<ExclamationCircleIcon />}
           title="Disponibilitatea nu s-a încărcat"
           description="A apărut o eroare la încărcarea disponibilității."
@@ -569,10 +562,8 @@ export function BookingDemo({
   if (state === 'empty' || !av.bookingEnabled) {
     // Copy: parity rezerva-grila.c26. Not a dead end: the phone books what the web cannot.
     return (
-      <T4Frame header={gateHeader(false)} aside={lakeAside}>
+      <T4Frame pageState header={gateHeader(false)}>
         <T4Gate
-          align="start"
-          indent
           icon={<NoSymbolIcon />}
           title="Rezervările nu sunt disponibile"
           description="Acest lac nu acceptă deocamdată rezervări online."
@@ -596,10 +587,8 @@ export function BookingDemo({
   }
   if (days.length === 0 || av.stands.length === 0) {
     return (
-      <T4Frame header={gateHeader(false)} aside={lakeAside}>
+      <T4Frame pageState header={gateHeader(false)}>
         <T4Gate
-          align="start"
-          indent
           icon={<CalendarDaysIcon />}
           title="Nicio disponibilitate"
           description="Nu există standuri sau intervale disponibile pentru această perioadă."

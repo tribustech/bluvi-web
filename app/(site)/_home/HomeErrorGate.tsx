@@ -3,9 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient, type Query } from '@tanstack/react-query';
-// TODO(core): describeError belongs in core/shared next to ApiError (its own TODO); Acasă is the
-// second screen that needs it, and this task may not touch core/.
-import { describeError } from '@/app/dev/templates/t1/describeError';
+import { describeError } from '@/components/templates/T1/describeError';
 import { ListError } from '@/components/templates/T1/ListStates';
 import { STATE_CARD } from '@/components/templates/T5';
 import { Button } from '@/components/ui/Button';
@@ -27,6 +25,14 @@ import { homeLakesQuery, homeNewsQuery } from './queries';
  * Web difference, on purpose: only a read that failed WITH NOTHING ON SCREEN counts (T5: a failed
  * refetch keeps its data); fish also blanks the page when a background refetch of data it already
  * shows fails.
+ *
+ * The children are never unmounted or swapped: the error card is rendered BESIDE them and they
+ * are hidden (`display: none`). The children hold streamed Suspense boundaries (the columns, the
+ * per-user slots); replacing them while one was still streaming — the store's client snapshot
+ * differs from the server's (null) at hydration, so React re-renders this gate on the client —
+ * removed the boundary's placeholder before React's inline reveal script ran («Cannot read
+ * properties of null (reading 'parentNode') at $RS») and dropped the segment. The wrapper is
+ * `display: contents` otherwise, so the layout around the children is the same as without it.
  */
 export function HomeErrorGate({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
@@ -40,8 +46,12 @@ export function HomeErrorGate({ children }: { children: ReactNode }) {
     () => null,
   );
 
-  if (!failed) return children;
-  return <HomeError error={failed} />;
+  return (
+    <>
+      {failed ? <HomeError error={failed} /> : null}
+      <div className={failed ? 'hidden' : 'contents'}>{children}</div>
+    </>
+  );
 }
 
 function firstFailure(queries: (Query | undefined)[]): unknown {

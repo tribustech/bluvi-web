@@ -170,7 +170,7 @@ screens:
         text: "The applied county filter constrains markers, clusters, viewport rows and map hit-tests on the primary county_id."
         fish_ref: features/public-waters/queries.ts:116-123
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: public-waters.detaliu
@@ -329,7 +329,7 @@ screens:
         text: "A water without a linkCode shows no Partide/Capturi sections, no community banner and no link-code row (community queries are disabled)."
         fish_ref: "app/(app)/public-waters/[id].tsx:280-283"
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: public-waters.harta
@@ -374,7 +374,7 @@ screens:
         text: "The [id] param accepts both the numeric row id and the ANAR linkCode (same resolver as the detail page)."
         fish_ref: "app/(app)/public-waters/[id]/map.tsx:22-24"
     mobile_only: false
-    status: todo
+    status: passing
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: public-waters.partide
@@ -413,6 +413,7 @@ screens:
         fish_ref: "app/(app)/public-waters/[id]/partide.tsx:21-36"
       - id: public-waters.partide.c2
         text: "Header: back control + title = water name (fallback „Partide”)."
+        note: "web deviation: Family header (see statistici.c2): caption „Partide pe apă” under the water's name."
         fish_ref: "app/(app)/public-waters/[id]/partide.tsx:36"
       - id: public-waters.partide.c3
         text: "While either the venue section or the history is pending, a list skeleton is shown under the header."
@@ -422,6 +423,7 @@ screens:
         fish_ref: features/partide/screens/VenueSessionsScreen.tsx:137-153
       - id: public-waters.partide.c5
         text: "No live and no finished partide: „Nicio partidă înregistrată pe această apă încă.” and a green „Începe o partidă aici” button opening the start-partidă flow pre-set to this water (waterCode = linkCode)."
+        note: "web deviation (interim, until the web start flow ships — lib/routes.ts ON_WEB.startPartida): „Începe o partidă aici” is the primary action and opens the Bluvi app's store listing (App Store on Apple devices, Google Play otherwise), the other store as a secondary button; the caption says the web start is coming. Swap to the start flow (waterCode = linkCode) when it ships."
         fish_ref: features/partide/screens/VenueSessionsScreen.tsx:155-170
       - id: public-waters.partide.c6
         text: "With live sessions, the live card (same as the detail page, same cache entry) is shown first."
@@ -448,7 +450,7 @@ screens:
         text: "Live data polls every 60s (staleTime 30s); history staleTime 120s; neither retries automatically."
         fish_ref: features/partide/community/hooks.ts:283-295
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: public-waters.statistici
@@ -484,6 +486,7 @@ screens:
         fish_ref: "app/(app)/public-waters/[id]/statistici.tsx:21-36"
       - id: public-waters.statistici.c2
         text: "Header: back control + title = water name (fallback „Statistici”)."
+        note: "web deviation: Family header (decision 2026-10-05): the four subpages share one header — the back control at EVERY width (the T1 rule; T5's phone-only back is not used here), history-back when reached in-app, else the water's page; the icon refresh (48px square on a phone, labelled from 768); the caption „Statisticile apei” under the water's name (the phone has no breadcrumb)."
         fish_ref: "app/(app)/public-waters/[id]/statistici.tsx:36"
       - id: public-waters.statistici.c3
         text: "Period chips „Săptămâna” / „Luna” / „Anul curent”; the initial period comes from ?perioada= (week|year, anything else → month); changing it updates the URL without adding history."
@@ -498,7 +501,8 @@ screens:
         text: "Zero partide in the period: chips stay and „Nicio partidă în perioada selectată.” is shown."
         fish_ref: features/partide/screens/VenueStatsScreen.tsx:162-173
       - id: public-waters.statistici.c7
-        text: "While a new period loads, the previous period's content stays dimmed (40%) and non-interactive and the chips show busy."
+        text: "While a new period loads, the previous period's content stays on screen non-interactive (inert, aria-busy) and the chips show busy."
+        note: "web deviation: fish dims the whole content to 40%; the web never dims text (it fails AA): a 2px progress bar over the content (SwitchingBar) and the photos at 50% — the same treatment as Clasament c10 (decision 2026-10-05)."
         fish_ref: features/partide/screens/VenueStatsScreen.tsx:164-166
       - id: public-waters.statistici.c8
         text: "Content order: stat strip (totals), „Activitate” chart when the weekly series is non-empty, „Top pescari” (top 3 rows) with „Clasament ›”, record hero, „Specii prinse” species card when non-empty."
@@ -516,7 +520,7 @@ screens:
         text: "Stats are cached per period + venue (staleTime 60s, previous data kept while switching, no automatic retry)."
         fish_ref: features/partide/community/hooks.ts:168-181
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: public-waters.clasament
@@ -554,6 +558,7 @@ screens:
         fish_ref: "app/(app)/public-waters/[id]/clasament.tsx:21-34"
       - id: public-waters.clasament.c2
         text: "Title „Clasament · <water name>” (fallback „Clasament · apă”) next to a back control."
+        note: "web deviation: Family header (see statistici.c2): the water's name as the h1 and the caption „Clasamentul apei” under it, as Partide („Partide pe apă”) and Statistici („Statisticile apei”), so the four siblings share one header height; the document title stays „Clasament pescari · <apă>”."
         fish_ref: "app/(app)/public-waters/[id]/clasament.tsx:36-40"
       - id: public-waters.clasament.c3
         text: "Period chips Săptămâna/Luna/Anul curent seeded from ?perioada= (default month), reflected into the URL without new history entries."
@@ -577,10 +582,11 @@ screens:
         text: "On Pescari, when the signed-in viewer is in the ranking an „EU” pill reads „Ești pe locul R din T <period phrase> — N kg” (T = total anglers)."
         fish_ref: features/partide/screens/AnglersLeaderboardScreen.tsx:188-211
       - id: public-waters.clasament.c10
-        text: "While switching period the previous content is dimmed to 40% and non-interactive; refresh refetches the stats."
+        text: "While switching period the previous content stays non-interactive (inert, aria-busy) and the chips show busy; refresh refetches the stats."
+        note: "web deviation: fish dims to 40%; the web shows the progress bar + photos at 50% and never dims text (AA) — the same treatment as Statistici c7 (decision 2026-10-05)."
         fish_ref: features/partide/screens/AnglersLeaderboardScreen.tsx:252-282
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: public-waters.capturi
@@ -610,6 +616,7 @@ screens:
       - empty (no photo catches)
       - loaded, paginating
       - deep-linked to one photo (?foto=) — lightbox open on it, or ignored when not found
+      - gallery read failed (error with retry)
     criteria:
       - id: public-waters.capturi.c1
         text: "Resolves the water like the detail page; loading/error/not-found reuse its states; no linkCode → not-found."
@@ -622,6 +629,7 @@ screens:
         fish_ref: features/partide/screens/VenueCatchesGalleryScreen.tsx:108-126
       - id: public-waters.capturi.c4
         text: "Photos in a virtualised masonry (grid → thumb → full URL fallback) captioned „<species> · <kg> kg” (no caption when neither exists); the next page of 20 loads near the end."
+        note: "web deviation: the masonry is not windowed — every loaded tile stays in the DOM (absolutely placed, so appending a page never reflows), and each photo is `loading=lazy`, so off-screen photos cost neither bytes nor decode; the browser equivalent of fish's memory concern."
         fish_ref: features/partide/screens/VenueCatchesGalleryScreen.tsx:58-118
       - id: public-waters.capturi.c5
         text: "Tapping a photo opens the lightbox with footer (weight, species, date, angler) for every loaded catch."
@@ -633,7 +641,7 @@ screens:
         text: "The page is presented as a sheet/modal over the previous page in fish; same query cache as the detail grid and the partide rail (arriving from them renders from cache)."
         fish_ref: "app/(app)/_layout.tsx:100-103"
     mobile_only: false
-    status: todo
+    status: passing
 
 behaviours:
   - id: public-waters.b.route-param

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import { formatDecimal, plural } from '@/components/cards/format';
 import { ScaleIcon } from '@/components/icons/brand';
+import { SignInGate } from '@/components/templates/SignInGate';
 import { T4Gate, T4Notice } from '@/components/templates/T4';
 import { FlowAsideCard, FlowHeader, FlowLayout } from '@/components/templates/T6';
 import { Badge } from '@/components/ui/Badge';
@@ -29,8 +30,7 @@ import { AddCatchSkeleton, GateSkeleton, LoadingFallback, LoadingFlow, LoadingNe
 import { RetryButton } from './RetryButton';
 import { StandPicker } from './StandPicker';
 import { StandSubject } from './StandSubject';
-import SiteLayout from '../../../(site)/layout';
-import { SetBreadcrumb } from '../../../(site)/_shell/SiteHeader';
+import { SiteShell } from '../../../(site)/_shell/SiteShell';
 import { PREVIEW_STATES, READ_ONLY_TITLE, STATES, STEP2_STATES, isStepTwo, type DemoState } from './states';
 import { StateSwitcher, StateSwitcherView } from './StateSwitcher';
 
@@ -65,14 +65,13 @@ type Search = { state?: string; competition?: string; stand?: string };
 
 export default function T6DemoPage({ searchParams }: { searchParams: Promise<Search> }) {
   if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEV_KIT !== '1') notFound();
-  // The real app shell (top bar, breadcrumbs, skip link, toasts) around the demo, so the
+  // THE app shell (SiteShell: top bar, breadcrumbs, skip link, toasts) around the demo, so the
   // screenshots show the template where it will live. Rendered here rather than as a layout.tsx:
   // a new layout route trips the stale .next/types of an older build in `tsc`.
   // The breadcrumb and the demo switcher need no CMS read: they render outside the data boundary,
   // so the loading fallback has the same chrome above it as the loaded page.
   return (
-    <SiteLayout>
-      <SetBreadcrumb trail={[{ label: 'Șabloane' }, { label: 'T6 · Cântar' }]} />
+    <SiteShell forced={{ param: 'state', out: ['signed-out'] }}>
       <Suspense fallback={<StateSwitcherView />}>
         <StateSwitcher />
       </Suspense>
@@ -87,7 +86,7 @@ export default function T6DemoPage({ searchParams }: { searchParams: Promise<Sea
       >
         <KeyedDemo searchParams={searchParams} />
       </Suspense>
-    </SiteLayout>
+    </SiteShell>
   );
 }
 
@@ -197,11 +196,11 @@ async function Demo({ sp, signedIn }: { sp: Search; signedIn: boolean }) {
         variant="bare"
         narrow
       >
-        <T4Gate
+        <SignInGate
           icon={<ScaleIcon aria-hidden />}
           title="Intră în cont ca să folosești cântarul"
           description="Organizatorul și arbitrii concursului adaugă aici capturile de pe fiecare stand."
-          actions={<ButtonLink href={`/intra?next=${encodeURIComponent(`${BASE}?${next.toString()}`)}`}>Intră în cont</ButtonLink>}
+          next={`${BASE}?${next.toString()}`}
         />
       </FlowLayout>
     );

@@ -8,6 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { cn } from '@/components/ui/cn';
 import type { T4SaveState } from './types';
+import { RING_DANGER } from '../rings';
 
 /**
  * Busy glyph: the shell's spinning ArrowPathIcon (TopBar, MobileMenu, T5 DashboardRefresh), in the
@@ -71,7 +72,7 @@ const TONE: Record<T4NoticeTone, { box: string; icon: string; glyph: ReactNode }
     glyph: <ExclamationTriangleIcon aria-hidden className="size-6" />,
   },
   danger: {
-    box: 'bg-surface shadow-[inset_0_0_0_1px_var(--color-status-danger-line)]',
+    box: `bg-surface ${RING_DANGER}`,
     icon: 'bg-status-danger-bg text-status-danger-fg',
     glyph: <ExclamationCircleIcon aria-hidden className="size-6" />,
   },

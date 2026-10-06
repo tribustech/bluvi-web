@@ -44,7 +44,7 @@ import { getLakeLocationSubtitle, type LakeDetail, type Review } from '@/core/la
 import type { CommunityLakeSectionDTO } from '@/core/partide';
 import { routes } from '@/lib/routes';
 import type { LakeCompetitions, LakeScreenData, Settled } from './data';
-import type { DemoViewer } from './DemoTopBar';
+import type { DemoViewer } from './viewer';
 import {
   BookingCard,
   bookingAction,

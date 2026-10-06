@@ -2,7 +2,8 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { LockClosedIcon, PlusCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import {
   competitionKeys,
   competitionMyStatusQuery,
@@ -14,10 +15,26 @@ import {
   SIGNED_OUT_MY_STATUS,
   userStatuteForCompetitionQuery,
   competitionProfileKeys,
+  canRequestExtraScale,
+  defaultFeederTab,
+  getRegistrationByStandId,
+  hasRequestedExtraScale,
+  isNationalChampionshipRankings,
+  registrationAction,
   type CompetitionDetail,
   type CompetitionWithMyStatus,
+  type FeederRoundsRanking,
+  type FeederTab,
 } from '@/core/competitions';
-import { activeWeighingQuery, allocatedParticipantsQuery, competitionManagementKeys, weighingKeys } from '@/core/organizer';
+import {
+  activeWeighingQuery,
+  allocatedParticipantsQuery,
+  competitionManagementKeys,
+  deleteExtraScaleRequestMutation,
+  extraScalesListQuery,
+  requestExtraScaleMutation,
+  weighingKeys,
+} from '@/core/organizer';
 import { plural } from '@/components/cards/format';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import {
@@ -28,36 +45,53 @@ import {
   DetailError,
   DetailPage,
   DetailSection,
+  DetailSectionState,
   DetailSignInAgain,
-  DetailSignInPrompt,
   DetailTabs,
 } from '@/components/templates/T3';
-import { ButtonLink } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
+import { Dialog } from '@/components/surfaces/Dialog';
+import { EmptyState, ErrorState } from '@/components/surfaces/StateCard';
 import { isApiError } from '@/core/transport';
 import { routes } from '@/lib/routes';
 import type { Viewer } from '@/lib/server/viewer';
 import { signInHref } from '../../../_shell/SiteHeader';
-import { useViewer } from '../../../_shell/viewer-context';
-import { ActiveWeighingBanner, MobileActionBar } from './ActionBar';
+import { isUnknownViewer, useViewerState } from '../../../_shell/viewer-context';
+import { ActiveWeighingBanner, MobileActionBar, SORT_OPTION, type BarConfirm } from './ActionBar';
+import { FeederHelp, FeederLegTabs, FeederRankingTable, feederLegEmpty, type FeederData } from './FeederRanking';
+import { NcRankingTable, NcSectorPills, NcSortControl, ncSortFor, type NcSort, type NcView } from './NcRanking';
+import { useSiteToast } from '../../../_shell/Toast';
 import { AllFishView } from './AllFishView';
 import { ChatDock, ChatHeaderButton, MobileChatSheet, useChatBadge } from './ChatPanel';
 import { CompetitionSkeleton } from './CompetitionSkeleton';
 import { isOfflineEmpty, OFFLINE_TITLE } from './offline';
+import { cn } from '@/components/ui/cn';
+import { SignInGate } from '@/components/templates/SignInGate';
+import { COLUMN_STICKY_TOP_BELOW_TABS } from '@/components/templates/T3/metrics';
 import { QueryRetry } from './QueryRetry';
-import { PAGE_RETRY } from './retry-policy';
+import { RefreshRetry } from './RefreshRetry';
+import { LIVE_POLL_MS, PAGE_RETRY } from './retry-policy';
 import { LOAD_ERROR_COPY, skeletonVariantOf } from './screen-state';
 import { CompetitionHeader } from './CompetitionHeader';
 import { DesktopStats } from './DesktopStats';
 import type { PageViewer } from './Follow';
 import { FullRankingDialog } from './FullRankingDialog';
+import { imageQueryFor, imageQueryString } from '../clasament/imagine/model';
+import { trackRankingImage } from '../clasament/imagine/analytics';
+import { FullViewButtons } from './rankingShell';
 import { CompetitionPreview } from './Preview';
-import { buildRankingTable, weightDecimals, type RankingSort } from './ranking';
+import { buildRankingTable, rawWeightDecimals, weightDecimals, type RankingSort } from './ranking';
 import { RankingView } from './RankingView';
 import { StatisticsSkeleton, StatisticsView } from './StatisticsView';
 import { pageTransport } from './transport';
 import { ViewChips, ViewPanel, ViewTabs } from './ViewSwitch';
 import { viewFromPath, viewFromSegment, viewPath, VIEW_PARAM, type RankingViewKey } from './views';
 import { WeighingsView } from './WeighingsView';
+import { AnglerStats } from './AnglerStats';
+import { PRESSABLE_ROWS, useRowPress } from './rowPress';
+import { COMPETITION_TABS, type CompetitionTab } from './tabs';
+import { TabBody } from './TabBody';
+import { isNationalType } from './stand';
 
 /*
  * Concurs · Clasament on T3 «Detail with tabs» (components/templates/T3, demo /dev/templates/t3):
@@ -66,8 +100,10 @@ import { WeighingsView } from './WeighingsView';
  *     <DetailBand>                           the white band under the top bar, full bleed
  *       <CompetitionHeader>                  fish CompetitionHeader (T3 DetailHeader, centred on the phone)
  *       <DetailTabs>                         fish ROUTES_LIST — Clasament is the page; the rest come in M1
- *     <DetailBody>                           no side columns: the ranking table takes the full width (ROADMAP §4)
- *       stats (from 768) · the four views · the view's content
+ *     <DetailBody>                           no side columns at any width: the ranking table takes the whole
+ *                                            shell column (ROADMAP §4 «tables take all the available width»;
+ *                                            e2e full-width.spec)
+ *       stats strip (from 768, one row from 1280) · the four views · the view's content
  *     <DetailActionBar>                      phone: fish RankingActionBar, the weighing banner above it
  *
  * The page renders once, signed out, and never waits for the session: header, tabs and the whole
@@ -84,10 +120,15 @@ export type CompetitionDates = {
   prose: string;
   /** «sâm, 11 oct. · 07:00»: the countdown's caption. */
   startShort: string;
+  /** «sâm, 11 oct 2026 · 07:00»: the details' facts (one line in the narrow left column). */
+  startCompact: string;
+  endCompact: string;
 };
 
-/** The competition core with a ranking type core does not parse yet (feederRounds today). */
-export type LooseCompetition = Omit<CompetitionDetail, 'rankingType'> & { rankingType: string };
+/** The competition core with a ranking type core does not parse (one added to the CMS after this build). */
+export type LooseCompetition = Omit<CompetitionDetail, 'rankingType'> & {
+  rankingType: string;
+};
 
 type Props = {
   id: string;
@@ -98,43 +139,59 @@ type Props = {
   statusHint?: string;
   /** The view the URL names (/cantare, /statistici, /capturi; Clasament otherwise): rendered by the server. */
   initialView?: RankingViewKey;
+  /** The route tab the URL names (/informatii, /participanti, /extra-cantare, /regulament; Clasament otherwise). */
+  tab?: CompetitionTab;
 };
 
 /** fish's universal link (AASA /competitions/*): the app on a phone, the stores page elsewhere. */
 const appLink = (id: string) => `https://bluvi-app.wearetribus.com/competitions/${encodeURIComponent(id)}`;
 
-/** Spoken with a route tab that has no web page yet. */
-const SOON = 'În curând pe web';
-
 /** A tab that comes back after this long re-reads the live parts (fish pull-to-refresh, parity clasament.c6). */
 const REFRESH_ON_RETURN_MS = 30_000;
 
-/**
- * A live competition left open re-reads its live parts this often while the tab is visible
- * (parity b.foreground-refresh; TanStack pauses the interval in a hidden tab).
- */
-const LIVE_POLL_MS = 45_000;
-
 export function CompetitionScreen(props: Props) {
   const [viewer, setViewer] = useState<PageViewer>(undefined);
+  const [sessionUnknown, setSessionUnknown] = useState(false);
   const onViewer = useCallback((v: Viewer | null) => setViewer(v), []);
   return (
     <>
       <Suspense fallback={null}>
-        <ViewerIsland onViewer={onViewer} />
+        <ViewerIsland onViewer={onViewer} onUnknown={setSessionUnknown} />
       </Suspense>
-      <Screen {...props} viewer={viewer} />
+      <Screen {...props} viewer={viewer} sessionUnknown={viewer === undefined && sessionUnknown} />
     </>
   );
 }
 
-function ViewerIsland({ onViewer }: { onViewer: (v: Viewer | null) => void }) {
-  const viewer = useViewer();
-  useEffect(() => onViewer(viewer), [viewer, onViewer]);
+/**
+ * Hands the session to the screen. An unknown session (a cookie whose read failed —
+ * ../../../_shell/session.ts) is never handed down as «signed out»: the screen keeps it pending
+ * (`undefined`, no guest prompt); it is flagged instead (`onUnknown`), so the parts waiting for it
+ * say so and offer to check again rather than staying a skeleton.
+ */
+function ViewerIsland({ onViewer, onUnknown }: { onViewer: (v: Viewer | null) => void; onUnknown: (unknown: boolean) => void }) {
+  const viewer = useViewerState();
+  useEffect(() => {
+    const unknown = isUnknownViewer(viewer);
+    onUnknown(unknown);
+    if (!unknown) onViewer(viewer);
+  }, [viewer, onViewer, onUnknown]);
   return null;
 }
 
-function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'clasament' }: Props & { viewer: PageViewer }) {
+function Screen({
+  id,
+  dates,
+  viewer,
+  sessionUnknown,
+  unsupported,
+  statusHint,
+  initialView = 'clasament',
+  tab = 'clasament',
+}: Props & { viewer: PageViewer; sessionUnknown: boolean }) {
+  // The route tab (parity competition-page.b.tab-deep-links): Clasament (the ranking and its views)
+  // or one of Informații / Participanți / Extra Cântare / Regulament, each its own page.
+  const onClasament = tab === 'clasament';
   const t = useMemo(() => pageTransport(), []);
   const qc = useQueryClient();
   const pathname = usePathname() ?? '';
@@ -149,12 +206,25 @@ function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'cla
     // An unsupported core cannot be parsed by the browser either: it stays what the server read
     // (the follow mutation still updates it optimistically).
     ...(unsupported
-      ? { enabled: false, initialData: { ...unsupported, ...SIGNED_OUT_MY_STATUS } as unknown as CompetitionWithMyStatus }
+      ? {
+          enabled: false,
+          initialData: {
+            ...unsupported,
+            ...SIGNED_OUT_MY_STATUS,
+          } as unknown as CompetitionWithMyStatus,
+        }
       : {}),
   });
   // Unsupported core: the viewer's overlay (isFollowing, registration) is read on its own.
-  const myStatusQ = useQuery({ ...competitionMyStatusQuery(t, id, session), ...PAGE_RETRY, enabled: !!unsupported && isAuthenticated });
-  const statuteQ = useQuery({ ...userStatuteForCompetitionQuery(t, id, session), ...PAGE_RETRY });
+  const myStatusQ = useQuery({
+    ...competitionMyStatusQuery(t, id, session),
+    ...PAGE_RETRY,
+    enabled: !!unsupported && isAuthenticated,
+  });
+  const statuteQ = useQuery({
+    ...userStatuteForCompetitionQuery(t, id, session),
+    ...PAGE_RETRY,
+  });
   // The server hydrated the signed-out overlay (isFollowing false): re-read it once with the session.
   // Until that answer lands the overlay is stale, so the follow pill waits (a bone) rather than
   // offering the wrong action — and if the re-read FAILS it is still stale: `failed`, and the follow
@@ -173,7 +243,12 @@ function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'cla
   /** The follow button's «check again»: re-reads the overlay (and a failed statute); true when both answered. */
   const recheckOverlay = async (): Promise<boolean> => {
     await Promise.all([
-      unsupported ? myStatusQ.refetch() : qc.invalidateQueries({ queryKey: competitionsKeys.byId(id), exact: true }),
+      unsupported
+        ? myStatusQ.refetch()
+        : qc.invalidateQueries({
+            queryKey: competitionsKeys.byId(id),
+            exact: true,
+          }),
       statuteQ.isError ? statuteQ.refetch() : undefined,
     ]);
     const overlayKey = unsupported ? competitionMyStatusQuery(t, id, session).queryKey : competitionsKeys.byId(id);
@@ -184,8 +259,7 @@ function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'cla
     return ok;
   };
 
-  const competition =
-    unsupported && competitionQ.data && myStatusQ.data ? { ...competitionQ.data, ...myStatusQ.data } : competitionQ.data;
+  const competition = unsupported && competitionQ.data && myStatusQ.data ? { ...competitionQ.data, ...myStatusQ.data } : competitionQ.data;
   const status = competition?.competitionStatus;
   // fish CompetitionRanking: only notStarted gets the preview; every other status (started,
   // completed, cancelled, draft) gets the views and the ranking (or «Nu există date de afișat»).
@@ -223,54 +297,122 @@ function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'cla
 
   const live = status === 'started';
   const poll = { refetchInterval: live ? LIVE_POLL_MS : false } as const;
-  const rankingsQ = useQuery({ ...rankingsQuery(t, id, status), ...PAGE_RETRY, ...poll, ...(unsupported ? { enabled: false } : {}) });
-  const { data: activeWeighing } = useQuery({ ...activeWeighingQuery(t, id, session), ...PAGE_RETRY, ...poll });
+  const rankingsQ = useQuery({
+    ...rankingsQuery(t, id, status),
+    ...PAGE_RETRY,
+    ...poll,
+    // The other route tabs show no ranking: it is read (and polled) on Clasament only.
+    ...(unsupported || !onClasament ? { enabled: false } : {}),
+  });
+  const { data: activeWeighing } = useQuery({
+    ...activeWeighingQuery(t, id, session),
+    ...PAGE_RETRY,
+    ...poll,
+  });
   const isDesktop = breakpoint !== 'mobile';
   // The server prefetched it (page body): the stat row is painted with it, before hydration.
   const weighingStatsQ = useQuery({
     ...competitionWeighingStatisticsQuery(t, id, status, {
-      enabled: !unsupported && (view === 'statistici' || (isDesktop && rankingVisible)),
+      enabled: !unsupported && onClasament && (view === 'statistici' || (isDesktop && rankingVisible)),
     }),
     ...PAGE_RETRY,
   });
   // Poll the weighing statistics too (the «Cântar în curs» / «Ultimul cântar» tile).
   useEffect(() => {
-    if (!live || unsupported) return;
+    if (!live || unsupported || !onClasament) return;
     const tick = setInterval(() => {
-      if (document.visibilityState === 'visible') void qc.invalidateQueries({ queryKey: competitionKeys.weighingStatistics(id) });
+      if (document.visibilityState === 'visible')
+        void qc.invalidateQueries({
+          queryKey: competitionKeys.weighingStatistics(id),
+        });
     }, LIVE_POLL_MS);
     return () => clearInterval(tick);
-  }, [live, unsupported, id, qc]);
+  }, [live, unsupported, onClasament, id, qc]);
   const allocatedQ = useQuery({
     ...allocatedParticipantsQuery(t, id),
     ...PAGE_RETRY,
-    enabled: !unsupported && (view === 'cantare' || (isDesktop && !!activeWeighing?.length)),
+    enabled: !unsupported && onClasament && (view === 'cantare' || (isDesktop && !!activeWeighing?.length)),
   });
 
   // fish builds the table from the stand order (default) or the place order (Sortare).
   const table = useMemo(() => buildRankingTable(rankingsQ.data, sortBy), [rankingsQ.data, sortBy]);
   // Desktop: the table sorts itself; its rows are built once, in place order.
   const placeTable = useMemo(() => buildRankingTable(rankingsQ.data, 'position'), [rankingsQ.data]);
-  // One weight precision for the whole competition (the tiles line up on the comma).
-  const decimals = useMemo(() => weightDecimals(placeTable), [placeTable]);
+  // Feeder legs and the club rankings (nationalChampionship / fipsed) have their own tables
+  // (FeederRanking.tsx, NcRanking.tsx), not the shared builders.
+  const rankingData = rankingsQ.data;
+  const feeder: FeederData | null = useMemo(
+    () =>
+      rankingData?.metadata.rankingType === 'feederRounds'
+        ? {
+            rankings: rankingData.rankings as FeederRoundsRanking[],
+            roundsCount: rankingData.metadata.roundsCount,
+            currentRound: rankingData.metadata.currentRound,
+            roundStatus: rankingData.metadata.roundStatus,
+          }
+        : null,
+    [rankingData],
+  );
+  const nc = rankingData && isNationalChampionshipRankings(rankingData.rankings) ? rankingData.rankings : null;
+  const isNcType = isNationalType(rankingData?.metadata.rankingType);
+  // fish: the feeder opens on the leg in progress and follows it until the reader picks a tab.
+  const [chosenFeederTab, setChosenFeederTab] = useState<FeederTab | null>(null);
+  const feederTab: FeederTab =
+    chosenFeederTab ??
+    (feeder
+      ? defaultFeederTab({
+          competitionStatus: status,
+          currentRound: feeder.currentRound,
+          roundStatus: feeder.roundStatus,
+        })
+      : 'general');
+  const [feederHelpOpen, setFeederHelpOpen] = useState(false);
+  // fish NationalChampionshipRanking: General or one sector; sorted by position by default.
+  const [ncView, setNcView] = useState<NcView>('general');
+  const [ncSort, setNcSort] = useState<NcSort>('position');
+  const selectNcView = (next: NcView) => {
+    setNcView(next);
+    setNcSort(s => ncSortFor(next, s));
+  };
+
+  // One weight precision for the whole competition (the tiles line up on the comma); the feeder and
+  // club tables always print three decimals, so their tiles do too.
+  const decimals = useMemo(() => (placeTable ? weightDecimals(placeTable) : rawWeightDecimals(rankingData)), [placeTable, rankingData]);
 
   /** fish `handleChipPress`: switching view refreshes that view's data (parity clasament.c5). */
   const selectView = (next: RankingViewKey) => {
+    // From another route tab (the action bar, the weighing banner): open Clasament on that view.
+    if (!onClasament) {
+      router.push(viewPath(routes.competition(id), next));
+      return;
+    }
     if (next !== view) {
       const url = new URL(window.location.href);
       url.pathname = viewPath(routes.competition(id), next);
+      // A view's open detail (a weighing, an angler) belongs to that view: it never rides along into
+      // another view's URL (nor reopens by itself when the reader comes back).
+      for (const param of ['cantar', 'stand', 'pescar']) url.searchParams.delete(param);
       window.history.pushState(null, '', url);
+      setAnglerId(null);
     }
     setView(next);
     if (next === 'statistici' || next === 'clasament') {
       void qc.invalidateQueries({ queryKey: rankingsKeys.byCompetitionId(id) });
       void qc.invalidateQueries({ queryKey: competitionKeys.rankingBestN(id) });
-      void qc.invalidateQueries({ queryKey: competitionKeys.weighingStatistics(id) });
-      void qc.invalidateQueries({ queryKey: competitionKeys.timelineSnapshot(id) });
-      void qc.invalidateQueries({ queryKey: competitionKeys.catchThresholdCounts(id) });
+      void qc.invalidateQueries({
+        queryKey: competitionKeys.weighingStatistics(id),
+      });
+      void qc.invalidateQueries({
+        queryKey: competitionKeys.timelineSnapshot(id),
+      });
+      void qc.invalidateQueries({
+        queryKey: competitionKeys.catchThresholdCounts(id),
+      });
     } else if (next === 'allFish') {
       // Every sort/filter variant of competitionKeys.catchesInfinite(id, …).
-      void qc.invalidateQueries({ queryKey: [...competitionKeys.all, id, 'catches'] });
+      void qc.invalidateQueries({
+        queryKey: [...competitionKeys.all, id, 'catches'],
+      });
     } else if (next === 'cantare') {
       void qc.invalidateQueries({ queryKey: weighingKeys.byCompetitionId(id) });
     }
@@ -296,6 +438,9 @@ function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'cla
         competitionsKeys.byId(id),
         competitionProfileKeys.statuteForCompetition(id),
         competitionManagementKeys.allocatedParticipants(id),
+        // Participanți (the stats batch, every id set) and Extra Cântare (fish onRefresh of those tabs).
+        competitionProfileKeys.participantStatisticsBatch(id),
+        competitionManagementKeys.extraScalesList(id),
       ]) {
         void qc.invalidateQueries({ queryKey });
       }
@@ -309,15 +454,119 @@ function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'cla
     };
   }, [id, qc]);
 
-  /** fish `handleSortChange` + its bar message. */
-  const changeSort = (by: RankingSort) => {
-    setSortBy(by);
+  /** fish `handleSortChange` + its bar message; the order is shown on the Clasament view. */
+  const changeSort = (by: string) => {
+    if (nc || isNcType) setNcSort(by as NcSort);
+    else setSortBy(by as RankingSort);
+    if (view !== 'clasament') selectView('clasament');
     setBarMessage(
       by === 'stand'
         ? 'Sortarea clasamentului după stand a fost efectuată.'
-        : 'Sortarea clasamentului după poziția în clasament a fost efectuată.',
+        : by === 'club'
+          ? 'Sortarea clasamentului după club a fost efectuată.'
+          : 'Sortarea clasamentului după poziția în clasament a fost efectuată.',
     );
   };
+
+  // Extra-Cântar (fish handleExtraCantarPress): a registered participant of a running competition.
+  const toast = useSiteToast();
+  const extraAllowed = isAuthenticated && !!competition && canRequestExtraScale(competition);
+  const extraScalesQ = useQuery({
+    ...extraScalesListQuery(t, id),
+    ...PAGE_RETRY,
+    enabled: extraAllowed,
+  });
+  const extraRequested = hasRequestedExtraScale(extraScalesQ.data, viewer?.documentId);
+  const requestExtra = useMutation(requestExtraScaleMutation(t, qc));
+  const deleteExtra = useMutation(deleteExtraScaleRequestMutation(t, qc));
+  const [extraAsk, setExtraAsk] = useState(false);
+  const extraLoading = requestExtra.isPending ? 'Se înregistrează cererea...' : deleteExtra.isPending ? 'Se șterge cererea...' : null;
+  const runExtra = () => {
+    setExtraAsk(false);
+    const settle = () =>
+      void qc.invalidateQueries({
+        queryKey: competitionManagementKeys.extraScalesList(id),
+      });
+    const onError = (err: Error) => toast(err.message, 'danger');
+    if (extraRequested) {
+      deleteExtra.mutate(id, {
+        onSuccess: () => {
+          toast('Cererea a fost ștearsă cu succes', 'success');
+          setBarMessage('Cererea de extra cântar a fost anulată.');
+        },
+        onError,
+        onSettled: settle,
+      });
+    } else {
+      requestExtra.mutate(id, {
+        onSuccess: () => {
+          toast('Cererea a fost trimisă cu succes', 'success');
+          setBarMessage('Cererea de extra cântar a fost trimisă.');
+        },
+        onError,
+        onSettled: settle,
+      });
+    }
+  };
+  const extraQuestion = extraRequested
+    ? 'Ești sigur că vrei să anulezi cererea de extra cântar?'
+    : 'Ești sigur că vrei să trimiți cererea de extra cântar?';
+  const barConfirm: BarConfirm | null = extraAsk
+    ? {
+        question: extraQuestion,
+        onConfirm: runExtra,
+        onCancel: () => setExtraAsk(false),
+      }
+    : null;
+
+  // The angler stats (parity competition-page.statistici-pescar): a ranking row pressed opens who is
+  // on that stand; `?pescar=<registration>` in the URL while open (replaced in place, removed on
+  // close), so the view can be linked and survives a reload. Keys: «s:<stand id>» from the kit
+  // rows, «r:<registration>» from the feeder rows (an entrant changes stand every leg).
+  const [anglerId, setAnglerId] = useState<string | null>(null);
+  // Opened by `?pescar=` on arrival (an overlay from 1280), not by a row press.
+  const [anglerFromLink, setAnglerFromLink] = useState(false);
+  const writeAngler = (registrationId: string | null) => {
+    setAnglerFromLink(false);
+    const url = new URL(window.location.href);
+    if (registrationId) url.searchParams.set('pescar', registrationId);
+    else url.searchParams.delete('pescar');
+    window.history.replaceState(window.history.state, '', url);
+    setAnglerId(registrationId);
+  };
+  const registrations = competition?.registrations;
+  const openAngler = (key: string) => {
+    if (!registrations) return;
+    const id = key.slice(2);
+    const registration = key.startsWith('r:')
+      ? registrations.find(r => r.documentId === id)
+      : (getRegistrationByStandId(
+          registrations.filter(r => r.registrationStatus === 'registered'),
+          id,
+        ) ?? getRegistrationByStandId(registrations, id));
+    if (registration) writeAngler(registration.documentId);
+  };
+  const anglerRegistration = anglerId ? (registrations?.find(r => r.documentId === anglerId) ?? null) : null;
+  const hasRegistrations = !!registrations;
+  useEffect(() => {
+    if (!hasRegistrations) return;
+    const linked = new URLSearchParams(window.location.search).get('pescar');
+    // Arrival only: a registration this competition has (after hydration).
+    if (linked) {
+      const open = setTimeout(() => {
+        setAnglerFromLink(true);
+        setAnglerId(linked);
+      }, 0);
+      return () => clearTimeout(open);
+    }
+  }, [hasRegistrations]);
+  const feederSection = useRef<HTMLElement>(null);
+  useRowPress<HTMLElement>(
+    feederSection,
+    '[data-registration]',
+    row => (row.dataset.registration ? `r:${row.dataset.registration}` : null),
+    key => openAngler(key),
+  );
 
   if (!competition) {
     const offline = isOfflineEmpty(competitionQ);
@@ -333,28 +582,65 @@ function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'cla
             dead && !offline ? (
               <DetailSignInAgain signIn={signInHref(pathname)} />
             ) : (
-              <QueryRetry fetching={competitionQ.isFetching} failed={offline || competitionQ.isError} onRetry={() => void competitionQ.refetch()} />
+              <QueryRetry
+                fetching={competitionQ.isFetching}
+                failed={offline || competitionQ.isError}
+                onRetry={() => void competitionQ.refetch()}
+              />
             )
           }
         />
       );
     }
-    return <CompetitionSkeleton variant={skeletonVariantOf(statusHint, !!unsupported)} />;
+    return <CompetitionSkeleton variant={skeletonVariantOf(statusHint, !!unsupported)} tab={tab} />;
   }
 
   const signIn = signInHref(pathname);
   const registered = competition.registrations.filter(r => r.registrationStatus === 'registered').length;
+  // fish disabledInscrieTe / NormalUserSheetItems (core) for every viewer: a full competition or a
+  // passed deadline is closed for a guest too (only an open one sends a guest to sign in).
+  const registration = registrationAction(competition, viewer?.documentId ?? null, new Date());
+  const me = myEntry(competition, viewer ?? null);
+  const metadata = rankingData?.metadata;
+  // fish Vezi full: off without rows, without numberOfSectors, or on an empty feeder leg.
+  const fullViewDisabled = !metadata?.numberOfSectors
+    ? true
+    : feeder
+      ? feeder.rankings.length === 0 || feederLegEmpty(feeder, feederTab)
+      : nc
+        ? false
+        : !table;
+  // fish: Sortare offers Stand / Poziția (NC General: Club / Poziția; NC sector: Stand / Poziția); none on a feeder.
+  const sortOptions = feeder
+    ? null
+    : nc || isNcType
+      ? ncView === 'general'
+        ? [SORT_OPTION.club, SORT_OPTION.position]
+        : [SORT_OPTION.stand, SORT_OPTION.position]
+      : [SORT_OPTION.stand, SORT_OPTION.position];
+  const ncSectorName = ncView === 'general' ? null : (competition.sectors.find(s => s.documentId === ncView)?.name ?? null);
+  const fullSubtitle = feeder
+    ? feederTab === 'general'
+      ? 'Clasament general'
+      : `Manșa ${feederTab}`
+    : nc
+      ? ncSectorName
+        ? `Sector ${ncSectorName}`
+        : 'Clasament pe cluburi'
+      : 'Clasament complet';
   // The bar's tiles (ActionBar.tsx): Înscrie-te before the start, the ranking tiles once there is a
   // ranking the web can show, Chat when signed in. Share is always the header's chip.
   const barHasActions =
     status === 'notStarted' ||
-    ((status === 'started' || status === 'completed') && !unsupported) ||
+    ((status === 'started' || status === 'completed') && !unsupported && onClasament) ||
     isAuthenticated ||
     hasBanner(activeWeighing);
 
   return (
-    <DetailPage phoneGround={rankingVisible ? 'surface' : 'page'}>
-      <DetailBand>
+    <DetailPage phoneGround={rankingVisible && onClasament ? 'surface' : 'page'}>
+      {/* The header band, then the route tabs in a band of their own: from 768 the tabs stick under
+          the top bar (parity shell.c19), so a reader at row 20 changes tab without scrolling up. */}
+      <DetailBand hairline={false}>
         <CompetitionHeader
           competition={competition}
           viewer={viewer}
@@ -364,34 +650,72 @@ function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'cla
           onRecheckOverlay={recheckOverlay}
           datesProse={dates.prose}
           signIn={signIn}
-          // From 768, signed in: the chat is a header action (nothing floats over the table).
-          chat={viewer ? <ChatHeaderButton badge={chatBadge} open={dockOpen} onToggle={() => setDockOpen(o => !o)} /> : undefined}
+          registration={registration}
+          registrationHref={appLink(id)}
+          extraAction={
+            extraAllowed ? (
+              // Busy, not native-disabled: focus comes back here from the dialog's «Confirmă» and
+              // must stay on the button (a disabled one drops it on <body>); presses are ignored.
+              <>
+                <Button
+                  variant="secondary"
+                  icon={extraRequested ? <XCircleIcon /> : <PlusCircleIcon />}
+                  onClick={() => {
+                    if (!extraLoading) setExtraAsk(true);
+                  }}
+                  aria-disabled={extraLoading ? true : undefined}
+                  aria-busy={extraLoading ? true : undefined}
+                  className={extraLoading ? 'cursor-progress opacity-50' : undefined}
+                >
+                  {extraLoading ?? (extraRequested ? 'Anulează extra-cântar' : 'Extra-cântar')}
+                </Button>
+                <span role="status" className="sr-only">
+                  {extraLoading ?? ''}
+                </span>
+              </>
+            ) : null
+          }
+          // From 768, signed in: the chat is a header action (nothing floats over the table); the
+          // header holds its place while the session resolves (CompetitionHeader `chat`).
+          chat={() => <ChatHeaderButton badge={chatBadge} open={dockOpen} onToggle={() => setDockOpen(o => !o)} />}
         />
-        {/* fish ROUTES_LIST. Clasament is this page; the other tabs come with M1. */}
+      </DetailBand>
+      <DetailBand sticky>
+        {/* fish ROUTES_LIST: each tab its own page (tabs.ts). */}
         <DetailTabs
           label="Secțiunile concursului"
-          tabs={[
-            { label: 'Clasament', href: routes.competition(id), current: true },
-            // Not on the web yet (M1): shown greyed, no visible «curând» tag (it cut the phone strip
-            // mid-word); the reason is spoken with each one.
-            { label: 'Informații', absent: SOON },
-            { label: 'Participanți', count: registered, absent: SOON },
-            { label: 'Extra Cântare', absent: SOON },
-            { label: 'Regulament', absent: SOON },
-          ]}
+          tabs={COMPETITION_TABS.map(t => ({
+            label: t.label,
+            href: t.href(id),
+            current: t.key === tab,
+            count: t.key === 'participanti' ? registered : undefined,
+          }))}
         />
       </DetailBand>
 
-      {rankingVisible ? (
+      {tab !== 'clasament' ? (
+        <TabBody
+          tab={tab}
+          t={t}
+          competition={competition}
+          viewer={viewer}
+          statute={statute}
+          signIn={signInHref(pathname)}
+          appHref={appLink(id)}
+        />
+      ) : rankingVisible ? (
+        // No side columns: the ranking table takes the whole column at every width (ROADMAP §4,
+        // e2e full-width.spec); the summary tiles are the strip over the views (DesktopStats).
         <DetailBody>
           {unsupported ? (
-            // fish renders feeder legs (FeederLegTabs + FeederRankingTable); the web has no view for
-            // them yet: a centred state at the prose measure, with the way to see it (the app).
+            // A ranking type newer than this build (core cannot parse it): the T3 in-body state, with
+            // the way to see it (the app). Feeder legs and the club rankings have their own tables.
             <DetailSection tone="plain">
               <AppOnlyState id={id} title="Clasamentul acestui tip de concurs nu este încă disponibil pe web." />
             </DetailSection>
           ) : (
             <>
+              {/* From 768: the summary strip over the views (the phone has them in Statistici). */}
               <div className="max-md:hidden">
                 <DesktopStats
                   metadata={rankingsQ.data?.metadata}
@@ -403,6 +727,10 @@ function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'cla
                   weighingsError={(weighingStatsQ.isError || weighingStatsQ.fetchStatus === 'paused') && !weighingStatsQ.data}
                   reserveWeighing={status === 'started' || status === 'completed'}
                   decimals={decimals}
+                  rankingPending={rankingsQ.isPending && rankingsQ.fetchStatus !== 'idle'}
+                  rankingFailed={(rankingsQ.isError || rankingsQ.fetchStatus === 'paused') && !rankingsQ.data}
+                  rankingRetrying={rankingsQ.isFetching}
+                  onRetryRanking={() => void rankingsQ.refetch()}
                   onRetryWeighings={() => void weighingStatsQ.refetch()}
                   allocated={allocatedQ.data}
                   onAllWeighings={() => selectView('cantare')}
@@ -421,7 +749,8 @@ function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'cla
                       weighingStatsQ.isPending,
                       weighingStatsQ.isError && !weighingStatsQ.data,
                     ),
-                    statistici: 'Top 3/5/7 · pe sectoare',
+                    // Feeder legs have no Best-N (StatisticsView): only what the view shows.
+                    statistici: competition.rankingType === 'feederRounds' ? 'Capturi · cântare' : 'Top 3/5/7 · pe sectoare',
                     allFish:
                       typeof rankingsQ.data?.metadata.totalCatchesCount === 'number'
                         ? plural(rankingsQ.data.metadata.totalCatchesCount, 'captură', 'capturi')
@@ -430,39 +759,143 @@ function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'cla
                   live={status === 'started' && !!activeWeighing?.length}
                 />
 
-                <ViewPanel value={view}>
-                  {view === 'clasament' && (
-                    <RankingView
-                      appOnly={<AppOnlyState id={id} title="Clasamentul pe cluburi nu este încă disponibil pe web." />}
-                      query={rankingsQ}
-                      table={table}
-                      placeTable={placeTable}
-                      currentUserStandId={currentUserStandId(competition, viewer ?? null)}
-                      onFullView={() => setFullOpen(true)}
-                    />
-                  )}
-                  {view === 'statistici' &&
-                    (viewer === null ? (
-                      <DetailSignInPrompt message="Trebuie să fii autentificat pentru a vedea statisticile." href={signIn} />
-                    ) : viewer ? (
-                      <StatisticsView
-                        t={t}
-                        competition={competition}
-                        metadata={rankingsQ.data?.metadata}
-                        rankings={rankingsQ.data}
-                        rankingRows={table?.rows}
-                        weighingStats={weighingStatsQ}
-                        decimals={decimals}
-                      />
-                    ) : (
-                      // The session is not known yet: the view's shape, not an empty panel.
-                      <StatisticsSkeleton />
-                    ))}
-                  {view === 'cantare' && (
-                    <WeighingsView t={t} competition={competition} allocated={allocatedQ} isAuthenticated={isAuthenticated} />
-                  )}
-                  {view === 'allFish' && <AllFishView t={t} competition={competition} />}
-                </ViewPanel>
+                {/* From 1280 the angler stats dock beside the view (ContextSurface). */}
+                <div className="flex items-start gap-6">
+                  <div className="min-w-0 flex-1">
+                    <ViewPanel value={view}>
+                      {view === 'clasament' && (
+                        <RankingView
+                          custom={
+                            feeder ? (
+                              // The controls are the ranking card's band (as the standard ranking's
+                              // toolbar); from 1280 «Cum se calculează» docks beside the card.
+                              <section ref={feederSection} aria-label="Clasament" className={cn('flex items-start gap-4', PRESSABLE_ROWS)}>
+                                <div className="min-w-0 flex-1">
+                                  <FeederRankingTable
+                                    data={feeder}
+                                    tab={feederTab}
+                                    isTeam={competition.competitionType === 'team'}
+                                    caption={feederTab === 'general' ? 'Clasament general' : `Clasament manșa ${feederTab}`}
+                                    me={me}
+                                    toolbar={
+                                      <>
+                                        {/* The chips and their «?» together at the left; «Clasament complet» at the far end. */}
+                                        <div className="min-w-0 flex-1">
+                                          <FeederLegTabs
+                                            data={feeder}
+                                            value={feederTab}
+                                            onChange={setChosenFeederTab}
+                                            onHelp={() => setFeederHelpOpen(true)}
+                                          />
+                                        </div>
+                                        <FullViewButtons onPress={() => setFullOpen(true)} disabled={fullViewDisabled} />
+                                      </>
+                                    }
+                                  />
+                                </div>
+                                <FeederHelp
+                                  open={feederHelpOpen}
+                                  onClose={() => setFeederHelpOpen(false)}
+                                  competitionStatus={status ?? ''}
+                                  data={feeder}
+                                  panelClassName={cn('sticky shrink-0 self-start rounded-card', COLUMN_STICKY_TOP_BELOW_TABS)}
+                                />
+                              </section>
+                            ) : nc && nc.length > 0 ? (
+                              <section aria-label="Clasament">
+                                <NcRankingTable
+                                  rankings={nc}
+                                  numberOfSectors={metadata?.numberOfSectors}
+                                  view={ncView}
+                                  sort={ncSort}
+                                  caption={ncSectorName ? `Clasament sector ${ncSectorName}` : 'Clasament pe cluburi'}
+                                  currentUserStandId={me.standId}
+                                  toolbar={
+                                    <>
+                                      {/* The pills scroll inside their own box (fading at its edge), never under Ordine. */}
+                                      <div className="-ml-1 min-w-0 flex-1 overflow-hidden pl-1 [mask-image:linear-gradient(to_left,transparent,black_--spacing(6))]">
+                                        <NcSectorPills sectors={competition.sectors} value={ncView} onChange={selectNcView} />
+                                      </div>
+                                      {/* From 768 the order is chosen here (the phone has «Sortare» in the bar). */}
+                                      <div className="shrink-0 max-md:hidden">
+                                        <NcSortControl view={ncView} value={ncSort} onChange={setNcSort} />
+                                      </div>
+                                      <FullViewButtons onPress={() => setFullOpen(true)} disabled={fullViewDisabled} />
+                                    </>
+                                  }
+                                />
+                              </section>
+                            ) : (
+                              // fish: no NC data → «Nu există date de afișat».
+                              <EmptyState title="Nu există date de afișat" />
+                            )
+                          }
+                          query={rankingsQ}
+                          table={table}
+                          placeTable={placeTable}
+                          currentUserStandId={me.standId}
+                          rankingType={competition.rankingType}
+                          onFullView={() => setFullOpen(true)}
+                          onRowPress={standId => openAngler(`s:${standId}`)}
+                        />
+                      )}
+                      {view === 'statistici' &&
+                        (viewer === null ? (
+                          <SignInGate
+                            title="Statisticile concursului"
+                            description="Trebuie să fii autentificat pentru a vedea statisticile."
+                            icon={<LockClosedIcon />}
+                            href={signIn}
+                            headingLevel={3}
+                          />
+                        ) : viewer ? (
+                          <StatisticsView
+                            t={t}
+                            competition={competition}
+                            rankingsQ={rankingsQ}
+                            rankingRows={table?.rows}
+                            weighingStats={weighingStatsQ}
+                            decimals={decimals}
+                            canRevoke={statute?.userRole === 'author' || statute?.userRole === 'referee'}
+                          />
+                        ) : sessionUnknown ? (
+                          // The session could not be read: say so and offer to check again (never a
+                          // skeleton that never resolves).
+                          <ErrorState
+                            title="Nu am putut verifica sesiunea."
+                            description="Statisticile sunt pentru utilizatorii autentificați."
+                            action={<RefreshRetry />}
+                          />
+                        ) : (
+                          // The session is not known yet: the view's shape, not an empty panel.
+                          <StatisticsSkeleton />
+                        ))}
+                      {view === 'cantare' && (
+                        <WeighingsView
+                          t={t}
+                          competition={competition}
+                          allocated={allocatedQ}
+                          // Tri-state: until the session is known the view neither claims «signed out»
+                          // (its note) nor draws cards without their counts line.
+                          session={viewer ? 'in' : viewer === null || sessionUnknown ? 'out' : 'pending'}
+                          decimals={decimals}
+                        />
+                      )}
+                      {view === 'allFish' && <AllFishView t={t} competition={competition} decimals={decimals} />}
+                    </ViewPanel>
+                  </div>
+                  <AnglerStats
+                    key={anglerRegistration?.documentId ?? 'none'}
+                    t={t}
+                    competition={competition}
+                    registration={view === 'clasament' ? anglerRegistration : null}
+                    isAuthenticated={isAuthenticated}
+                    signIn={signIn}
+                    decimals={decimals}
+                    fromLink={anglerFromLink}
+                    onClose={() => writeAngler(null)}
+                  />
+                </div>
               </DetailSection>
             </>
           )}
@@ -475,26 +908,103 @@ function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'cla
       {barHasActions ? (
         <DetailActionBar
           label="Bara de acțiuni"
-          above={hasBanner(activeWeighing) ? <ActiveWeighingBanner weighings={activeWeighing} onPress={() => selectView('cantare')} /> : undefined}
+          above={
+            hasBanner(activeWeighing) ? (
+              <ActiveWeighingBanner
+                weighings={activeWeighing}
+                isNc={isNationalType(competition.rankingType)}
+                onPress={() => selectView('cantare')}
+              />
+            ) : undefined
+          }
         >
           <MobileActionBar
             competition={competition}
-            isAuthenticated={isAuthenticated}
+            viewer={viewer}
             signIn={signIn}
+            sortOptions={sortOptions}
             onSort={changeSort}
             onView={selectView}
             onFullView={() => setFullOpen(true)}
-            fullViewDisabled={!table}
+            fullViewDisabled={fullViewDisabled}
+            registration={registration}
+            registrationHref={appLink(id)}
+            extraScale={
+              extraAllowed
+                ? {
+                    requested: extraRequested,
+                    onPress: () => setExtraAsk(true),
+                  }
+                : null
+            }
+            confirm={barConfirm}
+            loadingLabel={extraLoading}
             onChat={isAuthenticated ? () => setChatOpen(true) : undefined}
             chatBadge={chatBadge}
-            rankingAvailable={!unsupported}
+            rankingAvailable={!unsupported && onClasament}
             barMessage={barMessage}
             onBarMessageDismiss={() => setBarMessage(null)}
           />
         </DetailActionBar>
       ) : null}
 
-      <FullRankingDialog open={fullOpen} onClose={() => setFullOpen(false)} title={competition.name} table={placeTable} />
+      <FullRankingDialog
+        open={fullOpen}
+        onClose={() => setFullOpen(false)}
+        title={competition.name}
+        subtitle={fullSubtitle}
+        table={placeTable}
+        imageHref={
+          fullViewDisabled
+            ? undefined
+            : routes.competitionRankingImage(
+                id,
+                imageQueryString(
+                  imageQueryFor({ rankingType: metadata?.rankingType, sortBy, feederTab, ncSectorName, ncSort }),
+                ),
+              )
+        }
+        onImage={() => trackRankingImage('ranking_image_pressed', { id, name: competition.name })}
+      >
+        {feeder ? (
+          <FeederRankingTable
+            data={feeder}
+            tab={feederTab}
+            isTeam={competition.competitionType === 'team'}
+            caption={`${fullSubtitle} complet`}
+            me={me}
+            full
+          />
+        ) : nc ? (
+          <NcRankingTable
+            rankings={nc}
+            numberOfSectors={metadata?.numberOfSectors}
+            view={ncView}
+            sort={ncSort}
+            caption={`${fullSubtitle} complet`}
+            currentUserStandId={me.standId}
+            full
+          />
+        ) : null}
+      </FullRankingDialog>
+      {/* From 768 the Extra-Cântar question is a dialog (the phone asks in the bar). */}
+      {isDesktop ? (
+        <Dialog
+          open={extraAsk}
+          onClose={() => setExtraAsk(false)}
+          title="Extra cântar"
+          description={extraQuestion}
+          alert
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => setExtraAsk(false)}>
+                Anulează
+              </Button>
+              <Button onClick={runExtra}>Confirmă</Button>
+            </>
+          }
+        />
+      ) : null}
       {/* From 768, signed in only: signed out it could only lead to «Intră în cont» (the phone bar has no Chat tile either). */}
       {viewer ? (
         <ChatDock
@@ -522,31 +1032,43 @@ function Screen({ id, dates, viewer, unsupported, statusHint, initialView = 'cla
 const hasBanner = (w: { stand: unknown }[] | undefined) => !!w?.length && !!w[0]?.stand;
 
 /**
- * A ranking the web cannot draw yet (feeder legs, club rankings): centred at the prose measure, what
- * is missing and the way to see it — the competition in the Bluvi app.
+ * A ranking the web cannot draw yet (feeder legs, club rankings): the T3 in-body state
+ * (DetailSectionState, the 720 state frame centred in the column) — what is missing and the way to
+ * see it, the competition in the Bluvi app.
  */
 function AppOnlyState({ id, title }: { id: string; title: string }) {
   return (
-    <div className="mx-auto flex w-full max-w-140 flex-col items-center gap-4 rounded-card bg-surface px-6 py-8 text-center shadow-e0 max-md:shadow-none">
-      <div className="flex flex-col gap-1">
-        <h2 className="t-heading text-ink">{title}</h2>
-        <p className="t-body text-muted">Îl poți urmări în aplicația Bluvi.</p>
-      </div>
-      <ButtonLink href={appLink(id)}>Deschide în aplicație</ButtonLink>
-    </div>
+    <DetailSectionState
+      heading={title}
+      description="Îl poți urmări în aplicația Bluvi."
+      action={<ButtonLink href={appLink(id)}>Deschide în aplicație</ButtonLink>}
+    />
   );
 }
 
-/** The signed-in angler's stand (ranking `standId` is the stand's numeric id). */
-function currentUserStandId(
-  competition: { registrations: { registrationStatus: string; stand: { id: number } | null; participants: { documentId: string }[] }[] },
+/**
+ * The signed-in angler's entry: their stand (ranking `standId` is the stand's numeric id) and their
+ * registration (feeder rows carry it: a feeder entrant changes stand every leg).
+ */
+function myEntry(
+  competition: {
+    registrations: {
+      documentId: string;
+      registrationStatus: string;
+      stand: { id: number } | null;
+      participants: { documentId: string }[];
+    }[];
+  },
   viewer: Viewer | null,
-): string | null {
-  if (!viewer) return null;
+): { standId: string | null; registrationId: string | null } {
+  if (!viewer) return { standId: null, registrationId: null };
   const mine = competition.registrations.find(
     r => r.registrationStatus === 'registered' && r.participants.some(p => p.documentId === viewer.documentId),
   );
-  return mine?.stand ? String(mine.stand.id) : null;
+  return {
+    standId: mine?.stand ? String(mine.stand.id) : null,
+    registrationId: mine?.documentId ?? null,
+  };
 }
 
 function weighingsMeta(active: number, weighings: { endDate: string | null }[] | undefined, loading: boolean, failed: boolean): string {

@@ -12,7 +12,7 @@ import { TopBar, type TopBarViewer } from '@/components/nav/TopBar';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { signInHref, useIsNotFound } from './SiteHeader';
 import { useSiteToast } from './Toast';
-import { isUnknownViewer, useLateShellViewer, useShellViewer, type ShellViewer } from './viewer-context';
+import { isUnknownViewer, useShellViewer, useViewerState, type ShellViewer } from './viewer-context';
 
 /** The unread dot: refreshed every 2 min, on focus, and whenever /notificari is opened. */
 const UNREAD_STALE_MS = 60_000;
@@ -30,6 +30,8 @@ type Derived = {
   signedIn: boolean | null;
   session: MenuSession;
   admin: AdminLink[];
+  /** /feed/owned-lakes failed: Administrare stays, with a retry row (never silently dropped). */
+  adminFailed: boolean;
   active?: string;
   /** 'page' on the active entry's own page, 'true' below it (a parent section). */
   activeCurrent: 'page' | 'true';
@@ -51,6 +53,7 @@ function derive({ pathname, viewer }: Known, notFound = false, search = ''): Der
   const resolved = viewer !== undefined && !isUnknownViewer(viewer);
   const user = viewer === undefined || viewer === null || isUnknownViewer(viewer) ? null : viewer;
   const admin = user ? adminLinks(user) : [];
+  const adminFailed = !!user?.ownedLakesFailed;
   const active =
     pathname === undefined || notFound
       ? undefined
@@ -63,6 +66,7 @@ function derive({ pathname, viewer }: Known, notFound = false, search = ''): Der
     signedIn: resolved ? user !== null : null,
     session: viewer === undefined ? 'pending' : isUnknownViewer(viewer) ? 'unknown' : user ? 'in' : 'out',
     admin,
+    adminFailed,
     active,
     activeCurrent: activeHref === undefined ? 'true' : currentKind(activeHref, pathname),
     signIn: pathname === undefined || pathname === '/intra' ? undefined : signInHref(pathname, search),
@@ -156,7 +160,7 @@ export function SiteTopBar() {
     focusSignInRef,
   };
   const notFound = useIsNotFound(known.pathname);
-  const { signedIn, session, admin, active, activeCurrent, signIn } = useMemo(
+  const { signedIn, session, admin, adminFailed, active, activeCurrent, signIn } = useMemo(
     () => derive(known, notFound, search),
     [known, notFound, search],
   );
@@ -185,6 +189,7 @@ export function SiteTopBar() {
         active={active}
         activeCurrent={activeCurrent}
         admin={admin}
+        onAdminRetry={adminFailed ? retry : undefined}
         resetKey={known.pathname}
       />
       <CommandPalette
@@ -227,9 +232,10 @@ function WithPath(props: BarProps) {
 }
 
 /**
- * When the bounded read timed out («unknown») the real read may still answer a moment later: the
- * bar shows the unknown slot meanwhile and upgrades itself from the unbounded read, so the retry
- * button is only left for real failures.
+ * When the bar's bounded read timed out («unknown») the real read may still answer a moment later:
+ * the bar shows the unknown slot meanwhile and upgrades itself from the page's own read (the same
+ * promise the body waits for, itself bounded in ./session.ts), so the bar and the body agree as
+ * soon as either knows, and the retry button is only left for real failures.
  */
 function WithViewer(props: BarProps & { pathname: string }) {
   const viewer = useShellViewer();
@@ -242,7 +248,7 @@ function WithViewer(props: BarProps & { pathname: string }) {
 }
 
 function LateViewer(props: BarProps & { pathname: string }) {
-  const viewer = useLateShellViewer();
+  const viewer = useViewerState();
   return <Bar {...props} viewer={viewer} />;
 }
 
@@ -266,7 +272,7 @@ function Bar({
   const qc = useQueryClient();
   const t = useMemo(() => createBrowserTransport(), []);
   const notFound = useIsNotFound(pathname);
-  const { signedIn, admin, active, activeCurrent, signIn } = useMemo(
+  const { signedIn, admin, adminFailed, active, activeCurrent, signIn } = useMemo(
     () => derive({ pathname, viewer }, notFound, search),
     [pathname, viewer, notFound, search],
   );
@@ -309,6 +315,7 @@ function Bar({
       active={active}
       activeCurrent={activeCurrent}
       admin={admin}
+      onAdminRetry={adminFailed ? onRetry : undefined}
       hasUnread={!signingOut && (unread.data ?? 0) > 0}
       onSearch={onSearch}
       onMenu={onMenu}

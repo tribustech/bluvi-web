@@ -1,6 +1,35 @@
 @import "tailwindcss";
 
 /*
+ * WCAG AA contrast pass (2026-10-05). Body text ≥ 4.5:1, large text (≥ 24px, or ≥ 18.66px bold)
+ * and UI component edges ≥ 3:1. Every used text/background pair was computed; only the tokens
+ * below moved, each by the smallest same-hue lightness step that clears its worst used pair.
+ *
+ * light
+ *   --bluvi-accent        #6366F1 → #6265F1   white on accent 4.47 → 4.52 (primary button, solid badge)
+ *                         (--color-indigo-5 follows it)
+ *   --bluvi-muted         #667085 → #656F84   on accent-tint 4.49 → 4.55 · page 4.64 · soft-fill 4.58
+ *   --bluvi-faint         #98A2B3 → #828EA3   3:1 role only: on soft-fill 2.34 → 3.00 · page 3.04 ·
+ *                         surface 3.31. Content text moved off faint (see its comment).
+ *   --bluvi-badge-green-fg  #6BBAA3 → #397B68  on its tint 2.08 → 4.53
+ *   --bluvi-badge-yellow-fg #CA8A04 → #9D6B03  on its tint 2.87 → 4.52
+ *   --bluvi-photo-scrim   ink 55% → ink 60%    white on the scrim over a white photo 3.96 → 4.68
+ *   + --bluvi-accent-tint-3 #C5CCEB (new; = lavender-3 in light) the poll leader bar, theme-aware
+ *
+ * dark (prepared palette)
+ *   --bluvi-muted         #8C95B0 → #949CB5   on accent-tint 4.13 → 4.50 · soft-fill 4.26 → 4.65
+ *   --bluvi-faint         #6B7493 → #727B98   on soft-fill 2.75 → 3.02
+ *   --bluvi-photo-scrim   ink 55% → ink 60%    (same token in both themes)
+ *   + --bluvi-accent-tint-3 #3C4584 (new) ink 8.0 · ink-2 4.9 · accent-ink 5.9 (was lavender-3: 1.1)
+ *
+ * Fixed in components (not reachable by a token): muted on accent-tint-2 (4.0 light / 3.4 dark,
+ * poll option description over its bar → ink-2); faint as content text (the «/48» denominator,
+ * the chat time, the T4 «—» value → muted); disabled field suffix («RON») carries aria-disabled.
+ * Unchanged by design: the rating star (decorative next to its number), disabled controls
+ * (accent-disabled, faint text on a disabled control — WCAG 1.4.3 exempts inactive UI).
+ */
+
+/*
  * Bluvi web tokens — source: design/Fundatii.dc.html (v0.1), itself derived from fish
  * theme.ts + components/Typography.tsx + Badge.tsx + helpers/table/getColorsBySector.ts.
  *
@@ -18,16 +47,18 @@
   --bluvi-hairline: #eff1f5;
   --bluvi-ink: #101828;
   --bluvi-ink-2: #475467;
-  --bluvi-muted: #667085;
+  --bluvi-muted: #656f84;
   --bluvi-navy: #20263d;
   --bluvi-lavender: #dce1ff;
   /* On navy (navy does not change in dark): CountTile label/unit and caption, the "kg" chip. */
   --bluvi-lavender-2: #9aa3c7;
   --bluvi-lavender-3: #c5cceb;
-  --bluvi-accent: #6366f1;
+  --bluvi-accent: #6265f1;
   --bluvi-accent-ink: #4338ca;
   --bluvi-accent-tint: #f0f3fd;
   --bluvi-accent-tint-2: #e0e7ff;
+  /* The strongest tint, a fill under ink / ink-2 / accent-ink text (the poll's leading bar). */
+  --bluvi-accent-tint-3: #c5cceb;
   --bluvi-live: #e11d48;
   --bluvi-live-dot: #fb7185;
   --bluvi-success: #15803d;
@@ -36,12 +67,16 @@
   /* Primary button when it cannot be pressed ("Înscrieri închise"): indigo-4 in light. */
   --bluvi-accent-disabled: #a5b4fc;
   --bluvi-on-accent-disabled: #ffffff;
-  /* One step below muted ("subtle" grey in Fundații): denominators ("/48"), the capot outline. */
-  --bluvi-faint: #98a2b3;
+  /*
+   * One step below muted ("subtle" grey in Fundații). NOT a text colour for content: 3:1 only, so
+   * it is for UI outlines (capot, unchecked radio, dashed disabled tile), placeholders on ≥ 24px
+   * digits, decorative separators and disabled controls (WCAG 1.4.3 exempts inactive UI).
+   */
+  --bluvi-faint: #828ea3;
   /* Rating star (amber-400), LakeCard + the ranking's review column. */
   --bluvi-rating: #fbbf24;
   /* Pills on a photo ("412 urmăresc"): ink at 55%, no blur. Not the modal scrim below. */
-  --bluvi-photo-scrim: rgb(16 24 40 / 0.55);
+  --bluvi-photo-scrim: rgb(16 24 40 / 0.6);
   --bluvi-on-photo-scrim: #ffffff;
   /* Pill on a photo that must read as a light chip ("Rezervare online"). */
   --bluvi-photo-chip: #ffffff;
@@ -62,11 +97,29 @@
   /* "2 în așteptare": orange-50 / orange-700, not a fish status. */
   --bluvi-status-pending-bg: #fff7ed;
   --bluvi-status-pending-fg: #c2410c;
-  /* Badge.tsx green/yellow: fish green3 at 12.5% + green3, fish yellow1 at 31% + yellow6. */
+  /*
+   * Badge.tsx green/yellow: fish green3 at 12.5% / yellow1 at 31% as the fill; the text is the
+   * same hue darkened to AA (fish's green3 #6BBAA3 and yellow6 #CA8A04 are 2.1 and 2.9:1).
+   */
   --bluvi-badge-green-bg: rgb(107 186 163 / 0.125);
-  --bluvi-badge-green-fg: #6bbaa3;
+  --bluvi-badge-green-fg: #397b68;
   --bluvi-badge-yellow-bg: rgb(254 249 195 / 0.314);
-  --bluvi-badge-yellow-fg: #ca8a04;
+  --bluvi-badge-yellow-fg: #9d6b03;
+  /* Badge blue (fish format chip) and violet (fish ranking chip): fish's own pairs, 8.3 / 7.6:1. */
+  --bluvi-badge-blue-bg: #e8f0fc;
+  --bluvi-badge-blue-fg: #1e467a;
+  --bluvi-badge-violet-bg: #ede9fe;
+  --bluvi-badge-violet-fg: #5b21b6;
+  /* The CMMC award glyph (fish Award #A1531F): 5.6:1 on surface, 5.1:1 on page. */
+  --bluvi-award: #a1531f;
+  /*
+   * Podium medals (fish rankColor / PodiumCup): gold, silver, bronze, theme-invariant, each with the
+   * navy digit on it (6.7 / 5.7 / 4.9:1) — the podium steps, the top-three rank chips, the cups.
+   */
+  --bluvi-medal-gold: #e0a21b;
+  --bluvi-medal-silver: #98a1ae;
+  --bluvi-medal-bronze: #c98348;
+  --bluvi-on-medal: #20263d;
   /* ErrorState outline (rose-200): status-danger-bg is too faint as a hairline on white. */
   --bluvi-status-danger-line: #fecdd3;
   /* Sheet drag handle (gray-300). */
@@ -91,7 +144,7 @@
   --bluvi-hairline: #262d45;
   --bluvi-ink: #f2f4fa;
   --bluvi-ink-2: #b8c0d9;
-  --bluvi-muted: #8c95b0;
+  --bluvi-muted: #949cb5;
   --bluvi-navy: #20263d;
   --bluvi-lavender: #dce1ff;
   --bluvi-lavender-2: #9aa3c7;
@@ -101,6 +154,8 @@
   --bluvi-accent-tint: #2a3160;
   /* One step above accent-tint, so tint-on-tint (hover, focus halo) still separates. */
   --bluvi-accent-tint-2: #343c74;
+  /* lavender-3 stays light in dark: the bar needs its own step (ink-2 4.9:1, accent-ink 5.9:1). */
+  --bluvi-accent-tint-3: #3c4584;
   --bluvi-live: #fb7185;
   --bluvi-live-dot: #fb7185;
   --bluvi-success: #4ade80;
@@ -109,10 +164,10 @@
   --bluvi-accent-disabled: #3a4278;
   /* Page ink on #3A4278 is ~2:1; ink-2 is 5.2:1. */
   --bluvi-on-accent-disabled: #b8c0d9;
-  --bluvi-faint: #6b7493;
+  --bluvi-faint: #727b98;
   /* No dark value in Fundații: same as light (they sit on photos, or are bright enough). */
   --bluvi-rating: #fbbf24;
-  --bluvi-photo-scrim: rgb(16 24 40 / 0.55);
+  --bluvi-photo-scrim: rgb(16 24 40 / 0.6);
   --bluvi-on-photo-scrim: #ffffff;
   /* The photo chip carries ink text, which turns light in dark: the chip becomes raised. */
   --bluvi-photo-chip: #20263d;
@@ -140,6 +195,13 @@
   --bluvi-badge-green-fg: #8fd3bf;
   --bluvi-badge-yellow-bg: rgb(250 204 21 / 0.14);
   --bluvi-badge-yellow-fg: #facc15;
+  /* Badge blue / violet: tint over the surface + a light fg, 7.1 / 7.0:1 (proposal). */
+  --bluvi-badge-blue-bg: rgb(96 165 250 / 0.16);
+  --bluvi-badge-blue-fg: #93c5fd;
+  --bluvi-badge-violet-bg: rgb(167 139 250 / 0.16);
+  --bluvi-badge-violet-fg: #c4b5fd;
+  /* The award glyph, lightened for the dark surface: 7.8:1 (proposal). The medals do not change. */
+  --bluvi-award: #e8a06a;
   /* Proposals (not in Fundații darkSwatches): confirm with design before dark ships. */
   --bluvi-status-danger-line: rgb(251 113 133 / 0.35);
   --bluvi-handle: #3a4260;
@@ -170,6 +232,7 @@
   --color-accent-ink: var(--bluvi-accent-ink);
   --color-accent-tint: var(--bluvi-accent-tint);
   --color-accent-tint-2: var(--bluvi-accent-tint-2);
+  --color-accent-tint-3: var(--bluvi-accent-tint-3);
   --color-live: var(--bluvi-live);
   --color-live-dot: var(--bluvi-live-dot);
   --color-success: var(--bluvi-success);
@@ -199,6 +262,15 @@
   --color-badge-green-fg: var(--bluvi-badge-green-fg);
   --color-badge-yellow-bg: var(--bluvi-badge-yellow-bg);
   --color-badge-yellow-fg: var(--bluvi-badge-yellow-fg);
+  --color-badge-blue-bg: var(--bluvi-badge-blue-bg);
+  --color-badge-blue-fg: var(--bluvi-badge-blue-fg);
+  --color-badge-violet-bg: var(--bluvi-badge-violet-bg);
+  --color-badge-violet-fg: var(--bluvi-badge-violet-fg);
+  --color-award: var(--bluvi-award);
+  --color-medal-gold: var(--bluvi-medal-gold);
+  --color-medal-silver: var(--bluvi-medal-silver);
+  --color-medal-bronze: var(--bluvi-medal-bronze);
+  --color-on-medal: var(--bluvi-on-medal);
   --color-status-danger-line: var(--bluvi-status-danger-line);
   --color-handle: var(--bluvi-handle);
   --color-shimmer: var(--bluvi-shimmer);
@@ -212,10 +284,10 @@
   --color-indigo-1: #f0f3fd;
   --color-indigo-2: #e0e7ff;
   --color-indigo-4: #a5b4fc;
-  --color-indigo-5: #6366f1;
+  --color-indigo-5: #6265f1;
   --color-indigo-7: #4338ca;
 
-  /* Badges stay identical to the app (green3 is 2.3:1 — flagged in Fundații, kept). */
+  /* fish ramp values; the badge TEXT uses the AA-darkened --bluvi-badge-*-fg, never these. */
   --color-green-3: #6bbaa3;
   --color-yellow-5: #eab308;
   --color-yellow-6: #ca8a04;

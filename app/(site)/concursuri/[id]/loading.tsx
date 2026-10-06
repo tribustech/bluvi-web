@@ -1,4 +1,6 @@
+import { BreadcrumbBand } from '@/components/nav/Breadcrumbs';
 import { CompetitionSkeleton } from './_components/CompetitionSkeleton';
+import { COMPETITIONS_CRUMB } from './_components/crumbs';
 
 /*
  * While the competition read is in flight (a live or upcoming id is not prerendered; a client
@@ -11,5 +13,11 @@ import { CompetitionSkeleton } from './_components/CompetitionSkeleton';
  * from the prerendered shell, with the same soft 404.
  */
 export default function CompetitionLoading() {
-  return <CompetitionSkeleton variant="shell" />;
+  return (
+    <>
+      {/* The page's own band (CompetitionRoute), its current crumb a placeholder of the same row. */}
+      <BreadcrumbBand trail={[COMPETITIONS_CRUMB]} pendingCurrent />
+      <CompetitionSkeleton variant="shell" />
+    </>
+  );
 }

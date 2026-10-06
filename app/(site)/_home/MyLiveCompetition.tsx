@@ -8,6 +8,7 @@ import { routes } from '@/lib/routes';
 import { homeLinks } from './links';
 import { MissingStandRow } from './MissingStandRow';
 import { RelativeAge } from './RelativeAge';
+import { LiveDot } from '@/components/templates/LiveDot';
 
 /** fish ScaleItem `standLabel`: national championship «A3(12)», otherwise «Sector A Stand 3». */
 function scaleStandLabel(s: ExtraScale['stand'], isNc: boolean) {
@@ -114,7 +115,7 @@ export function MyLiveCompetition({
       {weighings.length > 0 ? (
         <p className="flex items-center gap-2.5 t-body">
           {/* fish BreatheAnimation */}
-          <span aria-hidden className="size-2 shrink-0 rounded-full bg-on-accent animate-live" />
+          <LiveDot tone="inverse" />
           {weighingLine(weighings, isNc)}
         </p>
       ) : null}

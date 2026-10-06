@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { useRouter } from 'next/navigation';
 
 const UNITS = [
@@ -39,7 +39,13 @@ const refreshedEnds = new Set<string>();
 export function RaffleCountdown({ end }: { end: string }) {
   const router = useRouter();
   const [now, setNow] = useState<number | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  // Acasă mounts the card in both compositions, one `display: none` (page.tsx): only the copy on
+  // screen runs a clock. A ResizeObserver reports the box going to 0 × 0 and back when the
+  // breakpoint swaps the compositions.
+  const shown = useShown(root);
   useEffect(() => {
+    if (!shown) return;
     const endAt = new Date(end).getTime();
     let id: ReturnType<typeof setInterval> | undefined;
     const tick = () => {
@@ -56,11 +62,11 @@ export function RaffleCountdown({ end }: { end: string }) {
     // An already elapsed end needs no clock.
     if (Date.now() < endAt) id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [end, router]);
+  }, [end, router, shown]);
   const parts = now === null ? null : remaining(new Date(end).getTime(), now);
 
   return (
-    <div className="mt-1.5 flex justify-center gap-1.5">
+    <div ref={root} className="mt-1.5 flex justify-center gap-1.5">
       <span className="sr-only">
         {!parts
           ? 'Închidere în curând'
@@ -81,4 +87,17 @@ export function RaffleCountdown({ end }: { end: string }) {
       })}
     </div>
   );
+}
+
+/** Whether the element has a box (not inside a `display: none` composition). */
+function useShown(ref: RefObject<HTMLElement | null>): boolean {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setShown(el.getClientRects().length > 0));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return shown;
 }

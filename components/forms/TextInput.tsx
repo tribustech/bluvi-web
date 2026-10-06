@@ -25,7 +25,9 @@ export function TextInput({ label, helper, error, suffix, id, className, disable
           {...input}
         />
         {suffix ? (
-          <span aria-hidden className="t-body-strong shrink-0 text-muted">
+          // aria-disabled: the suffix is part of the inactive control (WCAG 1.4.3 exempts it; axe
+          // only knows when it is told).
+          <span aria-hidden aria-disabled={disabled || undefined} className="t-body-strong shrink-0 text-muted">
             {suffix}
           </span>
         ) : null}

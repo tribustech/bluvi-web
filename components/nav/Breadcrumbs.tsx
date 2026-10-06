@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { cn } from '@/components/ui/cn';
-import { absoluteUrl } from '@/lib/routes';
-import { ShellColumn } from './shell';
+import { breadcrumbListJsonLd, jsonLdHtml } from '@/lib/json-ld';
+import { FULL_BLEED_BG, ShellColumn } from './shell';
 
 export type Crumb = { label: string; href?: string };
 
@@ -72,28 +72,13 @@ export function Breadcrumbs({ trail, pendingCurrent = false, jsonLd = false, cla
  */
 export function BreadcrumbBand(props: Props) {
   return (
-    <ShellColumn className="hidden bg-surface md:block" innerClassName="pt-4">
+    <ShellColumn className={cn('hidden md:block', FULL_BLEED_BG)} innerClassName="pt-4">
       <Breadcrumbs {...props} />
     </ShellColumn>
   );
 }
 
 function BreadcrumbJsonLd({ trail }: { trail: Crumb[] }) {
-  const data = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: trail.map((c, i) => ({
-      '@type': 'ListItem',
-      position: i + 1,
-      name: c.label,
-      ...(c.href ? { item: absoluteUrl(c.href) } : {}),
-    })),
-  };
-  return (
-    <script
-      type="application/ld+json"
-      // JSON-LD must be raw JSON; `<` is escaped so a title can never close the script element.
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, '\\u003c') }}
-    />
-  );
+  // JSON-LD must be raw JSON; jsonLdHtml escapes `<` so a title can never close the script element.
+  return <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(breadcrumbListJsonLd(trail))} />;
 }

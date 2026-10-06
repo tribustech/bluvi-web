@@ -28,6 +28,7 @@ import type { CommunityLakeSectionDTO } from '@/core/partide';
 import { routes } from '@/lib/routes';
 import { competitionDateLabel } from '../../../(site)/concursuri/[id]/_components/dates';
 import type { LakeCompetition } from './data';
+import { LiveDot } from '@/components/templates/LiveDot';
 
 /*
  * The lake page's section contents for the T3 demo — fish features/lakes/detail/* and
@@ -173,7 +174,7 @@ function Stat({ label, spoken, value, unit, live = false }: { label: string; spo
     <div className="flex min-w-0 flex-col gap-1 rounded-card bg-page p-3 md:p-4">
       {/* dt first in the DOM (a valid group), drawn under the value. */}
       <dt className="order-last flex min-w-0 items-center gap-1.5 t-label text-muted" title={spoken}>
-        {live ? <span aria-hidden className="size-1.5 shrink-0 animate-live rounded-full bg-live" /> : null}
+        {live ? <LiveDot /> : null}
         <span className="truncate" aria-hidden={spoken ? true : undefined}>
           {label}
         </span>

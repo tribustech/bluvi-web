@@ -1,11 +1,14 @@
 'use client';
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ExclamationCircleIcon, LockClosedIcon } from '@heroicons/react/24/outline';
+import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import { SadSearchIcon } from '@/components/icons/brand';
-import { Button, ButtonLink } from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { LIST_GRID_COLS, listGridClass, ROWS_HEAD } from './ListBody';
+import { SignInGate } from '../SignInGate';
+import { STATE_CARD_FRAME } from '../stateCard';
+import { RING_DANGER } from '../rings';
 
 /*
  * Every non-data state of a T1 list, in the list's own slot (the header, tabs and toolbar stay, so
@@ -117,12 +120,11 @@ function PageState({
     <div
       role={alert ? 'alert' : undefined}
       className={cn(
-        // Capped at the centre column's width with the aside docked (800 at 1440), so the same state
-        // is the same card on every page — never a 1100px white slab around a one-line message. It
-        // shares the column's LEFT edge with the heading and the search above it (never centred in
-        // the column: with the aside gone the column widens and a centred card left two left edges).
-        'flex w-full max-w-200 flex-col items-center gap-2 rounded-card bg-surface px-6 py-10 text-center md:py-14 xl:py-16',
-        tone === 'danger' ? 'shadow-[inset_0_0_0_1px_var(--color-status-danger-line)]' : 'shadow-e0',
+        // The templates' one state frame (../stateCard.ts): 720 at most, centred in the column — the
+        // same card, at the same place, on every page.
+        STATE_CARD_FRAME,
+        'flex flex-col items-center gap-2 rounded-card bg-surface px-6 py-10 text-center md:py-14 xl:py-16',
+        tone === 'danger' ? RING_DANGER : 'shadow-e0',
       )}
     >
       <span aria-hidden className="mb-1 flex size-12 items-center justify-center">
@@ -250,8 +252,8 @@ export function ListError({
 
 /**
  * A per-user list asked for while signed out (fish: «🔑 Intră în cont ca să vezi concursurile
- * tale.» + «Intră în cont»). The public tabs stay one tap away. The CTA is the outline Button —
- * the sign-in look everywhere a gate stands in for content.
+ * tale.» + «Intră în cont»). The public tabs stay one tap away. The CTA is the primary Button —
+ * the sign-in look everywhere a gate stands in for content (../stateCard.ts).
  */
 export function ListSignInGate({
   title = 'Intră în cont',
@@ -265,22 +267,8 @@ export function ListSignInGate({
   href: string;
   cta?: string;
 }) {
-  return (
-    <PageState
-      icon={
-        <Disc className="bg-accent-tint text-accent-ink">
-          <LockClosedIcon />
-        </Disc>
-      }
-      title={title}
-      description={description}
-      actions={
-        <ButtonLink href={href} variant="outline">
-          {cta}
-        </ButtonLink>
-      }
-    />
-  );
+  // The templates' one sign-in gate (../SignInGate.tsx): same disc, steps and CTA on every page.
+  return <SignInGate title={title} description={description} href={href} cta={cta} />;
 }
 
 /**

@@ -2,10 +2,11 @@
 
 import type { ReactNode } from 'react';
 import { cn } from '@/components/ui/cn';
+import { RING_SELECTED_CHECKED } from '../rings';
 
 /**
  * Multiple choice as pills over native checkboxes — the checkbox twin of T1 ChoiceChips (same
- * look: soft-fill at rest, accent tint + accent ink + 1.5px accent inset when checked), for the
+ * look: soft-fill at rest, accent tint + accent ink + the 2px selected ring, ../rings.ts, when checked), for the
  * filter panel's multi-select sections (Regim, Facilități, Pești). Lives inside a FilterSection,
  * whose legend names the group.
  * TODO(kit): promote with ChoiceChips to components/forms (this task may only touch T2).
@@ -34,7 +35,7 @@ export function T2CheckChips<V extends { id: string; name: string }>({
               'transition-[background-color,color,box-shadow] duration-(--duration-fast) ease-select',
               'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent',
               'bg-soft-fill text-ink-2 hover:text-ink',
-              'has-checked:bg-accent-tint has-checked:text-accent-ink has-checked:shadow-[inset_0_0_0_1.5px_var(--color-accent)]',
+              'has-checked:bg-accent-tint has-checked:text-accent-ink', RING_SELECTED_CHECKED,
             )}
           >
             <input type="checkbox" checked={checked} onChange={() => onToggle(o)} className="sr-only" />

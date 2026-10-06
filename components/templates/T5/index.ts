@@ -27,6 +27,6 @@ export { KpiGrid, KpiTile, isLongValue, type KpiGridProps, type KpiTileProps } f
 export { DashboardToolbar } from './DashboardToolbar';
 export { DashboardRefresh, type RefreshResult } from './DashboardRefresh';
 export { DashboardSkeleton, DashboardError, DashboardEmpty, DashboardSignedOut, SkeletonCaption } from './DashboardStates';
-export { TONE_SQUARE, ACTION_TILE, ICON_TILE, ICON_TILE_SOLID, LINK_ACTION, STATE_CARD, type T5Tone, type ActionTone } from './tones';
+export { TONE_SQUARE, ACTION_TILE, ICON_TILE, ICON_TILE_SOLID, LINK_ACTION, LINK_ACTION_TEXT, STATE_CARD, type T5Tone, type ActionTone } from './tones';
 export { CountBadge } from './CountBadge';
 export { DASHBOARD_TRACKS } from './tracks';

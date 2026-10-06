@@ -425,29 +425,46 @@ screens:
       - id: home.stiri.c1
         text: "Header „Noutăți” with a back button, then the intro „Descoperă cele mai recente noutăți din lumea pescarilor.”"
         fish_ref: app/(app)/news/index.tsx:49-64
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts (every width) + unit _list/NewsList.test.ts. The back button goes back in history, or to Acasă on a direct visit."
       - id: home.stiri.c2
         text: "News are loaded 5 per page from /feed/announcements and the next page loads when the end of the list is reached; a spinner shows while the next page loads."
         fish_ref: app/(app)/news/index.tsx:27,36-40,68-72
+        status: passing
+        note: "Web: 12 per page, not 5 (app/(site)/stiri/_content/pageSize.ts — the auto-fill grid has 1–5 columns; 12 fills its rows at 2, 3 and 4). e2e tests/e2e/stiri.spec.ts: page 2 is requested with pageSize 12 as the footer nears the viewport, «Se încarcă…» while it loads (fish spinner), a failed page says so with «Reîncearcă» (web addition), keyboard fallback «Încarcă mai multe»."
       - id: home.stiri.c3
         text: "First load shows a full-page loader; an error shows the error screen with retry."
         fish_ref: app/(app)/news/index.tsx:42-46
+        status: passing
+        note: "Web: the server prefetch fills the first page (static, tag announcements-list); when it failed the browser reads it with the card skeleton, then the T1 error card + «Încearcă din nou». Rendered per state in app/(site)/stiri/_list/NewsList.test.ts (not forceable from e2e)."
       - id: home.stiri.c4
         text: "Empty list shows „Momentan nu există noutăți.”"
         fish_ref: app/(app)/news/index.tsx:66
+        status: passing
+        note: "unit app/(site)/stiri/_list/NewsList.test.ts (the local CMS has news)."
       - id: home.stiri.c5
         text: "Each card shows the first banner image (medium, blurhash placeholder), the creation date as „DD MMMM YYYY” in Romanian, uppercase, a green category badge, the title (max 3 lines) and the short description (max 3 lines); the text block has a fixed height so cards align."
         fish_ref: components/NewsCard.tsx:12-46
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts: medium banner over its blurhash, «DD MMMM YYYY» uppercase in Bucharest time, green badge (Fundații badge-green, AA), title/description clamped at 3 lines. Web: no fixed-height text block (fish needs it for its horizontal carousel) — the grid row stretches its cards to one height (asserted per row) and short copy leaves no empty band. No banner: accent-tinted header with a newspaper glyph."
       - id: home.stiri.c6
         text: "Pressing a card opens that news item."
         fish_ref: components/NewsCard.tsx:24
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts (keyboard Enter on the card title link; the whole card is the target)."
       - id: home.stiri.c7
         text: "Pull to refresh (web: revalidation) refetches the list."
         fish_ref: app/(app)/news/index.tsx:30-34,67
+        status: passing
+        note: "Web: no pull-to-refresh; the list is ISR by CMS tag (a write purges announcements-list through /api/revalidate) and the browser query refetches once stale (1h). Verified in code."
       - id: home.stiri.c8
         text: "News data is considered fresh for 1 hour."
         fish_ref: services/queries/useNews.ts:5,18-19
+        status: passing
+        note: "core/news newsInfiniteQuery staleTime/gcTime 1h (core/news/news.test.ts); the list uses it unchanged."
     mobile_only: false
-    status: todo
+    # built on T1 2026-10-05 (app/(site)/stiri); every criterion verified (e2e tests/e2e/stiri.spec.ts + unit).
+    status: passing
 
   - id: home.stire
     title: Știre
@@ -473,29 +490,46 @@ screens:
       - id: home.stire.c1
         text: "Loading shows a full-page loader; an error or missing item shows the error screen with retry and back."
         fish_ref: app/(app)/news/[newsId].tsx:27-33
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts: an unknown id → not-found card («Vezi noutățile», back chip on the phone, noindex; soft 404). A network/5xx/timeout read (bounded at 8s) throws to error.tsx: T3 page error with «Încearcă din nou» + back — verified in code (an outage is not forceable from the browser). Loading (s1): loading.tsx, the article in grey with the pending band and the back chip — unit _content/ArticleSkeleton.test.ts (not forceable from the browser: cached reads, no dev prefetch); its header reads the Gallery's own heights (_content/hero.ts)."
       - id: home.stire.c2
         text: "The banner images (medium, blurhash placeholder) form a swipeable gallery with page dots; with no banner a grey header is shown."
         fish_ref: app/(app)/news/[newsId].tsx:18-25; components/CarouselWithPagination.tsx:48-86
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts: several banners → carousel with dots (click, ← / → on the focused strip, ‹ › from 768), one banner → no dots, none → grey header on the phone (nothing from 768, the T3 photo rule). Medium rendition over its blurhash; from 768 the strip takes the first banner's own ratio (read on the server, _content/probe.ts) clamped to 4:3 … 4:1, 240 to 480 high, the picture contained over a blurred copy of itself (never cover-cropped: its text was cut). No banner on the phone: 300px grey header (the loaded header's height) with the newspaper glyph. Unit _content/Gallery.test.ts + imageSize.test.ts."
       - id: home.stire.c3
         text: "A back button floats over the gallery."
         fish_ref: components/ScreenWithFakeSheet.tsx:45-48
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts: the back chip floats over the gallery on the phone (first in the Tab order); from 768 the breadcrumb band (Noutăți / titlu) is the way back, rendered on the server by the page (real title + BreadcrumbList in the HTML; SiteHeader OWN_BAND_ROUTES). «Înapoi» never leaves Bluvi (Noutăți: Navigation API / same-origin referrer)."
       - id: home.stire.c4
         text: "Under the gallery: the creation date „DD MMMM YYYY” in Romanian, uppercase, with a green category badge on the same row, then the title as heading."
         fish_ref: app/(app)/news/[newsId].tsx:39-49
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts: <time> «DD MMMM YYYY» uppercase + green badge on one row (phone: badge at the row's end as fish; from 768 right after the date), the title as the page h1; from 768 the text sits on a centred 720 measure in the card."
       - id: home.stire.c5
         text: "The short description is shown under the title in muted semibold text."
         fish_ref: app/(app)/news/[newsId].tsx:51-54
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts: muted and semibold as fish (weight 600, the muted token — asserted), one size step above the body (title2) so it reads as the intro; AA on the card. Fixed 2026-10-05 (was title2 700 in ink-2)."
       - id: home.stire.c6
         text: "Content blocks render in order: simple-text (rich text), simple-image (medium → small → original, full width, 200 high), image-right-text-left (text then image), image-left-text-right (image then text); unknown block types render nothing."
         fish_ref: helpers/renderNewsContentBlock.tsx:7-74
+        status: passing
+        note: "Deviation: an image with its size from the CMS keeps its own proportions (full width on the phone, ≤ 420 high; fish's fixed 200px crop cut the text off the screenshots most articles carry); only an image without dimensions gets fish's 200px box. e2e tests/e2e/stiri.spec.ts (text, simple-image, image-right-text-left text then image) + unit _content/NewsBlocks.test.ts (all four types, both side orders, missing image / text, empty blocks, simple-image medium → small → original) and _content/content.test.ts. From 768 images keep their own proportions, never past their pixels nor 480 high, framed; the two «image beside text» blocks are two columns only when both sides exist. Unknown block types are dropped in core/news; a text block saved empty (null) parses and renders nothing (core/news/news.test.ts)."
       - id: home.stire.c7
         text: "Rich text supports paragraphs, headings level 1–3, ordered/unordered lists („ - ” items), bold, italic, underline and links; tel links render as „📞 …” and dial; other links open the URL; link clicks log news_link_clicked with newsId and url."
         fish_ref: components/CustomBlocksRenderer.tsx:20-122
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts + unit _content/content.test.ts: paragraphs, headings 1–3 (title1/heading/bodyStrong, one level under the page h1), lists with « - », bold/italic/underline, a soft line break («\\n», Shift+Enter in Strapi) as a new line like fish (unit; fixed 2026-10-05 — it collapsed into a space), external links in a new tab, tel links dial (20/solid phone icon instead of the 📞 emoji — Fundații: no emoji in UI). Each link carries news_link_clicked { newsId, url } as data-analytics-*; the GA4 listener lands in M8 (home.b.analytics)."
       - id: home.stire.c8
         text: "Reachable from a NEWS push notification (newsId) and from news cards on Acasă and Noutăți."
         fish_ref: helpers/getRedirectLocationForNotification.ts:96-98
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts (card → article) and acasa.spec.ts (Acasă rail links /stiri/<id>); routes.newsItem is the NEWS notification target: core/social notificationRoute resolves NEWS + newsId to { kind: 'news', params: { newsId } }; the web notifications screen that turns it into this URL is not built yet (social area) — web has in-app notifications only."
     mobile_only: false
-    status: todo
+    # built on the T3 tracks 2026-10-05 (app/(site)/stiri/[id]); every criterion verified.
+    status: passing
 
   - id: home.sponsor
     title: Sponsor
@@ -519,20 +553,31 @@ screens:
       - id: home.sponsor.c1
         text: "Loading shows a full-page loader; an error or missing sponsor shows the error screen with retry and back."
         fish_ref: app/(app)/sponsors/[sponsorId].tsx:26-32
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts: unknown id → not-found card («Mergi la Acasă», back, noindex). Network/5xx/timeout → error.tsx with retry + back + the settled band (verified in code). Loading (s1): loading.tsx — unit _content/ArticleSkeleton.test.ts (the logo band is the loaded band's own constant)."
       - id: home.sponsor.c2
         text: "Header image is the sponsor image (large → original, blurhash placeholder); grey header when there is none; a back button floats over it."
         fish_ref: app/(app)/sponsors/[sponsorId].tsx:16-24; components/ScreenWithFakeSheet.tsx:45-50
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts + unit _content/Gallery.test.ts: large → original in a 224/192/224 band; landscape artwork (4:3–2:1, size read on the server) fills it like Acasă's tiles, a logo is contained on white with air, clear of the phone back chip; no image (s4, unit — no such sponsor locally): the phone grey header; the back chip on the phone, the server-rendered breadcrumb (Acasă / name) from 768."
       - id: home.sponsor.c3
         text: "The sponsor name is shown as the page title."
         fish_ref: app/(app)/sponsors/[sponsorId].tsx:37-39
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts."
       - id: home.sponsor.c4
         text: "The description renders as rich text (same rules as news); an empty description renders nothing."
         fish_ref: app/(app)/sponsors/[sponsorId].tsx:41-48; components/CustomBlocksRenderer.tsx:20
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts + unit _content/content.test.ts and Gallery.test.ts (s5: empty/missing description renders nothing — no such sponsor locally, unit-only)."
       - id: home.sponsor.c5
         text: "Link clicks in the description log sponsor_link_clicked with sponsor_id, sponsor_name and url."
         fish_ref: app/(app)/sponsors/[sponsorId].tsx:43-47
+        status: passing
+        note: "e2e tests/e2e/stiri.spec.ts + unit: links carry sponsor_link_clicked { sponsor_id, sponsor_name, url } as data-analytics-*; the GA4 listener lands in M8 (home.b.analytics)."
     mobile_only: false
-    status: todo
+    # built on the T3 tracks 2026-10-05 (app/(site)/sponsori/[id]); every criterion verified.
+    status: passing
 
 behaviours:
   - id: home.b.notification-news

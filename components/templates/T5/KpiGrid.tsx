@@ -108,7 +108,8 @@ const NUMBER_ROW = 'self-baseline whitespace-nowrap';
 export function KpiTile({ label, value, unit, detail, detailTone = 'muted', live = false, compact = false, className }: KpiTileProps) {
   return (
     <div className={cn('row-span-3 grid min-w-0 grid-rows-subgrid gap-2 rounded-bento p-4.5', live ? 'bg-navy' : 'bg-surface shadow-e0', className)}>
-      <p className={cn('truncate t-label', live ? 'tracking-[0.4px] text-lavender-2 uppercase' : 'text-muted')}>{label}</p>
+      {/* The navy tile's label in the caps eyebrow step (CountTile's look, on the type scale). */}
+      <p className={cn('truncate', live ? 't-eyebrow text-lavender-2 uppercase' : 't-label text-muted')}>{label}</p>
       {live ? (
         <SignatureNumber size="tile" tone="lavender" unitTone="lavender" value={value} unit={unit} className={NUMBER_ROW} />
       ) : compact ? (
@@ -119,7 +120,7 @@ export function KpiTile({ label, value, unit, detail, detailTone = 'muted', live
       ) : (
         <SignatureNumber size="stat" value={value} unit={unit} className={NUMBER_ROW} />
       )}
-      <p aria-hidden={detail ? undefined : true} className={cn('line-clamp-2 t-caption', live ? 'text-lavender-3' : DETAIL[detailTone])}>
+      <p aria-hidden={detail ? undefined : true} className={cn('line-clamp-2 t-caption text-pretty', live ? 'text-lavender-3' : DETAIL[detailTone])}>
         {detail || ' '}
       </p>
     </div>

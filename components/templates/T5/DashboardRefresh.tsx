@@ -101,7 +101,9 @@ export function DashboardRefresh({
       >
         {icon}
       </button>
-      <Button variant="ghost" onClick={run} aria-disabled={pending || undefined} className="max-md:hidden">
+      {/* Optical alignment: the ghost button's 12px inset (px-3) hangs past the column's edge, so its
+          visible label sits on the gutter with the avatar, «Vezi toate» and the side columns. */}
+      <Button variant="ghost" onClick={run} aria-disabled={pending || undefined} className="max-md:hidden md:-mr-3">
         <span aria-hidden className="flex size-6 items-center justify-center [&>svg]:size-6">
           {icon}
         </span>

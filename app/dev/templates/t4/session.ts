@@ -1,5 +1,5 @@
 import 'server-only';
-import { z } from 'zod';
+import * as z from 'zod';
 import { call, isApiError, type Transport } from '@/core/transport';
 import { getSessionToken } from '@/lib/server/session';
 import { createServerTransport } from '@/lib/server/transport';

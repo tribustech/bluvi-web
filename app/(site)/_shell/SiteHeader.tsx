@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, Suspense, use, useEffect, useState, type ReactNode } from 'react';
+import { createContext, Suspense, use, useEffect, useId, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { usePathname } from 'next/navigation';
 import { BreadcrumbBand, type Crumb } from '@/components/nav/Breadcrumbs';
+import { routes } from '@/lib/routes';
 
 export type { Crumb };
 
@@ -34,25 +35,55 @@ export function crumbsForPath(pathname: string): Crumb[] {
   return rest.length > 0 ? [{ label, href: `/${first}` }] : [{ label }];
 }
 
-type Override = { path: string; trail: Crumb[] } | null;
-const BreadcrumbContext = createContext<((o: Override) => void) | null>(null);
+/**
+ * Routes that render their own breadcrumb band on the server (real titles in the HTML, the
+ * BreadcrumbList JSON-LD, nothing swapped on hydration) — or, for a section-level list or a flow
+ * whose header owns the way back, none at all. The layout's band (PageBreadcrumbs) skips them.
+ * A route flag, not a client mark: the decision is the same in the server HTML and after hydration.
+ *  - /concursuri/<id> and its view segments (CompetitionRoute, loading.tsx, error.tsx);
+ *  - the T6 scale flow (/concursuri/<id>/cantar…): its header owns the way back, as T4's;
+ *  - the T1 / T3 / T4 / T6 template demos (/dev/templates): T3 as /concursuri/<id>, T1 a section
+ *    list, T4 and T6 flows (their headers' back control — never a second way back above it).
+ */
+const OWN_BAND_ROUTES: readonly RegExp[] = [
+  /^\/concursuri\/[^/]+(?:\/(?:clasament|cantare|statistici|capturi|informatii|participanti|extra-cantare|regulament))?\/?$/,
+  /^\/concursuri\/[^/]+\/cantar(?:\/.*)?$/,
+  // Știre and Sponsor (page, loading.tsx and error.tsx render the band; Noutăți / Acasă first).
+  /^\/stiri\/[^/]+\/?$/,
+  /^\/sponsori\/[^/]+\/?$/,
+  /^\/dev\/templates\/t[1346]\/?$/,
+];
+
+export function ownsBreadcrumbBand(pathname: string): boolean {
+  return OWN_BAND_ROUTES.some((r) => r.test(pathname));
+}
+
+/** `owner`: the <SetBreadcrumb> instance that set it (useId), so only that one can clear it. */
+type Override = { path: string; trail: Crumb[]; owner: string } | null;
+const BreadcrumbContext = createContext<Dispatch<SetStateAction<Override>> | null>(null);
 const OverrideContext = createContext<Override>(null);
 const NotFoundSetContext = createContext<((path: string | null) => void) | null>(null);
 const NotFoundContext = createContext<string | null>(null);
 
 /**
  * Lets a page replace the URL-derived breadcrumb with real titles, e.g.
- * `<SetBreadcrumb trail={[{ label: 'Competiții', href: '/concursuri' }, { label: competition.name }]} />`.
+ * `<SetBreadcrumb trail={[{ label: 'Bălți', href: '/balti' }, { label: lake.name }]} />`.
  * The override is bound to the pathname it was set on, so it never leaks into the next page.
+ * Client-side (an effect): the server HTML has the placeholder. A T3 page should rather render
+ * <BreadcrumbBand jsonLd> itself on the server and be listed in OWN_BAND_ROUTES.
  */
 export function SetBreadcrumb({ trail }: { trail: Crumb[] }) {
   const set = use(BreadcrumbContext);
   const pathname = usePathname() ?? '/';
+  const owner = useId();
   const key = JSON.stringify(trail);
   useEffect(() => {
-    set?.({ path: pathname, trail: JSON.parse(key) as Crumb[] });
-    return () => set?.(null);
-  }, [set, pathname, key]);
+    set?.({ path: pathname, trail: JSON.parse(key) as Crumb[], owner });
+    // Clears only its own override: while a page streams, two instances swap (a Suspense fallback's,
+    // then the content's), and the outgoing one's cleanup may run AFTER the incoming one set its
+    // trail — an unconditional clear left the band on its placeholder for good.
+    return () => set?.((o) => (o?.owner === owner ? null : o));
+  }, [set, pathname, key, owner]);
   return null;
 }
 
@@ -95,11 +126,9 @@ export function BreadcrumbProvider({ children }: { children: ReactNode }) {
  * with or without its «?»), never to /intra itself. /intra validates `next` as a safe path.
  */
 export function signInHref(pathname: string, search = ''): string {
-  if (pathname === '/intra') return '/intra';
+  if (pathname === routes.signIn()) return routes.signIn();
   const query = search.startsWith('?') ? search.slice(1) : search;
-  const back = query ? `${pathname}?${query}` : pathname;
-  if (back === '/') return '/intra';
-  return `/intra?next=${encodeURIComponent(back)}`;
+  return routes.signIn(query ? `${pathname}?${query}` : pathname);
 }
 
 /**
@@ -124,11 +153,10 @@ function withParentLinks(trail: Crumb[], pathname: string): Crumb[] {
  * The row needs the pathname, which on a dynamic route is request data, so on those routes it
  * streams in behind this boundary. Only dynamic routes suspend here and nearly all of them are deep
  * (/concursuri/<id>), so the fallback is a band of the same shape (a placeholder crumb, same 24px
- * row): the page below it never moves when the real trail lands. The robust fix is still for T3
- * pages to render <BreadcrumbBand> themselves on the server (real titles, JSON-LD) and for this
- * layout row to go away. Until the page names itself, a deep URL shows its section as a linked
- * parent and a neutral placeholder for the current crumb: the section is never announced as the
- * current page.
+ * row): the page below it never moves when the real trail lands. Pages that render their own band
+ * on the server (OWN_BAND_ROUTES — the robust form: real titles and JSON-LD in the HTML) are
+ * skipped. Until a page names itself, a deep URL shows its section as a linked parent and a neutral
+ * placeholder for the current crumb: the section is never announced as the current page.
  */
 export function PageBreadcrumbs() {
   return (
@@ -138,14 +166,27 @@ export function PageBreadcrumbs() {
   );
 }
 
+/**
+ * How long a deep page may take to name itself (<SetBreadcrumb>) after the band has mounted before
+ * the placeholder crumb gives up: past it the band shows the URL-derived trail, never a grey bone
+ * that stays (a page that never names itself, or a name that got lost).
+ */
+const NAME_DEADLINE_MS = 3000;
+
 function LiveBreadcrumbs() {
   const pathname = usePathname() ?? '/';
   const override = use(OverrideContext);
   const notFound = useIsNotFound(pathname);
   const deep = pathname.split('/').filter(Boolean).length > 1;
-  if (notFound) return null;
   const named = override?.path === pathname;
+  const [expired, setExpired] = useState<string | null>(null);
+  useEffect(() => {
+    if (named || !deep) return;
+    const timer = setTimeout(() => setExpired(pathname), NAME_DEADLINE_MS);
+    return () => clearTimeout(timer);
+  }, [named, deep, pathname]);
+  if (notFound || ownsBreadcrumbBand(pathname)) return null;
   const trail = named ? withParentLinks(override.trail, pathname) : crumbsForPath(pathname);
   if (!deep && trail.length < 2) return null;
-  return <BreadcrumbBand trail={trail} pendingCurrent={deep && !named} />;
+  return <BreadcrumbBand trail={trail} pendingCurrent={deep && !named && expired !== pathname} />;
 }

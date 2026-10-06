@@ -1,6 +1,6 @@
 import 'server-only';
 import { connection } from 'next/server';
-import { z } from 'zod';
+import * as z from 'zod';
 import { competitionListItemSchema } from '@/core/competitions';
 import { getLake, getReviewsForLake, type LakeDetail, type Review } from '@/core/lakes';
 import { getCommunityVenueSection, type CommunityLakeSectionDTO } from '@/core/partide';

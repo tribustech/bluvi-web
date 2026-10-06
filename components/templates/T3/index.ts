@@ -21,7 +21,7 @@ export { DetailProse } from './DetailProse';
 export { richTextToPlain } from './prose';
 export { DetailBackButton } from './DetailBackButton';
 export { DetailShareButton } from './DetailShareButton';
-export { DetailSkeleton, DetailError, DetailNotFound, DetailSignInPrompt, type DetailSkeletonProps } from './DetailStates';
+export { DetailSkeleton, DetailError, DetailNotFound, DetailSignInPrompt, DetailSectionState, type DetailSkeletonProps } from './DetailStates';
 export { DetailRetry } from './DetailRetry';
 export { DetailSignInAgain } from './DetailSignInAgain';
 export { DetailUnavailable, DetailUnavailableButton } from './DetailUnavailable';

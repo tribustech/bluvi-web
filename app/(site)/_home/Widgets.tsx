@@ -8,7 +8,7 @@ import { CountBadge, DashboardSection } from '@/components/templates/T5';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { StatusPill } from '@/components/ui/StatusPill';
-import { useViewer } from '../_shell/viewer-context';
+import { useViewerState } from '../_shell/viewer-context';
 import { homeLinks } from './links';
 import rezervari from './assets/rezervari_widget.webp';
 import vremea from './assets/vremea_widget.webp';
@@ -39,9 +39,10 @@ const MOON: Interest = {
  * centred on equal thirds of a surface card under a plain section title — one container from the
  * phone to the tablet, on the grid of the operator shortcut bar above it, so the icon rows line up.
  * There a state pill hangs fully under its tile (never over the artwork), in a band every tile
- * keeps, so all three captions share one baseline, pill or not. Desktop right column (264–320px):
- * a T5 card with three 56px tiles; a pill would be wider than its tile there, so the state is a
- * corner dot on the tile plus a t-micro line under the caption. A coming-soon tile is faded to .7 —
+ * keeps, so all three captions share one baseline, pill or not. Desktop right column (320–360px):
+ * a T5 card with three 56px tiles, the SAME pill hung under the tile (each tile's third is ~90px,
+ * the pill fits) — one state idiom at every width. Never a corner dot: that is the unread-count
+ * idiom (CountBadge, the bell), kept for real counts. A coming-soon tile is faded to .7 —
  * still legible artwork, plainly not yet live. Captions are t-caption ink-2 at every width.
  */
 export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop'; bookingsBadge?: ReactNode }) {
@@ -60,8 +61,8 @@ export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop
 
   const tile = desktop ? 'size-14 rounded-card' : 'size-16 rounded-card';
   const cell = 'flex flex-col items-center';
-  // Below 1280, 36 = 4 of air, the 26px pill, 6 to the caption; desktop states sit in the caption.
-  const target = cn('group flex flex-col items-center rounded-control outline-offset-4 active:opacity-70', desktop ? 'gap-1.5' : 'gap-9');
+  // 36 = 4 of air, the 26px pill, 6 to the caption — at every width, so the captions share a baseline.
+  const target = 'group flex flex-col items-center gap-9 rounded-control outline-offset-4 active:opacity-70';
   const caption = 'text-center t-caption text-ink-2 group-hover:text-ink';
 
   return (
@@ -84,11 +85,9 @@ export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop
             <span className={cn('relative block', tile)}>
               <Image src={rezervari} alt="" className={cn('size-full object-cover', tile)} />
               {bookingsBadge}
-              {showNou && !desktop ? <TilePill tone="info">NOU</TilePill> : null}
+              {showNou ? <TilePill tone="info">NOU</TilePill> : null}
             </span>
-            <TileCaption className={caption} state={showNou && desktop ? 'NOU' : null}>
-              Rezervări
-            </TileCaption>
+            <span className={caption}>Rezervări</span>
           </Link>
         </li>
         {[WEATHER, MOON].map((w) => (
@@ -96,16 +95,9 @@ export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop
             <button type="button" onClick={() => setInterest(w)} className={target} aria-label={`${w.title}, în curând`}>
               <span className={cn('relative block', tile)}>
                 <Image src={w.image} alt="" className={cn('size-full object-cover opacity-70', tile)} />
-                {desktop ? (
-                  // The «În curând» corner dot (the CountBadge's place and ring, the warning pair).
-                  <span aria-hidden className="absolute -top-1 -right-1 size-3 rounded-full bg-status-warning-fg ring-2 ring-surface" />
-                ) : (
-                  <TilePill tone="warning">În curând</TilePill>
-                )}
+                <TilePill tone="warning">În curând</TilePill>
               </span>
-              <TileCaption className={caption} state={desktop ? 'În curând' : null}>
-                {w.title}
-              </TileCaption>
+              <span className={caption}>{w.title}</span>
             </button>
           </li>
         ))}
@@ -138,8 +130,8 @@ export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop
  * disponibil». The register endpoint is not in core/ yet, so signed in only closes for now.
  */
 function InterestAction({ onClose }: { onClose: () => void }) {
-  const viewer = useViewer();
-  if (!viewer) {
+  // Only a known signed-out visitor is sent to sign in (an unknown session is never a guest).
+  if (useViewerState() === null) {
     return (
       <ButtonLink href={homeLinks.signIn} block>
         Intră în cont
@@ -150,16 +142,6 @@ function InterestAction({ onClose }: { onClose: () => void }) {
     <Button variant="secondary" block onClick={onClose}>
       Închide
     </Button>
-  );
-}
-
-/** The tile's caption; on desktop, its state («NOU», «În curând») as a t-micro line under it. */
-function TileCaption({ className, state, children }: { className: string; state: string | null; children: ReactNode }) {
-  return (
-    <span className="flex flex-col items-center">
-      <span className={className}>{children}</span>
-      {state ? <span className="t-micro text-muted">{state}</span> : null}
-    </span>
   );
 }
 

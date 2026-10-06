@@ -6,10 +6,11 @@ import { cn } from "./cn";
  * Verificată. Same six colors as fish components/Badge.tsx. Indigo is the accent tint + accent
  * ink (indigo-1 / indigo-7 in light, as in Fundații §07; fish uses indigo-5, 4.0:1 on indigo-1),
  * so it swaps under [data-theme=dark]; green and yellow use the badge-* pairs; green keeps fish's green3, which Fundații flags at 2.3:1
- * and keeps for parity.
+ * and keeps for parity. Blue (fish's competition format chip) and violet (fish's ranking chip) are
+ * fish's own pairs (badge-blue / badge-violet).
  */
 export type BadgeColor =
-  "indigo" | "solidIndigo" | "green" | "gray" | "yellow" | "red";
+  "indigo" | "solidIndigo" | "green" | "gray" | "yellow" | "red" | "blue" | "violet";
 
 const COLOR: Record<BadgeColor, string> = {
   indigo: "bg-accent-tint text-accent-ink",
@@ -19,6 +20,8 @@ const COLOR: Record<BadgeColor, string> = {
   // fish yellow1 at 31% + yellow6 (theme-aware pair in globals.css).
   yellow: "bg-badge-yellow-bg text-badge-yellow-fg",
   red: "bg-status-danger-bg text-status-danger-fg",
+  blue: "bg-badge-blue-bg text-badge-blue-fg",
+  violet: "bg-badge-violet-bg text-badge-violet-fg",
 };
 
 export interface BadgeProps {

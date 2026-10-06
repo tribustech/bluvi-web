@@ -4,9 +4,10 @@ import { getInitials, hashString } from "./initials";
 /**
  * Avatar + FaceStack — Fundații §07. Photo when there is one, otherwise initials
  * (fish anglerInitials.ts) on a pastel tone from the status pairs. Round by default;
- * square (radius 12) for teams and lakes.
+ * square (radius 12) for teams and lakes. `solid` is fish's filled indigo placeholder disc (the
+ * followers list): never picked by name, only asked for.
  */
-export type AvatarTone = "indigo" | "tint" | "success" | "warning" | "neutral";
+export type AvatarTone = "indigo" | "tint" | "success" | "warning" | "neutral" | "solid";
 export type AvatarSize = 24 | 32 | 40 | 44 | 48 | 64;
 
 const TONES: AvatarTone[] = ["indigo", "tint", "success", "warning", "neutral"];
@@ -17,6 +18,8 @@ const TONE: Record<AvatarTone, string> = {
   success: "bg-status-success-bg text-status-success-fg",
   warning: "bg-status-warning-bg text-status-warning-fg",
   neutral: "bg-status-neutral-bg text-status-neutral-fg",
+  // on-accent on accent: 4.5:1 light, 6.3:1 dark (the primary button's pair).
+  solid: "bg-accent text-on-accent",
 };
 
 // Initials at ~1/3 of the side (32 → 11, 48 → 16), weight 800.

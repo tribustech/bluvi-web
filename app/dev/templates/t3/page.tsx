@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { Suspense, type ReactNode } from 'react';
+import { Suspense } from 'react';
 import type { Crumb } from '@/components/nav/Breadcrumbs';
-import { SHELL_MAX } from '@/components/nav/shell';
 import {
   DetailBackButton,
   DetailError,
@@ -12,15 +11,14 @@ import {
   DetailSkeleton,
   type HeaderChipGround,
 } from '@/components/templates/T3';
-import { cn } from '@/components/ui/cn';
 import { routes } from '@/lib/routes';
+import { SiteShell } from '../../../(site)/_shell/SiteShell';
 import { CompetitionScreen } from './CompetitionScreen';
 import { bounded, isNotFound, isSessionDead, loadCompetitionScreen, loadLakeScreen } from './data';
-import { DemoTopBar, type DemoViewer } from './DemoTopBar';
 import { LakeScreen } from './LakeScreen';
 import { StateBar } from './StateBar';
 import { demoHref, parseScreen, parseState, type DemoState, type Screen } from './states';
-import { readViewerState } from './viewer';
+import { readViewerState, type DemoViewer } from './viewer';
 
 /*
  * /dev/templates/t3 — T3 «Detail with tabs» (components/templates/T3) rendered with REAL data from
@@ -52,26 +50,34 @@ export const metadata: Metadata = { title: 'T3 · Detaliu cu tab-uri', robots: {
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-/** How long the demo's top bar and body wait for the session (the site layout's bound). */
+/** How long the demo's body waits for the session (the shell bar's bound). */
 const SESSION_TIMEOUT_MS = 4000;
+
+/**
+ * THE app shell (SiteShell: skip link, top bar with its ☰ menu and ⌘K palette, the scroll sentinel,
+ * <main>) is rendered here and in not-found.tsx rather than as a layout.tsx (a new layout route
+ * trips the stale .next/types of an older build in `tsc`, see t6). The screens render their own
+ * breadcrumb band on the server (SiteHeader ownsBreadcrumbBand), as /concursuri/<id> does.
+ * `?state=signed-out` / `session-unknown` force the bar's session, as they force the page's.
+ */
+const T3_FORCED_SESSION = { param: 'state', out: ['signed-out'], unknown: ['session-unknown'] };
 
 export default function T3DemoPage({ searchParams }: Props) {
   if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEV_KIT !== '1') notFound();
+  // Only the URL is awaited inside: its fallback is the static shell (prerender).
   return (
-    // overflow-x-clip: the template's full-bleed bands never add a horizontal scroll (as in the site layout).
-    <div className="relative min-h-dvh overflow-x-clip">
-      {/* `not-sr-only` resets padding to 0, so the box is re-applied inside the focus variant. */}
-      <a
-        href="#continut"
-        className="sr-only z-skip rounded-control bg-surface t-body-strong text-accent-ink shadow-e2 focus-visible:not-sr-only focus-visible:fixed focus-visible:top-3 focus-visible:left-3 focus-visible:px-4 focus-visible:py-3"
+    <SiteShell forced={T3_FORCED_SESSION}>
+      <Suspense
+        fallback={
+          <>
+            <StateBar />
+            <ShellLoading />
+          </>
+        }
       >
-        Sari la conținut
-      </a>
-      {/* Only the URL is awaited inside: its fallback is the static shell (prerender). */}
-      <Suspense fallback={<Shell viewer={null} signIn="/intra" body={<ShellLoading />} />}>
         <Demo searchParams={searchParams} />
       </Suspense>
-    </div>
+    </SiteShell>
   );
 }
 
@@ -88,42 +94,11 @@ async function Demo({ searchParams }: Props) {
         ? Promise.resolve('unknown')
         : bounded<DemoViewer>(readViewerState().catch(() => 'unknown' as const), SESSION_TIMEOUT_MS, 'unknown');
   return (
-    <Shell
-      screen={screen}
-      state={state}
-      viewer={viewer}
-      signIn={signIn}
-      body={
-        <Suspense fallback={<Loading screen={screen} />}>
-          <Body screen={screen} state={state} signIn={signIn} viewer={viewer} />
-        </Suspense>
-      }
-    />
-  );
-}
-
-function Shell({
-  screen,
-  state,
-  viewer,
-  signIn,
-  body,
-}: {
-  /** Undefined in the static shell (the URL is not known yet): nothing is active. */
-  screen?: Screen;
-  state?: DemoState;
-  viewer: Promise<DemoViewer> | null;
-  signIn: string;
-  body: ReactNode;
-}) {
-  return (
     <>
-      <DemoTopBar viewer={viewer} active={screen ? (screen === 'lake' ? 'balti' : 'concursuri') : undefined} signIn={signIn} />
       <StateBar screen={screen} state={state} />
-      {/* scroll-mt: the skip link lands below the sticky bar (56 / 64), not under it. */}
-      <main id="continut" tabIndex={-1} className={cn('mx-auto scroll-mt-14 outline-none md:scroll-mt-16', SHELL_MAX)}>
-        {body}
-      </main>
+      <Suspense fallback={<Loading screen={screen} />}>
+        <Body screen={screen} state={state} signIn={signIn} viewer={viewer} />
+      </Suspense>
     </>
   );
 }

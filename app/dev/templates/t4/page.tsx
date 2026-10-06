@@ -87,12 +87,10 @@ export default function T4DemoPage({ searchParams }: Props) {
       <Suspense fallback={<StateStrip state={null} />}>
         <Strip searchParams={searchParams} />
       </Suspense>
-      {/* As in the site layout: the T4 header is the page's header, inside <main>, not a 2nd banner. */}
-      <main id="continut" tabIndex={-1} className="scroll-mt-14 outline-none md:scroll-mt-16">
-        <Suspense fallback={<Loading />}>
-          <Demo searchParams={searchParams} />
-        </Suspense>
-      </main>
+      {/* The T4 header is the page's header, inside the shell's <main>, not a 2nd banner. */}
+      <Suspense fallback={<Loading />}>
+        <Demo searchParams={searchParams} />
+      </Suspense>
     </>
   );
 }

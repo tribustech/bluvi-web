@@ -16,6 +16,9 @@ export const STICKY_TOP = 'top-14 md:top-16';
 /** Sticky side columns (≥1280): under the 64px bar + 24px. */
 export const COLUMN_STICKY_TOP = 'xl:top-22';
 
+/** …under the bar and a sticky tab band (DetailBand `sticky`, 44px) + 24px: 132. */
+export const COLUMN_STICKY_TOP_BELOW_TABS = 'xl:top-33';
+
 /** Section anchors: 56+46+58+12 = 172 · 64+58+12 = 134→136 · 64+24 = 88. */
 export const SECTION_SCROLL_MARGIN = 'scroll-mt-43 md:scroll-mt-34 xl:scroll-mt-22';
 

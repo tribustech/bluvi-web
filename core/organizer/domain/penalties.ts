@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import type { PenaltyAction, RankingType } from '../../competitions/schemas';
 
 /** fish `models/penalty.type.ts#PENALTY_SUPPORTED_RANKING_TYPES` */

@@ -17,3 +17,4 @@ export { COLUMN_CARD, ColumnHeader, TEXT_ACTION, TextAction } from './ColumnCard
 export { StickyActions } from './StickyActions';
 export { useListUrlState, type ListUrlValues } from './useListUrlState';
 export { listParam, listParamOf } from './listParams';
+export { describeError, type ErrorDescription, type ErrorKind } from './describeError';

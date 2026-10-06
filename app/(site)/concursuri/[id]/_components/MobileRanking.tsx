@@ -1,5 +1,8 @@
+import { useRef } from 'react';
 import type { ColumnDefinition } from '@/core/competitions';
 import { RankingRow, readCell, tiedIndices, type RankingRowData } from '@/components/ranking';
+import { cn } from '@/components/ui/cn';
+import { PRESSABLE_ROWS, useRowPress } from './rowPress';
 
 /*
  * The phone ranking (fish components/ranking-table ScrollableTable) as Fundații §07 «Rând
@@ -28,17 +31,22 @@ export function MobileRanking({
   columns,
   rows,
   currentUserStandId,
+  onRowPress,
 }: {
   columns: ReadonlyArray<ColumnDefinition>;
   rows: ReadonlyArray<RankingRowData>;
   currentUserStandId: string | null;
+  /** A row pressed: its stand (the angler stats open; parity statistici-pescar.c1). */
+  onRowPress?: (standId: string) => void;
 }) {
   const tied = tiedIndices(rows);
   const valueKey = valueKeyOf(columns);
+  const list = useRef<HTMLOListElement>(null);
+  useRowPress<HTMLLIElement>(list, ':scope > li', (_, i) => rows[i]?.standId ?? null, onRowPress);
   return (
     // Full bleed on the phone's white ground: the sector edge sits on the screen edge, as in fish.
     // The penalty Tag in the warning ink: the kit's yellow pair is 2.86:1 (tableFixes.ts).
-    <ol aria-label="Clasament" className="-mx-4 border-y border-hairline [&_.text-badge-yellow-fg]:text-status-warning-fg">
+    <ol ref={list} aria-label="Clasament" className={cn('-mx-4 border-y border-hairline [&_.text-badge-yellow-fg]:text-status-warning-fg', PRESSABLE_ROWS)}>
       {rows.map((row, index) => (
         <RankingRow
           key={row.standId ?? `${row.position}-${index}`}

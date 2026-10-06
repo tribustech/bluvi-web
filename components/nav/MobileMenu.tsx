@@ -43,6 +43,8 @@ type Props = {
   /** 'page': the current page is the active entry's own; 'true': it lies below it. */
   activeCurrent?: 'page' | 'true';
   admin?: AdminLink[];
+  /** The viewer's lakes could not be read: Administrare stays with a retry row (TopBar `onAdminRetry`). */
+  onAdminRetry?: () => void;
   /** Changes on navigation: the panel closes. */
   resetKey?: string;
 };
@@ -84,6 +86,7 @@ export function MobileMenu({
   active,
   activeCurrent = 'page',
   admin = [],
+  onAdminRetry,
   resetKey,
 }: Props) {
   const dialog = useModalDialog(open, onClose);
@@ -194,7 +197,7 @@ export function MobileMenu({
           ) : null}
         </ul>
 
-        {admin.length > 0 ? (
+        {admin.length > 0 || onAdminRetry ? (
           <>
             <div role="separator" className={SEPARATOR} />
             <p id={adminId} className={EYEBROW}>
@@ -202,6 +205,23 @@ export function MobileMenu({
             </p>
             <ul aria-labelledby={adminId} className="flex flex-col gap-1">
               {admin.map((a) => linkRow(a.key, a.href, a.label, a.Icon, a.caption))}
+              {onAdminRetry ? (
+                <li>
+                  <button
+                    type="button"
+                    onClick={retrying ? undefined : onAdminRetry}
+                    aria-disabled={retrying || undefined}
+                    aria-busy={retrying || undefined}
+                    className={cn(ROW, 'text-ink hover:bg-soft-fill aria-disabled:cursor-progress aria-disabled:active:opacity-100')}
+                  >
+                    <ArrowPathIcon className={cn('size-6 shrink-0 text-ink-2', retrying && 'animate-spin')} aria-hidden />
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate">{retrying ? 'Se reîncarcă…' : 'Reîncearcă'}</span>
+                      <span className="t-caption truncate text-muted">Nu am putut încărca bălțile tale</span>
+                    </span>
+                  </button>
+                </li>
+              ) : null}
             </ul>
           </>
         ) : null}

@@ -13,7 +13,7 @@ import { cn } from "./cn";
  */
 export type SignatureSize = "count" | "tile" | "stat";
 export type SignatureTone = "ink" | "lavender";
-export type UnitTone = "muted" | "faint" | "lavender";
+export type UnitTone = "muted" | "lavender";
 
 const NUMBER: Record<SignatureSize, string> = {
   count: "t-count",
@@ -34,8 +34,6 @@ const NUMBER_TONE: Record<SignatureTone, string> = {
 
 const UNIT_TONE: Record<UnitTone, string> = {
   muted: "text-muted",
-  // The "/48" grey (#98A2B3 in light) sits one step below muted.
-  faint: "text-faint",
   lavender: "text-lavender-2",
 };
 

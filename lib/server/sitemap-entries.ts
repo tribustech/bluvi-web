@@ -1,6 +1,6 @@
 import 'server-only';
 import type { MetadataRoute } from 'next';
-import { getCompetitionsByStatus } from '@/core/competitions';
+import { getCompetitionsByStatus, getSponsors } from '@/core/competitions';
 import { getLakesIndex } from '@/core/lakes';
 import { getNews } from '@/core/news';
 import type { Transport } from '@/core/transport';
@@ -12,11 +12,17 @@ type Entry = MetadataRoute.Sitemap[number];
 const MAX_PAGES = 50;
 const COMPETITION_STATUSES = ['notStarted', 'started', 'completed'] as const;
 
+/** The list pages (each its own canonical; filtered / searched views canonicalise to them). */
 export function staticEntries(): Entry[] {
   return [
     { url: absoluteUrl(routes.home()), changeFrequency: 'daily', priority: 1 },
     { url: absoluteUrl(routes.lakes()), changeFrequency: 'daily', priority: 0.9 },
+    { url: absoluteUrl(routes.lakesMap()), changeFrequency: 'daily', priority: 0.7 },
+    { url: absoluteUrl(routes.publicWaters()), changeFrequency: 'weekly', priority: 0.7 },
     { url: absoluteUrl(routes.competitions()), changeFrequency: 'hourly', priority: 0.9 },
+    { url: absoluteUrl(routes.competitionsByStatus('live')), changeFrequency: 'hourly', priority: 0.8 },
+    { url: absoluteUrl(routes.competitionsByStatus('viitoare')), changeFrequency: 'hourly', priority: 0.8 },
+    { url: absoluteUrl(routes.competitionsByStatus('incheiate')), changeFrequency: 'daily', priority: 0.6 },
     { url: absoluteUrl(routes.news()), changeFrequency: 'daily', priority: 0.6 },
   ];
 }
@@ -44,6 +50,19 @@ export async function competitionEntries(t: Transport): Promise<Entry[]> {
   return out;
 }
 
+export async function sponsorEntries(t: Transport): Promise<Entry[]> {
+  const res = await getSponsors(t);
+  return res.data.map(s => ({ url: absoluteUrl(routes.sponsor(s.documentId)), changeFrequency: 'monthly', priority: 0.3 }));
+}
+
+/**
+ * The public waters (bundled ANAR dataset, read on the server — not a CMS list): the caller hands
+ * their canonical keys in (app/sitemap.ts), so this module stays free of the dataset.
+ */
+export function publicWaterEntries(keys: readonly (string | number)[]): Entry[] {
+  return keys.map(k => ({ url: absoluteUrl(routes.publicWater(k)), changeFrequency: 'monthly', priority: 0.4 }));
+}
+
 export async function newsEntries(t: Transport): Promise<Entry[]> {
   const out: Entry[] = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
@@ -58,13 +77,21 @@ export async function newsEntries(t: Transport): Promise<Entry[]> {
 
 /**
  * All sitemap entries. A list that fails is left out (and logged) rather than failing the whole
- * sitemap — search engines keep the previous copy of what is missing.
+ * sitemap — search engines keep the previous copy of what is missing. `publicWaterKeys` reads the
+ * bundled public-waters dataset (left out when not given).
  */
-export async function sitemapEntries(t: Transport): Promise<Entry[]> {
-  const parts = await Promise.allSettled([lakeEntries(t), competitionEntries(t), newsEntries(t)]);
+export async function sitemapEntries(t: Transport, publicWaterKeys?: () => Promise<readonly (string | number)[]> | readonly (string | number)[]): Promise<Entry[]> {
+  const lists: [string, Promise<Entry[]>][] = [
+    ['lakes', lakeEntries(t)],
+    ['competitions', competitionEntries(t)],
+    ['news', newsEntries(t)],
+    ['sponsors', sponsorEntries(t)],
+  ];
+  if (publicWaterKeys) lists.push(['public waters', Promise.resolve().then(publicWaterKeys).then(publicWaterEntries)]);
+  const parts = await Promise.allSettled(lists.map(([, p]) => p));
   const dynamic = parts.flatMap((p, i) => {
     if (p.status === 'fulfilled') return p.value;
-    console.error(`[sitemap] ${['lakes', 'competitions', 'news'][i]} failed`, p.reason);
+    console.error(`[sitemap] ${lists[i][0]} failed`, p.reason);
     return [];
   });
   return [...staticEntries(), ...dynamic];

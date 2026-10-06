@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { call, type Transport } from '../transport';
 import {
   anglerCatchPageSchema,

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { CardsSection } from './sections/cards';
 import { NavigationSection } from './sections/navigation';
 import { PrimitivesSection } from './sections/primitives';
+import { SharedSection } from './sections/shared';
 
 /**
  * Component kit — every UI component with the design's own sample data, for the screenshot
@@ -21,6 +22,9 @@ export default function KitPage() {
       </section>
       <section id="navigation" className="space-y-6">
         <NavigationSection />
+      </section>
+      <section id="shared" className="space-y-6">
+        <SharedSection />
       </section>
     </main>
   );

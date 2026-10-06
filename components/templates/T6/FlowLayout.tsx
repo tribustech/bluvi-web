@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ChevronLeftIcon } from '@heroicons/react/24/outline';
-import { SHELL_MAX, ShellColumn } from '@/components/nav/shell';
+import { FULL_BLEED_BG, FULL_BLEED_RULE, SHELL_MAX, ShellColumn } from '@/components/nav/shell';
 import { headerChipClass } from '@/components/templates/T3/DetailHeader';
 import { COLUMN_STICKY_TOP } from '@/components/templates/T3/metrics';
 import { cn } from '@/components/ui/cn';
+import { TRACK_GAP_X, TRACKS } from '../tracks';
+import { STATE_CARD_FRAME } from '../stateCard';
 
 /*
  * T6 «Single-task flow» (ROADMAP §4) — scale, capture, raffle, penalties, join with code.
@@ -35,7 +37,6 @@ import { cn } from '@/components/ui/cn';
  * in the aside column. One copy means one tab order and one default button for Enter.
  */
 
-/** ≥1280 aside width, on the spacing scale (100 × 4 = 400). */
 /**
  * The bar's height plus a 16px gap as the root's scroll padding, below 1280 only (docked from 1280):
  * <768 two stacked 48px buttons + an optional hint line (≈ 160), 768–1279 one 48px row (≈ 72).
@@ -43,7 +44,8 @@ import { cn } from '@/components/ui/cn';
 const BAR_SCROLL_PAD =
   '[:root:has(&)]:scroll-pb-44 md:[:root:has(&)]:scroll-pb-24 xl:[:root:has(&)]:scroll-pb-0';
 
-const ASIDE_W = 'xl:grid xl:grid-cols-[minmax(0,1fr)_--spacing(100)] xl:items-start xl:gap-x-8';
+/** ≥1280: the task and its wide companion column (360 / 400, the shared template scale ../tracks.ts). */
+const ASIDE_W = cn('xl:grid xl:items-start', TRACKS.mainWide, TRACK_GAP_X);
 
 type FlowLayoutProps = {
   /** <FlowHeader> (a full-bleed band). */
@@ -120,7 +122,8 @@ export function FlowLayout({
         <div
           className={cn(
             'flex min-w-0 flex-col gap-4 md:gap-6',
-            narrow && 'md:mx-auto md:w-full md:max-w-140',
+            // The templates' one state frame (../stateCard.ts): 720, centred.
+            narrow && STATE_CARD_FRAME,
             fill && 'flex-1 md:flex-none',
           )}
         >
@@ -220,7 +223,8 @@ export function FlowHeader({
   trailing,
 }: FlowHeaderProps) {
   return (
-    <ShellColumn className="bg-surface md:border-b md:border-hairline" innerClassName="pt-2 pb-3 md:pt-4 md:pb-4 xl:py-6">
+    // Full bleed wherever it is rendered (inside <main> too): white and hairline run edge to edge.
+    <ShellColumn className={cn(FULL_BLEED_BG, FULL_BLEED_RULE, 'max-md:after:hidden')} innerClassName="pt-2 pb-3 md:pt-4 md:pb-4 xl:py-6">
       <header className="flex items-center gap-3 xl:gap-4">
         {backHref ? (
           <Link href={backHref} aria-label={backLabel} className={BACK}>

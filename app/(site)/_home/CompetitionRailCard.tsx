@@ -79,9 +79,11 @@ export function CompetitionRailCard({
         </div>
       </div>
 
+      {/* The title takes its natural height (never a reserved second line between it and the lake);
+          the card's spare height lands after the tags, above the footer, as breathing room. */}
       <div className="flex flex-1 flex-col gap-1 px-3 py-2.5">
         <p className={cn('truncate t-eyebrow uppercase', isLive ? 'text-live' : 'text-accent-ink')}>{withHours(c)}</p>
-        <CardTitle href={href} className="line-clamp-2 min-h-[2lh] t-heading text-ink">
+        <CardTitle href={href} className="line-clamp-2 t-heading text-ink">
           {c.name}
         </CardTitle>
         <p className="flex min-h-4.5 min-w-0 items-center gap-1 t-label text-accent-ink">

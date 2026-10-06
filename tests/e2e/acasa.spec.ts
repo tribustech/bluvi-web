@@ -225,8 +225,8 @@ for (const signedIn of [false, true]) {
     await open(page, PHONE, signedIn);
     const hero = section(page, 'Ești la pescuit?');
     await expect(hero.getByText('Capturi, lansete și cronometre — totul notat într-o singură partidă.')).toBeVisible();
-    await expect(hero.getByRole('link', { name: 'Începe o partidă' })).toHaveAttribute('href', signedIn ? '/partide/start' : '/intra');
-    await expect(hero.getByRole('link', { name: 'Intră cu cod' })).toHaveAttribute('href', signedIn ? '/partide/cod' : '/intra');
+    await expect(hero.getByRole('link', { name: 'Începe o partidă' })).toHaveAttribute('href', signedIn ? '/partide/incepe' : '/intra');
+    await expect(hero.getByRole('link', { name: 'Intră cu cod' })).toHaveAttribute('href', signedIn ? '/partide/intra' : '/intra');
   });
 }
 

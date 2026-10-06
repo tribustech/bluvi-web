@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import type { PaginationParams } from '../shared';
 import { call, type Transport } from '../transport';
 import { announcementDetailSchema, announcementListResponseSchema } from './schemas';

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { PATHS } from '@/components/nav/items';
-import { ListEmpty, ListSignInGate } from '@/components/templates/T1/ListStates';
+import { ListEmpty } from '@/components/templates/T1/ListStates';
+import { SignInGate } from '../SignInGate';
 import { cn } from '@/components/ui/cn';
 import { BAR_CELL, STATE_CARD } from './tones';
 import { dashboardTracks } from './tracks';
@@ -316,11 +316,8 @@ export function DashboardEmpty({
 
 /**
  * Signed out. fish routes a guest to sign-in and back; the web page renders the templates' one
- * sign-in gate (T1 ListSignInGate — centred, lock icon, outline «Intră în cont») so the moment
- * looks the same on every template; «Intră» returns to `next`.
- *
- * TODO(kit): promote ListSignInGate to components/surfaces/SignInGate and a `routes.signIn(next)`
- * helper to lib/routes.ts (this task may only touch T5).
+ * sign-in gate (../SignInGate.tsx) so the moment looks the same on every template; «Intră»
+ * returns to `next`.
  */
 export function DashboardSignedOut({
   title = 'Intră în cont ca să vezi panoul',
@@ -334,9 +331,5 @@ export function DashboardSignedOut({
   next: string;
   className?: string;
 }) {
-  return (
-    <div className={cn(STATE_CARD, className)}>
-      <ListSignInGate title={title} description={description} href={`${PATHS.signIn}?next=${encodeURIComponent(next)}`} />
-    </div>
-  );
+  return <SignInGate title={title} description={description} next={next} className={className} />;
 }

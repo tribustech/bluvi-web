@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/components/ui/cn';
+import { RING_DANGER } from '../rings';
 
 type Props = {
   /** Section title (h2): «Când vii», «Date de contact». */
@@ -35,7 +36,7 @@ export function T4Section({ title, description, icon, action, children, variant 
       className={cn(
         'flex flex-col gap-4',
         variant === 'card' && 'rounded-card bg-surface p-4 md:p-5 xl:p-6',
-        variant === 'card' && (invalid ? 'shadow-[inset_0_0_0_1px_var(--color-status-danger-line)]' : 'shadow-e0'),
+        variant === 'card' && (invalid ? RING_DANGER : 'shadow-e0'),
         className,
       )}
     >

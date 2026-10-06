@@ -9,6 +9,7 @@ import { ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { ON_DARK_FOCUS } from './PartidaCta';
 import { RaffleCountdown } from './RaffleCountdown';
+import { RetryRefresh } from './RetryRefresh';
 import { homeLinks } from './links';
 import logoBluvi from './assets/raffle-logo-bluvi.png';
 import logoPescarmania from './assets/raffle-logo-pescarmania.png';
@@ -67,13 +68,27 @@ function typeBadgeColor(cmsColor: string | null, typeKey: string | null | undefi
  * winners → câștigători (public); ended without → nothing; guest → sign-in (fish `dismissTo(/sign-in)`, no return path); joined → confirmare;
  * else → înscriere. The decorative motion (snake border, pulses) is left out.
  */
-export function RaffleCard({ raffle, signedIn }: { raffle: RaffleState; signedIn: boolean }) {
+export function RaffleCard({
+  raffle,
+  signedIn,
+  participationFailed = false,
+}: {
+  raffle: RaffleState;
+  signedIn: boolean;
+  /** The viewer's participation could not be read: neither «joined» nor «not joined» is known. */
+  participationFailed?: boolean;
+}) {
   const { isEnded, hasWinners, joined } = raffle;
+  // Unknown participation (signed in, read failed, raffle running): no join CTA, no receipt prompt
+  // and no chances — only the retry. Never folded into «not registered».
+  const unknown = participationFailed && signedIn && !isEnded;
   const prompt = joined && !raffle.receiptUploaded && !isEnded;
   // Mounted in both compositions (one is display:none): a per-instance id.
   const headingId = useId();
   const prizes = raffle.sessionPrizes.length > 0 ? raffle.sessionPrizes : FALLBACK_PRIZES;
-  const cta = isEnded
+  const cta = unknown
+    ? null
+    : isEnded
     ? hasWinners
       ? { href: homeLinks.raffleWinners, label: COPY.ctaSeeWinners }
       : null
@@ -129,7 +144,7 @@ export function RaffleCard({ raffle, signedIn }: { raffle: RaffleState; signedIn
         ) : null}
 
         <div className="flex flex-col items-center gap-3.5 @xl:col-span-2">
-          {!isEnded && !joined ? <p className="max-w-md px-1 text-center t-caption">{BON_FISCAL}</p> : null}
+          {!isEnded && !joined && !unknown ? <p className="max-w-md px-1 text-center t-caption">{BON_FISCAL}</p> : null}
           {raffle.previousWinnerAnnouncement ? (
             <p className="max-w-md px-1 text-center t-caption">{raffle.previousWinnerAnnouncement}</p>
           ) : null}
@@ -151,6 +166,7 @@ export function RaffleCard({ raffle, signedIn }: { raffle: RaffleState; signedIn
             )}
           >
             {isEnded && !hasWinners ? <p className="flex-1 text-center t-body-strong">{COPY.statusEndedNoWinners}</p> : null}
+            {unknown ? <RetryRefresh tone="accent" message="Nu am putut verifica înscrierea." className="justify-center" /> : null}
             {!isEnded && joined ? (
               <Link
                 href={homeLinks.raffleConfirmation}

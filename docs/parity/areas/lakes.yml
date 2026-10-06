@@ -119,7 +119,7 @@ screens:
         text: "While home sections or recently viewed lakes are loading, the home skeleton is shown instead of the sections."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:663"
       - id: lakes.home.c25
-        text: "When /feed/lakes/home fails and there are no sections, an error screen with „Încearcă din nou” (refetch) replaces the page."
+        text: "When /feed/lakes/home fails and there are no sections, an error screen with „Încearcă din nou” (refetch) replaces the page. fish bug: the never-asked location placeholder counts as a section, so a failed read leaves that card alone with no word of the failure; the web shows the error whenever the failed read leaves no lake row (the placeholder is dropped)."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:659"
       - id: lakes.home.c26
         text: "Refresh (pull-to-refresh in fish) reloads the recent ids, the home sections and the recently viewed lakes."
@@ -131,7 +131,7 @@ screens:
         text: "Analytics: one lake_home_section_impression per section with content (section_key, section_position, lakes_count) and lake_home_section_click (section_key, section_position, item_position, lake_id)."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:623"
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ───────────────────────────────────────────── search overlay
   - id: lakes.search
@@ -182,7 +182,7 @@ screens:
         text: "While the term is debouncing or the first page is in flight with nothing to show, a skeleton is shown and the empty message never flashes."
         fish_ref: "features/lakes/components/LakesSearchScreen.tsx:94"
       - id: lakes.search.c7
-        text: "A non-empty term with no results shows „Nu am găsit rezultate pentru căutarea ta.”"
+        text: "A non-empty term with no results shows „Nu am găsit rezultate pentru căutarea ta.” fish bug: the CMS answers every term with its „În jurul meu” row, so fish's empty-list message never shows; the web judges „no results” on the county/city/lake rows and shows the message above the nearby row."
         fish_ref: "features/lakes/components/LakesSearchScreen.tsx:213"
       - id: lakes.search.c8
         text: "Suggestions page 20 at a time; reaching the end loads the next page with a spinner footer."
@@ -203,7 +203,7 @@ screens:
         text: "Closing the layer resets the typed term."
         fish_ref: "features/lakes/components/LakesSearchScreen.tsx:71"
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────── filter panel
   - id: lakes.filters
@@ -271,10 +271,10 @@ screens:
         text: "Option pills expose their selected state to assistive tech (role button + pressed/selected)."
         fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:92"
       - id: lakes.filters.c13
-        text: "Committed filters are app-session state shared by home and results map (not persisted across reloads)."
+        text: "Committed filters are app-session state shared by home and results map (not persisted across reloads). Web: the shared state is /balti/harta's query string (web_route above): the home writes it when it opens the map, the map edits it in place, «Înapoi» to /balti drops it; a reload of the map keeps it (a link to a filtered map works) — owner to confirm."
         fish_ref: "atoms.ts:8"
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────── legacy full-screen filters (unreachable)
   - id: lakes.choose-filters
@@ -299,7 +299,7 @@ screens:
         text: "Its content (Facilități / Tipuri de pesti / Regim pills, „Șterge filtre”, „Aplică”) is a subset of lakes.filters; nothing here may be missing from lakes.filters."
         fish_ref: "app/(app)/lakes/choose-lake-filters.tsx:63"
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────── results map + list
   - id: lakes.results-map
@@ -365,7 +365,7 @@ screens:
         text: "For geographic searches, cluster and list requests wait until the focus region is applied, so the first fetch is for the focused viewport."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:763"
       - id: lakes.results-map.c9
-        text: "Markers come from /feed/lakes/map-clusters for the visible bbox, zoom, filters and search, refetched 250 ms after the map stops moving (cached 60s)."
+        text: "Markers come from /feed/lakes/map-clusters for the visible bbox, zoom, filters and search, refetched 250 ms after the map stops moving (cached 60s). Web: T2Map clusters in the browser (supercluster, the CMS's algorithm) and cannot draw server clusters, so the page reads /lakes/map-clusters once per filter set at a zoom where every lake is its own node (cached 60s) and lets T2Map cluster them; the list stays per viewport, 250 ms after the map stops. Kit gap: T2Map server-cluster nodes."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:784"
       - id: lakes.results-map.c10
         text: "Cluster markers show the count; clusters over 10 use the large red style, others blue; activating a cluster zooms to its bbox padded ×1.4, never more than 2 zoom levels in at once."
@@ -416,7 +416,7 @@ screens:
         text: "Analytics: lakes_map_results_view (once, bbox+zoom+search_mode), lakes_map_results_focus_applied, lakes_map_results_cluster_tap, lakes_map_results_pin_tap, lakes_map_results_locate_me, lakes_map_clear_filters, lakes_map_results_pin_card_view_page / _dismiss, lakes_pin_card_open_maps."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:771"
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ───────────────────────────────────────────── lake detail
   - id: lakes.detail
@@ -573,7 +573,7 @@ screens:
         text: "Analytics: share_lake_button_pressed (lake_id, lake_name) and lake_booking_cta_pressed (lake_id, lake_name, source, booking_state)."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:243"
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ───────────────────────────────────────────── share dialog
   - id: lakes.share
@@ -596,8 +596,8 @@ screens:
         text: "A chat-style preview shows an incoming bubble „Salut! Ce faci sâmbătă? 🎣” from „Prieten” and an outgoing bubble with the message, the line „🎣 {nume baltă}” and the link."
         fish_ref: "features/lakes/components/ShareLakeSheet.tsx:38"
       - id: lakes.share.c2
-        text: "Input „Mesajul tău” defaults to „Mergem la pescuit aici?”; the preview updates when the field loses focus."
-        fish_ref: "features/lakes/components/ShareLakeSheet.tsx:186"
+        text: "Input „Mesajul tău” defaults to „Mergem la pescuit aici?”; the preview follows the field as it is typed (and commits again on blur)."
+        fish_ref: "features/lakes/components/ShareLakeSheet.tsx:120; features/lakes/components/ShareLakeSheet.tsx:189"
       - id: lakes.share.c3
         text: "Shared text = message, blank line, „🎣 {nume baltă}”, new line, the lake URL (web: absolute /balti/[id])."
         fish_ref: "features/lakes/components/ShareLakeSheet.tsx:130"
@@ -611,7 +611,7 @@ screens:
         text: "Analytics share_lake on a completed share and copy_lake_share_text on copy (lake_id, lake_name)."
         fish_ref: "features/lakes/components/ShareLakeSheet.tsx:148"
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────── claim
   - id: lakes.claim
@@ -657,7 +657,7 @@ screens:
         text: "Signed-out: fish offers the form to guests and the POST needs auth (falls to the generic error); web sends a guest to /intra before showing the form (documented web divergence, see lakes.b.claim-signed-out)."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:612"
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ───────────────────────────────────────────── booking interest
   - id: lakes.booking-interest
@@ -700,7 +700,7 @@ screens:
         text: "Analytics lake_booking_interest_sheet_viewed, lake_booking_interest_submitted (already_registered), lake_booking_interest_owner_pressed (lake_id, source)."
         fish_ref: "features/lakes/LakeBookingInterestSheet.tsx:57"
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ───────────────────────────────────────────── gallery
   - id: lakes.gallery
@@ -718,7 +718,7 @@ screens:
     core:
       - "core/lakes: lakeQuery"
       - "core/partide: communityVenueCatchesInfiniteQuery"
-      - "missing in core: buildGalleryPhotoItems, buildGalleryCatchItems, interleaveGalleryItems (fish features/lakes/helpers/lakeDetailLogic.ts:93)"
+      - "core/lakes: buildGalleryPhotoItems, buildGalleryCatchItems, interleaveGalleryItems, galleryItemsFor, GALLERY_FILTERS (domain/gallery.ts)"
     states:
       - "loading"
       - "Toate / Foto baltă / Capturi comunitate"
@@ -752,7 +752,7 @@ screens:
         text: "Activating a tile opens a lightbox at that item (original resolution for lake photos); catch items carry a footer with weight, species, date and angler; reaching the lightbox end loads more catches."
         fish_ref: "app/(app)/lakes/[lakeId]/gallery.tsx:141"
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────── catches gallery
   - id: lakes.catches
@@ -794,7 +794,7 @@ screens:
         text: "Pages of 20 load on scroll with a loading footer."
         fish_ref: "features/partide/screens/VenueCatchesGalleryScreen.tsx:95"
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────── partide at lake
   - id: lakes.partide
@@ -853,7 +853,7 @@ screens:
         text: "Live data refreshes every 60s; refresh reloads live + history together."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:57"
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ───────────────────────────────────────────── stats at lake
   - id: lakes.stats
@@ -922,7 +922,7 @@ screens:
         text: "Venue stats are cached 60s and keep the previous period's data while switching."
         fish_ref: "features/partide/community/hooks.ts:168"
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ───────────────────────────────────────────── anglers leaderboard at lake
   - id: lakes.anglers-ranking
@@ -972,7 +972,7 @@ screens:
         text: "Empty period: „Niciun clasament pentru perioada selectată încă.”; error: „Nu am putut încărca statisticile.” + retry hint."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:304"
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ───────────────────────────────────────────── stands leaderboard
   - id: lakes.stands-ranking
@@ -988,7 +988,7 @@ screens:
     roles: [guest, angler, organizer, referee, operator]
     core:
       - "core/partide: communityStatsQuery, parseStatsPeriodParam"
-      - "missing in core: sortStands, STAND_SORT_OPTIONS"
+      - "core/partide: sortStands, STAND_SORT_OPTIONS, standSortValue, parseStandSortParam (domain/standSort.ts)"
     states:
       - "loading"
       - "error"
@@ -1011,7 +1011,7 @@ screens:
         text: "Loading shows the stats skeleton; a failed fetch shows „Nu am putut încărca statisticile.” + retry hint, never „0 standuri”."
         fish_ref: "features/partide/screens/StandsLeaderboardScreen.tsx:84"
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────── competitions at lake
   - id: lakes.competitions
@@ -1053,7 +1053,7 @@ screens:
         text: "?tab=live|viitoare|trecute selects the open tab (default Live) and changing tab updates the URL; the lake page rails' „Vezi toate” (fish /competitions/{started|notStarted|completed}/{lakeId}) land here with the matching tab, so the per-lake status lists of competitions-list (*-balta, merged_into this screen) need no page of their own."
         fish_ref: "components/HorizontalCompetitionsList.tsx:75"
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────── lake map with stands
   - id: lakes.map
@@ -1103,7 +1103,7 @@ screens:
         text: "A stand pin's callout „Navighează către locație” opens navigation to that stand."
         fish_ref: "features/lakes/LakeStandPin.tsx:32"
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────── reviews list
   - id: lakes.reviews
@@ -1169,7 +1169,7 @@ screens:
         text: "Reviews are cached 5 minutes."
         fish_ref: "features/reviews/queries.ts:19"
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ───────────────────────────────────────────── review form
   - id: lakes.review-form

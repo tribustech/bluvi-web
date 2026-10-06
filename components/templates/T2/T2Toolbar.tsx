@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { iconButtonClass } from '@/components/nav/IconButton';
 import { SEARCH_SHELL } from '@/components/templates/T1/toolbarStyles';
 import { cn } from '@/components/ui/cn';
+import { RING_SELECTED_EXPANDED } from '../rings';
 
 /*
  * T2 toolbar — fish components/map/MapChrome.tsx: back, a search (a button in the search shell on a
@@ -179,11 +180,10 @@ export function T2SearchPill({
 
 /**
  * «Open» look of a control whose panel is open (aria-expanded): the selected-choice look of the kit
- * chips (T1 ChoiceChips — accent tint, accent ink, 1.5px accent inset).
- * TODO(kit): a `--shadow-selected` token shared with ChoiceChips (globals.css is outside this task).
+ * chips (T1 ChoiceChips — accent tint, accent ink, the templates' one selected ring, ../rings.ts).
  */
 export const T2_EXPANDED =
-  'aria-expanded:bg-accent-tint aria-expanded:text-accent-ink aria-expanded:shadow-[inset_0_0_0_1.5px_var(--color-accent)] aria-expanded:hover:bg-accent-tint';
+  `aria-expanded:bg-accent-tint aria-expanded:text-accent-ink ${RING_SELECTED_EXPANDED} aria-expanded:hover:bg-accent-tint`;
 
 /**
  * The trailing action of the rail from 1280 («Șterge filtre»): a text action in the chips' step and

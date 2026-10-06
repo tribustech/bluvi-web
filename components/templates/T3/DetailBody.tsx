@@ -1,15 +1,20 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/components/ui/cn';
-import { COLUMN_STICKY_TOP, SECTION_SCROLL_MARGIN } from './metrics';
+import { TRACK_GAP, TRACKS } from '../tracks';
+import { DetailStickyAside } from './DetailStickyAside';
+import { COLUMN_STICKY_TOP, COLUMN_STICKY_TOP_BELOW_TABS, SECTION_SCROLL_MARGIN } from './metrics';
 
 /*
  * T3 body — the content under the band.
  *  - Phone: one column, no gutters: white section blocks 8px apart on the grey ground (fish
  *    VenueSection `marginBottom: 8`).
  *  - 768–1279: one column of cards inside the 24px gutters, 16px apart.
- *  - ≥1280: three columns — left 240/256 (context, filters or the section index, sticky),
- *    centre (content), right 360/384 (details, «ce mă așteaptă»). Without `left` the centre takes
- *    its room; without `aside` too, the centre is full width (tables, maps).
+ *  - ≥1280: three columns on the shared template tracks (../tracks.ts) — left 240/256 (context,
+ *    filters or the section index, sticky), centre (content), right 320/360 (details, «ce mă
+ *    așteaptă»), 24 apart. Without `left` the centre takes its room; without `aside` too, the
+ *    centre is full width — the layout for a table or a map (ROADMAP §4: they take all the width).
+ *  - `asideFrom="2xl"`: the right column only joins from 1440 (--breakpoint-2xl), on the late 320
+ *    track (../tracks.ts TRACKS.*ThenRight) — for a centre that needs the 1280 row; never a table.
  */
 
 export type DetailBodyProps = {
@@ -26,8 +31,19 @@ export type DetailBodyProps = {
    * (when the phone shows the same things inside the sections, as fish does).
    */
   asideBelowXl?: 'start' | 'end' | 'hidden';
-  /** Keep the right column in view while the centre scrolls (only when it is shorter than the screen). */
-  asideSticky?: boolean;
+  /**
+   * Keep the right column in view while the centre scrolls: under the top bar, or `below-tabs` —
+   * under the bar and a sticky tab band (DetailBand `sticky`, 64 + 44) — so it never slides under
+   * the tabs. A column taller than the window sticks by its bottom edge instead (T5 StickyColumn's
+   * rule), so its last card is always reachable.
+   */
+  asideSticky?: boolean | 'below-tabs';
+  /**
+   * From which width the right column is a column: `xl` (default), or `2xl` (1440) for a centre
+   * that needs the whole 1280 row (a poster grid) — below 1440 the aside then follows
+   * `asideBelowXl`. A table never takes a right column (ROADMAP §4): leave `aside` out.
+   */
+  asideFrom?: 'xl' | '2xl';
   className?: string;
   /** The centre: <DetailSection>s. */
   children: ReactNode;
@@ -40,21 +56,33 @@ export function DetailBody({
   asideLabel = 'Detalii',
   asideBelowXl = 'end',
   asideSticky = false,
+  asideFrom = 'xl',
   className,
   children,
 }: DetailBodyProps) {
+  const late = asideFrom === '2xl';
   const cols = left
     ? aside
-      ? 'xl:grid-cols-[--spacing(60)_minmax(0,1fr)_--spacing(90)] 2xl:grid-cols-[--spacing(64)_minmax(0,1fr)_--spacing(96)]'
-      : 'xl:grid-cols-[--spacing(60)_minmax(0,1fr)] 2xl:grid-cols-[--spacing(64)_minmax(0,1fr)]'
+      ? late
+        ? TRACKS.leftMainThenRight
+        : TRACKS.three
+      : TRACKS.leftMain
     : aside
-      ? 'xl:grid-cols-[minmax(0,1fr)_--spacing(90)] 2xl:grid-cols-[minmax(0,1fr)_--spacing(96)]'
+      ? late
+        ? TRACKS.mainThenRight
+        : TRACKS.mainRight
       : '';
+  const asideClass = cn(
+    'flex min-w-0 flex-col gap-2 md:gap-4 xl:gap-5',
+    asideBelowXl === 'start' && (late ? 'max-2xl:order-first' : 'max-xl:order-first'),
+    asideBelowXl === 'hidden' && (late ? 'max-2xl:hidden' : 'max-xl:hidden'),
+  );
   return (
     <div
       data-t3="body"
       className={cn(
-        'flex flex-1 flex-col gap-2 pt-2 pb-8 md:gap-4 md:px-6 md:pt-6 md:pb-12 xl:grid xl:items-start xl:gap-8 xl:px-8 xl:pt-8',
+        'flex flex-1 flex-col gap-2 pt-2 pb-8 md:gap-4 md:px-6 md:pt-6 md:pb-12 xl:grid xl:items-start xl:px-8 xl:pt-8',
+        TRACK_GAP,
         cols,
         className,
       )}
@@ -66,17 +94,19 @@ export function DetailBody({
       ) : null}
       <div className="flex min-w-0 flex-col gap-2 md:gap-4 xl:gap-5">{children}</div>
       {aside ? (
-        <aside
-          aria-label={asideLabel}
-          className={cn(
-            'flex min-w-0 flex-col gap-2 md:gap-4 xl:gap-5',
-            asideBelowXl === 'start' && 'max-xl:order-first',
-            asideBelowXl === 'hidden' && 'max-xl:hidden',
-            asideSticky && cn('xl:sticky', COLUMN_STICKY_TOP),
-          )}
-        >
-          {aside}
-        </aside>
+        asideSticky ? (
+          <DetailStickyAside
+            label={asideLabel}
+            belowTabs={asideSticky === 'below-tabs'}
+            className={cn(asideClass, late ? '2xl:sticky 2xl:self-start' : 'xl:sticky xl:self-start', asideSticky === 'below-tabs' ? COLUMN_STICKY_TOP_BELOW_TABS : COLUMN_STICKY_TOP)}
+          >
+            {aside}
+          </DetailStickyAside>
+        ) : (
+          <aside aria-label={asideLabel} className={asideClass}>
+            {aside}
+          </aside>
+        )
       ) : null}
     </div>
   );

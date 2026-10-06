@@ -2,43 +2,42 @@ import { PATHS } from '@/components/nav/items';
 import { routes } from '@/lib/routes';
 
 /**
- * Destinations Acasă links to that lib/routes.ts does not define yet (their pages are later
- * batches). Kept here, in one place, so the main session can lift them into lib/routes.ts with
- * the page that owns each. fish path in the comment.
+ * Acasă's link table — every destination from lib/routes.ts (the one route builder), named as the
+ * home blocks use them. fish path in the comment.
  */
 export const homeLinks = {
   signIn: PATHS.signIn,
   /** fish /profile */
   profile: PATHS.profile,
   /** fish /bookings */
-  myBookings: '/rezervari',
+  myBookings: routes.myBookings(),
   /** fish /(app)/partide/start */
-  partidaStart: '/partide/start',
+  partidaStart: routes.startPartida(),
   /** fish /(app)/partide/join */
-  partidaJoin: '/partide/cod',
+  partidaJoin: routes.partidaJoin(),
   /** fish /(app)/organizer */
   organizer: PATHS.organizer,
   /** fish /polls/current */
-  polls: '/sondaje',
+  polls: routes.polls(),
   /** fish `router.push('/sign-in', { redirectTo: '/polls/current' })` (guest taps a poll option / suggest) */
-  pollSignIn: `${PATHS.signIn}?next=${encodeURIComponent('/sondaje')}`,
+  pollSignIn: routes.signIn(routes.polls()),
   /** fish /(app)/scale/[competitionId]/history?sectorName&standName&standId (ScaleItem) */
   scaleHistory: (competitionId: string, s: { sectorName: string; standName: string; standId: string }) =>
     `${routes.competition(competitionId)}/cantar?${new URLSearchParams({ sector: s.sectorName, stand: s.standName, standId: s.standId })}`,
   /** fish /raffle (join) */
-  raffle: '/tombola',
+  raffle: routes.raffle(),
   /** fish /raffle/confirmation (joined) */
-  raffleConfirmation: '/tombola/confirmare',
+  raffleConfirmation: routes.raffleConfirmation(),
   /** fish /raffle/winners (ended, with winners) */
-  raffleWinners: '/tombola/castigatori',
+  raffleWinners: routes.raffleWinners(),
   /** fish /(app)/anglers/suggested */
-  suggestedAnglers: '/pescari/sugerati',
+  suggestedAnglers: routes.suggestedAnglers(),
   /** fish /notifications */
   notifications: PATHS.notifications,
   /** fish /sponsors/[id] */
-  sponsor: (documentId: string) => `/sponsori/${encodeURIComponent(documentId)}`,
+  sponsor: routes.sponsor,
   /** fish (tabs)/competitions with `status` */
-  competitions: (status: 'started' | 'notStarted') => `${routes.competitions()}?status=${status}`,
+  competitions: (status: 'started' | 'notStarted') => routes.competitions(status),
 } as const;
 
 /**
@@ -46,9 +45,8 @@ export const homeLinks = {
  * fish suffixes map to web segments: '' → panel, '/walk-in' → calendar, '/bookings' → rezervări.
  */
 export function operatorHref(lakeId: string | undefined, target: 'panel' | 'calendar' | 'bookings', status?: 'pending' | 'cancelled' | 'toreview') {
-  if (!lakeId) return '/operator';
-  const base = `/operator/${encodeURIComponent(lakeId)}`;
-  if (target === 'panel') return base;
-  if (target === 'calendar') return `${base}/calendar`;
-  return status ? `${base}/rezervari?status=${status}` : `${base}/rezervari`;
+  if (!lakeId) return routes.operator();
+  if (target === 'panel') return routes.operator(lakeId);
+  if (target === 'calendar') return routes.operatorCalendar(lakeId);
+  return routes.operatorBookings(lakeId, status);
 }

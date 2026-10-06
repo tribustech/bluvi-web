@@ -1,6 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
-import { z } from 'zod';
+import * as z from 'zod';
 import {
   COMPETITION_CARDS_PAGE_SIZE,
   competitionDetailSchema,
@@ -15,16 +15,16 @@ import { absoluteUrl, routes } from '@/lib/routes';
 import { createServerTransport } from '@/lib/server/transport';
 import { competitionDateProse } from './dates';
 
-/** The competition core with a ranking type core does not parse yet (feederRounds today). */
+/** The competition core with a ranking type core does not parse (one added to the CMS after this build). */
 export type LooseCompetitionDetail = Omit<CompetitionDetail, 'rankingType'> & { rankingType: string };
 
 export type CompetitionLoad =
   | { kind: 'ok'; competition: CompetitionDetail }
   | { kind: 'missing' }
   /**
-   * The core parses except for `rankingType` (feederRounds, or a type added after this build):
-   * fish renders the header and its own ranking; the web renders the header, the preview and an
-   * «indisponibil pe web» ranking state.
+   * The core parses except for `rankingType` (a type added to the CMS after this build): the web
+   * renders the header, the preview and an explicit «not available» ranking state (parity
+   * clasament.c2, b.supported-ranking-types).
    */
   | { kind: 'unsupported'; competition: LooseCompetitionDetail }
   /** The CMS answered with a shape core does not know at all. */
@@ -60,7 +60,7 @@ const READ_TIMEOUT_MS = 8000;
  * error instead (T3 data-loading contract; the demo's mainRead). A cached / prerendered read
  * answers long before the timer.
  */
-async function bounded<T>(p: Promise<T>, what: string): Promise<T> {
+export async function bounded<T>(p: Promise<T>, what: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
@@ -83,9 +83,6 @@ export const loadCompetition = cache(async (id: string): Promise<CompetitionLoad
   const what = `/feed/competitions/${id}`;
   try {
     const competition = await bounded(getCompetition(createServerTransport(), id), what);
-    // Feeder legs have their own ranking, not built on the web yet (M1): same «indisponibil pe web»
-    // path as a type core cannot parse, so the table builders never see it.
-    if (competition.rankingType === 'feederRounds') return { kind: 'unsupported', competition };
     return { kind: 'ok', competition };
   } catch (e) {
     if (isApiError(e) && (e.status === 404 || e.status === 400)) return { kind: 'missing' };

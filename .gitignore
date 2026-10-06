@@ -49,3 +49,4 @@ next-env.d.ts
 # Local-only notes (security-sensitive CMS patches etc.). Never commit.
 /docs/private/
 /.lighthouseci/
+/.next-*/
