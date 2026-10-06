@@ -1,0 +1,176 @@
+/*
+ * A2 motion — event-driven only (F1 live-timing lesson: animate what changed, never everything).
+ * The one continuous loop stays the LIVE dot (globals.css). Easing: enter cubic-bezier(.23,1,.32,1)
+ * (Emil Kowalski), moves cubic-bezier(.77,0,.175,1). Colours only through the token variables.
+ * Reduced motion: the global rule in globals.css already shortens every animation to one 120ms
+ * run and transitions to opacity; the blocks below also drop the movement itself.
+ */
+
+.rise {
+  animation: rise 260ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A row that just changed: indigo wash that fades (1.2s). */
+.flash {
+  animation: flash 1200ms ease-out both;
+}
+@keyframes flash {
+  0% {
+    background-color: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* The same on the navy hero: a lavender wash. */
+.flashOnNavy {
+  animation: flashOnNavy 1200ms ease-out both;
+}
+@keyframes flashOnNavy {
+  0% {
+    background-color: color-mix(in srgb, var(--color-lavender) 22%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* A ticker entry sliding in from the top. */
+.slideIn {
+  animation: slideIn 240ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Momentum bars grow from the baseline on first paint, staggered. */
+.bar {
+  transform-origin: bottom;
+  animation: grow 420ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation-delay: calc(var(--i, 0) * 18ms);
+}
+@keyframes grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Sparkline draws itself once. */
+.draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 900ms cubic-bezier(0.77, 0, 0.175, 1) 120ms forwards;
+}
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Podium blocks rise in order 3 → 2 → 1. */
+.podium {
+  transform-origin: bottom;
+  animation: podium 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+@keyframes podium {
+  from {
+    transform: scaleY(0.2);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Toast in from the bottom-right. */
+.toast {
+  animation: toast 260ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+@keyframes toast {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Expanding panel: grid rows 0fr → 1fr animates to the content's height in every engine. */
+.collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 260ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.collapse[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+.collapse > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Rail: scroll-snap, no scrollbar chrome. */
+.rail {
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+.rail > * {
+  scroll-snap-align: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .slideIn,
+  .toast,
+  .bar,
+  .podium {
+    animation: none;
+  }
+  .draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .collapse {
+    transition: none;
+  }
+}
+
+/* Rail edges: fade the side that has more to scroll, so a clipped card reads as «more», not «broken». */
+.rail[data-next='true'] {
+  mask-image: linear-gradient(to right, var(--color-ink) calc(100% - 64px), transparent);
+}
+.rail[data-prev='true'] {
+  mask-image: linear-gradient(to left, var(--color-ink) calc(100% - 64px), transparent);
+}
+.rail[data-prev='true'][data-next='true'] {
+  mask-image: linear-gradient(to right, transparent, var(--color-ink) 64px, var(--color-ink) calc(100% - 64px), transparent);
+}
