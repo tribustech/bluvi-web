@@ -1,14 +1,12 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { agoLabel, clock } from './model';
 
 /*
- * A2's client motion helpers: a ticking clock (relative times render after hydration, so the
- * server and the first client paint agree), the reduced-motion query, a digit roll (NumberFlow-like,
- * no dependency) and the live auto-refresh (fish polls the live screens; 45 s here, paused while
- * the tab is hidden).
+ * The desktop views' client helpers: a ticking clock (relative times render after hydration, so the
+ * server and the first client paint agree), the reduced-motion and desktop media queries, and a
+ * digit roll (NumberFlow-like, no dependency).
  */
 
 /** `Date.now()` that ticks every `everyMs`; null on the server and the hydration pass. */
@@ -26,18 +24,26 @@ export function useNow(everyMs = 30_000): number | null {
   return now;
 }
 
-const RM = '(prefers-reduced-motion: reduce)';
-const subscribeRM = (cb: () => void) => {
-  const m = window.matchMedia(RM);
+const subscribeTo = (query: string) => (cb: () => void) => {
+  const m = window.matchMedia(query);
   m.addEventListener('change', cb);
   return () => m.removeEventListener('change', cb);
 };
+
+const RM = '(prefers-reduced-motion: reduce)';
+const subscribeRM = subscribeTo(RM);
 export function useReducedMotion(): boolean {
-  return useSyncExternalStore(
-    subscribeRM,
-    () => window.matchMedia(RM).matches,
-    () => false,
-  );
+  return useSyncExternalStore(subscribeRM, () => window.matchMedia(RM).matches, () => false);
+}
+
+const LG = '(min-width: 64rem)';
+const subscribeLG = subscribeTo(LG);
+/**
+ * ≥1024 (Tailwind `lg`): the desktop tab views are on screen. Their extra reads (rankings,
+ * weighings, registrations) wait for it, so a phone never pays for a view it does not show.
+ */
+export function useDesktop(): boolean {
+  return useSyncExternalStore(subscribeLG, () => window.matchMedia(LG).matches, () => false);
 }
 
 /** «acum 3 min» once mounted; the wall-clock time before that (and as the tooltip). */
@@ -87,31 +93,4 @@ export function Roll({ value, format, fromZero = true }: { value: number; format
       <span aria-hidden>{format(shown)}</span>
     </span>
   );
-}
-
-/** Re-renders the server data every `everyMs` while the tab is visible (and on return to it). */
-export function useLiveRefresh(everyMs = 45_000): number | null {
-  const router = useRouter();
-  const [at, setAt] = useState<number | null>(null);
-  useEffect(() => {
-    let last = Date.now();
-    const first = setTimeout(() => setAt(last), 0);
-    const refresh = () => {
-      if (document.visibilityState !== 'visible') return;
-      last = Date.now();
-      setAt(last);
-      router.refresh();
-    };
-    const id = setInterval(refresh, everyMs);
-    const onVis = () => {
-      if (document.visibilityState === 'visible' && Date.now() - last > everyMs) refresh();
-    };
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      clearTimeout(first);
-      clearInterval(id);
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, [router, everyMs]);
-  return at;
 }

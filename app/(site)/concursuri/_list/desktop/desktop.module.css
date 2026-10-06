@@ -1,5 +1,5 @@
 /*
- * A2 motion — event-driven only (F1 live-timing lesson: animate what changed, never everything).
+ * Desktop tab views motion — event-driven only (F1 live-timing lesson: animate what changed, never everything).
  * The one continuous loop stays the LIVE dot (globals.css). Easing: enter cubic-bezier(.23,1,.32,1)
  * (Emil Kowalski), moves cubic-bezier(.77,0,.175,1). Colours only through the token variables.
  * Reduced motion: the global rule in globals.css already shortens every animation to one 120ms
@@ -135,9 +135,15 @@
   overflow: hidden;
 }
 
-/* Rail: scroll-snap, no scrollbar chrome. */
+/*
+ * Rail: scroll-snap, no scrollbar chrome. Proximity, not mandatory: a moment that arrives after the
+ * first paint (the rail only starts to overflow then) made Chrome re-snap a mandatory rail onto its
+ * LAST card (scrollLeft 128 at 1280). The inline padding matches the rail's `px-1`, so the first
+ * card's snap position is 0, not 4.
+ */
 .rail {
-  scroll-snap-type: x mandatory;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: calc(var(--spacing) * 1);
   scrollbar-width: none;
 }
 .rail::-webkit-scrollbar {

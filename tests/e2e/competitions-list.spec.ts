@@ -19,6 +19,8 @@ import { card, page as cardsPage, PIXEL, STATE_CARDS } from './competitions-list
 const DESKTOP = { width: 1280, height: 900 };
 const WIDE = { width: 1440, height: 900 };
 const PHONE = { width: 375, height: 812 };
+/** Below 1024 «Listă» is fish's cards (from 1024 each tab has its own layout: competitions-list-desktop.spec.ts). */
+const CARDS = { width: 1000, height: 900 };
 
 const FOLLOWED = /\/feed\/my-competition-cards\?.*scope=followed/;
 const REGISTERED = /\/feed\/my-competition-cards\?(?!.*status=).*scope=registered/;
@@ -72,6 +74,13 @@ async function expectPersonTile(bento: ReturnType<Page['getByRole']>) {
   }
 }
 
+/** The desktop rows rise in once (a staggered fade): axe reads the settled colours, never mid-fade. */
+async function settled(page: Page) {
+  await page.waitForFunction(() =>
+    document.getAnimations().every((a) => a.playState !== 'running' || a.effect?.getComputedTiming().iterations === Infinity),
+  );
+}
+
 async function open(page: Page, path = '/concursuri') {
   await page.goto(path);
   await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeVisible();
@@ -92,7 +101,9 @@ test.describe('signed out', () => {
     await page.setViewportSize(DESKTOP);
     await open(page);
     const tabs = page.getByRole('tablist', { name: 'Stare concursuri' }).getByRole('tab');
-    await expect(tabs).toHaveText(['Viitoare', 'Live', 'Rezultate']);
+    // §4b.20: the labels, each with its count badge once the counts answered (meta.counts).
+    await expect(tabs).toHaveText([/^Viitoare(\d+|99\+)?$/, /^Live(\d+|99\+)?$/, /^Rezultate(\d+|99\+)?$/]);
+    await expect(tab(page, /^Rezultate, \d+$/)).toBeVisible();
     await expect(tab(page, 'Viitoare')).toHaveAttribute('aria-selected', 'true');
     // c4: no «Ale mele» tab signed out.
     await expect(tab(page, /Ale mele/)).toHaveCount(0);
@@ -101,9 +112,17 @@ test.describe('signed out', () => {
     await expect(page.getByRole('region', { name: 'Pulsul concursurilor' })).toBeVisible();
     // c15: scope all never touches the per-user endpoint.
     expect(personal).toEqual([]);
-    // c2: the active underline is accent (a 2px bar under the label).
+    // c2 + §4b.20: the active tab is filled (not the track's surface) and keeps the 2px accent underline.
     const underline = await tab(page, 'Viitoare').evaluate((el) => getComputedStyle(el, '::after').height);
     expect(parseFloat(underline)).toBeGreaterThanOrEqual(2);
+    const [activeBg, idleBg] = await Promise.all([
+      tab(page, 'Viitoare').evaluate((el) => getComputedStyle(el).backgroundColor),
+      tab(page, 'Live').evaluate((el) => getComputedStyle(el).backgroundColor),
+    ]);
+    expect(activeBg).not.toBe(idleBg);
+    // One container: the row is a surface of its own, not loose text on the page.
+    const track = await page.getByRole('tablist', { name: 'Stare concursuri' }).evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(track).not.toBe('rgba(0, 0, 0, 0)');
     await expectNoA11yViolations(page);
     expect(errors).toEqual([]);
   });
@@ -305,7 +324,7 @@ test.describe('signed out', () => {
   });
 
   test('competitions-list.index.c25 competitions-list.cards.c1 competitions-list.cards.c7 competitions-list.cards.c8 — the card is one link named by the competition', async ({ page }) => {
-    await page.setViewportSize(DESKTOP);
+    await page.setViewportSize(CARDS);
     await open(page);
     const link = cardLink(page, 'SIM3 Cupa C&B Ed 8');
     await expect(link).toHaveAttribute('href', '/concursuri/a6xjl65ooe9eadrtvvqj9hn1');
@@ -322,7 +341,7 @@ test.describe('signed out', () => {
 
   test('competitions-list.cards.c2 competitions-list.cards.c3 competitions-list.cards.c4 competitions-list.index.c26 competitions-list.index.s18 — poster button, LIVE date line, the photo viewer', async ({ page }) => {
     const errors = consoleErrors(page);
-    await page.setViewportSize(DESKTOP);
+    await page.setViewportSize(CARDS);
     await page.addInitScript(() => localStorage.removeItem('COMPETITION_CARD_DENSITY_V1'));
     await open(page, '/concursuri?status=started');
     const name = '[CHAT25] Test chat v2 — Cantitate';
@@ -498,6 +517,7 @@ test.describe('signed out', () => {
       await page.setViewportSize(size);
       await open(page);
       await expect(page.getByRole('region', { name: 'Pulsul concursurilor' })).toBeVisible();
+      await settled(page);
       await expectNoA11yViolations(page);
     }
   });
@@ -673,7 +693,7 @@ test.describe('signed in', () => {
     const errors = consoleErrors(page);
     await page.route(FOLLOWED, (r) => json(r, cardsPage(Object.values(STATE_CARDS))));
     await page.addInitScript(() => localStorage.removeItem('COMPETITION_CARD_DENSITY_V1'));
-    await page.setViewportSize(WIDE);
+    await page.setViewportSize(CARDS);
     await open(page);
     await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
     const item = (name: string) => list(page).locator('article').filter({ has: page.getByRole('link', { name, exact: true }) });
@@ -770,7 +790,7 @@ test.describe('signed in', () => {
   test('competitions-list.cards.c18 competitions-list.index.c26 — the photo caption: chips, entrants and the catch figures', async ({ page }) => {
     await page.route(FOLLOWED, (r) => json(r, cardsPage([STATE_CARDS.liveFeeder, STATE_CARDS.upcomingNoCapacity, STATE_CARDS.upcomingPending])));
     await page.addInitScript(() => localStorage.removeItem('COMPETITION_CARD_DENSITY_V1'));
-    await page.setViewportSize(DESKTOP);
+    await page.setViewportSize(CARDS);
     await open(page);
     await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
     await list(page).getByRole('button', { name: 'Vezi imaginea pentru FX Feeder pe manșe' }).click();
@@ -1082,7 +1102,7 @@ test.describe('list states (mocked)', () => {
       }
       return json(r, cardsPage([STATE_CARDS.upcomingPending]));
     });
-    await page.setViewportSize(DESKTOP);
+    await page.setViewportSize(CARDS);
     await open(page);
     await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
     await expect(cardLink(page, 'FX Viitor cu așteptare')).toBeVisible();
@@ -1149,7 +1169,7 @@ test.describe('list states (mocked)', () => {
   });
 
   test('competitions-list.index.c17 competitions-list.index.c18 competitions-list.index.s7 — a failed re-read keeps the cards, marked; «Încearcă din nou» clears it', async ({ page }) => {
-    await page.setViewportSize(DESKTOP);
+    await page.setViewportSize(CARDS);
     await open(page, '/concursuri?status=completed');
     const first = list(page).locator('article').first();
     await expect(first).toBeVisible();
@@ -1168,7 +1188,7 @@ test.describe('list states (mocked)', () => {
     await page.route(/\/uploads\/fixture\.jpg\?o/, (r) => r.fulfill({ status: 404, body: '' }));
     await page.route(FOLLOWED, (r) => json(r, cardsPage([STATE_CARDS.upcomingPending])));
     await page.addInitScript(() => localStorage.removeItem('COMPETITION_CARD_DENSITY_V1'));
-    await page.setViewportSize(DESKTOP);
+    await page.setViewportSize(CARDS);
     await open(page);
     await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
     await list(page).getByRole('button', { name: 'Vezi imaginea pentru FX Viitor cu așteptare' }).click();

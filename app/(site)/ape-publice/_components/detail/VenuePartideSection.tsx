@@ -8,7 +8,6 @@ import { Pill } from '@/components/cards/parts';
 import { DetailSection } from '@/components/templates/T3';
 import { FaceStack } from '@/components/ui/Avatar';
 import { BentoTile } from '@/components/ui/BentoTile';
-import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { SignatureNumber } from '@/components/ui/SignatureNumber';
 import {
@@ -101,13 +100,7 @@ export function VenuePartideSection({
             summary={`Activitate în ultimele 7 luni: ${data.monthlyActivity.reduce((a, m) => a + m.count, 0)} partide.`}
           />
         ) : null}
-        {/* Outline, like «Vezi recenzia»: the page's one filled action stays the page's own. */}
-        {partideHref ? (
-          <Link href={partideHref} className={buttonClass({ variant: 'outline', block: true, className: 'md:w-auto md:self-start' })}>
-            Vezi toate partidele
-            <ChevronRightIcon aria-hidden className="size-5" />
-          </Link>
-        ) : null}
+        {/* The header's «Vezi tot» is the one way to the partide page (owner: one entry point). */}
       </div>
     </DetailSection>
   );

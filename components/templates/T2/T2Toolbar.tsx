@@ -51,6 +51,7 @@ export function T2Toolbar({
   disabled = false,
   desktop,
   headingless = false,
+  stacked = false,
 }: {
   /**
    * The page's h1 («Hartă bălți»). Visually hidden on a phone, where the search pill is the visible
@@ -96,6 +97,12 @@ export function T2Toolbar({
   desktop?: ReactNode;
   /** Internal: the phone half of a `desktop` toolbar (the h1 is rendered once, outside it). */
   headingless?: boolean;
+  /**
+   * Keep the FilterBar on its own row under [switch][search] from 1280 too — the Bălți header's
+   * anatomy (owner rule 6: one designed unit, the filters as chips UNDER the search), for a page
+   * whose sibling segment uses it, so switching segments moves nothing.
+   */
+  stacked?: boolean;
 }) {
   const barMode = Boolean(onOpenFilters);
   if (desktop) {
@@ -123,8 +130,8 @@ export function T2Toolbar({
     );
   }
   return (
-    <div className="flex flex-col gap-2 md:gap-3 xl:flex-row xl:items-center xl:gap-4">
-      <div className="flex items-center gap-2.5 md:gap-3 xl:min-w-0 xl:flex-[1_1_26rem]">
+    <div className={cn('flex flex-col gap-2 md:gap-3', !stacked && 'xl:flex-row xl:items-center xl:gap-4')}>
+      <div className={cn('flex items-center gap-2.5 md:gap-3', !stacked && 'xl:min-w-0 xl:flex-[1_1_26rem]')}>
         {leading ? <div className="flex shrink-0 md:hidden">{leading}</div> : null}
         {headingless ? null : (
           <h1 className={cn('sr-only', !switcher && 'md:not-sr-only md:shrink-0 md:t-title1 md:whitespace-nowrap md:text-ink')}>{title}</h1>
@@ -132,7 +139,7 @@ export function T2Toolbar({
         {switcher ? <div className="hidden shrink-0 md:flex">{switcher}</div> : null}
         <div
           inert={disabled}
-          className={cn('min-w-0 flex-1 md:max-w-120 xl:max-w-none', disabled && DIMMED)}
+          className={cn('min-w-0 flex-1', !stacked && 'md:max-w-120 xl:max-w-none', disabled && DIMMED)}
         >
           {search}
         </div>
@@ -144,7 +151,7 @@ export function T2Toolbar({
 
       </div>
       {filters || barMode ? (
-        <div inert={disabled} className={cn('min-w-0 xl:flex-[0_1_auto]', disabled && DIMMED)}>
+        <div inert={disabled} className={cn('min-w-0', !stacked && 'xl:flex-[0_1_auto]', disabled && DIMMED)}>
           {/* The T1 FilterBar (owner: one chip primitive, one bar anatomy for T1 and T2): «Filtre»
               leads with a divider (from 768 — the phone has the square above), the chips, and
               «Resetează» at the end. A rail that scrolls on a phone, wrapping from 768. */}
@@ -158,7 +165,7 @@ export function T2Toolbar({
             canReset={canReset}
             end={!barMode && railTrailing ? <div className="hidden md:flex">{railTrailing}</div> : undefined}
             // From 1280 the chips stay on the search's line: one line, scrolling sideways if needed.
-            className="max-md:-mx-4 max-md:px-4 max-md:py-1 xl:[&>div]:flex-nowrap xl:[&>div]:overflow-x-auto"
+            className={cn('max-md:-mx-4 max-md:px-4 max-md:py-1', !stacked && 'xl:[&>div]:flex-nowrap xl:[&>div]:overflow-x-auto')}
           >
             {filters}
           </FilterBar>

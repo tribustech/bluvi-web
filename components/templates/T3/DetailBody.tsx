@@ -186,7 +186,7 @@ function SummaryBody({
 
 /**
  * The summary card (owner rule 1, Airbnb's booking card) for <DetailBody layout="summary">: a
- * raised white card — the headline (a price «de la 45 RON / tură», or the thing's kind), its status
+ * raised white card — the headline (a price «de la 45 RON / Permis 24h», or the thing's kind), its status
  * badges, the main action(s) at full width, a footnote, then the key facts / contact under a
  * hairline. One card, not a stack: the right column says «what it costs and how to go» at a glance.
  */

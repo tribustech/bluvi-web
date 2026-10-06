@@ -83,7 +83,8 @@ export function MiniMap({
           <MapPinIcon className="size-8" />
         </span>
       ) : null}
-      {href ? (
+      {/* In the photo grid the whole tile is the link, and the grid's corner is «Vezi toate fotografiile»'s. */}
+      {href && !tile ? (
         <span className="absolute right-2 bottom-2 inline-flex items-center gap-1 rounded-full bg-surface px-2.5 py-1 t-label text-ink shadow-e1 group-hover:bg-soft-fill">
           <MapIcon aria-hidden className="size-4" />
           Hartă

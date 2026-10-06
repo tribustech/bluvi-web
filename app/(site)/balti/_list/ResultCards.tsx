@@ -16,6 +16,8 @@ import { routes } from '@/lib/routes';
 import { blurDataUrl } from '@/lib/blurhash';
 import { SplitIcon } from './icons';
 import { LakeRowCard, LakeRowCardSkeleton } from './LakeRowCard';
+import { legacyPriceFrom } from './PriceFrom';
+import { lakeStandCount } from '../[id]/_components/standCount';
 import { track } from './analytics';
 import type { LakeImageSrc } from './lakeImage';
 
@@ -126,6 +128,11 @@ export function ResultLakeCard({
   const detail = useQuery({ ...lakeQuery(t, lake.documentId), staleTime: DETAIL_STALE_MS, gcTime: DETAIL_STALE_MS });
   const phones = (detail.data?.contact ?? []).filter((c): c is typeof c & { phone: string } => Boolean(c.phone?.trim()));
   const depth = detail.data?.depth ?? null;
+  // The unit of the card's «de la» (rule 4): the header of the legacy row that IS that price — the
+  // lake page's own note (priceFrom.ts) — once the page read is in; «RON» alone until then / without one.
+  const from = price ? (price.min ?? price.max ?? null) : null;
+  const legacy = detail.data ? legacyPriceFrom(detail.data.price) : null;
+  const priceNote = legacy && from != null && legacy.price === from ? legacy.note : null;
   const [directions, setDirections] = useState(false);
   const [call, setCall] = useState(false);
   const location = getLakeLocationSubtitle(lake, { includeAddress: false });
@@ -150,9 +157,13 @@ export function ResultLakeCard({
         photos={photos}
         priceMin={price?.min}
         priceMax={price?.max}
+        priceNote={priceNote}
         priceLoading={priceLoading && !price}
         surface={lake.surface}
-        stands={lake.numberOfSeats}
+        // One stand count with the lake page (lakeStandCount): a lake that books online counts its
+        // bookable stands (from its page read, nothing until then — never the seats first), any
+        // other lake its seats.
+        stands={detail.data ? (lakeStandCount(detail.data)?.count ?? null) : lake.bookingEnabled ? null : lake.numberOfSeats}
         depth={depth}
         species={species}
         tags={tags}

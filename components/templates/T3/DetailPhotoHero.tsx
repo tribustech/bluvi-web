@@ -11,8 +11,9 @@ import { DetailPhotoShowAll, DetailPhotoTileButton, DetailPhotoViewer } from './
  *    the fish gradient (dark top for the chips, dark bottom for the pills) and four overlay slots.
  *  - From 768: the Airbnb photo grid (owner rule 1, ROADMAP §4b) under the title row, inside the
  *    gutters, radius 16 (rounded-card), 8px between tiles: one large photo and up to four small.
- *    Fewer photos degrade gracefully — 1: the photo on two thirds and `fill` beside it (community
- *    catch photos, the map: one photo NEVER spans the width — the owner's «full-width photo») ·
+ *    `fill` tops a short set up with more tiles (the lake: community catch photos, else its map —
+ *    one photo NEVER spans the width, the owner's «full-width photo»). Fewer tiles degrade
+ *    gracefully — 1: the photo on two thirds and a quiet tile beside it ·
  *    2: two halves · 3: the large one + two stacked · 4: the large one, two small, one wide ·
  *    5+: the large one + a 2 × 2 of small. ONE height whatever the count — 320 / 360 (1024) /
  *    400 (1280) / 480 (1440), and from 1024 never more than the window leaves once the title row,
@@ -60,7 +61,13 @@ export type DetailPhotoHeroProps = {
   viewer?: boolean;
   /** With `viewer`: the built-in «Vezi toate fotografiile» (lightbox). false: the page brings its own. */
   showAll?: boolean;
-  /** From 768, with exactly one photo: the grid's right third (stacked tiles: catches, a map). */
+  /**
+   * From 768, with fewer than five photos: more grid tiles after the photos (community catches, a
+   * map), each a <DetailPhotoFillTile>, so the grid tops up to one large + four small (owner rule
+   * 1). The layout follows the tile count the grid ends up with (it may stream in): 2 → the large
+   * one + a right third · 3 → the large one + two stacked · 4 → the large one, two small, one wide ·
+   * 5 → the large one + a 2 × 2.
+   */
   fill?: ReactNode;
   className?: string;
 };
@@ -108,6 +115,17 @@ const GRID: Record<number, string> = {
   5: 'md:grid-cols-4 md:grid-rows-2',
 };
 
+/**
+ * With `fill` the tile count is known only once the fill lands (a streamed read): the grid lays
+ * itself out from the number of tiles it has (`:has(>li:nth-child(N))`), the same five shapes.
+ */
+const FILL_GRID = [
+  'md:grid-cols-[2fr_1fr]',
+  'md:has-[>li:nth-child(3)]:grid-rows-2 md:[&:has(>li:nth-child(3))>li:first-child]:row-span-2',
+  'md:has-[>li:nth-child(4)]:grid-cols-4 md:[&:has(>li:nth-child(4))>li:first-child]:col-span-2',
+  'md:[&>li:nth-child(4):last-child]:col-span-2',
+].join(' ');
+
 /** Where tile `i` of `shown` sits from 768. */
 function tilePlace(i: number, shown: number): string {
   if (i >= GRID_MAX) return 'md:hidden';
@@ -118,7 +136,8 @@ function tilePlace(i: number, shown: number): string {
 }
 
 /** next/image `sizes` for tile `i`: what the tile's box is from 768 (the column is ~the window). */
-function tileSizes(i: number, shown: number): string {
+function tileSizes(i: number, shown: number, filled: boolean): string {
+  if (filled) return `(min-width: 768px) ${i === 0 ? '66vw' : '33vw'}, ${SIZES_PHONE}`;
   if (shown <= 1) return `(min-width: 768px) 66vw, ${SIZES_PHONE}`;
   if (i === 0) return `(min-width: 768px) ${shown === 2 ? '50vw' : '66vw'}, ${SIZES_PHONE}`;
   return `(min-width: 768px) ${shown === 2 ? '50vw' : '25vw'}, ${SIZES_PHONE}`;
@@ -140,6 +159,8 @@ export function DetailPhotoHero({
   const list = photos;
   const shown = Math.min(list.length, GRID_MAX);
   const height = photoHeroHeight(shown);
+  // The fill tops the grid up (fewer than five photos); a lone photo without one keeps a quiet tile.
+  const filled = !!fill && shown < GRID_MAX;
   const showAll = viewer && builtInShowAll && list.length >= 2 ? <DetailPhotoShowAll /> : null;
 
   const hero = (
@@ -160,11 +181,11 @@ export function DetailPhotoHero({
             'flex snap-x snap-mandatory overflow-x-auto bg-soft-fill [scrollbar-width:none]',
             'md:grid md:gap-2 md:overflow-hidden md:rounded-card md:bg-transparent',
             height,
-            GRID[shown],
+            filled ? FILL_GRID : GRID[shown],
           )}
         >
           {list.map((photo, i) => (
-            <li key={`${photo.src}-${i}`} className={cn('group/tile relative h-full w-full shrink-0 snap-center overflow-hidden bg-soft-fill', tilePlace(i, shown))}>
+            <li key={`${photo.src}-${i}`} className={cn('group/tile relative h-full w-full shrink-0 snap-center overflow-hidden bg-soft-fill', filled ? '' : tilePlace(i, shown))}>
               <Image
                 src={photo.src}
                 alt={photo.alt ?? ''}
@@ -173,7 +194,7 @@ export function DetailPhotoHero({
                 // from 768 too: eager (not preloaded, so the phone carousel does not fetch them first).
                 preload={i === 0}
                 loading={i === 0 ? undefined : i < GRID_MAX ? 'eager' : 'lazy'}
-                sizes={tileSizes(i, shown)}
+                sizes={tileSizes(i, shown, filled)}
                 className={cn(
                   'object-cover',
                   viewer && 'transition-[filter] duration-(--duration-fast) ease-fast md:group-hover/tile:brightness-90',
@@ -182,11 +203,11 @@ export function DetailPhotoHero({
               {viewer && i < GRID_MAX ? <DetailPhotoTileButton index={i} label={`Deschide fotografia ${i + 1} din ${list.length}`} /> : null}
             </li>
           ))}
-          {shown === 1 ? (
+          {filled ? (
+            fill
+          ) : shown === 1 ? (
             // The right third from 768 — never on the phone carousel.
-            <li aria-hidden={fill ? undefined : true} data-t3="photo-fill" className="flex h-full min-h-0 flex-col gap-2 max-md:hidden *:min-h-0 *:flex-1">
-              {fill ?? <span className="flex items-center justify-center bg-soft-fill text-muted [&>svg]:size-6"><PhotoIcon /></span>}
-            </li>
+            <DetailPhotoFillTile quiet />
           ) : null}
         </DetailPhotoStrip>
       )}
@@ -225,6 +246,22 @@ export function DetailPhotoHero({
     </DetailPhotoViewer>
   ) : (
     hero
+  );
+}
+
+/**
+ * One tile `fill` adds to the photo grid, from 768 only (never on the phone carousel): a catch
+ * photo, a map, or `quiet` — the soft tile with a photo icon (decorative).
+ */
+export function DetailPhotoFillTile({ children, quiet = false }: { children?: ReactNode; quiet?: boolean }) {
+  return (
+    <li
+      aria-hidden={quiet || undefined}
+      data-t3="photo-fill"
+      className={cn('relative h-full min-h-0 w-full overflow-hidden bg-soft-fill max-md:hidden', quiet && 'flex items-center justify-center text-muted [&>svg]:size-6')}
+    >
+      {quiet ? <PhotoIcon /> : children}
+    </li>
   );
 }
 

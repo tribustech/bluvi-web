@@ -141,7 +141,7 @@ export function T2MapCluster({
       className={cn(
         'group flex cursor-pointer items-center justify-center rounded-full bg-accent-tint outline-none',
         'transition-transform duration-(--duration-fast) ease-select hover:scale-105',
-        highlighted && 'scale-110 ring-2 ring-accent-ink ring-offset-2 ring-offset-surface',
+        highlighted && 'scale-125 ring-4 ring-accent-ink ring-offset-2 ring-offset-surface shadow-e2',
         large ? 'size-16' : 'size-14',
       )}
     >

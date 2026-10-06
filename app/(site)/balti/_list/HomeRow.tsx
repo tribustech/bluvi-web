@@ -20,6 +20,7 @@ import { track } from './analytics';
 import { distanceLabel } from './distance';
 import { FishOutlineIcon } from '@/components/nav/brand';
 import { CompassIcon, NavigationIcon, TelescopeIcon, WavesIcon } from './icons';
+import { LakeGridCard, LakeGridCardSkeleton } from './LakeGridCard';
 import { LakeTile, LakeTileRow, TILE_HEIGHT } from './LakeTile';
 
 /*
@@ -204,7 +205,10 @@ export function HomeRow({
       {lakes.map((lake, i) => (
         <RailItem key={lake.documentId} width={width}>
           <div data-lake-id={lake.documentId} data-item-position={i + 1}>
-            <LakeTile lake={lake} variant={variant} distanceLabel={distanceOf(lake)} />
+            {/* The grid's card (one card design on the page, owner rule 5): a 4:3 photo and three
+                fixed-height lines, so every card in the row is as tall as the row — no empty band
+                under a shorter card. «Vizualizate recent» keeps fish's compact tile (c15). */}
+            {compact ? <LakeTile lake={lake} variant="compact" distanceLabel={distanceOf(lake)} /> : <LakeGridCard lake={lake} distanceLabel={distanceOf(lake)} />}
           </div>
         </RailItem>
       ))}
@@ -328,7 +332,7 @@ function RowSkeleton({ compact = false }: { compact?: boolean }) {
       <HorizontalRail label="Se încarcă" width={width}>
         {Array.from({ length: 8 }, (_, i) => (
           <RailItem key={i} width={width}>
-            <CardSkeleton width={width} heightClass={TILE_HEIGHT[compact ? 'compact' : 'default']} />
+            {compact ? <CardSkeleton width={width} heightClass={TILE_HEIGHT.compact} /> : <LakeGridCardSkeleton />}
           </RailItem>
         ))}
       </HorizontalRail>

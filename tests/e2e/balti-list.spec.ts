@@ -958,7 +958,7 @@ test.describe('lakes.filters', () => {
   });
 
   for (const vp of [PHONE, DESKTOP])
-  test(`lakes.home.c5 · ${vp.width}px: the picked category is in the URL — a reload brings the same grid back`, async ({ page }) => {
+  test(`lakes.home.c5 · ${vp.width}px: the picked category is in the URL — a reload and Back bring the same grid back, a pick never scrolls`, async ({ page }) => {
     await openHome(page, vp);
     const bar = page.getByRole('group', { name: 'Categorii' });
     const gridHrefs = (key: string) =>
@@ -981,9 +981,25 @@ test.describe('lakes.filters', () => {
     await expect.poll(() => gridHrefs('fish:crap'), { timeout: 15_000 }).toEqual(before);
     // Never «Recomandate» first: the reload paints the picked grid (or its skeleton) only.
     await expect(page.locator('[data-balti-grid="all"]')).toHaveCount(0);
-    // «Recomandate» is the bare /balti.
-    await bar.getByRole('button', { name: 'Recomandate' }).click();
+    // Back from a lake opened in that grid brings the same category back.
+    const lakeHref = before[0]!;
+    await crap.locator(`a[href="${lakeHref}"]`).first().click();
+    await expect(page).toHaveURL(new RegExp(`${lakeHref}$`));
+    await page.goBack();
+    await expect(page).toHaveURL(/\/balti\?categorie=crap$/);
+    await expect(bar.getByRole('button', { name: 'Crap', exact: true })).toHaveAttribute('aria-pressed', 'true', { timeout: 20_000 });
+    await expect.poll(() => gridHrefs('fish:crap'), { timeout: 15_000 }).toEqual(before);
+    // A pick never scrolls the page (router.replace with scroll: false): scrolled down, it stays.
+    // (A DOM click: Playwright's own click would scroll the chip into view first.) «Recomandate»
+    // is the bare /balti.
+    await page.mouse.wheel(0, 200);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(50);
+    const y = await page.evaluate(() => window.scrollY);
+    await bar.getByRole('button', { name: 'Recomandate' }).evaluate((el: HTMLElement) => el.click());
     await expect(page).toHaveURL(/\/balti$/);
+    await expect(page.locator('[data-balti-grid="all"]').first()).toBeAttached();
+    await page.waitForTimeout(300);
+    expect(Math.abs((await page.evaluate(() => window.scrollY)) - y)).toBeLessThanOrEqual(2);
     await expect(crap).toHaveCount(0);
   });
 
@@ -2056,7 +2072,7 @@ test.describe('lakes.results-map', () => {
     await openMap(page, '', DESKTOP);
     const region = page.getByRole('region', { name: 'Rezultate' });
     const priced = async () =>
-      new Set(await region.locator('[data-lake-row-card]').filter({ hasText: 'RON / tură' }).locator('h3').allTextContents());
+      new Set(await region.locator('[data-lake-row-card]').filter({ has: page.locator('[data-price-from]') }).locator('h3').allTextContents());
     await expect.poll(async () => (await priced()).size, { timeout: 15_000 }).toBeGreaterThan(0);
     const before = await priced();
     // Zoom out and back: clusters change, the cards keep their price.
@@ -2066,6 +2082,27 @@ test.describe('lakes.results-map', () => {
     await settled(page);
     const after = await priced();
     for (const name of before) if ((await region.locator('h3', { hasText: name }).count()) > 0) expect(after.has(name)).toBe(true);
+  });
+
+  test('lakes.results-map.c16 · owner rule 4: the card\'s price unit is the lake page\'s («RON / Permis 24h» on Balta Belin), never a made-up «tură»', async ({ page }) => {
+    const BELIN = process.env.E2E_LAKE_FULL ?? 'g14bobjsal2dbks2jg38v0oi';
+    const COVASNA = 'jlihxcfidox97eoo41s9jabn';
+    await openMap(page, `q=Covasna&judet=${COVASNA}`, DESKTOP);
+    const card = page
+      .getByRole('region', { name: 'Rezultate' })
+      .locator('[data-lake-row-card]')
+      .filter({ has: page.locator(`a[href$="/balti/${BELIN}"]`) })
+      .first();
+    const cardUnit = card.locator('[data-price-unit]');
+    // The note comes with the lake's page read: «RON» alone until then, never «tură».
+    await expect(cardUnit).toHaveText(/^RON \/ \S/, { timeout: 15_000 });
+    const unit = (await cardUnit.textContent())!.trim();
+    expect(unit).not.toMatch(/tură/);
+    const number = (await card.locator('[data-price-from] .t-display').textContent())!.trim();
+    await page.goto(`/balti/${BELIN}`, { waitUntil: 'domcontentloaded' });
+    const summary = page.getByRole('complementary', { name: 'Pe scurt' });
+    await expect(summary.getByTestId('summary-price')).toHaveText(number);
+    await expect(summary.locator('[data-price-unit]')).toHaveText(unit);
   });
 
   for (const vp of [LAPTOP, DESKTOP, { width: 1920, height: 1080 }])

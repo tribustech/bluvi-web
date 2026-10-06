@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowRightIcon, BoltIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, EyeIcon, FireIcon, ScaleIcon, TrophyIcon } from '@heroicons/react/20/solid';
+import { ArrowRightIcon, BoltIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, FireIcon, ScaleIcon, TrophyIcon } from '@heroicons/react/20/solid';
 import { Pill } from '@/components/cards/parts';
 import { formatDecimal, formatInt } from '@/components/cards/format';
 import { sectorFill } from '@/components/ranking/sector';
@@ -10,67 +10,101 @@ import { LiveDot } from '@/components/templates/LiveDot';
 import { Avatar } from '@/components/ui/Avatar';
 import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
-import { dateWithHours, formatKg, type CompetitionCard } from '@/core/competitions';
+import { dateWithHours, entrantsLine, formatKg, type CompetitionCard } from '@/core/competitions';
 import { routes } from '@/lib/routes';
-import { lakeLine, Thumb } from '../shared';
-import type { LiveData } from './data';
-import { clock, cumulative, momentum, spanLabel, type BigCatch, type Highlight, type LiveExtra, type MiniRow } from './model';
-import { Ago, Roll, useLiveRefresh, useNow, useReducedMotion } from './motion';
-import s from './a2.module.css';
+import { FollowersPill } from '../Followers';
+import { lakeLine, Thumb, unitFor, ValueBone } from './parts';
+import { LIVE_POLL_MS, type ReadState } from './data';
+import {
+  clock,
+  cumulative,
+  gapOf,
+  momentum,
+  spanLabel,
+  unitShort,
+  valueText,
+  type BigCatch,
+  type Highlight,
+  type LiveData,
+  type LiveExtra,
+  type MiniRanking,
+  type MiniRow,
+  type TickerItem,
+} from './model';
+import { Ago, Roll, useNow, useReducedMotion } from './motion';
+import s from './desktop.module.css';
 
 /*
- * A2 · Live — «the important tab, be crazier» (owner, 2026-10-06). Research it borrows from:
- *  - one featured hero (Polymarket «trending», Apple Sports): the competition with the freshest
- *    weighing leads, on navy with lavender signature numbers;
- *  - a mini timing tower with ▲/▼ position deltas (F1 live timing) — only rows that changed flash;
- *  - a «puls» strip of kg weighed per interval (Sofascore Attack Momentum);
+ * Live on desktop (≥1024) — «the important tab, be crazier» (owner, 2026-10-06):
+ *  - one featured hero (Apple Sports): the competition with the freshest weighing leads, on navy
+ *    with lavender signature numbers;
+ *  - its top five with ▲/▼ position deltas (F1 live timing) — only rows that changed flash;
+ *  - «Ritmul cântăririlor», kg weighed per interval (Sofascore Attack Momentum);
  *  - the chase line «Locul 2 e la 1,3 kg de lider» with a two-tone bar (Strava Live Segments);
- *  - «Momente cheie», a scroll-snap shelf of key moments (YouTube / Twitch clip shelves);
- *  - «Cântăriri recente», a live ticker that slides new weighings in (aria-live, polite);
- *  - rich secondary cards: LIVE + viewers pills on the photo (Twitch), mini tower, sparkline;
+ *  - «Momente cheie», a scroll-snap shelf of key moments;
+ *  - «Cântăriri recente», a live ticker that slides new weighings in (aria-live, polite), and the
+ *    heaviest fish across every live competition;
+ *  - the other live competitions as rich cards (LIVE + viewers on the photo, top three, sparkline);
  *  - a toast for a new record or a lead change (max one per 20 s, never on a hidden tab).
+ * Feeder ranks by points (the fewest lead): its values read «p», never kg.
  * Motion budget: the LIVE dot is the only loop; everything else fires on an event.
- * Auto-refresh: router.refresh() every 45 s while visible (fish polls its live screens).
+ * Refresh: the list and every extra re-read every 60 s while visible (fish LIVE_POLL_MS).
  */
 
-type Ticker = LiveData['ticker'];
+type HubProps = {
+  cards: CompetitionCard[];
+  /** Picked once per visit by the view (the one competition read in full). */
+  heroId: string | null;
+  live: LiveData;
+  /** Per competition: is its ranking still reading, failed, or answered (§4b.4)? */
+  rankingState: Record<string, ReadState>;
+  updatedAt: number | null;
+};
 
-export function LiveHub({ cards, live }: { cards: CompetitionCard[]; live: LiveData }) {
-  const refreshedAt = useLiveRefresh(45_000);
+export function LiveHub({ cards, heroId, live, rankingState, updatedAt }: HubProps) {
   const { changed, toast, dismiss } = useLiveDiff(cards, live);
-  const hero = cards.find((c) => c.documentId === live.heroId) ?? cards[0];
+  const hero = cards.find((c) => c.documentId === heroId) ?? cards[0];
   const others = cards.filter((c) => c !== hero);
+  const stateOf = (c: CompetitionCard): ReadState => rankingState[c.documentId] ?? 'pending';
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-8" data-live-hub="">
       <div className="flex items-center gap-2 t-caption text-muted">
         <LiveDot />
         <span>
-          {cards.length === 1 ? 'Un concurs live' : `${cards.length} concursuri live`} · se actualizează singur la 45 s
-          {refreshedAt ? (
+          {cards.length === 1 ? 'Un concurs live' : `${cards.length} concursuri live`} · se actualizează singur la {LIVE_POLL_MS / 1000} s
+          {updatedAt ? (
             <>
               {' · ultima dată '}
-              <Ago iso={new Date(refreshedAt).toISOString()} />
+              <Ago iso={new Date(updatedAt).toISOString()} />
             </>
           ) : null}
         </span>
       </div>
 
-      <div className={cn('grid gap-5', live.ticker.length ? 'xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]' : '')}>
-        {hero ? <Hero card={hero} extra={live.extras[hero.documentId]} changed={changed} /> : null}
-        {live.ticker.length ? <TickerPanel items={live.ticker} heaviest={heaviest(cards, live)} /> : null}
+      {/* The hero sets the row's height; the ticker beside it scrolls inside that height (from 1280),
+          so the hero never stretches into an empty navy band under its buttons. */}
+      <div className={cn('grid gap-5', live.ticker.length ? 'xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_400px]' : '')}>
+        {hero ? <Hero card={hero} extra={live.extras[hero.documentId]} state={stateOf(hero)} changed={changed} /> : null}
+        {live.ticker.length ? (
+          <div className="relative min-h-0 xl:min-h-80">
+            <TickerPanel items={live.ticker} heaviest={heaviest(cards, live)} />
+          </div>
+        ) : null}
       </div>
 
-      {live.highlights.length ? <Highlights items={live.highlights} cards={cards} /> : null}
+      {live.highlights.length ? <Highlights items={live.highlights} /> : null}
 
       {others.length ? (
-        <section className="flex flex-col gap-4" aria-labelledby="a2-more-live">
-          <h2 id="a2-more-live" className="flex items-baseline gap-2 t-title2 text-ink">
+        <section className="flex flex-col gap-4" aria-labelledby="live-more">
+          <h3 id="live-more" className="flex items-baseline gap-2 t-title2 text-ink">
             Tot live acum <span className="t-body text-muted">{others.length}</span>
-          </h2>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(400px,1fr))] gap-5">
+          </h3>
+          {/* One or two: full-width horizontal rows (a near-empty grid row is the sparse look §4b.5
+              rules out). Three and up: a grid whose cards grow to fill the row (auto-fit). */}
+          <div className={cn('grid gap-5', others.length > 2 && 'grid-cols-[repeat(auto-fit,minmax(--spacing(96),1fr))]')} data-live-others={others.length > 2 ? 'grid' : 'rows'}>
             {others.map((c, i) => (
-              <LiveCard key={c.documentId} card={c} extra={live.extras[c.documentId]} changed={changed} index={i} />
+              <LiveCard key={c.documentId} card={c} extra={live.extras[c.documentId]} state={stateOf(c)} changed={changed} index={i} wide={others.length <= 2} />
             ))}
           </div>
         </section>
@@ -141,14 +175,16 @@ function useLiveDiff(cards: CompetitionCard[], live: LiveData) {
 
 /* ---------------------------------------------------------------- hero */
 
-function Hero({ card: c, extra, changed }: { card: CompetitionCard; extra?: LiveExtra; changed: Set<string> }) {
+function Hero({ card: c, extra, state, changed }: { card: CompetitionCard; extra?: LiveExtra; state: ReadState; changed: Set<string> }) {
   const now = useNow(60_000);
-  const r = extra?.ranking;
+  const r = state === 'ready' ? extra?.ranking : undefined;
   const top = r?.rows.slice(0, 3) ?? [];
   const chasers = r?.rows.slice(3, 5).filter((x) => x.catches > 0) ?? [];
+  // Never a 0 nobody counted: the ranking's figure, else the card's, else «–» (a bone while reading).
   const totalKg = r?.totalKg ?? c.results?.totalKg ?? null;
-  const catches = r?.totalCatches ?? c.results?.catchCount ?? 0;
+  const catches = r?.totalCatches ?? c.results?.catchCount ?? null;
   const biggest = r?.biggestCatch?.weight ?? c.results?.biggestFishKg ?? null;
+  const reading = state === 'pending';
   const end = c.endDate ? new Date(c.endDate).getTime() : null;
   const href = routes.competition(c.documentId);
 
@@ -160,32 +196,29 @@ function Hero({ card: c, extra, changed }: { card: CompetitionCard; extra?: Live
         <div className="flex min-w-0 flex-col gap-5">
           <div className="flex flex-wrap items-center gap-2">
             <Pill tone="live">LIVE</Pill>
-            <span className="inline-flex h-6 items-center gap-1 rounded-full bg-lavender/15 px-2 t-micro-strong text-lavender">
-              <EyeIcon aria-hidden className="size-3.5" />
-              {formatInt(c.viewers)} urmăresc
-            </span>
+            <FollowersPill viewers={c.viewers} competitionId={c.documentId} onPhoto />
             <span className="t-caption text-lavender-2">{dateWithHours(c)}</span>
           </div>
           <div className="flex flex-col gap-1.5">
             <p className="t-eyebrow text-lavender-2 uppercase">În prim-plan</p>
-            <h2 className="line-clamp-2 t-display text-lavender">
+            <h3 className="line-clamp-2 t-display text-lavender">
               <Link href={href} className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-lavender">
                 {c.name}
               </Link>
-            </h2>
+            </h3>
             <p className="t-label text-lavender-2">{lakeLine(c)}</p>
           </div>
           <dl className="grid grid-cols-3 gap-4 border-y border-lavender/15 py-4">
-            <HeroStat label="kg cântărite" value={totalKg} format={(n) => formatDecimal(n, 1, 1)} unit="kg" />
-            <HeroStat label="capturi" value={catches} format={formatInt} />
-            <HeroStat label="cea mai mare" value={biggest} format={(n) => formatDecimal(n, 2, 3)} unit="kg" />
+            <HeroStat label="kg cântărite" value={totalKg} reading={reading} format={(n) => formatDecimal(n, 1, 1)} unit="kg" />
+            <HeroStat label="capturi" value={catches} reading={reading} format={formatInt} />
+            <HeroStat label="cea mai mare" value={biggest} reading={reading} format={(n) => formatDecimal(n, 2, 3)} unit="kg" />
           </dl>
           <p className="t-caption text-lavender-2">
             {end != null && now != null
               ? now < end
                 ? `Se încheie în ${spanLabel(end - now)} · ${clock(c.endDate!)}`
                 : `Program încheiat la ${clock(c.endDate!)} · cântărirea e încă deschisă`
-              : `${formatInt(c.joinedCount)} ${c.format.unit} în concurs`}
+              : entrantsLine(c.joinedCount, c.format.unit)}
           </p>
           <div className="mt-auto flex flex-wrap gap-2">
             <Link href={routes.competitionRanking(c.documentId)} className={buttonClass({ variant: 'primary', size: 'compact', className: 'relative z-above' })}>
@@ -197,16 +230,20 @@ function Hero({ card: c, extra, changed }: { card: CompetitionCard; extra?: Live
           </div>
         </div>
 
-        <div className="relative z-above flex min-w-0 flex-col gap-3 rounded-card bg-lavender/[0.06] p-4">
+        {/* The ranking failed: no tower at all (§4b.4), the stats and links carry the hero. */}
+        {state === 'error' ? null : (
+        <div className="relative z-above flex min-w-0 flex-col gap-3 rounded-card bg-lavender/[0.06] p-4" aria-busy={reading || undefined}>
           <p className="flex items-center justify-between t-eyebrow text-lavender-2 uppercase">
             <span>Clasament acum</span>
             {r ? <span className="normal-case">{r.valueLabel}</span> : null}
           </p>
-          {top.length && top[0].catches > 0 ? (
+          {reading ? (
+            <TowerBones />
+          ) : top.length && top[0].catches > 0 ? (
             <>
               <ol className="flex flex-col gap-1">
                 {top.map((row, i) => (
-                  <TowerRow key={`${row.key}-${row.value}`} row={row} lead={i === 0} flash={changed.has(`${c.documentId}|${row.key}`)} />
+                  <TowerRow key={`${row.key}-${row.value}`} row={row} ranking={r!} lead={i === 0} flash={changed.has(`${c.documentId}|${row.key}`)} />
                 ))}
               </ol>
               {chasers.length ? (
@@ -217,37 +254,58 @@ function Hero({ card: c, extra, changed }: { card: CompetitionCard; extra?: Live
                       <Delta delta={row.delta} />
                       <Avatar name={row.name} src={row.avatar} size={24} />
                       <span className="min-w-0 flex-1 truncate t-label text-lavender">{row.name}</span>
-                      <span className="t-label text-lavender-2 tabular-nums">{row.value == null ? '–' : `${formatDecimal(row.value, 1, 3)} kg`}</span>
+                      <span className="t-label text-lavender-2 tabular-nums">{row.value == null ? '–' : `${valueText(row.value, r!.unit)} ${unitShort(r!.unit)}`}</span>
                     </li>
                   ))}
                 </ol>
               ) : null}
-              <Chase rows={top} />
+              <Chase rows={top} ranking={r!} />
             </>
           ) : (
-            <p className="py-6 text-center t-body text-lavender-2">Încă nu s-a cântărit nimic.</p>
+            // Answered, and nobody has a catch yet: the one case this sentence is true.
+            <p className="py-6 text-center t-body text-lavender-2">Încă nicio captură cântărită.</p>
           )}
         </div>
+        )}
       </div>
       {extra && extra.weighings.length ? <Momentum card={c} extra={extra} /> : null}
     </article>
   );
 }
 
-function HeroStat({ label, value, format, unit }: { label: string; value: number | null; format: (n: number) => string; unit?: string }) {
+function HeroStat({ label, value, reading, format, unit }: { label: string; value: number | null; reading: boolean; format: (n: number) => string; unit?: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <dt className="order-2 t-caption text-lavender-2">{label}</dt>
       <dd className="order-1 flex items-baseline gap-1 text-lavender">
-        <span className="t-num-26 2xl:t-num-40">{value == null ? '–' : <Roll value={value} format={format} />}</span>
+        <span className="t-num-26 2xl:t-num-40">{value == null ? reading ? <ValueBone onNavy className="my-2 h-5 w-16" /> : '–' : <Roll value={value} format={format} />}</span>
         {unit && value != null ? <span className="t-body-strong text-lavender-2">{unit}</span> : null}
       </dd>
     </div>
   );
 }
 
+/** The tower while the ranking reads: three rows in its shape, never a sentence about it. */
+function TowerBones() {
+  return (
+    <ol aria-hidden className="flex flex-col gap-1">
+      {[0, 1, 2].map((i) => (
+        <li key={i} className="flex items-center gap-3 px-2 py-2">
+          <ValueBone onNavy className="h-5 w-6" />
+          <span className="size-10 shrink-0 animate-pulse rounded-full bg-lavender/15" />
+          <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <ValueBone onNavy className="w-2/3" />
+            <ValueBone onNavy className="h-2.5 w-1/3" />
+          </span>
+          <ValueBone onNavy className="h-4 w-14" />
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 /** A tower row on navy: place, delta, face, name + seat, value (rolls on change). */
-function TowerRow({ row, lead, flash }: { row: MiniRow; lead: boolean; flash: boolean }) {
+function TowerRow({ row, ranking, lead, flash }: { row: MiniRow; ranking: MiniRanking; lead: boolean; flash: boolean }) {
   return (
     <li className={cn('flex items-center gap-3 rounded-control px-2 py-2', flash && s.flashOnNavy, lead && 'bg-lavender/10')}>
       <span className={cn('w-6 text-center t-num-26', lead ? 'text-lavender' : 'text-lavender-2')}>{row.position}</span>
@@ -261,20 +319,23 @@ function TowerRow({ row, lead, flash }: { row: MiniRow; lead: boolean; flash: bo
         <Seat row={row} className="text-lavender-2" />
       </span>
       <span className="flex items-baseline gap-1 text-lavender">
-        <span className="t-num-18">{row.value == null ? '–' : <Roll value={row.value} format={(n) => formatDecimal(n, 1, 3)} fromZero={false} />}</span>
-        <span className="t-caption text-lavender-2">kg</span>
+        <span className="t-num-18">{row.value == null ? '–' : <Roll value={row.value} format={(n) => valueText(n, ranking.unit)} fromZero={false} />}</span>
+        <span className="t-caption text-lavender-2">{unitShort(ranking.unit)}</span>
       </span>
     </li>
   );
 }
 
 /** Strava's «you vs the one ahead»: the gap to the leader and a two-tone bar. */
-function Chase({ rows }: { rows: MiniRow[] }) {
+function Chase({ rows, ranking }: { rows: MiniRow[]; ranking: MiniRanking }) {
   const [a, b] = rows;
-  if (!a || !b || a.value == null || b.value == null || a.value <= 0) return null;
-  const gap = a.value - b.value;
-  const pct = Math.max(4, Math.min(100, (b.value / a.value) * 100));
-  const close = gap / a.value < 0.1;
+  if (!a || !b || a.value == null || b.value == null || b.catches === 0) return null;
+  const gap = gapOf(ranking, a, b);
+  // The bar: how close the second is (kg: its share of the leader's; feeder: the leader's share of its points).
+  const ratio = ranking.lowerIsBetter ? a.value / b.value : b.value / a.value;
+  if (gap == null || !Number.isFinite(ratio) || ratio <= 0) return null;
+  const pct = Math.max(4, Math.min(100, ratio * 100));
+  const close = 1 - ratio < 0.1;
   return (
     <div className="flex flex-col gap-1.5 pt-1">
       <p className="t-caption text-lavender-2">
@@ -282,7 +343,11 @@ function Chase({ rows }: { rows: MiniRow[] }) {
           'Egalitate în frunte'
         ) : (
           <>
-            Locul 2 e la <strong className="t-label text-lavender">{formatKg(gap)} kg</strong> de lider{close ? ' · luptă strânsă' : ''}
+            Locul 2 e la{' '}
+            <strong className="t-label text-lavender">
+              {valueText(gap, ranking.unit)} {unitShort(ranking.unit)}
+            </strong>{' '}
+            de lider{close ? ' · luptă strânsă' : ''}
           </>
         )}
       </p>
@@ -331,23 +396,30 @@ function Momentum({ card: c, extra }: { card: CompetitionCard; extra: LiveExtra 
 
 type Heavy = BigCatch & { compId: string; compName: string };
 
-/** The heaviest fish across every live competition (catches API, weight desc). */
+/**
+ * The heaviest fish across every live competition: the hero's five heaviest (catches API, weight
+ * desc), and each other competition's biggest catch from its ranking (no catches read there).
+ */
 function heaviest(cards: CompetitionCard[], live: LiveData): Heavy[] {
   return cards
-    .flatMap((c) => (live.extras[c.documentId]?.topCatches ?? []).map((x) => ({ ...x, compId: c.documentId, compName: c.name })))
+    .flatMap((c) => {
+      const e = live.extras[c.documentId];
+      const list = e?.topCatches.length ? e.topCatches : e?.ranking?.biggestCatch ? [e.ranking.biggestCatch] : [];
+      return list.map((x) => ({ ...x, compId: c.documentId, compName: c.name }));
+    })
     .sort((a, b) => b.weight - a.weight)
     .slice(0, 5);
 }
 
-function TickerPanel({ items, heaviest }: { items: Ticker; heaviest: Heavy[] }) {
+function TickerPanel({ items, heaviest }: { items: TickerItem[]; heaviest: Heavy[] }) {
   const [paused, setPaused] = useState(false);
   const [shown, setShown] = useState(items);
   if (!paused && shown !== items) setShown(items);
   const latest = shown[0];
   return (
     <section
-      aria-labelledby="a2-ticker"
-      className={cn('flex min-h-0 flex-col rounded-bento bg-surface shadow-e0', s.rise)}
+      aria-labelledby="live-ticker"
+      className={cn('flex min-h-0 flex-col overflow-hidden rounded-bento bg-surface shadow-e0 xl:absolute xl:inset-0', s.rise)}
       style={{ '--i': 2 } as CSSProperties}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -355,17 +427,17 @@ function TickerPanel({ items, heaviest }: { items: Ticker; heaviest: Heavy[] }) 
       onBlur={() => setPaused(false)}
     >
       <header className="flex items-center justify-between gap-2 border-b border-hairline px-5 py-4">
-        <h2 id="a2-ticker" className="flex items-center gap-2 t-heading text-ink">
+        <h3 id="live-ticker" className="flex items-center gap-2 t-heading text-ink">
           <ScaleIcon aria-hidden className="size-4 text-accent" />
           Cântăriri recente
-        </h2>
+        </h3>
         <span className="t-caption text-muted">{paused ? 'pauză' : 'în direct'}</span>
       </header>
       {/* One polite summary per refresh, never one announcement per row. */}
       <p className="sr-only" aria-live="polite">
         {latest ? `Ultima cântărire: ${latest.name ?? `standul ${latest.stand}`}, ${formatKg(latest.kg)} kilograme, ${latest.compName}` : ''}
       </p>
-      <ol className="flex flex-col divide-y divide-hairline overflow-y-auto">
+      <ol className="flex min-h-0 flex-col divide-y divide-hairline overflow-y-auto">
         {shown.map((w, i) => (
           <li key={w.id} className={cn('relative flex items-center gap-3 px-5 py-3 transition-colors duration-(--duration-fast) hover:bg-soft-fill', i === 0 && s.slideIn)}>
             <Avatar name={w.name ?? `Stand ${w.stand ?? ''}`} size={32} />
@@ -392,10 +464,10 @@ function TickerPanel({ items, heaviest }: { items: Ticker; heaviest: Heavy[] }) 
       </ol>
       {heaviest.length ? (
         <div className="mt-auto flex flex-col gap-2 border-t border-hairline px-5 pt-4 pb-5">
-          <h3 className="flex items-center gap-1.5 t-eyebrow text-muted uppercase">
+          <h4 className="flex items-center gap-1.5 t-eyebrow text-muted uppercase">
             <TrophyIcon aria-hidden className="size-3.5 text-medal-gold" />
             Cei mai grei pești acum
-          </h3>
+          </h4>
           <ol className="flex flex-col gap-2">
             {heaviest.map((x, i) => (
               <li key={`${x.compId}-${x.name}-${x.weight}-${i}`} className="flex items-center gap-2.5">
@@ -419,7 +491,7 @@ function TickerPanel({ items, heaviest }: { items: Ticker; heaviest: Heavy[] }) 
 
 /* ---------------------------------------------------------------- highlights */
 
-function Highlights({ items, cards }: { items: Highlight[]; cards: CompetitionCard[] }) {
+function Highlights({ items }: { items: Highlight[] }) {
   const reduced = useReducedMotion();
   const rail = useRef<HTMLUListElement>(null);
   const [edges, setEdges] = useState({ prev: false, next: false });
@@ -437,16 +509,29 @@ function Highlights({ items, cards }: { items: Highlight[]; cards: CompetitionCa
     ro.observe(el);
     return () => ro.disconnect();
   }, [measure]);
-  const page = (dir: 1 | -1) => rail.current?.scrollBy({ left: dir * rail.current.clientWidth * 0.85, behavior: reduced ? 'auto' : 'smooth' });
+  // The rail opens on its first moment. Moments arrive one read at a time; until the viewer scrolls
+  // it themselves, each arrival puts the rail back at the start (never left wherever the browser
+  // re-snapped it).
+  const touched = useRef(false);
+  useEffect(() => {
+    const el = rail.current;
+    if (!el) return;
+    if (!touched.current) el.scrollLeft = 0;
+    measure();
+  }, [items.length, measure]);
+  const page = (dir: 1 | -1) => {
+    touched.current = true;
+    rail.current?.scrollBy({ left: dir * rail.current.clientWidth * 0.85, behavior: reduced ? 'auto' : 'smooth' });
+  };
 
   return (
-    <section className="flex flex-col gap-4" aria-labelledby="a2-moments">
+    <section className="flex flex-col gap-4" aria-labelledby="live-moments">
       <div className="flex items-center justify-between gap-4">
-        <h2 id="a2-moments" className="flex items-center gap-2 t-title2 text-ink">
+        <h3 id="live-moments" className="flex items-center gap-2 t-title2 text-ink">
           <FireIcon aria-hidden className="size-5 text-live" />
           Momente cheie
           <span className="t-body text-muted">{items.length}</span>
-        </h2>
+        </h3>
         {edges.prev || edges.next ? (
           <div className="flex gap-1.5">
             <RailButton label="Momentele anterioare" disabled={!edges.prev} onClick={() => page(-1)}>
@@ -458,10 +543,16 @@ function Highlights({ items, cards }: { items: Highlight[]; cards: CompetitionCa
           </div>
         ) : null}
       </div>
-      <ul ref={rail} onScroll={measure} data-prev={edges.prev} data-next={edges.next} className={cn('-mx-1 flex gap-4 overflow-x-auto px-1 pt-1 pb-3', s.rail)}>
+      <ul
+        ref={rail}
+        onScroll={measure}
+        onPointerDown={() => (touched.current = true)}
+        onWheel={() => (touched.current = true)}
+        onFocus={() => (touched.current = true)}
+        data-prev={edges.prev} data-next={edges.next} className={cn('-mx-1 flex gap-4 overflow-x-auto px-1 pt-1 pb-3', s.rail)}>
         {items.map((h, i) => (
           <li key={h.id} className={cn('w-64 shrink-0 2xl:w-72', s.rise)} style={{ '--i': i } as CSSProperties}>
-            <Moment h={h} card={cards.find((c) => c.documentId === h.compId)} />
+            <Moment h={h} />
           </li>
         ))}
       </ul>
@@ -506,7 +597,7 @@ function MomentShell({ href, tone = 'surface', icon, label, comp, children }: { 
   );
 }
 
-function Moment({ h }: { h: Highlight; card?: CompetitionCard }) {
+function Moment({ h }: { h: Highlight }) {
   const href = routes.competition(h.compId);
   if (h.kind === 'record') {
     return (
@@ -530,10 +621,12 @@ function Moment({ h }: { h: Highlight; card?: CompetitionCard }) {
           </span>
         </span>
         <p className="mt-auto flex items-baseline gap-1">
-          <span className="t-num-40 text-ink">{h.row.value == null ? '–' : formatDecimal(h.row.value, 1, 3)}</span>
-          <span className="t-body-strong text-muted">kg</span>
+          <span className="t-num-40 text-ink">{h.row.value == null ? '–' : valueText(h.row.value, h.ranking.unit)}</span>
+          <span className="t-body-strong text-muted">{unitShort(h.ranking.unit)}</span>
         </p>
-        <p className="t-caption text-muted">{h.gap != null && h.gap > 0 ? `+${formatKg(h.gap)} kg față de locul 2` : h.valueLabel}</p>
+        <p className="t-caption text-muted">
+          {h.gap != null && h.gap > 0 ? `${valueText(h.gap, h.ranking.unit)} ${unitShort(h.ranking.unit)} avans față de locul 2` : h.ranking.valueLabel}
+        </p>
       </MomentShell>
     );
   }
@@ -549,8 +642,8 @@ function Moment({ h }: { h: Highlight; card?: CompetitionCard }) {
           <span className="t-label text-ink">{h.first.name}</span> și <span className="t-label text-ink">{h.second.name}</span>
         </p>
         <p className="mt-auto flex items-baseline justify-center gap-1">
-          <span className="t-num-40 text-ink">{formatKg(h.gap)}</span>
-          <span className="t-body-strong text-muted">kg între ei</span>
+          <span className="t-num-40 text-ink">{valueText(h.gap, h.ranking.unit)}</span>
+          <span className="t-body-strong text-muted">{unitShort(h.ranking.unit)} între ei</span>
         </p>
       </MomentShell>
     );
@@ -611,85 +704,138 @@ function Person({ c, onNavy }: { c: BigCatch; onNavy?: boolean }) {
 
 /* ---------------------------------------------------------------- secondary cards */
 
-function LiveCard({ card: c, extra, changed, index }: { card: CompetitionCard; extra?: LiveExtra; changed: Set<string>; index: number }) {
-  const r = extra?.ranking;
+function LiveCard({
+  card: c,
+  extra,
+  state,
+  changed,
+  index,
+  wide,
+}: {
+  card: CompetitionCard;
+  extra?: LiveExtra;
+  state: ReadState;
+  changed: Set<string>;
+  index: number;
+  /** One or two others: a full-width horizontal row instead of a grid card. */
+  wide: boolean;
+}) {
+  const r = state === 'ready' ? extra?.ranking : undefined;
   const top = r?.rows.filter((x) => x.catches > 0).slice(0, 3) ?? [];
   const spark = extra ? cumulative(extra.weighings) : [];
   const fresh = r?.rows.filter((x) => x.fresh) ?? [];
   const href = routes.competition(c.documentId);
-  const catches = r?.totalCatches ?? c.results?.catchCount ?? 0;
-  return (
-    <article
-      className={cn(
-        'group relative flex flex-col overflow-hidden rounded-bento bg-surface shadow-[var(--shadow-e1),var(--shadow-e0)] transition-[translate,box-shadow] duration-(--duration-fast) ease-fast hover:-translate-y-0.5 hover:shadow-[var(--shadow-e2),var(--shadow-e0)]',
-        s.rise,
-      )}
-      style={{ '--i': index + 3 } as CSSProperties}
-    >
-      <Thumb card={c} big sizes="(min-width: 1280px) 600px, 100vw" className="h-36">
-        <div className="absolute inset-x-0 top-0 flex justify-between p-3">
-          <Pill tone="live">LIVE</Pill>
-          <Pill tone="scrim">
-            <EyeIcon aria-hidden className="size-3.5" />
-            {formatInt(c.viewers)}
-          </Pill>
+  // Never a 0 nobody counted (§4b.4): the ranking's count, else the card's, else «–».
+  const catches = r?.totalCatches ?? c.results?.catchCount ?? null;
+  const biggest = r?.biggestCatch?.weight ?? c.results?.biggestFishKg ?? null;
+
+  const podium =
+    state === 'error' ? null : state === 'pending' ? (
+      <ol aria-hidden className="flex flex-col">
+        {[0, 1, 2].map((i) => (
+          <li key={i} className="flex items-center gap-2.5 px-1.5 py-1.5">
+            <ValueBone className="h-4 w-4" />
+            <span className="size-8 shrink-0 animate-pulse rounded-full bg-soft-fill" />
+            <ValueBone className="w-1/2" />
+            <ValueBone className="ms-auto w-12" />
+          </li>
+        ))}
+      </ol>
+    ) : top.length ? (
+      <ol className="flex flex-col">
+        {top.map((row) => (
+          <li
+            key={`${row.key}-${row.value}`}
+            className={cn('flex items-center gap-2.5 rounded-control px-1.5 py-1.5', changed.has(`${c.documentId}|${row.key}`) && s.flash)}
+          >
+            <span className="w-4 text-center t-num-16 text-ink">{row.position}</span>
+            <Delta delta={row.delta} />
+            <Avatar name={row.name} src={row.avatar} size={32} />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate t-label text-ink">{row.name}</span>
+              <Seat row={row} className="text-muted" />
+            </span>
+            <span className="t-body-strong text-ink tabular-nums">
+              {row.value == null ? '–' : valueText(row.value, r!.unit)}
+              <span className="ms-0.5 t-caption text-muted">{unitShort(r!.unit)}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    ) : (
+      // Answered, and every row is at zero: the one case this sentence is true.
+      <p className="rounded-card border border-dashed border-hairline px-4 py-5 text-center t-body text-muted">Încă nicio captură cântărită</p>
+    );
+
+  const stats = (
+    <dl className="grid grid-cols-3 gap-3 rounded-card bg-page px-4 py-3">
+      <MiniStat label="capturi" value={catches == null ? '–' : formatInt(catches)} />
+      <MiniStat label="cea mai mare" value={biggest == null ? '–' : formatKg(biggest)} unit="kg" />
+      <MiniStat label={unitFor(c.joinedCount, c.format.unit)} value={formatInt(c.joinedCount)} />
+    </dl>
+  );
+
+  const footer = (
+    <div className={cn('mt-auto flex gap-4', wide ? 'flex-col items-start' : 'items-end justify-between')}>
+      {spark.length >= 2 ? <Sparkline points={spark} /> : fresh.length ? <FreshFaces rows={fresh} /> : <span />}
+      <span className="flex items-center gap-1 t-label text-accent-ink">
+        Urmărește live
+        <ArrowRightIcon aria-hidden className="size-4 transition-transform duration-(--duration-fast) ease-fast group-hover:translate-x-1" />
+      </span>
+    </div>
+  );
+
+  const title = (
+    <div className="flex flex-col gap-1">
+      <p className="t-eyebrow text-muted uppercase">{dateWithHours(c)}</p>
+      <h4 className="line-clamp-2 t-title2 text-ink">
+        <Link href={href} className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent">
+          {c.name}
+        </Link>
+      </h4>
+      <p className="truncate t-label text-accent-ink">{lakeLine(c)}</p>
+    </div>
+  );
+
+  const pills = (
+    <div className="absolute inset-x-0 top-0 flex justify-between p-3">
+      <Pill tone="live">LIVE</Pill>
+      <FollowersPill viewers={c.viewers} competitionId={c.documentId} onPhoto />
+    </div>
+  );
+
+  const surface = cn(
+    'group relative overflow-hidden rounded-bento bg-surface shadow-[var(--shadow-e1),var(--shadow-e0)] transition-[translate,box-shadow] duration-(--duration-fast) ease-fast hover:-translate-y-0.5 hover:shadow-[var(--shadow-e2),var(--shadow-e0)]',
+    s.rise,
+  );
+
+  if (wide) {
+    // Photo · who and where with the figures · the top three · the trend and the way in.
+    return (
+      <article className={cn(surface, 'grid grid-cols-[200px_minmax(0,1fr)_minmax(0,1fr)] gap-x-6 xl:grid-cols-[240px_minmax(0,1fr)_minmax(0,1fr)_176px] 2xl:grid-cols-[280px_minmax(0,1.1fr)_minmax(0,1fr)_200px]')} style={{ '--i': index + 3 } as CSSProperties}>
+        <Thumb card={c} big sizes="280px" className="h-full min-h-44">
+          {pills}
+        </Thumb>
+        <div className="flex min-w-0 flex-col justify-between gap-4 py-5">
+          {title}
+          {stats}
         </div>
+        <div className="flex w-full max-w-lg min-w-0 flex-col justify-center py-5 pe-5 xl:pe-0">{podium}</div>
+        <div className="hidden min-w-0 flex-col justify-end py-5 pe-5 xl:flex">{footer}</div>
+      </article>
+    );
+  }
+
+  return (
+    <article className={cn(surface, 'flex flex-col')} style={{ '--i': index + 3 } as CSSProperties}>
+      <Thumb card={c} big sizes="(min-width: 1280px) 600px, 100vw" className="h-36">
+        {pills}
       </Thumb>
       <div className="flex flex-1 flex-col gap-4 p-5">
-        <div className="flex flex-col gap-1">
-          <p className="t-eyebrow text-muted uppercase">{dateWithHours(c)}</p>
-          <h3 className="line-clamp-2 t-title2 text-ink">
-            <Link href={href} className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent">
-              {c.name}
-            </Link>
-          </h3>
-          <p className="truncate t-label text-accent-ink">{lakeLine(c)}</p>
-        </div>
-
-        <dl className="grid grid-cols-3 gap-3 rounded-card bg-page px-4 py-3">
-          <MiniStat label="capturi" value={formatInt(catches)} />
-          <MiniStat label="cea mai mare" value={r?.biggestCatch ? formatKg(r.biggestCatch.weight) : c.results?.biggestFishKg != null ? formatKg(c.results.biggestFishKg) : '–'} unit="kg" />
-          <MiniStat label={c.format.unit} value={formatInt(c.joinedCount)} />
-        </dl>
-
-        {top.length ? (
-          <ol className="flex flex-col">
-            {top.map((row) => (
-              <li
-                key={`${row.key}-${row.value}`}
-                className={cn('flex items-center gap-2.5 rounded-control px-1.5 py-1.5', changed.has(`${c.documentId}|${row.key}`) && s.flash)}
-              >
-                <span className="w-4 text-center t-num-16 text-ink">{row.position}</span>
-                <Delta delta={row.delta} />
-                <Avatar name={row.name} src={row.avatar} size={32} />
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate t-label text-ink">{row.name}</span>
-                  <Seat row={row} className="text-muted" />
-                </span>
-                <span className="t-body-strong text-ink tabular-nums">
-                  {row.value == null ? '–' : formatDecimal(row.value, 1, 3)}
-                  <span className="ms-0.5 t-caption text-muted">kg</span>
-                </span>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="rounded-card border border-dashed border-hairline px-4 py-5 text-center t-body text-muted">Încă nicio captură cântărită</p>
-        )}
-
-        <div className="mt-auto flex items-end justify-between gap-4">
-          {spark.length >= 2 ? (
-            <Sparkline points={spark} />
-          ) : fresh.length ? (
-            <FreshFaces rows={fresh} />
-          ) : (
-            <span />
-          )}
-          <span className="flex items-center gap-1 t-label text-accent-ink">
-            Urmărește live
-            <ArrowRightIcon aria-hidden className="size-4 transition-transform duration-(--duration-fast) ease-fast group-hover:translate-x-1" />
-          </span>
-        </div>
+        {title}
+        {stats}
+        {podium}
+        {footer}
       </div>
     </article>
   );

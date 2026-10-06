@@ -25,6 +25,7 @@ import { routes } from '@/lib/routes';
 import { competitionDateLabel } from '../../../concursuri/[id]/_components/dates';
 import { facilityIcon } from '../../../_home/facilityIcon';
 import { lakeHref } from './availability';
+import { lakeStandCount } from './standCount';
 import type { LakeCompetitions, Settled } from './load';
 import { ClaimTrigger, DialogTrigger, OwnerLink, PhoneLink } from './LakeActions';
 import { SectionRetry } from './RetryFocus';
@@ -82,8 +83,18 @@ const STAT_ICON: Record<LakeStatKey, ReactNode> = {
   fishingSpotTypes: <MapPinIcon />,
 };
 
+/**
+ * The characteristics. The stand count is lakeStandCount's: a lake that books online states its
+ * bookable stands («21 standuri rezervabile»), never the CMS «50 locuri» beside them.
+ */
 export function lakeFacts(lake: LakeDetail): DetailFact[] {
-  return buildLakeStats(lake).map(s => ({ key: s.key, label: s.label, value: s.value, icon: STAT_ICON[s.key] }));
+  const stands = lakeStandCount(lake);
+  return buildLakeStats(lake).map(s => ({
+    key: s.key,
+    label: s.label,
+    value: s.key === 'seats' && stands?.bookable ? `${formatInt(stands.count)} ${stands.count === 1 ? 'stand rezervabil' : 'standuri rezervabile'}` : s.value,
+    icon: STAT_ICON[s.key],
+  }));
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -148,16 +159,16 @@ export function PricesList({ prices }: { prices: LakeDetail['price'] }) {
 
 /** Live, then Viitoare: each list hidden when empty, and failing on its own (fish: one query, one
  * error + «Încearcă din nou» per list). */
-export function CompetitionsBlock({ lakeId, live, upcoming }: LakeCompetitions & { lakeId: string }) {
+export function CompetitionsBlock({ live, upcoming }: LakeCompetitions) {
   return (
     <div className="flex flex-col gap-5">
-      <CompetitionRailRead lakeId={lakeId} title="Live" read={live} live />
-      <CompetitionRailRead lakeId={lakeId} title="Viitoare" read={upcoming} />
+      <CompetitionRailRead title="Live" read={live} live />
+      <CompetitionRailRead title="Viitoare" read={upcoming} />
     </div>
   );
 }
 
-function CompetitionRailRead({ lakeId, title, read, live = false }: { lakeId: string; title: string; read: Settled<CompetitionListItem[]>; live?: boolean }) {
+function CompetitionRailRead({ title, read, live = false }: { title: string; read: Settled<CompetitionListItem[]>; live?: boolean }) {
   if (!read.ok) {
     return (
       <div className="flex flex-col gap-2.5" data-testid={`competitions-error-${live ? 'live' : 'upcoming'}`}>
@@ -166,23 +177,17 @@ function CompetitionRailRead({ lakeId, title, read, live = false }: { lakeId: st
       </div>
     );
   }
-  return read.value.length ? <CompetitionRail lakeId={lakeId} title={title} items={read.value} live={live} /> : null;
+  return read.value.length ? <CompetitionRail title={title} items={read.value} live={live} /> : null;
 }
 
 /**
- * fish HorizontalCompetitionsList: the rail's title is a SeeAllTitle — «Toate live» / «Toate viitoarele»
- * (fish «Vezi tot»; renamed so it never shares a label with the section's «Vezi tot») opens the lake's
- * competitions with that status (fish /competitions/{started|notStarted}/{lakeId}). Left out while
- * that page is not on the web (availability.ts `competitions`).
+ * fish HorizontalCompetitionsList, without its own «Vezi tot»: the section header holds the one link
+ * to the lake's competitions (owner: one «Vezi tot» per section, never one per rail beside it).
  */
-function CompetitionRail({ lakeId, title, items, live = false }: { lakeId: string; title: string; items: CompetitionListItem[]; live?: boolean }) {
-  const all = lakeHref('competitions', routes.lakeCompetitions(lakeId, live ? 'live' : 'viitoare'));
+function CompetitionRail({ title, items, live = false }: { title: string; items: CompetitionListItem[]; live?: boolean }) {
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="flex items-center gap-3">
-        <h3 className={cn(H3_CLASS, 'min-w-0 flex-1')}>{title}</h3>
-        <SectionAction href={all}>{live ? 'Toate live' : 'Toate viitoarele'}</SectionAction>
-      </div>
+      <h3 className={H3_CLASS}>{title}</h3>
       {/* Phone: a sideways rail (fish horizontal list); from 768 an auto-fill grid of cards. */}
       <ul className="-mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 py-1 [scrollbar-width:none] md:mx-0 md:grid md:scroll-px-0 md:grid-cols-[repeat(auto-fill,minmax(--spacing(64),1fr))] md:overflow-visible md:px-0">
         {items.map(c => (

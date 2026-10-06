@@ -61,7 +61,7 @@ for (const width of [1024, 1440]) {
     // Two columns: the summary card right of the content, with the price, the booking, call + directions.
     const [content, card] = [await page.locator('#recenzii').boundingBox(), await summary.boundingBox()];
     expect(card!.x).toBeGreaterThan(content!.x + content!.width);
-    await expect(summary).toContainText(/de la\s*\d+ RON/);
+    await expect(summary).toContainText(/de la\s*\d+\s*RON/);
     // No online booking: the card says so once (the pill), «Sună» is the filled action and the
     // fish demand signal a secondary «Vreau să rezerv online».
     await expect(summary.getByText('Fără rezervări online')).toBeVisible();
@@ -107,22 +107,48 @@ for (const width of [768, 1280, 1440]) {
   test(`owner rule 1 — one photo at ${width}: never the full width, the grid's one height, the right third filled`, async ({ page }) => {
     await open(page, `/balti/${ONE_PHOTO}`, { width, height: 900 });
     const grid = page.locator('[data-t3="photo"] ul');
-    const [box, photo, fill] = [
-      await grid.boundingBox(),
-      await grid.locator('li').first().boundingBox(),
-      await page.locator('[data-t3="photo-fill"]').boundingBox(),
-    ];
-    // The photo takes ~2/3, the fill the rest, both the grid's full height.
+    const fills = page.locator('[data-t3="photo-fill"]');
+    const [box, photo] = [await grid.boundingBox(), await grid.locator('li').first().boundingBox()];
+    const tiles = await Promise.all((await fills.all()).map(f => f.boundingBox()));
+    // The photo takes ~2/3, the catches stacked in the rest (Suharau: two), together the grid's full height.
     expect(photo!.width / box!.width).toBeGreaterThan(0.6);
     expect(photo!.width / box!.width).toBeLessThan(0.7);
-    expect(fill!.x).toBeGreaterThan(photo!.x + photo!.width);
-    expect(Math.round(fill!.height)).toBe(Math.round(box!.height));
+    expect(tiles.length).toBeGreaterThan(0);
+    for (const t of tiles) expect(t!.x).toBeGreaterThan(photo!.x + photo!.width);
+    const top = Math.min(...tiles.map(t => t!.y));
+    const bottom = Math.max(...tiles.map(t => t!.y + t!.height));
+    expect(Math.round(top)).toBe(Math.round(box!.y));
+    expect(Math.round(bottom)).toBe(Math.round(box!.y + box!.height));
     // The same height as the 5-photo grid: 320 (768); from 1024 min(the step, 100dvh − 532) = 368 at 900 tall.
     expect(Math.round(box!.height)).toBe(width >= 1024 ? 368 : 320);
     // The pill says 3 (1 photo + 2 catches): so does the one control, to the gallery.
     await expect(page.getByRole('link', { name: /^Vezi toate fotografiile \(\d+\)$/ })).toHaveAttribute('href', `/balti/${ONE_PHOTO}/galerie`);
   });
 }
+
+const LONE_MAP = process.env.E2E_LAKE_LONE_MAP ?? 'c3xpxz8po84i4wnvzl3hv98o'; // QA Balta Blocaje: 1 photo, no catches, coordinates
+const MANY_CATCHES = process.env.E2E_LAKE_MANY_CATCHES ?? 'fc6zivinbzuf5uwu3k4rqzhf'; // Balta Alesteu: 1 photo + hundreds of catch photos
+
+test('owner rule 1 — a lone photo beside the map: no «Vezi toate fotografiile» (count 1), no «Hartă» pill on the tile, one map on the page', async ({ page }) => {
+  await open(page, `/balti/${LONE_MAP}`, { width: 1440, height: 900 });
+  const tile = page.getByTestId('lake-hero-map');
+  await expect(tile).toBeVisible();
+  await expect(tile).not.toContainText('Hartă');
+  await expect(page.getByRole('link', { name: /^Vezi toate fotografiile/ })).toHaveCount(0);
+  // Locație & contact does not show the same map a second time from 768.
+  await expect(page.getByTestId('lake-mini-map')).toBeHidden();
+});
+
+test('owner rule 1 — catches top a short set up to one large + four small', async ({ page }) => {
+  await open(page, `/balti/${MANY_CATCHES}`, { width: 1440, height: 900 });
+  const grid = page.locator('[data-t3="photo"] ul');
+  await expect(grid.locator('> li')).toHaveCount(5);
+  const [box, lead] = [await grid.boundingBox(), await grid.locator('> li').first().boundingBox()];
+  expect(Math.round(lead!.height)).toBe(Math.round(box!.height));
+  expect(lead!.width / box!.width).toBeGreaterThan(0.45);
+  expect(lead!.width / box!.width).toBeLessThan(0.55);
+  for (const t of await grid.locator('[data-t3="photo-fill"]').all()) expect((await t.boundingBox())!.height).toBeLessThan(box!.height / 2);
+});
 
 test('owner rule 1 — phone: a bottom bar with the price and the main action once the hero has scrolled away', async ({ page }) => {
   await open(page, `/balti/${LAKE}`, PHONE);
@@ -199,7 +225,7 @@ for (const [width, height] of [[1440, 900], [1280, 800]] as const) {
     test(`owner rule 1 — first screen at ${width}×${height} (${kind}): the price line and the main action are in view`, async ({ page }) => {
       await open(page, `/balti/${lake}`, { width, height });
       const summary = page.getByRole('complementary', { name: 'Pe scurt' });
-      const price = summary.getByText(/^\d+ RON$/);
+      const price = summary.getByTestId('summary-price');
       const main =
         kind === 'call'
           ? summary.getByRole('link', { name: 'Sună' })
@@ -208,6 +234,10 @@ for (const [width, height] of [[1440, 900], [1280, 800]] as const) {
         const box = await el.boundingBox();
         expect(box!.y + box!.height).toBeLessThanOrEqual(height);
       }
+      // Rules 7 + 10: the signature number is big (the map card's t-display), the unit smaller beside it.
+      const px = (l: typeof price) => l.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+      expect(await px(price)).toBeGreaterThanOrEqual(30);
+      expect(await px(summary.locator('[data-price-unit]'))).toBeLessThan(await px(price));
     });
   }
 }
@@ -270,9 +300,10 @@ test('rates-model lake (Chita): «de la» from the booking quote (no legacy rows
   expect(total).toBeGreaterThan(0);
   await open(page, `/balti/${CHITA}`, { width: 1440, height: 900 });
   const summary = page.getByRole('complementary', { name: 'Pe scurt' });
-  await expect(summary).toContainText(/de la\s*\d+ RON\s*· tura de \d+ ore/);
+  // Rule 10: the number, then «RON / tura de 12 ore» as its own smaller unit.
+  await expect(summary).toContainText(/de la\s*\d+\s*RON \/ tura de \d+ ore/);
   // The cheapest tour of the week: never above one real quote.
-  const shown = Number((await summary.getByText(/^\d+ RON$/).textContent())!.replace(/\D/g, ''));
+  const shown = Number((await summary.getByTestId('summary-price').textContent())!.replace(/\D/g, ''));
   expect(shown).toBeGreaterThan(0);
   expect(shown).toBeLessThanOrEqual(total);
   await expect(summary).not.toContainText('alege standul și intervalul');
@@ -416,3 +447,34 @@ test('owner rule 8 — a section reached from the chip row by keyboard takes foc
   await chip.focus();
   await expect(chip).not.toHaveCSS('outline-style', 'none');
 });
+
+for (const [width, height] of [[375, 740], [1280, 800], [1440, 900]] as const) {
+  test(`owner rule 20 — ${width}px: the section switcher is one container (segmented track on phone, tab bar ≥768) with a strong selected state`, async ({ page }) => {
+    await open(page, `/balti/${LAKE}`, { width, height });
+    const nav = page.locator('nav[data-t3="chips"]');
+    const chips = nav.locator('a[data-section]');
+    expect(await chips.count()).toBeGreaterThan(1);
+    // Every chip in the same track.
+    expect(await nav.locator('[data-t3-section-track]').count()).toBe(1);
+    expect(await nav.locator('[data-t3-section-track] a[data-section]').count()).toBe(await chips.count());
+    const current = nav.locator('a[aria-current="location"]');
+    await expect(current).toHaveCount(1);
+    if (width < 768) {
+      // The track is one filled surface; the selected chip is filled, the others are not.
+      await expect(nav.locator('[data-t3-section-track]')).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+      await expect(current).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+      await expect(chips.and(page.locator(':not([aria-current])')).first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    } else {
+      // A tab bar: no pills; the selected tab's underline sits on the nav's bottom edge.
+      for (const chip of await chips.all()) if (await chip.isVisible()) await expect(chip).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+      const underline = await current.evaluate(el => {
+        const a = getComputedStyle(el, '::after');
+        return { h: parseFloat(a.height), bg: a.backgroundColor };
+      });
+      expect(underline.h).toBeGreaterThanOrEqual(2);
+      expect(underline.bg).not.toBe('rgba(0, 0, 0, 0)');
+      const [n, c] = [(await nav.boundingBox())!, (await current.boundingBox())!];
+      expect(Math.abs(n.y + n.height - (c.y + c.height))).toBeLessThanOrEqual(2);
+    }
+  });
+}

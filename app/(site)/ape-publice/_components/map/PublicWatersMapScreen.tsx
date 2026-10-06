@@ -80,6 +80,7 @@ import {
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { WaterKindSwitch } from '@/app/(site)/balti/_list/WaterKindSwitch';
+import { plural } from '@/components/cards/format';
 import { browserPublicWaters } from '../client-source';
 import { DirectionsDialog } from '../detail/parts';
 import { LakeIcon, RiverIcon } from '../icons';
@@ -543,10 +544,12 @@ export function PublicWatersMapScreen() {
         title={title}
         loading={firstLoad}
         stale={listLoading && count > 0}
+        // fish's title keeps its words (parity c-title); the count beside it reads as words too,
+        // «150 de ape», never a bare number (as /balti/harta's «130 de bălți…»).
         trailing={
           band === 'clusters' && count > 0 ? (
-            <span className="t-label text-ink-2" aria-hidden>
-              {count}
+            <span className="t-label text-muted" aria-hidden>
+              {plural(count, 'apă', 'ape')}
             </span>
           ) : undefined
         }
@@ -631,6 +634,15 @@ export function PublicWatersMapScreen() {
     <T2Toolbar
       title="Ape publice"
       switcher={<WaterKindSwitch current="ape" />}
+      // The Bălți header's anatomy from 768 (owner rule 6, LakesMap): [switch][search] on one row,
+      // then the FilterBar under it — «Filtre» leading, Lacuri / Râuri / Județe — at every width, so
+      // switching segments moves nothing. «Filtre» opens the one filter panel there is (Județe).
+      stacked
+      onOpenFilters={openCounties}
+      filterCount={counties.length}
+      filtersExpanded={panelOpen}
+      onReset={() => setCounties([])}
+      canReset={counties.length > 0}
       search={
         // In the solid toolbar (from 768) the field sits flat on its hairline, not floating.
         <div className="contents md:[&>button]:shadow-none!">

@@ -13,6 +13,7 @@ import { blurDataUrl } from '@/lib/blurhash';
 import type { LakeImageSrc } from './lakeImage';
 import { SplitIcon } from './icons';
 import { FacilityIcons } from './LakeTile';
+import { PriceFrom } from './PriceFrom';
 
 /** The facilities row of the card: more room than the grid tile's 4. */
 const MAX_ROW_FACILITIES = 6;
@@ -22,8 +23,9 @@ const MAX_ROW_FACILITIES = 6;
  * card per row, horizontal, in four bands:
  * - the title row: the name and «★ 4,83 (2)», over a hairline;
  * - the photo on the left, flush with the card's edges (4:3), with gallery arrows and «1 / N»;
- * - on the right: the signature number «de la 120 RON / tură» (only when the price is known — rule
- *   4: never a made-up or empty price), the place and the distance, an icon row of key facts
+ * - on the right: the signature number «de la 45 RON / Permis 24h» (PriceFrom, the detail page's
+ *   treatment; only when the price is known, and the unit only from the price's own note, else «RON»
+ *   alone — rule 4: never a made-up price or unit), the place and the distance, an icon row of key facts
  *   (suprafață, standuri, adâncime, specii — each only when known), the tags (Rezervare online, the regime, Pescuit noaptea, Cazare);
  * - the actions row: «Sună» when the lake has a phone number (fish LakeContactSection), «Direcții» when the lake has coordinates, «Rezervă» (primary, last) when the
  *   lake books in the app. fish has no chat or WhatsApp for a lake: no «Mesaj».
@@ -41,6 +43,11 @@ export type LakeRowCardProps = {
   photos: LakeImageSrc[];
   priceMin?: number | null;
   priceMax?: number | null;
+  /**
+   * What the lowest price buys («Permis 24h», «tura de 12 ore»): the unit after «RON /». Unknown →
+   * «RON» alone, never a guessed «tură» (rule 4; the lake page says the same, priceFrom.ts).
+   */
+  priceNote?: string | null;
   /** The price is still being read: a neutral bone holds its line (rule 4), so nothing jumps. */
   priceLoading?: boolean;
   /** Hectares. */
@@ -98,6 +105,7 @@ export function LakeRowCard({
   photos,
   priceMin,
   priceMax,
+  priceNote = null,
   priceLoading = false,
   surface,
   stands,
@@ -141,11 +149,11 @@ export function LakeRowCard({
     >
       <div
         className={cn(
-          // The photo grows with the column (a wide list is not a 288px photo beside an empty band).
-          // From a 512px card the info and the actions share the right column; the actions' row
-          // takes the slack and they sit at its foot (imobiliare.ro): their baseline is the photo's
-          // bottom edge, never a blank strip under the buttons when the photo is the taller side.
-          'grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] @lg:grid-cols-[minmax(0,clamp(12rem,40%,24rem))_minmax(0,1fr)] @lg:grid-rows-[auto_auto_1fr]',
+          // From a 512px card the info and the actions share the right column and the PHOTO takes
+          // their height (no 4:3 floor there): it is never taller than the info + actions, so the
+          // buttons sit right under the tags with no blank strip (imobiliare.ro). Its width grows
+          // with the card (about a third) and a min height keeps a short card's photo a photo.
+          'grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] @lg:grid-cols-[minmax(0,clamp(11rem,34%,18rem))_minmax(0,1fr)] @lg:grid-rows-[auto_auto_1fr]',
           "[grid-template-areas:'title_title'_'photo_info'_'actions_actions'] @lg:[grid-template-areas:'title_title'_'photo_info'_'photo_actions']",
         )}
       >
@@ -173,11 +181,7 @@ export function LakeRowCard({
       {/* The right: the price, the place, the facts, the tags. */}
       <div data-row-info="" className="flex min-w-0 flex-col gap-1.5 p-3 [grid-area:info] md:gap-2 md:px-4">
         {from != null ? (
-          <p className="flex flex-wrap items-baseline gap-x-1.5 text-ink">
-            <span className="t-caption text-muted">de la</span>
-            <span className="t-display tabular-nums tracking-tight">{formatInt(from)}</span>
-            <span className="t-body-strong text-ink-2">RON / tură</span>
-          </p>
+          <PriceFrom price={from} note={priceNote} />
         ) : priceLoading ? (
           // The price line's box (t-display), a bone in it: the line the price will take.
           <p aria-hidden className="flex items-center t-display">
@@ -265,16 +269,17 @@ function Gallery({ photos, name, className }: { photos: LakeImageSrc[]; name: st
   const arrow =
     'absolute top-1/2 z-above flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-surface text-ink shadow-e1 transition-opacity duration-(--duration-fast) ease-fast hover:bg-surface focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent md:opacity-0 md:group-hover:opacity-100';
   return (
-    // Flush with the card (its corner rounds it): a 4:3 floor, taller when the right side is.
-    <div className={cn('relative min-h-full self-stretch overflow-hidden bg-soft-fill', className)}>
-      <div className="aspect-4/3" />
+    // Flush with the card (its corner rounds it). A narrow card: a 4:3 floor, taller when the right
+    // side is. From a 512px card: the info + actions' height (a min height of 9rem), never taller.
+    <div className={cn('relative min-h-full self-stretch overflow-hidden bg-soft-fill @lg:min-h-36', className)}>
+      <div className="aspect-4/3 @lg:hidden" />
       {photo ? (
         <Image
           key={photo.src}
           src={photo.src}
           alt=""
           fill
-          sizes="(min-width: 1280px) 384px, (min-width: 768px) 260px, 150px"
+          sizes="(min-width: 1280px) 288px, (min-width: 768px) 260px, 150px"
           className="object-cover"
           {...(photo.blurhash ? { placeholder: 'blur' as const, blurDataURL: blurDataUrl(photo.blurhash) } : {})}
         />

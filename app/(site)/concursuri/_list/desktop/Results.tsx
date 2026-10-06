@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { ArrowRightIcon, ChevronRightIcon, PhotoIcon, TrophyIcon } from '@heroicons/react/20/solid';
 import { formatDecimal, formatInt } from '@/components/cards/format';
-import { UNDER_BAR_TOP } from '@/components/nav/shell';
 import { sectorFill } from '@/components/ranking/sector';
 import { Avatar } from '@/components/ui/Avatar';
 import { buttonClass } from '@/components/ui/Button';
@@ -12,14 +11,16 @@ import { cn } from '@/components/ui/cn';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { cardRankingLabel, formatKg, formatTotalKg, type CompetitionCard } from '@/core/competitions';
 import { routes } from '@/lib/routes';
-import { DateBlock, dayParts, formatLabel, lakeLine } from '../shared';
 import type { ResultDetail } from './data';
-import type { MiniRow } from './model';
+import { pointsText, resultsPodium, unitShort, valueText, type MiniRanking, type MiniRow } from './model';
 import { Roll } from './motion';
-import s from './a2.module.css';
+import { DateBlock, dayParts, formatLabel, lakeLine, MONTHS_FULL, ROW_LIST, unitFor, ValueBone } from './parts';
+import s from './desktop.module.css';
 
 /*
- * A2 · Rezultate — A's rows, but only the winner on the row (owner: «nu afișăm tot podiumul»).
+ * Rezultate on desktop (≥1024) — compact rows with only the winner (owner: «nu afișăm tot podiumul»).
+ * Feeder ranks by points (the fewest win, fish FeederRankingTable): its winner, podium and places
+ * read points («p»), never kg.
  * References: Linear / Vercel lists (whole-row target, metadata right, actions revealed on hover in
  * a reserved slot — no layout shift), Material 3 hover state layer, GitHub Actions' expand-to-
  * detail, Stripe's tabular numerals. Hover: indigo wash, a 2px accent bar grows on the left, the
@@ -29,10 +30,15 @@ import s from './a2.module.css';
  * rows (roving tabindex), Home/End jump. Months are sticky headers pinned under the top bar.
  */
 
-const MONTHS = ['Ianuarie', 'Februarie', 'Martie', 'Aprilie', 'Mai', 'Iunie', 'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie'];
-const COLS = 'grid-cols-[48px_minmax(0,1fr)_minmax(0,300px)_128px_96px_120px_20px] 2xl:grid-cols-[48px_minmax(0,1fr)_minmax(0,340px)_140px_110px_132px_20px]';
+const NONE: ResultDetail = { state: 'none' };
 
-export function Results({ cards, details }: { cards: CompetitionCard[]; details: Record<string, ResultDetail> }) {
+/** Month headers pin under the top bar AND the list's own sticky chrome (tabs), never behind it. */
+const LIST_CHROME_TOP = 'top-[calc(--spacing(16)_+_var(--shell-banner-h,0px)_+_var(--list-chrome-h,0px))]';
+
+const COLS =
+  'grid-cols-[48px_minmax(0,1fr)_minmax(0,240px)_112px_120px_20px] xl:grid-cols-[48px_minmax(0,1fr)_minmax(0,300px)_128px_96px_120px_20px] 2xl:grid-cols-[48px_minmax(0,1fr)_minmax(0,340px)_140px_110px_132px_20px]';
+
+export function Results({ cards, details, onWant }: { cards: CompetitionCard[]; details: Record<string, ResultDetail>; onWant: (id: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(cards[0]?.documentId ?? null);
   const refs = useRef(new Map<string, HTMLButtonElement>());
@@ -41,12 +47,15 @@ export function Results({ cards, details }: { cards: CompetitionCard[]; details:
   for (const c of cards) {
     const d = c.startDate ? dayParts(c.startDate) : null;
     const key = d ? `${d.year}-${d.month}` : 'tbd';
-    const label = d ? `${MONTHS[d.month]} ${d.year}` : 'Fără dată';
+    const label = d ? `${MONTHS_FULL[d.month]} ${d.year}` : 'Fără dată';
     const g = groups.at(-1);
     if (g && g.key === key) g.cards.push(c);
     else groups.push({ key, label, cards: [c] });
   }
   const order = cards.map((c) => c.documentId);
+  // The roving tab stop: the focused row while it is still in the list, else the first row — a
+  // filter, a search or a refetch that drops it never leaves the list without a tab stop.
+  const current = focusId && order.includes(focusId) ? focusId : (order[0] ?? null);
 
   const move = (e: KeyboardEvent<HTMLButtonElement>, id: string) => {
     const i = order.indexOf(id);
@@ -61,22 +70,24 @@ export function Results({ cards, details }: { cards: CompetitionCard[]; details:
   return (
     <div className="flex flex-col gap-6">
       {groups.map((g) => (
-        <section key={g.key} aria-labelledby={`a2-m-${g.key}`} className="flex flex-col">
-          <h2 id={`a2-m-${g.key}`} className={cn('sticky z-sticky -mx-1 flex items-baseline gap-2 bg-page px-1 py-2 t-title2 text-ink', UNDER_BAR_TOP)}>
+        <section key={g.key} aria-labelledby={`rezultate-${g.key}`} className="flex flex-col">
+          <h3 id={`rezultate-${g.key}`} className={cn('sticky z-sticky -mx-1 flex items-baseline gap-2 bg-page px-1 py-2 t-title2 text-ink', LIST_CHROME_TOP)}>
             {g.label}
             <span className="t-body text-muted">
               {g.cards.length} {g.cards.length === 1 ? 'concurs' : 'concursuri'}
             </span>
-          </h2>
-          <ul className="flex flex-col divide-y divide-hairline overflow-hidden rounded-card bg-surface shadow-e0">
+          </h3>
+          <ul className={ROW_LIST}>
             {g.cards.map((c) => (
               <ResultRow
                 key={c.documentId}
                 card={c}
-                detail={details[c.documentId]}
+                detail={details[c.documentId] ?? NONE}
                 open={open === c.documentId}
-                tabbable={focusId === c.documentId}
+                tabbable={current === c.documentId}
+                onWant={() => onWant(c.documentId)}
                 onToggle={() => {
+                  onWant(c.documentId);
                   setFocusId(c.documentId);
                   setOpen((o) => (o === c.documentId ? null : c.documentId));
                 }}
@@ -99,32 +110,37 @@ function ResultRow({
   detail,
   open,
   tabbable,
+  onWant,
   onToggle,
   onKey,
   buttonRef,
 }: {
   card: CompetitionCard;
-  detail?: ResultDetail;
+  detail: ResultDetail;
   open: boolean;
   tabbable: boolean;
+  /** Hover / focus: the ranking is about to be wanted — read it now. */
+  onWant: () => void;
   onToggle: () => void;
   onKey: (e: KeyboardEvent<HTMLButtonElement>) => void;
   buttonRef: (el: HTMLButtonElement | null) => void;
 }) {
   const r = c.results;
-  const ranking = detail?.ranking ?? null;
-  const podium0 = r?.podium[0] ?? null;
-  // The value belongs to the winner the card names (never another row's kg next to their name).
-  const winnerRow = (podium0 ? ranking?.rows.find((x) => x.name === podium0.displayName) : ranking?.rows[0]) ?? null;
-  const winnerName = podium0?.displayName ?? winnerRow?.name ?? null;
-  const winnerAvatar = podium0?.avatarUrls[0] ?? winnerRow?.avatar ?? null;
-  const panelId = `a2-panel-${c.documentId}`;
+  const ranking = detail.state === 'ready' ? detail.ranking : null;
+  const mine = detail.state === 'ready' ? detail.mine : null;
+  // One source for the row AND its panel: the ranking when it crowns the card's winner, else the
+  // card's podium without values — never «X · Câștigător» here and someone else on the podium.
+  const podium = usePodium(c, ranking);
+  const winner = podium.rows[0] ?? null;
+  const winnerName = winner?.name ?? null;
+  const winnerAvatar = winner?.avatar ?? null;
+  const panelId = `rezultate-panel-${c.documentId}`;
   // Keep the panel mounted after the first open, so closing animates too.
   const [mounted, setMounted] = useState(open);
   if (open && !mounted) setMounted(true);
 
   return (
-    <li className={cn('group/row relative', open && 'bg-accent-tint/60')}>
+    <li className={cn('group/row relative', open && 'bg-accent-tint/60')} onPointerEnter={onWant} onFocus={onWant}>
       {/* The left accent bar: grows on hover / focus / open. */}
       <span
         aria-hidden
@@ -137,7 +153,7 @@ function ResultRow({
         <DateBlock card={c} size="sm" />
 
         <div className="flex min-w-0 flex-col gap-0.5">
-          <h3 className="min-w-0">
+          <h4 className="min-w-0">
             <button
               ref={buttonRef}
               type="button"
@@ -150,14 +166,14 @@ function ResultRow({
             >
               {c.name}
             </button>
-          </h3>
+          </h4>
           <p className="flex min-w-0 items-center gap-1.5 t-caption text-muted">
             <span className="truncate">{lakeLine(c)}</span>
             <span aria-hidden>·</span>
             <span className="shrink-0">{formatLabel(c)}</span>
-            {detail?.mine ? (
+            {mine ? (
               <StatusPill tone="info" className="ms-1">
-                Locul tău: {detail.mine.position}
+                Locul tău: {mine.position}
               </StatusPill>
             ) : null}
           </p>
@@ -172,9 +188,11 @@ function ResultRow({
             </span>
             <span className="flex min-w-0 flex-col">
               <span className="truncate t-body-strong text-ink">{winnerName}</span>
-              <span className="t-caption text-muted tabular-nums">
-                {winnerRow?.value != null && winnerRow.catches > 0 ? `${formatKg(winnerRow.value)} kg${ranking?.valueLabel === 'kg total' ? ' total' : ` · ${ranking?.valueLabel}`}` : 'Câștigător'}
-              </span>
+              {detail.state === 'pending' ? (
+                <ValueBone className="mt-1 w-20" />
+              ) : (
+                <span className="t-caption text-muted tabular-nums">{winner && ranking && podium.fromRanking ? winnerValue(winner, ranking) : 'Câștigător'}</span>
+              )}
             </span>
           </span>
         ) : (
@@ -189,9 +207,9 @@ function ResultRow({
           <span className="t-caption text-muted">cea mai mare</span>
         </span>
 
-        <span className="flex flex-col items-end">
+        <span className="hidden flex-col items-end xl:flex">
           <span className="t-num-18 text-ink">{formatInt(c.joinedCount)}</span>
-          <span className="t-caption text-muted">{c.format.unit}</span>
+          <span className="t-caption text-muted">{unitFor(c.joinedCount, c.format.unit)}</span>
         </span>
 
         {/* Reserved slot: the action fades in, nothing shifts. */}
@@ -201,8 +219,10 @@ function ResultRow({
             tabIndex={tabbable || open ? 0 : -1}
             className={cn(
               buttonClass({ variant: 'secondary', size: 'compact' }),
-              'relative z-above opacity-0 transition-opacity duration-(--duration-fast) group-hover/row:opacity-100 group-has-[:focus-visible]/row:opacity-100 focus-visible:opacity-100',
-              open && 'opacity-100',
+              // Hidden = not clickable either: a tap in the reserved slot expands the row, never opens
+              // a control nobody sees. On a screen without hover (iPad landscape) it is always shown.
+              'pointer-events-none relative z-above opacity-0 transition-opacity duration-(--duration-fast) group-hover/row:pointer-events-auto group-hover/row:opacity-100 group-has-[:focus-visible]/row:pointer-events-auto group-has-[:focus-visible]/row:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100',
+              open && 'pointer-events-auto opacity-100',
             )}
           >
             Clasament
@@ -216,24 +236,44 @@ function ResultRow({
       </div>
 
       <div id={panelId} role="region" aria-label={`Rezultate ${c.name}`} className={s.collapse} data-open={open} inert={!open}>
-        <div>{mounted ? <Panel card={c} detail={detail} /> : null}</div>
+        <div>{mounted ? <Panel card={c} detail={detail} podium={podium} /> : null}</div>
       </div>
     </li>
   );
 }
 
+type Podium = ReturnType<typeof resultsPodium>;
+
+/** The row's podium source; a ranking that crowns someone else than the card is logged once. */
+function usePodium(c: CompetitionCard, ranking: MiniRanking | null): Podium {
+  const podium = resultsPodium(c.results?.podium ?? [], ranking);
+  const logged = useRef(false);
+  useEffect(() => {
+    if (podium.agrees || logged.current) return;
+    logged.current = true;
+    console.warn(`[rezultate] ${c.documentId}: the ranking's first («${ranking?.rows[0]?.name}») is not the card's winner («${c.results?.podium[0]?.displayName}»); showing the card's podium.`);
+  }, [podium.agrees, c, ranking]);
+  return podium;
+}
+
+/** The winner's figure: «12,345 kg total», «8,1 kg · medie», feeder «3 puncte». */
+function winnerValue(row: MiniRow, r: MiniRanking): string {
+  if (row.value == null || row.catches === 0) return 'Câștigător';
+  if (r.unit === 'puncte') return pointsText(row.value);
+  return `${valueText(row.value, 'kg')} kg${r.valueLabel === 'kg total' ? ' total' : ` · ${r.valueLabel}`}`;
+}
+
 /* ---------------------------------------------------------------- expanded panel */
 
-function Panel({ card: c, detail }: { card: CompetitionCard; detail?: ResultDetail }) {
+function Panel({ card: c, detail, podium: source }: { card: CompetitionCard; detail: ResultDetail; podium: Podium }) {
   const r = c.results;
-  const ranking = detail?.ranking ?? null;
-  const rows = ranking?.rows ?? [];
-  const avatarOf = (name: string) => r?.podium.find((p) => p.displayName === name)?.avatarUrls[0] ?? null;
-  const podium: MiniRow[] = rows.length
-    ? rows.slice(0, 3)
-    : (r?.podium.slice(0, 3).map((p) => ({ key: p.displayName, position: p.position, name: p.displayName, avatar: p.avatarUrls[0] ?? null, sector: null, stand: p.standName, value: null, catches: 1, biggest: 0, delta: null, fresh: false })) ?? []);
+  const ranking = detail.state === 'ready' ? detail.ranking : null;
+  // Places 4–8 only from a ranking that agrees with the card's podium.
+  const rows = source.fromRanking ? (ranking?.rows ?? []) : [];
+  const podium = source.rows;
   const rest = rows.slice(3, 8);
-  const mine = detail?.mine ?? null;
+  const mine = detail.state === 'ready' ? detail.mine : null;
+  const unit = ranking?.unit ?? 'kg';
 
   if (!r?.hasCatches) {
     return (
@@ -259,7 +299,7 @@ function Panel({ card: c, detail }: { card: CompetitionCard; detail?: ResultDeta
             const medal = idx === 0 ? 'bg-medal-gold' : idx === 1 ? 'bg-medal-silver' : 'bg-medal-bronze';
             return (
               <li key={p.key} className="flex h-full min-w-0 flex-col items-center justify-end gap-2">
-                <Avatar name={p.name} src={p.avatar ?? avatarOf(p.name)} size={40} />
+                <Avatar name={p.name} src={p.avatar} size={40} />
                 <span className="line-clamp-2 min-h-[2lh] w-full text-center t-label text-ink" title={p.name}>
                   {p.name}
                 </span>
@@ -268,8 +308,10 @@ function Panel({ card: c, detail }: { card: CompetitionCard; detail?: ResultDeta
                   style={{ height: `${h * 0.5}%`, '--i': 2 - idx } as CSSProperties}
                 >
                   <span className={cn('inline-flex size-6 items-center justify-center rounded-full t-micro-strong text-on-medal', medal)}>{idx + 1}</span>
-                  {p.value != null ? (
-                    <span className={cn('t-label tabular-nums', idx === 0 ? 'text-lavender' : 'text-accent-ink')}>{formatKg(p.value)} kg</span>
+                  {p.value != null && p.catches > 0 ? (
+                    <span className={cn('t-label tabular-nums', idx === 0 ? 'text-lavender' : 'text-accent-ink')}>
+                      {valueText(p.value, unit)} {unitShort(unit)}
+                    </span>
                   ) : null}
                 </span>
               </li>
@@ -284,7 +326,7 @@ function Panel({ card: c, detail }: { card: CompetitionCard; detail?: ResultDeta
         <dl className="grid grid-cols-2 gap-2">
           <Stat label="capturi" value={r.catchCount} format={formatInt} />
           <Stat label="kg total" value={r.totalKg} format={(n) => formatTotalKg(n)} unit="kg" />
-          <Stat label={c.format.unit} value={c.joinedCount} format={formatInt} />
+          <Stat label={unitFor(c.joinedCount, c.format.unit)} value={c.joinedCount} format={formatInt} />
           <Stat
             label={ranking?.biggestCatch ? `cea mai mare · ${ranking.biggestCatch.name}` : 'cea mai mare'}
             value={r.biggestFishKg}
@@ -298,7 +340,13 @@ function Panel({ card: c, detail }: { card: CompetitionCard; detail?: ResultDeta
       {/* Places 4–8 + the viewer + links. */}
       <div className="flex flex-col gap-3">
         <p className="t-eyebrow text-muted uppercase">{rest.length ? `Locurile 4–${3 + rest.length}` : 'Clasament'}</p>
-        {rest.length ? (
+        {detail.state === 'pending' ? (
+          <div aria-hidden className="flex flex-col gap-2 rounded-card bg-surface p-3 shadow-e0">
+            {[0, 1, 2, 3].map((i) => (
+              <ValueBone key={i} className="h-4" />
+            ))}
+          </div>
+        ) : rest.length ? (
           <ol className="flex flex-col divide-y divide-hairline rounded-card bg-surface shadow-e0">
             {rest.map((row, i) => (
               <li
@@ -316,17 +364,17 @@ function Panel({ card: c, detail }: { card: CompetitionCard; detail?: ResultDeta
                   {row.name}
                   {mine?.position === row.position ? <span className="ms-1.5 t-micro-strong text-accent-ink">· tu</span> : null}
                 </span>
-                <span className="t-label text-ink tabular-nums">{row.value != null && row.catches > 0 ? `${formatKg(row.value)} kg` : '–'}</span>
+                <span className="t-label text-ink tabular-nums">{row.value != null && row.catches > 0 ? `${valueText(row.value, unit)} ${unitShort(unit)}` : '–'}</span>
               </li>
             ))}
           </ol>
         ) : (
-          <p className="t-caption text-muted">Clasamentul complet are toate locurile.</p>
+          <p className="t-caption text-muted">Toate locurile sunt în clasamentul complet.</p>
         )}
         {mine && mine.position > 3 + rest.length ? (
           <p className="flex items-center justify-between rounded-control bg-accent-tint px-3 py-2 t-label text-accent-ink">
             <span>Tu · locul {mine.position}</span>
-            <span className="tabular-nums">{mine.value != null ? `${formatKg(mine.value)} kg` : ''}</span>
+            <span className="tabular-nums">{mine.value != null ? `${valueText(mine.value, unit)} ${unitShort(unit)}` : ''}</span>
           </p>
         ) : null}
       </div>

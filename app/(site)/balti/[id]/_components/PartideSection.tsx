@@ -81,14 +81,11 @@ export function PartideSection({ lakeId }: { lakeId: string }) {
         <Suspense fallback={<LiveCard data={data} viewerUid={null} />}>
           <LiveCardForViewer data={data} />
         </Suspense>
-        {/* Outline, like «Vezi recenzia»: «Rezervă acum» stays the page's one filled action. Phone
-            only (fish's full-width button under the card): from 768 the header's «Vezi tot» is the one link. */}
-        {all ? (
-          <Link href={all} className={buttonClass({ variant: 'outline', block: true, className: 'md:hidden' })}>
-            Vezi toate partidele
-            <ChevronRightIcon aria-hidden className="size-5" />
-          </Link>
-        ) : catchesHref ? (
+        {/* The header's «Vezi tot» is the one way to the Partide page (owner: one entry point per
+            page — no outline button repeating it, no quick-action tile: QuickActions hides its
+            Partide tile while this section is on the page). Until that page is on the web, the
+            catches are reached from here. */}
+        {!all && catchesHref ? (
           <Link href={catchesHref} className={buttonClass({ variant: 'outline', block: true, className: 'md:w-auto md:self-start' })}>
             Vezi capturile
             <ChevronRightIcon aria-hidden className="size-5" />

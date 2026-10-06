@@ -207,11 +207,9 @@ export type DetailSectionNavProps = {
 };
 
 /**
- * Sticky chip row (fish VenueSectionChips: 36px pills, 8px apart; selected = accent filled), on the
- * shell gutters (16 / 24). The chip is the flat filter chip (t-label, 36px, shadow e0 — Fundații §04
- * keeps e1 for cards with photos), with the T1 ActiveFilters fill when selected (accent-ink: white 12px labels fail AA on the
- * lighter accent), so the site has one chip look. TODO(kit): extract it to components/ui
- * and use it from T1 ActiveFilters, T2 and here. On the phone the nav carries the mini title row above the chips: it overlaps the
+ * Sticky section switcher (fish VenueSectionChips; selected = accent filled), on the shell gutters
+ * (16 / 24 / 32), as ONE container (owner rule 20): a segmented track on the phone, a tab bar with an
+ * accent underline from 768. On the phone the nav carries the mini title row above the chips: it overlaps the
  * header's last 46px while the header is visible (invisible, click-through) and turns opaque once
  * the nav pins, so the page never jumps when it appears.
  */
@@ -226,7 +224,7 @@ export function DetailSectionNav({
 }: DetailSectionNavProps) {
   const { sections, active, go } = useSections();
   const navRef = useRef<HTMLElement>(null);
-  const rowRef = useRef<HTMLUListElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
   // Pinned: it also flags the sticky stack, so the top bar above drops its shadow (shell BAR_SHADOW).
   // It follows the phone bar by CSS (STICKY_TOP: the bar's own `top` transition, owner rule 3).
   const pinned = usePinnedFollowingBar(navRef);
@@ -271,32 +269,46 @@ export function DetailSectionNav({
     >
       {/* Phone mini row (fish PINNED_MINI_HEIGHT 46): the shared T3 pinned anatomy. */}
       <DetailPinnedTitle pinned={pinned} start={pinnedStart} title={pinnedTitle} meta={pinnedMeta} end={pinnedEnd} />
-      {/* The chip row: white on the phone even before pinning (it sits on the white header band). */}
-      <ul ref={rowRef} className="pointer-events-auto flex h-14.5 items-center gap-2 overflow-x-auto bg-surface px-4 [scrollbar-width:none] md:bg-transparent md:px-6 xl:px-8">
-        {sections.map(s => {
-          const selected = s.id === active;
-          return (
-            // A section with no box at this width keeps no chip pointing at it.
-            <li key={s.id} className={cn('shrink-0', s.hideFromXl && 'xl:hidden', s.hideFromLg && 'min-[1024px]:hidden')}>
-              <a
-                href={`#${s.id}`}
-                data-section={s.id}
-                aria-current={selected ? 'location' : undefined}
-                onClick={e => onChipClick(e, s.id, go)}
-                className={cn(
-                  'flex h-9 items-center rounded-full px-3.5 t-label whitespace-nowrap',
-                  'transition-[background-color,color,opacity] duration-(--duration-fast) ease-fast active:opacity-80',
-                  // Selected on accent-ink, not accent: 12px labels need 4.5:1 (white on accent is 4.47).
-                  // Flat like every sibling chip row (T1 ActiveFilters, T2): e0 hairline unselected, the fill alone when selected.
-                  selected ? 'bg-accent-ink text-on-accent' : 'bg-surface text-ink shadow-e0 hover:bg-soft-fill',
-                )}
-              >
-                {s.label}
-              </a>
-            </li>
-          );
-        })}
-      </ul>
+      {/*
+        Owner rule 20 (ROADMAP §4b): one container, a strong selected state, hover and focus — never
+        loose pills. Phone: a segmented track (soft-fill, the selected chip filled accent-ink, fish's
+        selected look); ≥768: a tab bar on the nav's full-bleed hairline, the selected tab's accent
+        underline sitting on it. The scroller keeps fish's chip behaviour (scroll-into-view, spy).
+      */}
+      <div
+        ref={rowRef}
+        className="pointer-events-auto flex h-14.5 items-center overflow-x-auto bg-surface px-4 [scrollbar-width:none] md:items-stretch md:bg-transparent md:px-6 xl:px-8 [&::-webkit-scrollbar]:hidden"
+      >
+        <ul data-t3-section-track="" className="flex w-max shrink-0 gap-1 rounded-full bg-soft-fill p-1 md:gap-6 md:rounded-none md:bg-transparent md:p-0">
+          {sections.map(s => {
+            const selected = s.id === active;
+            return (
+              // A section with no box at this width keeps no chip pointing at it.
+              <li key={s.id} className={cn('flex shrink-0', s.hideFromXl && 'xl:hidden', s.hideFromLg && 'min-[1024px]:hidden')}>
+                <a
+                  href={`#${s.id}`}
+                  data-section={s.id}
+                  aria-current={selected ? 'location' : undefined}
+                  onClick={e => onChipClick(e, s.id, go)}
+                  className={cn(
+                    'relative flex h-8 items-center rounded-full px-3.5 t-label whitespace-nowrap outline-none',
+                    'transition-[background-color,color,box-shadow,opacity] duration-(--duration-fast) ease-fast active:opacity-80',
+                    'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent',
+                    // ≥768 a tab: full height, the underline on the hairline, no pill.
+                    "md:h-auto md:rounded-control md:px-0 md:t-body-strong md:after:absolute md:after:inset-x-0 md:after:bottom-0 md:after:h-0.5 md:after:rounded-full md:after:content-['']",
+                    // Selected on accent-ink, not accent: 12px labels need 4.5:1 (white on accent is 4.47).
+                    selected
+                      ? 'bg-accent-ink text-on-accent shadow-e1 md:bg-transparent md:text-accent-ink md:shadow-none md:after:bg-accent'
+                      : 'text-ink hover:bg-surface md:text-muted md:hover:bg-transparent md:hover:text-ink md:hover:after:bg-hairline',
+                  )}
+                >
+                  {s.label}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </nav>
   );
 }

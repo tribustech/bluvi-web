@@ -1068,7 +1068,8 @@ test('lakes batch 3 — canonical, title and breadcrumb JSON-LD on every subpage
 test('lakes.b.inbound-links — the lake page opens Partide, Statistici, Hartă and Recenzii', async ({ page }) => {
   await go(page, `/balti/${ID.chita}`, PHONE);
   const tiles = page.getByRole('list', { name: 'Acțiuni rapide' });
-  await expect(tiles.getByRole('link', { name: 'Partide' })).toHaveAttribute('href', `/balti/${ID.chita}/partide`);
+  // Partide: the section's «Vezi tot» while the section is on the page (one entry point), else the tile.
+  await expect(page.locator(`a[href="/balti/${ID.chita}/partide"]`).locator('visible=true')).toHaveCount(1, { timeout: 15_000 });
   await expect(tiles.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `/balti/${ID.chita}/statistici`);
   await expect(tiles.getByRole('link', { name: 'Hartă' })).toHaveAttribute('href', `/balti/${ID.chita}/harta`);
   await expect(page.locator('#recenzii').getByRole('link', { name: /Vezi recenzia|Vezi toate/ })).toHaveAttribute('href', `/balti/${ID.chita}/recenzii`);

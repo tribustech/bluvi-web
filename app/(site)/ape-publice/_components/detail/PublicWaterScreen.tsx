@@ -174,14 +174,20 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
     // From 1024 the summary card has both (its map and Direcții): one map entry per area.
     { key: 'directii', label: 'Direcții', icon: <PaperAirplaneIcon aria-hidden />, onClick: () => setDirections(true), belowSummary: true },
     { key: 'harta', label: 'Hartă', icon: <MapIcon aria-hidden />, href: routes.publicWaterMap(key), belowSummary: true },
+    // Partide: while its section is on the page, the section's «Vezi tot» is the one way in (owner:
+    // one entry point per page — no tile, no summary-card button repeating it).
+    ...(partideVisible
+      ? []
+      : [
     {
       key: 'partide',
       label: 'Partide',
       icon: <UsersIcon aria-hidden />,
       href: PUBLIC_WATER_ON_WEB.partide ? routes.publicWaterPartide(key) : undefined,
       badge: community.data?.stats.activeNow || undefined,
-      badgeLabel: (n) => `${plural(n, 'partidă activă', 'partide active')} acum`,
+      badgeLabel: (n: number) => `${plural(n, 'partidă activă', 'partide active')} acum`,
     },
+        ]),
     { key: 'statistici', label: 'Statistici', icon: <ChartBarIcon aria-hidden />, href: PUBLIC_WATER_ON_WEB.statistici ? routes.publicWaterStats(key) : undefined },
     ...(catchesTotal > 0
       ? [{ key: 'capturi', label: 'Capturi', icon: <PhotoIcon aria-hidden />, onClick: scrollToCapturi, badge: catchesTotal, badgeLabel: (n: number) => plural(n, 'captură cu poză', 'capturi cu poză') }]

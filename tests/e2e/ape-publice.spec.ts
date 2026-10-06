@@ -147,18 +147,21 @@ test.describe('public-waters.detaliu', () => {
     const [heroBox, backBox] = [(await hero.boundingBox())!, (await back.boundingBox())!];
     expect(backBox.y).toBeLessThan(heroBox.y + 40);
     expect(backBox.x).toBeLessThan(heroBox.x + 40);
-    // c13 / c14: the tiles in fish's order: Direcții, Hartă, Partide, Statistici, then Capturi.
+    // c13 / c14: the tiles in fish's order: Direcții, Hartă, (Partide,) Statistici, then Capturi.
+    // Owner (one entry point per page): with the Partide section on the page its «Vezi tot» is the
+    // way in — no Partide tile beside it.
     const tiles = page.locator('[data-action]');
-    await expect(tiles).toHaveCount(5);
+    await expect(page.locator('#partide')).toBeVisible();
+    await expect(tiles).toHaveCount(4);
     await expect(tiles.nth(0)).toHaveAccessibleName('Direcții');
     await expect(tiles.nth(1)).toHaveAccessibleName('Hartă');
-    await expect(tiles.nth(2)).toHaveAccessibleName(/^Partide/);
-    await expect(tiles.nth(3)).toHaveAccessibleName('Statistici');
-    await expect(tiles.nth(4)).toHaveAccessibleName(/^Capturi\s*, 3 capturi cu poză$/);
+    await expect(tiles.nth(2)).toHaveAccessibleName('Statistici');
+    await expect(tiles.nth(3)).toHaveAccessibleName(/^Capturi\s*, 3 capturi cu poză$/);
     await expect(page.getByTestId('quick-actions-later')).toHaveCount(0);
     const code = encodeURIComponent(WATER.tineretului.code);
     await expect(page.locator('[data-action="harta"]')).toHaveAttribute('href', `/ape-publice/${code}/harta`);
-    await expect(page.locator('[data-action="partide"]')).toHaveAttribute('href', `/ape-publice/${code}/partide`);
+    await expect(page.locator('[data-action="partide"]')).toHaveCount(0);
+    await expect(page.locator('#partide').getByRole('link', { name: 'Vezi tot' })).toHaveAttribute('href', `/ape-publice/${code}/partide`);
     await expect(page.locator('[data-action="statistici"]')).toHaveAttribute('href', `/ape-publice/${code}/statistici`);
     // Every quick-action link leads somewhere real.
     for (const href of await tiles.evaluateAll((els) => els.map((e) => e.getAttribute('href')).filter(Boolean))) {
@@ -188,11 +191,13 @@ test.describe('public-waters.detaliu', () => {
     const toc = page.getByRole('navigation', { name: 'Secțiuni' });
     // From 1024 Prezentare (tiles + facts, both in the summary card there) leaves the page and the index.
     await expect(toc.getByRole('link')).toHaveText(['Partide', 'Capturi', 'Locație']);
-    // c18: «Vezi tot» and «Vezi toate partidele» lead to the water's partide page.
+    // c18: «Vezi tot» leads to the water's partide page — the page's one way there (owner: no
+    // «Vezi toate partidele» button under it, no Partide button in the summary card).
     const partide = page.locator('#partide');
     const code = encodeURIComponent(WATER.tineretului.code);
     await expect(partide.getByRole('link', { name: 'Vezi tot' })).toHaveAttribute('href', `/ape-publice/${code}/partide`);
-    await expect(partide.getByRole('link', { name: /Vezi toate partidele/ })).toHaveAttribute('href', `/ape-publice/${code}/partide`);
+    await expect(partide.getByRole('link', { name: /Vezi toate partidele/ })).toHaveCount(0);
+    await expect(page.locator(`a[href="/ape-publice/${code}/partide"]`)).toHaveCount(1);
     await expect(page.getByText('ultimele 7 luni')).toBeVisible();
     await expect(page.getByRole('list', { name: 'Specii prinse' }).getByText('Crap')).toBeVisible();
     await expect(page.getByText('Nicio captură cu poză pe această apă încă.')).toBeVisible();

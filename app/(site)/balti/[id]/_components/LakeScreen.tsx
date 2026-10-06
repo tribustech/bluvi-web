@@ -6,6 +6,7 @@ import { MapPinIcon } from '@heroicons/react/20/solid';
 import { ChartBarIcon, HomeModernIcon, PaperAirplaneIcon, PhoneIcon, PhotoIcon, Squares2X2Icon, UsersIcon } from '@heroicons/react/24/outline';
 import { ErrorState } from '@/components/surfaces/StateCard';
 import {
+  DetailPhotoFillTile,
   DetailPhotoHero,
   DetailBackButton,
   DetailBand,
@@ -49,7 +50,8 @@ import { lakeHref } from './availability';
 import { BookingCta, DialogTrigger, LakeActionsProvider, PhoneLink, ShareTrigger, type LakeInfo } from './LakeActions';
 import { dynamicOnFailure, LATEST_REVIEWS, type LakeCatchPhotos, type LakeCompetitions, type LakeSections, type Settled } from './load';
 import { lakeLocationLine } from './location';
-import type { PriceFrom } from './priceFrom';
+import type { PriceFrom as PriceFromValue } from './priceFrom';
+import { PriceFrom } from '../../_list/PriceFrom';
 import { MiniMap } from './MiniMap';
 import { DescriptionPreview } from './DescriptionPreview';
 import { PartideSection } from './PartideSection';
@@ -138,7 +140,7 @@ const REVIEWS_GRID = 'grid gap-3 md:grid-cols-[repeat(auto-fill,minmax(--spacing
 const FOCUS_CLEARANCE =
   '[&_:is(a,button,input,textarea,select,[tabindex])]:scroll-mt-43 md:[&_:is(a,button,input,textarea,select,[tabindex])]:scroll-mt-34';
 
-export function LakeScreen({ lake, sections, priceFrom }: { lake: LakeDetail; sections: LakeSections; priceFrom: Promise<PriceFrom | null> }) {
+export function LakeScreen({ lake, sections, priceFrom }: { lake: LakeDetail; sections: LakeSections; priceFrom: Promise<PriceFromValue | null> }) {
   const id = lake.documentId;
   const initial = sectionsFor(lake, false, null);
   const refined = Promise.all([sections.community, sections.competitions]).then(([community, competitions]) =>
@@ -223,8 +225,14 @@ export function LakeScreen({ lake, sections, priceFrom }: { lake: LakeDetail; se
               // «Vezi toate fotografiile (N)» is the gallery link in PhotoPill (photos + catches).
               showAll={false}
               fill={
-                photos.length === 1 ? (
-                  <Suspense fallback={<span aria-hidden className={cn(BONE, 'rounded-none')} />}>
+                photos.length > 0 && photos.length < HERO_TILES ? (
+                  <Suspense
+                    fallback={
+                      <li aria-hidden className="max-md:hidden">
+                        <span className={cn(BONE, 'h-full')} />
+                      </li>
+                    }
+                  >
                     <HeroFill lake={lake} catches={sections.catches} coords={coords} />
                   </Suspense>
                 ) : undefined
@@ -238,7 +246,7 @@ export function LakeScreen({ lake, sections, priceFrom }: { lake: LakeDetail; se
               }
               bottomEnd={
                 <Suspense fallback={null}>
-                  <PhotoPill lake={lake} catches={sections.catches} onPhoto={hasPhoto} />
+                  <PhotoPill lake={lake} catches={sections.catches} onPhoto={hasPhoto} hasCoordinates={!!coords} />
                 </Suspense>
               }
             />
@@ -332,7 +340,11 @@ export function LakeScreen({ lake, sections, priceFrom }: { lake: LakeDetail; se
             {contact ? (
               <DetailSection id="contact" title="Locație & contact">
                 <div className="flex flex-col gap-3.5">
-                  {coords ? <MiniMap lat={coords.lat} lng={coords.lng} href={lakeHref('map', routes.lakeMap(id))} name={lake.name} /> : null}
+                  {coords ? (
+                    <Suspense fallback={<MiniMap lat={coords.lat} lng={coords.lng} href={lakeHref('map', routes.lakeMap(id))} name={lake.name} />}>
+                      <ContactMap lake={lake} catches={sections.catches} coords={coords} />
+                    </Suspense>
+                  ) : null}
                   {/* fish shows Direcții whenever there are coordinates (c31): here at every width —
                       from 1280 the quick-action tiles are hidden and this is the way to it. */}
                   {coords ? (
@@ -369,9 +381,21 @@ export function LakeScreen({ lake, sections, priceFrom }: { lake: LakeDetail; se
  * one control on the grid is «Vezi toate fotografiile (N)» — the same gallery, the same count
  * (owner rule 1; never a pill beside a button that lead to different places).
  */
-async function PhotoPill({ lake, catches: read, onPhoto }: { lake: LakeDetail; catches: Promise<Settled<LakeCatchPhotos>>; onPhoto: boolean }) {
+async function PhotoPill({
+  lake,
+  catches: read,
+  onPhoto,
+  hasCoordinates,
+}: {
+  lake: LakeDetail;
+  catches: Promise<Settled<LakeCatchPhotos>>;
+  onPhoto: boolean;
+  hasCoordinates: boolean;
+}) {
   const catches = await dynamicOnFailure(read);
   const count = lake.images.length + (catches.ok ? catches.value.total : 0);
+  // The grid's bottom-right tile is the map's: the link moves to the large photo's bottom-left.
+  const mapTile = heroFillPlan(lake.images.length, catches, hasCoordinates).map;
   if (count <= 0) return null;
   const pill = onPhoto ? PHOTO_PILL : SURFACE_PILL;
   const href = lakeHref('gallery', routes.lakeGallery(lake.documentId));
@@ -382,8 +406,9 @@ async function PhotoPill({ lake, catches: read, onPhoto }: { lake: LakeDetail; c
         <PhotoIcon aria-hidden />
         {count}
       </Link>
-      {onPhoto ? (
-        <Link href={href} className={SHOW_ALL_CLASS}>
+      {/* One photo: the link would only reopen the photo on screen. */}
+      {onPhoto && count > 1 ? (
+        <Link href={href} className={cn(SHOW_ALL_CLASS, mapTile && 'md:absolute md:bottom-0 md:left-0')}>
           <Squares2X2Icon aria-hidden />
           Vezi toate fotografiile ({count})
         </Link>
@@ -398,11 +423,21 @@ async function PhotoPill({ lake, catches: read, onPhoto }: { lake: LakeDetail; c
   );
 }
 
+/** The grid's tiles from 768: one large + four small (owner rule 1). */
+const HERO_TILES = 5;
+
 /**
- * From 768, beside a lake's only photo (owner rule 1: one photo never spans the width): the first
- * photographed community catches stacked (each opens the gallery), else the lake's map, else a
- * quiet tile. Read with the photo count (one request).
+ * What tops the photo grid up from 768 (owner rule 1: one large + four small): the first
+ * photographed community catches up to five tiles in all; only when the lake's lone photo would
+ * still be alone, its map (else a quiet tile) — one photo never spans the width.
  */
+function heroFillPlan(lakePhotos: number, catches: Settled<LakeCatchPhotos>, hasCoordinates: boolean) {
+  const photos = lakePhotos > 0 && catches.ok ? catches.value.photos.slice(0, Math.max(0, HERO_TILES - lakePhotos)) : [];
+  const alone = lakePhotos === 1 && photos.length === 0;
+  return { photos, map: alone && hasCoordinates, quiet: alone && !hasCoordinates };
+}
+
+/** The grid's extra tiles (DetailPhotoHero `fill`): each catch opens the gallery; the map, the map page. */
 async function HeroFill({
   lake,
   catches: read,
@@ -412,12 +447,19 @@ async function HeroFill({
   catches: Promise<Settled<LakeCatchPhotos>>;
   coords: { lat: number; lng: number } | null;
 }) {
-  const catches = await dynamicOnFailure(read);
-  const photos = catches.ok ? catches.value.photos.slice(0, 2) : [];
+  const plan = heroFillPlan(lake.images.length, await dynamicOnFailure(read), !!coords);
   const gallery = lakeHref('gallery', routes.lakeGallery(lake.documentId));
-  if (photos.length) {
-    return photos.map((p, i) => (
-      <span key={`${p.src}-${i}`} className="group/fill relative block overflow-hidden bg-soft-fill">
+  if (plan.map && coords) {
+    return (
+      <DetailPhotoFillTile>
+        <MiniMap tile lat={coords.lat} lng={coords.lng} href={lakeHref('map', routes.lakeMap(lake.documentId))} name={lake.name} />
+      </DetailPhotoFillTile>
+    );
+  }
+  if (plan.quiet) return <DetailPhotoFillTile quiet />;
+  return plan.photos.map((p, i) => (
+    <DetailPhotoFillTile key={`${p.src}-${i}`}>
+      <span className="group/fill absolute inset-0 block">
         <Image src={p.src} alt="" fill sizes="(min-width: 768px) 33vw, 1px" className="object-cover transition-[filter] duration-(--duration-fast) ease-fast group-hover/fill:brightness-90" />
         {gallery ? (
           <Link
@@ -427,19 +469,25 @@ async function HeroFill({
           />
         ) : null}
       </span>
-    ));
-  }
-  if (coords) {
-    return (
-      <span className="block">
-        <MiniMap tile lat={coords.lat} lng={coords.lng} href={lakeHref('map', routes.lakeMap(lake.documentId))} name={lake.name} />
-      </span>
-    );
-  }
+    </DetailPhotoFillTile>
+  ));
+}
+
+/** Locație & contact's map — from 768 not a second time when the photo grid already shows it. */
+async function ContactMap({
+  lake,
+  catches: read,
+  coords,
+}: {
+  lake: LakeDetail;
+  catches: Promise<Settled<LakeCatchPhotos>>;
+  coords: { lat: number; lng: number };
+}) {
+  const inHero = heroFillPlan(lake.images.length, await dynamicOnFailure(read), true).map;
   return (
-    <span aria-hidden className="flex items-center justify-center bg-soft-fill text-muted [&>svg]:size-6">
-      <PhotoIcon />
-    </span>
+    <div className={inHero ? 'md:hidden' : undefined}>
+      <MiniMap lat={coords.lat} lng={coords.lng} href={lakeHref('map', routes.lakeMap(lake.documentId))} name={lake.name} />
+    </div>
   );
 }
 
@@ -461,13 +509,14 @@ async function Competitions({ lakeId, competitions: read }: { lakeId: string; co
   // A failed list renders per request, never into the static page (see load.ts).
   if (!live.ok || !upcoming.ok) await connection();
   if (live.ok && upcoming.ok && live.value.length + upcoming.value.length === 0) return null;
-  // One «Vezi tot» per destination (WCAG 2.4.4): the rails link their own tab («Toate live» /
-  // «Toate viitoarele»); the section-level «Vezi tot» only when both rails show (or one failed).
-  const both = !(live.ok && upcoming.ok) || (live.value.length > 0 && upcoming.value.length > 0);
-  const all = both ? lakeHref('competitions', routes.lakeCompetitions(lakeId)) : undefined;
+  // One «Vezi tot» for the section (owner: never one per rail beside it): the lake's competitions,
+  // on the tab of the one rail shown, or the whole page when both show (or one failed).
+  const onlyLive = live.ok && upcoming.ok && upcoming.value.length === 0;
+  const onlyUpcoming = live.ok && upcoming.ok && live.value.length === 0;
+  const all = lakeHref('competitions', routes.lakeCompetitions(lakeId, onlyLive ? 'live' : onlyUpcoming ? 'viitoare' : undefined));
   return (
     <DetailSection id="concursuri" title="Concursuri" action={all ? <SectionAction href={all}>Vezi tot</SectionAction> : undefined}>
-      <CompetitionsBlock lakeId={lakeId} live={live} upcoming={upcoming} />
+      <CompetitionsBlock live={live} upcoming={upcoming} />
       {live.ok && upcoming.ok ? <FocusAfterRetry retry="concursuri" target="concursuri-titlu" /> : null}
     </DetailSection>
   );
@@ -492,7 +541,7 @@ async function LatestReviews({ reviews: read }: { reviews: LakeSections['reviews
  * ---------------------------------------------------------------------------------------------- */
 
 /** «de la» still being read (the booking quote, priceFrom.ts): a quiet bone, never a guess (rule 4). */
-type From = PriceFrom | null | 'loading';
+type From = PriceFromValue | null | 'loading';
 
 async function PricedSummaryCard({
   priceFrom,
@@ -501,14 +550,14 @@ async function PricedSummaryCard({
 }: {
   lake: LakeDetail;
   hasCoordinates: boolean;
-  priceFrom: Promise<PriceFrom | null>;
+  priceFrom: Promise<PriceFromValue | null>;
   community: Promise<Settled<CommunityLakeSectionDTO>>;
 }) {
   const [from, partide] = await Promise.all([priceFrom, community]);
   return <SummaryCard {...props} from={from} partideSection={partideVisible(partide)} />;
 }
 
-async function PricedPhoneActionBar({ lake, priceFrom }: { lake: LakeDetail; priceFrom: Promise<PriceFrom | null> }) {
+async function PricedPhoneActionBar({ lake, priceFrom }: { lake: LakeDetail; priceFrom: Promise<PriceFromValue | null> }) {
   return <PhoneActionBar lake={lake} from={await priceFrom} />;
 }
 
@@ -553,8 +602,8 @@ function SummaryCard({
       Direcții
     </DialogTrigger>
   ) : null;
-  // One stand count per card (rule: never «21 standuri» beside «50 locuri»): a lake that books
-  // online states its bookable stands (headline or footnote), so the CMS seat count leaves the card.
+  // One stand count (lakeStandCount): a lake that books online states its bookable stands in the
+  // headline or the footnote, so the facts do not repeat it.
   const bookable = online && lake.stands.length > 0;
   const facts = [
     ...lakeFacts(lake).filter(f => !(bookable && f.key === 'seats')),
@@ -565,17 +614,18 @@ function SummaryCard({
     <DetailSummaryCard
       headline={
         from === 'loading' ? (
-          <span aria-hidden className={cn(BONE, 'h-7 w-44 rounded-full')} />
+          // The t-display line's box, a bone in it: the price lands without a jump.
+          <span aria-hidden className="flex items-center t-display">
+            <span className={cn(BONE, 'h-[0.75lh] w-44 rounded-full')} />
+          </span>
         ) : from ? (
-          <>
-            <span className="t-body text-muted">de la</span>
-            <span className="t-title2 tabular-nums">{formatInt(from.price)} RON</span>
-            {from.note ? <span className="t-body text-muted">· {from.note}</span> : null}
-          </>
+          // The map card's signature number (rules 1, 7, 10): one PriceFrom, so the two never drift.
+          <PriceFrom price={from.price} note={from.note} testId="summary-price" />
         ) : stands ? (
           <>
             <span className="t-title2 tabular-nums">{bookableLabel(stands)}</span>
-            <span className="t-body text-muted">· alege standul și intervalul</span>
+            {/* Its own line: never an orphan «·» where the 352px card wraps. */}
+            <span className="basis-full t-body text-muted">Alege standul și intervalul</span>
           </>
         ) : undefined
       }

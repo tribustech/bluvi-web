@@ -4,7 +4,7 @@
  */
 export { DetailPage, DetailBand, type DetailPageProps, type DetailBandProps } from './DetailPage';
 export { DetailHeader, HEADER_CHIP, PHOTO_CHIP, headerChipClass, type DetailHeaderProps, type HeaderChipGround } from './DetailHeader';
-export { DetailHeroTopControls, DetailPhotoHero, PHOTO_PILL, SHOW_ALL_CLASS, SURFACE_PILL, photoHeroHeight, type DetailPhoto, type DetailPhotoHeroProps } from './DetailPhotoHero';
+export { DetailHeroTopControls, DetailPhotoFillTile, DetailPhotoHero, PHOTO_PILL, SHOW_ALL_CLASS, SURFACE_PILL, photoHeroHeight, type DetailPhoto, type DetailPhotoHeroProps } from './DetailPhotoHero';
 export { DetailPhotoViewer, DetailPhotoShowAll } from './DetailPhotoViewer';
 export { DetailTabs, type DetailTab } from './DetailTabs';
 export { DetailPinnedBand, DetailPinnedTitle } from './DetailPinned';

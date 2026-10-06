@@ -329,7 +329,7 @@ export function DetailSkeleton({
           {summary && columns.aside ? (
             // DetailSummaryCard: the headline, a pill, the main button, two secondary ones, then a facts list.
             <span className="flex flex-col gap-4 bg-surface p-6 max-[1024px]:hidden md:rounded-card md:shadow-e2">
-              <Line className="w-40 t-title2" />
+              <Line className="w-40 t-display" />
               <span className={cn('h-6.5 w-32 rounded-full', BLOCK)} />
               <span className={cn('h-10 rounded-control', BLOCK)} />
               <span className="grid grid-cols-2 gap-2">

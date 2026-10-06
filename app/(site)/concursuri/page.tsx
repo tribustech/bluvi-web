@@ -22,6 +22,7 @@ import { absoluteUrl, routes } from '@/lib/routes';
 import { getSessionToken } from '@/lib/server/session';
 import { createServerTransport } from '@/lib/server/transport';
 import { getShellSession } from '../_shell/session';
+import { userOf } from '../_shell/viewer-state';
 import { CompetitionsFallbackBody, CompetitionsScreen } from './_list/CompetitionsScreen';
 import { DENSITY_COOKIE, parseDensity, type Density } from './_list/densityValue';
 import { PulseSkeleton } from './_list/pulse/PulseBento';
@@ -179,7 +180,11 @@ async function Data({ place, density }: { place: ListPlace; density: Density }) 
   // The hero stack's shuffle: once per visit, the same on the server render and in the browser.
   const seed = drawSeed();
 
-  let screen: ReactNode = <CompetitionsScreen initial={place} initialDensity={density} isAuthenticated={isAuthenticated} seed={seed} />;
+  const user = userOf(viewer);
+  const desktopViewer = user ? { id: user.id, documentId: user.documentId, username: user.username } : null;
+  let screen: ReactNode = (
+    <CompetitionsScreen initial={place} initialDensity={density} isAuthenticated={isAuthenticated} viewer={desktopViewer} seed={seed} />
+  );
   if (mineState && isAuthenticated) screen = <HydrationBoundary state={mineState}>{screen}</HydrationBoundary>;
   if (pulseState) screen = <HydrationBoundary state={pulseState}>{screen}</HydrationBoundary>;
   screen = <HydrationBoundary state={sharedState}>{screen}</HydrationBoundary>;
@@ -279,6 +284,8 @@ function Fallback({ place, density = 'compact' }: { place: ListPlace; density?: 
   // Only a results URL has chips; it is read after searchParams (request time), never prerendered.
   const chips = results ? chipLabels(place, new Date()) : [];
   const label = resultsLabelFor(place);
+  // «Listă» from 1024: each tab's own rows (./_list/desktop), with no aside — the bones match them.
+  const desktopRows = !results && density === 'compact' && place.status !== 'all';
   return (
     <div aria-busy>
       <ListPageSkeleton
@@ -293,12 +300,12 @@ function Fallback({ place, density = 'compact' }: { place: ListPlace; density?: 
         // The filter bar under the search row (results mode: under the results row, from 1280 — the hero slot).
         filterBar={results ? undefined : <FilterBarSkeleton chips={barChips(place, false)} />}
         // Results mode has no aside (results.c14).
-        aside={results ? 0 : 1}
+        aside={results || desktopRows ? 0 : 1}
         searchPlaceholder={results ? undefined : 'Concurs, baltă sau organizator'}
         summaryTitle={heading}
         // Results from 1280: the header's band carries the answer and the summary row takes no space.
         summary={results ? <ListSummary title={heading} loading titleHiddenFrom="xl" /> : undefined}
-        list={<CompetitionsFallbackBody withPulse={false} density={density} />}
+        list={<CompetitionsFallbackBody withPulse={false} density={density} desktopRows={desktopRows} />}
         // ≥1280 the results chrome sits in the centre column, in the search row's slot.
         hero={
           showsPulse(place) ? (

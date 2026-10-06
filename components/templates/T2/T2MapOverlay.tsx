@@ -98,7 +98,7 @@ export function T2MapCard({
   titleAside?: ReactNode;
   /** The caption line: place, distance… */
   meta?: ReactNode;
-  /** The signature number, as on the list card (t-stat price + t-label «RON / tură»). */
+  /** The signature number, as on the list card (PriceFrom: the number + its own unit). */
   stat?: ReactNode;
   actions?: ReactNode;
   onClose: () => void;

@@ -304,12 +304,12 @@ export function T2Layout({
           '[--t2-top:calc(var(--t2-toolbar)+var(--spacing)*2)] md:[--t2-top:0px]',
           bottomVar,
           'relative isolate mx-[calc(50%-50vw)] w-screen overflow-clip bg-page',
-          // Map | list, about half each (rule 7); the list never narrower than a horizontal card needs
-          // and its cards never wider than ~736px (imobiliare.ro: past that a one-per-row card is
-          // mostly empty info area) — a wider screen gives the extra width to the map. Past the
-          // shell column (1744) the list column also takes the margin beside it, so its cards end
-          // on the shell column like the toolbar above (LIST_PAD), at the same card width.
-          'md:grid md:grid-cols-[minmax(0,1fr)_minmax(--spacing(96),min(50%,calc(var(--spacing)*200_+_max(0px,(100vw_-_var(--spacing)*436)/2))))] md:grid-rows-[auto_minmax(0,1fr)]',
+          // Map | list, half each at every width (rule 7, imobiliare.ro): the split is the window's
+          // centre — the shell column's centre too — so at 1920 the list is not a narrow strip
+          // beside a wide map. The list never narrower than a horizontal card needs; its cards end
+          // on the shell column like the toolbar above (LIST_PAD takes the margin past 1744), and
+          // the card's photo grows with it (LakeRowCard), so a wide card has no empty band.
+          'md:grid md:grid-cols-[minmax(0,1fr)_minmax(--spacing(96),50%)] md:grid-rows-[auto_minmax(0,1fr)]',
           className,
         )}
       >

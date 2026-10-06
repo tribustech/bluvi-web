@@ -32,7 +32,8 @@ for (const l of LISTS) {
     await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeVisible();
     await expect(page.getByRole('tab', { name: l.tab })).toHaveAttribute('aria-selected', 'true');
     // One order and one name for the tabs, here and in the footer.
-    const tabs = (await page.getByRole('tab').allTextContents()).map((t) => t.trim());
+    // The count badges (§4b.20) follow the labels: compare the labels.
+    const tabs = (await page.getByRole('tab').allTextContents()).map((t) => t.trim().replace(/(\d+|99\+)$/, ''));
     expect(tabs.slice(0, 3)).toEqual(['Viitoare', 'Live', 'Rezultate']);
     await expect(page.getByRole('group', { name: /^Filtre/ }).first()).toBeVisible();
     const footer = page.getByRole('navigation', { name: 'Concursuri pe stări' });

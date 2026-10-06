@@ -100,9 +100,9 @@ export type LakeSections = {
   reviews: Promise<Settled<Review[]>>;
 };
 
-/** How many catches the hero reads: two stack beside a lone lake photo (one spare for a catch
- * without a photo — those are skipped, core buildGalleryCatchItems). */
-const HERO_CATCHES = 4;
+/** How many catches the hero reads: up to four top the photo grid up beside a lone lake photo (two
+ * spare for catches without a photo — those are skipped, core buildGalleryCatchItems). */
+const HERO_CATCHES = 6;
 
 export type LakeCatchPhotos = { total: number; photos: { src: string; alt: string }[] };
 

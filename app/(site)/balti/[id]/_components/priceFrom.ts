@@ -3,6 +3,7 @@ import { cacheLife, cacheTag } from 'next/cache';
 import { getBookingQuote, zonedWallTimeIso } from '@/core/booking';
 import { lakeBookingState, type LakeDetail } from '@/core/lakes';
 import { createServerTransport } from '@/lib/server/transport';
+import { legacyPriceFrom, quoteHoursNote, type PriceFromValue } from '../../_list/PriceFrom';
 
 /*
  * «de la X RON» for the lake's summary card and phone bar (owner rule 1: the price on the first
@@ -25,14 +26,12 @@ import { createServerTransport } from '@/lib/server/transport';
  * seconds, never baked in.
  */
 
-export type PriceFrom = { price: number; note: string | null };
+export type PriceFrom = PriceFromValue;
 
 const TIME_ZONE = 'Europe/Bucharest';
 const FIRST_DAY = 2;
 const DAYS = 7;
 const MAX_STANDS = 3;
-
-const hoursLabel = (h: number) => `tura de ${h} ${h === 1 ? 'oră' : 'ore'}`;
 
 function minuteOfDay(time: string): number | null {
   const [h, m] = time.split(':').map(Number);
@@ -85,7 +84,7 @@ async function ratesFrom(
     let best: PriceFrom | null = null;
     for (const q of quotes) {
       if (!q || q.total == null) continue;
-      if (!best || q.total < best.price) best = { price: q.total, note: q.basis.rowLabel || hoursLabel(q.basis.durationHours) };
+      if (!best || q.total < best.price) best = { price: q.total, note: q.basis.rowLabel || quoteHoursNote(q.basis.durationHours) };
     }
     if (best) {
       cacheLife('hours');
@@ -97,12 +96,6 @@ async function ratesFrom(
   return null;
 }
 
-function legacyFrom(prices: LakeDetail['price']): PriceFrom | null {
-  let best: PriceFrom | null = null;
-  for (const p of prices) if (p.price != null && (!best || p.price < best.price)) best = { price: p.price, note: p.header || null };
-  return best;
-}
-
 /** The lake's «de la»: the cheapest tour the booking server quotes, else the legacy rows. */
 export async function lakePriceFrom(lake: LakeDetail): Promise<PriceFrom | null> {
   const duration = lake.minDurationHours ?? lake.incrementHours;
@@ -111,5 +104,5 @@ export async function lakePriceFrom(lake: LakeDetail): Promise<PriceFrom | null>
     const rates = await ratesFrom(lake.documentId, standIds, lake.slotStartTimes, duration).catch(() => null);
     if (rates) return rates;
   }
-  return legacyFrom(lake.price);
+  return legacyPriceFrom(lake.price);
 }

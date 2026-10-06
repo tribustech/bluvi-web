@@ -112,7 +112,13 @@ export function QuickActions({
             </>
           );
           return (
-            <li key={t.key} className="flex justify-center" data-tile={t.key}>
+            <li
+              key={t.key}
+              // Partide: the section's «Vezi tot» is the way in while the section is on the page (one
+              // entry point; the section pops in client-side, so CSS decides, not the server).
+              className={cn('flex justify-center', t.key === 'partide' && '[:root:has(#partide)_&]:hidden')}
+              data-tile={t.key}
+            >
               {t.kind === 'booking' ? (
                 <BookingTile className={TILE}>{body}</BookingTile>
               ) : t.kind === 'directions' ? (

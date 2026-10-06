@@ -66,6 +66,10 @@ screens:
       - "chrome state: search row visible vs scrolled away (magnifier + filter icons fade into the title row)"
       - photo viewer open over the list
       - render error caught by the route error boundary (retry card)
+      - "WEB desktop ≥1024, Listă, Viitoare: the agenda (groups by time, faces, capacity bar)"
+      - "WEB desktop ≥1024, Listă, Live: the live hub (hero, top five, moments, recent weighings, heaviest fish, other live), polling with the list"
+      - "WEB desktop ≥1024, Listă, Rezultate: compact winner rows, one expanded inline (feeder in points)"
+      - "WEB desktop ≥1024, Listă, Ale mele: my registrations led by my status"
     criteria:
       - id: competitions-list.index.c1
         text: A fixed chrome holds the title "Concursuri" and the status tab row; the list scrolls underneath it and fades into it through a short gradient instead of a hard edge.
@@ -73,6 +77,8 @@ screens:
       - id: competitions-list.index.c2
         text: Status tabs are, in order, "Viitoare" (notStarted), "Live" (started), "Rezultate" (completed), styled as underline tabs with the active label and a 2.5 underline in indigo; Viitoare is selected on first open.
         fish_ref: features/competitions/components/CompetitionsStatusControl.tsx:29
+        web_note: "ROADMAP §4b.20 (2026-10-06): one container (surface track), the selected tab filled (accent tint) WITH the 2px accent underline, hover wash, keyboard ring, and each status tab badged with the list response's meta.counts (same filters, status dropped; accessible name «Viitoare, N»). No badge while unknown: before the first answer, on placeholder data, in Ale mele, and Viitoare under «Locuri libere» (the counts ignore it). _list/StatusTabs.tsx."
+
       - id: competitions-list.index.c3
         text: The Live tab is prefixed by the pulsing red live dot only when the current list response reports counts.started > 0.
         fish_ref: features/competitions/components/CompetitionsStatusControl.tsx:81
@@ -106,6 +112,7 @@ screens:
       - id: competitions-list.index.c13
         text: A two-segment control "Listă" / "Afiș" sits right of the heading; tapping the active segment does nothing; the choice is one value for the whole tab, persisted across sessions (storage key COMPETITION_CARD_DENSITY_V1), compact until storage answers and for anyone who never chose.
         fish_ref: features/competitions/components/cards/preview/CompetitionDensityPreviewToggle.tsx:58
+        web_note: "From 1024 «Listă» shows each tab's own layout (c30) and «Afiș» the posters; the choice is the same one value."
       - id: competitions-list.index.c14
         text: The gap between cards is larger in Afiș (expanded) than in Listă (compact) (16 vs 10 in fish).
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:573
@@ -154,6 +161,34 @@ screens:
       - id: competitions-list.index.c29
         text: A render error in this route shows a retry card for this route only (route error boundary), not a blank page.
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:726
+      - id: competitions-list.index.c30
+        text: 'WEB (owner-approved prototype A2, 2026-10-06; fish has no desktop): from 1024 in "Listă" (outside results mode and the tab-less "Toate concursurile") each tab replaces the cards with its own layout on the SAME list (same query, pages, "Încarcă mai multe", polling, empty / error / loading states); below 1024, in "Afiș" and in results mode the cards stay. No aside next to these layouts. Viitoare is an agenda: groups "Săptămâna asta" / "Săptămâna viitoare" / month (Bucharest), one row per competition (date leaf, photo from 1280, date line with the followers pill and a ticking "Începe în …" on the nearest start, name = the row''s one link, lake, format + ranking chips, people, CTA "Înscrie-te" / "Complet" / "Vezi").'
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx
+        web_note: "app/(site)/concursuri/_list/desktop/Agenda.tsx; a not-started competition whose start day already passed goes in a LAST, muted group «Data de start a trecut» (after the months and «Fără dată»; no explanatory sentence — rule 4), never «Săptămâna asta», and its CTA is «Vezi» (secondary, no register promise) (desktop/dates.ts bucketOf, model.test.ts). People: «N/M pescari» (or «1 pescar», «24 de pescari» without a capacity, core cardCopy helpers), «N în așteptare» when nobody is confirmed yet, «Fii primul înscris» only when nobody applied. From xl the name track is capped and the leftover width goes to the CTA track (§4b.16). e2e competitions-list-desktop.spec.ts."
+      - id: competitions-list.index.c31
+        text: 'WEB Live from 1024 is the live hub: a hero (most catches, then followers; picked once per visit) on navy with kg cântărite / capturi / cea mai mare, the ranking''s top five with position deltas since the latest weighing (quantity rankings only) and the gap to the leader, the weighing rhythm (kg per interval) when weighings exist; "Momente cheie" (record, latest weighing, leader, closest fight, top three fish); "Cântăriri recente" across the live competitions plus "Cei mai grei pești acum"; the other live competitions as cards (followers pill, top three, cumulative sparkline). Feeder values read points ("p"), never kg. The extra reads (ranking, weighing-statistics, catches?sort=weight_desc) start only at ≥1024.'
+        fish_ref: services/queries/useRankings.ts
+        web_note: "app/(site)/concursuri/_list/desktop/LiveHub.tsx + data.ts#useLiveData; a slot without data is hidden (ROADMAP §4b.4): per competition the ranking is pending (tower/top-three bones, aria-busy) / error (block hidden) / ready («Încă nicio captură cântărită» only when it answered with no catch); capturi is the ranking's or the card's count, else «–», never 0. Reads: ranking + weighing-statistics for every live competition, catches?sort=weight_desc for the hero only (the others' heaviest fish is their ranking's biggestCatch). The other live competitions: 1–2 → full-width horizontal rows, 3+ → an auto-fit grid; the ticker scrolls inside the hero's height from 1280."
+      - id: competitions-list.index.c32
+        text: 'WEB the hub''s reads re-read every 60s together with the Live list (fish LIVE_POLL_MS), only while the page is visible; rows whose value changed flash once, a new leader or record raises one toast (max one per 20s).'
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:211
+        web_note: "data.ts LIVE_POLL_MS; e2e competitions-list-desktop.spec.ts (clock)."
+      - id: competitions-list.index.c33
+        text: 'WEB Rezultate from 1024: rows grouped by month (sticky headers under the list chrome), each with the date leaf, name, lake · format, the winner only (avatar with the gold 1, name, value), the biggest fish and the entrants; hover reveals "Clasament"; the name is a button that expands the row inline (one open at a time): podium 2·1·3 with values, "În cifre" (capturi, kg total, entrants, cea mai mare), places 4–8, the viewer''s own place ("Locul tău"), links Clasamentul complet / Statistici / Toți peștii. ↑/↓/Home/End move between rows.'
+        fish_ref: services/queries/useRankings.ts
+        web_note: "app/(site)/concursuri/_list/desktop/Results.tsx; a row's ranking (rankingsQuery, shared with the competition page) is read on intent only — hovered, focused or opened — so the collapsed row stands on the card (winner from its podium; the value once the ranking is in); while it reads a bone, failed → hidden. One podium source per row (model.ts resultsPodium): the ranking when it crowns the card's winner, else the card's podium without values in row AND panel (mismatch logged). «Locul tău» by identity (participant ids, else the viewer's own registration), never by name."
+      - id: competitions-list.index.c34
+        text: 'WEB feeder (rankingType feederRounds) ranks by points, the fewest win (fish FeederRankingTable): its winner reads "N puncte" ("1 punct", "20 de puncte"), its podium and places "N p", never kg; every other type reads kg ("kg total", or "kg · medie / calitate").'
+        fish_ref: features/competitions/feeder-rounds/FeederRankingTable.tsx
+        web_note: "model.ts VALUE_FIELD / pointsText."
+      - id: competitions-list.index.c35
+        text: 'WEB Ale mele from 1024: one row per registration of the registered list, led by MY status from /feed/competitions/:id/my-status (Înscris / În așteptare / Respins / Anulat, LIVE when live) and my stand once drawn (/registrations), then the next step ("Acum", "Rezultat", "Pasul următor") and its CTA; a neutral bone until the status answers, never a guessed or sample row.'
+        fish_ref: services/queries/useCompetition.ts
+        web_note: "app/(site)/concursuri/_list/desktop/MineRows.tsx; finished: «Ai terminat pe locul N» from MY registration (finalPlacement, else my ranking row by user id / registration id), a bone while it reads, never a display-name match."
+      - id: competitions-list.index.c36
+        text: 'WEB Viitoare people column: the registered entrants'' faces (signed in, from /registrations; signed out the card''s participantFaces), followed anglers first with an indigo ring, "+N", "N/M unit" or "Fii primul înscris", one social-proof line ("X participă" / "X și încă N pe care îi urmărești") else "N în așteptare", and the capacity bar labelled "N locuri libere" / "Ultimele N locuri" / "Ultimul loc" / "Complet" / "Fără limită de locuri".'
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx
+        web_note: "Agenda.tsx People; data.ts#useUpcomingPeople."
     mobile_only: false
     status: passing
   - id: competitions-list.cards
@@ -198,6 +233,7 @@ screens:
       - id: competitions-list.cards.c1
         text: The whole card is one button whose accessible name is the competition name; activating it opens the competition page.
         fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:272
+        web_note: "The card is the list at every width below 1024, in «Afiș» and in results mode; from 1024 in «Listă» the tabs use their own rows (index.c30–c36), each still ONE link (or, in Rezultate, one expand button) named by the competition, with the followers pill where the card had it. A row's CTA that would open the same page as the row's link is drawn but is not a second link (aria-hidden, no tab stop; a click opens the row); only a distinct target (the ranking, from Ale mele / Rezultate) is its own link (desktop/parts.tsx Cta)."
       - id: competitions-list.cards.c2
         text: "Poster source order: banner small → banner original → lake image small → lake image original; the full-screen photo uses the same media's original URL."
         fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:101

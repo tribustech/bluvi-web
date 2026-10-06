@@ -32,7 +32,6 @@ import {
   ListRegion,
   ListSignInGate,
   ListSummary,
-  ListTabs,
   ListToolbar,
   LiveDot,
   TextAction,
@@ -75,6 +74,8 @@ import { createPulseTracker, logFiltersApplied, logScopeChanged, logSearchCommit
 import { CardSkeleton, cardItemClass, CompetitionCardItem, type PhotoRequest } from './CompetitionCardItem';
 import { useCardDensity, type Density } from './density';
 import { FiltersDialog, periodChoices, PickerRow, type FiltersView } from './FiltersDialog';
+import { DesktopRowsSkeleton, DesktopTabView, type DesktopTab } from './desktop/DesktopTabView';
+import type { DesktopViewer } from './desktop/data';
 import { PhotoViewer } from './PhotoViewer';
 import {
   countLabel,
@@ -98,6 +99,7 @@ import { usePulse } from './pulse/usePulse';
 import { ResultsChrome } from './ResultsChrome';
 import { RESULTS_REFRESH, RESULTS_STACK } from './resultsChromeStyles';
 import { SearchDialog } from './SearchDialog';
+import { StatusTabs } from './StatusTabs';
 
 /*
  * Concursuri — fish app/(app)/(tabs)/competitions/index.tsx on T1 (parity competitions-list.index,
@@ -137,6 +139,7 @@ export function CompetitionsScreen({
   initial,
   initialDensity = 'compact',
   isAuthenticated,
+  viewer = null,
   seed,
   transport,
 }: {
@@ -145,6 +148,8 @@ export function CompetitionsScreen({
   initialDensity?: Density;
   /** Signed in, or a session the server could not read in time (the per-user reads still go through /api/cms). */
   isAuthenticated: boolean;
+  /** Who is signed in (the server's session read): the desktop views' «tu», followed faces and my stand. */
+  viewer?: DesktopViewer;
   /** The hero stack's shuffle for this visit. */
   seed: number;
   /**
@@ -389,10 +394,19 @@ export function CompetitionsScreen({
   // fish CompetitionsStatusControl liveCount: the current list response's counts.started (c3).
   const liveDot = (sel.counts?.started ?? 0) > 0;
 
+  // Badges (§4b.20): the list response's per-status counts — the same filters with the status
+  // dropped (CMS competition-cards). Unknown → no badge (§4b.4): before the first answer, while a
+  // previous question's list stands in, in Ale mele (its counts are the registered scope's), and
+  // Viitoare under «Locuri libere» (the counts ignore that filter, deliberately).
+  const tabCounts = !mineActive && !list.isPlaceholderData ? sel.counts : undefined;
+  const statusTab = (key: CompetitionCardStatus, extra?: Partial<ListTab<CompetitionCardStatus>>): ListTab<CompetitionCardStatus> => {
+    const count = key === 'notStarted' && filters.availableOnly ? undefined : tabCounts?.[key];
+    return { key, label: TAB_LABEL[key], count, accessibleLabel: count ? `${TAB_LABEL[key]}, ${count}` : undefined, ...extra };
+  };
   const tabs: ListTab<CompetitionCardStatus | 'mine'>[] = [
-    { key: 'notStarted', label: TAB_LABEL.notStarted },
-    { key: 'started', label: TAB_LABEL.started, leading: liveDot ? <LiveDot /> : undefined },
-    { key: 'completed', label: TAB_LABEL.completed },
+    statusTab('notStarted'),
+    statusTab('started', { leading: liveDot ? <LiveDot /> : undefined }),
+    statusTab('completed'),
     ...(registeredTotal > 0
       ? [
           {
@@ -676,7 +690,7 @@ export function CompetitionsScreen({
           </>
         }
         below={
-          <ListTabs
+          <StatusTabs
             label="Stare concursuri"
             tabs={tabs}
             active={activeTab}
@@ -831,6 +845,10 @@ export function CompetitionsScreen({
   // results list across every state) stretched its upcoming neighbours to a tall empty body.
   const aligned = density === 'compact' && status !== 'completed' && !competitions.some((c) => c.status === 'completed');
 
+  // From 1024 the tabs are not the phone's cards (owner-approved prototype A2): in «Listă» each tab
+  // has its own layout (./desktop); «Afiș» keeps the posters at every width, results mode the cards.
+  const desktopTab: DesktopTab | null = resultsMode || density !== 'compact' ? null : mineActive ? 'mine' : status === 'all' ? null : status;
+
   let body: ReactNode;
   if (sel.requiresSignIn) {
     body = (
@@ -860,7 +878,19 @@ export function CompetitionsScreen({
       />
     );
   } else if (loading) {
-    body = <CardsSkeleton density={density} />;
+    body = desktopTab ? (
+      <>
+        <div className="lg:hidden">
+          <CardsSkeleton density={density} />
+        </div>
+        <div role="status" className="hidden lg:block">
+          <span className="sr-only">Se încarcă concursurile…</span>
+          <DesktopRowsSkeleton />
+        </div>
+      </>
+    ) : (
+      <CardsSkeleton density={density} />
+    );
   } else if (competitions.length === 0) {
     body = (
       // Results: the card spans the column, edge to edge with the pill and the heading (its text
@@ -888,7 +918,7 @@ export function CompetitionsScreen({
       </div>
     );
   } else {
-    body = (
+    const cards = (
       <CardsGrid density={density} labelledBy={SUMMARY_ID}>
         {competitions.map((c, i) => (
           // Aligned: a two-row subgrid (body, footer) of this grid — footers line up across a row.
@@ -898,11 +928,23 @@ export function CompetitionsScreen({
               density={density}
               aligned={aligned}
               onOpenPhoto={setPhoto}
+              // The phone's first posters keep priority (LCP, §5): with a desktop view this is the
+              // lg:hidden copy, so it only weighs on ≥1024 as two small eager thumbnails.
               priority={!showPulse && i < 2}
             />
           </li>
         ))}
       </CardsGrid>
+    );
+    body = desktopTab ? (
+      <>
+        <div className="lg:hidden">{cards}</div>
+        <div className="hidden lg:block" data-desktop-tab={desktopTab}>
+          <DesktopTabView tab={desktopTab} cards={competitions} t={t} viewer={viewer} />
+        </div>
+      </>
+    ) : (
+      cards
     );
   }
 
@@ -948,8 +990,11 @@ export function CompetitionsScreen({
         <AsideList items={asideItems} showLive={asideNext.showLive} />
       </AsideSection>
     ) : null;
-  const asidePending = !resultsMode && ((isAuthenticated && registered.isPending) || Boolean(asideNext?.source.isPending));
-  const docked = resultsMode ? [] : [mineBlock, nextBlock].filter(Boolean);
+  // The desktop tab views use the whole width (the live hub has its own side column): no aside
+  // with them — nor on the phone in «Listă», which is fish's plain list.
+  const noAside = resultsMode || desktopTab !== null;
+  const asidePending = !noAside && ((isAuthenticated && registered.isPending) || Boolean(asideNext?.source.isPending));
+  const docked = noAside ? [] : [mineBlock, nextBlock].filter(Boolean);
   const aside = asidePending ? <AsideSkeleton /> : docked.length > 0 ? <>{docked}</> : undefined;
 
   /* ---------------- pulse ---------------- */
@@ -1133,11 +1178,22 @@ function AsideList({ items, showLive = true }: { items: CompetitionCard[]; showL
 }
 
 /** The page's loading frame (Suspense fallback): header, tabs, toolbar, bento where it opens on one, cards. */
-export function CompetitionsFallbackBody({ withPulse, density = 'compact' }: { withPulse: boolean; density?: Density }) {
+export function CompetitionsFallbackBody({ withPulse, density = 'compact', desktopRows = false }: { withPulse: boolean; density?: Density; desktopRows?: boolean }) {
   return (
     <>
       {withPulse ? <PulseSkeleton /> : null}
-      <CardsSkeleton density={density} />
+      {desktopRows ? (
+        <>
+          <div className="lg:hidden">
+            <CardsSkeleton density={density} />
+          </div>
+          <div className="hidden lg:block">
+            <DesktopRowsSkeleton />
+          </div>
+        </>
+      ) : (
+        <CardsSkeleton density={density} />
+      )}
     </>
   );
 }

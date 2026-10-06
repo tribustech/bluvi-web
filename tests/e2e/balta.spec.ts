@@ -51,6 +51,8 @@ type Lake = {
   reviewsMeta: { count: number; overall?: number } | null;
   ownerName?: string | null;
   ownerDocumentId?: string | null;
+  /** The bookable stands (LakeDetail.stands): /feed/lakes/:id sends them. */
+  stands: unknown[];
 };
 const lakes = new Map<string, Lake>();
 let catchesTotal = 0;
@@ -279,17 +281,22 @@ test('lakes.detail.c14 lakes.detail.c15 — quick actions in fish order, every s
   await open(page, ID.chita);
   const l = lakes.get(ID.chita)!;
   const list = tiles(page);
+  // Owner (one entry point per page): while the Partide section is on the page its «Vezi tot» is
+  // the way in — the Partide tile steps aside.
+  const partideSection = partideShown.get(ID.chita)!;
+  if (partideSection) await expect(page.locator('#partide')).toBeAttached({ timeout: 15_000 });
   await expect(list.getByRole('listitem')).toHaveText([
     'Rezervă',
     ...(l.price.length ? ['Prețuri'] : []),
-    'Partide',
+    ...(partideSection ? [] : ['Partide']),
     'Statistici',
     'Concursuri',
     ...(l.coordinates ? ['Direcții', 'Hartă'] : []),
     'Recenzii',
   ]);
   await expect(page.getByTestId('quick-actions-later')).toHaveCount(0);
-  await expect(list.getByRole('link', { name: 'Partide' })).toHaveAttribute('href', `/balti/${ID.chita}/partide`);
+  if (partideSection) await expect(page.locator('#partide').getByRole('link', { name: 'Vezi tot' })).toHaveAttribute('href', `/balti/${ID.chita}/partide`);
+  else await expect(list.getByRole('link', { name: 'Partide' })).toHaveAttribute('href', `/balti/${ID.chita}/partide`);
   await expect(list.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `/balti/${ID.chita}/statistici`);
   if (l.coordinates) await expect(list.getByRole('link', { name: 'Hartă' })).toHaveAttribute('href', `/balti/${ID.chita}/harta`);
   await expect(list.getByRole('link', { name: 'Concursuri' })).toHaveAttribute('href', `/balti/${ID.chita}/concursuri`);
@@ -358,7 +365,10 @@ test('lakes.detail.c17 lakes.detail.c18 lakes.detail.c19 — characteristics, fa
   if (l.fishSpecies.length) await expect(page.locator('#pesti').getByRole('listitem')).toHaveText(l.fishSpecies.map(f => f.fish.Name));
   await open(page, ID.chita);
   await expect(page.locator('#prezentare dl').first()).toContainText('10 ha');
-  await expect(page.locator('#prezentare dl').first()).toContainText('21 locuri');
+  // One stand count (owner): Chita books online — its bookable stands, never the CMS «N locuri».
+  const chitaStands = lakes.get(ID.chita)!.stands.length;
+  await expect(page.locator('#prezentare dl').first()).toContainText(`${chitaStands} standuri rezervabile`);
+  await expect(page.locator('#prezentare dl').first()).not.toContainText('locuri');
   await expect(page.locator('#prezentare dl').first()).toContainText('Pontoane');
 });
 
@@ -512,13 +522,14 @@ test('lakes.booking-interest.c3 lakes.booking-interest.c4 lakes.booking-interest
 /* Partide (c20 – c22)                                                  */
 /* ------------------------------------------------------------------ */
 
-test('lakes.detail.c20 — the Partide section: idle card, the 7-month activity, «Vezi tot» (and on the phone «Vezi toate partidele») to the Partide page', async ({ page }) => {
+test('lakes.detail.c20 — the Partide section: idle card, the 7-month activity, «Vezi tot» to the Partide page (its one entry point)', async ({ page }) => {
   await open(page, ID.chita, DESKTOP);
   const section = page.locator('#partide');
   await expect(section.getByRole('heading', { name: 'Partide la această baltă' })).toBeVisible();
   await expect(section.getByRole('link', { name: 'Vezi tot' })).toHaveAttribute('href', `/balti/${ID.chita}/partide`);
-  // One way in per screen from 768: the header link; the full-width button is the phone's (fish).
-  await expect(section.getByRole('link', { name: 'Vezi toate partidele' })).toBeHidden();
+  // One way in (owner): the header link — no «Vezi toate partidele» button, no summary-card link.
+  await expect(section.getByRole('link', { name: 'Vezi toate partidele' })).toHaveCount(0);
+  await expect(page.locator(`a[href="/balti/${ID.chita}/partide"]`).locator('visible=true')).toHaveCount(1);
   await expect(section.getByText(/în curând/)).toHaveCount(0);
   await expect(section.getByTestId('live-partide-card')).toContainText('luna aceasta');
   await expect(section.getByText('Activitate')).toBeVisible();
@@ -603,12 +614,12 @@ test('lakes.detail.c24 lakes.detail.s11 — Concursuri: Viitoare cards to /concu
   // Live is hidden only while the lake has no started competition (the local data moves with time).
   if (competitionCounts.get(ID.chita)!.live === 0) await expect(section.getByRole('heading', { name: 'Live', exact: true })).toHaveCount(0);
   await expect(section.getByText(/în curând/)).toHaveCount(0);
-  // One label per destination (WCAG 2.4.4): the Viitoare rail opens its tab as «Toate viitoarele»;
-  // the section-level «Vezi tot» (all tabs) only when both rails show.
-  await expect(section.locator(`a[href="/balti/${ID.chita}/concursuri?tab=viitoare"]`)).toHaveText('Toate viitoarele');
+  // One «Vezi tot» for the section (owner: never one per rail beside it): the Viitoare tab when it
+  // is the only rail, the whole competitions page when both show.
   const both = competitionCounts.get(ID.chita)!.live > 0;
-  await expect(section.getByRole('link', { name: 'Vezi tot' })).toHaveCount(both ? 1 : 0);
-  if (both) await expect(section.locator(`a[href="/balti/${ID.chita}/concursuri"]`)).toHaveText('Vezi tot');
+  await expect(section.getByRole('link', { name: 'Vezi tot' })).toHaveCount(1);
+  await expect(section.getByRole('link', { name: /^Toate (live|viitoarele)$/ })).toHaveCount(0);
+  await expect(section.getByRole('link', { name: 'Vezi tot' })).toHaveAttribute('href', both ? `/balti/${ID.chita}/concursuri` : `/balti/${ID.chita}/concursuri?tab=viitoare`);
   await expect(section.locator(`a[href="/concursuri/${upcoming[0].documentId}"]`).first()).toBeVisible();
   // s11: Belin has none — once the counts are known, no section and no chip.
   const belin = competitionCounts.get(ID.belin)!;
@@ -899,7 +910,7 @@ test('lakes.detail.s12 lakes.detail.c10 lakes.detail.c28 — optional sections e
     ...(belin.live + belin.upcoming > 0 ? ['Concursuri'] : []),
     'Recenzii',
   ]);
-  await expect(tiles(page).getByRole('listitem')).toHaveText(['Rezervă', 'Partide', 'Statistici', 'Concursuri', 'Recenzii']);
+  await expect(tiles(page).getByRole('listitem')).toHaveText(['Rezervă', ...(partideShown.get(ID.belin) ? [] : ['Partide']), 'Statistici', 'Concursuri', 'Recenzii']);
   await expect(page.getByRole('button', { name: 'Direcții' })).toHaveCount(0);
 });
 
