@@ -163,6 +163,27 @@ Add each new piece of feedback here, dated.
    navigation (tabIndex -1) get no outline. Rings are only for keyboard focus on controls
    (`:focus-visible`).
 
+**2026-10-06, competition page**
+9. **Statistics are bento.** The Statistici view is a bento grid of tiles of different sizes, not a
+   list of identical cards. Small facts like "Capturi" get small, pretty tiles; the headline numbers
+   get big tiles with the signature number.
+10. **Units never run into the text.** In stat tiles the unit (kg, RON, %) is a separate, smaller,
+    muted element beside the number, with space between them (SignatureNumber pattern), never glued
+    into a sentence.
+11. **Never say "capot".** Nobody uses the term and fish never shows it. A no-catch row shows "–" in
+    the weight cell (like fish) and "Fără capturi" where a word is needed. The domain docs may keep
+    "capot" internally; the UI does not.
+12. **Every ranking table looks like a table, every ranking type included (feeder too).** It has a
+    coloured header row (column labels like Loc, Echipă, Cantitate on a distinct header background, not
+    the page colour), visible row separators and the sector stripe.
+13. **Desktop rankings show avatars.** Every person or team row shows the avatar (photo, or initials on
+    the solid tone) next to the name when there is room (≥768).
+14. **Wide screens get their own layout for lists of people and weighings.** Cântare and Participanți
+    must not be the phone list stretched. On desktop:
+    - weighings are a table or timeline with every column visible (stand, angler, time, catches, kg,
+      status) plus a detail side panel;
+    - participants are cards or rows with avatar and their stats shown inline (no separate expand).
+
 
 
 A screen reaches review only after it passes all of these:
