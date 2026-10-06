@@ -30,10 +30,13 @@ CMS, and the data layer (`core/`) is already ported from fish.
 
 ## 2. Owner checkpoints
 
-The owner wants little reviewing, so the owner looks at the work only at these points:
-- **M0:** approve the 6 page templates (§4), with variants where a choice is real.
-- **End of each milestone:** skim a Vercel preview plus one review page. Comments there become
-  fix tasks.
+Revised 2026-10-06. Reviewing only at milestone end let our interpretations pile up unchecked for
+days, so the owner now gives **short, early feedback**:
+- **After every batch** (3–6 screens), we publish a review page with phone and desktop screenshots of
+  each screen and its key states, and comments on each screen. It takes about 2 minutes to read.
+  Building on top of a batch waits for its comments or an OK.
+- Every comment is fixed. When a comment states a general rule, it is added to §4b in the same commit.
+- **End of each milestone:** skim the Vercel preview.
 
 Everything else is gated by automation and agent panels (§5–§6).
 
@@ -100,7 +103,26 @@ Facebook does:
 | T5 | Dashboard | home, organizer panel, lake panel |
 | T6 | Single-task flow | scale, capture, raffle, penalties, join with code |
 
-## 5. Automated gates
+## 4b. Owner design rules (feedback log)
+
+These are the owner's own corrections. They override templates and Fundații where they conflict.
+Add each new piece of feedback here, dated.
+
+**2026-10-06**
+1. **Detail pages are Airbnb-like on desktop, not a full-width photo hero.** Order: title row (name,
+   rating, location, actions), then a photo grid (one large plus four small, "Vezi toate fotografiile"),
+   then two columns: content on the left, a sticky summary/action card on the right (price, book,
+   contact, key facts). A full-bleed hero photo is only acceptable on phone.
+2. **Filters are horizontal.** List pages use a filter bar (chips and pills, plus "Filtre" opening a
+   dialog for the rest) above the results, never a vertical filter sidebar that takes a column.
+3. **Sticky and animated headers must never float.** A header that collapses or animates on scroll
+   must stay attached to the top edge at every scroll position, on phone and desktop. No gap, no bar
+   left "in the air".
+4. **When we don't know, we don't show.** A block whose state is unknown (still loading, failed,
+   signed out, no data) is hidden or shows a neutral skeleton. It never shows copy like "nu știm dacă
+   ești într-un concurs live".
+
+
 
 A screen reaches review only after it passes all of these:
 - **Screenshots** at 375, 768, 1280 and 1440, for every state in its inventory entry.
