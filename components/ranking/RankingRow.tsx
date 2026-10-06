@@ -1,29 +1,32 @@
-import { CapotChip, Tag } from '@/components/cards/parts';
 import { plural } from '@/components/cards/format';
-import { formatWeight, isCapot, penaltyChips, readCell, type RankingRowData } from './model';
+import { cn } from '@/components/ui/cn';
+import { isNoCatch, readCell, type RankingRowData } from './model';
+import { EMPTY_STAND, formatRankingWeight, penaltyMarker, type WinnerMode } from './rankingColumns';
 import { parseStand, sectorFill } from './sector';
+import { PenaltyMarker, WinnerTrophy } from './shell';
 
 /**
  * Position pill — replaces fish's 🎖️ (Fundații §05). Winner: navy + lavender, the signature
- * look; tied or regular: indigo tint; capot: neutral.
+ * look; tied or regular: indigo tint; no catch: neutral.
  */
 export function PositionPill({
   position,
   tied = false,
   winner = false,
-  capot = false,
+  noCatch = false,
   onTint = false,
 }: {
   position: number;
   tied?: boolean;
   winner?: boolean;
-  capot?: boolean;
+  /** The competitor finished without a catch: the neutral pill. */
+  noCatch?: boolean;
   /** The row itself is indigo-tinted (signed-in user): the pill switches to surface. */
   onTint?: boolean;
 }) {
   const tone = winner
     ? 'bg-navy text-lavender t-num-18'
-    : capot
+    : noCatch
       ? 'bg-soft-fill text-ink-2 t-num-16'
       : onTint
         ? 'bg-surface text-accent-ink t-num-16'
@@ -46,86 +49,88 @@ export function PositionPill({
 
 export type RankingRowProps = {
   row: RankingRowData;
-  /** Key of the main value on the right (Cantitate for quantity rankings). */
+  /** Key of the deciding value on the right (Cantitate for quantity rankings). */
   valueKey?: string;
-  /** Unit under the value. */
-  valueUnit?: string;
-  /** This row shares its place with another one (shows "=4"). See `tiedIndices`. */
+  /** This row shares its place with another one (shows «=4»). See `tiedIndices`. */
   tied?: boolean;
-  /** Replaces the catches/CMMC part of the meta line, e.g. "egalitate · departajat la CMMC". */
-  note?: string;
-  /** Highlights the signed-in user's own row ("Tu · …"). */
+  /** Highlights the signed-in user's own row («Tu · …»). */
   isCurrentUser?: boolean;
+  /** What the row's `isWinner` means (rankingColumns winnerMode): the trophy after the name. */
+  winnerMode?: WinnerMode;
 };
 
 /**
- * Ranking row · mobile (Fundații §07). The sector shows only as the 4px left stripe; the row
- * background never carries it. Rendered as a list item — wrap rows in an <ol>.
+ * Ranking row · mobile (Fundații §07) — the competition page's phone ranking (MobileRanking), as it
+ * ships: position pill (navy + lavender only for the untied 1st place with a catch; tied «=4»),
+ * the angler with fish's penalty marker, a trophy after the name for a winner (muted for a sector
+ * winner, as the table's «Poziție sector» cue), «sector · stand · capturi · CMMC» with the gold
+ * biggest catch, the deciding value in kg with fish's three decimals. The sector shows only as the
+ * 4px left stripe; the row background never carries it. Rendered as a list item — wrap rows in an <ol>.
  */
-export function RankingRow({
-  row,
-  valueKey = 'quantity',
-  valueUnit = 'kg',
-  tied = false,
-  note,
-  isCurrentUser = false,
-}: RankingRowProps) {
+export function RankingRow({ row, valueKey = 'quantity', tied = false, isCurrentUser = false, winnerMode = 'sector' }: RankingRowProps) {
   const { sector, stand } = parseStand(row.position);
-  const capot = isCapot(row);
-  const chips = penaltyChips(row.penalties);
+  const noCatch = isNoCatch(row);
+  const marker = penaltyMarker(row.penalties);
   const biggest = readCell(row.biggestFish);
   const stripe = sectorFill(sector, row.backgroundColor);
-
-  const meta = [
-    sector,
-    stand && `Stand ${stand}`,
-    ...(note
-      ? [note]
-      : [
-          typeof row.catchCount === 'number' ? plural(row.catchCount, 'captură', 'capturi') : null,
-          !capot && biggest.raw != null && biggest.raw !== '-' ? `CMMC ${formatWeight(row.biggestFish)}` : null,
-        ]),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const empty = row.participant === EMPTY_STAND;
+  const counts = typeof row.catchCount === 'number' ? plural(row.catchCount, 'captură', 'capturi') : null;
+  const cmmc = !noCatch && biggest.raw != null && biggest.raw !== '-' ? formatRankingWeight(row.biggestFish) : null;
+  const first = row.generalPosition === 1 && !tied && !noCatch;
+  const winner = row.isWinner && !noCatch && !empty;
 
   return (
     <li
-      className={`grid grid-cols-[4px_44px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-hairline py-3 pr-3.5 last:border-b-0 ${
-        isCurrentUser ? 'bg-accent-tint' : capot ? 'bg-soft-fill/50' : ''
-      }`}
+      className={cn(
+        'grid grid-cols-[4px_44px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-hairline py-3 pr-3.5 last:border-b-0',
+        isCurrentUser ? 'bg-accent-tint' : noCatch && 'bg-soft-fill/50',
+      )}
     >
-      <span aria-hidden className={`h-10 rounded-r-[2px] ${stripe.className}`} style={stripe.style} />
-      <PositionPill
-        position={row.generalPosition}
-        tied={tied}
-        winner={row.isWinner && !tied}
-        capot={capot}
-        onTint={isCurrentUser}
-      />
+      <span aria-hidden className={cn('h-10 rounded-r-[2px]', stripe.className)} style={stripe.style} />
+      <PositionPill position={row.generalPosition} tied={tied} winner={first} noCatch={noCatch} onTint={isCurrentUser} />
       <div className="min-w-0">
-        <p className={`flex min-w-0 items-center gap-1.5 t-body-strong ${capot ? 'text-ink-2' : 'text-ink'}`}>
+        <p className={cn('flex min-w-0 items-center gap-1.5 t-body-strong', noCatch ? 'text-ink-2' : 'text-ink')}>
           <span className="truncate">
             {isCurrentUser && 'Tu · '}
-            {row.participant}
+            {empty ? (
+              <>
+                <span aria-hidden>–</span>
+                <span className="sr-only">{EMPTY_STAND}</span>
+              </>
+            ) : (
+              row.participant
+            )}
           </span>
-          {chips.map((c, i) => (
-            <Tag key={i} tone={c.tone === 'danger' ? 'red' : 'yellow'} size="sm" title={c.description}>
-              {c.label}
-            </Tag>
-          ))}
+          {winner ? <WinnerTrophy mark={winnerMode === 'sector' ? 'sector' : 'prize'} /> : null}
+          {marker ? <PenaltyMarker {...marker} /> : null}
         </p>
         <p className="truncate t-caption text-muted">
           {sector && <span className="sr-only">Sector </span>}
-          {meta}
+          {[sector, stand && `Stand ${stand}`, counts].filter(Boolean).join(' · ')}
+          {cmmc ? (
+            <>
+              {' · '}
+              {/* fish: the competition's biggest catch is gold with bold dark text (parity clasament.c19). */}
+              <span className={cn(biggest.isBiggest && 'rounded-[4px] bg-medal-gold px-1 font-extrabold text-on-medal')}>
+                {biggest.isBiggest && <span className="sr-only">Cea mai mare captură: </span>}
+                CMMC {cmmc}
+              </span>
+            </>
+          ) : null}
         </p>
       </div>
-      {capot ? (
-        <CapotChip />
+      {noCatch ? (
+        // No catch: «–» in the value, as fish (never «capot», ROADMAP §4b.11); the meta line says «0 capturi».
+        <p className="text-right">
+          <span aria-hidden className="block t-stat text-ink-2">
+            –
+          </span>
+          <span className="sr-only">Fără capturi</span>
+        </p>
       ) : (
         <p className="text-right">
-          <span className="block t-stat text-ink">{formatWeight(row[valueKey])}</span>
-          <span className="block t-micro text-muted">{valueUnit}</span>
+          <span className="block t-stat text-ink">{formatRankingWeight(row[valueKey])}</span>
+          <span className="block t-micro text-muted">kg</span>
         </p>
       )}
     </li>

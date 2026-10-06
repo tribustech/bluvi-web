@@ -81,12 +81,18 @@ test('competition-page.shell.c19 — phone: the strip follows the top bar up on 
   await settle(page);
   await page.mouse.move(180, 500);
   for (let i = 0; i < 6; i++) await page.mouse.wheel(0, 300);
-  // The bar slides away: the strip moves up to the top edge, still on screen.
-  await expect.poll(async () => Math.round((await tabsNav(page).boundingBox())?.y ?? -1)).toBe(0);
+  // The bar slides away: the pinned band (the T3 mini title row over the strip) moves up to the
+  // top edge — no gap above it (owner rule 3) — and the strip stays on screen right under the row.
+  const band = page.locator('[data-t3="pinned-band"]');
+  const top = async () => Math.round((await band.boundingBox())?.y ?? -1);
+  await expect.poll(top).toBe(0);
   await expect(tabsNav(page).getByRole('link', { name: /^Clasament/ })).toBeInViewport();
-  // Scrolling up brings the bar back; the strip sits under it (56).
+  const navY = Math.round((await tabsNav(page).boundingBox())?.y ?? -1);
+  expect(navY).toBeGreaterThanOrEqual(0);
+  expect(navY).toBeLessThanOrEqual(46);
+  // Scrolling up brings the bar back; the band sits under it (56).
   await page.mouse.wheel(0, -200);
-  await expect.poll(async () => Math.round((await tabsNav(page).boundingBox())?.y ?? -1)).toBe(56);
+  await expect.poll(top).toBe(56);
   await expect(page.locator('header').first()).toBeInViewport();
   await expectNoA11yViolations(page);
   expect(errors).toEqual([]);

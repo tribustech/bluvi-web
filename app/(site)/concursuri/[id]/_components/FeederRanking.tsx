@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useRef, type ReactNode } from 'react';
-import { InformationCircleIcon, TrophyIcon } from '@heroicons/react/24/outline';
+import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import {
   feederGeneralModel,
   feederLegCount,
@@ -13,6 +13,7 @@ import {
   type FeederRoundStatus,
   type FeederTab,
 } from '@/core/competitions';
+import { RankingFace } from '@/components/ranking/RankingFace';
 import { sectorFill } from '@/components/ranking/sector';
 import { IconButton } from '@/components/nav/IconButton';
 import { ResponsiveSurface } from '@/components/surfaces/ResponsiveSurface';
@@ -22,7 +23,9 @@ import { DetailSectionState } from '@/components/templates/T3';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { cn } from '@/components/ui/cn';
 import {
+  KgText,
   PlaceCell,
+  RANK_NAME_CAP,
   RANK_PIN,
   RANK_PIN_EDGE,
   RANK_TD,
@@ -32,12 +35,15 @@ import {
   RANK_TH_PIN,
   RANK_TH_ROW2,
   RANK_TH_SURFACE_BASE,
-  RankingCard,
   RankingFrame,
   RankingGrid,
   SeatLabel,
+  WinnerTrophy,
   pinSurface,
-} from './rankingShell';
+  splitSeat,
+} from '@/components/ranking/shell';
+import { RankingCard } from './rankingShell';
+import { useRankingFaces, type RankingFaces } from './rankingFaces';
 
 /*
  * Feeder on legs («manșe», FIPS) — fish components/competition/CompetitionRanking.tsx
@@ -45,15 +51,20 @@ import {
  * FeederHelpSheet.tsx, on the core view model (core/competitions/domain/feeder.ts).
  *
  *  - General: Loc · Participant (Echipă on team events) · Total (Puncte, Kg) · one group per leg
- *    (Stand, Kg, Puncte) — fish's own column order; the place is the kit table's plain number, the
- *    podium (1–3 with fish) adds the trophy.
+ *    (Stand, Kg, Puncte) — fish's own column order; the place is the ranking tables' one idiom (kit
+ *    PlaceCell: the plain number, the podium — 1–3 with fish — adds the trophy). A scored leg
+ *    without a catch reads «–» in its Kg («Fără capturi» for a screen reader, ROADMAP §4b.11), as
+ *    the standard and NC tables; the core model keeps fish's «0.000».
  *  - A leg: one row group per sector (its dot and the 4px edge), «Nu au pescuit în această manșă»
- *    last; the sector winner(s) carry a trophy and bold name instead of fish's 16% row tint
+ *    last; the sector winner(s) carry the muted sector trophy and bold name instead of fish's 16% row tint
  *    (Fundații: a sector colour is never a fill under text).
+ *  - Both: the coloured header row (kit RANK_TH, ROADMAP §4b.12), hairline rows, the
+ *    sector's 4px edge on every Stand cell (General: each leg's own), and from 768 the avatar beside
+ *    each name (§4b.13; the registration's photo, else the initials).
  *
  * TODO(kit): a grouped-column / row-group ranking table (ROADMAP §8 «a feeder ranking table»);
- * until then the table is composed from the shared shell (./rankingShell.tsx: the kit table's
- * tokens). Wider than its card it scrolls sideways with Loc and the name pinned (a leg: Stand and
+ * until then the table is composed from the kit's shared shell (components/ranking/shell.tsx, the
+ * kit RankingTable's parts). Wider than its card it scrolls sideways with Loc and the name pinned (a leg: Stand and
  * the name), as fish's frozen columns; the header row sticks in «Tot ecranul».
  */
 
@@ -162,14 +173,26 @@ export function FeederRankingTable({
   return <LegTables data={data} leg={tab} caption={caption} nameTitle={nameTitle} me={me} full={full} toolbar={toolbar} alone={alone} />;
 }
 
+/** A row's face by its registration (the page's core); unknown → the name's initials. */
+const faceOf = (faces: RankingFaces, registrationId: string) => faces.byRegistration.get(registrationId) ?? null;
+
+/** The sector's 4px edge at the left of a Stand cell (the cell is `relative`); none when not seated. */
+function SeatEdge({ seat }: { seat: string }) {
+  const { sector } = splitSeat(seat);
+  if (!sector) return null;
+  const fill = sectorFill(sector, 'var(--color-muted)');
+  return <span aria-hidden className={cn('absolute inset-y-0 left-0 w-1', fill.className)} style={fill.style} />;
+}
+
 /** Loc's track (w-14): the name's left offset when pinned. */
 const PLACE_W = 'w-14 min-w-14';
 
 function GeneralTable({ data, caption, nameTitle, me }: { data: FeederData; caption: string; nameTitle: string; me?: FeederMe }) {
   const { legs, rows } = useMemo(() => feederGeneralModel(data.rankings, feederLegCount(data.rankings)), [data.rankings]);
-  // The Total group is a group like the legs: the page-grey header with its left rule (indigo in a
+  const faces = useRankingFaces();
+  // The Total group is a group like the legs: the header band with its left rule (indigo in a
   // row is the viewer's own row or a win, never a whole column).
-  const group = cn(RANK_TH, 'h-8 border-l border-hairline text-center text-ink');
+  const group = cn(RANK_TH, 'h-8 border-l border-hairline text-center');
   return (
     <RankingGrid caption={caption}>
       <thead>
@@ -177,7 +200,7 @@ function GeneralTable({ data, caption, nameTitle, me }: { data: FeederData; capt
           <th scope="col" rowSpan={2} className={cn(RANK_TH, RANK_TH_PIN, PLACE_W, 'left-0 pl-3 text-left')}>
             Loc
           </th>
-          <th scope="col" rowSpan={2} className={cn(RANK_TH, RANK_TH_PIN, RANK_PIN_EDGE, 'left-14 min-w-36 text-left')}>
+          <th scope="col" rowSpan={2} className={cn(RANK_TH, RANK_TH_PIN, RANK_PIN_EDGE, RANK_NAME_CAP, 'left-14 min-w-36 text-left')}>
             {nameTitle}
           </th>
           <th scope="colgroup" colSpan={2} className={group}>
@@ -217,22 +240,30 @@ function GeneralTable({ data, caption, nameTitle, me }: { data: FeederData; capt
           return (
             <tr key={r.registrationId} data-registration={r.registrationId} className={cn('text-ink', mine && 'bg-accent-tint')}>
               <th scope="row" className={cn(RANK_TD, RANK_PIN, pinSurface(mine), PLACE_W, 'left-0 pl-3 text-left')}>
-                <PlaceCell value={r.position} winner={r.podium} onTint={mine} />
+                <PlaceCell value={r.position} mark={r.podium ? 'podium' : null} onTint={mine} />
               </th>
-              <td className={cn(RANK_TD, RANK_PIN, RANK_PIN_EDGE, pinSurface(mine), 'left-14 max-w-60 font-bold whitespace-normal')}>
-                <span className="line-clamp-2 min-w-32 max-md:min-w-28">
-                  {mine ? 'Tu · ' : null}
-                  {r.name}
+              <td className={cn(RANK_TD, RANK_PIN, RANK_PIN_EDGE, pinSurface(mine), 'left-14 max-w-72 font-bold whitespace-normal')}>
+                <span className="flex items-center gap-2.5">
+                  <RankingFace name={r.name} face={faceOf(faces, r.registrationId)} />
+                  <span className="line-clamp-2 min-w-32 max-md:min-w-28">
+                    {mine ? 'Tu · ' : null}
+                    {r.name}
+                  </span>
                 </span>
               </td>
               <td className={cn(RANK_TD, 'border-l text-right font-extrabold text-ink')}>{roNum(r.totalPoints)}</td>
-              <td className={cn(RANK_TD, 'text-right')}>{roNum(r.totalKg)}</td>
+              <td className={cn(RANK_TD, 'text-right')}>
+                <KgText kg={r.totalKg} />
+              </td>
               {r.legs.map((cell, i) => (
                 <Fragment key={legs[i]}>
-                  <td className={cn(RANK_TD, 'border-l text-left text-ink-2')}>
-                    <SeatLabel seat={cell.seat} />
+                  <td className={cn(RANK_TD_BASE, 'relative border-l pr-2 pl-3 text-left text-ink-2')}>
+                    <SeatEdge seat={cell.seat} />
+                    <SeatLabel seat={cell.seat} dot={false} />
                   </td>
-                  <td className={cn(RANK_TD, 'text-right')}>{roNum(cell.kg)}</td>
+                  <td className={cn(RANK_TD, 'text-right')}>
+                    <KgText kg={cell.kg} />
+                  </td>
                   <td className={cn(RANK_TD, 'pr-3.5 text-right font-extrabold')}>{roNum(cell.points)}</td>
                 </Fragment>
               ))}
@@ -287,6 +318,7 @@ function LegTables({
   alone: (state: ReactNode) => ReactNode;
 }) {
   const { sections } = useMemo(() => feederLegModel(data.rankings, leg), [data.rankings, leg]);
+  const faces = useRankingFaces();
   if (!sections.length) return alone(<EmptyState title="Nu există date de afișat" />);
   if (sections.every(s => !s.sector)) {
     // Nobody was seated in this leg: not a table of dashes, the names it is about.
@@ -314,6 +346,7 @@ function LegTables({
             labelledBy={`feeder-leg-${leg}-${section.sector ?? 'none'}-s`}
             groupRow
             me={me}
+            faces={faces}
           />
         ))}
       </RankingGrid>
@@ -342,7 +375,7 @@ function LegTables({
               <RankingFrame caption={`${caption}, ${sectorTitle(section.sector)}`} region={false} embedded>
                 <RankingGrid caption={`${caption}, ${sectorTitle(section.sector)}`}>
                   <LegHead nameTitle={nameTitle} surface />
-                  <LegSectionBody section={section} labelledBy={titleId} groupRow={false} me={me} />
+                  <LegSectionBody section={section} labelledBy={titleId} groupRow={false} me={me} faces={faces} />
                 </RankingGrid>
               </RankingFrame>
             ) : (
@@ -352,12 +385,15 @@ function LegTables({
                   <li
                     key={r.registrationId}
                     className={cn(
-                      'flex min-h-13 items-center border-t border-hairline px-4 py-2 t-table font-bold text-ink first:border-t-0',
+                      'flex min-h-13 items-center gap-2.5 border-t border-hairline px-4 py-2 t-table font-bold text-ink first:border-t-0',
                       isMe(me, r) && 'bg-accent-tint',
                     )}
                   >
-                    {isMe(me, r) ? 'Tu · ' : null}
-                    {r.name}
+                    <RankingFace name={r.name} face={faceOf(faces, r.registrationId)} />
+                    <span>
+                      {isMe(me, r) ? 'Tu · ' : null}
+                      {r.name}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -425,11 +461,13 @@ function LegSectionBody({
   labelledBy,
   groupRow,
   me,
+  faces,
 }: {
   section: LegSection;
   labelledBy: string;
   groupRow: boolean;
   me?: FeederMe;
+  faces: RankingFaces;
 }) {
   const fill = section.sector ? sectorFill(section.sector, 'var(--color-muted)') : null;
   return (
@@ -457,12 +495,7 @@ function LegSectionBody({
             </th>
             <td className={cn(RANK_TD_BASE, RANK_PIN, RANK_PIN_EDGE, pinSurface(mine), 'left-12 px-1.5 py-1.5 whitespace-normal')}>
               <span className="flex min-w-20 items-center gap-1.5">
-                {r.sectorWinner ? (
-                  <>
-                    <TrophyIcon aria-hidden className="size-4 shrink-0 text-accent-ink" />
-                    <span className="sr-only">Câștigător de sector: </span>
-                  </>
-                ) : null}
+                <RankingFace name={r.name} face={faceOf(faces, r.registrationId)} className="mr-1" />
                 <span className="flex min-w-0 flex-col">
                   <span className={cn('line-clamp-2 break-words', r.sectorWinner ? 'font-extrabold' : 'font-bold')}>
                     {mine ? 'Tu · ' : null}
@@ -476,10 +509,23 @@ function LegSectionBody({
                 </span>
               </span>
             </td>
-            <td className={cn(RANK_TD_BASE, LEG_NUM, LEG_NUM_W)}>{roNum(r.kg)}</td>
+            <td className={cn(RANK_TD_BASE, LEG_NUM, LEG_NUM_W)}>
+              <KgText kg={r.kg} />
+            </td>
             <td className={cn(RANK_TD_BASE, LEG_NUM, LEG_NUM_W, LEG_WIDE)}>{roNum(r.catchCount)}</td>
             <td className={cn(RANK_TD_BASE, LEG_NUM, LEG_NUM_W, LEG_WIDE)}>{roNum(r.biggestFish)}</td>
-            <td className={cn(RANK_TD_BASE, LEG_NUM, 'pr-2.5 font-extrabold text-ink xl:min-w-14 xl:pr-4')}>{roNum(r.points)}</td>
+            <td className={cn(RANK_TD_BASE, LEG_NUM, 'pr-2.5 font-extrabold text-ink xl:min-w-14 xl:pr-4')}>
+              {/* The sector winner's trophy sits before the points (its sector place), like the
+                  standard table's «Poziție sector» cue: the name column and the digits stay aligned. */}
+              {r.sectorWinner ? (
+                <span className="inline-flex items-center justify-end gap-1">
+                  <WinnerTrophy mark="sector" srText="Câștigător de sector, " />
+                  {roNum(r.points)}
+                </span>
+              ) : (
+                roNum(r.points)
+              )}
+            </td>
           </tr>
         );
       })}

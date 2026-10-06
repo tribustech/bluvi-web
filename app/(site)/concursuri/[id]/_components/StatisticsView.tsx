@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { PAGE_RETRY } from './retry-policy';
-import { ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ChartBarIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import {
   buildWeighingSessions,
   catchThresholdCountsQuery,
@@ -22,24 +22,28 @@ import {
 import { deletePenaltyMutation } from '@/core/organizer';
 import type { Transport } from '@/core/transport';
 import { sectorColor, sectorFill } from '@/components/ranking/sector';
+import { RANKING_HEAD } from '@/components/ranking/tableHead';
 import { formatDecimal } from '@/components/cards/format';
+import { CatchIcon, DeadFishIcon, FishIcon, ScaleIcon } from '@/components/icons/brand';
 import { Dialog } from '@/components/surfaces/Dialog';
-import { ErrorState } from '@/components/surfaces/StateCard';
+import { EmptyState, ErrorState } from '@/components/surfaces/StateCard';
 import { LIST_GUTTER } from '@/components/templates/T1';
 import { DetailSection } from '@/components/templates/T3';
-import { StatTile } from '@/components/ui/BentoTile';
+import { FactTile, StatTile } from '@/components/ui/BentoTile';
 import { FaceStack } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
+import { InlineNumber } from '@/components/ui/SignatureNumber';
 import { useSiteToast } from '../../../_shell/Toast';
 import { ContextSurface } from './ContextSurface';
-import { BiggestCatchTile, SummaryStrip, summaryTiles } from './DesktopStats';
+import { BiggestCatchTile, SummaryStrip, summaryTiles, useWeighingSlot, WeighingTile } from './DesktopStats';
 import { isOfflineEmpty, OfflineState } from './offline';
 import { QueryRetry } from './QueryRetry';
 import { formatKg } from './ranking';
 import { isNationalType } from './stand';
 import { StandMark } from './StandMark';
 import { StandTimeline, timelineHidden, useTimelineSnapshot } from './StandTimeline';
+import { statisticFacts } from './StatisticFacts';
 
 /*
  * fish CompetitionRanking / NationalChampionshipRanking `statisticiContent` (parity
@@ -49,20 +53,29 @@ import { StandTimeline, timelineHidden, useTimelineSnapshot } from './StandTimel
  * quantity rankings), Capturi pe praguri. Charts are drawn with plain HTML / SVG (no chart
  * library). Every block has its own loading (its shape), error («Încearcă din nou») and empty state.
  *
- * Width (ROADMAP §4): the cards are items of one auto-fill grid in fish's order (~480px tracks: one
- * shrinkable column on the phone and the tablet, two from 1280, three on the widest screens; the
- * T1 list gutter); the wide «Capturi» table spans the whole row under them. Every state of a block
- * (bones, error, offline) keeps its card, title and grid footprint, so nothing moves when it lands;
- * the blocks drawn from the ranking (phone tiles, Penalizări, the donut) follow the ranking read.
+ * Bento (owner rule 9, ROADMAP §4b): the view opens on a bento of tiles of different sizes (MetaTiles)
+ * — see MetaTiles for its shape per width. The chart cards under it are one column below 1280 and
+ * two balanced columns from 1280 (each card as tall as its content, never stretched to a taller
+ * neighbour: no field of white under a short card). Every state of a block (bones, error, offline)
+ * keeps its card and title, so nothing moves when it lands; the blocks drawn from the ranking (the
+ * bento, Penalizări, the donut) follow the ranking read. A block with nothing to say is not drawn
+ * (rule 4): no Top capturi of «-», no donut of 0; without a single catch or weighing the view is the
+ * summary line and one empty state.
  *
- * Weights: the competition's precision (`decimals`, as the summary tiles) with the Romanian
- * grouping («2.961,0»); the session rows and the sector donut keep fish's one decimal (c7, c12).
+ * Weights: one precision on the whole view — the competition's (`decimals`, as the summary tiles
+ * and the ranking), with the Romanian grouping («2.961,0»): the session rows, the donut, Best N.
+ * Units are their own smaller, muted word beside the figure (rule 10, InlineNumber).
  */
-const STATS_GRID = cn('grid grid-cols-1 items-start', LIST_GUTTER, 'md:grid-cols-[repeat(auto-fill,minmax(--spacing(120),1fr))]');
+// From 1280 two columns that balance by height (the cards in fish's order, down the first column
+// then the second); a lone card keeps the whole row. Every card is a direct child that is drawn (a
+// block with nothing to say returns null).
+const STATS_GRID = cn(
+  'grid grid-cols-1 items-start',
+  LIST_GUTTER,
+  'xl:block xl:columns-2 xl:gap-4 xl:*:mb-4 xl:*:break-inside-avoid xl:[&:has(>:only-child)]:columns-1',
+);
 /** The rankings whose rows carry a quantity per sector (the donut). */
 const QUANTITY_TYPES = new Set(['quantity', 'quantityQuality', 'qualityQuantity']);
-/** fish's one decimal (session rows, the sector donut), grouped. */
-const kg1 = (n: number) => formatDecimal(n, 1, 1);
 
 export function StatisticsView({
   t,
@@ -108,6 +121,9 @@ export function StatisticsView({
         : 'ok';
   const ncType = isNationalType(competition.rankingType);
   const quantityType = QUANTITY_TYPES.has(competition.rankingType ?? '');
+  // Not one catch and not one weighing: nothing to chart (rule 4) — the summary line (the bento's on
+  // the phone, the strip's from 768) and one empty state, not cards of «-» and a ring of 0.
+  const nothing = metadata?.totalCatchesCount === 0 && weighingStats.data?.data.length === 0;
   const rankingFailure = (title: string, className?: string) => (
     <BlockState
       title={title}
@@ -128,10 +144,24 @@ export function StatisticsView({
           completed={status === 'completed'}
           decimals={decimals}
           national={metadata?.rankingType === 'nationalChampionship'}
+          competition={competition}
+          reserveWeighing={status === 'started' || status === 'completed'}
         />
       )}
+      {nothing ? (
+        <>
+          {nc ? (
+            <PenaltiesCard t={t} competitionId={competition.documentId} rows={nc.flatMap(club => club.teams ?? [])} canRevoke={canRevoke} />
+          ) : null}
+          <EmptyState
+            icon={<ChartBarIcon aria-hidden className="size-10 text-muted" />}
+            title={status === 'completed' ? 'Nu există statistici pentru acest concurs' : 'Încă nu există statistici'}
+            description={status === 'completed' ? 'Nu s-a înregistrat niciun cântar.' : 'Graficele apar după primul cântar.'}
+          />
+        </>
+      ) : (
       <div className={STATS_GRID}>
-        <WeighingCharts t={t} competition={competition} query={weighingStats} />
+        <WeighingCharts t={t} competition={competition} query={weighingStats} decimals={decimals} />
         {nc ? (
           <PenaltiesCard t={t} competitionId={competition.documentId} rows={nc.flatMap(club => club.teams ?? [])} canRevoke={canRevoke} />
         ) : ncType && rankingState === 'pending' ? (
@@ -147,27 +177,37 @@ export function StatisticsView({
           // (from 768 the summary row above the views says the ranking failed).
           rankingFailure(quantityType ? 'Cantitate pe sector (kg)' : 'Rezumat', quantityType ? undefined : 'md:hidden')
         ) : (
-          <SectorQuantity rankings={rankings} />
+          <SectorQuantity rankings={rankings} decimals={decimals} />
         )}
-        <div className="col-span-full min-w-0 empty:hidden">
-          <ThresholdTable query={thresholds} />
-        </div>
+        <ThresholdTable query={thresholds} />
       </div>
+      )}
     </div>
   );
 }
 
-/** The phone's summary tiles while the ranking loads (from 768 they sit above the views). */
+/**
+ * The bento while the ranking loads, in the loaded bento's shape: the phone's (the navy tile and
+ * the quantity tile across, then two facts) and, from 1280, the six-column one (navy 2×2, quantity
+ * and weighing 2×1, four facts). 768–1279 the strip over the views holds the place. Marked
+ * `data-stats-bento` like the bento, so from 1280 the strip's bones step aside the same way.
+ */
 function TileBones({ announce = true }: { announce?: boolean }) {
   return (
     <div
       role={announce ? 'status' : undefined}
       aria-label={announce ? 'Se încarcă rezumatul' : undefined}
       aria-hidden={announce ? undefined : true}
-      className="-mx-4 flex gap-3 overflow-hidden px-4 md:hidden"
+      data-stats-bento=""
+      className={cn('grid grid-cols-2 gap-3 md:hidden', BENTO_XL, 'xl:grid')}
     >
-      <span aria-hidden className="h-39 w-4/5 shrink-0 animate-shimmer rounded-bento" />
-      <span aria-hidden className="h-39 w-4/5 shrink-0 animate-shimmer rounded-bento" />
+      <span aria-hidden className="col-span-2 h-39 animate-shimmer rounded-bento xl:row-span-2 xl:h-auto" />
+      <span aria-hidden className="col-span-2 h-25 animate-shimmer rounded-bento xl:h-39" />
+      <span aria-hidden className="col-span-2 hidden h-39 animate-shimmer rounded-bento xl:block" />
+      <span aria-hidden className="h-24 animate-shimmer rounded-bento xl:h-30" />
+      <span aria-hidden className="h-24 animate-shimmer rounded-bento xl:h-30" />
+      <span aria-hidden className="hidden h-30 animate-shimmer rounded-bento xl:block" />
+      <span aria-hidden className="hidden h-30 animate-shimmer rounded-bento xl:block" />
     </div>
   );
 }
@@ -267,9 +307,30 @@ function BlockState({
 }
 
 /**
- * fish RankingCardsCarousel + RankingMetaCard, on the kit tiles the desktop row uses (the navy
- * CountTile for the biggest catch, StatTiles for the totals). Phone only: from 768 the same tiles
- * sit above the views.
+ * The six-column bento from 1280 (MetaTiles, its bones): a fact is one track, so at 1280–1920 it is
+ * ~190–260px wide and never balloons; the headline tiles take two (the navy one two by two).
+ */
+const BENTO_XL = 'xl:grid-cols-6 xl:grid-flow-row-dense xl:gap-4';
+
+/**
+ * fish RankingCardsCarousel + RankingMetaCard, as a bento (owner rule 9): tiles of different sizes,
+ * the headline numbers big, the small facts small. One list, laid out per width:
+ *  - Phone, two columns: the navy biggest catch across, «Cantitate totală» across (the 40 step:
+ *    a three-decimal total never fits half a 320–375 row), then the small facts two by two —
+ *    Capturi · Medie pe captură, Standuri cu pește · Fără capturi, Media pe stand · Capturi pe stand.
+ *  - 768–1279: the headline numbers are the strip over the views (DesktopStats, whose captions say
+ *    the stands with fish and the average per stand), so the bento keeps only the facts the strip
+ *    does not show (Medie pe captură, Capturi pe stand), each a tile's width (never one tile
+ *    stretched over the row).
+ *  - From 1280, six columns: the navy tile 2×2 (the number, the angler's face, name and stand),
+ *    «Cantitate totală» 2×1 (with the average per stand under it) and the weighing tile 2×1 (the
+ *    strip's «Cântar în curs» / «Ultimul cântar», handed over by useWeighingSlot), then four facts
+ *    1×1: Capturi (per stand under it), Medie pe captură, Standuri cu pește, Fără capturi. The strip
+ *    steps aside on this view (it hides itself when it sees `data-stats-bento`).
+ * A fact the data cannot back (no rows: feeder legs, the club rankings) has no tile, so nothing
+ * reads «0»; the two left stay small under «Cantitate totală» and the weighing tile is 2×2 beside
+ * them. The per-stand figures are their own facts or their own
+ * figure in a caption (rule 10), never a number glued to the unit.
  */
 function MetaTiles({
   metadata,
@@ -277,29 +338,108 @@ function MetaTiles({
   completed,
   decimals,
   national,
+  competition,
+  reserveWeighing,
 }: {
   metadata: RankingMetadata | undefined;
   rows: Parameters<typeof summaryTiles>[1];
   completed: boolean;
   decimals: number;
   national: boolean;
+  competition: CompetitionWithMyStatus;
+  /** Started / completed: the weighing tile's 2×1 cell is there from the first paint. */
+  reserveWeighing: boolean;
 }) {
+  const weighing = useWeighingSlot();
   if (!metadata) return null;
-  // No catch yet: the one line, not three tiles of zeros (as DesktopStats from 768).
+  // No catch yet: the one line, not tiles of zeros (as DesktopStats from 768).
   if (metadata.totalCatchesCount === 0) return <SummaryStrip rankings={rows} completed={completed} className="md:hidden" />;
   const tiles = summaryTiles(metadata, rows, decimals);
-  const item = 'w-4/5 shrink-0 snap-center [&>*]:h-full';
+  const facts = statisticFacts(metadata, rows);
+  const stands = facts.stands;
+  const faces = metadata.biggestCatch ? facesOnStand(metadata.biggestCatch.standId, competition) : [];
+  // From 768 the tiles sit on the grey page ground: the surface card, as every tile of the page.
+  const onPage = 'md:bg-surface md:shadow-e0';
+  // The strip says these from 768 to 1279; the bento says them on the phone and from 1280.
+  const notTablet = 'md:max-xl:hidden';
+  // Only from 1280 (the phone has its own tiles for these figures).
+  const xlOnly = 'max-xl:hidden';
+  // Without the per-stand facts (feeder, club rankings) two facts are left: they stay 1×1 under
+  // «Cantitate totală» and the weighing tile takes the two rows beside them (2×2); with no weighing
+  // tile they share the row (2×1 each).
+  const pair = stands ? undefined : reserveWeighing ? undefined : 'xl:col-span-2';
+  const tallWeighing = !stands;
   return (
-    <ul aria-label="Rezumat" tabIndex={0} className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 [scrollbar-width:none] md:hidden">
-      <li className={item}>
-        <BiggestCatchTile {...tiles.biggest} decimals={decimals} national={national} />
+    <ul
+      aria-label="Rezumat"
+      data-stats-bento=""
+      className={cn(
+        'grid grid-cols-2 gap-3 *:min-w-0 *:*:h-full',
+        'md:grid-cols-[repeat(auto-fill,minmax(--spacing(60),1fr))] md:gap-4',
+        BENTO_XL,
+      )}
+    >
+      <li className={cn('col-span-2 xl:row-span-2', notTablet)}>
+        <BiggestCatchTile {...tiles.biggest} decimals={decimals} national={national} faces={faces} />
       </li>
-      <li className={item}>
-        <StatTile label="Număr total de capturi" value={tiles.catches.value} caption={tiles.catches.caption} />
+      <li className={cn('col-span-2', !reserveWeighing && 'xl:col-span-4', notTablet)}>
+        {/* Across the phone row it needs no 156 height: label and number, as tall as they are. */}
+        <StatTile
+          label="Cantitate totală"
+          value={tiles.quantity.value}
+          unit="kg"
+          caption={stands ? <>media pe stand <InlineNumber value={formatKg(stands.perStandKg, decimals)} unit="kg" /></> : undefined}
+          captionClassName={xlOnly}
+          className={cn(onPage, 'max-md:min-h-0')}
+        />
       </li>
-      <li className={item}>
-        <StatTile label="Cantitate totală" value={tiles.quantity.value} unit="kg" caption={tiles.quantity.caption} />
+      {reserveWeighing ? (
+        <li className={cn('col-span-2 hidden xl:block', tallWeighing && 'xl:row-span-2')}>
+          {weighing ? (
+            <WeighingTile {...weighing} standalone />
+          ) : (
+            <span aria-hidden className="block h-full min-h-39 animate-shimmer rounded-bento" />
+          )}
+        </li>
+      ) : null}
+      <li className={cn(notTablet, pair)}>
+        <FactTile
+          label="Capturi"
+          icon={<FishIcon />}
+          value={tiles.catches.value}
+          caption={stands ? <><InlineNumber value={formatDecimal(stands.catchesPerStand, 1, 1)} /> pe stand</> : undefined}
+          captionClassName={xlOnly}
+          className={onPage}
+        />
       </li>
+      {facts.perCatch !== null ? (
+        <li className={pair}>
+          <FactTile label="Medie pe captură" icon={<ScaleIcon />} value={formatKg(facts.perCatch, decimals)} unit="kg" className={onPage} />
+        </li>
+      ) : null}
+      {stands ? (
+        <>
+          <li className={notTablet}>
+            <FactTile label="Standuri cu pește" icon={<CatchIcon />} value={String(stands.withFish)} unit={`/${stands.total}`} className={onPage} />
+          </li>
+          <li className={notTablet}>
+            <FactTile
+              label="Fără capturi"
+              icon={<DeadFishIcon />}
+              value={String(stands.without)}
+              unit={stands.without === 1 ? 'stand' : stands.without % 100 >= 20 || (stands.without > 0 && stands.without % 100 === 0) ? 'de standuri' : 'standuri'}
+              className={onPage}
+            />
+          </li>
+          {/* From 1280 these two are the captions of «Cantitate totală» and «Capturi». */}
+          <li className="md:hidden">
+            <FactTile label="Media pe stand" icon={<ChartBarIcon />} value={formatKg(stands.perStandKg, decimals)} unit="kg" className={onPage} />
+          </li>
+          <li className="xl:hidden">
+            <FactTile label="Capturi pe stand" icon={<FishIcon />} value={formatDecimal(stands.catchesPerStand, 1, 1)} className={onPage} />
+          </li>
+        </>
+      ) : null}
     </ul>
   );
 }
@@ -308,25 +448,32 @@ function MetaTiles({
  * fish CompetitionWeighingCharts: «Sesiuni de cântărire» (only with at least one weighing), then the
  * stand timeline card. While the weighing statistics load: their shape; on error: the message and a
  * retry of them alone (fish hides both cards then).
+ *
+ * No snapshot (204) beside a sessions card: fish draws the timeline card with one line in it; on a
+ * wide screen that is a whole card of filler, so the line is the sessions card's muted footer
+ * instead (StandTimeline's copy). Without sessions the timeline card stays (it is all there is).
  */
 const SESSIONS_TITLE = 'Sesiuni de cântărire';
 const SESSIONS_DESCRIPTION = 'Cronologia cântăririlor și cantitatea totală per sesiune.';
+/** StandTimeline's 204 copy: live, no weighing closed yet; after the competition, none was kept. */
+const timelineEmptyCopy = (status: string | null | undefined) =>
+  status === 'started' ? 'Nu există cântăriri înregistrate încă.' : 'Cronologia nu este disponibilă pentru acest concurs.';
 
 function WeighingCharts({
   t,
   competition,
   query,
+  decimals,
 }: {
   t: Transport;
   competition: CompetitionWithMyStatus;
   query: UseQueryResult<WeighingStatisticsResponse>;
+  decimals: number;
 }) {
-  // The timeline's read (shared with its card): with no chart to sit beside it, the sessions card
-  // takes the whole row and so does the short «no timeline» card — no empty band in the grid.
+  // The timeline's read (shared with its card): a 204 becomes the sessions card's footer line.
   const snapshot = useTimelineSnapshot(t, competition);
   const hidden = timelineHidden(competition.competitionStatus);
-  const noTimeline = hidden || (snapshot.isSuccess && !snapshot.data);
-  const wide = noTimeline ? 'col-span-full' : undefined;
+  const noSnapshot = !hidden && snapshot.isSuccess && !snapshot.data;
   if (isOfflineEmpty(query) || (query.isError && !query.data)) {
     // A failed re-read keeps what was already on screen (TanStack keeps `data` on a refetch error).
     return (
@@ -338,7 +485,7 @@ function WeighingCharts({
           message="Nu s-au putut încărca statisticile cântarilor."
           query={query}
         />
-        <StandTimeline t={t} competition={competition} variant="card" emptyClassName="col-span-full" />
+        <StandTimeline t={t} competition={competition} variant="card" />
       </>
     );
   }
@@ -352,21 +499,23 @@ function WeighingCharts({
     );
   }
   if (!query.data) return null;
+  const sessions = query.data.data.length > 0;
   return (
     <>
-      {query.data.data.length > 0 ? (
-        <ChartCard id="sesiuni" title={SESSIONS_TITLE} description={SESSIONS_DESCRIPTION} className={wide}>
+      {sessions ? (
+        <ChartCard id="sesiuni" title={SESSIONS_TITLE} description={SESSIONS_DESCRIPTION}>
           {query.isError ? <StaleNotice onRetry={() => void query.refetch()} /> : null}
-          <SessionTimeline items={query.data.data} />
+          <SessionTimeline items={query.data.data} decimals={decimals} />
+          {noSnapshot ? <p className="mt-3 t-caption text-muted">{timelineEmptyCopy(competition.competitionStatus)}</p> : null}
         </ChartCard>
       ) : null}
-      <StandTimeline t={t} competition={competition} variant="card" emptyClassName="col-span-full" />
+      {sessions && noSnapshot ? null : <StandTimeline t={t} competition={competition} variant="card" />}
     </>
   );
 }
 
 /** fish WeighingSessionTimeline: the rail, one row per session, 4 then «Vezi toate cântarele». */
-function SessionTimeline({ items }: { items: WeighingStatisticsResponse['data'] }) {
+function SessionTimeline({ items, decimals }: { items: WeighingStatisticsResponse['data']; decimals: number }) {
   const sessions = useMemo(() => buildWeighingSessions(items), [items]);
   const [expanded, setExpanded] = useState(false);
   const collapsible = sessions.length > SESSIONS_COLLAPSED_MAX;
@@ -394,9 +543,12 @@ function SessionTimeline({ items }: { items: WeighingStatisticsResponse['data'] 
                     </span>
                     <span className="truncate t-label text-ink">{session.label}</span>
                   </span>
-                  <span className={cn('shrink-0 t-body tabular-nums', extra ? 'text-status-warning-fg' : 'text-accent-ink')}>
-                    {kg1(session.totalKg)} kg
-                  </span>
+                  <InlineNumber
+                    value={formatKg(session.totalKg, decimals)}
+                    unit="kg"
+                    className="shrink-0"
+                    valueClassName={cn('t-body', extra ? 'text-status-warning-fg' : 'text-accent-ink')}
+                  />
                 </div>
                 <span aria-hidden className={cn('h-1.5 overflow-hidden rounded-full', extra ? 'bg-badge-yellow-bg' : 'bg-accent-tint-2')}>
                   <span
@@ -435,7 +587,7 @@ function SessionTimeline({ items }: { items: WeighingStatisticsResponse['data'] 
       ) : null}
       <p className="mt-2 flex items-center justify-between border-t border-hairline pt-2.5 pl-6">
         <span className="t-label text-ink-2">Total: {totals.catches} capturi</span>
-        <span className="t-body text-ink tabular-nums">{kg1(totals.kg)} kg</span>
+        <InlineNumber value={formatKg(totals.kg, decimals)} unit="kg" valueClassName="t-body-strong text-ink" />
       </p>
     </div>
   );
@@ -455,11 +607,11 @@ function StaleNotice({ onRetry }: { onRetry: () => void }) {
 
 type BestNKey = 'best3' | 'best5' | 'best7';
 
-/** The faces of the registration on a Best-N leader's stand (fish standIdToParticipantAvatars). */
-function standFaces(row: BestNStandRanking | undefined, competition: CompetitionWithMyStatus): { name: string; src: string | null }[] {
-  if (!row) return [];
+/** The faces of the registration on a stand (fish standIdToParticipantAvatars): photo, else a name for the initials. */
+function facesOnStand(standId: string | number | null | undefined, competition: CompetitionWithMyStatus): { name: string; src: string | null }[] {
+  if (standId === null || standId === undefined) return [];
   const reg = competition.registrations.find(
-    r => r.registrationStatus === 'registered' && r.stand && String(r.stand.id) === String(row.standId),
+    r => r.registrationStatus === 'registered' && r.stand && String(r.stand.id) === String(standId),
   );
   if (!reg) return [];
   if (reg.participants.length)
@@ -491,8 +643,6 @@ function participantLabel(row: BestNStandRanking, competition: CompetitionWithMy
 
 const TOPS_TITLE = 'Top capturi (Best 3 / 5 / 7)';
 const TOPS_DESCRIPTION = 'Cele mai bune medii (3, 5 sau 7 capturi). Apasă rândul pentru clasament.';
-/** An average of 3, 5 or 7 catches keeps three decimals (fish), whatever one catch's precision. */
-const AVERAGE_DECIMALS = 3;
 
 function TopsCard({
   competition,
@@ -513,7 +663,8 @@ function TopsCard({
   }
   if (query.isPending && query.fetchStatus !== 'idle') return <ChartCardSkeleton label="Se încarcă topul capturilor" />;
   const data = query.data;
-  if (!data) return null;
+  // No leader in any of the three (no catch yet): no card of «-» rows opening empty tables (rule 4).
+  if (!data || (!data.best3.length && !data.best5.length && !data.best7.length)) return null;
   const tops: { key: BestNKey; label: string }[] = [
     { key: 'best3', label: 'Best 3' },
     { key: 'best5', label: 'Best 5' },
@@ -524,7 +675,7 @@ function TopsCard({
       <ul className="overflow-hidden rounded-control border border-hairline">
         {tops.map(({ key, label }, i) => {
           const first = data[key][0];
-          const faces = standFaces(first, competition);
+          const faces = facesOnStand(first?.standId, competition);
           return (
             <li key={key} className={cn(i > 0 && 'border-t border-hairline')}>
               <button
@@ -536,9 +687,11 @@ function TopsCard({
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="flex items-center gap-2">
                     <span className="w-13 t-caption">{label}</span>
-                    <span className="t-body tabular-nums">
-                      {typeof first?.averageBestN === 'number' ? `${formatKg(first.averageBestN, AVERAGE_DECIMALS)} kg` : '-'}
-                    </span>
+                    {typeof first?.averageBestN === 'number' ? (
+                      <InlineNumber value={formatKg(first.averageBestN, decimals)} unit="kg" valueClassName="t-body text-ink" />
+                    ) : (
+                      <span className="t-body">-</span>
+                    )}
                   </span>
                   <span className="flex min-w-0 items-center gap-1.5 t-caption text-muted">
                     {first ? <StandMark sector={first.sectorName} stand={String(first.standName)} /> : <span className="shrink-0">-</span>}
@@ -600,7 +753,11 @@ function BestNSurface({
             <Td>{participantLabel(row, competition)}</Td>
             <Td className="text-ink-2">{(row.catchesUsed ?? []).map(w => formatKg(w, decimals)).join('; ')}</Td>
             <Td align="right" className="t-body-strong whitespace-nowrap">
-              {typeof row.averageBestN === 'number' ? `${formatKg(row.averageBestN, AVERAGE_DECIMALS)} kg` : '-'}
+              {typeof row.averageBestN === 'number' ? (
+                <InlineNumber value={formatKg(row.averageBestN, decimals)} unit="kg" valueClassName="t-body-strong text-ink" />
+              ) : (
+                '-'
+              )}
             </Td>
           </tr>
         ))}
@@ -612,6 +769,16 @@ function BestNSurface({
       {kind !== null ? body : null}
     </ContextSurface>
   );
+}
+
+/** The weight the penalties took off the rows (kg): why the sectors add up to less than «Cantitate totală». */
+function deductedKg(rankings: RankingResponse | undefined): number {
+  if (!rankings) return 0;
+  let kg = 0;
+  for (const r of rankings.rankings as { penalties?: Penalty[] }[]) {
+    for (const p of r.penalties ?? []) if (p.action === 'DEDUCT_TOTAL_WEIGHT' && typeof p.value === 'number') kg += p.value;
+  }
+  return kg;
 }
 
 function sectorTotals(rankings: RankingResponse | undefined): { name: string; value: number }[] {
@@ -635,10 +802,14 @@ function sectorTotals(rankings: RankingResponse | undefined): { name: string; va
  * sector colour is never a ground under text (components/ranking/sector.ts), and white fails AA on
  * the light sector hues.
  */
-function SectorQuantity({ rankings }: { rankings: RankingResponse | undefined }) {
+function SectorQuantity({ rankings, decimals }: { rankings: RankingResponse | undefined; decimals: number }) {
   const sectors = sectorTotals(rankings);
-  if (!sectors.length) return null;
   const total = sectors.reduce((s, x) => s + x.value, 0);
+  // No sector has a gram yet: no blank ring of «0» (rule 4).
+  if (!sectors.length || total <= 0) return null;
+  const kg = (n: number) => formatKg(n, decimals);
+  // The rows carry the quantity after the weight penalties; the bento's total is what was weighed.
+  const afterPenalties = deductedKg(rankings) > 0;
   const R = 80;
   const r = 40;
   const mid = (R + r) / 2;
@@ -654,7 +825,11 @@ function SectorQuantity({ rankings }: { rankings: RankingResponse | undefined })
     <ChartCard
       id="cantitate-sector"
       title="Cantitate pe sector (kg)"
-      description="Cantitatea totală de pește cântărită pe fiecare sector al competiției."
+      description={
+        afterPenalties
+          ? 'Cantitatea de pește pe fiecare sector, după penalizările de greutate.'
+          : 'Cantitatea totală de pește cântărită pe fiecare sector al competiției.'
+      }
     >
       {/* From 768 the card is wide: the donut and its legend side by side. */}
       <figure className="flex flex-col items-center gap-3 py-2 md:flex-row md:justify-center md:gap-8">
@@ -662,7 +837,7 @@ function SectorQuantity({ rankings }: { rankings: RankingResponse | undefined })
           viewBox="-100 -100 200 200"
           className="size-50"
           role="img"
-          aria-label={`Cantitate pe sector: ${sectors.map(s => `Sector ${s.name} ${kg1(s.value)} kg`).join(', ')}`}
+          aria-label={`Cantitate pe sector: ${sectors.map(s => `Sector ${s.name} ${kg(s.value)} kg`).join(', ')}`}
         >
           <g transform="rotate(-90)">
             {slices.map(s => (
@@ -679,20 +854,26 @@ function SectorQuantity({ rankings }: { rankings: RankingResponse | undefined })
           </g>
           <circle r={r} className="fill-accent-tint" />
           <text y={-6} textAnchor="middle" dominantBaseline="central" className="fill-ink t-heading" aria-hidden>
-            {kg1(total)}
+            {kg(total)}
           </text>
           <text y={14} textAnchor="middle" dominantBaseline="central" className="fill-muted t-micro" aria-hidden>
             kg
           </text>
         </svg>
         <figcaption>
-          <ul className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 md:flex-col">
+          {/* Many sectors (up to 24): the legend in columns, so the card stays short beside its neighbour. */}
+          <ul
+            className={cn(
+              'flex flex-wrap justify-center gap-x-3 gap-y-1.5',
+              sectors.length > 8 ? 'md:grid md:grid-cols-3 md:gap-x-5 xl:grid-cols-2' : 'md:flex-col',
+            )}
+          >
             {sectors.map(s => {
               const fill = sectorFill(s.name, 'var(--color-muted)');
               return (
                 <li key={s.name} className="flex items-center gap-1.5 t-caption text-ink-2">
                   <span aria-hidden className={cn('size-3 shrink-0 rounded-badge', fill.className)} style={fill.style} />
-                  Sector {s.name} · {kg1(s.value)} kg
+                  Sector {s.name} · <InlineNumber value={kg(s.value)} unit="kg" />
                 </li>
               );
             })}
@@ -788,14 +969,18 @@ function PenaltiesCard({
   const collapsible = sorted.length > PENALTIES_PREVIEW;
   const visible = expanded ? sorted : sorted.slice(0, PENALTIES_PREVIEW);
   return (
-    <div ref={section} className="contents">
+    <div ref={section}>
     <ChartCard id="penalizari" title="Penalizări">
       <ul className="overflow-hidden rounded-control border border-hairline">
         {visible.map((p, i) => {
           const headline =
-            p.action === 'DEDUCT_TOTAL_WEIGHT' && p.value != null
-              ? `${PENALTY_LABEL[p.action]} · ${p.value} kg`
-              : (PENALTY_LABEL[p.action] ?? p.action);
+            p.action === 'DEDUCT_TOTAL_WEIGHT' && p.value != null ? (
+              <>
+                {PENALTY_LABEL[p.action]} · <InlineNumber value={formatDecimal(p.value, 0, 3)} unit="kg" valueClassName="t-label text-ink" />
+              </>
+            ) : (
+              (PENALTY_LABEL[p.action] ?? p.action)
+            );
           return (
             <li
               key={p.documentId}
@@ -889,9 +1074,14 @@ type ThresholdData = {
   general: Record<ThresholdKey, number>;
 };
 
-const THRESHOLDS_DESCRIPTION = 'Numărul de capturi pe sector, grupate pe praguri de greutate (10kg, 15kg, 20kg, 25kg, 30kg).';
+// The unit once, after the figures (rule 10), never «10kg» glued five times.
+const THRESHOLDS_DESCRIPTION = 'Numărul de capturi pe sector, grupate pe praguri de greutate (10, 15, 20, 25 și 30 kg).';
 
-/** fish CompetitionCatchesTable «Capturi». Hidden when nothing reaches 10 kg. */
+/**
+ * fish CompetitionCatchesTable «Capturi». Hidden when nothing reaches 10 kg: fish hides it only with
+ * no sector rows, and otherwise draws a block of zeros (20+ rows of «0» on a live competition) that
+ * says nothing — the web hides it whenever the General row is all zeros (parity statistici.c13).
+ */
 function ThresholdTable({ query }: { query: UseQueryResult<ThresholdData> }) {
   if (isOfflineEmpty(query) || (query.isError && !query.data)) {
     return <BlockState id="capturi-praguri" title="Capturi" description={THRESHOLDS_DESCRIPTION} message="Nu s-au putut încărca capturile pe praguri." query={query} />;
@@ -899,14 +1089,15 @@ function ThresholdTable({ query }: { query: UseQueryResult<ThresholdData> }) {
   if (query.isPending && query.fetchStatus !== 'idle') return <ChartCardSkeleton label="Se încarcă capturile pe praguri" />;
   const data = query.data;
   if (!data) return null;
-  if (data.bySector.length === 0 && data.general.count10Plus === 0 && data.general.count15Plus === 0) return null;
+  if (![data.general, ...data.bySector].some(row => THRESHOLDS.some(([, key]) => row[key] > 0))) return null;
   return (
     <ChartCard
       id="capturi-praguri"
       title="Capturi"
       description={THRESHOLDS_DESCRIPTION}
     >
-      <DataTableShell caption="Capturi pe praguri de greutate">
+      {/* Narrow numeric columns: on a full-width card the numbers stay near their sector. */}
+      <DataTableShell caption="Capturi pe praguri de greutate" className="md:max-w-3xl">
         <thead>
           <tr>
             <Th>Sector</Th>
@@ -948,16 +1139,15 @@ function ThresholdTable({ query }: { query: UseQueryResult<ThresholdData> }) {
 }
 
 /*
- * The two small tables of the view (Best N, thresholds) on the competition's ranking table look
- * (RankingView's embedded RankingTable), embedded in their card / dialog (no second card): a 40px
- * header row on the card's own white — no fill, no radius, t-label heads, a hairline under it —
- * 52px rows on hairlines (no zebra), right-aligned tabular numbers, a horizontal scroll when
- * narrower. TODO(kit): extract RankingTable's shell as a kit DataTable, then use it here.
+ * The two small tables of the view (Best N — a ranking —, thresholds) on the ranking table's look
+ * (owner rule 12, RankingTable): the header row is its own coloured band (RANKING_HEAD, rounded at
+ * the top), t-label heads; 52px rows on hairlines (no zebra), right-aligned tabular numbers, a
+ * horizontal scroll when narrower. TODO(kit): extract RankingTable's shell as a kit DataTable.
  */
-function DataTableShell({ caption, children }: { caption: string; children: ReactNode }) {
+function DataTableShell({ caption, className, children }: { caption: string; className?: string; children: ReactNode }) {
   return (
     <div role="region" aria-label={caption} tabIndex={0} className="overflow-x-auto [scrollbar-width:thin]">
-      <table className="w-full border-separate border-spacing-0 t-body text-ink tabular-nums">
+      <table className={cn('w-full border-separate border-spacing-0 t-body text-ink tabular-nums', className)}>
         <caption className="sr-only">{caption}</caption>
         {children}
       </table>
@@ -970,7 +1160,8 @@ function Th({ align = 'left', children }: { align?: 'left' | 'right'; children: 
     <th
       scope="col"
       className={cn(
-        'h-10 border-b border-hairline px-3 t-label whitespace-nowrap text-ink-2 first:pl-4 last:pr-4',
+        'h-10 px-3 t-label whitespace-nowrap first:rounded-tl-card first:pl-4 last:rounded-tr-card last:pr-4',
+        RANKING_HEAD,
         align === 'right' ? 'text-right' : 'text-left',
       )}
     >
@@ -992,7 +1183,7 @@ function Td({
   children: ReactNode;
 }) {
   const cls = cn(
-    // The first row sits right under the header's hairline: no second line.
+    // The first row sits right under the header band: no line on it.
     'border-t border-hairline px-3 first:pl-4 last:pr-4 [tr:first-child>&]:border-t-transparent',
     align === 'right' ? 'text-right' : 'text-left',
     header && 't-body-strong',

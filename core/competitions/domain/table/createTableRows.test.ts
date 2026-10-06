@@ -167,3 +167,27 @@ describe('bestOfTiers tier columns', () => {
     expect(getBestOfTiersColumns(3, tiers).find(c => c.key === 'tier9')?.title).toBe('Best 9');
   });
 });
+
+// parity competition-page.clasament.c19: the CMS sends standId as a number on rankings while
+// metadata.biggestCatch.standId may be a string (or the reverse) — fish's strict compare never
+// flagged the catch cell; core compares both as strings.
+describe('biggest catch flag on the catch cell', () => {
+  const sectorColors = { A: '#fff' };
+  const ranking = (standId: string | number) =>
+    ({ ...baseRanking, standId, quality: 5.5, qualityPoints: 1, catches: [2.5, 1.2, 1.8] }) as unknown as QualityStandRanking;
+
+  it.each([
+    [42, '42'],
+    ['42', 42],
+    [42, 42],
+  ])('ranking standId %p / biggest standId %p → the 2.500 catch cell is flagged', (rankId, biggestId) => {
+    const row = createQualityRow(ranking(rankId), 3, sectorColors, { isWinner: false, biggestStandId: biggestId, biggestWeight: 2.5 });
+    expect(row.catch1).toEqual({ weight: '2.500', isSplit: false, isBiggest: true });
+    expect(row.catch2).toBe('1.200');
+  });
+
+  it('another stand is not flagged', () => {
+    const row = createQualityRow(ranking(7), 3, sectorColors, { isWinner: false, biggestStandId: '42', biggestWeight: 2.5 });
+    expect(row.catch1).toBe('2.500');
+  });
+});

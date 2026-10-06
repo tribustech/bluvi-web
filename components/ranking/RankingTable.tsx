@@ -1,52 +1,58 @@
 'use client';
 
 import { ChevronDownIcon, ChevronUpDownIcon, ChevronUpIcon } from '@heroicons/react/16/solid';
-import { StarIcon } from '@heroicons/react/20/solid';
 import { useMemo, useState } from 'react';
 import type { ColumnDefinition } from '@/core/competitions/domain/table/getTableColumns';
-import { CapotChip, Tag } from '@/components/cards/parts';
-import { toWebColumns, type WebColumn } from './columns';
+import { cn } from '@/components/ui/cn';
+import { cellNumber, isNoCatch, readCell, tiedIndices, type RankingRowData } from './model';
+import { RankingFace, type RankingFaceData } from './RankingFace';
 import {
-  cellNumber,
-  formatPlain,
-  formatWeight,
-  isCapot,
-  penaltyChips,
-  readCell,
-  tiedIndices,
-  type RankingRowData,
-} from './model';
+  EMPTY_STAND,
+  compareByStand,
+  formatRankingPlain,
+  formatRankingWeight,
+  isPodium,
+  mainValueKey,
+  penaltyMarker,
+  rankingColumns,
+  winnerMode,
+  type RankingColumn,
+} from './rankingColumns';
 import { parseStand, sectorFill } from './sector';
+import { PenaltyMarker, PlaceCell, WinnerTrophy } from './shell';
+import { RANKING_HEAD, RANKING_HEAD_TIER } from './tableHead';
 
-export type RankingTableProps = {
-  /** From getXColumns() in core/competitions/domain/table/getTableColumns. */
-  columns: ReadonlyArray<ColumnDefinition>;
-  /** From createXRow() in core/competitions/domain/table/createTableRows, in ranking order. */
-  rows: ReadonlyArray<RankingRowData>;
-  /** The signed-in user's stand: that row is tinted and prefixed "Tu · ". */
-  currentUserStandId?: string | null;
-  /** Accessible table name, e.g. "Clasament general". */
-  caption: string;
-  /** The table scrolls inside this height so the header can stay stuck. */
-  maxHeight?: string;
-};
+/*
+ * Ranking table · desktop (Fundații §07) — the competition's ranking table as it ships (the
+ * competition page's CompetitionRankingTable wraps it with the page's faces; /dev/kit shows this
+ * same table). fish components/ranking-table/RankingTable.tsx with the
+ * builders' columns as they are (core getTableColumns: titles and order, parity clasament c7–c13),
+ * drawn in the page's table language (the kit RankingTable's tokens: the coloured 40px header row
+ * RANKING_HEAD, 52px rows, t-table, hairlines, sortable headers, the avatar beside each name from
+ * 768 — ROADMAP §4b.12–13). A row without a catch reads «–» in its weights (§4b.11).
+ *
+ * What fish draws and the web draws differently, each for a reason the design system states:
+ *  - the sector is the 4px edge on the Stand cell, never a fill under the row's text (fish tints
+ *    every cell at 40%: Fundații §01 «niciodată ca fundal sub text … pe web devine prea zgomotos la
+ *    24 de sectoare»);
+ *  - fish's 🎖️ on a 90% fill becomes the ranking tables' one place idiom (./shell PlaceCell): the
+ *    number, and a solid trophy for the podium (places 1–3 with a catch) on «Poziție generală».
+ *    What `isWinner` means depends on the type (./rankingColumns winnerMode): the sector winners
+ *    (general places 1..S) get a light muted trophy on «Poziție sector»; bestOf / bestOfTiers /
+ *    Best N winners the trophy on the general place. No navy pill: on a 24-sector competition it
+ *    turned the column into a wall of navy.
+ * Everything else is fish: Stand order by default (the headers sort, «Poziție generală» = fish
+ * Sortare → Poziția în clasament), three-decimal weights, the gold biggest-catch cell, grey catch
+ * cells past the sector's minimum, SPLIT, the bestOfTiers indigo band with the solid green won
+ * cell, one penalty marker per row.
+ */
+
+export type RankingTableSort = 'stand' | 'place';
 
 type SortState = { key: string; dir: 'asc' | 'desc' };
 
-const INITIAL_SORT: SortState = { key: 'generalPosition', dir: 'asc' };
-
-function standSortKey(position: string): [string, number, string] {
-  const { sector, stand } = parseStand(position);
-  const n = Number.parseInt(stand, 10);
-  return [sector, Number.isNaN(n) ? Number.POSITIVE_INFINITY : n, stand];
-}
-
-function compare(a: RankingRowData, b: RankingRowData, col: WebColumn): number {
-  if (col.kind === 'stand') {
-    const [sa, na, ra] = standSortKey(a.position);
-    const [sb, nb, rb] = standSortKey(b.position);
-    return sa.localeCompare(sb) || na - nb || ra.localeCompare(rb);
-  }
+function compare(a: RankingRowData, b: RankingRowData, col: RankingColumn): number {
+  if (col.kind === 'stand') return compareByStand(a, b);
   if (col.kind === 'name') return a.participant.localeCompare(b.participant, 'ro');
   const va = cellNumber(a[col.key]);
   const vb = cellNumber(b[col.key]);
@@ -56,57 +62,67 @@ function compare(a: RankingRowData, b: RankingRowData, col: WebColumn): number {
   return va - vb;
 }
 
-function defaultDir(col: WebColumn): SortState['dir'] {
+function defaultDir(col: RankingColumn): SortState['dir'] {
   // Bigger is better for weights and counts of catches; smaller for places and points.
-  return col.kind === 'weight' || col.kind === 'catch' || col.key === 'catchCount' || col.key === 'bestOfCount'
-    ? 'desc'
-    : 'asc';
+  return col.kind === 'weight' || col.kind === 'catch' || col.kind === 'tier' || col.kind === 'count' ? 'desc' : 'asc';
 }
 
-const WIDTH: Record<WebColumn['kind'], string> = {
-  place: 'w-[64px]',
-  stand: 'w-[90px]',
-  name: '',
-  weight: 'w-[96px]',
-  count: 'w-[90px]',
-  points: 'w-[84px]',
-  catch: 'w-[72px]',
+const WIDTH: Partial<Record<RankingColumn['kind'], string>> = {
+  stand: 'w-19',
+  place: 'w-24',
 };
 
-/**
- * Ranking table · desktop (Fundații §07): sticky header, tabular numbers, sortable columns, the
- * sector only as a 4px stripe on the row edge — never a cell fill or a dot.
- */
+export type RankingTableProps = {
+  /** From getXColumns() (core/competitions/domain/table/getTableColumns), fish's order. */
+  columns: ReadonlyArray<ColumnDefinition>;
+  /** From createXRow() (core/competitions/domain/table/createTableRows). */
+  rows: ReadonlyArray<RankingRowData>;
+  /** The signed-in user's stand: that row is tinted and prefixed «Tu · ». */
+  currentUserStandId?: string | null;
+  /** Accessible table name, e.g. «Clasament general». */
+  caption: string;
+  /** The table scrolls inside this height so the header can stay stuck. */
+  maxHeight?: string;
+  /** fish's order: by stand (default), or by place (the phone's Sortare → Poziția în clasament). */
+  initialSort?: RankingTableSort;
+  /** The row's face (photo / team); without it every name gets its initials (ROADMAP §4b.13). */
+  faceOf?: (row: RankingRowData) => RankingFaceData | null | undefined;
+};
+
 export function RankingTable({
   columns,
   rows,
   currentUserStandId,
   caption,
   maxHeight = 'min(70vh, 720px)',
+  initialSort = 'stand',
+  faceOf,
 }: RankingTableProps) {
-  const webColumns = useMemo(() => toWebColumns(columns), [columns]);
-  const [sort, setSort] = useState<SortState>(INITIAL_SORT);
+  const cols = useMemo(() => rankingColumns(columns), [columns]);
+  const initial: SortState = useMemo(
+    () => ({ key: initialSort === 'place' ? 'generalPosition' : 'position', dir: 'asc' }),
+    [initialSort],
+  );
+  const [sort, setSort] = useState<SortState>(initial);
   // The default order is not a user choice: the header stays neutral (aria-sort still says it).
-  const userSorted = sort.key !== INITIAL_SORT.key || sort.dir !== INITIAL_SORT.dir;
+  const userSorted = sort.key !== initial.key || sort.dir !== initial.dir;
 
   const tied = useMemo(() => tiedIndices(rows), [rows]);
-  const mainValueKey = useMemo(
-    () => (webColumns.some(c => c.key === 'quantity') ? 'quantity' : webColumns.find(c => c.kind === 'weight')?.key),
-    [webColumns],
-  );
+  const mainKey = useMemo(() => mainValueKey(columns), [columns]);
+  const mode = useMemo(() => winnerMode(columns), [columns]);
 
   const sorted = useMemo(() => {
-    const col = webColumns.find(c => c.key === sort.key);
+    const col = cols.find(c => c.key === sort.key);
     const indexed = rows.map((row, index) => ({ row, index }));
     if (!col) return indexed;
     const sign = sort.dir === 'asc' ? 1 : -1;
     return [...indexed].sort((a, b) => sign * compare(a.row, b.row, col) || a.index - b.index);
-  }, [rows, webColumns, sort]);
+  }, [rows, cols, sort]);
 
-  const onSort = (col: WebColumn) =>
-    setSort(s =>
-      s.key === col.key ? { key: col.key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key: col.key, dir: defaultDir(col) },
-    );
+  const onSort = (col: RankingColumn) =>
+    setSort(s => (s.key === col.key ? { key: col.key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key: col.key, dir: defaultDir(col) }));
+
+  const last = cols.length - 1;
 
   return (
     <div
@@ -120,41 +136,44 @@ export function RankingTable({
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr>
-            {webColumns.map((col, i) => {
+            {cols.map((col, i) => {
               const active = sort.key === col.key;
               const shown = active && userSorted;
               const Icon = !active ? ChevronUpDownIcon : sort.dir === 'asc' ? ChevronUpIcon : ChevronDownIcon;
+              const icon = (
+                <Icon
+                  aria-hidden
+                  className={cn('size-3.5 shrink-0', !shown && 'opacity-0 group-hover:opacity-60 group-focus-visible:opacity-60')}
+                />
+              );
               return (
                 <th
                   key={col.key}
                   scope="col"
                   aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className={`sticky top-0 z-above h-10 bg-page p-0 t-label whitespace-nowrap text-ink-2 ${
-                    WIDTH[col.kind]
-                  } ${i === 0 ? 'rounded-tl-card' : ''} ${i === webColumns.length - 1 ? 'rounded-tr-card' : ''}`}
+                  className={cn(
+                    'sticky top-0 z-above h-10 p-0 t-label whitespace-nowrap',
+                    // fish getTierCellColors: the Best-N block's header in indigo4 with a dark label.
+                    col.isTier ? RANKING_HEAD_TIER : RANKING_HEAD,
+                    WIDTH[col.kind],
+                    i === 0 && 'rounded-tl-card',
+                    i === last && 'rounded-tr-card',
+                  )}
                 >
                   <button
                     type="button"
                     onClick={() => onSort(col)}
-                    className={`group flex h-10 w-full items-center gap-0.5 outline-none focus-visible:bg-accent-tint focus-visible:text-accent-ink ${
-                      col.align === 'right' ? 'justify-end' : 'justify-start'
-                    } ${i === 0 ? 'pl-[18px]' : ''} ${i === webColumns.length - 1 ? 'pr-3.5' : col.align === 'right' ? 'pr-0' : ''} ${
-                      shown ? 'text-accent-ink' : 'hover:text-ink'
-                    }`}
+                    className={cn(
+                      'group flex h-10 w-full items-center gap-0.5 outline-none focus-visible:bg-accent-tint focus-visible:text-accent-ink',
+                      col.align === 'right' ? 'justify-end pr-3 pl-2' : 'justify-start pr-3',
+                      i === 0 && 'pl-[18px]',
+                      i === last && 'pr-3.5',
+                      shown ? 'text-ink' : col.isTier ? '' : 'hover:text-ink',
+                    )}
                   >
-                    {col.align === 'right' && (
-                      <Icon
-                        aria-hidden
-                        className={`size-3.5 shrink-0 ${shown ? '' : 'opacity-0 group-hover:opacity-60 group-focus-visible:opacity-60'}`}
-                      />
-                    )}
+                    {col.align === 'right' && icon}
                     {col.title}
-                    {col.align === 'left' && (
-                      <Icon
-                        aria-hidden
-                        className={`size-3.5 shrink-0 ${shown ? '' : 'opacity-0 group-hover:opacity-60 group-focus-visible:opacity-60'}`}
-                      />
-                    )}
+                    {col.align === 'left' && icon}
                   </button>
                 </th>
               );
@@ -164,40 +183,29 @@ export function RankingTable({
         <tbody>
           {sorted.map(({ row, index }) => {
             const me = currentUserStandId != null && row.standId === String(currentUserStandId);
-            const capot = isCapot(row);
-            const chips = penaltyChips(row.penalties);
+            const noCatch = isNoCatch(row);
+            const marker = penaltyMarker(row.penalties);
             const { sector, stand } = parseStand(row.position);
             const fill = sectorFill(sector, row.backgroundColor);
             const minFish = typeof row.sectorMinNumberOfFish === 'number' ? row.sectorMinNumberOfFish : undefined;
+            const empty = row.participant === EMPTY_STAND;
             return (
               <tr
                 key={row.standId ?? `${row.position}-${index}`}
-                className={`h-[52px] t-table ${
-                  me ? 'bg-accent-tint' : capot ? 'text-ink-2' : 'text-ink'
-                }`}
+                data-stand-id={row.standId}
+                className={cn('h-[52px] t-table', me ? 'bg-accent-tint' : noCatch ? 'text-ink-2' : 'text-ink')}
               >
-                {webColumns.map((col, i) => {
-                  const edge = `border-t border-hairline ${i === webColumns.length - 1 ? 'pr-3.5' : ''}`;
-                  const align = col.align === 'right' ? 'text-right' : 'text-left';
+                {cols.map((col, i) => {
+                  const edge = cn('border-t border-hairline', i === last && 'pr-3.5');
 
-                  if (col.kind === 'place') {
-                    return (
-                      <th
-                        key={col.key}
-                        scope="row"
-                        className={`${edge} ${align} relative pl-[18px] t-num-18 ${me ? 'text-accent-ink' : ''}`}
-                      >
-                        {/* The sector stripe: 4px on the row edge, never a fill under text. */}
-                        <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${fill.className}`} style={fill.style} />
-                        {tied.has(index) && <span aria-label="egal">=</span>}
-                        {row.generalPosition}
-                      </th>
-                    );
-                  }
                   if (col.kind === 'stand') {
                     return (
-                      <td key={col.key} className={`${edge} ${align} font-bold whitespace-nowrap`}>
-                        <span className="sr-only">Sector {sector}, stand {stand}</span>
+                      <td key={col.key} className={cn(edge, 'relative pr-3 pl-[18px] text-left font-bold whitespace-nowrap')}>
+                        {/* The sector: a 4px edge on the Stand cell (fish), never a fill under text. */}
+                        <span aria-hidden className={cn('absolute inset-y-0 left-0 w-1', fill.className)} style={fill.style} />
+                        <span className="sr-only">
+                          Sector {sector}, stand {stand}
+                        </span>
                         <span aria-hidden>
                           {sector}
                           {stand}
@@ -207,61 +215,89 @@ export function RankingTable({
                   }
                   if (col.kind === 'name') {
                     return (
-                      <td key={col.key} className={`${edge} ${align} pr-3 font-bold`}>
+                      <th key={col.key} scope="row" className={cn(edge, 'pr-3 text-left font-bold')}>
                         <span className="flex min-w-0 items-center gap-1.5">
+                          {empty ? null : <RankingFace name={row.participant} face={faceOf?.(row)} className="mr-1" />}
                           <span className="truncate">
                             {me && 'Tu · '}
-                            {row.participant}
+                            {empty ? (
+                              <>
+                                <span aria-hidden>–</span>
+                                <span className="sr-only">{EMPTY_STAND}</span>
+                              </>
+                            ) : (
+                              row.participant
+                            )}
                           </span>
-                          {chips.map((c, ci) => (
-                            <Tag key={ci} tone={c.tone === 'danger' ? 'red' : 'yellow'} size="sm" title={c.description}>
-                              {c.label}
-                            </Tag>
-                          ))}
+                          {marker ? <PenaltyMarker {...marker} /> : null}
+                        </span>
+                      </th>
+                    );
+                  }
+                  if (col.kind === 'place') {
+                    // The podium (1–3 with a catch); bestOf-type winners ride on this place too.
+                    const mark = empty ? null : mode === 'prize' && row.isWinner && !noCatch ? 'prize' : isPodium(row.generalPosition, noCatch) ? 'podium' : null;
+                    return (
+                      <td key={col.key} className={cn(edge, 'pr-3 pl-2 text-right')}>
+                        <PlaceCell value={row.generalPosition} tied={tied.has(index)} mark={mark} onTint={me} align="end" />
+                      </td>
+                    );
+                  }
+                  if (col.kind === 'sectorPlace' && mode === 'sector' && row.isWinner && !noCatch && !empty) {
+                    // A sector winner: the light cue on its sector place (fish: 🎖️ on every winner row).
+                    return (
+                      <td key={col.key} className={cn(edge, 'pr-3 pl-2 text-right whitespace-nowrap')}>
+                        <span className="inline-flex items-center gap-1">
+                          <WinnerTrophy mark="sector" />
+                          {formatRankingPlain(row[col.key])}
                         </span>
                       </td>
                     );
                   }
 
                   const cell = readCell(row[col.key]);
+                  const align = 'pr-3 pl-2 text-right whitespace-nowrap';
                   if (col.kind === 'catch') {
                     const n = Number(/^catch(\d+)$/.exec(col.key)?.[1] ?? 0);
+                    // fish: catch cells past the row's sectorMinNumberOfFish are grey and empty (c21).
                     if (minFish !== undefined && n > minFish) {
-                      return <td key={col.key} aria-label="nu se punctează" className={`${edge} bg-soft-fill`} />;
+                      return <td key={col.key} aria-label="nu se punctează" className={cn(edge, 'bg-soft-fill')} />;
                     }
                   }
-                  if (capot && col.key === mainValueKey) {
+                  if (noCatch && col.key === mainKey) {
+                    // No catch: «–», as fish (never «capot», ROADMAP §4b.11).
                     return (
-                      <td key={col.key} className={`${edge} ${align}`}>
-                        <CapotChip size="sm" />
+                      <td key={col.key} className={cn(edge, align, 'font-extrabold')}>
+                        <span aria-hidden>–</span>
+                        <span className="sr-only">Fără capturi</span>
                       </td>
                     );
                   }
-                  const text =
-                    col.kind === 'weight' || col.kind === 'catch'
-                      ? capot
-                        ? '–'
-                        : formatWeight(row[col.key])
-                      : formatPlain(row[col.key]);
-                  const strong =
-                    col.key === mainValueKey
-                      ? 't-heading font-extrabold'
-                      : col.kind === 'points' && /total|^quantityPoints$|^qualityPoints$/.test(col.key)
-                        ? 'font-bold'
-                        : '';
+                  const weight = col.kind === 'weight' || col.kind === 'catch' || col.kind === 'tier';
+                  const text = weight ? (noCatch && col.kind !== 'tier' ? '–' : formatRankingWeight(row[col.key])) : formatRankingPlain(row[col.key]);
                   return (
                     <td
                       key={col.key}
-                      className={`${edge} ${align} whitespace-nowrap ${strong} ${
-                        cell.isTierWin ? 'font-extrabold text-accent-ink' : cell.isTier ? 'text-ink-2' : ''
-                      }`}
-                    >
-                      {cell.isBiggest && (
-                        <>
-                          <StarIcon aria-hidden className="mr-0.5 inline size-3 align-[-1px] text-rating" />
-                          <span className="sr-only">Cea mai mare captură: </span>
-                        </>
+                      data-biggest={cell.isBiggest || undefined}
+                      data-tier-win={cell.isTierWin || undefined}
+                      className={cn(
+                        edge,
+                        align,
+                        col.key === mainKey && 'font-extrabold',
+                        // fish getTierCellColors: the Best-N block one indigo band (a step deeper on a
+                        // winner row), the cell the competitor won their place at solid green, bold.
+                        cell.isTierWin
+                          ? 'bg-success font-extrabold text-on-accent'
+                          : cell.isTier
+                            ? row.isWinner
+                              ? 'bg-accent-tint-3'
+                              : 'bg-accent-tint-2'
+                            : // fish: the competition's biggest catch is gold with bold dark text (c19).
+                              cell.isBiggest && 'bg-medal-gold font-extrabold text-on-medal',
                       )}
+                    >
+                      {cell.isBiggest && <span className="sr-only">Cea mai mare captură: </span>}
+                      {cell.isTierWin && <span className="sr-only">Loc câștigat la: </span>}
                       {text}
                       {cell.isSplit && <sup className="ml-0.5 t-micro text-muted">SPLIT</sup>}
                     </td>

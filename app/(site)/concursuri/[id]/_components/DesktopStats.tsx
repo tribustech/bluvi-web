@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import type { CompetitionWithMyStatus, RankingMetadata, WeighingStatisticsItem } from '@/core/competitions';
 import type { AllocatedParticipantsResponse, CompetitionActiveWeighing } from '@/core/organizer';
 import { getCompetitorDisplayName } from '@/core/competitions';
@@ -8,9 +8,10 @@ import { parseStand, type RankingRowData } from '@/components/ranking';
 import { formatInt, plural } from '@/components/cards/format';
 import { LiveDot } from '@/components/templates/LiveDot';
 import { KpiGrid, KpiTile } from '@/components/templates/T5/KpiGrid';
+import { Avatar, FaceStack } from '@/components/ui/Avatar';
 import { BentoTile } from '@/components/ui/BentoTile';
 import { cn } from '@/components/ui/cn';
-import { SignatureNumber } from '@/components/ui/SignatureNumber';
+import { InlineNumber, SignatureNumber } from '@/components/ui/SignatureNumber';
 import { ErrorState } from '@/components/surfaces/StateCard';
 import { QueryRetry } from './QueryRetry';
 import { EMPTY_STAND, formatKg } from './ranking';
@@ -38,7 +39,34 @@ import { isNationalType, nationalStandLabel, standLabel } from './stand';
  *  - Every tile has one anatomy: label, the number, a caption.
  *  - Weights: one precision for the whole competition (weightDecimals), so the tiles line up.
  *  - No catches yet: no tiles of zeros — one line (SummaryStrip).
+ *  - From 1280 on the Statistici view the strip steps aside (its bento, `data-stats-bento`, says the
+ *    same numbers) — the weighing tile included: the bento draws it as one of its own tiles, from the
+ *    props this strip hands over (useWeighingSlot), so «Cântar în curs» / «Ultimul cântar» and the
+ *    stands being weighed are never lost at any width.
  */
+
+/*
+ * The weighing tile's props, handed from the strip (which owns the page's weighing reads and the
+ * «Toate cântarele» navigation) to the Statistici bento, its sibling under CompetitionScreen. One
+ * competition page is mounted at a time, so one slot; published in a layout effect, so the bento
+ * has it before its first paint.
+ */
+type WeighingSlot = Omit<WeighingTileProps, 'className' | 'standalone'> | null;
+let weighingSlot: WeighingSlot = null;
+const slotListeners = new Set<() => void>();
+function publishWeighingSlot(next: WeighingSlot) {
+  weighingSlot = next;
+  for (const l of slotListeners) l();
+}
+function subscribeWeighingSlot(listener: () => void) {
+  slotListeners.add(listener);
+  return () => void slotListeners.delete(listener);
+}
+/** The weighing tile's props while the strip over the views can show it (null otherwise). */
+export function useWeighingSlot(): WeighingSlot {
+  return useSyncExternalStore(subscribeWeighingSlot, () => weighingSlot, () => null);
+}
+
 export function DesktopStats({
   metadata,
   rankings,
@@ -82,6 +110,28 @@ export function DesktopStats({
   allocated: AllocatedParticipantsResponse | undefined;
   onAllWeighings: () => void;
 }) {
+  const hasWeighing = reserveWeighing || weighingsLoading || weighingsError || !!activeWeighing?.length || !!weighings?.length;
+  const showsTiles = !!metadata && metadata.totalCatchesCount > 0;
+  // Every render: the bento's copy of the weighing tile follows this one (polls, retries, the allocation).
+  useLayoutEffect(() => {
+    publishWeighingSlot(
+      showsTiles && hasWeighing
+        ? {
+            rankings,
+            competition,
+            activeWeighing,
+            weighings,
+            loading: weighingsLoading,
+            error: weighingsError,
+            onRetry: onRetryWeighings,
+            allocated,
+            onAllWeighings,
+            decimals,
+          }
+        : null,
+    );
+  });
+  useEffect(() => () => publishWeighingSlot(null), []);
   if (!metadata) {
     // Read in the browser (a slow server prefetch, or the start flipping the page to live): the row's
     // own shape holds its place, so the views under it never move when it lands.
@@ -99,7 +149,6 @@ export function DesktopStats({
   const completed = competition.competitionStatus === 'completed';
   if (metadata.totalCatchesCount === 0) return <SummaryStrip rankings={rankings} completed={completed} />;
   const tiles = summaryTiles(metadata, rankings, decimals);
-  const hasWeighing = reserveWeighing || weighingsLoading || weighingsError || !!activeWeighing?.length || !!weighings?.length;
   const big = tiles.biggest;
   const value = big.weight !== null ? formatKg(big.weight, decimals) : '–';
   return (
@@ -107,8 +156,13 @@ export function DesktopStats({
       label="Concursul pe scurt"
       columns="pair"
       // Two by two from 768 (a quarter of a tablet row has no room for the kit's numbers), one row
-      // from 1280.
-      className={hasWeighing ? 'xl:grid-cols-[1.35fr_1fr_1fr_1.1fr]' : 'xl:grid-cols-[1.35fr_1fr_1fr]'}
+      // from 1280. From 1280 the Statistici view draws these numbers — and the weighing tile, from
+      // useWeighingSlot — as its bento (owner rule 9, StatisticsView MetaTiles, marked
+      // data-stats-bento): the strip steps aside there, so nothing is on one screen twice.
+      className={cn(
+        hasWeighing ? 'xl:grid-cols-[1.35fr_1fr_1fr_1.1fr]' : 'xl:grid-cols-[1.35fr_1fr_1fr]',
+        'xl:[body:has([data-stats-bento])_&]:hidden',
+      )}
     >
       <KpiTile
         live
@@ -145,7 +199,13 @@ export function DesktopStats({
  */
 export function StatRowBones() {
   return (
-    <div role="status" aria-label="Se încarcă rezumatul concursului" className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.35fr_1fr_1fr_1.1fr]">
+    <div
+      role="status"
+      aria-label="Se încarcă rezumatul concursului"
+      // On the Statistici view from 1280 the bento's own bones hold the place (data-stats-bento), as
+      // the loaded strip steps aside for the bento.
+      className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.35fr_1fr_1fr_1.1fr] xl:[body:has([data-stats-bento])_&]:hidden"
+    >
       {[0, 1, 2, 3].map(i => (
         <BentoTile key={i} tone="surface" className="shadow-e0">
           <Bone className="w-28 max-w-full t-label" />
@@ -186,15 +246,14 @@ function BiggestCatchWho({ big, national }: { big: NonNullable<Big>; national: b
 type Big = RankingMetadata['biggestCatch'];
 
 /**
- * A ranking without a single catch (live, or a finished one where everyone ended capot): no row of
- * display-size zeros, one line that says it.
+ * A ranking without a single catch (live, or a finished one where nobody caught): no row of
+ * display-size zeros, one line that says it. The UI never says «capot» (owner rule 11).
  */
 export function SummaryStrip({ rankings, completed, className }: { rankings: RankingRowData[] | undefined; completed: boolean; className?: string }) {
   const anglers = rankings?.filter(r => r.participant && r.participant !== EMPTY_STAND).length ?? 0;
   const parts = [
     completed ? 'Nicio captură înregistrată' : 'Nicio captură încă',
     anglers > 0 ? plural(anglers, 'pescar', 'pescari') : null,
-    completed && anglers > 0 ? 'capot pentru toți' : null,
   ].filter(Boolean);
   return (
     <p role="status" className={cn('rounded-card bg-surface px-5 py-3.5 t-body text-ink-2 shadow-e0', className)}>
@@ -220,25 +279,36 @@ export function summaryTiles(metadata: RankingMetadata, rankings: RankingRowData
     biggest: { big, weight: biggestWeight },
     catches: {
       value: formatInt(catches),
-      // No-break spaces inside each figure group («6 capot», «15,761 kg»): a wrap never orphans a unit.
-      caption: perStand ? `${plural(withFish, 'stand', 'standuri')} cu pește · ${stands - withFish}\u00a0capot` : 'în tot concursul',
+      // No-break spaces inside each figure group («6 fără capturi»): a wrap never orphans a word.
+      caption: perStand ? `${plural(withFish, 'stand', 'standuri')} cu pește · ${stands - withFish}\u00a0fără\u00a0capturi` : 'în tot concursul',
     },
     quantity: {
       value: formatKg(metadata.totalQuantity, decimals),
-      caption: perStand ? `media pe stand ${formatKg(metadata.totalQuantity / stands, decimals)}\u00a0kg` : 'în tot concursul',
+      // Owner rule 10: the figure is its own element, the unit smaller and muted beside it.
+      caption: perStand ? (
+        <>
+          media pe stand <InlineNumber value={formatKg(metadata.totalQuantity / stands, decimals)} unit="kg" />
+        </>
+      ) : (
+        'în tot concursul'
+      ),
     },
   };
 }
 
 /**
  * The navy tile: the biggest catch, the stand mark, the angler — the kit CountTile's anatomy (label,
- * the 64 «tile» number, caption) on BentoTile, with the stand mark in its caption.
+ * the 64 «tile» number, caption) on BentoTile, with the stand mark in its caption. With `faces` (the
+ * registration on that stand: the Statistici bento, where the tile is 2×2 from 1280) the caption is
+ * the angler's face beside the name and the stand, so the big tile carries what it knows instead of
+ * one line under an empty field of navy.
  */
 export function BiggestCatchTile({
   big,
   weight,
   decimals,
   national = false,
+  faces,
   className,
 }: {
   big: Big;
@@ -246,6 +316,8 @@ export function BiggestCatchTile({
   decimals: number;
   /** nationalChampionship (fish RankingCardsCarousel): the stand is the draw label «A3(12)». */
   national?: boolean;
+  /** The people on the catch's stand (photo, else initials). */
+  faces?: { name: string; src: string | null }[];
   className?: string;
 }) {
   const name = big
@@ -257,20 +329,35 @@ export function BiggestCatchTile({
       })
     : '';
   const value = weight !== null ? formatKg(weight, decimals) : '–';
+  const stand = big ? (
+    national ? (
+      <span className="shrink-0 t-label whitespace-nowrap text-lavender">
+        <span className="sr-only">Stand </span>
+        {nationalStandLabel(big.sectorName, big.sectorDrawPosition, big.standName)}
+      </span>
+    ) : (
+      <StandMark sector={big.sectorName} stand={big.standName} tone="navy" />
+    )
+  ) : null;
   return (
     <BentoTile tone="navy" className={className}>
       <div className="t-eyebrow text-lavender-2 uppercase">Cea mai mare captură</div>
       <SignatureNumber size="tile" tone="lavender" value={value} unit="kg" unitTone="lavender" />
-      {big ? (
-        <span className="flex min-w-0 items-center gap-2 t-caption">
-          {national ? (
-            <span className="shrink-0 t-label whitespace-nowrap text-lavender">
-              <span className="sr-only">Stand </span>
-              {nationalStandLabel(big.sectorName, big.sectorDrawPosition, big.standName)}
-            </span>
+      {big && faces?.length ? (
+        <span className="flex min-w-0 items-center gap-3">
+          {faces.length === 1 ? (
+            <Avatar name={faces[0].name} src={faces[0].src} size={44} className="shrink-0" />
           ) : (
-            <StandMark sector={big.sectorName} stand={big.standName} tone="navy" />
+            <FaceStack people={faces.slice(0, 4)} size={32} className="shrink-0" />
           )}
+          <span className="flex min-w-0 flex-col gap-1">
+            <span className="truncate t-body-strong text-lavender">{name}</span>
+            <span className="flex min-w-0 items-center gap-2 t-caption">{stand}</span>
+          </span>
+        </span>
+      ) : big ? (
+        <span className="flex min-w-0 items-center gap-2 t-caption">
+          {stand}
           <span className="truncate text-lavender-3">{name}</span>
         </span>
       ) : null}
@@ -298,7 +385,26 @@ function useMinutesSince(iso: string | null): number | null {
   return Math.max(0, Math.round((now - new Date(iso).getTime()) / 60_000));
 }
 
-function WeighingTile({
+interface WeighingTileProps {
+  className?: string;
+  /**
+   * Drawn on its own (the Statistici bento), not as one of KpiGrid's subgrid tiles: the same
+   * anatomy as a flex column, as tall as its bento row.
+   */
+  standalone?: boolean;
+  rankings: RankingRowData[] | undefined;
+  competition: CompetitionWithMyStatus;
+  activeWeighing: CompetitionActiveWeighing[] | undefined;
+  weighings: WeighingStatisticsItem[] | undefined;
+  loading: boolean;
+  error: boolean;
+  onRetry: () => void;
+  allocated: AllocatedParticipantsResponse | undefined;
+  onAllWeighings: () => void;
+  decimals: number;
+}
+
+export function WeighingTile({
   rankings,
   competition,
   activeWeighing,
@@ -310,19 +416,8 @@ function WeighingTile({
   onAllWeighings,
   decimals,
   className,
-}: {
-  className?: string;
-  rankings: RankingRowData[] | undefined;
-  competition: CompetitionWithMyStatus;
-  activeWeighing: CompetitionActiveWeighing[] | undefined;
-  weighings: WeighingStatisticsItem[] | undefined;
-  loading: boolean;
-  error: boolean;
-  onRetry: () => void;
-  allocated: AllocatedParticipantsResponse | undefined;
-  onAllWeighings: () => void;
-  decimals: number;
-}) {
+  standalone = false,
+}: WeighingTileProps) {
   // The angler on a stand, from the ranking rows (public), when the allocation is not loaded.
   const rankedName = (sector: string, stand: string): string | null => {
     const key = standLabel(sector, stand).toUpperCase();
@@ -426,7 +521,13 @@ function WeighingTile({
   const link = 'shrink-0 cursor-pointer t-label text-accent-ink hover:underline';
   return (
     // KpiTile's anatomy (three subgrid rows on KpiGrid's tracks), with a link in its label row.
-    <div className={cn('row-span-3 grid min-w-0 grid-rows-subgrid gap-2 rounded-bento bg-surface p-4.5 shadow-e0', className)}>
+    <div
+      className={cn(
+        'min-w-0 gap-2 rounded-bento bg-surface p-4.5 shadow-e0',
+        standalone ? 'flex h-full min-h-39 flex-col justify-between' : 'row-span-3 grid grid-rows-subgrid',
+        className,
+      )}
+    >
       <div className="flex min-w-0 items-center gap-2">
         {many ? (
           <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate t-label text-live">

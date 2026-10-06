@@ -79,8 +79,8 @@ screens:
       - id: competition-page.shell.c4
         text: "Status notStarted: followers pill + follow button; status completed: followers pill only (no follow button); any other status (draft, cancelled): no badge row."
         fish_ref: components/competition/CompetitionHeader.tsx:130-139
-        status: todo
-        web_note: "Web adds a state pill to every status row (Viitor / Încheiat; LIVE as fish) and a cancelled competition shows «Anulat» (fish: no badge row for draft / cancelled). Draft: no badge row. Owner decision needed: keep the state pills (web_note) or drop them."
+        status: passing
+        web_note: "As fish (2026-10-06): only the live state has a pill (header and the phone's pinned mini row); the web's Viitor / Încheiat / Anulat pills were dropped (fish wins, ROADMAP §1.3; the Concurs design anchor has none). Cancelled / draft: no badge row. e2e concurs.spec.ts (completed, notStarted, cancelled at 375 + 1440)."
       - id: competition-page.shell.c5
         text: "The followers pill reads „{n} urmăritor” when n = 1 and „{n} urmăritori” otherwise (n = competition.viewers, 0 when absent), with an eye icon."
         fish_ref: components/FollowersPill.tsx:16-17,44-52
@@ -146,8 +146,8 @@ screens:
       - id: competition-page.shell.c18
         text: "Changing tab re-shows the collapsed header and logs the analytics event competition_page_tab_pressed (competition_id, competition_name, tab_id)."
         fish_ref: app/(app)/competitions/[competitionId].tsx:204-230
-        status: todo
-        web_note: "No analytics on the web yet (GA4 lands in M8)."
+        status: passing
+        web_note: "Tabs are links: a press on another tab's link logs competition_page_tab_pressed { competition_id, competition_name, tab_id } with fish's ROUTES ids (extracantare…) on the site's analytics channel (lib/analytics.ts; GA4 behind consent in M8); the current tab logs nothing (_components/analytics.ts). The header re-show: the tab strip is pinned (c19) and a tab is a page load at the top. e2e concurs.spec.ts."
       - id: competition-page.shell.c19
         text: "The header and tab strip collapse while scrolling down and come back when scrolling up, fading with the offset (web: sticky tab strip under the top bar)."
         fish_ref: app/(app)/competitions/[competitionId].tsx:380-389,448-474
@@ -161,8 +161,8 @@ screens:
       - id: competition-page.shell.c21
         text: "Share (header button, aria „Distribuie competiția”, and the Share tile of the action bar) shares „🎣 🏆 Intra in Bluvi sa vezi competitia de pescuit {name} de pe balta {lake}” plus the competition URL, and logs share_competition (web: Web Share API, copy-link fallback; URL /concursuri/[id])."
         fish_ref: app/(app)/competitions/[competitionId].tsx:313-333,472
-        status: todo
-        web_note: "Text and URL pass in e2e (with diacritics: «Intră în Bluvi să vezi competiția…»); the share_competition event waits for analytics (M8)."
+        status: passing
+        web_note: "Header chip (phone, «Distribuie competiția»), the pinned mini row's chip and the desktop «Distribuie» button: Web Share with fish's text (diacritics, no emoji) + /concursuri/[id], copy-link fallback; each press logs share_competition { competition_id, competition_name } on the analytics channel (GA4 in M8). No share tile in the bar (web decision, bara-actiuni.c1). e2e concurs.spec.ts."
       - id: competition-page.shell.c22
         text: "A back control returns to the previous page."
         fish_ref: app/(app)/competitions/[competitionId].tsx:470
@@ -191,8 +191,8 @@ screens:
       - id: competition-page.shell.c27
         text: "With fromPublish=1 a one-shot confetti animation plays over the page without blocking input, and the param is removed."
         fish_ref: app/(app)/competitions/[competitionId].tsx:304-309,545-568
-        status: todo
-        web_note: "Publishing is not on the web (M6)."
+        status: passing
+        web_note: "?fromPublish=1 (the wizard's redirect, M6 on the web; b.publish-redirect) plays a one-shot confetti in the token colours (PublishConfetti.tsx, Web Animations; fish: Lottie) over the page, pointer-events none and aria-hidden, then removes itself; the param is dropped with router.replace. Reduced motion: no confetti, the param still dropped. e2e concurs.spec.ts."
       - id: competition-page.shell.c28
         text: "On every tab except Clasament, once the competition is loaded, an „Acțiuni” button opens the actions sheet (competition-page.bara-actiuni / competition-page.organizare); on Clasament the action bar replaces it."
         fish_ref: app/(app)/competitions/[competitionId].tsx:525-534; components/ActionButton.tsx:32-45
@@ -208,7 +208,7 @@ screens:
         status: passing
         web_note: "app/(site)/concursuri/[id]/error.tsx (T3 DetailError + retry); verified in code."
     mobile_only: false
-    status: todo
+    status: proposed
     e2e: tests/e2e/concurs.spec.ts tests/e2e/concurs-clasamente.spec.ts tests/e2e/concurs-antet.spec.ts
 
   # ---------------------------------------------------------------------------------------------
@@ -337,7 +337,7 @@ screens:
         text: "Default order is by stand (sector name A→Z, then stand number); after Sortare → „Poziția în clasament” rows are ordered by generalPosition."
         fish_ref: components/competition/CompetitionRanking.tsx:316,901-923
         status: todo
-        web_note: "Phone: stand order by default, Sortare → place (e2e). From 768 the kit RankingTable opens in place order (its INITIAL_SORT) and has no «Stand / Poziția în clasament» toggle — needs an initial-sort prop in the kit."
+        web_note: "Phone: stand order by default, Sortare → place (e2e). From 768 the kit RankingTable (the page's table) opens in the bar's order through its `initialSort` prop (stand by default, as fish); the headers sort."
       - id: competition-page.clasament.c17
         text: "Every row is tinted with its sector colour (24-colour palette assigned to the sorted sector names) at 40% opacity, with a 4px sector-coloured edge on the Stand cell."
         fish_ref: helpers/table/getColorsBySector.ts:10-54; components/ranking-table/RankingTable.tsx:125-130,285-289
@@ -347,12 +347,12 @@ screens:
         text: "Winner rows (generalPosition 1..W, W = numberOfWinners for bestOf, number of tiers for bestOfTiers, numberOfSectors otherwise) are tinted at 90% with white text and a 🎖️ before the general position."
         fish_ref: components/competition/CompetitionRanking.tsx:1012-1040; components/ranking-table/RankingTable.tsx:285-318
         status: todo
-        web_note: "Phone shows the kit RankingRow (Fundații §07), not fish's grid; winners are the navy place pill, no 90% tint and no 🎖️ (Fundații: «🎖️ devine pastila de poziție») — as from 768."
+        web_note: "No 90% tint and no 🎖️ (Fundații: never a fill under text). One place idiom for every ranking table (kit components/ranking/shell PlaceCell, 2026-10-06): the number, a solid trophy for the podium (1–3 with a catch); sector types' winners (places 1..S = the sector winners) get a muted trophy on «Poziție sector» (sr «, câștigător de sector»), bestOf / bestOfTiers / Best N winners the trophy on the general place. Phone (kit RankingRow): the navy pill only for the untied 1st place, a winner's trophy after the name. The navy pill on every winner made a 24-sector table a wall of navy."
       - id: competition-page.clasament.c19
         text: "The competition's biggest catch (metadata.biggestCatch stand + weight) is highlighted gold with bold black text on the matching catch cell and on that stand's C.M.M.C cell."
         fish_ref: helpers/table/createTableRows.ts:49-65,141-151; components/ranking-table/RankingTable.tsx:283-284,305-313
         status: todo
-        web_note: "The kit table marks the biggest catch with a gold star + «Cea mai mare captură» (sr), not a gold cell with bold black text; the phone row only names «CMMC x». fish (and core, ported 1:1) compare a numeric ranking standId to a string for the catch cell, so quality-type catch cells are never flagged in either app — a fish bug to fix in both."
+        web_note: "As fish: the gold cell with bold dark text (kit RankingTable = the page's table, «Cea mai mare captură» for screen readers); the phone row's «CMMC x» is gold too. fish compares a numeric ranking standId to a string for the catch cell, so quality-type catch cells are never flagged (a fish bug, still in fish); core now compares both as strings (createTableRows.ts, unit test 2026-10-06), so the web flags the catch cell."
       - id: competition-page.clasament.c20
         text: "A split catch shows a small „SPLIT” marker in its cell."
         fish_ref: helpers/table/createTableRows.ts:146; components/ranking-table/RankingTable.tsx:322-331
@@ -396,12 +396,12 @@ screens:
         text: "Feeder General table: Loc, Participant („Echipă” on team competitions), one group per leg with points · seat (e.g. „2.5 · C12”) and kg, Total puncte, Kg total; ordered by generalPosition; places 1–3 with kg > 0 are the podium (highlighted row, 🎖️ before the place); points show at most one decimal."
         fish_ref: features/competitions/feeder-rounds/feederRankingModel.ts:46-65; features/competitions/feeder-rounds/FeederRankingTable.tsx:104-126,288-310; features/competitions/feeder-rounds/feederRoundsTable.ts:16-21,75-93
         status: passing
-        web_note: "Follows fish FeederRankingTable's column order (Loc · Echipă/Participant · Total (Puncte, Kg) · per leg Stand, Kg, Puncte), not the criterion's prose order. Podium = navy place pill (Fundații: the 🎖️ is the pill); decimal comma."
+        web_note: "Follows fish FeederRankingTable's column order (Loc · Echipă/Participant · Total (Puncte, Kg) · per leg Stand, Kg, Puncte), not the criterion's prose order. Podium = the ranking tables' one place idiom (kit PlaceCell: the number + a solid trophy, as the standard and NC tables); decimal comma; a scored leg without a catch reads «–» in Kg (sr «Fără capturi», ROADMAP §4b.11), the core model keeps fish's 0.000. The header rows are coloured (RANKING_HEAD, ROADMAP §4b.12), each leg's Stand cell carries its sector's 4px edge, and from 768 the entrant's avatar (photo or initials) sits beside the name (§4b.13)."
       - id: competition-page.clasament.c29
         text: "Feeder leg tab: rows grouped under „Sector X” headers (sector colour) plus a „Nu au pescuit în această manșă” group last; inside a sector ordered by points, then kg desc, then stand number; columns Stand, Participant, Cantitate, Nr. Buc, C.M.M.C, Puncte; the best-points entrant(s) with fish are highlighted as sector winners; unscored cells show „-”."
         fish_ref: features/competitions/feeder-rounds/feederRankingModel.ts:72-113; features/competitions/feeder-rounds/FeederRankingTable.tsx:420-500
         status: passing
-        web_note: "Sector = dot in the row-group header + 4px row edge; sector winners = trophy icon + extrabold name (sr «Câștigător de sector»), not fish's 16% row tint (Fundații: no colour under text). «–» for no value."
+        web_note: "Sector = dot in the row-group header + 4px row edge; sector winners = the muted sector trophy (kit WinnerTrophy, 16px solid) + extrabold name (sr «Câștigător de sector»), not fish's 16% row tint (Fundații: no colour under text). «–» for no value. Coloured header row (§4b.12) at every width, the avatar beside the name from 768 (§4b.13)."
       - id: competition-page.clasament.c30
         text: "Feeder leg tab with nothing to show: a leg not started shows „Manșa N nu a început încă” with „Organizatorul reașază standurile după tragerea la sorți, apoi pornește manșa.” (next leg after a closed one) or „Începe după încheierea manșei N-1.”; a started leg without weighings shows „Manșa N a început” / „Clasamentul manșei apare după prima cântărire.”."
         fish_ref: features/competitions/feeder-rounds/feederRoundsTable.ts:38-59; components/competition/CompetitionRanking.tsx:1825-1840,2044-2056
@@ -448,7 +448,7 @@ screens:
       - General view / one sector view
       - sort Club / Poziția în clasament (General); Stand / Poziția în clasament (sector)
       - sector with no teams
-      - capot teams (0 catches)
+      - teams without catches (0 catches)
       - draw positions present / absent
       - no NC data → „Nu există date de afișat”
     criteria:
@@ -461,7 +461,7 @@ screens:
         text: "General shows the club table with columns Club, Pescari, Stand, Cantitate Sector, Total Kg Lot, CMMC Lot, Nr Pesti Lot, Medie Lot, Puncte Sector, Puncte Lot, Loc General, Loc Individual; the club columns (Club, Total Kg Lot, CMMC Lot, Nr Pesti Lot, Medie Lot, Puncte Lot, Loc General) are merged across the club's rows."
         fish_ref: components/ranking-table/NationalChampionshipTable.tsx:107-120,236-290
         status: passing
-        web_note: "Club cells merged with rowSpan (one tbody per club)."
+        web_note: "Club cells merged with rowSpan (one tbody per club). Coloured header row (§4b.12); each team row carries its sector's 4px edge on the pinned Pescari cell, and from 768 the team's avatar beside the names (§4b.13)."
       - id: competition-page.clasament-nc.c3
         text: "Stand labels use the sector letter plus draw position and stand in brackets („A3(12)”) when a draw position exists, else „A12”."
         fish_ref: helpers/formatNationalStand.ts; components/ranking-table/NationalChampionshipTable.tsx:94-104,151
@@ -476,7 +476,7 @@ screens:
         text: "Clubs are coloured from a 6-colour palette by club order; a club with clubPosition ≤ numberOfSectors is a winner (90% tint, white text, 🎖️ after Loc General); a team with generalPosition ≤ numberOfSectors gets its Loc Individual cell highlighted with 🎖️; other rows are tinted 40%."
         fish_ref: components/ranking-table/NationalChampionshipTable.tsx:122-142,262-343
         status: passing
-        web_note: "No club palette on the web: fish's 6 club colours would be the sector A–F tokens, and a sector colour only ever means a sector (Fundații) — clubs are told apart by structure (merged club cell, a stronger rule above each club). Winners = navy place pill on Loc General / Loc Individual instead of the 90% tint and 🎖️; other rows untinted."
+        web_note: "No club palette on the web: fish's 6 club colours would be the sector A–F tokens, and a sector colour only ever means a sector (Fundații) — clubs are told apart by structure (merged club cell, a stronger rule above each club). Winners = the ranking tables' one place idiom (kit PlaceCell): the trophy on Loc General for a winning club, the muted sector-winner trophy on Loc Individual, instead of the 90% tint and 🎖️; other rows untinted."
       - id: competition-page.clasament-nc.c6
         text: "Kg values (Cantitate Sector, Total Kg Lot, CMMC Lot, Medie Lot) show three decimals; zero or missing values show „-”."
         fish_ref: components/ranking-table/NationalChampionshipTable.tsx:250-259,309-341
@@ -488,12 +488,12 @@ screens:
         status: passing
         web_note: "Phone: Sortare in the bar; from 768 the «Ordine» segmented control beside the pills."
       - id: competition-page.clasament-nc.c8
-        text: "A sector view shows only that sector's teams with columns Stand, Club, Pescari, Kg, Medie, CMMC, Nr. Buc, Puncte sector, Loc sector; Kg/Medie/CMMC show three decimals or „-” for a capot team; points and place are integers or one decimal."
+        text: "A sector view shows only that sector's teams with columns Stand, Club, Pescari, Kg, Medie, CMMC, Nr. Buc, Puncte sector, Loc sector; Kg/Medie/CMMC show three decimals or „-” for a team without catches; points and place are integers or one decimal."
         fish_ref: components/competition/NationalChampionshipRanking.tsx:881-938
         status: passing
-        web_note: "A capot team shows the kit «capot» chip in Kg, «–» in Medie/CMMC."
+        web_note: "A team without catches reads «–» in Kg, Medie and CMMC (screen readers: «Fără capturi» in Kg); the UI never says «capot» (ROADMAP §4b.11)."
       - id: competition-page.clasament-nc.c9
-        text: "Sector sort options are Stand and Poziția în clasament: position puts capot teams last then orders by generalPosition; Stand orders by draw position (or, without draw positions, by sector position with capot last)."
+        text: "Sector sort options are Stand and Poziția în clasament: position puts teams without catches last then orders by generalPosition; Stand orders by draw position (or, without draw positions, by sector position with teams without catches last)."
         fish_ref: components/competition/NationalChampionshipRanking.tsx:939-963
         status: passing
       - id: competition-page.clasament-nc.c10
@@ -669,6 +669,7 @@ screens:
         text: "One section per competition sector headed „Sector X”, with one card per stand of that sector."
         fish_ref: components/competition/CompetitionRanking.tsx:1879-1906
         status: passing
+        web_note: "From 1280 (owner rule 14) the stands are one table instead of cards: every weighing as a row (Stand with the sector stripe, Pescar with the avatar on one line — a guest crew's members line only when it says more than its name, Cântar, Interval, Capturi, Kg, Stare; a «Total stand» line under a stand weighed more than once) under the ranking tables' coloured header (a team competition's column is «Echipă», as on Participanți). Fixed column widths chosen from the table's measured box, not from the open panel: under 1000px the narrow widths and the interval on two lines (every column visible with the detail docked at 1280); wider the one-line interval and the angler column capped at 28rem so the numbers stay near the names. Stands in the wide views' order (sectors by name, stands naturally — standOrder.ts, as Participanți), not the CMS's; the phone cards keep fish's order. From 1440 the side column is part of the layout at rest (WeighingsSummaryPanel «Rezumat cântare»: Cântare / Capturi / Total kg, the weighings in progress, the latest finished one, each opening its detail), replaced by the detail on a press. Sector rows only when a sector holds two stands or more on average (a 24-sector individual is one table, the sector in the stand stripe); the stands without a weighing are one compact row of stand chips per sector («Niciun cântar încă»). «Pe standuri» (fish order) or «Cronologic» (newest first, rows numbered «#N» in the competition's order). Signed in only the stands the summary lists are read; signed out (no summary grant) every stand, at most 4 reads in flight. Feeder: the caption names the leg («Manșa 2 · 14 cântare · 20 standuri») and a «Manșa N» switch shows any leg. Below 1280 fish's cards (WeighingsView / WeighingsTable, e2e concurs-statistici.spec.ts)."
       - id: competition-page.cantare.c2
         text: "The weighings summary is requested only while the Cântare view is active; while it loads, cards show a spinner and no per-stand request is made."
         fish_ref: components/competition/CompetitionRanking.tsx:366-376,1900; components/competition/StandCantarCard.tsx:73-80,168-171
@@ -693,6 +694,7 @@ screens:
         text: "Pressing a weighing opens the weighing detail (competition-page.cantar-detaliu) with all of the stand's weighings, starting at the pressed one."
         fish_ref: components/competition/CompetitionRanking.tsx:378-392; components/competition/StandCantarCard.tsx:205-214
         status: passing
+        web_note: "From 1280 a row's «Cântar N» opens the detail in the docked side panel beside the table (the row stays marked; from 1440 it takes the at-rest summary column's place, and a weighing in that summary opens it too); below 1280 a dialog / the phone sheet. Every kg on the view and in the detail (stand card total, weighing item, catch rows, the history's revised catches at the competition's precision) has its unit apart, smaller and muted (owner rule 10)."
       - id: competition-page.cantare.c8
         text: "The action bar's Cântare tile (started/completed) switches to this view."
         fish_ref: components/competition/CompetitionRanking.tsx:1964; components/competition/RankingActionBar.tsx:989-998
@@ -820,6 +822,7 @@ screens:
         text: "Three summary cards: „Cea mai mare captură” (biggestCatch weight kg, else biggestFish kg, else „-”, with „Sector X Stand Y” — NC draw label — and the competitor name), „Număr total de capturi” and „Cantitate totală” (three decimals kg, „-” when 0)."
         fish_ref: components/RankingCardsCarousel.tsx:22-71
         status: passing
+        web_note: "Owner rules 9-11 (2026-10-06): a bento, not a carousel. Phone: the navy «Cea mai mare captură» and «Cantitate totală» across (a three-decimal total never fits half a 320-375 row), then small facts two by two: «Capturi» (fish «Număr total de capturi», shortened) · «Medie pe captură», «Standuri cu pește» · «Fără capturi», «Media pe stand» · «Capturi pe stand». 768-1279: the headline numbers are the strip over the views, the bento keeps only the facts the strip does not show (Medie pe captură, Capturi pe stand), each a tile's width. From 1280 a six-column bento (a fact is one track, ~190-260px at 1280-1920): navy 2x2 (number, the angler's face, name, stand), quantity 2x1 (average per stand as its caption), the strip's weighing tile 2x1 («Cântar în curs» / «Ultimul cântar» / every stand being weighed, «Toate cântarele»; 2x2 when there are no stand facts), then Capturi (per stand as its caption), Medie pe captură, Standuri cu pește, Fără capturi 1x1; the strip and its bones step aside on this view (data-stats-bento), the weighing tile moving into the bento. A fact without rows to back it (feeder, club) has no tile. Units are their own spaced, muted element (SignatureNumber / InlineNumber), never glued into a caption; never «capot». e2e concurs-statistici statistici.c3."
       - id: competition-page.statistici.c4
         text: "Weighing statistics: spinner while loading; on error „Nu s-au putut încărca statisticile cântarilor.” with „Încearcă din nou” that refetches only them."
         fish_ref: components/competition/CompetitionRanking.tsx:1739-1760
@@ -836,6 +839,7 @@ screens:
         text: "Each session row: total kg with one decimal (indigo normal, amber extra), a bar proportional to the largest session, and „{Ziua}, HH:mm – HH:mm”, „n captură/capturi”, „n stand/standuri”."
         fish_ref: components/competition/WeighingSessionTimeline.tsx:18,200-309
         status: passing
+        web_note: "Divergence (one precision per screen, owner feedback 2026-10-06): the totals use the competition's precision (weightDecimals, as the bento and the ranking), the unit its own muted word (rule 10)."
       - id: competition-page.statistici.c8
         text: "More than 4 sessions: the first 4 are shown (the 4th faded) with „Vezi toate cântarele (n ascunse)”, and „Restrânge” when expanded; a footer shows „Total: n capturi” and the total kg."
         fish_ref: components/competition/WeighingSessionTimeline.tsx:315-391
@@ -844,22 +848,27 @@ screens:
         text: "The stand-timeline card (competition-page.cronologie, card variant) follows the sessions card."
         fish_ref: components/competition/CompetitionWeighingCharts.tsx:33-36
         status: passing
+        web_note: "Divergence (density, rule 9): with no snapshot (204) and a sessions card, fish's one-line timeline card becomes the sessions card's muted footer («Nu există cântăriri înregistrate încă.» live / «Cronologia nu este disponibilă pentru acest concurs.» after); without sessions the card stays. From 1280 the cards flow in two height-balanced columns (fish order, each card as tall as its content); a lone card takes the row. e2e concurs-statistici statistici.c3 c9."
       - id: competition-page.statistici.c10
         text: "Card „Top capturi (Best 3 / 5 / 7)” („Cele mai bune medii (3, 5 sau 7 capturi). Apasă rândul pentru clasament.”): rows Best 3, Best 5, Best 7 with the leader's average „x.xxx kg”, „Stand {A12}”, competitor name and up to 4 avatars; spinner while loading; not shown for feeder competitions."
         fish_ref: components/competition/CompetitionRanking.tsx:1299-1361,1629-1731
         status: passing
+        web_note: "Averages at the competition's precision (one precision per screen), unit apart (rule 10). Not drawn when Best 3/5/7 are all empty (rule 4: no rows of «-» opening empty tables). e2e concurs-statistici statistici.c3 c10 c12."
       - id: competition-page.statistici.c11
         text: "Pressing a Best row opens „Best N - Clasament”: a table Stand | Participant(e) / Echipă | Primele capturi (kg) | Medie, every stand sorted by average descending, averages with three decimals."
         fish_ref: components/competition/CompetitionRanking.tsx:167-287,1999-2016
         status: passing
+        web_note: "Divergence: Medie at the competition's precision (as every weight on the view), not always three decimals."
       - id: competition-page.statistici.c12
         text: "Card „Cantitate pe sector (kg)” only for quantity, quantityQuality and qualityQuantity rankings (not feeder): donut by sector colour, total kg (one decimal) in the centre, the sector letter on slices ≥ 12%, legend „Sector X · y.y kg”."
         fish_ref: components/competition/CompetitionSectorChart.tsx:23-111; components/competition/CompetitionRanking.tsx:1764-1766
         status: passing
+        web_note: "Divergences: the competition's precision (one per screen) in the centre and legend, «kg» its own muted word; no letters on slices (sector colours are never a text ground); not drawn when every sector is 0 (rule 4). The rows carry the quantity after weight penalties, so with a DEDUCT_TOTAL_WEIGHT penalty the description says «după penalizările de greutate» (the donut total is then below the bento's weighed total). e2e concurs-statistici statistici.c3 (live at 1440)."
       - id: competition-page.statistici.c13
         text: "Card „Capturi” („Numărul de capturi pe sector, grupate pe praguri de greutate (10kg, 15kg, 20kg, 25kg, 30kg).”): columns Sector, 10+, 15+, 20+, 25+, 30+, one row per sector and a General row; hidden while loading, on error, without data, or when there are no sector rows and General 10+ and 15+ are 0."
         fish_ref: components/competition/CompetitionCatchesTable.tsx:81-125
         status: passing
+        web_note: "Divergence: the web hides the card whenever every count (General and every sector) is 0 — fish draws a block of zeros when sector rows exist (20+ rows of «0» on a live competition). The header row is the ranking tables' coloured band (rule 12, RANKING_HEAD), as is the Best N table's (c11); the table is capped at max-w-3xl so numbers stay by their sector. The description puts the unit once («10, 15, 20, 25 și 30 kg», rule 10), not «10kg» glued five times. Without a single catch nor weighing the whole view is the summary line and one empty state. e2e concurs-statistici statistici.c6 c13, c11 c13."
       - id: competition-page.statistici.c14
         text: "National Championship only: card „Penalizări”, newest first, 3 visible then „Vezi toate penalizările (n ascunse)” / „Ascunde”; each row: Avertisment / „Penalizare greutate · v kg” / Eliminare (red mark for elimination, yellow otherwise), the competitor, the reason, „{author} · {date ro-RO}”."
         fish_ref: components/penalty/PenaltiesSection.tsx:17-143; components/competition/NationalChampionshipRanking.tsx:1249-1259
@@ -1052,8 +1061,8 @@ screens:
       - id: competition-page.informatii.c8
         text: "„Pești de prins”: horizontal list of species cards (image + name), only when the competition lists species."
         fish_ref: components/competition/CompetitionInfo.tsx:202-208; components/FishSpeciesList.tsx:10-45
-        status: todo
-        web_note: "Species are named chips (fish-outline icon + name), as on the lake page: the web has no species artwork yet (kit gap: fish assets/images/fish/* need an optimised web set)."
+        status: passing
+        web_note: "One card per species: fish's artwork (helpers/getFishImage 1:1, fish assets/images/fish/* downsized to 480px in _components/species, next/image; unknown species → fish's placeholder; names matched ignoring case/diacritics) contained on a white 2:1 card, the name under it. fish scrolls them sideways; the web uses an auto-fill grid of fixed ~152px tiles (as the sponsors). Hidden without species. e2e concurs-tabs.spec.ts (images loaded). TODO(kit): move the set to the kit when the lake page adopts it."
       - id: competition-page.informatii.c9
         text: "„Premii” rich text, clamped with „Vezi mai mult” opening an overlay titled „Premii”, only when set."
         fish_ref: components/competition/CompetitionInfo.tsx:210-216,242-251
@@ -1074,7 +1083,7 @@ screens:
         status: passing
         web_note: "Web refresh = coming back to the tab / window after 30 s (CompetitionScreen, as clasament.c6): competition, statute, allocated participants re-read."
     mobile_only: false
-    status: proposed
+    status: passing
     e2e: tests/e2e/concurs-tabs.spec.ts
 
   # ---------------------------------------------------------------------------------------------
@@ -1131,7 +1140,7 @@ screens:
         text: "Pressing the card header of a registration with exactly one real user opens that angler's profile (web /pescari/[id]; signed out → sign-in); any other card toggles its details; the chevron always toggles (label „Arată detaliile” / „Restrânge detaliile”)."
         fish_ref: components/competition/ParticipantCard.tsx:82-103,236-266
         status: todo
-        web_note: "The angler profile (/pescari/[id]) is M2: every header toggles the card for now (anglerHref null). The profile link (signed out → /intra?next=) is wired and takes over when lib/routes.ts ON_WEB.angler flips."
+        web_note: "From 768 (owner rule 14) every card shows its stats inline (no disclosure), cards of a row share its height, the list is grouped by sector when the stands spread over several (unallocated first; one grid when a sector holds a single stand on average); signed out the sign-in line is said once above the cards; a guest's card has no stats part (a list of guests only says fish's guest line once above it, a mixed list marks a guest «Adăugat manual»). From 1280 the cards give way to a table (ParticipantsTable): Stand with the sector stripe | face and name | Capturi | CMMC | Concursuri, a team of accounts as its row plus one row per member with their stats, sector rows as Cântare; without stats columns (signed out, failed, or guests only) compact rows (stand chip, face, name, members) on an auto-fill grid, several per line, under the sector headings. From 768 the sectors run by name (as Cântare's table) and a national championship's stands read as on Cântare («A3(12)», the draw position from the allocation); the phone keeps fish's «Stand {name}» tag. The phone keeps fish's flat list and opening cards (e2e concurs-tabs.spec.ts). The angler profile (/pescari/[id]) is M2: every header toggles the card for now (anglerHref null). The profile link (signed out → /intra?next=) is wired and takes over when lib/routes.ts ON_WEB.angler flips."
       - id: competition-page.participanti.c7
         text: "Expanded, signed out or unauthorized: „Trebuie sa fii autentificat pentru a vedea statisticile pescarilor.” + „Intră în cont”."
         fish_ref: components/competition/ParticipantCard.tsx:54,283-296

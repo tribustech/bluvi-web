@@ -768,8 +768,12 @@ screens:
     # Merged into lakes.competitions (header = the lake's name, page size 10, /feed/competition-cards and the
     # /concursuri compact card are that page's). c3, c5–c7 are checked there by
     # tests/e2e/competitions-list-status.spec.ts; c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts
-    # (2026-10-06, all passing). Open: c8 / state «refreshing» — the owner page has no refresh control (fish
-    # pull-to-refresh; /concursuri lists have «Reîmprospătează»); it lives in the lakes area's files.
+    # (2026-10-06, all passing); state «unknown lakeId» (s7) by the .s7 test there (web: not-found page,
+    # no card read). Open: c8 / state «refreshing» (s5) — the owner page has no refresh control (fish
+    # pull-to-refresh; /concursuri lists have «Reîmprospătează» via DashboardRefresh); it needs a
+    # ListHeader `end` refresh in app/(site)/balti/[id]/concursuri/LakeCompetitionsScreen.tsx (lakes area).
+    # Round 3 (2026-10-06): both specs re-run green (9 + 4); the owner page still has no refresh control,
+    # and that file is outside this area (lakes redesign in progress), so the screen stays proposed.
     status: proposed
   - id: competitions-list.live
     title: Concursuri live
@@ -932,8 +936,12 @@ screens:
     # Merged into lakes.competitions (header = the lake's name, page size 10, /feed/competition-cards and the
     # /concursuri compact card are that page's). c3, c5–c7 are checked there by
     # tests/e2e/competitions-list-status.spec.ts; c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts
-    # (2026-10-06, all passing). Open: c8 / state «refreshing» — the owner page has no refresh control (fish
-    # pull-to-refresh; /concursuri lists have «Reîmprospătează»); it lives in the lakes area's files.
+    # (2026-10-06, all passing); state «unknown lakeId» (s7) by the .s7 test there (web: not-found page,
+    # no card read). Open: c8 / state «refreshing» (s5) — the owner page has no refresh control (fish
+    # pull-to-refresh; /concursuri lists have «Reîmprospătează» via DashboardRefresh); it needs a
+    # ListHeader `end` refresh in app/(site)/balti/[id]/concursuri/LakeCompetitionsScreen.tsx (lakes area).
+    # Round 3 (2026-10-06): both specs re-run green (9 + 4); the owner page still has no refresh control,
+    # and that file is outside this area (lakes redesign in progress), so the screen stays proposed.
     status: proposed
   - id: competitions-list.incheiate
     title: Concursuri trecute
@@ -1094,8 +1102,12 @@ screens:
     # Merged into lakes.competitions (header = the lake's name, page size 10, /feed/competition-cards and the
     # /concursuri compact card are that page's). c3, c5–c7 are checked there by
     # tests/e2e/competitions-list-status.spec.ts; c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts
-    # (2026-10-06, all passing). Open: c8 / state «refreshing» — the owner page has no refresh control (fish
-    # pull-to-refresh; /concursuri lists have «Reîmprospătează»); it lives in the lakes area's files.
+    # (2026-10-06, all passing); state «unknown lakeId» (s7) by the .s7 test there (web: not-found page,
+    # no card read). Open: c8 / state «refreshing» (s5) — the owner page has no refresh control (fish
+    # pull-to-refresh; /concursuri lists have «Reîmprospătează» via DashboardRefresh); it needs a
+    # ListHeader `end` refresh in app/(site)/balti/[id]/concursuri/LakeCompetitionsScreen.tsx (lakes area).
+    # Round 3 (2026-10-06): both specs re-run green (9 + 4); the owner page still has no refresh control,
+    # and that file is outside this area (lakes redesign in progress), so the screen stays proposed.
     status: proposed
 behaviours:
   - id: competitions-list.b.tab-entry

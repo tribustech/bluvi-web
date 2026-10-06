@@ -120,7 +120,7 @@ export function CompetitionSkeleton({
                     <Line key="dates" className={cn('w-24', variant === 'preview' && 'max-md:hidden')} />,
                   ]
             }
-            // The state pill + followers (36px from 768); on the phone the compact Urmărește beside
+            // The (LIVE +) followers pills (36px from 768); on the phone the compact Urmărește beside
             // them, in the loaded row's fixed 36px height.
             badges={
               <span aria-hidden className="flex items-center gap-2.5 max-md:min-h-9 md:h-9">

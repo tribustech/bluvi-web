@@ -36,7 +36,7 @@ const ADMIN: AdminLink[] = [
 const STANDS = [
   { stand: 'A7', name: 'Radu Ionescu', kg: '86,4' },
   { stand: 'B22', name: 'Tu · Mihai Popa', kg: '71,9' },
-  { stand: 'C31', name: 'Vlad Stan', kg: 'capot' },
+  { stand: 'C31', name: 'Vlad Stan', kg: '–' },
 ];
 
 function Caption({ children }: { children: ReactNode }) {

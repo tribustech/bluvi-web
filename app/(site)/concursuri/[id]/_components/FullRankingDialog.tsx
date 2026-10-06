@@ -4,10 +4,10 @@ import { useRef, type ReactNode } from 'react';
 import { PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { ButtonLink } from '@/components/ui/Button';
 import { IconButton } from '@/components/nav/IconButton';
-import { RankingTable } from '@/components/ranking';
 import { useModalDialog } from '@/components/surfaces/useModalDialog';
 import { cn } from '@/components/ui/cn';
 import type { RankingTableData } from './ranking';
+import { CompetitionRankingTable, type RankingInitialSort } from './CompetitionRankingTable';
 import { GENERAL_TABLE_LAYOUT, RANKING_TABLE_FIXES, STICKY_HEAD_DIALOG, numericShare, useTablePins } from './tableFixes';
 
 /**
@@ -23,6 +23,7 @@ export function FullRankingDialog({
   title,
   subtitle = 'Clasament complet',
   table,
+  initialSort = 'stand',
   imageHref,
   onImage,
   children,
@@ -40,6 +41,8 @@ export function FullRankingDialog({
   /** What the table is («Clasament complet», «Manșa 2», «Sector B»). */
   subtitle?: string;
   table: RankingTableData | null;
+  /** The order the table opens in: the phone's Sortare (fish: stand by default). */
+  initialSort?: RankingInitialSort;
   /** A ranking the shared table does not draw (feeder legs, the club ranking): its own table. */
   children?: ReactNode;
 }) {
@@ -81,7 +84,13 @@ export function FullRankingDialog({
           style={{ ...numericShare(table?.columns ?? []), ...pins.style }}
           className={cn('min-h-0 flex-1 p-3 md:p-6', RANKING_TABLE_FIXES, GENERAL_TABLE_LAYOUT, STICKY_HEAD_DIALOG)}
         >
-          <RankingTable caption="Clasament complet" columns={table.columns} rows={table.rows} maxHeight="100%" />
+          <CompetitionRankingTable
+            caption="Clasament complet"
+            columns={table.columns}
+            rows={table.rows}
+            maxHeight="100%"
+            initialSort={initialSort}
+          />
         </div>
       ) : null}
     </dialog>

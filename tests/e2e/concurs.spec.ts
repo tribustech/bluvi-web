@@ -32,6 +32,8 @@ const ID = {
   bestOf: process.env.E2E_COMPETITION_BESTOF ?? 'r4pofq9vbn7vufsw37wxrsu6',
   bestOfTiers: process.env.E2E_COMPETITION_BESTOF_TIERS ?? 'wyjmy091opw9wat92j7i9xc5',
   cmmc: process.env.E2E_COMPETITION_CMMC ?? 'zezs90mcm86kjchbhzdc5xkr',
+  /** cancelled (quantityQuality). */
+  cancelled: process.env.E2E_COMPETITION_CANCELLED ?? 'y1a8131h7otw6ivnohz72ob2',
 };
 
 const PHONE = { width: 375, height: 812 };
@@ -155,6 +157,8 @@ test('shell.c4 c5 — completed: the followers pill only (singular «urmăritor�
   await expect(followersPill(page)).toHaveText(`${c.viewers} ${c.viewers === 1 ? 'urmăritor' : 'urmăritori'}`);
   await expect(followButton(page)).toHaveCount(0);
   await expect(page.locator('[data-t3="header"]').getByText(/^live$/i)).toHaveCount(0);
+  // fish badges no other status: no «Încheiat» pill (header and the pinned mini row).
+  await expect(page.getByText('Încheiat', { exact: true })).toHaveCount(0);
 });
 
 test('shell.c4 — notStarted: the followers pill and the follow button, no Live', async ({ page }) => {
@@ -162,7 +166,19 @@ test('shell.c4 — notStarted: the followers pill and the follow button, no Live
   await expect(followersPill(page)).toBeVisible();
   await expect(followButton(page)).toBeVisible();
   await expect(page.locator('[data-t3="header"]').getByText(/^live$/i)).toHaveCount(0);
+  await expect(page.getByText('Viitor', { exact: true })).toHaveCount(0);
 });
+
+for (const vp of [PHONE, DESKTOP]) {
+  test(`shell.c4 b.status-fallback — cancelled (${vp.width}px): no badge row at all (no state pill, no followers, no follow)`, async ({ page }) => {
+    await open(page, ID.cancelled, vp);
+    await settle(page);
+    await expect(followersPill(page)).toHaveCount(0);
+    await expect(followButton(page)).toHaveCount(0);
+    await expect(page.getByText(/^(live|Anulat|Viitor|Încheiat)$/i)).toHaveCount(0);
+    await expectNoA11yViolations(page);
+  });
+}
 
 for (const vp of [PHONE, DESKTOP]) {
   test(`shell.c6 — the followers list (${vp.width}px): title, «N urmăresc», rows (to the angler page once it ships)`, async ({ page }) => {
@@ -273,8 +289,18 @@ test('shell.c10 — a failed follow rolls back and shows the error', async ({ pa
   await expect(button).toHaveText(before);
 });
 
-// shell.c21 is todo (no share tile in the bar, no share_competition event): this pins the text and URL.
-test('shell.c21 — share: the header chip and the desktop button share the fish text and the page URL', async ({ page, context }) => {
+/** Collects the `bluvi:analytics` events (lib/analytics.ts) from the first paint. */
+async function collectEvents(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __events: unknown[] };
+    w.__events = [];
+    window.addEventListener('bluvi:analytics', e => w.__events.push((e as CustomEvent).detail));
+  });
+  return () => page.evaluate(() => (window as unknown as { __events: { name: string; params: Record<string, unknown> }[] }).__events);
+}
+
+test('shell.c21 — share: the header chip and the desktop button share the fish text and the page URL, and log share_competition', async ({ page, context }) => {
+  const events = await collectEvents(page);
   await context.addInitScript(() => {
     (window as unknown as { __shared: unknown[] }).__shared = [];
     Object.defineProperty(navigator, 'share', {
@@ -298,6 +324,62 @@ test('shell.c21 — share: the header chip and the desktop button share the fish
     expect(s.text).toBe(`Intră în Bluvi să vezi competiția de pescuit ${c.name} de pe balta ${c.lake!.name}`);
     expect(s.url).toMatch(new RegExp(`/concursuri/${ID.live}$`));
   }
+  // fish handleShareCompetition: share_competition { competition_id, competition_name } per share.
+  const shares = (await events()).filter(e => e.name === 'share_competition');
+  expect(shares).toEqual([
+    { name: 'share_competition', params: { competition_id: ID.live, competition_name: c.name } },
+    { name: 'share_competition', params: { competition_id: ID.live, competition_name: c.name } },
+  ]);
+});
+
+test('shell.c18 — changing tab logs competition_page_tab_pressed with fish\'s tab ids; the current tab logs nothing', async ({ page }) => {
+  const events = await collectEvents(page);
+  const c = core.get(ID.completed)!;
+  await open(page, ID.completed, DESKTOP);
+  await settle(page);
+  const tabs = page.getByRole('navigation', { name: 'Secțiunile concursului' });
+  await tabs.getByRole('link', { name: /^Clasament/ }).click(); // the current tab
+  await tabs.getByRole('link', { name: /^Extra Cântare/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.completed}/extra-cantare$`));
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await settle(page);
+  await page.getByRole('navigation', { name: 'Secțiunile concursului' }).getByRole('link', { name: /^Informații/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.completed}/informatii$`));
+  await expect
+    .poll(async () => (await events()).filter(e => e.name === 'competition_page_tab_pressed').map(e => e.params))
+    .toEqual([
+      { competition_id: ID.completed, competition_name: c.name, tab_id: 'extracantare' },
+      { competition_id: ID.completed, competition_name: c.name, tab_id: 'informatii' },
+    ]);
+});
+
+test('shell.c27 b.publish-redirect — ?fromPublish=1 plays a one-shot confetti that never blocks input, and the param is dropped', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  const res = await page.goto(`${path(ID.live)}?fromPublish=1`, { waitUntil: 'domcontentloaded' });
+  expect(res?.status()).toBe(200);
+  const confetti = page.locator('[data-publish-confetti]');
+  await expect(confetti).toBeAttached({ timeout: 45_000 });
+  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.live}$`));
+  // Over the page, click-through and hidden from assistive tech.
+  expect(await confetti.evaluate(e => getComputedStyle(e).pointerEvents)).toBe('none');
+  await expect(confetti).toHaveAttribute('aria-hidden', 'true');
+  await expect(followersPill(page)).toBeVisible();
+  await followersPill(page).click();
+  await expect(page.getByRole('dialog', { name: 'Urmăritori' })).toBeVisible();
+  // One shot: it goes away by itself.
+  await expect(confetti).toHaveCount(0, { timeout: 10_000 });
+});
+
+test('shell.c27 — reduced motion: no confetti, the param still dropped; without the param nothing plays', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize(PHONE);
+  await page.goto(`${path(ID.live)}?fromPublish=1`, { waitUntil: 'domcontentloaded' });
+  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.live}$`), { timeout: 45_000 });
+  await expect(page.locator('[data-publish-confetti]')).toHaveCount(0);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await open(page, ID.live);
+  await settle(page);
+  await expect(page.locator('[data-publish-confetti]')).toHaveCount(0);
 });
 
 test('shell.c22 — the phone back control returns to the previous page', async ({ page }) => {
@@ -383,16 +465,123 @@ const COLUMNS: [keyof typeof ID, string, RegExp[]][] = [
     [/^Stand$/, /^Participant$/, /^1$/, /\d/, /\d/, /\d/, /\d/, /\d/, /\d/, /\d/, /^Calitate$/, /^Cantitate$/, /^C\.M\.M\.C$/, /^Nr\. Buc$/, /^Pct\. Cal\.$/, /^Pct\. Cant\.$/, /^Pct\. CMMC$/, /^Puncte total$/, /^Poziție sector$/, /^Poziție generală$/],
   ],
 ];
-// todo: the kit table (components/ranking/columns.ts) renames and reorders the builders' columns
-// (Loc · Stand · Pescar · … · Loc sector · Puncte); the fish titles and order are kept here.
+// fish getTableColumns: the builders' titles and order, as they are (CompetitionRankingTable).
 for (const [key, criterion, titles] of COLUMNS) {
-  test.fixme(`clasament.${criterion} — ${key} columns in fish order`, async ({ page }) => {
+  test(`competition-page.clasament.${criterion} — ${key} columns in fish order, in the inline table and in «Clasament complet»`, async ({ page }) => {
     await open(page, ID[key], DESKTOP);
     await expect(grid(page).locator('thead th')).toHaveText(titles);
+    await visible(page.getByRole('button', { name: 'Clasament complet' })).click();
+    await expect(page.getByRole('region', { name: 'Clasament complet' }).locator('thead th')).toHaveText(titles);
   });
 }
 
-test('clasament.c16 — the phone list opens in stand order; Sortare → Poziția în clasament orders by place', async ({ page }) => {
+/** Answers the browser's ranking reads with `edit(real ranking)`, then makes the page re-read (a focus after 30 s, clasament.c6). */
+async function fakeRanking(page: Page, id: string, edit: (ranking: { metadata: Record<string, unknown>; rankings: Record<string, unknown>[] }) => void, viewport = DESKTOP) {
+  const real = await (await page.request.get(`/api/cms/competitions/${id}/ranking`)).json();
+  edit(real);
+  await page.route(new RegExp(`/api/cms/competitions/${id}/ranking(\\?|$)`), route => route.fulfill({ json: real }));
+  await page.clock.install({ time: new Date() });
+  await open(page, id, viewport);
+  await settle(page);
+  await page.clock.runFor(31_000);
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+}
+
+test('competition-page.clasament.c12 — calitateCalitate columns in fish order (no local competition of the type: its ranking answered through the proxy)', async ({ page }) => {
+  await fakeRanking(page, ID.cmmc, r => {
+    r.metadata.rankingType = 'calitateCalitate';
+    // The calitateCalitate row's own points (the CMMC rows carry calitate / cmmc points).
+    for (const row of r.rankings) {
+      row.quality1Points = row.calitatePoints ?? 0;
+      row.quality2Points = row.cmmcPoints ?? 0;
+      row.quality2 = row.biggestFish ?? 0;
+      row.hasGrid = false;
+    }
+  });
+  await expect(grid(page).locator('thead th')).toHaveText(
+    [/^Stand$/, /^Participant$/, /^1$/, /\d/, /\d/, /\d/, /\d/, /\d/, /\d/, /\d/, /^Calitate 1$/, /^C\.M\.M\.C$/, /^Nr\. Buc$/, /^Puncte Cal\. 1$/, /^Puncte Cal\. 2$/, /^Puncte total$/, /^Poziție sector$/, /^Poziție generală$/],
+    { timeout: 15_000 },
+  );
+});
+
+test('competition-page.clasament.c14 competition-page.clasament.c15 competition-page.clasament.c17 competition-page.clasament.c18 — the cells: stand + sector edge, the name, three-decimal weights, the winner pill (no fill under text)', async ({ page }) => {
+  await open(page, ID.cmmc, DESKTOP);
+  const rows = grid(page).locator('tbody tr');
+  const first = rows.first();
+  // c14: the Stand cell reads the sector and the stand (spoken «Sector A, stand 1»), the name is the row header.
+  await expect(first.locator('td').first()).toHaveText('Sector A, stand 1A1');
+  await expect(first.locator('th[scope=row]')).toHaveText('Andrew R');
+  // c15: weights with three decimals (decimal comma), «–» for no value.
+  await expect(first.locator('td').nth(1)).toHaveText(/^\d+,\d{3}$/);
+  await expect(rows.filter({ hasText: 'Cucu' }).locator('td').nth(1)).toHaveText('–');
+  // c17: the sector is the 4px edge on the Stand cell; no cell of the row is tinted with it.
+  const edge = first.locator('td').first().locator('span[aria-hidden]').first();
+  expect((await edge.boundingBox())!.width).toBeCloseTo(4, 0);
+  const sectorColor = await edge.evaluate(e => getComputedStyle(e).backgroundColor);
+  expect(sectorColor).not.toBe('rgba(0, 0, 0, 0)');
+  for (const cell of await first.locator('td, th').all()) {
+    expect(await cell.evaluate(e => getComputedStyle(e).backgroundColor)).not.toBe(sectorColor);
+  }
+  // c18: winners (generalPosition ≤ numberOfSectors = 3) carry the place pill, the others a plain number.
+  const place = (name: string) => rows.filter({ hasText: name }).locator('td').last();
+  await expect(place('Andrew R')).toContainText('câștigător');
+  await expect(place('Cici')).toContainText('câștigător');
+  await expect(place('Bubu')).not.toContainText('câștigător');
+  await expectNoA11yViolations(page);
+});
+
+test('competition-page.clasament.c19 — the competition’s biggest catch is gold with bold dark text, on the phone too', async ({ page }) => {
+  await open(page, ID.cmmc, DESKTOP);
+  const biggest = grid(page).locator('td[data-biggest]');
+  await expect(biggest).toHaveCount(1);
+  await expect(biggest).toHaveText('Cea mai mare captură: 29,000');
+  await expect(biggest).toHaveClass(/bg-medal-gold/);
+  expect(Number(await biggest.evaluate(e => getComputedStyle(e).fontWeight))).toBeGreaterThanOrEqual(700);
+  await expect(page.getByRole('list', { name: 'Legendă' })).toContainText('C.M.M.C a concursului');
+  await page.setViewportSize(PHONE);
+  const mark = phoneList(page).locator('.bg-medal-gold');
+  await expect(mark).toHaveCount(1);
+  await expect(mark).toHaveText('Cea mai mare captură: CMMC 29,000');
+});
+
+test('competition-page.clasament.c11 — bestOfTiers: the Best-N block is one indigo band (deeper on winner rows), the won cell solid green, bold', async ({ page }) => {
+  await open(page, ID.bestOfTiers, DESKTOP);
+  const table = grid(page);
+  await expect(table.locator('thead th.bg-indigo-4')).toHaveText([/^Best 3$/, /^Best 5$/, /^Best 7$/, /^Best 9$/]);
+  const won = table.locator('td[data-tier-win]').first();
+  await expect(won).toHaveClass(/bg-success/);
+  expect(Number(await won.evaluate(e => getComputedStyle(e).fontWeight))).toBeGreaterThanOrEqual(700);
+  await expect(table.locator('td.bg-accent-tint-2, td.bg-accent-tint-3').first()).toBeVisible();
+});
+
+test('competition-page.clasament.c23 — one penalty marker per row beside the name: yellow «Echipa are penalizări», red «Echipa este eliminată» (an ELIMINATE answered through the proxy)', async ({ page }) => {
+  await fakeRanking(
+    page,
+    ID.live,
+    r => {
+      const b = r.rankings.find(x => x.standName === 'B1')!;
+      b.penalties = [
+        { documentId: 'pen-e2e-1', action: 'WARNING', value: null, reason: 'avertisment', createdAt: '2026-09-10T08:00:00.000Z' },
+        { documentId: 'pen-e2e-2', action: 'ELIMINATE', value: null, reason: 'fraudă', createdAt: '2026-09-10T08:01:00.000Z' },
+      ];
+    },
+    PHONE,
+  );
+  const list = phoneList(page);
+  const a1 = list.getByRole('listitem').filter({ hasText: 'A · Stand 1 ·' });
+  await expect(list.getByRole('img', { name: 'Echipa are penalizări' })).toHaveCount(1, { timeout: 15_000 });
+  await expect(a1.getByRole('img', { name: 'Echipa are penalizări' })).toHaveAttribute('title', /nadă în exces/);
+  // Two penalties, one of them ELIMINATE: one red marker, not one per penalty.
+  await expect(list.getByRole('img', { name: 'Echipa este eliminată' })).toHaveCount(1);
+  await page.setViewportSize(DESKTOP);
+  await expect(grid(page).getByRole('img', { name: 'Echipa este eliminată' })).toHaveCount(1);
+  await expect(grid(page).getByRole('img', { name: 'Echipa are penalizări' })).toHaveCount(1);
+});
+
+test('competition-page.clasament.c16 — the phone list opens in stand order; Sortare → Poziția în clasament orders by place', async ({ page }) => {
   await open(page, ID.live);
   const items = phoneList(page).getByRole('listitem');
   await expect(items.first()).toBeVisible();
@@ -414,7 +603,7 @@ test('clasament.c16 — the phone list opens in stand order; Sortare → Poziți
   expect(places).toEqual([...places].sort((a, b) => a - b));
 });
 
-test('clasament.c22 — in «Tot ecranul» on the phone the Stand column stays while the others scroll', async ({ page }) => {
+test('competition-page.clasament.c22 — in «Tot ecranul» on the phone the Stand column stays while the others scroll', async ({ page }) => {
   await open(page, ID.quality);
   await page.getByRole('button', { name: 'Vezi clasamentul pe tot ecranul' }).click();
   const table = page.getByRole('region', { name: 'Clasament complet' });
@@ -427,27 +616,7 @@ test('clasament.c22 — in «Tot ecranul» on the phone the Stand column stays w
   expect(Math.abs((await stand.boundingBox())!.x - before)).toBeLessThan(1);
 });
 
-// todo: the phone shows the kit RankingRow (Fundații §07), not fish's grid — «A · Stand 1», 1–3
-// decimals, the sector only as the 4px edge (no 40% tint), winners as the navy place pill (no 🎖️),
-// penalties as one chip per penalty («−0,5 kg», «eliminat»). fish's expectations are kept.
-test.fixme('clasament.c14 c15 c17 c18 c23 — the phone grid: stand cell, weights, colours, medals, penalties', async ({ page }) => {
-  await open(page, ID.live);
-  const g = phoneList(page);
-  const firstRow = g.getByRole('listitem').first();
-  await expect(firstRow).toContainText(/[A-X]\/\d+/);
-  await expect(firstRow).toContainText(/\d+,\d{3}/);
-  await expect(firstRow).toContainText(/^🎖️/);
-  await expect(g.getByRole('img', { name: 'Echipa are penalizări' }).first()).toBeVisible();
-});
-
-// todo: the kit table marks the biggest catch with a star, not fish's gold cell with bold black text.
-test.fixme('clasament.c19 — the biggest catch is gold', async ({ page }) => {
-  await open(page, ID.cmmc, DESKTOP);
-  const biggest = grid(page).locator('td', { has: page.getByText('Cea mai mare captură:') }).first();
-  await expect(biggest).toHaveClass(/bg-rating/);
-});
-
-test('clasament.c21 — catch cells past the sector minimum are grey and empty', async ({ page }) => {
+test('competition-page.clasament.c21 — catch cells past the sector minimum are grey and empty', async ({ page }) => {
   await open(page, ID.quality, DESKTOP);
   const cell = grid(page).locator('td[aria-label="nu se punctează"]').first();
   await expect(cell).toHaveText('');
@@ -458,13 +627,20 @@ test('clasament.c21 — catch cells past the sector minimum are grey and empty',
   expect(await cell.evaluate(e => getComputedStyle(e, '::after').content)).toBe('none');
 });
 
-// todo: the kit table opens in place order (its INITIAL_SORT), not by stand.
-test.fixme('clasament.c16 — desktop opens by stand too, and the sort switches to the place', async ({ page }) => {
+test('competition-page.clasament.c16 — from 768 the table opens by stand too (sector A→Z, then stand number); «Poziție generală» orders by place (fish Sortare)', async ({ page }) => {
   await open(page, ID.live, DESKTOP);
-  const table = page.getByRole('region', { name: 'Clasament general' });
-  await expect(table.locator('thead th').nth(1)).toHaveAttribute('aria-sort', 'ascending');
-  await page.getByRole('button', { name: /^Sortare clasament/ }).click();
-  await expect(table.locator('thead th').nth(0)).toHaveAttribute('aria-sort', 'ascending');
+  const table = grid(page);
+  await expect(table.locator('thead th').first()).toHaveAttribute('aria-sort', 'ascending');
+  const stands = await table.locator('tbody tr td:first-child .sr-only').allTextContents();
+  const parsed = stands.map(t => /Sector ([A-X]), stand [A-X]?(\d+)/.exec(t)!).map(m => [m[1], Number(m[2])] as const);
+  expect(parsed).toEqual([...parsed].sort((a, b) => a[0].localeCompare(b[0]) || a[1] - b[1]));
+  const placeHead = table.locator('thead th').last();
+  await expect(async () => {
+    await placeHead.getByRole('button').click();
+    await expect(placeHead).toHaveAttribute('aria-sort', 'ascending', { timeout: 1000 });
+  }).toPass();
+  const places = (await table.locator('tbody tr td:last-child').allInnerTexts()).map(t => Number(t.replace(/\D/g, '')));
+  expect(places).toEqual([...places].sort((a, b) => a - b));
 });
 
 test('clasament.c25 — a ranking with no rows says «Nu există date de afișat»', async ({ page }) => {

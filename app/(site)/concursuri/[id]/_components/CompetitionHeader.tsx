@@ -15,6 +15,7 @@ import { ChatHeaderPlaceholder } from './ChatPanel';
 import { CompetitionThumb, competitionMeta } from './headerMeta';
 import { FollowersPill, FollowToggle, type PageViewer } from './Follow';
 import { DisabledRegisterButton, registerState, ViewerSlot, type RegisterState } from './viewerSlot';
+import { SHARE_MARK } from './analytics';
 
 /*
  * fish components/competition/CompetitionHeader.tsx (+ BackButton, ShareButton, LivePlusViewers,
@@ -55,6 +56,9 @@ export type HeaderProps = {
 
 export const TITLE_ID = 'concurs-titlu';
 
+/** A share control's wrapper: no box of its own, marked for share_competition (analytics.ts). */
+export const SHARE_PROPS = { [SHARE_MARK]: '', className: 'contents' };
+
 /** fish shareCompetition text (with the diacritics fish's copy leaves out, without its emoji: Fundații §05). */
 export function shareText(c: Pick<CompetitionWithMyStatus, 'name' | 'lake'>): string {
   return `Intră în Bluvi să vezi competiția de pescuit ${c.name}${c.lake?.name ? ` de pe balta ${c.lake.name}` : ''}`;
@@ -79,11 +83,11 @@ export function CompetitionHeader({
   const copied = () => toast('Linkul competiției a fost copiat.', 'success');
   const share = shareText(c);
 
-  // fish: started → Live + urmăritori + Urmărește · notStarted → urmăritori + Urmărește ·
-  // completed → urmăritori · draft → no badge row (parity shell.c3 / c4). The web also names the
-  // other states (Viitor / Încheiat / Anulat, Fundații's StatusPill set, as CompetitionCard), so
-  // every status row has the same anatomy as the live one: a state pill first. «Urmărește» is an
-  // action (a Button): compact (36px) in the badge row on the phone, with the header's actions from 768.
+  // fish CompetitionHeader:125-139 (parity shell.c3 / c4): started → Live + urmăritori + Urmărește ·
+  // notStarted → urmăritori + Urmărește · completed → urmăritori · draft / cancelled → no badge row.
+  // Only the live state has a pill, as fish (the web's Viitor / Încheiat / Anulat pills were dropped:
+  // fish wins, ROADMAP §1.3). «Urmărește» is an action (a Button): compact (36px) in the badge row on
+  // the phone, with the header's actions from 768.
   const followable = status === 'started' || status === 'notStarted';
   // The per-viewer actions resolve on the server when they can (ViewerSlot): a request without a
   // session cookie streams the signed-out Urmărește with the page — no bone waiting for hydration.
@@ -107,24 +111,14 @@ export function CompetitionHeader({
       }
     </ViewerSlot>
   );
-  const state =
-    status === 'started' ? (
-      <StatusPill tone="live">LIVE</StatusPill>
-    ) : status === 'notStarted' ? (
-      <StatusPill tone="info">Viitor</StatusPill>
-    ) : status === 'completed' ? (
-      <StatusPill tone="neutral">Încheiat</StatusPill>
-    ) : status === 'cancelled' ? (
-      <StatusPill tone="cancelled">Anulat</StatusPill>
-    ) : null;
   const badges =
-    status === 'started' || status === 'notStarted' || status === 'completed' || status === 'cancelled' ? (
+    status === 'started' || status === 'notStarted' || status === 'completed' ? (
       // One row, as fish: on the phone it may run under the back / share chips (it sits below them).
       // Phone: always the compact button's height (36), with or without it, so a completed page (no
       // Urmărește) is as tall as the skeleton and as a live one.
       <span className="flex flex-nowrap items-center gap-2.5 max-md:min-h-9">
-        {state}
-        {status !== 'cancelled' ? <FollowersPill competition={c} /> : null}
+        {status === 'started' ? <StatusPill tone="live">LIVE</StatusPill> : null}
+        <FollowersPill competition={c} />
         {followable ? <span className="md:hidden">{follow('compact')}</span> : null}
       </span>
     ) : null;
@@ -177,12 +171,18 @@ export function CompetitionHeader({
             </ViewerSlot>
           ) : null}
           {extraAction}
-          <DetailShareButton look="button" title={c.name} text={share} label="Distribuie" onCopied={copied} />
+          <span {...SHARE_PROPS}>
+            <DetailShareButton look="button" title={c.name} text={share} label="Distribuie" onCopied={copied} />
+          </span>
         </div>
       }
       // No list page yet (/concursuri): a direct visit goes back home.
       phoneStart={<DetailBackButton fallbackHref={routes.home()} />}
-      phoneEnd={<DetailShareButton title={c.name} text={share} label="Distribuie competiția" onCopied={copied} />}
+      phoneEnd={
+        <span {...SHARE_PROPS}>
+          <DetailShareButton title={c.name} text={share} label="Distribuie competiția" onCopied={copied} />
+        </span>
+      }
     />
   );
 }

@@ -40,8 +40,16 @@ const penalty2kg = {
   createdAt: '2026-09-27T10:00:00.000Z',
 };
 
+/*
+ * As the page's buildRankingTable: the winners are the general places 1..S (here: each sector's
+ * first), and Radu Ionescu (A7) holds the competition's biggest catch.
+ */
 const row = (r: QuantityStandRanking) =>
-  createQuantityRow(r, sectorColors, { isWinner: r.generalPosition === 1 });
+  createQuantityRow(r, sectorColors, {
+    isWinner: r.sectorPosition === 1 && r.quantity > 0,
+    biggestStandId: 'A7',
+    biggestWeight: 14.2,
+  });
 
 /* Mobile rows — exactly the three Fundații rows. */
 const mobileRows = [
@@ -107,7 +115,7 @@ const tableRows = [
   ),
 ];
 
-/* 24 sectors, one stand each: stripes A–X, a tie, a penalty, capot, and enough rows to scroll. */
+/* 24 sectors, one stand each: stripes A–X, a tie, a penalty, a row without catches, and enough rows to scroll. */
 const NAMES = [
   'Radu Ionescu', 'Mihai Popa', 'Echipa Delta', 'Andrei Marin', 'Ioan Toma', 'Cristi Dobre',
   'Echipa Siliștea', 'Sorin Vlad', 'Paul Neagu', 'Dan Lazăr', 'Florin Ene', 'George Matei',
@@ -115,7 +123,7 @@ const NAMES = [
   'Ștefan Barbu', 'Victor Moldovan', 'Nicu Avram', 'Tudor Sima', 'Emil Preda', 'Vlad Stan',
 ];
 const bigRows = SECTOR_LETTERS.map((letter, i) => {
-  const capot = i === 23;
+  const noCatch = i === 23;
   const generalPosition = i === 4 ? 4 : i + 1; // stands 4 and 5 tie at =4
   const isTeam = NAMES[i].startsWith('Echipa');
   return row(
@@ -123,9 +131,9 @@ const bigRows = SECTOR_LETTERS.map((letter, i) => {
       sectorName: letter,
       standName: String(3 + ((i * 7) % 40)),
       ...(isTeam ? { teamName: NAMES[i] } : { participant: { username: NAMES[i] } }),
-      quantity: capot ? 0 : Math.round((92 - i * 3.7) * 1000) / 1000,
-      catchCount: capot ? 0 : 14 - Math.floor(i / 2),
-      biggestFish: capot ? 0 : Math.round((15.3 - i * 0.4) * 100) / 100,
+      quantity: noCatch ? 0 : Math.round((92 - i * 3.7) * 1000) / 1000,
+      catchCount: noCatch ? 0 : 14 - Math.floor(i / 2),
+      biggestFish: noCatch ? 0 : Math.round((15.3 - i * 0.4) * 100) / 100,
       generalPosition,
       sectorPosition: 1,
       penalties: i === 2 ? [penalty2kg] : [],
@@ -268,23 +276,21 @@ export function CardsSection() {
         <div className="grid grid-cols-1 gap-8 *:first:max-w-[380px]">
           <Block
             title="Rând clasament · mobil"
-            note="Egalitate „=4” cu penalizare; capot pe fundal neutru. Sectorul apare doar ca bară de 4px."
+            note="Egalitate „=4” cu penalizare; „Fără capturi” pe fundal neutru. Sectorul apare doar ca bară de 4px."
           >
             <ol aria-label="Clasament" className="overflow-hidden rounded-card bg-surface shadow-e0">
               {mobileRows.map((r, i) => (
-                <RankingRow
-                  key={r.standId}
-                  row={r}
-                  tied={mobileTies.has(i)}
-                  note={mobileTies.has(i) ? 'egalitate · departajat la CMMC' : undefined}
-                />
+                <RankingRow key={r.standId} row={r} tied={mobileTies.has(i)} />
               ))}
             </ol>
             <ol aria-label="Clasament, rândul tău" className="overflow-hidden rounded-card bg-surface shadow-e0">
               <RankingRow row={tableRows[1]} isCurrentUser />
             </ol>
           </Block>
-          <Block title="Tabel clasament · desktop · antet lipit, cifre tabulare, sortabil">
+          <Block
+            title="Tabel clasament · desktop · antet lipit, cifre tabulare, sortabil"
+            note="Tabelul paginii de concurs, nu o copie: Stand primul cu bara sectorului, cântăriri cu trei zecimale, celula aurie pentru cea mai mare captură, marcajul de penalizare. Loc: numărul, cu trofeu pentru podium; câștigătorul de sector are trofeul discret la „Poziție sector”."
+          >
             <RankingTable
               caption="Clasament general"
               columns={getQuantityColumns()}
@@ -296,7 +302,7 @@ export function CardsSection() {
 
         <Block
           title="Tabel clasament · 24 de sectoare A–X · antet lipit la derulare"
-          note={`Egalitate pe locul 4 (${bigTies.size} rânduri), penalizare −2 kg, capot pe ultimul loc. Click pe antet sortează.`}
+          note={`Egalitate pe locul 4 (${bigTies.size} rânduri), penalizare −2 kg, fără capturi pe ultimul loc („–”). Antet colorat, avatar lângă nume. Click pe antet sortează.`}
         >
           <RankingTable
             caption="Clasament general, 24 de sectoare"
@@ -304,6 +310,7 @@ export function CardsSection() {
             rows={bigRows}
             currentUserStandId={bigRows[1].standId}
             maxHeight="420px"
+            faceOf={r => ({ src: null, team: r.participant.startsWith('Echipa') })}
           />
         </Block>
       </div>

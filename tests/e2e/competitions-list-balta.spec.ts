@@ -144,3 +144,20 @@ for (const b of BALTA) {
     }
   });
 }
+
+for (const b of BALTA) {
+  // fish sends the request with an unknown lakeId and shows empty or error. WEB: the lake is read
+  // first, so an unknown one is the shared «not found» page (noindex) and no card list is asked for.
+  test(`${b.id}.s7 — an unknown lakeId: the not-found page, no card read`, async ({ page }) => {
+    const reads: string[] = [];
+    page.on('request', (r) => {
+      if (CARDS.test(r.url())) reads.push(r.url());
+    });
+    await page.goto(`/balti/nuexista000000000000000/concursuri?tab=${b.tab}`);
+    await expect(page).toHaveTitle(/Balta nu a fost găsită/);
+    await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute('content', /noindex/);
+    await expect(page.getByRole('link', { name: 'Acasă' }).first()).toBeVisible();
+    expect(reads.filter((u) => u.includes('nuexista'))).toEqual([]);
+    await expectNoA11yViolations(page);
+  });
+}

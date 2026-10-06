@@ -35,7 +35,7 @@ const BRAND_ICONS = [
   { name: "cântar", Icon: ScaleIcon },
   { name: "lansetă", Icon: FishingRodIcon },
   { name: "captură", Icon: CatchIcon },
-  { name: "capot", Icon: DeadFishIcon },
+  { name: "fără capturi", Icon: DeadFishIcon },
   { name: "stand", Icon: StandPinIcon },
   { name: "gol", Icon: SadSearchIcon },
   { name: "fără recenzii", Icon: SadStarIcon },
@@ -77,7 +77,7 @@ export function PrimitivesSection() {
                 <StatusPill tone="info">Viitor</StatusPill>
                 <StatusPill tone="neutral">Încheiat</StatusPill>
                 <StatusPill tone="cancelled">Anulat</StatusPill>
-                <StatusPill tone="capot">capot</StatusPill>
+                <StatusPill tone="no-catch">Fără capturi</StatusPill>
                 <StatusPill tone="pending">2 în așteptare</StatusPill>
               </div>
               <div className="flex flex-wrap gap-1.5">

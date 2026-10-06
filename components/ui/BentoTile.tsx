@@ -86,6 +86,8 @@ export interface StatTileProps {
   /** Filled bar under the number, e.g. registrations 38 of 48. */
   progress?: { value: number; max: number; label: string };
   caption?: ReactNode;
+  /** Extra classes on the caption line (e.g. a caption shown only at one width). */
+  captionClassName?: string;
   tone?: Exclude<BentoTone, "navy">;
   className?: string;
 }
@@ -98,6 +100,7 @@ export function StatTile({
   unitTone = "muted",
   progress,
   caption,
+  captionClassName,
   tone = "page",
   className,
 }: StatTileProps) {
@@ -138,7 +141,73 @@ export function StatTile({
           <div className="h-full bg-accent" style={{ width: `${pct}%` }} />
         </div>
       ) : null}
-      {caption ? <div className="t-caption text-muted">{caption}</div> : null}
+      {caption ? (
+        <div className={cn("t-caption text-muted", captionClassName)}>
+          {caption}
+        </div>
+      ) : null}
     </BentoTile>
+  );
+}
+
+export interface FactTileProps {
+  label: string;
+  /** Optional 16px icon (Heroicon outline or brand icon), set in a small accent-tint disc. */
+  icon?: ReactNode;
+  value: ReactNode;
+  unit?: ReactNode;
+  caption?: ReactNode;
+  /** Extra classes on the caption line (e.g. a caption shown only at one width). */
+  captionClassName?: string;
+  tone?: Exclude<BentoTone, "navy">;
+  className?: string;
+}
+
+/**
+ * The small bento tile (owner rule 9): one fact — «Capturi 389», «Fără capturi 3» — at the 26px
+ * signature step, no 156 minimum, so it can sit two to a column beside a tall StatTile. Same
+ * radius as every bento tile; the unit is the kit's spaced, muted one (SignatureNumber `fact`).
+ */
+export function FactTile({
+  label,
+  icon,
+  value,
+  unit,
+  caption,
+  captionClassName,
+  tone = "page",
+  className,
+}: FactTileProps) {
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 flex-col justify-between gap-2 rounded-bento p-4",
+        TONE[tone],
+        className,
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-2 t-label text-muted">
+        {icon ? (
+          <span
+            aria-hidden="true"
+            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent [&>svg]:size-4"
+          >
+            {icon}
+          </span>
+        ) : null}
+        <span className="min-w-0 truncate">{label}</span>
+      </div>
+      <SignatureNumber
+        size="fact"
+        value={value}
+        unit={unit}
+        className="whitespace-nowrap"
+      />
+      {caption ? (
+        <div className={cn("line-clamp-2 t-caption text-muted", captionClassName)}>
+          {caption}
+        </div>
+      ) : null}
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import { cn } from "./cn";
 /**
  * StatusPill — a STATE (radius 999), never an attribute; attributes are Badge (radius 2).
  * Fundații §07: LIVE · Înscrieri deschise · Ultimele 3 locuri · Viitor · Încheiat · Anulat ·
- * capot · "2 în așteptare". Only the LIVE dot pulses (§06), via `animate-live`.
+ * Fără capturi · "2 în așteptare". Only the LIVE dot pulses (§06), via `animate-live`.
  */
 export type StatusTone =
   | "live"
@@ -13,7 +13,7 @@ export type StatusTone =
   | "info"
   | "neutral"
   | "cancelled"
-  | "capot"
+  | "no-catch"
   | "pending";
 
 const TONE: Record<StatusTone, string> = {
@@ -23,8 +23,8 @@ const TONE: Record<StatusTone, string> = {
   info: "bg-status-info-bg text-status-info-fg",
   neutral: "bg-status-neutral-bg text-status-neutral-fg",
   cancelled: "bg-status-neutral-bg text-status-neutral-fg line-through",
-  // A team with no catch: present but empty, hence the dashed outline.
-  capot: "border border-dashed border-faint bg-soft-fill text-ink",
+  // «Fără capturi» (never «capot», ROADMAP §4b.11): present but empty, hence the dashed outline.
+  "no-catch": "border border-dashed border-faint bg-soft-fill text-ink",
   // Orange-50 / orange-700 in light: the design's "awaiting" pair (not a fish status).
   pending: "bg-status-pending-bg text-status-pending-fg",
 };

@@ -10,13 +10,28 @@ import {
   type NcSectorSort,
 } from '@/core/competitions';
 import { sectorFill } from '@/components/ranking/sector';
-import { CapotChip } from '@/components/cards/parts';
+import { RankingFace } from '@/components/ranking/RankingFace';
 import { SegmentedControl } from '@/components/forms/SegmentedControl';
 import { EmptyState } from '@/components/surfaces/StateCard';
 import { ChoiceChips, type Choice } from '@/components/templates/T1';
 import { cn } from '@/components/ui/cn';
 import { roNum } from './FeederRanking';
-import { PlaceCell, RANK_PIN, RANK_PIN_EDGE, RANK_TD, RANK_TH, RANK_TH_PIN, RankingCard, RankingFrame, RankingGrid, SeatLabel, pinSurface } from './rankingShell';
+import { useRankingFaces, type RankingFaces } from './rankingFaces';
+import {
+  PlaceCell,
+  RANK_NAME_CAP,
+  RANK_PIN,
+  RANK_PIN_EDGE,
+  RANK_TD,
+  RANK_TH,
+  RANK_TH_PIN,
+  RankingFrame,
+  RankingGrid,
+  SeatLabel,
+  pinSurface,
+  splitSeat,
+} from '@/components/ranking/shell';
+import { RankingCard } from './rankingShell';
 
 /*
  * National Championship / FIPSed — fish components/competition/NationalChampionshipRanking.tsx
@@ -26,11 +41,15 @@ import { PlaceCell, RANK_PIN, RANK_PIN_EDGE, RANK_TD, RANK_TH, RANK_TH_PIN, Rank
  *  - General: one row per team, the club's own columns merged across its teams (rowSpan). Clubs are
  *    told apart by structure — one surface, a stronger rule above each club and its merged cell —
  *    not by fish's six-colour club palette: on the web those are the sector colours A–F, and a
- *    sector colour only ever means a sector (Fundații). Every place is the kit table's plain number;
- *    a winning club / team adds the trophy, not fish's 90% row tint and 🎖️.
- *  - A sector: Stand, Club, Pescari, Kg, Medie, CMMC, Nr. Buc, Puncte sector, Loc sector; a capot
- *    team reads «capot» (the kit chip) in Kg.
- * TODO(kit): a merged-cell ranking table (club rows); composed on the shared shell (./rankingShell.tsx).
+ *    sector colour only ever means a sector (Fundații). Every place is the ranking tables' one idiom
+ *    (kit PlaceCell): a winning club adds the trophy, a team in the places 1..S (the sector
+ *    winners) the muted sector trophy — not fish's 90% row tint and 🎖️.
+ *  - A sector: Stand, Club, Pescari, Kg, Medie, CMMC, Nr. Buc, Puncte sector, Loc sector; a team
+ *    without a catch reads «–» in Kg (as fish; never «capot», ROADMAP §4b.11).
+ *  - Both: the coloured header row (kit RANK_TH, §4b.12), hairline rows, the sector's 4px
+ *    edge at the left of each team row (General: on the pinned Pescari cell), and from 768 the
+ *    team's avatar beside Pescari (§4b.13).
+ * TODO(kit): a merged-cell ranking table (club rows); composed on the kit's shared shell (components/ranking/shell.tsx).
  */
 
 export type NcView = 'general' | string;
@@ -146,13 +165,25 @@ function NoTeams() {
   return <EmptyState title="Nu există DUO-uri în acest sector." />;
 }
 
+/** A team's face by its registration (the page's core); unknown → the names' initials. */
+const faceOf = (faces: RankingFaces, registrationId: string | null) => (registrationId ? (faces.byRegistration.get(registrationId) ?? null) : null);
+
+/** The team's sector: the 4px edge at the left of its row's first own cell (the cell is sticky, so positioned). */
+function TeamEdge({ seat }: { seat: string }) {
+  const { sector } = splitSeat(seat);
+  if (!sector) return null;
+  const fill = sectorFill(sector, 'var(--color-muted)');
+  return <span aria-hidden className={cn('absolute inset-y-0 left-0 w-1', fill.className)} style={fill.style} />;
+}
+
 /*
  * Pinned at the left while the numbers scroll sideways: Club + Pescari (General), Stand + Pescari
- * (a sector). Below 768 the pinned block stays near half of a 343px card (club 88 + names 104).
+ * (a sector). Below 768 the pinned block stays near half of a 343px card (club 80 + names 120);
+ * names wrap between words (hyphenated if they must), never mid-word.
  */
-const CLUB_W = 'w-22 min-w-22 max-w-22 md:w-44 md:min-w-44 md:max-w-44';
-const NAMES_LEFT = 'left-22 md:left-44';
-const NAMES_W = 'max-md:max-w-26 max-md:min-w-26 md:min-w-44 md:max-w-72';
+const CLUB_W = 'w-20 min-w-20 max-w-20 md:w-44 md:min-w-44 md:max-w-44';
+const NAMES_LEFT = 'left-20 md:left-44';
+const NAMES_W = 'max-md:max-w-30 max-md:min-w-30 md:min-w-44 md:max-w-72';
 const STAND_W = 'w-16 min-w-16 max-w-16';
 
 function ClubTable({
@@ -173,6 +204,7 @@ function ClubTable({
   embedded: boolean;
 }) {
   const clubs = useMemo(() => ncGeneralModel(sortNcClubs(rankings, sort), numberOfSectors), [rankings, sort, numberOfSectors]);
+  const faces = useRankingFaces();
   const head = [
     'Club',
     'Pescari',
@@ -201,7 +233,7 @@ function ClubTable({
                   'h-10',
                   i < 3 ? 'text-left' : 'text-right',
                   i === 0 && cn(RANK_TH_PIN, CLUB_W, 'left-0 pl-3'),
-                  i === 1 && cn(RANK_TH_PIN, RANK_PIN_EDGE, NAMES_LEFT),
+                  i === 1 && cn(RANK_TH_PIN, RANK_PIN_EDGE, RANK_NAME_CAP, NAMES_LEFT),
                   i === head.length - 1 && 'pr-3.5',
                 )}
               >
@@ -234,19 +266,23 @@ function ClubTable({
                       <th
                         scope="rowgroup"
                         rowSpan={span}
-                        className={cn(RANK_TD, rule, RANK_PIN, 'bg-surface', CLUB_W, 'left-0 py-2 pl-3 text-left align-middle font-bold break-words whitespace-normal')}
+                        className={cn(RANK_TD, rule, RANK_PIN, 'bg-surface', CLUB_W, 'left-0 py-2 pl-3 text-left align-middle font-bold break-normal hyphens-auto whitespace-normal')}
                       >
                         {club.clubName}
                       </th>
                     ) : null}
-                    <td className={cn(RANK_TD, rule, RANK_PIN, RANK_PIN_EDGE, pinSurface(mine), NAMES_LEFT, NAMES_W, 'border-l py-2 font-bold whitespace-normal')}>
-                      <span className="line-clamp-2 break-words">
-                        {mine ? 'Tu · ' : null}
-                        {team.participants}
+                    <td className={cn(RANK_TD, rule, RANK_PIN, RANK_PIN_EDGE, pinSurface(mine), NAMES_LEFT, NAMES_W, 'border-l py-2 pl-3 font-bold whitespace-normal')}>
+                      <TeamEdge seat={plainStand(team.stand)} />
+                      <span className="flex items-center gap-2.5">
+                        <RankingFace name={team.participants} face={faceOf(faces, team.registrationId)} />
+                        <span className="line-clamp-2 break-normal hyphens-auto">
+                          {mine ? 'Tu · ' : null}
+                          {team.participants}
+                        </span>
                       </span>
                     </td>
                     <td className={cn(RANK_TD, rule, 'text-left font-bold')}>
-                      <SeatLabel seat={plainStand(team.stand)} />
+                      <SeatLabel seat={plainStand(team.stand)} dot={false} />
                     </td>
                     <td className={cn(RANK_TD, rule, 'text-right')}>{roNum(team.quantity)}</td>
                     {merged(roNum(club.totalKg), 'text-right t-heading font-extrabold')}
@@ -257,12 +293,12 @@ function ClubTable({
                     {merged(roNum(club.points), 'text-right font-bold')}
                     {merged(
                       <span className="inline-flex justify-end">
-                        <PlaceCell value={club.position} winner={club.winner} />
+                        <PlaceCell value={club.position} mark={club.winner ? 'prize' : null} align="end" />
                       </span>,
                     )}
                     <td className={cn(RANK_TD, rule, 'border-l pr-3.5 text-right')}>
                       <span className="inline-flex justify-end">
-                        <PlaceCell value={team.generalPosition} winner={team.individualWinner} onTint={mine} />
+                        <PlaceCell value={team.generalPosition} mark={team.individualWinner ? 'sector' : null} onTint={mine} align="end" />
                       </span>
                     </td>
                   </tr>
@@ -294,6 +330,7 @@ function SectorTable({
   embedded: boolean;
 }) {
   const rows = useMemo(() => ncSectorRows(rankings, sectorId, sort), [rankings, sectorId, sort]);
+  const faces = useRankingFaces();
   const head = ['Stand', 'Club', 'Pescari', 'Kg', 'Medie', 'CMMC', 'Nr. Buc', 'Puncte sector', 'Loc sector'];
   return (
     <RankingFrame caption={caption} full={full} embedded={embedded}>
@@ -310,7 +347,7 @@ function SectorTable({
                   i < 3 ? 'text-left' : 'text-right',
                   i === 0 && cn(RANK_TH_PIN, STAND_W, 'left-0 pl-3'),
                   // Pescari stays once Club has scrolled under it (sticky after Stand's 64px).
-                  i === 2 && cn(RANK_TH_PIN, RANK_PIN_EDGE, 'left-16'),
+                  i === 2 && cn(RANK_TH_PIN, RANK_PIN_EDGE, RANK_NAME_CAP, 'left-16'),
                   i === head.length - 1 && 'pr-3.5',
                 )}
               >
@@ -331,19 +368,29 @@ function SectorTable({
                 </th>
                 <td className={cn(RANK_TD, 'max-w-48 py-2 whitespace-normal')}>{r.club}</td>
                 <td className={cn(RANK_TD, RANK_PIN, RANK_PIN_EDGE, pinSurface(mine), NAMES_W, 'left-16 py-2 font-bold whitespace-normal')}>
-                  <span className="line-clamp-2 break-words">
-                    {mine ? 'Tu · ' : null}
-                    {r.participants}
+                  <span className="flex items-center gap-2.5">
+                    <RankingFace name={r.participants} face={faceOf(faces, r.registrationId)} />
+                    <span className="line-clamp-2 break-normal hyphens-auto">
+                      {mine ? 'Tu · ' : null}
+                      {r.participants}
+                    </span>
                   </span>
                 </td>
-                <td className={cn(RANK_TD, 'text-right t-heading font-extrabold')}>{r.capot ? <CapotChip size="sm" /> : roNum(r.quantity)}</td>
+                <td className={cn(RANK_TD, 'text-right t-heading font-extrabold')}>{r.capot ? (
+                    <>
+                      <span aria-hidden>–</span>
+                      <span className="sr-only">Fără capturi</span>
+                    </>
+                  ) : (
+                    roNum(r.quantity)
+                  )}</td>
                 <td className={cn(RANK_TD, 'text-right')}>{roNum(r.averageWeight)}</td>
                 <td className={cn(RANK_TD, 'text-right')}>{roNum(r.biggestFish)}</td>
                 <td className={cn(RANK_TD, 'text-right')}>{r.catchCount}</td>
                 <td className={cn(RANK_TD, 'text-right')}>{roNum(r.sectorPoints)}</td>
                 <td className={cn(RANK_TD, 'pr-3.5 text-right')}>
                   <span className="inline-flex justify-end">
-                    <PlaceCell value={r.sectorPosition} onTint={mine} />
+                    <PlaceCell value={r.sectorPosition} onTint={mine} align="end" />
                   </span>
                 </td>
               </tr>

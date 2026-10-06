@@ -636,6 +636,10 @@ test.describe('signed in', () => {
     fail = false;
     await alert.getByRole('button', { name: 'Încearcă din nou' }).click();
     await expect(cardLink(page, 'FX Viitor cu așteptare')).toBeVisible();
+    // ROADMAP §4b-8: focus lands on the list's heading (never <body>), and a heading shows no ring.
+    const focused = page.locator('h2:focus');
+    await expect(focused).toHaveCount(1);
+    await expect(focused).toHaveCSS('outline-style', 'none');
   });
 
   test('competitions-list.index.c22 — a dead session offers «Deconectează-te»', async ({ page }) => {

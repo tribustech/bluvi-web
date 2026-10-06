@@ -161,8 +161,9 @@ test('competition-page.clasament.c29 competition-page.clasament.s10 — feeder l
   await expect(table.locator('table')).toHaveCount(4);
   await expect(table.getByRole('heading', { level: 3 })).toHaveText(['Sector A', 'Sector B', 'Sector C', 'Sector D']);
   await expect(table.getByRole('rowheader').filter({ hasText: /^Sector [A-D]$/ })).toHaveCount(0);
+  // Every ranking table's header row is coloured (ROADMAP §4b.12): accent-tint-2, never the card's white.
   const headBg = await table.locator('thead th').first().evaluate(el => getComputedStyle(el).backgroundColor);
-  expect(headBg).toBe('rgb(255, 255, 255)');
+  expect(headBg).toBe('rgb(224, 231, 255)');
   const a = table.locator('tbody').first();
   const seats = await a.locator('tr th[scope="row"]').allInnerTexts();
   expect(seats).toEqual(['A4', 'A1', 'A5', 'A2', 'A3']);

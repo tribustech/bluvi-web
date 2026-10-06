@@ -43,6 +43,8 @@ const PHONE = { width: 375, height: 812 };
 const TABLET = { width: 768, height: 1024 };
 const LAPTOP = { width: 1280, height: 900 };
 const DESKTOP = { width: 1440, height: 900 };
+/** Participanți's cards (768–1279); from 1280 the list is a table (owner rule 14). */
+const CARDS = { width: 1024, height: 900 };
 
 type Core = Record<string, unknown> & {
   documentId: string;
@@ -194,7 +196,7 @@ for (const vp of [PHONE, DESKTOP]) {
   });
 }
 
-test(`competition-page.informatii.c4 competition-page.informatii.c5 competition-page.informatii.c8 competition-page.informatii.c9 competition-page.informatii.s2 competition-page.informatii.s3 — fee, type badges, species (fish glyphs), prizes`, async ({ page }) => {
+test(`competition-page.informatii.c4 competition-page.informatii.c5 competition-page.informatii.c8 competition-page.informatii.c9 competition-page.informatii.s2 competition-page.informatii.s3 — fee, type badges, species (fish artwork cards), prizes`, async ({ page }) => {
   await open(page, info(ID.rich), DESKTOP);
   const left = page.getByRole('complementary', { name: 'Detalii' });
   await expect(left.getByText('Taxă de înscriere')).toBeVisible();
@@ -205,8 +207,14 @@ test(`competition-page.informatii.c4 competition-page.informatii.c5 competition-
   await expect(left.getByText('Individual', { exact: true })).toBeVisible();
   const species = page.getByRole('list', { name: 'Pești de prins' });
   await expect(species.getByRole('listitem')).toHaveText(['Crap', 'Crap Oglinda']);
-  // fish's species artwork (the 1:1 glyph port) for a species that has one.
-  await expect(species.locator('[data-fish-glyph]').first()).toBeAttached();
+  // fish FishSpeciesList: one card per species with fish's artwork (getFishImage), loaded.
+  const art = species.locator('img');
+  await expect(art).toHaveCount(2);
+  for (const img of await art.all()) {
+    await img.scrollIntoViewIfNeeded();
+    await expect.poll(() => img.evaluate(el => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0)).toBe(true);
+  }
+  await expect(art.first()).toHaveAttribute('src', /crap/);
   await expect(page.getByRole('region', { name: 'Premii' })).toContainText('Premii');
   await expect(page.getByRole('region', { name: 'Descriere' })).toContainText('Descrierea');
 });
@@ -480,7 +488,7 @@ const participants = (id: string) => `/concursuri/${id}/participanti`;
 const cards = (page: Page) => page.getByRole('article');
 
 test(`competition-page.participanti.c3 competition-page.participanti.c5 competition-page.participanti.s5 competition-page.participanti.s6 — approved only, by stand; «Stand X» / «Nealocat»; individual names`, async ({ page }) => {
-  await open(page, participants(ID.individuals), DESKTOP);
+  await open(page, participants(ID.individuals), CARDS);
   const c = core.get(ID.individuals)!;
   const approved = c.registrations.filter(r => r.registrationStatus === 'registered');
   await expect(cards(page)).toHaveCount(approved.length);
@@ -490,7 +498,7 @@ test(`competition-page.participanti.c3 competition-page.participanti.c5 competit
   await expect(cards(page).first()).toContainText(approved.find(r => r.stand?.name === 'A1')!.participants[0].username);
 
   // A rejected registration is not listed.
-  await open(page, participants(ID.guests), DESKTOP);
+  await open(page, participants(ID.guests), CARDS);
   const g = core.get(ID.guests)!;
   await expect(cards(page)).toHaveCount(g.registrations.filter(r => r.registrationStatus === 'registered').length);
 });
@@ -504,6 +512,98 @@ test(`competition-page.participanti.c5 competition-page.participanti.s5 competit
   await expect(card).toContainText('Andrei Popescu, Andrew, Andrew R');
   await open(page, participants(ID.teams), PHONE);
   await expect(cards(page).first()).toContainText('Nada Grea');
+});
+
+test(`competition-page.participanti.c3 c5 c7 c8 competition-page.participanti.s5 s7 s8 — from 768 (owner rule 14): grouped by sector, stats inline, signed out the sign-in line once`, async ({ page }) => {
+  // ID.guests: 21 approved over 3 sectors, stands numbered across them (1, 4, 7… in A).
+  await open(page, participants(ID.guests), CARDS);
+  const c = core.get(ID.guests)!;
+  const approved = c.registrations.filter(r => r.registrationStatus === 'registered');
+  for (const sector of ['A', 'B', 'C']) await expect(page.getByRole('heading', { name: new RegExp(`^Sector ${sector}`), level: 3 })).toBeVisible();
+  const sectionA = page.getByRole('region', { name: /^Sector A/ });
+  await expect(sectionA.getByRole('article')).toHaveCount(7);
+  await expect(cards(page)).toHaveCount(approved.length);
+  // No disclosure; signed out the prompt is said once, above the cards (not in each).
+  await expect(page.getByRole('button', { name: /Arată detaliile/ })).toHaveCount(0);
+  await expect(page.getByText('Trebuie să fii autentificat pentru a vedea statisticile pescarilor.')).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Intră în cont' })).toHaveAttribute('href', `/intra?next=${encodeURIComponent(participants(ID.guests))}`);
+  // The cards of a row share its height.
+  const heights = await sectionA.getByRole('article').evaluateAll(els => els.slice(0, 3).map(e => Math.round(e.getBoundingClientRect().height)));
+  expect(new Set(heights).size).toBe(1);
+  await expectNoA11yViolations(page);
+  // The phone keeps fish's flat list by stand.
+  await page.setViewportSize(PHONE);
+  await expect(page.getByRole('heading', { name: /^Sector A/, level: 3 })).toHaveCount(0);
+  const stands = await cards(page).evaluateAll(els => els.map(e => e.querySelector('span')?.textContent ?? ''));
+  expect(stands.slice(0, 3)).toEqual(['Stand 1', 'Stand 2', 'Stand 3']);
+});
+
+test(`competition-page.participanti.c5 c8 competition-page.participanti.s5 s7 — from 1280 (owner rule 14): rows with the stats in their own columns; a guest carries «Adăugat manual», no stats paragraph`, async ({ page, context }) => {
+  await signIn(context, jwt);
+  await open(page, participants(ID.guests), DESKTOP);
+  await settle(page);
+  const table = page.getByRole('table', { name: /pe standuri/ });
+  for (const col of ['Stand', 'Pescar', 'Capturi', 'CMMC', 'Concursuri']) await expect(table.getByRole('columnheader', { name: col, exact: true })).toBeVisible();
+  // The header band is not the page colour (rule 12).
+  const bg = (l: Locator) => l.evaluate(el => getComputedStyle(el).backgroundColor);
+  expect(await bg(table.getByRole('columnheader', { name: 'Stand', exact: true }))).not.toBe(await page.evaluate(() => getComputedStyle(document.body).backgroundColor));
+  const c = core.get(ID.guests)!;
+  const approved = c.registrations.filter(r => r.registrationStatus === 'registered');
+  await expect(page.locator('tr[data-registration]')).toHaveCount(approved.length);
+  await expect(page.getByRole('article')).toHaveCount(0);
+  // Sector rows (3 sectors, 7 each).
+  for (const sector of ['A', 'B', 'C']) await expect(table.getByRole('columnheader', { name: new RegExp(`^Sector ${sector}`) })).toBeVisible();
+  // An angler with an account: numbers in the columns, «kg» apart; a guest: the chip, never the paragraph.
+  const user = approved.find(r => r.participants.length === 1)!;
+  const userRow = page.locator('tr[data-registration]').filter({ hasText: user.participants[0].username });
+  await expect(userRow.locator('td')).toHaveCount(4);
+  await expect(userRow.locator('td').nth(2)).toHaveText(/^(\d+(,\d+)?\s*kg|–)$/);
+  const guests = approved.filter(r => r.participants.length === 0).length;
+  await expect(table.getByText('Adăugat manual', { exact: true })).toHaveCount(guests);
+  await expect(page.getByText('Statisticile nu sunt disponibile pentru utilizatorii adăugați manual.')).toHaveCount(0);
+  await expectNoA11yViolations(page);
+});
+
+test(`competition-page.participanti.c8 competition-page.participanti.s7 — only guests (the author's 20 guest crews): the guest line once above the list, no stats part on any card or row`, async ({ page, context }) => {
+  await signIn(context, jwt);
+  for (const vp of [CARDS, DESKTOP]) {
+    await open(page, participants(ID.own), vp);
+    await settle(page);
+    await expect(page.getByText('Statisticile nu sunt disponibile pentru utilizatorii adăugați manual.'), `${vp.width}px`).toHaveCount(1);
+    await expect(page.getByText('Adăugat manual', { exact: true }), `${vp.width}px`).toHaveCount(0);
+    await expect(page.getByRole('list', { name: 'Statistici' }), `${vp.width}px`).toHaveCount(0);
+  }
+  await expect(page.getByRole('columnheader', { name: 'Capturi' })).toHaveCount(0);
+});
+
+test(`competition-page.participanti.c3 c5 competition-page.participanti.s5 — from 1280 without stats columns (owner rule 14): compact rows several per line, the sectors by name (as Cântare)`, async ({ page, context }) => {
+  await signIn(context, jwt);
+  // ID.own: 20 guest crews; the CMS lists its sectors C, A, B, D.
+  await open(page, participants(ID.own), DESKTOP);
+  await settle(page);
+  await expect(page.getByRole('table', { name: /pe standuri/ })).toHaveCount(0);
+  const headings = page.getByRole('heading', { name: /^Sector [A-D]/, level: 3 }).locator('visible=true');
+  await expect(headings).toHaveCount(4);
+  expect((await headings.allInnerTexts()).map(t => t.slice(0, 8))).toEqual(['Sector A', 'Sector B', 'Sector C', 'Sector D']);
+  const rows = page.locator('[data-registration]');
+  await expect(rows).toHaveCount(20);
+  // Several rows on a line, not one 64px row across the page.
+  const tops = await page.getByRole('list', { name: 'Sector A' }).locator('[data-registration]').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBeLessThan(tops.length);
+  await expectNoA11yViolations(page);
+});
+
+test(`competition-page.participanti.c5 — a national championship from 768: the stand reads as Cântare names it («A1», not «1» under «Sector A»); the phone keeps fish's «Stand 1»`, async ({ page }) => {
+  const nc = process.env.E2E_STATS_NC ?? 'z7rvhm55ziyr0tbblqwjp39q';
+  await open(page, participants(nc), LAPTOP);
+  await settle(page);
+  const first = page.locator('[data-registration]').filter({ hasText: /Sector A, Stand A1(?!\d)/ });
+  await expect(first.first()).toBeVisible({ timeout: 30_000 });
+  await open(page, participants(nc), CARDS);
+  await settle(page);
+  await expect(cards(page).filter({ hasText: /^Stand A1(?!\d)/ }).first()).toBeVisible({ timeout: 30_000 });
+  await open(page, participants(nc), PHONE);
+  await expect(cards(page).first()).toContainText(/Stand \d+/);
 });
 
 test(`competition-page.participanti.c4 competition-page.participanti.s4 — no approved registrations`, async ({ page }) => {
@@ -534,27 +634,31 @@ test(`competition-page.participanti.c6 competition-page.participanti.c7 competit
 test(`competition-page.participanti.c8 competition-page.participanti.c9 competition-page.participanti.s7 — signed in: one batch for every approved participant; Capturi / CMMC / Concursuri`, async ({ page, context }) => {
   await signIn(context, jwt);
   const batch = track(page, /\/user\/statistics\/batch/, 'POST');
-  await open(page, participants(ID.individuals), DESKTOP);
+  await open(page, participants(ID.individuals), CARDS);
   await settle(page);
   expect(batch).toHaveLength(1);
   const sent = (batch[0].postDataJSON() as { documentIds: string[] }).documentIds;
   const c = core.get(ID.individuals)!;
   const ids = [...new Set(c.registrations.filter(r => r.registrationStatus === 'registered').flatMap(r => r.participants.map(p => p.documentId)))].sort();
   expect(sent).toEqual(ids);
+  // From 768 (owner rule 14) the stats are inline on every card: no disclosure to press.
   const card = cards(page).first();
-  await card.getByRole('button', { name: /Arată detaliile/ }).click();
+  await expect(card.getByRole('button', { name: /Arată detaliile/ })).toHaveCount(0);
   const stats = card.getByRole('list', { name: 'Statistici' });
   await expect(stats.getByRole('listitem')).toHaveCount(3);
   await expect(stats).toContainText('Capturi');
   await expect(stats).toContainText('CMMC');
   await expect(stats).toContainText('Concursuri');
   await expect(stats).toContainText(/(\d+(,\d+)? kg|–)/);
-  // The opened panel is the card's own white (not the page grey), its tiles the T3 inset tile (no shadow).
+  // The stats part is the card's own white (not the page grey), its tiles the T3 inset tile (no shadow).
   const bg = (l: Locator) => l.evaluate(el => getComputedStyle(el).backgroundColor);
   const panelBox = stats.locator('xpath=ancestor::div[contains(@class,"border-t")][1]');
   expect(await bg(panelBox)).toBe(await bg(card));
   expect(await stats.getByRole('listitem').first().evaluate(el => getComputedStyle(el).boxShadow)).toBe('none');
-  // Folded again: the panel closes (inert, nothing focusable inside).
+  // The phone keeps fish's card: opened on press, folded again (inert, nothing focusable inside).
+  await page.setViewportSize(PHONE);
+  await card.getByRole('button', { name: /Arată detaliile/ }).click();
+  await expect(stats.getByRole('listitem')).toHaveCount(3);
   await card.getByRole('button', { name: /Restrânge detaliile/ }).click();
   await expect.poll(async () => (await card.locator('[inert]').boundingBox())?.height ?? 0).toBeLessThan(1);
   await expect(stats.getByRole('listitem').first()).not.toBeInViewport();
@@ -605,20 +709,22 @@ test('competition-page.participanti.c5 competition-page.participanti.s5 — a gu
   await expect(page.getByRole('article', { name: 'Rechinii' }).getByText('Ion și Vasile')).toBeVisible();
 });
 
-test('competition-page.participanti.c1 competition-page.participanti.s1 competition-page.participanti.s2 — loading bones in the list’s shape (six cards on the list grid); a missing competition is the not-found page', async ({ page }) => {
+test('competition-page.participanti.c1 competition-page.participanti.s1 competition-page.participanti.s2 — loading bones in the list’s shape (from 1280 six table rows); a missing competition is the not-found page', async ({ page }) => {
   // ID.guests (21 approved): a competition whose tab streams its loading UI on the dev server — the
   // prerendered «individuals» one arrives whole over the throttled link (no prefetch in dev), so its
   // skeleton never paints there.
   const release = await holdTabSkeleton(page, ID.guests, 'participanti', 'Participanți', DESKTOP);
-  const cardsBones = bonesOf(page, 'participanti', 'card');
-  await expect(cardsBones).toHaveCount(6);
-  // The kit grid's columns (T1 listGridClass lg: 340px minimum, 16px gutter): 3 at 1440, as the list.
-  const xs = new Set(await cardsBones.evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().x))));
-  expect(xs.size).toBe(3);
+  const rowBones = bonesOf(page, 'participanti', 'row');
+  await expect(rowBones).toHaveCount(6);
+  await expect(bonesOf(page, 'participanti', 'card')).toHaveCount(0);
+  // The rows span the list's width, where the list lands (signed out: the compact grid, no stats columns).
+  const bone = (await rowBones.first().boundingBox())!;
   await release();
-  await expect(cards(page).first()).toBeVisible();
-  const loadedXs = new Set(await cards(page).evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().x))));
-  expect([...loadedXs].sort()).toEqual([...xs].sort());
+  const list = page.locator('[data-participants]').locator('visible=true');
+  await expect(list).toBeVisible();
+  const loaded = (await list.boundingBox())!;
+  expect(Math.abs(loaded.x - bone.x)).toBeLessThan(1);
+  expect(Math.abs(loaded.width - bone.width)).toBeLessThan(1);
   await page.goto(participants('nu-exista-acest-concurs'));
   await expect(page.getByRole('heading', { name: 'Concursul nu a fost găsit' })).toBeVisible();
 });
@@ -640,7 +746,8 @@ for (const [label, id, count] of [
     expect(await cls()).toBeLessThan(0.01);
     const link = notice.getByRole('link', { name: /(Gestionează|Aprobă-le) în aplicație/ });
     await expect(link).toHaveAttribute('href', new RegExp(`^https://bluvi-app\\.wearetribus\\.com/competitions/${id}\\?activeTabId=participanti`));
-    await expect(cards(page)).toHaveCount(count);
+    // From 1280 one row per registration (guests only: the compact grid, no stats columns).
+    await expect(page.locator('[data-registration]')).toHaveCount(count);
   });
 }
 
@@ -676,7 +783,7 @@ test(`competition-page.participanti.c5 competition-page.participanti.s5 — a te
   const longName = 'Echipa Crapilor Nemuritori din Valea Argeșului de Jos';
   const regs = c.registrations.map((r, i) => (i === 0 ? { ...r, teamName: longName } : r));
   await patchCore(page, ID.teams, { registrations: regs });
-  for (const vp of [PHONE, DESKTOP]) {
+  for (const vp of [PHONE, CARDS]) {
     await open(page, participants(ID.teams), vp);
     await expect(page.getByRole('article', { name: longName })).toBeVisible();
     const xs = await cards(page).evaluateAll(els => els.map(e => Math.round(e.querySelector('.line-clamp-2')!.getBoundingClientRect().x - e.getBoundingClientRect().x)));

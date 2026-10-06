@@ -15,6 +15,7 @@ import {
 import { isApiError, type Transport } from '@/core/transport';
 import { ErrorState } from '@/components/surfaces/StateCard';
 import { Button } from '@/components/ui/Button';
+import { InlineNumber } from '@/components/ui/SignatureNumber';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { cn } from '@/components/ui/cn';
 import { ContextSurface, Spinner } from './ContextSurface';
@@ -132,7 +133,7 @@ function Body({
     setView('weighing');
   };
 
-  if (view === 'revisions') return <Revisions t={t} weighingId={currentId} onBack={() => setView('weighing')} />;
+  if (view === 'revisions') return <Revisions t={t} weighingId={currentId} decimals={decimals} onBack={() => setView('weighing')} />;
   const openRevisions = (from: RevisionsTrigger) => {
     setReturnTo(from);
     setView('revisions');
@@ -450,7 +451,7 @@ function CatchRow({ item, index, decimals, fresh }: { item: WeighingDetailCatch;
     >
       <span className="t-body text-muted tabular-nums">{index + 1}.</span>
       <span className="t-heading">
-        {item.fishType?.Name ?? '-'}: <span className="text-ink tabular-nums">{formatKg(item.weight, decimals)} kg</span>
+        {item.fishType?.Name ?? '-'}: <InlineNumber value={formatKg(item.weight, decimals)} unit="kg" valueClassName="t-heading text-ink" />
       </span>
       {fresh ? <span className="sr-only">(nouă)</span> : null}
     </li>
@@ -458,7 +459,7 @@ function CatchRow({ item, index, decimals, fresh }: { item: WeighingDetailCatch;
 }
 
 /** fish WeighingDetailSheet `revisionsContent` + components/scale/RevisionCard.tsx. */
-function Revisions({ t, weighingId, onBack }: { t: Transport; weighingId: string; onBack: () => void }) {
+function Revisions({ t, weighingId, decimals, onBack }: { t: Transport; weighingId: string; decimals: number; onBack: () => void }) {
   const q = useQuery({ ...weighingRevisionsQuery(t, weighingId), retry: false });
   const sessions = useMemo(() => Object.entries(q.data ?? {}), [q.data]);
   const back = useRef<HTMLButtonElement>(null);
@@ -484,7 +485,7 @@ function Revisions({ t, weighingId, onBack }: { t: Transport; weighingId: string
         <ul className="flex flex-col gap-4">
           {sessions.map(([sessionId, revisions]) => (
             <li key={sessionId}>
-              <RevisionCard sessionId={sessionId} revisions={revisions} />
+              <RevisionCard sessionId={sessionId} revisions={revisions} decimals={decimals} />
             </li>
           ))}
         </ul>
@@ -493,7 +494,16 @@ function Revisions({ t, weighingId, onBack }: { t: Transport; weighingId: string
   );
 }
 
-function RevisionCard({ sessionId, revisions }: { sessionId: string; revisions: WeighingRevision[] }) {
+/** A revised catch: «• Crap 5,200 kg» — the competition's precision, the unit apart (owner rule 10). */
+function RevisedCatch({ type, weight, decimals }: { type: string; weight: number; decimals: number }) {
+  return (
+    <span>
+      • {type} <InlineNumber value={formatKg(weight, decimals)} unit="kg" valueClassName="t-body-strong" />
+    </span>
+  );
+}
+
+function RevisionCard({ sessionId, revisions, decimals }: { sessionId: string; revisions: WeighingRevision[]; decimals: number }) {
   return (
     <article className="flex flex-col gap-2 rounded-card bg-page p-4">
       <h4 className="t-heading text-ink">
@@ -514,9 +524,7 @@ function RevisionCard({ sessionId, revisions }: { sessionId: string; revisions: 
                   <div className="flex flex-col gap-0.5 t-body-strong text-status-success-fg">
                     <span>Adăugat:</span>
                     {added.map((c, i) => (
-                      <span key={i}>
-                        • {c.type} {c.weight}kg
-                      </span>
+                      <RevisedCatch key={i} type={c.type} weight={c.weight} decimals={decimals} />
                     ))}
                   </div>
                 ) : null}
@@ -524,9 +532,7 @@ function RevisionCard({ sessionId, revisions }: { sessionId: string; revisions: 
                   <div className="flex flex-col gap-0.5 t-body-strong text-status-danger-fg">
                     <span>Șters:</span>
                     {removed.map((c, i) => (
-                      <span key={i}>
-                        • {c.type} {c.weight}kg
-                      </span>
+                      <RevisedCatch key={i} type={c.type} weight={c.weight} decimals={decimals} />
                     ))}
                   </div>
                 ) : null}

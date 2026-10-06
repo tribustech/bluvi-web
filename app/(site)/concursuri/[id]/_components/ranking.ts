@@ -28,6 +28,7 @@ import {
 } from '@/core/competitions';
 import { cellNumber, sectorColorMap, type RankingRowData } from '@/components/ranking';
 import { toWebColumns } from '@/components/ranking/columns';
+import { EMPTY_STAND } from '@/components/ranking/rankingColumns';
 import { formatDecimal } from '@/components/cards/format';
 
 /*
@@ -181,7 +182,7 @@ export function buildRankingTable(data: RankingResponse | undefined, sortBy: Ran
  * table print `participant` as is, so it is named here. Other code compares against it rather than
  * treating it as a person (the weighing tile, the search).
  */
-export const EMPTY_STAND = 'Stand liber';
+export { EMPTY_STAND };
 
 function withNamedEmptyStand<T extends Pick<RankingRowData, 'participant'>>(row: T): T {
   const name = (row.participant ?? '').trim();

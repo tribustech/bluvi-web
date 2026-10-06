@@ -12,12 +12,11 @@ import {
   type CompetitionWithMyStatus,
 } from '@/core/competitions';
 import type { RichTextNode } from '@/core/shared';
-import { FishOutlineIcon } from '@/components/nav/brand';
 import { DetailAsideCard, type DetailFact } from '@/components/templates/T3';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { cn } from '@/components/ui/cn';
 import { routes } from '@/lib/routes';
-import { FishGlyph, hasFishGlyph } from '../../../balti/_list/fishGlyphs';
+import { speciesImage } from './species';
 
 /*
  * Parts shared by the competition's Informații, Regulament and Preview: the «Detalii» facts (the kit
@@ -235,17 +234,21 @@ export function CompetitionBanner({ banner, name }: { banner: Banner; name: stri
 /* ------------------------------------------------------------------ */
 
 /**
- * The species as chips with fish's glyph per species (the Pești filter's 1:1 port of fish
- * FishGlyphs), the generic outline fish for a species without one.
+ * fish FishSpeciesList: one card per species — its artwork (fish getFishImage, ./species) contained
+ * on a white 2:1 card, the name under it. fish scrolls them sideways; the web lays them on an
+ * auto-fill grid of fixed ~152px tiles (as the sponsors: more per row as the screen grows, never
+ * wider cards).
  * TODO(kit, T3 owner): move to the T3 kit (DetailSpecies) and use it on the lake page's FishList too.
  */
 export function SpeciesList({ species, label }: { species: { id: string; name: string }[]; label: string }) {
   return (
-    <ul aria-label={label} className="flex flex-wrap gap-2">
+    <ul aria-label={label} className="grid grid-cols-[repeat(auto-fill,--spacing(38))] gap-3">
       {species.map(s => (
-        <li key={s.id} className="flex items-center gap-1.5 rounded-full bg-page px-3 py-1.5 t-label text-ink">
-          {hasFishGlyph(s.name) ? <FishGlyph name={s.name} size={20} /> : <FishOutlineIcon aria-hidden className="size-4 text-accent" />}
-          {s.name}
+        <li key={s.id} data-species className="flex flex-col gap-1.5">
+          <span className="relative block aspect-2/1 w-full overflow-hidden rounded-control bg-surface shadow-e0">
+            <Image src={speciesImage(s.name)} alt="" fill sizes="152px" className="object-contain" />
+          </span>
+          <span className="t-label text-ink">{s.name}</span>
         </li>
       ))}
     </ul>

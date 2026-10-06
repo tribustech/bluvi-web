@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useId, useMemo, useState, type ComponentType, type SVGProps } from 'react';
+import { Suspense, useId, useMemo, useState, useSyncExternalStore, type ComponentType, type SVGProps } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowTrendingUpIcon, ChevronDownIcon, ChevronRightIcon, TrophyIcon, UserGroupIcon } from '@heroicons/react/24/outline';
@@ -16,7 +16,8 @@ import {
   type CompetitionWithMyStatus,
   type DetailRegistration,
 } from '@/core/competitions';
-import type { ParticipantStats, UserStatuteForCompetition } from '@/core/social';
+import { allocatedParticipantsQuery } from '@/core/organizer';
+import type { UserStatuteForCompetition } from '@/core/social';
 import type { Transport } from '@/core/transport';
 import { CardShell, Pill } from '@/components/cards';
 import { formatWeight } from '@/components/ranking';
@@ -27,13 +28,19 @@ import { Avatar, FaceStack } from '@/components/ui/Avatar';
 import { ButtonLink } from '@/components/ui/Button';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { cn } from '@/components/ui/cn';
-import { signInHref } from '../../../_shell/SiteHeader';
+import { sectorFill } from '@/components/ranking/sector';
+import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { isUnknownViewer, useViewerState } from '../../../_shell/viewer-context';
-import { anglerHref } from '@/lib/routes';
 import type { PageViewer } from './Follow';
+import { echoes } from './names';
+import { GUEST_MESSAGE, isGuest, profileHref, type Group, type StatsAccess } from './participantParts';
+import { ParticipantsTable, ParticipantsTableBones, type StandText } from './ParticipantsTable';
 import { QueryRetry } from './QueryRetry';
 import { PAGE_RETRY } from './retry-policy';
+import { isNationalType, nationalStandLabel } from './stand';
+import { sortedSectors } from './standOrder';
 import { Bone } from './tabParts';
+import { photo, useBrokenImages } from './brokenImages';
 
 /*
  * Concurs · Participanți — fish components/competition/CompetitionParticipants.tsx +
@@ -56,10 +63,29 @@ import { Bone } from './tabParts';
  * Profiles: fish opens a one-user card's angler profile from its header. The profile (/pescari) is
  * M2 on the web (anglerHref is null until then): every header toggles the card, as a multi-member
  * card does in fish; the profile link takes over the moment it ships.
+ *
+ * From 768 (owner rule 14) the list is not the phone's stretched: every card shows its stats inline
+ * (no expand), the cards of a row share its height, and the list is grouped by sector when the
+ * stands are spread over several (unallocated first, as fish orders them; a sector a stand per
+ * sector, as a 24-sector individual, stays one grid). Signed out the sign-in line is said once above
+ * the cards; so is the guest line when nobody has a Bluvi account (a guest's card has no stats part;
+ * in a mixed list it carries «Adăugat manual»). From 1280 the cards give way to rows
+ * (ParticipantsTable): stand, face and name, the stats in their own columns. The phone keeps fish's
+ * list (by stand, cards that open on their stats). Until the width is known (server render,
+ * hydration) all three are drawn and CSS shows the right one, so nothing moves.
+ *
+ * From 768 the sectors run by name (standOrder.ts), as Cântare's table lists them, and on a national
+ * championship a stand is named as Cântare and the ranking name it («A3(12)»: the sector's letter,
+ * the draw position read from the allocation, the stand in brackets; «A12» until it is read). The
+ * phone keeps fish's corner tag «Stand 12».
  */
 
 /** The kit grid (T1, 340px cards) — the phone's rows edge to edge, 8px apart. */
 const GRID = cn(listGridClass('lg'), 'items-start max-md:-mx-4 max-md:gap-2');
+/** From 768: the same grid, a row's cards as tall as its tallest (their stats are always open). */
+const WIDE_GRID = cn(listGridClass('lg'), 'items-stretch');
+
+const noSubscribe = () => () => {};
 
 type Props = {
   t: Transport;
@@ -79,7 +105,32 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
   const statsQ = useQuery({ ...participantStatisticsBatchQuery(t, id, ids, { isAuthenticated }), ...PAGE_RETRY });
   const stats = participantStatisticsState(statsQ, ids, { isAuthenticated });
   const team = competition.competitionType === 'team';
-  const [listRef, broken] = useBrokenImages<HTMLUListElement>();
+  const [listRef, broken] = useBrokenImages<HTMLDivElement>();
+  // The width, once the client knows it (the server render and hydration draw both lists).
+  const hydrated = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const breakpoint = useBreakpoint();
+  const showPhone = !hydrated || breakpoint === 'mobile';
+  const showCards = !hydrated || breakpoint === 'tablet';
+  const showTable = !hydrated || breakpoint === 'desktop';
+  const groups = useMemo(() => sectorGroups(registrations, competition.sectors), [registrations, competition.sectors]);
+  // NC from 768: the stands as Cântare names them (the draw position is the allocation's).
+  const isNc = isNationalType(competition.rankingType);
+  const allocatedQ = useQuery({
+    ...allocatedParticipantsQuery(t, id),
+    ...PAGE_RETRY,
+    enabled: isNc && hydrated && breakpoint !== 'mobile' && registrations.length > 0,
+  });
+  const draws = allocatedQ.data;
+  const sectorOfStand = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const sector of competition.sectors) for (const stand of sector.stands) m.set(stand.documentId, sector.name);
+    return m;
+  }, [competition.sectors]);
+  const standText: StandText = r => {
+    if (!r.stand?.name) return null;
+    if (!isNc) return r.stand.name;
+    return nationalStandLabel(sectorOfStand.get(r.stand.documentId), draws?.[r.stand.documentId]?.sectorDrawPosition, r.stand.name);
+  };
 
   const stats$: StatsAccess =
     viewer === undefined
@@ -94,6 +145,9 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
           : stats.isLoading
             ? { kind: 'pending' }
             : { kind: 'ok', map: stats.statsMap };
+  // Nobody with a Bluvi account: no stats to show anywhere — said once above the list (from 768).
+  const allGuests = registrations.length > 0 && registrations.every(isGuest);
+  const mixed = !allGuests && registrations.some(isGuest);
 
   return (
     <DetailBody>
@@ -116,13 +170,69 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
             title={team ? 'Echipe înscrise' : 'Participanți înscriși'}
             description={team ? (registrations.length === 1 ? '1 echipă aprobată' : `${registrations.length} echipe aprobate`) : registrations.length === 1 ? '1 participant aprobat' : `${registrations.length} participanți aprobați`}
           >
-            <ul ref={listRef} className={GRID}>
-              {registrations.map(r => (
-                <li key={r.documentId}>
-                  <ParticipantCard registration={r} team={team} stats={stats$} viewer={viewer} broken={broken} />
-                </li>
-              ))}
-            </ul>
+            <div ref={listRef}>
+              {showPhone ? (
+                <ul className={cn(GRID, (showCards || showTable) && 'md:hidden')}>
+                  {registrations.map(r => (
+                    <li key={r.documentId}>
+                      <ParticipantCard registration={r} team={team} stats={stats$} viewer={viewer} broken={broken} />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {showCards || showTable ? (
+                <div className={cn('flex flex-col gap-6', showPhone && 'max-md:hidden')}>
+                  {stats$.kind === 'signIn' ? (
+                    <p className="flex flex-wrap items-center gap-x-2 t-body text-ink-2">
+                      Trebuie să fii autentificat pentru a vedea statisticile pescarilor.
+                      <Link href={stats$.href} className="rounded-control t-body-strong text-accent-ink hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent">
+                        Intră în cont
+                      </Link>
+                    </p>
+                  ) : allGuests ? (
+                    <p className="t-body text-ink-2">{GUEST_MESSAGE}</p>
+                  ) : stats$.kind === 'failed' && showTable ? (
+                    // The table has no card to hold the retry: said once above it (the cards keep theirs).
+                    <div role="alert" className={cn('flex flex-wrap items-center gap-3', showCards && 'max-xl:hidden')}>
+                      <p className="t-body text-ink-2">Statisticile nu au putut fi încărcate.</p>
+                      <QueryRetry fetching={stats$.retrying} failed onRetry={stats$.retry} size="compact" />
+                    </div>
+                  ) : null}
+                  {showCards ? (
+                    <div className={cn('flex flex-col gap-6', showTable && 'xl:hidden')}>
+                      {groups.map(group =>
+                        group.title ? (
+                          <section key={group.key} aria-labelledby={`participanti-${group.key}`} className="flex flex-col gap-3">
+                            <h3 id={`participanti-${group.key}`} className="flex items-center gap-2 t-heading">
+                              {group.sector ? <SectorDot name={group.sector} /> : null}
+                              {group.title}
+                              <span className="t-caption text-muted">· {group.registrations.length}</span>
+                            </h3>
+                            <WideList registrations={group.registrations} team={team} stats={stats$} viewer={viewer} broken={broken} mixed={mixed} standText={standText} />
+                          </section>
+                        ) : (
+                          <WideList key={group.key} registrations={group.registrations} team={team} stats={stats$} viewer={viewer} broken={broken} mixed={mixed} standText={standText} />
+                        ),
+                      )}
+                    </div>
+                  ) : null}
+                  {showTable ? (
+                    <div className={cn(showCards && 'max-xl:hidden')}>
+                      <ParticipantsTable
+                        groups={groups}
+                        sectors={competition.sectors}
+                        team={team}
+                        stats={stats$}
+                        withStats={!allGuests && (stats$.kind === 'ok' || stats$.kind === 'pending')}
+                        viewer={viewer}
+                        broken={broken}
+                        standText={standText}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </DetailSection>
         )}
       </Suspense>
@@ -131,8 +241,8 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
 }
 
 /**
- * The list's bones — its section header and six cards on the same grid (also the tab's skeleton:
- * CompetitionSkeleton TabBones), so nothing moves when the list lands.
+ * The list's bones — its section header and six cards on the same grid, from 1280 six table rows
+ * (also the tab's skeleton: CompetitionSkeleton TabBones), so nothing moves when the list lands.
  */
 export function ParticipantsBones() {
   return (
@@ -141,7 +251,10 @@ export function ParticipantsBones() {
         <Bone className="w-48 t-title2" />
         <Bone className="w-32 t-caption" />
       </span>
-      <span className={GRID}>
+      <span className="hidden xl:block">
+        <ParticipantsTableBones />
+      </span>
+      <span className={cn(GRID, 'xl:hidden')}>
         {Array.from({ length: 6 }, (_, i) => (
           <span key={i} data-bone="card" className="flex min-h-20 items-center gap-3 rounded-card bg-surface py-3 pr-18 pl-4 shadow-e0 max-md:rounded-none max-md:shadow-none">
             <span className="size-12 shrink-0 animate-shimmer rounded-full" />
@@ -193,41 +306,135 @@ function AuthorNotice({ competition, statute, appHref }: { competition: Competit
   );
 }
 
+// pr-18: the right 72px are the chevron's column and the corner tag's width («Stand 12»,
+// «Nealocat»), so a two-line name never runs under the tag.
+const HEADER = 'flex min-h-20 w-full items-center gap-3 py-3 pr-18 pl-4 text-left';
+/** The same, beside a longer tag (NC «Stand A3(12)», from 768). */
+const HEADER_LONG_TAG = HEADER.replace('pr-18', 'pr-28');
+const FOCUS = 'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent';
+
 /**
- * The avatar photos that failed to load (a dead CMS URL): the kit Avatar has no fallback for a
- * broken <img> yet, so the list listens for image errors (capture phase: `error` does not bubble)
- * and the card renders the initials instead. TODO(kit, ui owner): Avatar should keep a `failed`
- * state from its <img> onError and show the initials itself; then drop this.
+ * The wide list's groups: unallocated first, then each sector by name (standOrder.ts; a stand
+ * no sector lists: «Alte standuri», last). One untitled group when grouping says nothing — a single
+ * sector, or fewer than two cards per sector on average.
  */
-function useBrokenImages<T extends HTMLElement>() {
-  const [broken, setBroken] = useState<ReadonlySet<string>>(() => new Set());
-  // A callback ref: the list mounts after the tab (behind its Suspense boundary).
-  const ref = useCallback((el: T | null) => {
-    if (!el) return;
-    const mark = (img: HTMLImageElement) => {
-      const src = img.getAttribute('src');
-      if (src) setBroken(b => (b.has(src) ? b : new Set(b).add(src)));
-    };
-    const onError = (e: Event) => {
-      if (e.target instanceof HTMLImageElement) mark(e.target);
-    };
-    el.addEventListener('error', onError, true);
-    // One that failed before hydration (server-rendered, no listener yet).
-    el.querySelectorAll('img').forEach(img => {
-      if (img.complete && img.naturalWidth === 0) mark(img);
-    });
-    return () => el.removeEventListener('error', onError, true);
-  }, []);
-  return [ref, broken] as const;
+function sectorGroups(registrations: DetailRegistration[], sectors: CompetitionWithMyStatus['sectors']): Group[] {
+  const sectorOf = new Map<string, string>();
+  for (const sector of sectors) for (const stand of sector.stands) sectorOf.set(stand.documentId, sector.name);
+  const unallocated = registrations.filter(r => !r.stand);
+  const other = registrations.filter(r => r.stand && !sectorOf.has(r.stand.documentId));
+  const bySector = sortedSectors(sectors)
+    .map(sector => ({
+      key: sector.documentId,
+      title: `Sector ${sector.name}`,
+      sector: sector.name,
+      registrations: registrations.filter(r => r.stand && sectorOf.get(r.stand.documentId) === sector.name),
+    }))
+    .filter(g => g.registrations.length > 0);
+  if (bySector.length <= 1 || registrations.length < bySector.length * 2) {
+    return [{ key: 'toti', title: null, sector: null, registrations }];
+  }
+  return [
+    ...(unallocated.length ? [{ key: 'nealocati', title: 'Nealocați', sector: null, registrations: unallocated }] : []),
+    ...bySector,
+    ...(other.length ? [{ key: 'alte', title: 'Alte standuri', sector: null, registrations: other }] : []),
+  ];
 }
 
-type StatsAccess =
-  | { kind: 'pending' }
-  | { kind: 'signIn'; href: string }
-  | { kind: 'failed'; retry: () => void; retrying: boolean }
-  | { kind: 'ok'; map: Record<string, ParticipantStats> };
+function SectorDot({ name }: { name: string }) {
+  const fill = sectorFill(name, 'var(--color-accent)');
+  return <span aria-hidden className={cn('size-2.5 shrink-0 rounded-full', fill.className)} style={fill.style} />;
+}
 
-const GUEST_MESSAGE = 'Statisticile nu sunt disponibile pentru utilizatorii adăugați manual.';
+function WideList({
+  registrations,
+  ...card
+}: {
+  registrations: DetailRegistration[];
+  team: boolean;
+  stats: StatsAccess;
+  viewer: PageViewer;
+  broken: ReadonlySet<string>;
+  mixed: boolean;
+  standText: StandText;
+}) {
+  return (
+    <ul className={WIDE_GRID}>
+      {registrations.map(r => (
+        <li key={r.documentId} className="min-w-0">
+          <WideCard registration={r} {...card} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * The card from 768 to 1279: the same tag, face and name, its stats always under them (no chevron,
+ * no disclosure). A one-user card's header opens the profile when the web has one; otherwise it is
+ * text. Signed out the stats part is left out (the list says it once above); so is a guest's — in a
+ * list of guests only the list says it once, in a mixed one the card carries «Adăugat manual».
+ */
+function WideCard({
+  registration: r,
+  team,
+  stats,
+  viewer,
+  broken,
+  mixed,
+  standText,
+}: {
+  registration: DetailRegistration;
+  team: boolean;
+  stats: StatsAccess;
+  viewer: PageViewer;
+  broken: ReadonlySet<string>;
+  mixed: boolean;
+  standText: StandText;
+}) {
+  const type = team ? 'team' : 'single';
+  const name = registrationDisplayName(r, type);
+  const rawSubtitle = registrationTeamSubtitle(r, type);
+  const subtitle = rawSubtitle && !echoes(rawSubtitle, name) ? rawSubtitle : null;
+  const solo = soloParticipant(r);
+  const profile = solo ? profileHref(solo.documentId, viewer) : null;
+  const guest = isGuest(r);
+  const stand = standText(r);
+  const header = stand && stand.length > 4 ? HEADER_LONG_TAG : HEADER;
+  const identity = (
+    <>
+      <CardAvatar registration={r} team={team} name={name} broken={broken} />
+      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+        <span className="line-clamp-2 t-body-strong text-ink">{name}</span>
+        {subtitle ? <span className="line-clamp-2 t-caption text-muted">{subtitle}</span> : null}
+        {guest && mixed ? (
+          <Pill tone="neutral" className="mt-0.5">
+            Adăugat manual
+          </Pill>
+        ) : null}
+      </span>
+    </>
+  );
+  return (
+    <CardShell interactive={!!profile} label={name} className="h-full">
+      <Pill tone={stand ? 'info' : 'danger'} className="pointer-events-none absolute top-0 right-0 z-above rounded-none! rounded-bl-card!">
+        {stand ? `Stand ${stand}` : 'Nealocat'}
+      </Pill>
+      {profile ? (
+        <Link href={profile} className={cn(header, FOCUS, 'hover:bg-soft-fill')}>
+          {identity}
+        </Link>
+      ) : (
+        <div className={header}>{identity}</div>
+      )}
+      {stats.kind === 'signIn' || guest ? null : (
+        <div className="mt-auto border-t border-hairline bg-surface px-4 py-3">
+          <CardStats registration={r} stats={stats} viewer={viewer} broken={broken} />
+        </div>
+      )}
+    </CardShell>
+  );
+}
 
 /** fish ParticipantCard. */
 function ParticipantCard({
@@ -270,10 +477,6 @@ function ParticipantCard({
       </span>
     </>
   );
-  // pr-18: the right 72px are the chevron's column and the corner tag's width («Stand 12»,
-  // «Nealocat»), so a two-line name never runs under the tag.
-  const HEADER = 'flex min-h-20 w-full items-center gap-3 py-3 pr-18 pl-4 text-left';
-  const FOCUS = 'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent';
   // From 768 the card lifts on hover (CardShell); the phone's edge-to-edge row tints instead.
   const HOVER = cn('transition-colors duration-(--duration-fast)', !expanded && 'max-md:hover:bg-soft-fill');
 
@@ -329,15 +532,6 @@ function ParticipantCard({
   );
 }
 
-/** The angler's profile (signed out: sign-in, then the profile — it is not public), or null while the web has none. */
-function profileHref(documentId: string, viewer: PageViewer): string | null {
-  const href = anglerHref(documentId);
-  if (!href) return null;
-  return viewer === null ? signInHref(href) : href;
-}
-
-/** A photo URL, or none when it failed to load (useBrokenImages): the initials instead. */
-const photo = (src: string | null | undefined, broken: ReadonlySet<string>) => (src && !broken.has(src) ? src : undefined);
 
 /**
  * fish renderAvatars: a guest's face, an angler's photo, a team's stacked faces. A team's faces sit
@@ -446,21 +640,25 @@ function StatsRow({ stats, documentId }: { stats: StatsAccess; documentId: strin
   if (stats.kind !== 'ok') return null;
   const s = stats.map[documentId];
   // fish: a missing entry reads as 0 catches / 0 competitions; CMMC «–» when unknown.
-  const items: { label: string; value: string; Icon: Icon }[] = [
+  // The unit apart from the number, smaller and muted (owner rule 10).
+  const items: { label: string; value: string; unit?: string; Icon: Icon }[] = [
     { label: 'Capturi', value: String(s?.catches ?? 0), Icon: FishGlyph },
-    { label: 'CMMC', value: s?.biggestCatchKg == null ? '–' : `${formatWeight(s.biggestCatchKg)} kg`, Icon: ArrowTrendingUpIcon },
+    { label: 'CMMC', value: s?.biggestCatchKg == null ? '–' : formatWeight(s.biggestCatchKg), unit: s?.biggestCatchKg == null ? undefined : 'kg', Icon: ArrowTrendingUpIcon },
     { label: 'Concursuri', value: String(s?.competitions ?? 0), Icon: TrophyIcon },
   ];
   return (
     <ul aria-label="Statistici" className="grid grid-cols-3 gap-1.5">
-      {items.map(({ label, value, Icon }) => (
+      {items.map(({ label, value, unit, Icon }) => (
         <li key={label} className={TILE}>
           <span aria-hidden className="flex size-5 shrink-0 items-center justify-center rounded-badge bg-accent-tint text-accent-ink">
             <Icon className="size-3.5" />
           </span>
           <span className="flex min-w-0 flex-col">
             <span className="t-micro text-muted">{label}</span>
-            <span className="truncate t-label text-ink tabular-nums">{value}</span>
+            <span className="truncate t-label text-ink tabular-nums">
+              {value}
+              {unit ? <span className="t-micro text-muted"> {unit}</span> : null}
+            </span>
           </span>
         </li>
       ))}
@@ -470,30 +668,4 @@ function StatsRow({ stats, documentId }: { stats: StatsAccess; documentId: strin
 
 function FishGlyph(props: SVGProps<SVGSVGElement>) {
   return <FishIcon size={14} {...props} />;
-}
-
-/** The subtitle only echoes the name: the same text once case, diacritics, spacing and a letter or two are set aside. */
-function echoes(subtitle: string, name: string): boolean {
-  const norm = (t: string) =>
-    t
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLocaleLowerCase('ro')
-      .replace(/[^a-z0-9]+/g, '');
-  const a = norm(subtitle);
-  const b = norm(name);
-  if (!a || !b) return false;
-  if (a === b) return true;
-  // A near-copy (a typo apart): at most 2 edits, and under a tenth of the text.
-  return Math.abs(a.length - b.length) <= 2 && editDistance(a, b) <= Math.min(2, Math.floor(Math.max(a.length, b.length) / 10));
-}
-
-function editDistance(a: string, b: string): number {
-  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
-  for (let i = 1; i <= a.length; i++) {
-    const cur = [i];
-    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    prev = cur;
-  }
-  return prev[b.length];
 }

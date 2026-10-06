@@ -67,15 +67,19 @@ export function Pill({ tone, children, className = '' }: { tone: PillTone; child
   );
 }
 
-/** "Capot" — the competitor finished without a catch. Dashed outline, neutral. */
-export function CapotChip({ size = 'md' }: { size?: 'sm' | 'md' }) {
+/**
+ * «Fără capturi» — the competitor finished without a catch, where a word is needed (a card or a
+ * list without a weight column). Never «capot» (ROADMAP §4b.11); a ranking's weight reads «–».
+ * Dashed outline, neutral.
+ */
+export function NoCatchChip({ size = 'md' }: { size?: 'sm' | 'md' }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-full border border-dashed border-faint bg-soft-fill t-label text-ink ${
+      className={`inline-flex shrink-0 items-center rounded-full border border-dashed border-faint bg-soft-fill t-label whitespace-nowrap text-ink ${
         size === 'sm' ? 'h-[22px] px-2' : 'h-6 px-[9px]'
       }`}
     >
-      capot
+      Fără capturi
     </span>
   );
 }

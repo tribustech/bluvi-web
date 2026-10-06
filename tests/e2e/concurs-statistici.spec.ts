@@ -27,12 +27,19 @@ const ID = {
   openStand: process.env.E2E_STATS_OPEN_STAND ?? '5d8e24df4ec6b06a5a002082',
   /** completed feeder team: crews entered without Bluvi accounts. */
   feederTeam: process.env.E2E_STATS_FEEDER ?? 'rg340d4r4gnwf2mbyhxvasnr',
+  /** completed, one angler, not one catch and not one weighing. */
+  noCatch: process.env.E2E_STATS_NO_CATCH ?? 'cij4qvadptzehubw4jwa2e8g',
   /** notStarted, the QA user's own. */
   upcoming: process.env.E2E_STATS_UPCOMING ?? 'a6xjl65ooe9eadrtvvqj9hn1',
 };
 
 const PHONE = { width: 375, height: 812 };
+/** Below 1280 Cântare keeps the stand cards (the table is the ≥1280 layout, owner rule 14). */
+const TABLET = { width: 1279, height: 900 };
 const DESKTOP = { width: 1440, height: 900 };
+/** The narrowest table: with the detail docked beside it. */
+const LAPTOP = { width: 1280, height: 900 };
+const WIDE = { width: 1920, height: 1080 };
 
 test.describe.configure({ timeout: 120_000 });
 
@@ -69,9 +76,9 @@ async function signedIn(page: Page) {
 /* Cântare + weighing detail                                           */
 /* ------------------------------------------------------------------ */
 
-test('competition-page.cantare.c1 c3 c4 c5 c6 c7 competition-page.cantar-detaliu.c1 c2 c3 c4 c7 c8 c9 c10 competition-page.cantare.s1 s2 s5 competition-page.cantar-detaliu.s2 s3 s5 — NC stands, a stand opened, its weighing in the docked detail, its history', async ({ page }) => {
+test('competition-page.cantare.c1 c3 c4 c5 c6 competition-page.cantare.s1 s2 s5 — below 1280: NC stand cards, one open at a time, its weighings', async ({ page }) => {
   await signedIn(page);
-  const errors = await open(page, `/concursuri/${ID.nc}/cantare`);
+  await open(page, `/concursuri/${ID.nc}/cantare`, TABLET);
   // c1: one section per sector, one card per stand; c3: «Stand A1» (NC draw label without a draw).
   await expect(page.getByRole('heading', { name: 'Sector A', level: 2 })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Sector C', level: 2 })).toBeVisible();
@@ -94,10 +101,36 @@ test('competition-page.cantare.c1 c3 c4 c5 c6 c7 competition-page.cantar-detaliu
   await expect(item).toContainText('Terminat');
   await expect(item).toContainText('Total:');
   await expect(item).toContainText('Capturi:');
-  // c7 / cantar-detaliu.c1: the detail opens (docked from 1280), on the pressed weighing.
+  // c7: below 1280 the detail is a dialog over the page.
+  await item.click();
+  await expect(page.getByRole('dialog', { name: 'Detaliu cântar' })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`cantar=${ID.ncWeighing}&stand=${ID.ncStand}`));
+});
+
+test('competition-page.cantare.c1 c3 c4 c7 competition-page.cantar-detaliu.c1 c2 c3 c4 c7 c8 c9 c10 competition-page.cantar-detaliu.s2 s3 s5 — from 1280: every weighing in one table (owner rule 14), a row opens the docked detail, its history', async ({ page }) => {
+  await signedIn(page);
+  const errors = await open(page, `/concursuri/${ID.nc}/cantare`);
+  const table = page.getByRole('table', { name: /Cântarele concursului/ });
+  // Every column visible, on the coloured header row.
+  for (const col of ['Stand', 'Pescar', 'Cântar', 'Interval', 'Capturi', 'Kg', 'Stare']) await expect(table.getByRole('columnheader', { name: col, exact: true })).toBeVisible();
+  const header = table.getByRole('columnheader', { name: 'Stand', exact: true });
+  expect(await header.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(await page.evaluate(() => getComputedStyle(document.body).backgroundColor));
+  // c1: the sectors as row groups; no stand cards.
+  await expect(table.getByRole('columnheader', { name: /^Sector A/ })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: /^Sector C/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Stand A1 / })).toHaveCount(0);
+  // c3 / c4: the stand, its angler and kg («kg» apart from the number; one weighing: no «Total stand» line), the weighing's cells.
+  const row = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: /Stand A1$/ }) });
+  await expect(row).toContainText('Cici');
+  await expect(row).toContainText(/34,700\s*kg/);
+  await expect(row).not.toContainText('Total');
+  await expect(row).toContainText('Terminat');
+  // c7 / cantar-detaliu.c1: the row's «Cântar 1» opens the detail docked beside the table.
+  const item = row.getByRole('button', { name: 'Cântar 1' });
   await item.click();
   const panel = page.getByRole('complementary', { name: 'Detaliu cântar' });
   await expect(panel).toBeVisible();
+  await expect(item).toHaveAttribute('aria-current', 'true');
   await expect(page).toHaveURL(new RegExp(`cantar=${ID.ncWeighing}&stand=${ID.ncStand}`));
   // c2: the stand label, its participant.
   await expect(panel.getByText('Stand A1', { exact: true })).toBeVisible();
@@ -130,6 +163,167 @@ test('competition-page.cantare.c1 c3 c4 c5 c6 c7 competition-page.cantar-detaliu
   expect(errors).toEqual([]);
 });
 
+test('competition-page.cantare.c2 c5 — from 1280, signed in: only the stands the summary lists are read; «Cronologic» puts the newest weighing first', async ({ page }) => {
+  await signedIn(page);
+  const byStand: string[] = [];
+  page.on('request', r => {
+    if (r.url().includes('/feed/weighings/by-stand')) byStand.push(r.url());
+  });
+  await open(page, `/concursuri/${ID.live}/cantare`);
+  const table = page.getByRole('table', { name: /Cântarele concursului/ });
+  await expect(table.getByText('Niciun cântar încă').first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/· 24 standuri$/)).toBeVisible();
+  expect(byStand.length).toBeLessThan(24);
+  // The timeline: the starts read newest first.
+  await page.getByRole('button', { name: 'Cronologic' }).click();
+  await expect(page.getByRole('button', { name: 'Cronologic' })).toHaveAttribute('aria-pressed', 'true');
+  await open(page, `/concursuri/${ID.rich}/cantare`);
+  await page.getByRole('button', { name: 'Cronologic' }).click();
+  const rich = page.getByRole('table', { name: /ordine cronologică/ });
+  // A timeline row is named by its place in the competition («#114» the newest), not «Cântar 1» of its stand.
+  await expect(rich.getByRole('button', { name: /^Cântarul #\d+$/ }).first()).toBeVisible({ timeout: 30_000 });
+  await expect(rich.getByRole('button', { name: /^Cântar \d+$/ })).toHaveCount(0);
+  await expect(page.getByText(/^114 cântare/)).toBeVisible({ timeout: 30_000 });
+  const starts = await rich.locator('tbody tr td:nth-child(4)').allInnerTexts();
+  const key = (t: string) => {
+    const m = t.match(/^(\d\d)\.(\d\d), (\d\d):(\d\d)/);
+    return m ? `${m[2]}${m[1]}${m[3]}${m[4]}` : '';
+  };
+  const keys = starts.map(key).filter(Boolean);
+  expect(keys.length).toBeGreaterThan(100);
+  expect([...keys].sort().reverse()).toEqual(keys);
+  await expect(rich.getByRole('button', { name: 'Cântarul #114' })).toBeVisible();
+});
+
+test('competition-page.cantare.c1 c7 — 1280 with the detail docked: every column stays in the table’s box (no sideways scroll); the open row is marked on every cell', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.nc}/cantare`, LAPTOP);
+  const table = page.getByRole('table', { name: /Cântarele concursului/ });
+  const row = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: /Stand A1$/ }) });
+  const panel = page.getByRole('complementary', { name: 'Detaliu cântar' });
+  await press(page, row.getByRole('button', { name: 'Cântar 1' }), () => expect(panel).toBeVisible({ timeout: 3000 }));
+  await settle(page);
+  const box = page.locator('[data-weighings-scroll]');
+  const { scrollWidth, clientWidth } = await box.evaluate(el => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  for (const col of ['Capturi', 'Kg', 'Stare']) await expect(table.getByRole('columnheader', { name: col, exact: true })).toBeInViewport();
+  // The interval on two lines (the day, then the hours).
+  const lines = await row
+    .locator('td')
+    .nth(2)
+    .evaluate(el => [...el.children].map(c => ({ h: c.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(c).lineHeight) })));
+  expect(lines).toHaveLength(2);
+  for (const { h, lh } of lines) expect(h).toBeLessThan(lh * 1.5);
+  // A one-weighing stand: the stand and angler cells take the mark too (not only from Cântar on).
+  const bg = (l: ReturnType<Page['locator']>) => l.evaluate(el => getComputedStyle(el).backgroundColor);
+  const marked = await bg(row.locator('td').nth(1));
+  expect(await bg(row.getByRole('rowheader'))).toBe(marked);
+  expect(await bg(row.locator('td').first())).toBe(marked);
+});
+
+test('competition-page.cantare.c1 c7 — 1440 at rest: the side column is there before any press (Rezumat cântare: the counts, the latest weighing); a press replaces it with the detail, closing brings it back; 1280 keeps it for the press', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.nc}/cantare`);
+  const rest = page.getByRole('complementary', { name: 'Rezumat cântare' });
+  await expect(rest).toBeVisible();
+  await expect(rest.getByText('Cântare', { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(rest.getByRole('button', { name: /Stand A\d/ }).first()).toBeVisible();
+  // The kg apart from its number (owner rule 10).
+  await expect(rest.getByText('kg', { exact: true }).first()).toBeVisible();
+  const restBox = (await rest.boundingBox())!;
+  const table = page.getByRole('table', { name: /Cântarele concursului/ });
+  const tableWidth = (await table.boundingBox())!.width;
+  // Pressing the latest weighing opens its detail in the same column: the table does not move.
+  await rest.getByRole('button', { name: /Stand A\d/ }).last().click();
+  const panel = page.getByRole('complementary', { name: 'Detaliu cântar' });
+  await expect(panel).toBeVisible();
+  await expect(rest).toBeHidden();
+  const panelBox = (await panel.boundingBox())!;
+  expect(Math.abs(panelBox.x - restBox.x)).toBeLessThan(2);
+  expect(Math.abs((await table.boundingBox())!.width - tableWidth)).toBeLessThan(2);
+  await settle(page);
+  await expectNoA11yViolations(page);
+  await panel.getByRole('button', { name: 'Închide' }).click();
+  await expect(rest).toBeVisible();
+  // 1280: the table needs the width; the column comes with a press only.
+  await page.setViewportSize(LAPTOP);
+  await expect(rest).toBeHidden();
+});
+
+test('competition-page.cantare.c1 — 1920 with the detail docked: the interval stays on one line and the angler column stops at 28rem (the numbers stay near the names)', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.nc}/cantare`, WIDE);
+  const table = page.getByRole('table', { name: /Cântarele concursului/ });
+  const row = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: /Stand A1$/ }) });
+  const panel = page.getByRole('complementary', { name: 'Detaliu cântar' });
+  await press(page, row.getByRole('button', { name: 'Cântar 1' }), () => expect(panel).toBeVisible({ timeout: 3000 }));
+  await settle(page);
+  const interval = row.locator('td').nth(2);
+  // One line: no day / hours blocks, and the text's boxes all on one line.
+  await expect(interval.locator('> span.block')).toHaveCount(0);
+  const lines = await interval.evaluate(el => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return new Set([...range.getClientRects()].filter(r => r.width > 1 && r.height > 1).map(r => Math.round(r.bottom))).size;
+  });
+  expect(lines).toBe(1);
+  const pescar = (await table.getByRole('columnheader', { name: 'Pescar', exact: true }).boundingBox())!;
+  const box = (await table.boundingBox())!;
+  // Capped (448px, plus its share of what is left), never the whole leftover width.
+  expect(pescar.width).toBeLessThan(box.width * 0.5);
+});
+
+test('competition-page.cantare.c1 c2 — a sector per stand (24 × 1): one table without sector rows; the stands without a weighing are one row of chips; signed out the stands are read a few at a time', async ({ page }) => {
+  let inFlight = 0;
+  let peak = 0;
+  const done = (url: string) => {
+    if (url.includes('/feed/weighings/by-stand')) inFlight--;
+  };
+  page.on('request', r => {
+    if (!r.url().includes('/feed/weighings/by-stand')) return;
+    inFlight++;
+    peak = Math.max(peak, inFlight);
+  });
+  page.on('requestfinished', r => done(r.url()));
+  page.on('requestfailed', r => done(r.url()));
+  await open(page, `/concursuri/${ID.live}/cantare`);
+  const table = page.getByRole('table', { name: /Cântarele concursului/ });
+  await expect(page.getByText(/^\d+ cântare? · 24 standuri$/)).toBeVisible({ timeout: 45_000 });
+  await expect(table.getByRole('columnheader', { name: /^Sector / })).toHaveCount(0);
+  const empty = table.getByRole('list', { name: /fără cântar/ });
+  await expect(empty).toHaveCount(1);
+  const weighed = await table.getByRole('rowheader').count();
+  await expect(empty.getByRole('listitem')).toHaveCount(24 - weighed);
+  expect(peak).toBeLessThanOrEqual(4);
+  await expectNoA11yViolations(page);
+});
+
+test('competition-page.cantare.c1 c5 — feeder from 1280: the caption names the leg, «Manșa N» switches it; a guest crew’s members line only when it says more; Cronologic keeps the open weighing in view', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.feederTeam}/cantare`);
+  const table = page.getByRole('table', { name: /Cântarele concursului/ });
+  await expect(page.getByText(/^Manșa 2 · \d+ cântare · 20 standuri$/)).toBeVisible({ timeout: 45_000 });
+  // «Florin Varjan si Petrisor M» / «Florin Varjan si Petrisor Muraru»: the crew once.
+  const crew = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: /Stand 1$/ }) });
+  await expect(crew.getByText(/Florin Varjan/)).toHaveCount(1);
+  // A team competition: the column is «Echipă», as on Participanți.
+  await expect(table.getByRole('columnheader', { name: 'Echipă', exact: true })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Pescar', exact: true })).toHaveCount(0);
+  // The CMS lists the sectors A, D, C, B and their stands out of order: the table sorts both (as Participanți).
+  const sectors = await table.getByRole('columnheader', { name: /^Sector / }).allInnerTexts();
+  expect(sectors.map(t => t.slice(0, 8))).toEqual([...sectors.map(t => t.slice(0, 8))].sort());
+  const stands = (await table.getByRole('rowheader').allInnerTexts()).map(t => Number(t.match(/\d+/)?.[0]));
+  expect(stands).toEqual([...stands].sort((a, b) => a - b));
+  await page.getByRole('group', { name: 'Manșa cântarelor' }).getByRole('button', { name: 'Manșa 1' }).click();
+  await expect(page.getByText(/^Manșa 1 · \d+ cântare · 20 standuri$/)).toBeVisible({ timeout: 45_000 });
+  // Open the last stand's weighing, then switch to the timeline: the row stays on screen.
+  const last = table.getByRole('button', { name: /^Cântar \d+$/ }).last();
+  await last.scrollIntoViewIfNeeded();
+  await last.click();
+  await page.getByRole('button', { name: 'Cronologic' }).click();
+  await expect(table.locator('tr[data-selected]')).toBeInViewport();
+});
+
 test('competition-page.cantar-detaliu.c9 competition-page.cantar-detaliu.s5 — signed out the history read is refused: «Eroare la încărcarea modificărilor.»', async ({ page }) => {
   await open(page, `/concursuri/${ID.nc}/cantare?cantar=${ID.ncWeighing}&stand=${ID.ncStand}`);
   // A link opens the detail after the first paint: from 1280 over the page (a dialog), so the
@@ -143,16 +337,14 @@ test('competition-page.cantar-detaliu.c9 competition-page.cantar-detaliu.s5 — 
 test('competition-page.cantar-detaliu.c10 — switching view with the detail open drops ?cantar / ?stand; back on Cântare nothing reopens', async ({ page }) => {
   await signedIn(page);
   await open(page, `/concursuri/${ID.nc}/cantare`);
-  const stand = page.getByRole('button', { name: /^Stand A1 / });
-  await press(page, stand, () => expect(stand).toHaveAttribute('aria-expanded', 'true', { timeout: 3000 }));
-  await page.getByRole('button', { name: /Cântar 1/ }).click();
+  const item = page.getByRole('row').filter({ has: page.getByRole('rowheader', { name: /Stand A1$/ }) }).getByRole('button', { name: 'Cântar 1' });
   const panel = page.getByRole('complementary', { name: 'Detaliu cântar' });
-  await expect(panel).toBeVisible();
+  await press(page, item, () => expect(panel).toBeVisible({ timeout: 3000 }));
   await expect(page).toHaveURL(/cantar=/);
   await page.getByRole('tab', { name: /^Statistici/ }).click();
   await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.nc}/statistici$`));
   await page.getByRole('tab', { name: /^Cântare/ }).click();
-  await expect(page.getByRole('heading', { name: 'Sector A', level: 2 })).toBeVisible();
+  await expect(page.getByRole('table', { name: /Cântarele concursului/ }).getByRole('columnheader', { name: /^Sector A/ })).toBeVisible();
   await page.waitForTimeout(500);
   await expect(page.getByRole('complementary', { name: 'Detaliu cântar' })).toBeHidden();
   await expect(page).not.toHaveURL(/cantar=|stand=/);
@@ -160,7 +352,7 @@ test('competition-page.cantar-detaliu.c10 — switching view with the detail ope
 
 test('competition-page.cantare.c4 — signed in, a stand with no weighing yet reads «Cântare: 0 / Extra-cântare: 0»', async ({ page }) => {
   await signedIn(page);
-  await open(page, `/concursuri/${ID.live}/cantare`);
+  await open(page, `/concursuri/${ID.live}/cantare`, TABLET);
   const cards = page.locator('[id^="stand-"]');
   await expect(cards.first()).toBeVisible({ timeout: 30_000 });
   // Every card has its counts line once the summary has answered (none is left without it).
@@ -200,9 +392,9 @@ test('competition-page.cantare.s2 — signed in: the signed-out note never shows
   expect(await page.evaluate(() => (window as unknown as { __sawNote?: boolean }).__sawNote)).toBe(false);
 });
 
-test('competition-page.cantare.c5 — 1440: an open stand stays in its cell (selected); its weighings open as a row after its row, no card moves', async ({ page }) => {
+test('competition-page.cantare.c5 — 1279: an open stand stays in its cell (selected); its weighings open as a row after its row, no card moves', async ({ page }) => {
   await signedIn(page);
-  await open(page, `/concursuri/${ID.rich}/cantare`);
+  await open(page, `/concursuri/${ID.rich}/cantare`, TABLET);
   const sector = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Sector A', level: 2 }) });
   const cards = sector.locator('[id^="stand-"]');
   await expect.poll(async () => (await cards.allInnerTexts()).every(text => /Cântare: \d+/.test(text)), { timeout: 30_000 }).toBe(true);
@@ -299,10 +491,19 @@ test('competition-page.statistici.c2 c3 c5 c6 c7 c8 c10 c11 c12 c13 c16 competit
   await press(page, page.getByRole('region', { name: 'Bara de acțiuni' }).getByRole('button', { name: 'Statistici' }), () =>
     expect(page).toHaveURL(/\/statistici$/, { timeout: 3000 }),
   );
-  // c3: the three summary cards (phone).
-  await expect(page.getByText('Cea mai mare captură').locator('visible=true').first()).toBeVisible();
-  await expect(page.getByText('Număr total de capturi')).toBeVisible();
-  await expect(page.getByText('Cantitate totală').locator('visible=true').first()).toBeVisible();
+  // c3: the summary as a bento (owner rule 9; phone): the navy biggest catch and the quantity tile
+  // across, the small «Capturi» fact and the stand facts — never the word «capot» (rule 11).
+  const summary = page.getByRole('list', { name: 'Rezumat' });
+  await expect(summary.getByText('Cea mai mare captură')).toBeVisible();
+  await expect(summary.getByText('Capturi', { exact: true })).toBeVisible();
+  await expect(summary.getByText('Cantitate totală')).toBeVisible();
+  await expect(summary.getByText('Standuri cu pește')).toBeVisible();
+  await expect(summary.getByText('Fără capturi')).toBeVisible();
+  await expect(summary).not.toContainText(/capot/i);
+  // Rule 10: the unit is its own spaced element («2.961,0 kg», never «2.961,0kg»).
+  await expect(summary.getByRole('listitem').nth(1)).toContainText(/\d,\d\s+kg/);
+  const tiles = await summary.getByRole('listitem').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().width)));
+  expect(new Set(tiles).size).toBeGreaterThan(1);
   // c5–c8: sessions.
   const sessions = page.getByRole('region', { name: 'Sesiuni de cântărire' });
   await expect(sessions.getByText('Cronologia cântăririlor și cantitatea totală per sesiune.')).toBeVisible();
@@ -314,8 +515,8 @@ test('competition-page.statistici.c2 c3 c5 c6 c7 c8 c10 c11 c12 c13 c16 competit
   await expect(sessions.getByRole('button', { name: 'Restrânge' })).toBeVisible();
   expect(await sessions.getByRole('listitem').count()).toBeGreaterThan(4);
   await expect(sessions.getByText('Total: 389 capturi')).toBeVisible();
-  // Weights: the Romanian grouping («2.961,0 kg»), never «2961,0».
-  await expect(sessions.getByText(/^\d{1,3}(\.\d{3})*,\d kg$/).last()).toBeVisible();
+  // Weights: the Romanian grouping («2.961,0 kg», never «2961,0»), at the competition's precision.
+  await expect(sessions.getByText(/^\d{1,3}(\.\d{3})*,\d+\s+kg$/).last()).toBeVisible();
   // c10 / c11: Top capturi → Best 3 ranking.
   const tops = page.getByRole('region', { name: 'Top capturi (Best 3 / 5 / 7)' });
   await expect(tops.getByRole('button')).toHaveCount(3);
@@ -325,8 +526,8 @@ test('competition-page.statistici.c2 c3 c5 c6 c7 c8 c10 c11 c12 c13 c16 competit
   await page.keyboard.press('Escape');
   // c12: the sector donut + legend; c13: the thresholds table.
   const donut = page.getByRole('region', { name: 'Cantitate pe sector (kg)' });
-  await expect(donut.getByRole('img')).toHaveAttribute('aria-label', /Sector A [\d.]+,\d kg/);
-  await expect(donut.getByText(/^Sector A · [\d.]+,\d kg$/)).toBeVisible();
+  await expect(donut.getByRole('img')).toHaveAttribute('aria-label', /Sector A [\d.]+,\d+\s+kg/);
+  await expect(donut.getByText(/^Sector A · [\d.]+,\d+\s+kg$/)).toBeVisible();
   const thresholds = page.getByRole('region', { name: 'Capturi', exact: true });
   await expect(thresholds.getByRole('columnheader')).toHaveText(['Sector', '10+', '15+', '20+', '25+', '30+']);
   await expect(thresholds.getByRole('rowheader', { name: 'General' })).toBeVisible();
@@ -384,7 +585,7 @@ test('competition-page.statistici.c14 c15 competition-page.statistici.s6 s8 — 
   await expect(card.getByRole('listitem').first()).toContainText('Motiv 4');
   await card.getByRole('button', { name: 'Vezi toate penalizările (2 ascunse)' }).click();
   await expect(card.getByRole('listitem')).toHaveCount(5);
-  await expect(card.getByText('Penalizare greutate · 2.5 kg')).toBeVisible();
+  await expect(card.getByText('Penalizare greutate · 2,5 kg')).toBeVisible();
   await expect(card.getByText('Eliminare')).toBeVisible();
   await card.getByRole('button', { name: 'Ascunde' }).click();
   // c15: revoke.
@@ -408,17 +609,111 @@ test('competition-page.statistici.c9 competition-page.cronologie.c3 c6 competiti
   await expect(page.getByRole('heading', { level: 1, name: 'Cronologia standurilor' })).toBeVisible();
 });
 
-test('competition-page.statistici.c3 competition-page.cronologie.c3 competition-page.statistici.s2 — no snapshot (204) after the competition: «Cronologia nu este disponibilă…», the cards keep the grid full', async ({ page }) => {
+test('competition-page.statistici.c3 c9 competition-page.cronologie.c3 competition-page.statistici.s2 — no snapshot (204) after the competition: «Cronologia nu este disponibilă…» is the sessions card\'s footer, not a card of filler', async ({ page }) => {
   await signedIn(page);
   await open(page, `/concursuri/${ID.rich}/statistici`);
-  const timeline = page.getByRole('region', { name: 'Cronologia standurilor' });
-  await expect(timeline.getByText('Cronologia nu este disponibilă pentru acest concurs.')).toBeVisible();
+  const sessions = page.getByRole('region', { name: 'Sesiuni de cântărire' });
+  await expect(sessions.getByText('Cronologia nu este disponibilă pentru acest concurs.')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('region', { name: 'Cronologia standurilor' })).toHaveCount(0);
   // Completed: never «… încă» beside 9 sessions.
   await expect(page.getByText('Nu există cântăriri înregistrate încă.')).toHaveCount(0);
-  // With no chart beside it, the sessions card and the short note each take the whole row.
+});
+
+for (const [kind, id] of [
+  ['feeder', ID.feederTeam],
+  ['national championship', ID.nc],
+] as const) {
+  test(`competition-page.statistici.c3 — ${kind} at 1440: a bento (navy 2×2, quantity 2×1, small facts), a lone fact keeps a tile\'s width, the strip steps aside`, async ({ page }) => {
+    await signedIn(page);
+    await open(page, `/concursuri/${id}/statistici`);
+    const summary = page.getByRole('list', { name: 'Rezumat' });
+    const perCatch = summary.getByRole('listitem').filter({ hasText: 'Medie pe captură' });
+    await expect(perCatch).toBeVisible({ timeout: 30_000 });
+    expect((await perCatch.boundingBox())!.width).toBeLessThan(400);
+    // Rule 9: tiles of different sizes — the navy one is wider and taller than a fact.
+    const navy = await summary.getByRole('listitem').filter({ hasText: 'Cea mai mare captură' }).boundingBox();
+    const fact = (await perCatch.boundingBox())!;
+    expect(navy!.width).toBeGreaterThan(fact.width * 1.8);
+    expect(navy!.height).toBeGreaterThan(fact.height * 1.8);
+    // The same numbers are never twice on screen: the strip over the views is hidden here.
+    await expect(page.getByRole('group', { name: 'Concursul pe scurt' })).toBeHidden();
+    await expect(summary).not.toContainText(/capot/i);
+    // 768–1279: the strip holds the headline numbers; the lone fact still keeps a tile's width.
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect(page.getByRole('group', { name: 'Concursul pe scurt' })).toBeVisible();
+    expect((await perCatch.boundingBox())!.width).toBeLessThan(400);
+  });
+}
+
+test('competition-page.statistici.c3 — live at 1440: the weighing tile is a bento tile (the strip steps aside, its «Ultimul cântar» / «Cântar în curs» does not go with it); one precision, units apart', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.live}/statistici`);
+  const summary = page.getByRole('list', { name: 'Rezumat' });
+  const weighing = summary.getByRole('listitem').filter({ hasText: /Ultimul cântar|Cântar în curs|Extra-cântar în curs|Cântare în curs/ });
+  await expect(weighing).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('group', { name: 'Concursul pe scurt' })).toBeHidden();
+  await weighing.getByRole('button', { name: 'Toate cântarele' }).click();
+  await expect(page).toHaveURL(/\/cantare$/);
+  await page.goBack();
+  // Rule 9: a fact stays a small tile (one of six tracks), the headline tiles span two.
+  const fact = await summary.getByRole('listitem').filter({ hasText: 'Medie pe captură' }).boundingBox();
+  expect(fact!.width).toBeLessThan(270);
+  // Rule 10 / one precision: the session total, the donut legend — figure, then «kg» apart.
   const sessions = page.getByRole('region', { name: 'Sesiuni de cântărire' });
-  const [s, tl] = [await sessions.boundingBox(), await timeline.boundingBox()];
-  expect(Math.round(s!.width)).toBe(Math.round(tl!.width));
+  await expect(sessions.getByText(/^Total: \d+ capturi$/)).toBeVisible();
+  const donut = page.getByRole('region', { name: 'Cantitate pe sector (kg)' });
+  // The sector rows carry the quantity after the weight penalties: the card says so.
+  await expect(donut.getByText(/după penalizările de greutate/)).toBeVisible();
+  const legendUnit = donut.getByRole('listitem').first().locator('span').last();
+  await expect(legendUnit).toHaveText(/^\s*kg$/);
+});
+
+test('competition-page.statistici.c3 c10 c12 — 1440, not one catch nor weighing: the summary line and one empty state, no Top capturi of «-», no ring of 0', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.noCatch}/statistici`);
+  await expect(page.getByText('Nu există statistici pentru acest concurs')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/Nicio captură înregistrată/).first()).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Top capturi (Best 3 / 5 / 7)' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Cantitate pe sector (kg)' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Cronologia standurilor' })).toHaveCount(0);
+});
+
+for (const width of [320, 375]) {
+  test(`competition-page.statistici.c3 — ${width}: a three-decimal «Cantitate totală» fits its tile (the unit never runs past it)`, async ({ page }) => {
+    await signedIn(page);
+    await open(page, `/concursuri/${ID.feederTeam}/statistici`, { width, height: 800 });
+    const tile = page.getByRole('list', { name: 'Rezumat' }).getByRole('listitem').filter({ hasText: 'Cantitate totală' });
+    await expect(tile).toContainText(/\d,\d{3}\s+kg/, { timeout: 30_000 });
+    const fits = await tile.evaluate(li => {
+      const box = li.firstElementChild as HTMLElement;
+      return box.scrollWidth <= box.clientWidth && li.getBoundingClientRect().right <= window.innerWidth;
+    });
+    expect(fits).toBe(true);
+  });
+}
+
+test('competition-page.statistici.c6 c13 — live, 24 sectors: no table of zeros, the donut legend in columns keeps its card short, the last odd card takes the row', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.live}/statistici`);
+  const donut = page.getByRole('region', { name: 'Cantitate pe sector (kg)' });
+  await expect(donut).toBeVisible({ timeout: 30_000 });
+  // c13: every threshold count is 0 → no «Capturi» table.
+  await expect(page.getByRole('region', { name: 'Capturi', exact: true })).toHaveCount(0);
+  expect((await donut.boundingBox())!.height).toBeLessThan(420);
+});
+
+test('competition-page.statistici.c11 c13 — the thresholds and Best N tables have a coloured header band (owner rule 12)', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.rich}/statistici`);
+  const thresholds = page.getByRole('region', { name: 'Capturi', exact: true });
+  const head = thresholds.getByRole('columnheader').first();
+  await expect(head).toBeVisible({ timeout: 30_000 });
+  const bg = await head.evaluate(th => getComputedStyle(th).backgroundColor);
+  expect(bg).not.toBe('rgba(0, 0, 0, 0)');
+  await page.getByRole('region', { name: 'Top capturi (Best 3 / 5 / 7)' }).getByRole('button').first().click();
+  const best = page.getByRole('dialog', { name: 'Best 3 - Clasament' });
+  const bestBg = await best.getByRole('columnheader').first().evaluate(th => getComputedStyle(th).backgroundColor);
+  expect(bestBg).toBe(bg);
 });
 
 test('competition-page.cronologie.s2 competition-page.statistici.s2 — offline with nothing cached: the timeline card says so with its retry, never bones for ever', async ({ page }) => {

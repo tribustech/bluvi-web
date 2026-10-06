@@ -2,17 +2,16 @@
 
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
-import { StarIcon } from '@heroicons/react/20/solid';
 import type { ColumnDefinition, RankingResponse } from '@/core/competitions';
-import { CapotChip, Tag } from '@/components/cards/parts';
-import { RankingTable, readCell, tiedIndices } from '@/components/ranking';
-import { parseStand, sectorFill } from '@/components/ranking/sector';
+import { readCell, tiedIndices } from '@/components/ranking';
+import { sectorFill } from '@/components/ranking/sector';
+import { RANKING_HEAD } from '@/components/ranking/tableHead';
+import { CompetitionRankingTable, PenaltyMarker } from './CompetitionRankingTable';
 import { SegmentedControl } from '@/components/forms/SegmentedControl';
 import { Select } from '@/components/forms/Select';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { TextInput } from '@/components/forms/TextInput';
 import { ChoiceChips, type Choice } from '@/components/templates/T1';
-import { PRESENCE_ICON } from '@/components/templates/T3';
 import { QueryRetry } from './QueryRetry';
 import { EmptyState, ErrorState } from '@/components/surfaces/StateCard';
 import { cn } from '@/components/ui/cn';
@@ -42,10 +41,12 @@ const SELECT_SECTORS_FROM = 12;
 const isCatchColumn = (c: ColumnDefinition) => /^catch\d+$/.test(c.key);
 
 /**
- * Clasament view. Mobile: the kit RankingRow list (stand order unless Sortare says otherwise).
- * Desktop (design): every column, every angler, General / Pe sectoare, a sector filter A–X and a
- * search by angler or stand, on the kit RankingTable — its column headers are the sort (from 768
- * there is no second sort control; the phone keeps «Sortare» in the action bar).
+ * Clasament view. Mobile: the ranking rows (MobileRanking; stand order unless Sortare says otherwise),
+ * every column in «Tot ecranul». Desktop (design): every column, every angler, General / Pe
+ * sectoare, a sector filter A–X and a search by angler or stand, on CompetitionRankingTable (fish's
+ * columns, stand order first as fish) — its column headers are the sort (from 768 there is no
+ * second sort control: «Poziție generală» is fish's Sortare → Poziția în clasament; the phone keeps
+ * «Sortare» in the action bar).
  */
 export function RankingView({
   query,
@@ -113,26 +114,9 @@ function DesktopRanking({
   onFullView: () => void;
   onRowPress?: (standId: string) => void;
 }) {
-  // The kit table sorts its own rows: a row is known by its stand cell's spoken name
-  // («Sector A, stand 12», RankingTable), mapped back to the row's stand id.
+  // The table sorts its own rows: a row is known by its stand id (data-stand-id).
   const section = useRef<HTMLElement>(null);
-  const standBySpoken = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const r of table.rows) {
-      const { sector, stand } = parseStand(r.position);
-      if (r.standId) m.set(`Sector ${sector}, stand ${stand}`, r.standId);
-    }
-    return m;
-  }, [table.rows]);
-  useRowPress<HTMLTableRowElement>(
-    section,
-    'tbody tr',
-    row => {
-      const spoken = [...row.querySelectorAll('td .sr-only')].map(el => el.textContent ?? '').find(t => t.startsWith('Sector '));
-      return spoken ? (standBySpoken.get(spoken) ?? null) : null;
-    },
-    onRowPress,
-  );
+  useRowPress<HTMLTableRowElement>(section, 'tbody tr', row => row.dataset.standId || null, onRowPress);
   const [mode, setMode] = useState<Mode>('general');
   const [sector, setSector] = useState<string>(ALL_SECTORS);
   const [search, setSearch] = useState('');
@@ -161,13 +145,14 @@ function DesktopRanking({
   const shownKeys = columns.map(c => c.key);
   const anyShownCell = (test: (cell: ReturnType<typeof readCell>) => boolean) =>
     table.rows.some(r => shownKeys.some(k => test(readCell(r[k]))));
-  const hasPenalty = table.rows.some(r => (r.penalties?.length ?? 0) > 0);
+  const hasPenalty = table.rows.some(r => (r.penalties?.length ?? 0) > 0 && !r.penalties?.some(p => p.action === 'ELIMINATE'));
+  const hasEliminated = table.rows.some(r => r.penalties?.some(p => p.action === 'ELIMINATE'));
   const hasSplit = anyShownCell(c => c.isSplit);
   const hasTie = useMemo(() => tiedIndices(table.rows).size > 0, [table.rows]);
-  // Quantity rankings never flag a cell (fish createQuantityRow): no star on screen, no legend entry.
+  // Quantity rankings never flag a cell (fish createQuantityRow): no gold cell, no legend entry.
   const hasBiggest = anyShownCell(c => c.isBiggest);
   const legend = (
-    <Legend hasBiggest={hasBiggest} hasSplit={hasSplit} hasPenalty={hasPenalty} hasTie={hasTie} catchesHidden={hidesCatches} />
+    <Legend hasBiggest={hasBiggest} hasSplit={hasSplit} hasPenalty={hasPenalty} hasEliminated={hasEliminated} hasTie={hasTie} catchesHidden={hidesCatches} />
   );
 
   const sectorChoices: Choice<string>[] = [
@@ -260,7 +245,7 @@ function DesktopRanking({
             <div className="p-4">{empty}</div>
           ) : (
             <>
-              <RankingTable
+              <CompetitionRankingTable
                 caption="Clasament general"
                 columns={columns}
                 rows={rows}
@@ -286,7 +271,7 @@ function DesktopRanking({
                       <span aria-hidden className={cn('size-2.5 rounded-full', fill.className)} style={fill.style} />
                       Sector {s}
                     </h2>
-                    <RankingTable
+                    <CompetitionRankingTable
                       caption={`Clasament sector ${s}`}
                       columns={columns}
                       rows={sectorRows}
@@ -304,19 +289,21 @@ function DesktopRanking({
 }
 
 /**
- * Design legend (table card footer). Each key is the very element the cells draw: the star, the
- * cell's «SPLIT» mark, the penalty Tag, the capot chip, the tied place.
+ * Design legend (table card footer). Each key is the very element the cells draw: the gold
+ * biggest-catch cell, the cell's «SPLIT» mark, the penalty marker, the no-catch «–», the tied place.
  */
 function Legend({
   hasBiggest,
   hasSplit,
   hasPenalty,
+  hasEliminated,
   hasTie,
   catchesHidden,
 }: {
   hasBiggest: boolean;
   hasSplit: boolean;
   hasPenalty: boolean;
+  hasEliminated: boolean;
   hasTie: boolean;
   /** 768–1279: the per-catch columns are only in «Clasament complet». */
   catchesHidden: boolean;
@@ -328,7 +315,7 @@ function Legend({
     >
       {hasBiggest ? (
         <li className="flex items-center gap-1.5">
-          <StarIcon aria-hidden className={cn(PRESENCE_ICON.meta, 'text-rating')} />
+          <span aria-hidden className="size-3.5 rounded-[4px] bg-medal-gold" />
           C.M.M.C a concursului
         </li>
       ) : null}
@@ -342,19 +329,25 @@ function Legend({
       ) : null}
       {hasPenalty ? (
         <li className="flex items-center gap-1.5">
-          <span aria-hidden>
-            <Tag tone="yellow" size="sm">
-              −kg
-            </Tag>
+          <span aria-hidden className="flex">
+            <PenaltyMarker eliminated={false} label="Echipa are penalizări" />
           </span>
           penalizare aplicată
         </li>
       ) : null}
+      {hasEliminated ? (
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden className="flex">
+            <PenaltyMarker eliminated label="Echipa este eliminată" />
+          </span>
+          eliminat
+        </li>
+      ) : null}
       <li className="flex items-center gap-1.5">
-        <span aria-hidden>
-          <CapotChip size="sm" />
+        <span aria-hidden className="t-label text-ink">
+          –
         </span>
-        fără captură
+        fără capturi
       </li>
       {hasTie ? (
         <li className="flex items-center gap-1.5">
@@ -403,7 +396,7 @@ export function RankingSkeleton({ kind = 'table' }: { kind?: RankingSkeletonKind
             {feeder ? null : <span className="h-11 w-80 shrink-0 animate-shimmer rounded-control max-md:hidden" />}
             <span className="size-11 shrink-0 animate-shimmer rounded-control max-md:hidden xl:h-10 xl:w-48" />
           </span>
-          <span className={cn('block border-t border-hairline bg-page', feeder ? 'h-18' : 'h-10')} />
+          <span className={cn('block border-t border-hairline', RANKING_HEAD, feeder ? 'h-18' : 'h-10')} />
           {Array.from({ length: 8 }, (_, i) => (
             <span key={i} className="flex h-13 items-center gap-4 border-t border-hairline px-3">
               <span className="h-3 w-6 shrink-0 animate-shimmer rounded-full" />
@@ -447,7 +440,7 @@ export function RankingSkeleton({ kind = 'table' }: { kind?: RankingSkeletonKind
           <span className="h-11 min-w-0 flex-1 animate-shimmer rounded-control xl:w-60 xl:flex-none" />
           <span className="size-11 shrink-0 animate-shimmer rounded-control xl:h-10 xl:w-48" />
         </span>
-        <span className="block h-10.25 border-b border-hairline" />
+        <span className={cn('block h-10.25 border-b border-hairline', RANKING_HEAD)} />
         {Array.from({ length: 8 }, (_, i) => (
           <span key={i} className={cn('flex h-13 items-center gap-4 px-5', i > 0 && 'border-t border-hairline')}>
             <span className="h-3 w-6 animate-shimmer rounded-full" />

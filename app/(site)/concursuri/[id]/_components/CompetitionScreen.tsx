@@ -93,6 +93,8 @@ import { WeighingsView } from './WeighingsView';
 import { AnglerStats } from './AnglerStats';
 import { PRESSABLE_ROWS, useRowPress } from './rowPress';
 import { COMPETITION_TABS, type CompetitionTab } from './tabs';
+import { TABS_MARK, useCompetitionAnalytics } from './analytics';
+import { PublishConfetti } from './PublishConfetti';
 import { TabBody } from './TabBody';
 import { isNationalType } from './stand';
 
@@ -162,6 +164,8 @@ export function CompetitionScreen(props: Props) {
         <ViewerIsland onViewer={onViewer} onUnknown={setSessionUnknown} />
       </Suspense>
       <Screen {...props} viewer={viewer} sessionUnknown={viewer === undefined && sessionUnknown} />
+      {/* parity shell.c27: ?fromPublish=1 → a one-shot confetti, the param dropped. */}
+      <PublishConfetti />
     </>
   );
 }
@@ -274,6 +278,8 @@ function Screen({
     ((unsupported ? myStatusQ.isError && !myStatusQ.data : overlayRead === 'failed') || (statuteQ.isError && !statuteQ.data));
   const statute = statuteQ.data;
   const chatBadge = useChatBadge(id, viewer ?? null, statute);
+  // parity shell.c18 / c21: competition_page_tab_pressed and share_competition (analytics.ts).
+  useCompetitionAnalytics(id, competition?.name, tab);
 
   // The view is addressable as a path segment (/cantare, /statistici, /capturi — parity
   // tab-deep-links): the server renders the one the URL names (initialView). Switching keeps it in
@@ -712,16 +718,18 @@ function Screen({
       </DetailBand>
       {/* parity shell.c19: the route tabs pin (phone: with the T3 mini title row, following the bar). */}
       <CompetitionStickyTabs competition={competition}>
-        {/* fish ROUTES_LIST: each tab its own page (tabs.ts). */}
-        <DetailTabs
-          label="Secțiunile concursului"
-          tabs={COMPETITION_TABS.map(t => ({
-            label: t.label,
-            href: t.href(id),
-            current: t.key === tab,
-            count: t.key === 'participanti' ? registered : undefined,
-          }))}
-        />
+        {/* fish ROUTES_LIST: each tab its own page (tabs.ts); the mark: its links log the tab event (analytics.ts). */}
+        <div {...{ [TABS_MARK]: '' }} className="contents">
+          <DetailTabs
+            label="Secțiunile concursului"
+            tabs={COMPETITION_TABS.map(t => ({
+              label: t.label,
+              href: t.href(id),
+              current: t.key === tab,
+              count: t.key === 'participanti' ? registered : undefined,
+            }))}
+          />
+        </div>
       </CompetitionStickyTabs>
 
       {tab !== 'clasament' ? (
@@ -1010,6 +1018,7 @@ function Screen({
         title={competition.name}
         subtitle={fullSubtitle}
         table={placeTable}
+        initialSort={sortBy === 'position' ? 'place' : 'stand'}
         imageHref={
           fullViewDisabled
             ? undefined

@@ -144,7 +144,9 @@ const createCatchesEntries = (
   context: RowContext,
 ): Record<string, CatchCell> => {
   const ownsBiggest =
-    context.biggestStandId != null && (ranking as BaseStandRanking).standId === String(context.biggestStandId);
+    // fish compares a numeric ranking standId to a string here, so its catch cells are never
+    // flagged (parity competition-page.clasament.c19, a fish bug): compare both as strings.
+    context.biggestStandId != null && String((ranking as BaseStandRanking).standId) === String(context.biggestStandId);
   return Object.fromEntries(
     ranking.catches.slice(0, maxCatchesToShow).map((catch_, index) => {
       const rawWeight = typeof catch_ === 'number' ? catch_ : catch_.weight;
@@ -297,7 +299,7 @@ export const createBestOfTiersRow = (
   tiers: number[] = [],
 ): BestOfTiersRowType => {
   const ownsBiggest =
-    context.biggestStandId != null && ranking.standId === String(context.biggestStandId);
+    context.biggestStandId != null && String(ranking.standId) === String(context.biggestStandId);
   const catchEntries: Record<string, CatchCell> = {};
   for (let i = 0; i < catchColumnCount; i++) {
     const c = ranking.catches?.[i];

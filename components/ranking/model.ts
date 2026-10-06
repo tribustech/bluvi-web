@@ -71,8 +71,11 @@ export function formatPlain(value: unknown): string {
   return Number.isInteger(n) ? String(n) : formatDecimal(n, 1, 3);
 }
 
-/** Capot: the competitor finished with no catch (there is no disqualification in Bluvi). */
-export function isCapot(row: RankingRowData): boolean {
+/**
+ * The competitor finished with no catch (there is no disqualification in Bluvi). The UI never names
+ * it with a word of its own (ROADMAP §4b.11): «–» in the weight cell, «Fără capturi» where a word is needed.
+ */
+export function isNoCatch(row: RankingRowData): boolean {
   return typeof row.catchCount === 'number' && row.catchCount === 0;
 }
 

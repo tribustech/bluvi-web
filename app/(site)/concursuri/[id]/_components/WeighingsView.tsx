@@ -16,9 +16,13 @@ import { sectorFill } from '@/components/ranking/sector';
 import { EmptyState, ErrorState } from '@/components/surfaces/StateCard';
 import { LIST_GUTTER } from '@/components/templates/T1';
 import { cn } from '@/components/ui/cn';
+import { InlineNumber } from '@/components/ui/SignatureNumber';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { shortDateTime } from './dates';
 import { WeighingDetail, type WeighingDetailTarget } from './WeighingDetail';
+import { WeighingsSummaryPanel } from './WeighingsSummaryPanel';
+import { WeighingsTable, type StandReads } from './WeighingsTable';
 import { isOfflineEmpty, OfflineState } from './offline';
 import { QueryRetry } from './QueryRetry';
 import { formatKg } from './ranking';
@@ -30,7 +34,8 @@ import { PAGE_RETRY } from './retry-policy';
  * StandCantarCard (who is on it, total kg, Cântare / Extra-Cântare counts), tap to open the
  * stand's weighings (CantarItem), press one for its detail (WeighingDetail, parity
  * competition-page.cantar-detaliu). Scale actions (referee/author) are app-only. Feeder legs: a
- * stand's weighings are the current leg's (fish currentLegOf).
+ * stand's weighings are the current leg's (fish currentLegOf); from 1280 the table's «Manșa N»
+ * switch shows any leg (tableLeg), and the detail opens on the leg shown.
  *
  * Numbers are shown only when they are known: signed out the summary is not granted, so one note
  * above the sectors says a stand opens for its weighings (never a made-up «0» per card); while the
@@ -44,6 +49,11 @@ import { PAGE_RETRY } from './retry-policy';
  * cards. An open stand stays in its cell (selected: the accent ring, the chevron turned) and its
  * weighings open as one full-row panel after the last card of its row, so no card moves inside the
  * row and nothing leaves a hole.
+ *
+ * From 1280 (owner rule 14) the stands give way to WeighingsTable: every weighing in one table, the
+ * detail docked beside it. From 1440 that column is there at rest too (WeighingsSummaryPanel: the
+ * weighings at a glance, the ones in progress and the latest), and a pressed weighing replaces it. Until the width is known (the server render, hydration) both are drawn
+ * and CSS shows the right one — the table as its bones — so nothing jumps when the client takes over.
  */
 
 const STAND_GRID = cn('grid grid-cols-[minmax(0,1fr)] items-start', LIST_GUTTER, 'md:grid-cols-[repeat(auto-fill,minmax(--spacing(80),1fr))]');
@@ -76,8 +86,13 @@ export function WeighingsView({
     return m;
   }, [summaryQ.data]);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const round = currentLegOf(competition);
+  const currentLeg = currentLegOf(competition);
+  // From 1280 the table shows any leg (its «Manșa N» switch); the phone's cards the current one.
+  const [tableLeg, setTableLeg] = useState(currentLeg);
   const isNc = isNationalType(competition.rankingType);
+  const desktop = useBreakpoint() === 'desktop';
+  const round = desktop ? tableLeg : currentLeg;
+  const legCount = Math.max(competition.roundsCount ?? 0, currentLeg ?? 0);
   // The weighing detail (fish WeighingDetailSheet): `?cantar=<weighing>&stand=<stand>` in the URL
   // (routes.competitionWeighing — a notification's link), replaced in place while it is open and
   // removed when it closes (fish clears its params). `opening` remounts it: each opening starts on
@@ -169,9 +184,73 @@ export function WeighingsView({
   // The session still unknown counts as the totals loading: the cards keep their counts line's height.
   const summaryLoading = session === 'pending' || (isAuthenticated && summaryQ.isPending && summaryQ.fetchStatus === 'fetching');
 
+  const detailPanel = (
+    <WeighingDetail
+      key={detail?.opening ?? 0}
+      t={t}
+      target={detail}
+      allocated={allocated.data}
+      isNc={isNc}
+      decimals={decimals}
+      onClose={closeWeighing}
+    />
+  );
+
+  if (desktop) {
+    // Signed in, the summary names the stands with weighings; without it (signed out, or it failed)
+    // every stand is read; while either is unknown, none (the rows' bones).
+    const reads: StandReads =
+      session === 'pending' || allocationLoading
+        ? null
+        : session === 'out' || summaryFailed
+          ? 'all'
+          : summaryQ.isSuccess
+            ? new Set((summaryQ.data ?? []).filter(s => s.regularCount + s.extraCount > 0).map(s => s.standId))
+            : null;
+    return (
+      <div className="flex items-start gap-6">
+        <div className="min-w-0 flex-1">
+          {allocationLoading ? (
+            <TableBones />
+          ) : (
+            <WeighingsTable
+              t={t}
+              competition={competition}
+              allocated={allocated.data}
+              reads={reads}
+              leg={tableLeg != null ? { current: tableLeg, count: legCount, onChange: setTableLeg } : undefined}
+              decimals={decimals}
+              isNc={isNc}
+              docked={detail != null}
+              selected={detail?.weighingId ?? null}
+              onWeighing={(standId, weighingId) => openWeighing(standId, weighingId)}
+            />
+          )}
+        </div>
+        {detail == null || detail.fromLink ? (
+          <WeighingsSummaryPanel
+            t={t}
+            competition={competition}
+            allocated={allocated.data}
+            reads={reads}
+            round={tableLeg}
+            isNc={isNc}
+            decimals={decimals}
+            onWeighing={(standId, weighingId) => openWeighing(standId, weighingId)}
+          />
+        ) : null}
+        {detailPanel}
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-start gap-6">
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
+      {/* The width is not known yet (server render): from 1280 the table's bones stand in. */}
+      <div className="hidden min-w-0 flex-1 xl:block">
+        <TableBones />
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-4 xl:hidden">
         {summaryOffline ? (
           <OfflineState fetching={summaryQ.isFetching} onRetry={() => void summaryQ.refetch()} />
         ) : summaryFailed ? (
@@ -268,15 +347,31 @@ export function WeighingsView({
           </p>
         ) : null}
       </div>
-      <WeighingDetail
-        key={detail?.opening ?? 0}
-        t={t}
-        target={detail}
-        allocated={allocated.data}
-        isNc={isNc}
-        decimals={decimals}
-        onClose={closeWeighing}
-      />
+      {detailPanel}
+    </div>
+  );
+}
+
+/** The table's shape while the width or the allocation is not known: header and a few rows. */
+function TableBones() {
+  return (
+    <div aria-hidden className="flex flex-col gap-3">
+      <span className="flex justify-between">
+        <Bone className="w-40 t-caption" />
+        <span className="h-8 w-48 animate-shimmer rounded-control" />
+      </span>
+      <span className="flex flex-col overflow-hidden rounded-card bg-surface shadow-e0">
+        <span className="h-10 bg-accent-tint" />
+        {Array.from({ length: 8 }, (_, i) => (
+          <span key={i} className="flex items-center gap-6 border-t border-hairline px-4 py-3">
+            <Bone className="w-10 t-body" />
+            <span className="size-8 shrink-0 animate-shimmer rounded-full" />
+            <Bone className="w-40 t-body" />
+            <Bone className="w-20 t-body" />
+            <Bone className="w-28 t-body" />
+          </span>
+        ))}
+      </span>
     </div>
   );
 }
@@ -382,7 +477,8 @@ function StandCard({
           </span>
         </span>
         {counts && counts.kg !== null ? (
-          <span className="shrink-0 t-body-strong text-accent-ink tabular-nums">{formatKg(counts.kg, decimals)} kg</span>
+          // fish: the total in the accent; the unit apart, smaller and muted (owner rule 10).
+          <InlineNumber value={formatKg(counts.kg, decimals)} unit="kg" valueClassName="t-body-strong text-accent-ink" className="shrink-0" />
         ) : null}
         <ChevronDownIcon
           aria-hidden
@@ -559,7 +655,7 @@ function WeighingItem({
         </div>
         <p className="flex gap-3 t-caption text-muted">
           <span>
-            Total: <span className="t-label text-ink tabular-nums">{total} kg</span>
+            Total: <InlineNumber value={total} unit="kg" valueClassName="t-label text-ink" />
           </span>
           <span>
             Capturi: <span className="t-label text-ink tabular-nums">{weighing.catches.length}</span>

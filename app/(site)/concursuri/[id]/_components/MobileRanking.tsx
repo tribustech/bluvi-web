@@ -1,15 +1,17 @@
 import { useRef } from 'react';
 import type { ColumnDefinition } from '@/core/competitions';
-import { RankingRow, readCell, tiedIndices, type RankingRowData } from '@/components/ranking';
+import { RankingRow } from '@/components/ranking/RankingRow';
+import { readCell, tiedIndices, type RankingRowData } from '@/components/ranking/model';
+import { winnerMode } from '@/components/ranking/rankingColumns';
 import { cn } from '@/components/ui/cn';
 import { PRESSABLE_ROWS, useRowPress } from './rowPress';
 
 /*
  * The phone ranking (fish components/ranking-table ScrollableTable) as Fundații §07 «Rând
- * clasament · mobil»: the kit RankingRow — position pill (winner = navy + lavender, tied «=4»),
- * the angler, «sector · stand · capturi · CMMC», the signature value in kg, the sector only as the
- * 4px edge, penalties as the kit's small yellow / red Tag. The rows keep the bar's Sortare order
- * (stand by default, as fish); every column of the builder is in the «Tot ecranul» table.
+ * clasament · mobil», drawn by the kit RankingRow (position pill — navy only for the untied 1st
+ * place; a winner's trophy after the name, muted for a sector winner; «sector · stand · capturi ·
+ * CMMC»; the deciding value in kg with fish's three decimals; the sector only as the 4px edge).
+ * The rows keep the bar's Sortare order (stand by default, as fish); every column of the builder, as fish's grid, is in «Tot ecranul» (CompetitionRankingTable).
  */
 
 const WEIGHT_KEYS = ['quantity', 'quality', 'quality1', 'topNCatchesAvarage', 'averageBestN'] as const;
@@ -41,18 +43,19 @@ export function MobileRanking({
 }) {
   const tied = tiedIndices(rows);
   const valueKey = valueKeyOf(columns);
+  const mode = winnerMode(columns);
   const list = useRef<HTMLOListElement>(null);
   useRowPress<HTMLLIElement>(list, ':scope > li', (_, i) => rows[i]?.standId ?? null, onRowPress);
   return (
     // Full bleed on the phone's white ground: the sector edge sits on the screen edge, as in fish.
-    // The penalty Tag in the warning ink: the kit's yellow pair is 2.86:1 (tableFixes.ts).
-    <ol ref={list} aria-label="Clasament" className={cn('-mx-4 border-y border-hairline [&_.text-badge-yellow-fg]:text-status-warning-fg', PRESSABLE_ROWS)}>
+    <ol ref={list} aria-label="Clasament" className={cn('-mx-4 border-y border-hairline', PRESSABLE_ROWS)}>
       {rows.map((row, index) => (
         <RankingRow
           key={row.standId ?? `${row.position}-${index}`}
           row={row}
           valueKey={valueKey(row)}
           tied={tied.has(index)}
+          winnerMode={mode}
           isCurrentUser={currentUserStandId != null && row.standId === String(currentUserStandId)}
         />
       ))}
