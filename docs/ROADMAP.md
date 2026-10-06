@@ -134,10 +134,18 @@ Add each new piece of feedback here, dated.
    - A prominent search pill (where / what, then filters) with the Bălți / Ape publice switch
      integrated, e.g. a segmented control next to or above the pill.
    - Filters sit as chips under it.
-   - The map is a floating "Arată harta" toggle, not one more button in a row.
-7. **Map view is a split view**: listing grid on the left (two columns on wide screens), sticky map on
-   the right. Same listing card as the list view (no in-between card size). Hovering a card highlights
-   its marker and the reverse. On phone, a map with a draggable bottom sheet of cards.
+   - The map is a prominent call to action, because looking at the map matters: a large, high-contrast
+     "Arată harta" button (filled accent, icon and label, floating, bottom centre on phone), and on
+     desktop a clear map entry point in the header next to the search (e.g. a map preview or a primary
+     button). Never a small button lost in a row.
+7. **Map view is a split view, with horizontal list cards like imobiliare.ro.** List on the left, sticky
+   map on the right.
+   - In map view the list shows **one card per row in a horizontal layout**: photo on the left (about
+     4:3, rounded), and on the right the name, rating, location and distance, key details as compact
+     rows or chips (species, regime, facilities, stands), price from-to and the main action.
+   - Hovering a card highlights its marker and the reverse.
+   - On phone: the map, with a draggable bottom sheet of the same horizontal cards.
+   (Owner refinement 2026-10-06, replaces the earlier "same card as the grid".)
 8. **No visible focus ring on non-interactive elements.** Headings focused programmatically after
    navigation (tabIndex -1) get no outline. Rings are only for keyboard focus on controls
    (`:focus-visible`).
