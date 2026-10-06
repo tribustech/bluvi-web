@@ -121,6 +121,26 @@ Add each new piece of feedback here, dated.
 4. **When we don't know, we don't show.** A block whose state is unknown (still loading, failed,
    signed out, no data) is hidden or shows a neutral skeleton. It never shows copy like "nu știm dacă
    ești într-un concurs live".
+5. **List screens on desktop are dense and categorised, not sparse carousels** (lakes main screen).
+   - No near-empty horizontal rails: a section with fewer items than one row fills is shown compactly
+     (smaller cards or a chip row) or merged into another section.
+   - Categories are a row of icon chips at the top, Airbnb style (e.g. Aproape de tine, Rezervare
+     online, Crap, Somn, Pe timp de noapte, Cu cazare, Top rating). Each category filters the grid
+     below.
+   - Results are a dense responsive grid of listing cards (photo 4:3 rounded 12–16, text under it,
+     no empty footer space), not one carousel per section. Rails stay only where the set is curated
+     and short, at most two per page.
+6. **The search header of a list is one designed unit.**
+   - A prominent search pill (where / what, then filters) with the Bălți / Ape publice switch
+     integrated, e.g. a segmented control next to or above the pill.
+   - Filters sit as chips under it.
+   - The map is a floating "Arată harta" toggle, not one more button in a row.
+7. **Map view is a split view**: listing grid on the left (two columns on wide screens), sticky map on
+   the right. Same listing card as the list view (no in-between card size). Hovering a card highlights
+   its marker and the reverse. On phone, a map with a draggable bottom sheet of cards.
+8. **No visible focus ring on non-interactive elements.** Headings focused programmatically after
+   navigation (tabIndex -1) get no outline. Rings are only for keyboard focus on controls
+   (`:focus-visible`).
 
 
 
