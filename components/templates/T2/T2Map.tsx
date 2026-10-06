@@ -79,6 +79,11 @@ export type T2MapProps<P extends T2MapPoint> = {
   points: ReadonlyArray<P>;
   /** Accessible name of one pin («Balta Alesteu»). */
   pointLabel: (point: P) => string;
+  /**
+   * Draw a pin as a pill with this content (a price, a rating) instead of the fish badge; null keeps
+   * the badge. Owner rule 7 (imobiliare.ro): the pins say what the list says.
+   */
+  pointBadge?: (point: P) => ReactNode | null;
   selectedId?: string | null;
   /** The point whose list row is hovered / focused: drawn raised so the eye finds it. */
   highlightedId?: string | null;
@@ -138,6 +143,7 @@ export function T2Map<P extends T2MapPoint>({
   label,
   points,
   pointLabel,
+  pointBadge,
   selectedId = null,
   highlightedId = null,
   onSelect,
@@ -505,6 +511,7 @@ export function T2Map<P extends T2MapPoint>({
                 <T2MapPin
                   id={node.point.id}
                   label={pointLabel(node.point)}
+                  badge={pointBadge?.(node.point) ?? null}
                   selected={node.point.id === selectedId}
                   highlighted={node.point.id === highlightedId}
                   onClick={() => onSelect?.(node.point)}

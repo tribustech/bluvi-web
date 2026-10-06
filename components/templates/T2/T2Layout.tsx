@@ -36,8 +36,9 @@ import { SHELL_EDGE_PAD } from '@/components/nav/shell';
  *   the list on the right, ONE horizontal card per row (T2List). The list stays first in the DOM
  *   (keyboard: «Sari la hartă»); only the grid places the map first.
  *
- * The template is full-bleed (it breaks out of the shell's 1744px column); the toolbar's left edge
- * lines up with the shell column, so it starts under the logo at every width.
+ * The template is full-bleed (it breaks out of the shell's 1744px column); the toolbar's content
+ * lines up with the shell column at both edges, so it starts under the logo and ends under the top
+ * bar's last action at every width.
  *
  * First paint: everything a phone needs at rest is CSS (sheet rests at 45% / below the toolbar,
  * the map controls and attribution placed by --t2-top / --t2-bottom), so the server render is
@@ -84,6 +85,17 @@ function skipTo(e: MouseEvent<HTMLAnchorElement>, id: string, inner?: string) {
 
 /** Left padding that aligns with the shell column (nav/shell.tsx SHELL_EDGE_PAD, next to SHELL_MAX). */
 export const ALIGN_LEFT = SHELL_EDGE_PAD;
+/**
+ * The same on the right: the shell column's right edge (SHELL_EDGE_PAD mirrored — the same 436, so
+ * change them together). TODO(kit): a SHELL_EDGE_PAD_END next to SHELL_EDGE_PAD in nav/shell.tsx.
+ */
+const ALIGN_RIGHT = 'md:pr-6 xl:pr-[max(var(--spacing)*8,calc((100vw_-_var(--spacing)*436)/2_+_var(--spacing)*8))]';
+/**
+ * The list column's sides from 768 (header and scroller): the gutter on the left (the map's edge),
+ * ALIGN_RIGHT on the right — the column runs to the window's edge, so its cards end on the shell
+ * column under the toolbar's last control, not on the window's 32px edge.
+ */
+const LIST_PAD = cn('md:pl-6 xl:pl-8', ALIGN_RIGHT);
 
 /** fish RESULTS_SHEET_FRACTION: the sheet opens at 40–45% of the screen. */
 const HALF = 0.45;
@@ -292,8 +304,12 @@ export function T2Layout({
           '[--t2-top:calc(var(--t2-toolbar)+var(--spacing)*2)] md:[--t2-top:0px]',
           bottomVar,
           'relative isolate mx-[calc(50%-50vw)] w-screen overflow-clip bg-page',
-          // Map | list, about half each (rule 7); the list never narrower than a horizontal card needs.
-          'md:grid md:grid-cols-[minmax(0,1fr)_minmax(--spacing(96),1fr)] md:grid-rows-[auto_minmax(0,1fr)]',
+          // Map | list, about half each (rule 7); the list never narrower than a horizontal card needs
+          // and its cards never wider than ~736px (imobiliare.ro: past that a one-per-row card is
+          // mostly empty info area) — a wider screen gives the extra width to the map. Past the
+          // shell column (1744) the list column also takes the margin beside it, so its cards end
+          // on the shell column like the toolbar above (LIST_PAD), at the same card width.
+          'md:grid md:grid-cols-[minmax(0,1fr)_minmax(--spacing(96),min(50%,calc(var(--spacing)*200_+_max(0px,(100vw_-_var(--spacing)*436)/2))))] md:grid-rows-[auto_minmax(0,1fr)]',
           className,
         )}
       >
@@ -310,14 +326,18 @@ export function T2Layout({
             'absolute inset-x-0 top-0 z-sticky border-b border-transparent px-4 pt-2',
             'transition-[background-color,border-color] duration-(--duration-slow) ease-slow',
             fullBar && 'border-hairline bg-surface',
-            'md:static md:transition-none md:col-span-2 md:border-b md:border-hairline md:bg-surface md:py-3 md:pr-6 xl:pr-8',
+            // From 768 a band on the page ground (the list header's, so list ↔ map changes nothing),
+            // its content on the shell column at both edges (the top bar's logo … its last action),
+            // while the map and the list below stay full-bleed.
+            'md:static md:transition-none md:col-span-2 md:border-b md:border-hairline md:bg-page md:py-3',
             ALIGN_LEFT,
+            ALIGN_RIGHT,
           )}
         >
           {toolbar}
         </div>
 
-        {/* List: the bottom sheet on a phone, the left column from 768. */}
+        {/* List: the bottom sheet on a phone, the right column from 768. */}
         <section
           id={listId}
           tabIndex={-1}
@@ -358,7 +378,8 @@ export function T2Layout({
             </button>
             <div
               className={cn(
-                'border-b px-4 pb-2 md:px-6 md:pt-4 xl:px-8',
+                'border-b px-4 pb-2 md:pt-4',
+                LIST_PAD,
                 'transition-[border-color] duration-(--duration-fast) ease-fast',
                 scrolled ? 'border-hairline' : 'border-transparent',
               )}
@@ -371,7 +392,7 @@ export function T2Layout({
             ref={scrollRef}
             data-t2-scroll
             aria-busy={busy || undefined}
-            className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-1 pb-6 md:px-6 xl:px-8"
+            className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-1 pb-6', LIST_PAD)}
           >
             <div ref={sentinelRef} aria-hidden className="h-px shrink-0" />
             {list}
@@ -385,7 +406,7 @@ export function T2Layout({
           ) : null}
         </section>
 
-        {/* Map: full screen on a phone, the right column from 768. */}
+        {/* Map: full screen on a phone, the left column from 768. */}
         <div
           id={mapId}
           tabIndex={-1}

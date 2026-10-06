@@ -10,7 +10,7 @@ import { FULL_BLEED_HAIRLINE, FULL_BLEED_SURFACE, PINNED_TOP_PHONE } from './met
  * The one pinned anatomy of a T3 page on the phone (fish VenuePinnedNav): once the header has
  * scrolled away, a mini title row (46: title, a meta line, a share chip) pins above the page's
  * navigation (the lake's section chips, the competition's route tabs). The bar hides on scroll down
- * and the pinned rows follow it to the top edge (STICKY_TOP + useFollowBar), so the detail screens look
+ * and the pinned rows follow it to the top edge (STICKY_TOP: the bar's own `top` transition), so the detail screens look
  * like one app and the pinned strip is always a header, never a bare row hanging in the air.
  *
  * The mini row overlaps the header's last 46px while the header is visible (invisible, inert,
@@ -20,12 +20,18 @@ import { FULL_BLEED_HAIRLINE, FULL_BLEED_SURFACE, PINNED_TOP_PHONE } from './met
 /** Phone mini row (fish PINNED_MINI_HEIGHT 46). Hidden from assistive tech: it repeats the h1. */
 export function DetailPinnedTitle({
   pinned,
+  start,
   title,
   badge,
   meta,
   end,
 }: {
   pinned: boolean;
+  /**
+   * Left: the back chip (fish VenuePinnedNav `leftAccessory={<BackButton/>}`). Once the header has
+   * scrolled away and the phone bar is concealed, it is the only way back on screen (lakes c12).
+   */
+  start?: ReactNode;
   title: string;
   /**
    * On the title line, after the name: a state pill (the competition's LIVE / Viitor / …). A 26px
@@ -47,6 +53,7 @@ export function DetailPinnedTitle({
         pinned ? 'pointer-events-auto opacity-100' : 'opacity-0',
       )}
     >
+      {start}
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate t-body-strong">{title}</span>
@@ -65,6 +72,7 @@ export function DetailPinnedTitle({
  * stack's shadow once pinned (the bar above drops its own: shell BAR_SHADOW).
  */
 export function DetailPinnedBand({
+  start,
   title,
   badge,
   meta,
@@ -72,6 +80,8 @@ export function DetailPinnedBand({
   children,
   className,
 }: {
+  /** The mini row's back chip (DetailPinnedTitle `start`). */
+  start?: ReactNode;
   title: string;
   badge?: ReactNode;
   meta?: ReactNode;
@@ -96,11 +106,12 @@ export function DetailPinnedBand({
         // Phone: the band rises over the header's last 46px (the mini row's place), click-through
         // and without its surface until it pins, so the header under it stays visible and usable.
         'max-md:pointer-events-none max-md:-mt-11.5 max-md:before:opacity-0 max-md:data-pinned:before:opacity-100',
-        'data-pinned:shadow-e1',
+        // The shadow from the full-bleed surface: it spans the screen like the band, not the column.
+        'data-pinned:before:shadow-e1',
         className,
       )}
     >
-      <DetailPinnedTitle pinned={pinned} title={title} badge={badge} meta={meta} end={end} />
+      <DetailPinnedTitle pinned={pinned} start={start} title={title} badge={badge} meta={meta} end={end} />
       <div className="pointer-events-auto bg-surface md:bg-transparent">{children}</div>
     </div>
   );

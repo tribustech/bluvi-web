@@ -4,6 +4,7 @@ import { ChevronRightIcon, MapIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { plural } from '@/components/cards/format';
 import { LINK_ACTION } from '@/components/templates/T5';
 import { cn } from '@/components/ui/cn';
 import { getLakeLocationSubtitle, type LakeHomeSectionLake } from '@/core/lakes';
@@ -111,11 +112,14 @@ export function CategoryBar({
 export function HomeGrid({
   category,
   distanceOf,
+  radiusAction,
   className,
 }: {
   category: HomeCategory;
   /** «7.4 km» for a lake in the nearby set. */
   distanceOf: (lake: LakeHomeSectionLake) => string | null;
+  /** «Aproape de tine»: «50 km ›» to the nearby map instead of «Vezi pe hartă» (lakes.home.c12). */
+  radiusAction?: { label: string; href: string } | null;
   className?: string;
 }) {
   const id = `balti-grid-${category.key.replace(/[^a-z0-9-]/gi, '-')}`;
@@ -133,14 +137,30 @@ export function HomeGrid({
   return (
     <section aria-labelledby={id} data-balti-grid={category.key} className={className}>
       <div className="flex flex-wrap items-end gap-x-3 gap-y-1 pb-4">
-        <h2 id={id} className="t-title2 text-ink">
+        <h2 id={id} tabIndex={-1} className="t-title2 text-ink outline-none">
           {category.title}
         </h2>
-        <Link href={category.mapHref} className={cn(LINK_ACTION, '-my-3 ml-auto gap-1.5')} aria-label={`Vezi pe hartă: ${category.title}`}>
-          <MapIcon aria-hidden className="size-4.5 stroke-2" />
-          {category.key === 'all' ? 'Vezi toate pe hartă' : 'Vezi pe hartă'}
-          <ChevronRightIcon aria-hidden className="size-3.5 stroke-[2.5]" />
-        </Link>
+        {category.total != null ? (
+          // The CMS's own count for a filtered category (the grid holds its first page).
+          <p className="t-body text-muted">{plural(category.total, 'baltă', 'bălți')}</p>
+        ) : null}
+        {radiusAction ? (
+          <Link
+            href={radiusAction.href}
+            className={cn(LINK_ACTION, '-my-3 ml-auto gap-1.5')}
+            aria-label={`Vezi pe hartă bălțile pe o rază de ${radiusAction.label}`}
+          >
+            <MapIcon aria-hidden className="size-4.5 stroke-2" />
+            {radiusAction.label}
+            <ChevronRightIcon aria-hidden className="size-3.5 stroke-[2.5]" />
+          </Link>
+        ) : (
+          <Link href={category.mapHref} className={cn(LINK_ACTION, '-my-3 ml-auto gap-1.5')} aria-label={`Vezi pe hartă: ${category.title}`}>
+            <MapIcon aria-hidden className="size-4.5 stroke-2" />
+            {category.key === 'all' ? 'Vezi toate pe hartă' : 'Vezi pe hartă'}
+            <ChevronRightIcon aria-hidden className="size-3.5 stroke-[2.5]" />
+          </Link>
+        )}
       </div>
       <ul className={LAKE_GRID} onClick={onClick}>
         {category.lakes.map((lake, i) => (
@@ -180,7 +200,7 @@ export function RecentStrip({ lakes, className }: { lakes: LakeHomeSectionLake[]
   return (
     <section aria-labelledby="balti-recent-title" className={className}>
       <div className="pb-3">
-        <h2 id="balti-recent-title" className="t-heading text-ink">
+        <h2 id="balti-recent-title" tabIndex={-1} className="t-heading text-ink outline-none">
           Vizualizate recent
         </h2>
       </div>

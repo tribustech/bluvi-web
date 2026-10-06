@@ -131,7 +131,7 @@ screens:
         text: "Analytics: one lake_home_section_impression per section with content (section_key, section_position, lakes_count) and lake_home_section_click (section_key, section_position, item_position, lake_id)."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:623"
     mobile_only: false
-    status: passing
+    status: proposed
 
   # ───────────────────────────────────────────── search overlay
   - id: lakes.search
@@ -417,7 +417,7 @@ screens:
         text: "Analytics: lakes_map_results_view (once, bbox+zoom+search_mode), lakes_map_results_focus_applied, lakes_map_results_cluster_tap, lakes_map_results_pin_tap, lakes_map_results_locate_me, lakes_map_clear_filters, lakes_map_results_pin_card_view_page / _dismiss, lakes_pin_card_open_maps."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:771"
     mobile_only: false
-    status: passing
+    status: proposed
 
   # ───────────────────────────────────────────── lake detail
   - id: lakes.detail
@@ -492,6 +492,7 @@ screens:
       - id: lakes.detail.c6
         text: "Hero shows a red „Rezervă acum” button on every lake (bottom-left), wired to the booking affordance (c16)."
         fish_ref: "features/lakes/detail/LakeHero.tsx:71"
+        web_note: "One label per booking state at every width (owner rule 4 — never promise what is not there): «Rezervă acum» when the lake books (online, or by phone → Contact); «Vreau să rezerv online» when it takes no bookings, on the phone hero, the 768 header and the ≥1024 summary card alike (secondary when the lake has a phone: «Sună» is the main action in the card and the phone bar). Same target as fish (c16 → lakes.booking-interest). A deliberate departure from fish's «Rezervă acum» on every lake. tests/e2e/balta.spec.ts asserts it at 375 and 1440."
       - id: lakes.detail.c7
         text: "Hero photo pill (bottom-right) shows lake images + total community catches; hidden at 0; opens /balti/[id]/galerie."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:155"

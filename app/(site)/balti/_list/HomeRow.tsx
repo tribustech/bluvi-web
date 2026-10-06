@@ -20,7 +20,7 @@ import { track } from './analytics';
 import { distanceLabel } from './distance';
 import { FishOutlineIcon } from '@/components/nav/brand';
 import { CompassIcon, NavigationIcon, TelescopeIcon, WavesIcon } from './icons';
-import { LakeTile, TILE_HEIGHT } from './LakeTile';
+import { LakeTile, LakeTileRow, TILE_HEIGHT } from './LakeTile';
 
 /*
  * One Bălți home row — fish features/lakes/components/LakesHomeSectionRow.tsx: an icon badge in the
@@ -28,27 +28,44 @@ import { LakeTile, TILE_HEIGHT } from './LakeTile';
  * in the header and a «Vezi toate» card at the end when there are more (c10), the radius «50 km ›»
  * instead on the nearby row (c12). The rail is Acasă's (HorizontalRail: snap, the screen-edge bleed,
  * auto-fill tracks from 768, the mouse arrows in the header). The rails are the PHONE's home (fish);
- * from 768 the CMS rows are one grid with icon categories (owner rule 5 — HomeGrid), and only the
- * nearby rail stays, when it fills a row.
+ * from 768 the CMS rows — the nearby one too — are one grid with icon categories (owner rule 5 —
+ * HomeGrid; the nearby lakes are «Aproape de tine»), so a page never shows two card designs.
+ *
+ * A phone section too short to fill its rail (fewer than 3 cards, 2 compact ones) is not a rail
+ * with an empty half (rule 5): its lakes stack as compact row cards (LakeTileRow) under the header.
  *
  * Analytics (c28, fish LakesHomeSectionRow): one lake_home_section_impression when a row with
  * content mounts, and lake_home_section_click on every card opened.
  */
 
 /** fish handleSectionImpression: once per mount of a section with content. */
-function useSectionImpression(sectionKey: string, position: number, lakesCount: number, shown?: { current: HTMLElement | null }) {
+function useSectionImpression(
+  sectionKey: string,
+  position: number,
+  lakesCount: number,
+  shown?: { current: HTMLElement | null },
+  ready = true,
+) {
   const done = useRef(false);
   useEffect(() => {
-    if (done.current) return;
+    // Not before the row's place is final: the server-rendered rows hydrate while the location
+    // permission is still being read, and the nearby slot (section 1 when it shows) comes first.
+    if (done.current || !ready) return;
     // A row mounted but not rendered at this width (the phone rails under the desktop grid) is not seen.
     if (shown && !shown.current?.getClientRects().length) return;
     done.current = true;
     track('lake_home_section_impression', { section_key: sectionKey, section_position: position, lakes_count: lakesCount });
-  }, [sectionKey, position, lakesCount, shown]);
+  }, [sectionKey, position, lakesCount, shown, ready]);
 }
 
 /** fish SECTION_VISIBLE_LAKES_COUNT. */
 export const SECTION_VISIBLE_LAKES = 10;
+
+/**
+ * Below this many cards a phone rail is near-empty (375px: a 200px card and a half per screen, a
+ * 160px compact card two): the section stacks compact rows instead.
+ */
+const RAIL_MIN = { default: 3, compact: 2 } as const;
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -128,8 +145,11 @@ export function HomeRow({
   position,
   seeAllHref,
   radiusAction,
+  impressionReady = true,
 }: {
   section: LakeHomeSection;
+  /** The rows' order is final (the location permission is known): the impression may be counted. */
+  impressionReady?: boolean;
   /** 1-based place among the page's sections (analytics). */
   position: number;
   /** Where «Vezi toate» goes (lakes.home.c11). */
@@ -145,7 +165,7 @@ export function HomeRow({
   const canSeeAll = section.lakes.length > SECTION_VISIBLE_LAKES;
   const lakes = canSeeAll ? section.lakes.slice(0, SECTION_VISIBLE_LAKES) : section.lakes;
   const shownRef = useRef<HTMLDivElement>(null);
-  useSectionImpression(section.key, position, section.lakes.length, shownRef);
+  useSectionImpression(section.key, position, section.lakes.length, shownRef, impressionReady);
 
   const link = radiusAction ? (
     <HeaderLink href={radiusAction.href} label={radiusAction.label} srLabel={`Vezi pe hartă bălțile pe o rază de ${radiusAction.label}`} />
@@ -168,7 +188,18 @@ export function HomeRow({
   const distanceOf = (lake: (typeof lakes)[number]) =>
     section.key === 'nearby' ? distanceLabel((lake as { distanceKm?: number }).distanceKm ?? Number.NaN) : null;
 
-  const railRow = (
+  const stacked = lakes.length < RAIL_MIN[variant];
+  const content = stacked ? (
+      <ul aria-label={section.title} className="flex flex-col gap-2.5">
+        {lakes.map((lake, i) => (
+          <li key={lake.documentId} data-lake-id={lake.documentId} data-item-position={i + 1}>
+            <LakeTileRow lake={lake} variant={variant} distanceLabel={distanceOf(lake)} />
+          </li>
+        ))}
+      </ul>
+    ) : null;
+
+  const railRow = content ?? (
     <HorizontalRail label={section.title} width={width}>
       {lakes.map((lake, i) => (
         <RailItem key={lake.documentId} width={width}>
@@ -177,7 +208,8 @@ export function HomeRow({
           </div>
         </RailItem>
       ))}
-      {canSeeAll ? <SeeAllEnd href={seeAllHref} title={section.title} heightClass={TILE_HEIGHT[variant]} /> : null}
+      {/* The end card takes the row's height (the cards size to their content). */}
+      {canSeeAll ? <SeeAllEnd href={seeAllHref} title={section.title} heightClass="min-h-full" /> : null}
     </HorizontalRail>
   );
 
@@ -194,7 +226,7 @@ export function HomeRow({
         action={
           // Centred on the 44px badge row (the badge sets the heading row's height).
           <span className="mt-2.75 flex items-center gap-3">
-            <RailArrows rail={rail} />
+            {content ? null : <RailArrows rail={rail} />}
             {link}
           </span>
         }
@@ -323,14 +355,16 @@ export function SlotRowSkeleton({ compact = false }: { compact?: boolean }) {
  * browser had location granted last time (./geoHint.ts, set before paint) — a row's, so the rows
  * below do not move when the answer comes.
  */
-export function NearbySlotSkeleton() {
+export function NearbySlotSkeleton({ phoneOnly = false }: { phoneOnly?: boolean } = {}) {
   return (
-    <>
+    // `phoneOnly`: from 768 there is no nearby slot over the grid — the placeholder card is the
+    // «Aproape de tine» category and the nearby lakes are that category's grid (owner rule 5).
+    <div className={cn('contents', phoneOnly && 'md:hidden')}>
       <div aria-hidden className={cn('animate-shimmer rounded-card [:root:has(#balti-geo-granted)_&]:hidden', NEARBY_CARD_BOX)} />
       <div aria-hidden className="hidden [:root:has(#balti-geo-granted)_&]:block">
         <RowSkeleton />
       </div>
-    </>
+    </div>
   );
 }
 

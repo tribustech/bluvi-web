@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { FishIcon } from '@/components/icons/brand';
 import { cn } from '@/components/ui/cn';
 
@@ -21,10 +22,16 @@ export function T2MapPin({
   highlighted = false,
   onClick,
   onHover,
+  badge = null,
 }: {
   /** The point id (`data-t2-pin`): focus returns here when the pin card closes. */
   id?: string;
   label: string;
+  /**
+   * The pin as a price / rating pill instead of the fish badge (owner rule 7 — imobiliare.ro's
+   * «€ 94K» pins): «45 lei», «★ 4,8». Visual only: the accessible name stays `label`.
+   */
+  badge?: ReactNode;
   selected?: boolean;
   highlighted?: boolean;
   onClick?: () => void;
@@ -50,21 +57,50 @@ export function T2MapPin({
         selected ? 'scale-125' : highlighted ? 'scale-115' : 'hover:scale-110',
       )}
     >
-      <span
-        className={cn(
-          'flex size-8 items-center justify-center rounded-full border-2 border-on-accent bg-accent text-on-accent shadow-e2',
-          'group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-accent',
-          // The halo in a colour token (accent-tint-2 is tuned for dark), not an opacity of accent.
-          selected && 'ring-4 ring-accent-tint-2',
-        )}
-      >
-        <FishIcon size={18} />
-      </span>
-      {/* The tip: a 6px rotated square under the badge. */}
-      <span
-        aria-hidden
-        className="-mt-1.5 size-2.5 rotate-45 rounded-badge bg-accent"
-      />
+      {badge != null ? (
+        <>
+          <span
+            aria-hidden
+            data-t2-pin-badge=""
+            className={cn(
+              'flex h-7 items-center gap-0.5 rounded-full border-2 px-2 t-label whitespace-nowrap tabular-nums shadow-e2',
+              'transition-colors duration-(--duration-fast) ease-fast',
+              'group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-accent',
+              selected || highlighted
+                ? 'border-on-accent bg-accent-ink text-on-accent'
+                : 'border-surface bg-surface text-ink group-hover:bg-accent-tint group-hover:text-accent-ink',
+              selected && 'ring-4 ring-accent-tint-2',
+            )}
+          >
+            {badge}
+          </span>
+          <span
+            aria-hidden
+            className={cn(
+              '-mt-1.5 size-2.5 rotate-45 rounded-badge transition-colors duration-(--duration-fast) ease-fast',
+              selected || highlighted ? 'bg-accent-ink' : 'bg-surface group-hover:bg-accent-tint',
+            )}
+          />
+        </>
+      ) : (
+        <>
+          <span
+            className={cn(
+              'flex size-8 items-center justify-center rounded-full border-2 border-on-accent bg-accent text-on-accent shadow-e2',
+              'group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-accent',
+              // The halo in a colour token (accent-tint-2 is tuned for dark), not an opacity of accent.
+              selected && 'ring-4 ring-accent-tint-2',
+            )}
+          >
+            <FishIcon size={18} />
+          </span>
+          {/* The tip: a 6px rotated square under the badge. */}
+          <span
+            aria-hidden
+            className="-mt-1.5 size-2.5 rotate-45 rounded-badge bg-accent"
+          />
+        </>
+      )}
     </button>
   );
 }

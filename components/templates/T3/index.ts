@@ -21,6 +21,7 @@ export { DetailQuickActions, type DetailQuickAction } from './DetailQuickActions
 export { DetailFacts, type DetailFact } from './DetailFacts';
 export { DetailProse } from './DetailProse';
 export { richTextToPlain } from './prose';
+export { focusLandingSpot } from './focus';
 export { DetailBackButton } from './DetailBackButton';
 export { DetailShareButton } from './DetailShareButton';
 export { DetailSkeleton, DetailError, DetailNotFound, DetailSignInPrompt, DetailSectionState, type DetailSkeletonProps } from './DetailStates';

@@ -5,7 +5,7 @@ import { HydrateQueries } from '@/lib/client/hydration';
 import { absoluteUrl, routes } from '@/lib/routes';
 import { createServerTransport } from '@/lib/server/transport';
 import { HomeHeader } from './_list/HomeHeader';
-import { HomeSkeleton, NearbySlotSkeleton } from './_list/HomeRow';
+import { HomeSkeleton } from './_list/HomeRow';
 import { CategoryBarSkeleton, HomeGridSkeleton } from './_list/HomeGrid';
 import { GeoHintScript } from './_list/GeoHintScript';
 import { HOME_PARAMS } from './_list/homeParams';
@@ -50,8 +50,7 @@ export default function LakesPage() {
               <div className="md:hidden">
                 <HomeSkeleton />
               </div>
-              <div aria-hidden className="flex flex-col gap-9 max-md:hidden">
-                <NearbySlotSkeleton />
+              <div aria-hidden className="max-md:hidden">
                 <HomeGridSkeleton />
               </div>
             </div>

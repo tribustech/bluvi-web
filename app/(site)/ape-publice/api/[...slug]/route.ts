@@ -3,6 +3,7 @@ import { encodeCentroids, publicWaterTypeSchema, type LatLngBounds, type PublicW
 import { cmsUrl } from '@/lib/server/env';
 import { sqlitePublicWatersSource as src } from '../../_server/source';
 import { originOf, PHOTO_MAX_BYTES, photoProxyTarget } from '../../_server/photoProxy';
+import { waterOutline } from '../../_components/map/outline';
 
 /*
  * The public-waters dataset for the browser (the map, the search, the county filter) — the web's
@@ -13,6 +14,7 @@ import { originOf, PHOTO_MAX_BYTES, photoProxyTarget } from '../../_server/photo
  *   viewport?minLat&minLng&maxLat&maxLng[&types][&counties][&limit]   fish getWaterRowsInViewport
  *   markers?…same…                                                    fish getMarkerWatersInViewport
  *   geometries?ids=1,2                                                fish getGeometriesByIds
+ *   outlines?ids=1,2                                                  the map list cards' outlines (≤150, _components/map/outline.ts)
  *   water/<id | linkCode>                                             fish getPublicWaterById / ByLinkCode
  *   search?q[&limit]                                                  fish searchPublicWaters
  *   nearest?lat&lng[&limit]                                           fish nearestWatersTo
@@ -77,6 +79,13 @@ export async function GET(request: NextRequest, ctx: RouteContext<'/ape-publice/
       }
       case 'geometries':
         return json(await src.getGeometriesByIds(ids(sp, 'ids', 1500)));
+      case 'outlines': {
+        const got = await src.getGeometriesByIds(ids(sp, 'ids', 150));
+        return json(got.flatMap((g) => {
+          const o = waterOutline(g.geometry);
+          return o ? [{ id: g.id, ...o }] : [];
+        }));
+      }
       case 'water': {
         const param = decodeURIComponent(rest.join('/')).trim();
         if (!param) return json(null);

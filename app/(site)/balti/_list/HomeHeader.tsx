@@ -1,10 +1,11 @@
 'use client';
 
-import { MagnifyingGlassIcon, MapIcon } from '@heroicons/react/24/outline';
+import { ArrowPathRoundedSquareIcon, ChevronDownIcon, ListBulletIcon, MagnifyingGlassIcon, MapIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { UNDER_BAR_TOP } from '@/components/nav/shell';
-import { FilterButton, FOCUS_RING, SEARCH_SHELL } from '@/components/templates/T1';
+import { FishOutlineIcon } from '@/components/nav/brand';
+import { CONTROL_H, FilterButton } from '@/components/templates/T1';
 import { T2_EXPANDED } from '@/components/templates/T2';
 import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
@@ -21,15 +22,157 @@ import { WaterKindSwitch } from './WaterKindSwitch';
  * totalLakesCount 0 (lakes.home.s10), so does the web.
  *
  * Right under it, attached, the icon categories (rule 5: Airbnb's row; each one filters the grid
- * below in place — HomeGrid CategoryBar). The map page has its own T2 toolbar and chips.
+ * below in place — HomeGrid CategoryBar). The map page shows the same search row (LakesSearchRow) in
+ * the same place, its toggle reading «Arată lista», with its quick chips in the categories' slot.
  *
  * Sticky under the top bar (c27), on the shell's under-bar offset (UNDER_BAR_TOP, on the bar's own
  * timing: up to the edge when the phone's top bar slides away). Once stuck it gets its edge — a
  * hairline — and a fade into the rows that scroll under it. Without handlers (the first paint) the
  * controls are inert.
  */
+/** The view toggle: one width for «Arată harta» and «Arată lista», so list ↔ map moves nothing. */
+const TOGGLE = 'min-w-40 gap-2 max-md:hidden';
+
+/** A segment of the search pill: a flat button inside the shell, soft-fill on hover. */
+const SEGMENT = cn(
+  'flex cursor-pointer items-center rounded-[calc(var(--radius-control)-3px)] text-left',
+  'transition-[background-color,opacity] duration-(--duration-fast) ease-fast hover:bg-soft-fill active:opacity-80',
+  'focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent',
+);
+
+/**
+ * The search row both Bălți views share (owner rules 6 and 7): the Bălți / Ape publice switch, the
+ * search pill («where», then from 1024 «Specie» and «Regim» — imobiliare.ro's selects), «Filtre»
+ * after the selects, and from 768 the view toggle in the row's primary slot: «Arată harta» on the
+ * list, «Arată lista» on the map. One anatomy, one place: going list ↔ map moves nothing.
+ */
+export function LakesSearchRow({
+  ready,
+  view,
+  onSearch,
+  searchLabel = 'Deschide căutarea pentru bălți',
+  summary = null,
+  searchRef,
+  onSection,
+  sectionExpanded = null,
+  sectionValues,
+  onFilters,
+  filtersExpanded = false,
+  filterCount = 0,
+  showToggle = false,
+  switcherHrefs,
+}: {
+  /** Handlers attached: until then the controls are inert (the server paint). */
+  ready: boolean;
+  /** The page the row sits on: its toggle leads to the other view. */
+  view: 'list' | 'map';
+  onSearch?: () => void;
+  /** Accessible name of the «where» segment. */
+  searchLabel?: string;
+  /** The committed search («Giurgiu», «În jurul meu · 50km»); null → the placeholder. */
+  summary?: string | null;
+  searchRef?: RefObject<HTMLButtonElement | null>;
+  /** «Specie» / «Regim» in the pill (from 1024): open that filter section. */
+  onSection?: (section: 'fish' | 'regime') => void;
+  sectionExpanded?: 'fish' | 'regime' | null;
+  /** The committed choice per select («Crap +1»): shown in place of the question, tinted. */
+  sectionValues?: { fish?: string | null; regime?: string | null };
+  onFilters?: () => void;
+  filtersExpanded?: boolean;
+  /** Active filters (the «Filtre» badge). */
+  filterCount?: number;
+  /** The view toggle (from 768). The list hides «Arată harta» while it has no lakes (c23). */
+  showToggle?: boolean;
+  switcherHrefs?: Partial<Record<'balti' | 'ape', string>>;
+}) {
+  const select = (key: 'fish' | 'regime', label: string, icon: ReactNode) => {
+    const value = sectionValues?.[key] ?? null;
+    return (
+      <>
+        <span aria-hidden className="my-2 w-px shrink-0 bg-hairline max-lg:hidden" />
+        <button
+          type="button"
+          onClick={() => onSection?.(key)}
+          aria-haspopup="dialog"
+          aria-expanded={sectionExpanded === key}
+          aria-label={value ? `${label}: ${value}` : undefined}
+          className={cn(SEGMENT, 'gap-2 px-3 max-lg:hidden xl:min-w-40', value && 'bg-accent-tint hover:bg-accent-tint')}
+        >
+          <span aria-hidden className="flex shrink-0 text-accent-ink [&>svg]:size-5">
+            {icon}
+          </span>
+          <span className={cn('max-w-36 flex-1 truncate t-body-strong', value ? 'text-accent-ink' : 'text-ink')}>{value ?? label}</span>
+          <ChevronDownIcon aria-hidden className="size-4 shrink-0 stroke-2 text-muted" />
+        </button>
+      </>
+    );
+  };
+  return (
+    <div className="flex flex-col gap-3 md:flex-row md:items-center">
+      <div className="flex justify-center md:justify-start">
+        <WaterKindSwitch current="balti" hrefs={switcherHrefs} />
+      </div>
+      <div inert={!ready} className="flex min-w-0 items-center gap-3 md:flex-1">
+        {/* The search pill (owner rule 6 — imobiliare.ro's bar): one shell holding «where»
+            (fish LakesSearchBubble, lakes.home.c4 — the search layer) and, from 1024, «what»:
+            the species and the regime, each opening its own filter section. No price select: no
+            endpoint filters by price (rule 4). It takes the rest of the row. */}
+        <div
+          className={cn(
+            CONTROL_H,
+            'flex min-w-0 flex-1 items-stretch rounded-control bg-surface p-0.75 shadow-e1 outline-1 -outline-offset-1 outline-hairline',
+          )}
+        >
+          <button
+            ref={searchRef}
+            type="button"
+            onClick={() => onSearch?.()}
+            aria-label={searchLabel}
+            aria-haspopup="dialog"
+            className={cn(SEGMENT, 'min-w-0 flex-1 gap-2.5 pl-3')}
+          >
+            <MagnifyingGlassIcon aria-hidden className="size-5 shrink-0 text-muted" />
+            <span className={cn('min-w-0 flex-1 truncate t-body', summary ? 'text-ink' : 'text-muted')}>
+              {summary ?? 'Caută bălți, lacuri...'}
+            </span>
+          </button>
+          {/* Rendered on the first paint too (inert until hydrated): the pill keeps its shape. */}
+          {select('fish', 'Specie', <FishOutlineIcon />)}
+          {select('regime', 'Regim', <ArrowPathRoundedSquareIcon />)}
+        </div>
+        {/* «Filtre» after the selects (imobiliare.ro): everything else. */}
+        <FilterButton
+          count={filterCount}
+          desktopHidden={false}
+          expanded={filtersExpanded}
+          onClick={() => onFilters?.()}
+          className={T2_EXPANDED}
+        />
+        {showToggle ? (
+          view === 'list' ? (
+            // The map is the row's primary action (rule 6): filled accent, icon and label.
+            <Link href={routes.lakesMap()} className={buttonClass({ variant: 'primary', className: TOGGLE })}>
+              <MapIcon aria-hidden className="size-5 stroke-2" />
+              Arată harta
+            </Link>
+          ) : (
+            // The way back to the grid, in the same slot (secondary: the map is the destination
+            // the list promotes, the list is the way home). Drops the map's query (c2).
+            <Link href={routes.lakes()} className={buttonClass({ variant: 'secondary', className: TOGGLE })}>
+              <ListBulletIcon aria-hidden className="size-5 stroke-2" />
+              Arată lista
+            </Link>
+          )
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function HomeHeader({
   onSearch,
+  onSection,
+  sectionExpanded = null,
   onFilters,
   filtersExpanded = false,
   showMap = false,
@@ -38,6 +181,9 @@ export function HomeHeader({
 }: {
   onSearch?: () => void;
   onFilters?: () => void;
+  /** «Specie» / «Regim» in the pill (from 1024): open that filter section. */
+  onSection?: (section: 'fish' | 'regime') => void;
+  sectionExpanded?: 'fish' | 'regime' | null;
   filtersExpanded?: boolean;
   /** «Arată harta» (from 768): only when the page has lakes. Off on the first paint without data. */
   showMap?: boolean;
@@ -49,6 +195,11 @@ export function HomeHeader({
   const ready = Boolean(onSearch && onFilters);
   const sentinel = useRef<HTMLDivElement>(null);
   const bar = useRef<HTMLDivElement>(null);
+  // Marked once a render with handlers has committed and its effects ran: the controls answer clicks
+  // (e2e waits on it — «no inert» alone can show before then). Not React state: a DOM mark only.
+  useEffect(() => {
+    if (ready) bar.current?.setAttribute('data-hydrated', '');
+  }, [ready]);
   const [stuck, setStuck] = useState(false);
   useEffect(() => {
     // Stuck = the bar has left its place in the flow (the zero-height sentinel just above it).
@@ -88,40 +239,17 @@ export function HomeHeader({
         )}
       >
         <h1 className="sr-only">Bălți de pescuit</h1>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          <div className="flex justify-center md:justify-start">
-            <WaterKindSwitch current="balti" />
-          </div>
-          <div inert={!ready} className="flex min-w-0 items-center gap-3 md:flex-1">
-            {/* The search pill (T2SearchPill's look, lakes.home.c4) in the toolbar's one family: surface
-                + hairline, like the switch and «Filtre». It takes the rest of the row: the switch,
-                pill, «Filtre» and the map span the content width as one group. */}
-            <button
-              ref={searchRef}
-              type="button"
-              onClick={() => onSearch?.()}
-              aria-label="Deschide căutarea pentru bălți"
-              aria-haspopup="dialog"
-              className={cn(
-                SEARCH_SHELL,
-                'min-w-0 flex-1 cursor-pointer gap-2.5 pl-3.5 text-left',
-                'transition-[background-color,opacity] duration-(--duration-fast) ease-fast hover:bg-soft-fill! active:opacity-80',
-                FOCUS_RING,
-              )}
-            >
-              <MagnifyingGlassIcon aria-hidden className="size-5 shrink-0 text-muted" />
-              <span className="min-w-0 flex-1 truncate t-body text-muted">Caută bălți, lacuri...</span>
-            </button>
-            <FilterButton desktopHidden={false} expanded={filtersExpanded} onClick={() => onFilters?.()} className={T2_EXPANDED} />
-            {showMap ? (
-              // The map is the row's primary action (rule 6): filled accent, icon and label.
-              <Link href={routes.lakesMap()} className={buttonClass({ variant: 'primary', className: 'gap-2 max-md:hidden' })}>
-                <MapIcon aria-hidden className="size-5 stroke-2" />
-                Arată harta
-              </Link>
-            ) : null}
-          </div>
-        </div>
+        <LakesSearchRow
+          ready={ready}
+          view="list"
+          searchRef={searchRef}
+          onSearch={onSearch}
+          onSection={onSection}
+          sectionExpanded={sectionExpanded}
+          onFilters={onFilters}
+          filtersExpanded={filtersExpanded}
+          showToggle={showMap}
+        />
       </div>
       {categories ? <div className="pt-1">{categories}</div> : null}
     </>

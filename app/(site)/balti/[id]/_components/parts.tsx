@@ -170,7 +170,8 @@ function CompetitionRailRead({ lakeId, title, read, live = false }: { lakeId: st
 }
 
 /**
- * fish HorizontalCompetitionsList: the rail's title is a SeeAllTitle — «Vezi tot» opens the lake's
+ * fish HorizontalCompetitionsList: the rail's title is a SeeAllTitle — «Toate live» / «Toate viitoarele»
+ * (fish «Vezi tot»; renamed so it never shares a label with the section's «Vezi tot») opens the lake's
  * competitions with that status (fish /competitions/{started|notStarted}/{lakeId}). Left out while
  * that page is not on the web (availability.ts `competitions`).
  */
@@ -180,7 +181,7 @@ function CompetitionRail({ lakeId, title, items, live = false }: { lakeId: strin
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center gap-3">
         <h3 className={cn(H3_CLASS, 'min-w-0 flex-1')}>{title}</h3>
-        <SectionAction href={all}>Vezi tot</SectionAction>
+        <SectionAction href={all}>{live ? 'Toate live' : 'Toate viitoarele'}</SectionAction>
       </div>
       {/* Phone: a sideways rail (fish horizontal list); from 768 an auto-fill grid of cards. */}
       <ul className="-mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 py-1 [scrollbar-width:none] md:mx-0 md:grid md:scroll-px-0 md:grid-cols-[repeat(auto-fill,minmax(--spacing(64),1fr))] md:overflow-visible md:px-0">

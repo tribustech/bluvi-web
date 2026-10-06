@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { focusLandingSpot } from '@/components/templates/T3';
 
 /*
  * Where focus goes after a successful page «Încearcă din nou» (WCAG 2.4.3) — the lake page's
@@ -24,8 +25,7 @@ export function FocusAfterWaterRetry({ target }: { target: string }) {
     pending = null;
     const el = document.getElementById(target);
     if (!el) return;
-    if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
-    el.focus({ preventScroll: false });
+    focusLandingSpot(el, { preventScroll: false });
   }, [target]);
   return null;
 }

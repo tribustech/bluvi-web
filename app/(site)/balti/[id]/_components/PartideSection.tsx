@@ -81,9 +81,10 @@ export function PartideSection({ lakeId }: { lakeId: string }) {
         <Suspense fallback={<LiveCard data={data} viewerUid={null} />}>
           <LiveCardForViewer data={data} />
         </Suspense>
-        {/* Outline, like «Vezi recenzia»: «Rezervă acum» stays the page's one filled action. */}
+        {/* Outline, like «Vezi recenzia»: «Rezervă acum» stays the page's one filled action. Phone
+            only (fish's full-width button under the card): from 768 the header's «Vezi tot» is the one link. */}
         {all ? (
-          <Link href={all} className={buttonClass({ variant: 'outline', block: true, className: 'md:w-auto md:self-start' })}>
+          <Link href={all} className={buttonClass({ variant: 'outline', block: true, className: 'md:hidden' })}>
             Vezi toate partidele
             <ChevronRightIcon aria-hidden className="size-5" />
           </Link>

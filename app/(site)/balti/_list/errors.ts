@@ -36,6 +36,9 @@ export function useFocusAfterRetry(ready: boolean, target: () => HTMLElement | n
     const el = targetRef.current();
     if (!el) return;
     if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+    // Owner rule 8 (ROADMAP §4b): a heading focused by the page draws no ring — rings are for
+    // keyboard focus on controls. The global :focus-visible would draw one after a keyboard retry.
+    el.style.outline = 'none';
     el.focus({ preventScroll: false });
   }, [ready]);
   return () => {

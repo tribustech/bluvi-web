@@ -27,10 +27,9 @@ export function WaterLoading() {
   return (
     <DetailSkeleton
       photo
-      // The map hero's height (WaterHero: photoHeroHeight(2)), so nothing moves when the page lands;
-      // from 1024 the map is in the summary card, no band.
+      // The map band's height at every width (WaterHero: photoHeroHeight(2)), so nothing moves
+      // when the page lands.
       photoCount={2}
-      photoUntil="band"
       back={<DetailBackButton fallbackHref={routes.publicWaters()} onPhoto />}
       columns={{ layout: 'summary', aside: true }}
       header={{ meta: 1, actions: true }}

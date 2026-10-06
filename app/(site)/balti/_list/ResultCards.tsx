@@ -2,13 +2,16 @@
 
 import { StarIcon } from '@heroicons/react/20/solid';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { PhoneIcon } from '@heroicons/react/24/outline';
+import { useMemo, useState } from 'react';
 import { formatDecimal, Pill } from '@/components/cards';
 import { Dialog } from '@/components/surfaces/Dialog';
 import { T2MapCard } from '@/components/templates/T2';
 import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
-import { buildMapUrls, getLakeLocationSubtitle, type LakeMapLeaf, type LegacyLake } from '@/core/lakes';
+import { buildMapUrls, getLakeLocationSubtitle, lakeQuery, type LakeMapLeaf, type LegacyLake } from '@/core/lakes';
+import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { blurDataUrl } from '@/lib/blurhash';
 import { SplitIcon } from './icons';
@@ -88,32 +91,53 @@ function Rating({ overall, count, withCount = false }: { overall: number; count:
   );
 }
 
+/** A lake page read for the card's extras: cached like the lake page's own (edge + 10 min here). */
+const DETAIL_STALE_MS = 10 * 60 * 1000;
+
+const plainName = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
 /**
- * The results list's card: the horizontal LakeRowCard (owner rule 7) fed from the in-bbox lake.
- * The price comes from the lake's map pin when the map has it as its own pin (in-bbox carries no
- * price); unknown → no price line (rule 4).
+ * The results list's card: the horizontal LakeRowCard (owner rule 7) fed from the in-bbox lake,
+ * plus what only the lake's page has (/feed/lakes/:id, read per card and edge-cached): its depth
+ * (the «adâncime» fact) and its phone numbers (fish LakeContactSection — «Sună»). Both appear once
+ * known, never guessed (rule 4). The price comes from the page's price index (LakesMap: every
+ * lake of the map read, kept once known — in-bbox carries none); while that read is in flight the
+ * price line holds a bone, a lake without a price has no price line.
  */
 export function ResultLakeCard({
   lake,
   distanceLabel,
   photos,
   price,
+  priceLoading = false,
 }: {
   lake: LegacyLake;
   distanceLabel: string | null;
   photos: LakeImageSrc[];
   price?: { min?: number | null; max?: number | null } | null;
+  /** The price index is still being read (and has none for this lake yet). */
+  priceLoading?: boolean;
 }) {
+  const t = useMemo(() => createBrowserTransport(), []);
+  const detail = useQuery({ ...lakeQuery(t, lake.documentId), staleTime: DETAIL_STALE_MS, gcTime: DETAIL_STALE_MS });
+  const phones = (detail.data?.contact ?? []).filter((c): c is typeof c & { phone: string } => Boolean(c.phone?.trim()));
+  const depth = detail.data?.depth ?? null;
   const [directions, setDirections] = useState(false);
+  const [call, setCall] = useState(false);
   const location = getLakeLocationSubtitle(lake, { includeAddress: false });
   const reviews = lake.reviewsMeta && lake.reviewsMeta.count > 0 ? lake.reviewsMeta : null;
-  const facilities = (lake.facility ?? []).map((f) => f.name);
-  const species = new Set((lake.fishSpecies ?? []).flatMap((s) => (s.fish?.Name ? [s.fish.Name] : [])));
+  const facilities = (lake.facility ?? []).map((f) => plainName(f.name));
+  const species = [...new Set((lake.fishSpecies ?? []).flatMap((s) => (s.fish?.Name ? [s.fish.Name] : [])))];
   const coordinate = lake.coordinates ? { latitude: Number(lake.coordinates.lat), longitude: Number(lake.coordinates.long) } : null;
   const tags = [
     lake.bookingEnabled ? 'Rezervare online' : null,
     lake.regime ?? null,
-    facilities.some((f) => /caz|căsu|casu/i.test(f)) ? 'Cazare' : null,
+    facilities.some((f) => /nocturn|noapte/.test(f)) ? 'Pescuit noaptea' : null,
+    facilities.some((f) => /caban|casut|cazare/.test(f)) ? 'Cazare' : null,
   ].filter(Boolean) as string[];
   return (
     <>
@@ -126,15 +150,58 @@ export function ResultLakeCard({
         photos={photos}
         priceMin={price?.min}
         priceMax={price?.max}
+        priceLoading={priceLoading && !price}
         surface={lake.surface}
         stands={lake.numberOfSeats}
-        speciesCount={species.size}
+        depth={depth}
+        species={species}
         tags={tags}
+        facilities={lake.facility ?? []}
         bookHref={lake.bookingEnabled ? routes.lakeBooking(lake.documentId) : null}
+        onCall={phones.length ? () => setCall(true) : null}
         onDirections={coordinate ? () => setDirections(true) : null}
       />
       {coordinate ? <DirectionsDialog open={directions} onClose={() => setDirections(false)} name={lake.name} coordinate={coordinate} /> : null}
+      {phones.length ? <CallDialog open={call} onClose={() => setCall(false)} name={lake.name} contacts={phones} /> : null}
     </>
+  );
+}
+
+/** fish LakeContactSection's phone rows: each number, with its label, as a tel: link. */
+function CallDialog({
+  open,
+  onClose,
+  name,
+  contacts,
+}: {
+  open: boolean;
+  onClose: () => void;
+  name: string;
+  contacts: { id: number; header: string | null; name: string | null; phone: string }[];
+}) {
+  return (
+    <Dialog open={open} onClose={onClose} title="Sună" subtitle={name} closeButton>
+      <ul className="flex flex-col gap-2 pt-2">
+        {contacts.map((c) => (
+          <li key={c.id}>
+            <a
+              href={`tel:${c.phone.replace(/\s+/g, '')}`}
+              className={cn(
+                'flex min-h-14 items-center justify-between gap-3 rounded-control border border-hairline px-4 py-2.5',
+                'transition-[background-color,opacity] duration-(--duration-fast) ease-fast hover:bg-soft-fill active:opacity-80',
+                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+              )}
+            >
+              <span className="flex min-w-0 flex-col">
+                <span className="t-caption text-muted">{c.header || 'Telefon'}</span>
+                <span className="truncate t-body-strong text-ink">{c.name ? `${c.name} · ${c.phone}` : c.phone}</span>
+              </span>
+              <PhoneIcon aria-hidden className="size-5 shrink-0 stroke-2 text-accent-ink" />
+            </a>
+          </li>
+        ))}
+      </ul>
+    </Dialog>
   );
 }
 

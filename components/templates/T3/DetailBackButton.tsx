@@ -15,12 +15,15 @@ export function DetailBackButton({
   onPhoto = false,
   ground,
   label = 'Înapoi',
+  size,
   className,
 }: {
   fallbackHref: string;
   onPhoto?: boolean;
   ground?: HeaderChipGround;
   label?: string;
+  /** The chip's size utilities (default the kit icon button: 48 / 40). The pinned mini row: size-11. */
+  size?: string;
   className?: string;
 }) {
   const router = useRouter();
@@ -29,7 +32,7 @@ export function DetailBackButton({
       type="button"
       aria-label={label}
       onClick={() => (window.history.length > 1 ? router.back() : router.push(fallbackHref))}
-      className={headerChipClass({ ground, onPhoto, className })}
+      className={headerChipClass({ ground, onPhoto, size, className })}
     >
       <ChevronLeftIcon aria-hidden />
     </button>

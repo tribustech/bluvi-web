@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { absoluteUrl, routes } from '@/lib/routes';
 import { LakeScreen } from './_components/LakeScreen';
 import { lakeIdsToPrerender, lakeImage, lakeJsonLd, lakeSummary, loadLake, loadLakeSections } from './_components/load';
+import { lakePriceFrom } from './_components/priceFrom';
 import { jsonLdHtml } from '@/lib/json-ld';
 
 /*
@@ -79,7 +80,7 @@ export default async function LakePage({ params }: Props) {
         // JSON-LD: `<` escaped so a lake name can never close the script element.
         dangerouslySetInnerHTML={jsonLdHtml([lakeJsonLd(lake), breadcrumb])}
       />
-      <LakeScreen lake={lake} sections={sections} />
+      <LakeScreen lake={lake} sections={sections} priceFrom={lakePriceFrom(lake)} />
     </>
   );
 }

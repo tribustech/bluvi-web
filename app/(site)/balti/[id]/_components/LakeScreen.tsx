@@ -49,6 +49,7 @@ import { lakeHref } from './availability';
 import { BookingCta, DialogTrigger, LakeActionsProvider, PhoneLink, ShareTrigger, type LakeInfo } from './LakeActions';
 import { dynamicOnFailure, LATEST_REVIEWS, type LakeCatchPhotos, type LakeCompetitions, type LakeSections, type Settled } from './load';
 import { lakeLocationLine } from './location';
+import type { PriceFrom } from './priceFrom';
 import { MiniMap } from './MiniMap';
 import { DescriptionPreview } from './DescriptionPreview';
 import { PartideSection } from './PartideSection';
@@ -114,11 +115,17 @@ function sectionsFor(lake: LakeDetail, partide: boolean, competitions: LakeCompe
   };
   // Without a description, Prezentare is the tiles + characteristics only — both in the summary
   // card from 1024, so the section (and its chip) leaves there instead of an empty card.
-  const bare = !lake.description?.length;
+  const bare = !hasDescription(lake);
   return ids.map(id => ({ id, label: VENUE_SECTION_LABELS[id], hint: hint[id], hideFromLg: id === 'prezentare' && bare ? true : undefined }));
 }
 
 const partideVisible = (c: Settled<CommunityLakeSectionDTO>) => c.ok && hasPartideActivity(c.value);
+
+/**
+ * Whether the lake has a description to show: some text, not just blocks — the CMS stores a cleared
+ * editor as one empty paragraph (Balta Palat Căciulați), which would be a titled empty card.
+ */
+const hasDescription = (lake: LakeDetail) => richTextToPlain(lake.description).trim().length > 0;
 
 /** Longer than this (plain text), the description is previewed with a fade + «Vezi mai mult» —
  * decided here so both are in the first paint (c13). ~5 phone lines. */
@@ -131,7 +138,7 @@ const REVIEWS_GRID = 'grid gap-3 md:grid-cols-[repeat(auto-fill,minmax(--spacing
 const FOCUS_CLEARANCE =
   '[&_:is(a,button,input,textarea,select,[tabindex])]:scroll-mt-43 md:[&_:is(a,button,input,textarea,select,[tabindex])]:scroll-mt-34';
 
-export function LakeScreen({ lake, sections }: { lake: LakeDetail; sections: LakeSections }) {
+export function LakeScreen({ lake, sections, priceFrom }: { lake: LakeDetail; sections: LakeSections; priceFrom: Promise<PriceFrom | null> }) {
   const id = lake.documentId;
   const initial = sectionsFor(lake, false, null);
   const refined = Promise.all([sections.community, sections.competitions]).then(([community, competitions]) =>
@@ -142,6 +149,7 @@ export function LakeScreen({ lake, sections }: { lake: LakeDetail; sections: Lak
   const coords = parseLakeCoordinates(lake.coordinates);
   const contact = lakeHasContact(lake);
   const reviewCount = lake.reviewsMeta?.count ?? 0;
+  const described = hasDescription(lake);
   // fish LakeHero: medium → small → original; the web takes the original for the 1280 mosaic
   // (next/image's `sizes` brings it down on the phone).
   const photos = lake.images.map(img => ({ src: img.url || img.mediumUrl || img.smallUrl || '' })).filter(p => p.src);
@@ -153,6 +161,9 @@ export function LakeScreen({ lake, sections }: { lake: LakeDetail; sections: Lak
     bookingState: lakeBookingState(lake),
     description: lake.description,
   };
+  // The booking control's look, the same at every width (BookingCta): secondary where the call is
+  // the lake's main action (no online booking + a phone — the summary card and the phone bar).
+  const ctaVariant = info.bookingState === 'none' && lakePhone(lake) ? 'secondary' : 'primary';
 
   return (
     <LakeActionsProvider lake={info}>
@@ -196,7 +207,7 @@ export function LakeScreen({ lake, sections }: { lake: LakeDetail; sections: Lak
                 <>
                   <ShareTrigger look="button" />
                   {/* From 1024 the booking lives in the summary card. */}
-                  <BookingCta source="hero_cta" className="min-[1024px]:hidden" />
+                  <BookingCta source="hero_cta" variant={ctaVariant} className="min-[1024px]:hidden" />
                 </>
               }
               className="md:pt-5"
@@ -222,7 +233,7 @@ export function LakeScreen({ lake, sections }: { lake: LakeDetail; sections: Lak
               label={`Fotografii ${lake.name}`}
               bottomStart={
                 <div className="md:hidden">
-                  <BookingCta source="hero_cta" />
+                  <BookingCta source="hero_cta" variant={ctaVariant} />
                 </div>
               }
               bottomEnd={
@@ -236,23 +247,29 @@ export function LakeScreen({ lake, sections }: { lake: LakeDetail; sections: Lak
           <DetailSectionNav
             label="Secțiunile bălții"
             pinnedTitle={lake.name}
+            // fish VenuePinnedNav leftAccessory (c12): the way back once the hero and the bar are gone.
+            pinnedStart={<DetailBackButton fallbackHref={routes.lakes()} ground="surface" size="size-11" />}
             pinnedMeta={<RatingMeta meta={lake.reviewsMeta} />}
             pinnedEnd={<ShareTrigger size="size-11" />}
             hideFromXl={false}
           />
 
-          <DetailBody layout="summary" aside={<SummaryCard lake={lake} hasCoordinates={!!coords} />} asideLabel="Pe scurt" asideBelowXl="hidden" asideSticky>
+          <DetailBody layout="summary" aside={
+              <Suspense fallback={<SummaryCard lake={lake} hasCoordinates={!!coords} from="loading" />}>
+                <PricedSummaryCard lake={lake} hasCoordinates={!!coords} priceFrom={priceFrom} community={sections.community} />
+              </Suspense>
+            } asideLabel="Pe scurt" asideBelowXl="hidden" asideSticky>
             {/* With a description the kit's own title names the region (fish «Descriere»). Without
                 one the section is the quick actions + characteristics only: a visually hidden h2.
                 TODO(kit): a DetailSection `titleHidden` option, then this sr-only h2 goes. */}
             <DetailSection
               id="prezentare"
-              title={lake.description?.length ? 'Descriere' : undefined}
-              className={lake.description?.length ? undefined : 'min-[1024px]:hidden'}
+              title={described ? 'Descriere' : undefined}
+              className={described ? undefined : 'min-[1024px]:hidden'}
             >
               <div className="flex flex-col gap-5.5">
-                {lake.description?.length ? (
-                  <DescriptionPreview blocks={lake.description} long={richTextToPlain(lake.description).length > DESCRIPTION_PREVIEW_CHARS} />
+                {described ? (
+                  <DescriptionPreview blocks={lake.description ?? []} long={richTextToPlain(lake.description).length > DESCRIPTION_PREVIEW_CHARS} />
                 ) : (
                   <h2 className="sr-only">Prezentare</h2>
                 )}
@@ -333,7 +350,9 @@ export function LakeScreen({ lake, sections }: { lake: LakeDetail; sections: Lak
               </DetailSection>
             ) : null}
           </DetailBody>
-          <PhoneActionBar lake={lake} />
+          <Suspense fallback={<PhoneActionBar lake={lake} from="loading" />}>
+            <PricedPhoneActionBar lake={lake} priceFrom={priceFrom} />
+          </Suspense>
         </DetailPage>
       </DetailSectionsProvider>
     </LakeActionsProvider>
@@ -442,8 +461,12 @@ async function Competitions({ lakeId, competitions: read }: { lakeId: string; co
   // A failed list renders per request, never into the static page (see load.ts).
   if (!live.ok || !upcoming.ok) await connection();
   if (live.ok && upcoming.ok && live.value.length + upcoming.value.length === 0) return null;
+  // One «Vezi tot» per destination (WCAG 2.4.4): the rails link their own tab («Toate live» /
+  // «Toate viitoarele»); the section-level «Vezi tot» only when both rails show (or one failed).
+  const both = !(live.ok && upcoming.ok) || (live.value.length > 0 && upcoming.value.length > 0);
+  const all = both ? lakeHref('competitions', routes.lakeCompetitions(lakeId)) : undefined;
   return (
-    <DetailSection id="concursuri" title="Concursuri" action={<SectionAction href={lakeHref('competitions', routes.lakeCompetitions(lakeId))}>Vezi tot</SectionAction>}>
+    <DetailSection id="concursuri" title="Concursuri" action={all ? <SectionAction href={all}>Vezi tot</SectionAction> : undefined}>
       <CompetitionsBlock lakeId={lakeId} live={live} upcoming={upcoming} />
       {live.ok && upcoming.ok ? <FocusAfterRetry retry="concursuri" target="concursuri-titlu" /> : null}
     </DetailSection>
@@ -468,11 +491,25 @@ async function LatestReviews({ reviews: read }: { reviews: LakeSections['reviews
  * Summary card (from 1024, the right column — owner rule 1, Airbnb's booking card)
  * ---------------------------------------------------------------------------------------------- */
 
-/** The cheapest priced row («de la 45 RON · Permis 24h»); null when no row has a price. */
-function cheapest(prices: LakeDetail['price']): { price: number; header: string } | null {
-  let best: { price: number; header: string } | null = null;
-  for (const p of prices) if (p.price != null && (!best || p.price < best.price)) best = { price: p.price, header: p.header ?? '' };
-  return best;
+/** «de la» still being read (the booking quote, priceFrom.ts): a quiet bone, never a guess (rule 4). */
+type From = PriceFrom | null | 'loading';
+
+async function PricedSummaryCard({
+  priceFrom,
+  community,
+  ...props
+}: {
+  lake: LakeDetail;
+  hasCoordinates: boolean;
+  priceFrom: Promise<PriceFrom | null>;
+  community: Promise<Settled<CommunityLakeSectionDTO>>;
+}) {
+  const [from, partide] = await Promise.all([priceFrom, community]);
+  return <SummaryCard {...props} from={from} partideSection={partideVisible(partide)} />;
+}
+
+async function PricedPhoneActionBar({ lake, priceFrom }: { lake: LakeDetail; priceFrom: Promise<PriceFrom | null> }) {
+  return <PhoneActionBar lake={lake} from={await priceFrom} />;
 }
 
 /**
@@ -481,16 +518,27 @@ function cheapest(prices: LakeDetail['price']): { price: number; header: string 
  * directions) and its key facts. While the booking flow is not on the web the button leads to
  * «Rezervă din aplicația Bluvi», and the card says so under it.
  */
-function SummaryCard({ lake, hasCoordinates }: { lake: LakeDetail; hasCoordinates: boolean }) {
+function SummaryCard({
+  lake,
+  hasCoordinates,
+  from,
+  partideSection = false,
+}: {
+  lake: LakeDetail;
+  hasCoordinates: boolean;
+  from: From;
+  /** The Partide section is on the page (its «Vezi tot» is the way in): no second link here. */
+  partideSection?: boolean;
+}) {
   const state = lakeBookingState(lake);
   const online = state === 'enabled';
   const appOnly = online && !lakeHref('booking', routes.lakeBooking(lake.documentId));
-  const from = cheapest(lake.price);
   const stands = from ? null : bookableStands(lake);
   const phone = lakePhone(lake);
-  // Pages the tiles reached below 1024 that no section links to (Partide shows only with activity).
+  // Pages the tiles reached below 1024 that no section links to: Partide only while its section
+  // (with its own «Vezi tot») is not on the page.
   const more = [
-    { key: 'partide', label: 'Partide', icon: <UsersIcon aria-hidden />, href: lakeHref('partide', routes.lakePartide(lake.documentId)) },
+    ...(partideSection ? [] : [{ key: 'partide', label: 'Partide', icon: <UsersIcon aria-hidden />, href: lakeHref('partide', routes.lakePartide(lake.documentId)) }]),
     { key: 'statistici', label: 'Statistici', icon: <ChartBarIcon aria-hidden />, href: lakeHref('stats', routes.lakeStats(lake.documentId)) },
   ].filter((l): l is typeof l & { href: string } => !!l.href);
   const call = phone ? (
@@ -505,23 +553,28 @@ function SummaryCard({ lake, hasCoordinates }: { lake: LakeDetail; hasCoordinate
       Direcții
     </DialogTrigger>
   ) : null;
+  // One stand count per card (rule: never «21 standuri» beside «50 locuri»): a lake that books
+  // online states its bookable stands (headline or footnote), so the CMS seat count leaves the card.
+  const bookable = online && lake.stands.length > 0;
   const facts = [
-    ...lakeFacts(lake),
+    ...lakeFacts(lake).filter(f => !(bookable && f.key === 'seats')),
     ...(lake.fishSpecies.length ? [{ key: 'specii', label: 'Specii', value: formatInt(lake.fishSpecies.length), icon: <FishOutlineIcon /> }] : []),
     ...(lake.facility.length ? [{ key: 'facilitati', label: 'Facilități', value: formatInt(lake.facility.length), icon: <HomeModernIcon /> }] : []),
   ];
   return (
     <DetailSummaryCard
       headline={
-        from ? (
+        from === 'loading' ? (
+          <span aria-hidden className={cn(BONE, 'h-7 w-44 rounded-full')} />
+        ) : from ? (
           <>
             <span className="t-body text-muted">de la</span>
             <span className="t-title2 tabular-nums">{formatInt(from.price)} RON</span>
-            {from.header ? <span className="t-body text-muted">· {from.header}</span> : null}
+            {from.note ? <span className="t-body text-muted">· {from.note}</span> : null}
           </>
         ) : stands ? (
           <>
-            <span className="t-title2 tabular-nums">{standsLabel(stands)}</span>
+            <span className="t-title2 tabular-nums">{bookableLabel(stands)}</span>
             <span className="t-body text-muted">· alege standul și intervalul</span>
           </>
         ) : undefined
@@ -556,7 +609,7 @@ function SummaryCard({ lake, hasCoordinates }: { lake: LakeDetail; hasCoordinate
           // its booking IS the call).
           <>
             {call}
-            {state === 'none' ? <BookingCta source="quick_action" block variant={call ? 'secondary' : 'primary'} label="Vreau să rezerv online" /> : null}
+            {state === 'none' ? <BookingCta source="quick_action" block variant={call ? 'secondary' : 'primary'} /> : null}
             {directions}
           </>
         )
@@ -565,7 +618,7 @@ function SummaryCard({ lake, hasCoordinates }: { lake: LakeDetail; hasCoordinate
         appOnly
           ? 'Rezervarea online e în curând pe web; până atunci rezervă din aplicația Bluvi.'
           : online && lake.stands.length && !stands
-            ? `Alege standul și intervalul — ${standsLabel(lake.stands.length)}.`
+            ? `Alege standul și intervalul — ${bookableLabel(lake.stands.length)}.`
             : undefined
       }
     >
@@ -588,13 +641,14 @@ function SummaryCard({ lake, hasCoordinates }: { lake: LakeDetail; hasCoordinate
 
 const lakePhone = (lake: LakeDetail) => lake.contact.find(c => c.phone)?.phone ?? null;
 
-const standsLabel = (n: number) => `${formatInt(n)} ${n === 1 ? 'stand' : 'standuri'}`;
+/** The stands one can book online — named so, never confused with the CMS «N locuri» (numberOfSeats). */
+const bookableLabel = (n: number) => `${formatInt(n)} ${n === 1 ? 'stand rezervabil' : 'standuri rezervabile'}`;
 
 /**
- * The headline when no legacy price row has a price — a lake on the booking-rates model (Chita):
- * the rates are only quoted per stand and interval (the CMS sends none with the lake, and fish shows
- * no «de la» for them either), so the card leads with what IS known: the stands one can book.
- * Rule 4 (ROADMAP §4b): nothing known → nothing shown; never the lake's name again.
+ * The headline when there is no «de la» at all (priceFrom.ts: the booking server quoted no tour
+ * and no legacy row has a price) on a lake that books online: the card leads with what IS known,
+ * the stands one can book. Rule 4 (ROADMAP §4b): nothing known → nothing shown; never the lake's
+ * name again.
  */
 function bookableStands(lake: LakeDetail): number | null {
   return lakeBookingState(lake) === 'enabled' && lake.stands.length > 0 ? lake.stands.length : null;
@@ -602,33 +656,34 @@ function bookableStands(lake: LakeDetail): number | null {
 
 /**
  * Phone only (below 768; from 1024 the summary card does this, between them the header CTA): the
- * Airbnb bottom bar — «de la 45 RON · Permis 24h» (else «Rezervare online · 21 standuri», else the
+ * Airbnb bottom bar — «de la 45 RON · Permis 24h» / «de la 50 RON · tura de 12 ore» (else «Rezervare online · 21 standuri rezervabile», else the
  * action alone — never the name the pinned row shows) left, the main action right, the same rule as
  * the card: «Rezervă acum» with online booking, else «Sună» when there is a phone. It slides in
  * once the hero (with its own «Rezervă acum») has scrolled away (PhoneBar).
  */
-function PhoneActionBar({ lake }: { lake: LakeDetail }) {
+function PhoneActionBar({ lake, from }: { lake: LakeDetail; from: From }) {
   const online = lakeBookingState(lake) === 'enabled';
   const phone = lakePhone(lake);
-  const from = cheapest(lake.price);
   const stands = from ? null : bookableStands(lake);
   return (
     <PhoneBar
       label="Rezervare"
       summary={
-        from ? (
+        from === 'loading' ? (
+          <span aria-hidden className={cn(BONE, 'h-5 w-28 rounded-full')} />
+        ) : from ? (
           <p className="flex min-w-0 flex-col">
             <span className="flex items-baseline gap-1">
               <span className="t-caption text-muted">de la</span>
               <span className="t-body-strong tabular-nums">{formatInt(from.price)} RON</span>
             </span>
-            {from.header ? <span className="truncate t-caption text-muted">{from.header}</span> : null}
+            {from.note ? <span className="truncate t-caption text-muted">{from.note}</span> : null}
           </p>
         ) : stands ? (
           // Not the name + rating: the pinned title row at the top already shows them (rule 4).
           <p className="flex min-w-0 flex-col">
             <span className="truncate t-body-strong">Rezervare online</span>
-            <span className="truncate t-caption text-muted tabular-nums">{standsLabel(stands)}</span>
+            <span className="truncate t-caption text-muted tabular-nums">{bookableLabel(stands)}</span>
           </p>
         ) : null
       }

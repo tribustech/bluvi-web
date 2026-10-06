@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { DetailRetry } from '@/components/templates/T3';
+import { DetailRetry, focusLandingSpot } from '@/components/templates/T3';
 
 /*
  * Where focus goes after a successful «Încearcă din nou» (WCAG 2.4.3): the retry button unmounts
@@ -43,8 +43,7 @@ export function FocusAfterRetry({ retry, target }: { retry: string; target: stri
     // the retry to the copy that is.
     if (!el || el.getClientRects().length === 0) return;
     pending = null;
-    if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
-    el.focus({ preventScroll: false });
+    focusLandingSpot(el, { preventScroll: false });
   }, [retry, target]);
   return null;
 }

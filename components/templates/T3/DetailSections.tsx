@@ -4,6 +4,7 @@ import { createContext, Suspense, use, useCallback, useEffect, useMemo, useRef, 
 import { settledScrollMargin } from '@/components/nav/stickyStack';
 import { cn } from '@/components/ui/cn';
 import { DetailPinnedTitle } from './DetailPinned';
+import { focusLandingSpot } from './focus';
 import { usePinnedFollowingBar } from './followBar';
 import { FULL_BLEED_HAIRLINE, FULL_BLEED_SURFACE, STICKY_TOP } from './metrics';
 
@@ -166,8 +167,7 @@ export function DetailSectionsProvider({
     }
     window.scrollTo({ top: target, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
     window.history.replaceState(window.history.state, '', `#${id}`);
-    if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
-    el.focus({ preventScroll: true });
+    focusLandingSpot(el, { preventScroll: true });
   }, []);
 
   const value = useMemo(() => ({ sections, active, go }), [sections, active, go]);
@@ -195,6 +195,8 @@ export type DetailSectionNavProps = {
   label?: string;
   /** Phone mini row, once pinned: the page title (fish VenuePinnedNav `title`). */
   pinnedTitle: string;
+  /** Pinned row, left: the back chip (fish VenuePinnedNav `leftAccessory`, lakes c12). */
+  pinnedStart?: ReactNode;
   /** Under the pinned title: «★ 4,33 · 1 recenzie». */
   pinnedMeta?: ReactNode;
   /** Pinned row, right: a share chip. */
@@ -216,6 +218,7 @@ export type DetailSectionNavProps = {
 export function DetailSectionNav({
   label = 'Secțiuni',
   pinnedTitle,
+  pinnedStart,
   pinnedMeta,
   pinnedEnd,
   hideFromXl = true,
@@ -225,7 +228,7 @@ export function DetailSectionNav({
   const navRef = useRef<HTMLElement>(null);
   const rowRef = useRef<HTMLUListElement>(null);
   // Pinned: it also flags the sticky stack, so the top bar above drops its shadow (shell BAR_SHADOW).
-  // …and follows the phone bar as a compositor transform (followBar.ts, owner rule 3).
+  // It follows the phone bar by CSS (STICKY_TOP: the bar's own `top` transition, owner rule 3).
   const pinned = usePinnedFollowingBar(navRef);
 
   // fish: the selected chip scrolls into view, 60px from the row's left edge.
@@ -237,6 +240,10 @@ export function DetailSectionNav({
   }, [active]);
 
   if (!sections.length) return null;
+  // A tab bar that can only point at the one section on the page is chrome with no job: hidden
+  // wherever fewer than two sections are laid out at that width. The phone keeps it — its pinned
+  // mini row (back, title, share; lakes c12) is the page's header once the hero has scrolled away.
+  const laidOut = { md: sections.length, lg: sections.filter(s => !s.hideFromLg).length, xl: sections.filter(s => !s.hideFromLg && !s.hideFromXl).length };
 
   return (
     <nav
@@ -252,14 +259,18 @@ export function DetailSectionNav({
         FULL_BLEED_HAIRLINE,
         // Phone: the surface only shows once pinned (the mini row is transparent over the header).
         'max-md:before:opacity-0 max-md:data-pinned:before:opacity-100 max-md:after:opacity-0 max-md:data-pinned:after:opacity-100',
-        // Pinned, it is the lowest member of the sticky stack: it alone casts the shadow (the bar drops its own).
-        'data-pinned:shadow-e1',
-        hideFromXl && 'xl:hidden',
+        // Pinned, it is the lowest member of the sticky stack: it alone casts the shadow (the bar drops
+        // its own) — from the full-bleed surface, so the shadow spans the screen like the white band
+        // instead of stopping at the column's gutters.
+        'data-pinned:before:shadow-e1',
+        laidOut.md < 2 && 'md:max-[1024px]:hidden',
+        laidOut.lg < 2 && 'min-[1024px]:max-xl:hidden',
+        (hideFromXl || laidOut.xl < 2) && 'xl:hidden',
         className,
       )}
     >
       {/* Phone mini row (fish PINNED_MINI_HEIGHT 46): the shared T3 pinned anatomy. */}
-      <DetailPinnedTitle pinned={pinned} title={pinnedTitle} meta={pinnedMeta} end={pinnedEnd} />
+      <DetailPinnedTitle pinned={pinned} start={pinnedStart} title={pinnedTitle} meta={pinnedMeta} end={pinnedEnd} />
       {/* The chip row: white on the phone even before pinning (it sits on the white header band). */}
       <ul ref={rowRef} className="pointer-events-auto flex h-14.5 items-center gap-2 overflow-x-auto bg-surface px-4 [scrollbar-width:none] md:bg-transparent md:px-6 xl:px-8">
         {sections.map(s => {

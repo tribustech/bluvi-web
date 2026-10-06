@@ -45,6 +45,8 @@ function zoomWidth(riverClose: number, lakeClose: number, riverWide: number, lak
 
 const SRC_NETWORK = 'pw-network';
 const SRC_SELECTED = 'pw-selected';
+const HOVER_FILL = 'pw-hov-fill';
+const HOVER_LINE = 'pw-hov-line';
 
 /**
  * A colour token's value, for MapLibre paint (which cannot read var()): every token is defined on
@@ -90,6 +92,20 @@ function ensureLayers(map: MlMap, selectedFill: 'amber' | 'indigo') {
     },
     beforeId,
   );
+  // The hovered water (its list card under the pointer — owner rule 7): the network's indigo, bolder.
+  const none: FilterSpecification = ['==', ['get', 'id'], -1];
+  map.addLayer({ id: HOVER_FILL, type: 'fill', source: SRC_NETWORK, filter: none, paint: { 'fill-color': accent, 'fill-opacity': 0.4 } }, beforeId);
+  map.addLayer(
+    {
+      id: HOVER_LINE,
+      type: 'line',
+      source: SRC_NETWORK,
+      filter: none,
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: { 'line-color': accent, 'line-width': zoomWidth(6, 4.5, 3, 2.5, 4.5, 3.5) },
+    },
+    beforeId,
+  );
   map.addLayer(
     {
       id: 'pw-sel-fill',
@@ -125,6 +141,10 @@ export type WaterMapProps = {
   network?: ReadonlyArray<WaterFeature>;
   /** The selected / shown water, in amber. */
   selected?: WaterFeature | null;
+  /** A network water to highlight (its list card is hovered): bolder indigo. */
+  highlighted?: number | null;
+  /** The pointer over a network water (its id) or off them (null): highlights its list card. */
+  onFeatureHover?: (id: number | null) => void;
   selectedFill?: 'amber' | 'indigo';
   /** Zoom buttons from 768 (phones pinch). Default: with `interactive`. */
   zoomButtons?: boolean;
@@ -161,6 +181,8 @@ export function WaterMap({
   interactive = true,
   network,
   selected = null,
+  highlighted = null,
+  onFeatureHover,
   selectedFill = 'amber',
   zoomButtons = interactive,
   controls,
@@ -179,9 +201,9 @@ export function WaterMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<MapState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
-  const cbs = useRef({ onReady, onMoveStart, onMoveEnd, onMapClick, onUnavailableChange });
+  const cbs = useRef({ onReady, onMoveStart, onMoveEnd, onMapClick, onUnavailableChange, onFeatureHover });
   useLayoutEffect(() => {
-    cbs.current = { onReady, onMoveStart, onMoveEnd, onMapClick, onUnavailableChange };
+    cbs.current = { onReady, onMoveStart, onMoveEnd, onMapClick, onUnavailableChange, onFeatureHover };
   });
   const startRef = useRef({ initialBounds, initialPadding, interactive, label, selectedFill });
 
@@ -255,6 +277,21 @@ export function WaterMap({
         if ((e.originalEvent?.target as Element | null)?.closest?.('.maplibregl-marker')) return;
         if (map) cbs.current.onMapClick?.({ lng: e.lngLat.lng, lat: e.lngLat.lat, x: e.point.x, y: e.point.y }, map);
       });
+      // The pointer over a network water (mouse only — a touch has no hover).
+      let hovered: number | null = null;
+      const hover = (id: number | null) => {
+        if (id === hovered) return;
+        hovered = id;
+        if (map) map.getCanvas().style.cursor = id != null ? 'pointer' : '';
+        cbs.current.onFeatureHover?.(id);
+      };
+      map.on('mousemove', (e: MapMouseEvent) => {
+        if (!map?.getLayer('pw-net-fill')) return;
+        const f = map.queryRenderedFeatures(e.point, { layers: ['pw-net-fill', 'pw-net-line'] })[0];
+        const id = f?.properties?.id;
+        hover(typeof id === 'number' ? id : null);
+      });
+      map.on('mouseout', () => hover(null));
       const m = map;
       map.once('style.load', () => {
         localiseLabels(m);
@@ -304,6 +341,12 @@ export function WaterMap({
     const src = map?.getSource(SRC_SELECTED) as GeoJSONSource | undefined;
     src?.setData(toCollection(selected ? [selected] : []));
   }, [map, selected]);
+  useEffect(() => {
+    if (!map?.getLayer(HOVER_FILL)) return;
+    const filter: FilterSpecification = ['==', ['get', 'id'], highlighted ?? -1];
+    map.setFilter(HOVER_FILL, filter);
+    map.setFilter(HOVER_LINE, filter);
+  }, [map, highlighted]);
 
   return (
     <div
@@ -311,6 +354,7 @@ export function WaterMap({
       // Test hooks (e2e harta.c4): what the selection layers draw once the map is up.
       data-map-status={state.status}
       data-selected-water={map && selected ? selected.id : undefined}
+      data-highlighted-water={map && highlighted != null ? highlighted : undefined}
       data-selected-style={map && selected ? `outline-amber wash-${selectedFill}` : undefined}
       // e2e harta.s5: where the first frame landed («lng,lat»), read once when the map is up.
       data-initial-center={state.status === 'ready' ? state.initialCenter : undefined}

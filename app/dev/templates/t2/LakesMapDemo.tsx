@@ -506,12 +506,13 @@ export function LakesMapDemo({
                 priceMax={lake.priceMax}
                 surface={lake.surface}
                 stands={lake.stands}
-                speciesCount={cardsKnown ? lake.species.length : 0}
+                species={cardsKnown ? lake.species : []}
                 // The production card's tags (ResultLakeCard): booking, regime, «Cazare».
                 tags={[
                   bookingKnown && lake.bookable ? 'Rezervare online' : null,
                   lake.regime,
-                  cardsKnown && lake.facilities.some((f) => /caz|căsu|casu/i.test(f)) ? 'Cazare' : null,
+                  cardsKnown && lake.facilities.some((f) => /nocturn|noapte/i.test(f)) ? 'Pescuit noaptea' : null,
+                  cardsKnown && lake.facilities.some((f) => /caban|caz|căsu|casu/i.test(f)) ? 'Cazare' : null,
                 ].filter((t): t is string => Boolean(t))}
                 bookHref={bookingKnown && lake.bookable ? routes.lakeBooking(lake.id) : null}
                 onDirections={() => setDirectionsFor(lake)}
@@ -614,6 +615,17 @@ export function LakesMapDemo({
       label="Hartă bălți"
       points={noData ? [] : filtered}
       pointLabel={(l) => l.name}
+      // The production pins (/balti/harta, owner rule 7): the lowest price, else the rating.
+      pointBadge={(l) =>
+        l.priceMin != null ? (
+          `${formatInt(l.priceMin)} lei`
+        ) : l.rating != null ? (
+          <>
+            <StarSolidIcon aria-hidden className="size-3.5 text-rating" />
+            {formatDecimal(l.rating, 1, 1)}
+          </>
+        ) : null
+      }
       clusterLabel={(n) => `${plural(n, 'baltă', 'bălți')} — mărește harta aici`}
       selectedId={selectedId}
       highlightedId={highlightedId}

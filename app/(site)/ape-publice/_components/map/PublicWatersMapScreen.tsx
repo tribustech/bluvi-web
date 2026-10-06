@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDownIcon, MapPinIcon } from '@heroicons/react/24/outline';
+import { MapPinIcon } from '@heroicons/react/24/outline';
 import { MapPinIcon as MapPinSolidIcon } from '@heroicons/react/20/solid';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Map as MlMap } from 'maplibre-gl';
@@ -15,7 +15,6 @@ import {
   MapControlButton,
   ROMANIA_BOUNDS,
   T2_EXPANDED,
-  T2BackLink,
   T2FilterChip,
   T2Layout,
   T2List,
@@ -31,7 +30,6 @@ import {
   useT2Frame,
   type T2SheetSnap,
 } from '@/components/templates/T2';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import {
@@ -54,10 +52,8 @@ import {
   publicWaterCountiesQuery,
   publicWaterFilterToTypes,
   publicWaterName,
-  publicWaterRowMeta,
   publicWatersListTitle,
   publicWaterSubtitle,
-  publicWaterTypeBadge,
   pushRecentPublicWater,
   RECENT_PUBLIC_WATERS_KEY,
   reduceSelection,
@@ -83,11 +79,15 @@ import {
 } from '@/core/lakes';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
+import { WaterKindSwitch } from '@/app/(site)/balti/_list/WaterKindSwitch';
 import { browserPublicWaters } from '../client-source';
+import { DirectionsDialog } from '../detail/parts';
 import { LakeIcon, RiverIcon } from '../icons';
 import { MapMarker, WaterMap, type WaterBounds, type WaterFeature } from '../WaterMap';
 import { CountyFilterBody } from './CountyFilter';
 import { WaterPin } from './pins';
+import type { WaterOutline } from './outline';
+import { WaterRowCard } from './WaterRowCard';
 import { SearchOverlay, type LocationProblem } from './SearchOverlay';
 import { waterTrail } from '../trail';
 
@@ -378,9 +378,29 @@ export function PublicWatersMapScreen() {
     [dispatch, linkCodeById, qc, rerouteIfClaimed, src],
   );
   const closePreview = useCallback(() => dispatch({ type: 'CLOSE_PREVIEW' }), [dispatch]);
+
+  /* ---------------------------------------------------------------------------- hover (rule 7) */
+  // A card under the pointer (or focused) lights its pin / shape on the map, and a pin or shape
+  // under the pointer lights its card: one id, both halves (T2ListItem highlighted ↔ WaterPin halo).
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [directionsFor, setDirectionsFor] = useState<{ lat: number; lng: number } | null>(null);
   const previewing = selection.status === 'previewing' ? selection.water : null;
 
   /* ---------------------------------------------------------------------------- map gestures */
+  // Card → marker at the cluster zooms (rule 7): at Romania's zoom every water sits in a cluster,
+  // so the cluster holding the hovered water takes the ring (its leaves, read once per hover).
+  const hoveredClusterKey = useMemo(() => {
+    if (hoveredId == null || band !== 'clusters' || !index) return null;
+    for (const c of clusters) {
+      if (c.singleId != null || !c.key.startsWith('c')) continue;
+      try {
+        if (index.getLeaves(Number(c.key.slice(1)), Infinity).some((leaf) => leaf.properties.id === hoveredId)) return c.key;
+      } catch {
+        // a cluster id from an index that was just rebuilt: no ring rather than a wrong one
+      }
+    }
+    return null;
+  }, [hoveredId, band, index, clusters]);
   const pressCluster = (c: PublicWaterCluster) => {
     if (c.singleId != null) return select(c.singleId, 'pin');
     const map = mapRef.current;
@@ -479,6 +499,21 @@ export function PublicWatersMapScreen() {
   const sorted = useMemo(() => sortWatersByArea<PublicWaterListItem | (typeof markerList)[number]>(listWaters), [listWaters]);
   const count = listWaters.length;
   const listLoading = band === 'geometry' ? rows.isFetching : markers.isFetching;
+  // The cards' media: each listed water's outline (outline.ts), one light read per list — not the
+  // full geometries (~5 MB for the 150 largest). Until it lands (or if it fails) the type glyph.
+  const outlineIds = useMemo(() => listWaters.map((w) => w.id).sort((a, b) => a - b).slice(0, 150).join(','), [listWaters]);
+  const outlines = useQuery({
+    queryKey: ['public-waters', 'outlines', outlineIds],
+    queryFn: async () => {
+      const res = await fetch(`/ape-publice/api/outlines?ids=${outlineIds}`, { headers: { accept: 'application/json' } });
+      if (!res.ok) throw new Error(`ape-publice outlines: HTTP ${res.status}`);
+      return new Map(((await res.json()) as ({ id: number } & WaterOutline)[]).map(({ id, ...o }) => [id, o]));
+    },
+    enabled: outlineIds.length > 0,
+    staleTime: Infinity,
+    retry: false,
+    placeholderData: keepPreviousData,
+  });
   const listQuery = band === 'geometry' ? rows : markers;
 
   // A failed dataset read is not an empty area: no «nicio apă», no 0 — a retry of the failed reads.
@@ -544,35 +579,30 @@ export function PublicWatersMapScreen() {
   ) : (
     <T2List label="Ape publice" stale={listLoading}>
       {sorted.map((w) => {
-        const meta = publicWaterRowMeta(w);
-        const busy = loadingId === w.id;
+        const lakeId = w.linkCode ? claimMap.get(w.linkCode) : undefined;
         return (
-          <T2ListItem key={w.id} id={String(w.id)} selected={selection.status !== 'none' && selection.id === w.id}>
-            <button
-              type="button"
-              onClick={() => select(w.id, 'list')}
-              aria-busy={busy || undefined}
-              className={cn(
-                'flex w-full cursor-pointer items-center gap-3 rounded-card bg-surface p-3 text-left shadow-e0 transition-[background-color,box-shadow,opacity] duration-(--duration-fast) active:opacity-70',
-                // Phone: the sheet is white, the row tints. From 768 the list column is the grey page,
-                // where a grey tint would dissolve the card: it lifts instead.
-                'max-md:hover:bg-soft-fill md:hover:shadow-e1',
-                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-              )}
-            >
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate t-body-strong text-ink">{publicWaterName(w)}</span>
-                {meta ? <span className="truncate t-caption text-muted">{meta}</span> : null}
-              </span>
-              {busy ? (
-                <span className="flex shrink-0 items-center gap-1.5 t-label text-muted">
-                  <T2Spinner className="size-4 text-accent" />
-                  <span className="sr-only">Se încarcă</span>
-                </span>
-              ) : (
-                <Badge color="indigo">{publicWaterTypeBadge(w.type)}</Badge>
-              )}
-            </button>
+          <T2ListItem
+            key={w.id}
+            id={String(w.id)}
+            selected={selection.status !== 'none' && selection.id === w.id}
+            highlighted={hoveredId === w.id}
+            onHighlight={(id) => setHoveredId(id == null ? null : Number(id))}
+          >
+            {/* The horizontal card (rule 7): the outline / glyph, the surface, where and what, Direcții and «Vezi apa». */}
+            <WaterRowCard
+              id={w.id}
+              name={w.name}
+              type={w.type}
+              county={w.county}
+              countyIds={w.countyIds}
+              areaKm2={w.areaKm2}
+              outline={outlines.data?.get(w.id) ?? null}
+              busy={loadingId === w.id}
+              href={lakeId ? routes.lake(lakeId) : routes.publicWater(w.id)}
+              claimed={!!lakeId}
+              onSelect={() => select(w.id, 'list')}
+              onDirections={() => setDirectionsFor({ lat: w.centerLat, lng: w.centerLng })}
+            />
           </T2ListItem>
         );
       })}
@@ -589,10 +619,18 @@ export function PublicWatersMapScreen() {
     setCountyTerm('');
     setPanelOpen(true);
   };
+  // The search header starts with the Bălți / Ape publice switch (owner rules 6–7, as /balti and
+  // imobiliare.ro): the two halves of one list read as one screen. From 768 it leads the toolbar's
+  // row (T2Toolbar `switcher`, the h1 then for screen readers only); on a phone it floats as its
+  // own row above the search pill — the pill + «Filtre» need the row's width.
   const toolbar = (
+    <div className="flex flex-col gap-2">
+      <div className="flex md:hidden [&>nav]:w-full [&>nav]:shadow-e2 [[data-solid]_&>nav]:shadow-e0">
+        <WaterKindSwitch current="ape" />
+      </div>
     <T2Toolbar
       title="Ape publice"
-      leading={<T2BackLink href={routes.lakes()} label="Înapoi la Bălți" />}
+      switcher={<WaterKindSwitch current="ape" />}
       search={
         // In the solid toolbar (from 768) the field sits flat on its hairline, not floating.
         <div className="contents md:[&>button]:shadow-none!">
@@ -620,12 +658,11 @@ export function PublicWatersMapScreen() {
             active={counties.length > 0}
             expanded={panelOpen}
             onClick={openCounties}
-            className="flex-row-reverse"
-            icon={<ChevronDownIcon aria-hidden />}
           />
         </>
       }
     />
+    </div>
   );
 
   /* ---------------------------------------------------------------------------- map */
@@ -647,6 +684,8 @@ export function PublicWatersMapScreen() {
         initialPadding={16}
         network={band === 'geometry' ? shapes : []}
         selected={previewing ? { id: previewing.id, type: previewing.type, geometry: previewing.geometry } : null}
+        highlighted={hoveredId}
+        onFeatureHover={setHoveredId}
         controlsTop="var(--t2-top,0px)"
         listAvailable
         onUnavailableChange={onMapUnavailable}
@@ -682,16 +721,24 @@ export function PublicWatersMapScreen() {
           <>
             {(band === 'clusters' ? clusters : smallPins).map((c) =>
               c.singleId == null ? (
-                <MapMarker key={c.key} ready={ready} lat={c.centerLat} lng={c.centerLng}>
-                  <T2MapCluster label={`${c.count} ape — mărește harta aici`} count={c.count} large={c.count > 10} onClick={() => pressCluster(c)} />
+                <MapMarker key={c.key} ready={ready} lat={c.centerLat} lng={c.centerLng} raised={hoveredClusterKey === c.key}>
+                  <T2MapCluster
+                    label={`${c.count} ape — mărește harta aici`}
+                    count={c.count}
+                    large={c.count > 10}
+                    highlighted={hoveredClusterKey === c.key}
+                    onClick={() => pressCluster(c)}
+                  />
                 </MapMarker>
               ) : c.singleId === previewing?.id ? null : (
-                <MapMarker key={c.key} ready={ready} lat={c.centerLat} lng={c.centerLng}>
+                <MapMarker key={c.key} ready={ready} lat={c.centerLat} lng={c.centerLng} raised={hoveredId === c.singleId}>
                   <WaterPin
                     id={c.singleId}
                     kind={kindFor(c.singleId)}
                     label={pinLabel(c.singleId)}
                     busy={loadingId === c.singleId}
+                    highlighted={hoveredId === c.singleId}
+                    onHover={setHoveredId}
                     onClick={() => pressCluster(c)}
                   />
                 </MapMarker>
@@ -840,6 +887,8 @@ export function PublicWatersMapScreen() {
           setLocationProblem(p);
         }}
       />
+
+      <DirectionsDialog open={directionsFor != null} onClose={() => setDirectionsFor(null)} lat={directionsFor?.lat ?? null} lng={directionsFor?.lng ?? null} />
 
       <Dialog
         open={locationProblem === 'permission'}

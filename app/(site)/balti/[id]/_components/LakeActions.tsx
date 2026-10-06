@@ -165,15 +165,28 @@ function BookingControl({ source, className, children }: { source: LakeBookingIn
 }
 
 /**
- * «Rezervă acum» (lakes.detail.c6 / c16): one control, one colour, one label at every width and
- * session state — the kit primary (fish paints the hero one red; the web keeps its one primary
- * action until the kit names an on-photo CTA variant). Where it leads: useBookingTarget.
+ * The booking control's one label per booking state, the same at every width (lakes.detail.c6 /
+ * c16, owner rule 4): «Rezervă acum» when the lake books (online, or by phone — it jumps to
+ * Contact); «Vreau să rezerv online» when it takes no bookings (`none`), so the phone hero never
+ * promises a booking the desktop summary card («Fără rezervări online») says is not there. A
+ * deliberate departure from fish c6 (red «Rezervă acum» on every lake): it leads to the same
+ * demand signal (lakes.booking-interest), named for what it does.
+ */
+export function bookingCtaLabel(state: LakeBookingState): string {
+  return state === 'none' ? 'Vreau să rezerv online' : 'Rezervă acum';
+}
+
+/**
+ * The booking control (lakes.detail.c6 / c16): one control, one label per booking state at every
+ * width and session state (bookingCtaLabel). The kit primary — `secondary` where a call is the
+ * lake's main action (no online booking + a phone), on the phone hero and in the summary card
+ * alike. Where it leads: useBookingTarget.
  */
 export function BookingCta({
   source,
   block = false,
   variant = 'primary',
-  label = 'Rezervă acum',
+  label,
   className,
 }: {
   source: LakeBookingInterestSource;
@@ -184,10 +197,11 @@ export function BookingCta({
   label?: string;
   className?: string;
 }) {
+  const { lake } = useLake();
   return (
     <BookingControl source={source} className={buttonClass({ variant, block, className: cn('[&>svg]:size-5', className) })}>
       <CalendarDaysIcon aria-hidden />
-      {label}
+      {label ?? bookingCtaLabel(lake.bookingState)}
     </BookingControl>
   );
 }

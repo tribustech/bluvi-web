@@ -955,7 +955,8 @@ test('lakes.reviews.c11 — the reviews are cached 5 minutes: leaving and coming
   const nav = page.getByRole('navigation').filter({ has: page.getByRole('link', { name: 'Galerie' }) }).locator('visible=true').first();
   await nav.getByRole('link', { name: 'Galerie' }).click();
   await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}/galerie$`));
-  await page.getByRole('navigation').filter({ has: page.getByRole('link', { name: 'Recenzii' }) }).locator('visible=true').first().getByRole('link', { name: 'Recenzii' }).click();
+  // The gallery has no page nav (a full-width masonry under its own header): back, a soft navigation.
+  await page.goBack();
   await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}/recenzii$`));
   await expect(cards).toHaveCount(chitaReviews.length);
   await settle(page);

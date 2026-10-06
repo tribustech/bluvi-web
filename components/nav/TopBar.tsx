@@ -173,11 +173,15 @@ export function TopBar({
       className={cn(
         'border-b border-hairline bg-surface',
         // Lifted once scrolled — unless a row is pinned under it: then that row casts the shadow.
-        'transition-[box-shadow,translate,opacity] duration-(--duration-fast) ease-fast',
+        'transition-[box-shadow,top,opacity] duration-(--duration-fast) ease-fast',
         BAR_SHADOW,
-        // Phone hide-on-scroll: slides up (medium, ease-slow); reduced motion fades instead.
-        'data-concealed:pointer-events-none data-concealed:-translate-y-full data-concealed:duration-(--duration-medium) data-concealed:ease-slow',
-        'motion-reduce:data-concealed:translate-y-0 motion-reduce:data-concealed:opacity-0',
+        // Phone hide-on-scroll: slides up (medium, ease-slow) by its sticky `top` — the SAME property,
+        // duration and easing as every row pinned under it (shell UNDER_BAR_TOP, T3 STICKY_TOP), all
+        // switched by one <html> flag in one commit, so bar and rows are interpolated together and
+        // can never drift apart (owner rule 3; a composited `translate` here ran on another clock
+        // than the rows' `top` and left them hanging on iOS momentum scroll). Reduced motion fades.
+        'data-concealed:pointer-events-none data-concealed:-top-14 data-concealed:duration-(--duration-medium) data-concealed:ease-slow',
+        'motion-reduce:data-concealed:top-0 motion-reduce:data-concealed:opacity-0',
         r('h-14', 'md:h-16'),
         className,
       )}

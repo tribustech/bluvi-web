@@ -110,7 +110,17 @@ async function openHome(page: Page, viewport = PHONE, geo: Geo = 'prompt') {
   const res = await page.goto('/balti', { waitUntil: 'domcontentloaded' });
   expect(res?.status()).toBe(200);
   await expect(visible(page.getByRole('region', { name: ALL_LAKES }))).toBeVisible({ timeout: 20_000 });
+  // The rows are in the server HTML (the Public grant): wait for hydration — the header marks
+  // itself once a render with its handlers has committed and its effects ran (not merely «no
+  // inert», which a loaded machine can show before the click handlers answer).
+  await expect(page.locator('[data-list-chrome][data-hydrated]')).toHaveCount(1, { timeout: 20_000 });
 }
+
+/**
+ * The browser-side /lakes/home stubs below only run when the browser reads /lakes/home itself. With
+ * the CMS Public grant the server prefetches the rows into the HTML and the browser never asks.
+ */
+const SERVER_PREFETCH = 'the server prefetch answers /lakes/home (Public grant): the browser stub never runs';
 
 async function openMap(page: Page, query = '', viewport = PHONE, geo: Geo = 'prompt', routes?: () => Promise<unknown>) {
   await page.setViewportSize(viewport);
@@ -239,8 +249,9 @@ test.describe('lakes.home', () => {
     const placeholder = page.getByRole('button', { name: /Descoperă bălți aproape de tine/ });
     await expect(placeholder).toContainText('Permite locația și îți arătăm instant locurile din apropiere.');
     await expect(placeholder).toContainText('Permite locația');
-    // c21: limit 11, radius 50, no position.
-    expect(homeCalls.some((u) => /limit=11/.test(u) && /radiusKm=50/.test(u) && !/lat=/.test(u))).toBe(true);
+    // c21: limit 11, radius 50, no position — read by the browser unless the server prefetched it
+    // (the Public grant: then the HTML already holds that same read, HOME_PARAMS).
+    if (homeCalls.length) expect(homeCalls.some((u) => /limit=11/.test(u) && /radiusKm=50/.test(u) && !/lat=/.test(u))).toBe(true);
     // c7: all lakes first, then the CMS order (minus nearby / all_lakes).
     const api = await (await page.request.get(`${CMS}/lakes/home?limit=11&radiusKm=50`, { headers: { authorization: `Bearer ${jwt}` } })).json();
     const fixed = (api.data.sections as { key: string; title: string; lakes: unknown[] }[]).filter(
@@ -266,7 +277,8 @@ test.describe('lakes.home', () => {
     page.on('request', (r) => {
       if (r.url().includes('/api/lakes/home')) homeCalls.push(r.url());
     });
-    await openHome(page, DESKTOP, 'granted');
+    // fish's rows are the phone's home: the nearby row first.
+    await openHome(page, PHONE, 'granted');
     const nearby = visible(page.getByRole('region', { name: /Bălți din zona ta/ }));
     await expect(nearby).toBeVisible({ timeout: 15_000 });
     expect((await sectionTitles(page))[0]).toBe('Bălți din zona ta');
@@ -282,7 +294,40 @@ test.describe('lakes.home', () => {
     await expectNoA11yViolations(page);
   });
 
-  test('lakes.home.c21 lakes.home.s6 · location granted (a returning visitor), the position read slow: the nearby row is reserved from the first paint, nothing jumps (CLS < 0.01)', async ({ page }) => {
+  test('lakes.home.c12 c13 · desktop, location granted: one grid, one card design — the nearby lakes carry their distance, «Aproape de tine» is their grid', async ({ page }) => {
+    await openHome(page, DESKTOP, 'granted');
+    const grid = page.locator('[data-balti-grid="all"]');
+    // The nearby lakes show their distance in «Bălți recomandate» (no block over the grid that
+    // repeats them in another card design — owner rule 5).
+    await expect(grid.locator('article').filter({ hasText: /La (\d,\d|\d{2,}) km/ }).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('region', { name: /Bălți din zona ta/ }).locator('visible=true')).toHaveCount(0);
+    expect((await sectionTitles(page))[0]).toBe('Bălți recomandate');
+    const bar = page.getByRole('group', { name: 'Categorii' });
+    await bar.getByRole('button', { name: 'Aproape de tine' }).click();
+    await expect(page).toHaveURL(/\/balti\?categorie=aproape$/);
+    const near = page.locator('[data-balti-grid="nearby"]');
+    await expect(near.getByRole('heading', { level: 2 })).toHaveText('Bălți din zona ta');
+    // c12: the radius link to the nearby map.
+    const radius = near.getByRole('link', { name: 'Vezi pe hartă bălțile pe o rază de 50 km' });
+    await expect(radius).toHaveText(/50 km/);
+    await expect(radius).toHaveAttribute('href', '/balti/harta?aproape=1');
+    // c13 + nearest first: every card has its distance, in ascending order.
+    const km = await near.locator('ul > li article').evaluateAll((as) =>
+      as.map((a) => {
+        const m = (a.textContent ?? '').match(/La (\d+(?:,\d)?) km/);
+        return m ? Number(m[1].replace(',', '.')) : Number.NaN;
+      }),
+    );
+    expect(km.length).toBeGreaterThan(0);
+    expect(km.every((k) => !Number.isNaN(k))).toBe(true);
+    expect(km).toEqual([...km].sort((a, b) => a - b));
+    // The same card as «Recomandate»: a 4:3 photo with the text under it.
+    const photo = (await near.locator('li article > div').first().boundingBox())!;
+    expect(Math.abs(photo.width / photo.height - 4 / 3)).toBeLessThan(0.02);
+    await expectNoA11yViolations(page);
+  });
+
+  test('lakes.home.c21 lakes.home.s6 · location granted (a returning visitor), the position read slow: from 768 the grid takes the distances in place, nothing jumps (CLS < 0.01)', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await page.addInitScript((at) => {
       // The hint location.ts left on the last visit (./_list/geoHint.ts).
@@ -301,7 +346,9 @@ test.describe('lakes.home', () => {
     }, BUCHAREST);
     await patchGrants(page);
     await page.goto('/balti', { waitUntil: 'domcontentloaded' });
-    await expect(visible(page.getByRole('region', { name: /Bălți din zona ta/ }))).toBeVisible({ timeout: 20_000 });
+    // From 768 the nearby lakes are not a block over the grid: their distances appear on the grid's
+    // cards (over the photo, no reflow) and nothing else moves.
+    await expect(page.locator('[data-balti-grid="all"] article').filter({ hasText: /La (\d,\d|\d{2,}) km/ }).first()).toBeVisible({ timeout: 20_000 });
     await page.waitForTimeout(500);
     const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
     expect(cls).toBeLessThan(0.01);
@@ -332,6 +379,37 @@ test.describe('lakes.home', () => {
     }
     await card.click();
     await expect(page).toHaveURL(new RegExp(`${href}$`));
+  });
+
+  test('lakes.home.c9 c14 · phone, owner rule 5: no near-empty rail (a short section stacks compact rows), no blank card foot', async ({ page }) => {
+    await openHome(page, PHONE);
+    const sections = page.locator('main section').locator('visible=true');
+    let stacked = 0;
+    for (const section of await sections.all()) {
+      const rail = section.locator('ul.snap-x');
+      const cards = section.locator('article').locator('visible=true');
+      const n = await cards.count();
+      if (!n) continue;
+      if (await rail.count()) {
+        // A rail holds at least 3 cards (a 200px card and a half per 375px screen).
+        expect(n, (await section.locator('h2').textContent()) ?? '').toBeGreaterThanOrEqual(3);
+        // Each card ends right under its last line (padding only): no band pushed to a fixed foot.
+        for (const gap of await cards.evaluateAll((as) =>
+          as.map((a) => {
+            const lines = [...a.querySelectorAll('h3, p, ul')].map((e) => e.getBoundingClientRect().bottom);
+            return a.getBoundingClientRect().bottom - Math.max(...lines);
+          }),
+        ))
+          expect(gap).toBeLessThanOrEqual(12);
+      } else {
+        stacked += 1;
+        expect(n).toBeLessThan(3);
+        // One compact row per lake, full width, short.
+        for (const box of await cards.evaluateAll((as) => as.map((a) => a.getBoundingClientRect().toJSON() as DOMRect)))
+          expect(box.height).toBeLessThanOrEqual(110);
+      }
+    }
+    test.info().annotations.push({ type: 'stacked sections', description: String(stacked) });
   });
 
   test('lakes.home.c15 c22 lakes.home.s8 · recently viewed: first row, newest first, compact cards', async ({ page }) => {
@@ -397,13 +475,30 @@ test.describe('lakes.home', () => {
     await expect(dialog).toBeHidden();
   });
 
+  test('lakes.home.c14 c17 · desktop, never asked: «Aproape de tine» keeps the recommended grid under its placeholder; grid cards carry the facility glyphs', async ({ page }) => {
+    await openHome(page, DESKTOP);
+    // c14: up to 4 facility glyphs (+N) on a grid card.
+    const facilities = page.locator('[data-balti-grid] ul[aria-label="Facilități"]');
+    await expect(facilities.first()).toBeVisible();
+    for (const n of await facilities.evaluateAll((uls) => uls.map((u) => u.querySelectorAll('li[title]').length))) expect(n).toBeLessThanOrEqual(4);
+    await page.getByRole('button', { name: /Aproape de tine/ }).first().click();
+    await expect(page.getByRole('button', { name: 'Permite locația' })).toBeVisible();
+    // Rule 5: never a banner over an empty page.
+    await expect(page.getByRole('heading', { level: 2, name: 'Bălți recomandate' })).toBeVisible();
+    expect(await page.locator('[data-balti-grid="all"] li[data-lake-id]').count()).toBeGreaterThan(0);
+  });
+
   test('lakes.home.c18 lakes.home.s3 s6 · never asked: the placeholder asks, then the nearby row loads', async ({ page }) => {
     await openHome(page, DESKTOP, 'prompt-allow');
+    // From 768 the placeholder is the «Aproape de tine» category (owner rule 5: no band over the grid).
+    await expect(page.getByRole('button', { name: /Descoperă bălți aproape de tine/ })).toHaveCount(0);
+    await page.getByRole('group', { name: 'Categorii' }).getByRole('button', { name: 'Aproape de tine' }).click();
     await page.getByRole('button', { name: /Descoperă bălți aproape de tine/ }).click();
     await expect(visible(page.getByRole('region', { name: /Bălți din zona ta/ }))).toBeVisible({ timeout: 15_000 });
   });
 
-  test('lakes.home.c24 c25 lakes.home.s1 s2 · skeleton while loading, error screen with retry', async ({ page }) => {
+  test('lakes.home.c24 c25 lakes.home.s1 s2 · skeleton while loading, error screen with retry', async ({ page, request }) => {
+    test.skip(await publicGrant(request), SERVER_PREFETCH);
     let fail = true;
     await page.setViewportSize(PHONE);
     await page.route(/localhost:1337\/api\/lakes\/home/, async (route) => {
@@ -430,7 +525,8 @@ test.describe('lakes.home', () => {
     await expect(page.getByRole('status').filter({ hasText: /Bălți încărcate: \d+ secțiuni/ })).toHaveCount(1);
   });
 
-  test('lakes.home.c25 lakes.home.s2 · a 4xx: no «check your connection», a failed retry is said again', async ({ page }) => {
+  test('lakes.home.c25 lakes.home.s2 · a 4xx: no «check your connection», a failed retry is said again', async ({ page, request }) => {
+    test.skip(await publicGrant(request), SERVER_PREFETCH);
     await page.setViewportSize(DESKTOP);
     await page.route(/localhost:1337\/api\/lakes\/home/, (route) =>
       route.fulfill({ status: 403, contentType: 'application/json', body: '{"error":{"status":403,"message":"Forbidden"}}' }),
@@ -477,7 +573,8 @@ test.describe('lakes.home', () => {
     await expect(page).toHaveURL(/\/ape-publice$/);
   });
 
-  test('lakes.home.c25 lakes.home.s2 s8 · /lakes/home fails with recents: the recent row stays, the failure is said inline with a retry', async ({ page }) => {
+  test('lakes.home.c25 lakes.home.s2 s8 · /lakes/home fails with recents: the recent row stays, the failure is said inline with a retry', async ({ page, request }) => {
+    test.skip(await publicGrant(request), SERVER_PREFETCH);
     await page.addInitScript((id) => window.localStorage.setItem('recentViewedLakeIds', JSON.stringify([id])), CHITA);
     await page.setViewportSize(DESKTOP);
     await patchGrants(page);
@@ -498,7 +595,8 @@ test.describe('lakes.home', () => {
     await expect(visible(page.getByRole('region', { name: 'Vizualizate recent' }))).toBeVisible();
   });
 
-  test('lakes.home.c23 lakes.home.s10 · every row empty: no rows, no map button', async ({ page }) => {
+  test('lakes.home.c23 lakes.home.s10 · every row empty: no rows, no map button', async ({ page, request }) => {
+    test.skip(await publicGrant(request), SERVER_PREFETCH);
     await page.setViewportSize(PHONE);
     await patchGrants(page);
     await page.route(/localhost:1337\/api\/lakes\/home/, (r) =>
@@ -522,7 +620,8 @@ test.describe('lakes.home', () => {
     await signIn(context, jwt, BASE_URL);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(visible(page.getByRole('region', { name: ALL_LAKES }))).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByRole('button', { name: /Descoperă bălți aproape de tine/ })).toBeVisible();
+    // From 768 the location placeholder is the «Aproape de tine» category (owner rule 5).
+    await expect(page.getByRole('group', { name: 'Categorii' }).getByRole('button', { name: 'Aproape de tine' })).toBeVisible();
     expect(await sectionTitles(page)).toEqual(out);
   });
 
@@ -608,7 +707,7 @@ test.describe('lakes.filters', () => {
     await expect(page).toHaveURL(/\/balti\/harta\?regim=Retinere$/);
     await expect(listHeading(page)).toHaveText(/în această zonă/, { timeout: 20_000 });
     // The map rail shows it: c3 of the map.
-    await expect(visible(page.getByRole('button', { name: 'Regim · 1' }))).toBeVisible();
+    await expect(visible(page.getByRole('button', { name: 'Regim: Retinere' }))).toBeVisible();
   });
 
   test('lakes.filters.c1 c11 lakes.filters.s1 s3 · tablet: the kit dialog, the sections scroll under a fixed footer', async ({ page }) => {
@@ -626,8 +725,12 @@ test.describe('lakes.filters', () => {
 
   test('lakes.home.c6 lakes.filters.s1 · applying with nothing set opens the all-lakes map', async ({ page }) => {
     await openHome(page, PHONE);
-    await page.getByRole('button', { name: 'Filtre' }).click();
     const panel = page.getByRole('dialog', { name: 'Filtre' });
+    // A click a loaded machine swallows is tried again (the sheet is the subject here, not the timing).
+    await expect(async () => {
+      if (!(await panel.isVisible())) await page.getByRole('button', { name: 'Filtre' }).click();
+      await expect(panel).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 15_000 });
     await panel.getByRole('button', { name: /^Aplică/ }).click();
     await expect(page).toHaveURL(/\/balti\/harta$/);
   });
@@ -647,8 +750,8 @@ test.describe('lakes.filters', () => {
 
   test('lakes.filters.c1 c3 c5 c6 c9 c13 lakes.filters.s2 s6 · map chip opens one section; long lists clip to 4 rows; draft discarded on close', async ({ page }) => {
     await openMap(page, '', DESKTOP);
-    // c1: a chip opens only its section, titled with its name.
-    await visible(page.getByRole('button', { name: 'Pești' })).click();
+    // c1: a chip opens only its section, titled with its name (from 1024 «Pești» is the pill's «Specie»).
+    await visible(page.getByRole('button', { name: 'Specie' })).click();
     const panel = page.getByRole('dialog', { name: 'Pești' });
     await expect(panel).toBeVisible();
     await expect(panel.locator('fieldset')).toHaveCount(1);
@@ -669,7 +772,7 @@ test.describe('lakes.filters', () => {
     await first.click();
     await panel.getByRole('button', { name: 'Închide' }).click();
     await expect(page).toHaveURL(/\/balti\/harta$/);
-    await visible(page.getByRole('button', { name: 'Pești' })).click();
+    await visible(page.getByRole('button', { name: 'Specie' })).click();
     await expect(fish().getByRole('checkbox', { name: firstName, exact: true })).not.toBeChecked();
     // Apply one → c6: the committed option is listed first next time.
     const third = fish().locator('label').nth(2);
@@ -677,7 +780,7 @@ test.describe('lakes.filters', () => {
     await third.click();
     await page.getByRole('dialog', { name: 'Pești' }).getByRole('button', { name: /^Aplică/ }).click();
     await expect(page).toHaveURL(/pesti=/);
-    await visible(page.getByRole('button', { name: 'Pești · 1' })).click();
+    await visible(page.getByRole('button', { name: /^Specie: / })).click();
     await expect(fish().locator('label').first()).toHaveText(thirdName);
     await expect(fish().getByRole('checkbox', { name: thirdName, exact: true })).toBeChecked();
     await page.waitForTimeout(600); // the dialog's fade-in, so axe reads its settled colours
@@ -742,7 +845,7 @@ test.describe('lakes.filters', () => {
 
   test('lakes.filters.c11 lakes.filters.s2 s3 · a single section: «Șterge» clears only that section', async ({ page }) => {
     await openMap(page, 'regim=Retinere&rezervari=1', DESKTOP);
-    await visible(page.getByRole('button', { name: 'Regim · 1' })).click();
+    await visible(page.getByRole('button', { name: 'Regim: Retinere' })).click();
     const panel = page.getByRole('dialog', { name: 'Regim' });
     await expect(panel.locator('fieldset')).toHaveCount(1);
     const clear = panel.getByRole('button', { name: 'Șterge', exact: true });
@@ -760,8 +863,9 @@ test.describe('lakes.filters', () => {
     await openHome(page, vp);
     const button = visible(page.getByRole('button', { name: 'Filtre' }));
     const before = (await button.boundingBox())!;
-    // «Filtre» and «Arată harta» follow the search pill (no dead band before them).
-    const search = (await visible(page.getByRole('button', { name: 'Deschide căutarea pentru bălți' })).boundingBox())!;
+    // «Filtre» and «Arată harta» follow the search pill (no dead band before them) — the whole
+    // pill: «where», then «Specie» and «Regim» (owner rule 6).
+    const search = (await visible(page.getByRole('button', { name: 'Deschide căutarea pentru bălți' })).locator('..').boundingBox())!;
     expect(before.x - (search.x + search.width)).toBeLessThanOrEqual(13);
     await button.click();
     // Owner rule 2 (ROADMAP §4b): a centred dialog, never a vertical panel taking a column.
@@ -774,7 +878,8 @@ test.describe('lakes.filters', () => {
     const regime = panel.getByRole('group', { name: /^Regim/ });
     const action = (await regime.getByRole('button', { name: 'Selectează tot: Regim' }).boundingBox())!;
     const pill = (await regime.locator('label').first().boundingBox())!;
-    expect(action.y + action.height).toBeLessThanOrEqual(pill.y);
+    // 1px of slack: the boxes are subpixel (189.97 vs 189.74 at 1280).
+    expect(action.y + action.height).toBeLessThanOrEqual(pill.y + 1);
     await regime.locator('label', { hasText: /^C&R$/ }).click();
     await expect(regime.getByRole('checkbox', { name: 'C&R', exact: true })).toBeChecked();
     await page.keyboard.press('Escape');
@@ -823,7 +928,8 @@ test.describe('lakes.filters', () => {
     await pick.click();
     await expect(pick).toHaveAttribute('aria-pressed', 'true');
     await expect(toate).toHaveAttribute('aria-pressed', 'false');
-    await expect(page).toHaveURL(/\/balti$/);
+    // Picked in place (no new page), kept in the URL (a reload or a shared link reopens it).
+    await expect(page).toHaveURL(/\/balti\?categorie=rezervare-online$/);
     const grid = page.locator('[data-balti-grid="bookable"]');
     await expect(grid).toBeVisible();
     await expect(grid.getByRole('heading', { level: 2 })).toHaveText('Rezervă direct din aplicație');
@@ -834,7 +940,85 @@ test.describe('lakes.filters', () => {
     await expect(grid.locator('ul > li').filter({ hasText: 'Rezervare online' })).toHaveCount(n);
     await toate.click();
     await expect(page.locator('[data-balti-grid="bookable"]')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/balti$/);
+    // The owner's categories, in his order, each backed by a real filter (none the data cannot back).
+    const order = ['Recomandate', 'Aproape de tine', 'Rezervare online', 'Crap', 'Somn', 'Pe timp de noapte', 'Cu cazare', 'Top rating'];
+    const shown = (await bar.getByRole('button').allTextContents()).map((l) => l.trim());
+    expect(shown.every((l) => order.includes(l))).toBe(true);
+    expect(shown).toEqual(order.filter((l) => shown.includes(l)));
+    // A species: the whole catalogue (/feed/lakes/filtered), its CMS count, the filtered map.
+    const crap = bar.getByRole('button', { name: 'Crap', exact: true });
+    await crap.click();
+    const crapGrid = page.locator('[data-balti-grid="fish:crap"]');
+    await expect(crapGrid.getByRole('heading', { level: 2 })).toHaveText('Bălți cu crap');
+    await expect(crapGrid).toContainText(/\d+ (de )?(baltă|bălți)/);
+    await expect(crapGrid.getByRole('link', { name: 'Vezi pe hartă: Bălți cu crap' })).toHaveAttribute('href', /\/balti\/harta\?pesti=/);
+    expect(await crapGrid.locator('ul > li').count()).toBeGreaterThan(0);
     await expectNoA11yViolations(page);
+  });
+
+  for (const vp of [PHONE, DESKTOP])
+  test(`lakes.home.c5 · ${vp.width}px: the picked category is in the URL — a reload brings the same grid back`, async ({ page }) => {
+    await openHome(page, vp);
+    const bar = page.getByRole('group', { name: 'Categorii' });
+    const gridHrefs = (key: string) =>
+      page.locator(`[data-balti-grid="${key}"] ul > li h3 a`).evaluateAll((as) => as.map((a) => a.getAttribute('href')));
+    await bar.getByRole('button', { name: 'Crap', exact: true }).click();
+    await expect(page).toHaveURL(/\/balti\?categorie=crap$/);
+    const crap = page.locator('[data-balti-grid="fish:crap"]');
+    await expect(crap.getByRole('heading', { level: 2 })).toHaveText('Bălți cu crap');
+    await expect.poll(async () => (await gridHrefs('fish:crap')).length).toBeGreaterThan(0);
+    const before = await gridHrefs('fish:crap');
+    // Another pick replaces it (one entry in the history, not one per chip).
+    await bar.getByRole('button', { name: 'Top rating' }).click();
+    await expect(page).toHaveURL(/\/balti\?categorie=top-rating$/);
+    await bar.getByRole('button', { name: 'Crap', exact: true }).click();
+    await expect(page).toHaveURL(/\/balti\?categorie=crap$/);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-list-chrome][data-hydrated]')).toHaveCount(1, { timeout: 20_000 });
+    await expect(bar.getByRole('button', { name: 'Crap', exact: true })).toHaveAttribute('aria-pressed', 'true', { timeout: 20_000 });
+    await expect(crap.getByRole('heading', { level: 2 })).toHaveText('Bălți cu crap');
+    await expect.poll(() => gridHrefs('fish:crap'), { timeout: 15_000 }).toEqual(before);
+    // Never «Recomandate» first: the reload paints the picked grid (or its skeleton) only.
+    await expect(page.locator('[data-balti-grid="all"]')).toHaveCount(0);
+    // «Recomandate» is the bare /balti.
+    await bar.getByRole('button', { name: 'Recomandate' }).click();
+    await expect(page).toHaveURL(/\/balti$/);
+    await expect(crap).toHaveCount(0);
+  });
+
+  test('lakes.home.c5 · an unknown ?categorie= falls back to «Recomandate»', async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await patchGrants(page);
+    await page.goto('/balti?categorie=nu-exista', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('group', { name: 'Categorii' }).getByRole('button', { name: 'Recomandate' })).toHaveAttribute('aria-pressed', 'true', { timeout: 20_000 });
+    await expect(page.locator('[data-balti-grid="all"]')).toBeVisible();
+  });
+
+  test('lakes.home.c4 c5 c6 · owner rule 6: one search pill — «where», then «Specie» and «Regim» open their filter section', async ({ page }) => {
+    await openHome(page, LAPTOP);
+    const pill = page.getByRole('button', { name: 'Deschide căutarea pentru bălți' }).locator('..');
+    const specie = pill.getByRole('button', { name: 'Specie' });
+    const regim = pill.getByRole('button', { name: 'Regim' });
+    await expect(specie).toBeVisible();
+    await expect(regim).toBeVisible();
+    // One row, one height: the segments sit inside the pill.
+    const box = (await pill.boundingBox())!;
+    const seg = (await specie.boundingBox())!;
+    expect(seg.y).toBeGreaterThanOrEqual(box.y);
+    expect(seg.y + seg.height).toBeLessThanOrEqual(box.y + box.height);
+    await specie.click();
+    const dialog = page.getByRole('dialog', { name: 'Pești' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('fieldset')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(specie).toBeFocused();
+    await regim.click();
+    const r = page.getByRole('dialog', { name: 'Regim' });
+    await r.getByRole('group', { name: /^Regim/ }).locator('label', { hasText: /^C&R$/ }).click();
+    await r.getByRole('button', { name: /^Aplică/ }).click();
+    await expect(page).toHaveURL(/\/balti\/harta\?regim=C%26R$/);
   });
 
   test('lakes.filters.c3 lakes.filters.s1 · the catalogs fail → «Încearcă din nou» refetches them (skeleton while retrying, focus kept)', async ({ page }) => {
@@ -1311,7 +1495,10 @@ test.describe('lakes.search', () => {
     });
     await openHome(page, PHONE);
     const services = page.getByRole('dialog', { name: 'Activează serviciile de locație' });
-    if (await services.isVisible().catch(() => false)) await services.getByRole('button', { name: 'Renunță' }).click();
+    // The home's own read fails (location off): the services dialog opens by itself once (c20).
+    await expect(services).toBeVisible({ timeout: 10_000 });
+    await services.getByRole('button', { name: 'Renunță' }).click();
+    await expect(services).toBeHidden();
     await page.getByRole('button', { name: 'Deschide căutarea pentru bălți' }).click();
     await page.getByRole('dialog', { name: 'Caută în Bălți' }).getByRole('option', { name: /^În jurul meu/ }).click();
     await expect(services).toBeVisible();
@@ -1369,6 +1556,8 @@ test.describe('lakes.search', () => {
     await expect(sheet).toBeHidden();
     // From 768 the kit Dialog (a decision: an alert dialog, answered by its action).
     await page.setViewportSize(TABLET);
+    // From 768 the placeholder is the «Aproape de tine» category's grid (owner rule 5).
+    await page.getByRole('group', { name: 'Categorii' }).getByRole('button', { name: 'Aproape de tine' }).click();
     await page.getByRole('button', { name: /Activează locația din setări/ }).click();
     const dialog = page.getByRole('alertdialog', { name: 'Găsește bălți aproape de tine' });
     await expect(dialog).toBeVisible();
@@ -1470,16 +1659,30 @@ test.describe('lakes.results-map', () => {
     test(`lakes.results-map.c1 c3 c15 c16 c18 lakes.results-map.s3 · ${vp.width}px · chrome, list, axe`, async ({ page }) => {
       const errors = collectConsoleErrors(page);
       await openMap(page, '', vp);
-      // c1: search pill + Filtre; back (phone) or the breadcrumb (768+).
+      // c1: search pill + Filtre; back: the square (phone), «Arată lista» in the header (768+).
       await expect(visible(page.getByRole('button', { name: 'Caută bălți, lacuri' }))).toContainText('Caută bălți, lacuri...');
       await expect(visible(page.getByRole('button', { name: 'Filtre' }))).toBeVisible();
       if (vp.width < 768) await expect(page.getByRole('link', { name: 'Înapoi la Bălți' })).toHaveAttribute('href', '/balti');
-      // c3: the chip rail in fish order — the T1 FilterBar (from 768 its own «Filtre» leads it).
+      else await expect(visible(page.getByRole('link', { name: 'Arată lista', exact: true }))).toHaveAttribute('href', '/balti');
+      // c3: the quick filters in fish order — the chip bar; from 1024 «Pești» (Specie) and «Regim»
+      // are the search pill's selects (owner rule 7), the bar keeps the rest.
       const chips = (
         await page.getByRole('group', { name: 'Filtre' }).getByRole('button').evaluateAll((bs) => bs.filter((b) => (b as HTMLElement).offsetParent).map((b) => b.textContent?.trim()))
       ).filter((t) => t !== 'Filtre');
-      expect(chips.slice(0, 5)).toEqual(['Regim', 'Facilități', 'Rating', 'Rezervări', 'Pești']);
+      if (vp.width >= 1024) {
+        expect(chips.slice(0, 3)).toEqual(['Facilități', 'Rating', 'Rezervări']);
+        const pill = visible(page.getByRole('button', { name: 'Caută bălți, lacuri' })).locator('..');
+        await expect(pill.getByRole('button', { name: 'Specie' })).toBeVisible();
+        await expect(pill.getByRole('button', { name: 'Regim' })).toBeVisible();
+      } else expect(chips.slice(0, 5)).toEqual(['Regim', 'Facilități', 'Rating', 'Rezervări', 'Pești']);
       if (vp.width >= 768) {
+        // Owner rules 6 + 7: the list's search row, at the list header's place — switch, pill,
+        // «Filtre», then the view toggle on the content's right edge.
+        const filtre = (await visible(page.getByRole('button', { name: 'Filtre' })).boundingBox())!;
+        const toggle = (await visible(page.getByRole('link', { name: 'Arată lista', exact: true })).boundingBox())!;
+        expect(toggle.x).toBeGreaterThan(filtre.x);
+        expect(Math.abs(toggle.y + toggle.height / 2 - (filtre.y + filtre.height / 2))).toBeLessThanOrEqual(1);
+        expect(Math.abs(toggle.x + toggle.width - (vp.width - (vp.width >= 1280 ? 32 : 24)))).toBeLessThanOrEqual(2);
         // Owner rule 7: the Bălți / Ape publice switch heads the map's toolbar; map left, list right.
         const sw = page.getByRole('navigation', { name: 'Tip de apă' });
         await expect(sw.getByRole('link', { name: 'Bălți' })).toHaveAttribute('aria-current', 'page');
@@ -1494,9 +1697,12 @@ test.describe('lakes.results-map', () => {
       await expect(cards.first()).toBeVisible();
       const lefts = await cards.evaluateAll((els) => new Set(els.map((e) => Math.round(e.getBoundingClientRect().left))).size);
       expect(lefts).toBe(1);
+      // imobiliare.ro's bands: the title row over the photo, the photo left of the details.
       const photo = (await cards.first().locator('img').first().boundingBox())!;
       const title = (await cards.first().locator('h3').boundingBox())!;
-      expect(photo.x + photo.width).toBeLessThanOrEqual(title.x);
+      const info = (await cards.first().locator('[data-row-info]').boundingBox())!;
+      expect(title.y + title.height).toBeLessThanOrEqual(photo.y);
+      expect(photo.x + photo.width).toBeLessThanOrEqual(info.x + 1);
       // c15: the count; c16: the cards open /balti/[id].
       const region = page.getByRole('region', { name: 'Rezultate' });
       await expect(region.locator('article').first()).toBeVisible();
@@ -1548,6 +1754,63 @@ test.describe('lakes.results-map', () => {
     test.skip(!both, 'no listed lake stands alone on the map at this zoom');
     await page.locator(`[data-t2-pin="${both}"]`).hover();
     await expect(region.locator(`li[data-t2-id="${both}"]`)).toHaveAttribute('data-highlighted', 'true');
+  });
+
+  test('lakes.results-map.c16 · owner rule 7: the card bands, «Sună» from the lake\'s contact, pins as price / rating pills', async ({ page }) => {
+    await openMap(page, `q=Giurgiu&judet=${GIURGIU}`, DESKTOP);
+    const region = page.getByRole('region', { name: 'Rezultate' });
+    // Pins say what the list says: a price («45 lei») or a rating («4,3») pill where known.
+    await expect.poll(async () => page.locator('[data-t2-pin-badge]').count(), { timeout: 15_000 }).toBeGreaterThan(0);
+    for (const t of await page.locator('[data-t2-pin-badge]').allTextContents()) expect(t.trim()).toMatch(/^(\d[\d.]* lei|\d,\d)$/);
+    // The action row: «Rezervă» last (primary) when the lake books online.
+    const chita = region.locator('[data-lake-row-card]').filter({ has: page.getByRole('link', { name: 'Chita Lake' }) });
+    const actions = await chita.locator('a, button').evaluateAll((els) => els.map((e) => e.textContent?.trim()).filter((t) => t === 'Rezervă' || t === 'Direcții' || t === 'Sună'));
+    expect(actions.at(-1)).toBe('Rezervă');
+    // imobiliare.ro: the actions sit on the card's bottom edge (the photo's), no blank strip under them.
+    for (const vp of [DESKTOP, { width: 1920, height: 1080 }]) {
+      await page.setViewportSize(vp);
+      await page.waitForTimeout(300);
+      for (const card of (await region.locator('[data-lake-row-card]').all()).slice(0, 3)) {
+        const rezerva = card.getByRole('link', { name: 'Rezervă' });
+        const direcții = card.getByRole('button', { name: 'Direcții' });
+        const action = (await rezerva.count()) ? rezerva : direcții;
+        if (!(await action.count())) continue;
+        const c = (await card.boundingBox())!;
+        const a = (await action.boundingBox())!;
+        expect(c.y + c.height - (a.y + a.height)).toBeLessThanOrEqual(14);
+      }
+    }
+    await page.setViewportSize(DESKTOP);
+    // «Sună»: only on a lake with a phone number (its page's contact), the numbers as tel: links.
+    await openMap(page, '', DESKTOP);
+    const call = region.getByRole('button', { name: 'Sună' }).first();
+    await expect(call).toBeVisible({ timeout: 15_000 });
+    await call.click();
+    const dialog = page.getByRole('dialog', { name: 'Sună' });
+    await expect(dialog.getByRole('link').first()).toHaveAttribute('href', /^tel:\+?\d+/);
+    await page.waitForTimeout(600);
+    await expectNoA11yViolations(page, { exclude: ['.maplibregl-canvas-container'] });
+  });
+
+  test('lakes.results-map.c15 · owner rule 7: «Caută în zona hărții» off keeps the list; «Caută în această zonă» applies the new area', async ({ page }) => {
+    const reads: string[] = [];
+    page.on('request', (r) => {
+      if (r.url().includes('/api/lakes/in-bbox')) reads.push(r.url());
+    });
+    await openMap(page, '', DESKTOP);
+    const follow = page.getByRole('checkbox', { name: 'Caută în zona hărții' });
+    await expect(follow).toBeChecked();
+    await follow.uncheck();
+    const before = reads.length;
+    const canvas = (await page.locator('.maplibregl-canvas').boundingBox())!;
+    await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+    await page.mouse.wheel(0, -600);
+    const here = page.getByRole('button', { name: 'Caută în această zonă' });
+    await expect(here).toBeVisible({ timeout: 10_000 });
+    expect(reads.length).toBe(before);
+    await here.click();
+    await expect.poll(() => reads.length, { timeout: 10_000 }).toBeGreaterThan(before);
+    await expect(here).toHaveCount(0);
   });
 
   test('lakes.results-map.c3 c4 c20 lakes.results-map.s7 · Rezervări flips in place; Rating chip label; «Șterge filtre» resets', async ({ page }) => {
@@ -1787,6 +2050,52 @@ test.describe('lakes.results-map', () => {
     const before = Number((await listHeading(page).textContent())!.match(/\d+/)![0]);
     await locate.click();
     await expect.poll(async () => Number((await listHeading(page).textContent())!.match(/\d+/)![0]), { timeout: 15_000 }).toBeLessThan(before);
+  });
+
+  test('lakes.results-map.c16 · owner rule 7: a known price stays on its card at every zoom (one price index, not the pins in view)', async ({ page }) => {
+    await openMap(page, '', DESKTOP);
+    const region = page.getByRole('region', { name: 'Rezultate' });
+    const priced = async () =>
+      new Set(await region.locator('[data-lake-row-card]').filter({ hasText: 'RON / tură' }).locator('h3').allTextContents());
+    await expect.poll(async () => (await priced()).size, { timeout: 15_000 }).toBeGreaterThan(0);
+    const before = await priced();
+    // Zoom out and back: clusters change, the cards keep their price.
+    await page.getByRole('button', { name: 'Micșorează' }).click();
+    await settled(page);
+    await page.getByRole('button', { name: 'Mărește', exact: true }).click();
+    await settled(page);
+    const after = await priced();
+    for (const name of before) if ((await region.locator('h3', { hasText: name }).count()) > 0) expect(after.has(name)).toBe(true);
+  });
+
+  for (const vp of [LAPTOP, DESKTOP, { width: 1920, height: 1080 }])
+  test(`lakes.results-map.c1 · ${vp.width}px: owner rules 6 + 7 — the map's header is the list's (same controls, same x), «Arată lista» in the «Arată harta» slot, on the shell column`, async ({ page }) => {
+    await openHome(page, vp);
+    const boxes = async (toggle: string) => ({
+      switcher: (await page.getByRole('navigation', { name: 'Tip de apă' }).boundingBox())!,
+      filtre: (await visible(page.getByRole('button', { name: 'Filtre' })).boundingBox())!,
+      toggle: (await visible(page.getByRole('link', { name: toggle, exact: true })).boundingBox())!,
+    });
+    const list = await boxes('Arată harta');
+    await visible(page.getByRole('link', { name: 'Arată harta', exact: true })).click();
+    await expect(listHeading(page)).toHaveText(/în această zonă/, { timeout: 25_000 });
+    const map = await boxes('Arată lista');
+    for (const k of ['switcher', 'filtre', 'toggle'] as const) {
+      expect(Math.abs(map[k].x - list[k].x)).toBeLessThanOrEqual(2);
+      expect(Math.abs(map[k].width - list[k].width)).toBeLessThanOrEqual(2);
+    }
+    // The toolbar's edges are the top bar's (shell column), the map below stays full-bleed.
+    // (SHELL_MAX 1744 = 1680 + 2 × 32: past it the column is centred.)
+    const edge = Math.max(vp.width >= 1280 ? 32 : 24, (vp.width - 1744) / 2 + 32);
+    expect(Math.abs(map.switcher.x - edge)).toBeLessThanOrEqual(2);
+    expect(Math.abs(map.toggle.x + map.toggle.width - (vp.width - edge))).toBeLessThanOrEqual(2);
+    const canvas = (await page.locator('.maplibregl-canvas').boundingBox())!;
+    expect(canvas.x).toBeLessThanOrEqual(1);
+    // The list's cards end on the shell column too (under «Arată lista»), not on the window's edge.
+    const card = (await page.locator('[data-lake-row-card]').first().boundingBox())!;
+    expect(Math.abs(card.x + card.width - (vp.width - edge))).toBeLessThanOrEqual(2);
+    await visible(page.getByRole('link', { name: 'Arată lista', exact: true })).click();
+    await expect(page).toHaveURL(/\/balti$/);
   });
 
   test('lakes.results-map.c2 · back to the Bălți home drops search and filters', async ({ page }) => {

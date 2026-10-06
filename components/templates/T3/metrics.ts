@@ -13,19 +13,29 @@
 
 /**
  * Pinned rows start right under the top bar — and follow it to the top edge when the phone bar
- * slides away, so the chip row never hangs 56px in the air. The shell's UNDER_BAR_TOP offsets,
- * WITHOUT its `top` transition: the T3 rows jump to their new `top` and useFollowBar plays the move
- * as a compositor transform on the bar's timing (a `top` transition on a sticky row lags the bar's
- * composited slide on iOS Safari — owner rule 3). Use with usePinnedFollowingBar.
+ * slides away, so the chip row never hangs 56px in the air (owner rule 3). One mechanism for the
+ * whole stack: the bar (TopBar) and these rows both move by their sticky `top`, with the same
+ * duration and easing, switched by the same <html data-bar-concealed> flag in the same commit — so
+ * every frame interpolates both from one clock and the row's top is always the bar's bottom, also
+ * mid-slide and during iOS momentum scroll. A row still in flow that reaches its stick point while
+ * the bar slides sticks at the bar's moving edge. Never animate a pinned row any other way.
+ * The shell's UNDER_BAR_TOP is the same rule.
  */
 export const STICKY_TOP = [
   'top-[calc(--spacing(14)_+_var(--shell-banner-h,0px))] md:top-[calc(--spacing(16)_+_var(--shell-banner-h,0px))]',
   'max-md:[html[data-bar-concealed]_&]:top-[var(--shell-banner-h,0px)]',
+  'max-md:transition-[top] max-md:duration-(--duration-fast) max-md:ease-fast',
+  'max-md:[html[data-bar-concealed]_&]:duration-(--duration-medium) max-md:[html[data-bar-concealed]_&]:ease-slow',
+  'motion-reduce:transition-none',
 ].join(' ');
 
 /** STICKY_TOP below 768 only (a row that pins on the phone and does something else from 768). */
-export const PINNED_TOP_PHONE =
-  'max-md:top-[calc(--spacing(14)_+_var(--shell-banner-h,0px))] max-md:[html[data-bar-concealed]_&]:top-[var(--shell-banner-h,0px)]';
+export const PINNED_TOP_PHONE = [
+  'max-md:top-[calc(--spacing(14)_+_var(--shell-banner-h,0px))] max-md:[html[data-bar-concealed]_&]:top-[var(--shell-banner-h,0px)]',
+  'max-md:transition-[top] max-md:duration-(--duration-fast) max-md:ease-fast',
+  'max-md:[html[data-bar-concealed]_&]:duration-(--duration-medium) max-md:[html[data-bar-concealed]_&]:ease-slow',
+  'motion-reduce:transition-none',
+].join(' ');
 
 /*
  * Every offset below also adds the offline banner's height while it shows (`--shell-banner-h`, the

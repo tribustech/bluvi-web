@@ -239,13 +239,20 @@ test('lakes.detail.c11 lakes.detail.c12 — a chip jumps under the sticky nav an
   const nav = chips(page);
   await nav.getByRole('link', { name: 'Recenzii' }).click();
   await expect(nav.getByRole('link', { name: 'Recenzii' })).toHaveAttribute('aria-current', 'location');
-  // The section lands just below the pinned rows (top bar 56 + mini row 46 + chips 58 + 12).
-  await expect
-    .poll(async () => Math.round((await page.locator('#recenzii').boundingBox())!.y))
-    .toBeLessThanOrEqual(175);
-  await expect.poll(async () => Math.round((await page.locator('#recenzii').boundingBox())!.y)).toBeGreaterThanOrEqual(150);
-  // c12: the pinned row — name, rating meta (a link to Recenzii), share.
+  // The section lands 12px below the pinned rows, wherever the jump left them (a jump down hides
+  // the phone bar: mini row 46 + chips 58 + 12 = 116; with the bar 56 more).
+  const air = async () => {
+    const [section, rows] = [await page.locator('#recenzii').boundingBox(), await nav.boundingBox()];
+    return Math.round(section!.y - (rows!.y + rows!.height));
+  };
+  await expect.poll(air).toBeGreaterThanOrEqual(8);
+  await expect.poll(air).toBeLessThanOrEqual(16);
+  // c12: the pinned row — back (fish VenuePinnedNav leftAccessory: with the hero and the bar gone it
+  // is the only way back on screen), name, rating meta (a link to Recenzii), share.
   await expect(nav).toHaveAttribute('data-pinned', 'true');
+  const mini = nav.locator('[data-t3="pinned-mini"]');
+  await expect(mini.getByRole('button', { name: 'Înapoi' })).toBeVisible();
+  await expect.poll(async () => (await mini.getByRole('button', { name: 'Înapoi' }).boundingBox())!.y).toBeGreaterThanOrEqual(0);
   await expect(nav.getByText(lakes.get(ID.chita)!.name)).toBeVisible();
   await expect(nav.getByRole('link', { name: /^Recenzii: / })).toBeVisible();
   await expect(nav.getByRole('button', { name: 'Distribuie balta' })).toBeVisible();
@@ -293,11 +300,13 @@ test('lakes.detail.c14 lakes.detail.c15 — quick actions in fish order, every s
   await expect(chips(page).getByRole('link', { name: 'Recenzii', exact: true })).toHaveAttribute('aria-current', 'location');
   await expect(page.locator('#recenzii')).toBeFocused();
   // From 1024 the tiles leave for the summary card beside them (owner rule 1): its buttons and its
-  // Partide / Statistici links carry the pages no section links to.
+  // Statistici link carry the pages no section links to — Partide only while its section (with
+  // «Vezi tot») is not on the page, so Chita (with activity) has no second Partide link there.
   await page.setViewportSize(DESKTOP);
   await expect(page.getByRole('list', { name: 'Acțiuni rapide' })).toBeHidden();
   const more = page.getByRole('complementary', { name: 'Pe scurt' }).getByRole('list', { name: 'Mai multe despre baltă' });
-  await expect(more.getByRole('link', { name: 'Partide' })).toHaveAttribute('href', `/balti/${ID.chita}/partide`);
+  await expect(page.locator('#partide')).toBeVisible();
+  await expect(more.getByRole('link', { name: 'Partide' })).toHaveCount(0);
   await expect(more.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `/balti/${ID.chita}/statistici`);
   await page.setViewportSize(PHONE);
   // Prețuri scrolls to its section (Belin has prices).
@@ -423,7 +432,7 @@ test('lakes.detail.c16 lakes.detail.s6 lakes.booking-interest.c1 lakes.booking-i
   const events = await recordAnalytics(page);
   await open(page, ID.belin);
   const l = lakes.get(ID.belin)!;
-  await visible(page.getByRole('button', { name: 'Rezervă acum' })).click();
+  await visible(page.getByRole('button', { name: 'Vreau să rezerv online' })).click();
   const dialog = page.getByRole('dialog', { name: 'Rezervări prin Bluvi' });
   await expect(dialog).toContainText(`${l.name} nu acceptă încă rezervări prin Bluvi.`);
   await expect(dialog).toContainText('Ești administratorul bălții?');
@@ -439,9 +448,26 @@ test('lakes.detail.c16 lakes.detail.s6 lakes.booking-interest.c1 lakes.booking-i
   await expect(page).toHaveURL(/\/intra$/);
 });
 
+test('lakes.detail.c6 lakes.detail.c16 — no online booking: one label for the booking control at every width (never «Rezervă acum» on the phone and «Fără rezervări online» on the desktop)', async ({ page }) => {
+  // Phone: the hero says «Vreau să rezerv online» (the demand signal, secondary — the call is the
+  // lake's main action), the bottom bar «Sună»; nowhere «Rezervă acum».
+  await open(page, ID.belin, PHONE);
+  const hero = visible(page.getByRole('button', { name: 'Vreau să rezerv online' }));
+  await expect(hero).toBeVisible();
+  await expect(hero).not.toHaveClass(/bg-accent(?!-)/);
+  await expect(page.getByRole('button', { name: 'Rezervă acum' }).locator('visible=true')).toHaveCount(0);
+  // 1440: the summary card — the pill, «Sună» filled, the same «Vreau să rezerv online» secondary.
+  await open(page, ID.belin, DESKTOP);
+  const card = page.getByRole('complementary', { name: 'Pe scurt' });
+  await expect(card.getByText('Fără rezervări online')).toBeVisible();
+  await expect(card.getByRole('link', { name: 'Sună' })).toHaveClass(/bg-accent(?!-)/);
+  await expect(card.getByRole('button', { name: 'Vreau să rezerv online' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Rezervă acum' }).locator('visible=true')).toHaveCount(0);
+});
+
 test('lakes.booking-interest.c2 lakes.claim.c7 — a guest\'s «Contactează-ne» signs in first, never the claim form', async ({ page }) => {
   await open(page, ID.belin);
-  await visible(page.getByRole('button', { name: 'Rezervă acum' })).click();
+  await visible(page.getByRole('button', { name: 'Vreau să rezerv online' })).click();
   const dialog = page.getByRole('dialog', { name: 'Rezervări prin Bluvi' });
   await dialog.getByRole('button', { name: 'Contactează-ne' }).click();
   await expect(page).toHaveURL(/\/intra$/);
@@ -451,7 +477,7 @@ test('lakes.booking-interest.c2 lakes.claim.c7 — a guest\'s «Contactează-ne�
 test('lakes.booking-interest.c2 — signed in: «Contactează-ne» closes the dialog and opens the claim', async ({ page, context }) => {
   await signIn(context, jwt, base());
   await open(page, ID.belin);
-  await visible(page.getByRole('button', { name: 'Rezervă acum' })).click();
+  await visible(page.getByRole('button', { name: 'Vreau să rezerv online' })).click();
   await page.getByRole('dialog', { name: 'Rezervări prin Bluvi' }).getByRole('button', { name: 'Contactează-ne' }).click();
   await expect(page.getByRole('dialog', { name: 'Ești administratorul acestei bălți?' })).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'Rezervări prin Bluvi' })).toBeHidden();
@@ -469,7 +495,7 @@ test('lakes.booking-interest.c3 lakes.booking-interest.c4 lakes.booking-interest
     return route.fulfill({ json: { data: { documentId: 'x', alreadyRegistered: true } } });
   });
   await open(page, ID.belin);
-  await visible(page.getByRole('button', { name: 'Rezervă acum' })).click();
+  await visible(page.getByRole('button', { name: 'Vreau să rezerv online' })).click();
   const dialog = page.getByRole('dialog', { name: 'Rezervări prin Bluvi' });
   await dialog.getByRole('button', { name: 'Aș vrea să pot rezerva aici' }).click();
   await expect(page.getByText('Nu am putut trimite. Încearcă din nou.')).toBeVisible();
@@ -486,12 +512,13 @@ test('lakes.booking-interest.c3 lakes.booking-interest.c4 lakes.booking-interest
 /* Partide (c20 – c22)                                                  */
 /* ------------------------------------------------------------------ */
 
-test('lakes.detail.c20 — the Partide section: idle card, the 7-month activity, «Vezi tot» and «Vezi toate partidele» to the Partide page', async ({ page }) => {
+test('lakes.detail.c20 — the Partide section: idle card, the 7-month activity, «Vezi tot» (and on the phone «Vezi toate partidele») to the Partide page', async ({ page }) => {
   await open(page, ID.chita, DESKTOP);
   const section = page.locator('#partide');
   await expect(section.getByRole('heading', { name: 'Partide la această baltă' })).toBeVisible();
   await expect(section.getByRole('link', { name: 'Vezi tot' })).toHaveAttribute('href', `/balti/${ID.chita}/partide`);
-  await expect(section.getByRole('link', { name: 'Vezi toate partidele' })).toHaveAttribute('href', `/balti/${ID.chita}/partide`);
+  // One way in per screen from 768: the header link; the full-width button is the phone's (fish).
+  await expect(section.getByRole('link', { name: 'Vezi toate partidele' })).toBeHidden();
   await expect(section.getByText(/în curând/)).toHaveCount(0);
   await expect(section.getByTestId('live-partide-card')).toContainText('luna aceasta');
   await expect(section.getByText('Activitate')).toBeVisible();
@@ -576,10 +603,12 @@ test('lakes.detail.c24 lakes.detail.s11 — Concursuri: Viitoare cards to /concu
   // Live is hidden only while the lake has no started competition (the local data moves with time).
   if (competitionCounts.get(ID.chita)!.live === 0) await expect(section.getByRole('heading', { name: 'Live', exact: true })).toHaveCount(0);
   await expect(section.getByText(/în curând/)).toHaveCount(0);
-  // The section header and the Viitoare rail both open /balti/[id]/concursuri (the rail on its tab).
-  await expect(section.getByRole('link', { name: 'Vezi tot' })).toHaveCount(2);
-  await expect(section.locator(`a[href="/balti/${ID.chita}/concursuri?tab=viitoare"]`)).toHaveText('Vezi tot');
-  await expect(section.locator(`a[href="/balti/${ID.chita}/concursuri"]`)).toHaveText('Vezi tot');
+  // One label per destination (WCAG 2.4.4): the Viitoare rail opens its tab as «Toate viitoarele»;
+  // the section-level «Vezi tot» (all tabs) only when both rails show.
+  await expect(section.locator(`a[href="/balti/${ID.chita}/concursuri?tab=viitoare"]`)).toHaveText('Toate viitoarele');
+  const both = competitionCounts.get(ID.chita)!.live > 0;
+  await expect(section.getByRole('link', { name: 'Vezi tot' })).toHaveCount(both ? 1 : 0);
+  if (both) await expect(section.locator(`a[href="/balti/${ID.chita}/concursuri"]`)).toHaveText('Vezi tot');
   await expect(section.locator(`a[href="/concursuri/${upcoming[0].documentId}"]`).first()).toBeVisible();
   // s11: Belin has none — once the counts are known, no section and no chip.
   const belin = competitionCounts.get(ID.belin)!;

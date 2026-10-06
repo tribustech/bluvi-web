@@ -1,9 +1,9 @@
 'use client';
 
 import { MapIcon } from '@heroicons/react/24/outline';
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Dialog } from '@/components/surfaces/Dialog';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
@@ -18,6 +18,7 @@ import {
   deriveNearbyPermissionPlaceholderMode,
   EMPTY_LAKE_FILTERS,
   DEFAULT_LAKES_COMMITTED_SEARCH,
+  getFilteredLakes,
   getLakesByDocumentIds,
   getTotalLakesInSections,
   lakesHomeQuery,
@@ -43,7 +44,7 @@ import { readErrorDescription, useFocusAfterRetry } from './errors';
 import { HomeHeader } from './HomeHeader';
 import { HOME_LIMIT, HOME_PARAMS } from './homeParams';
 import { HomeRow, HomeSkeleton, NearbyPlaceholder, NearbySlotSkeleton, SlotRowSkeleton } from './HomeRow';
-import { homeCategories } from './categories';
+import { CATEGORY_PARAM, categoryKeyFromSlug, categorySlug, filteredCategoryDefs, homeCategories, type FilteredResult } from './categories';
 import { distanceLabel } from './distance';
 import { CategoryBar, HomeGrid, HomeGridSkeleton, RecentStrip } from './HomeGrid';
 import { markAutoDialogShown, requestUserPosition, useLakesLocation, useLocationDialog, watchAutoDialog } from './location';
@@ -71,9 +72,14 @@ import { countLakeFilters, lakesMapQuery } from './url';
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** A filtered category's grid: its first page (the map holds the rest). */
+const CATEGORY_PAGE = 24;
+const CATEGORY_STALE_MS = 10 * 60 * 1000;
 
 export function LakesHome() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const t = useMemo(() => createBrowserTransport(), []);
   const location = useLakesLocation();
@@ -146,7 +152,8 @@ export function LakesHome() {
   const searchPillRef = useRef<HTMLButtonElement>(null);
   const [panel, setPanel] = useState<LakeFilterSection | null>(null);
   const [draft, setDraft] = useState<LakeFilterValues>(EMPTY_LAKE_FILTERS);
-  const catalogs = useFilterCatalogs(t, panel !== null);
+  // Always read: the categories (Crap, Somn, noaptea, cazare) are built from the catalogues.
+  const catalogs = useFilterCatalogs(t);
   const count = useDraftCount(t, DEFAULT_LAKES_COMMITTED_SEARCH, draft, panel !== null);
 
   const openMap = (search: LakesCommittedSearch, filters: LakeFilterValues = EMPTY_LAKE_FILTERS) =>
@@ -163,11 +170,70 @@ export function LakesHome() {
   };
 
   /* -------------------------------------------------------------- categories (owner rule 5) */
-  // The icon row over the grid: picked in place, never a navigation. «Toate» on a phone keeps
-  // fish's rails; any other category (and «Toate» from 768) is one dense grid.
-  const [categoryKey, setCategoryKey] = useState('all');
-  const categories = homeCategories(sections, seeAllHref);
-  const category = categories.find((c) => c.key === categoryKey) ?? categories[0] ?? null;
+  // The icon row over the grid: picked in place (router.replace, no new page), and kept in the URL
+  // (`?categorie=crap`, ./categories.tsx) so a reload or a shared link reopens the same grid.
+  // «Recomandate» on a phone keeps fish's rails; any other category (and «Recomandate» from 768)
+  // is one dense grid. The pick shows at once; the URL catches up a moment later.
+  const urlCategoryKey = categoryKeyFromSlug(searchParams.get(CATEGORY_PARAM));
+  // The pick, until the URL it was made from changes (the replace landed, or another navigation).
+  const [pick, setPick] = useState<{ key: string; from: string } | null>(null);
+  const categoryKey = pick && pick.from === urlCategoryKey ? pick.key : urlCategoryKey;
+  const pickCategory = (key: string) => {
+    setPick({ key, from: urlCategoryKey });
+    const next = new URLSearchParams(searchParams.toString());
+    const slug = categorySlug(key);
+    if (slug) next.set(CATEGORY_PARAM, slug);
+    else next.delete(CATEGORY_PARAM);
+    const q = next.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+  };
+  const defs = useMemo(
+    () => filteredCategoryDefs({ fishOptions: catalogs.fishOptions, facilityOptions: catalogs.facilityOptions }),
+    [catalogs.fishOptions, catalogs.facilityOptions],
+  );
+  // The whole catalogue for each filtered category (/feed/lakes/filtered, edge-cached): its first
+  // grid page and the CMS's total. Read with the home, so a pick is instant and an empty one is
+  // never offered.
+  const filteredReads = useQueries({
+    queries: defs.map((def) => ({
+      queryKey: ['lakes', 'home', 'category', def.key, JSON.stringify(def.filters), CATEGORY_PAGE] as const,
+      queryFn: () => getFilteredLakes(t, { page: 1, pageSize: CATEGORY_PAGE, filters: def.filters }),
+      staleTime: CATEGORY_STALE_MS,
+      gcTime: CATEGORY_STALE_MS,
+      enabled: Boolean(homeData),
+    })),
+  });
+  const filtered = defs.map((def, i) => {
+    const q = filteredReads[i]!;
+    const result: FilteredResult = q.data
+      ? { lakes: q.data.data, total: q.data.meta.pagination.total }
+      : q.isError
+        ? 'failed'
+        : 'pending';
+    return { def, result };
+  });
+  const categories = homeCategories({
+    sections,
+    seeAllHref,
+    // The nearby chip: fish's placeholder modes ask; a granted read in flight waits; a granted read
+    // with no lake in range has nothing to show (rule 4) — and while the permission is unknown,
+    // nothing is promised either.
+    nearby: !location.known ? null : location.state === 'granted' ? (nearbyPending ? 'pending' : null) : 'locate',
+    filtered,
+  });
+  const found = categories.find((c) => c.key === categoryKey) ?? null;
+  // A category from the URL whose chip is not known yet (the catalogues or its read still in
+  // flight, the location permission not read): its grid's skeleton, never «Recomandate» flashing
+  // first. Once everything answered, an unknown or empty one falls back to «Recomandate».
+  const categoryWaiting =
+    !found &&
+    categoryKey !== 'all' &&
+    (catalogs.fishes.isPending ||
+      catalogs.facilities.isPending ||
+      filteredReads.some((q) => q.isPending) ||
+      (categoryKey === 'nearby' && (!location.known || nearbyPending)) ||
+      (categoryKey === 'cabins' && !homeData));
+  const category = found ?? (categoryWaiting ? null : (categories[0] ?? null));
   const picked = category && category.key !== 'all' ? category : null;
   const nearbyKm = new Map(
     (sections.find((s) => s.key === 'nearby')?.lakes ?? []).map((l) => [l.documentId, (l as { distanceKm?: number }).distanceKm]),
@@ -197,8 +263,7 @@ export function LakesHome() {
         <div className="md:hidden">
           <HomeSkeleton nearbySlot={location.state === 'granted' ? 'row' : 'placeholder'} />
         </div>
-        <div aria-hidden className="flex flex-col gap-9 max-md:hidden">
-          {location.state === 'granted' ? null : <NearbySlotSkeleton />}
+        <div aria-hidden className="max-md:hidden">
           <HomeGridSkeleton />
         </div>
       </>
@@ -224,9 +289,11 @@ export function LakesHome() {
     // located read runs. A failed located read hides the slot (owner rule 4, ROADMAP §4b: when we
     // don't know, we don't show) — the rows stay, and a quiet retry runs in the background.
     const nearbySlot: ReactNode = sections.some((s) => s.key === 'nearby') ? null : !location.known ? (
-      <NearbySlotSkeleton key="nearby-slot" />
+      <NearbySlotSkeleton key="nearby-slot" phoneOnly />
     ) : nearbyPending ? (
-      <SlotRowSkeleton key="nearby-slot" />
+      <div key="nearby-slot" className="md:hidden">
+        <SlotRowSkeleton />
+      </div>
     ) : null;
     // /lakes/home failed with no rows to keep, but the recently viewed lakes are there: they stay,
     // and the failure is said under them with its retry.
@@ -253,10 +320,35 @@ export function LakesHome() {
       if (nearbySlot) blocks.push(nearbySlot);
       if (homeError) blocks.push(homeError);
     };
-    if (picked) {
-      // A picked category: its grid alone, at every width.
+    if (categoryWaiting) {
+      blocks.push(<HomeGridSkeleton key={`grid-${categoryKey}-skeleton`} />);
+    } else if (picked) {
+      // A picked category: its grid alone, at every width — or, for «Aproape de tine» without a
+      // position, fish's placeholder that asks for it (then the grid once the row is in).
       blocks.length = 0;
-      blocks.push(<HomeGrid key={`grid-${picked.key}`} category={picked} distanceOf={distanceOf} />);
+      if (picked.state === 'locate') {
+        const mode = location.state === 'denied' ? 'denied' : location.state === 'services_off' ? 'services_off' : 'never_asked';
+        blocks.push(
+          <NearbyPlaceholder key="nearby-locate" mode={mode} position={1} onActivate={() => void activateNearby()} busy={location.locating} />,
+        );
+        // Under it, until the position arrives, the recommended grid with its own heading (rule 5:
+        // a list page stays dense — never a banner over an empty page). The nearby grid replaces
+        // both once the row is in.
+        const all = categories.find((c) => c.key === 'all');
+        if (all) blocks.push(<HomeGrid key="grid-all" category={all} distanceOf={distanceOf} />);
+      } else if (picked.state === 'pending') {
+        blocks.push(<HomeGridSkeleton key={`grid-${picked.key}-skeleton`} />);
+      } else {
+        blocks.push(
+          <HomeGrid
+            key={`grid-${picked.key}`}
+            category={picked}
+            distanceOf={distanceOf}
+            // lakes.home.c12: the nearby set's header link is the radius, to the nearby map.
+            radiusAction={picked.key === 'nearby' && position ? { label: `${Math.round(nearbyRadiusKm)} km`, href: nearbyHref } : null}
+          />,
+        );
+      }
     } else {
       sections.forEach((section, i) => {
         if (section.key !== 'recent_viewed') placeNearby();
@@ -269,17 +361,16 @@ export function LakesHome() {
             <RecentStrip key="recent-wide" lakes={section.lakes} className="max-md:hidden" />,
           );
         } else if (section.key === 'nearby') {
-          // One of the two curated rails from 768 — only when it fills a row; a short nearby set
-          // is in the grid (with its distances) and behind «Aproape de tine».
-          const short = !section.nearbyPermissionPlaceholderMode && section.lakes.length < 4;
+          // fish's rail on a phone. From 768 there is no nearby block over the grid (rule 5: one
+          // grid, one card design, no first row twice): the nearby lakes carry their distance in
+          // «Bălți recomandate», and «Aproape de tine» is their own grid, nearest first, with the
+          // «50 km ›» map link. Nothing is reserved for it there, so the grid never jumps when the
+          // position arrives. The location placeholder is fish's card on a phone; from 768 it is the
+          // «Aproape de tine» category (no full-width band between the categories and the grid).
           blocks.push(
-            short ? (
-              <div key="nearby" className="md:hidden">
-                {renderSection(section, i + 1)}
-              </div>
-            ) : (
-              renderSection(section, i + 1)
-            ),
+            <div key="nearby" className="md:hidden">
+              {renderSection(section, i + 1)}
+            </div>,
           );
         } else {
           // The CMS rows are fish's rails on a phone; from 768 their lakes are the grid below.
@@ -331,6 +422,7 @@ export function LakesHome() {
         section={section}
         position={position}
         seeAllHref={seeAllHref(section)}
+        impressionReady={location.known}
         radiusAction={section.key === 'nearby' ? { label: `${Math.round(nearbyRadiusKm)} km`, href: nearbyHref } : null}
       />
     );
@@ -370,9 +462,11 @@ export function LakesHome() {
         searchRef={searchPillRef}
         onSearch={() => setSearchOpen(true)}
         filtersExpanded={panel === 'all'}
+        onSection={openPanel}
+        sectionExpanded={panel === 'fish' || panel === 'regime' ? panel : null}
         showMap={totalLakes > 0}
         onFilters={() => openPanel('all')}
-        categories={<CategoryBar categories={categories} current={category?.key ?? 'all'} onPick={setCategoryKey} />}
+        categories={<CategoryBar categories={categories} current={category?.key ?? categoryKey} onPick={pickCategory} />}
       />
 
       <div className="pt-4 md:pt-5">

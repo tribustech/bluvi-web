@@ -17,7 +17,8 @@ import { RING_SELECTED_EXPANDED } from '../rings';
  * menu chips, the chosen value in place of the question) and «Resetează» at the end: one chip
  * primitive and one bar anatomy for T1 and T2. On a phone the toolbar floats over the map: the back
  * square, the search pill and the «Filtre» square, the chips scrolling sideways under them; the
- * shell's breadcrumb carries the way back from 768 (ROADMAP §4), so the back square is phone-only.
+ * shell's breadcrumb carries the way back from 768 (ROADMAP §4), so the back square is phone-only —
+ * unless the page passes `desktop`: its own header from 768, with its view toggle as the way back.
  *
  * Disabled (first load, failed data) keeps every floating surface opaque at full elevation and only
  * dims what is on it (faint glyphs and text): a faded white control over the map shows the map
@@ -48,6 +49,8 @@ export function T2Toolbar({
   onReset,
   canReset = false,
   disabled = false,
+  desktop,
+  headingless = false,
 }: {
   /**
    * The page's h1 («Hartă bălți»). Visually hidden on a phone, where the search pill is the visible
@@ -84,13 +87,48 @@ export function T2Toolbar({
   canReset?: boolean;
   /** Nothing to search or filter yet (first load) or the data failed: search, chips and trailing are inert. */
   disabled?: boolean;
+  /**
+   * The page's own header from 768, in place of the switch / search / FilterBar rows: a section
+   * whose list page has a designed search header shows the same one over its map (owner rules 6
+   * and 7 — one anatomy for list and map, the view toggle in the same slot). The phone keeps the
+   * floating toolbar above. The h1 stays (visually hidden) at every width.
+   */
+  desktop?: ReactNode;
+  /** Internal: the phone half of a `desktop` toolbar (the h1 is rendered once, outside it). */
+  headingless?: boolean;
 }) {
   const barMode = Boolean(onOpenFilters);
+  if (desktop) {
+    return (
+      <>
+        <h1 className="sr-only">{title}</h1>
+        <div className="md:hidden">
+          <T2Toolbar
+            title={title}
+            leading={leading}
+            search={search}
+            filtersButton={filtersButton}
+            filters={filters}
+            onOpenFilters={onOpenFilters}
+            filterCount={filterCount}
+            filtersExpanded={filtersExpanded}
+            onReset={onReset}
+            canReset={canReset}
+            disabled={disabled}
+            headingless
+          />
+        </div>
+        <div className="max-md:hidden">{desktop}</div>
+      </>
+    );
+  }
   return (
     <div className="flex flex-col gap-2 md:gap-3 xl:flex-row xl:items-center xl:gap-4">
       <div className="flex items-center gap-2.5 md:gap-3 xl:min-w-0 xl:flex-[1_1_26rem]">
         {leading ? <div className="flex shrink-0 md:hidden">{leading}</div> : null}
-        <h1 className={cn('sr-only', !switcher && 'md:not-sr-only md:shrink-0 md:t-title1 md:whitespace-nowrap md:text-ink')}>{title}</h1>
+        {headingless ? null : (
+          <h1 className={cn('sr-only', !switcher && 'md:not-sr-only md:shrink-0 md:t-title1 md:whitespace-nowrap md:text-ink')}>{title}</h1>
+        )}
         {switcher ? <div className="hidden shrink-0 md:flex">{switcher}</div> : null}
         <div
           inert={disabled}

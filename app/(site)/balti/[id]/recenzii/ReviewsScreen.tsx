@@ -32,6 +32,7 @@ import { lakeHref } from '../_components/availability';
 import { ReviewInAppDialog, ReviewsInfoDialog } from '../_components/LakeDialogs';
 import { RatingStars } from '../_components/RatingStars';
 import { ReviewCard } from '../_components/ReviewCard';
+import { focusLandingSpot } from '@/components/templates/T3';
 import { FocusAfterRetry } from '../_components/RetryFocus';
 import { TitleShimmer } from '../_sub/FallbackHeader';
 import { LakePages } from '../_sub/LakePages';
@@ -397,7 +398,10 @@ function OwnActions({ review, lakeId, lakeName }: { review: Review; lakeId: stri
       void qc.cancelQueries({ queryKey: list });
       toast('Recenzia ta a fost ștearsă cu succes.', 'success');
       // The card (and «Șterge», which had focus) is gone: land on the page's h1 (WCAG 2.4.3).
-      requestAnimationFrame(() => document.getElementById(SUB_TITLE_ID)?.focus());
+      requestAnimationFrame(() => {
+        const h1 = document.getElementById(SUB_TITLE_ID);
+        if (h1) focusLandingSpot(h1);
+      });
     },
     onError: (e: Error) => {
       toast(e.message, 'danger');

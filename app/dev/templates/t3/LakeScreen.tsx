@@ -3,6 +3,7 @@ import type { CommunityLakeSectionDTO } from '@/core/partide';
 import { routes } from '@/lib/routes';
 import { LakeScreen as RouteLakeScreen } from '../../../(site)/balti/[id]/_components/LakeScreen';
 import type { LakeSections, Settled } from '../../../(site)/balti/[id]/_components/load';
+import type { PriceFrom } from '../../../(site)/balti/[id]/_components/priceFrom';
 import type { LakeScreenData } from './data';
 import { LONG_TITLE, type DemoState } from './states';
 
@@ -106,12 +107,19 @@ function shape({ lake, sections }: LakeScreenData, state: DemoState): LakeScreen
   }
 }
 
+/** The demo's «de la»: its legacy price rows (the route asks the booking quote first, priceFrom.ts). */
+function demoPriceFrom(lake: LakeScreenData['lake']): PriceFrom | null {
+  let best: PriceFrom | null = null;
+  for (const p of lake.price) if (p.price != null && (!best || p.price < best.price)) best = { price: p.price, note: p.header || null };
+  return best;
+}
+
 export function LakeScreen({ data, state }: { data: LakeScreenData; state: DemoState }) {
   const { lake, sections } = shape(data, state);
   return (
     <>
       <BreadcrumbBand trail={[{ label: 'Bălți', href: routes.lakes() }, { label: lake.name }]} />
-      <RouteLakeScreen lake={lake} sections={sections} />
+      <RouteLakeScreen lake={lake} sections={sections} priceFrom={Promise.resolve(demoPriceFrom(lake))} />
     </>
   );
 }

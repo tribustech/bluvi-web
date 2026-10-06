@@ -1,14 +1,15 @@
 'use client';
 
-import { ArrowUturnLeftIcon, MapPinIcon } from '@heroicons/react/24/outline';
-import { MapPinIcon as MapPinSolidIcon } from '@heroicons/react/20/solid';
+import { ArrowUturnLeftIcon, MagnifyingGlassIcon, MapPinIcon } from '@heroicons/react/24/outline';
+import { MapPinIcon as MapPinSolidIcon, StarIcon } from '@heroicons/react/20/solid';
+import { formatDecimal, formatInt } from '@/components/cards';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SetBreadcrumb } from '@/app/(site)/_shell/SiteHeader';
 import { plural } from '@/components/cards/format';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
-import { FilterButton, ListEmpty, ListError, ListFooter } from '@/components/templates/T1';
+import { FilterBar, FilterButton, ListEmpty, ListError, ListFooter } from '@/components/templates/T1';
 import {
   boundsAround,
   MapControlButton,
@@ -75,7 +76,7 @@ import { LocationDialog } from './LocationDialog';
 import { PinLakeCard, ResultCardsSkeleton, ResultLakeCard } from './ResultCards';
 import { KitSheetCloseButton } from './PhoneSheet';
 import { SearchLayer } from './SearchLayer';
-import { WaterKindSwitch } from './WaterKindSwitch';
+import { LakesSearchRow } from './HomeHeader';
 import { countLakeFilters, lakesMapQuery, parseLakesMapParams, withCatalogNames } from './url';
 
 /*
@@ -204,6 +205,14 @@ export function LakesMap() {
     region: MapRegion;
   } | null>(null);
   const debounce = useRef(0);
+  /**
+   * «Caută în zona hărții» (owner rule 7, imobiliare.ro / Airbnb): on (the default, fish's
+   * behaviour) the list follows the map; off, the list stays on its area and a move leaves the new
+   * one pending behind «Caută în această zonă». From 768 only: a phone pan hides the list (c19).
+   */
+  const [follow, setFollow] = useState(true);
+  const followRef = useRef(true);
+  const [pendingViewport, setPendingViewport] = useState<{ bbox: Bbox; region: MapRegion } | null>(null);
   /** The map's last zoom (analytics params). */
   const zoomRef = useRef<number | null>(null);
   /**
@@ -224,8 +233,25 @@ export function LakesMap() {
     const framed = framedBbox.current;
     if (framed && bboxContains(bbox, framed)) return;
     framedBbox.current = null;
-    debounce.current = window.setTimeout(() => setViewport({ bbox, region: bboxToMapRegion(bbox) }), REGION_DEBOUNCE_MS);
+    debounce.current = window.setTimeout(() => {
+      const next = { bbox, region: bboxToMapRegion(bbox) };
+      if (followRef.current) setViewport(next);
+      else setPendingViewport(next);
+    }, REGION_DEBOUNCE_MS);
   }, []);
+  const setFollowing = (on: boolean) => {
+    followRef.current = on;
+    setFollow(on);
+    if (on && pendingViewport) {
+      setViewport(pendingViewport);
+      setPendingViewport(null);
+    }
+  };
+  const searchHere = () => {
+    if (!pendingViewport) return;
+    setViewport(pendingViewport);
+    setPendingViewport(null);
+  };
 
   /* ------------------------------------------------------------------ focus */
   const focusBbox = useQuery(
@@ -259,6 +285,7 @@ export function LakesMap() {
       maxZoom: 15,
     });
     setViewport({ bbox: regionToBbox(focusRegion), region: focusRegion });
+    setPendingViewport(null);
   }
   // …and a settle armed before it must not overwrite that region, nor the map's settles on it.
   const appliedBbox = viewport && appliedSignature ? viewport.bbox : null;
@@ -441,8 +468,23 @@ export function LakesMap() {
   };
 
   /* ------------------------------------------------------------------ list */
-  // The price per lake, from its own pin (in-bbox carries none): a lake inside a cluster has none yet.
-  const priceById = new Map(points.map((p) => [p.id, { min: p.node.priceMin, max: p.node.priceMax }]));
+  // The price per lake (in-bbox carries none): every lake node of every /lakes/map-clusters read
+  // (one per filter set, every lake its own node — ALL_LAKES_ZOOM, so no lake hides in a server
+  // cluster), merged into an index that only grows: a price, once known, never leaves its card as
+  // the user zooms, pans or changes filters. While the first read is in flight the price line holds
+  // a bone (rule 4), so the cards keep their height when it lands.
+  // TODO(cms): priceMin / priceMax on the in-bbox DTO, then read the price from the list itself.
+  const [priceById, setPriceById] = useState<ReadonlyMap<string, { min: number | null; max: number | null }>>(() => new Map());
+  const [pricesFrom, setPricesFrom] = useState<unknown>(null);
+  if (clusters.data && clusters.data !== pricesFrom) {
+    setPricesFrom(clusters.data);
+    const next = new Map(priceById);
+    for (const n of clusters.data.data) {
+      if (n.type === 'lake' && (n.priceMin != null || n.priceMax != null)) next.set(n.documentId, { min: n.priceMin ?? null, max: n.priceMax ?? null });
+    }
+    setPriceById(next);
+  }
+  const pricesPending = pricesFrom === null && !clusters.isError;
   const countTitle = `${plural(total, 'baltă', 'bălți')} în această zonă`;
   let listBody;
   let announcement = '';
@@ -497,6 +539,7 @@ export function LakesMap() {
                   photos={lakePhotos(lake, 6)}
                   distanceLabel={distanceTo(user, c)}
                   price={priceById.get(lake.documentId) ?? null}
+                  priceLoading={pricesPending}
                 />
               </T2ListItem>
             );
@@ -525,57 +568,79 @@ export function LakesMap() {
   const summary = getLakesSearchSummary(search);
   const searchPlaceholder = !search.mode;
   const clearLabel = 'Șterge filtre';
+  /**
+   * The quick chips, in fish's order (c3). From 1024 the desktop search row's pill holds «Pești»
+   * (Specie) and «Regim»: the bar under it (`data-pill-row`) hides those two there — no control twice
+   * in one header.
+   */
+  const chips = getLakeFilterChips(railFilters).map((chip) => (
+      <T2FilterChip
+        key={chip.key}
+        label={chip.label}
+        value={chipValue(chip.key, railFilters)}
+        active={chip.active}
+        icon={CHIP_ICONS[chip.key]}
+        kind={chip.key === 'booking' ? 'toggle' : 'menu'}
+        expanded={chip.key === 'booking' ? undefined : panel === chip.key}
+        onClick={() => {
+          // Rezervări flips in place (c4); every other chip opens its section.
+          if (chip.key !== 'booking') return openPanel(chip.key);
+          if (panel !== null) setDraft((d) => ({ ...d, bookableOnly: !d.bookableOnly }));
+          else
+            replaceState({
+              filters: { ...filters, bookableOnly: !filters.bookableOnly },
+            });
+        }}
+        className={chip.key === 'regime' || chip.key === 'fish' ? 'lg:[[data-pill-row]_&]:hidden' : undefined}
+      />
+    ));
+  const searchLabel = searchPlaceholder ? 'Caută bălți, lacuri' : `Caută bălți, lacuri. Acum: ${summary}`;
   const toolbar = (
     <T2Toolbar
       title="Hartă bălți"
+      // Phone: fish MapChrome — the back square, the floating search pill, the «Filtre» square and
+      // the chip rail.
       leading={<T2BackLink href={routes.lakes()} label="Înapoi la Bălți" />}
-      search={
-        // From 768 the field sits flat in the solid band (hairline), not floating over the map.
-        <div className="contents md:[&>button]:shadow-none!">
-        <T2SearchPill
-          summary={summary}
-          placeholder={searchPlaceholder}
-          searchLabel={searchPlaceholder ? 'Caută bălți, lacuri' : `Caută bălți, lacuri. Acum: ${summary}`}
-          onSearch={() => setSearchOpen(true)}
-        />
-        </div>
-      }
-      switcher={<WaterKindSwitch current="balti" hrefs={{ balti: routes.lakesMap() }} />}
+      search={<T2SearchPill summary={summary} placeholder={searchPlaceholder} searchLabel={searchLabel} onSearch={() => setSearchOpen(true)} />}
       filtersButton={
         <FilterButton
           count={countLakeFilters(railFilters)}
           expanded={panel === 'all'}
           desktopHidden={false}
           onClick={() => openPanel('all')}
-          className={cn(T2_EXPANDED, 'max-md:shadow-e2!', '[[data-solid]_&]:shadow-e0!')}
+          className={cn(T2_EXPANDED, 'shadow-e2!', '[[data-solid]_&]:shadow-e0!')}
         />
       }
-      // From 768 the T1 FilterBar's own «Filtre» leads the chips (one bar anatomy with /concursuri).
-      onOpenFilters={() => openPanel('all')}
       filterCount={countLakeFilters(railFilters)}
-      filtersExpanded={panel === 'all'}
       onReset={clearAll}
       canReset={hasAnyFilter && panel === null}
-      filters={getLakeFilterChips(railFilters).map((chip) => (
-        <T2FilterChip
-          key={chip.key}
-          label={chip.label}
-          value={chipValue(chip.key, railFilters)}
-          active={chip.active}
-          icon={CHIP_ICONS[chip.key]}
-          kind={chip.key === 'booking' ? 'toggle' : 'menu'}
-          expanded={chip.key === 'booking' ? undefined : panel === chip.key}
-          onClick={() => {
-            // Rezervări flips in place (c4); every other chip opens its section.
-            if (chip.key !== 'booking') return openPanel(chip.key);
-            if (panel !== null) setDraft((d) => ({ ...d, bookableOnly: !d.bookableOnly }));
-            else
-              replaceState({
-                filters: { ...filters, bookableOnly: !filters.bookableOnly },
-              });
-          }}
-        />
-      ))}
+      filters={chips}
+      desktop={
+        // From 768 the Bălți list's own search row (LakesSearchRow, owner rules 6 and 7): the same
+        // switch, pill («where», «Specie», «Regim»), «Filtre» and, in the slot «Arată harta» holds
+        // on the list, «Arată lista» — at the list header's height (its top padding). Under it, in
+        // the categories' slot, the quick chips the pill does not hold and «Resetează».
+        <div data-pill-row="" className="flex flex-col gap-3 pt-2">
+          <LakesSearchRow
+            ready
+            view="map"
+            onSearch={() => setSearchOpen(true)}
+            searchLabel={searchLabel}
+            summary={searchPlaceholder ? null : summary}
+            onSection={openPanel}
+            sectionExpanded={panel === 'fish' || panel === 'regime' ? panel : null}
+            sectionValues={{ fish: chipValue('fish', railFilters), regime: chipValue('regime', railFilters) }}
+            onFilters={() => openPanel('all')}
+            filtersExpanded={panel === 'all'}
+            filterCount={countLakeFilters(railFilters)}
+            showToggle
+            switcherHrefs={{ balti: routes.lakesMap() }}
+          />
+          <FilterBar label="Filtre" onReset={clearAll} canReset={hasAnyFilter && panel === null}>
+            {chips}
+          </FilterBar>
+        </div>
+      }
     />
   );
 
@@ -583,7 +648,26 @@ export function LakesMap() {
   const releaseFraming = () => {
     framedBbox.current = null;
   };
-  const mapStatus = clusters.isError ? (
+  const followControl = (
+    // From 768 (a phone pan hides the list instead, c19).
+    <span className="flex items-center gap-2 max-md:hidden">
+      <label className="flex h-9 cursor-pointer items-center gap-2 rounded-full bg-surface pr-3.5 pl-3 t-label text-ink shadow-e2 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent">
+        <input
+          type="checkbox"
+          checked={follow}
+          onChange={(e) => setFollowing(e.target.checked)}
+          className="size-4 cursor-pointer accent-accent outline-none"
+        />
+        Caută în zona hărții
+      </label>
+      {!follow && pendingViewport ? (
+        <Button variant="primary" size="compact" icon={<MagnifyingGlassIcon />} onClick={searchHere} className={cn('rounded-full', T2_FLOATING_BUTTON)}>
+          Caută în această zonă
+        </Button>
+      ) : null}
+    </span>
+  );
+  const statusPill = clusters.isError ? (
     // The pins failed: said in the live region (`announcement`) and retried from here — a real
     // control, not the silent pill (the list beside the map still works).
     <span className="flex items-center gap-1 rounded-full bg-surface py-1 pr-1 pl-3.5 shadow-e2">
@@ -611,6 +695,12 @@ export function LakesMap() {
       </Button>
     </span>
   ) : null;
+  const mapStatus = (
+    <>
+      {followControl}
+      {statusPill}
+    </>
+  );
 
   // Keyed: T2Map never turns a placeholder into a live map in place (it builds MapLibre once).
   const map = initialRegion ? (
@@ -635,6 +725,7 @@ export function LakesMap() {
         label="Hartă bălți"
         points={points}
         pointLabel={(p) => p.node.name}
+        pointBadge={pinBadge}
         clusterLabel={(n) => `${plural(n, 'baltă', 'bălți')} — mărește harta aici`}
         selectedId={shownSelectedId}
         highlightedId={highlightedId}
@@ -756,6 +847,25 @@ export function LakesMap() {
       <LocationDialog mode={locationDialog.mode} onClose={locationDialog.close} onRetry={locationDialog.onRetry} />
     </>
   );
+}
+
+/**
+ * A pin's pill (owner rule 7, imobiliare.ro's price pins): the lowest price when the CMS has one
+ * («45 lei»), else the rating when the lake has reviews («★ 4,8»), else the fish badge.
+ */
+function pinBadge(p: MapPoint) {
+  const price = p.node.priceMin ?? p.node.priceMax;
+  if (price != null) return `${formatInt(price)} lei`;
+  const r = p.node.reviewsMeta;
+  if (r && r.count > 0 && r.overall != null) {
+    return (
+      <>
+        <StarIcon aria-hidden className="size-3.5 text-rating" />
+        {formatDecimal(r.overall, 1, 1)}
+      </>
+    );
+  }
+  return null;
 }
 
 /**

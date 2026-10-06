@@ -31,12 +31,13 @@ import {
   buildPublicWaterSectionChips,
   countiesHeading,
   PUBLIC_WATER_SECTION_LABEL,
+  PUBLIC_WATER_TYPE_LABEL,
   publicWaterFacts,
   publicWaterName,
   publicWaterSubtitle,
   type PublicWaterDetail,
 } from '@/core/lakes';
-import { communityVenueCatchesInfiniteQuery, communityVenueSectionQuery, hasPartideActivity } from '@/core/partide';
+import { communityVenueCatchesInfiniteQuery, communityVenueSectionQuery, hasPartideActivity, type LakeCatchDTO } from '@/core/partide';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { ON_WEB, routes } from '@/lib/routes';
 import { CatchGrid, SpeciesChips } from './catches';
@@ -51,10 +52,10 @@ import { waterTrail } from '../trail';
  * The public-water page body — fish app/(app)/public-waters/[id].tsx on T3 (single scroll with
  * section chips, like the lake page): the still map hero, the title block, the sticky chips (every
  * width), then Prezentare, Partide, Capturi, Locație. From 768 it is the Airbnb detail page (owner
- * rule 1, ROADMAP §4b): the title row, then the map as the photo band (768–1023); from 1024 two
- * columns — the sections left, a sticky summary card right that holds the map itself, Direcții
- * and the water's facts. One map entry per area: the band (or the card's map) — from 1024 the
- * Direcții / Hartă tiles and Locație's «Vezi apa pe hartă» leave (the card has them).
+ * rule 1, ROADMAP §4b): the title row, then the map as the media band (from 1024 two thirds, the
+ * first catch photos beside it); from 1024 two columns — the sections left, a sticky summary card
+ * right with the water's type, Direcții and its facts. One map entry per area: the band — from
+ * 1024 the Direcții / Hartă tiles and Locație's «Vezi apa pe hartă» leave.
  *
  * Remounted per water (keyed by the page), so a new water starts at Prezentare with no pagination
  * left over from the previous one (c30); Next scrolls the new page to the top.
@@ -166,6 +167,9 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
     else document.getElementById('capturi')?.scrollIntoView();
   };
 
+  // From 1024 the right third of the media band (owner rule 1): the first photographed catches.
+  const heroCatches = useMemo(() => catchRows.filter((c) => c.photoGridUrl || c.photoUrl || c.photoThumbUrl).slice(0, 2), [catchRows]);
+
   const actions: QuickAction[] = [
     // From 1024 the summary card has both (its map and Direcții): one map entry per area.
     { key: 'directii', label: 'Direcții', icon: <PaperAirplaneIcon aria-hidden />, onClick: () => setDirections(true), belowSummary: true },
@@ -227,12 +231,14 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
               </>
             }
           />
-          <WaterHero water={water} name={name} mapHref={routes.publicWaterMap(key)} />
+          <WaterHero water={water} name={name} mapHref={routes.publicWaterMap(key)} fill={heroCatches.length ? <HeroCatches catches={heroCatches} onOpen={scrollToCapturi} /> : undefined} />
         </DetailBand>
 
         <DetailSectionsProvider sections={sections} refined={refined}>
           <DetailSectionNav
             pinnedTitle={name}
+            // fish VenuePinnedNav leftAccessory: the way back once the hero and the bar are gone.
+            pinnedStart={<DetailBackButton fallbackHref={routes.publicWaters()} ground="surface" size="size-11" />}
             pinnedMeta={
               <>
                 {pin}
@@ -248,7 +254,7 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
             asideLabel="Pe scurt"
             aside={
               <DetailSummaryCard
-                headline={<WaterHero variant="card" water={water} name={name} mapHref={routes.publicWaterMap(key)} />}
+                headline={<span className="t-title2">{PUBLIC_WATER_TYPE_LABEL[water.type]}</span>}
                 actions={
                   <Button icon={<PaperAirplaneIcon />} onClick={() => setDirections(true)} block>
                     Direcții
@@ -406,3 +412,25 @@ function CommunityError({ retrying, onRetry }: { retrying: boolean; onRetry: () 
   );
 }
 
+/** The media band's right third (from 1024): up to two catch photos, each opening Capturi. */
+function HeroCatches({ catches, onOpen }: { catches: LakeCatchDTO[]; onOpen: () => void }) {
+  return catches.map((c) => {
+    const cap = [c.species, c.weightKg != null ? `${String(c.weightKg).replace('.', ',')} kg` : null].filter(Boolean).join(' · ');
+    return (
+      <button
+        key={c.clientId}
+        type="button"
+        onClick={onOpen}
+        aria-label={`Captură${cap ? `: ${cap}` : ''} — vezi capturile`}
+        className="group/fill relative block cursor-pointer overflow-hidden bg-soft-fill outline-none focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-accent"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- CMS photo variants (S3 / local uploads), already sized. */}
+        <img
+          src={(c.photoGridUrl || c.photoUrl || c.photoThumbUrl) as string}
+          alt=""
+          className="absolute inset-0 size-full object-cover transition-[filter] duration-(--duration-fast) ease-fast group-hover/fill:brightness-90"
+        />
+      </button>
+    );
+  });
+}
