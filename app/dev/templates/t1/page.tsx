@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { getShellSession } from '../../../(site)/_shell/session';
-import { DENSITY_COOKIE, parseDensity } from '../../../(site)/concursuri/_list/densityValue';
 import { placeFromUrl, type ListPlace, type UrlParams } from '../../../(site)/concursuri/_list/place';
 import { DemoScreen } from './DemoScreen';
 import { initialFor } from './demoInitial';
@@ -22,6 +20,8 @@ export const metadata: Metadata = { title: 'T1 · Listă cu filtre', robots: { i
 
 type Props = { searchParams: Promise<UrlParams & { state?: string }> };
 
+const DEMO_TABS = ['notStarted', 'started', 'completed'] as const;
+
 const PLACE_KEYS = ['status', 'scope', 'q', 'period', 'format', 'available', 'countyId', 'lakeId'];
 
 export default function T1DemoPage({ searchParams }: Props) {
@@ -39,15 +39,17 @@ async function Demo({ searchParams }: Props) {
   const signedOut = state === 'signed-out' || state === 'gate';
   const fromUrl = PLACE_KEYS.some((k) => (url as Record<string, unknown>)[k] != null);
   const base = initialFor(state);
-  const place: ListPlace = fromUrl ? placeFromUrl(url) : { status: base.status, scope: base.scope, search: base.search, filters: base.filters };
-  const [viewer, jar] = await Promise.all([signedOut ? Promise.resolve(null) : getShellSession(), cookies()]);
-  const density = parseDensity(jar.get(DENSITY_COOKIE)?.value) ?? 'compact';
+  // The demo keeps `?status=` for its tab (the real list has a page per tab).
+  const tab = DEMO_TABS.find((s) => s === url.status);
+  const place: ListPlace = fromUrl
+    ? placeFromUrl(url, tab ? { tab } : { index: 'notStarted' })
+    : { status: base.status, scope: base.scope, search: base.search, filters: base.filters };
+  const viewer = signedOut ? null : await getShellSession();
   return (
     <DemoScreen
       key={state}
       state={state}
       initial={place}
-      density={density}
       isAuthenticated={viewer !== null}
       seed={drawSeed()}
     />

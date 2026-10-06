@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { bucketOf } from './dates';
 import { miniRanking, resultsPodium, viewerRow } from './model';
@@ -89,5 +91,28 @@ describe('resultsPodium — the row and the panel crown the same winner', () => 
 
   it('no ranking read yet: the card’s podium', () => {
     expect(resultsPodium(card, null)).toMatchObject({ fromRanking: false, agrees: true });
+  });
+});
+
+describe('miniRanking — the headline value per ranking type (core resultHeadline, c34)', () => {
+  const fixture = (type: string) =>
+    JSON.parse(readFileSync(path.resolve(__dirname, '../../../../../tests/fixtures/rankings', `${type}.json`), 'utf8')) as { rankings: unknown[]; metadata: unknown };
+
+  it('quantityQuality ranks by points (the fewest win), never «kg total»', () => {
+    const r = miniRanking(fixture('quantityQuality'));
+    expect(r).toMatchObject({ unit: 'puncte', valueLabel: 'puncte', lowerIsBetter: true });
+    expect(r.rows[0].value).toBe(2);
+  });
+
+  it('bestOfTiers: the winner’s tier average, captioned with its tier', () => {
+    const r = miniRanking(fixture('bestOfTiers'));
+    expect(r).toMatchObject({ unit: 'kg', valueLabel: 'medie Best 9', lowerIsBetter: false });
+    expect(r.rows[0].value).toBe(17.461);
+  });
+
+  it('nationalChampionship: the club points', () => {
+    const r = miniRanking(fixture('nationalChampionship'));
+    expect(r.rows.map((x) => x.value)).toEqual([7, 8, 9]);
+    expect(r.unit).toBe('puncte');
   });
 });

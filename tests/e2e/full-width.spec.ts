@@ -67,7 +67,7 @@ for (const width of WIDTHS) {
     // Signed in: the viewer's own areas first.
     const nav = left.getByRole('navigation', { name: 'Scurtături' });
     await expect(nav.getByRole('link', { name: 'Profilul meu' })).toHaveAttribute('href', '/profil');
-    await expect(nav.getByRole('link', { name: 'Concursuri live' })).toHaveAttribute('href', '/concursuri?status=started');
+    await expect(nav.getByRole('link', { name: 'Concursuri live' })).toHaveAttribute('href', '/concursuri/live');
   });
 
   test(`full width · Concurs (live) · ${width}px — the ranking table takes the whole column`, async ({ page }) => {

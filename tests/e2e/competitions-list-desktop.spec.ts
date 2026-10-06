@@ -5,11 +5,12 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { qaJwt, signIn } from './helpers/session';
 
 /*
- * Concursuri from 1024 in «Listă» — each tab's own layout (owner-approved prototype A2, ROADMAP §4b,
+ * Concursuri from 1024 — each tab's own layout (owner-approved prototype A2, ROADMAP §4b,
  * parity docs/parity/areas/competitions-list.yml competitions-list.index c30–c36, states s20–s23):
  * Viitoare = an agenda grouped by time with faces and a capacity bar; Live = the live hub; Rezultate
  * = compact winner rows that expand inline (feeder in points); Ale mele = my registrations led by my
- * status. Below 1024 (and in «Afiș», and in results mode) the cards of competitions-list.spec.ts.
+ * status. Below 1024 (and in results mode) the cards of competitions-list.spec.ts. No Listă / Afiș
+ * toggle (owner, 2026-10-06).
  * Local CMS on :1337 (live, upcoming and finished competitions, feeder ones among them).
  */
 
@@ -32,14 +33,7 @@ test.beforeAll(async ({ request }) => {
 const list = (page: Page) => page.locator('#concursuri-lista');
 const desktop = (page: Page) => list(page).locator('[data-desktop-tab]');
 
-async function open(page: Page, path = '/concursuri') {
-  await page.addInitScript(() => {
-    try {
-      localStorage.removeItem('COMPETITION_CARD_DENSITY_V1');
-    } catch {
-      // storage blocked: the default (Listă) anyway
-    }
-  });
+async function open(page: Page, path = '/concursuri/viitoare') {
   await page.goto(path);
   await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeVisible();
   await expect(page.locator('#concursuri-lista-titlu')).toBeVisible();
@@ -53,7 +47,7 @@ async function settled(page: Page) {
 }
 
 test.describe('signed out', () => {
-  test('competitions-list.index.c30 competitions-list.index.c36 competitions-list.index.s20 — Viitoare: the agenda by time, faces and places; cards again below 1024 and in Afiș', async ({ page }) => {
+  test('competitions-list.index.c30 competitions-list.index.c36 competitions-list.index.s20 — Viitoare: the agenda by time, faces and places; cards again below 1024', async ({ page }) => {
     const errors = collectConsoleErrors(page, { ignore: /Failed to load resource/ });
     await page.setViewportSize(DESKTOP);
     await open(page);
@@ -87,13 +81,10 @@ test.describe('signed out', () => {
     await page.setViewportSize(CARDS);
     await expect(view).toBeHidden();
     await expect(list(page).locator('article').first()).toBeVisible();
-    // Afiș at 1280: the posters, not the agenda.
+    // Back at 1280: the agenda again (no toggle to leave it).
     await page.setViewportSize(DESKTOP);
-    await page.getByRole('group', { name: 'Afișare' }).getByText('Afiș', { exact: true }).click();
-    await expect(view).toHaveCount(0);
-    await expect(list(page).getByRole('button', { name: /^Vezi imaginea pentru / }).first()).toBeVisible();
-    await page.getByRole('group', { name: 'Afișare' }).getByText('Listă', { exact: true }).click();
     await expect(view).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Afișare' })).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
@@ -105,7 +96,7 @@ test.describe('signed out', () => {
       if (RANKING.test(r.url())) rankingReads.push(r.url());
     });
     await page.setViewportSize(WIDE);
-    await open(page, '/concursuri?status=started');
+    await open(page, '/concursuri/live');
     const view = desktop(page);
     await expect(view).toHaveAttribute('data-desktop-tab', 'started');
     await expect(view.getByText('În prim-plan')).toBeVisible();
@@ -127,6 +118,9 @@ test.describe('signed out', () => {
     await page.clock.runFor(61_000);
     await listPoll;
     await expect.poll(() => rankingReads.length).toBeGreaterThan(first);
+    // c32: a refresh raises no toast (fish has none for a new leader or record).
+    await expect(page.getByText('Lider nou', { exact: true })).toHaveCount(0);
+    await expect(view.locator('.fixed')).toHaveCount(0);
     await settled(page);
     await expectNoA11yViolations(page);
     expect(errors).toEqual([]);
@@ -144,7 +138,7 @@ test.describe('signed out', () => {
       await r.continue();
     });
     await page.setViewportSize(WIDE);
-    await open(page, '/concursuri?status=started');
+    await open(page, '/concursuri/live');
     const view = desktop(page);
     await expect(view.getByText('În prim-plan')).toBeVisible();
     await expect(view.locator('[aria-busy="true"]').first()).toBeVisible();
@@ -169,7 +163,7 @@ test.describe('signed out', () => {
       if (RANKING.test(r.url())) rankingReads.push(r.url());
     });
     await page.setViewportSize(DESKTOP);
-    await open(page, '/concursuri?status=completed');
+    await open(page, '/concursuri/rezultate');
     const view = desktop(page);
     await expect(view).toHaveAttribute('data-desktop-tab', 'completed');
     // Month headers.
@@ -214,7 +208,7 @@ test.describe('signed out', () => {
 
   test('competitions-list.index.c31 — «Momente cheie» opens on its first moment (scrollLeft 0, «prev» disabled); the arrows page it by keyboard', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
-    await open(page, '/concursuri?status=started');
+    await open(page, '/concursuri/live');
     const view = desktop(page);
     const rail = view.locator('section[aria-labelledby="live-moments"] ul');
     await expect(rail).toBeVisible({ timeout: 30_000 });
@@ -246,7 +240,7 @@ test.describe('signed out', () => {
       if (RANKING.test(r.url()) || WEIGHINGS.test(r.url())) extra.push(r.url());
     });
     await page.setViewportSize(CARDS);
-    await open(page, '/concursuri?status=started');
+    await open(page, '/concursuri/live');
     await expect(list(page).locator('article').first()).toBeVisible();
     await page.waitForTimeout(1500);
     expect(extra).toEqual([]);
@@ -271,7 +265,7 @@ test.describe('signed in', () => {
     // has the row that held the tab stop.
     await page.route(/\/feed\/competition-cards\?.*status=completed/, (r) => json(r, cardsPage([a, b], { counts: { notStarted: 0, started: 0, completed: 2 } })));
     await page.setViewportSize(DESKTOP);
-    await open(page, '/concursuri?status=completed');
+    await open(page, '/concursuri/rezultate');
     const view = desktop(page);
     await expect(view).toHaveAttribute('data-desktop-tab', 'completed');
     const first = view.locator('button[aria-expanded]').first();

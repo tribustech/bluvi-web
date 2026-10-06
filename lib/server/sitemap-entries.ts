@@ -20,9 +20,9 @@ export function staticEntries(): Entry[] {
     { url: absoluteUrl(routes.lakesMap()), changeFrequency: 'daily', priority: 0.7 },
     { url: absoluteUrl(routes.publicWaters()), changeFrequency: 'weekly', priority: 0.7 },
     { url: absoluteUrl(routes.competitions()), changeFrequency: 'hourly', priority: 0.9 },
-    { url: absoluteUrl(routes.competitionsByStatus('live')), changeFrequency: 'hourly', priority: 0.8 },
-    { url: absoluteUrl(routes.competitionsByStatus('viitoare')), changeFrequency: 'hourly', priority: 0.8 },
-    { url: absoluteUrl(routes.competitionsByStatus('incheiate')), changeFrequency: 'daily', priority: 0.6 },
+    { url: absoluteUrl(routes.competitions('started')), changeFrequency: 'hourly', priority: 0.8 },
+    { url: absoluteUrl(routes.competitions('notStarted')), changeFrequency: 'hourly', priority: 0.8 },
+    { url: absoluteUrl(routes.competitions('completed')), changeFrequency: 'daily', priority: 0.6 },
     { url: absoluteUrl(routes.news()), changeFrequency: 'daily', priority: 0.6 },
   ];
 }

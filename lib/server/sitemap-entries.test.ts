@@ -20,7 +20,7 @@ describe('sitemapEntries', () => {
     expect(urls).toContain('http://localhost:3000/ape-publice/42');
     expect(urls).toContain('http://localhost:3000/');
     // The list pages, from lib/routes.ts.
-    for (const path of ['/balti', '/balti/harta', '/ape-publice', '/concursuri', '/concursuri/live', '/concursuri/viitoare', '/concursuri/incheiate', '/stiri']) {
+    for (const path of ['/balti', '/balti/harta', '/ape-publice', '/concursuri', '/concursuri/live', '/concursuri/viitoare', '/concursuri/rezultate', '/stiri']) {
       expect(urls).toContain(`http://localhost:3000${path}`);
     }
     const statuses = calls.filter(c => c.path === '/feed/competitions').map(c => c.query?.status);

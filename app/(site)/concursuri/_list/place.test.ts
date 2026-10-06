@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { routes } from '@/lib/routes';
-import { headingFor, isResultsMode, listParamsFor, placeFromUrl, searchUrlValues } from './place';
+import { DEFAULT_COMPETITION_FILTERS } from '@/core/competitions';
+import { headingFor, isResultsMode, listParamsFor, pathFor, placeFromUrl, searchUrlValues } from './place';
 
 /* competitions-list.results web_route: the place a results URL opens on, and back. */
 
@@ -19,7 +20,7 @@ describe('placeFromUrl — results params', () => {
   });
 
   it('reads every filter, keeping the county name with its id', () => {
-    const place = placeFromUrl({ period: '2026-10-03..2026-10-05', format: 'team', availableOnly: 'true', countyId: 'c1', countyName: 'Ilfov', status: 'notStarted' });
+    const place = placeFromUrl({ period: '2026-10-03..2026-10-05', format: 'team', availableOnly: 'true', countyId: 'c1', countyName: 'Ilfov' }, { tab: 'notStarted' });
     expect(place.filters).toEqual({ period: '2026-10-03..2026-10-05', format: 'team', availableOnly: true, countyId: 'c1', countyName: 'Ilfov' });
     expect(place.status).toBe('notStarted');
     expect(isResultsMode(place)).toBe(true);
@@ -47,8 +48,8 @@ describe('placeFromUrl — results params', () => {
     expect(searchUrlValues({ type: 'text', value: 'cupa', label: 'cupa' })).toEqual({ q: 'cupa', lakeId: null, organizerId: null, label: null });
   });
 
-  it('status=all outside results is the tab-less «Toate concursurile» (an applied «Orice stare»)', () => {
-    const place = placeFromUrl({ status: 'all' });
+  it('stare=toate outside results is the tab-less «Toate concursurile» (an applied «Orice stare»)', () => {
+    const place = placeFromUrl({ stare: 'toate' });
     expect(place.status).toBe('all');
     expect(isResultsMode(place)).toBe(false);
     expect(headingFor(place)).toBe('Toate concursurile');
@@ -57,5 +58,45 @@ describe('placeFromUrl — results params', () => {
 
   it('filtered «Urmărite» says so in its heading', () => {
     expect(headingFor(placeFromUrl({ format: 'single', scope: 'followed' }))).toBe('Urmărite · filtrate');
+  });
+});
+
+/* competitions-list.index.c37: the tab is the path, everything else the query. */
+describe('placeFromUrl / pathFor — one page per tab', () => {
+  const browse = (status: 'notStarted' | 'started' | 'completed' | 'all') => ({ status, search: null, filters: DEFAULT_COMPETITION_FILTERS });
+
+  it('a tab page opens on its tab; /concursuri on the tab the server picked', () => {
+    expect(placeFromUrl({}, { tab: 'completed' }).status).toBe('completed');
+    expect(placeFromUrl({}, { index: 'started' }).status).toBe('started');
+    expect(placeFromUrl({}, { index: 'notStarted' }).status).toBe('notStarted');
+    // ?status= is not a tab entry any more.
+    expect(placeFromUrl({ status: 'completed' }, { index: 'started' }).status).toBe('started');
+  });
+
+  it('results answer across every state on /concursuri, narrowed to the tab on a tab page', () => {
+    expect(placeFromUrl({ q: 'cupa' }, { index: 'started' }).status).toBe('all');
+    expect(placeFromUrl({ q: 'cupa' }, { tab: 'started' }).status).toBe('started');
+  });
+
+  it('keeps the scope in the query', () => {
+    expect(placeFromUrl({ scope: 'followed' }, { tab: 'started' })).toMatchObject({ status: 'started', scope: 'followed' });
+  });
+
+  it('pathFor: each tab its page; every state, and the tab /concursuri opened on, at /concursuri', () => {
+    expect(pathFor(browse('notStarted'), null)).toBe('/concursuri/viitoare');
+    expect(pathFor(browse('started'), null)).toBe('/concursuri/live');
+    expect(pathFor(browse('completed'), null)).toBe('/concursuri/rezultate');
+    expect(pathFor(browse('started'), 'started')).toBe('/concursuri');
+    expect(pathFor(browse('completed'), 'started')).toBe('/concursuri/rezultate');
+    expect(pathFor(browse('all'), null)).toBe('/concursuri');
+    // Results narrowed to a state live on that state's page, even from /concursuri.
+    expect(pathFor({ ...browse('started'), search: { type: 'text', value: 'x', label: 'x' } }, 'started')).toBe('/concursuri/live');
+  });
+
+  it('routes.competitions builds the clean URLs', () => {
+    expect(routes.competitions()).toBe('/concursuri');
+    expect(routes.competitions('notStarted')).toBe('/concursuri/viitoare');
+    expect(routes.competitions('started')).toBe('/concursuri/live');
+    expect(routes.competitions('completed')).toBe('/concursuri/rezultate');
   });
 });

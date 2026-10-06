@@ -81,7 +81,8 @@ async function settled(page: Page) {
   );
 }
 
-async function open(page: Page, path = '/concursuri') {
+/** Most tests start on Viitoare (its bento, its count); /concursuri itself opens on Live when something is live (c37). */
+async function open(page: Page, path = '/concursuri/viitoare') {
   await page.goto(path);
   await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeVisible();
   await expect(page.locator('#concursuri-lista-titlu')).toBeVisible();
@@ -192,18 +193,51 @@ test.describe('signed out', () => {
     await expectNoA11yViolations(page);
   });
 
-  test('competitions-list.index.c27 competitions-list.index.s16 — ?status= opens that tab; anything else is ignored', async ({ page }) => {
+  test('competitions-list.index.c27 competitions-list.index.c37 competitions-list.index.s16 — each tab is a page of its own (title, canonical, real links); /concursuri opens on Live when something is live; a switch moves the path', async ({ page, request }) => {
     await page.setViewportSize(DESKTOP);
-    await open(page, '/concursuri?status=started');
-    await expect(tab(page, 'Live')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('heading', { level: 2, name: 'Live acum' })).toBeVisible();
-    await open(page, '/concursuri?status=completed');
-    await expect(tab(page, 'Rezultate')).toHaveAttribute('aria-selected', 'true');
-    await open(page, '/concursuri?status=bogus');
-    await expect(tab(page, 'Viitoare')).toHaveAttribute('aria-selected', 'true');
-    // The top bar's «Competiții» (no params) always opens Viitoare: the param never snaps back.
+    const pages = [
+      { path: '/concursuri/viitoare', tab: 'Viitoare', heading: 'Alege următorul start', title: 'Concursuri de pescuit viitoare · Bluvi' },
+      { path: '/concursuri/live', tab: 'Live', heading: 'Live acum', title: 'Concursuri de pescuit live · Bluvi' },
+      { path: '/concursuri/rezultate', tab: 'Rezultate', heading: 'După ultima cântărire', title: 'Rezultate concursuri de pescuit · Bluvi' },
+    ];
+    for (const p of pages) {
+      await open(page, p.path);
+      await expect(page).toHaveTitle(p.title);
+      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`${p.path}$`));
+      await expect(tab(page, new RegExp(`^${p.tab}`))).toHaveAttribute('aria-selected', 'true');
+      await expect(page.getByRole('heading', { level: 2, name: p.heading })).toBeVisible();
+      // The tabs are real links to the tab pages, in the static HTML too (crawlers, no JS).
+      const html = await (await request.get(p.path)).text();
+      for (const href of ['/concursuri/viitoare', '/concursuri/live', '/concursuri/rezultate']) expect(html).toContain(`href="${href}"`);
+      expect(html).not.toContain('?status=');
+    }
+    await expect(tab(page, /^Viitoare/)).toHaveAttribute('href', '/concursuri/viitoare');
+    // /concursuri: three live competitions locally → it opens on Live, at its own clean URL.
     await open(page, '/concursuri');
-    await expect(tab(page, 'Viitoare')).toHaveAttribute('aria-selected', 'true');
+    await expect(page).toHaveTitle('Concursuri de pescuit · Bluvi');
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/concursuri$/);
+    await expect(tab(page, /^Live/)).toHaveAttribute('aria-selected', 'true');
+    await expect(page).toHaveURL(/\/concursuri$/);
+    // A plain click switches in place and moves the path (no ?status=); the browser stays on the page.
+    await tab(page, /^Rezultate/).click();
+    await expect(page.getByRole('heading', { level: 2, name: 'După ultima cântărire' })).toBeVisible();
+    await expect(page).toHaveURL(/\/concursuri\/rezultate$/);
+    await tab(page, /^Viitoare/).click();
+    await expect(page).toHaveURL(/\/concursuri\/viitoare$/);
+    // A reload comes back to the same tab.
+    await page.reload();
+    await expect(tab(page, /^Viitoare/)).toHaveAttribute('aria-selected', 'true');
+    // ?status= means nothing any more.
+    await open(page, '/concursuri/viitoare?status=completed');
+    await expect(tab(page, /^Viitoare/)).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('competitions-list.index.c37 — /concursuri opens on Live when something is live, else on Viitoare (the server decides)', async ({ request }) => {
+    // The decision is the server's (the cached live count): read what it read, then check the HTML.
+    const live = (await (await request.get('http://localhost:1337/api/feed/competition-cards?status=started&page=1&pageSize=20')).json()).meta.counts.started;
+    const html = await (await request.get('/concursuri')).text();
+    const selected = html.match(/href="\/concursuri\/(viitoare|live|rezultate)" role="tab"[^>]*aria-selected="true"/)?.[1];
+    expect(selected).toBe(live > 0 ? 'live' : 'viitoare');
   });
 
   test('competitions-list.index.c8 competitions-list.index.c9 competitions-list.index.s17 competitions-list.search.c1 — search row and filters; phone stand-ins fade in once it scrolls under the chrome', async ({ page }) => {
@@ -239,66 +273,31 @@ test.describe('signed out', () => {
     await expect(page.getByRole('dialog')).toBeVisible();
   });
 
-  test('competitions-list.index.c13 competitions-list.index.c14 competitions-list.index.s15 — Listă / Afiș: one value, persisted (storage + cookie), compact by default; wider gap in Afiș', async ({ page, context }) => {
-    await page.setViewportSize(DESKTOP);
-    // Cleared once (the init script runs on the reload below too).
-    await page.addInitScript(() => {
-      if (!sessionStorage.getItem('density-reset')) {
-        localStorage.removeItem('COMPETITION_CARD_DENSITY_V1');
-        sessionStorage.setItem('density-reset', '1');
-      }
-    });
+  test('competitions-list.index.c13 competitions-list.index.c14 competitions-list.index.s15 — WEB no Listă / Afiș toggle: one density — fish\'s compact cards below 1024, each tab\'s own layout from 1024', async ({ page, context }) => {
+    await page.setViewportSize(CARDS);
     await open(page);
-    const toggle = page.getByRole('group', { name: 'Afișare' });
-    await expect(toggle.getByRole('radio', { name: 'Listă' })).toBeChecked();
+    await expect(page.getByRole('group', { name: 'Afișare' })).toHaveCount(0);
+    await expect(page.getByRole('radio', { name: 'Afiș' })).toHaveCount(0);
+    // The compact cards, fish's 10px between rows (c14), a thumbnail — never a full-width poster.
     const grid = list(page).locator('ul').first();
     await expect(grid).toHaveCSS('row-gap', '10px');
-    // Clicking the active segment does nothing.
-    await toggle.getByText('Listă', { exact: true }).click();
-    await expect(toggle.getByRole('radio', { name: 'Listă' })).toBeChecked();
-    await toggle.getByText('Afiș', { exact: true }).click();
-    await expect(toggle.getByRole('radio', { name: 'Afiș' })).toBeChecked();
-    await expect(grid).toHaveCSS('row-gap', '16px');
-    expect(await page.evaluate(() => localStorage.getItem('COMPETITION_CARD_DENSITY_V1'))).toBe('expanded');
-    // Mirrored into a cookie, so the server renders the next visit in Afiș (no re-layout).
-    expect((await context.cookies()).find((c) => c.name === 'bluvi_competition_density')?.value).toBe('expanded');
-    const html = await (await page.request.get('/concursuri')).text();
-    // The Afiș poster frame (its own-ratio aspect) is in the server HTML, not swapped in after hydration.
-    expect(html).toContain('aspect-(--poster-ratio)');
-    await page.reload();
-    await expect(page.getByRole('group', { name: 'Afișare' }).getByRole('radio', { name: 'Afiș' })).toBeChecked();
-    // c10 (cards): the expanded poster is a full-width frame at its own ratio.
-    const poster = list(page).getByRole('button', { name: /^Vezi imaginea pentru / }).first();
-    await expect(poster).toBeVisible();
-    await page.evaluate(() => localStorage.removeItem('COMPETITION_CARD_DENSITY_V1'));
-    await context.clearCookies({ name: 'bluvi_competition_density' });
-  });
-
-  test('competitions-list.index.c13 competitions-list.index.s15 — blocked storage: the toggle still switches for the visit; labels at every width', async ({ page }) => {
-    await page.addInitScript(() => {
-      const fail = () => {
-        throw new DOMException('blocked', 'SecurityError');
-      };
-      Storage.prototype.getItem = fail;
-      Storage.prototype.setItem = fail;
-    });
+    await expect(list(page).locator('article').first()).toBeVisible();
+    await expect(list(page).locator('[class*="poster-ratio"]')).toHaveCount(0);
+    // Nothing remembered: no density cookie.
+    expect((await context.cookies()).some((c) => c.name === 'bluvi_competition_density')).toBe(false);
+    // From 1024 the tab's own layout (competitions-list-desktop.spec.ts), still no toggle.
+    await page.setViewportSize(DESKTOP);
+    await expect(list(page).locator('[data-desktop-tab="notStarted"]')).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Afișare' })).toHaveCount(0);
+    // And on the phone.
     await page.setViewportSize(PHONE);
-    await open(page);
-    const toggle = page.getByRole('group', { name: 'Afișare' });
-    // fish: icon AND label, also on the phone.
-    await expect(toggle.getByText('Listă', { exact: true })).toBeVisible();
-    await expect(toggle.getByText('Afiș', { exact: true })).toBeVisible();
-    await toggle.getByText('Afiș', { exact: true }).click();
-    await expect(toggle.getByRole('radio', { name: 'Afiș' })).toBeChecked();
-    await expect(list(page).locator('ul').first()).toHaveCSS('row-gap', '16px');
-    await toggle.getByText('Listă', { exact: true }).click();
-    await expect(toggle.getByRole('radio', { name: 'Listă' })).toBeChecked();
-    await expect(list(page).locator('ul').first()).toHaveCSS('row-gap', '10px');
+    await expect(list(page).locator('article').first()).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Afișare' })).toHaveCount(0);
   });
 
   test('competitions-list.index.c16 competitions-list.index.s6 — Rezultate loads page 2 near the end, with the footer', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
-    await open(page, '/concursuri?status=completed');
+    await open(page, '/concursuri/rezultate');
     const items = list(page).locator('ul').first().locator(':scope > li');
     await expect(items).toHaveCount(20);
     const next = page.waitForRequest((r) => PUBLIC.test(r.url()) && r.url().includes('status=completed') && r.url().includes('page=2'));
@@ -311,7 +310,7 @@ test.describe('signed out', () => {
 
   test('competitions-list.index.c20 — each list keeps its scroll offset; a new one starts at the top (phone: the tabs stay on screen)', async ({ page }) => {
     await page.setViewportSize(PHONE);
-    await open(page, '/concursuri?status=completed');
+    await open(page, '/concursuri/rezultate');
     await page.evaluate(() => window.scrollTo(0, 1600));
     await page.waitForTimeout(300);
     const at = await page.evaluate(() => window.scrollY);
@@ -342,8 +341,7 @@ test.describe('signed out', () => {
   test('competitions-list.cards.c2 competitions-list.cards.c3 competitions-list.cards.c4 competitions-list.index.c26 competitions-list.index.s18 — poster button, LIVE date line, the photo viewer', async ({ page }) => {
     const errors = consoleErrors(page);
     await page.setViewportSize(CARDS);
-    await page.addInitScript(() => localStorage.removeItem('COMPETITION_CARD_DENSITY_V1'));
-    await open(page, '/concursuri?status=started');
+    await open(page, '/concursuri/live');
     const name = '[CHAT25] Test chat v2 — Cantitate';
     const item = list(page).locator('article').filter({ has: page.getByRole('link', { name, exact: true }) });
     await expect(item.getByText(/^LIVE · /)).toBeVisible();
@@ -364,7 +362,7 @@ test.describe('signed out', () => {
     await expectNoA11yViolations(page);
     await page.keyboard.press('Escape');
     await expect(viewer).toBeHidden();
-    await expect(page).toHaveURL(/\/concursuri\?status=started$/);
+    await expect(page).toHaveURL(/\/concursuri\/live$/);
     await thumb.click();
     await page.getByRole('dialog', { name }).getByRole('button', { name: 'Vezi concursul' }).click();
     await expect(page).toHaveURL(new RegExp(`/concursuri/${dto.documentId}`));
@@ -373,7 +371,7 @@ test.describe('signed out', () => {
 
   test('competitions-list.cards.c5 competitions-list.cards.c6 competitions-list.cards.s10 — the followers pill opens the followers list: docked panel from 1280, dialog below', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
-    await open(page, '/concursuri?status=started');
+    await open(page, '/concursuri/live');
     const item = list(page).locator('article').filter({ has: page.getByRole('link', { name: '[CHAT25] Test chat v2 — Cantitate', exact: true }) });
     const pill = item.getByRole('button', { name: /^\d+ urmăritor(i)?$/ });
     await pill.click();
@@ -391,7 +389,7 @@ test.describe('signed out', () => {
     await expect(panel).toBeHidden();
     await expect(pill).toBeFocused();
     // The pill is not the card: the page did not navigate.
-    await expect(page).toHaveURL(/\/concursuri\?status=started$/);
+    await expect(page).toHaveURL(/\/concursuri\/live$/);
     // Tablet: a dialog.
     await page.setViewportSize({ width: 768, height: 1024 });
     await pill.click();
@@ -692,7 +690,6 @@ test.describe('signed in', () => {
   test('competitions-list.cards.c9 competitions-list.cards.c13 competitions-list.cards.c14 competitions-list.cards.c15 competitions-list.cards.c16 competitions-list.cards.c17 competitions-list.cards.s1 competitions-list.cards.s2 competitions-list.cards.s3 competitions-list.cards.s6 competitions-list.cards.s7 competitions-list.cards.s8 competitions-list.cards.s9 — every footer and chip state (Listă); footers line up across a row', async ({ page }) => {
     const errors = consoleErrors(page);
     await page.route(FOLLOWED, (r) => json(r, cardsPage(Object.values(STATE_CARDS))));
-    await page.addInitScript(() => localStorage.removeItem('COMPETITION_CARD_DENSITY_V1'));
     await page.setViewportSize(CARDS);
     await open(page);
     await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
@@ -751,45 +748,8 @@ test.describe('signed in', () => {
     expect(errors).toEqual([]);
   });
 
-  test('competitions-list.cards.c10 competitions-list.cards.c11 competitions-list.cards.c12 competitions-list.cards.s1 competitions-list.cards.s4 competitions-list.cards.s5 — Afiș: phone poster at the DTO ratio, clamped extremes, at every width (never cropped to a shared frame); chips inline without a poster', async ({ page }) => {
-    await page.route(FOLLOWED, (r) => json(r, cardsPage(Object.values(STATE_CARDS))));
-    await page.addInitScript(() => localStorage.setItem('COMPETITION_CARD_DENSITY_V1', 'expanded'));
-    await page.setViewportSize(PHONE);
-    await open(page);
-    await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
-    const item = (name: string) => list(page).locator('article').filter({ has: page.getByRole('link', { name, exact: true }) });
-    await expect(item('FX Afiș lat')).toBeVisible();
-    const ratio = async (name: string) =>
-      item(name)
-        .getByRole('button', { name: `Vezi imaginea pentru ${name}` })
-        .evaluate((el) => {
-          const r = el.parentElement!.getBoundingClientRect();
-          return r.width / r.height;
-        });
-    expect(await ratio('FX Afiș lat')).toBeCloseTo(1600 / 900, 1);
-    // 200×1000 (0.2) is clamped to 0.55 and shown whole.
-    expect(await ratio('FX Afiș foarte înalt')).toBeCloseTo(0.55, 1);
-    await expect(item('FX Afiș foarte înalt').locator('img')).toHaveCSS('object-fit', 'contain');
-    // From 768 the cards share rows, but each poster keeps its own (clamped) ratio: the whole poster
-    // is this density's point, so no shared cropped frame; the cards hug their own height.
-    await page.setViewportSize(WIDE);
-    expect(await ratio('FX Afiș lat')).toBeCloseTo(1600 / 900, 1);
-    expect(await ratio('FX Afiș foarte înalt')).toBeCloseTo(0.55, 1);
-    await expect(item('FX Afiș foarte înalt').locator('img')).toHaveCSS('object-fit', 'contain');
-    await expect(item('FX Afiș lat').locator('img')).toHaveCSS('object-fit', 'cover');
-    // c11: LIVE + followers over the poster; without one, inline.
-    await expect(item('FX Live cu capturi').getByText('LIVE', { exact: true })).toBeVisible();
-    await expect(item('FX Live fără afiș').getByText('LIVE', { exact: true })).toBeVisible();
-    await expect(item('FX Live fără afiș').getByRole('button', { name: /urmăritor/ })).toBeVisible();
-    // c12: «DATE · HOURS», the name, lake · organizer.
-    await expect(item('FX Viitor cu așteptare').getByText('20 oct · 08:00–16:00')).toBeVisible();
-    await expect(item('FX Viitor cu așteptare').getByText('organizator_fx')).toBeVisible();
-    await expectNoA11yViolations(page);
-  });
-
   test('competitions-list.cards.c18 competitions-list.index.c26 — the photo caption: chips, entrants and the catch figures', async ({ page }) => {
     await page.route(FOLLOWED, (r) => json(r, cardsPage([STATE_CARDS.liveFeeder, STATE_CARDS.upcomingNoCapacity, STATE_CARDS.upcomingPending])));
-    await page.addInitScript(() => localStorage.removeItem('COMPETITION_CARD_DENSITY_V1'));
     await page.setViewportSize(CARDS);
     await open(page);
     await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
@@ -863,7 +823,7 @@ async function mockPulse(page: Page, state: PulseMock, gates: { person?: Promise
  * its person / featured reads go to the mocks too.
  */
 async function openPulse(page: Page) {
-  await open(page, '/concursuri?status=started');
+  await open(page, '/concursuri/live');
   await page.getByRole('button', { name: 'Reîmprospătează' }).click();
   await expect(page.getByRole('button', { name: 'Reîmprospătează' })).not.toHaveAttribute('aria-disabled');
   await tab(page, 'Viitoare').click();
@@ -1146,14 +1106,20 @@ test.describe('list states (mocked)', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'Urmărite' })).toBeVisible();
   });
 
-  test('competitions-list.index.s2 competitions-list.index.c23 — the first page loading: the static shell is mode-neutral, card bones in the list grid', async ({ browser }) => {
-    // The prerendered shell is what the stream paints first, for EVERY /concursuri URL: with script
-    // off the stream's swap never runs, so it stays on screen to be inspected. It names no mode — no
-    // tabs, no bento, no summary title — so a results or filtered link never first paints the index
+  test('competitions-list.index.s2 competitions-list.index.c23 competitions-list.index.c37 — the first page loading: /concursuri\'s static shell is mode-neutral, a tab page\'s is its tab with the real links', async ({ browser }) => {
+    // The prerendered shell is what the stream paints first: with script off the stream's swap never
+    // runs, so it stays on screen to be inspected. /concursuri's names no mode — no tabs, no bento, no
+    // summary title — so a search or filtered link (they land there) never first paints the index
     // frame (the inner fallback, which knows the place, commits to one).
     const context = await browser.newContext({ javaScriptEnabled: false, viewport: DESKTOP });
     const page = await context.newPage();
-    for (const path of ['/concursuri', '/concursuri?q=cupa', '/concursuri?format=team&period=next7&status=notStarted']) {
+    // A tab page's shell is that tab's frame, its tabs already the links to the three pages.
+    await page.goto('/concursuri/rezultate');
+    const tabs = page.getByRole('tablist', { name: 'Stare concursuri' }).first().getByRole('tab');
+    await expect(tabs).toHaveText(['Viitoare', 'Live', 'Rezultate']);
+    await expect(tabs.nth(2)).toHaveAttribute('aria-selected', 'true');
+    expect(await tabs.evaluateAll((els) => els.map((e) => e.getAttribute('href')))).toEqual(['/concursuri/viitoare', '/concursuri/live', '/concursuri/rezultate']);
+    for (const path of ['/concursuri', '/concursuri?q=cupa', '/concursuri?format=team&period=next7']) {
       await page.goto(path);
       const loading = page.getByRole('status').filter({ hasText: 'Se încarcă concursurile…' }).first();
       await expect(loading).toBeVisible();
@@ -1170,7 +1136,7 @@ test.describe('list states (mocked)', () => {
 
   test('competitions-list.index.c17 competitions-list.index.c18 competitions-list.index.s7 — a failed re-read keeps the cards, marked; «Încearcă din nou» clears it', async ({ page }) => {
     await page.setViewportSize(CARDS);
-    await open(page, '/concursuri?status=completed');
+    await open(page, '/concursuri/rezultate');
     const first = list(page).locator('article').first();
     await expect(first).toBeVisible();
     await page.route(PUBLIC, (r) => (r.request().url().includes('status=completed') ? json(r, { error: { status: 400, message: 'bad' } }, 400) : r.fallback()));
@@ -1187,7 +1153,6 @@ test.describe('list states (mocked)', () => {
   test('competitions-list.index.c26 competitions-list.index.s18 competitions-list.cards.c18 — the viewer draws the thumbnail first; a failed original keeps it, with a message', async ({ page }) => {
     await page.route(/\/uploads\/fixture\.jpg\?o/, (r) => r.fulfill({ status: 404, body: '' }));
     await page.route(FOLLOWED, (r) => json(r, cardsPage([STATE_CARDS.upcomingPending])));
-    await page.addInitScript(() => localStorage.removeItem('COMPETITION_CARD_DENSITY_V1'));
     await page.setViewportSize(CARDS);
     await open(page);
     await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
@@ -1207,13 +1172,12 @@ test.describe('another timezone', () => {
     await signIn(context, jwt);
     await fixtureImages(page);
     await page.route(FOLLOWED, (r) => json(r, cardsPage([STATE_CARDS.upcomingPending, STATE_CARDS.liveCatches])));
-    await page.addInitScript(() => localStorage.setItem('COMPETITION_CARD_DENSITY_V1', 'expanded'));
-    await page.setViewportSize(DESKTOP);
+    await page.setViewportSize(CARDS);
     await open(page);
     await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
     const item = (name: string) => list(page).locator('article').filter({ has: page.getByRole('link', { name, exact: true }) });
-    // 05:00Z is 22:00 the day before in Los Angeles: the card still says the server's Bucharest labels.
-    await expect(item('FX Viitor cu așteptare').getByText('20 oct · 08:00–16:00')).toBeVisible();
+    // 05:00Z is 22:00 the day before in Los Angeles: the card still says the server's Bucharest label.
+    await expect(item('FX Viitor cu așteptare').getByText('20 oct', { exact: true })).toBeVisible();
     await expect(item('FX Live cu capturi').getByText('1.024,3')).toBeVisible();
     await expect(item('FX Live cu capturi').getByText('7,647')).toBeVisible();
   });

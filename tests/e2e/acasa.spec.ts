@@ -419,7 +419,7 @@ for (const vp of [PHONE, DESKTOP]) {
     const title = (await rail.getByRole('heading', { level: 2 }).textContent()) ?? '';
     expect(title).toMatch(/^Concursuri (live|viitoare)( \(\d+\))?$/);
     const live = title.startsWith('Concursuri live');
-    await expect(rail.getByRole('link', { name: /^Vezi toate: / })).toHaveAttribute('href', `/concursuri?status=${live ? 'started' : 'notStarted'}`);
+    await expect(rail.getByRole('link', { name: /^Vezi toate: / })).toHaveAttribute('href', `/concursuri/${live ? 'live' : 'viitoare'}`);
 
     const cards = rail.getByRole('list', { name: live ? 'Concursuri live' : 'Concursuri viitoare' }).getByRole('listitem');
     await expect(cards.first()).toBeVisible();

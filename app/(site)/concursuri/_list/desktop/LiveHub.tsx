@@ -45,8 +45,8 @@ import s from './desktop.module.css';
  *  - «Cântăriri recente», a live ticker that slides new weighings in (aria-live, polite), and the
  *    heaviest fish across every live competition;
  *  - the other live competitions as rich cards (LIVE + viewers on the photo, top three, sparkline);
- *  - a toast for a new record or a lead change (max one per 20 s, never on a hidden tab).
- * Feeder ranks by points (the fewest lead): its values read «p», never kg.
+ * Points rankings (feeder, Cantitate+Calitate, Cal/Cal, CMMC, CN, FIPSed — core resultHeadline) read
+ * «p», the fewest lead; the others kg.
  * Motion budget: the LIVE dot is the only loop; everything else fires on an event.
  * Refresh: the list and every extra re-read every 60 s while visible (fish LIVE_POLL_MS).
  */
@@ -62,7 +62,7 @@ type HubProps = {
 };
 
 export function LiveHub({ cards, heroId, live, rankingState, updatedAt }: HubProps) {
-  const { changed, toast, dismiss } = useLiveDiff(cards, live);
+  const changed = useChangedRows(live);
   const hero = cards.find((c) => c.documentId === heroId) ?? cards[0];
   const others = cards.filter((c) => c !== hero);
   const stateOf = (c: CompetitionCard): ReadState => rankingState[c.documentId] ?? 'pending';
@@ -110,25 +110,21 @@ export function LiveHub({ cards, heroId, live, rankingState, updatedAt }: HubPro
         </section>
       ) : null}
 
-      {toast ? <Toast toast={toast} onClose={dismiss} /> : null}
     </div>
   );
 }
 
 /* ---------------------------------------------------------------- diffing across refreshes */
 
-type ToastData = { id: number; title: string; body: string; href: string; name: string };
-
 /**
- * What changed since the last refresh: row values (flash those rows only — F1's lesson) and the
- * big moments (new record, new leader) that earn a toast. Stored the React way: the previous
- * snapshot lives in state and is compared while rendering the new one.
+ * The rows whose value or place changed since the last refresh — they flash once (F1's lesson:
+ * animate what changed). Stored the React way: the previous snapshot lives in state and is
+ * compared while rendering the new one. No toast: fish raises none for a lead change or a record.
  */
-function useLiveDiff(cards: CompetitionCard[], live: LiveData) {
-  const [snap, setSnap] = useState<{ live: LiveData; changed: Set<string>; events: ToastData[] }>({ live, changed: new Set(), events: [] });
+function useChangedRows(live: LiveData): Set<string> {
+  const [snap, setSnap] = useState<{ live: LiveData; changed: Set<string> }>({ live, changed: new Set() });
   if (snap.live !== live) {
     const changed = new Set<string>();
-    const events: ToastData[] = [];
     for (const [id, e] of Object.entries(live.extras)) {
       const before = snap.live.extras[id];
       if (!before?.ranking || !e.ranking) continue;
@@ -137,40 +133,10 @@ function useLiveDiff(cards: CompetitionCard[], live: LiveData) {
         const p = prev.get(r.key);
         if (p && (p.value !== r.value || p.position !== r.position)) changed.add(`${id}|${r.key}`);
       }
-      const compName = cards.find((c) => c.documentId === id)?.name ?? '';
-      const lead = e.ranking.rows[0];
-      if (lead && before.ranking.rows[0] && lead.key !== before.ranking.rows[0].key) {
-        events.push({ id: Date.parse(live.ticker[0]?.at ?? '') || events.length + 1, title: 'Lider nou', body: `${lead.name} trece pe primul loc · ${compName}`, href: routes.competition(id), name: lead.name });
-      }
-      const bc = e.ranking.biggestCatch;
-      if (bc && (before.ranking.biggestCatch?.weight ?? 0) < bc.weight) {
-        events.push({ id: Math.round(bc.weight * 1000), title: 'Cea mai mare captură', body: `${formatKg(bc.weight)} kg · ${bc.name} · ${compName}`, href: routes.competition(id), name: bc.name });
-      }
     }
-    setSnap({ live, changed, events });
+    setSnap({ live, changed });
   }
-
-  const [toast, setToast] = useState<ToastData | null>(null);
-  const [lastToastAt, setLastToastAt] = useState(0);
-  useEffect(() => {
-    const next = snap.events[0];
-    if (!next || document.visibilityState !== 'visible') return;
-    const now = Date.now();
-    if (now - lastToastAt < 20_000) return;
-    const show = setTimeout(() => {
-      setToast(next);
-      setLastToastAt(now);
-    }, 0);
-    return () => clearTimeout(show);
-    // Only a new snapshot can raise a toast.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snap]);
-  useEffect(() => {
-    if (!toast) return;
-    const id = setTimeout(() => setToast(null), 5000);
-    return () => clearTimeout(id);
-  }, [toast]);
-  return { changed: snap.changed, toast, dismiss: () => setToast(null) };
+  return snap.changed;
 }
 
 /* ---------------------------------------------------------------- hero */
@@ -331,7 +297,7 @@ function Chase({ rows, ranking }: { rows: MiniRow[]; ranking: MiniRanking }) {
   const [a, b] = rows;
   if (!a || !b || a.value == null || b.value == null || b.catches === 0) return null;
   const gap = gapOf(ranking, a, b);
-  // The bar: how close the second is (kg: its share of the leader's; feeder: the leader's share of its points).
+  // The bar: how close the second is (kg: its share of the leader's; points: the leader's share of its points).
   const ratio = ranking.lowerIsBetter ? a.value / b.value : b.value / a.value;
   if (gap == null || !Number.isFinite(ratio) || ratio <= 0) return null;
   const pct = Math.max(4, Math.min(100, ratio * 100));
@@ -918,23 +884,5 @@ function Seat({ row, className }: { row: MiniRow; className?: string }) {
       {row.sector ? `Sector ${row.sector}` : ''}
       {row.stand ? ` · stand ${row.stand}` : ''}
     </span>
-  );
-}
-
-/* ---------------------------------------------------------------- toast */
-
-function Toast({ toast, onClose }: { toast: ToastData; onClose: () => void }) {
-  const reduced = useReducedMotion();
-  return (
-    <div role="status" className={cn('fixed right-6 bottom-6 z-toast flex w-80 items-center gap-3 rounded-card bg-navy p-4 shadow-e2', !reduced && s.toast)}>
-      <Avatar name={toast.name} size={40} />
-      <Link href={toast.href} className="flex min-w-0 flex-1 flex-col outline-none focus-visible:outline-2 focus-visible:outline-lavender">
-        <span className="t-eyebrow text-lavender-2 uppercase">{toast.title}</span>
-        <span className="line-clamp-2 t-label text-lavender">{toast.body}</span>
-      </Link>
-      <button type="button" onClick={onClose} className="rounded-control px-2 py-1 t-caption text-lavender-2 hover:bg-lavender/10">
-        Închide
-      </button>
-    </div>
   );
 }

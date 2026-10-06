@@ -25,3 +25,4 @@ export * from './domain/listCard';
 export * from './domain/roster';
 export * from './domain/standTimeline';
 export * from './domain/weighingSessions';
+export * from './domain/resultHeadline';

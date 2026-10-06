@@ -28,9 +28,10 @@ async function landmarks(page: Page) {
   });
 }
 
-test('T1 demo = /concursuri: the same h1, tabs, regions and filter chips (1280)', async ({ page }) => {
+test('T1 demo = /concursuri/viitoare: the same h1, tabs, regions and filter chips (1280)', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto('/concursuri');
+  // The demo opens on Viitoare (with the bento); /concursuri itself opens on Live when something is live.
+  await page.goto('/concursuri/viitoare');
   await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole('region', { name: 'Pulsul concursurilor' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'Rezultate recente' })).toBeVisible({ timeout: 30_000 });

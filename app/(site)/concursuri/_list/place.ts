@@ -10,6 +10,7 @@ import {
   type CompetitionsCommittedSearch,
 } from '@/core/competitions';
 import { formatCount, periodChipLabel } from '@/core/competitions';
+import { routes } from '@/lib/routes';
 
 /*
  * Where the Concursuri list starts and what it says — fish (tabs)/competitions/index.tsx. No
@@ -72,7 +73,6 @@ export function mixedCountLabel(count: number): string {
   return formatCount(count, 'concurs', 'concursuri');
 }
 
-const URL_STATUSES = ['notStarted', 'started', 'completed', 'all'] as const;
 const SCOPES = ['followed', 'registered'] as const;
 const FOLLOWED_ONLY = ['followed'] as const;
 const FORMATS = ['single', 'team'] as const;
@@ -103,16 +103,22 @@ export function searchUrlValues(search: CompetitionsCommittedSearch): Record<'q'
   };
 }
 
+/** Where the list sits in the URL path: one tab's own page, or /concursuri (its tab decided by the server). */
+export type ListRoute = { tab: CompetitionCardStatus } | { index: CompetitionCardStatus };
+
+/** `?stare=toate`: «Orice stare» applied from the filters with nothing else narrowing (fish's tab-less list). */
+export const ALL_STATES_PARAM = { key: 'stare', value: 'toate' } as const;
+
 /**
- * The place from the URL. `?status=started|notStarted|completed` is fish's tab entry (Acasă «Vezi
- * toate», parity c27): it lands on that tab with search and filters cleared. Any other value is
- * ignored. The list then mirrors its own place into the URL (T1 useListUrlState), so a reload, a
- * back from a competition and a shared link come back to it, while the top bar's «Competiții»
- * (/concursuri, no params) always opens Viitoare — the web's «consumed» (it never snaps back).
- * Results params (competitions-list.results web_route): q | lakeId | organizerId (+ label), period,
- * format, availableOnly=true (the older `available=1` still reads), countyId (+ countyName), status.
+ * The place from the URL: the path names the tab (/concursuri/viitoare · /live · /rezultate; plain
+ * /concursuri opens on `index`, Live when something is live, else Viitoare), the query the rest —
+ * `scope` (followed | registered), the search (q | lakeId | organizerId + label) and the filters
+ * (period, format, availableOnly=true — the older `available=1` still reads —, countyId +
+ * countyName), plus `stare=toate` (an applied «Orice stare»). The list then mirrors its own place
+ * into the URL (useListUrlState), so a reload, a back from a competition and a shared link come back
+ * to it.
  */
-export function placeFromUrl(url: UrlParams): ListPlace {
+export function placeFromUrl(url: UrlParams, route: ListRoute = { index: 'notStarted' }): ListPlace {
   const search = searchFromUrl(url);
   const countyId = listParam(url, 'countyId')?.trim() || null;
   const filters: CompetitionFilterValues = {
@@ -124,20 +130,32 @@ export function placeFromUrl(url: UrlParams): ListPlace {
     countyName: countyId ? (listParam(url, 'countyName')?.trim() ?? null) : null,
   };
   const results = search !== null || hasActiveFilters(filters);
-  // `all` outside results: «Orice stare» applied from the filters — fish's tab-less «Toate concursurile».
-  const tab = listParamOf(url, 'status', URL_STATUSES);
-  // A tab entry (a status and nothing else asked) clears search and filters.
-  if (tab && !results) return { ...DEFAULT_PLACE, status: tab, scope: listParamOf(url, 'scope', SCOPES) ?? 'all' };
-  if (!results) return { ...DEFAULT_PLACE, scope: listParamOf(url, 'scope', SCOPES) ?? 'all' };
-  // Results mode answers across statuses unless the URL narrowed it (the status chip). Filtering
+  const tab = 'tab' in route ? route.tab : null;
+  if (!results) {
+    const allStates = listParam(url, ALL_STATES_PARAM.key) === ALL_STATES_PARAM.value;
+    const status = allStates ? 'all' : (tab ?? ('index' in route ? route.index : 'notStarted'));
+    return { ...DEFAULT_PLACE, status, scope: listParamOf(url, 'scope', SCOPES) ?? 'all' };
+  }
+  // Results mode answers across statuses unless a tab's path narrowed it (the status chip). Filtering
   // keeps «Urmărite» (fish onApply → changeStatus leaves only «Ale mele»), so a filtered followed
   // list comes back followed. A search always answers under scope all (results.c2).
   return {
-    status: listParamOf(url, 'status', URL_STATUSES) ?? 'all',
+    status: tab ?? 'all',
     scope: search ? 'all' : (listParamOf(url, 'scope', FOLLOWED_ONLY) ?? 'all'),
     search,
     filters,
   };
+}
+
+/**
+ * The path a place lives at (the inverse of placeFromUrl's path half): a tab's own page, or
+ * /concursuri for every state at once — and for the tab /concursuri opened on, until the list moves
+ * off it (`onIndex`), so a landing on /concursuri keeps its clean URL.
+ */
+export function pathFor(place: Pick<ListPlace, 'status' | 'search' | 'filters'>, onIndex: CompetitionCardStatus | null): string {
+  if (place.status === 'all') return routes.competitions();
+  if (!isResultsMode(place) && place.status === onIndex) return routes.competitions();
+  return routes.competitions(place.status);
 }
 
 /** A committed search or any filter takes the screen over (fish resultsMode). */

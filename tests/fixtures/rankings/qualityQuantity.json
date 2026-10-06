@@ -1,0 +1,65 @@
+{
+  "source": "prod",
+  "metadata": {
+    "rankingType": "qualityQuantity",
+    "numberOfSectors": 3,
+    "totalQuantity": 487.585,
+    "totalCatchesCount": 54
+  },
+  "rankings": [
+    {
+      "sectorName": "A",
+      "sectorMinNumberOfFish": 6,
+      "standName": "8",
+      "teamName": "",
+      "guestName": "Pescar 1",
+      "quality": 12.46,
+      "quantity": 104.48,
+      "biggestFish": 16.83,
+      "catchCount": 10,
+      "hasGrid": true,
+      "penalties": [],
+      "isEliminated": false,
+      "qualityPoints": 1,
+      "quantityPoints": 1,
+      "sectorPosition": 1,
+      "generalPosition": 1
+    },
+    {
+      "sectorName": "C",
+      "sectorMinNumberOfFish": 4,
+      "standName": "3",
+      "teamName": "Echipa 2",
+      "guestName": null,
+      "quality": 11.996,
+      "quantity": 136.34,
+      "biggestFish": 13.19,
+      "catchCount": 15,
+      "hasGrid": true,
+      "penalties": [],
+      "isEliminated": false,
+      "qualityPoints": 1,
+      "quantityPoints": 1,
+      "sectorPosition": 1,
+      "generalPosition": 2
+    },
+    {
+      "sectorName": "B",
+      "sectorMinNumberOfFish": 5,
+      "standName": "10",
+      "teamName": "Echipa 3",
+      "guestName": "Pescar 3",
+      "quality": 7.082,
+      "quantity": 35.41,
+      "biggestFish": 9.22,
+      "catchCount": 5,
+      "hasGrid": true,
+      "penalties": [],
+      "isEliminated": false,
+      "qualityPoints": 1,
+      "quantityPoints": 1,
+      "sectorPosition": 1,
+      "generalPosition": 3
+    }
+  ]
+}

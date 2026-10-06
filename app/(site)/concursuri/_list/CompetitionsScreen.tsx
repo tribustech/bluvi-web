@@ -8,9 +8,7 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AdjustmentsHorizontalIcon,
   EyeIcon,
-  ListBulletIcon,
   MagnifyingGlassIcon,
-  RectangleStackIcon,
 } from '@heroicons/react/24/outline';
 import {
   ActiveFilters,
@@ -35,7 +33,6 @@ import {
   ListToolbar,
   LiveDot,
   TextAction,
-  ViewToggle,
   describeError,
   pageToolClass,
   SEARCH_SHELL,
@@ -72,7 +69,6 @@ import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { createPulseTracker, logFiltersApplied, logScopeChanged, logSearchCommitted, logStatusChanged } from './analytics';
 import { CardSkeleton, cardItemClass, CompetitionCardItem, type PhotoRequest } from './CompetitionCardItem';
-import { useCardDensity, type Density } from './density';
 import { FiltersDialog, periodChoices, PickerRow, type FiltersView } from './FiltersDialog';
 import { DesktopRowsSkeleton, DesktopTabView, type DesktopTab } from './desktop/DesktopTabView';
 import type { DesktopViewer } from './desktop/data';
@@ -84,6 +80,8 @@ import {
   isResultsMode,
   listParamsFor,
   mixedCountLabel,
+  pathFor,
+  ALL_STATES_PARAM,
   REGISTERED_PARAMS,
   resultsLabelFor,
   searchUrlValues,
@@ -117,8 +115,11 @@ import { StatusTabs } from './StatusTabs';
  *  - pull-to-refresh is the kit's stand-in (DashboardRefresh, as on Acasă): «Reîmprospătează» in
  *    the header, its outcome announced, the spinner its own (never a tab switch's);
  *  - the cards auto-fill the content column (ListGrid, ROADMAP §4), one column on the phone as in
- *    fish; Listă keeps fish's compact cards with footers (not the T1 demo's ListRows) on 280px
- *    minimums, so the 608 centre at 1280 holds two;
+ *    fish: fish's compact «Listă» cards with footers. No «Listă» / «Afiș» toggle (owner, 2026-10-06):
+ *    the cards below 1024 and in results mode, each tab's own layout from 1024 (./desktop);
+ *  - each tab is a page of its own (/concursuri/viitoare · /live · /rezultate; /concursuri opens on
+ *    Live when something is live, else Viitoare): the tabs are real links, a switch happens in
+ *    place and the list mirrors its tab into the path (search, filters, scope stay in the query);
  *  - the aside (registrations, what is live / starting / just finished) docks from 1280 (three
  *    columns, ROADMAP §4) and sits under the list below it (ListPage asideInline «end»), its rows
  *    auto-filling the width there, never dropped.
@@ -137,15 +138,16 @@ const RESULTS_HEADING_ID = SUMMARY_ID;
 
 export function CompetitionsScreen({
   initial,
-  initialDensity = 'compact',
+  indexTab = null,
   isAuthenticated,
   viewer = null,
   seed,
   transport,
+  mirrorPath = true,
 }: {
   initial: ListPlace;
-  /** The density cookie as the server read it: the server render and hydration use it (no re-layout). */
-  initialDensity?: Density;
+  /** Opened at /concursuri: the tab it stands for (the server's pick); null on a tab's own page. */
+  indexTab?: CompetitionCardStatus | null;
   /** Signed in, or a session the server could not read in time (the per-user reads still go through /api/cms). */
   isAuthenticated: boolean;
   /** Who is signed in (the server's session read): the desktop views' «tu», followed faces and my stand. */
@@ -157,6 +159,8 @@ export function CompetitionsScreen({
    * transport that forces its states, so approving the demo approves the shipped page.
    */
   transport?: Transport;
+  /** Mirror the tab into the path (/concursuri/live). Off on the dev demo, which has its own path. */
+  mirrorPath?: boolean;
 }) {
   const t = useMemo(() => transport ?? createBrowserTransport(), [transport]);
   const session = { isAuthenticated };
@@ -167,7 +171,10 @@ export function CompetitionsScreen({
   const [scope, setScope] = useState<CompetitionCardsScope>(initial.scope);
   const [search, setSearch] = useState<CompetitionsCommittedSearch>(initial.search);
   const [filters, setFilters] = useState<CompetitionFilterValues>(initial.filters);
-  const { density, setDensity } = useCardDensity(initialDensity);
+  // /concursuri keeps its clean URL while the list stays on the tab it opened on (pathFor).
+  const [onIndex, setOnIndex] = useState<CompetitionCardStatus | null>(
+    indexTab !== null && !isResultsMode(initial) && initial.status === indexTab ? indexTab : null,
+  );
   const [filtersOpen, setFiltersOpen] = useState(false);
   // Which view the filters dialog opens on: the whole sheet, or (from a quick chip) a sub-view.
   const [filtersEntry, setFiltersEntry] = useState<FiltersView>('filters');
@@ -197,10 +204,12 @@ export function CompetitionsScreen({
   const resultsMode = isResultsMode(place);
 
   // The list's place lives in the URL (T1): reload, back from a competition and a shared link return to it.
-  // `status=all` only outside results mode: «Orice stare» applied from the filters is fish's tab-less
-  // «Toate concursurile» list (filters.c15); in results mode every state is the default.
+  // The tab is the path (pathFor); `stare=toate` only outside results mode: «Orice stare» applied
+  // from the filters is fish's tab-less «Toate concursurile» list (filters.c15); in results mode
+  // every state is /concursuri's default.
+  const listPath = pathFor(place, onIndex);
   const urlValues = {
-    status: resultsMode ? (status === 'all' ? null : status) : status === 'notStarted' ? null : status,
+    [ALL_STATES_PARAM.key]: !resultsMode && status === 'all' ? ALL_STATES_PARAM.value : null,
     scope: scope === 'all' ? null : scope,
     ...searchUrlValues(search),
     period: filters.period === 'all' ? null : filters.period,
@@ -211,7 +220,7 @@ export function CompetitionsScreen({
     countyId: filters.countyId,
     countyName: filters.countyId ? filters.countyName : null,
   };
-  useListUrlState(urlValues);
+  useListUrlState(urlValues, { pathname: mirrorPath ? listPath : undefined });
 
   // Focus to restore after a commit that unmounts the focused control.
   // A new object per request, so asking for the same target twice still moves focus.
@@ -242,6 +251,7 @@ export function CompetitionsScreen({
 
   const changeStatus = (next: Status) => {
     setStatus(next);
+    if (next !== status) setOnIndex(null);
     // Picking a status tab is how you leave «Ale mele» (fish changeStatus).
     setScope((s) => (s === 'registered' ? 'all' : s));
     if (next !== 'all') logStatusChanged({ status: next, scope });
@@ -302,6 +312,7 @@ export function CompetitionsScreen({
       setStatus(before.status);
     } else {
       setStatus(nextStatus);
+      if (nextStatus !== status) setOnIndex(null);
       // fish onApply → changeStatus logs the state (b.analytics); a chip clearing it does not.
       if (log && nextStatus !== 'all' && nextStatus !== status) logStatusChanged({ status: nextStatus, scope });
     }
@@ -401,7 +412,15 @@ export function CompetitionsScreen({
   const tabCounts = !mineActive && !list.isPlaceholderData ? sel.counts : undefined;
   const statusTab = (key: CompetitionCardStatus, extra?: Partial<ListTab<CompetitionCardStatus>>): ListTab<CompetitionCardStatus> => {
     const count = key === 'notStarted' && filters.availableOnly ? undefined : tabCounts?.[key];
-    return { key, label: TAB_LABEL[key], count, accessibleLabel: count ? `${TAB_LABEL[key]}, ${count}` : undefined, ...extra };
+    return {
+      key,
+      label: TAB_LABEL[key],
+      // A real link to the tab's own page (crawlers, new tab); a plain click switches in place.
+      href: routes.competitions(key),
+      count,
+      accessibleLabel: count ? `${TAB_LABEL[key]}, ${count}` : undefined,
+      ...extra,
+    };
   };
   const tabs: ListTab<CompetitionCardStatus | 'mine'>[] = [
     statusTab('notStarted'),
@@ -412,6 +431,7 @@ export function CompetitionsScreen({
           {
             key: 'mine' as const,
             label: 'Ale mele',
+            href: `${listPath}?scope=registered`,
             count: registeredAhead,
             accessibleLabel: registeredAhead > 0 ? `Ale mele, ${registeredAhead}` : 'Ale mele',
           },
@@ -445,22 +465,6 @@ export function CompetitionsScreen({
   }, [pageEmptiedLocally, hasNextPage, isFetchingNextPage, fetchNextPage]);
   const countBusy = loading || busy;
   const showData = !loading && !failed && !sel.requiresSignIn && competitions.length > 0;
-
-  const densityToggle = (
-    <ViewToggle<Density>
-      label="Afișare"
-      // Labels at every width (fish CompetitionDensityPreviewToggle: icon AND «Listă» / «Afiș») —
-      // except next to a results heading on the phone, where the labels took ~150px of the heading
-      // row and pushed the search term to a line of its own: icons there, the labels their names.
-      className={resultsMode ? undefined : '[&_label>span.sr-only]:not-sr-only'}
-      value={density}
-      onChange={setDensity}
-      options={[
-        { value: 'compact', label: 'Listă', icon: <ListBulletIcon /> },
-        { value: 'expanded', label: 'Afiș', icon: <RectangleStackIcon /> },
-      ]}
-    />
-  );
 
   /* The search row's stand-ins (c9): when the row has scrolled under the sticky chrome, a magnifier
      and the filters tool fade into the title row; the two pairs are never interactive together.
@@ -606,7 +610,7 @@ export function CompetitionsScreen({
           Below 1280 it is spoken only (the results chrome takes the title row, as fish's). From 1280
           the T1 header stays on screen, its tab band reserved and carrying the answer, so entering
           results from the live-apply column never pulls the column up under the pointer. */}
-      <ListHeader titleId={TITLE_ID} title="Concursuri" reserveBelow={bandText} reserveEnd={showData ? densityToggle : undefined} className="max-xl:sr-only" />
+      <ListHeader titleId={TITLE_ID} title="Concursuri" reserveBelow={bandText} className="max-xl:sr-only" />
       <div className="contents xl:hidden">
         <ResultsChrome
           label={resultsLabel}
@@ -840,14 +844,14 @@ export function CompetitionsScreen({
   const settledEmpty =
     !sel.requiresSignIn && list.isSuccess && !busy && !loading && competitions.length === 0 && !list.hasNextPage;
 
-  // Podium footers (one to six rows) and Afiș (each poster at its own ratio, cards.c10) hug their
-  // content; Listă shares footer lines only while no card has a podium — one podium in a row (a
-  // results list across every state) stretched its upcoming neighbours to a tall empty body.
-  const aligned = density === 'compact' && status !== 'completed' && !competitions.some((c) => c.status === 'completed');
+  // Podium footers (one to six rows) hug their content; the cards share footer lines only while no
+  // card has a podium — one podium in a row (a results list across every state) stretched its
+  // upcoming neighbours to a tall empty body.
+  const aligned = status !== 'completed' && !competitions.some((c) => c.status === 'completed');
 
-  // From 1024 the tabs are not the phone's cards (owner-approved prototype A2): in «Listă» each tab
-  // has its own layout (./desktop); «Afiș» keeps the posters at every width, results mode the cards.
-  const desktopTab: DesktopTab | null = resultsMode || density !== 'compact' ? null : mineActive ? 'mine' : status === 'all' ? null : status;
+  // From 1024 the tabs are not the phone's cards (owner-approved prototype A2): each tab has its own
+  // layout (./desktop); results mode and the tab-less «Toate concursurile» keep the cards.
+  const desktopTab: DesktopTab | null = resultsMode ? null : mineActive ? 'mine' : status === 'all' ? null : status;
 
   let body: ReactNode;
   if (sel.requiresSignIn) {
@@ -856,7 +860,7 @@ export function CompetitionsScreen({
         title={scope === 'followed' ? 'Concursurile urmărite' : 'Înscrierile tale'}
         description="Intră în cont ca să vezi concursurile tale."
         // Back to this very list after signing in — its filters too, not a bare «Urmărite».
-        href={signInPath(`${routes.competitions()}?${placeQuery(urlValues)}`)}
+        href={signInPath(withQuery(listPath, placeQuery(urlValues)))}
       />
     );
   } else if (failed) {
@@ -881,7 +885,7 @@ export function CompetitionsScreen({
     body = desktopTab ? (
       <>
         <div className="lg:hidden">
-          <CardsSkeleton density={density} />
+          <CardsSkeleton />
         </div>
         <div role="status" className="hidden lg:block">
           <span className="sr-only">Se încarcă concursurile…</span>
@@ -889,7 +893,7 @@ export function CompetitionsScreen({
         </div>
       </>
     ) : (
-      <CardsSkeleton density={density} />
+      <CardsSkeleton />
     );
   } else if (competitions.length === 0) {
     body = (
@@ -919,13 +923,12 @@ export function CompetitionsScreen({
     );
   } else {
     const cards = (
-      <CardsGrid density={density} labelledBy={SUMMARY_ID}>
+      <CardsGrid labelledBy={SUMMARY_ID}>
         {competitions.map((c, i) => (
           // Aligned: a two-row subgrid (body, footer) of this grid — footers line up across a row.
           <li key={c.documentId} className={cardItemClass(aligned)}>
             <CompetitionCardItem
               competition={c}
-              density={density}
               aligned={aligned}
               onOpenPhoto={setPhoto}
               // The phone's first posters keep priority (LCP, §5): with a desktop view this is the
@@ -1025,7 +1028,6 @@ export function CompetitionsScreen({
       title={<span className="max-md:line-clamp-2">{heading}</span>}
       count={sel.requiresSignIn || failed || countBusy ? undefined : countText}
       loading={countBusy && !sel.requiresSignIn && !failed}
-      end={resultsMode && !showData ? undefined : densityToggle}
     />
   );
 
@@ -1145,6 +1147,8 @@ function placeQuery(values: Record<string, string | null>): string {
   return q.toString();
 }
 
+const withQuery = (path: string, query: string) => (query ? `${path}?${query}` : path);
+
 /**
  * The aside's compact rows. `showLive` marks LIVE rows (off when the block is the live list). Docked
  * (≥1280) they stack; inline under the list they auto-fill the block's width (260px minimum: two
@@ -1178,35 +1182,35 @@ function AsideList({ items, showLive = true }: { items: CompetitionCard[]; showL
 }
 
 /** The page's loading frame (Suspense fallback): header, tabs, toolbar, bento where it opens on one, cards. */
-export function CompetitionsFallbackBody({ withPulse, density = 'compact', desktopRows = false }: { withPulse: boolean; density?: Density; desktopRows?: boolean }) {
+export function CompetitionsFallbackBody({ withPulse, desktopRows = false }: { withPulse: boolean; desktopRows?: boolean }) {
   return (
     <>
       {withPulse ? <PulseSkeleton /> : null}
       {desktopRows ? (
         <>
           <div className="lg:hidden">
-            <CardsSkeleton density={density} />
+            <CardsSkeleton />
           </div>
           <div className="hidden lg:block">
             <DesktopRowsSkeleton />
           </div>
         </>
       ) : (
-        <CardsSkeleton density={density} />
+        <CardsSkeleton />
       )}
     </>
   );
 }
 
 /** The first page's bones, in the grid the cards will land in (index.s2, c23). */
-function CardsSkeleton({ density }: { density: Density }) {
+function CardsSkeleton() {
   return (
     <div role="status">
       <span className="sr-only">Se încarcă concursurile…</span>
       <div aria-hidden>
-        <CardsGrid density={density}>
+        <CardsGrid>
           {Array.from({ length: 6 }, (_, i) => (
-            <CardSkeleton key={i} density={density} />
+            <CardSkeleton key={i} />
           ))}
         </CardsGrid>
       </div>
@@ -1216,14 +1220,14 @@ function CardsSkeleton({ density }: { density: Density }) {
 
 /**
  * The cards' grid: the kit ListGrid (LIST_GUTTER between columns, so the bento's channels continue
- * into it). Listă (horizontal cards: a 76px thumbnail + text) takes the 340px minimum, so the ~870
+ * into it). The horizontal cards (a 76px thumbnail + text) take the 340px minimum, so the ~870
  * centre at 1280 holds two well-proportioned cards (titles and chips on one line) instead of three
- * cramped ones; Afiș (posters) keeps 280. Listă keeps fish's tighter 10px between rows (ItemSeparator, c14); the column gutter
- * stays the shared one. TODO(kit): a ListGrid `rowGap` / density prop instead of this className.
+ * cramped ones; fish's tighter 10px between rows (ItemSeparator, c14); the column gutter stays the
+ * shared one. TODO(kit): a ListGrid `rowGap` prop instead of this className.
  */
-function CardsGrid({ density, labelledBy, children }: { density: Density; labelledBy?: string; children: ReactNode }) {
+function CardsGrid({ labelledBy, children }: { labelledBy?: string; children: ReactNode }) {
   return (
-    <ListGrid min={density === 'expanded' ? 'md' : 'lg'} labelledBy={labelledBy} className={density === 'expanded' ? undefined : 'gap-y-2.5'}>
+    <ListGrid min="lg" labelledBy={labelledBy} className="gap-y-2.5">
       {children}
     </ListGrid>
   );

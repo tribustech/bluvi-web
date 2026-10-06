@@ -154,7 +154,7 @@ function TabList({
         <ListGrid min="md" labelledBy={headingId} className="gap-y-2.5">
           {items.map((c, i) => (
             <li key={c.documentId} className={cardItemClass(aligned)}>
-              <CompetitionCardItem competition={c} density="compact" aligned={aligned} onOpenPhoto={onOpenPhoto} priority={i < PRIORITY_CARDS} />
+              <CompetitionCardItem competition={c} aligned={aligned} onOpenPhoto={onOpenPhoto} priority={i < PRIORITY_CARDS} />
             </li>
           ))}
         </ListGrid>
@@ -191,7 +191,7 @@ export function CardsSkeleton() {
       <span className="sr-only">Se încarcă concursurile…</span>
       <ListGrid min="md" className="gap-y-2.5">
         {Array.from({ length: 4 }, (_, i) => (
-          <CardSkeleton key={i} density="compact" />
+          <CardSkeleton key={i} />
         ))}
       </ListGrid>
     </div>

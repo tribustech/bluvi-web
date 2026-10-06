@@ -1,0 +1,53 @@
+{
+  "source": "prod",
+  "metadata": {
+    "rankingType": "quantity",
+    "numberOfSectors": 3,
+    "totalQuantity": 25.065,
+    "totalCatchesCount": 5
+  },
+  "rankings": [
+    {
+      "sectorName": "B",
+      "standName": "2",
+      "teamName": "",
+      "guestName": "Pescar 1",
+      "biggestFish": 7.5,
+      "quantity": 11.7,
+      "catchCount": 2,
+      "penalties": [],
+      "isEliminated": false,
+      "quantityPoints": 1,
+      "sectorPosition": 1,
+      "generalPosition": 1
+    },
+    {
+      "sectorName": "C",
+      "standName": "9",
+      "teamName": "",
+      "guestName": "Pescar 2",
+      "biggestFish": 4.725,
+      "quantity": 4.725,
+      "catchCount": 1,
+      "penalties": [],
+      "isEliminated": false,
+      "quantityPoints": 1,
+      "sectorPosition": 1,
+      "generalPosition": 2
+    },
+    {
+      "sectorName": "B",
+      "standName": "5",
+      "teamName": "",
+      "guestName": "Pescar 3",
+      "biggestFish": 5.39,
+      "quantity": 5.39,
+      "catchCount": 1,
+      "penalties": [],
+      "isEliminated": false,
+      "quantityPoints": 2,
+      "sectorPosition": 2,
+      "generalPosition": 3
+    }
+  ]
+}

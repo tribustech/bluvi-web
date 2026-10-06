@@ -1,0 +1,62 @@
+{
+  "source": "prod",
+  "metadata": {
+    "rankingType": "calitateCalitate",
+    "numberOfSectors": 3,
+    "totalQuantity": 1794.525,
+    "totalCatchesCount": 141
+  },
+  "rankings": [
+    {
+      "sectorName": "A",
+      "sectorMinNumberOfFish": 7,
+      "standName": "B9",
+      "teamName": "Echipa 1",
+      "guestName": null,
+      "quality1": 18.196,
+      "quality2": 20.95,
+      "biggestFish": 20.95,
+      "catchCount": 21,
+      "hasGrid": true,
+      "quality1Points": 1,
+      "quality2Points": 2,
+      "totalPoints": 3,
+      "sectorPosition": 1,
+      "generalPosition": 1
+    },
+    {
+      "sectorName": "B",
+      "sectorMinNumberOfFish": 6,
+      "standName": "B3",
+      "teamName": "Echipa 2",
+      "guestName": null,
+      "quality1": 17.471,
+      "quality2": 21.225,
+      "biggestFish": 21.225,
+      "catchCount": 16,
+      "hasGrid": true,
+      "quality1Points": 1,
+      "quality2Points": 2,
+      "totalPoints": 3,
+      "sectorPosition": 1,
+      "generalPosition": 2
+    },
+    {
+      "sectorName": "C",
+      "sectorMinNumberOfFish": 4,
+      "standName": "B2",
+      "teamName": "Echipa 3",
+      "guestName": null,
+      "quality1": 9.6,
+      "quality2": 15.375,
+      "biggestFish": 15.375,
+      "catchCount": 6,
+      "hasGrid": true,
+      "quality1Points": 1,
+      "quality2Points": 2,
+      "totalPoints": 3,
+      "sectorPosition": 1,
+      "generalPosition": 3
+    }
+  ]
+}

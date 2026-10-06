@@ -51,7 +51,8 @@ async function captureEvents(context: BrowserContext) {
 }
 const events = (page: Page) => page.evaluate(() => (window as unknown as { __events: { name: string; params: Record<string, unknown> }[] }).__events);
 
-async function open(page: Page, path = '/concursuri') {
+/** Viitoare's own page (its bento): /concursuri itself opens on Live when something is live. */
+async function open(page: Page, path = '/concursuri/viitoare') {
   await page.goto(path);
   await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeAttached();
   await expect(page.locator('#concursuri-lista-titlu')).toBeVisible();
@@ -399,7 +400,8 @@ test.describe('competitions-list.filters', () => {
     expect(params.get('status')).toBe('notStarted');
     await expect(page).toHaveURL(/availableOnly=true/);
     await expect(page).toHaveURL(/period=next7/);
-    await expect(page).toHaveURL(/status=notStarted/);
+    // The state is the tab's page (no ?status=).
+    await expect(page).toHaveURL(/\/concursuri\/viitoare\?/);
     // c15: one event with fish's payload; any active filter → results mode.
     expect(await events(page)).toContainEqual({
       name: 'competitions_filters_applied',
@@ -606,7 +608,7 @@ test.describe('competitions-list.results', () => {
     await expect(page.getByRole('tablist')).toHaveCount(0);
     // c14: no bento.
     await expect(page.getByRole('region', { name: /Puls/i })).toHaveCount(0);
-    await expect(page.getByRole('group', { name: 'Afișare' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Afișare' })).toHaveCount(0);
     await expectNoA11yViolations(page);
     // c4: the filters circle opens the filters.
     await page.getByRole('button', { name: 'Filtre', exact: true }).click();
@@ -630,7 +632,7 @@ test.describe('competitions-list.results', () => {
     await captureEvents(context);
     await page.setViewportSize(TABLET);
     const month = periodOptions(new Date(), 'all')[3];
-    await open(page, `/concursuri?status=started&period=${month.value}&format=team&countyId=c-if&countyName=Ilfov`);
+    await open(page, `/concursuri/live?period=${month.value}&format=team&countyId=c-if&countyName=Ilfov`);
     const rail = page.getByRole('group', { name: 'Filtre active' });
     // c7 order: status (Live with its dot), county, period, format; c9: «{Lună} {an}».
     await expect(rail.getByRole('button')).toHaveText(['Live', 'Ilfov', month.label, 'Echipe', 'Șterge tot']);
@@ -650,7 +652,8 @@ test.describe('competitions-list.results', () => {
     await expect(rail.getByRole('button', { name: `${month.label}. Apasă pentru a renunța la acest filtru` })).toBeFocused();
     await rail.getByRole('button', { name: 'Live. Apasă pentru a renunța la acest filtru' }).click();
     await expect(rail.getByRole('button')).toHaveText([month.label, 'Echipe']);
-    await expect(page).not.toHaveURL(/status=/);
+    // Every state again: off the Live page, to /concursuri.
+    await expect(page).toHaveURL(/\/concursuri\?/);
     // c8: two chips → no «Șterge tot».
     await expect(rail.getByRole('button', { name: 'Șterge toate filtrele' })).toHaveCount(0);
     await rail.getByRole('button', { name: 'Echipe. Apasă pentru a renunța la acest filtru' }).click();
@@ -664,14 +667,14 @@ test.describe('competitions-list.results', () => {
 
   test('competitions-list.results.c8 competitions-list.results.c9 — «Șterge tot» clears every filter and the status; preset chip labels', async ({ page }) => {
     await page.setViewportSize(PHONE);
-    await open(page, '/concursuri?q=cupa&status=notStarted&period=weekend&availableOnly=true&format=single');
+    await open(page, '/concursuri/viitoare?q=cupa&period=weekend&availableOnly=true&format=single');
     const rail = page.getByRole('group', { name: 'Filtre active' });
     await expect(rail.getByRole('button')).toHaveText(['Viitoare', 'Locuri libere', 'Weekendul acesta', 'Individual', 'Șterge tot']);
     await rail.getByRole('button', { name: 'Șterge toate filtrele' }).click();
     await expect(rail).toHaveCount(0);
     // The search stays: every state for «cupa».
     await expect(heading(page)).toHaveText('Rezultate pentru „cupa”');
-    await expect(page).not.toHaveURL(/status=|period=|availableOnly=|format=/);
+    await expect(page).toHaveURL(/\/concursuri\?q=cupa$/);
     await expect(heading(page)).toBeFocused();
     await open(page, '/concursuri?period=next7');
     await expect(page.getByRole('group', { name: 'Filtre active' }).getByRole('button')).toHaveText(['Următoarele 7 zile']);
@@ -805,7 +808,7 @@ test.describe('competitions-list keyboard, focus and results chrome', () => {
     const promised = (await apply.innerText()).replace(/^Arată /, '');
     await apply.click();
     await expect(heading(page)).toHaveText('Toate concursurile');
-    await expect(page).toHaveURL(/status=all/);
+    await expect(page).toHaveURL(/\/concursuri\?stare=toate$/);
     await expect(page.locator('[role="tab"][aria-selected="true"]')).toHaveCount(0);
     await expect(list(page).locator('p[aria-hidden]').getByText(promised, { exact: true })).toBeVisible();
     // A reload keeps it.

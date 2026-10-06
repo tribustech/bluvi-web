@@ -1,0 +1,71 @@
+{
+  "source": "prod",
+  "metadata": {
+    "rankingType": "bestOfTiers",
+    "numberOfSectors": 1,
+    "totalQuantity": 1680.475,
+    "totalCatchesCount": 118,
+    "bestOfTierSizes": [
+      9,
+      7,
+      5,
+      3
+    ]
+  },
+  "rankings": [
+    {
+      "sectorName": "A",
+      "standName": "B5",
+      "teamName": "",
+      "guestName": "Pescar 1",
+      "catchCount": 17,
+      "totalQuantity": 254.725,
+      "biggestFish": 26.35,
+      "topNByTier": {
+        "3": 21.475,
+        "5": 19.545,
+        "7": 18.436,
+        "9": 17.461
+      },
+      "tierWonAt": 1,
+      "sectorPosition": 1,
+      "generalPosition": 1
+    },
+    {
+      "sectorName": "A",
+      "standName": "A4",
+      "teamName": "Echipa 2",
+      "guestName": null,
+      "catchCount": 13,
+      "totalQuantity": 187.1,
+      "biggestFish": 19.8,
+      "topNByTier": {
+        "3": 19.083,
+        "5": 18.19,
+        "7": 17.093,
+        "9": 15.897
+      },
+      "tierWonAt": 2,
+      "sectorPosition": 2,
+      "generalPosition": 2
+    },
+    {
+      "sectorName": "A",
+      "standName": "B9",
+      "teamName": "Echipa 3",
+      "guestName": null,
+      "catchCount": 18,
+      "totalQuantity": 264.3,
+      "biggestFish": 20.975,
+      "topNByTier": {
+        "3": 18.9,
+        "5": 17.77,
+        "7": 17.043,
+        "9": 16.55
+      },
+      "tierWonAt": 3,
+      "sectorPosition": 3,
+      "generalPosition": 3
+    }
+  ]
+}

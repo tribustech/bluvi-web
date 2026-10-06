@@ -1,10 +1,9 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { MapPinIcon, TrophyIcon, UserIcon, UsersIcon } from '@heroicons/react/20/solid';
 import { CardShell, CardTitle } from '@/components/cards/CardShell';
-import { Pill } from '@/components/cards/parts';
 import { LiveDot } from '@/components/templates/T1';
 import { FishIcon, ScaleIcon } from '@/components/icons/brand';
 import { FaceStack } from '@/components/ui/Avatar';
@@ -12,7 +11,6 @@ import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/components/ui/cn';
 import {
   cardRankingLabel,
-  dateWithHours,
   entrantsCount,
   entrantsLine,
   formatCount,
@@ -23,9 +21,7 @@ import {
 } from '@/core/competitions';
 import { routes } from '@/lib/routes';
 import { blurDataUrl } from '@/lib/blurhash';
-import type { Density } from './density';
 import { FollowersPill } from './Followers';
-import { clampRatio } from './posterFit';
 import { isMedalPlace, PodiumCup } from '@/components/ranking';
 
 /*
@@ -37,13 +33,14 @@ import { isMedalPlace, PodiumCup } from '@/components/ranking';
  * The whole card is ONE link named by the competition (the kit's stretched CardTitle, c1). The
  * poster and the followers pill are their own controls above it (z-above), as in fish.
  *
- * Surface: the kit CardShell (e0, elevated e1 in Afiș) in its `interactive` mode: hover and
+ * Surface: the kit CardShell (e0) in its `interactive` mode: hover and
  * keyboard focus inside lift it to e2 (the kit's states; the card never takes the page's colour),
- * pressing its link dims it to .7. In Listă, Viitoare and Live, it is a two-row subgrid (body,
+ * pressing its link dims it to .7. In Viitoare and Live, it is a two-row subgrid (body,
  * footer) of the list's grid (`aligned`), so within a grid row every footer divider starts at the
  * same height; each footer's content sits right under its divider and any slack of the track falls
- * below it, at the card's bottom edge (never an empty band in the middle of the card). Results cards (podium footers of one to six rows) and Afiș cards (posters at their own
- * ratio) are not aligned: each hugs its own content.
+ * below it, at the card's bottom edge (never an empty band in the middle of the card). Results cards
+ * (podium footers of one to six rows) are not aligned: each hugs its own content. One density: fish's
+ * compact «Listă» card (the owner dropped the Listă / Afiș toggle, 2026-10-06).
  */
 
 /** What a tapped poster hands the page's photo viewer (fish onOpenPhoto: the thumb and blurhash too). */
@@ -80,13 +77,11 @@ const CARD_STATES = cn(
 
 export function CompetitionCardItem({
   competition: c,
-  density,
   onOpenPhoto,
   priority = false,
   aligned = true,
 }: {
   competition: CompetitionCard;
-  density: Density;
   /** Share the grid row's footer line (a subgrid); off for results, where footers differ by rows. */
   aligned?: boolean;
   onOpenPhoto: (photo: PhotoRequest) => void;
@@ -95,7 +90,6 @@ export function CompetitionCardItem({
 }) {
   const { media, thumb, full } = posterOf(c);
   const live = c.status === 'started';
-  const expanded = density === 'expanded';
   const openPhoto = full
     ? () =>
         onOpenPhoto({
@@ -109,46 +103,31 @@ export function CompetitionCardItem({
     : null;
 
   return (
-    // fish: compact sits flat; expanded is elevated with a hairline outline.
-    <CardShell elevated={expanded} interactive className={cn(aligned && CARD_SUBGRID, CARD_STATES)}>
-      {expanded ? (
-        <div className="flex min-w-0 flex-col">
-          {thumb ? (
-            <ExpandedPoster c={c} media={media} src={media?.mediumUrl ?? media?.url ?? thumb} openPhoto={openPhoto} priority={priority} />
-          ) : (
-            // No poster: the two chips come back inline rather than disappearing (fish c11).
-            <div className="flex items-center gap-1.5 px-4 pt-4">
-              {live ? <Pill tone="live">LIVE</Pill> : null}
-              <FollowersPill viewers={c.viewers} competitionId={c.documentId} />
-            </div>
-          )}
-          <ExpandedCopy c={c} />
-        </div>
-      ) : (
-        <div className="flex items-start gap-3 p-3">
-          {thumb && openPhoto ? (
-            <button
-              type="button"
-              onClick={openPhoto}
-              aria-label={`Vezi imaginea pentru ${c.name}`}
-              className="relative z-above size-19 shrink-0 cursor-zoom-in overflow-hidden rounded-avatar bg-soft-fill"
-            >
-              <Image
-                src={thumb}
-                alt=""
-                fill
-                sizes="76px"
-                className="object-cover"
-                {...blur(media)}
-                {...(priority ? { loading: 'eager' as const, fetchPriority: 'high' as const } : {})}
-              />
-            </button>
-          ) : (
-            <span aria-hidden className="size-19 shrink-0 rounded-avatar bg-soft-fill" />
-          )}
-          <CompactCopy c={c} />
-        </div>
-      )}
+    // fish: the compact card sits flat.
+    <CardShell interactive className={cn(aligned && CARD_SUBGRID, CARD_STATES)}>
+      <div className="flex items-start gap-3 p-3">
+        {thumb && openPhoto ? (
+          <button
+            type="button"
+            onClick={openPhoto}
+            aria-label={`Vezi imaginea pentru ${c.name}`}
+            className="relative z-above size-19 shrink-0 cursor-zoom-in overflow-hidden rounded-avatar bg-soft-fill"
+          >
+            <Image
+              src={thumb}
+              alt=""
+              fill
+              sizes="76px"
+              className="object-cover"
+              {...blur(media)}
+              {...(priority ? { loading: 'eager' as const, fetchPriority: 'high' as const } : {})}
+            />
+          </button>
+        ) : (
+          <span aria-hidden className="size-19 shrink-0 rounded-avatar bg-soft-fill" />
+        )}
+        <CompactCopy c={c} />
+      </div>
       <div className="flex min-w-0 flex-col">
         {c.status === 'notStarted' ? <UpcomingFooter c={c} /> : null}
         {live ? <LiveFooter c={c} /> : null}
@@ -172,7 +151,7 @@ function CardName({ c, className }: { c: CompetitionCard; className: string }) {
   );
 }
 
-/** The ranking chip and the format chip, shared by both densities (c8). */
+/** The ranking chip and the format chip (c8). */
 function Chips({ c }: { c: CompetitionCard }) {
   const team = c.format.kind === 'team';
   return (
@@ -214,90 +193,6 @@ function CompactCopy({ c }: { c: CompetitionCard }) {
       <div className="mt-1 flex min-w-0 flex-wrap gap-1.5">
         <Chips c={c} />
       </div>
-    </div>
-  );
-}
-
-function ExpandedPoster({
-  c,
-  media,
-  src,
-  openPhoto,
-  priority,
-}: {
-  c: CompetitionCard;
-  media: CardMedia | null;
-  src: string;
-  openPhoto: (() => void) | null;
-  priority: boolean;
-}) {
-  // The media's own ratio: the DTO's pixel size, else the decoded image (older uploads have none),
-  // at every width — showing the whole poster is this density's point (fish c10: a printed fee or
-  // rules must never be cropped). Afiș cards therefore hug their own height in the grid (not the
-  // aligned subgrid, see CompetitionsScreen) instead of sharing one cropped 4:3 frame per row.
-  const [decoded, setDecoded] = useState<number | null>(null);
-  const dtoRatio = media?.width && media?.height ? media.width / media.height : null;
-  const trueRatio = dtoRatio ?? decoded;
-  const frame = trueRatio ? clampRatio(trueRatio) : 1;
-  const clamped = trueRatio !== null && frame !== trueRatio;
-  const live = c.status === 'started';
-  return (
-    <div
-      className="relative aspect-(--poster-ratio) overflow-hidden rounded-t-card border-b border-hairline bg-soft-fill"
-      style={{ '--poster-ratio': String(frame) } as CSSProperties}
-    >
-      <button
-        type="button"
-        onClick={openPhoto ?? undefined}
-        aria-label={`Vezi imaginea pentru ${c.name}`}
-        className="absolute inset-0 z-above cursor-zoom-in focus-visible:-outline-offset-2"
-      >
-        <Image
-          src={src}
-          alt=""
-          fill
-          sizes="(min-width: 1280px) 30vw, (min-width: 768px) 45vw, 100vw"
-          // The frame IS the image's shape, so cover crops nothing; a clamped extreme shows whole.
-          className={clamped ? 'object-contain' : 'object-cover'}
-          onLoad={(e) => {
-            const img = e.currentTarget;
-            if (img.naturalWidth && img.naturalHeight) setDecoded(img.naturalWidth / img.naturalHeight);
-          }}
-          {...blur(media)}
-          {...(priority ? { loading: 'eager' as const, fetchPriority: 'high' as const } : {})}
-        />
-      </button>
-      <div className="absolute top-3 right-3 z-above flex items-center gap-1.5">
-        {live ? <Pill tone="live">LIVE</Pill> : null}
-        <FollowersPill viewers={c.viewers} competitionId={c.documentId} onPhoto />
-      </div>
-    </div>
-  );
-}
-
-function ExpandedCopy({ c }: { c: CompetitionCard }) {
-  return (
-    <div className="flex flex-col gap-2 p-4">
-      <div className="flex items-start gap-2">
-        <p className="shrink-0 pt-0.5 t-eyebrow text-accent-ink uppercase">{dateWithHours(c)}</p>
-        {/* Wraps instead of truncating: a long ranking name takes a second row, right-aligned. */}
-        <div className="flex min-w-0 flex-1 flex-wrap justify-end gap-1.5">
-          <Chips c={c} />
-        </div>
-      </div>
-      <CardName c={c} className="t-title1 xl:t-title2" />
-      {c.lake || c.organizer ? (
-        <p className="flex min-w-0 items-center gap-1.5">
-          {c.lake ? (
-            <span className="flex min-w-0 shrink items-center gap-1 t-label text-accent-ink">
-              <MapPinIcon aria-hidden className="size-3.5 shrink-0" />
-              <span className="truncate">{c.lake.name}</span>
-            </span>
-          ) : null}
-          {c.lake && c.organizer ? <span aria-hidden className="size-1 shrink-0 rounded-full bg-faint" /> : null}
-          {c.organizer ? <span className="min-w-0 truncate t-caption text-muted">{c.organizer.username}</span> : null}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -464,34 +359,21 @@ function ResultsFooter({ c }: { c: CompetitionCard }) {
  * Same footprint as a card while the first page loads (fish CompetitionsListSkeleton): the kit
  * CardShell, in the same list item and two-row subgrid as the real cards, so the bones' rows match
  * theirs. The footer is the upcoming footer's height (a face row, min-h-8 on the real card too), so
- * nothing moves when the cards land. Afiș: a 4:3 poster (the phone's real poster takes its own
- * ratio — that one shift is accepted).
+ * nothing moves when the cards land.
  */
-export function CardSkeleton({ density }: { density: Density }) {
-  const expanded = density === 'expanded';
+export function CardSkeleton() {
   return (
     <li aria-hidden className={CARD_SUBGRID}>
-      <CardShell elevated={expanded} className={CARD_SUBGRID}>
-        {expanded ? (
-          <span className="flex flex-col">
-            <span className="block aspect-4/3 animate-shimmer" />
-            <span className="flex flex-col gap-2.5 p-4">
-              <span className="h-2.5 w-28 rounded-full bg-soft-fill" />
-              <span className="h-5 w-4/5 rounded-full bg-soft-fill" />
-              <span className="h-3 w-1/2 rounded-full bg-soft-fill" />
-            </span>
+      <CardShell className={CARD_SUBGRID}>
+        <span className="flex gap-3 p-3">
+          <span className="size-19 shrink-0 animate-shimmer rounded-avatar" />
+          <span className="flex flex-1 flex-col gap-2 pt-1">
+            <span className="h-2.5 w-24 rounded-full bg-soft-fill" />
+            <span className="h-4 w-4/5 rounded-full bg-soft-fill" />
+            <span className="h-3 w-2/5 rounded-full bg-soft-fill" />
+            <span className="h-5 w-32 rounded-badge bg-soft-fill" />
           </span>
-        ) : (
-          <span className="flex gap-3 p-3">
-            <span className="size-19 shrink-0 animate-shimmer rounded-avatar" />
-            <span className="flex flex-1 flex-col gap-2 pt-1">
-              <span className="h-2.5 w-24 rounded-full bg-soft-fill" />
-              <span className="h-4 w-4/5 rounded-full bg-soft-fill" />
-              <span className="h-3 w-2/5 rounded-full bg-soft-fill" />
-              <span className="h-5 w-32 rounded-badge bg-soft-fill" />
-            </span>
-          </span>
-        )}
+        </span>
         <span className="flex min-h-8 items-center gap-2.5 border-t border-hairline px-3 py-2.5">
           <span className="size-8 animate-shimmer rounded-full" />
           <span className="h-3 w-24 rounded-full bg-soft-fill" />

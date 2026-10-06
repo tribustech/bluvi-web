@@ -1,0 +1,50 @@
+{
+  "source": "prod",
+  "metadata": {
+    "rankingType": "bestOf",
+    "numberOfSectors": 1,
+    "totalQuantity": 459.625,
+    "totalCatchesCount": 41
+  },
+  "rankings": [
+    {
+      "sectorName": "A",
+      "standName": "D5",
+      "teamName": "",
+      "guestName": "Pescar 1",
+      "bestOfCount": 4,
+      "biggestFish": 22.175,
+      "catchCount": 7,
+      "topNCatchesAvarage": 17.238,
+      "bestOfPerSector": 15,
+      "sectorPosition": 1,
+      "generalPosition": 1
+    },
+    {
+      "sectorName": "A",
+      "standName": "A19",
+      "teamName": "Echipa 2",
+      "guestName": null,
+      "bestOfCount": 3,
+      "biggestFish": 18.625,
+      "catchCount": 5,
+      "topNCatchesAvarage": 16.708,
+      "bestOfPerSector": 15,
+      "sectorPosition": 2,
+      "generalPosition": 2
+    },
+    {
+      "sectorName": "A",
+      "standName": "D7",
+      "teamName": "Echipa 3",
+      "guestName": null,
+      "bestOfCount": 2,
+      "biggestFish": 17.05,
+      "catchCount": 4,
+      "topNCatchesAvarage": 16.938,
+      "bestOfPerSector": 15,
+      "sectorPosition": 3,
+      "generalPosition": 3
+    }
+  ]
+}

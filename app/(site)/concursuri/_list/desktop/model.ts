@@ -1,6 +1,7 @@
 import { formatDecimal } from '@/components/cards/format';
 import {
   getCompetitorDisplayName,
+  resultHeadline,
   type CompetitionCard,
   type CompetitionCatchesResponse,
   type Registration,
@@ -17,7 +18,7 @@ import {
  * whose data is missing is hidden («când nu știm, nu arătăm», ROADMAP §4b.4).
  */
 
-/** kg for every weight ranking; points for feeder (fish ranks feeder by points, the fewest win). */
+/** kg for the weight rankings; points where the type ranks by points, the fewest win (core resultHeadline). */
 export type ValueUnit = 'kg' | 'puncte';
 
 export type MiniRow = {
@@ -27,7 +28,7 @@ export type MiniRow = {
   avatar: string | null;
   sector: string | null;
   stand: string | null;
-  /** The ranking's headline value (kg total, quality, average, feeder points…), per `valueLabel`. */
+  /** The ranking's headline value (kg total, quality, average, points…), per `valueLabel`. */
   value: number | null;
   catches: number;
   biggest: number;
@@ -47,7 +48,7 @@ export type MiniRanking = {
   /** «kg total», «calitate», «medie», «puncte» — the caption of `value`. */
   valueLabel: string;
   unit: ValueUnit;
-  /** Feeder: the fewest points lead (gaps are counted the other way). */
+  /** Points rankings: the fewest lead (gaps are counted the other way). */
   lowerIsBetter: boolean;
   totalKg: number | null;
   totalCatches: number | null;
@@ -101,29 +102,13 @@ export function pointsText(n: number): string {
 /** The short unit beside a value («kg», «p»). */
 export const unitShort = (unit: ValueUnit) => (unit === 'puncte' ? 'p' : 'kg');
 
-/** The gap between two rows, always ≥ 0 and in the ranking's own sense (feeder: points behind). */
+/** The gap between two rows, always ≥ 0 and in the ranking's own sense (points: points behind). */
 export function gapOf(r: Pick<MiniRanking, 'lowerIsBetter'>, first: MiniRow, second: MiniRow): number | null {
   if (first.value == null || second.value == null) return null;
   return r.lowerIsBetter ? second.value - first.value : first.value - second.value;
 }
 
 /* ---------------------------------------------------------------- ranking normalisation */
-
-/** Which field carries the ranking's headline value, per ranking type (CMS rankings/*). */
-const VALUE_FIELD: Record<string, { field: string; label: string; unit: ValueUnit; lowerIsBetter?: boolean }> = {
-  quantity: { field: 'quantity', label: 'kg total', unit: 'kg' },
-  quality: { field: 'quality', label: 'calitate', unit: 'kg' },
-  quantityQuality: { field: 'quantity', label: 'kg total', unit: 'kg' },
-  qualityQuantity: { field: 'quantity', label: 'kg total', unit: 'kg' },
-  bestOf: { field: 'topNCatchesAvarage', label: 'medie', unit: 'kg' },
-  bestOfTiers: { field: 'totalQuantity', label: 'kg total', unit: 'kg' },
-  calitateCalitate: { field: 'quality', label: 'calitate', unit: 'kg' },
-  calitateCantitateCMMC: { field: 'quantity', label: 'kg total', unit: 'kg' },
-  // fish FeederRankingTable: the General total is the sum of leg points, the fewest win.
-  feederRounds: { field: 'totalPoints', label: 'puncte', unit: 'puncte', lowerIsBetter: true },
-  nationalChampionship: { field: 'clubTotalQuantity', label: 'kg total', unit: 'kg' },
-  fipsed: { field: 'clubTotalQuantity', label: 'kg total', unit: 'kg' },
-};
 
 type Raw = Record<string, unknown>;
 const num = (r: Raw, k: string): number | null => (typeof r[k] === 'number' ? (r[k] as number) : null);
@@ -153,24 +138,25 @@ function nameOf(r: Raw): string | null {
  */
 export function miniRanking(res: { rankings: unknown[]; metadata: unknown }, avatars: Map<string, string> = new Map()): MiniRanking {
   const meta = (res.metadata ?? {}) as Raw;
-  const type = str(meta, 'rankingType') ?? 'quantity';
-  const spec = VALUE_FIELD[type] ?? { field: 'quantity', label: 'kg total', unit: 'kg' as const };
+  const type = str(meta, 'rankingType');
   const rows: MiniRow[] = [];
+  const labels = new Map<string, string>();
+  // Unit and direction are the type's; the value (and, for bestOfTiers, the caption) the row's.
+  const base = resultHeadline(type, {}, meta);
   (res.rankings as Raw[]).forEach((r, i) => {
     const name = nameOf(r);
     if (!name) return;
-    const value =
-      spec.unit === 'puncte'
-        ? num(r, spec.field)
-        : (num(r, spec.field) ?? num(r, 'quantity') ?? num(r, 'totalQuantity') ?? num(r, 'biggestFish'));
+    const headline = resultHeadline(type, r, meta);
+    const key = str(r, 'registrationId') ?? str(r, 'clubId') ?? `${str(r, 'sectorName')}-${String(r.standId ?? i)}`;
+    labels.set(key, headline.label);
     rows.push({
-      key: str(r, 'registrationId') ?? str(r, 'clubId') ?? `${str(r, 'sectorName')}-${String(r.standId ?? i)}`,
+      key,
       position: num(r, 'generalPosition') ?? num(r, 'clubPosition') ?? i + 1,
       name,
       avatar: avatars.get(name) ?? null,
       sector: str(r, 'sectorName'),
       stand: str(r, 'standName'),
-      value,
+      value: headline.value,
       catches: num(r, 'catchCount') ?? num(r, 'clubTotalCatchCount') ?? 0,
       biggest: num(r, 'biggestFish') ?? num(r, 'clubBiggestCatch') ?? 0,
       delta: null,
@@ -180,12 +166,14 @@ export function miniRanking(res: { rankings: unknown[]; metadata: unknown }, ava
     });
   });
   rows.sort((a, b) => a.position - b.position);
+  // The caption is the leader's (bestOfTiers: the tier the winner won at, «medie Best 9»).
+  const valueLabel = (rows[0] && labels.get(rows[0].key)) ?? base.label;
   const bc = meta.biggestCatch && typeof meta.biggestCatch === 'object' ? (meta.biggestCatch as Raw) : null;
   return {
     rows,
-    valueLabel: spec.label,
-    unit: spec.unit,
-    lowerIsBetter: spec.lowerIsBetter ?? false,
+    valueLabel,
+    unit: base.unit,
+    lowerIsBetter: base.lowerIsBetter,
     totalKg: num(meta, 'totalQuantity'),
     totalCatches: num(meta, 'totalCatchesCount'),
     biggestCatch:

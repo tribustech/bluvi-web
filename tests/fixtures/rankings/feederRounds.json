@@ -1,0 +1,50 @@
+{
+  "source": "prod",
+  "metadata": {
+    "rankingType": "feederRounds",
+    "numberOfSectors": 4,
+    "totalQuantity": 1243.775,
+    "totalCatchesCount": 281,
+    "roundsCount": 2,
+    "currentRound": 2,
+    "roundStatus": "running"
+  },
+  "rankings": [
+    {
+      "teamName": "Echipa 1",
+      "guestName": "Pescar 1",
+      "standName": "15",
+      "sectorName": "C",
+      "totalPoints": 2,
+      "quantity": 96.2,
+      "catchCount": 22,
+      "biggestFish": 10.15,
+      "roundsFished": 2,
+      "generalPosition": 1
+    },
+    {
+      "teamName": "Echipa 2",
+      "guestName": "Pescar 2",
+      "standName": "7",
+      "sectorName": "B",
+      "totalPoints": 2,
+      "quantity": 92.5,
+      "catchCount": 19,
+      "biggestFish": 10.55,
+      "roundsFished": 2,
+      "generalPosition": 2
+    },
+    {
+      "teamName": "Echipa 3",
+      "guestName": "Pescar 3",
+      "standName": "1",
+      "sectorName": "A",
+      "totalPoints": 3,
+      "quantity": 90.525,
+      "catchCount": 22,
+      "biggestFish": 7.825,
+      "roundsFished": 2,
+      "generalPosition": 3
+    }
+  ]
+}

@@ -1,44 +1,44 @@
 import { expect, test, type Route } from '@playwright/test';
 
 /*
- * The global status lists /concursuri/viitoare · /live · /incheiate (parity
- * docs/parity/areas/competitions-list.yml: competitions-list.viitoare / .live / .incheiate).
- *
- * WEB (owner review 2026-10-06): the three lists disagreed with the /concursuri index they hang off
- * — another tab order and label («Trecute»), another card, no search or filter bar, «Competiții» in
- * the breadcrumb under a «Concursuri» h1. They are now the index's own tabs: each URL redirects
- * permanently (308) to /concursuri?status=…, where the tabs read Viitoare · Live · Rezultate, the
- * cards are CompetitionCardItem and the FilterBar filters them. The index's footer links the three
- * tabs (crawlers keep a way in). The per-lake lists below keep their own page.
+ * The global status lists (parity docs/parity/areas/competitions-list.yml: competitions-list.viitoare
+ * / .live / .incheiate) are the Concursuri list's own tabs, each at a clean URL of its own
+ * (competitions-list.index.c37): /concursuri/viitoare · /live · /rezultate — the index's tab order
+ * and names, its cards and its filter bar. No ?status=, no redirects (the web is not deployed yet).
+ * The per-lake lists below keep their own page.
  */
 
 const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(body) });
 
 const LISTS = [
-  { key: 'viitoare', id: 'competitions-list.viitoare', status: 'notStarted', tab: 'Viitoare' },
-  { key: 'live', id: 'competitions-list.live', status: 'started', tab: 'Live' },
-  { key: 'incheiate', id: 'competitions-list.incheiate', status: 'completed', tab: 'Rezultate' },
+  { key: 'viitoare', id: 'competitions-list.viitoare', tab: 'Viitoare' },
+  { key: 'live', id: 'competitions-list.live', tab: 'Live' },
+  { key: 'rezultate', id: 'competitions-list.incheiate', tab: 'Rezultate' },
 ] as const;
 
 for (const l of LISTS) {
-  test(`${l.id}.c1 — /concursuri/${l.key} is the index's «${l.tab}» tab (308), with its filter bar and cards`, async ({ page, request }) => {
+  test(`${l.id}.c1 competitions-list.index.c37 — /concursuri/${l.key} is the list's «${l.tab}» tab, its own page (200, canonical), with its filter bar and cards`, async ({ page, request }) => {
     const res = await request.get(`/concursuri/${l.key}`, { maxRedirects: 0 });
-    expect(res.status()).toBe(308);
-    expect(res.headers()['location']).toMatch(new RegExp(`/concursuri\\?status=${l.status}$`));
+    expect(res.status()).toBe(200);
+    expect(await res.text()).toContain(`<link rel="canonical" href="`);
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`/concursuri/${l.key}`);
-    await expect(page).toHaveURL(new RegExp(`/concursuri\\?status=${l.status}$`));
+    await expect(page).toHaveURL(new RegExp(`/concursuri/${l.key}$`));
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`/concursuri/${l.key}$`));
     await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: l.tab })).toHaveAttribute('aria-selected', 'true');
-    // One order and one name for the tabs, here and in the footer.
-    // The count badges (§4b.20) follow the labels: compare the labels.
-    const tabs = (await page.getByRole('tab').allTextContents()).map((t) => t.trim().replace(/(\d+|99\+)$/, ''));
-    expect(tabs.slice(0, 3)).toEqual(['Viitoare', 'Live', 'Rezultate']);
+    await expect(page.getByRole('tab', { name: new RegExp(`^${l.tab}`) })).toHaveAttribute('aria-selected', 'true');
+    // One order and one name for the tabs; each a link to its page. The count badges (§4b.20)
+    // follow the labels: compare the labels.
+    const tabs = page.getByRole('tablist', { name: 'Stare concursuri' }).getByRole('tab');
+    const labels = (await tabs.allTextContents()).map((t) => t.trim().replace(/(\d+|99\+)$/, ''));
+    expect(labels.slice(0, 3)).toEqual(['Viitoare', 'Live', 'Rezultate']);
+    expect((await tabs.evaluateAll((els) => els.map((e) => e.getAttribute('href')))).slice(0, 3)).toEqual([
+      '/concursuri/viitoare',
+      '/concursuri/live',
+      '/concursuri/rezultate',
+    ]);
     await expect(page.getByRole('group', { name: /^Filtre/ }).first()).toBeVisible();
-    const footer = page.getByRole('navigation', { name: 'Concursuri pe stări' });
-    await expect(footer.getByRole('link')).toHaveText(['Viitoare', 'Live', 'Rezultate']);
-    await expect(footer.getByRole('link', { name: l.tab })).toHaveAttribute('href', `/concursuri?status=${l.status}`);
   });
 }
 

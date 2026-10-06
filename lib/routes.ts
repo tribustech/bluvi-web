@@ -3,6 +3,14 @@
  * notifications and the future pages agree. Slugs are a UI decision still open (see the spec);
  * until then the documentId is the stable identifier. Romanian segments, as in the app copy.
  */
+export type CompetitionTabStatus = 'notStarted' | 'started' | 'completed';
+
+/** The Concursuri tabs' own path segments (/concursuri/viitoare · /live · /rezultate). */
+export const COMPETITION_TAB_SLUG = { notStarted: 'viitoare', started: 'live', completed: 'rezultate' } as const satisfies Record<
+  CompetitionTabStatus,
+  string
+>;
+
 export const routes = {
   home: () => '/',
   lakes: () => '/balti',
@@ -47,8 +55,11 @@ export const routes = {
   lakeBooking: (documentId: string) => `/balti/${encodeURIComponent(documentId)}/rezerva`,
   /** Sign in, returning to `next` (a path with its query; /intra validates it). Home and /intra itself: plain /intra. */
   signIn: (next?: string) => (!next || next === '/' || next === '/intra' ? '/intra' : `/intra?next=${encodeURIComponent(next)}`),
-  /** `status` opens that tab of the list (fish (tabs)/competitions `status`, competitions-list.index.c27). */
-  competitions: (status?: 'started' | 'notStarted' | 'completed') => (status ? `/concursuri?status=${status}` : '/concursuri'),
+  /**
+   * The Concursuri list: /concursuri (Live when something is live, else Viitoare — decided by the
+   * server), or one tab's own page (fish (tabs)/competitions `status`, competitions-list.index.c27).
+   */
+  competitions: (status?: CompetitionTabStatus) => (status ? `/concursuri/${COMPETITION_TAB_SLUG[status]}` : '/concursuri'),
   /**
    * /concursuri in results mode (competitions-list.results): a lake / organizer pick (by documentId,
    * its name as `label`) or a free-text search (`q`).
@@ -62,11 +73,6 @@ export const routes = {
     }
     return `/concursuri?${q.toString()}`;
   },
-  /**
-   * The global status lists (competitions-list.viitoare / .live / .incheiate — fish
-   * /competitions/{notStarted|started|completed}, a lake rail's «Vezi toate» without a lake).
-   */
-  competitionsByStatus: (list: 'viitoare' | 'live' | 'incheiate') => `/concursuri/${list}`,
   competition: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}`,
   competitionRanking: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/clasament`,
   competitionInfo: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/informatii`,

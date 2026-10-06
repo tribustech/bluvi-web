@@ -1,0 +1,62 @@
+{
+  "source": "prod",
+  "metadata": {
+    "rankingType": "calitateCantitateCMMC",
+    "numberOfSectors": 4,
+    "totalQuantity": 4697.775,
+    "totalCatchesCount": 416
+  },
+  "rankings": [
+    {
+      "sectorName": "A",
+      "sectorMinNumberOfFish": 8,
+      "standName": "B8",
+      "teamName": "Echipa 1",
+      "guestName": null,
+      "quality1": 19.019,
+      "biggestFish": 26.275,
+      "quantity": 809.675,
+      "catchCount": 64,
+      "calitatePoints": 1,
+      "cmmcPoints": 1,
+      "cantitatePoints": 1,
+      "totalPoints": 3,
+      "sectorPosition": 1,
+      "generalPosition": 1
+    },
+    {
+      "sectorName": "C",
+      "sectorMinNumberOfFish": 6,
+      "standName": "B4",
+      "teamName": "Echipa 2",
+      "guestName": null,
+      "quality1": 17.296,
+      "biggestFish": 21.625,
+      "quantity": 583.025,
+      "catchCount": 53,
+      "calitatePoints": 1,
+      "cmmcPoints": 1,
+      "cantitatePoints": 1,
+      "totalPoints": 3,
+      "sectorPosition": 1,
+      "generalPosition": 2
+    },
+    {
+      "sectorName": "B",
+      "sectorMinNumberOfFish": 7,
+      "standName": "A6",
+      "teamName": "",
+      "guestName": "Pescar 3",
+      "quality1": 15.311,
+      "biggestFish": 26.025,
+      "quantity": 452.05,
+      "catchCount": 41,
+      "calitatePoints": 1,
+      "cmmcPoints": 1,
+      "cantitatePoints": 1,
+      "totalPoints": 3,
+      "sectorPosition": 1,
+      "generalPosition": 3
+    }
+  ]
+}

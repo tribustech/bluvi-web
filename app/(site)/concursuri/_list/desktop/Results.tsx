@@ -19,8 +19,8 @@ import s from './desktop.module.css';
 
 /*
  * Rezultate on desktop (≥1024) — compact rows with only the winner (owner: «nu afișăm tot podiumul»).
- * Feeder ranks by points (the fewest win, fish FeederRankingTable): its winner, podium and places
- * read points («p»), never kg.
+ * A points ranking (core resultHeadline: feeder, Cantitate+Calitate, Cal/Cal, CMMC, CN, FIPSed — the
+ * fewest win) reads points («p») in its winner, podium and places, never kg.
  * References: Linear / Vercel lists (whole-row target, metadata right, actions revealed on hover in
  * a reserved slot — no layout shift), Material 3 hover state layer, GitHub Actions' expand-to-
  * detail, Stripe's tabular numerals. Hover: indigo wash, a 2px accent bar grows on the left, the
@@ -256,7 +256,7 @@ function usePodium(c: CompetitionCard, ranking: MiniRanking | null): Podium {
   return podium;
 }
 
-/** The winner's figure: «12,345 kg total», «8,1 kg · medie», feeder «3 puncte». */
+/** The winner's figure: «12,345 kg total», «8,1 kg · medie», a points ranking «3 puncte». */
 function winnerValue(row: MiniRow, r: MiniRanking): string {
   if (row.value == null || row.catches === 0) return 'Câștigător';
   if (r.unit === 'puncte') return pointsText(row.value);

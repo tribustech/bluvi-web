@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { makeQueryClient } from '@/lib/client/query-client';
 import { CompetitionsScreen } from '../../../(site)/concursuri/_list/CompetitionsScreen';
-import type { Density } from '../../../(site)/concursuri/_list/densityValue';
 import type { ListPlace } from '../../../(site)/concursuri/_list/place';
 import { createDemoTransport, DEMO_DEADLINE_MS, runsInsideDeadline, withDeadline } from './demoTransport';
 import type { DemoState } from './StateSwitcher';
@@ -21,13 +20,11 @@ import type { DemoState } from './StateSwitcher';
 export function DemoScreen({
   state,
   initial,
-  density,
   isAuthenticated,
   seed,
 }: {
   state: DemoState;
   initial: ListPlace;
-  density: Density;
   isAuthenticated: boolean;
   seed: number;
 }) {
@@ -45,7 +42,7 @@ export function DemoScreen({
   if (state === 'crash') throw new Error('T1 demo: forced render error');
   return (
     <QueryClientProvider client={client}>
-      <CompetitionsScreen initial={initial} initialDensity={density} isAuthenticated={isAuthenticated} seed={seed} transport={transport} />
+      <CompetitionsScreen initial={initial} isAuthenticated={isAuthenticated} seed={seed} transport={transport} mirrorPath={false} />
     </QueryClientProvider>
   );
 }

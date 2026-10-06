@@ -1,0 +1,38 @@
+{
+  "source": "prod",
+  "metadata": {
+    "rankingType": "nationalChampionship",
+    "numberOfSectors": 3,
+    "totalQuantity": 5630.2,
+    "totalCatchesCount": 506
+  },
+  "rankings": [
+    {
+      "clubName": "Club 1",
+      "clubPoints": 7,
+      "clubTotalQuantity": 1241.25,
+      "clubTotalCatchCount": 111,
+      "clubAverageWeight": 11.182,
+      "clubBiggestCatch": 21.95,
+      "clubPosition": 1
+    },
+    {
+      "clubName": "Club 2",
+      "clubPoints": 8,
+      "clubTotalQuantity": 1012.9,
+      "clubTotalCatchCount": 90,
+      "clubAverageWeight": 11.254,
+      "clubBiggestCatch": 24.7,
+      "clubPosition": 2
+    },
+    {
+      "clubName": "Club 3",
+      "clubPoints": 9,
+      "clubTotalQuantity": 1008.05,
+      "clubTotalCatchCount": 93,
+      "clubAverageWeight": 10.839,
+      "clubBiggestCatch": 20.075,
+      "clubPosition": 3
+    }
+  ]
+}

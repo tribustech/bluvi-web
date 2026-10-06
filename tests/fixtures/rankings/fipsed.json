@@ -1,0 +1,41 @@
+{
+  "source": "local CMS seed",
+  "metadata": {
+    "rankingType": "fipsed",
+    "numberOfSectors": 3,
+    "totalQuantity": 4800.27,
+    "totalCatchesCount": 795
+  },
+  "rankings": [
+    {
+      "clubName": "Club 1",
+      "clubPoints": 6,
+      "clubTotalQuantity": 538.825,
+      "clubTotalCatchCount": 77,
+      "clubAverageWeight": 6.998,
+      "clubBiggestCatch": 18.575,
+      "clubHeaviestPairWeight": 269.175,
+      "clubPosition": 1
+    },
+    {
+      "clubName": "Club 2",
+      "clubPoints": 13,
+      "clubTotalQuantity": 326.925,
+      "clubTotalCatchCount": 56,
+      "clubAverageWeight": 5.838,
+      "clubBiggestCatch": 9.975,
+      "clubHeaviestPairWeight": 159.45,
+      "clubPosition": 2
+    },
+    {
+      "clubName": "Club 3",
+      "clubPoints": 14,
+      "clubTotalQuantity": 340.875,
+      "clubTotalCatchCount": 58,
+      "clubAverageWeight": 5.877,
+      "clubBiggestCatch": 13.075,
+      "clubHeaviestPairWeight": 195.475,
+      "clubPosition": 3
+    }
+  ]
+}
