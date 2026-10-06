@@ -184,6 +184,31 @@ Add each new piece of feedback here, dated.
       status) plus a detail side panel;
     - participants are cards or rows with avatar and their stats shown inline (no separate expand).
 
+**2026-10-06, competition page (2)**
+15. **Ranking tables keep fish's colour language per ranking type.** Rule 12's "coloured header" means
+    fish's colours, not one generic tint.
+    - Feeder: the Total group header is in fish's TOTAL_COLOR, each leg has its own colour with white
+      text and a tinted sub-header, and leg tabs show the sector bands. Source:
+      `fish/features/competitions/feeder-rounds/FeederRankingTable.tsx`.
+    - NC and FIPSed: as `fish/components/ranking-table/NationalChampionshipTable.tsx`.
+    - Others: as `fish/components/ranking-table/RankingTable.tsx`.
+16. **Tables are compact, never stretched.**
+    - Columns are sized to their content (fish's widths as the baseline) and the table is only as wide
+      as its content. Numbers never float across a 1440+ screen.
+    - Leftover width goes to a side column (live stats, weighing, the selected participant) or stays
+      as margin.
+17. **People open in an inline popover on desktop, with a link to their profile.**
+    - On ≥1024, clicking a participant, a ranking row or a weighing's angler opens a popover anchored
+      to that row: avatar, name(s), club, sector and stand, key stats, and "Vezi profilul", which goes
+      to the angler profile `/pescari/[id]`.
+    - Teams list each member with their own avatar and profile link.
+    - Phone keeps fish's sheet.
+18. **Participants on desktop are a designed roster, not a grid of numbered boxes.**
+    - Group by sector (sector colour as the accent).
+    - Each entry shows the avatar (a pair of faces for teams), the name(s), club, stand label and the
+      angler's headline stats inline.
+    - Signed out: same layout without the stats, plus one quiet sign-in hint.
+
 
 
 A screen reaches review only after it passes all of these:
