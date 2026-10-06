@@ -145,6 +145,19 @@ Add each new piece of feedback here, dated.
      rows or chips (species, regime, facilities, stands), price from-to and the main action.
    - Hovering a card highlights its marker and the reverse.
    - On phone: the map, with a draggable bottom sheet of the same horizontal cards.
+   - Owner reference: imobiliare.ro map view (2026-10-06).
+     - **Map on the left, about half the width**, with clusters showing counts, pins showing the price
+       or rating pill, zoom/recenter controls and "Caută în zona hărții".
+     - **List on the right, one card per row.** Each card has:
+       - a title row;
+       - the photo on the left with gallery arrows and a "1 / N" counter;
+       - on the right, the big signature number ("de la 120 RON / tură"), location and distance, an
+         icon row of key facts (suprafață, standuri, adâncime, specii) and tags (Rezervare online,
+         Pescuit noaptea, Cazare, C&R);
+       - an actions row (Sună, WhatsApp/Mesaj where fish has the contact, primary "Rezervă" when
+         booking is on).
+     - **The search header mirrors theirs:** a segmented Bălți / Ape publice control, then location,
+       species and price selects, then "Filtre".
    (Owner refinement 2026-10-06, replaces the earlier "same card as the grid".)
 8. **No visible focus ring on non-interactive elements.** Headings focused programmatically after
    navigation (tabIndex -1) get no outline. Rings are only for keyboard focus on controls
