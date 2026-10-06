@@ -17,10 +17,10 @@ export { formatCount };
 /**
  * The ranking chip of a competition card. A live feeder on legs also says which leg it is in
  * ("Feeder · Manșa 2/2"); everything else is the label the CMS rendered. `rounds` is absent from a
- * CMS that predates it.
+ * CMS that predates it. A single-leg feeder has no leg to name (fish ea89c087).
  */
 export function cardRankingLabel(c: Pick<CompetitionCard, 'status' | 'rankingLabel' | 'rounds'>): string {
-  if (c.status === 'started' && c.rounds) return `${c.rankingLabel} · Manșa ${c.rounds.current}/${c.rounds.count}`;
+  if (c.status === 'started' && c.rounds && c.rounds.count > 1) return `${c.rankingLabel} · Manșa ${c.rounds.current}/${c.rounds.count}`;
   return c.rankingLabel;
 }
 

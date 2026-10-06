@@ -131,7 +131,7 @@ screens:
         text: "Analytics: one lake_home_section_impression per section with content (section_key, section_position, lakes_count) and lake_home_section_click (section_key, section_position, item_position, lake_id)."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:623"
     mobile_only: false
-    status: proposed
+    status: passing
 
   # ───────────────────────────────────────────── search overlay
   - id: lakes.search
@@ -370,6 +370,7 @@ screens:
       - id: lakes.results-map.c10
         text: "Cluster markers show the count; clusters over 10 use the large red style, others blue; activating a cluster zooms to its bbox padded ×1.4, never more than 2 zoom levels in at once."
         fish_ref: "features/lakes/helpers/clusterTargetRegion.ts:1"
+        web_note: "Web-specific (kit T2MapCluster, Fundații): fish's red/blue are not Fundații tokens (rose is reserved for live competitions), so > 10 clusters use the large style by size (64 vs 56 px) in the one accent family; count, zoom-to-bbox ×1.4 and the 2-level cap match fish."
       - id: lakes.results-map.c11
         text: "Activating a lake pin selects it: the list closes and a pin card appears."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1103"
@@ -416,7 +417,7 @@ screens:
         text: "Analytics: lakes_map_results_view (once, bbox+zoom+search_mode), lakes_map_results_focus_applied, lakes_map_results_cluster_tap, lakes_map_results_pin_tap, lakes_map_results_locate_me, lakes_map_clear_filters, lakes_map_results_pin_card_view_page / _dismiss, lakes_pin_card_open_maps."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:771"
     mobile_only: false
-    status: proposed
+    status: passing
 
   # ───────────────────────────────────────────── lake detail
   - id: lakes.detail
@@ -521,6 +522,8 @@ screens:
       - id: lakes.detail.c16
         text: "Booking affordance (hero CTA and Rezervă tile): bookingEnabled + signed-in → /balti/[id]/rezerva; bookingEnabled + guest → /intra (no redirect back into the grid); acceptsReservations only → scrolls to Contact; neither → opens lakes.booking-interest with source hero_cta or quick_action."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:256"
+        status: todo
+        web_note: "BLOCKED on M3: /balti/[id]/rezerva (area booking) is not on the web, so a booking-enabled lake's «Rezervă acum» / Rezervă tile open «Rezervă din aplicația Bluvi» for every viewer (_components/availability.ts LAKE_ON_WEB.booking); acceptsReservations → Contact and no-booking → lakes.booking-interest already pass (tests/e2e/balta.spec.ts). Flips with LAKE_ON_WEB.booking."
       - id: lakes.detail.c17
         text: "„Caracteristici” grid (2 columns) shows only present stats: Suprafață „X ha”, Adâncime „min – max m” („?” for a missing bound), Standuri pescuit „N locuri”, Regim de pescuit, Tip de pescuit, Loc de pescuit; hidden when none."
         fish_ref: "features/lakes/detail/LakeCharacteristics.tsx:18"
@@ -539,6 +542,8 @@ screens:
       - id: lakes.detail.c22
         text: "Opening a live session goes to the viewer's own partidă when it is theirs, otherwise to the read-only /partide/[id]."
         fish_ref: "features/partide/community/useOpenPartida.ts:28"
+        status: todo
+        web_note: "BLOCKED on M4: /partide/[id] is not on the web, so live session rows are plain (ON_WEB.partida); the own-vs-spectator resolution lands with that page."
       - id: lakes.detail.c23
         text: "„Prețuri” rows: header, optional description, price „N RON”."
         fish_ref: "features/lakes/detail/LakePricesSection.tsx:7"
@@ -560,6 +565,8 @@ screens:
       - id: lakes.detail.c29
         text: "„Administrator” card when the lake has an operator: initial avatar, trimmed name, „Administrează această baltă în Bluvi”; with ownerDocumentId it links to /pescari/[id] for signed-in users and to /intra for guests (label „{nume} — vezi profilul”); without ownerDocumentId it is not interactive."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:386"
+        status: todo
+        web_note: "BLOCKED on M2: /pescari/[id] is not on the web, so the operator card is never a link (ON_WEB.angler); the static card, name and copy pass (tests/e2e/balta.spec.ts)."
       - id: lakes.detail.c30
         text: "Without an operator: „Această baltă nu are încă un administrator în Bluvi.” and the link „Ești administratorul acestei bălți?” opening lakes.claim."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:595"
@@ -834,6 +841,8 @@ screens:
       - id: lakes.partide.c4
         text: "No live and no finished partide: „Nicio partidă înregistrată la această baltă încă.” and a green „Începe o partidă aici” → /partide/incepe?balta={id}."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:155"
+        status: todo
+        web_note: "BLOCKED on M4: /partide/incepe is not on the web; the empty copy shows and «Începe o partidă aici» opens the app (ON_WEB.startPartida)."
       - id: lakes.partide.c5
         text: "With live sessions, the live card (same as on the lake page) leads the page."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:174"
@@ -846,9 +855,13 @@ screens:
       - id: lakes.partide.c8
         text: "„Partide încheiate” lists finished partide (deduped, infinite scroll) as cards ribboned „Încheiată” with „Vezi rezumatul”, each opening the partidă."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:188"
+        status: todo
+        web_note: "BLOCKED on M4: the finished cards, the «Încheiată» ribbon, dedupe and infinite scroll pass; «Vezi rezumatul» / the card link wait for /partide/[id] (ON_WEB.partida)."
       - id: lakes.partide.c9
         text: "Opening a partidă goes to the viewer's own partidă when it is theirs, else /partide/[id]."
         fish_ref: "features/partide/community/useOpenPartida.ts:28"
+        status: todo
+        web_note: "BLOCKED on M4: /partide/[id] (and the own-partidă resolution) is not on the web (ON_WEB.partida)."
       - id: lakes.partide.c10
         text: "Live data refreshes every 60s; refresh reloads live + history together."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:57"
@@ -909,9 +922,13 @@ screens:
       - id: lakes.stats.c8
         text: "„Top pescari” with „Clasament ›” → /balti/[id]/clasament?perioada=…; top 3 rows each open /pescari/[uid]."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:182"
+        status: todo
+        web_note: "BLOCKED on M2: «Top pescari» and «Clasament ›» pass; the top-3 rows open no profile until /pescari/[id] ships (ON_WEB.angler)."
       - id: lakes.stats.c9
         text: "Record card for the period; opens the partidă when it has a session id."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:193"
+        status: todo
+        web_note: "BLOCKED on M4: the record card shows; it opens its partidă once /partide/[id] ships (ON_WEB.partida)."
       - id: lakes.stats.c10
         text: "„Top standuri”: sort chips „Kg total” / „Capturi” / „Record” (default Kg total), top 5 stands with bars relative to the leader, „Clasament ›” → /balti/[id]/standuri?perioada=…&sortare=…; hidden when no stand has data."
         fish_ref: "features/partide/components/stats/TopStandsCard.tsx:10"
@@ -956,6 +973,8 @@ screens:
       - id: lakes.anglers-ranking.c3
         text: "Podium: 2nd left, 1st center (larger), 3rd right; avatar or initials, first name, total kg, numbered step; each opens /pescari/[uid]."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:76"
+        status: todo
+        web_note: "BLOCKED on M2: the podium layout, avatars/initials, names, kg and steps pass; each place opens /pescari/[uid] once that page ships (ON_WEB.angler)."
       - id: lakes.anglers-ranking.c4
         text: "Segments „Pescari” and „Specii” only — „Bălți” is hidden for a lake-scoped ranking."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:238"
@@ -1150,9 +1169,13 @@ screens:
       - id: lakes.reviews.c5
         text: "Activating another author's name/avatar opens /pescari/[id]."
         fish_ref: "features/reviews/components/ReviewCard.tsx:79"
+        status: todo
+        web_note: "BLOCKED on M2: another author's name/avatar is plain text until /pescari/[id] ships (ON_WEB.angler)."
       - id: lakes.reviews.c6
         text: "The viewer's own review shows „Editează” (→ /balti/[id]/recenzie?editare=1) and „Șterge” (red)."
         fish_ref: "features/reviews/components/ReviewCard.tsx:144"
+        status: todo
+        web_note: "BLOCKED on M3: «Editează» and «Șterge» show on the own review and delete works (c7); «Editează» opens the app until /balti/[id]/recenzie (lakes.review-form) ships (LAKE_ON_WEB.reviewForm)."
       - id: lakes.reviews.c7
         text: "„Șterge” asks „Ești sigur că vrei să îți ștergi recenzia?” (Închide / Șterge); confirming deletes, shows „Recenzia ta a fost ștearsă cu succes.” (error toast with the message on failure) and invalidates the review queries."
         fish_ref: "features/reviews/components/ReviewCard.tsx:52"
@@ -1162,6 +1185,8 @@ screens:
       - id: lakes.reviews.c9
         text: "Bottom bar: hidden when the viewer already reviewed; signed-in → „Adaugă o recenzie” (→ /balti/[id]/recenzie); guest → outlined „Autentifică-te pentru a putea adăuga o recenzie” (→ /intra; fish copy lacks the diacritic in „adăuga”)."
         fish_ref: "components/AddReviewButton.tsx:20"
+        status: todo
+        web_note: "BLOCKED on M3: the bar is hidden with an own review and the guest sign-in bar passes; signed-in «Adaugă o recenzie» opens the app until /balti/[id]/recenzie ships (LAKE_ON_WEB.reviewForm)."
       - id: lakes.reviews.c10
         text: "Loading shows a loading view; a failed request shows the error view with retry and no back button."
         fish_ref: "features/reviews/components/ReviewList.tsx:84"

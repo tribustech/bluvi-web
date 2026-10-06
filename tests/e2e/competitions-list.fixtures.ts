@@ -88,6 +88,13 @@ export const STATE_CARDS = {
     rounds: { current: 1, count: 2, status: 'running' },
     results: results(),
   }),
+  liveFeederSingle: card('fx-live-feeder1', {
+    name: 'FX Feeder o manșă',
+    status: 'started',
+    rankingLabel: 'Feeder',
+    rounds: { current: 1, count: 1, status: 'running' },
+    results: results(),
+  }),
   doneNull: card('fx-done-null', { name: 'FX Încheiat fără rezultate', status: 'completed', results: null }),
   doneNoCatches: card('fx-done-zero', { name: 'FX Încheiat fără capturi', status: 'completed', results: results({ hasCatches: false }) }),
   doneEmptyPodium: card('fx-done-nopodium', { name: 'FX Încheiat fără podium', status: 'completed', results: results({ podium: [] }) }),

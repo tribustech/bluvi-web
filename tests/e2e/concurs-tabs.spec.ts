@@ -1,6 +1,7 @@
+import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
-import { expect, test, type ConsoleMessage, type Locator, type Page, type Request } from '@playwright/test';
+import { expect, test, type Locator, type Page, type Request } from '@playwright/test';
 
 /*
  * Concurs · the route tabs (template T3) — parity docs/parity/areas/competition-page.yml, screens
@@ -66,15 +67,6 @@ test.beforeAll(async ({ request }) => {
 
 const visible = (l: Locator) => l.locator('visible=true').first();
 const settle = (page: Page) => page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-
-function collectConsoleErrors(page: Page) {
-  const errors: string[] = [];
-  page.on('console', (msg: ConsoleMessage) => {
-    if (msg.type() === 'error') errors.push(msg.text());
-  });
-  page.on('pageerror', err => errors.push(`pageerror: ${err.message}`));
-  return errors;
-}
 
 function track(page: Page, pattern: RegExp, method?: string) {
   const seen: Request[] = [];

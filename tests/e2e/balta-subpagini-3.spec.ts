@@ -1,6 +1,8 @@
+import { collectConsoleErrors as watchConsole } from './helpers/console';
+import { BASE_URL as BASE } from './helpers/base-url';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
-import { expect, test, type ConsoleMessage, type Page, type Route } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 
 /*
  * The lake's subpages, batch 3 — parity docs/parity/areas/lakes.yml: lakes.stats (/statistici),
@@ -24,8 +26,6 @@ import { expect, test, type ConsoleMessage, type Page, type Route } from '@playw
  * «blocked:» note; flip them with the hrefs in _components/availability.ts.
  */
 
-const BASE = process.env.BASE_URL ?? 'http://localhost:3101';
-test.use({ baseURL: BASE });
 test.describe.configure({ timeout: 180_000 });
 
 const ID = {
@@ -94,13 +94,8 @@ test.afterEach(async ({ page }) => {
 });
 
 function collectConsoleErrors(page: Page) {
-  const errors: string[] = [];
-  page.on('console', (msg: ConsoleMessage) => {
-    // Photos / tiles of the local test data that fail are the data's, not the page's.
-    if (msg.type() === 'error' && !/Failed to load resource|ERR_|net::|e2e fault/.test(msg.text())) errors.push(msg.text());
-  });
-  page.on('pageerror', err => errors.push(`pageerror: ${err.message}`));
-  return errors;
+  // Photos / tiles of the local test data that fail are the data's, not the page's.
+  return watchConsole(page, { ignore: /Failed to load resource|ERR_|net::|e2e fault/ });
 }
 
 const settle = (page: Page) => page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
@@ -942,6 +937,30 @@ test('lakes.reviews.c3 — 10 a page, the next page as the list\'s end nears', a
   await cards.last().scrollIntoViewIfNeeded();
   await page.mouse.wheel(0, 3000);
   await expect(cards).toHaveCount(15);
+});
+
+test('lakes.reviews.c11 — the reviews are cached 5 minutes: leaving and coming back reads them once', async ({ page }) => {
+  // The server read fails (fault switch), so the browser is the one that reads; a soft navigation
+  // away and back inside the 5 minutes must come from the cache, never a second read.
+  await faults(page, ID.chita, ['reviews-page']);
+  let reads = 0;
+  await page.route(cms(`/feed/lakes/${ID.chita}/reviews`), route => {
+    reads += 1;
+    return route.continue();
+  });
+  await go(page, `/balti/${ID.chita}/recenzii`, DESKTOP);
+  const cards = page.getByTestId('reviews-list').getByTestId('lake-review');
+  await expect(cards).toHaveCount(chitaReviews.length);
+  expect(reads).toBe(1);
+  const nav = page.getByRole('navigation').filter({ has: page.getByRole('link', { name: 'Galerie' }) }).locator('visible=true').first();
+  await nav.getByRole('link', { name: 'Galerie' }).click();
+  await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}/galerie$`));
+  await page.getByRole('navigation').filter({ has: page.getByRole('link', { name: 'Recenzii' }) }).locator('visible=true').first().getByRole('link', { name: 'Recenzii' }).click();
+  await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}/recenzii$`));
+  await expect(cards).toHaveCount(chitaReviews.length);
+  await settle(page);
+  expect(reads, 'the second visit inside 5 minutes is served from the cache').toBe(1);
+  await expectNoA11yViolations(page);
 });
 
 test('lakes.reviews.c7 lakes.reviews.s5 lakes.reviews.s6 — signed in: no add bar on the own review, Editează / Șterge, the confirmation, the delete (blocked: «Editează» opens the app until /recenzie ships, M3)', async ({ page, context }) => {

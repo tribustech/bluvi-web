@@ -1,6 +1,7 @@
+import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
-import { expect, test, type ConsoleMessage, type Locator, type Page, type Request } from '@playwright/test';
+import { expect, test, type Locator, type Page, type Request } from '@playwright/test';
 import { ON_WEB } from '@/lib/routes';
 
 /*
@@ -66,15 +67,6 @@ const grid = (page: Page) => page.getByRole('region', { name: 'Clasament general
 const phoneList = (page: Page) => page.getByRole('list', { name: 'Clasament', exact: true });
 const followButton = (page: Page) => page.getByRole('button', { name: /^(Urmăresc|Urmărește)$/ });
 const followersPill = (page: Page) => page.getByRole('button', { name: /^\d+ urmăritor(i)?$/ });
-
-function collectConsoleErrors(page: Page) {
-  const errors: string[] = [];
-  page.on('console', (msg: ConsoleMessage) => {
-    if (msg.type() === 'error') errors.push(msg.text());
-  });
-  page.on('pageerror', err => errors.push(`pageerror: ${err.message}`));
-  return errors;
-}
 
 function track(page: Page, pattern: RegExp, method?: string) {
   const seen: Request[] = [];

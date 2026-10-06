@@ -7,6 +7,7 @@ import { plural } from '@/components/cards/format';
 import { speciesChips } from '@/core/lakes';
 import { fmtKg, type LakeCatchDTO } from '@/core/partide';
 import { AnglerAvatar } from '../venue/bits';
+import { ShareCatchDialog } from './ShareCatchDialog';
 
 /*
  * The Capturi section of a public water — fish PublicWaterSpeciesChips + PublicWaterCatchGrid
@@ -104,7 +105,7 @@ function useMasonry(photos: LakeCatchDTO[]) {
   return [ref, layout] as const;
 }
 
-/** The `?foto=<clientId>` a shared catch carries: the page opens that photo once it is loaded. */
+/** A link with `?foto=<clientId>` opens that photo once it is loaded (a web extra: a photo can be linked). */
 const FOTO_PARAM = 'foto';
 const noSubscribe = () => () => {};
 const readFotoParam = () => {
@@ -136,6 +137,7 @@ export function CatchGrid({
   empty,
   tileSrc = gridSrc,
   faces = false,
+  shareable = true,
 }: {
   catches: LakeCatchDTO[];
   status: 'pending' | 'error' | 'success';
@@ -155,6 +157,8 @@ export function CatchGrid({
   tileSrc?: (c: LakeCatchDTO) => string | null;
   /** The lightbox shows the angler's face beside the name (fish members={[c.angler]} on the gallery page). */
   faces?: boolean;
+  /** The lightbox's «Distribuie captura» (fish `shareable`: the detail grid, not the gallery page). */
+  shareable?: boolean;
 }) {
   const photos = useMemo(() => catches.filter((c) => tileSrc(c)), [catches, tileSrc]);
   const [gridRef, masonry] = useMasonry(photos);
@@ -228,6 +232,7 @@ export function CatchGrid({
         moreFailed={moreFailed}
         onRetryMore={onRetryMore}
         faces={faces}
+        shareable={shareable}
       />
     </>
   );
@@ -240,12 +245,10 @@ const ROUND = 'flex size-12 shrink-0 cursor-pointer items-center justify-center 
 /**
  * fish ImageLightbox + CatchLightboxFooter on the kit Lightbox: the photo whole, the big kg,
  * species · date, the angler; ← / → (and the arrow keys, a swipe on touch) page through every
- * loaded catch, reaching the end asks for the next page; «Distribuie» shares the catch with the
- * water's name and a link that reopens THIS photo (`?foto=<clientId>`; the system share sheet, or
- * the link copied). Escape / ✕ / a click on the dark ground closes; focus returns to the photo.
- * Deviation from fish c24 (not counted as passing): fish hands the catch to the Bluvi share card
- * (ShareCatchSheet, the water's name burned into the image); the web has no share-card renderer
- * yet, so the link is the stand-in.
+ * loaded catch, reaching the end asks for the next page. «Distribuie captura» closes the lightbox
+ * and hands the catch to the Bluvi share card (fish useShareCatchHandoff + ShareCatchSheet, c24:
+ * the water's name burned into the image). Escape / ✕ / a click on the dark ground closes; focus
+ * returns to the photo.
  */
 export function CatchLightbox({
   catches,
@@ -258,6 +261,7 @@ export function CatchLightbox({
   moreFailed = false,
   onRetryMore,
   faces = false,
+  shareable = true,
 }: {
   catches: LakeCatchDTO[];
   total: number;
@@ -269,79 +273,68 @@ export function CatchLightbox({
   moreFailed?: boolean;
   onRetryMore?: () => void;
   faces?: boolean;
+  shareable?: boolean;
 }) {
-  const [sharedAt, setSharedAt] = useState<number | null>(null);
+  const [sharing, setSharing] = useState<LakeCatchDTO | null>(null);
   const items = useMemo<LightboxItem[]>(
     () => catches.map((c) => ({ key: c.clientId, src: fullSrc(c) as string, alt: caption(c) || 'Captură' })),
     [catches],
   );
 
-  const share = async (i: number) => {
+  // fish shareHandoff: the lightbox closes first, then the share sheet opens over the page.
+  const share = (i: number) => {
     const c = catches[i];
     if (!c) return;
-    const text = [caption(c), waterName].filter(Boolean).join(' · ');
-    const link = new URL(window.location.href);
-    link.hash = '';
-    link.search = '';
-    link.searchParams.set(FOTO_PARAM, c.clientId);
-    const url = link.toString();
-    try {
-      if (navigator.share) await navigator.share({ title: `Captură pe ${waterName}`, text, url });
-      else {
-        await navigator.clipboard.writeText(`${text} — ${url}`);
-        setSharedAt(i);
-      }
-    } catch {
-      // dismissed
-    }
+    onIndex(null);
+    setSharing(c);
   };
 
   return (
-    <Lightbox
-      items={items}
-      index={index}
-      onIndex={onIndex}
-      total={total}
-      label="Capturi"
-      title={(n, of) => `Captura ${n} din ${of}`}
-      moreFailedText="Nu am putut încărca mai multe capturi."
-      onEndReached={onEndReached}
-      fetchingMore={fetchingMore}
-      moreFailed={moreFailed}
-      onRetryMore={onRetryMore}
-      headerStart={(_, i) => (
-        <>
-          <button type="button" onClick={() => void share(i)} aria-label="Distribuie captura" className={ROUND}>
-            <ShareIcon aria-hidden className="size-6" />
-          </button>
-          <span role="status" className="sr-only">
-            {sharedAt !== null && sharedAt === i ? 'Linkul a fost copiat.' : ''}
-          </span>
-        </>
-      )}
-      footer={(_, i) => {
-        const c = catches[i];
-        if (!c) return null;
-        return (
-          <>
-            {c.weightKg != null ? (
-              <p className="flex items-baseline gap-1.25">
-                <span className="t-display">{fmtKg(c.weightKg)}</span>
-                <span className="t-heading text-lavender-3">kg</span>
-              </p>
-            ) : null}
-            <p className="t-body text-lavender-3">{[c.species, DATE.format(new Date(c.occurredAt))].filter(Boolean).join(' · ')}</p>
-            {faces ? (
-              <p className="mt-1 flex min-w-0 items-center gap-2.25" data-testid="lightbox-angler">
-                <AnglerAvatar uid={c.angler.uid} name={c.angler.name ?? ''} src={c.angler.avatarUrl} size={32} />
-                {c.angler.name ? <span className="truncate t-body-strong">{c.angler.name}</span> : null}
-              </p>
-            ) : c.angler.name ? (
-              <p className="mt-1 truncate t-body-strong">{c.angler.name}</p>
-            ) : null}
-          </>
-        );
-      }}
-    />
+    <>
+      <Lightbox
+        items={items}
+        index={index}
+        onIndex={onIndex}
+        total={total}
+        label="Capturi"
+        title={(n, of) => `Captura ${n} din ${of}`}
+        moreFailedText="Nu am putut încărca mai multe capturi."
+        onEndReached={onEndReached}
+        fetchingMore={fetchingMore}
+        moreFailed={moreFailed}
+        onRetryMore={onRetryMore}
+        headerStart={(_, i) =>
+          shareable ? (
+            <button type="button" onClick={() => share(i)} aria-label="Distribuie captura" className={ROUND}>
+              <ShareIcon aria-hidden className="size-6" />
+            </button>
+          ) : null
+        }
+        footer={(_, i) => {
+          const c = catches[i];
+          if (!c) return null;
+          return (
+            <>
+              {c.weightKg != null ? (
+                <p className="flex items-baseline gap-1.25">
+                  <span className="t-display">{fmtKg(c.weightKg)}</span>
+                  <span className="t-heading text-lavender-3">kg</span>
+                </p>
+              ) : null}
+              <p className="t-body text-lavender-3">{[c.species, DATE.format(new Date(c.occurredAt))].filter(Boolean).join(' · ')}</p>
+              {faces ? (
+                <p className="mt-1 flex min-w-0 items-center gap-2.25" data-testid="lightbox-angler">
+                  <AnglerAvatar uid={c.angler.uid} name={c.angler.name ?? ''} src={c.angler.avatarUrl} size={32} />
+                  {c.angler.name ? <span className="truncate t-body-strong">{c.angler.name}</span> : null}
+                </p>
+              ) : c.angler.name ? (
+                <p className="mt-1 truncate t-body-strong">{c.angler.name}</p>
+              ) : null}
+            </>
+          );
+        }}
+      />
+      {shareable ? <ShareCatchDialog catchRow={sharing} waterName={waterName} onClose={() => setSharing(null)} /> : null}
+    </>
   );
 }

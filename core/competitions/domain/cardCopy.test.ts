@@ -20,6 +20,9 @@ describe('cardRankingLabel', () => {
       'Feeder · Manșa 1/2'
     );
   });
+  it('a single-leg feeder has no leg to name', () => {
+    expect(cardRankingLabel({ status: 'started', rankingLabel: 'Feeder', rounds: { current: 1, count: 1, status: 'running' } })).toBe('Feeder');
+  });
   it('anything else is the CMS label unchanged', () => {
     expect(cardRankingLabel({ status: 'completed', rankingLabel: 'Feeder', rounds: { current: 2, count: 2, status: 'closed' } })).toBe('Feeder');
     expect(cardRankingLabel({ status: 'started', rankingLabel: 'Cantitate', rounds: null })).toBe('Cantitate');

@@ -136,8 +136,8 @@ screens:
       - id: competition-page.shell.c16
         text: "If the competition query fails, or it is paused offline with no data, the whole page is replaced by the error screen: icon, title and message from describeError, „Încearcă din nou” (refetch) when retryable, „Deconectează-te” on a dead session, and a back button."
         fish_ref: app/(app)/competitions/[competitionId].tsx:393-404; components/ErrorScreen.tsx:41-58
-        status: todo
-        web_note: "Client read failure → T3 DetailError + «Încearcă din nou» (refetch) is built; «Deconectează-te» on a dead session is missing."
+        status: passing
+        web_note: "Client read failure → T3 DetailError + «Încearcă din nou» (refetch); a dead session (SESSION_DEAD / 401) says «Sesiunea ta a expirat. Intră din nou în cont.» with «Intră din nou» (DetailSignInAgain: logs out, then sign-in with return here) = fish «Deconectează-te»; offline with nothing cached → the offline copy + retry. The core is server-hydrated, so the client-only failure is not reachable from e2e: verified in code (CompetitionScreen)."
       - id: competition-page.shell.c17
         text: "Tabs, in this order: Clasament, Informații, Participanți, Extra Cântare, Regulament; Clasament is the default; the active tab is highlighted in the accent colour with an underline indicator (web: links/tablist with aria-current or aria-selected)."
         fish_ref: app/(app)/competitions/[competitionId].tsx:45-51,120-125,480-521
@@ -151,13 +151,13 @@ screens:
       - id: competition-page.shell.c19
         text: "The header and tab strip collapse while scrolling down and come back when scrolling up, fading with the offset (web: sticky tab strip under the top bar)."
         fish_ref: app/(app)/competitions/[competitionId].tsx:380-389,448-474
-        status: todo
-        web_note: "The tab strip is not sticky yet (T3 DetailTabs)."
+        status: passing
+        web_note: "Web: the route tab strip is sticky — from 768 under the 64px top bar (DetailBand sticky); on the phone under the 56px bar, following it up to the top edge when the bar slides away on scroll down and back down with it on scroll up (fish's collapse/return; the header itself scrolls away). e2e concurs-antet.spec.ts."
       - id: competition-page.shell.c20
         text: "The `activeTabId` parameter (clasament, informatii, participanti, extracantare, regulament) opens that tab and closes any open action sheet; an unknown value keeps the current tab; the navigation-only params (activeTabId, participantsFilter) are then dropped from the URL (web: tab = path segment)."
         fish_ref: app/(app)/competitions/[competitionId].tsx:120-125,245-256
-        status: todo
-        web_note: "Tabs are path segments: /informatii, /participanti, /extra-cantare, /regulament (M1 batch 2); the fish params have no web equivalent to drop."
+        status: passing
+        web_note: "Tabs are path segments (/informatii, /participanti, /extra-cantare, /regulament; views /cantare, /statistici, /capturi): a link opens that tab, any open sheet closes with the navigation, an unknown segment is the not-found page; fish's navigation-only params have no web equivalent to drop. e2e concurs-tabs.spec.ts (b.tab-deep-links)."
       - id: competition-page.shell.c21
         text: "Share (header button, aria „Distribuie competiția”, and the Share tile of the action bar) shares „🎣 🏆 Intra in Bluvi sa vezi competitia de pescuit {name} de pe balta {lake}” plus the competition URL, and logs share_competition (web: Web Share API, copy-link fallback; URL /concursuri/[id])."
         fish_ref: app/(app)/competitions/[competitionId].tsx:313-333,472
@@ -171,23 +171,23 @@ screens:
       - id: competition-page.shell.c23
         text: "Signed in only (the active-weighing query is disabled for guests): one weighing in progress shows a pinned banner „Cântar in curs pe standul {sector}{stand}.” or „Extra-cântar in curs pe standul …” with a breathing dot; National Championship uses the draw label, e.g. „A3(12)”."
         fish_ref: components/ActiveWeighingBanner.tsx:24-27,47-86; services/queries/useActiveWeighing.ts:6-12
-        status: todo
-        web_note: "Banner built (signed in, breathing dot, «Cântar în curs pe standul A1.»); the National Championship draw label is missing and no local active weighing to verify."
+        status: passing
+        web_note: "Phone banner above the action bar (accent-ink, breathing dot), signed in only (the query is disabled for guests, e2e); «Cântar în curs pe standul A1.» with Romanian diacritics; NC / FIPSed draw label «A3(12)» (e2e concurs-antet.spec.ts). From 768 the stats strip's weighing tile carries it."
       - id: competition-page.shell.c24
         text: "Several weighings in progress show „Cântare in curs pe standurile A1, B3.”; pressing it opens a list with one entry per weighing: „Vezi cântarul live pe standul {label}” / „Vezi extra-cântarul live pe standul {label}”."
         fish_ref: components/MultipleActiveWeighingsBanner.tsx:25-95
-        status: todo
-        web_note: "The several-weighings text is built; the per-weighing list is not."
+        status: passing
+        web_note: "Several: «Cântare în curs pe standurile A3(12), B4.»; pressing opens the kit Sheet «Cântare în curs» with one entry per weighing «Vezi cântarul live / extra-cântarul live pe standul …» (e2e concurs-antet.spec.ts)."
       - id: competition-page.shell.c25
         text: "Pressing a banner weighing opens the weighing detail (competition-page.cantar-detaliu) for that weighing, its stand and sector; weighings without a stand or sector do nothing."
         fish_ref: app/(app)/competitions/[competitionId].tsx:186-202; components/ActiveWeighingBanner.tsx:31-45
-        status: todo
-        web_note: "The banner opens the Cântare view; the weighing detail is competition-page.cantar-detaliu (M1)."
+        status: passing
+        web_note: "A banner weighing opens its detail: the Cântare view with ?cantar=&stand= (competition-page.cantar-detaliu), from any route tab; a weighing whose stand has no sector does nothing (e2e concurs-antet.spec.ts)."
       - id: competition-page.shell.c26
         text: "With openWeighingSheet=1 and weighingId, standId, standName, sectorName all present, the weighing detail opens once per (competition, weighing, stand, timestamp) and those params are removed; if any is missing nothing opens."
         fish_ref: app/(app)/competitions/[competitionId].tsx:258-302
-        status: todo
-        web_note: "Needs competition-page.cantar-detaliu (M1)."
+        status: passing
+        web_note: "Web equivalent of openWeighingSheet: the detail's own link /concursuri/[id]/cantare?cantar=<weighing>&stand=<stand> (routes.competitionWeighing). Read once on arrival; without the stand nothing opens; the params stay while the detail is open (shareable) and are removed when it closes (e2e concurs-antet.spec.ts + concurs-statistici.spec.ts b.notif-weighing)."
       - id: competition-page.shell.c27
         text: "With fromPublish=1 a one-shot confetti animation plays over the page without blocking input, and the param is removed."
         fish_ref: app/(app)/competitions/[competitionId].tsx:304-309,545-568
@@ -197,7 +197,7 @@ screens:
         text: "On every tab except Clasament, once the competition is loaded, an „Acțiuni” button opens the actions sheet (competition-page.bara-actiuni / competition-page.organizare); on Clasament the action bar replaces it."
         fish_ref: app/(app)/competitions/[competitionId].tsx:525-534; components/ActionButton.tsx:32-45
         status: passing
-        web_note: "Clasament only (the other tabs are M1)."
+        web_note: "Clasament: the phone action bar (no «Acțiuni»). Every other route tab, once started/completed: an «Acțiuni» tile in the phone bar opens the actions sheet (ActionsSheet.tsx, bara-actiuni c11–c14); before the start the bar's «Înscrie-te» is shown directly on every tab. From 768 the same actions are header buttons. e2e concurs-antet.spec.ts."
       - id: competition-page.shell.c29
         text: "The competition is the merge of GET /feed/competitions/:id and /feed/competitions/:id/my-status; signed out, /my-status is never called and isFollowing=false, userRegistrationStatus=null are used."
         fish_ref: services/queries/useCompetition.ts:32,46-61
@@ -209,7 +209,7 @@ screens:
         web_note: "app/(site)/concursuri/[id]/error.tsx (T3 DetailError + retry); verified in code."
     mobile_only: false
     status: todo
-    e2e: tests/e2e/concurs.spec.ts tests/e2e/concurs-clasamente.spec.ts
+    e2e: tests/e2e/concurs.spec.ts tests/e2e/concurs-clasamente.spec.ts tests/e2e/concurs-antet.spec.ts
 
   # ---------------------------------------------------------------------------------------------
   - id: competition-page.clasament
@@ -376,8 +376,8 @@ screens:
       - id: competition-page.clasament.c24
         text: "Pressing the Stand or Participant cell of a row whose stand has a registration opens the angler stats dialog (competition-page.statistici-pescar), passing whether the row is a winner; rows without a registration do nothing."
         fish_ref: components/competition/CompetitionRanking.tsx:1857-1868; components/ranking-table/RankingTable.tsx:112-172,336-344
-        status: todo
-        web_note: "The angler stats dialog is competition-page.statistici-pescar (M1)."
+        status: passing
+        web_note: "A row's stand / participant opens the angler stats (competition-page.statistici-pescar: ?pescar=<registration>, sheet on the phone, docked panel from 1280); rows without a registration do nothing. e2e concurs-statistici.spec.ts statistici-pescar.c1."
       - id: competition-page.clasament.c25
         text: "With no rows (or no columns) the view shows „Nu există date de afișat”."
         fish_ref: components/competition/CompetitionRanking.tsx:1869-1875
@@ -419,8 +419,8 @@ screens:
       - id: competition-page.clasament.c33
         text: "Pressing a feeder row opens the angler stats dialog for the entrant's current stand (highlighted = podium / sector winner)."
         fish_ref: components/competition/CompetitionRanking.tsx:1841-1856
-        status: todo
-        web_note: "The angler stats dialog is competition-page.statistici-pescar (not built yet); feeder rows are not pressable until then."
+        status: passing
+        web_note: "Feeder rows carry their registration (data-registration) and open the angler stats for that entrant (rowPress.ts); e2e concurs-clasamente.spec.ts."
     mobile_only: false
     status: todo
     e2e: tests/e2e/concurs.spec.ts
@@ -527,10 +527,10 @@ screens:
       - id: competition-page.clasament-nc.c16
         text: "NC Statistici shows the sector pie for every ranking that carries quantities and a Penalizări card (see competition-page.statistici)."
         fish_ref: components/competition/NationalChampionshipRanking.tsx:1250-1265
-        status: todo
-        web_note: "fish CompetitionSectorChart only renders for quantity / quantityQuality / qualityQuantity, so NC gets no sector pie in fish either (the web matches). The Penalizări card belongs to competition-page.statistici (not built)."
+        status: passing
+        web_note: "fish CompetitionSectorChart only renders for quantity / quantityQuality / qualityQuantity, so NC gets no sector pie in fish either (the web matches). The Penalizări card is drawn on NC Statistici (e2e concurs-statistici.spec.ts statistici.c14 c15)."
     mobile_only: false
-    status: proposed
+    status: passing
     e2e: tests/e2e/concurs-clasamente.spec.ts
   # ---------------------------------------------------------------------------------------------
   - id: competition-page.previzualizare
@@ -633,7 +633,7 @@ screens:
         status: passing
         web_note: "Web: refetch when the tab comes back after ≥ 30 s (no pull-to-refresh); it re-reads competition, rankings, statute and allocations among others."
     mobile_only: false
-    status: proposed
+    status: passing
     e2e: tests/e2e/concurs-previzualizare.spec.ts
   # ---------------------------------------------------------------------------------------------
   - id: competition-page.cantare
@@ -668,29 +668,38 @@ screens:
       - id: competition-page.cantare.c1
         text: "One section per competition sector headed „Sector X”, with one card per stand of that sector."
         fish_ref: components/competition/CompetitionRanking.tsx:1879-1906
+        status: passing
       - id: competition-page.cantare.c2
         text: "The weighings summary is requested only while the Cântare view is active; while it loads, cards show a spinner and no per-stand request is made."
         fish_ref: components/competition/CompetitionRanking.tsx:366-376,1900; components/competition/StandCantarCard.tsx:73-80,168-171
+        status: passing
       - id: competition-page.cantare.c3
         text: "Card header: „Stand {name}” (National Championship „Stand A3(12)”), and the allocation line „{team}: participants” / guest name / „-” when the stand is not allocated."
         fish_ref: components/competition/StandCantarCard.tsx:66-90,140-155
+        status: passing
       - id: competition-page.cantare.c4
         text: "Collapsed card: total „{x.xxx} kg” in the accent colour (hidden when unknown) and „Cantare: n” / „Extra-Cantare: m” from the summary."
         fish_ref: components/competition/StandCantarCard.tsx:92-112,157-195
+        status: passing
       - id: competition-page.cantare.c5
         text: "Pressing a card toggles it; only one stand is expanded at a time; expanding fetches that stand's weighings (feeder: only the current leg) and the counts/total then come from those weighings."
         fish_ref: components/competition/CompetitionRanking.tsx:1890-1896; components/competition/StandCantarCard.tsx:75-112; features/competitions/feeder-rounds/feederRoundActions.ts:57-60
+        status: passing
       - id: competition-page.cantare.c6
         text: "Expanded: one item per weighing — „Cântar N” (+ „(Extra)”), badge Terminat / In curs, „Total: x.xxx kg”, „Capturi: n”, and start → end „dd.MM, HH:mm” (end „În curs” while open)."
         fish_ref: components/competition/StandCantarCard.tsx:197-227; components/scale/CantarItem.tsx:17-79
+        status: passing
       - id: competition-page.cantare.c7
         text: "Pressing a weighing opens the weighing detail (competition-page.cantar-detaliu) with all of the stand's weighings, starting at the pressed one."
         fish_ref: components/competition/CompetitionRanking.tsx:378-392; components/competition/StandCantarCard.tsx:205-214
+        status: passing
       - id: competition-page.cantare.c8
         text: "The action bar's Cântare tile (started/completed) switches to this view."
         fish_ref: components/competition/CompetitionRanking.tsx:1964; components/competition/RankingActionBar.tsx:989-998
+        status: passing
     mobile_only: false
-    status: proposed
+    status: passing
+    e2e: tests/e2e/concurs-statistici.spec.ts
 
   # ---------------------------------------------------------------------------------------------
   - id: competition-page.cantar-detaliu
@@ -719,35 +728,46 @@ screens:
       - id: competition-page.cantar-detaliu.c1
         text: "Opens as a dialog over the page (fish: bottom sheet) and resets to the initial weighing and to the weighing view each time it opens."
         fish_ref: components/WeighingDetailSheet.tsx:77-91,418-432
+        status: passing
       - id: competition-page.cantar-detaliu.c2
         text: "Top card: stand label (National Championship draw format when isNc), „Echipa {team}” when the stand's allocation has a team, then the guest name or one bullet per participant."
         fish_ref: components/WeighingDetailSheet.tsx:85-87,264-285
+        status: passing
       - id: competition-page.cantar-detaliu.c3
         text: "Several weighings: „Anterior” / „Cântar i / n” / „Următor”, each arrow disabled at its end; a single weighing shows „Cântar 1 / 1”."
         fish_ref: components/WeighingDetailSheet.tsx:203-212,287-328
+        status: passing
       - id: competition-page.cantar-detaliu.c4
         text: "While the weighing loads a spinner; then „Total: x.xxx kg” and a badge „Terminat” (finished) or „In curs”."
         fish_ref: components/WeighingDetailSheet.tsx:197-200,331-348
+        status: passing
       - id: competition-page.cantar-detaliu.c5
         text: "In progress: „Se actualizează în m:ss” counting down from 1:00, refetching the weighing at 0 and restarting; „Actualizează” refetches immediately and resets the countdown (spinner while fetching)."
         fish_ref: components/WeighingDetailSheet.tsx:120-195,349-372
+        status: passing
       - id: competition-page.cantar-detaliu.c6
         text: "Catches that arrive in a refetch animate in and stay marked for 5 seconds."
         fish_ref: components/WeighingDetailSheet.tsx:124-154,39-61
+        status: passing
       - id: competition-page.cantar-detaliu.c7
         text: "„Capturi” lists „N. {fish species}: {x.xxx} kg” („–” for unknown species); an extra weighing shows „Extra-cantar” next to the heading; no catches: „Acest cântar nu conține nicio captură.”."
         fish_ref: components/WeighingDetailSheet.tsx:39-51,392-411
+        status: passing
       - id: competition-page.cantar-detaliu.c8
         text: "With numberOfRevisions > 0 a warning line „Acest cântar a avut o modificare.” / „… N modificări.” opens the history; a finished weighing with revisions also shows „Vezi istoric”."
         fish_ref: components/WeighingDetailSheet.tsx:373-391
+        status: passing
       - id: competition-page.cantar-detaliu.c9
         text: "History view: „Înapoi la cântar”, title „Istoric modificări”, spinner while loading, „Eroare la încărcarea modificărilor.” on error, „Nu există modificări pentru acest cântar.” when empty, otherwise one card per editing session; revisions are fetched only when this view opens."
         fish_ref: components/WeighingDetailSheet.tsx:103-118,226-262
+        status: passing
       - id: competition-page.cantar-detaliu.c10
         text: "Closing the dialog returns to the weighing view and clears its parameters (web: removes the query params)."
         fish_ref: components/WeighingDetailSheet.tsx:214-222; app/(app)/competitions/[competitionId].tsx:539-543
+        status: passing
     mobile_only: false
-    status: proposed
+    status: passing
+    e2e: tests/e2e/concurs-statistici.spec.ts tests/e2e/concurs-antet.spec.ts
 
   # ---------------------------------------------------------------------------------------------
   - id: competition-page.statistici
@@ -791,53 +811,70 @@ screens:
       - id: competition-page.statistici.c1
         text: "Signed out the view shows „Trebuie sa fii autentificat pentru a vedea statisticile.” and „Intră în cont” (sign-in, web with return to this view)."
         fish_ref: components/competition/CompetitionRanking.tsx:1793-1806
+        status: passing
       - id: competition-page.statistici.c2
         text: "Best-N, weighing statistics and catch-threshold counts are requested only while Statistici is the active view (never for notStarted)."
         fish_ref: components/competition/CompetitionRanking.tsx:790-809; services/queries/useRankings.ts:26-56,99-114
+        status: passing
       - id: competition-page.statistici.c3
         text: "Three summary cards: „Cea mai mare captură” (biggestCatch weight kg, else biggestFish kg, else „-”, with „Sector X Stand Y” — NC draw label — and the competitor name), „Număr total de capturi” and „Cantitate totală” (three decimals kg, „-” when 0)."
         fish_ref: components/RankingCardsCarousel.tsx:22-71
+        status: passing
       - id: competition-page.statistici.c4
         text: "Weighing statistics: spinner while loading; on error „Nu s-au putut încărca statisticile cântarilor.” with „Încearcă din nou” that refetches only them."
         fish_ref: components/competition/CompetitionRanking.tsx:1739-1760
+        status: passing
       - id: competition-page.statistici.c5
         text: "Card „Sesiuni de cântărire” („Cronologia cântăririlor și cantitatea totală per sesiune.”), shown only when there is at least one weighing."
         fish_ref: components/competition/CompetitionWeighingCharts.tsx:15-31
+        status: passing
       - id: competition-page.statistici.c6
         text: "Sessions: normal weighings sorted by start are split into a new session when the gap after the previous one exceeds 4 hours; each is „Cântar N – Dimineață” (start before 14:00, ☀️) or „Cântar N – Seară” (🌙); extra weighings between sessions are grouped as „Extra-cântar” (⚡)."
         fish_ref: components/competition/WeighingSessionTimeline.tsx:9,45-154
+        status: passing
       - id: competition-page.statistici.c7
         text: "Each session row: total kg with one decimal (indigo normal, amber extra), a bar proportional to the largest session, and „{Ziua}, HH:mm – HH:mm”, „n captură/capturi”, „n stand/standuri”."
         fish_ref: components/competition/WeighingSessionTimeline.tsx:18,200-309
+        status: passing
       - id: competition-page.statistici.c8
         text: "More than 4 sessions: the first 4 are shown (the 4th faded) with „Vezi toate cântarele (n ascunse)”, and „Restrânge” when expanded; a footer shows „Total: n capturi” and the total kg."
         fish_ref: components/competition/WeighingSessionTimeline.tsx:315-391
+        status: passing
       - id: competition-page.statistici.c9
         text: "The stand-timeline card (competition-page.cronologie, card variant) follows the sessions card."
         fish_ref: components/competition/CompetitionWeighingCharts.tsx:33-36
+        status: passing
       - id: competition-page.statistici.c10
         text: "Card „Top capturi (Best 3 / 5 / 7)” („Cele mai bune medii (3, 5 sau 7 capturi). Apasă rândul pentru clasament.”): rows Best 3, Best 5, Best 7 with the leader's average „x.xxx kg”, „Stand {A12}”, competitor name and up to 4 avatars; spinner while loading; not shown for feeder competitions."
         fish_ref: components/competition/CompetitionRanking.tsx:1299-1361,1629-1731
+        status: passing
       - id: competition-page.statistici.c11
         text: "Pressing a Best row opens „Best N - Clasament”: a table Stand | Participant(e) / Echipă | Primele capturi (kg) | Medie, every stand sorted by average descending, averages with three decimals."
         fish_ref: components/competition/CompetitionRanking.tsx:167-287,1999-2016
+        status: passing
       - id: competition-page.statistici.c12
         text: "Card „Cantitate pe sector (kg)” only for quantity, quantityQuality and qualityQuantity rankings (not feeder): donut by sector colour, total kg (one decimal) in the centre, the sector letter on slices ≥ 12%, legend „Sector X · y.y kg”."
         fish_ref: components/competition/CompetitionSectorChart.tsx:23-111; components/competition/CompetitionRanking.tsx:1764-1766
+        status: passing
       - id: competition-page.statistici.c13
         text: "Card „Capturi” („Numărul de capturi pe sector, grupate pe praguri de greutate (10kg, 15kg, 20kg, 25kg, 30kg).”): columns Sector, 10+, 15+, 20+, 25+, 30+, one row per sector and a General row; hidden while loading, on error, without data, or when there are no sector rows and General 10+ and 15+ are 0."
         fish_ref: components/competition/CompetitionCatchesTable.tsx:81-125
+        status: passing
       - id: competition-page.statistici.c14
         text: "National Championship only: card „Penalizări”, newest first, 3 visible then „Vezi toate penalizările (n ascunse)” / „Ascunde”; each row: Avertisment / „Penalizare greutate · v kg” / Eliminare (red mark for elimination, yellow otherwise), the competitor, the reason, „{author} · {date ro-RO}”."
         fish_ref: components/penalty/PenaltiesSection.tsx:17-143; components/competition/NationalChampionshipRanking.tsx:1249-1259
+        status: passing
       - id: competition-page.statistici.c15
         text: "Organizers and referees see „Revocă” on each penalty: confirm „Revocă penalizarea?” / „Acțiunea va elimina penalizarea din clasament.” (Anulează / Revocă) deletes it and invalidates the ranking."
         fish_ref: components/penalty/PenaltiesSection.tsx:56-61,113-123; services/mutations/useDeletePenalty.ts:11
+        status: passing
       - id: competition-page.statistici.c16
         text: "The action bar's Statistici tile switches to this view."
         fish_ref: components/competition/CompetitionRanking.tsx:897-899,1969
+        status: passing
     mobile_only: false
-    status: proposed
+    status: passing
+    e2e: tests/e2e/concurs-statistici.spec.ts
 
   # ---------------------------------------------------------------------------------------------
   - id: competition-page.toti-pestii
@@ -915,26 +952,36 @@ screens:
       - id: competition-page.statistici-pescar.c1
         text: "Opens from a ranking row (stand or participant cell) for the registration on that stand."
         fish_ref: components/competition/CompetitionRanking.tsx:333-336,1857-1868
+        status: passing
       - id: competition-page.statistici-pescar.c2
         text: "Signed out (or the stats batch answers 401/403/USER_NOT_LOGGED_IN): a lock, „Statistici pentru pescari”, „Intră în cont ca să vezi capturile și recordurile fiecărui pescar din concurs.”, a primary „Intră în cont” and „Continuă ca vizitator” that closes the dialog."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:174-196,344; services/queries/useParticipantStatisticsBatch.ts:9-38
+        status: passing
       - id: competition-page.statistici-pescar.c3
         text: "Individual with an account: large avatar, name, subtitle „Sector X · Standul Y”, three stats Capturi / C.M.M.C (three decimals, kg) / Competiții separated by thin dividers, and „Vezi profilul” → angler profile (web /pescari/[id])."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:33-46,66-88,109-115,136-150,230-262
+        status: todo
+        web_note: "Built and e2e-covered except «Vezi profilul»: the angler profile /pescari/[id] is M2 (lib/routes.ts ON_WEB.angler false), so the block has no profile link until that page ships (anglerHref flips it)."
       - id: competition-page.statistici-pescar.c4
         text: "Individual guest: guest avatar, the name (or „Invitat”), and a dashed note „Invitat · statistici indisponibile” / „Pescarul nu are cont Bluvi.”."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:198-212,230-242
+        status: passing
       - id: competition-page.statistici-pescar.c5
         text: "Team competition (always the team layout, even for one member): up to 4 stacked avatars, title = team name, else club name, else „Echipă”; one block per member with their stats and „Vezi profilul”, or „Invitat · statistici indisponibile” for a guest member."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:48-50,119-122,265-330
+        status: todo
+        web_note: "Built and e2e-covered except «Vezi profilul»: the angler profile /pescari/[id] is M2 (lib/routes.ts ON_WEB.angler false), so the block has no profile link until that page ships (anglerHref flips it)."
       - id: competition-page.statistici-pescar.c6
         text: "Team without registered members: team header and the note „Statistici indisponibile” / „Participanții au fost adăugați fără cont Bluvi.”."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:214-228,269-276
+        status: passing
       - id: competition-page.statistici-pescar.c7
         text: "Each stat shows a loading placeholder until the batch answers; the batch covers every roster member in one request, is fresh 5 minutes and does not retry on 401/403."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:66-88,97-98; services/queries/useParticipantStatisticsBatch.ts:11-44
+        status: passing
     mobile_only: false
     status: proposed
+    e2e: tests/e2e/concurs-statistici.spec.ts
 
   # ---------------------------------------------------------------------------------------------
   - id: competition-page.informatii
@@ -1352,8 +1399,8 @@ screens:
       - id: competition-page.bara-actiuni.c11
         text: "The „Acțiuni” sheet (other tabs) for a guest offers only „Autentifică-te pentru a putea participa la competiție” → sign-in; a skeleton while competition/statute/allocations load."
         fish_ref: components/CompetitionActionSheet.tsx:216-276
-        status: todo
-        web_note: "The «Acțiuni» sheet lives on the other tabs, which have no web pages yet; core registrationAction already carries its rules and reasons."
+        status: passing
+        web_note: "The «Acțiuni» tile (phone bar, route tabs other than Clasament, once started/completed) opens the kit Sheet «Acțiuni»: a guest gets only «Autentifică-te pentru a putea participa la competiție» → /intra?next=<this tab>; skeleton rows while the session / statute load. The author / a referee: their sheets are competition-page.organizare (M6); until then «Vezi cântarele din concurs». e2e concurs-antet.spec.ts."
       - id: competition-page.bara-actiuni.c12
         text: "For a signed-in non-organizer non-referee the sheet shows Înscrie-te / „Modifică înscrierea” (same disabled rules) with the reason under it: „Cererea ta de a te înscrie în această competiție a fost respinsă.”, „Nu poți face modificări. Contactează organizatorul.” (registered, team), „Nu se mai pot face modificări” (registered, individual), „Numărul maxim de participanți a fost atins”, „Nu poți face modificări pentru că nu ești autorul înscrierii.”, otherwise „Termenul pentru înscriere a expirat”."
         fish_ref: components/NormalUserSheetItems.tsx:63-127
@@ -1362,16 +1409,16 @@ screens:
       - id: competition-page.bara-actiuni.c13
         text: "After the start the sheet adds „Vezi cântarele din concurs” (weighings page of the scale area)."
         fish_ref: components/NormalUserSheetItems.tsx:129-140
-        status: todo
-        web_note: "With the «Acțiuni» sheet (c11)."
+        status: passing
+        web_note: "«Vezi cântarele din concurs» opens the Clasament's Cântare view (the scale area's weighings page is M6). e2e concurs-antet.spec.ts."
       - id: competition-page.bara-actiuni.c14
         text: "A registered participant of a started competition gets „Solicită extra cântar”, or „Șterge solicitarea de extra cântar” when a new request of theirs exists (from the live competition); pending states disable it with „Se înregistrează cererea...” / „Se șterge cererea...”; success toasts and closes the sheet; the extra-scale list is invalidated."
         fish_ref: components/ExtraScaleRequestSheetItem.tsx:13-97
-        status: todo
-        web_note: "With the «Acțiuni» sheet (c11); the bar's Extra-Cântar (c8) uses the same mutations."
+        status: passing
+        web_note: "Sheet item as fish (no question): «Solicită extra cântar» / «Șterge solicitarea de extra cântar» (from the extra-scale list, as c9), busy + «Se înregistrează cererea...» / «Se șterge cererea...» while sent, toast and close on success, the list invalidated. e2e concurs-antet.spec.ts (CMS answered through the proxy)."
     mobile_only: false
     status: proposed
-    e2e: tests/e2e/concurs-previzualizare.spec.ts
+    e2e: tests/e2e/concurs-previzualizare.spec.ts tests/e2e/concurs-antet.spec.ts
   # ---------------------------------------------------------------------------------------------
   - id: competition-page.organizare
     title: Organizare (organizator / arbitru)

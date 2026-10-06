@@ -1,3 +1,5 @@
+import { collectConsoleErrors } from './helpers/console';
+import { BASE_URL } from './helpers/base-url';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
@@ -13,8 +15,6 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  * served from fixtures with page.route; everything else is the real local data.
  */
 
-const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3102';
-test.use({ baseURL: BASE_URL });
 
 const WATER = {
   /** Lacul Tineretului (București): partide activity + species, no photo catches on the local CMS. */
@@ -93,15 +93,7 @@ async function withFaults(page: Page, id: number | string, faults: string[], run
 
 /** Errors in the browser console fail the test (ROADMAP: no console errors), bar the ones a test provokes. */
 function watchConsole(page: Page, allow: RegExp[] = []) {
-  const errors: string[] = [];
-  page.on('console', (m) => {
-    if (m.type() !== 'error') return;
-    const text = m.text();
-    if (allow.some((r) => r.test(text))) return;
-    errors.push(text);
-  });
-  page.on('pageerror', (e) => errors.push(e.message));
-  return errors;
+  return collectConsoleErrors(page, { ignore: allow });
 }
 
 /* ============================================================================================
@@ -352,9 +344,7 @@ test.describe('public-waters.detaliu', () => {
     await expect(capturi.getByText('Nicio captură cu poză pe această apă încă.')).toBeVisible();
   });
 
-  // Criterion 24 is a documented deviation (a link instead of fish's share card): the lightbox
-  // tests below are not titled with it.
-  test('public-waters.detaliu.c25 s10 — photo grid, lightbox with footer, next page near the end', async ({ page }) => {
+  test('public-waters.detaliu.c24 c25 s10 — photo grid, lightbox with footer, next page near the end', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await page.route(venueUrl(WATER.tineretului.code), fulfill(section()));
     const pages: number[] = [];
@@ -382,8 +372,7 @@ test.describe('public-waters.detaliu', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
-  test('public-waters.detaliu — the lightbox counts the server total, keeps focus at the ends, shares a link to the photo', async ({ page, context }) => {
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  test('public-waters.detaliu — the lightbox counts the server total, keeps focus at the ends; ?foto= opens a photo', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await page.route(venueUrl(WATER.tineretului.code), fulfill(section()));
     await page.route(catchesUrl(WATER.tineretului.code), (route) => {
@@ -402,9 +391,86 @@ test.describe('public-waters.detaliu', () => {
     await expect(page.getByRole('dialog', { name: 'Captura 2 din 2' })).toBeVisible();
     await page.getByRole('button', { name: 'Fotografia anterioară' }).click();
     await expect(page.getByRole('dialog', { name: 'Captura 1 din 2' })).toBeVisible();
-    await page.evaluate(() => Object.defineProperty(navigator, 'share', { value: undefined, configurable: true }));
+  });
+
+  test('public-waters.detaliu.c24 — «Distribuie captura» hands the catch to the Bluvi share card: the image, its switches, a PNG to the share sheet', async ({ page }) => {
+    const errors = watchConsole(page);
+    await page.setViewportSize(DESKTOP);
+    await page.route(venueUrl(WATER.tineretului.code), fulfill(section()));
+    await page.route(catchesUrl(WATER.tineretului.code), fulfill(catchesPage(1, 3)));
+    await page.goto(`/ape-publice/${WATER.tineretului.id}`);
+    await page.getByTestId('catch-grid').getByRole('button').first().click();
+    await page.getByRole('dialog', { name: 'Captura 1 din 3' }).getByRole('button', { name: 'Distribuie captura' }).click();
+    // fish shareHandoff: the lightbox closes, the share sheet opens.
+    await expect(page.getByRole('dialog', { name: /Captura/ })).toHaveCount(0);
+    const sheet = page.getByRole('dialog', { name: 'Distribuie captura' });
+    await expect(sheet).toBeVisible();
+    // The exact image that is shared: the water's name burned in, the kg, the species, the date.
+    const card = sheet.getByRole('img', { name: /^Imaginea care se distribuie/ });
+    await expect(card).toHaveAttribute('aria-label', 'Imaginea care se distribuie: Tineretului · 2,0 kg · Crap · 20 sep 2026');
+    expect(await card.evaluate((c: HTMLCanvasElement) => [c.width, c.height])).toEqual([1080, 1370]);
+    // «Ce să apară pe poză»: one switch per field the catch has, all on.
+    const switches = sheet.getByRole('group', { name: 'Ce să apară pe poză' }).getByRole('button');
+    await expect(switches).toHaveText(['Greutate', 'Baltă', 'Specie', 'Data']);
+    for (const b of await switches.all()) await expect(b).toHaveAttribute('aria-pressed', 'true');
+    await sheet.getByRole('button', { name: 'Baltă' }).click();
+    await expect(sheet.getByRole('button', { name: 'Baltă' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(card).toHaveAttribute('aria-label', 'Imaginea care se distribuie: 2,0 kg · Crap · 20 sep 2026');
+    await sheet.getByRole('button', { name: 'Baltă' }).click();
+    await expectNoA11yViolations(page);
+    // «Distribuie» hands the PNG to the system share sheet, with no message (fish: the card says it all).
+    await page.evaluate(() => {
+      const w = window as unknown as { __shared: unknown[] };
+      w.__shared = [];
+      Object.defineProperty(navigator, 'canShare', { value: (d: ShareData) => !!d.files?.length, configurable: true });
+      Object.defineProperty(navigator, 'share', {
+        value: async (d: ShareData) => {
+          const f = d.files![0];
+          w.__shared.push({ name: f.name, type: f.type, big: f.size > 10_000, text: d.text ?? null, url: d.url ?? null });
+        },
+        configurable: true,
+      });
+    });
+    await sheet.getByRole('button', { name: 'Distribuie', exact: true }).click();
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __shared: unknown[] }).__shared))
+      .toEqual([{ name: 'bluvi-captura.png', type: 'image/png', big: true, text: null, url: null }]);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('public-waters.detaliu.c24 — no file sharing (desktop): the PNG is saved; the phone gets a sheet; no weight, no «Greutate»', async ({ page, request }) => {
+    const errors = watchConsole(page);
+    await page.setViewportSize(DESKTOP);
+    await page.route(venueUrl(WATER.tineretului.code), fulfill(section()));
+    const weightless = { ...catchesPage(1, 1), data: [{ ...aCatch(0), weightKg: null }] };
+    await page.route(catchesUrl(WATER.tineretului.code), fulfill(weightless));
+    await page.goto(`/ape-publice/${WATER.tineretului.id}`);
+    await page.evaluate(() => Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true }));
+    await page.getByTestId('catch-grid').getByRole('button').first().click();
     await page.getByRole('button', { name: 'Distribuie captura' }).click();
-    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/ape-publice\/328\?foto=c0$/);
+    const sheet = page.getByRole('dialog', { name: 'Distribuie captura' });
+    await expect(sheet.getByRole('img', { name: /^Imaginea/ })).toHaveAttribute('aria-label', 'Imaginea care se distribuie: Tineretului · Crap · 20 sep 2026');
+    await expect(sheet.getByRole('group', { name: 'Ce să apară pe poză' }).getByRole('button')).toHaveText(['Baltă', 'Specie', 'Data']);
+    const download = page.waitForEvent('download');
+    await sheet.getByRole('button', { name: 'Distribuie', exact: true }).click();
+    expect((await download).suggestedFilename()).toBe('bluvi-captura.png');
+    await expect(page.getByText('Imaginea a fost salvată.')).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    // Phone: the same card in a bottom sheet.
+    await page.setViewportSize(PHONE);
+    await page.getByTestId('catch-grid').getByRole('button').first().click();
+    await page.getByRole('button', { name: 'Distribuie captura' }).click();
+    await expect(page.getByRole('dialog', { name: 'Distribuie captura' }).getByRole('img', { name: /^Imaginea/ })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Distribuie captura' }).getByRole('button', { name: 'Distribuie', exact: true })).toBeEnabled();
+    await expectNoA11yViolations(page);
+    expect(errors).toEqual([]);
+
+    // The photo proxy the card draws through passes only the CMS's own photos.
+    expect((await request.get(`${BASE_URL}/ape-publice/api/foto?src=${encodeURIComponent('https://example.com/a.jpg')}`)).status()).toBe(400);
+    expect((await request.get(`${BASE_URL}/ape-publice/api/foto`)).status()).toBe(400);
   });
 
   test('public-waters.detaliu.c25 s10 — a failed next page says so with its own retry and is not re-asked by scrolling', async ({ page }) => {

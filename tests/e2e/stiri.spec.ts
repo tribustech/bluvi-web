@@ -1,6 +1,7 @@
+import { collectConsoleErrors as watchConsole } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
-import { expect, test, type APIRequestContext, type ConsoleMessage, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
 /*
  * Noutăți (/stiri), Știre (/stiri/[id]) and Sponsor (/sponsori/[id]) — parity
@@ -15,8 +16,6 @@ import { expect, test, type APIRequestContext, type ConsoleMessage, type Page } 
  * Noutăți pages are 12 (pageSize.ts, divisible by 2, 3 and 4 so grid rows fill).
  */
 
-test.use({ baseURL: process.env.BASE_URL ?? 'http://localhost:3102' });
-
 const PHONE = { width: 375, height: 812 };
 const TABLET = { width: 768, height: 1024 };
 const DESKTOP = { width: 1440, height: 900 };
@@ -28,14 +27,8 @@ const PAGE = 12;
 
 /** Console errors AND warnings (next/image's LCP / sizing warnings are warnings), less dev noise. */
 function collectConsoleErrors(page: Page) {
-  const errors: string[] = [];
-  page.on('console', (msg: ConsoleMessage) => {
-    // The image optimiser is off in dev; a missing remote file is the CMS's, not the page's.
-    if (/Failed to load resource|\[HMR\]|\[Fast Refresh\]|Download the React DevTools/.test(msg.text())) return;
-    if (msg.type() === 'error' || msg.type() === 'warning') errors.push(`${msg.type()}: ${msg.text()}`);
-  });
-  page.on('pageerror', (err) => errors.push(`pageerror: ${err.message}`));
-  return errors;
+  // The image optimiser is off in dev; a missing remote file is the CMS's, not the page's.
+  return watchConsole(page, { warnings: true, ignore: /Failed to load resource|\[HMR\]|\[Fast Refresh\]|Download the React DevTools/ });
 }
 
 let all: ListItem[] = [];

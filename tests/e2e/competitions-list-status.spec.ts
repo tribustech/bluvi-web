@@ -1,3 +1,4 @@
+import { collectConsoleErrors } from './helpers/console';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { PIXEL } from './competitions-list.fixtures';
@@ -22,12 +23,7 @@ const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(body) });
 
 function consoleErrors(page: Page) {
-  const errors: string[] = [];
-  page.on('console', (m) => {
-    if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text());
-  });
-  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
-  return errors;
+  return collectConsoleErrors(page, { ignore: /Failed to load resource/ });
 }
 
 async function setFaults(page: Page, faults: string[]) {

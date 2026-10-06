@@ -64,6 +64,13 @@ type QueryFn = (ctx: Record<string, unknown>) => Promise<unknown>;
 export async function prefetchState(queries: readonly Prefetchable[], tags: readonly string[]): Promise<DehydratedState> {
   const qc = new QueryClient();
   const runnable = queries.filter((q) => typeof q.queryFn === 'function' && q.enabled !== false);
+  if (runnable.length === 0) return { mutations: [], queries: [] };
+  // The stamp is read up front, keyed by the queries ASKED for, never by the ones that answered:
+  // during prerendering the cache-warming pass and the final pass must call it with the same key.
+  // Keyed by the successful reads (as before), a read that timed out or failed in the warming pass
+  // and answered from the warm cache in the final one asked for a never-warmed entry — «Unexpected
+  // cache miss after cache warming phase» (StatusListPage behind its read budget, 2026-10-06).
+  const stamp = hydrationTime(runnable.map((q) => JSON.stringify(q.queryKey)).join('|'), [...tags]);
   const results = await Promise.allSettled(
     runnable.map(async (q) => {
       const infinite = 'initialPageParam' in q;
@@ -78,9 +85,9 @@ export async function prefetchState(queries: readonly Prefetchable[], tags: read
     })
   );
   const ok = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+  const updatedAt = await stamp;
   if (ok.length === 0) return { mutations: [], queries: [] };
 
-  const updatedAt = await hydrationTime(ok.map((q) => JSON.stringify(q.queryKey)).join('|'), [...tags]);
   for (const q of ok) qc.setQueryData(q.queryKey, q.data, { updatedAt });
 
   return {

@@ -1,8 +1,10 @@
+import { collectConsoleErrors as watchConsole } from './helpers/console';
+import { BASE_URL as BASE } from './helpers/base-url';
 import { cardRankingLabel } from '../../core/competitions/domain/cardCopy';
 import { LAKE_ON_WEB } from '../../app/(site)/balti/[id]/_components/availability';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
-import { expect, test, type ConsoleMessage, type Page, type Route } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 
 /*
  * The lake's subpages, batch 2 — parity docs/parity/areas/lakes.yml: lakes.gallery (/galerie),
@@ -18,8 +20,6 @@ import { expect, test, type ConsoleMessage, type Page, type Route } from '@playw
  * browser reads after that (next pages, other periods, a retry) is intercepted with page.route.
  */
 
-const BASE = process.env.BASE_URL ?? 'http://localhost:3101';
-test.use({ baseURL: BASE });
 test.describe.configure({ timeout: 180_000 });
 
 const ID = {
@@ -126,13 +126,8 @@ test.afterEach(async ({ page }) => {
 });
 
 function collectConsoleErrors(page: Page) {
-  const errors: string[] = [];
-  page.on('console', (msg: ConsoleMessage) => {
-    // Photos of the local test data that 404 on S3 are the data's, not the page's.
-    if (msg.type() === 'error' && !/Failed to load resource|ERR_|net::/.test(msg.text())) errors.push(msg.text());
-  });
-  page.on('pageerror', err => errors.push(`pageerror: ${err.message}`));
-  return errors;
+  // Photos of the local test data that 404 on S3 are the data's, not the page's.
+  return watchConsole(page, { ignore: /Failed to load resource|ERR_|net::/ });
 }
 
 const settle = (page: Page) => page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});

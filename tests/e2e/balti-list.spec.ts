@@ -1,4 +1,6 @@
-import { expect, test, type BrowserContext, type ConsoleMessage, type Locator, type Page } from '@playwright/test';
+import { collectConsoleErrors } from './helpers/console';
+import { BASE_URL } from './helpers/base-url';
+import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
 
@@ -18,7 +20,6 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  * (njf092b2ffdq6b8w3inqbjr5, 6 lakes); «Toate bălțile» returns 11 rows (so «Vezi toate» shows).
  */
 
-test.use({ baseURL: process.env.BASE_URL ?? 'http://localhost:3101' });
 
 const PHONE = { width: 375, height: 812 };
 const TABLET = { width: 768, height: 1024 };
@@ -46,16 +47,6 @@ async function patchGrants(page: Page) {
     const res = await route.fetch({ headers: { ...route.request().headers(), authorization: `Bearer ${jwt}` } });
     await route.fulfill({ response: res });
   });
-}
-
-function collectConsoleErrors(page: Page) {
-  const errors: string[] = [];
-  page.on('console', (msg: ConsoleMessage) => {
-    // A 403 from the server prefetch never reaches the browser; the browser sees none (patched).
-    if (msg.type() === 'error') errors.push(msg.text());
-  });
-  page.on('pageerror', (err) => errors.push(`pageerror: ${err.message}`));
-  return errors;
 }
 
 const visible = (l: Locator) => l.locator('visible=true').first();
@@ -501,7 +492,7 @@ test.describe('lakes.home', () => {
   test('lakes.home.c7 lakes.home.s11 · signed in: the same rows as signed out', async ({ page, context }) => {
     await openHome(page, DESKTOP);
     const out = await sectionTitles(page);
-    await signIn(context, jwt, process.env.BASE_URL ?? 'http://localhost:3101');
+    await signIn(context, jwt, BASE_URL);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(visible(page.getByRole('region', { name: 'Toate bălțile' }))).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('button', { name: /Descoperă bălți aproape de tine/ })).toBeVisible();

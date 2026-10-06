@@ -1,3 +1,4 @@
+import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { qaJwt, signIn } from './helpers/session';
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
@@ -27,11 +28,7 @@ test.describe.configure({ timeout: 120_000 });
 
 async function open(page: Page, id: string, viewport = DESKTOP) {
   await page.setViewportSize(viewport);
-  const errors: string[] = [];
-  page.on('console', m => {
-    if (m.type() === 'error') errors.push(m.text());
-  });
-  page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
+  const errors = collectConsoleErrors(page);
   const res = await page.goto(`/concursuri/${id}`, { waitUntil: 'domcontentloaded' });
   expect(res?.status()).toBe(200);
   // A cold dev compile can take a while on the first visit.

@@ -8,7 +8,7 @@ export function makeQueryClient(onSessionDead?: OnSessionDead) {
   const handle = (error: unknown) => {
     if (isApiError(error) && error.code === 'SESSION_DEAD') onSessionDead?.();
   };
-  return new QueryClient({
+  const client = new QueryClient({
     queryCache: new QueryCache({ onError: handle }),
     mutationCache: new MutationCache({ onError: handle }),
     defaultOptions: {
@@ -19,6 +19,24 @@ export function makeQueryClient(onSessionDead?: OnSessionDead) {
       },
     },
   });
+  if (isServer) neverStaleOnServer(client);
+  return client;
+}
+
+/**
+ * The server render's client (one per request, SSR of client components) never refetches, so
+ * staleness means nothing there — yet every `useQuery` that renders with hydrated data asks «is it
+ * stale?», and TanStack answers with `Date.now()` (timeUntilStale). With Cache Components that clock
+ * read lands in the prerender of the pages under the site layout («/balti/[id]: … unstable value
+ * `Date.now()` while prerendering», dev logs 2026-10-05/06). `staleTime: 'static'` is «never stale»
+ * without reading the clock; the browser's client keeps each query's own staleTime.
+ */
+function neverStaleOnServer(client: QueryClient) {
+  const defaults = client.defaultQueryOptions.bind(client);
+  client.defaultQueryOptions = ((options: Parameters<typeof defaults>[0]) => ({
+    ...defaults(options),
+    staleTime: 'static',
+  })) as typeof client.defaultQueryOptions;
 }
 
 let browserClient: QueryClient | undefined;

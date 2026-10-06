@@ -1,3 +1,4 @@
+import { collectConsoleErrors } from './helpers/console';
 import { expect, test, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { periodOptions } from '../../core/competitions/domain/competitionPeriods';
 import { expectNoA11yViolations } from './helpers/a11y';
@@ -38,12 +39,7 @@ const backButton = (page: Page) => page.locator('[aria-label="Înapoi la concurs
 const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
 function consoleErrors(page: Page) {
-  const errors: string[] = [];
-  page.on('console', (m) => {
-    if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text());
-  });
-  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
-  return errors;
+  return collectConsoleErrors(page, { ignore: /Failed to load resource/ });
 }
 
 async function captureEvents(context: BrowserContext) {

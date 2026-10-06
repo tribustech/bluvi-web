@@ -1,6 +1,7 @@
+import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
-import { expect, test, type ConsoleMessage, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /*
  * Acasă (/) — parity inventory docs/parity/areas/home.yml, screen home.acasa (template T5). Each
@@ -24,15 +25,6 @@ let jwt = '';
 test.beforeAll(async ({ request }) => {
   jwt = await qaJwt(request);
 });
-
-function collectConsoleErrors(page: Page) {
-  const errors: string[] = [];
-  page.on('console', (msg: ConsoleMessage) => {
-    if (msg.type() === 'error') errors.push(msg.text());
-  });
-  page.on('pageerror', (err) => errors.push(`pageerror: ${err.message}`));
-  return errors;
-}
 
 const visible = (l: Locator) => l.locator('visible=true').first();
 const h2 = (page: Page, name: string | RegExp) => visible(page.getByRole('heading', { level: 2, name }));
@@ -352,8 +344,6 @@ test('home.acasa.c40 c41 c42 — suggested anglers: follow round-trip, dismiss',
 });
 
 test('home.acasa.c41 — a followed suggestion reads «Urmăresc» (fish FollowButton)', async ({ page }) => {
-  // Known failure: the kit FollowButton (components/cards/FollowButton.tsx) reads «Urmărești».
-  test.fail(true, 'home.acasa.c41 is todo until the kit label is fixed');
   await open(page, PHONE, true);
   const rail = section(page, 'Pescari pe care îi poți urmări');
   if ((await rail.count()) === 0) test.skip(true, 'fewer than 3 suggestions locally');

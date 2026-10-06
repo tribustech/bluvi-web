@@ -1,4 +1,6 @@
+import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
+import { findCompetition, registrationOpen, startOf } from './helpers/fixtures';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import { expect, test, type BrowserContext, type Locator, type Page, type Route } from '@playwright/test';
 
@@ -17,9 +19,9 @@ const QA_DOC = 'pducvrkstdjrtzop6isewt1u';
 const ID = {
   /** notStarted, team of 2, 4 sectors × 5 stands, 20/20 registered; QA user is the author. */
   full: process.env.E2E_COMPETITION_UPCOMING_OWN ?? 'a6xjl65ooe9eadrtvvqj9hn1',
-  /** notStarted, single, 0 registered, deadline ahead, 1 sector. */
+  /** notStarted, single, 0 registered, deadline ahead — re-picked in beforeAll once the deadline passes. */
   empty: process.env.E2E_COMPETITION_UPCOMING_EMPTY ?? 'ld4l9nzlczisz2yexad8fm6p',
-  /** notStarted, team, no sectors, 1 registered, deadline ahead. */
+  /** notStarted, no sectors — re-picked in beforeAll if the pinned one gets sectors or starts. */
   noSectors: process.env.E2E_COMPETITION_UPCOMING_NO_SECTORS ?? 'u9kd3xs4n91j2ktah78ke73q',
   /** notStarted past its start and its deadline (late start), 1 pending entry. */
   late: process.env.E2E_COMPETITION_UPCOMING_LATE ?? 'hpdy6luzzt36886wpsc95im8',
@@ -33,17 +35,33 @@ const DESKTOP = { width: 1440, height: 900 };
 test.describe.configure({ timeout: 120_000 });
 
 let jwt = '';
+/** The empty competition's participant limit (its «0/N»). */
+let emptyLimit = 0;
+/** 24 h before the full competition's start: a clock the countdown runs on, whatever today is. */
+let beforeFullStart = new Date();
+const NO_EMPTY = 'no notStarted single competition with no entries and its registration open in the local CMS';
+const NO_NO_SECTORS = 'no notStarted competition without sectors in the local CMS';
+
 test.beforeAll(async ({ request }) => {
   jwt = await qaJwt(request);
+  // The state these ids were pinned for moves with the clock (a deadline passes, a start is reached):
+  // keep the pinned one while it still fits, else take another; '' = none locally (the tests skip).
+  const empty = await findCompetition({
+    pinned: ID.empty,
+    status: 'notStarted',
+    matches: (c, now) => c.competitionType === 'single' && c.registrations.length === 0 && registrationOpen(c, now) && startOf(c) > now,
+  });
+  ID.empty = empty?.documentId ?? '';
+  emptyLimit = empty?.participantsLimit ?? 0;
+  const noSectors = await findCompetition({ pinned: ID.noSectors, status: 'notStarted', matches: c => c.sectors.length === 0 });
+  ID.noSectors = noSectors?.documentId ?? '';
+  const full = await findCompetition({ pinned: ID.full, status: 'notStarted', matches: () => true });
+  if (full) beforeFullStart = new Date(startOf(full) - 24 * 3600_000);
 });
 
 async function open(page: Page, id: string, viewport = PHONE) {
   await page.setViewportSize(viewport);
-  const errors: string[] = [];
-  page.on('console', m => {
-    if (m.type() === 'error') errors.push(m.text());
-  });
-  page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
+  const errors = collectConsoleErrors(page);
   const res = await page.goto(`/concursuri/${id}`, { waitUntil: 'domcontentloaded' });
   expect(res?.status()).toBe(200);
   // A cold dev compile can take a while on the first visit.
@@ -82,7 +100,7 @@ test('competition-page.previzualizare.c1 competition-page.previzualizare.c5 comp
 });
 
 test('competition-page.previzualizare.c3 competition-page.previzualizare.s2 — the countdown: ZILE : ORE : MIN : SEC, two digits, ticking every second', async ({ page }) => {
-  await page.clock.install({ time: new Date('2026-10-05T12:00:00Z') });
+  await page.clock.install({ time: beforeFullStart });
   await open(page, ID.full);
   const timer = visible(page.getByRole('timer'));
   await expect(timer).toBeVisible();
@@ -129,6 +147,10 @@ test('competition-page.previzualizare.c3 competition-page.previzualizare.s2 web 
   await expect(tile.getByText('Competiția începe în')).toHaveCount(0);
   // The same height as the running countdown's tile (no shift when it flips).
   const late = (await tile.boundingBox())!.height;
+  // The running countdown: a day before the full competition's start (the fixture's own start moves past).
+  const running_ = await page.context().newPage();
+  await running_.clock.install({ time: beforeFullStart });
+  page = running_;
   await open(page, ID.full, DESKTOP);
   const running = (await page.getByRole('region', { name: 'Competiția începe în' }).boundingBox())!.height;
   expect(Math.abs(late - running)).toBeLessThanOrEqual(1);
@@ -155,6 +177,7 @@ test('competition-page.previzualizare.c6 competition-page.previzualizare.s6 web 
 });
 
 test('competition-page.previzualizare.c6 competition-page.previzualizare.c7 competition-page.previzualizare.c8 competition-page.previzualizare.c9 competition-page.previzualizare.s6 — Detalii: Durată, Începe, Se termină, Tip clasament, Tip competiție', async ({ page }) => {
+  test.skip(!ID.empty, NO_EMPTY);
   await open(page, ID.full);
   const details = visible(page.getByRole('region', { name: 'Detalii' }).or(page.locator('section').filter({ has: page.getByRole('heading', { name: 'Detalii' }) })));
   const value = (label: string) => details.locator('dt', { hasText: label }).locator('xpath=following-sibling::dd[1]');
@@ -172,6 +195,7 @@ test('competition-page.previzualizare.c6 competition-page.previzualizare.c7 comp
 });
 
 test('competition-page.previzualizare.c11 competition-page.previzualizare.s3 competition-page.previzualizare.s4 — Înscrieri: approved/limit, «Progres înscrieri» capped at 100%, pending pill, first-to-register line', async ({ page }) => {
+  test.skip(!ID.empty, NO_EMPTY);
   await open(page, ID.full);
   let card = visible(page.getByRole('region', { name: 'Înscrieri' }));
   await expect(card).toContainText('20/20');
@@ -182,7 +206,7 @@ test('competition-page.previzualizare.c11 competition-page.previzualizare.s3 com
 
   await open(page, ID.empty);
   card = visible(page.getByRole('region', { name: 'Înscrieri' }));
-  await expect(card).toContainText('0/10');
+  await expect(card).toContainText(`0/${emptyLimit}`);
   await expect(card).toContainText('Progres înscrieri 0%');
   await expect(card.getByText('Fii primul care se înscrie la această competiție!')).toBeVisible();
 
@@ -197,6 +221,7 @@ test('competition-page.previzualizare.c11 competition-page.previzualizare.s3 com
 });
 
 test('competition-page.previzualizare.c13 competition-page.previzualizare.s5 — sectors: «Sectoare: n · Standuri: m», one row per sector with its stands in order; none configured', async ({ page }) => {
+  test.skip(!ID.noSectors, NO_NO_SECTORS);
   await open(page, ID.full);
   await expect(page.getByRole('heading', { name: 'Sectoare: 4 · Standuri: 20' })).toBeVisible();
   const a = page.getByRole('listitem').filter({ hasText: 'Sectorul A' });
@@ -231,7 +256,7 @@ test('competition-page.previzualizare.c10 competition-page.previzualizare.c12 �
 
 test('competition-page.previzualizare.c15 — coming back to the tab after a while re-reads the competition, the ranking, the statute and the allocations', async ({ page, context }) => {
   await signIn(context, jwt);
-  await page.clock.install({ time: new Date('2026-10-05T12:00:00Z') });
+  await page.clock.install({ time: beforeFullStart });
   await open(page, ID.full);
   await settle(page);
   const seen: string[] = [];
@@ -260,6 +285,7 @@ for (const vp of [PHONE, { width: 768, height: 1024 }, { width: 1280, height: 90
 /* ------------------------------------------------------------------ */
 
 test('competition-page.bara-actiuni.c1 competition-page.bara-actiuni.s1 competition-page.bara-actiuni.s2 — before the start, signed out: «Înscrie-te» leads to sign-in (phone bar and, from 768, the header)', async ({ page }) => {
+  test.skip(!ID.empty, NO_EMPTY);
   await open(page, ID.empty);
   const link = bar(page).getByRole('link', { name: 'Înscrie-te' });
   await expect(link).toHaveAttribute('href', /\/autentificare|sign-in|intra/);
@@ -297,6 +323,7 @@ test('competition-page.bara-actiuni.c5 competition-page.bara-actiuni.s3 — sign
 });
 
 test('competition-page.bara-actiuni.c1 competition-page.bara-actiuni.c4 competition-page.bara-actiuni.s3 — signed in, the bar never offers the guest’s sign-in link (not even before the session lands)', async ({ page, context }) => {
+  test.skip(!ID.empty, NO_EMPTY);
   await signIn(context, jwt);
   await mockMyStatus(context, ID.empty, null);
   // Every «Înscrie-te» link the page ever renders, from the first HTML on.
@@ -317,6 +344,7 @@ test('competition-page.bara-actiuni.c1 competition-page.bara-actiuni.c4 competit
 });
 
 test('competition-page.bara-actiuni.c4 competition-page.bara-actiuni.c5 competition-page.bara-actiuni.s3 — signed in, allowed: «Înscrie-te» continues in the app; the rules disable it with fish’s reason', async ({ page, context }) => {
+  test.skip(!ID.empty, NO_EMPTY);
   await signIn(context, jwt);
   await mockMyStatus(context, ID.empty, null);
   await open(page, ID.empty);
@@ -327,6 +355,7 @@ test('competition-page.bara-actiuni.c4 competition-page.bara-actiuni.c5 competit
 });
 
 test('competition-page.bara-actiuni.c5 competition-page.bara-actiuni.c12 competition-page.bara-actiuni.s3 — rejected: «Înscrie-te» disabled, «Cererea ta … a fost respinsă.»', async ({ page, context }) => {
+  test.skip(!ID.empty, NO_EMPTY);
   await signIn(context, jwt);
   await mockMyStatus(context, ID.empty, 'rejected');
   await open(page, ID.empty);
@@ -337,6 +366,7 @@ test('competition-page.bara-actiuni.c5 competition-page.bara-actiuni.c12 competi
 });
 
 test('competition-page.bara-actiuni.c5 competition-page.bara-actiuni.c12 competition-page.bara-actiuni.s3 — registered on a single competition: «Modifică înscrierea» disabled, «Nu se mai pot face modificări»', async ({ page, context }) => {
+  test.skip(!ID.empty, NO_EMPTY);
   await signIn(context, jwt);
   await mockMyStatus(context, ID.empty, 'registered');
   await open(page, ID.empty);
@@ -556,4 +586,4 @@ test('competition-page.bara-actiuni.c2 competition-page.bara-actiuni.s1 — a vi
 });
 
 test.fixme('competition-page.bara-actiuni.c10 — Penalizări opens the penalties page (M6, not on the web yet)', async () => {});
-test.fixme('competition-page.bara-actiuni.c11 competition-page.bara-actiuni.c13 competition-page.bara-actiuni.c14 — the «Acțiuni» sheet on the other tabs (Informații, Participanți…: later batches)', async () => {});
+// competition-page.bara-actiuni c11 – c14 (the «Acțiuni» sheet of the other tabs): concurs-antet.spec.ts.

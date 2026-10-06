@@ -57,6 +57,7 @@ export function CatchesScreen({ code, waterKey, waterName }: { code: string; wat
             status={q.status}
             total={total}
             waterName={waterName}
+            shareable={false}
             empty={
               <div data-testid="catches-empty">
                 <ListEmpty

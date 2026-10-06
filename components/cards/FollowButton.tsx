@@ -3,7 +3,8 @@
 import { useState } from 'react';
 
 /**
- * "Urmărește" toggle on the angler card (secondary button: indigo-2 fill, indigo-7 text).
+ * "Urmărește" / "Urmăresc" toggle on the angler card (fish components/FollowButton.tsx copy;
+ * secondary button: indigo-2 fill, indigo-7 text).
  * Controlled when `following` + `onToggle` are passed; otherwise it keeps its own state so the
  * kit can show both looks. Sits above the card's stretched link (relative z-above).
  */
@@ -41,7 +42,7 @@ export function FollowButton({
           : 'bg-accent-tint-2 text-accent-ink hover:bg-accent-tint'
       }`}
     >
-      {isFollowing ? 'Urmărești' : 'Urmărește'}
+      {isFollowing ? 'Urmăresc' : 'Urmărește'}
     </button>
   );
 }

@@ -1,5 +1,5 @@
-import { qaJwt, signIn } from './helpers/session';
-import { expect, test, type Page } from '@playwright/test';
+import { CMS, qaJwt, signIn } from './helpers/session';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
 /*
  * The full-width rule (docs/ROADMAP.md §4, owner decision 2026-10-04) on the shell and the built
@@ -98,4 +98,73 @@ test('full width · Acasă signed out · 1920px — public shortcuts and the acc
   await expect(nav.getByRole('link', { name: 'Bălți' })).toHaveAttribute('href', '/balti');
   await expect(nav.getByRole('link', { name: 'Profilul meu' })).toHaveCount(0);
   await expect(left.getByRole('link', { name: 'Intră în cont' })).toHaveAttribute('href', '/intra');
+});
+
+/*
+ * Noutăți (T1), Știre and Sponsor (T3) — home.stiri, home.stire, home.sponsor. The list grid
+ * auto-fills (more columns as the screen grows, never wider cards); the article keeps its reading
+ * measure at ~720 with the side column («Alte noutăți» / «Alți sponsori») to its right from 1280.
+ */
+
+async function firstIds(request: APIRequestContext) {
+  const news = await (await request.get(`${CMS}/feed/announcements?page=1&pageSize=1`)).json();
+  const sponsors = await (await request.get(`${CMS}/feed/sponsors/dashboard`)).json();
+  return { newsId: news.data[0].documentId as string, sponsorId: sponsors.data[0].documentId as string };
+}
+
+for (const width of WIDTHS) {
+  test(`full width · Noutăți · ${width}px — the card grid auto-fills the column`, async ({ page }) => {
+    await open(page, '/stiri', width);
+    await expectShell(page, width);
+    const list = page.getByRole('list', { name: 'Noutăți' });
+    const cards = list.locator(':scope > li');
+    await expect(cards.first()).toBeVisible();
+    const g = await list.evaluate((el) => {
+      const items = [...el.children].map((c) => c.getBoundingClientRect());
+      const top = items[0].top;
+      return { list: el.getBoundingClientRect().width, cols: items.filter((r) => Math.abs(r.top - top) < 1).length, card: items[0].width };
+    });
+    // The grid spans the whole column (gutters only), and its cards never grow past 1680/5.
+    expect(Math.round(g.list)).toBe(Math.min(width, SHELL) - 2 * GUTTER);
+    expect(g.card).toBeLessThanOrEqual(420);
+  });
+
+  test(`full width · Știre + Sponsor · ${width}px — reading text ≤ 720, side column on the right`, async ({ page, request }) => {
+    const { newsId, sponsorId } = await firstIds(request);
+    for (const [path, aside] of [
+      [`/stiri/${newsId}`, 'Alte noutăți'],
+      [`/sponsori/${sponsorId}`, 'Alți sponsori'],
+    ] as const) {
+      await open(page, path, width);
+      await expectShell(page, width);
+      const article = page.getByRole('article').first();
+      const side = page.getByRole('complementary', { name: aside });
+      await expect(side).toBeVisible();
+      const [a, s, h1] = await Promise.all([article.boundingBox(), side.boundingBox(), article.getByRole('heading', { level: 1 }).boundingBox()]);
+      // Article then side column, together filling the column between the gutters.
+      expect(a!.x + a!.width).toBeLessThan(s!.x);
+      expect(Math.round(a!.x)).toBe(Math.max(0, (width - SHELL) / 2) + GUTTER);
+      expect(Math.round(s!.x + s!.width)).toBe(Math.min(width, SHELL) + Math.max(0, (width - SHELL) / 2) - GUTTER);
+      expect(a!.width).toBeGreaterThan(s!.width);
+      // The title starts on the centred reading measure (≤ 720 wide), not at the card's edge.
+      expect(h1!.width).toBeLessThanOrEqual(720);
+    }
+  });
+}
+
+test('full width · Noutăți — wider screens get more columns, not wider cards', async ({ page }) => {
+  const seen: { cols: number; card: number }[] = [];
+  for (const width of [1280, 2560]) {
+    await open(page, '/stiri', width);
+    const list = page.getByRole('list', { name: 'Noutăți' });
+    await expect(list.locator(':scope > li').first()).toBeVisible();
+    seen.push(
+      await list.evaluate((el) => {
+        const items = [...el.children].map((c) => c.getBoundingClientRect());
+        return { cols: items.filter((r) => Math.abs(r.top - items[0].top) < 1).length, card: items[0].width };
+      }),
+    );
+  }
+  expect(seen[1].cols).toBeGreaterThan(seen[0].cols);
+  expect(seen[1].card).toBeLessThanOrEqual(420);
 });

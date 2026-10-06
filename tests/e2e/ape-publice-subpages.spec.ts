@@ -1,3 +1,5 @@
+import { collectConsoleErrors } from './helpers/console';
+import { BASE_URL } from './helpers/base-url';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
@@ -15,8 +17,6 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  * and the browser makes the reads.
  */
 
-const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3102';
-test.use({ baseURL: BASE_URL });
 // The shared dev server compiles on first hit and the machine is shared: generous per-test time.
 test.setTimeout(180_000);
 
@@ -48,14 +48,7 @@ async function clientReads(page: Page, run: () => Promise<void>, extra: string[]
 }
 
 function watchConsole(page: Page, allow: RegExp[] = []) {
-  const errors: string[] = [];
-  page.on('console', (m) => {
-    if (m.type() !== 'error') return;
-    if (allow.some((r) => r.test(m.text()))) return;
-    errors.push(m.text());
-  });
-  page.on('pageerror', (e) => errors.push(e.message));
-  return errors;
+  return collectConsoleErrors(page, { ignore: allow });
 }
 
 /** A period chip as the viewer sees it (from 1280 the chips live in the left column, the toolbar's are hidden). */
@@ -592,7 +585,7 @@ test.describe('public-waters.clasament', () => {
       });
       await page.setViewportSize(PHONE);
       await page.goto(`/ape-publice/${TIN.id}/clasament`);
-      await expect(page.getByTestId('ranking-skeleton')).toBeVisible();
+      await expect(page.getByTestId('ranking-skeleton').filter({ visible: true }).first()).toBeVisible();
       release();
       const rows = page.getByTestId('angler-rows').getByRole('listitem');
       await expect(rows).toHaveCount(2);
@@ -788,6 +781,8 @@ test.describe('public-waters.capturi', () => {
       await page.goto(`/ape-publice/${TIN.id}/capturi?foto=c3`);
       const box = page.getByRole('dialog');
       await expect(box).toContainText('Captura 4 din 25');
+      // fish VenueCatchesGalleryScreen's ImageLightbox is not `shareable`: no «Distribuie» here.
+      await expect(box.getByRole('button', { name: 'Distribuie captura' })).toHaveCount(0);
       await page.keyboard.press('Escape');
       await expect(box).toBeHidden();
       // c6: a catch the first page does not have opens nothing, even once later pages arrive.

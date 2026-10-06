@@ -29,6 +29,7 @@ import {
 import {
   activeWeighingQuery,
   allocatedParticipantsQuery,
+  type CompetitionActiveWeighing,
   competitionManagementKeys,
   deleteExtraScaleRequestMutation,
   extraScalesListQuery,
@@ -57,6 +58,7 @@ import { routes } from '@/lib/routes';
 import type { Viewer } from '@/lib/server/viewer';
 import { signInHref } from '../../../_shell/SiteHeader';
 import { isUnknownViewer, useViewerState } from '../../../_shell/viewer-context';
+import { ActionsSheet } from './ActionsSheet';
 import { ActiveWeighingBanner, MobileActionBar, SORT_OPTION, type BarConfirm } from './ActionBar';
 import { FeederHelp, FeederLegTabs, FeederRankingTable, feederLegEmpty, type FeederData } from './FeederRanking';
 import { NcRankingTable, NcSectorPills, NcSortControl, ncSortFor, type NcSort, type NcView } from './NcRanking';
@@ -145,6 +147,15 @@ type Props = {
 
 /** fish's universal link (AASA /competitions/*): the app on a phone, the stores page elsewhere. */
 const appLink = (id: string) => `https://bluvi-app.wearetribus.com/competitions/${encodeURIComponent(id)}`;
+
+/**
+ * The phone's tab strip (parity shell.c19, fish's collapsing header): sticky under the 56px top bar;
+ * the bar slides away on scroll down (TopBar `data-concealed`) and the strip follows it up to the
+ * top edge, coming back down with it on scroll up — the T4 / T5 sticky rows' rule. From 768 the
+ * DetailBand `sticky` band (under the 64px bar, which never hides).
+ */
+const PHONE_STICKY_TABS =
+  'max-md:sticky max-md:top-14 max-md:z-sticky max-md:[:root:has(header[data-concealed])_&]:top-0 max-md:transition-[top] max-md:duration-(--duration-medium) max-md:ease-slow';
 
 /** A tab that comes back after this long re-reads the live parts (fish pull-to-refresh, parity clasament.c6). */
 const REFRESH_ON_RETURN_MS = 30_000;
@@ -419,6 +430,26 @@ function Screen({
   };
 
   /**
+   * fish handlePressActiveWeighing: a weighing of the banner opens its detail (parity shell.c25) —
+   * the Cântare view with `?cantar=&stand=` (the detail's own link, competition-page.cantar-detaliu).
+   * WeighingsView reads those params when it mounts: remounted (key) so an open Cântare view reads
+   * them too.
+   */
+  const [weighingsMount, setWeighingsMount] = useState(0);
+  const openActiveWeighing = (w: CompetitionActiveWeighing) => {
+    const href = routes.competitionWeighing(id, w.weighingDocumentId, w.stand.documentId);
+    if (!onClasament) {
+      router.push(href);
+      return;
+    }
+    window.history.pushState(null, '', href);
+    setAnglerId(null);
+    setView('cantare');
+    setWeighingsMount(n => n + 1);
+    void qc.invalidateQueries({ queryKey: weighingKeys.byCompetitionId(id) });
+  };
+
+  /**
    * fish `onRefresh` (pull-to-refresh) + refreshActionSheetQueries — on the web, when the reader
    * comes back to the tab after a while (parity clasament.c6).
    */
@@ -481,7 +512,9 @@ function Screen({
   const deleteExtra = useMutation(deleteExtraScaleRequestMutation(t, qc));
   const [extraAsk, setExtraAsk] = useState(false);
   const extraLoading = requestExtra.isPending ? 'Se înregistrează cererea...' : deleteExtra.isPending ? 'Se șterge cererea...' : null;
-  const runExtra = () => {
+  const [actionsOpen, setActionsOpen] = useState(false);
+  /** `fromSheet`: the «Acțiuni» sheet's item (fish ExtraScaleRequestSheetItem) — no question, closes the sheet on success. */
+  const runExtra = (fromSheet = false) => {
     setExtraAsk(false);
     const settle = () =>
       void qc.invalidateQueries({
@@ -492,7 +525,8 @@ function Screen({
       deleteExtra.mutate(id, {
         onSuccess: () => {
           toast('Cererea a fost ștearsă cu succes', 'success');
-          setBarMessage('Cererea de extra cântar a fost anulată.');
+          if (fromSheet) setActionsOpen(false);
+          else setBarMessage('Cererea de extra cântar a fost anulată.');
         },
         onError,
         onSettled: settle,
@@ -501,7 +535,8 @@ function Screen({
       requestExtra.mutate(id, {
         onSuccess: () => {
           toast('Cererea a fost trimisă cu succes', 'success');
-          setBarMessage('Cererea de extra cântar a fost trimisă.');
+          if (fromSheet) setActionsOpen(false);
+          else setBarMessage('Cererea de extra cântar a fost trimisă.');
         },
         onError,
         onSettled: settle,
@@ -514,7 +549,7 @@ function Screen({
   const barConfirm: BarConfirm | null = extraAsk
     ? {
         question: extraQuestion,
-        onConfirm: runExtra,
+        onConfirm: () => runExtra(),
         onCancel: () => setExtraAsk(false),
       }
     : null;
@@ -630,16 +665,19 @@ function Screen({
       : 'Clasament complet';
   // The bar's tiles (ActionBar.tsx): Înscrie-te before the start, the ranking tiles once there is a
   // ranking the web can show, Chat when signed in. Share is always the header's chip.
+  // The other route tabs once it has started: fish's «Acțiuni» (a guest's sheet offers sign-in).
+  const actionsTile = !onClasament && (status === 'started' || status === 'completed');
   const barHasActions =
     status === 'notStarted' ||
+    actionsTile ||
     ((status === 'started' || status === 'completed') && !unsupported && onClasament) ||
     isAuthenticated ||
     hasBanner(activeWeighing);
 
   return (
     <DetailPage phoneGround={rankingVisible && onClasament ? 'surface' : 'page'}>
-      {/* The header band, then the route tabs in a band of their own: from 768 the tabs stick under
-          the top bar (parity shell.c19), so a reader at row 20 changes tab without scrolling up. */}
+      {/* The header band, then the route tabs in a band of their own: they stick under the top bar
+          (parity shell.c19), so a reader at row 20 changes tab without scrolling up. */}
       <DetailBand hairline={false}>
         <CompetitionHeader
           competition={competition}
@@ -680,7 +718,7 @@ function Screen({
           chat={() => <ChatHeaderButton badge={chatBadge} open={dockOpen} onToggle={() => setDockOpen(o => !o)} />}
         />
       </DetailBand>
-      <DetailBand sticky>
+      <DetailBand sticky className={PHONE_STICKY_TABS}>
         {/* fish ROUTES_LIST: each tab its own page (tabs.ts). */}
         <DetailTabs
           label="Secțiunile concursului"
@@ -872,6 +910,7 @@ function Screen({
                         ))}
                       {view === 'cantare' && (
                         <WeighingsView
+                          key={weighingsMount}
                           t={t}
                           competition={competition}
                           allocated={allocatedQ}
@@ -913,7 +952,7 @@ function Screen({
               <ActiveWeighingBanner
                 weighings={activeWeighing}
                 isNc={isNationalType(competition.rankingType)}
-                onPress={() => selectView('cantare')}
+                onPress={openActiveWeighing}
               />
             ) : undefined
           }
@@ -944,8 +983,32 @@ function Screen({
             rankingAvailable={!unsupported && onClasament}
             barMessage={barMessage}
             onBarMessageDismiss={() => setBarMessage(null)}
+            onActions={actionsTile ? () => setActionsOpen(true) : undefined}
           />
         </DetailActionBar>
+      ) : null}
+      {actionsTile ? (
+        <ActionsSheet
+          open={actionsOpen}
+          onClose={() => setActionsOpen(false)}
+          viewer={viewer}
+          statute={statute}
+          statutePending={isAuthenticated && ((statuteQ.isPending && statuteQ.fetchStatus !== 'paused') || overlayPending)}
+          competitionStatus={status ?? ''}
+          registration={registration}
+          registrationHref={appLink(id)}
+          signIn={signIn}
+          weighingsHref={routes.competitionWeighings(id)}
+          extraScale={
+            extraAllowed
+              ? {
+                  requested: extraRequested,
+                  pendingLabel: extraLoading,
+                  onPress: () => runExtra(true),
+                }
+              : null
+          }
+        />
       ) : null}
 
       <FullRankingDialog
@@ -1000,7 +1063,7 @@ function Screen({
               <Button variant="secondary" onClick={() => setExtraAsk(false)}>
                 Anulează
               </Button>
-              <Button onClick={runExtra}>Confirmă</Button>
+              <Button onClick={() => runExtra()}>Confirmă</Button>
             </>
           }
         />

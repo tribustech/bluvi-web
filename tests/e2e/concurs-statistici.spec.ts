@@ -1,3 +1,4 @@
+import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { qaJwt, signIn } from './helpers/session';
 import { expect, test, type Page } from '@playwright/test';
@@ -37,12 +38,8 @@ test.describe.configure({ timeout: 120_000 });
 
 async function open(page: Page, path: string, viewport = DESKTOP) {
   await page.setViewportSize(viewport);
-  const errors: string[] = [];
-  page.on('console', m => {
-    // A 403 the local CMS answers for a grant it lacks is the browser's own network log line.
-    if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text());
-  });
-  page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
+  // A 403 the local CMS answers for a grant it lacks is the browser's own network log line.
+  const errors = collectConsoleErrors(page, { ignore: /Failed to load resource/ });
   const res = await page.goto(path, { waitUntil: 'domcontentloaded' });
   expect(res?.status()).toBe(200);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 45_000 });

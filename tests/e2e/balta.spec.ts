@@ -1,6 +1,9 @@
+import { collectConsoleErrors as watchConsole } from './helpers/console';
+import { BASE_URL as BASE } from './helpers/base-url';
 import { expectNoA11yViolations } from './helpers/a11y';
+import { lakeCompetitionCounts, lakeHasPartide } from './helpers/fixtures';
 import { CMS, qaJwt, signIn } from './helpers/session';
-import { expect, test, type ConsoleMessage, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /*
  * Baltă (/balti/[id], template T3) — parity inventory docs/parity/areas/lakes.yml, screens
@@ -22,8 +25,6 @@ import { expect, test, type ConsoleMessage, type Locator, type Page } from '@pla
  * recenzii — tests/e2e/balta-subpagini*.spec.ts) are on the web and asserted as links.
  */
 
-const BASE = process.env.BASE_URL ?? 'http://localhost:3101';
-test.use({ baseURL: BASE });
 test.describe.configure({ timeout: 120_000 });
 
 const ID = {
@@ -54,6 +55,10 @@ type Lake = {
 const lakes = new Map<string, Lake>();
 let catchesTotal = 0;
 let upcoming: { documentId: string; name: string }[] = [];
+/** Live + Viitoare per lake (fish LakeCompetitionsSection's two lists), read when the run starts. */
+const competitionCounts = new Map<string, { live: number; upcoming: number }>();
+/** Whether each lake's Partide section shows (fish hasPartideActivity — this month's activity moves too). */
+const partideShown = new Map<string, boolean>();
 let jwt = '';
 const base = () => BASE;
 
@@ -73,18 +78,19 @@ test.beforeAll(async ({ request }) => {
     lakes.set(id, (await res.json()).data);
   }
   catchesTotal = (await (await request.get(`${CMS}/feed/community/lakes/${ID.chita}/catches?page=1&pageSize=1`)).json()).meta.pagination.total;
-  upcoming = (await (await request.get(`${CMS}/feed/competitions?status=notStarted&lakeId=${ID.chita}&page=1&pageSize=5`)).json()).data;
+  // Competitions start and end with time: the Concursuri section / chip follow what the CMS has now.
+  for (const id of Object.values(ID)) {
+    const { live, upcoming: next, upcomingList } = await lakeCompetitionCounts(id);
+    competitionCounts.set(id, { live, upcoming: next });
+    partideShown.set(id, await lakeHasPartide(id));
+    if (id === ID.chita) upcoming = upcomingList;
+  }
   jwt = await qaJwt(request);
 });
 
 function collectConsoleErrors(page: Page) {
-  const errors: string[] = [];
-  page.on('console', (msg: ConsoleMessage) => {
-    // Map tiles are a third party: a tile that fails to load is not the page's error.
-    if (msg.type() === 'error' && !/openfreemap|tiles\./.test(msg.text())) errors.push(msg.text());
-  });
-  page.on('pageerror', err => errors.push(`pageerror: ${err.message}`));
-  return errors;
+  // Map tiles are a third party: a tile that fails to load is not the page's error.
+  return watchConsole(page, { ignore: /openfreemap|tiles\./ });
 }
 
 /** The page's analytics events (app/(site)/balti/[id]/_components/analytics.ts), kept across navigations. */
@@ -154,8 +160,10 @@ for (const id of [ID.chita, ID.belin]) {
         await expect(page.locator('#recenzii')).toBeVisible();
         await settle(page);
         // c10: the chips (phone + tablet) or the section index (≥1280), in fish order.
-        const partide = id === ID.chita;
-        const competitions = id === ID.chita && upcoming.length > 0;
+        const partide = partideShown.get(id)!;
+        // fish: the chip is there while Live + Viitoare hold something (the lake's own CMS state).
+        const counts = competitionCounts.get(id)!;
+        const competitions = counts.live + counts.upcoming > 0;
         if (vp.width < 1280) {
           await expect(chips(page).getByRole('link')).toHaveText(expectedChips(l, partide, competitions));
         } else {
@@ -563,7 +571,8 @@ test('lakes.detail.c24 lakes.detail.s11 — Concursuri: Viitoare cards to /concu
   await open(page, ID.chita, DESKTOP);
   const section = page.locator('#concursuri');
   await expect(section.getByRole('heading', { name: 'Viitoare' })).toBeVisible();
-  await expect(section.getByRole('heading', { name: 'Live', exact: true })).toHaveCount(0);
+  // Live is hidden only while the lake has no started competition (the local data moves with time).
+  if (competitionCounts.get(ID.chita)!.live === 0) await expect(section.getByRole('heading', { name: 'Live', exact: true })).toHaveCount(0);
   await expect(section.getByText(/în curând/)).toHaveCount(0);
   // The section header and the Viitoare rail both open /balti/[id]/concursuri (the rail on its tab).
   await expect(section.getByRole('link', { name: 'Vezi tot' })).toHaveCount(2);
@@ -571,6 +580,8 @@ test('lakes.detail.c24 lakes.detail.s11 — Concursuri: Viitoare cards to /concu
   await expect(section.locator(`a[href="/balti/${ID.chita}/concursuri"]`)).toHaveText('Vezi tot');
   await expect(section.locator(`a[href="/concursuri/${upcoming[0].documentId}"]`).first()).toBeVisible();
   // s11: Belin has none — once the counts are known, no section and no chip.
+  const belin = competitionCounts.get(ID.belin)!;
+  test.skip(belin.live + belin.upcoming > 0, 's11 needs a lake without competitions: the local Belin has some now');
   await open(page, ID.belin);
   await settle(page);
   await expect(page.locator('#concursuri')).toHaveCount(0);
@@ -850,7 +861,13 @@ test('lakes.detail.s12 lakes.detail.c10 lakes.detail.c28 — optional sections e
   await open(page, ID.belin);
   for (const id of ['facilitati', 'pesti', 'preturi', 'contact']) await expect(page.locator(`#${id}`)).toHaveCount(0);
   await settle(page);
-  await expect(chips(page).getByRole('link')).toHaveText(['Prezentare', 'Recenzii']);
+  const belin = competitionCounts.get(ID.belin)!;
+  await expect(chips(page).getByRole('link')).toHaveText([
+    'Prezentare',
+    ...(partideShown.get(ID.belin) ? ['Partide'] : []),
+    ...(belin.live + belin.upcoming > 0 ? ['Concursuri'] : []),
+    'Recenzii',
+  ]);
   await expect(tiles(page).getByRole('listitem')).toHaveText(['Rezervă', 'Partide', 'Statistici', 'Concursuri', 'Recenzii']);
   await expect(page.getByRole('button', { name: 'Direcții' })).toHaveCount(0);
 });

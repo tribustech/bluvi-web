@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { APIRequestContext, BrowserContext } from '@playwright/test';
 import { qaUser } from '../../qa-user';
+import { BASE_URL } from './base-url';
 
 /*
  * The QA user's JWT, signed in once and shared by every spec (e2e and visual). The local CMS rate
@@ -32,7 +33,7 @@ export async function qaJwt(request: APIRequestContext): Promise<string> {
 }
 
 /** The web app's session cookie (httpOnly, set by the sign-in route in production). */
-export async function signIn(context: BrowserContext, jwt: string, baseURL = 'http://localhost:3000') {
+export async function signIn(context: BrowserContext, jwt: string, baseURL = BASE_URL) {
   const { hostname } = new URL(baseURL);
   await context.addCookies([{ name: 'bluvi_session', value: jwt, domain: hostname, path: '/', httpOnly: true, sameSite: 'Lax' }]);
 }

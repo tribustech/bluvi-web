@@ -270,6 +270,11 @@ export function WaterMap({
         m.fitBounds(start.initialBounds, { padding, animate: false });
         const c = m.getCenter();
         setState({ status: 'ready', map: m, Marker: lib.Marker, initialCenter: `${c.lng.toFixed(4)},${c.lat.toFixed(4)}` });
+        // e2e only (dev builds; NODE_ENV is inlined, so production drops it): the camera the
+        // harta-ape band / cluster / tap / restore tests drive and read (`.maplibregl-map`.__map).
+        if (process.env.NODE_ENV !== 'production' && containerRef.current) {
+          (containerRef.current as HTMLDivElement & { __map?: MlMap }).__map = m;
+        }
         cbs.current.onReady?.(m);
       });
     })();

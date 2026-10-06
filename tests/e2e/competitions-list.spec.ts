@@ -1,3 +1,4 @@
+import { collectConsoleErrors } from './helpers/console';
 import { expect, test, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { qaJwt, signIn } from './helpers/session';
@@ -32,12 +33,7 @@ test.beforeAll(async ({ request }) => {
 });
 
 function consoleErrors(page: Page) {
-  const errors: string[] = [];
-  page.on('console', (m) => {
-    if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text());
-  });
-  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
-  return errors;
+  return collectConsoleErrors(page, { ignore: /Failed to load resource/ });
 }
 
 /** Analytics: window.gtag captured (GA4 lands in M8; the call sites are already fish's). */
@@ -344,6 +340,8 @@ test.describe('signed out', () => {
     await expect(viewer.getByRole('img', { name: `Afișul concursului ${name}` })).toHaveAttribute('src', dto.banner.url);
     await expect(viewer.getByText(dto.dateLabel, { exact: true })).toBeVisible();
     await expect(viewer.getByText(/kg/).first()).toBeVisible();
+    // axe reads colours mid fade-in otherwise (a half-opaque chip measures below AA).
+    await viewer.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
     await expectNoA11yViolations(page);
     await page.keyboard.press('Escape');
     await expect(viewer).toBeHidden();
@@ -689,6 +687,9 @@ test.describe('signed in', () => {
     await expect(item('FX Live fără total').getByText('CMMC')).toHaveCount(0);
     // c9
     await expect(item('FX Feeder pe manșe').getByText('Feeder · Manșa 1/2')).toBeVisible();
+    // A single-leg feeder has no leg to name (fish ea89c087).
+    await expect(item('FX Feeder o manșă').getByText('Feeder', { exact: true })).toBeVisible();
+    await expect(item('FX Feeder o manșă').getByText(/Manșa/)).toHaveCount(0);
     // c17
     await expect(item('FX Încheiat fără rezultate').getByText('Rezultatele nu sunt disponibile.')).toBeVisible();
     await expect(item('FX Încheiat fără capturi').getByText('Fără capturi înregistrate.')).toBeVisible();

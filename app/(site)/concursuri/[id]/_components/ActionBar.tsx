@@ -8,10 +8,12 @@ import {
   ChatBubbleOvalLeftIcon,
   ArrowPathIcon,
   PlusCircleIcon,
+  ScaleIcon,
   XCircleIcon,
   CheckCircleIcon,
   ChevronLeftIcon,
   ClipboardDocumentListIcon,
+  EllipsisHorizontalCircleIcon,
   MapPinIcon,
   TrophyIcon,
   UserGroupIcon,
@@ -20,6 +22,7 @@ import type { CompetitionWithMyStatus, RegistrationAction } from '@/core/competi
 import type { CompetitionActiveWeighing } from '@/core/organizer';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
+import { Sheet } from '@/components/surfaces/Sheet';
 import type { chat } from '@/core/realtime';
 import { ChatCountBadge } from './ChatPanel';
 import type { PageViewer } from './Follow';
@@ -104,6 +107,8 @@ type Props = {
   confirm: BarConfirm | null;
   /** The bar is sending («Se înregistrează cererea...»). */
   loadingLabel: string | null;
+  /** The route tabs other than Clasament: fish's «Acțiuni» button, opening the actions sheet (ActionsSheet). */
+  onActions?: () => void;
 };
 
 export function MobileActionBar(props: Props) {
@@ -212,6 +217,10 @@ export function MobileActionBar(props: Props) {
         tiles.push({ id: 'sortare', label: 'Sortare', Icon: ArrowsUpDownIcon, onPress: () => openMenu(), accessibilityLabel: 'Sortare clasament' });
       }
       tiles.push({ id: 'statistici', label: 'Statistici', Icon: viewIcon('statistici'), onPress: () => onView('statistici') });
+    }
+    // fish ActionButton (every tab but Clasament): «Acțiuni» opens the actions sheet.
+    if (props.onActions) {
+      tiles.push({ id: 'actiuni', label: 'Acțiuni', Icon: EllipsisHorizontalCircleIcon, onPress: props.onActions, accessibilityLabel: 'Acțiuni concurs' });
     }
     // fish withChatItem: Chat goes second (signed in only). While the session is pending its place
     // is held by a bone tile, so the tiles never move when it lands.
@@ -452,38 +461,74 @@ function BarMessage({ message, onDismiss }: { message: string; onDismiss: () => 
   );
 }
 
-/** fish ActiveWeighingBanner (+ MultipleActiveWeighingsBanner). Signed-in only, as in fish. */
+/**
+ * fish ActiveWeighingBanner (+ MultipleActiveWeighingsBanner). Signed-in only, as in fish. One
+ * weighing: pressing it opens that weighing's detail (competition-page.cantar-detaliu, parity
+ * shell.c25). Several: pressing opens the list, one entry per weighing (shell.c24), each opening
+ * its detail. A weighing whose stand has no sector does nothing (fish handlePressActiveWeighing).
+ */
 export function ActiveWeighingBanner({
   weighings,
   onPress,
   isNc = false,
 }: {
   weighings: CompetitionActiveWeighing[] | undefined;
-  onPress: () => void;
+  onPress: (weighing: CompetitionActiveWeighing) => void;
   /** nationalChampionship / fipsed (stand.ts isNationalType): fish's «A3(12)» stand label. */
   isNc?: boolean;
 }) {
+  const [listOpen, setListOpen] = useState(false);
   if (!weighings?.length || !weighings[0]?.stand) return null;
   const label = (w: CompetitionActiveWeighing) =>
     isNc
       ? nationalStandLabel(w.stand.sectors[0]?.name, w.stand.sectorDrawPosition, w.stand.name)
       : standLabel(w.stand.sectors[0]?.name ?? '', w.stand.name);
-  const text =
-    weighings.length === 1
-      ? `${weighings[0].weighingType === 'normal' ? 'Cântar' : 'Extra-cântar'} în curs pe standul ${label(weighings[0])}.`
-      : `Cântare în curs pe standurile ${weighings.map(label).join(', ')}.`;
+  const several = weighings.length > 1;
+  const text = several
+    ? `Cântare în curs pe standurile ${weighings.map(label).join(', ')}.`
+    : `${weighings[0].weighingType === 'normal' ? 'Cântar' : 'Extra-cântar'} în curs pe standul ${label(weighings[0])}.`;
+  const open = (w: CompetitionActiveWeighing) => {
+    if (!w.stand.sectors.length) return;
+    onPress(w);
+  };
   return (
-    <button
-      type="button"
-      onClick={onPress}
-      // accent-ink, not accent: 12px white on accent is 4.46:1.
-      className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2.5 bg-accent-ink px-4 py-2 text-on-accent"
-    >
-      <LiveDot tone="inverse" />
-      {/* No live region: the button's own name says it; a status here re-announced on every refetch. */}
-      <span className="truncate t-caption">
-        {text}
-      </span>
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => (several ? setListOpen(true) : open(weighings[0]))}
+        aria-haspopup={several ? 'dialog' : undefined}
+        // accent-ink, not accent: 12px white on accent is 4.46:1.
+        className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2.5 bg-accent-ink px-4 py-2 text-on-accent"
+      >
+        <LiveDot tone="inverse" />
+        {/* No live region: the button's own name says it; a status here re-announced on every refetch. */}
+        <span className="truncate t-caption">{text}</span>
+      </button>
+      {several ? (
+        <Sheet open={listOpen} onClose={() => setListOpen(false)} title="Cântare în curs">
+          <ul className="flex flex-col gap-2 pb-4">
+            {weighings.map(w => (
+              <li key={w.weighingDocumentId}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setListOpen(false);
+                    open(w);
+                  }}
+                  className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-card bg-soft-fill px-4 py-3 text-left text-ink"
+                >
+                  <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-control bg-accent-tint text-accent-ink">
+                    <ScaleIcon className="size-5" />
+                  </span>
+                  <span className="t-body">
+                    {`Vezi ${w.weighingType === 'normal' ? 'cântarul live' : 'extra-cântarul live'} pe standul ${label(w)}`}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Sheet>
+      ) : null}
+    </>
   );
 }

@@ -1,3 +1,5 @@
+import { collectConsoleErrors } from './helpers/console';
+import { BASE_URL as BASE } from './helpers/base-url';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -26,7 +28,6 @@ const ID = {
   upcoming: process.env.E2E_COMPETITION_UPCOMING_OWN ?? 'a6xjl65ooe9eadrtvvqj9hn1',
 };
 
-const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const PHONE = { width: 375, height: 812 };
 const DESKTOP = { width: 1440, height: 900 };
 const page$ = (id: string, q = '') => `/concursuri/${id}/clasament/imagine${q}`;
@@ -37,11 +38,7 @@ test.describe.configure({ timeout: 120_000 });
 /** Collects console errors and the `bluvi:analytics` events the page dispatches. */
 async function open(page: Page, url: string, viewport = DESKTOP) {
   await page.setViewportSize(viewport);
-  const errors: string[] = [];
-  page.on('console', m => {
-    if (m.type() === 'error') errors.push(m.text());
-  });
-  page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
+  const errors = collectConsoleErrors(page);
   await page.addInitScript(() => {
     (window as unknown as { __events: unknown[] }).__events = [];
     window.addEventListener('bluvi:analytics', e => (window as unknown as { __events: unknown[] }).__events.push((e as CustomEvent).detail));
@@ -387,11 +384,8 @@ test('competition-page.imagine-clasament.s1 — while the competition is read: t
 
 test('competition-page.imagine-clasament.s1 competition-page.imagine-clasament.c6 — the competition read fails: the error card, «Încearcă din nou», the attempt; no console error', async ({ page }) => {
   await page.setViewportSize(DESKTOP);
-  const errors: string[] = [];
-  page.on('console', m => {
-    // The boundary logs the error it shows (error.tsx); everything else is a defect.
-    if (m.type() === 'error' && !/e2e fault|Failed to load resource/.test(m.text())) errors.push(m.text());
-  });
+  // The boundary logs the error it shows (error.tsx); everything else is a defect.
+  const errors = collectConsoleErrors(page, { ignore: /e2e fault|Failed to load resource/ });
   await faults(page, ID.completed, ['competition']);
   try {
     await page.goto(page$(ID.completed), { waitUntil: 'domcontentloaded' });

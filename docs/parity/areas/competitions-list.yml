@@ -155,7 +155,7 @@ screens:
         text: A render error in this route shows a retry card for this route only (route error boundary), not a blank page.
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:726
     mobile_only: false
-    status: proposed
+    status: passing
   - id: competitions-list.cards
     title: Card concurs (lista Competiții, Listă și Afiș)
     fish:
@@ -220,8 +220,8 @@ screens:
         text: 'Two chips on every card: the ranking chip (trophy, lavender) with cardRankingLabel and the format chip "Individual" (user icon) or "Echipe" (users icon), blue.'
         fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:150
       - id: competitions-list.cards.c9
-        text: 'cardRankingLabel: a live competition with rounds reads "{rankingLabel} · Manșa {current}/{count}"; otherwise the CMS rankingLabel unchanged.'
-        fish_ref: features/competitions/components/cards/cardRankingLabel.ts:8
+        text: 'cardRankingLabel: a live competition with rounds on more than one leg reads "{rankingLabel} · Manșa {current}/{count}"; a single-leg feeder and everything else show the CMS rankingLabel unchanged.'
+        fish_ref: features/competitions/components/cards/cardRankingLabel.ts:10
       - id: competitions-list.cards.c10
         text: "Expanded (Afiș): the poster spans the full card width at its own aspect ratio (DTO width/height, else the decoded image size), clamped to 0.55–2.4; only a clamped poster switches to contain; medium-size image with blurhash placeholder."
         fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:119
@@ -253,7 +253,7 @@ screens:
         text: "The card formats nothing that depends on timezone or ranking rules: dateLabel, hoursLabel, rankingLabel, counts, unit and podium come from the DTO as-is."
         fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:18
     mobile_only: false
-    status: proposed
+    status: passing
   - id: competitions-list.pulse
     title: "Descoperă (bento: concurs, pescar, număr)"
     fish:
@@ -380,7 +380,7 @@ screens:
         text: The live pulse dot honours reduced motion (static dot).
         fish_ref: features/competitions/components/pulse/LivePulseDot.tsx:45
     mobile_only: false
-    status: proposed
+    status: passing
   - id: competitions-list.search
     title: Caută în Concursuri (dialog)
     fish:
@@ -765,9 +765,11 @@ screens:
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:59
     mobile_only: false
-    # Merged into lakes.competitions (header, page size and card layout are that page's). c3, c5–c7 are
-    # checked there by tests/e2e/competitions-list-status.spec.ts (c8, c9 for the Trecute tab); the rest is
-    # superseded by the owner's criteria — left to the parity verifier.
+    # Merged into lakes.competitions (header = the lake's name, page size 10, /feed/competition-cards and the
+    # /concursuri compact card are that page's). c3, c5–c7 are checked there by
+    # tests/e2e/competitions-list-status.spec.ts; c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts
+    # (2026-10-06, all passing). Open: c8 / state «refreshing» — the owner page has no refresh control (fish
+    # pull-to-refresh; /concursuri lists have «Reîmprospătează»); it lives in the lakes area's files.
     status: proposed
   - id: competitions-list.live
     title: Concursuri live
@@ -927,9 +929,11 @@ screens:
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/started/[lakeId].tsx:59
     mobile_only: false
-    # Merged into lakes.competitions (header, page size and card layout are that page's). c3, c5–c7 are
-    # checked there by tests/e2e/competitions-list-status.spec.ts (c8, c9 for the Trecute tab); the rest is
-    # superseded by the owner's criteria — left to the parity verifier.
+    # Merged into lakes.competitions (header = the lake's name, page size 10, /feed/competition-cards and the
+    # /concursuri compact card are that page's). c3, c5–c7 are checked there by
+    # tests/e2e/competitions-list-status.spec.ts; c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts
+    # (2026-10-06, all passing). Open: c8 / state «refreshing» — the owner page has no refresh control (fish
+    # pull-to-refresh; /concursuri lists have «Reîmprospătează»); it lives in the lakes area's files.
     status: proposed
   - id: competitions-list.incheiate
     title: Concursuri trecute
@@ -1087,9 +1091,11 @@ screens:
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/completed/[lakeId].tsx:59
     mobile_only: false
-    # Merged into lakes.competitions (header, page size and card layout are that page's). c3, c5–c7 are
-    # checked there by tests/e2e/competitions-list-status.spec.ts (c8, c9 for the Trecute tab); the rest is
-    # superseded by the owner's criteria — left to the parity verifier.
+    # Merged into lakes.competitions (header = the lake's name, page size 10, /feed/competition-cards and the
+    # /concursuri compact card are that page's). c3, c5–c7 are checked there by
+    # tests/e2e/competitions-list-status.spec.ts; c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts
+    # (2026-10-06, all passing). Open: c8 / state «refreshing» — the owner page has no refresh control (fish
+    # pull-to-refresh; /concursuri lists have «Reîmprospătează»); it lives in the lakes area's files.
     status: proposed
 behaviours:
   - id: competitions-list.b.tab-entry

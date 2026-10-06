@@ -312,8 +312,8 @@ screens:
       - id: home.acasa.c41
         text: "Each suggestion card: avatar (initials fallback), username, followers line („fără urmăritori” / „1 urmăritor” / „1.284 urmăritori”), up to 2 stats by priority podiumuri → concursuri → CMMC kg → partide (else „Pescar nou”), a Urmărește/Urmăresc button and an „Ascunde sugestia” ✕; pressing the card opens the angler."
         fish_ref: features/anglers/components/SuggestedAnglerCard.tsx:27-111
-        status: todo
-        note: "FAILS: a followed suggestion reads «Urmărești» — the kit components/cards/FollowButton.tsx hard-codes it; fish FollowButton.tsx:72 reads «Urmăresc». Fix in the kit (outside _home); e2e has an expected-fail test for it. Everything else on the card passes in e2e."
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts (c40 c41 c42 round-trip; c41 «Urmăresc» label — the kit components/cards/FollowButton.tsx now carries fish's copy, fish components/profile/FollowButton.tsx:72)."
       - id: home.acasa.c42
         text: "Dismissing a suggestion hides it for the current session only (in-memory, returns next launch)."
         fish_ref: features/anglers/state/dismissedSuggestionsAtom.ts:3-15
@@ -401,7 +401,7 @@ screens:
         note: "e2e tests/e2e/acasa.spec.ts"
     mobile_only: false
     # proposed: built on T5 (2026-10-05), every criterion has a check (status per criterion);
-    # c18, c34, c53, c57 still fail and c41 is todo (kit label) — see their notes.
+    # c18, c34, c53, c57 still fail — see their notes.
     status: proposed
 
   - id: home.stiri
@@ -464,6 +464,7 @@ screens:
         note: "core/news newsInfiniteQuery staleTime/gcTime 1h (core/news/news.test.ts); the list uses it unchanged."
     mobile_only: false
     # built on T1 2026-10-05 (app/(site)/stiri); every criterion verified (e2e tests/e2e/stiri.spec.ts + unit).
+    # re-checked 2026-10-06: stiri.spec.ts 31/31; full width (ROADMAP §4) asserted in tests/e2e/full-width.spec.ts at 1280–2560 (auto-fill grid, more columns not wider cards).
     status: passing
 
   - id: home.stire
@@ -529,6 +530,7 @@ screens:
         note: "e2e tests/e2e/stiri.spec.ts (card → article) and acasa.spec.ts (Acasă rail links /stiri/<id>); routes.newsItem is the NEWS notification target: core/social notificationRoute resolves NEWS + newsId to { kind: 'news', params: { newsId } }; the web notifications screen that turns it into this URL is not built yet (social area) — web has in-app notifications only."
     mobile_only: false
     # built on the T3 tracks 2026-10-05 (app/(site)/stiri/[id]); every criterion verified.
+    # re-checked 2026-10-06: full width asserted in tests/e2e/full-width.spec.ts (gutters, 720 measure, «Alte noutăți» right column).
     status: passing
 
   - id: home.sponsor
@@ -577,6 +579,7 @@ screens:
         note: "e2e tests/e2e/stiri.spec.ts + unit: links carry sponsor_link_clicked { sponsor_id, sponsor_name, url } as data-analytics-*; the GA4 listener lands in M8 (home.b.analytics)."
     mobile_only: false
     # built on the T3 tracks 2026-10-05 (app/(site)/sponsori/[id]); every criterion verified.
+    # re-checked 2026-10-06: full width asserted in tests/e2e/full-width.spec.ts (gutters, 720 measure, «Alți sponsori» right column).
     status: passing
 
 behaviours:
