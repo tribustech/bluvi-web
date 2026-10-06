@@ -208,6 +208,19 @@ Add each new piece of feedback here, dated.
     - Each entry shows the avatar (a pair of faces for teams), the name(s), club, stand label and the
       angler's headline stats inline.
     - Signed out: same layout without the stats, plus one quiet sign-in hint.
+19. **Bento tiles are Apple-style: each tile has its own surface.** No grid of identical white cards.
+    - Mix navy (the signature tile), indigo, lavender and the soft tints of the status palette, subtle
+      gradients, and a large icon or illustration in the corner.
+    - A tile may use a photo background (the catch, the lake) under a scrim.
+    - Text on every surface stays AA.
+    - Reference: the Apple bento (apple.com feature grids), big type with one idea per tile.
+20. **View switchers must look like tabs.** The 4 ranking views (Clasament, Cântare, Statistici, Toți
+    peștii) and any similar switcher are a clear segmented control or tab bar:
+    - one container;
+    - a strong selected state (filled accent or solid surface plus underline);
+    - hover and focus states;
+    - counts as badges.
+    Never loose text blocks where the owner "nici nu vezi că sunt taburi".
 
 
 
