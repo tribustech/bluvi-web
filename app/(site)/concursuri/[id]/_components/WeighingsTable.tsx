@@ -21,6 +21,7 @@ import { nationalStandLabel } from './stand';
 import { sortedSectors } from './standOrder';
 import { Bone } from './tabParts';
 import { photo, useBrokenImages } from './brokenImages';
+import type { WeighingPersonHook } from './WeighingDetail';
 
 /*
  * Cântare from 1280 (owner rule 14, ROADMAP §4b): not the phone's stand cards stretched, but every
@@ -59,6 +60,8 @@ type StandEntry = {
   standId: string;
   /** «1», NC «A3(12)». */
   label: string;
+  /** The stand as the person popover names it: NC its own label («A3(12)»), else null (the registration's «Sector A · Stand 12»). */
+  personLabel: string | null;
   alloc: AllocatedParticipantsResponse[string] | null;
   registration: DetailRegistration | null;
 };
@@ -106,7 +109,10 @@ export function WeighingsTable({
   docked,
   selected,
   onWeighing,
+  person,
 }: {
+  /** ≥1024: the angler cell opens the person popover (owner rule 17); the row still opens the weighing. */
+  person?: WeighingPersonHook;
   t: Transport;
   competition: CompetitionWithMyStatus;
   allocated: AllocatedParticipantsResponse | undefined;
@@ -138,10 +144,12 @@ export function WeighingsTable({
         sector,
         stands: sector.stands.map<StandEntry>(stand => {
           const alloc = allocated?.[stand.documentId] ?? null;
+          const label = isNc ? nationalStandLabel(sector.name, alloc?.sectorDrawPosition, stand.name) : stand.name;
           return {
             sectorName: sector.name,
             standId: stand.documentId,
-            label: isNc ? nationalStandLabel(sector.name, alloc?.sectorDrawPosition, stand.name) : stand.name,
+            label,
+            personLabel: isNc ? label : null,
             alloc,
             registration: alloc ? (registrations.get(alloc.registrationId) ?? null) : null,
           };
@@ -292,6 +300,7 @@ export function WeighingsTable({
                       broken={broken}
                       selected={selected}
                       onWeighing={onWeighing}
+                      person={person}
                     />
                   ))}
                   {loading.length ? <BoneRows count={Math.min(3, loading.length)} /> : null}
@@ -300,7 +309,7 @@ export function WeighingsTable({
               );
             })
           ) : (
-            <RecentRows stands={stands} byStand={byStand} pending={pending} decimals={decimals} narrow={narrow} broken={broken} selected={selected} onWeighing={onWeighing} />
+            <RecentRows stands={stands} byStand={byStand} pending={pending} decimals={decimals} narrow={narrow} broken={broken} selected={selected} onWeighing={onWeighing} person={person} />
           )}
         </table>
       </div>
@@ -422,7 +431,9 @@ function StandRows({
   broken,
   selected,
   onWeighing,
+  person,
 }: {
+  person?: WeighingPersonHook;
   broken: ReadonlySet<string>;
   stand: StandEntry;
   query: UseQueryResult<WeighingByStand[]>;
@@ -436,7 +447,7 @@ function StandRows({
     return (
       <tr id={`stand-${stand.standId}`} className="scroll-mt-40">
         <StandCell stand={stand} tint="bg-surface" />
-        <AnglerCell stand={stand} broken={broken} tint="bg-surface" />
+        <AnglerCell stand={stand} broken={broken} tint="bg-surface" person={person} />
         <td colSpan={COLUMNS.length - 2} className={CELL}>
           <span className="flex items-center gap-3">
             <span className="t-caption text-ink-2">Cântarele standului nu au putut fi încărcate.</span>
@@ -452,7 +463,7 @@ function StandRows({
   const lead = (tint: string) => (
     <>
       <StandCell stand={stand} rowSpan={multi ? weighings.length + 1 : undefined} tint={multi ? 'bg-surface' : tint} />
-      <AnglerCell stand={stand} rowSpan={multi ? weighings.length + 1 : undefined} broken={broken} tint={multi ? 'bg-surface' : tint} />
+      <AnglerCell stand={stand} rowSpan={multi ? weighings.length + 1 : undefined} broken={broken} tint={multi ? 'bg-surface' : tint} person={person} />
     </>
   );
   return (
@@ -496,7 +507,9 @@ function RecentRows({
   broken,
   selected,
   onWeighing,
+  person,
 }: {
+  person?: WeighingPersonHook;
   broken: ReadonlySet<string>;
   stands: StandEntry[];
   byStand: Map<string, UseQueryResult<WeighingByStand[]>>;
@@ -527,7 +540,7 @@ function RecentRows({
           lead={tint => (
             <>
               <StandCell stand={stand} withSector tint={tint} />
-              <AnglerCell stand={stand} broken={broken} tint={tint} />
+              <AnglerCell stand={stand} broken={broken} tint={tint} person={person} />
             </>
           )}
         />
@@ -682,9 +695,23 @@ function StandCell({ stand, rowSpan, withSector, tint }: { stand: StandEntry; ro
 
 /**
  * The angler: the face(s) and one line — the team, or the people. A guest team's members line shows
- * only when it says more than its name (names.ts echoes); then the longer of the two is kept.
+ * only when it says more than its name (names.ts echoes); then the longer of the two is kept. From
+ * 1024 (`person`) the cell's content is its own button: it opens the person popover (owner rule 17)
+ * and the press stops there, so it does not also open the row's weighing.
  */
-function AnglerCell({ stand, rowSpan, broken, tint }: { stand: StandEntry; rowSpan?: number; broken: ReadonlySet<string>; tint: string }) {
+function AnglerCell({
+  stand,
+  rowSpan,
+  broken,
+  tint,
+  person,
+}: {
+  stand: StandEntry;
+  rowSpan?: number;
+  broken: ReadonlySet<string>;
+  tint: string;
+  person?: WeighingPersonHook;
+}) {
   const { alloc, registration } = stand;
   const people = registration?.participants ?? [];
   const names = alloc ? alloc.guestName || alloc.participants.map(p => p.name).join(', ') || '-' : '-';
@@ -692,27 +719,47 @@ function AnglerCell({ stand, rowSpan, broken, tint }: { stand: StandEntry; rowSp
   const echo = !!team && echoes(names, team);
   const title = team ? (echo && names.length > team.length ? names : team) : names;
   const subtitle = team && !echo && names !== '-' ? names : null;
+  const content = (
+    <>
+      {!alloc ? null : people.length > 1 ? (
+        <FaceStack size={32} people={people.slice(0, 3).map(p => ({ name: p.username, src: photo(p.avatar?.url, broken) }))} overflow={Math.max(0, people.length - 3)} />
+      ) : people.length === 1 ? (
+        <Avatar name={people[0].username} src={photo(people[0].avatar?.url, broken)} size={32} />
+      ) : (
+        <Avatar name={title} size={32} tone="neutral" />
+      )}
+      <span className="flex min-w-0 flex-col">
+        <span title={title} className={cn('truncate', alloc ? 't-body-strong text-ink' : 't-body text-muted', person && 'decoration-accent-tint-3 underline-offset-4 group-hover/who:underline')}>
+          {title}
+        </span>
+        {subtitle ? (
+          <span title={subtitle} className="truncate t-caption text-muted">
+            {subtitle}
+          </span>
+        ) : null}
+      </span>
+    </>
+  );
+  const opens = !!alloc && !!person?.has(alloc.registrationId);
   return (
     <td rowSpan={rowSpan} className={cn(LINE, tint, 'relative z-above py-2 transition-colors duration-(--duration-fast)', rowSpan ? 'align-top' : 'align-middle')}>
-      <span className="flex min-w-0 items-center gap-2.5">
-        {!alloc ? null : people.length > 1 ? (
-          <FaceStack size={32} people={people.slice(0, 3).map(p => ({ name: p.username, src: photo(p.avatar?.url, broken) }))} overflow={Math.max(0, people.length - 3)} />
-        ) : people.length === 1 ? (
-          <Avatar name={people[0].username} src={photo(people[0].avatar?.url, broken)} size={32} />
-        ) : (
-          <Avatar name={title} size={32} tone="neutral" />
-        )}
-        <span className="flex min-w-0 flex-col">
-          <span title={title} className={cn('truncate', alloc ? 't-body-strong text-ink' : 't-body text-muted')}>
-            {title}
-          </span>
-          {subtitle ? (
-            <span title={subtitle} className="truncate t-caption text-muted">
-              {subtitle}
-            </span>
-          ) : null}
-        </span>
-      </span>
+      {opens && alloc && person ? (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={person.openId === alloc.registrationId}
+          data-angler={alloc.registrationId}
+          onClick={e => {
+            e.stopPropagation();
+            person.open(alloc.registrationId, e.currentTarget, stand.personLabel);
+          }}
+          className="group/who -mx-1.5 -my-1 flex max-w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-control px-1.5 py-1 text-left hover:bg-soft-fill focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent"
+        >
+          {content}
+        </button>
+      ) : (
+        <span className="flex min-w-0 items-center gap-2.5">{content}</span>
+      )}
     </td>
   );
 }

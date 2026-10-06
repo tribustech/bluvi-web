@@ -4,7 +4,7 @@ import { anglerHref } from '@/lib/routes';
 import { signInHref } from '../../../_shell/SiteHeader';
 import type { PageViewer } from './Follow';
 
-/* Parts shared by the Participanți list's layouts (ParticipantsTab: phone and cards; ParticipantsTable from 1280). */
+/* Parts shared by the Participanți list's layouts (ParticipantsTab: the phone's cards; ParticipantsRoster from 768) and the person popover (PersonPopover, from 1024). */
 
 export type StatsAccess =
   | { kind: 'pending' }

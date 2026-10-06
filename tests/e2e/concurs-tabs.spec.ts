@@ -37,6 +37,10 @@ const ID = {
   plain: process.env.E2E_TABS_PLAIN ?? 'uxxie29m6820wrpdv45w0m7q',
   /** started, no extra-scale request. */
   live: process.env.E2E_TABS_LIVE ?? 'kee49a3e64b3f636b4b60daa',
+  /** completed feeder legs, team (crews): the Clasament badge counts «echipe». */
+  viewFeeder: process.env.E2E_TABS_FEEDER ?? 'rg340d4r4gnwf2mbyhxvasnr',
+  /** completed nationalChampionship: the Clasament badge counts the General table's clubs. */
+  viewNc: process.env.E2E_TABS_NC ?? 'z7rvhm55ziyr0tbblqwjp39q',
 };
 
 const PHONE = { width: 375, height: 812 };
@@ -1096,4 +1100,224 @@ test(`competition-page.regulament.c4 — coming back after a while re-reads the 
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect.poll(() => competition.length).toBeGreaterThan(0);
   await expect.poll(() => statute.length).toBeGreaterThan(0);
+});
+
+/* ------------------------------------------------------------------ */
+/* The four ranking views read as tabs (owner rule 20)                 */
+/* ------------------------------------------------------------------ */
+
+const WIDE = { width: 1920, height: 1080 };
+/** Largest channel difference between two computed `rgb(…)` colours (0–255). */
+const rgbDelta = (a: string, b: string) => {
+  const ch = (c: string) => (c.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+  const [x, y] = [ch(a), ch(b)];
+  return Math.max(...x.map((v, i) => Math.abs(v - (y[i] ?? 0))));
+};
+/** The colour the tablist sits on: the first ancestor with a fill. */
+const groundOf = (l: Locator) =>
+  l.evaluate(el => {
+    for (let n = el.parentElement; n; n = n.parentElement) {
+      const bg = getComputedStyle(n).backgroundColor;
+      if (bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
+    }
+    return getComputedStyle(document.body).backgroundColor;
+  });
+
+for (const vp of [PHONE, LAPTOP, DESKTOP, WIDE]) {
+  test(`competition-page.b.view-tabs — owner rule 20: Clasament / Cântare / Statistici / Toți peștii are one tab container, the selected one filled, hover and focus, counts as badges (${vp.width}px)`, async ({ page }) => {
+    await open(page, `/concursuri/${ID.live}`, vp);
+    const tablist = page.getByRole('tablist', { name: 'Vederi clasament' }).locator('visible=true');
+    await expect(tablist).toHaveCount(1);
+    const tabs = tablist.getByRole('tab');
+    await expect(tabs).toHaveCount(4);
+    await expect(tabs).toHaveText([/^Clasament/, /^Cântare/, /^Statistici/, /^Toți peștii/]);
+    // One container: its own fill, every tab inside its box.
+    const container = await tablist.evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(container).not.toBe('rgba(0, 0, 0, 0)');
+    // …with an edge that visibly differs from the ground under it, at every width: a real border
+    // (a soft-fill track on the white phone ground was ~1.08:1 — only the filled chip read as a
+    // control; on the grey page the hairline ring is lighter than the page).
+    const ground = await groundOf(tablist);
+    const border = await tablist.evaluate(el => ({ w: parseFloat(getComputedStyle(el).borderTopWidth), c: getComputedStyle(el).borderTopColor }));
+    expect(border.w).toBeGreaterThanOrEqual(1);
+    expect(rgbDelta(border.c, ground)).toBeGreaterThanOrEqual(24);
+    const box = (await tablist.boundingBox())!;
+    for (const tab of await tabs.all()) {
+      const b = (await tab.boundingBox())!;
+      expect(b.x).toBeGreaterThanOrEqual(box.x);
+      expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 0.5);
+      // Rule 16: from 768 a content-sized segmented control, never a quarter of the column.
+      if (vp.width >= 768) expect(b.width).toBeLessThanOrEqual(230);
+    }
+    // A strong selected state: the selected tab is filled (not the container's colour, not clear).
+    const selected = tablist.getByRole('tab', { selected: true });
+    await expect(selected).toContainText('Clasament');
+    const fill = (l: Locator) => l.evaluate(el => getComputedStyle(el).backgroundColor);
+    const selectedFill = await fill(selected);
+    expect(selectedFill).not.toBe('rgba(0, 0, 0, 0)');
+    expect(selectedFill).not.toBe(container);
+    // Counts as badges: anglers and catches on their tabs, spoken with their noun.
+    await expect(tablist.getByRole('tab', { name: /^Clasament\s*,\s*\d+ (de )?pescari$/ })).toBeVisible({ timeout: 30_000 });
+    await expect(tablist.getByRole('tab', { name: /^Toți peștii\s*,\s*\d+ (de )?capturi$/ })).toBeVisible();
+    // Hover: an unselected tab takes a visible fill (the accent tint).
+    const other = tablist.getByRole('tab', { name: /^Statistici/ });
+    const before = await fill(other);
+    await other.hover();
+    // Polled until it is a fill (a clear tab against a white track also «differs» by 255).
+    await expect.poll(async () => {
+      const now = await fill(other);
+      return now !== before && !now.startsWith('rgba') ? rgbDelta(now, container) : 0;
+    }).toBeGreaterThanOrEqual(10);
+    // Keyboard: Right moves selection and focus; the focus ring shows on the focused tab.
+    await page.waitForFunction(() => Object.keys(document.querySelector('h1')!).some(k => k.startsWith('__react')));
+    await selected.focus();
+    await page.keyboard.press('ArrowRight');
+    const cantare = tablist.getByRole('tab', { name: /^Cântare/ });
+    await expect(cantare).toHaveAttribute('aria-selected', 'true');
+    await expect(cantare).toBeFocused();
+    expect(await cantare.evaluate(el => getComputedStyle(el).outlineStyle)).toBe('solid');
+    await expect.poll(() => fill(cantare)).toBe(selectedFill);
+    await expectNoA11yViolations(page, { include: '[role="tablist"][aria-label="Vederi clasament"]' });
+  });
+}
+
+for (const [kind, id, noun] of [
+  ['feeder (team)', ID.viewFeeder, /echip(ă|e)/],
+  ['national championship', ID.viewNc, /club(uri)?/],
+] as const) {
+  for (const vp of [PHONE, DESKTOP]) {
+    test(`competition-page.b.view-tabs — owner rule 20, ${kind}: the Clasament badge counts the table shown, spoken with its noun (${vp.width}px)`, async ({ page }) => {
+      await open(page, `/concursuri/${id}`, vp);
+      const tablist = page.getByRole('tablist', { name: 'Vederi clasament' }).locator('visible=true');
+      const clasament = tablist.getByRole('tab', { name: /^Clasament/ });
+      await expect(clasament).toHaveAccessibleName(new RegExp(`^Clasament\\s*,\\s*\\d+ (de )?${noun.source}$`), { timeout: 30_000 });
+      await expect(clasament).not.toHaveAccessibleName(/pescari/);
+    });
+  }
+}
+
+for (const [kind, id] of [
+  ['live', ID.live],
+  ['feeder', ID.viewFeeder],
+  ['national championship', ID.viewNc],
+] as const) {
+  for (const vp of [LAPTOP, WIDE]) {
+    test(`competition-page.b.view-tabs — the view switcher stays at the same y on every view (${kind}, ${vp.width}px)`, async ({ page }) => {
+      const strip = page.getByRole('group', { name: 'Concursul pe scurt' });
+      const tablist = page.getByRole('tablist', { name: 'Vederi clasament' }).locator('visible=true');
+      const yOn = async (path: string) => {
+        await open(page, path, vp);
+        await expect(strip).toBeVisible({ timeout: 30_000 });
+        await settle(page);
+        return (await tablist.boundingBox())!.y;
+      };
+      const onClasament = await yOn(`/concursuri/${id}`);
+      const onStatistici = await yOn(`/concursuri/${id}/statistici`);
+      expect(Math.abs(onStatistici - onClasament)).toBeLessThan(1);
+      // Pressing «Statistici» never moves the bar from under the pointer.
+      await open(page, `/concursuri/${id}`, vp);
+      await expect(strip).toBeVisible({ timeout: 30_000 });
+      await page.waitForFunction(() => Object.keys(document.querySelector('h1')!).some(k => k.startsWith('__react')));
+      const before = (await tablist.boundingBox())!.y;
+      await tablist.getByRole('tab', { name: /^Statistici/ }).click();
+      await expect(tablist.getByRole('tab', { name: /^Statistici/ })).toHaveAttribute('aria-selected', 'true');
+      await settle(page);
+      expect(Math.abs((await tablist.boundingBox())!.y - before)).toBeLessThan(1);
+    });
+  }
+}
+
+test('competition-page.b.view-tabs — owner rule 20, 375: a four-digit count stays a badge inside its chip («999+», the full count spoken)', async ({ page }) => {
+  await page.clock.install();
+  // The ranking re-read (after its five minutes) says 1.284 catches: the Toți peștii badge.
+  await page.route(new RegExp(`/competitions/${ID.live}/ranking(\\?|$)`), async route => {
+    const res = await route.fetch();
+    const json = await res.json();
+    json.metadata.totalCatchesCount = 1284;
+    await route.fulfill({ response: res, json });
+  });
+  await open(page, `/concursuri/${ID.live}`, PHONE);
+  await settle(page);
+  const tablist = page.getByRole('tablist', { name: 'Vederi clasament' }).locator('visible=true');
+  const all = tablist.getByRole('tab', { name: /^Toți peștii/ });
+  await expect(all).toBeVisible({ timeout: 30_000 });
+  await page.clock.fastForward(5 * 60_000 + 1000);
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(all).toHaveAccessibleName(/1\.284 (de )?capturi$/, { timeout: 30_000 });
+  const badge = all.locator('.rounded-full').filter({ hasText: '999+' });
+  await expect(badge).toBeVisible();
+  for (const tab of await tablist.getByRole('tab').all()) {
+    const t = (await tab.boundingBox())!;
+    const pill = tab.locator('.rounded-full');
+    if (!(await pill.count())) continue;
+    const b = (await pill.first().boundingBox())!;
+    expect(b.x).toBeGreaterThanOrEqual(t.x);
+    expect(b.x + b.width).toBeLessThanOrEqual(t.x + t.width + 0.5);
+    // The pill keeps its figure on one line, never cut inside it.
+    expect(await pill.first().evaluate(el => el.scrollWidth <= el.clientWidth + 0.5)).toBe(true);
+  }
+});
+
+/**
+ * The Clasament route's own skeleton (CompetitionRoute's fallback, `ranking` variant) as a reader
+ * sees it: from Informații, Clasament is opened over a slow network (20 kB/s: slower, and the band's
+ * own shell holds the screen until the release), so its stream shows the skeleton for seconds. Resolves once the skeleton's view switcher is on screen.
+ */
+async function holdRankingSkeleton(page: Page, id: string, viewport: { width: number; height: number }) {
+  await open(page, `/concursuri/${id}/informatii`, viewport);
+  await settle(page);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Network.enable');
+  await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: 20_000, uploadThroughput: -1 });
+  await page.getByRole('navigation', { name: 'Secțiunile concursului' }).getByRole('link', { name: /^Clasament/ }).click();
+  await expect(page.locator('[data-skeleton-views]').locator('visible=true')).toBeVisible({ timeout: 60_000 });
+  return () => cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+}
+
+for (const vp of [PHONE, DESKTOP]) {
+  test(`competition-page.b.view-tabs — the page skeleton draws the view switcher's own box (y and height), so nothing under it jumps when it lands (${vp.width}px)`, async ({ page }) => {
+    const release = await holdRankingSkeleton(page, ID.live, vp);
+    const bones = page.locator('[data-skeleton-views]').locator('visible=true');
+    const bone = (await bones.boundingBox())!;
+    // The shape too: the phone's track is the full row; from 768 a content-sized control.
+    if (vp.width < 768) expect(bone.width).toBeGreaterThan(vp.width - 40);
+    else expect(bone.width).toBeLessThan(800);
+    await release();
+    const tablist = page.getByRole('tablist', { name: 'Vederi clasament' }).locator('visible=true');
+    await expect(tablist).toBeVisible({ timeout: 45_000 });
+    if (vp.width >= 768) await expect(page.getByRole('group', { name: 'Concursul pe scurt' })).toBeVisible({ timeout: 30_000 });
+    await settle(page);
+    const loaded = (await tablist.boundingBox())!;
+    expect(Math.abs(loaded.height - bone.height)).toBeLessThan(1);
+    expect(Math.abs(loaded.y - bone.y)).toBeLessThan(1);
+    if (vp.width < 768) expect(Math.abs(loaded.width - bone.width)).toBeLessThan(1);
+  });
+}
+
+test('competition-page.b.view-tabs — signed out, a weighing open in the public statistics: the strip says «Cântar în curs» and the Cântare tab carries the live dot (one rule for both)', async ({ page }) => {
+  await page.clock.install();
+  let open = false;
+  await page.route(new RegExp(`/competitions/${ID.live}/weighing-statistics`), async route => {
+    const res = await route.fetch();
+    const body = await res.json();
+    if (open && body.data?.length) {
+      const last = body.data[body.data.length - 1];
+      body.data.push({ ...last, id: 999_999, documentId: 'e2e-open-weighing', startDate: new Date(Date.now() - 5 * 60_000).toISOString(), endDate: null, weighingType: 'normal' });
+    }
+    await route.fulfill({ response: res, json: body });
+  });
+  await page.setViewportSize(DESKTOP);
+  await page.goto(`/concursuri/${ID.live}`, { waitUntil: 'domcontentloaded' });
+  const strip = page.getByRole('group', { name: 'Concursul pe scurt' });
+  const tab = page.getByRole('tablist', { name: 'Vederi clasament' }).getByRole('tab', { name: /^Cântare/ });
+  await expect(tab).toBeVisible({ timeout: 45_000 });
+  await expect(strip).toBeVisible({ timeout: 45_000 });
+  // Before: no session open — neither says so.
+  await expect(strip.getByText('Cântar în curs')).toHaveCount(0);
+  await expect(tab).not.toContainText('cântar în curs');
+  // The live poll re-reads the public statistics, now with an open session.
+  open = true;
+  await page.clock.runFor(61_000);
+  await expect(strip.getByText('Cântar în curs')).toBeVisible({ timeout: 30_000 });
+  await expect(tab).toContainText('cântar în curs');
 });

@@ -131,6 +131,40 @@
   --bluvi-shadow-panel: -8px 0 24px -8px rgb(16 24 40 / 0.18);
   /* Modal scrim (Dialog, Sheet): ink at 35%. A token because ink turns light in dark. */
   --bluvi-scrim: rgb(16 24 40 / 0.35);
+  /*
+   * Bento surfaces (owner rule 19, BentoTile): each tile its own surface. The signature navy runs
+   * into navy-2 (lavender-2 4.9:1 at its lightest end); indigo runs indigo → indigo-2 with white
+   * (6.3:1 at the light end) and on-bento-indigo-2 for labels/units (5.1:1); lavender carries
+   * on-bento-lavender (8.1:1) and the ink number. The soft tints are the status / badge pairs.
+   */
+  --bluvi-bento-navy-2: #283066;
+  --bluvi-bento-indigo: #3730a3;
+  --bluvi-bento-indigo-2: #4f46e5;
+  --bluvi-on-bento-indigo: #ffffff;
+  --bluvi-on-bento-indigo-2: #e0e7ff;
+  --bluvi-bento-lavender: #e0e7ff;
+  --bluvi-bento-lavender-2: #eef2ff;
+  --bluvi-on-bento-lavender: #3730a3;
+  /*
+   * The two bento tints that are not a status (2026-10-06, rule 19): the badge blue and violet tints
+   * read as the same pale periwinkle as lavender beside it, so sky is a cyan and violet a deeper
+   * orchid — each at least 24 per channel away from lavender, mint and rose. sky carries
+   * on-bento-sky (5.8:1), violet on-bento-violet (6.0:1).
+   */
+  --bluvi-bento-sky: #bfeef6;
+  --bluvi-on-bento-sky: #155e75;
+  --bluvi-bento-violet: #e4c9fb;
+  --bluvi-on-bento-violet: #5b21b6;
+  /*
+   * Two more bento tints (2026-10-06, rule 19): the Statistici page draws up to nine tinted surfaces
+   * (the strip, the facts, the chart cards) and six tints made two of them repeat. peach (orange-200)
+   * carries on-bento-peach (5.4:1), lime on-bento-lime (5.7:1); the ink title 13.1 / 14.3:1. Each at
+   * least 24 per channel away from amber, rose, mint and sky.
+   */
+  --bluvi-bento-peach: #fed7aa;
+  --bluvi-on-bento-peach: #9a3412;
+  --bluvi-bento-lime: #d9f0a3;
+  --bluvi-on-bento-lime: #3f6212;
   --bluvi-font: var(--font-nunito), ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light;
 }
@@ -210,6 +244,24 @@
   /* On a dark page a shadow only reads as a deeper black; the hairline does the separating. */
   --bluvi-shadow-tabbar: 0 -2px 8px rgb(0 0 0 / 0.32);
   --bluvi-shadow-panel: -8px 0 24px -8px rgb(0 0 0 / 0.5);
+  /* Bento: navy and indigo are theme-invariant; lavender becomes the dark accent tint (8.3:1). */
+  --bluvi-bento-navy-2: #283066;
+  --bluvi-bento-indigo: #3730a3;
+  --bluvi-bento-indigo-2: #4f46e5;
+  --bluvi-on-bento-indigo: #ffffff;
+  --bluvi-on-bento-indigo-2: #e0e7ff;
+  --bluvi-bento-lavender: #2a3160;
+  --bluvi-bento-lavender-2: #232a52;
+  --bluvi-on-bento-lavender: #c7d2fe;
+  --bluvi-bento-sky: #0f3d4c;
+  --bluvi-on-bento-sky: #a5f3fc;
+  --bluvi-bento-violet: #4a2059;
+  --bluvi-on-bento-violet: #d8b4fe;
+  /* Proposals: peach 7.6:1, lime 9.7:1 (the ink title 11.7 / 11.5:1). */
+  --bluvi-bento-peach: #4a2a14;
+  --bluvi-on-bento-peach: #fdba74;
+  --bluvi-bento-lime: #26380f;
+  --bluvi-on-bento-lime: #bef264;
   --bluvi-scrim: rgb(0 0 0 / 0.55);
   color-scheme: dark;
 }
@@ -275,6 +327,22 @@
   --color-handle: var(--bluvi-handle);
   --color-shimmer: var(--bluvi-shimmer);
   --color-scrim: var(--bluvi-scrim);
+  --color-bento-navy-2: var(--bluvi-bento-navy-2);
+  --color-bento-indigo: var(--bluvi-bento-indigo);
+  --color-bento-indigo-2: var(--bluvi-bento-indigo-2);
+  --color-on-bento-indigo: var(--bluvi-on-bento-indigo);
+  --color-on-bento-indigo-2: var(--bluvi-on-bento-indigo-2);
+  --color-bento-lavender: var(--bluvi-bento-lavender);
+  --color-bento-lavender-2: var(--bluvi-bento-lavender-2);
+  --color-on-bento-lavender: var(--bluvi-on-bento-lavender);
+  --color-bento-sky: var(--bluvi-bento-sky);
+  --color-on-bento-sky: var(--bluvi-on-bento-sky);
+  --color-bento-violet: var(--bluvi-bento-violet);
+  --color-on-bento-violet: var(--bluvi-on-bento-violet);
+  --color-bento-peach: var(--bluvi-bento-peach);
+  --color-on-bento-peach: var(--bluvi-on-bento-peach);
+  --color-bento-lime: var(--bluvi-bento-lime);
+  --color-on-bento-lime: var(--bluvi-on-bento-lime);
 
   --font-sans: var(--bluvi-font);
 }
@@ -317,6 +385,40 @@
   --color-sector-v: #2e7d32;
   --color-sector-w: #f9a825;
   --color-sector-x: #b71c1c;
+
+  /*
+   * ---- ranking tables: fish's colour language (ROADMAP §4b.15) ----
+   * Theme-invariant like the medals: these are fish's table colours, drawn the same in both themes.
+   * Feeder (fish FeederRankingTable): TOTAL_COLOR, one colour per leg (white bold on the group
+   * header, the colour on its 10% sub-header and in the cells), the plain grey head, zebra rows and
+   * the podium row. Two legs moved one same-hue step for AA: #1E88E5 → #1565C0 (white on it 3.68 →
+   * 5.75; on its 10% tint 3.27 → 5.00) and #00897B → #00796B (4.32 → 5.32; tint 3.80 → 4.64).
+   * NO_SECTOR #90A4AE carries black (8.1:1), not fish's white (2.6:1).
+   * Text on a sector fill (the standard table's 90% winner row, a leg's sector band): white or
+   * black, whichever clears AA for that sector (components/ranking/sector.ts sectorInk; every
+   * pair ≥ 4.6:1). The 40% / 16% tints carry black (≥ 8:1).
+   */
+  --color-rank-base: #ffffff;
+  --color-rank-total: #3949ab;
+  --color-rank-total-tint: color-mix(in srgb, #3949ab 10%, #ffffff);
+  --color-rank-leg-1: #1565c0;
+  --color-rank-leg-1-tint: color-mix(in srgb, #1565c0 10%, #ffffff);
+  --color-rank-leg-2: #00796b;
+  --color-rank-leg-2-tint: color-mix(in srgb, #00796b 10%, #ffffff);
+  --color-rank-leg-3: #8e24aa;
+  --color-rank-leg-3-tint: color-mix(in srgb, #8e24aa 10%, #ffffff);
+  --color-rank-plain-head: #f1f3f8;
+  --color-rank-plain-head-ink: #5b6475;
+  --color-rank-ink: #1f2430;
+  --color-rank-zebra: #f7f8fb;
+  --color-rank-podium: #eef5ff;
+  --color-rank-line: #e3e6ee;
+  --color-rank-no-sector: #90a4ae;
+  /* A catch cell past the sector's minimum, «nu se punctează» (fish RankingTable $gray4, light). */
+  --color-rank-unscored: #ededed;
+  /* On a dark / a light sector fill (sectorInk). */
+  --color-rank-on-dark: #ffffff;
+  --color-rank-on-light: #000000;
 
   /* ---- spacing: Tailwind's 4px base already matches Fundații 1..16 (4..64px) ---- */
   --spacing: 4px;
@@ -594,4 +696,26 @@
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
+}
+
+/*
+ * Ranking tables: a sector's fill under text, fish's opacities (ROADMAP §4b.15). The row (or the
+ * band) sets `--sector` to its colour (row.backgroundColor: var(--color-sector-x)); mixed with
+ * white, so the fill is opaque (a pinned cell covers what scrolls under it).
+ *   rank-sector-tint  40% — every value cell of the standard table (fish RankingTable)
+ *   rank-sector-win   90% — a winner row (fish isWinner)
+ *   rank-sector-soft  16% — a leg's sector winner row (fish FeederRankingTable LegRow)
+ *   rank-sector-solid      — a leg's sector band, the 4px edge
+ */
+@utility rank-sector-tint {
+  background-color: color-mix(in srgb, var(--sector, var(--color-rank-no-sector)) 40%, var(--color-rank-base));
+}
+@utility rank-sector-win {
+  background-color: color-mix(in srgb, var(--sector, var(--color-rank-no-sector)) 90%, var(--color-rank-base));
+}
+@utility rank-sector-soft {
+  background-color: color-mix(in srgb, var(--sector, var(--color-rank-no-sector)) 16%, var(--color-rank-base));
+}
+@utility rank-sector-solid {
+  background-color: var(--sector, var(--color-rank-no-sector));
 }

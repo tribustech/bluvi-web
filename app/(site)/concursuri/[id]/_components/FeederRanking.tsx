@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import {
   feederGeneralModel,
@@ -14,33 +14,25 @@ import {
   type FeederTab,
 } from '@/core/competitions';
 import { RankingFace } from '@/components/ranking/RankingFace';
-import { sectorFill } from '@/components/ranking/sector';
+import { RankingTabs, type RankingTab } from '@/components/ranking/RankingTabs';
+import { sectorInk, sectorVar } from '@/components/ranking/sector';
 import { IconButton } from '@/components/nav/IconButton';
 import { ResponsiveSurface } from '@/components/surfaces/ResponsiveSurface';
 import { EmptyState } from '@/components/surfaces/StateCard';
-import { ChoiceChips, type Choice } from '@/components/templates/T1';
 import { DetailSectionState } from '@/components/templates/T3';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { cn } from '@/components/ui/cn';
 import {
   KgText,
   PlaceCell,
-  RANK_NAME_CAP,
   RANK_PIN,
   RANK_PIN_EDGE,
-  RANK_TD,
-  RANK_TD_BASE,
-  RANK_TH,
-  RANK_TH_BASE,
   RANK_TH_PIN,
   RANK_TH_ROW2,
-  RANK_TH_SURFACE_BASE,
   RankingFrame,
   RankingGrid,
   SeatLabel,
   WinnerTrophy,
-  pinSurface,
-  splitSeat,
 } from '@/components/ranking/shell';
 import { RankingCard } from './rankingShell';
 import { useRankingFaces, type RankingFaces } from './rankingFaces';
@@ -55,11 +47,11 @@ import { useRankingFaces, type RankingFaces } from './rankingFaces';
  *    PlaceCell: the plain number, the podium — 1–3 with fish — adds the trophy). A scored leg
  *    without a catch reads «–» in its Kg («Fără capturi» for a screen reader, ROADMAP §4b.11), as
  *    the standard and NC tables; the core model keeps fish's «0.000».
- *  - A leg: one row group per sector (its dot and the 4px edge), «Nu au pescuit în această manșă»
- *    last; the sector winner(s) carry the muted sector trophy and bold name instead of fish's 16% row tint
- *    (Fundații: a sector colour is never a fill under text).
- *  - Both: the coloured header row (kit RANK_TH, ROADMAP §4b.12), hairline rows, the
- *    sector's 4px edge on every Stand cell (General: each leg's own), and from 768 the avatar beside
+ *  - A leg: one row group per sector under fish's solid sector band, the 4px edge on every row,
+ *    «Nu au pescuit în această manșă» last; the sector winner(s) on the sector's 16% tint, bold,
+ *    with the sector trophy before their points.
+ *  - Both: fish's colours (ROADMAP §4b.15, «fish FeederRankingTable's colours» below), compact
+ *    (§4b.16: fish's widths, the card only as wide as the table), and from 768 the avatar beside
  *    each name (§4b.13; the registration's photo, else the initials).
  *
  * TODO(kit): a grouped-column / row-group ranking table (ROADMAP §8 «a feeder ranking table»);
@@ -83,7 +75,7 @@ export function feederLegEmpty(d: FeederData, tab: FeederTab): boolean {
   return !!futureLegMessage(tab, d.currentRound, d.roundStatus, feederLegCount(d.rankings));
 }
 
-/** fish FeederLegTabs: General | Manșa 1 … Manșa N, and the «?» that explains the scoring. */
+/** fish FeederLegTabs: General | Manșa 1 … Manșa N (the kit RankingTabs strip), and the «?» that explains the scoring. */
 export function FeederLegTabs({
   data,
   value,
@@ -96,7 +88,7 @@ export function FeederLegTabs({
   onHelp: () => void;
 }) {
   const legs = feederTabCount(data.rankings, data.roundsCount);
-  const options: Choice<string>[] = [
+  const options: RankingTab<string>[] = [
     { value: 'general', label: 'General' },
     ...Array.from({ length: legs }, (_, i) => ({
       value: String(i + 1),
@@ -104,18 +96,17 @@ export function FeederLegTabs({
     })),
   ];
   return (
-    // The «?» sits right after the last leg chip (it explains them), never pushed to the far edge.
+    // The «?» sits right after the last leg tab (it explains them), never pushed to the far edge.
+    // One segmented strip at every width (ROADMAP §4b.20), on the ranking card's band.
     <div className="flex min-w-0 items-center gap-2">
-      <div className="-ml-1 min-w-0 shrink overflow-hidden pl-1">
-        <ChoiceChips
-          name="feeder-leg"
-          label="Manșa clasamentului"
-          scroll
-          options={options}
-          value={String(value)}
-          onChange={v => onChange(v === 'general' ? 'general' : Number(v))}
-        />
-      </div>
+      <RankingTabs
+        name="feeder-leg"
+        label="Manșa clasamentului"
+        options={options}
+        value={String(value)}
+        onChange={v => onChange(v === 'general' ? 'general' : Number(v))}
+        className="shrink"
+      />
       <IconButton aria-label="Cum se calculează clasamentul" title="Cum se calculează clasamentul" onClick={onHelp} className="shrink-0">
         <InformationCircleIcon aria-hidden />
       </IconButton>
@@ -176,97 +167,135 @@ export function FeederRankingTable({
 /** A row's face by its registration (the page's core); unknown → the name's initials. */
 const faceOf = (faces: RankingFaces, registrationId: string) => faces.byRegistration.get(registrationId) ?? null;
 
-/** The sector's 4px edge at the left of a Stand cell (the cell is `relative`); none when not seated. */
-function SeatEdge({ seat }: { seat: string }) {
-  const { sector } = splitSeat(seat);
-  if (!sector) return null;
-  const fill = sectorFill(sector, 'var(--color-muted)');
-  return <span aria-hidden className={cn('absolute inset-y-0 left-0 w-1', fill.className)} style={fill.style} />;
-}
+/*
+ * fish FeederRankingTable's colours (ROADMAP §4b.15; tokens in globals.css «ranking tables»): the
+ * plain grey head, TOTAL_COLOR and one colour per leg on the grouped header (white bold on the
+ * group, the colour on its 10% sub-header and in its cells, a 2px rule opening each group), zebra
+ * rows, the podium row, the #E3E6EE grid lines. A leg: one solid band per sector, the sector's 4px
+ * edge on every row, the sector winner on the sector's 16% tint.
+ */
+const PLAIN_HEAD = 'bg-rank-plain-head text-rank-plain-head-ink';
+const LINE = 'border-rank-line';
 
-/** Loc's track (w-14): the name's left offset when pinned. */
-const PLACE_W = 'w-14 min-w-14';
+type GroupTone = { head: string; sub: string; text: string; rule: string };
+const TOTAL_TONE: GroupTone = {
+  head: 'bg-rank-total text-rank-on-dark',
+  sub: 'bg-rank-total-tint text-rank-total',
+  text: 'text-rank-total',
+  rule: 'border-l-2 border-l-rank-total',
+};
+/** fish LEG_COLORS, one per leg (cycling past three). */
+const LEG_TONES: GroupTone[] = [
+  { head: 'bg-rank-leg-1 text-rank-on-dark', sub: 'bg-rank-leg-1-tint text-rank-leg-1', text: 'text-rank-leg-1', rule: 'border-l-2 border-l-rank-leg-1' },
+  { head: 'bg-rank-leg-2 text-rank-on-dark', sub: 'bg-rank-leg-2-tint text-rank-leg-2', text: 'text-rank-leg-2', rule: 'border-l-2 border-l-rank-leg-2' },
+  { head: 'bg-rank-leg-3 text-rank-on-dark', sub: 'bg-rank-leg-3-tint text-rank-leg-3', text: 'text-rank-leg-3', rule: 'border-l-2 border-l-rank-leg-3' },
+];
+const legTone = (leg: number) => LEG_TONES[(leg - 1) % LEG_TONES.length];
+
+/** A row's ground: the viewer's own tint, fish's podium blue, else the zebra. Pinned cells paint it too. */
+const rowGround = (mine: boolean, podium: boolean, i: number) =>
+  mine ? 'bg-accent-tint' : podium ? 'bg-rank-podium' : i % 2 === 1 ? 'bg-rank-zebra' : 'bg-rank-base';
+
+/** The feeder tables' cells: fish's 44px row, 12–14px text, the grid lines. */
+const F_TH = 'sticky top-0 z-above t-label whitespace-nowrap';
+const F_TD = `h-12 border-t ${LINE}`;
+
+/**
+ * The pinned block (Loc + the name) stays under ~55% of a 343px phone card, so the Total and the
+ * first leg's colours are on screen without a scroll (ROADMAP §4b.15): below 768 Loc is a 40px
+ * track and the name a 112px one (balanced lines, wrapped between words); from 768 fish's 56px Loc
+ * and the name at its content's width (at least 144px).
+ */
+const PLACE_W = 'w-10 min-w-10 max-md:pl-2 md:w-14 md:min-w-14 md:pl-3';
+/** The name's left offset when pinned: Loc's track. */
+const NAME_LEFT = 'left-10 md:left-14';
+const NAME_W = 'max-md:w-28 max-md:max-w-28 max-md:min-w-28 max-md:px-2 md:min-w-36 md:px-2.5';
 
 function GeneralTable({ data, caption, nameTitle, me }: { data: FeederData; caption: string; nameTitle: string; me?: FeederMe }) {
   const { legs, rows } = useMemo(() => feederGeneralModel(data.rankings, feederLegCount(data.rankings)), [data.rankings]);
   const faces = useRankingFaces();
-  // The Total group is a group like the legs: the header band with its left rule (indigo in a
-  // row is the viewer's own row or a win, never a whole column).
-  const group = cn(RANK_TH, 'h-8 border-l border-hairline text-center');
   return (
-    <RankingGrid caption={caption}>
+    <RankingGrid caption={caption} className="text-rank-ink">
       <thead>
         <tr>
-          <th scope="col" rowSpan={2} className={cn(RANK_TH, RANK_TH_PIN, PLACE_W, 'left-0 pl-3 text-left')}>
+          <th scope="col" rowSpan={2} className={cn(F_TH, RANK_TH_PIN, PLAIN_HEAD, PLACE_W, 'left-0 h-16 text-left')}>
             Loc
           </th>
-          <th scope="col" rowSpan={2} className={cn(RANK_TH, RANK_TH_PIN, RANK_PIN_EDGE, RANK_NAME_CAP, 'left-14 min-w-36 text-left')}>
+          <th scope="col" rowSpan={2} className={cn(F_TH, RANK_TH_PIN, RANK_PIN_EDGE, PLAIN_HEAD, `border-l ${LINE}`, NAME_LEFT, NAME_W, 'text-left')}>
             {nameTitle}
           </th>
-          <th scope="colgroup" colSpan={2} className={group}>
+          <th scope="colgroup" colSpan={2} className={cn(F_TH, TOTAL_TONE.head, TOTAL_TONE.rule, 'h-8 px-2 text-center')}>
             Total
           </th>
           {legs.map(leg => (
-            <th key={leg} scope="colgroup" colSpan={3} className={group}>
+            <th key={leg} scope="colgroup" colSpan={3} className={cn(F_TH, legTone(leg).head, legTone(leg).rule, 'h-8 px-2 text-center')}>
               Manșa {leg}
             </th>
           ))}
         </tr>
         <tr>
-          <th scope="col" className={cn(RANK_TH, RANK_TH_ROW2, 'h-8 border-l border-hairline text-right')}>
+          <th scope="col" className={cn(F_TH, RANK_TH_ROW2, TOTAL_TONE.sub, TOTAL_TONE.rule, 'h-8 w-15 px-2 text-right')}>
             Puncte
           </th>
-          <th scope="col" className={cn(RANK_TH, RANK_TH_ROW2, 'h-8 text-right')}>
+          <th scope="col" className={cn(F_TH, RANK_TH_ROW2, TOTAL_TONE.sub, 'h-8 w-19 px-2 text-right')}>
             Kg
           </th>
-          {legs.map(leg => (
-            <Fragment key={leg}>
-              <th scope="col" className={cn(RANK_TH, RANK_TH_ROW2, 'h-8 border-l border-hairline text-left')}>
-                <span className="sr-only">Manșa {leg}, </span>Stand
-              </th>
-              <th scope="col" className={cn(RANK_TH, RANK_TH_ROW2, 'h-8 text-right')}>
-                <span className="sr-only">Manșa {leg}, </span>Kg
-              </th>
-              <th scope="col" className={cn(RANK_TH, RANK_TH_ROW2, 'h-8 pr-3.5 text-right')}>
-                <span className="sr-only">Manșa {leg}, </span>Puncte
-              </th>
-            </Fragment>
-          ))}
+          {legs.map(leg => {
+            const tone = legTone(leg);
+            return (
+              <Fragment key={leg}>
+                <th scope="col" className={cn(F_TH, RANK_TH_ROW2, tone.sub, tone.rule, 'h-8 w-14 px-2 text-left')}>
+                  <span className="sr-only">Manșa {leg}, </span>Stand
+                </th>
+                <th scope="col" className={cn(F_TH, RANK_TH_ROW2, tone.sub, 'h-8 w-19 px-2 text-right')}>
+                  <span className="sr-only">Manșa {leg}, </span>Kg
+                </th>
+                <th scope="col" className={cn(F_TH, RANK_TH_ROW2, tone.sub, 'h-8 w-15 px-2 text-right')}>
+                  <span className="sr-only">Manșa {leg}, </span>Puncte
+                </th>
+              </Fragment>
+            );
+          })}
         </tr>
       </thead>
       <tbody>
-        {rows.map(r => {
+        {rows.map((r, i) => {
           const mine = isMe(me, r);
+          const ground = rowGround(mine, r.podium, i);
           return (
-            <tr key={r.registrationId} data-registration={r.registrationId} className={cn('text-ink', mine && 'bg-accent-tint')}>
-              <th scope="row" className={cn(RANK_TD, RANK_PIN, pinSurface(mine), PLACE_W, 'left-0 pl-3 text-left')}>
+            <tr key={r.registrationId} data-registration={r.registrationId} className={ground}>
+              <th scope="row" className={cn(F_TD, RANK_PIN, ground, PLACE_W, 'left-0 text-left')}>
                 <PlaceCell value={r.position} mark={r.podium ? 'podium' : null} onTint={mine} />
               </th>
-              <td className={cn(RANK_TD, RANK_PIN, RANK_PIN_EDGE, pinSurface(mine), 'left-14 max-w-72 font-bold whitespace-normal')}>
+              <td className={cn(F_TD, RANK_PIN, RANK_PIN_EDGE, ground, `border-l ${LINE}`, NAME_LEFT, NAME_W, 'py-1 whitespace-normal', r.podium ? 'font-extrabold' : 'font-bold')}>
                 <span className="flex items-center gap-2.5">
                   <RankingFace name={r.name} face={faceOf(faces, r.registrationId)} />
-                  <span className="line-clamp-2 min-w-32 max-md:min-w-28">
+                  {/* Balanced lines on the phone, wrapped between words: never a word cut in half,
+                      never a name hidden behind «…»; one line from 768. */}
+                  <span data-rank-name="" className="text-balance break-normal md:min-w-32 md:whitespace-nowrap">
                     {mine ? 'Tu · ' : null}
                     {r.name}
                   </span>
                 </span>
               </td>
-              <td className={cn(RANK_TD, 'border-l text-right font-extrabold text-ink')}>{roNum(r.totalPoints)}</td>
-              <td className={cn(RANK_TD, 'text-right')}>
+              <td className={cn(F_TD, TOTAL_TONE.rule, TOTAL_TONE.text, 'px-2 text-right font-extrabold')}>{roNum(r.totalPoints)}</td>
+              <td className={cn(F_TD, 'px-2 text-right')}>
                 <KgText kg={r.totalKg} />
               </td>
-              {r.legs.map((cell, i) => (
-                <Fragment key={legs[i]}>
-                  <td className={cn(RANK_TD_BASE, 'relative border-l pr-2 pl-3 text-left text-ink-2')}>
-                    <SeatEdge seat={cell.seat} />
-                    <SeatLabel seat={cell.seat} dot={false} />
-                  </td>
-                  <td className={cn(RANK_TD, 'text-right')}>
-                    <KgText kg={cell.kg} />
-                  </td>
-                  <td className={cn(RANK_TD, 'pr-3.5 text-right font-extrabold')}>{roNum(cell.points)}</td>
-                </Fragment>
-              ))}
+              {r.legs.map((cell, li) => {
+                const tone = legTone(legs[li]);
+                return (
+                  <Fragment key={legs[li]}>
+                    <td className={cn(F_TD, tone.rule, 'px-2 text-left text-rank-plain-head-ink')}>
+                      <SeatLabel seat={cell.seat} dot={false} />
+                    </td>
+                    <td className={cn(F_TD, 'px-2 text-right')}>
+                      <KgText kg={cell.kg} />
+                    </td>
+                    <td className={cn(F_TD, tone.text, 'px-2 text-right font-extrabold')}>{roNum(cell.points)}</td>
+                  </Fragment>
+                );
+              })}
             </tr>
           );
         })}
@@ -277,11 +306,9 @@ function GeneralTable({ data, caption, nameTitle, me }: { data: FeederData; capt
 
 /**
  * A leg's numbers: tight below 1280, so the columns fit a 343px card (fish: «must fit without a
- * sideways scroll»); from 1280, in a sector card of its own, the desktop room.
+ * sideways scroll»); from 1280, in a sector card of its own, fish's widths a step wider.
  */
-const LEG_NUM = 'px-1 text-right xl:px-3';
-/** A number cell's width from 1280 (Puncte a step less). */
-const LEG_NUM_W = 'xl:min-w-16';
+const LEG_NUM = 'px-1 text-right xl:px-2.5';
 /** Below 768 Buc and C.M.M.C leave the columns (a caption line under the name says them). */
 const LEG_WIDE = 'max-md:hidden';
 /** Stand's track (w-12): the name's left offset when pinned. */
@@ -292,11 +319,17 @@ type LegRow = LegSection['rows'][number];
 
 const sectorTitle = (sector: string | null) => (sector ? `Sector ${sector}` : 'Nu au pescuit în această manșă');
 
+/** fish's sector band: the sector's solid colour, its title in white or black (sectorInk, AA). */
+function bandTone(sector: string | null) {
+  return sector ? cn('rank-sector-solid', sectorInk(sector, 'solid')) : 'bg-rank-no-sector text-rank-on-light';
+}
+
 /**
- * A leg: one row group per sector. Below 1280 one table (one card, under the controls); from 1280
- * the sectors are independent rankings side by side, one card each with its own head (the sector as
- * the card's title, then the column heads). Both are in the HTML (one is display: none), so the
- * server's render is the final shape at any width. Nobody seated in the leg: a state naming them.
+ * A leg: one row group per sector, each under fish's solid sector band. Below 1280 one table (one
+ * card, under the controls); from 1280 the sectors are independent rankings side by side, one
+ * compact card each (the band as its title, then the column heads) on equal 592px tracks. Both
+ * are in the HTML (one is display: none), so the server's render is the final shape at any width.
+ * Nobody seated in the leg: a state naming them.
  */
 function LegTables({
   data,
@@ -337,7 +370,7 @@ function LegTables({
   }
   const single = (
     <RankingFrame caption={caption} full={full} embedded={!!toolbar} className="xl:hidden">
-      <RankingGrid caption={caption}>
+      <RankingGrid caption={caption} className="text-rank-ink">
         <LegHead nameTitle={nameTitle} />
         {sections.map(section => (
           <LegSectionBody
@@ -358,35 +391,39 @@ function LegTables({
       aria-label={caption}
       tabIndex={full ? 0 : undefined}
       className={cn(
-        'grid grid-cols-2 items-start gap-4 outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent max-xl:hidden',
+        // Equal compact tracks (fish's widths): two sectors side by side from 1280, the rest margin.
+        'grid grid-cols-[repeat(auto-fill,37rem)] items-start gap-4 outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent max-xl:hidden',
         full && 'max-h-full overflow-auto',
       )}
     >
       {sections.map(section => {
         const titleId = `feeder-leg-${leg}-${section.sector ?? 'none'}-g`;
-        const fill = section.sector ? sectorFill(section.sector, 'var(--color-muted)') : null;
         return (
-          <section key={section.sector ?? 'none'} aria-labelledby={titleId} className="overflow-clip rounded-card bg-surface shadow-e0">
-            <h3 id={titleId} className="flex items-center gap-2 px-4 pt-3.5 pb-3 t-heading text-ink">
-              {fill ? <span aria-hidden className={cn('size-2.5 rounded-full', fill.className)} style={fill.style} /> : null}
+          <section
+            key={section.sector ?? 'none'}
+            aria-labelledby={titleId}
+            style={section.sector ? (sectorVar(section.sector) as CSSProperties) : undefined}
+            className="overflow-clip rounded-card bg-surface shadow-e0"
+          >
+            <h3 id={titleId} className={cn('flex h-9 items-center px-3 t-label', bandTone(section.sector))}>
               {sectorTitle(section.sector)}
             </h3>
             {section.sector ? (
               <RankingFrame caption={`${caption}, ${sectorTitle(section.sector)}`} region={false} embedded>
-                <RankingGrid caption={`${caption}, ${sectorTitle(section.sector)}`}>
-                  <LegHead nameTitle={nameTitle} surface />
+                <RankingGrid caption={`${caption}, ${sectorTitle(section.sector)}`} className="text-rank-ink">
+                  <LegHead nameTitle={nameTitle} wide />
                   <LegSectionBody section={section} labelledBy={titleId} groupRow={false} me={me} faces={faces} />
                 </RankingGrid>
               </RankingFrame>
             ) : (
               // Not seated: only the names (every number of theirs is a dash).
-              <ul className="border-t border-hairline">
-                {section.rows.map(r => (
+              <ul>
+                {section.rows.map((r, i) => (
                   <li
                     key={r.registrationId}
                     className={cn(
-                      'flex min-h-13 items-center gap-2.5 border-t border-hairline px-4 py-2 t-table font-bold text-ink first:border-t-0',
-                      isMe(me, r) && 'bg-accent-tint',
+                      `flex min-h-12 items-center gap-2.5 border-t ${LINE} px-3 py-1.5 t-table font-bold first:border-t-0`,
+                      rowGround(isMe(me, r), false, i),
                     )}
                   >
                     <RankingFace name={r.name} face={faceOf(faces, r.registrationId)} />
@@ -404,7 +441,10 @@ function LegTables({
     </div>
   );
   return toolbar ? (
-    <RankingCard toolbar={toolbar} after={grid}>
+    // From 1280 the card holds only the band (the leg's sector cards follow under it): it stays a
+    // card, so the tabs never sit loose on the page (ROADMAP §4b.20), and it is the grid's header —
+    // as wide as the sector cards under it (gridBandWidth), never a stub floating over them.
+    <RankingCard toolbar={toolbar} after={grid} className="@container" cardClassName={gridBandWidth(sections.length)}>
       {single}
     </RankingCard>
   ) : (
@@ -416,33 +456,46 @@ function LegTables({
 }
 
 /**
- * The leg's column heads. Below 1280 the kit's page-grey band with fish's short heads (Kg / Buc);
- * in a sector card from 1280 (`surface`) the card's own surface and the full heads.
+ * From 1280 the band's card spans the sector grid's occupied tracks (37rem = w-148 each, gap 16px):
+ * one track, two once the column holds 2×592+16 = 1200px (75rem), three at 1808px (113rem) — never
+ * more tracks than there are sector cards. The column is the container (RankingCard `@container`).
  */
-function LegHead({ nameTitle, surface = false }: { nameTitle: string; surface?: boolean }) {
-  const th = surface ? RANK_TH_SURFACE_BASE : RANK_TH_BASE;
+function gridBandWidth(cards: number): string {
+  return cn(
+    'xl:w-148',
+    cards >= 2 && 'xl:@min-[75rem]:w-300',
+    cards >= 3 && 'xl:@min-[113rem]:w-452',
+  );
+}
+
+/**
+ * The leg's column heads, fish's plain grey head. Below 1280 fish's short heads (Kg / Buc); in a
+ * sector card from 1280 (`wide`) the full heads.
+ */
+function LegHead({ nameTitle, wide = false }: { nameTitle: string; wide?: boolean }) {
+  const th = cn(F_TH, PLAIN_HEAD, 'h-10');
   return (
     <thead>
       <tr>
-        <th scope="col" className={cn(th, RANK_TH_PIN, SEAT_W, 'left-0 h-10 pr-1 pl-3 text-left')}>
+        <th scope="col" className={cn(th, RANK_TH_PIN, SEAT_W, 'left-0 pr-1 pl-3 text-left')}>
           Stand
         </th>
-        <th scope="col" className={cn(th, RANK_TH_PIN, RANK_PIN_EDGE, 'left-12 h-10 w-full px-1.5 text-left')}>
+        {/* The name takes what the numbers leave (in a sector card from 1280 too), so a name only
+            wraps when the card has no room for it. */}
+        <th scope="col" className={cn(th, RANK_TH_PIN, RANK_PIN_EDGE, 'left-12 w-full px-1.5 text-left', wide && 'min-w-48')}>
           {nameTitle}
         </th>
-        {/* Below 1280 fish's short heads (Kg / Buc); the full names are what a screen reader says. */}
-        <th scope="col" aria-label="Cantitate, kg" className={cn(th, LEG_NUM, LEG_NUM_W, 'h-10')}>
-          <span className="xl:hidden">Kg</span>
-          <span className="max-xl:hidden">Cantitate</span>
+        {/* The full names are what a screen reader says. */}
+        <th scope="col" aria-label="Cantitate, kg" className={cn(th, LEG_NUM, 'xl:w-19')}>
+          {wide ? 'Cantitate' : 'Kg'}
         </th>
-        <th scope="col" aria-label="Număr de bucăți" className={cn(th, LEG_NUM, LEG_NUM_W, LEG_WIDE, 'h-10')}>
-          <span className="xl:hidden">Buc</span>
-          <span className="max-xl:hidden">Nr. buc</span>
+        <th scope="col" aria-label="Număr de bucăți" className={cn(th, LEG_NUM, LEG_WIDE, 'xl:w-15')}>
+          {wide ? 'Nr. buc' : 'Buc'}
         </th>
-        <th scope="col" aria-label="Cea mai mare captură" className={cn(th, LEG_NUM, LEG_NUM_W, LEG_WIDE, 'h-10')}>
+        <th scope="col" aria-label="Cea mai mare captură" className={cn(th, LEG_NUM, LEG_WIDE, 'xl:w-18')}>
           C.M.M.C
         </th>
-        <th scope="col" className={cn(th, LEG_NUM, 'h-10 pr-2.5 xl:min-w-14 xl:pr-4')}>
+        <th scope="col" className={cn(th, LEG_NUM, 'pr-2.5 xl:w-16 xl:pr-3')}>
           Puncte
         </th>
       </tr>
@@ -469,35 +522,34 @@ function LegSectionBody({
   me?: FeederMe;
   faces: RankingFaces;
 }) {
-  const fill = section.sector ? sectorFill(section.sector, 'var(--color-muted)') : null;
+  const sectorStyle = section.sector ? (sectorVar(section.sector) as CSSProperties) : undefined;
   return (
-    <tbody aria-labelledby={labelledBy}>
+    <tbody aria-labelledby={labelledBy} style={sectorStyle}>
       {groupRow ? (
         <tr>
-          <th id={labelledBy} scope="rowgroup" colSpan={6} className="h-9 border-t border-hairline bg-page p-0 text-left t-label text-ink">
+          <th id={labelledBy} scope="rowgroup" colSpan={6} className={cn('h-8 p-0 text-left t-label', bandTone(section.sector))}>
             {/* The label stays at the left edge while the leg scrolls sideways. */}
-            <span className="sticky left-0 flex w-max items-center gap-2 px-3">
-              {fill ? <span aria-hidden className={cn('size-2.5 rounded-full', fill.className)} style={fill.style} /> : null}
-              {sectorTitle(section.sector)}
-            </span>
+            <span className="sticky left-0 block w-max px-3">{sectorTitle(section.sector)}</span>
           </th>
         </tr>
       ) : null}
-      {section.rows.map(r => {
+      {section.rows.map((r, i) => {
         const mine = isMe(me, r);
         const caption = legCaption(r);
+        // fish LegRow: the sector winner on the sector's 16% tint, the others zebra.
+        const ground = mine ? 'bg-accent-tint' : r.sectorWinner && section.sector ? 'rank-sector-soft' : i % 2 === 1 ? 'bg-rank-zebra' : 'bg-rank-base';
         return (
-          <tr key={r.registrationId} data-registration={r.registrationId} className={cn('text-ink', mine && 'bg-accent-tint')}>
-            <th scope="row" className={cn(RANK_TD_BASE, RANK_PIN, pinSurface(mine), SEAT_W, 'left-0 pr-1 pl-3 text-left font-bold')}>
-              {/* The sector's 4px edge, inside the pinned cell. */}
-              {fill ? <span aria-hidden className={cn('absolute inset-y-0 left-0 w-1', fill.className)} style={fill.style} /> : null}
+          <tr key={r.registrationId} data-registration={r.registrationId} className={ground}>
+            <th scope="row" className={cn(F_TD, RANK_PIN, ground, SEAT_W, 'relative left-0 pr-1 pl-3 text-left font-bold text-rank-plain-head-ink')}>
+              {/* The sector's 4px edge, inside the pinned cell (fish borderLeftWidth 4). */}
+              <span aria-hidden className={cn('absolute inset-y-0 left-0 w-1', section.sector ? 'rank-sector-solid' : 'bg-rank-no-sector')} />
               {r.seat === '-' ? '–' : r.seat}
             </th>
-            <td className={cn(RANK_TD_BASE, RANK_PIN, RANK_PIN_EDGE, pinSurface(mine), 'left-12 px-1.5 py-1.5 whitespace-normal')}>
-              <span className="flex min-w-20 items-center gap-1.5">
+            <td className={cn(F_TD, RANK_PIN, RANK_PIN_EDGE, ground, `border-l ${LINE}`, 'left-12 px-1.5 py-1.5 whitespace-normal')}>
+              <span className="flex min-w-24 items-center gap-1.5">
                 <RankingFace name={r.name} face={faceOf(faces, r.registrationId)} className="mr-1" />
                 <span className="flex min-w-0 flex-col">
-                  <span className={cn('line-clamp-2 break-words', r.sectorWinner ? 'font-extrabold' : 'font-bold')}>
+                  <span data-rank-name="" className={cn('text-balance break-normal', r.sectorWinner ? 'font-extrabold' : 'font-bold')}>
                     {mine ? 'Tu · ' : null}
                     {r.name}
                   </span>
@@ -509,22 +561,19 @@ function LegSectionBody({
                 </span>
               </span>
             </td>
-            <td className={cn(RANK_TD_BASE, LEG_NUM, LEG_NUM_W)}>
+            <td className={cn(F_TD, LEG_NUM, `border-l ${LINE}`)}>
               <KgText kg={r.kg} />
             </td>
-            <td className={cn(RANK_TD_BASE, LEG_NUM, LEG_NUM_W, LEG_WIDE)}>{roNum(r.catchCount)}</td>
-            <td className={cn(RANK_TD_BASE, LEG_NUM, LEG_NUM_W, LEG_WIDE)}>{roNum(r.biggestFish)}</td>
-            <td className={cn(RANK_TD_BASE, LEG_NUM, 'pr-2.5 font-extrabold text-ink xl:min-w-14 xl:pr-4')}>
-              {/* The sector winner's trophy sits before the points (its sector place), like the
-                  standard table's «Poziție sector» cue: the name column and the digits stay aligned. */}
-              {r.sectorWinner ? (
-                <span className="inline-flex items-center justify-end gap-1">
-                  <WinnerTrophy mark="sector" srText="Câștigător de sector, " />
-                  {roNum(r.points)}
-                </span>
-              ) : (
-                roNum(r.points)
-              )}
+            <td className={cn(F_TD, LEG_NUM, LEG_WIDE, `border-l ${LINE}`)}>{roNum(r.catchCount)}</td>
+            <td className={cn(F_TD, LEG_NUM, LEG_WIDE, `border-l ${LINE}`)}>{roNum(r.biggestFish)}</td>
+            <td className={cn(F_TD, LEG_NUM, `border-l ${LINE}`, 'pr-2.5 font-extrabold whitespace-nowrap xl:pr-3')}>
+              {/* The sector winner's trophy before the points, centred on the digits in one flex
+                  line (the place idiom, kit PlaceCell align="end"), so the digits stay flush right
+                  with every other row's. */}
+              <span className="inline-flex items-center justify-end gap-1 align-middle">
+                {r.sectorWinner ? <WinnerTrophy mark="sector" inherit srText="Câștigător de sector, " /> : null}
+                {roNum(r.points)}
+              </span>
             </td>
           </tr>
         );

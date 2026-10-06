@@ -27,8 +27,10 @@ import { RANKING_HEAD } from './tableHead';
  * z-index — positioned, so they paint over the cells that scroll under them, and under the header.
  */
 
+/** The header band without wrapping or padding: a table whose titles wrap (fish's two-line heads). */
+export const RANK_TH_HEAD = `sticky top-0 z-above ${RANKING_HEAD} t-label`;
 /** A header cell without its side padding (a table that sets its own, e.g. a leg's tight numbers). */
-export const RANK_TH_BASE = `sticky top-0 z-above ${RANKING_HEAD} t-label whitespace-nowrap`;
+export const RANK_TH_BASE = `${RANK_TH_HEAD} whitespace-nowrap`;
 /** A leg's sector card from 1280 (under the card's title): the same coloured header row. */
 export const RANK_TH_SURFACE_BASE = RANK_TH_BASE;
 /** A header cell: the coloured header band, sticky at the top of the region. */
@@ -60,8 +62,34 @@ export const RANK_NAME_CAP = 'xl:w-80';
 export const pinSurface = (me: boolean) => (me ? 'bg-accent-tint' : 'bg-surface');
 
 /**
+ * The ranking region's height when it scrolls on its own (wider than its card, or any table on the
+ * phone): the viewport minus the page's sticky chrome (phone: the 56px bar + the competition's
+ * pinned rows; from 768: the 64px bar + the 44px route tabs) and some air — so its sticky header row
+ * (top-0 inside the region) takes effect, instead of scrolling off with the page (ROADMAP §4b.12).
+ * The class for a RankingFrame / a wrapper; RANK_SCROLL_CAP_PHONE is the phone value as a length
+ * (the kit RankingTable's `maxHeight`).
+ */
+export const RANK_SCROLL_CAP = 'max-h-[calc(100dvh-var(--spacing)*40)] md:max-h-[calc(100dvh-var(--spacing)*32)]';
+export const RANK_SCROLL_CAP_PHONE = 'calc(100dvh - var(--spacing) * 40)';
+
+/**
+ * Fits its card from 768: no scroll box at all (clipped sideways, visible down), so the header row
+ * follows the page under the 64px top bar and the competition's 44px route tabs (top-27, 108px —
+ * tableFixes STICKY_HEAD_PAGE, the standard table's), a grouped header's second row 32px under it.
+ * The phone keeps the capped region (the bar there slides away; a page-sticky header would float).
+ */
+const FITS_ON_PAGE = [
+  'md:data-[fits=true]:max-h-none md:data-[fits=true]:overflow-x-clip md:data-[fits=true]:overflow-y-visible',
+  'md:data-[fits=true]:[&_thead_tr:first-child>th]:top-27 md:data-[fits=true]:[&_thead_tr:nth-child(2)>th]:top-35',
+].join(' ');
+
+/**
  * The scrolling region. Wider than its card it scrolls sideways: `data-scrolled` once moved off the
  * start (the pinned block's edge shadow), and the right edge fades while there is more to see.
+ * Down, the header row always stays in view (ROADMAP §4b.12): a table that fits (from 768) lets the
+ * page scroll it and its header sticks under the page's chrome (`data-fits`, FITS_ON_PAGE); a wider
+ * one (and every table on the phone) scrolls inside a viewport-high region (RANK_SCROLL_CAP), where
+ * the header sticks at its top. «Tot ecranul» (`full`): the dialog's height.
  */
 export function RankingFrame({
   caption,
@@ -93,6 +121,9 @@ export function RankingFrame({
       const more = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
       el.dataset.scrolled = String(start);
       el.dataset.more = String(more);
+      // Against the box's outer width: a capped region's own vertical scrollbar never makes a table
+      // that fits read as wide (no flip-flop between the two layouts).
+      el.dataset.fits = String(el.scrollWidth <= el.offsetWidth + 1);
     };
     update();
     const ro = new ResizeObserver(update);
@@ -117,7 +148,7 @@ export function RankingFrame({
         'group/rank isolate overflow-auto bg-surface outline-none [scrollbar-width:thin] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent',
         embedded ? 'border-t border-hairline focus-visible:-outline-offset-2' : 'rounded-card shadow-e0',
         'data-[more=true]:[mask-image:linear-gradient(to_left,transparent,black_--spacing(6))]',
-        full && 'max-h-full',
+        full ? 'max-h-full' : cn(RANK_SCROLL_CAP, FITS_ON_PAGE),
         className,
       )}
     >
@@ -139,10 +170,12 @@ export function RankingGrid({ caption, className, children }: { caption: string;
 /** What a place (or a name) is marked with. See the header. */
 export type PlaceMark = 'podium' | 'prize' | 'sector';
 
-const MARK_TONE: Record<PlaceMark, string> = {
+const MARK_TONE: Record<PlaceMark | 'inherit', string> = {
   podium: 'text-accent-ink',
   prize: 'text-accent-ink',
   sector: 'text-muted',
+  // On a filled cell (a winner row, a tint): the cell's own ink.
+  inherit: '',
 };
 
 const MARK_SR: Record<PlaceMark, string> = {
@@ -152,10 +185,22 @@ const MARK_SR: Record<PlaceMark, string> = {
 };
 
 /** The mark's glyph: the 16px solid trophy, with what it means for a screen reader. */
-export function WinnerTrophy({ mark, srText, className }: { mark: PlaceMark; /** Overrides the default «, podium» … */ srText?: string; className?: string }) {
+export function WinnerTrophy({
+  mark,
+  srText,
+  inherit = false,
+  className,
+}: {
+  mark: PlaceMark;
+  /** Overrides the default «, podium» … */
+  srText?: string;
+  /** On a filled cell: the glyph takes the cell's ink instead of its mark's tone. */
+  inherit?: boolean;
+  className?: string;
+}) {
   return (
     <>
-      <TrophyIcon aria-hidden data-mark={mark} className={cn('size-4 shrink-0', MARK_TONE[mark], className)} />
+      <TrophyIcon aria-hidden data-mark={mark} className={cn('size-4 shrink-0', MARK_TONE[inherit ? 'inherit' : mark], className)} />
       <span className="sr-only">{srText ?? MARK_SR[mark]}</span>
     </>
   );
@@ -172,19 +217,22 @@ export function PlaceCell({
   tied = false,
   mark,
   onTint = false,
+  onFill = false,
   align = 'start',
 }: {
   value: number | string;
   tied?: boolean;
   mark?: PlaceMark | null;
   onTint?: boolean;
+  /** On a filled cell (fish's sector fills): the number and the trophy take the cell's ink. */
+  onFill?: boolean;
   align?: 'start' | 'end';
 }) {
   const raw = typeof value === 'string' ? value : String(value);
   const text = raw === '-' ? '–' : raw.replace('.', ',');
-  const trophy = mark ? <WinnerTrophy mark={mark} /> : null;
+  const trophy = mark ? <WinnerTrophy mark={mark} inherit={onFill} /> : null;
   return (
-    <span className={cn('inline-flex items-center gap-1 t-num-18', onTint && 'text-accent-ink')}>
+    <span className={cn('inline-flex items-center gap-1 align-middle t-num-18', onTint && !onFill && 'text-accent-ink')}>
       {align === 'end' ? trophy : null}
       {text === '–' ? (
         <span aria-label="fără loc">–</span>

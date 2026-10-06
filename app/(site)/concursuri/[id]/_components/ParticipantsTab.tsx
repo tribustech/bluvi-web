@@ -3,7 +3,7 @@
 import { Suspense, useId, useMemo, useState, useSyncExternalStore, type ComponentType, type SVGProps } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowTrendingUpIcon, ChevronDownIcon, ChevronRightIcon, TrophyIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import { ArrowTrendingUpIcon, ChevronDownIcon, ChevronRightIcon, InformationCircleIcon, TrophyIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import {
   approvedParticipantIds,
   approvedRegistrationsByStand,
@@ -28,13 +28,13 @@ import { Avatar, FaceStack } from '@/components/ui/Avatar';
 import { ButtonLink } from '@/components/ui/Button';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { cn } from '@/components/ui/cn';
-import { sectorFill } from '@/components/ranking/sector';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { isUnknownViewer, useViewerState } from '../../../_shell/viewer-context';
 import type { PageViewer } from './Follow';
 import { echoes } from './names';
 import { GUEST_MESSAGE, isGuest, profileHref, type Group, type StatsAccess } from './participantParts';
-import { ParticipantsTable, ParticipantsTableBones, type StandText } from './ParticipantsTable';
+import { ParticipantsRoster, ParticipantsRosterBones, type StandText } from './ParticipantsRoster';
+import { PersonPopover, usePersonPopover, usePersonPopoverEnabled } from './PersonPopover';
 import { QueryRetry } from './QueryRetry';
 import { PAGE_RETRY } from './retry-policy';
 import { isNationalType, nationalStandLabel } from './stand';
@@ -64,15 +64,15 @@ import { photo, useBrokenImages } from './brokenImages';
  * M2 on the web (anglerHref is null until then): every header toggles the card, as a multi-member
  * card does in fish; the profile link takes over the moment it ships.
  *
- * From 768 (owner rule 14) the list is not the phone's stretched: every card shows its stats inline
- * (no expand), the cards of a row share its height, and the list is grouped by sector when the
- * stands are spread over several (unallocated first, as fish orders them; a sector a stand per
- * sector, as a 24-sector individual, stays one grid). Signed out the sign-in line is said once above
- * the cards; so is the guest line when nobody has a Bluvi account (a guest's card has no stats part;
- * in a mixed list it carries «Adăugat manual»). From 1280 the cards give way to rows
- * (ParticipantsTable): stand, face and name, the stats in their own columns. The phone keeps fish's
- * list (by stand, cards that open on their stats). Until the width is known (server render,
- * hydration) all three are drawn and CSS shows the right one, so nothing moves.
+ * From 768 (owner rules 14, 17, 18) the list is a designed roster (ParticipantsRoster): one surface
+ * per sector with the sector's colour as its accent, each entry its face(s), name(s), club, the stand
+ * as a squad number and the headline stats inline (signed in). Signed out the same layout without
+ * the stats, and one quiet sign-in hint above; the guest line once when nobody has a Bluvi account.
+ * From 1024 pressing an entry opens the person's popover anchored to it (PersonPopover: faces, club,
+ * sector and stand, stats, «Vezi profilul» once the profile is on the web); 768–1023 the entries are
+ * plain rows (everything the popover would add is already inline). The phone keeps fish's list (by stand, cards that open on
+ * their stats). Until the width is known (server render, hydration) both are drawn and CSS shows the
+ * right one, so nothing moves.
  *
  * From 768 the sectors run by name (standOrder.ts), as Cântare's table lists them, and on a national
  * championship a stand is named as Cântare and the ranking name it («A3(12)»: the sector's letter,
@@ -82,8 +82,6 @@ import { photo, useBrokenImages } from './brokenImages';
 
 /** The kit grid (T1, 340px cards) — the phone's rows edge to edge, 8px apart. */
 const GRID = cn(listGridClass('lg'), 'items-start max-md:-mx-4 max-md:gap-2');
-/** From 768: the same grid, a row's cards as tall as its tallest (their stats are always open). */
-const WIDE_GRID = cn(listGridClass('lg'), 'items-stretch');
 
 const noSubscribe = () => () => {};
 
@@ -110,8 +108,10 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
   const hydrated = useSyncExternalStore(noSubscribe, () => true, () => false);
   const breakpoint = useBreakpoint();
   const showPhone = !hydrated || breakpoint === 'mobile';
-  const showCards = !hydrated || breakpoint === 'tablet';
-  const showTable = !hydrated || breakpoint === 'desktop';
+  const showRoster = !hydrated || breakpoint !== 'mobile';
+  const person = usePersonPopover();
+  // Owner rule 17: the popover from 1024 only; 768–1023 the roster's rows are plain (stats inline).
+  const popoverOn = usePersonPopoverEnabled();
   const groups = useMemo(() => sectorGroups(registrations, competition.sectors), [registrations, competition.sectors]);
   // NC from 768: the stands as Cântare names them (the draw position is the allocation's).
   const isNc = isNationalType(competition.rankingType);
@@ -126,6 +126,7 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
     for (const sector of competition.sectors) for (const stand of sector.stands) m.set(stand.documentId, sector.name);
     return m;
   }, [competition.sectors]);
+  const sectorName = (r: DetailRegistration) => (r.stand ? (sectorOfStand.get(r.stand.documentId) ?? null) : null);
   const standText: StandText = r => {
     if (!r.stand?.name) return null;
     if (!isNc) return r.stand.name;
@@ -148,7 +149,6 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
   // Nobody with a Bluvi account: no stats to show anywhere — said once above the list (from 768).
   const allGuests = registrations.length > 0 && registrations.every(isGuest);
   const mixed = !allGuests && registrations.some(isGuest);
-  const withStats = !allGuests && (stats$.kind === 'ok' || stats$.kind === 'pending');
 
   return (
     <DetailBody>
@@ -173,7 +173,7 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
           >
             <div ref={listRef}>
               {showPhone ? (
-                <ul className={cn(GRID, (showCards || showTable) && 'md:hidden')}>
+                <ul className={cn(GRID, showRoster && 'md:hidden')}>
                   {registrations.map(r => (
                     <li key={r.documentId}>
                       <ParticipantCard registration={r} team={team} stats={stats$} viewer={viewer} broken={broken} />
@@ -181,59 +181,41 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
                   ))}
                 </ul>
               ) : null}
-              {showCards || showTable ? (
-                <div className={cn('flex flex-col gap-6', showPhone && 'max-md:hidden')}>
+              {showRoster ? (
+                <div className={cn('flex flex-col gap-4', showPhone && 'max-md:hidden')}>
                   {stats$.kind === 'signIn' ? (
-                    <p className="flex flex-wrap items-center gap-x-2 t-body text-ink-2">
-                      Trebuie să fii autentificat pentru a vedea statisticile pescarilor.
-                      <Link href={stats$.href} className="rounded-control t-body-strong text-accent-ink hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent">
-                        Intră în cont
-                      </Link>
+                    // Signed out: the same roster without the stats, said once and quietly.
+                    <p className="flex items-start gap-1.5 t-caption text-muted">
+                      <InformationCircleIcon aria-hidden className="mt-px size-4 shrink-0" />
+                      <span>
+                        Statisticile pescarilor se văd după ce{' '}
+                        <Link href={stats$.href} className="rounded-control t-label text-accent-ink hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent">
+                          intri în cont
+                        </Link>
+                        .
+                      </span>
                     </p>
                   ) : allGuests ? (
-                    <p className="t-body text-ink-2">{GUEST_MESSAGE}</p>
-                  ) : stats$.kind === 'failed' && showTable ? (
-                    // The table has no card to hold the retry: said once above it (the cards keep theirs).
-                    <div role="alert" className={cn('flex flex-wrap items-center gap-3', showCards && 'max-xl:hidden')}>
+                    <p className="t-caption text-muted">{GUEST_MESSAGE}</p>
+                  ) : stats$.kind === 'failed' ? (
+                    <div role="alert" className="flex flex-wrap items-center gap-3">
                       <p className="t-body text-ink-2">Statisticile nu au putut fi încărcate.</p>
                       <QueryRetry fetching={stats$.retrying} failed onRetry={stats$.retry} size="compact" />
                     </div>
                   ) : null}
-                  {showCards ? (
-                    <div className={cn('flex flex-col gap-6', showTable && 'xl:hidden')}>
-                      {groups.map(group =>
-                        group.title ? (
-                          <section key={group.key} aria-labelledby={`participanti-${group.key}`} className="flex flex-col gap-3">
-                            <h3 id={`participanti-${group.key}`} className="flex items-center gap-2 t-heading">
-                              {group.sector ? <SectorDot name={group.sector} /> : null}
-                              {group.title}
-                              <span className="t-caption text-muted">· {group.registrations.length}</span>
-                            </h3>
-                            <WideList registrations={group.registrations} team={team} stats={stats$} viewer={viewer} broken={broken} mixed={mixed} standText={standText} />
-                          </section>
-                        ) : (
-                          <WideList key={group.key} registrations={group.registrations} team={team} stats={stats$} viewer={viewer} broken={broken} mixed={mixed} standText={standText} />
-                        ),
-                      )}
-                    </div>
-                  ) : null}
-                  {showTable ? (
-                    // With stats columns the table is capped (64rem): past it only the angler column
-                    // grows and the stats drift away from the names (owner rule 14). Without them it
-                    // is an auto-fill grid of compact rows, which uses the whole width.
-                    <div className={cn(withStats && 'max-w-5xl', showCards && 'max-xl:hidden')}>
-                      <ParticipantsTable
-                        groups={groups}
-                        sectors={competition.sectors}
-                        team={team}
-                        stats={stats$}
-                        withStats={withStats}
-                        viewer={viewer}
-                        broken={broken}
-                        standText={standText}
-                      />
-                    </div>
-                  ) : null}
+                  <ParticipantsRoster
+                    groups={groups}
+                    team={team}
+                    stats={stats$}
+                    broken={broken}
+                    mixed={mixed}
+                    standText={standText}
+                    sectorOf={sectorName}
+                    openId={person.target?.registrationId ?? null}
+                    // The popover names the stand «Sector A · Stand 12»; NC as the roster does («A3(12)»).
+                    onOpen={popoverOn ? (rid, el, stand) => person.open(rid, el, isNc ? stand : null) : null}
+                  />
+                  <PersonPopover t={t} competition={competition} signedIn={viewer === undefined ? undefined : !!viewer} target={popoverOn ? person.target : null} onClose={person.close} />
                 </div>
               ) : null}
             </div>
@@ -245,20 +227,20 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
 }
 
 /**
- * The list's bones — its section header and six cards on the same grid, from 1280 six table rows
+ * The list's bones — its section header and six cards on the same grid, from 768 the roster's
  * (also the tab's skeleton: CompetitionSkeleton TabBones), so nothing moves when the list lands.
  */
 export function ParticipantsBones() {
   return (
     <div aria-hidden className="px-4 py-3 md:p-0">
-      <span className="mb-3 flex flex-col gap-0.5 xl:mb-4">
+      <span className="mb-3 flex flex-col gap-0.5 md:mb-4">
         <Bone className="w-48 t-title2" />
         <Bone className="w-32 t-caption" />
       </span>
-      <span className="hidden xl:block">
-        <ParticipantsTableBones />
+      <span className="hidden md:block">
+        <ParticipantsRosterBones />
       </span>
-      <span className={cn(GRID, 'xl:hidden')}>
+      <span className={cn(GRID, 'md:hidden')}>
         {Array.from({ length: 6 }, (_, i) => (
           <span key={i} data-bone="card" className="flex min-h-20 items-center gap-3 rounded-card bg-surface py-3 pr-18 pl-4 shadow-e0 max-md:rounded-none max-md:shadow-none">
             <span className="size-12 shrink-0 animate-shimmer rounded-full" />
@@ -295,8 +277,10 @@ function AuthorNotice({ competition, statute, appHref }: { competition: Competit
   if (!isAuthor) return null;
   const { pending } = registrationCounts(competition.registrations);
   return (
+    // A compact banner as wide as its words (owner rule 16: never a stretched card), not a band.
     <DetailSection
       id="organizator"
+      className="md:w-fit md:max-w-3xl"
       title="Ești organizatorul acestui concurs"
       description="Aprobarea, respingerea și editarea înscrierilor se fac deocamdată din aplicația Bluvi."
     >
@@ -313,8 +297,6 @@ function AuthorNotice({ competition, statute, appHref }: { competition: Competit
 // pr-18: the right 72px are the chevron's column and the corner tag's width («Stand 12»,
 // «Nealocat»), so a two-line name never runs under the tag.
 const HEADER = 'flex min-h-20 w-full items-center gap-3 py-3 pr-18 pl-4 text-left';
-/** The same, beside a longer tag (NC «Stand A3(12)», from 768). */
-const HEADER_LONG_TAG = HEADER.replace('pr-18', 'pr-28');
 const FOCUS = 'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent';
 
 /**
@@ -343,101 +325,6 @@ function sectorGroups(registrations: DetailRegistration[], sectors: CompetitionW
     ...bySector,
     ...(other.length ? [{ key: 'alte', title: 'Alte standuri', sector: null, registrations: other }] : []),
   ];
-}
-
-function SectorDot({ name }: { name: string }) {
-  const fill = sectorFill(name, 'var(--color-accent)');
-  return <span aria-hidden className={cn('size-2.5 shrink-0 rounded-full', fill.className)} style={fill.style} />;
-}
-
-function WideList({
-  registrations,
-  ...card
-}: {
-  registrations: DetailRegistration[];
-  team: boolean;
-  stats: StatsAccess;
-  viewer: PageViewer;
-  broken: ReadonlySet<string>;
-  mixed: boolean;
-  standText: StandText;
-}) {
-  return (
-    <ul className={WIDE_GRID}>
-      {registrations.map(r => (
-        <li key={r.documentId} className="min-w-0">
-          <WideCard registration={r} {...card} />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/**
- * The card from 768 to 1279: the same tag, face and name, its stats always under them (no chevron,
- * no disclosure). A one-user card's header opens the profile when the web has one; otherwise it is
- * text. Signed out the stats part is left out (the list says it once above); so is a guest's — in a
- * list of guests only the list says it once, in a mixed one the card carries «Adăugat manual».
- */
-function WideCard({
-  registration: r,
-  team,
-  stats,
-  viewer,
-  broken,
-  mixed,
-  standText,
-}: {
-  registration: DetailRegistration;
-  team: boolean;
-  stats: StatsAccess;
-  viewer: PageViewer;
-  broken: ReadonlySet<string>;
-  mixed: boolean;
-  standText: StandText;
-}) {
-  const type = team ? 'team' : 'single';
-  const name = registrationDisplayName(r, type);
-  const rawSubtitle = registrationTeamSubtitle(r, type);
-  const subtitle = rawSubtitle && !echoes(rawSubtitle, name) ? rawSubtitle : null;
-  const solo = soloParticipant(r);
-  const profile = solo ? profileHref(solo.documentId, viewer) : null;
-  const guest = isGuest(r);
-  const stand = standText(r);
-  const header = stand && stand.length > 4 ? HEADER_LONG_TAG : HEADER;
-  const identity = (
-    <>
-      <CardAvatar registration={r} team={team} name={name} broken={broken} />
-      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-        <span className="line-clamp-2 t-body-strong text-ink">{name}</span>
-        {subtitle ? <span className="line-clamp-2 t-caption text-muted">{subtitle}</span> : null}
-        {guest && mixed ? (
-          <Pill tone="neutral" className="mt-0.5">
-            Adăugat manual
-          </Pill>
-        ) : null}
-      </span>
-    </>
-  );
-  return (
-    <CardShell interactive={!!profile} label={name} className="h-full">
-      <Pill tone={stand ? 'info' : 'danger'} className="pointer-events-none absolute top-0 right-0 z-above rounded-none! rounded-bl-card!">
-        {stand ? `Stand ${stand}` : 'Nealocat'}
-      </Pill>
-      {profile ? (
-        <Link href={profile} className={cn(header, FOCUS, 'hover:bg-soft-fill')}>
-          {identity}
-        </Link>
-      ) : (
-        <div className={header}>{identity}</div>
-      )}
-      {stats.kind === 'signIn' || guest ? null : (
-        <div className="mt-auto border-t border-hairline bg-surface px-4 py-3">
-          <CardStats registration={r} stats={stats} viewer={viewer} broken={broken} />
-        </div>
-      )}
-    </CardShell>
-  );
 }
 
 /** fish ParticipantCard. */

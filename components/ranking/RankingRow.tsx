@@ -60,12 +60,15 @@ export type RankingRowProps = {
 };
 
 /**
- * Ranking row · mobile (Fundații §07) — the competition page's phone ranking (MobileRanking), as it
- * ships: position pill (navy + lavender only for the untied 1st place with a catch; tied «=4»),
- * the angler with fish's penalty marker, a trophy after the name for a winner (muted for a sector
+ * Ranking row · mobile (Fundații §07) — a ranked line in a list (the /dev/kit card; its grammar is
+ * the lake rankings'). NOT the competition page's phone ranking: a competition ranking is a table at
+ * every width, fish's colours included (ROADMAP §4b.12, §4b.15 — MobileRanking draws the kit
+ * RankingTable as fish's ScrollableTable). The row: position pill (navy + lavender only for the
+ * untied 1st place with a catch; tied «=4»), the angler with fish's penalty marker, a trophy after the name for a winner (muted for a sector
  * winner, as the table's «Poziție sector» cue), «sector · stand · capturi · CMMC» with the gold
  * biggest catch, the deciding value in kg with fish's three decimals. The sector shows only as the
- * 4px left stripe; the row background never carries it. Rendered as a list item — wrap rows in an <ol>.
+ * 4px left stripe (a list line, not a ranking table: no fish fills). Rendered as a list item — wrap
+ * rows in an <ol>.
  */
 export function RankingRow({ row, valueKey = 'quantity', tied = false, isCurrentUser = false, winnerMode = 'sector' }: RankingRowProps) {
   const { sector, stand } = parseStand(row.position);

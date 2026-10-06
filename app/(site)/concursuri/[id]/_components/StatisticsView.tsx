@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { PAGE_RETRY } from './retry-policy';
-import { ChartBarIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ChartBarIcon, ChevronRightIcon, ClockIcon, ExclamationTriangleIcon, TrophyIcon } from '@heroicons/react/24/outline';
 import {
   buildWeighingSessions,
   catchThresholdCountsQuery,
@@ -23,20 +23,20 @@ import { deletePenaltyMutation } from '@/core/organizer';
 import type { Transport } from '@/core/transport';
 import { sectorColor, sectorFill } from '@/components/ranking/sector';
 import { RANKING_HEAD } from '@/components/ranking/tableHead';
-import { formatDecimal } from '@/components/cards/format';
-import { CatchIcon, DeadFishIcon, FishIcon, ScaleIcon } from '@/components/icons/brand';
+import { formatDecimal, plural } from '@/components/cards/format';
+import { CatchIcon, DeadFishIcon, FishIcon, ScaleIcon, StandPinIcon } from '@/components/icons/brand';
 import { Dialog } from '@/components/surfaces/Dialog';
 import { EmptyState, ErrorState } from '@/components/surfaces/StateCard';
 import { LIST_GUTTER } from '@/components/templates/T1';
-import { DetailSection } from '@/components/templates/T3';
-import { FactTile, StatTile } from '@/components/ui/BentoTile';
+import { DetailSection, SECTION_SCROLL_MARGIN } from '@/components/templates/T3';
+import { bentoSurface, FactTile, StatTile, type BentoTone } from '@/components/ui/BentoTile';
 import { FaceStack } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { InlineNumber } from '@/components/ui/SignatureNumber';
 import { useSiteToast } from '../../../_shell/Toast';
 import { ContextSurface } from './ContextSurface';
-import { BiggestCatchTile, SummaryStrip, summaryTiles, useWeighingSlot, WeighingTile } from './DesktopStats';
+import { BiggestCatchTile, SummaryStrip, summaryTiles, type EntrantCounts } from './DesktopStats';
 import { isOfflineEmpty, OfflineState } from './offline';
 import { QueryRetry } from './QueryRetry';
 import { formatKg } from './ranking';
@@ -53,10 +53,14 @@ import { statisticFacts } from './StatisticFacts';
  * quantity rankings), Capturi pe praguri. Charts are drawn with plain HTML / SVG (no chart
  * library). Every block has its own loading (its shape), error («Încearcă din nou») and empty state.
  *
- * Bento (owner rule 9, ROADMAP §4b): the view opens on a bento of tiles of different sizes (MetaTiles)
- * — see MetaTiles for its shape per width. The chart cards under it are one column below 1280 and
+ * Bento (owner rule 9, ROADMAP §4b): on the phone the view opens on a bento of tiles of different
+ * sizes (MetaTiles); from 768 the headline numbers are the strip over the views and the two facts it
+ * does not say are the first cell of the chart grid (DesktopFacts) — never a row of their own, which
+ * left one or two small tiles on a 1216–1680px row. The chart cards are one column below 1280 and
  * two balanced columns from 1280 (each card as tall as its content, never stretched to a taller
- * neighbour: no field of white under a short card). Every state of a block (bones, error, offline)
+ * neighbour: no field of white under a short card). Owner rule 19: every chart card has its own
+ * bento surface (ChartCard `tone`, the chart on a white inset), so no two cards in a row look alike;
+ * the stand timeline (its own white card) sits between two tinted ones. Every state of a block (bones, error, offline)
  * keeps its card and title, so nothing moves when it lands; the blocks drawn from the ranking (the
  * bento, Penalizări, the donut) follow the ranking read. A block with nothing to say is not drawn
  * (rule 4): no Top capturi of «-», no donut of 0; without a single catch or weighing the view is the
@@ -82,6 +86,8 @@ export function StatisticsView({
   competition,
   rankingsQ,
   rankingRows,
+  entrants,
+  weighingTone = 'violet',
   weighingStats,
   decimals,
   canRevoke = false,
@@ -93,6 +99,17 @@ export function StatisticsView({
   /** The ranking read: its data draws the tiles, Penalizări and the donut; its states theirs. */
   rankingsQ: UseQueryResult<RankingResponse>;
   rankingRows: Parameters<typeof summaryTiles>[1];
+  /**
+   * Who the catches are counted over (DesktopStats entrantCounts: the stands, else the feeder
+   * entrants or the club teams) — the same counts as the strip over the views, so the per-entrant
+   * facts are there for feeder legs and club rankings too.
+   */
+  entrants: EntrantCounts | null;
+  /**
+   * The surface of the strip's weighing tile (weighingTileTone): the grid's Penalizări / Cantitate
+   * pe sector card takes the other of rose and violet, so no tint shows twice on the page (rule 19).
+   */
+  weighingTone?: 'rose' | 'violet';
   weighingStats: UseQueryResult<WeighingStatisticsResponse>;
   /** Author or referee (statute): «Revocă» on each penalty. */
   canRevoke?: boolean;
@@ -120,6 +137,11 @@ export function StatisticsView({
         ? 'pending'
         : 'ok';
   const ncType = isNationalType(competition.rankingType);
+  // Owner rule 19, one screen: the strip over the views takes lavender (Capturi), indigo and rose or
+  // violet (the weighing); the facts mint and amber; the chart cards sky (sessions), peach (Top
+  // capturi), lime (thresholds) and whichever of rose / violet the weighing tile does not use
+  // (Penalizări or the donut — never both on one ranking type).
+  const accentTone = weighingTone === 'rose' ? 'violet' : 'rose';
   const quantityType = QUANTITY_TYPES.has(competition.rankingType ?? '');
   // Not one catch and not one weighing: nothing to chart (rule 4) — the summary line (the bento's on
   // the phone, the strip's from 768) and one empty state, not cards of «-» and a ring of 0.
@@ -141,17 +163,17 @@ export function StatisticsView({
         <MetaTiles
           metadata={metadata}
           rows={rankingRows}
+          entrants={entrants}
           completed={status === 'completed'}
           decimals={decimals}
           national={metadata?.rankingType === 'nationalChampionship'}
           competition={competition}
-          reserveWeighing={status === 'started' || status === 'completed'}
         />
       )}
       {nothing ? (
         <>
           {nc ? (
-            <PenaltiesCard t={t} competitionId={competition.documentId} rows={nc.flatMap(club => club.teams ?? [])} canRevoke={canRevoke} />
+            <PenaltiesCard t={t} competitionId={competition.documentId} rows={nc.flatMap(club => club.teams ?? [])} canRevoke={canRevoke} tone={accentTone} />
           ) : null}
           <EmptyState
             icon={<ChartBarIcon aria-hidden className="size-10 text-muted" />}
@@ -160,10 +182,11 @@ export function StatisticsView({
           />
         </>
       ) : (
-      <div className={STATS_GRID}>
+      <div data-stats-grid className={STATS_GRID}>
+        <DesktopFacts metadata={metadata} entrants={entrants} decimals={decimals} pending={rankingState === 'pending'} />
         <WeighingCharts t={t} competition={competition} query={weighingStats} decimals={decimals} />
         {nc ? (
-          <PenaltiesCard t={t} competitionId={competition.documentId} rows={nc.flatMap(club => club.teams ?? [])} canRevoke={canRevoke} />
+          <PenaltiesCard t={t} competitionId={competition.documentId} rows={nc.flatMap(club => club.teams ?? [])} canRevoke={canRevoke} tone={accentTone} />
         ) : ncType && rankingState === 'pending' ? (
           <ChartCardSkeleton label="Se încarcă penalizările" />
         ) : ncType && rankingState === 'failed' ? (
@@ -177,7 +200,7 @@ export function StatisticsView({
           // (from 768 the summary row above the views says the ranking failed).
           rankingFailure(quantityType ? 'Cantitate pe sector (kg)' : 'Rezumat', quantityType ? undefined : 'md:hidden')
         ) : (
-          <SectorQuantity rankings={rankings} decimals={decimals} />
+          <SectorQuantity rankings={rankings} decimals={decimals} tone={accentTone} />
         )}
         <ThresholdTable query={thresholds} />
       </div>
@@ -187,10 +210,8 @@ export function StatisticsView({
 }
 
 /**
- * The bento while the ranking loads, in the loaded bento's shape: the phone's (the navy tile and
- * the quantity tile across, then two facts) and, from 1280, the six-column one (navy 2×2, quantity
- * and weighing 2×1, four facts). 768–1279 the strip over the views holds the place. Marked
- * `data-stats-bento` like the bento, so from 1280 the strip's bones step aside the same way.
+ * The bento while the ranking loads, in the phone bento's shape (the navy tile and the quantity
+ * tile across, then two facts). From 768 the strip over the views holds the place (its own bones).
  */
 function TileBones({ announce = true }: { announce?: boolean }) {
   return (
@@ -198,16 +219,12 @@ function TileBones({ announce = true }: { announce?: boolean }) {
       role={announce ? 'status' : undefined}
       aria-label={announce ? 'Se încarcă rezumatul' : undefined}
       aria-hidden={announce ? undefined : true}
-      data-stats-bento=""
-      className={cn('grid grid-cols-2 gap-3 md:hidden', BENTO_XL, 'xl:grid')}
+      className="grid grid-cols-2 gap-3 md:hidden"
     >
-      <span aria-hidden className="col-span-2 h-39 animate-shimmer rounded-bento xl:row-span-2 xl:h-auto" />
-      <span aria-hidden className="col-span-2 h-25 animate-shimmer rounded-bento xl:h-39" />
-      <span aria-hidden className="col-span-2 hidden h-39 animate-shimmer rounded-bento xl:block" />
-      <span aria-hidden className="h-24 animate-shimmer rounded-bento xl:h-30" />
-      <span aria-hidden className="h-24 animate-shimmer rounded-bento xl:h-30" />
-      <span aria-hidden className="hidden h-30 animate-shimmer rounded-bento xl:block" />
-      <span aria-hidden className="hidden h-30 animate-shimmer rounded-bento xl:block" />
+      <span aria-hidden className="col-span-2 h-39 animate-shimmer rounded-bento" />
+      <span aria-hidden className="col-span-2 h-25 animate-shimmer rounded-bento" />
+      <span aria-hidden className="h-24 animate-shimmer rounded-bento" />
+      <span aria-hidden className="h-24 animate-shimmer rounded-bento" />
     </div>
   );
 }
@@ -218,6 +235,7 @@ export function StatisticsSkeleton() {
     <div role="status" aria-label="Se încarcă statisticile" className="flex flex-col gap-4 pb-2">
       <TileBones announce={false} />
       <div className={STATS_GRID}>
+        <FactBones />
         <ChartBones />
         <ChartBones />
         <ChartBones />
@@ -245,24 +263,60 @@ function ChartBones() {
 /**
  * fish StatisticsChartCard on the T3 section card: title + description + content. On the phone the
  * section is a card too (the Statistici view sits on the white ground, inside the view's gutter).
+ *
+ * With a `tone` (owner rule 19: no grid of identical white cards) the card is a bento tile of that
+ * surface — the title and description on the tint (ink title, the tint's own AA foreground under it),
+ * an optional large icon as top-right art — and the chart on a white inset, so every colour inside
+ * it keeps the contrast it was drawn for. The failed / offline states keep the plain card.
  */
 function ChartCard({
   id,
   title,
   description,
+  tone,
+  art,
   className,
   children,
 }: {
   id?: string;
   title: string;
   description?: string;
+  /** The card's bento surface (a coloured tile with the chart on a white inset). */
+  tone?: Exclude<BentoTone, 'page' | 'surface' | 'navy' | 'signature' | 'indigo'>;
+  /** A large decorative icon in the top-right corner (with `tone`). */
+  art?: ReactNode;
   className?: string;
   children: ReactNode;
 }) {
+  const fallbackId = useId();
+  if (!tone) {
+    return (
+      <DetailSection id={id} title={title} description={description} className={cn('max-md:rounded-card max-md:shadow-e0', className)}>
+        {children}
+      </DetailSection>
+    );
+  }
+  const titleId = id ? `${id}-titlu` : fallbackId;
   return (
-    <DetailSection id={id} title={title} description={description} className={cn('max-md:rounded-card max-md:shadow-e0', className)}>
-      {children}
-    </DetailSection>
+    <section
+      id={id}
+      aria-labelledby={titleId}
+      className={cn('rounded-bento p-1.5 shadow-e0 outline-none md:p-2', id && SECTION_SCROLL_MARGIN, bentoSurface(tone), className)}
+    >
+      {art ? (
+        <span aria-hidden className="pointer-events-none absolute -top-2 -right-2 z-behind size-24 opacity-15 [&>svg]:size-full">
+          {art}
+        </span>
+      ) : null}
+      <div className={cn('flex flex-col gap-0.5 px-2.5 pt-2.5 pb-3 md:px-3 md:pt-3 xl:px-4 xl:pt-4 xl:pb-4', !!art && 'pe-20')}>
+        <h2 id={titleId} className="t-title2 text-ink">
+          {title}
+        </h2>
+        {description ? <p className="t-caption">{description}</p> : null}
+      </div>
+      {/* The white inset is ink, not the tint's fg: only the header's description takes the card's colour. */}
+      <div className="rounded-[calc(var(--radius-bento)-6px)] bg-surface p-3 text-ink md:p-4 xl:p-5">{children}</div>
+    </section>
   );
 }
 
@@ -307,141 +361,158 @@ function BlockState({
 }
 
 /**
- * The six-column bento from 1280 (MetaTiles, its bones): a fact is one track, so at 1280–1920 it is
- * ~190–260px wide and never balloons; the headline tiles take two (the navy one two by two).
- */
-const BENTO_XL = 'xl:grid-cols-6 xl:grid-flow-row-dense xl:gap-4';
-
-/**
  * fish RankingCardsCarousel + RankingMetaCard, as a bento (owner rule 9): tiles of different sizes,
  * the headline numbers big, the small facts small. One list, laid out per width:
- *  - Phone, two columns: the navy biggest catch across, «Cantitate totală» across (the 40 step:
- *    a three-decimal total never fits half a 320–375 row), then the small facts two by two —
- *    Capturi · Medie pe captură, Standuri cu pește · Fără capturi, Media pe stand · Capturi pe stand.
- *  - 768–1279: the headline numbers are the strip over the views (DesktopStats, whose captions say
- *    the stands with fish and the average per stand), so the bento keeps only the facts the strip
- *    does not show (Medie pe captură, Capturi pe stand), each a tile's width (never one tile
- *    stretched over the row).
- *  - From 1280, six columns: the navy tile 2×2 (the number, the angler's face, name and stand),
- *    «Cantitate totală» 2×1 (with the average per stand under it) and the weighing tile 2×1 (the
- *    strip's «Cântar în curs» / «Ultimul cântar», handed over by useWeighingSlot), then four facts
- *    1×1: Capturi (per stand under it), Medie pe captură, Standuri cu pește, Fără capturi. The strip
- *    steps aside on this view (it hides itself when it sees `data-stats-bento`).
- * A fact the data cannot back (no rows: feeder legs, the club rankings) has no tile, so nothing
- * reads «0»; the two left stay small under «Cantitate totală» and the weighing tile is 2×2 beside
- * them. The per-stand figures are their own facts or their own
- * figure in a caption (rule 10), never a number glued to the unit.
+ *  - Phone, two columns: the navy biggest catch across (the angler's face, name and stand),
+ *    «Cantitate totală» across (the 40 step: a three-decimal total never fits half a 320–375 row),
+ *    then the small facts two by two — Capturi · Medie pe captură, Standuri cu pește · Fără capturi,
+ *    Media pe stand · Capturi pe stand.
+ *  - From 768 this list is not drawn: the headline numbers (biggest catch, Capturi with the stands
+ *    with / without fish, Cantitate totală with the average per stand, the weighing) are the strip
+ *    over the views (DesktopStats), on every view — so the view switcher never moves between views
+ *    — and the facts the strip does not say (Medie pe captură, Capturi pe stand) are the first cell
+ *    of the chart grid (DesktopFacts).
+ * The per-entrant facts count what the strip counts (EntrantCounts: the stands, else the feeder
+ * teams / anglers or the club teams — «Echipe cu pește», «Media pe echipă»); a fact the data cannot
+ * back (nobody counted) has no tile, so nothing reads «0». The per-stand figures are their own facts (rule 10), never a number glued to the unit.
  */
 function MetaTiles({
   metadata,
   rows,
+  entrants,
   completed,
   decimals,
   national,
   competition,
-  reserveWeighing,
 }: {
   metadata: RankingMetadata | undefined;
   rows: Parameters<typeof summaryTiles>[1];
+  entrants: EntrantCounts | null;
   completed: boolean;
   decimals: number;
   national: boolean;
   competition: CompetitionWithMyStatus;
-  /** Started / completed: the weighing tile's 2×1 cell is there from the first paint. */
-  reserveWeighing: boolean;
 }) {
-  const weighing = useWeighingSlot();
   if (!metadata) return null;
   // No catch yet: the one line, not tiles of zeros (as DesktopStats from 768).
   if (metadata.totalCatchesCount === 0) return <SummaryStrip rankings={rows} completed={completed} className="md:hidden" />;
-  const tiles = summaryTiles(metadata, rows, decimals);
-  const facts = statisticFacts(metadata, rows);
+  const tiles = summaryTiles(metadata, rows, decimals, entrants);
+  const facts = statisticFacts(metadata, entrants);
   const stands = facts.stands;
-  const faces = metadata.biggestCatch ? facesOnStand(metadata.biggestCatch.standId, competition) : [];
-  // From 768 the tiles sit on the grey page ground: the surface card, as every tile of the page.
-  const onPage = 'md:bg-surface md:shadow-e0';
-  // The strip says these from 768 to 1279; the bento says them on the phone and from 1280.
-  const notTablet = 'md:max-xl:hidden';
-  // Only from 1280 (the phone has its own tiles for these figures).
-  const xlOnly = 'max-xl:hidden';
-  // Without the per-stand facts (feeder, club rankings) two facts are left: they stay 1×1 under
-  // «Cantitate totală» and the weighing tile takes the two rows beside them (2×2); with no weighing
-  // tile they share the row (2×1 each).
-  const pair = stands ? undefined : reserveWeighing ? undefined : 'xl:col-span-2';
-  const tallWeighing = !stands;
+  const faces = metadata.biggestCatch ? facesOfCatch(metadata.biggestCatch, competition) : [];
+  // Owner rule 19: every tile its own surface (BentoTile tones) — the navy signature, indigo for
+  // the total, the soft tints for the small facts, each with its icon as corner art.
   return (
-    <ul
-      aria-label="Rezumat"
-      data-stats-bento=""
-      className={cn(
-        'grid grid-cols-2 gap-3 *:min-w-0 *:*:h-full',
-        'md:grid-cols-[repeat(auto-fill,minmax(--spacing(60),1fr))] md:gap-4',
-        BENTO_XL,
-      )}
-    >
-      <li className={cn('col-span-2 xl:row-span-2', notTablet)}>
-        <BiggestCatchTile {...tiles.biggest} decimals={decimals} national={national} faces={faces} />
+    <ul aria-label="Rezumat" className="grid grid-cols-2 gap-3 *:min-w-0 *:*:h-full md:hidden">
+      <li className="col-span-2">
+        <BiggestCatchTile {...tiles.biggest} decimals={decimals} national={national} faces={faces} art />
       </li>
-      <li className={cn('col-span-2', !reserveWeighing && 'xl:col-span-4', notTablet)}>
+      <li className="col-span-2">
         {/* Across the phone row it needs no 156 height: label and number, as tall as they are. */}
-        <StatTile
-          label="Cantitate totală"
-          value={tiles.quantity.value}
-          unit="kg"
-          caption={stands ? <>media pe stand <InlineNumber value={formatKg(stands.perStandKg, decimals)} unit="kg" /></> : undefined}
-          captionClassName={xlOnly}
-          className={cn(onPage, 'max-md:min-h-0')}
-        />
+        <StatTile tone="indigo" icon={<ChartBarIcon />} label="Cantitate totală" value={tiles.quantity.value} unit="kg" className="min-h-0!" />
       </li>
-      {reserveWeighing ? (
-        <li className={cn('col-span-2 hidden xl:block', tallWeighing && 'xl:row-span-2')}>
-          {weighing ? (
-            <WeighingTile {...weighing} standalone />
-          ) : (
-            <span aria-hidden className="block h-full min-h-39 animate-shimmer rounded-bento" />
-          )}
-        </li>
-      ) : null}
-      <li className={cn(notTablet, pair)}>
-        <FactTile
-          label="Capturi"
-          icon={<FishIcon />}
-          value={tiles.catches.value}
-          caption={stands ? <><InlineNumber value={formatDecimal(stands.catchesPerStand, 1, 1)} /> pe stand</> : undefined}
-          captionClassName={xlOnly}
-          className={onPage}
-        />
+      <li>
+        <FactTile tone="lavender" label="Capturi" icon={<FishIcon />} value={tiles.catches.value} />
       </li>
       {facts.perCatch !== null ? (
-        <li className={pair}>
-          <FactTile label="Medie pe captură" icon={<ScaleIcon />} value={formatKg(facts.perCatch, decimals)} unit="kg" className={onPage} />
+        <li>
+          <FactTile tone="mint" label="Medie pe captură" icon={<ScaleIcon />} value={formatKg(facts.perCatch, decimals)} unit="kg" />
         </li>
       ) : null}
       {stands ? (
         <>
-          <li className={notTablet}>
-            <FactTile label="Standuri cu pește" icon={<CatchIcon />} value={String(stands.withFish)} unit={`/${stands.total}`} className={onPage} />
+          <li>
+            <FactTile tone="sky" label={`${capitalize(stands.many)} cu pește`} icon={<CatchIcon />} value={String(stands.withFish)} unit={`/${stands.total}`} />
           </li>
-          <li className={notTablet}>
+          <li>
             <FactTile
+              tone="rose"
               label="Fără capturi"
               icon={<DeadFishIcon />}
               value={String(stands.without)}
-              unit={stands.without === 1 ? 'stand' : stands.without % 100 >= 20 || (stands.without > 0 && stands.without % 100 === 0) ? 'de standuri' : 'standuri'}
-              className={onPage}
+              unit={countWord(stands.without, stands.one, stands.many)}
             />
           </li>
-          {/* From 1280 these two are the captions of «Cantitate totală» and «Capturi». */}
-          <li className="md:hidden">
-            <FactTile label="Media pe stand" icon={<ChartBarIcon />} value={formatKg(stands.perStandKg, decimals)} unit="kg" className={onPage} />
+          <li>
+            <FactTile tone="violet" label={`Media pe ${stands.one}`} icon={<ChartBarIcon />} value={formatKg(stands.perStandKg, decimals)} unit="kg" />
           </li>
-          <li className="xl:hidden">
-            <FactTile label="Capturi pe stand" icon={<FishIcon />} value={formatDecimal(stands.catchesPerStand, 1, 1)} className={onPage} />
+          <li>
+            {/* Not Capturi's lavender and fish (two tiles of one look, rule 19): amber, the stand pin. */}
+            <FactTile tone="amber" label={`Capturi pe ${stands.one}`} icon={<StandPinIcon />} value={formatDecimal(stands.catchesPerStand, 1, 1)} />
           </li>
         </>
       ) : null}
     </ul>
   );
+}
+
+/** «Echipe», «Standuri»: an entrant word at the start of a label. */
+const capitalize = (word: string) => word.charAt(0).toLocaleUpperCase('ro') + word.slice(1);
+
+/** The word after a count, Romanian plural: «stand», «standuri», «de standuri» (plural() without the figure). */
+const countWord = (n: number, one: string, many: string) => plural(n, one, many).replace(/^\S+ /, '');
+
+/**
+ * From 768: the facts the strip over the views does not say (Medie pe captură, Capturi pe stand) as
+ * the first cell of the chart grid — in the first column from 1280 — instead of a row of their own
+ * under the tabs (one or two ~260px tiles on a 1216–1680px row: a near-empty rail, owner rules 5 and
+ * 16). Two facts share the cell, the 40 step with a caption that says what the figure is made of,
+ * each on its own tint with its icon as corner art (rule 19) — Capturi pe stand on amber with the
+ * stand pin, never the lavender fish of the strip's Capturi right above it. Feeder legs and club
+ * rankings count their teams / anglers (EntrantCounts), so they have the pair too. One fact alone
+ * (nobody counted) is the compact 26-step tile at its own width, never a slab of tint
+ * across the whole column holding one small figure (rules 5, 9, 16).
+ * While the ranking is read: one tile's bones, so the cards under it never move when it lands.
+ */
+function DesktopFacts({
+  metadata,
+  entrants,
+  decimals,
+  pending,
+}: {
+  metadata: RankingMetadata | undefined;
+  entrants: EntrantCounts | null;
+  decimals: number;
+  pending: boolean;
+}) {
+  if (pending) return <FactBones />;
+  if (!metadata || metadata.totalCatchesCount === 0) return null;
+  const facts = statisticFacts(metadata, entrants);
+  const stands = facts.stands;
+  if (facts.perCatch === null && !stands) return null;
+  const perCatchCaption = `din ${plural(metadata.totalCatchesCount, 'captură', 'capturi')}`;
+  if (!stands) {
+    return (
+      <ul aria-label="Rezumat" className="flex max-md:hidden">
+        <li className="min-w-52">
+          <FactTile tone="mint" label="Medie pe captură" icon={<ScaleIcon />} value={formatKg(facts.perCatch!, decimals)} unit="kg" caption={perCatchCaption} />
+        </li>
+      </ul>
+    );
+  }
+  return (
+    <ul aria-label="Rezumat" className="grid grid-cols-[repeat(auto-fit,minmax(--spacing(52),1fr))] gap-4 *:min-w-0 *:*:h-full max-md:hidden">
+      {facts.perCatch !== null ? (
+        <li>
+          <StatTile tone="mint" label="Medie pe captură" icon={<ScaleIcon />} value={formatKg(facts.perCatch, decimals)} unit="kg" caption={perCatchCaption} />
+        </li>
+      ) : null}
+      <li>
+        <StatTile
+          tone="amber"
+          label={`Capturi pe ${stands.one}`}
+          icon={<StandPinIcon />}
+          value={formatDecimal(stands.catchesPerStand, 1, 1)}
+          caption={`pe ${plural(stands.total, stands.one, stands.many)}`}
+        />
+      </li>
+    </ul>
+  );
+}
+
+/** The desktop facts cell while the ranking is read: one 156px bento tile's bones. */
+function FactBones() {
+  return <span aria-hidden className="block h-39 animate-shimmer rounded-bento max-md:hidden" />;
 }
 
 /**
@@ -503,7 +574,7 @@ function WeighingCharts({
   return (
     <>
       {sessions ? (
-        <ChartCard id="sesiuni" title={SESSIONS_TITLE} description={SESSIONS_DESCRIPTION}>
+        <ChartCard id="sesiuni" title={SESSIONS_TITLE} description={SESSIONS_DESCRIPTION} tone="sky" art={<ClockIcon />}>
           {query.isError ? <StaleNotice onRetry={() => void query.refetch()} /> : null}
           <SessionTimeline items={query.data.data} decimals={decimals} />
           {noSnapshot ? <p className="mt-3 t-caption text-muted">{timelineEmptyCopy(competition.competitionStatus)}</p> : null}
@@ -527,11 +598,14 @@ function SessionTimeline({ items, decimals }: { items: WeighingStatisticsRespons
       <ol className="flex flex-col">
         {shown.map((session, i) => {
           const lastShown = i === shown.length - 1;
+          const peek = lastShown && collapsible && !expanded;
           const extra = session.type === 'extra';
           return (
-            <li key={`${session.label}-${i}`} className={cn('flex gap-2', lastShown && collapsible && !expanded && 'opacity-35')}>
-              {/* The rail: the dot, and the line down to the next session. */}
-              <span aria-hidden className="flex w-6 shrink-0 flex-col items-center">
+            <li key={`${session.label}-${i}`} className="flex gap-2">
+              {/* The rail: the dot, and the line down to the next session. Collapsed, the last row's
+                  rail and bar fade as the peek of the hidden sessions — its text stays at full
+                  strength (AA on every surface, rule 19). */}
+              <span aria-hidden className={cn('flex w-6 shrink-0 flex-col items-center', peek && 'opacity-35')}>
                 <span className={cn('mt-1.5 size-2.5 shrink-0 rounded-full', extra ? 'bg-badge-yellow-fg' : 'bg-accent')} />
                 {!(lastShown && !collapsible) ? <span className="my-0.5 w-0.5 flex-1 bg-hairline" /> : null}
               </span>
@@ -550,7 +624,7 @@ function SessionTimeline({ items, decimals }: { items: WeighingStatisticsRespons
                     valueClassName={cn('t-body', extra ? 'text-status-warning-fg' : 'text-accent-ink')}
                   />
                 </div>
-                <span aria-hidden className={cn('h-1.5 overflow-hidden rounded-full', extra ? 'bg-badge-yellow-bg' : 'bg-accent-tint-2')}>
+                <span aria-hidden className={cn('h-1.5 overflow-hidden rounded-full', extra ? 'bg-badge-yellow-bg' : 'bg-accent-tint-2', peek && 'opacity-35')}>
                   <span
                     className={cn('block h-full rounded-full', extra ? 'bg-badge-yellow-fg' : 'bg-accent')}
                     style={{ width: `${(session.totalKg / maxKg) * 100}%` }}
@@ -558,14 +632,8 @@ function SessionTimeline({ items, decimals }: { items: WeighingStatisticsRespons
                 </span>
                 <span className="flex flex-wrap gap-x-3 t-micro text-muted">
                   <span>{session.timeRange}</span>
-                  <span>
-                    {session.catchCount} {session.catchCount === 1 ? 'captură' : 'capturi'}
-                  </span>
-                  {session.standCount > 0 ? (
-                    <span>
-                      {session.standCount} {session.standCount === 1 ? 'stand' : 'standuri'}
-                    </span>
-                  ) : null}
+                  <span>{plural(session.catchCount, 'captură', 'capturi')}</span>
+                  {session.standCount > 0 ? <span>{plural(session.standCount, 'stand', 'standuri')}</span> : null}
                 </span>
               </div>
             </li>
@@ -586,7 +654,7 @@ function SessionTimeline({ items, decimals }: { items: WeighingStatisticsRespons
         </button>
       ) : null}
       <p className="mt-2 flex items-center justify-between border-t border-hairline pt-2.5 pl-6">
-        <span className="t-label text-ink-2">Total: {totals.catches} capturi</span>
+        <span className="t-label text-ink-2">{`Total: ${plural(totals.catches, 'captură', 'capturi')}`}</span>
         <InlineNumber value={formatKg(totals.kg, decimals)} unit="kg" valueClassName="t-body-strong text-ink" />
       </p>
     </div>
@@ -606,6 +674,43 @@ function StaleNotice({ onRetry }: { onRetry: () => void }) {
 }
 
 type BestNKey = 'best3' | 'best5' | 'best7';
+
+/**
+ * The faces of the biggest catch's entrant. The registration on the catch's stand only when it is
+ * that entrant: in feeder legs the stand changes every leg (the catch's stand belongs, in the
+ * registration, to another team), so the registration is found by its people (participant
+ * documentIds), else its team or guest name. Unresolved: the initials of the displayed name —
+ * never another entrant's face.
+ */
+function facesOfCatch(big: NonNullable<RankingMetadata['biggestCatch']>, competition: CompetitionWithMyStatus): { name: string; src: string | null }[] {
+  const registered = competition.registrations.filter(r => r.registrationStatus === 'registered');
+  const ids = new Set(big.participants.map(p => p.documentId));
+  const known = ids.size > 0 || !!big.teamName || !!big.guestName;
+  const isEntrant = (r: (typeof registered)[number]) =>
+    ids.size > 0
+      ? r.participants.some(p => ids.has(p.documentId))
+      : big.teamName
+        ? r.teamName === big.teamName
+        : big.guestName
+          ? r.guestName === big.guestName
+          : false;
+  const onStand =
+    competition.rankingType === 'feederRounds' || big.standId === null || big.standId === undefined
+      ? undefined
+      : registered.find(r => r.stand && String(r.stand.id) === String(big.standId));
+  const reg = onStand && (!known || isEntrant(onStand)) ? onStand : known ? registered.find(isEntrant) : undefined;
+  if (reg) {
+    if (reg.participants.length) return reg.participants.map(p => ({ name: p.username || '?', src: p.avatar?.url ?? null }));
+    if (reg.guestName) return [{ name: reg.guestName, src: null }];
+  }
+  const name = getCompetitorDisplayName({
+    teamName: big.teamName,
+    participantNames: big.participants.map(p => p.username),
+    guestName: big.guestName,
+    fallback: '',
+  });
+  return name ? [{ name, src: null }] : [];
+}
 
 /** The faces of the registration on a stand (fish standIdToParticipantAvatars): photo, else a name for the initials. */
 function facesOnStand(standId: string | number | null | undefined, competition: CompetitionWithMyStatus): { name: string; src: string | null }[] {
@@ -670,12 +775,16 @@ function TopsCard({
     { key: 'best5', label: 'Best 5' },
     { key: 'best7', label: 'Best 7' },
   ];
+  const rows = tops.map(top => {
+    const first = data[top.key][0];
+    return { ...top, first, faces: facesOnStand(first?.standId, competition) };
+  });
+  // The face slot is kept on every row when one has faces, so the figures line up.
+  const withFaces = rows.some(r => r.faces.length > 0);
   return (
-    <ChartCard id="top-capturi" title={TOPS_TITLE} description={TOPS_DESCRIPTION}>
+    <ChartCard id="top-capturi" title={TOPS_TITLE} description={TOPS_DESCRIPTION} tone="peach" art={<TrophyIcon />}>
       <ul className="overflow-hidden rounded-control border border-hairline">
-        {tops.map(({ key, label }, i) => {
-          const first = data[key][0];
-          const faces = facesOnStand(first?.standId, competition);
+        {rows.map(({ key, label, first, faces }, i) => {
           return (
             <li key={key} className={cn(i > 0 && 'border-t border-hairline')}>
               <button
@@ -684,9 +793,15 @@ function TopsCard({
                 onClick={() => setOpen(key)}
                 className="flex w-full cursor-pointer items-center gap-3 px-3 py-3 text-left hover:bg-soft-fill"
               >
+                {/* The face first, beside the name it belongs to (as the ranking rows), never across a wide card. */}
+                {withFaces ? (
+                  <span data-face className="flex min-w-8 shrink-0">
+                    {faces.length ? <FaceStack people={faces.slice(0, 4)} size={32} /> : null}
+                  </span>
+                ) : null}
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="flex items-center gap-2">
-                    <span className="w-13 t-caption">{label}</span>
+                    <span className="w-13 t-caption text-muted">{label}</span>
                     {typeof first?.averageBestN === 'number' ? (
                       <InlineNumber value={formatKg(first.averageBestN, decimals)} unit="kg" valueClassName="t-body text-ink" />
                     ) : (
@@ -698,7 +813,6 @@ function TopsCard({
                     <span className="truncate">{first ? participantLabel(first, competition) : '-'}</span>
                   </span>
                 </span>
-                {faces.length ? <FaceStack people={faces.slice(0, 4)} size={32} className="shrink-0" /> : null}
                 <ChevronRightIcon aria-hidden className="size-6 shrink-0 text-muted" />
               </button>
             </li>
@@ -802,7 +916,16 @@ function sectorTotals(rankings: RankingResponse | undefined): { name: string; va
  * sector colour is never a ground under text (components/ranking/sector.ts), and white fails AA on
  * the light sector hues.
  */
-function SectorQuantity({ rankings, decimals }: { rankings: RankingResponse | undefined; decimals: number }) {
+function SectorQuantity({
+  rankings,
+  decimals,
+  tone,
+}: {
+  rankings: RankingResponse | undefined;
+  decimals: number;
+  /** Rose or violet: the one the strip's weighing tile does not use (rule 19). */
+  tone: 'rose' | 'violet';
+}) {
   const sectors = sectorTotals(rankings);
   const total = sectors.reduce((s, x) => s + x.value, 0);
   // No sector has a gram yet: no blank ring of «0» (rule 4).
@@ -825,6 +948,8 @@ function SectorQuantity({ rankings, decimals }: { rankings: RankingResponse | un
     <ChartCard
       id="cantitate-sector"
       title="Cantitate pe sector (kg)"
+      tone={tone}
+      art={<ChartBarIcon />}
       description={
         afterPenalties
           ? 'Cantitatea de pește pe fiecare sector, după penalizările de greutate.'
@@ -906,7 +1031,10 @@ function PenaltiesCard({
   competitionId,
   rows,
   canRevoke,
+  tone,
 }: {
+  /** Rose or violet: the one the strip's weighing tile does not use (rule 19). */
+  tone: 'rose' | 'violet';
   t: Transport;
   competitionId: string;
   rows: {
@@ -970,7 +1098,7 @@ function PenaltiesCard({
   const visible = expanded ? sorted : sorted.slice(0, PENALTIES_PREVIEW);
   return (
     <div ref={section}>
-    <ChartCard id="penalizari" title="Penalizări">
+    <ChartCard id="penalizari" title="Penalizări" tone={tone} art={<ExclamationTriangleIcon />}>
       <ul className="overflow-hidden rounded-control border border-hairline">
         {visible.map((p, i) => {
           const headline =
@@ -1091,18 +1219,15 @@ function ThresholdTable({ query }: { query: UseQueryResult<ThresholdData> }) {
   if (!data) return null;
   if (![data.general, ...data.bySector].some(row => THRESHOLDS.some(([, key]) => row[key] > 0))) return null;
   return (
-    <ChartCard
-      id="capturi-praguri"
-      title="Capturi"
-      description={THRESHOLDS_DESCRIPTION}
-    >
-      {/* Narrow numeric columns: on a full-width card the numbers stay near their sector. */}
-      <DataTableShell caption="Capturi pe praguri de greutate" className="md:max-w-3xl">
+    <ChartCard id="capturi-praguri" title="Capturi" description={THRESHOLDS_DESCRIPTION} tone="lime" art={<FishIcon />}>
+      {/* Rule 16: as wide as its content — narrow numeric columns (fish's 4–5rem), the rest of the
+          card stays margin, so the numbers sit by their sector at 1440+. */}
+      <DataTableShell caption="Capturi pe praguri de greutate" width="w-full md:w-auto">
         <thead>
           <tr>
             <Th>Sector</Th>
             {THRESHOLDS.map(([label]) => (
-              <Th key={label} align="right">
+              <Th key={label} align="right" className="md:w-18">
                 {label}
               </Th>
             ))}
@@ -1112,7 +1237,9 @@ function ThresholdTable({ query }: { query: UseQueryResult<ThresholdData> }) {
           {data.bySector.map(row => (
             <tr key={row.sectorName} className="h-13">
               <Td header className="whitespace-nowrap">
-                Sector {row.sectorName}
+                {/* The phone keeps the letter (the column says «Sector»), so six columns fit 343px. */}
+                <span className="max-md:sr-only">Sector </span>
+                {row.sectorName}
               </Td>
               {THRESHOLDS.map(([label, key]) => (
                 // A zero recedes, so the thresholds that were reached stand out.
@@ -1144,10 +1271,21 @@ function ThresholdTable({ query }: { query: UseQueryResult<ThresholdData> }) {
  * the top), t-label heads; 52px rows on hairlines (no zebra), right-aligned tabular numbers, a
  * horizontal scroll when narrower. TODO(kit): extract RankingTable's shell as a kit DataTable.
  */
-function DataTableShell({ caption, className, children }: { caption: string; className?: string; children: ReactNode }) {
+function DataTableShell({
+  caption,
+  width = 'w-full',
+  className,
+  children,
+}: {
+  caption: string;
+  /** The table's width classes (the thresholds table is only as wide as its content from 768). */
+  width?: string;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
     <div role="region" aria-label={caption} tabIndex={0} className="overflow-x-auto [scrollbar-width:thin]">
-      <table className={cn('w-full border-separate border-spacing-0 t-body text-ink tabular-nums', className)}>
+      <table className={cn(width, 'border-separate border-spacing-0 t-body text-ink tabular-nums', className)}>
         <caption className="sr-only">{caption}</caption>
         {children}
       </table>
@@ -1155,14 +1293,19 @@ function DataTableShell({ caption, className, children }: { caption: string; cla
   );
 }
 
-function Th({ align = 'left', children }: { align?: 'left' | 'right'; children: ReactNode }) {
+// Below 768 the cells are a step tighter (px-2, first 12px), so a six-column table fits 343px.
+const CELL_PAD = 'px-2 first:pl-3 last:pr-3 md:px-3 md:first:pl-4 md:last:pr-4';
+
+function Th({ align = 'left', className, children }: { align?: 'left' | 'right'; className?: string; children: ReactNode }) {
   return (
     <th
       scope="col"
       className={cn(
-        'h-10 px-3 t-label whitespace-nowrap first:rounded-tl-card first:pl-4 last:rounded-tr-card last:pr-4',
+        'h-10 t-label whitespace-nowrap first:rounded-tl-card last:rounded-tr-card',
+        CELL_PAD,
         RANKING_HEAD,
         align === 'right' ? 'text-right' : 'text-left',
+        className,
       )}
     >
       {children}
@@ -1184,7 +1327,8 @@ function Td({
 }) {
   const cls = cn(
     // The first row sits right under the header band: no line on it.
-    'border-t border-hairline px-3 first:pl-4 last:pr-4 [tr:first-child>&]:border-t-transparent',
+    'border-t border-hairline [tr:first-child>&]:border-t-transparent',
+    CELL_PAD,
     align === 'right' ? 'text-right' : 'text-left',
     header && 't-body-strong',
     className,

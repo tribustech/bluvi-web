@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDownIcon, ChevronUpDownIcon, ChevronUpIcon } from '@heroicons/react/16/solid';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import type { ColumnDefinition } from '@/core/competitions/domain/table/getTableColumns';
 import { cn } from '@/components/ui/cn';
 import { cellNumber, isNoCatch, readCell, tiedIndices, type RankingRowData } from './model';
@@ -18,7 +18,7 @@ import {
   winnerMode,
   type RankingColumn,
 } from './rankingColumns';
-import { parseStand, sectorFill } from './sector';
+import { parseStand, sectorFill, sectorInk, sectorVar } from './sector';
 import { PenaltyMarker, PlaceCell, WinnerTrophy } from './shell';
 import { RANKING_HEAD, RANKING_HEAD_TIER } from './tableHead';
 
@@ -27,20 +27,18 @@ import { RANKING_HEAD, RANKING_HEAD_TIER } from './tableHead';
  * competition page's CompetitionRankingTable wraps it with the page's faces; /dev/kit shows this
  * same table). fish components/ranking-table/RankingTable.tsx with the
  * builders' columns as they are (core getTableColumns: titles and order, parity clasament c7–c13),
- * drawn in the page's table language (the kit RankingTable's tokens: the coloured 40px header row
- * RANKING_HEAD, 52px rows, t-table, hairlines, sortable headers, the avatar beside each name from
- * 768 — ROADMAP §4b.12–13). A row without a catch reads «–» in its weights (§4b.11).
+ * drawn in fish's colour language (ROADMAP §4b.15): the indigo header row (RANKING_HEAD, its titles
+ * wrapping on two lines over narrow columns), the white Stand cell with the sector's 4px edge, every
+ * other cell in the sector's colour — 40% under black, a winner row (`isWinner`) 90% under white or
+ * black, whichever clears AA for that sector (sector.ts sectorInk) — and fish's grid lines. Compact
+ * (§4b.16): fish's widths as the tracks, the region only as wide as the table. Sortable headers,
+ * the avatar beside each name from 768 (§4b.13). A row without a catch reads «–» in its weights
+ * (§4b.11).
  *
- * What fish draws and the web draws differently, each for a reason the design system states:
- *  - the sector is the 4px edge on the Stand cell, never a fill under the row's text (fish tints
- *    every cell at 40%: Fundații §01 «niciodată ca fundal sub text … pe web devine prea zgomotos la
- *    24 de sectoare»);
- *  - fish's 🎖️ on a 90% fill becomes the ranking tables' one place idiom (./shell PlaceCell): the
- *    number, and a solid trophy for the podium (places 1–3 with a catch) on «Poziție generală».
- *    What `isWinner` means depends on the type (./rankingColumns winnerMode): the sector winners
- *    (general places 1..S) get a light muted trophy on «Poziție sector»; bestOf / bestOfTiers /
- *    Best N winners the trophy on the general place. No navy pill: on a 24-sector competition it
- *    turned the column into a wall of navy.
+ * Kept from the web's ranking idiom: fish's 🎖️ becomes the tables' one place mark (./shell
+ * PlaceCell), a trophy in the cell's own ink — on «Poziție generală» for the podium (places 1–3
+ * with a catch) and bestOf / bestOfTiers / Best N winners, on «Poziție sector» for the sector
+ * winners (./rankingColumns winnerMode).
  * Everything else is fish: Stand order by default (the headers sort, «Poziție generală» = fish
  * Sortare → Poziția în clasament), three-decimal weights, the gold biggest-catch cell, grey catch
  * cells past the sector's minimum, SPLIT, the bestOfTiers indigo band with the solid green won
@@ -48,6 +46,18 @@ import { RANKING_HEAD, RANKING_HEAD_TIER } from './tableHead';
  */
 
 export type RankingTableSort = 'stand' | 'place';
+
+/**
+ * The viewer's own row (`data-me`): every cell but the Stand paints its own fill (the sector tint,
+ * the gold, the Best-N band), so a row background alone hides under them. The mark rides over any
+ * fill instead: a 3px accent-ink rule along the top and bottom of every cell (a background image, so the
+ * pinned cells' edge shadows stay theirs), and the white Stand cell in the accent tint; the name keeps «Tu · ».
+ */
+export const ME_ROW = [
+  '[&>*]:[background-image:linear-gradient(var(--color-accent-ink),var(--color-accent-ink)),linear-gradient(var(--color-accent-ink),var(--color-accent-ink))]',
+  '[&>*]:[background-size:100%_3px,100%_3px] [&>*]:[background-position:top,bottom] [&>*]:bg-no-repeat',
+  '[&>*:not([data-fill])]:bg-accent-tint',
+].join(' ');
 
 type SortState = { key: string; dir: 'asc' | 'desc' };
 
@@ -67,9 +77,25 @@ function defaultDir(col: RankingColumn): SortState['dir'] {
   return col.kind === 'weight' || col.kind === 'catch' || col.kind === 'tier' || col.kind === 'count' ? 'desc' : 'asc';
 }
 
-const WIDTH: Partial<Record<RankingColumn['kind'], string>> = {
+/**
+ * Column tracks, fish's widths as the baseline (CELL_WIDTH 60, a 60–140 Stand), a step wider for
+ * the web's 14px digits and the sort chevron: every number column is a fixed narrow track whose
+ * title wraps (fish's 60px header), the name takes what is left (ROADMAP §4b.16: the table is only
+ * as wide as its content).
+ */
+const WIDTH: Record<RankingColumn['kind'], string> = {
   stand: 'w-19',
-  place: 'w-24',
+  // Below 768 the name is capped (as the feeder table's NAME_W; 104px with a slimmer right padding),
+  // its words wrapping balanced, so Stand, the name, the deciding value and Loc share a 375 phone's
+  // 343px card (tableFixes useTablePins pins the value and Loc at the right).
+  name: 'max-md:w-26 max-md:max-w-26 max-md:min-w-26 md:min-w-48',
+  place: 'w-20',
+  sectorPlace: 'w-20',
+  weight: 'w-21',
+  catch: 'w-18',
+  tier: 'w-21',
+  count: 'w-18',
+  points: 'w-18',
 };
 
 export type RankingTableProps = {
@@ -126,13 +152,14 @@ export function RankingTable({
 
   return (
     <div
-      className="overflow-auto rounded-card bg-surface shadow-e0 [scrollbar-width:thin]"
+      // As wide as its columns (ROADMAP §4b.16), never wider than its container (then it scrolls).
+      className="w-fit max-w-full overflow-auto rounded-card bg-surface shadow-e0 [scrollbar-width:thin]"
       style={{ maxHeight }}
       tabIndex={0}
       role="region"
       aria-label={caption}
     >
-      <table className="w-full min-w-[680px] border-separate border-spacing-0 tabular-nums">
+      <table className="w-full border-separate border-spacing-0 tabular-nums">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr>
@@ -152,8 +179,8 @@ export function RankingTable({
                   scope="col"
                   aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className={cn(
-                    'sticky top-0 z-above h-10 p-0 t-label whitespace-nowrap',
-                    // fish getTierCellColors: the Best-N block's header in indigo4 with a dark label.
+                    // fish HeaderCell: the indigo band, its titles wrap on two lines in a narrow column.
+                    'sticky top-0 z-above p-0 t-label',
                     col.isTier ? RANKING_HEAD_TIER : RANKING_HEAD,
                     WIDTH[col.kind],
                     i === 0 && 'rounded-tl-card',
@@ -164,10 +191,11 @@ export function RankingTable({
                     type="button"
                     onClick={() => onSort(col)}
                     className={cn(
-                      'group flex h-10 w-full items-center gap-0.5 outline-none focus-visible:bg-accent-tint focus-visible:text-accent-ink',
-                      col.align === 'right' ? 'justify-end pr-3 pl-2' : 'justify-start pr-3',
+                      'group flex min-h-11 w-full items-center gap-0.5 py-1 outline-none focus-visible:bg-accent-tint focus-visible:text-accent-ink',
+                      col.align === 'right' ? 'justify-end pr-2.5 pl-1.5 text-right' : 'justify-start pr-3 text-left',
                       i === 0 && 'pl-[18px]',
                       i === last && 'pr-3.5',
+                      col.kind === 'name' ? 'whitespace-nowrap' : 'text-balance',
                       shown ? 'text-ink' : col.isTier ? '' : 'hover:text-ink',
                     )}
                   >
@@ -189,19 +217,26 @@ export function RankingTable({
             const fill = sectorFill(sector, row.backgroundColor);
             const minFish = typeof row.sectorMinNumberOfFish === 'number' ? row.sectorMinNumberOfFish : undefined;
             const empty = row.participant === EMPTY_STAND;
+            // fish RankingTable: every value cell in the sector's colour — 40% under black, a
+            // winner row 90% under white or black (whichever clears AA for that sector).
+            const win = !!row.isWinner && !empty;
+            const sectorCell = win ? cn('rank-sector-win', sectorInk(sector, 'win')) : 'rank-sector-tint text-rank-on-light';
             return (
               <tr
                 key={row.standId ?? `${row.position}-${index}`}
                 data-stand-id={row.standId}
-                className={cn('h-[52px] t-table', me ? 'bg-accent-tint' : noCatch ? 'text-ink-2' : 'text-ink')}
+                data-winner={win || undefined}
+                data-me={me || undefined}
+                style={sectorVar(sector, row.backgroundColor) as CSSProperties}
+                className={cn('h-12 t-table text-ink', me && cn('bg-accent-tint', ME_ROW))}
               >
                 {cols.map((col, i) => {
-                  const edge = cn('border-t border-hairline', i === last && 'pr-3.5');
+                  const edge = cn('border-t border-rank-line', i > 0 && 'border-l', i === last && 'pr-3.5');
 
                   if (col.kind === 'stand') {
                     return (
                       <td key={col.key} className={cn(edge, 'relative pr-3 pl-[18px] text-left font-bold whitespace-nowrap')}>
-                        {/* The sector: a 4px edge on the Stand cell (fish), never a fill under text. */}
+                        {/* fish: the Stand cell stays white, the sector its 4px left edge. */}
                         <span aria-hidden className={cn('absolute inset-y-0 left-0 w-1', fill.className)} style={fill.style} />
                         <span className="sr-only">
                           Sector {sector}, stand {stand}
@@ -215,10 +250,10 @@ export function RankingTable({
                   }
                   if (col.kind === 'name') {
                     return (
-                      <th key={col.key} scope="row" className={cn(edge, 'pr-3 text-left font-bold')}>
+                      <th key={col.key} scope="row" data-fill="" className={cn(edge, sectorCell, 'pr-2 pl-2.5 text-left font-bold md:pr-3')}>
                         <span className="flex min-w-0 items-center gap-1.5">
                           {empty ? null : <RankingFace name={row.participant} face={faceOf?.(row)} className="mr-1" />}
-                          <span className="truncate">
+                          <span className="max-md:text-balance max-md:break-normal md:truncate">
                             {me && 'Tu · '}
                             {empty ? (
                               <>
@@ -238,17 +273,17 @@ export function RankingTable({
                     // The podium (1–3 with a catch); bestOf-type winners ride on this place too.
                     const mark = empty ? null : mode === 'prize' && row.isWinner && !noCatch ? 'prize' : isPodium(row.generalPosition, noCatch) ? 'podium' : null;
                     return (
-                      <td key={col.key} className={cn(edge, 'pr-3 pl-2 text-right')}>
-                        <PlaceCell value={row.generalPosition} tied={tied.has(index)} mark={mark} onTint={me} align="end" />
+                      <td key={col.key} data-fill="" className={cn(edge, sectorCell, 'pr-3 pl-2 text-right')}>
+                        <PlaceCell value={row.generalPosition} tied={tied.has(index)} mark={mark} onFill align="end" />
                       </td>
                     );
                   }
                   if (col.kind === 'sectorPlace' && mode === 'sector' && row.isWinner && !noCatch && !empty) {
-                    // A sector winner: the light cue on its sector place (fish: 🎖️ on every winner row).
+                    // A sector winner: the trophy on its sector place (fish: 🎖️ on every winner row).
                     return (
-                      <td key={col.key} className={cn(edge, 'pr-3 pl-2 text-right whitespace-nowrap')}>
-                        <span className="inline-flex items-center gap-1">
-                          <WinnerTrophy mark="sector" />
+                      <td key={col.key} data-fill="" className={cn(edge, sectorCell, 'pr-2.5 pl-1.5 text-right whitespace-nowrap')}>
+                        <span className="inline-flex items-center gap-1 align-middle">
+                          <WinnerTrophy mark="sector" inherit />
                           {formatRankingPlain(row[col.key])}
                         </span>
                       </td>
@@ -256,28 +291,43 @@ export function RankingTable({
                   }
 
                   const cell = readCell(row[col.key]);
-                  const align = 'pr-3 pl-2 text-right whitespace-nowrap';
+                  const align = 'pr-2.5 pl-1.5 text-right whitespace-nowrap';
                   if (col.kind === 'catch') {
                     const n = Number(/^catch(\d+)$/.exec(col.key)?.[1] ?? 0);
                     // fish: catch cells past the row's sectorMinNumberOfFish are grey and empty (c21).
                     if (minFish !== undefined && n > minFish) {
-                      return <td key={col.key} aria-label="nu se punctează" className={cn(edge, 'bg-soft-fill')} />;
+                      return <td key={col.key} data-fill="" aria-label="nu se punctează" className={cn(edge, 'bg-rank-unscored')} />;
                     }
                   }
                   if (noCatch && col.key === mainKey) {
                     // No catch: «–», as fish (never «capot», ROADMAP §4b.11).
                     return (
-                      <td key={col.key} className={cn(edge, align, 'font-extrabold')}>
+                      <td key={col.key} data-fill="" className={cn(edge, sectorCell, align, 'font-extrabold')}>
                         <span aria-hidden>–</span>
                         <span className="sr-only">Fără capturi</span>
                       </td>
                     );
                   }
                   const weight = col.kind === 'weight' || col.kind === 'catch' || col.kind === 'tier';
-                  const text = weight ? (noCatch && col.kind !== 'tier' ? '–' : formatRankingWeight(row[col.key])) : formatRankingPlain(row[col.key]);
+                  // A Best-N cell the row never reached (fewer catches than N: the builder's 0.000)
+                  // reads «–» like its catch cells (§4b.11), on the same indigo band.
+                  const tierN = col.kind === 'tier' ? Number(/^tier(\d+)$/.exec(col.key)?.[1] ?? 0) : 0;
+                  const unreached =
+                    col.kind === 'tier' && !cell.isTierWin && (noCatch || (typeof row.catchCount === 'number' && row.catchCount < tierN && !cellNumber(row[col.key])));
+                  const text = unreached ? (
+                    <>
+                      <span aria-hidden>–</span>
+                      <span className="sr-only">{noCatch ? 'Fără capturi' : `Sub ${tierN} capturi`}</span>
+                    </>
+                  ) : weight ? (
+                    noCatch ? '–' : formatRankingWeight(row[col.key])
+                  ) : (
+                    formatRankingPlain(row[col.key])
+                  );
                   return (
                     <td
                       key={col.key}
+                      data-fill=""
                       data-biggest={cell.isBiggest || undefined}
                       data-tier-win={cell.isTierWin || undefined}
                       className={cn(
@@ -293,13 +343,15 @@ export function RankingTable({
                               ? 'bg-accent-tint-3'
                               : 'bg-accent-tint-2'
                             : // fish: the competition's biggest catch is gold with bold dark text (c19).
-                              cell.isBiggest && 'bg-medal-gold font-extrabold text-on-medal',
+                              cell.isBiggest
+                              ? 'bg-medal-gold font-extrabold text-on-medal'
+                              : sectorCell,
                       )}
                     >
                       {cell.isBiggest && <span className="sr-only">Cea mai mare captură: </span>}
                       {cell.isTierWin && <span className="sr-only">Loc câștigat la: </span>}
                       {text}
-                      {cell.isSplit && <sup className="ml-0.5 t-micro text-muted">SPLIT</sup>}
+                      {cell.isSplit && <sup className="ml-0.5 t-micro">SPLIT</sup>}
                     </td>
                   );
                 })}

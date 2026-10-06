@@ -18,8 +18,13 @@ import { cn } from "./cn";
  * bare unit («kg»); a leading space they pass is folded into the one the component sets.
  */
 export type SignatureSize = "count" | "tile" | "stat" | "fact";
-export type SignatureTone = "ink" | "lavender";
-export type UnitTone = "muted" | "lavender";
+/**
+ * Tones per bento surface (owner rule 19): ink on the light tiles, lavender on navy, white on the
+ * indigo tile. `current` takes the colour around the number — the tile's own AA fg on a soft
+ * tint — since only the figure carries the number tone.
+ */
+export type SignatureTone = "ink" | "lavender" | "onIndigo";
+export type UnitTone = "muted" | "lavender" | "onIndigo" | "current";
 
 const NUMBER: Record<SignatureSize, string> = {
   count: "t-count",
@@ -55,11 +60,14 @@ function splitUnit(unit: ReactNode): { text: ReactNode; tight: boolean } {
 const NUMBER_TONE: Record<SignatureTone, string> = {
   ink: "text-ink",
   lavender: "text-lavender",
+  onIndigo: "text-on-bento-indigo",
 };
 
 const UNIT_TONE: Record<UnitTone, string> = {
   muted: "text-muted",
   lavender: "text-lavender-2",
+  onIndigo: "text-on-bento-indigo-2",
+  current: "",
 };
 
 export interface SignatureNumberProps {
@@ -85,10 +93,13 @@ export function SignatureNumber({
   const u = unit === undefined || unit === null || unit === "" ? null : splitUnit(unit);
   return (
     <div className={cn("flex flex-col", className)}>
-      <span className={cn(NUMBER[size], NUMBER_TONE[tone])}>
-        {value}
+      {/* The tone sits on the figure alone: the unit is a sibling, so `current` takes the wrapper's
+          colour (a tinted tile's AA fg), never the number's ink (owner rule 10). */}
+      <span className={NUMBER[size]}>
+        <span data-number className={NUMBER_TONE[tone]}>{value}</span>
         {u ? (
           <span
+            data-unit
             className={cn(
               UNIT[size],
               UNIT_TONE[unitTone],
@@ -116,12 +127,15 @@ export function InlineNumber({
   unit,
   className,
   valueClassName = "t-label text-ink-2",
+  unitClassName = "text-muted",
 }: {
   value: ReactNode;
   unit?: ReactNode;
   className?: string;
   /** The figure's type step and colour (default: a caption's strong step, «t-label text-ink-2»). */
   valueClassName?: string;
+  /** The unit's colour (default muted; a bento surface passes its own AA tone). */
+  unitClassName?: string;
 }) {
   const u = unit === undefined || unit === null || unit === "" ? null : splitUnit(unit);
   return (
@@ -129,7 +143,7 @@ export function InlineNumber({
       <span className={cn(valueClassName, "tabular-nums")}>{value}</span>
       {u ? (
         <span
-          className={cn("t-micro text-muted", !u.tight && UNIT_GAP.fact)}
+          className={cn("t-micro", unitClassName, !u.tight && UNIT_GAP.fact)}
         >
           {u.tight ? null : " "}
           {u.text}

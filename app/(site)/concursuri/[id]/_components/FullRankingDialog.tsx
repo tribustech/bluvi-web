@@ -8,7 +8,8 @@ import { useModalDialog } from '@/components/surfaces/useModalDialog';
 import { cn } from '@/components/ui/cn';
 import type { RankingTableData } from './ranking';
 import { CompetitionRankingTable, type RankingInitialSort } from './CompetitionRankingTable';
-import { GENERAL_TABLE_LAYOUT, RANKING_TABLE_FIXES, STICKY_HEAD_DIALOG, numericShare, useTablePins } from './tableFixes';
+import { useMyStandId } from './rankingShell';
+import { GENERAL_TABLE_LAYOUT, RANKING_TABLE_FIXES, STICKY_HEAD_DIALOG, useTablePins } from './tableFixes';
 
 /**
  * fish «Vezi full» (/competitions/ranking-image: the whole table, every column) — on the web the
@@ -26,8 +27,14 @@ export function FullRankingDialog({
   initialSort = 'stand',
   imageHref,
   onImage,
+  currentUserStandId,
   children,
 }: {
+  /**
+   * The viewer's stand: their row is marked and prefixed «Tu · », as in the inline table. Left out,
+   * it is read from the page (the competition's registrations and the session: useMyStandId).
+   */
+  currentUserStandId?: string | null;
   /**
    * fish «Vezi full» opens the ranking IMAGE (competition-page.imagine-clasament): on the web the
    * full table opens here, and «Imagine» goes on to the image of this same table.
@@ -53,6 +60,8 @@ export function FullRankingDialog({
   // without a data-wide attribute the «fits» rules (no inner scroll box) never apply here, so the
   // table keeps scrolling inside the dialog.
   const pins = useTablePins(hostRef, table?.columns ?? [], open && table ? table.rows.length : 0);
+  const mine = useMyStandId();
+  const myStandId = currentUserStandId === undefined ? mine.standId : currentUserStandId;
   return (
     <dialog
       {...dialog}
@@ -75,19 +84,22 @@ export function FullRankingDialog({
           <XMarkIcon aria-hidden />
         </IconButton>
       </div>
+      {currentUserStandId === undefined ? mine.probe : null}
       {open && children ? <div className="flex min-h-0 flex-1 flex-col p-3 md:p-6 [&>*]:max-h-full">{children}</div> : null}
       {open && table && !children ? (
         <div
           ref={hostRef}
           data-wide={pins.wide ? 'true' : undefined}
           data-fade={pins.wide && pins.fade ? 'true' : undefined}
-          style={{ ...numericShare(table?.columns ?? []), ...pins.style }}
-          className={cn('min-h-0 flex-1 p-3 md:p-6', RANKING_TABLE_FIXES, GENERAL_TABLE_LAYOUT, STICKY_HEAD_DIALOG)}
+          style={pins.style}
+          // The table is as wide as its columns (ROADMAP §4b.16): centred, the rest is margin.
+          className={cn('min-h-0 flex-1 p-3 md:p-6 [&>[role=region]]:mx-auto', RANKING_TABLE_FIXES, GENERAL_TABLE_LAYOUT, STICKY_HEAD_DIALOG)}
         >
           <CompetitionRankingTable
             caption="Clasament complet"
             columns={table.columns}
             rows={table.rows}
+            currentUserStandId={myStandId}
             maxHeight="100%"
             initialSort={initialSort}
           />

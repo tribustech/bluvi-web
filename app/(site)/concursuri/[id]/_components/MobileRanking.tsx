@@ -1,32 +1,36 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import type { ColumnDefinition } from '@/core/competitions';
-import { RankingRow } from '@/components/ranking/RankingRow';
-import { readCell, tiedIndices, type RankingRowData } from '@/components/ranking/model';
-import { winnerMode } from '@/components/ranking/rankingColumns';
+import { compareByStand, mainValueKey, type RankingRowData } from '@/components/ranking';
+import { RANK_SCROLL_CAP_PHONE } from '@/components/ranking/shell';
 import { cn } from '@/components/ui/cn';
+import { CompetitionRankingTable } from './CompetitionRankingTable';
 import { PRESSABLE_ROWS, useRowPress } from './rowPress';
+import { GENERAL_TABLE_LAYOUT, RANKING_TABLE_FIXES, useTablePins } from './tableFixes';
 
 /*
- * The phone ranking (fish components/ranking-table ScrollableTable) as Fundații §07 «Rând
- * clasament · mobil», drawn by the kit RankingRow (position pill — navy only for the untied 1st
- * place; a winner's trophy after the name, muted for a sector winner; «sector · stand · capturi ·
- * CMMC»; the deciding value in kg with fish's three decimals; the sector only as the 4px edge).
- * The rows keep the bar's Sortare order (stand by default, as fish); every column of the builder, as fish's grid, is in «Tot ecranul» (CompetitionRankingTable).
+ * The phone ranking: fish's ScrollableTable (components/ranking-table/RankingTable.tsx) — a table on
+ * the phone too, as every ranking type (ROADMAP §4b.12, §4b.15; the feeder and club tables are
+ * tables at 375 as well). The kit RankingTable, the same one the desktop draws: the indigo header row
+ * (RANKING_HEAD), the white Stand cell with the sector's 4px edge, every other cell in fish's 40%
+ * sector tint (90% on a winner row), fish's grid lines; the Stand stays pinned at the left while the
+ * other columns scroll sideways, the deciding totals pinned at the right when there is room
+ * (tableFixes useTablePins / GENERAL_TABLE_LAYOUT, the «wide» half: the table always scrolls in its
+ * own region here). The rows keep the bar's Sortare order (stand by default, as fish); the column
+ * headers sort too. No avatars at this width (RankingFace, §4b.13). The region is viewport-high
+ * (RANK_SCROLL_CAP_PHONE), so its header row sticks while the rows scroll.
+ *
+ * A table without catch columns (quantity, quality…) has no totals after its catches to pin: its
+ * deciding columns — the main value and «Poziție generală» — close the table here (decidingLast) and
+ * are pinned at the right, the name capped beside them (kit WIDTH), so Stand, name, value and Loc
+ * are on the first screen at 375 and the rest (C.M.M.C, Nr. Buc, points, sector place) scrolls.
  */
-
-const WEIGHT_KEYS = ['quantity', 'quality', 'quality1', 'topNCatchesAvarage', 'averageBestN'] as const;
-
-/**
- * The value a ranking type is decided on, per row: the stand's quantity when the type has one,
- * else its quality / best-of average; bestOfTiers has no single column, so the tier the row was
- * placed on (`isTierWin`), or its biggest tier.
- */
-function valueKeyOf(columns: ReadonlyArray<ColumnDefinition>): (row: RankingRowData) => string {
-  const keys = new Set(columns.map(c => c.key));
-  const fixed = WEIGHT_KEYS.find(k => keys.has(k));
-  if (fixed) return () => fixed;
-  const tiers = columns.filter(c => /^tier\d+$/.test(c.key)).map(c => c.key);
-  return row => tiers.find(k => readCell(row[k]).isTierWin) ?? tiers[tiers.length - 1] ?? 'quantity';
+function decidingLast(columns: ReadonlyArray<ColumnDefinition>): ReadonlyArray<ColumnDefinition> {
+  if (columns.some(c => /^(catch|tier)\d+$/.test(c.key))) return columns;
+  const main = mainValueKey(columns);
+  const place = columns.find(c => c.key === 'generalPosition');
+  const value = columns.find(c => c.key === main);
+  if (!place || !value) return columns;
+  return [...columns.filter(c => c !== place && c !== value), value, place];
 }
 
 export function MobileRanking({
@@ -41,24 +45,33 @@ export function MobileRanking({
   /** A row pressed: its stand (the angler stats open; parity statistici-pescar.c1). */
   onRowPress?: (standId: string) => void;
 }) {
-  const tied = tiedIndices(rows);
-  const valueKey = valueKeyOf(columns);
-  const mode = winnerMode(columns);
-  const list = useRef<HTMLOListElement>(null);
-  useRowPress<HTMLLIElement>(list, ':scope > li', (_, i) => rows[i]?.standId ?? null, onRowPress);
+  const host = useRef<HTMLDivElement>(null);
+  const shown = useMemo(() => decidingLast(columns), [columns]);
+  const pins = useTablePins(host, shown, rows.length);
+  // The table sorts itself; it opens on the order the bar's Sortare built (stand or place).
+  const byStand = useMemo(() => rows.every((r, i) => i === 0 || compareByStand(rows[i - 1], r) <= 0), [rows]);
+  useRowPress<HTMLTableRowElement>(host, 'tbody tr', row => row.dataset.standId || null, onRowPress);
   return (
-    // Full bleed on the phone's white ground: the sector edge sits on the screen edge, as in fish.
-    <ol ref={list} aria-label="Clasament" className={cn('-mx-4 border-y border-hairline', PRESSABLE_ROWS)}>
-      {rows.map((row, index) => (
-        <RankingRow
-          key={row.standId ?? `${row.position}-${index}`}
-          row={row}
-          valueKey={valueKey(row)}
-          tied={tied.has(index)}
-          winnerMode={mode}
-          isCurrentUser={currentUserStandId != null && row.standId === String(currentUserStandId)}
-        />
-      ))}
-    </ol>
+    <div
+      ref={host}
+      // Only the «wide» rules: without data-wide=false the region keeps its own sideways scroll.
+      data-wide={pins.wide ? 'true' : undefined}
+      data-fade={pins.wide && pins.fade ? 'true' : undefined}
+      style={pins.style}
+      className={cn(RANKING_TABLE_FIXES, GENERAL_TABLE_LAYOUT, PRESSABLE_ROWS)}
+    >
+      <CompetitionRankingTable
+        // A new Sortare (the bar) starts the table over in that order.
+        key={byStand ? 'stand' : 'place'}
+        caption="Clasament general"
+        columns={shown}
+        rows={rows}
+        currentUserStandId={currentUserStandId}
+        initialSort={byStand ? 'stand' : 'place'}
+        // Viewport-high, so the header row stays at the region's top while the rows scroll under
+        // it (ROADMAP §4b.12) — at full height the whole table scrolled with the page, header too.
+        maxHeight={RANK_SCROLL_CAP_PHONE}
+      />
+    </div>
   );
 }

@@ -20,6 +20,7 @@ import { StatusPill } from '@/components/ui/StatusPill';
 import { cn } from '@/components/ui/cn';
 import { ContextSurface, Spinner } from './ContextSurface';
 import { QueryRetry } from './QueryRetry';
+import { echoes } from './names';
 import { formatKg } from './ranking';
 import { PAGE_RETRY } from './retry-policy';
 import { nationalStandLabel } from './stand';
@@ -57,6 +58,17 @@ export type WeighingDetailTarget = {
 const REFRESH_SECONDS = 60;
 const NEW_CATCH_MS = 5000;
 
+/**
+ * Who is on the stand opens the person popover (owner rule 17, ≥1024): the parent's
+ * usePersonPopover; left out below 1024 (the phone keeps the plain names).
+ */
+export type WeighingPersonHook = {
+  open: (registrationId: string, anchor: HTMLElement, standLabel?: string | null) => void;
+  openId: string | null;
+  /** The registration exists on the competition (the popover can show it). */
+  has: (registrationId: string) => boolean;
+};
+
 export function WeighingDetail({
   t,
   target,
@@ -64,7 +76,9 @@ export function WeighingDetail({
   isNc,
   decimals,
   onClose,
+  person,
 }: {
+  person?: WeighingPersonHook;
   t: Transport;
   target: WeighingDetailTarget | null;
   allocated: AllocatedParticipantsResponse | undefined;
@@ -75,7 +89,7 @@ export function WeighingDetail({
 }) {
   return (
     <ContextSurface open={!!target} onClose={onClose} title="Detaliu cântar" overlay={!!target?.fromLink}>
-      {target ? <Body t={t} target={target} allocated={allocated} isNc={isNc} decimals={decimals} /> : null}
+      {target ? <Body t={t} target={target} allocated={allocated} isNc={isNc} decimals={decimals} person={person} /> : null}
     </ContextSurface>
   );
 }
@@ -86,7 +100,9 @@ function Body({
   allocated,
   isNc,
   decimals,
+  person,
 }: {
+  person?: WeighingPersonHook;
   t: Transport;
   target: WeighingDetailTarget;
   allocated: AllocatedParticipantsResponse | undefined;
@@ -123,6 +139,9 @@ function Body({
   }, [qc, t, prev, next]);
 
   const alloc = allocated?.[target.standId] ?? null;
+  const people = alloc ? alloc.guestName || alloc.participants.map(p => p.name).join(', ') : '';
+  // A guest team whose members line only echoes its name (names.ts): the team name alone.
+  const echo = !!alloc?.teamName && !!people && echoes(people, alloc.teamName);
   const label = isNc
     ? `Stand ${nationalStandLabel(target.sectorName, alloc?.sectorDrawPosition, target.standName)}`
     : `Sector ${target.sectorName}, Stand ${target.standName}`;
@@ -143,12 +162,34 @@ function Body({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1 rounded-card bg-page p-4">
         <p className="t-title2 text-ink">{label}</p>
-        {alloc?.teamName ? <p className="t-heading">Echipa {alloc.teamName}</p> : null}
-        {alloc ? (
-          <ul className="flex list-disc flex-col gap-0.5 pl-5 t-body text-ink-2">
-            {alloc.guestName ? <li>{alloc.guestName}</li> : alloc.participants.map(p => <li key={p.documentId}>{p.name}</li>)}
-          </ul>
-        ) : null}
+        {alloc && person?.has(alloc.registrationId) ? (
+          // ≥1024: who is on the stand opens their popover (faces, club, stats, profile).
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={person.openId === alloc.registrationId}
+            onClick={e => person.open(alloc.registrationId, e.currentTarget, isNc ? label.replace(/^Stand /, '') : null)}
+            className="-mx-2 flex cursor-pointer flex-col items-start gap-0.5 rounded-control px-2 py-1 text-left hover:bg-soft-fill focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent"
+          >
+            {echo ? (
+              <span className="t-heading text-accent-ink underline decoration-accent-tint-3 underline-offset-4">Echipa {alloc.teamName}</span>
+            ) : (
+              <>
+                {alloc.teamName ? <span className="t-heading text-ink">Echipa {alloc.teamName}</span> : null}
+                <span className="t-body text-accent-ink underline decoration-accent-tint-3 underline-offset-4">{people}</span>
+              </>
+            )}
+          </button>
+        ) : (
+          <>
+            {alloc?.teamName ? <p className="t-heading">Echipa {alloc.teamName}</p> : null}
+            {alloc && !echo ? (
+              <ul className="flex list-disc flex-col gap-0.5 pl-5 t-body text-ink-2">
+                {alloc.guestName ? <li>{alloc.guestName}</li> : alloc.participants.map(p => <li key={p.documentId}>{p.name}</li>)}
+              </ul>
+            ) : null}
+          </>
+        )}
       </div>
 
       {listPending ? (
@@ -339,7 +380,7 @@ function Weighing({
               void refetch();
               setSeconds(REFRESH_SECONDS);
             }}
-            className="cursor-pointer rounded-control t-label text-accent-ink hover:underline"
+            className="cursor-pointer rounded-control t-label text-accent-ink hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent"
           >
             {q.isFetching ? 'Se reîncearcă…' : 'Reîncearcă'}
           </button>
@@ -372,7 +413,7 @@ function Weighing({
           ref={warningRef}
           type="button"
           onClick={() => onRevisions('warning')}
-          className="flex cursor-pointer items-center gap-1.5 self-start rounded-control text-left t-body text-ink hover:underline"
+          className="flex cursor-pointer items-center gap-1.5 self-start rounded-control text-left t-body text-ink hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent"
         >
           <ExclamationTriangleIcon aria-hidden className="size-4 shrink-0 text-status-danger-fg" />
           Acest cântar a avut {revisions === 1 ? 'o modificare' : `${revisions} modificări`}.

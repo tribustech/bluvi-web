@@ -2,26 +2,29 @@
 
 import { useEffect, useState, type RefObject } from 'react';
 import type { ColumnDefinition } from '@/core/competitions';
-import { rankingColumns } from './rankingColumns';
+import { mainValueKey, rankingColumns } from './rankingColumns';
 
 /*
  * Layout of the competition ranking table (CompetitionRankingTable.tsx, fish's column order:
  * Stand · Participant · values · Poziție sector · Poziție generală), applied on the element that
  * wraps it.
  *
- *  - Rows take a soft-fill tint under the pointer (duration-fast), so one angler can be followed
- *    across a wide row; the viewer's own row keeps its accent tint, coloured cells (the grey
- *    «nu se punctează», the gold biggest catch, the Best-N band) keep theirs.
+ *  - Rows mark the pointer (duration-fast), so one angler can be followed across a wide row: the
+ *    plain Stand cell takes the soft tint, every filled cell (`data-fill`: fish's sector tints, the
+ *    grey «nu se punctează», the gold biggest catch, the Best-N band) goes a step darker.
  */
 export const RANKING_TABLE_FIXES = [
+  // The white Stand cell (and every cell without a fill of its own) takes the soft tint; the
+  // filled cells (fish's sector tints, the grey, the gold, the Best-N band) a step darker.
   '[&_tbody_tr]:transition-colors [&_tbody_tr]:duration-(--duration-fast) [&_tbody_tr:not(.bg-accent-tint):hover]:bg-soft-fill',
-  // Wide tables paint every cell (the pinned ones cover what scrolls under them): tint the cells too.
-  // (Written out: Tailwind only sees literal class names.)
-  '[&[data-wide=true]_tbody_tr:not(.bg-accent-tint):hover>*:not(.bg-soft-fill):not(.bg-medal-gold):not(.bg-success):not(.bg-accent-tint-2):not(.bg-accent-tint-3)]:bg-soft-fill',
+  '[&_tbody_tr:hover>[data-fill]]:brightness-95',
+  // Wide tables paint every cell (the pinned ones cover what scrolls under them): tint the plain cells too.
+  '[&[data-wide=true]_tbody_tr:not(.bg-accent-tint):hover>*:not([data-fill])]:bg-soft-fill',
 ].join(' ');
 
 /**
- * The table inside a card of its own: no second radius / shadow, and the header row keeps its own
+ * The table inside a card of its own: no second radius / shadow, only as wide as its columns (the
+ * card's band of controls and legend never widen it, RankingView; ROADMAP §4b.16), and the header row keeps its own
  * colour (RANKING_HEAD, ROADMAP §4b.12) with a hairline under it. The first row drops its own top
  * hairline, so the line under the header is single — and it stays with the header when it sticks.
  */
@@ -64,15 +67,30 @@ export const STATIC_PINS_LAYOUT = [
   '[&[data-static-pins="4"]_tr>*:nth-last-child(-n+4)]:w-28',
 ].join(' ');
 
-/** The deciding totals: every column after the last catch (none without catch columns), at most four. */
+/**
+ * The deciding totals pinned at the right: every column after the last catch, at most four. A table
+ * without catch columns (quantity, quality…) has nothing after a catch: its deciding columns are the
+ * ranking's main value and «Poziție generală» (Loc) — pinned when they close the table, as the
+ * phone orders them (MobileRanking decidingLast), so the value and the place are on the first screen.
+ */
 function trailingOf(columns: ReadonlyArray<ColumnDefinition>): { catches: number; trailing: number } {
   const kinds = rankingColumns(columns).map(c => c.kind);
   const lastCatch = Math.max(kinds.lastIndexOf('catch'), kinds.lastIndexOf('tier'));
-  return {
-    catches: kinds.filter(k => k === 'catch').length,
-    trailing: lastCatch === -1 ? 0 : Math.min(PINNED_RIGHT_MAX, kinds.length - lastCatch - 1),
-  };
+  const catches = kinds.filter(k => k === 'catch').length;
+  if (lastCatch !== -1) return { catches, trailing: Math.min(PINNED_RIGHT_MAX, kinds.length - lastCatch - 1) };
+  const deciding = new Set(['generalPosition', mainValueKey(columns)]);
+  let trailing = 0;
+  while (trailing < 2 && trailing < columns.length && deciding.has(columns[columns.length - 1 - trailing].key)) trailing++;
+  return { catches, trailing };
 }
+
+/**
+ * How much of the card the pinned blocks may take before a total is let go: 60% leaves the catches
+ * room to scroll. A table without catch columns keeps its two deciding columns up to 75% (at 375:
+ * Stand 76 + value 84 + Loc 80 of a 343px card), the capped name still beside them.
+ */
+const PINNED_SHARE = 0.6;
+const PINNED_SHARE_NO_CATCHES = 0.75;
 
 const HAIRLINE_LEFT = 'inset 1px 0 0 var(--color-hairline)';
 const HAIRLINE_RIGHT = 'inset -1px 0 0 var(--color-hairline)';
@@ -127,16 +145,10 @@ export const STICKY_HEAD_DIALOG = '[&[data-wide=false]_thead_th]:top-16';
 export const GENERAL_TABLE_LAYOUT = [
   // Fits: the header follows the page (its offset: STICKY_HEAD_PAGE / STICKY_HEAD_DIALOG).
   '[&[data-wide=false]>[role=region]]:overflow-x-clip [&[data-wide=false]>[role=region]]:overflow-y-visible',
-  // Fits, from 1280: Participant is a bounded track (`--name-col`: 360px, at most a third of the
-  // table) and the number columns share ALL the rest equally (`--num-col`, numericShare()) — never a
-  // wide void between the angler and the numbers at 1920 / 2560.
-  'xl:[--name-col:min(--spacing(90),33%)]',
-  'xl:[&[data-wide=false]_thead_th:nth-child(2)]:w-(--name-col)',
-  'xl:[&[data-wide=false]_thead_th:nth-child(n+3)]:w-[var(--num-col,11%)]',
-  // Long rows stay trackable: from 1920 (a 1680 column) a subtle zebra; my own row keeps its tint.
-  'min-[1920px]:[&[data-wide=false]_tbody_tr:nth-child(even):not(.bg-accent-tint)]:bg-page/40',
-  // Wide: the pinned cells cover what scrolls under them (coloured cells keep their own fill).
-  '[&[data-wide=true]_tbody_tr>*:not(.bg-soft-fill):not(.bg-medal-gold):not(.bg-success):not(.bg-accent-tint-2):not(.bg-accent-tint-3)]:bg-surface [&[data-wide=true]_tbody_tr.bg-accent-tint>*:not(.bg-soft-fill):not(.bg-medal-gold):not(.bg-success):not(.bg-accent-tint-2):not(.bg-accent-tint-3)]:bg-accent-tint',
+  // Fits: every column is its own content's width (ROADMAP §4b.16, components/ranking/RankingTable
+  // WIDTH) and the card is only as wide as the table and its band of controls (RankingView).
+  // Wide: the pinned cells cover what scrolls under them (the filled cells are opaque already).
+  '[&[data-wide=true]_tbody_tr>*:not([data-fill])]:bg-surface [&[data-wide=true]_tbody_tr.bg-accent-tint>*:not([data-fill])]:bg-accent-tint',
   '[&[data-wide=true]_tbody_tr>*:nth-child(1)]:[position:var(--pin-l1-pos,static)] [&[data-wide=true]_tr>*:nth-child(1)]:left-0',
   '[&[data-wide=true]_tbody_tr>*:nth-child(2)]:[position:var(--pin-l2-pos,static)] [&[data-wide=true]_tr>*:nth-child(2)]:left-(--pin-l2)',
   '[&[data-wide=true]_thead_th:nth-child(-n+2)]:z-sticky',
@@ -145,15 +157,6 @@ export const GENERAL_TABLE_LAYOUT = [
   // Nothing pinned at the right: fade the right edge while there are columns past it.
   '[&[data-fade=true]>[role=region]]:[mask-image:linear-gradient(to_left,transparent,black_--spacing(8))]',
 ].join(' ');
-
-/**
- * Each number column's share of a fitting table from 1280 (GENERAL_TABLE_LAYOUT `--num-col`): what
- * is left after Participant (`--name-col`) and the Stand (76px = spacing 19), shared equally.
- */
-export function numericShare(columns: ReadonlyArray<ColumnDefinition>): Record<string, string> {
-  const numbers = Math.max(1, columns.length - 2);
-  return { '--num-col': `calc((100% - var(--name-col, 33%) - var(--spacing) * 19) / ${numbers})` };
-}
 
 /**
  * Measures the table inside `ref` (its first `[role=region]`): whether it is wider than its card,
@@ -174,6 +177,7 @@ export function useTablePins(
     const head = region?.querySelector<HTMLTableRowElement>('thead tr');
     if (!host || !region || !head) return;
     const { trailing } = trailingOf(columns);
+    const share = rankingColumns(columns).some(c => c.kind === 'catch' || c.kind === 'tier') ? PINNED_SHARE : PINNED_SHARE_NO_CATCHES;
 
     const measure = () => {
       const wide = region.scrollWidth > region.clientWidth + 1;
@@ -188,10 +192,11 @@ export function useTablePins(
       const widths = cells.map(c => c.getBoundingClientRect().width);
       const room = region.clientWidth;
       // Left: the Stand always; the Participant too while the pinned sides leave 40% of the card to scroll.
+      // The totals at the right: while they and the Stand stay within `share` of the card.
       let right = trailing;
       const rightWidth = (n: number) => widths.slice(widths.length - n).reduce((a, b) => a + b, 0);
-      while (right > 0 && widths[0] + rightWidth(right) > room * 0.6) right--;
-      const pinName = widths[0] + widths[1] + rightWidth(right) <= room * 0.6;
+      while (right > 0 && widths[0] + rightWidth(right) > room * share) right--;
+      const pinName = widths[0] + widths[1] + rightWidth(right) <= room * PINNED_SHARE;
       const style: Record<string, string> = {
         '--pin-l1-pos': 'sticky',
         '--pin-l1-edge': pinName ? 'none' : leftEdge,

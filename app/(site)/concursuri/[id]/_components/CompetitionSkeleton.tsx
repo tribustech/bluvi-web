@@ -77,8 +77,14 @@ export function CompetitionSkeleton({
   head,
   rankingType,
   tab = 'clasament',
+  status,
 }: {
   variant?: SkeletonVariant;
+  /**
+   * The competition's status, when known (else the head's): a `ranking` body of a cancelled one has
+   * no reserved weighing slot, so its stat row is three bones (DesktopStats' reserveWeighing).
+   */
+  status?: string;
   /** A route tab other than Clasament: its own body (TabBones) instead of the ranking / preview. */
   tab?: CompetitionTab;
   /** The competition's ranking type, when known: the ranking's own skeleton (RankingSkeleton kinds). */
@@ -87,6 +93,9 @@ export function CompetitionSkeleton({
   head?: { competition: HeaderCore; datesProse: string };
 }) {
   const c = head?.competition;
+  const st = status ?? c?.competitionStatus;
+  // Unknown status: four (live / ended is the common case).
+  const statTiles = !st || st === 'started' || st === 'completed' ? 4 : 3;
   return (
     <div aria-busy="true">
       <p role="status" className="sr-only">
@@ -154,27 +163,34 @@ export function CompetitionSkeleton({
         ) : variant === 'ranking' ? (
           // As the loaded page: no side columns, the table takes the whole column (CompetitionScreen).
           <DetailBody>
-            {/* DesktopStats: the navy tile, two stat tiles, the weighing tile — two by two from 768, one row from 1280. */}
+            {/* DesktopStats: the navy tile, two stat tiles, the weighing tile (its slot reserved once
+                started / completed) — two by two from 768, one row from 1280. */}
             <div aria-hidden className="max-md:hidden">
-              <StatRowBones />
+              <StatRowBones tiles={statTiles} />
             </div>
             <DetailSection tone="plain" className="flex flex-col gap-4 max-md:pt-2">
-              {/* The phone's four view chips (ViewChips). */}
-              <span aria-hidden className="grid grid-cols-4 gap-3 md:hidden">
+              {/* The phone's four view chips: ViewChips' exact box — one surface track with the
+                  handle-grey border and the e1 lift, p-1, four chips of icon (24) over the label. */}
+              <span aria-hidden data-skeleton-views="chips" className="grid grid-cols-4 gap-1 rounded-card border border-handle bg-surface p-1 shadow-e1 md:hidden">
                 {[0, 1, 2, 3].map(i => (
-                  <span key={i} className="aspect-square animate-shimmer rounded-card" />
+                  <span key={i} className="flex min-w-0 flex-col items-center justify-center gap-1 px-1 py-2.5">
+                    <Block className="size-6" />
+                    <Line className="w-12 t-micro" />
+                  </span>
                 ))}
               </span>
-              {/* From 768: the four view tabs, ViewTabs' exact box (the soft-fill track, p-1, 44px tabs below
-                  1280 and 56px with the meta line from 1280: 52 / 64px in all), so nothing moves when it lands. */}
-              <span aria-hidden className="hidden grid-cols-4 gap-1 rounded-card bg-soft-fill p-1 md:grid">
-                {[0, 1, 2, 3].map(i => (
-                  <span key={i} className="flex h-11 min-w-0 items-center gap-2 px-2.5 xl:h-14 xl:gap-3 xl:px-4">
-                    <Block className="size-5 xl:size-6" />
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <Line className="w-20 t-body-strong xl:w-24 xl:t-heading" />
-                      <Line className="w-32 t-caption max-xl:hidden" />
-                    </span>
+              {/* From 768: ViewTabs' exact box — a content-sized surface track (border, p-1, e1), four
+                  44px tabs (icon, label, count badge) at every width — so nothing moves when it lands. */}
+              <span
+                aria-hidden
+                data-skeleton-views="tabs"
+                className="hidden w-fit max-w-full grid-cols-[repeat(4,auto)] gap-1 self-start rounded-card border border-handle bg-surface p-1 shadow-e1 md:grid"
+              >
+                {['w-22', 'w-17', 'w-19', 'w-21'].map((w, i) => (
+                  <span key={i} className="flex h-11 min-w-0 items-center justify-center gap-2 px-3.5 lg:min-w-36 xl:gap-2.5 xl:px-5">
+                    <Block className="size-5" />
+                    <Line className={cn('t-body-strong', w)} />
+                    <span className={cn('h-4 w-7', SHIMMER)} />
                   </span>
                 ))}
               </span>

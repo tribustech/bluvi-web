@@ -57,12 +57,50 @@ async function open(page: Page, path: string, viewport = DESKTOP) {
   return errors;
 }
 
+/**
+ * The desktop facts cell (the Statistici bento from 768): how much of its first row its tiles fill,
+ * and where it sits — a cell of the chart grid (its first child), never a row of its own.
+ */
+async function factsCell(page: Page) {
+  const summary = page.getByRole('list', { name: 'Rezumat' }).locator('visible=true');
+  await expect(summary).toBeVisible({ timeout: 30_000 });
+  return summary.evaluate(ul => {
+    const box = ul.getBoundingClientRect();
+    const tiles = [...ul.children].map(li => li.getBoundingClientRect());
+    const top = Math.min(...tiles.map(b => b.top));
+    const row = tiles.filter(b => Math.abs(b.top - top) < 1);
+    const grid = ul.parentElement!;
+    return {
+      tiles: tiles.map(b => b.width),
+      filled: row.reduce((sum, b) => sum + b.width, 0) / box.width,
+      inGrid: grid.hasAttribute('data-stats-grid'),
+      first: grid.firstElementChild === ul,
+      width: box.width,
+      gridWidth: grid.getBoundingClientRect().width,
+    };
+  });
+}
+
 /** Presses until it takes (a press before hydration does nothing). */
 async function press(page: Page, locator: ReturnType<Page['locator']>, done: () => Promise<void>) {
   await expect(async () => {
     await locator.click();
     await done();
   }).toPass({ timeout: 60_000 });
+}
+
+/**
+ * Every «N capturi / N standuri» line (and the «Total: …» footer) in `scope` takes «de» exactly when
+ * Romanian wants it (N ≥ 20 or a round hundred: «69 de capturi», «21 de standuri», «12 capturi»).
+ */
+async function expectRomanianCounts(scope: ReturnType<Page['locator']>) {
+  const lines = await scope.getByText(/^(Total: )?[\d.]+ (de )?(capturi|standuri)$/).allInnerTexts();
+  expect(lines.length).toBeGreaterThan(0);
+  for (const line of lines) {
+    const n = Number(line.replace(/^Total: /, '').split(' ')[0].replace(/\./g, ''));
+    const rest = n % 100;
+    expect(line.includes(' de '), line).toBe(n !== 0 && (rest === 0 || rest >= 20));
+  }
 }
 
 /** The panel / sheet slides in: let it settle before axe reads the colours. */
@@ -511,10 +549,15 @@ test('competition-page.statistici.c2 c3 c5 c6 c7 c8 c10 c11 c12 c13 c16 competit
   await expect(sessions.getByText('Extra-cântar').first()).toBeVisible();
   await expect(sessions.getByRole('listitem')).toHaveCount(4);
   const more = sessions.getByRole('button', { name: /Vezi toate cântarele \(\d+ ascunse\)/ });
+  // Rule 19: the state every visitor lands on — collapsed, the peeked last row — is AA too (only
+  // its rail dot and bar fade, never its text).
+  await expectNoA11yViolations(page, { include: '#sesiuni' });
   await more.click();
   await expect(sessions.getByRole('button', { name: 'Restrânge' })).toBeVisible();
   expect(await sessions.getByRole('listitem').count()).toBeGreaterThan(4);
-  await expect(sessions.getByText('Total: 389 capturi')).toBeVisible();
+  // Romanian plural (components/cards/format plural): «389 de capturi», as the facts tile says.
+  await expect(sessions.getByText('Total: 389 de capturi')).toBeVisible();
+  await expectRomanianCounts(sessions);
   // Weights: the Romanian grouping («2.961,0 kg», never «2961,0»), at the competition's precision.
   await expect(sessions.getByText(/^\d{1,3}(\.\d{3})*,\d+\s+kg$/).last()).toBeVisible();
   // c10 / c11: Top capturi → Best 3 ranking.
@@ -619,54 +662,121 @@ test('competition-page.statistici.c3 c9 competition-page.cronologie.c3 competiti
   await expect(page.getByText('Nu există cântăriri înregistrate încă.')).toHaveCount(0);
 });
 
-for (const [kind, id] of [
-  ['feeder', ID.feederTeam],
-  ['national championship', ID.nc],
+for (const [kind, id, one, many] of [
+  ['feeder', ID.feederTeam, 'echipă', 'echipe'],
+  ['national championship', ID.nc, 'stand', 'standuri'],
 ] as const) {
-  test(`competition-page.statistici.c3 — ${kind} at 1440: a bento (navy 2×2, quantity 2×1, small facts), a lone fact keeps a tile\'s width, the strip steps aside`, async ({ page }) => {
+  test(`competition-page.statistici.c3 — ${kind} at 375: the bento has the per-entrant facts the strip counts («${many} cu pește», «Fără capturi», «Media pe ${one}», «Capturi pe ${one}»)`, async ({ page }) => {
+    await signedIn(page);
+    await open(page, `/concursuri/${id}/statistici`, PHONE);
+    const summary = page.getByRole('list', { name: 'Rezumat' }).locator('visible=true');
+    await expect(summary.getByText('Medie pe captură')).toBeVisible({ timeout: 30_000 });
+    const label = many.charAt(0).toUpperCase() + many.slice(1);
+    const withFish = summary.getByRole('listitem').filter({ hasText: `${label} cu pește` });
+    await expect(withFish).toBeVisible();
+    await expect(withFish).toContainText(/\d+\s*\/\d+/);
+    await expect(summary.getByText('Fără capturi')).toBeVisible();
+    await expect(summary.getByText(`Media pe ${one}`, { exact: true })).toBeVisible();
+    await expect(summary.getByText(`Capturi pe ${one}`, { exact: true })).toBeVisible();
+    await expect(summary).not.toContainText(/capot/i);
+    await expectNoA11yViolations(page, { include: '[aria-label="Rezumat"]' });
+  });
+
+  test(`competition-page.statistici.c3 — ${kind} at 1440: the strip over the views stays (the same on every view), the bento under it only adds the facts it does not say, as the chart grid's first cell (never a near-empty row)`, async ({ page }) => {
     await signedIn(page);
     await open(page, `/concursuri/${id}/statistici`);
     const summary = page.getByRole('list', { name: 'Rezumat' });
     const perCatch = summary.getByRole('listitem').filter({ hasText: 'Medie pe captură' });
     await expect(perCatch).toBeVisible({ timeout: 30_000 });
-    expect((await perCatch.boundingBox())!.width).toBeLessThan(400);
-    // Rule 9: tiles of different sizes — the navy one is wider and taller than a fact.
-    const navy = await summary.getByRole('listitem').filter({ hasText: 'Cea mai mare captură' }).boundingBox();
-    const fact = (await perCatch.boundingBox())!;
-    expect(navy!.width).toBeGreaterThan(fact.width * 1.8);
-    expect(navy!.height).toBeGreaterThan(fact.height * 1.8);
-    // The same numbers are never twice on screen: the strip over the views is hidden here.
-    await expect(page.getByRole('group', { name: 'Concursul pe scurt' })).toBeHidden();
+    const strip = page.getByRole('group', { name: 'Concursul pe scurt' });
+    // Rules 5 / 9 / 16: no row of one ~260px tile under the tabs — the facts are the first cell of the
+    // chart grid (its first column from 1280). Feeder legs and club rankings count their teams (the
+    // strip's own counts), so the cell is the pair, filling its row — never one lone tile beside
+    // ~470px of empty grid.
+    let cell = await factsCell(page);
+    expect(cell.inGrid && cell.first).toBe(true);
+    expect(cell.width).toBeLessThanOrEqual(cell.gridWidth / 2 + 1);
+    expect(cell.tiles).toHaveLength(2);
+    expect(cell.filled).toBeGreaterThanOrEqual(0.9);
+    const perEntrant = summary.getByRole('listitem').filter({ hasText: `Capturi pe ${one}` });
+    await expect(perEntrant).toBeVisible();
+    await expect(perEntrant).toContainText(new RegExp(`pe (1 ${one}|\\d+ (de )?${many})`));
+    // Rule 4 / item 8: the strip's captions are backed by the entrants (feeder) or the club teams
+    // (NC), never the stock «în tot concursul».
+    await expect(strip.getByText('în tot concursul')).toHaveCount(0);
+    await expect(strip.locator('> *').filter({ hasText: /^Capturi/ })).toContainText(/cu pește[\s\S]*·[\s\S]*fără capturi/);
+    await expect(strip.locator('> *').filter({ hasText: 'Cantitate totală' })).toContainText(/media pe (stand|echipă|participant)/);
+    // The headline numbers are the strip's, never twice on screen: the bento does not repeat them.
+    await expect(strip).toBeVisible();
+    await expect(strip.getByText('Cea mai mare captură')).toBeVisible();
+    for (const headline of ['Cea mai mare captură', 'Cantitate totală', 'Capturi']) {
+      // «Capturi», not the per-entrant fact «Capturi pe echipă / stand».
+      await expect(summary.getByRole('listitem').filter({ hasText: new RegExp(`^${headline}(?! pe )`) }).locator('visible=true')).toHaveCount(0);
+    }
     await expect(summary).not.toContainText(/capot/i);
-    // 768–1279: the strip holds the headline numbers; the lone fact still keeps a tile's width.
+    // 768–1279: the same strip; the facts are still the grid's first cell, never under half filled.
     await page.setViewportSize({ width: 1024, height: 900 });
-    await expect(page.getByRole('group', { name: 'Concursul pe scurt' })).toBeVisible();
-    expect((await perCatch.boundingBox())!.width).toBeLessThan(400);
+    await expect(strip).toBeVisible();
+    cell = await factsCell(page);
+    expect(cell.inGrid && cell.first).toBe(true);
+    expect(cell.tiles).toHaveLength(2);
+    expect(cell.filled).toBeGreaterThanOrEqual(0.9);
   });
 }
 
-test('competition-page.statistici.c3 — live at 1440: the weighing tile is a bento tile (the strip steps aside, its «Ultimul cântar» / «Cântar în curs» does not go with it); one precision, units apart', async ({ page }) => {
+test('competition-page.statistici.c3 — live at 1440: the weighing tile stays in the strip on Statistici («Toate cântarele» → Cântare); one precision, units apart', async ({ page }) => {
   await signedIn(page);
   await open(page, `/concursuri/${ID.live}/statistici`);
-  const summary = page.getByRole('list', { name: 'Rezumat' });
-  const weighing = summary.getByRole('listitem').filter({ hasText: /Ultimul cântar|Cântar în curs|Extra-cântar în curs|Cântare în curs/ });
-  await expect(weighing).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('group', { name: 'Concursul pe scurt' })).toBeHidden();
-  await weighing.getByRole('button', { name: 'Toate cântarele' }).click();
+  const strip = page.getByRole('group', { name: 'Concursul pe scurt' });
+  await expect(strip).toBeVisible({ timeout: 30_000 });
+  await expect(strip.getByText(/Ultimul cântar|Cântar în curs|Extra-cântar în curs|Cântare în curs/).first()).toBeVisible({ timeout: 30_000 });
+  await strip.getByRole('button', { name: 'Toate cântarele' }).click();
   await expect(page).toHaveURL(/\/cantare$/);
   await page.goBack();
-  // Rule 9: a fact stays a small tile (one of six tracks), the headline tiles span two.
-  const fact = await summary.getByRole('listitem').filter({ hasText: 'Medie pe captură' }).boundingBox();
-  expect(fact!.width).toBeLessThan(270);
+  // Rules 5 / 9 / 16: the facts are the chart grid's first cell, at least half filled.
+  await expect(page.getByRole('list', { name: 'Rezumat' }).getByRole('listitem').filter({ hasText: 'Medie pe captură' })).toBeVisible();
+  const cell = await factsCell(page);
+  expect(cell.inGrid && cell.first).toBe(true);
+  expect(cell.filled).toBeGreaterThanOrEqual(0.5);
   // Rule 10 / one precision: the session total, the donut legend — figure, then «kg» apart.
   const sessions = page.getByRole('region', { name: 'Sesiuni de cântărire' });
-  await expect(sessions.getByText(/^Total: \d+ capturi$/)).toBeVisible();
+  await expect(sessions.getByText(/^Total: (1 captură|[\d.]+ (de )?capturi)$/)).toBeVisible();
+  await expectRomanianCounts(sessions);
   const donut = page.getByRole('region', { name: 'Cantitate pe sector (kg)' });
   // The sector rows carry the quantity after the weight penalties: the card says so.
   await expect(donut.getByText(/după penalizările de greutate/)).toBeVisible();
   const legendUnit = donut.getByRole('listitem').first().locator('span').last();
   await expect(legendUnit).toHaveText(/^\s*kg$/);
 });
+
+for (const [kind, id, label] of [
+  ['feeder', ID.feederTeam, /^[A-Z]+\d+$/],
+  // nationalStandLabel: «A3(10)» with a draw position, the plain «A10» without one (this data has none).
+  ['national championship', ID.nc, /^[A-Z]+\d+(\(\d+\))?$/],
+] as const) {
+  test(`competition-page.statistici.c3 — ${kind} at 1280: the weighing tile names who was weighed, the stand as the page names it`, async ({ page }) => {
+    await signedIn(page);
+    await open(page, `/concursuri/${id}`, LAPTOP);
+    const strip = page.getByRole('group', { name: 'Concursul pe scurt' });
+    const tile = strip.locator('> *').filter({ hasText: 'Ultimul cântar' });
+    await expect(tile).toBeVisible({ timeout: 30_000 });
+    const caption = tile.locator('p').last();
+    // «<name> · <stand> · N capturi»: a name before the stand, never the stand alone (the facts are
+    // flex items: innerText breaks lines between them).
+    await expect(caption).toHaveText(/^[^·\s][^·]*·[^·]+·\s*\d+ captur(ă|i)$/);
+    // A wrap never leaves a line ending or starting with «·» (Facts: the separator that opens a
+    // line is clipped): every visible «·» has a fact on its left on the same line.
+    const dangling = await caption.evaluate(p => {
+      const clip = p.querySelector('span')!.getBoundingClientRect();
+      return [...p.querySelectorAll('[aria-hidden]')]
+        .filter(d => d.textContent === '·')
+        .filter(d => d.getBoundingClientRect().right > clip.left + 1 && d.getBoundingClientRect().left < clip.left + 1).length;
+    });
+    expect(dangling).toBe(0);
+    const stand = (await caption.innerText()).split('·').at(-2)!.trim().replace(/^Stand\s*/, '');
+    expect(stand).toMatch(label);
+  });
+}
 
 test('competition-page.statistici.c3 c10 c12 — 1440, not one catch nor weighing: the summary line and one empty state, no Top capturi of «-», no ring of 0', async ({ page }) => {
   await signedIn(page);
@@ -676,6 +786,75 @@ test('competition-page.statistici.c3 c10 c12 — 1440, not one catch nor weighin
   await expect(page.getByRole('region', { name: 'Top capturi (Best 3 / 5 / 7)' })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Cantitate pe sector (kg)' })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Cronologia standurilor' })).toHaveCount(0);
+});
+
+/**
+ * Owner rule 10 on every surface: each unit in `scope` («kg», «standuri») is its own smaller element
+ * in a colour of its own — never the number's ink at a smaller size. Returns how many were checked.
+ */
+async function expectMutedUnits(scope: ReturnType<Page['locator']>) {
+  const units = await scope.evaluate(root =>
+    [...root.querySelectorAll('[data-unit]')]
+      .filter(u => (u as HTMLElement).offsetParent !== null)
+      .map(u => {
+        const num = u.parentElement!.querySelector('[data-number]')!;
+        const a = getComputedStyle(num);
+        const b = getComputedStyle(u);
+        return { text: `${num.textContent} ${u.textContent?.trim()}`, numColor: a.color, unitColor: b.color, numSize: parseFloat(a.fontSize), unitSize: parseFloat(b.fontSize) };
+      }),
+  );
+  for (const u of units) {
+    expect(u.unitColor, `${u.text}: the unit takes the surface's muted tone, not the number's`).not.toBe(u.numColor);
+    expect(u.unitSize, `${u.text}: the unit is smaller than the number`).toBeLessThan(u.numSize);
+  }
+  return units.length;
+}
+
+test('competition-page.statistici.c3 — owner rule 10 (375): every unit of the phone bento is muted and smaller than its number, on every tint', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.rich}/statistici`, PHONE);
+  const summary = page.getByRole('list', { name: 'Rezumat' }).locator('visible=true');
+  await expect(summary).toContainText(/\d,\d\s+kg/, { timeout: 30_000 });
+  expect(await expectMutedUnits(summary)).toBeGreaterThan(1);
+});
+
+test('competition-page.statistici.c3 — owner rule 10 (1440): the strip (the weighing tile too) and the desktop facts keep each unit muted and smaller', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.rich}/statistici`);
+  const strip = page.getByRole('group', { name: 'Concursul pe scurt' });
+  await expect(strip.getByText('Ultimul cântar')).toBeVisible({ timeout: 30_000 });
+  await expect(strip.locator('> *').filter({ hasText: 'Ultimul cântar' })).toContainText(/\d,\d+\s+kg/);
+  // The navy, indigo and the weighing tile's tint each carry a unit.
+  expect(await expectMutedUnits(strip)).toBeGreaterThanOrEqual(3);
+  const facts = page.getByRole('list', { name: 'Rezumat' }).locator('visible=true');
+  await expect(facts).toContainText(/\d,\d\s+kg/);
+  expect(await expectMutedUnits(facts)).toBeGreaterThan(0);
+});
+
+test('competition-page.statistici.c10 — 1440: text on a chart card\'s white inset is ink, not the tint (Best N labels and «-»)', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.rich}/statistici`);
+  const card = page.getByRole('region', { name: 'Top capturi (Best 3 / 5 / 7)' });
+  const label = card.getByText('Best 3', { exact: true });
+  await expect(label).toBeVisible({ timeout: 30_000 });
+  const { inset, tint, best } = await label.evaluate(el => {
+    const section = el.closest('section')!;
+    const inset = section.querySelector(':scope > div:last-child')!;
+    return { inset: getComputedStyle(inset).color, tint: getComputedStyle(section).color, best: getComputedStyle(el).color };
+  });
+  expect(inset).not.toBe(tint);
+  expect(best).not.toBe(tint);
+});
+
+test('competition-page.statistici.c3 — CLS: a ranking with no catch keeps the stat row\'s height (156 from 1280, two rows on a tablet), so nothing under it moves when the bones or the first catch swap in', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.noCatch}`);
+  const strip = page.locator('[data-summary-strip]').locator('visible=true');
+  await expect(strip).toBeVisible({ timeout: 30_000 });
+  expect(Math.round((await strip.boundingBox())!.height)).toBe(156);
+  await page.setViewportSize({ width: 1024, height: 900 });
+  // Two 156 rows and their 12px gap: the bones' (and the tiles') tablet row.
+  await expect.poll(async () => Math.round((await strip.boundingBox())!.height)).toBe(324);
 });
 
 for (const width of [320, 375]) {
@@ -714,6 +893,45 @@ test('competition-page.statistici.c11 c13 — the thresholds and Best N tables h
   const best = page.getByRole('dialog', { name: 'Best 3 - Clasament' });
   const bestBg = await best.getByRole('columnheader').first().evaluate(th => getComputedStyle(th).backgroundColor);
   expect(bestBg).toBe(bg);
+});
+
+test('competition-page.statistici.c13 — owner rule 16: the thresholds table is as wide as its content at 1920 (the numbers stay by their sector)', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.rich}/statistici`, WIDE);
+  const table = page.getByRole('region', { name: 'Capturi', exact: true }).locator('table');
+  await expect(table).toBeVisible({ timeout: 30_000 });
+  expect((await table.boundingBox())!.width).toBeLessThanOrEqual(560);
+});
+
+test('competition-page.statistici.c13 — 375: the six-column thresholds table fits its white inset, no sideways scroll', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.rich}/statistici`, PHONE);
+  const region = page.getByRole('region', { name: 'Capturi pe praguri de greutate' });
+  await expect(region).toBeVisible({ timeout: 30_000 });
+  const { scrollWidth, clientWidth } = await region.evaluate(el => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  const last = (await region.getByRole('columnheader', { name: '30+' }).boundingBox())!;
+  const box = (await region.boundingBox())!;
+  expect(last.x + last.width).toBeLessThanOrEqual(box.x + box.width + 0.5);
+  // The rows keep their full name for assistive tech («Sector A»), the letter on screen.
+  await expect(region.getByRole('rowheader', { name: 'Sector A' })).toBeVisible();
+});
+
+test('competition-page.statistici.c10 — owner rule 16 at 1920: each Top capturi row has its face beside the name, only the chevron at the far end', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.rich}/statistici`, WIDE);
+  const row = page.getByRole('region', { name: 'Top capturi (Best 3 / 5 / 7)' }).getByRole('button').first();
+  await expect(row).toBeVisible({ timeout: 30_000 });
+  const { gap, chevron } = await row.evaluate(btn => {
+    const face = btn.querySelector('[data-face]')!.getBoundingClientRect();
+    const name = btn.querySelector('.truncate')!.getBoundingClientRect();
+    const svg = btn.querySelector(':scope > svg')!.getBoundingClientRect();
+    return { gap: name.left - face.right, chevron: btn.getBoundingClientRect().right - svg.right };
+  });
+  expect(gap).toBeGreaterThanOrEqual(0);
+  // The stand mark then the name, right after the face (never ~700px across the card).
+  expect(gap).toBeLessThan(80);
+  expect(chevron).toBeLessThan(24);
 });
 
 test('competition-page.cronologie.s2 competition-page.statistici.s2 — offline with nothing cached: the timeline card says so with its retry, never bones for ever', async ({ page }) => {
@@ -961,4 +1179,163 @@ test('competition-page.statistici-pescar.c5 c6 competition-page.statistici-pesca
   const panel = page.getByRole('complementary', { name: 'Statistici pescar' });
   await expect(panel.getByText('Statistici indisponibile', { exact: true })).toBeVisible();
   await expect(panel.getByText('Participanții au fost adăugați fără cont Bluvi.')).toBeVisible();
+});
+
+/* ------------------------------------------------------------------ */
+/* Apple-style bento surfaces (owner rule 19)                          */
+/* ------------------------------------------------------------------ */
+
+
+/**
+ * The colour a surface reads as: its gradient's first stop (the tint it fades from), else its fill.
+ * `surface` is «backgroundColor|backgroundImage» as the rule 19 tests read it.
+ */
+function surfaceRgb(surface: string): [number, number, number] {
+  const [color, image] = surface.split('|');
+  const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(image !== 'none' && /rgb/.test(image) ? image : color);
+  if (!m) throw new Error(`no colour in ${surface}`);
+  return [Number(m[1]), Number(m[2]), Number(m[3])];
+}
+
+/** Two surfaces look apart on screen: some channel differs by at least 24 (not only their CSS strings). */
+const MIN_SURFACE_DELTA = 24;
+function expectApart(a: string, b: string, what: string) {
+  const [x, y] = [surfaceRgb(a), surfaceRgb(b)];
+  const delta = Math.max(...x.map((v, i) => Math.abs(v - y[i])));
+  expect(delta, `${what}: ${a} vs ${b}`).toBeGreaterThanOrEqual(MIN_SURFACE_DELTA);
+}
+
+/** Every pair of surfaces looks apart (a tinted bento where no two tiles read as one colour). */
+function expectAllApart(surfaces: string[], what: string) {
+  for (let i = 0; i < surfaces.length; i++) for (let j = i + 1; j < surfaces.length; j++) expectApart(surfaces[i], surfaces[j], `${what} ${i} and ${j}`);
+}
+
+for (const vp of [PHONE, LAPTOP, DESKTOP, WIDE]) {
+  test(`competition-page.statistici.c3 — owner rule 19 (${vp.width}px): every bento tile has its own surface (navy signature gradient, indigo, tints), text AA`, async ({ page }) => {
+    await signedIn(page);
+    await open(page, `/concursuri/${ID.live}/statistici`, vp);
+    const summary = page.getByRole('list', { name: 'Rezumat' });
+    await expect(summary.getByRole('listitem').filter({ hasText: 'Medie pe captură' })).toBeVisible({ timeout: 30_000 });
+    const surfaceOf = (els: Element[]) => els.map(el => {
+      const s = getComputedStyle(el);
+      return `${s.backgroundColor}|${s.backgroundImage}`;
+    });
+    // From 768 the headline tiles are the strip over the views (on every view), the bento its facts.
+    const strip = page.getByRole('group', { name: 'Concursul pe scurt' });
+    const stripTiles = vp.width >= 768 ? await strip.locator('> *').evaluateAll(surfaceOf) : [];
+    const bento = await summary.getByRole('listitem').locator('visible=true').evaluateAll(lis => lis.map(li => li.firstElementChild!).map(el => {
+      const s = getComputedStyle(el);
+      return `${s.backgroundColor}|${s.backgroundImage}`;
+    }));
+    const surfaces = [...stripTiles, ...bento];
+    // No grid of identical white cards: at least five different surfaces, none plain white.
+    expect(new Set(surfaces).size).toBeGreaterThanOrEqual(5);
+    expect(surfaces.filter(s => s.startsWith('rgb(255, 255, 255)|none'))).toEqual([]);
+    // Different on screen, not only as strings: no two tiles (the strip's Capturi and the facts'
+    // Capturi pe stand included) read as one pale periwinkle.
+    expectAllApart(surfaces, 'tiles');
+    // The signature tile is the navy one with a gradient.
+    const navy = (vp.width >= 768 ? strip.locator('> *') : summary.getByRole('listitem').locator('> *')).filter({ hasText: 'Cea mai mare captură' }).first();
+    expect(await navy.evaluate(el => getComputedStyle(el).backgroundImage)).toContain('linear-gradient');
+    await expectNoA11yViolations(page, { include: '[aria-label="Rezumat"]' });
+  });
+}
+
+/** The surface a grid child shows: its own fill, else (a transparent wrapper) its only child's. */
+const surfacesOfGrid = (page: Page) =>
+  page.locator('[data-stats-grid]').locator('visible=true').evaluate(grid =>
+    [...grid.children]
+      .filter(el => (el as HTMLElement).getBoundingClientRect().height > 0)
+      .map(el => {
+        // The facts cell (the Rezumat list) is the bento's facts, not a chart card: its tiles carry the surfaces.
+        if (el.matches('ul[aria-label="Rezumat"]')) return `tiles:${el.children.length}`;
+        let node = el;
+        const clear = (n: Element) => {
+          const s = getComputedStyle(n);
+          return (s.backgroundColor === 'rgba(0, 0, 0, 0)' || s.backgroundColor === 'transparent') && s.backgroundImage === 'none';
+        };
+        while (clear(node) && node.children.length === 1) node = node.children[0];
+        const s = getComputedStyle(node);
+        // A cell of several tiles (the facts) has no surface of its own: its tiles carry them.
+        return clear(node) ? `tiles:${node.children.length}` : `${s.backgroundColor}|${s.backgroundImage}`;
+      }),
+  );
+
+for (const [kind, id, vp] of [
+  ['rich', ID.rich, DESKTOP],
+  ['national championship', ID.nc, DESKTOP],
+  ['feeder', ID.feederTeam, WIDE],
+  ['live', ID.live, LAPTOP],
+  ['rich', ID.rich, PHONE],
+] as const) {
+  test(`competition-page.statistici.c3 — owner rule 19, ${kind} (${vp.width}px): the chart cards are bento surfaces, no two neighbours alike, text AA`, async ({ page }) => {
+    await signedIn(page);
+    await open(page, `/concursuri/${id}/statistici`, vp);
+    const grid = page.locator('[data-stats-grid]').locator('visible=true');
+    await expect(grid.getByRole('region', { name: 'Sesiuni de cântărire' })).toBeVisible({ timeout: 30_000 });
+    // Every block has landed (no bones left).
+    await expect(grid.getByRole('status')).toHaveCount(0, { timeout: 30_000 });
+    const surfaces = await surfacesOfGrid(page);
+    expect(surfaces.length).toBeGreaterThanOrEqual(2);
+    for (let i = 1; i < surfaces.length; i++) expect(surfaces[i], `cards ${i - 1} and ${i}: ${surfaces.join(' / ')}`).not.toBe(surfaces[i - 1]);
+    // Apart on screen: neighbours, and every two tinted cards of the grid (sessions, Top capturi,
+    // the donut never read as one colour). The facts cell (`tiles:`) carries its tiles' surfaces.
+    const cards = surfaces.filter(s => !s.startsWith('tiles:'));
+    for (let i = 1; i < cards.length; i++) expectApart(cards[i - 1], cards[i], `cards ${i - 1} and ${i}`);
+    expectAllApart(cards.filter(s => !s.startsWith('rgb(255, 255, 255)|none')), 'tinted cards');
+    // Not a grid of white cards: at most the stand timeline is plain white.
+    expect(surfaces.filter(s => s.startsWith('rgb(255, 255, 255)|none')).length).toBeLessThanOrEqual(1);
+    // From 768 the whole screen at once (rule 19: no tint twice on one screen): the strip over the
+    // views, the facts cell and the tinted chart cards — a clash between the strip and the grid
+    // (the strip's Capturi and Top capturi, the weighing tile and the donut) fails here.
+    if (vp.width >= 768) {
+      const surfaceOf = (els: Element[]) => els.map(el => {
+        const st = getComputedStyle(el);
+        return `${st.backgroundColor}|${st.backgroundImage}`;
+      });
+      const strip = await page.getByRole('group', { name: 'Concursul pe scurt' }).locator('> *').evaluateAll(surfaceOf);
+      const facts = await grid.getByRole('list', { name: 'Rezumat' }).getByRole('listitem').evaluateAll(lis => lis.map(li => {
+        const st = getComputedStyle(li.firstElementChild!);
+        return `${st.backgroundColor}|${st.backgroundImage}`;
+      }));
+      expect(strip.length).toBeGreaterThanOrEqual(3);
+      expectAllApart([...strip, ...facts, ...cards.filter(s => !s.startsWith('rgb(255, 255, 255)|none'))], 'strip, facts and cards');
+    }
+    // The scan reads the view as it lands: the sessions list collapsed, its last row peeking.
+    await settle(page);
+    await expectNoA11yViolations(page, { include: '[data-stats-grid]' });
+  });
+}
+
+test('competition-page.statistici.c3 — feeder (375): the navy tile shows the face of the catch’s crew, not of the registration that sat on that stand in another leg', async ({ page }) => {
+  await signedIn(page);
+  await open(page, `/concursuri/${ID.feederTeam}/statistici`, PHONE);
+  const navy = page.getByRole('list', { name: 'Rezumat' }).getByRole('listitem').filter({ hasText: 'Cea mai mare captură' });
+  await expect(navy).toBeVisible({ timeout: 30_000 });
+  const name = (await navy.locator('.t-body-strong').first().innerText()).trim();
+  expect(name.length).toBeGreaterThan(0);
+  const initials = await navy.locator('span.rounded-full[aria-hidden="true"]').evaluateAll(els => els.map(e => e.textContent?.trim() ?? '').filter(Boolean));
+  // Every face is one of the crew named beside it (its initials start the name or one of its words).
+  const words = name.toUpperCase().split(/\s+/).map(w => w[0]);
+  expect(initials.length).toBeGreaterThan(0);
+  for (const i of initials) expect(words).toContain(i[0]);
+  expect(initials).not.toContain('TS');
+});
+
+test('competition-page.statistici.c3 — owner rule 19: the headline tiles over the views (1024 and 1440 on Clasament) each have their own surface, text AA', async ({ page }) => {
+  await signedIn(page);
+  for (const vp of [{ width: 1024, height: 900 }, DESKTOP]) {
+    await open(page, `/concursuri/${ID.live}`, vp);
+    const strip = page.getByRole('group', { name: 'Concursul pe scurt' });
+    await expect(strip).toBeVisible({ timeout: 30_000 });
+    await expect(strip.getByText('Ultimul cântar').or(strip.getByText(/în curs/)).first()).toBeVisible({ timeout: 30_000 });
+    const surfaces = await strip.locator('> *').evaluateAll(tiles => tiles.map(t => {
+      const s = getComputedStyle(t);
+      return `${s.backgroundColor}|${s.backgroundImage}`;
+    }));
+    expect(surfaces).toHaveLength(4);
+    expect(new Set(surfaces).size).toBe(4);
+    expectAllApart(surfaces, 'strip tiles');
+    await expectNoA11yViolations(page, { include: '[aria-label="Concursul pe scurt"]' });
+  }
 });

@@ -76,7 +76,7 @@ import { LIVE_POLL_MS, PAGE_RETRY } from './retry-policy';
 import { LOAD_ERROR_COPY, skeletonVariantOf } from './screen-state';
 import { CompetitionHeader } from './CompetitionHeader';
 import { CompetitionStickyTabs } from './CompetitionStickyTabs';
-import { DesktopStats } from './DesktopStats';
+import { DesktopStats, entrantCounts, weighingTileTone } from './DesktopStats';
 import type { PageViewer } from './Follow';
 import { FullRankingDialog } from './FullRankingDialog';
 import { imageQueryFor, imageQueryString } from '../clasament/imagine/model';
@@ -87,7 +87,7 @@ import { buildRankingTable, rawWeightDecimals, weightDecimals, type RankingSort 
 import { RankingView } from './RankingView';
 import { StatisticsSkeleton, StatisticsView } from './StatisticsView';
 import { pageTransport } from './transport';
-import { ViewChips, ViewPanel, ViewTabs } from './ViewSwitch';
+import { ViewChips, ViewPanel, ViewTabs, type ViewBadge } from './ViewSwitch';
 import { viewFromPath, viewFromSegment, viewPath, VIEW_PARAM, type RankingViewKey } from './views';
 import { WeighingsView } from './WeighingsView';
 import { AnglerStats } from './AnglerStats';
@@ -625,7 +625,7 @@ function Screen({
         />
       );
     }
-    return <CompetitionSkeleton variant={skeletonVariantOf(statusHint, !!unsupported)} tab={tab} />;
+    return <CompetitionSkeleton variant={skeletonVariantOf(statusHint, !!unsupported)} tab={tab} status={statusHint} />;
   }
 
   const signIn = signInHref(pathname);
@@ -635,6 +635,22 @@ function Screen({
   const registration = registrationAction(competition, viewer?.documentId ?? null, new Date());
   const me = myEntry(competition, viewer ?? null);
   const metadata = rankingData?.metadata;
+  // Owner rule 20: each view's count is a badge on its tab (only when it is known — rule 4).
+  // The Clasament badge counts the rows of the table actually shown: the feeder entrants, the NC
+  // clubs (its General table), the standard rows; the registered count while none is known.
+  const viewBadges = viewCounts(
+    feeder
+      ? { count: feeder.rankings.length, unit: competition.competitionType === 'team' ? 'team' : 'angler' }
+      : nc
+        ? { count: nc.length, unit: 'club' }
+        : placeTable
+          ? { count: placeTable.rows.length, unit: competition.competitionType === 'team' ? 'team' : 'angler' }
+          : rankingsQ.data
+            ? { count: registered, unit: competition.competitionType === 'team' ? 'team' : 'angler' }
+            : undefined,
+    weighingStatsQ.data?.data,
+    rankingsQ.data?.metadata.totalCatchesCount,
+  );
   // fish Vezi full: off without rows, without numberOfSectors, or on an empty feeder leg.
   const fullViewDisabled = !metadata?.numberOfSectors
     ? true
@@ -754,11 +770,16 @@ function Screen({
             </DetailSection>
           ) : (
             <>
-              {/* From 768: the summary strip over the views (the phone has them in Statistici). */}
-              <div className="max-md:hidden">
+              {/* From 768: the summary strip over the views (the phone has them in Statistici). It
+                  stays on every view, so the view switcher under it never moves when the view
+                  changes (the Statistici bento starts after the facts the strip shows); a strip
+                  with nothing to draw takes no room (empty:hidden, no gap of the flex column). */}
+              <div className="empty:hidden max-md:hidden">
                 <DesktopStats
                   metadata={rankingsQ.data?.metadata}
                   rankings={table?.rows}
+                  feederRows={feeder?.rankings}
+                  ncClubs={nc ?? undefined}
                   competition={competition}
                   activeWeighing={activeWeighing}
                   weighings={weighingStatsQ.data?.data}
@@ -776,27 +797,10 @@ function Screen({
                 />
               </div>
               <DetailSection tone="plain" className="flex flex-col gap-4 max-md:pt-2">
-                <ViewChips value={view} onChange={selectView} />
-                <ViewTabs
-                  value={view}
-                  onChange={selectView}
-                  meta={{
-                    clasament: placeTable ? `General · ${plural(placeTable.rows.length, 'pescar', 'pescari')}` : 'General',
-                    cantare: weighingsMeta(
-                      activeWeighing?.length ?? 0,
-                      weighingStatsQ.data?.data,
-                      weighingStatsQ.isPending,
-                      weighingStatsQ.isError && !weighingStatsQ.data,
-                    ),
-                    // Feeder legs have no Best-N (StatisticsView): only what the view shows.
-                    statistici: competition.rankingType === 'feederRounds' ? 'Capturi · cântare' : 'Top 3/5/7 · pe sectoare',
-                    allFish:
-                      typeof rankingsQ.data?.metadata.totalCatchesCount === 'number'
-                        ? plural(rankingsQ.data.metadata.totalCatchesCount, 'captură', 'capturi')
-                        : 'Toate capturile',
-                  }}
-                  live={status === 'started' && !!activeWeighing?.length}
-                />
+                <ViewChips value={view} onChange={selectView} badges={viewBadges} />
+                {/* One «a weighing is in progress» rule with the strip's weighing tile (weighingTileTone): the
+                    per-user active read, else the public statistics' open session — signed out too. */}
+                <ViewTabs value={view} onChange={selectView} badges={viewBadges} live={status === 'started' && weighingTileTone(activeWeighing, weighingStatsQ.data?.data, status) === 'rose'} />
 
                 {/* From 1280 the angler stats dock beside the view (ContextSurface). */}
                 <div className="flex items-start gap-6">
@@ -893,6 +897,8 @@ function Screen({
                             competition={competition}
                             rankingsQ={rankingsQ}
                             rankingRows={table?.rows}
+                            entrants={entrantCounts(table?.rows, feeder?.rankings, nc ?? undefined)}
+                            weighingTone={weighingTileTone(activeWeighing, weighingStatsQ.data?.data, status)}
                             weighingStats={weighingStatsQ}
                             decimals={decimals}
                             canRevoke={statute?.userRole === 'author' || statute?.userRole === 'referee'}
@@ -1136,12 +1142,25 @@ function myEntry(
   };
 }
 
-function weighingsMeta(active: number, weighings: { endDate: string | null }[] | undefined, loading: boolean, failed: boolean): string {
-  // A failed read is not «Pe standuri» (that reads as «no weighing yet»).
-  if (!weighings && failed) return active > 0 ? `${active} în curs · Indisponibil` : 'Indisponibil';
-  const done = weighings?.filter(w => w.endDate).length ?? 0;
-  const parts = [active > 0 ? `${active} în curs` : null, weighings ? `${done} ${done === 1 ? 'finalizat' : 'finalizate'}` : null];
-  // Until the statistics land the count is unknown: a neutral placeholder, not «Pe standuri».
-  if (!weighings && loading) parts.push('…');
-  return parts.filter(Boolean).join(' · ') || 'Pe standuri';
+/**
+ * The view tabs' count badges: the rows of the Clasament table shown (anglers, teams or clubs),
+ * weighings (in progress included; the live dot says one is running), catches. A count still being
+ * read, or failed, has no badge (rule 4).
+ */
+type RowCount = { count: number; unit: 'angler' | 'team' | 'club' };
+const ROW_UNITS: Record<RowCount['unit'], [string, string]> = {
+  angler: ['pescar', 'pescari'],
+  team: ['echipă', 'echipe'],
+  club: ['club', 'cluburi'],
+};
+function viewCounts(
+  rows: RowCount | undefined,
+  weighings: unknown[] | undefined,
+  catches: number | undefined,
+): Partial<Record<RankingViewKey, ViewBadge>> {
+  const badges: Partial<Record<RankingViewKey, ViewBadge>> = {};
+  if (rows && rows.count > 0) badges.clasament = { value: String(rows.count), label: plural(rows.count, ...ROW_UNITS[rows.unit]) };
+  if (weighings && weighings.length > 0) badges.cantare = { value: String(weighings.length), label: plural(weighings.length, 'cântar', 'cântare') };
+  if (typeof catches === 'number' && catches > 0) badges.allFish = { value: String(catches), label: plural(catches, 'captură', 'capturi') };
+  return badges;
 }

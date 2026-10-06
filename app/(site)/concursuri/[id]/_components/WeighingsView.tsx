@@ -20,11 +20,13 @@ import { InlineNumber } from '@/components/ui/SignatureNumber';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { shortDateTime } from './dates';
-import { WeighingDetail, type WeighingDetailTarget } from './WeighingDetail';
+import { WeighingDetail, type WeighingDetailTarget, type WeighingPersonHook } from './WeighingDetail';
+import { PersonPopover, usePersonPopover, usePersonPopoverEnabled } from './PersonPopover';
 import { WeighingsSummaryPanel } from './WeighingsSummaryPanel';
 import { WeighingsTable, type StandReads } from './WeighingsTable';
 import { isOfflineEmpty, OfflineState } from './offline';
 import { QueryRetry } from './QueryRetry';
+import { echoes } from './names';
 import { formatKg } from './ranking';
 import { isNationalType, nationalStandLabel } from './stand';
 import { PAGE_RETRY } from './retry-policy';
@@ -58,6 +60,8 @@ import { PAGE_RETRY } from './retry-policy';
 
 const STAND_GRID = cn('grid grid-cols-[minmax(0,1fr)] items-start', LIST_GUTTER, 'md:grid-cols-[repeat(auto-fill,minmax(--spacing(80),1fr))]');
 const STAND_CARD = 'rounded-card bg-surface p-4 shadow-e0';
+/** Keyboard focus on a control (owner rule 8): the accent ring, never on a pointer press. */
+const FOCUS = 'focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent';
 export function WeighingsView({
   t,
   competition,
@@ -91,6 +95,14 @@ export function WeighingsView({
   const [tableLeg, setTableLeg] = useState(currentLeg);
   const isNc = isNationalType(competition.rankingType);
   const desktop = useBreakpoint() === 'desktop';
+  // Owner rule 17: from 1024 who is on a stand opens the person popover (the stand cards' and the
+  // detail's names; from 1280 the table's angler cell).
+  const person = usePersonPopover();
+  const popoverOn = usePersonPopoverEnabled();
+  const registrationIds = useMemo(() => new Set(competition.registrations.map(r => r.documentId)), [competition.registrations]);
+  const personHook: WeighingPersonHook | undefined = popoverOn
+    ? { open: person.open, openId: person.target?.registrationId ?? null, has: rid => registrationIds.has(rid) }
+    : undefined;
   const round = desktop ? tableLeg : currentLeg;
   const legCount = Math.max(competition.roundsCount ?? 0, currentLeg ?? 0);
   // The weighing detail (fish WeighingDetailSheet): `?cantar=<weighing>&stand=<stand>` in the URL
@@ -115,9 +127,13 @@ export function WeighingsView({
     }
     window.history.replaceState(window.history.state, '', url);
   };
+  // The control that opened the detail: the phone's sheet and the dialog leave the page (focus on
+  // the body) when they close, so the focus goes back to it, as the docked panel's does.
+  const opener = useRef<HTMLElement | null>(null);
   const openWeighing = (standId: string, weighingId: string, fromLink = false) => {
     const where = standOf(standId);
     if (!where) return;
+    opener.current = !fromLink && document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     writeParams({ cantar: weighingId, stand: standId });
     setDetail(d => ({
       competitionId: id,
@@ -130,8 +146,15 @@ export function WeighingsView({
     }));
   };
   const closeWeighing = () => {
+    person.close();
     writeParams(null);
     setDetail(null);
+    const back = opener.current;
+    opener.current = null;
+    // After the surface has gone (its own focus return runs first; this only fills the gap).
+    requestAnimationFrame(() => {
+      if (back?.isConnected && (document.activeElement === document.body || document.activeElement == null)) back.focus();
+    });
   };
   // `?stand=<documentId>` (routes.competitionWeighings, the Extra Cântare requests): that stand opens,
   // and is brought into view once the allocation has drawn the cards; with `cantar` the weighing's
@@ -193,7 +216,11 @@ export function WeighingsView({
       isNc={isNc}
       decimals={decimals}
       onClose={closeWeighing}
+      person={personHook}
     />
+  );
+  const personPopover = (
+    <PersonPopover t={t} competition={competition} signedIn={session === 'pending' ? undefined : session === 'in'} target={popoverOn ? person.target : null} onClose={person.close} />
   );
 
   if (desktop) {
@@ -209,7 +236,12 @@ export function WeighingsView({
             : null;
     return (
       <div className="flex items-start gap-6">
-        <div className="min-w-0 flex-1">
+        {/* Owner rule 16: the table is as wide as its columns (WeighingsTable's wide widths, the
+            angler's column at most w-md), never stretched across the screen: at most 1024px, the
+            rest is the side column's (summary / detail) or margin. Under 1024 the box decides. The
+            leftover width is the gap before the side column (mr-auto), which keeps to the content's
+            right edge like the header and the bento above, never a dead strip after it. */}
+        <div className="mr-auto max-w-256 min-w-0 flex-1">
           {allocationLoading ? (
             <TableBones />
           ) : (
@@ -224,6 +256,7 @@ export function WeighingsView({
               docked={detail != null}
               selected={detail?.weighingId ?? null}
               onWeighing={(standId, weighingId) => openWeighing(standId, weighingId)}
+              person={personHook}
             />
           )}
         </div>
@@ -240,6 +273,7 @@ export function WeighingsView({
           />
         ) : null}
         {detailPanel}
+        {personPopover}
       </div>
     );
   }
@@ -247,7 +281,7 @@ export function WeighingsView({
   return (
     <div className="flex items-start gap-6">
       {/* The width is not known yet (server render): from 1280 the table's bones stand in. */}
-      <div className="hidden min-w-0 flex-1 xl:block">
+      <div className="hidden max-w-256 min-w-0 flex-1 xl:block">
         <TableBones />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-4 xl:hidden">
@@ -318,6 +352,7 @@ export function WeighingsView({
                       summaryLoading={summaryLoading}
                       expanded={expanded === stand.documentId}
                       onToggle={() => setExpanded(e => (e === stand.documentId ? null : stand.documentId))}
+                      person={personHook}
                     />
                   )}
                   renderPanel={stand => (
@@ -348,6 +383,7 @@ export function WeighingsView({
         ) : null}
       </div>
       {detailPanel}
+      {personPopover}
     </div>
   );
 }
@@ -404,7 +440,10 @@ function StandCard({
   onToggle,
   round,
   decimals,
+  person,
 }: {
+  /** ≥1024: who is on the stand opens the person popover (owner rule 17). */
+  person?: WeighingPersonHook;
   decimals: number;
   /** Feeder: the current leg (the stand's weighings are that leg's). */
   round?: number;
@@ -450,6 +489,19 @@ function StandCard({
   const summaryPending = summaryLoading && !summary;
   const listPending = expanded && weighingsQ.isPending;
 
+  const standLabel = nationalChampionship ? nationalStandLabel(sectorName, alloc?.sectorDrawPosition, standName) : standName;
+  // fish «Team: members»; a guest team whose members line only echoes its name (names.ts) says it once.
+  const who = alloc
+    ? alloc.teamName
+      ? echoes(participants, alloc.teamName)
+        ? alloc.teamName
+        : `${alloc.teamName}: ${participants}`
+      : participants
+    : // fish: «-» for a stand the allocation says is empty (a failed read never reaches here).
+      '-';
+  // ≥1024 the angler line is its own control (the popover), beside the stand's toggle — not inside it.
+  const personOn = !!alloc && !!person?.has(alloc.registrationId);
+
   return (
     <div className={cn(STAND_CARD, 'transition-shadow duration-(--duration-fast)', expanded && 'ring-2 ring-accent')}>
       <button
@@ -457,34 +509,30 @@ function StandCard({
         aria-expanded={expanded}
         aria-controls={expanded ? panelId : undefined}
         onClick={onToggle}
-        className="flex w-full cursor-pointer items-start gap-2 rounded-control text-left"
+        className={cn('flex w-full cursor-pointer items-start gap-2 rounded-control text-left', FOCUS)}
       >
         <span className="min-w-0 flex-1">
           {/* fish: «Stand 12» under its «Sector A» heading; the national championship «Stand A3(12)». */}
-          <span className="block truncate t-heading">
-            Stand {nationalChampionship ? nationalStandLabel(sectorName, alloc?.sectorDrawPosition, standName) : standName}
-          </span>
-          <span className="block truncate t-caption text-muted">
-            {alloc ? (
-              <>
-                {alloc.teamName ? `${alloc.teamName}: ` : ''}
-                {participants}
-              </>
-            ) : (
-              // fish: «-» for a stand the allocation says is empty (a failed read never reaches here).
-              '-'
-            )}
-          </span>
+          <span className="block truncate t-heading">Stand {standLabel}</span>
+          {personOn ? null : <span className="block truncate t-caption text-muted">{who}</span>}
         </span>
         {counts && counts.kg !== null ? (
           // fish: the total in the accent; the unit apart, smaller and muted (owner rule 10).
           <InlineNumber value={formatKg(counts.kg, decimals)} unit="kg" valueClassName="t-body-strong text-accent-ink" className="shrink-0" />
         ) : null}
-        <ChevronDownIcon
-          aria-hidden
-          className={cn('size-6 shrink-0 text-muted transition-transform duration-(--duration-fast)', expanded && 'rotate-180')}
-        />
+        <ChevronDownIcon aria-hidden className={cn('size-6 shrink-0 text-muted transition-transform duration-(--duration-fast)', expanded && 'rotate-180')} />
       </button>
+      {personOn && alloc && person ? (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={person.openId === alloc.registrationId}
+          onClick={e => person.open(alloc.registrationId, e.currentTarget, nationalChampionship ? standLabel : null)}
+          className="-mx-1 block max-w-full cursor-pointer truncate rounded-control px-1 text-left t-caption text-accent-ink underline decoration-accent-tint-3 underline-offset-4 hover:bg-soft-fill focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent"
+        >
+          {who}
+        </button>
+      ) : null}
       {summaryPending || listPending ? (
         // Announced once by the view (totals) or by the open stand's panel (its weighings).
         <span aria-hidden className="mt-1 flex gap-3">
@@ -644,7 +692,7 @@ function WeighingItem({
         type="button"
         onClick={onPress}
         aria-haspopup="dialog"
-        className="flex h-full w-full cursor-pointer flex-col gap-1 rounded-control bg-page p-3 text-left hover:bg-soft-fill"
+        className={cn('flex h-full w-full cursor-pointer flex-col gap-1 rounded-control bg-page p-3 text-left hover:bg-soft-fill', FOCUS, 'focus-visible:-outline-offset-2')}
       >
         <div className="flex w-full items-center gap-2">
           <span className="flex-1 t-body-strong">

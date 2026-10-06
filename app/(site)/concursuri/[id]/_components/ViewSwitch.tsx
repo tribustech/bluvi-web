@@ -33,15 +33,52 @@ function onTabKey(e: KeyboardEvent<HTMLButtonElement>, value: RankingViewKey, on
   document.getElementById(idOf(key))?.focus();
 }
 
+/** A view's count, shown as a badge on its tab («24»), spoken in full («24 de pescari»). */
+export type ViewBadge = { value: string; label: string };
+type Badges = Partial<Record<RankingViewKey, ViewBadge>>;
+
 /**
- * fish `chipRow` (phone): four squares. Selected = accent-ink + on-accent (accent-ink, not accent:
- * the 10px label in white on accent is 4.46:1); the others soft-fill with an accent-ink icon.
+ * The count badge (owner rule 20): a pill on the tab. On the selected (filled) tab it inverts —
+ * the on-accent pill with the accent-ink figure — so it stays a badge, not loose text.
  */
-export function ViewChips({ value, onChange }: Props) {
+/** The badge's figure, capped at «999+» (a 1.284-catch count would not fit an 81px phone chip); the label keeps the full count. */
+export function badgeFigure(value: string): string {
+  const n = Number(value.replace(/\D/g, ''));
+  return Number.isFinite(n) && n > 999 ? '999+' : value;
+}
+
+function CountBadge({ badge, selected, className }: { badge: ViewBadge; selected: boolean; className?: string }) {
   return (
-    <div role="tablist" aria-label="Vederi clasament" className="grid grid-cols-4 gap-3 md:hidden">
+    <span
+      className={cn(
+        'inline-flex min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 t-micro-strong whitespace-nowrap tabular-nums',
+        selected ? 'bg-on-accent text-accent-ink' : 'bg-accent-tint-2 text-accent-ink',
+        className,
+      )}
+    >
+      <span aria-hidden>{badgeFigure(badge.value)}</span>
+      <span className="sr-only">{`, ${badge.label}`}</span>
+    </span>
+  );
+}
+
+/**
+ * Owner rule 20 (ROADMAP §4b, «nici nu vezi că sunt taburi»): the four views read as tabs — one
+ * container, a strong selected state, hover and focus, the counts as badges.
+ *
+ * Phone (fish `chipRow`): one track holding the four tabs, icon over label. The track has the same
+ * visible edge as the desktop control (a surface track, the handle-grey border, the e1 lift): a
+ * soft-fill track on the white phone ground was ~1.08:1, so only the filled chip read as a control.
+ * The selected one is filled accent-ink with on-accent text (accent-ink, not accent: a 10px label in
+ * white on accent is 4.46:1); the others take the accent tint on hover. The badge is drawn on the
+ * icon's corner, pushed left when it is wide so it never leaves its chip (a flex spacer that shrinks).
+ */
+export function ViewChips({ value, onChange, badges = {} }: Props & { badges?: Badges }) {
+  return (
+    <div role="tablist" aria-label="Vederi clasament" className="grid grid-cols-4 gap-1 rounded-card border border-handle bg-surface p-1 shadow-e1 md:hidden">
       {VIEWS.map(({ key, label, Icon }) => {
         const selected = key === value;
+        const badge = badges[key];
         return (
           <button
             key={key}
@@ -54,13 +91,22 @@ export function ViewChips({ value, onChange }: Props) {
             onClick={() => onChange(key)}
             onKeyDown={e => onTabKey(e, value, onChange, chipId)}
             className={cn(
-              'flex aspect-square cursor-pointer flex-col items-center justify-center gap-1.5 rounded-card p-1.5 transition-[background-color,opacity] duration-(--duration-fast) active:opacity-80',
+              'relative flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-[calc(var(--radius-card)-4px)] px-1 py-2.5 transition-[background-color,color,box-shadow] duration-(--duration-fast) ease-select active:opacity-80',
               FOCUS_RING,
-              selected ? 'bg-accent-ink text-on-accent' : 'bg-soft-fill text-ink-2',
+              selected ? 'bg-accent-ink text-on-accent shadow-e1' : 'text-ink-2 hover:bg-accent-tint hover:text-accent-ink',
             )}
           >
             <Icon aria-hidden className={cn('size-6', !selected && 'text-accent-ink')} />
-            <span className={cn('whitespace-nowrap', selected ? 't-micro-strong' : 't-micro text-ink')}>{label}</span>
+            <span className={cn('max-w-full truncate', selected ? 't-micro-strong' : 't-micro text-ink')}>{label}</span>
+            {/* After the label in the DOM (the tab's name starts with the view), drawn on the icon's
+                corner: the spacer (50% + 6px of the 4px-inset row) puts it at the chip's 50% + 6px,
+                and shrinks when the badge is wider than the room left, so it never leaves the chip. */}
+            {badge ? (
+              <span className="pointer-events-none absolute inset-x-1 top-1.5 flex">
+                <span aria-hidden className="min-w-0 shrink basis-[calc(50%+--spacing(1.5))]" />
+                <CountBadge badge={badge} selected={selected} className="max-w-full" />
+              </span>
+            ) : null}
           </button>
         );
       })}
@@ -69,22 +115,21 @@ export function ViewChips({ value, onChange }: Props) {
 }
 
 /**
- * From 768: the same four views as a sub-level control under the route tabs (DetailTabs) — the kit
- * Segmented look (forms/SegmentedControl): a soft-fill track, the selected view a surface thumb, and
- * only its icon takes the accent. The solid accent stays for primary actions, so the ranking, not
- * this switch, is the loudest thing below the header. From 1280 each tab carries its meta line;
- * 768–1279 it is a 44px tab without it.
+ * From 768: the same four views as a segmented control under the route tabs (DetailTabs).
+ * Owner rule 20 («nici nu vezi că sunt taburi»): the container must have a visible edge on the grey
+ * page — a surface track with a handle-grey (gray-300) border and the e1 lift, not the hairline ring
+ * (#EFF1F5 is lighter than the page #F4F5FA, so the old card had no edge). The selected view is a
+ * filled accent-ink tab with on-accent text; the others are ink with an accent-ink icon and take the
+ * accent tint on hover. Rule 16 (compact, never stretched): the control is content-sized and
+ * left-aligned — four auto columns, each tab its label's width plus padding, not a quarter of 1920.
+ * Each count is a badge after the label; Cântare carries the live dot while a weighing is in progress.
  */
-export function ViewTabs({
-  value,
-  onChange,
-  meta,
-  live,
-}: Props & { meta: Record<RankingViewKey, string>; live: boolean }) {
+export function ViewTabs({ value, onChange, badges = {}, live }: Props & { badges?: Badges; live: boolean }) {
   return (
-    <div role="tablist" aria-label="Vederi clasament" className="hidden grid-cols-4 gap-1 rounded-card bg-soft-fill p-1 md:grid">
+    <div role="tablist" aria-label="Vederi clasament" className="hidden w-fit max-w-full grid-cols-[repeat(4,auto)] gap-1 self-start rounded-card border border-handle bg-surface p-1 shadow-e1 md:grid">
       {VIEWS.map(({ key, label, Icon }) => {
         const selected = key === value;
+        const badge = badges[key];
         return (
           <button
             key={key}
@@ -97,20 +142,18 @@ export function ViewTabs({
             onClick={() => onChange(key)}
             onKeyDown={e => onTabKey(e, value, onChange, tabId)}
             className={cn(
-              'flex h-11 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-[calc(var(--radius-card)-4px)] px-2.5 transition-[background-color,color,box-shadow] duration-(--duration-fast) ease-select xl:h-14 xl:justify-start xl:gap-3 xl:px-4',
+              'flex h-11 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-[calc(var(--radius-card)-5px)] px-3.5 transition-[background-color,color,box-shadow] duration-(--duration-fast) ease-select lg:min-w-36 xl:gap-2.5 xl:px-5',
               FOCUS_RING,
-              selected ? 'bg-surface text-ink shadow-e1' : 'text-ink-2 hover:text-ink',
+              selected ? 'bg-accent-ink text-on-accent shadow-e1' : 'text-ink hover:bg-accent-tint hover:text-accent-ink',
             )}
           >
-            <Icon aria-hidden className={cn('size-5 shrink-0 xl:size-6', selected ? 'text-accent-ink' : 'text-ink-2')} />
-            <span className="flex min-w-0 flex-col text-left">
-              <span className="truncate t-body-strong">{label}</span>
-              <span className="truncate t-caption text-muted max-xl:sr-only">{meta[key]}</span>
-            </span>
+            <Icon aria-hidden className={cn('size-5 shrink-0', selected ? 'text-on-accent' : 'text-accent-ink')} />
+            <span className="truncate t-body-strong">{label}</span>
+            {badge ? <CountBadge badge={badge} selected={selected} /> : null}
             {key === 'cantare' && live ? (
               <>
                 <span className="sr-only">, cântar în curs</span>
-                <LiveDot tone="live" />
+                <LiveDot tone={selected ? 'on-accent' : 'live'} />
               </>
             ) : null}
           </button>
