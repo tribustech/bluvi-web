@@ -220,7 +220,7 @@ test.describe('lakes.home', () => {
       await expect(header).toHaveCount(1);
       if (vp.width < 768) {
         // The top bar slid away: the header follows it to the top edge (no strip above it).
-        await expect(page.locator('header[data-concealed]')).toHaveCount(1);
+        await expect(page.locator('header').and(page.locator('[data-concealed]'))).toHaveCount(1);
         await expect.poll(async () => (await header.boundingBox())?.y).toBeLessThan(1);
       }
       await expectNoA11yViolations(page);

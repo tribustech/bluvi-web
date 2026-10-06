@@ -122,7 +122,7 @@ test.describe('signed out', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeInViewport();
     await expect(tab(page, 'Live')).toBeInViewport();
     // The bar slid away: the chrome follows it to the edge, so nothing scrolls past above the title.
-    await expect(page.locator('header[data-concealed]')).toHaveCount(1);
+    await expect(page.locator('header').and(page.locator('[data-concealed]'))).toHaveCount(1);
     await expect.poll(async () => Math.round((await chrome.boundingBox())!.y)).toBe(0);
   });
 
