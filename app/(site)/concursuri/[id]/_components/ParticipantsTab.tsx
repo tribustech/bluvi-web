@@ -148,6 +148,7 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
   // Nobody with a Bluvi account: no stats to show anywhere — said once above the list (from 768).
   const allGuests = registrations.length > 0 && registrations.every(isGuest);
   const mixed = !allGuests && registrations.some(isGuest);
+  const withStats = !allGuests && (stats$.kind === 'ok' || stats$.kind === 'pending');
 
   return (
     <DetailBody>
@@ -217,13 +218,16 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
                     </div>
                   ) : null}
                   {showTable ? (
-                    <div className={cn(showCards && 'max-xl:hidden')}>
+                    // With stats columns the table is capped (64rem): past it only the angler column
+                    // grows and the stats drift away from the names (owner rule 14). Without them it
+                    // is an auto-fill grid of compact rows, which uses the whole width.
+                    <div className={cn(withStats && 'max-w-5xl', showCards && 'max-xl:hidden')}>
                       <ParticipantsTable
                         groups={groups}
                         sectors={competition.sectors}
                         team={team}
                         stats={stats$}
-                        withStats={!allGuests && (stats$.kind === 'ok' || stats$.kind === 'pending')}
+                        withStats={withStats}
                         viewer={viewer}
                         broken={broken}
                         standText={standText}

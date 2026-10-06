@@ -48,11 +48,13 @@ export const RANK_PIN_EDGE =
   "after:pointer-events-none after:absolute after:inset-y-0 after:left-full after:w-2 after:bg-linear-to-r after:from-ink/8 after:to-transparent after:opacity-0 after:transition-opacity after:duration-(--duration-fast) after:content-[''] group-data-[scrolled=true]/rank:after:opacity-100";
 
 /**
- * The pinned name column's header from 1280: a bounded track (320px, at most 30% of the table), so
- * the number columns share the rest instead of a wide gap before them — the standard table's
- * `--name-col` cap (tableFixes GENERAL_TABLE_LAYOUT), for the tables built on this shell.
+ * The pinned name column's header from 1280: a bounded 320px track, so the number columns share the
+ * rest instead of a wide gap before them — the standard table's `--name-col` cap (tableFixes
+ * GENERAL_TABLE_LAYOUT), for the tables built on this shell. A plain length on purpose: Chrome treats
+ * a table cell's `width` holding min()/max() with a percentage as `auto`, so `min(320px, 30%)` would
+ * cap nothing.
  */
-export const RANK_NAME_CAP = 'xl:w-[min(--spacing(80),30%)]';
+export const RANK_NAME_CAP = 'xl:w-80';
 
 /** The surface a pinned cell paints: the row's own (the viewer's row keeps its tint). */
 export const pinSurface = (me: boolean) => (me ? 'bg-accent-tint' : 'bg-surface');
