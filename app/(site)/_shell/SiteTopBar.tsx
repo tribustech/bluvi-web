@@ -8,6 +8,7 @@ import { CommandPalette } from '@/components/nav/CommandPalette';
 import { activeAdminKey, adminLinks, currentKind, navKeyForPath, PATHS, SECTIONS, type AdminLink } from '@/components/nav/items';
 import { MobileMenu, type MenuSession } from '@/components/nav/MobileMenu';
 import { BREAKPOINT_MD } from '@/components/surfaces/rule';
+import { CONCEAL_TOP_PX, useBarConcealedFlag } from '@/components/nav/stickyStack';
 import { TopBar, type TopBarViewer } from '@/components/nav/TopBar';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { signInHref, useIsNotFound } from './SiteHeader';
@@ -20,7 +21,6 @@ const UNREAD_POLL_MS = 120_000;
 
 /** Phone hide-on-scroll: ignore jitter below this many px; always show within the bar's height. */
 const CONCEAL_DELTA_PX = 4;
-const CONCEAL_TOP_PX = 56;
 
 /** What the bar has resolved so far; undefined = not known yet. */
 type Known = { pathname?: string; viewer?: ShellViewer };
@@ -89,11 +89,10 @@ export function SiteTopBar() {
   const toast = useSiteToast();
   const router = useRouter();
 
-  // Retry an unknown session: router.refresh() re-reads it on the server. In a transition, so the
-  // bar keeps its slot (busy) instead of falling back, and isPending covers the whole re-read.
+  // Administrare's «Reîncearcă» (the viewer's lakes could not be read): router.refresh() re-reads
+  // them on the server, in a transition, so the row stays busy for the whole re-read.
   const [retrying, startRetry] = useTransition();
   const retry = useCallback(() => startRetry(() => router.refresh()), [router]);
-  const announce = useRetryAnnouncement(retrying, known.viewer);
 
   // After a confirmed sign-out, focus lands on «Intră» once the bar shows it (not on <body>).
   const focusSignInRef = useRef(false);
@@ -155,8 +154,7 @@ export function SiteTopBar() {
     report: setKnown,
     onSignOut: signOut,
     signingOut,
-    onRetry: retry,
-    retrying,
+    onAdminRetry: retry,
     focusSignInRef,
   };
   const notFound = useIsNotFound(known.pathname);
@@ -177,13 +175,16 @@ export function SiteTopBar() {
       <Suspense fallback={null}>
         <SearchReporter report={setSearch} />
       </Suspense>
+      {/* An unknown session is never shown (owner rule 4): it is re-read quietly in the background. */}
+      <Suspense fallback={null}>
+        <QuietSessionRetry />
+      </Suspense>
       <MobileMenu
         open={menuOpen}
         onClose={closeMenu}
         session={session}
         onSignOut={signOut}
         signingOut={signingOut}
-        onRetry={retry}
         retrying={retrying}
         signInHref={signIn}
         active={active}
@@ -196,12 +197,11 @@ export function SiteTopBar() {
         open={searchOpen}
         onClose={closeSearch}
         signedIn={signedIn}
-        sessionUnknown={session === 'unknown'}
         signInHref={signIn}
         admin={admin}
       />
       <p role="status" className="sr-only">
-        {signingOut ? 'Se închide sesiunea…' : announce}
+        {signingOut ? 'Se închide sesiunea…' : ''}
       </p>
     </>
   );
@@ -217,8 +217,8 @@ type BarProps = {
   report: (k: Known) => void;
   onSignOut: () => void;
   signingOut: boolean;
-  onRetry: () => void;
-  retrying: boolean;
+  /** Administrare's retry row (the viewer's lakes could not be read). */
+  onAdminRetry: () => void;
   focusSignInRef: RefObject<boolean>;
 };
 
@@ -233,9 +233,9 @@ function WithPath(props: BarProps) {
 
 /**
  * When the bar's bounded read timed out («unknown») the real read may still answer a moment later:
- * the bar shows the unknown slot meanwhile and upgrades itself from the page's own read (the same
- * promise the body waits for, itself bounded in ./session.ts), so the bar and the body agree as
- * soon as either knows, and the retry button is only left for real failures.
+ * the bar keeps its neutral placeholder meanwhile and upgrades itself from the page's own read (the
+ * same promise the body waits for, itself bounded in ./session.ts), so the bar and the body agree
+ * as soon as either knows. If that one is unknown too, QuietSessionRetry re-reads it.
  */
 function WithViewer(props: BarProps & { pathname: string }) {
   const viewer = useShellViewer();
@@ -265,8 +265,7 @@ function Bar({
   report,
   onSignOut,
   signingOut,
-  onRetry,
-  retrying,
+  onAdminRetry,
   focusSignInRef,
 }: BarProps & Known) {
   const qc = useQueryClient();
@@ -315,13 +314,11 @@ function Bar({
       active={active}
       activeCurrent={activeCurrent}
       admin={admin}
-      onAdminRetry={adminFailed ? onRetry : undefined}
+      onAdminRetry={adminFailed ? onAdminRetry : undefined}
       hasUnread={!signingOut && (unread.data ?? 0) > 0}
       onSearch={onSearch}
       onMenu={onMenu}
       onSignOut={onSignOut}
-      onRetry={onRetry}
-      retrying={retrying}
       signingOut={signingOut}
       menuOpen={menuOpen}
       resetKey={pathname}
@@ -395,19 +392,41 @@ function useConcealOnScroll(hold: boolean): boolean {
       if (frame) cancelAnimationFrame(frame);
     };
   }, [hold]);
-  return concealed && !hold;
+  const result = concealed && !hold;
+  // Every pinned row follows this one value (html[data-bar-concealed], shell UNDER_BAR_TOP).
+  useBarConcealedFlag(result);
+  return result;
 }
 
 /**
- * What the polite status says about a retry: «Se verifică sesiunea…» while it runs, then the
- * outcome (signed in, signed out, or still unknown) — touch and keyboard users get the feedback the
- * tooltip alone never gave them.
+ * Re-read delays for a session that stayed unknown after the full read (./session.ts): one quiet
+ * router.refresh() each, then nothing — the visitor is never asked to retry (owner rule 4). A
+ * refresh that answers upgrades the bar, the ☰ panel and every per-viewer slot on the page at once.
  */
-function useRetryAnnouncement(retrying: boolean, viewer: ShellViewer | undefined): string {
-  const [retried, setRetried] = useState(false);
-  if (retrying && !retried) setRetried(true);
-  if (retrying) return 'Se verifică sesiunea…';
-  if (!retried || viewer === undefined) return '';
-  if (isUnknownViewer(viewer)) return 'Tot nu am putut verifica sesiunea. Încearcă din nou mai târziu.';
-  return viewer ? 'Sesiunea a fost verificată. Ești conectat.' : 'Nu ești conectat.';
+const QUIET_RETRY_DELAYS_MS = [4_000, 15_000];
+
+/**
+ * Renders nothing. Reads the full session (suspends until it answers); while it is unknown, it
+ * schedules the next quiet re-read. The attempt count is module-level so it survives the remount a
+ * refresh may cause (the session promise is replaced); a known answer resets it.
+ */
+let quietAttempts = 0;
+function QuietSessionRetry() {
+  const router = useRouter();
+  const viewer = useViewerState();
+  const unknown = isUnknownViewer(viewer);
+  useEffect(() => {
+    if (!unknown) {
+      quietAttempts = 0;
+      return;
+    }
+    const delay = QUIET_RETRY_DELAYS_MS[quietAttempts];
+    if (delay === undefined) return;
+    const id = setTimeout(() => {
+      quietAttempts += 1;
+      router.refresh();
+    }, delay);
+    return () => clearTimeout(id);
+  }, [unknown, viewer, router]);
+  return null;
 }

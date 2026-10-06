@@ -12,10 +12,8 @@ import {
 import type { OwnedLakesStats } from '@/core/lakes';
 import { ACTION_TILE, CountBadge, DashboardLine, DashboardLines, DashboardSection, ICON_TILE, type ActionTone } from '@/components/templates/T5';
 import { cn } from '@/components/ui/cn';
-import { loadOwnedLakes } from './data';
 import { waitedLabel } from './format';
 import { operatorHref } from './links';
-import { RetryRefresh } from './RetryRefresh';
 
 type Layout = 'mobile' | 'desktop';
 
@@ -40,25 +38,33 @@ const ABOVE_STRETCH = '[&_a]:relative [&_a]:z-above';
  * Names the single oldest request; with nothing pending it still speaks («Nicio rezervare de
  * aprobat» + tomorrow). The shortcut row comes right under that status line, so it never moves:
  * cancellations (24h) and the review queue, shown only when non-zero, come under it. The whole
- * card opens the lake panel; the row links and the shortcuts keep their own targets. A failed
- * stats read keeps the card and its shortcuts, with an inline retry in place of the status.
+ * card opens the lake panel; the row links and the shortcuts keep their own targets. Pure markup
+ * from the lakes and their stats: without stats there is no card (owner rule 4, ROADMAP §4b; fish
+ * OwnedLakesCard.tsx:64 `!stats → null`) — slots.tsx OperatorSlot and LateBlocks.tsx decide that.
  */
-export async function OwnedLakesCard({ layout, className }: { layout: Layout; className?: string }) {
-  const owned = await loadOwnedLakes();
-  if (!owned) return null;
-  const { lakes, stats } = owned;
+export function OwnedLakesCard({
+  lakes,
+  stats,
+  layout,
+  className,
+}: {
+  lakes: { documentId: string; name: string }[];
+  stats: OwnedLakesStats;
+  layout: Layout;
+  className?: string;
+}) {
 
   const single = lakes.length === 1 ? lakes[0] : undefined;
   const multiLake = lakes.length > 1;
   const lakeId = single?.documentId;
   const dense = layout === 'desktop';
-  const pending = stats?.pending ?? 0;
-  const oldest = stats?.oldestPending;
-  const occupancy = stats?.occupancy;
-  const cancelled = stats?.cancelledLast24h ?? 0;
-  const toReview = stats?.pendingFeedback ?? 0;
+  const pending = stats.pending ?? 0;
+  const oldest = stats.oldestPending;
+  const occupancy = stats.occupancy;
+  const cancelled = stats.cancelledLast24h ?? 0;
+  const toReview = stats.pendingFeedback ?? 0;
   // reservationsByDay is today-first, so index 1 is tomorrow.
-  const tomorrow = stats?.reservationsByDay?.[1]?.count ?? 0;
+  const tomorrow = stats.reservationsByDay?.[1]?.count ?? 0;
   const title = single ? `Balta mea · ${single.name}` : `Bălțile mele · ${lakes.length} bălți`;
 
   return (
@@ -79,30 +85,26 @@ export async function OwnedLakesCard({ layout, className }: { layout: Layout; cl
       }
       caption={occupancy && occupancy.total > 0 ? <span className="tabular-nums">{`${occupancy.booked} / ${occupancy.total} standuri ocupate`}</span> : null}
     >
-      {!stats ? (
-        <RetryRefresh message="Nu am putut încărca situația." className="px-4.5 pt-2 pb-3" />
-      ) : (
-        <DashboardLines bare dense={dense} label="Situația bălții" className={ABOVE_STRETCH}>
-          {pending > 0 ? (
-            <DashboardLine
-              tone="pending"
-              icon={<ClockIcon />}
-              title={pending === 1 ? '1 cerere așteaptă răspuns' : `${pending} cereri așteaptă răspuns`}
-              description={oldest ? pendingDetail(oldest, multiLake) : undefined}
-              action={{ label: 'Vezi', href: operatorHref(lakeId, 'bookings', 'pending'), srLabel: 'Vezi cererile în așteptare' }}
-            />
-          ) : (
-            <DashboardLine
-              tone="green"
-              icon={<CheckCircleIcon />}
-              title="Nicio rezervare de aprobat"
-              description={tomorrow === 0 ? '0 rezervări mâine' : tomorrow === 1 ? '1 rezervare mâine' : `${tomorrow} rezervări mâine`}
-              // «who is coming» when someone is, «why is it empty» when nobody is.
-              action={tomorrow > 0 ? { label: 'Vezi ziua', href: operatorHref(lakeId, 'panel') } : { label: 'Vezi grila', href: operatorHref(lakeId, 'calendar') }}
-            />
-          )}
-        </DashboardLines>
-      )}
+      <DashboardLines bare dense={dense} label="Situația bălții" className={ABOVE_STRETCH}>
+        {pending > 0 ? (
+          <DashboardLine
+            tone="pending"
+            icon={<ClockIcon />}
+            title={pending === 1 ? '1 cerere așteaptă răspuns' : `${pending} cereri așteaptă răspuns`}
+            description={oldest ? pendingDetail(oldest, multiLake) : undefined}
+            action={{ label: 'Vezi', href: operatorHref(lakeId, 'bookings', 'pending'), srLabel: 'Vezi cererile în așteptare' }}
+          />
+        ) : (
+          <DashboardLine
+            tone="green"
+            icon={<CheckCircleIcon />}
+            title="Nicio rezervare de aprobat"
+            description={tomorrow === 0 ? '0 rezervări mâine' : tomorrow === 1 ? '1 rezervare mâine' : `${tomorrow} rezervări mâine`}
+            // «who is coming» when someone is, «why is it empty» when nobody is.
+            action={tomorrow > 0 ? { label: 'Vezi ziua', href: operatorHref(lakeId, 'panel') } : { label: 'Vezi grila', href: operatorHref(lakeId, 'calendar') }}
+          />
+        )}
+      </DashboardLines>
 
       <QuickActions>
         <QuickAction icon={<ChartBarSquareIcon />} tone="accent" label="Panou" href={operatorHref(lakeId, 'panel')} />

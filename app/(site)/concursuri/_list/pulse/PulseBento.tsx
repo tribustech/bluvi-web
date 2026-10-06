@@ -75,12 +75,12 @@ export function PulseBento({
   if (!hero && !loading.hero) return null;
   const tilesLoading = loading.person || loading.count;
   // Only on a settled answer: a pending or failed followed-live read never claims «you follow none».
-  // It waits for the count (live + followed-live), never for the person: signed out it is decided
-  // as soon as the live list is.
-  const invite = !loading.count && liveCount > 0 && followedLiveKnown && followedLiveCount === 0;
+  // It waits for the count (live + followed-live), never for the person. Signed out there is no
+  // card at all (rule 4b-4: we don't know what a visitor follows).
+  const invite = isAuthenticated && !loading.count && liveCount > 0 && followedLiveKnown && followedLiveCount === 0;
   // Something is live and the followed-live read is still out: the invite's row is held, so its
   // landing never pushes the list down.
-  const invitePending = loading.count && liveCount > 0;
+  const invitePending = isAuthenticated && loading.count && liveCount > 0;
 
   return (
     <section aria-label="Pulsul concursurilor" aria-busy={loading.hero || tilesLoading || undefined} className={GRID}>

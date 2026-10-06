@@ -33,8 +33,10 @@ import { onSectionJump } from './SectionLink';
  *
  * Rhythm: phone — always four 64px tracks spread over the row, filled from the left edge, so two
  * or three tiles keep fish's spacing instead of huddling or stretching; from 768 the kit's tracks —
- * 64px tiles 24px apart from the left. The page hides the whole block from 1280, where the section
- * index, the booking card and the Contact section carry the same actions.
+ * 64px tiles 24px apart from the left. The page hides the whole block from 1024 (LakeScreen:
+ * `min-[1024px]:hidden`), where the sticky summary card sits beside it: Rezervă, Sună and Direcții
+ * are its buttons, Partide and Statistici its links, Prețuri / Concursuri / Recenzii sections with
+ * their own «Vezi tot» and chips — the tiles would only repeat the card (owner rule 1, Airbnb).
  */
 
 type Tile = {

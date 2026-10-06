@@ -27,22 +27,24 @@ import { LakeTile, TILE_HEIGHT } from './LakeTile';
  * section's colour and the title (lakes.home.c9), at most 10 lakes in a horizontal rail, «Vezi toate ›»
  * in the header and a «Vezi toate» card at the end when there are more (c10), the radius «50 km ›»
  * instead on the nearby row (c12). The rail is Acasă's (HorizontalRail: snap, the screen-edge bleed,
- * auto-fill tracks from 768, the mouse arrows in the header). Every row is that rail whatever its
- * count: a row of one or two lakes keeps the rail's card width and leaves the rest of the band empty
- * (ROADMAP §4: card grids auto-fill, never wider cards) — one card shape for the same data.
+ * auto-fill tracks from 768, the mouse arrows in the header). The rails are the PHONE's home (fish);
+ * from 768 the CMS rows are one grid with icon categories (owner rule 5 — HomeGrid), and only the
+ * nearby rail stays, when it fills a row.
  *
  * Analytics (c28, fish LakesHomeSectionRow): one lake_home_section_impression when a row with
  * content mounts, and lake_home_section_click on every card opened.
  */
 
 /** fish handleSectionImpression: once per mount of a section with content. */
-function useSectionImpression(sectionKey: string, position: number, lakesCount: number) {
+function useSectionImpression(sectionKey: string, position: number, lakesCount: number, shown?: { current: HTMLElement | null }) {
   const done = useRef(false);
   useEffect(() => {
     if (done.current) return;
+    // A row mounted but not rendered at this width (the phone rails under the desktop grid) is not seen.
+    if (shown && !shown.current?.getClientRects().length) return;
     done.current = true;
     track('lake_home_section_impression', { section_key: sectionKey, section_position: position, lakes_count: lakesCount });
-  }, [sectionKey, position, lakesCount]);
+  }, [sectionKey, position, lakesCount, shown]);
 }
 
 /** fish SECTION_VISIBLE_LAKES_COUNT. */
@@ -142,7 +144,8 @@ export function HomeRow({
   const width = compact ? 160 : 200;
   const canSeeAll = section.lakes.length > SECTION_VISIBLE_LAKES;
   const lakes = canSeeAll ? section.lakes.slice(0, SECTION_VISIBLE_LAKES) : section.lakes;
-  useSectionImpression(section.key, position, section.lakes.length);
+  const shownRef = useRef<HTMLDivElement>(null);
+  useSectionImpression(section.key, position, section.lakes.length, shownRef);
 
   const link = radiusAction ? (
     <HeaderLink href={radiusAction.href} label={radiusAction.label} srLabel={`Vezi pe hartă bălțile pe o rază de ${radiusAction.label}`} />
@@ -196,7 +199,9 @@ export function HomeRow({
           </span>
         }
       >
-        <div onClick={onCardClick}>{railRow}</div>
+        <div ref={shownRef} onClick={onCardClick}>
+          {railRow}
+        </div>
       </DashboardSection>
     </RailRegistry.Provider>
   );

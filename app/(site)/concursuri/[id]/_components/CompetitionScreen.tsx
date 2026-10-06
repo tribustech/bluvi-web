@@ -75,6 +75,7 @@ import { RefreshRetry } from './RefreshRetry';
 import { LIVE_POLL_MS, PAGE_RETRY } from './retry-policy';
 import { LOAD_ERROR_COPY, skeletonVariantOf } from './screen-state';
 import { CompetitionHeader } from './CompetitionHeader';
+import { CompetitionStickyTabs } from './CompetitionStickyTabs';
 import { DesktopStats } from './DesktopStats';
 import type { PageViewer } from './Follow';
 import { FullRankingDialog } from './FullRankingDialog';
@@ -147,15 +148,6 @@ type Props = {
 
 /** fish's universal link (AASA /competitions/*): the app on a phone, the stores page elsewhere. */
 const appLink = (id: string) => `https://bluvi-app.wearetribus.com/competitions/${encodeURIComponent(id)}`;
-
-/**
- * The phone's tab strip (parity shell.c19, fish's collapsing header): sticky under the 56px top bar;
- * the bar slides away on scroll down (TopBar `data-concealed`) and the strip follows it up to the
- * top edge, coming back down with it on scroll up — the T4 / T5 sticky rows' rule. From 768 the
- * DetailBand `sticky` band (under the 64px bar, which never hides).
- */
-const PHONE_STICKY_TABS =
-  'max-md:sticky max-md:top-14 max-md:z-sticky max-md:[:root:has(header[data-concealed])_&]:top-0 max-md:transition-[top] max-md:duration-(--duration-medium) max-md:ease-slow';
 
 /** A tab that comes back after this long re-reads the live parts (fish pull-to-refresh, parity clasament.c6). */
 const REFRESH_ON_RETURN_MS = 30_000;
@@ -718,7 +710,8 @@ function Screen({
           chat={() => <ChatHeaderButton badge={chatBadge} open={dockOpen} onToggle={() => setDockOpen(o => !o)} />}
         />
       </DetailBand>
-      <DetailBand sticky className={PHONE_STICKY_TABS}>
+      {/* parity shell.c19: the route tabs pin (phone: with the T3 mini title row, following the bar). */}
+      <CompetitionStickyTabs competition={competition}>
         {/* fish ROUTES_LIST: each tab its own page (tabs.ts). */}
         <DetailTabs
           label="Secțiunile concursului"
@@ -729,7 +722,7 @@ function Screen({
             count: t.key === 'participanti' ? registered : undefined,
           }))}
         />
-      </DetailBand>
+      </CompetitionStickyTabs>
 
       {tab !== 'clasament' ? (
         <TabBody

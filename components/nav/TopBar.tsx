@@ -11,7 +11,6 @@ import {
   Cog6ToothIcon,
   MagnifyingGlassIcon,
   UserCircleIcon,
-  UserIcon,
 } from '@heroicons/react/24/outline';
 import { Avatar } from '@/components/ui/Avatar';
 import { FishLogo } from './brand';
@@ -21,12 +20,13 @@ import { LogoHorizontal } from './brand';
 import { iconButtonClass } from './IconButton';
 import { PATHS, SECTIONS, type AdminLink } from './items';
 import { MenuButton, type MenuEntry } from './MenuButton';
-import { BAR, SHELL_MAX } from './shell';
+import { BAR, BAR_SHADOW, SHELL_MAX } from './shell';
 
 /**
  * Who is looking: still resolving (neutral placeholder, never «Intră»), signed out, signed in, or
- * unknown — the session could not be read (CMS slow or down). Unknown keeps the neutral slot as a
- * retry button: a visitor who may be signed in is never sent to sign in again.
+ * unknown — the session could not be read (CMS slow or down). Unknown renders exactly like pending
+ * (owner rule 4: when we don't know, we don't show): a visitor who may be signed in is never sent
+ * to sign in again, and is never told the read failed.
  */
 export type TopBarViewer =
   | { status: 'pending' }
@@ -61,9 +61,12 @@ type Props = {
   onSearch?: () => void;
   onMenu?: () => void;
   onSignOut?: () => void;
-  /** Unknown session: the account slot re-reads it. */
+  /**
+   * @deprecated Ignored: an unknown session renders as pending and the shell re-reads it quietly.
+   * Kept so the /dev/kit rows still type-check until they drop it.
+   */
   onRetry?: () => void;
-  /** A retry is running: the unknown slot is busy. */
+  /** @deprecated Ignored, see onRetry. */
   retrying?: boolean;
   /** «Ieși din cont» is running: the avatar slot is busy and cannot be pressed again. */
   signingOut?: boolean;
@@ -151,8 +154,6 @@ export function TopBar({
   onSearch,
   onMenu,
   onSignOut,
-  onRetry,
-  retrying = false,
   signingOut = false,
   menuOpen = false,
   resetKey,
@@ -171,7 +172,9 @@ export function TopBar({
       data-concealed={concealed || undefined}
       className={cn(
         'border-b border-hairline bg-surface',
-        'transition-[box-shadow,translate,opacity] duration-(--duration-fast) ease-fast data-scrolled:shadow-e1',
+        // Lifted once scrolled — unless a row is pinned under it: then that row casts the shadow.
+        'transition-[box-shadow,translate,opacity] duration-(--duration-fast) ease-fast',
+        BAR_SHADOW,
         // Phone hide-on-scroll: slides up (medium, ease-slow); reduced motion fades instead.
         'data-concealed:pointer-events-none data-concealed:-translate-y-full data-concealed:duration-(--duration-medium) data-concealed:ease-slow',
         'motion-reduce:data-concealed:translate-y-0 motion-reduce:data-concealed:opacity-0',
@@ -302,8 +305,6 @@ export function TopBar({
               activeCurrent={activeCurrent}
               admin={admin}
               onSignOut={onSignOut}
-              onRetry={onRetry}
-              retrying={retrying}
               signingOut={signingOut}
               resetKey={resetKey}
               defaultOpen={openMenu === 'account'}
@@ -393,7 +394,7 @@ function SearchTrigger({ onSearch, r, iconSize }: { onSearch?: () => void; r: Pi
   );
 }
 
-/** The account cluster's round slot (avatar, placeholder, retry), 48 / 40 like every bar control. */
+/** The account cluster's round slot (avatar or placeholder), 48 / 40 like every bar control. */
 const SLOT = 'relative flex shrink-0 items-center justify-center rounded-full';
 
 /** What the account menu's identity block says under the name: the admin roles, else «Pescar». */
@@ -411,8 +412,6 @@ function AccountSlot({
   activeCurrent,
   admin,
   onSignOut,
-  onRetry,
-  retrying,
   signingOut,
   resetKey,
   defaultOpen,
@@ -424,8 +423,6 @@ function AccountSlot({
   activeCurrent: 'page' | 'true';
   admin: AdminLink[];
   onSignOut?: () => void;
-  onRetry?: () => void;
-  retrying: boolean;
   signingOut: boolean;
   resetKey?: string;
   defaultOpen: boolean;
@@ -433,38 +430,14 @@ function AccountSlot({
   slotSize: string;
 }) {
   const slot = cn(SLOT, slotSize);
-  if (viewer.status === 'pending') {
-    // Same footprint as the avatar, and nobody signed in ever sees «Intră».
+  if (viewer.status === 'pending' || viewer.status === 'unknown') {
+    // Same footprint as the avatar, and nobody signed in ever sees «Intră». Unknown (the session
+    // read gave no answer in time) looks exactly like pending — owner rule 4 (ROADMAP §4b): when we
+    // don't know, we don't show. No warning dot, no copy; the shell re-reads quietly (SiteTopBar).
     return (
       <span aria-hidden className={slot}>
         <span className="size-8 rounded-full bg-soft-fill" />
       </span>
-    );
-  }
-  if (viewer.status === 'unknown') {
-    // A visible failure cue, not only a name: the warning dot (where the unread dot sits on the bell)
-    // marks the circle as «something went wrong, press to retry»; the spinner while it retries.
-    return (
-      <button
-        type="button"
-        onClick={retrying ? undefined : onRetry}
-        aria-label={retrying ? 'Se verifică sesiunea…' : 'Nu am putut verifica sesiunea. Reîncearcă.'}
-        aria-disabled={retrying || undefined}
-        aria-busy={retrying || undefined}
-        title={retrying ? undefined : 'Nu am putut verifica sesiunea. Reîncearcă.'}
-        className={cn(slot, PRESS, 'hover:bg-soft-fill aria-disabled:cursor-progress aria-disabled:active:opacity-100')}
-      >
-        <span className="relative flex size-8 items-center justify-center rounded-full bg-soft-fill text-muted">
-          {retrying ? <ArrowPathIcon className="size-6 animate-spin" aria-hidden /> : <UserIcon className="size-6" aria-hidden />}
-          {retrying ? null : (
-            // On the circle's top-right corner, whatever the slot size.
-            <span
-              aria-hidden
-              className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full border-2 border-surface bg-status-warning-fg"
-            />
-          )}
-        </span>
-      </button>
     );
   }
   if (viewer.status === 'out') {

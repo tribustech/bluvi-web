@@ -17,11 +17,13 @@ export type DetailActionBarProps = {
   /** Also show on 768–1279. */
   tablet?: boolean;
   label?: string;
+  /** While the page keeps the bar away (slid off, e.g. until the hero's own CTA has scrolled by). */
+  inert?: boolean;
   className?: string;
   children: ReactNode;
 };
 
-export function DetailActionBar({ summary, above, tablet = false, label = 'Acțiuni', className, children }: DetailActionBarProps) {
+export function DetailActionBar({ summary, above, tablet = false, label = 'Acțiuni', inert, className, children }: DetailActionBarProps) {
   const hide = tablet ? 'xl:hidden' : 'md:hidden';
   return (
     <>
@@ -30,7 +32,7 @@ export function DetailActionBar({ summary, above, tablet = false, label = 'Acți
         aria-hidden
         className={cn(above ? 'h-[calc(--spacing(30)+env(safe-area-inset-bottom))]' : 'h-[calc(--spacing(18)+env(safe-area-inset-bottom))]', hide)}
       />
-      <div role="region" aria-label={label} data-t3="actionbar" className={cn('fixed inset-x-0 bottom-0 z-sticky', hide, className)}>
+      <div role="region" aria-label={label} data-t3="actionbar" inert={inert || undefined} className={cn('fixed inset-x-0 bottom-0 z-sticky', hide, className)}>
         {above}
         <div className="flex min-h-18 items-center gap-3 border-t border-hairline bg-surface px-4 pt-3 pb-[max(--spacing(3),env(safe-area-inset-bottom))] shadow-tabbar md:px-6">
           {summary ? <div className="min-w-0 flex-1">{summary}</div> : null}

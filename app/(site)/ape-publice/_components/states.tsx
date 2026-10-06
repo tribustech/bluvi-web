@@ -27,10 +27,12 @@ export function WaterLoading() {
   return (
     <DetailSkeleton
       photo
-      // The map hero's height (WaterHero: photoHeroHeight(2)), so nothing moves when the page lands.
+      // The map hero's height (WaterHero: photoHeroHeight(2)), so nothing moves when the page lands;
+      // from 1024 the map is in the summary card, no band.
       photoCount={2}
+      photoUntil="band"
       back={<DetailBackButton fallbackHref={routes.publicWaters()} onPhoto />}
-      columns={{ left: 'toc', aside: true, asideCards: 2 }}
+      columns={{ layout: 'summary', aside: true }}
       header={{ meta: 1, actions: true }}
       label="Se încarcă apa publică"
       heading="Apă publică"

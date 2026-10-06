@@ -163,7 +163,7 @@ screens:
         text: "Operator card is shown only when signed in, the owned-lakes list is non-empty and the owned-lakes stats loaded; title „Balta mea · {name}” for one lake, „Bălțile mele · {n} bălți” for several, plus „{booked} / {total} standuri” when occupancy total > 0."
         fish_ref: components/OwnedLakesCard.tsx:55-99
         status: passing
-        note: "e2e tests/e2e/acasa.spec.ts. Web copy «{booked} / {total} standuri ocupate» (says what the ratio counts); while the stats load the card shows its skeleton and a failed stats read keeps the card with an inline retry (fish hides it)."
+        note: "e2e tests/e2e/acasa.spec.ts. Web copy «{booked} / {total} standuri ocupate» (says what the ratio counts); while the stats load the card shows its skeleton; a failed owned-lakes or stats read hides the card, as fish (OwnedLakesCard.tsx:64) and owner rule 4 (ROADMAP §4b)."
       - id: home.acasa.c12
         text: "Operator card with pending requests: „1 cerere așteaptă răspuns” / „{n} cereri așteaptă răspuns”, a detail line of the oldest request (angler · stand „standul X” for one lake or the lake name for several · waited „de N min/oră/ore/zi/zile”) and „Vezi” opening the lake's bookings filtered to pending."
         fish_ref: components/OwnedLakesCard.tsx:22-41,102-137
@@ -240,10 +240,10 @@ screens:
         status: passing
         note: "e2e tests/e2e/acasa.spec.ts"
       - id: home.acasa.c27
-        text: "Live card footer: „{n} captură/capturi” and „{kg} kg” when there are catches; else participant faces with „Încă nu sunt capturi” (results present) or „Statistici indisponibile”."
+        text: "Live card footer: „{n} captură/capturi” and „{kg} kg” when there are catches; else participant faces with „Încă nu sunt capturi” (results present), or the faces alone when the results did not load."
         fish_ref: features/competitions/components/cards/preview/CompetitionRailCard.tsx:197-216
         status: passing
-        note: "e2e covers the live card footers present locally; the rest verified in code."
+        note: "e2e covers the live card footers present locally; the rest verified in code. fish (preview/LiveFooter.tsx:22-30) writes «Statisticile nu sunt disponibile.» without results; dropped by owner rule 4 (ROADMAP §4b: when we don't know, we don't show)."
       - id: home.acasa.c28
         text: "Upcoming card footer: participant faces, „{joined}/{capacity} {unit}” (or the counted noun when no capacity) and under it „{n} loc liber/locuri libere” (green) when places left > 0, else „{n} în așteptare” when pending > 0."
         fish_ref: features/competitions/components/cards/preview/CompetitionRailCard.tsx:231-257
@@ -375,10 +375,10 @@ screens:
         status: failing
         note: "the web has no consent manager yet: the card opens the privacy policy. Cookie-consent settings land in M8."
       - id: home.acasa.c54
-        text: "Signed in and registered in a live competition (and no active partidă): a „CONCURSUL MEU” panel with the competition name (opens the competition)."
-        fish_ref: components/DashboardSheet.tsx:39-56; app/(app)/(tabs)/index.tsx:654-663
+        text: "Signed in and registered in a live competition (and no active partidă): a „CONCURSUL MEU” panel with the competition name (opens the competition). In every other case — signed out, not in one, still loading, or the read failed — no panel and no copy about it."
+        fish_ref: components/DashboardSheet.tsx:34-56; app/(app)/(tabs)/index.tsx:654-663
         status: passing
-        note: "verified in code (the QA user is in no live competition locally)."
+        note: "e2e tests/e2e/acasa.spec.ts (owner rule 4 tests: the panel shows exactly when GET /competitions/live names a competition; no «nu am putut verifica…» copy at 375/1440, signed in and out). fish DashboardSheet sits at index -1 without a live competition; the web's former retry on a failed read is removed per owner rule 4 (ROADMAP §4b)."
       - id: home.acasa.c55
         text: "The „CONCURSUL MEU” panel lists „SOLICITĂRI EXTRA CÂNTAR ({n})” with at most 3 new extra-scale requests (stand label — national format for national championships —, author, „acum …”); pressing one opens that stand's scale history, or toasts „Nu exista suficiente date pentru a deschide acest stand” when stand data is missing."
         fish_ref: components/DashboardSheet.tsx:58-75; components/ScaleItem.tsx:38-89

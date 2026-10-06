@@ -8,6 +8,7 @@ import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { CardShell, CardTitle, Tag } from '@/components/cards';
 import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem, useRailRead } from './HorizontalRail';
+import { HomeGrid, HomeGridSkeleton } from './HomeGrid';
 import { RailEmpty, RailSection, RailSkeleton } from './RailSection';
 import { newsDate } from './format';
 import { NEWS_CARD_HEIGHT } from './newsCard';
@@ -57,29 +58,46 @@ export function NewsView({
   return (
     <RailSection title="Noutăți" href={routes.news()}>
       {!news ? (
-        <RailSkeleton label="Se încarcă noutățile" width={224} heightClass={NEWS_CARD_HEIGHT} />
+        <>
+          <div className="xl:hidden">
+            <RailSkeleton label="Se încarcă noutățile" width={224} heightClass={NEWS_CARD_HEIGHT} />
+          </div>
+          <HomeGridSkeleton kind="news" heightClass={NEWS_CARD_HEIGHT} className="max-xl:hidden" />
+        </>
       ) : news.length === 0 ? (
         <RailEmpty>Momentan nu există noutăți.</RailEmpty>
       ) : (
-        <HorizontalRail
-          label="Noutăți"
-          width={224}
-          onEndReached={onEndReached}
-          footer={
-            // A retry keeps its slot (and the focus) while it runs; a first next page shows a bone.
-            nextError && onRetryNext ? (
-              <RailRetryItem width={224} heightClass={NEWS_CARD_HEIGHT} onRetry={onRetryNext} retrying={fetchingNext} />
-            ) : fetchingNext ? (
-              <CardSkeleton width={224} heightClass={NEWS_CARD_HEIGHT} />
-            ) : null
-          }
-        >
-          {news.map((n) => (
-            <RailItem key={n.documentId} width={224}>
-              <NewsCard news={n} />
-            </RailItem>
-          ))}
-        </HorizontalRail>
+        <>
+          {/* Below 1280 the rail; from 1280 one full row of the grid (HomeGrid). */}
+          <div className="xl:hidden">
+            <HorizontalRail
+              label="Noutăți"
+              width={224}
+              onEndReached={onEndReached}
+              footer={
+                // A retry keeps its slot (and the focus) while it runs; a first next page shows a bone.
+                nextError && onRetryNext ? (
+                  <RailRetryItem width={224} heightClass={NEWS_CARD_HEIGHT} onRetry={onRetryNext} retrying={fetchingNext} />
+                ) : fetchingNext ? (
+                  <CardSkeleton width={224} heightClass={NEWS_CARD_HEIGHT} />
+                ) : null
+              }
+            >
+              {news.map((n) => (
+                <RailItem key={n.documentId} width={224}>
+                  <NewsCard news={n} />
+                </RailItem>
+              ))}
+            </HorizontalRail>
+          </div>
+          <HomeGrid kind="news" label="Noutăți" className="max-xl:hidden">
+            {news.map((n) => (
+              <li key={n.documentId}>
+                <NewsCard news={n} />
+              </li>
+            ))}
+          </HomeGrid>
+        </>
       )}
     </RailSection>
   );

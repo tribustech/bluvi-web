@@ -9,7 +9,6 @@ import { ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { ON_DARK_FOCUS } from './PartidaCta';
 import { RaffleCountdown } from './RaffleCountdown';
-import { RetryRefresh } from './RetryRefresh';
 import { homeLinks } from './links';
 import logoBluvi from './assets/raffle-logo-bluvi.png';
 import logoPescarmania from './assets/raffle-logo-pescarmania.png';
@@ -79,8 +78,9 @@ export function RaffleCard({
   participationFailed?: boolean;
 }) {
   const { isEnded, hasWinners, joined } = raffle;
-  // Unknown participation (signed in, read failed, raffle running): no join CTA, no receipt prompt
-  // and no chances — only the retry. Never folded into «not registered».
+  // Unknown participation (signed in, read failed, raffle running): no join CTA, no receipt prompt,
+  // no chances and no status row at all — never folded into «not registered», and never «we could
+  // not check» copy either (owner rule 4, ROADMAP §4b: when we don't know, we don't show).
   const unknown = participationFailed && signedIn && !isEnded;
   const prompt = joined && !raffle.receiptUploaded && !isEnded;
   // Mounted in both compositions (one is display:none): a per-instance id.
@@ -162,11 +162,11 @@ export function RaffleCard({
           <div
             className={cn(
               'flex w-full items-center gap-2.5 border-t border-on-accent/20 pt-3.5 pb-1.5',
+              unknown && 'hidden',
               isEnded && !hasWinners ? 'justify-center' : joined || isEnded ? 'justify-between' : 'justify-center'
             )}
           >
             {isEnded && !hasWinners ? <p className="flex-1 text-center t-body-strong">{COPY.statusEndedNoWinners}</p> : null}
-            {unknown ? <RetryRefresh tone="accent" message="Nu am putut verifica înscrierea." className="justify-center" /> : null}
             {!isEnded && joined ? (
               <Link
                 href={homeLinks.raffleConfirmation}

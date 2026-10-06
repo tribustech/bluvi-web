@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import Image from 'next/image';
 import { StarIcon } from '@heroicons/react/20/solid';
 import { getLakeLocationSubtitle, type LakeCard } from '@/core/lakes';
@@ -5,20 +6,33 @@ import { CardShell, CardTitle, formatDecimal, Pill } from '@/components/cards';
 import { routes } from '@/lib/routes';
 import { facilityIcon } from './facilityIcon';
 
-// fish lakesHomeCardPresentation: four facility icons, then «+N».
-const MAX_FACILITIES = 4;
+// The third line names at most two facilities (or species), then «+N».
+const MAX_NAMED = 2;
 
 /**
- * The card's height per breakpoint (photo 100 + name + place + the facilities row; the
- * type steps grow from 1280). Its rail skeleton uses the same class, so they cannot disagree.
+ * The skeleton's height per breakpoint (photo 100 + name + place + the fact line; the type steps
+ * grow from 1280). The card itself sizes to its content — every card carries the same three lines.
  */
-export const LAKE_CARD_HEIGHT = 'h-48 xl:h-49';
+export const LAKE_CARD_HEIGHT = 'h-47 xl:h-48.5';
+
+/** «Pontoane · Toaletă +2»: the first names, then how many more. */
+function named(names: string[]) {
+  const shown = names.slice(0, MAX_NAMED).join(' · ');
+  const more = names.length - MAX_NAMED;
+  return more > 0 ? `${shown} +${more}` : shown;
+}
 
 /**
  * fish components/MiniatureLakeCard.tsx as Acasă configures it (lakesHomeCardPresentation: the
- * rating as a badge on the photo, only when the lake has reviews; facilities as icons only, at most
- * four, then «+N»; no regime, no species). The kit LakeCard has no facilities row and shows price
- * instead, so the home variant is composed here from the kit shell and its photo Pill.
+ * rating as a badge on the photo, only when the lake has reviews; the facilities). The kit LakeCard
+ * has no facilities and shows price instead, so the home variant is composed here from the kit
+ * shell and its photo Pill.
+ *
+ * Web difference: fish's row of up to four bare facility glyphs read as decoration (no label), and
+ * a lake without facilities ended in a blank band. Every card now ends on the same kind of line, a
+ * labelled fact (owner rule 5, ROADMAP §4b: no empty footer space): the facilities by name with the
+ * first one's glyph («Pontoane · Toaletă +2»), else the species («Crap · Caras +2»), else the regime.
+ * A lake with none of them ends on its place (the card is sized to its content, never padded).
  */
 export function HomeLakeCard({ lake }: { lake: LakeCard }) {
   const image = lake.images[0];
@@ -28,16 +42,21 @@ export function HomeLakeCard({ lake }: { lake: LakeCard }) {
     { includeAddress: false }
   );
   const hasReviews = !!lake.reviewsMeta && lake.reviewsMeta.count > 0;
-  const facilities = lake.facility.slice(0, MAX_FACILITIES);
-  const more = lake.facility.length - facilities.length;
+  const facilities = lake.facility.map((f) => f.name);
+  const species = lake.fishSpecies.map((s) => s.fish.Name);
+  const fact =
+    facilities.length > 0
+      ? { label: 'Facilități', text: named(facilities) }
+      : species.length > 0
+        ? { label: 'Specii', text: named(species) }
+        : lake.regime
+          ? { label: 'Regim', text: lake.regime }
+          : null;
 
   return (
-    // A fixed rhythm instead of stretching to the rail's tallest card, the same three lines on every
-    // card: the name (full width), the place, and the facilities row (kept at its height when a
-    // lake lists none, so every card in the rail has the same height).
-    <CardShell elevated interactive className={LAKE_CARD_HEIGHT}>
+    <CardShell elevated interactive className="w-full">
       <div className="relative h-25 shrink-0 overflow-hidden bg-soft-fill">
-        {src ? <Image src={src} alt="" fill sizes="(min-width: 768px) 272px, 200px" className="object-cover" /> : null}
+        {src ? <Image src={src} alt="" fill sizes="(min-width: 1280px) 300px, (min-width: 768px) 272px, 200px" className="object-cover" /> : null}
         {hasReviews ? (
           // fish: the white rating badge, top-right on the photo.
           <Pill tone="light" className="absolute top-2 right-2 shadow-e1">
@@ -51,28 +70,15 @@ export function HomeLakeCard({ lake }: { lake: LakeCard }) {
         <CardTitle href={routes.lake(lake.documentId)} className="line-clamp-1 t-body-strong text-ink">
           {lake.name}
         </CardTitle>
-        <p className="line-clamp-1 min-h-[1lh] t-body text-ink-2">{location}</p>
-        <div className="flex h-6 items-center">
-          {facilities.length > 0 ? (
-            <ul className="flex items-center gap-1" aria-label="Facilități">
-              {facilities.map((f) => {
-                const Icon = facilityIcon(f.name);
-                return (
-                  <li key={f.id} className="flex size-6 items-center justify-center text-accent-ink" title={f.name}>
-                    <Icon aria-hidden className="size-6" />
-                    <span className="sr-only">{f.name}</span>
-                  </li>
-                );
-              })}
-              {more > 0 ? (
-                <li className="flex h-6 min-w-6 items-center justify-center t-micro-strong text-ink-2">
-                  +{more}
-                  <span className="sr-only"> facilități</span>
-                </li>
-              ) : null}
-            </ul>
-          ) : null}
-        </div>
+        {location ? <p className="line-clamp-1 t-body text-ink-2">{location}</p> : null}
+        {fact ? (
+          <p className="flex min-w-0 items-center gap-1.5 t-caption text-muted">
+            {/* The first facility's glyph (fish getFacilityIcon), beside its name. */}
+            {facilities[0] ? createElement(facilityIcon(facilities[0]), { 'aria-hidden': true, className: 'size-4 shrink-0 text-accent-ink' }) : null}
+            <span className="sr-only">{fact.label}: </span>
+            <span className="truncate">{fact.text}</span>
+          </p>
+        ) : null}
       </div>
     </CardShell>
   );

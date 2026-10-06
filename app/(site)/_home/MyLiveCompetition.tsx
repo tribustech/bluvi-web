@@ -10,10 +10,14 @@ import { MissingStandRow } from './MissingStandRow';
 import { RelativeAge } from './RelativeAge';
 import { LiveDot } from '@/components/templates/LiveDot';
 
-/** fish ScaleItem `standLabel`: national championship «A3(12)», otherwise «Sector A Stand 3». */
+/**
+ * fish ScaleItem `standLabel`: national championship «A3(12)», otherwise «Sector A Stand 3». A
+ * missing part is left out rather than shown as fish's «-» (owner rule 4, ROADMAP §4b).
+ */
 function scaleStandLabel(s: ExtraScale['stand'], isNc: boolean) {
   const sector = s.sectors[0]?.name;
-  return isNc ? nationalStandLabel(sector, s.sectorDrawPosition, s.name) : `Sector ${sector || '- '} Stand ${s.name || '-'}`;
+  if (isNc) return nationalStandLabel(sector, s.sectorDrawPosition, s.name);
+  return [sector && `Sector ${sector}`, s.name && `Stand ${s.name}`].filter(Boolean).join(' ');
 }
 
 /** fish helpers/formatNationalStand.ts — «A3(12)»: sector letter + draw position, stand in brackets. */
@@ -88,7 +92,7 @@ export function MyLiveCompetition({
                 <>
                   <ScaleIcon aria-hidden className="size-6 shrink-0 text-live" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate t-body">{scaleStandLabel(s.stand, isNc)}</span>
+                    {scaleStandLabel(s.stand, isNc) ? <span className="block truncate t-body">{scaleStandLabel(s.stand, isNc)}</span> : null}
                     {s.author ? <span className="block truncate t-caption text-muted">{s.author.username}</span> : null}
                   </span>
                   {s.createdAt ? <RelativeAge iso={s.createdAt} className="shrink-0 t-body text-muted" /> : null}

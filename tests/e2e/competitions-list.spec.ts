@@ -450,14 +450,16 @@ test.describe('signed out', () => {
     const count = bento.getByRole('button', { name: /^\d+ concursuri live$/ });
     await expect(count).toBeVisible();
     await expect(count).toHaveText(/^concurs(uri)? live$/);
-    const invite = bento.getByRole('button', { name: 'Nu urmărești niciun concurs live. Vezi concursurile live.' });
-    await expect(invite.getByText(/sunt LIVE acum\. Urmărește unul|Unul e LIVE acum/)).toBeVisible();
+    // Rule 4b-4: we don't know what a visitor follows, so signed out there is no invite at all
+    // (not a sign-in variant of it) — at every width.
+    await expect(bento.getByText(/Nu urmărești|Urmărește unul|Unul e LIVE acum/)).toHaveCount(0);
     await count.click();
     await expect(tab(page, 'Live')).toHaveAttribute('aria-selected', 'true');
     expect((await events(page)).some((e) => e.name === 'competitions_count_tile_pressed')).toBe(true);
+    await page.setViewportSize(PHONE);
     await tab(page, 'Viitoare').click();
-    await page.getByRole('button', { name: 'Nu urmărești niciun concurs live. Vezi concursurile live.' }).click();
-    await expect(tab(page, 'Live')).toHaveAttribute('aria-selected', 'true');
+    await expect(bento.getByRole('button', { name: /^\d+ concursuri live$/ })).toBeVisible();
+    await expect(page.getByText(/Nu urmărești|Urmărește unul|Unul e LIVE acum/)).toHaveCount(0);
   });
 
   test('competitions-list.pulse.c25 competitions-list.pulse.c8 competitions-list.pulse.s12 — reduced motion: the live dots do not pulse, the stack never auto-advances (the arrows still move it)', async ({ page }) => {
@@ -533,11 +535,17 @@ test.describe('signed in', () => {
   test('competitions-list.index.c5 competitions-list.index.c27 competitions-list.index.s14 — filters keep «Urmărite» (and a reload keeps it); filtering from «Ale mele» leaves it', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await open(page);
-    const column = page.getByRole('complementary', { name: 'Filtre concursuri' });
+    // The filter bar's Format chip: a popover of radios, applied as picked (owner rule 2: no column).
+    const bar = page.getByRole('group', { name: 'Filtre concursuri' });
+    const format = async (choice: string) => {
+      await bar.getByRole('button', { name: /^Format/ }).click();
+      await page.getByRole('dialog', { name: 'Format' }).getByText(choice, { exact: true }).click();
+      await expect(page.getByRole('dialog', { name: 'Format' })).toBeHidden();
+    };
     await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
     await expect(page.getByRole('heading', { level: 2, name: 'Urmărite' })).toBeVisible();
     const followedAsked = page.waitForResponse((r) => FOLLOWED.test(r.url()) && r.url().includes('format=single'));
-    await column.getByRole('radio', { name: 'Individual' }).check({ force: true });
+    await format('Individual');
     await followedAsked;
     await expect(page).toHaveURL(/scope=followed/);
     await expect(page).toHaveURL(/format=single/);
@@ -550,17 +558,17 @@ test.describe('signed in', () => {
     await expect(page.getByText('Se caută…')).toHaveCount(0);
     await expect.poll(() => list(page).innerText()).toBe(shown);
     // Clearing the filters goes back to «Urmărite».
-    await column.getByRole('radio', { name: 'Orice format' }).check({ force: true });
+    await format('Orice format');
     await expect(page.getByRole('heading', { level: 2, name: 'Urmărite' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Toate concursurile' })).toHaveAttribute('aria-pressed', 'true');
     // From «Ale mele», a filter is a status change: it leaves «Ale mele» (fish changeStatus).
     await page.getByRole('button', { name: 'Toate concursurile' }).click();
     await tab(page, /^Ale mele/).click();
     await expect(page.getByRole('heading', { level: 2, name: 'Înscrierile mele' })).toBeVisible();
-    await column.getByRole('radio', { name: 'Individual' }).check({ force: true });
+    await format('Individual');
     await expect(page).toHaveURL(/format=single/);
     await expect(page).not.toHaveURL(/scope=/);
-    await column.getByRole('radio', { name: 'Orice format' }).check({ force: true });
+    await format('Orice format');
     await expect(tab(page, /^Ale mele/)).toHaveAttribute('aria-selected', 'false');
   });
 
@@ -1030,6 +1038,16 @@ test.describe('pulse states (mocked lists, signed in)', () => {
     state.mine = [pc('m1', { name: 'FX Înscris', startDate: inDays(4) })];
     await page.getByRole('button', { name: 'Reîmprospătează' }).click();
     await expect(bento.getByRole('button', { name: '2 concursuri încep în 7 zile' })).toBeVisible();
+  });
+
+  test('competitions-list.pulse.c22 — signed in and following nothing live: the invite opens Live', async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await mockPulse(page, { live: [pc('l1', { name: 'FX Live 1', status: 'started' }), pc('l2', { name: 'FX Live 2', status: 'started' })], upcoming: [], completed: [] });
+    const bento = await openPulse(page);
+    const invite = bento.getByRole('button', { name: 'Nu urmărești niciun concurs live. Vezi concursurile live.' });
+    await expect(invite.getByText(/sunt LIVE acum\. Urmărește unul|Unul e LIVE acum/)).toBeVisible();
+    await invite.click();
+    await expect(tab(page, 'Live')).toHaveAttribute('aria-selected', 'true');
   });
 
   test('competitions-list.pulse.c22 competitions-list.pulse.s10 — the invite waits for the followed-live answer and stays out when it fails', async ({ page }) => {

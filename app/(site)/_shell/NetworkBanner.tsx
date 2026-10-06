@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { WifiIcon } from '@heroicons/react/24/outline';
-import { SHELL_MAX } from '@/components/nav/shell';
+import { BAR_EDGE_TOP, SHELL_MAX } from '@/components/nav/shell';
+import { BANNER_HEIGHT_VAR, useStackPinnedFlag } from '@/components/nav/stickyStack';
 import { cn } from '@/components/ui/cn';
 
 /** fish helpers/network/connectionQuality.ts bannerFor — the offline copy. */
@@ -21,8 +22,12 @@ function subscribe(onChange: () => void) {
 /**
  * The app-wide connection banner (fish contexts/NetInfoContextProvider.tsx, inventory
  * global.network-banner, shell.c16): while the browser is offline, «Nu ești conectat la internet.»
- * in a strip right under the top bar, sticky with it (56 / 64), inside the shell's column — so it
- * never covers the bar, the ☰ panel (an overlay above it) or a page's bottom action bar. Online it
+ * in a strip right under the top bar, sticky with it (56 / 64, at the top edge while the phone bar is
+ * hidden), inside the shell's column — so it never covers the bar, the ☰ panel (an overlay above
+ * it) or a page's bottom action bar. It is part of the sticky header stack: its height is published
+ * as `--shell-banner-h` on <html>, and every pinned row (shell UNDER_BAR_TOP) sits under it instead
+ * of under the bar, so neither ever covers the other; while it shows, the bar drops its shadow (the
+ * banner's edge is the stack's). Online it
  * renders nothing: no empty strip. The server and the first client render are «online» (the
  * server cannot know), so hydration never mismatches.
  *
@@ -59,8 +64,29 @@ export function NetworkBanner() {
     return () => cancelAnimationFrame(id);
   }, [online]);
 
+  // Publish the strip's height (0 / unset online) for the rows pinned under it.
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const publish = () => {
+      const h = el.offsetHeight;
+      if (h > 0) root.style.setProperty(BANNER_HEIGHT_VAR, `${h}px`);
+      else root.style.removeProperty(BANNER_HEIGHT_VAR);
+    };
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty(BANNER_HEIGHT_VAR);
+    };
+  }, []);
+  useStackPinnedFlag(!online);
+
   return (
-    <div role="status" className={cn('sticky top-14 z-sticky mx-auto md:top-16', SHELL_MAX)}>
+    <div ref={ref} role="status" className={cn('sticky z-sticky mx-auto', BAR_EDGE_TOP, SHELL_MAX)}>
       {online ? null : (
         <p
           className={cn(

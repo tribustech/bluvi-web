@@ -1,12 +1,11 @@
 'use client';
 
-import { useId, useState, useTransition, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowPathIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
+import { useId, type ReactNode } from 'react';
+import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 import type { CompetitionWithMyStatus, RegistrationAction } from '@/core/competitions';
 import type { UserStatuteForCompetition } from '@/core/social';
 import { DetailBackButton, DetailHeader, DetailShareButton } from '@/components/templates/T3';
-import { Button, ButtonLink } from '@/components/ui/Button';
+import { ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { routes } from '@/lib/routes';
@@ -14,7 +13,7 @@ import type { Viewer } from '@/lib/server/viewer';
 import { useSiteToast } from '../../../_shell/Toast';
 import { ChatHeaderPlaceholder } from './ChatPanel';
 import { CompetitionThumb, competitionMeta } from './headerMeta';
-import { FOLLOW_MIN_W, FollowersPill, FollowToggle, type PageViewer } from './Follow';
+import { FollowersPill, FollowToggle, type PageViewer } from './Follow';
 import { DisabledRegisterButton, registerState, ViewerSlot, type RegisterState } from './viewerSlot';
 
 /*
@@ -91,8 +90,9 @@ export function CompetitionHeader({
   const follow = (size?: 'compact') => (
     <ViewerSlot viewer={viewer} fallback={<FollowBone size={size} />}>
       {(v) =>
+        // Unknown session: the bone, as while pending (owner rule 4) — the shell re-reads it quietly.
         v === 'unknown' ? (
-          <SessionRetry size={size} />
+          <FollowBone size={size} />
         ) : (
           <FollowToggle
             size={size}
@@ -228,47 +228,4 @@ function FollowBone({ size }: { size?: 'compact' }) {
 /** 768–1279, no chat: an empty box of the chat button's size (ChatHeaderPlaceholder), see `chat`. */
 function ChatSpacer() {
   return <span aria-hidden className="block size-12 shrink-0 xl:hidden" />;
-}
-
-/**
- * The session could not be read (a cookie whose read failed): neither «Urmărește» decided on a
- * guest overlay nor a bone that never resolves — the real button's size, offering to check again
- * (the top bar's unknown slot does the same), with the reason visible beside it. The retry runs
- * in a transition (the RetryRefresh / error.tsx pattern): busy and aria-disabled while it runs
- * («Se verifică…»), and a check that fails again says so in a polite status («Tot nu merge.
- * Încercarea N.»). A check that works replaces this block with «Urmărește».
- */
-function SessionRetry({ size }: { size?: 'compact' }) {
-  const router = useRouter();
-  const captionId = useId();
-  const [pending, start] = useTransition();
-  const [attempt, setAttempt] = useState(1);
-  const [wasPending, setWasPending] = useState(pending);
-  if (wasPending !== pending) {
-    setWasPending(pending);
-    // A refresh that settles with this block still mounted failed again.
-    if (!pending) setAttempt((n) => n + 1);
-  }
-  return (
-    <span className="inline-flex flex-wrap items-center gap-x-2.5 gap-y-1">
-      <Button
-        variant="secondary"
-        size={size}
-        icon={<ArrowPathIcon />}
-        aria-busy={pending || undefined}
-        aria-disabled={pending || undefined}
-        aria-describedby={captionId}
-        onClick={() => {
-          if (!pending) start(() => router.refresh());
-        }}
-        className={FOLLOW_MIN_W}
-      >
-        {pending ? 'Se verifică…' : 'Reîncearcă'}
-      </Button>
-      <span id={captionId} role="status" className="t-caption text-muted">
-        Contul nu a putut fi verificat.
-        {attempt > 1 && !pending ? ` Tot nu merge. Încercarea ${attempt}.` : null}
-      </span>
-    </span>
-  );
 }

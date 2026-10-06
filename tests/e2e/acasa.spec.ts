@@ -1,5 +1,6 @@
 import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
+import { BASE_URL } from './helpers/base-url';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
@@ -34,6 +35,8 @@ const section = (page: Page, name: string | RegExp) => visible(page.getByRole('r
 async function open(page: Page, viewport: { width: number; height: number }, signedIn: boolean) {
   await page.setViewportSize(viewport);
   if (signedIn) await signIn(page.context(), jwt);
+  // A second load in the same page: leave the first one (its focus refresh may still be navigating).
+  if (page.url() !== 'about:blank') await page.goto('about:blank');
   const res = await page.goto('/', { waitUntil: 'domcontentloaded' });
   expect(res?.status()).toBe(200);
   // Actions need the page hydrated (and the streamed blocks in).
@@ -152,6 +155,190 @@ test('home.acasa.c9 — the refresh action refetches and reports', async ({ page
   expect(reads.has('SUGGESTED'), 'the suggested rail is never refetched by a refresh').toBeFalsy();
 });
 
+/* ---------- owner rule 4: when we don't know, we don't show (ROADMAP §4b) ---------- */
+
+/** Copy that tells the viewer we do not know something — never on Acasă. */
+const UNKNOWN_COPY = /nu am putut verifica|nu știm|nu stim|statistici(le)? (in|nu sunt )disponibile|nu am putut încărca (situația|bălțile)/i;
+
+for (const signedIn of [false, true]) {
+  for (const vp of [PHONE, DESKTOP]) {
+    test(`owner rule 4 — no «unknown» copy on Acasă · ${vp.width}px · ${signedIn ? 'signed in' : 'signed out'}`, async ({ page }) => {
+      await open(page, vp, signedIn);
+      await expect(page.getByRole('main')).not.toContainText(UNKNOWN_COPY);
+      // «Concursul meu» exists only for a signed-in viewer the CMS places in a live competition.
+      if (!signedIn) await expect(page.getByRole('region', { name: /concursul meu/i })).toHaveCount(0);
+    });
+  }
+}
+
+test('owner rule 4 — «CONCURSUL MEU» shows only when the CMS says the user is in a live competition (fish DashboardSheet)', async ({ page, request }) => {
+  const auth = { headers: { Authorization: `Bearer ${jwt}` } };
+  const [liveRes, partidaRes] = await Promise.all([request.get(`${CMS}/competitions/live`, auth), request.get(`${CMS}/feed/sessions/active`, auth)]);
+  expect(liveRes.ok()).toBeTruthy();
+  const name = ((await liveRes.json()) as { competition?: { name?: string } | null }).competition?.name ?? null;
+  // A live partidă takes the slot first (fish: the dock over the sheet), whatever the competition.
+  const partida = partidaRes.ok() ? Boolean(((await partidaRes.json()) as { data?: { documentId?: string } | null }).data?.documentId) : false;
+
+  for (const vp of [PHONE, DESKTOP]) {
+    await open(page, vp, true);
+    const block = page.locator('section[aria-labelledby^="acasa-concursul-meu"]').locator('visible=true');
+    const partidaBlock = page.locator('section[aria-label="Partida activă"], section[aria-labelledby="acasa-partida-activa"]').locator('visible=true');
+    if (!name && !partida) {
+      // Never shown without a confirmed live competition — a timeout can only hide it.
+      await expect(block).toHaveCount(0);
+      continue;
+    }
+    // The page's own read is bounded (data.ts READ_BUDGET_MS); a read with no answer is finished in
+    // the browser (LateBlocks.tsx), so the block arrives on the same load — no reload needed.
+    const expected = partida ? partidaBlock : block;
+    await expect(expected.first()).toBeVisible({ timeout: 20_000 });
+    if (partida) await expect(block).toHaveCount(0);
+    else await expect(block.first()).toContainText(name!);
+  }
+});
+
+/*
+ * Rule 4 in the states it is about: each per-user read put into «no answer». The session by a cookie
+ * value the server cannot send as a bearer (the /users/me fetch throws: «unknown»); the server-side
+ * reads by the dev-only fault cookie (data.ts FAULT_COOKIE: the named attempt() labels fail as a 5xx
+ * would) — server reads cannot be page.route()d. Browser reads (the takeover of a failed server
+ * read, LateBlocks.tsx) are routed as usual.
+ */
+const FAULT_COOKIE = 'bluvi_e2e_fault';
+/** A session cookie whose value makes the server's /users/me fetch throw (invalid header byte). */
+const UNREADABLE_SESSION = '%C8%99abc';
+
+/** The signed-in precondition of a fault test: the session itself was read (else every block is trivially hidden). */
+async function expectSignedIn(page: Page) {
+  await expect(visible(page.getByRole('heading', { level: 1 }))).toHaveText(/^(Salut, .+!|Bine ai venit!)$/);
+}
+
+async function openWith(page: Page, viewport: { width: number; height: number }, cookies: Record<string, string>) {
+  await page.setViewportSize(viewport);
+  const { hostname } = new URL(BASE_URL);
+  await page.context().addCookies(Object.entries(cookies).map(([name, value]) => ({ name, value, domain: hostname, path: '/', sameSite: 'Lax' as const })));
+  if (page.url() !== 'about:blank') await page.goto('about:blank');
+  const res = await page.goto('/', { waitUntil: 'domcontentloaded' });
+  expect(res?.status()).toBe(200);
+  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+}
+
+for (const vp of [PHONE, { width: 1280, height: 800 }]) {
+  test(`owner rule 4 — session unknown · ${vp.width}px: no greeting, no guest prompts, tools kept`, async ({ page }) => {
+    // Loads Acasă (two widths for some) and waits out the browser takeover's retries.
+    test.slow();
+    await openWith(page, vp, { bluvi_session: UNREADABLE_SESSION });
+    const main = page.getByRole('main');
+    // The page's h1 is neutral («Acasă»): neither the greeting nor the signed-out welcome.
+    await expect(visible(page.getByRole('heading', { level: 1 }))).toHaveText('Acasă');
+    await expect(page.getByRole('heading', { level: 1, name: /^(Salut|Bine ai venit|Conectează-te)/ })).toHaveCount(0);
+    await expect(visible(main.getByText(/Conectează-te|Intră în cont|Intră ca să/))).toHaveCount(0);
+    await expect(visible(main.getByRole('button', { name: 'Contactează-ne' }))).toHaveCount(0);
+    await expect(visible(main.getByRole('link', { name: /Setări de confidențialitate/ }))).toHaveCount(0);
+    for (const name of ['Ești la pescuit?', /^Balta mea/, 'Panou organizator', 'Pescari pe care îi poți urmări']) await expect(h2(page, name)).toHaveCount(0);
+    // Session-independent: the tools (phone: main column; 1280: the aside) and the public sections.
+    await expect(h2(page, 'Instrumente')).toBeVisible();
+    for (const name of [/^Bălți/, 'Noutăți']) await expect(h2(page, name)).toBeVisible();
+    // No bone that never resolves: the phone card is a slim row with the refresh, not a shimmer.
+    await expect(visible(main.locator('.animate-shimmer'))).toHaveCount(0);
+    await expect(visible(page.getByRole('button', { name: 'Reîmprospătează' }))).toBeVisible();
+    await expect(main).not.toContainText(UNKNOWN_COPY);
+  });
+}
+
+test('owner rule 4 — partidă probe with no answer: no «Începe o partidă» hero', async ({ page }) => {
+  // Loads Acasă (two widths for some) and waits out the browser takeover's retries.
+  test.slow();
+  await signIn(page.context(), jwt);
+  await openWith(page, PHONE, { [FAULT_COOKIE]: 'active partida' });
+  await expectSignedIn(page);
+  await expect(h2(page, /^Bălți/)).toBeVisible();
+  await expect(h2(page, 'Ești la pescuit?')).toHaveCount(0);
+  await expect(visible(page.getByRole('link', { name: 'Începe o partidă' }))).toHaveCount(0);
+  await expect(page.getByRole('main')).not.toContainText(UNKNOWN_COPY);
+});
+
+test('owner rule 4 — live competition read with no answer: hidden until the browser read confirms it', async ({ page }) => {
+  // Loads Acasă (two widths for some) and waits out the browser takeover's retries.
+  test.slow();
+  await signIn(page.context(), jwt);
+  // The browser takeover's read fails too: nothing, at either width.
+  await page.route('**/api/cms/competitions/live*', (r) => r.fulfill({ status: 503, body: '' }));
+  for (const vp of [PHONE, { width: 1280, height: 800 }]) {
+    await openWith(page, vp, { [FAULT_COOKIE]: 'live competition' });
+    await expectSignedIn(page);
+    await expect(h2(page, /^Bălți/)).toBeVisible();
+    await expect(page.locator('section[aria-labelledby^="acasa-concursul-meu"]').locator('visible=true')).toHaveCount(0);
+    await expect(page.getByRole('main')).not.toContainText(UNKNOWN_COPY);
+  }
+});
+
+test('owner rule 4 — live competition read with no answer: the browser read brings «Concursul meu» on the same load', async ({ page }) => {
+  // Loads Acasă (two widths for some) and waits out the browser takeover's retries.
+  test.slow();
+  await signIn(page.context(), jwt);
+  const live = { competition: { documentId: 'e2e-live', name: 'Cupa E2E live', rankingType: 'classic' }, 'extra-scales': [] };
+  await page.route('**/api/cms/competitions/live*', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(live) }));
+  await page.route('**/api/cms/**e2e-live**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"data":[]}' }));
+  // The partidă probe fails too: the dock's precedence must not hide the competition.
+  for (const vp of [PHONE, { width: 1280, height: 800 }]) {
+    await openWith(page, vp, { [FAULT_COOKIE]: 'live competition,active partida' });
+    await expectSignedIn(page);
+    const block = page.locator('section[aria-labelledby^="acasa-concursul-meu"]').locator('visible=true');
+    await expect(block).toHaveCount(1, { timeout: 20_000 });
+    await expect(block).toContainText('Cupa E2E live');
+    // Phone: the dock sticks to the bottom edge; 1280: the right column's last block.
+    if (vp.width < 1280) {
+      const box = await block.boundingBox();
+      expect(Math.round((box?.y ?? 0) + (box?.height ?? 0))).toBeLessThanOrEqual(vp.height);
+    } else {
+      const aside = page.getByRole('complementary', { name: 'Ce mă așteaptă' });
+      const last = await aside.locator('section').locator('visible=true').last().getAttribute('aria-labelledby');
+      expect(last).toMatch(/^acasa-concursul-meu/);
+    }
+  }
+});
+
+for (const [label, heading, path, cmsPath] of [
+  ['organizer dashboard', 'Panou organizator', '**/api/cms/competitions/organizer/dashboard*', '/competitions/organizer/dashboard'],
+  ['owned lakes stats', /^(Balta mea|Bălțile mele)/, '**/api/cms/feed/owned-lakes/stats*', '/feed/owned-lakes/stats'],
+] as const) {
+  test(`owner rule 4 — ${label} with no answer: the browser read fills it in, or it stays hidden`, async ({ page }) => {
+    // Loads Acasă (two widths for some) and waits out the browser takeover's retries.
+    test.slow();
+    await signIn(page.context(), jwt);
+    // Browser read refused too: nothing (and not even a skeleton left behind).
+    await page.route(path, (r) => r.fulfill({ status: 503, body: '' }));
+    await openWith(page, PHONE, { [FAULT_COOKIE]: label });
+    await expectSignedIn(page);
+    await expect(h2(page, /^Bălți/)).toBeVisible();
+    // The skeleton holds the place while the browser retries, then goes — nothing is left.
+    const skeleton = page.getByRole('main').locator('[role="status"][aria-label="Se încarcă panoul organizator"], [role="status"]:has-text("Se încarcă balta ta")');
+    await expect(skeleton.locator('visible=true')).toHaveCount(0, { timeout: 20_000 });
+    await expect(h2(page, heading)).toHaveCount(0);
+    await expect(page.getByRole('main')).not.toContainText(UNKNOWN_COPY);
+    // Browser read answers: the block arrives on the same load (the QA user is an organiser and
+    // operates Chita locally; skipped if the CMS says otherwise).
+    await page.unroute(path);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    const res = await page.request.get(`${CMS}${cmsPath}`, { headers: { Authorization: `Bearer ${jwt}` } });
+    if (!res.ok()) test.skip(true, `${label}: no grant for the QA user locally`);
+    await expect(h2(page, heading)).toBeVisible({ timeout: 20_000 });
+  });
+}
+
+test('owner rule 4 — raffle participation with no answer: no join CTA, no «could not check» copy', async ({ page }) => {
+  // Loads Acasă (two widths for some) and waits out the browser takeover's retries.
+  test.slow();
+  await signIn(page.context(), jwt);
+  await openWith(page, PHONE, { [FAULT_COOKIE]: 'raffle participation' });
+  await expectSignedIn(page);
+  const raffle = visible(page.locator('section').filter({ has: page.getByRole('list', { name: 'Premii' }) }));
+  if ((await raffle.count()) === 0) test.skip(true, 'no active raffle session locally');
+  await expect(raffle.getByRole('link', { name: /Înscrie-te|Vezi șansele|Intră ca să participi/ })).toHaveCount(0);
+  await expect(raffle).not.toContainText(UNKNOWN_COPY);
+});
+
 /* ---------- operator, tools, partidă hero ---------- */
 
 test('home.acasa.c10 — organiser banner (when the QA user is an organiser)', async ({ page }) => {
@@ -241,7 +428,7 @@ for (const vp of [PHONE, DESKTOP]) {
     await expect(first.getByText(/^(Individual|Echipe)$/)).toBeVisible();
     if (live) {
       await expect(first.getByText('LIVE', { exact: true })).toBeVisible();
-      await expect(first.getByText(/(capturi|captură|Încă nu sunt capturi|Statistici indisponibile)/).first()).toBeVisible();
+      await expect(first.getByText(/(capturi|captură|Încă nu sunt capturi)/).first()).toBeVisible();
     }
     // c29: equal heights.
     const heights = await cards.evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().width > 1).map((e) => Math.round(e.getBoundingClientRect().height)));
@@ -373,9 +560,39 @@ test('home.acasa.c43 c44 — lakes rail', async ({ page }) => {
   await expect(items.first().getByRole('link').first()).toHaveAttribute('href', /^\/balti\/[^/]+$/);
   // c44: the rating is a badge on the photo only when the lake has reviews — never «no reviews» copy.
   await expect(lakes.getByText('Fără recenzii')).toHaveCount(0);
-  // At most four facility icons, then «+n».
-  for (const list of await lakes.getByRole('list', { name: 'Facilități' }).all()) {
-    expect(await list.locator('li[title]').count()).toBeLessThanOrEqual(4);
+  // Owner rule 5 (no empty footer space): the facilities are named (first two, then «+n») on the
+  // card's last line, never a row of bare glyphs that stays blank when a lake lists none.
+  await expect(lakes.getByRole('list', { name: 'Facilități' })).toHaveCount(0);
+  await expect(visible(lakes.getByText(/^(Facilități|Specii|Regim): $/)).first()).toBeAttached();
+});
+
+test('owner rule 5 — at most two rails from 1280; Bălți and Noutăți are full-row grids, Sponsori a strip', async ({ page }) => {
+  for (const vp of [{ width: 1280, height: 800 }, DESKTOP]) {
+    await open(page, vp, true);
+    // A rail is a list that scrolls sideways (HorizontalRail: snap-x, overflow-x auto).
+    const rails = await page.getByRole('main').locator('ul').evaluateAll((els) =>
+      els.filter((e) => (e as HTMLElement).offsetParent !== null && getComputedStyle(e).overflowX === 'auto').map((e) => e.getAttribute('aria-label'))
+    );
+    expect(rails.length, JSON.stringify(rails)).toBeLessThanOrEqual(2);
+    for (const [name, rows] of [['Bălți', 2], ['Noutăți', 1]] as const) {
+      const grid = visible(page.getByRole('list', { name, exact: true }));
+      const tops = await grid.locator(':scope > li').evaluateAll((els) =>
+        els.filter((e) => (e as HTMLElement).offsetParent !== null).map((e) => Math.round(e.getBoundingClientRect().top))
+      );
+      const perRow = new Map<number, number>();
+      for (const t of tops) perRow.set(t, (perRow.get(t) ?? 0) + 1);
+      expect(perRow.size, `${name} rows ${JSON.stringify([...perRow])}`).toBeLessThanOrEqual(rows);
+      // Whole rows only: every row holds as many cards as the first.
+      expect(new Set(perRow.values()).size, `${name} rows ${JSON.stringify([...perRow])}`).toBe(1);
+    }
+    // Sponsori: one chip height, no arrows, no held space for a link.
+    const sponsors = section(page, 'Sponsori');
+    if (await sponsors.count()) {
+      await expect(sponsors.getByRole('button')).toHaveCount(0);
+      const heights = await sponsors.getByRole('link').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+      expect(new Set(heights).size, JSON.stringify(heights)).toBe(1);
+      expect(heights[0]).toBeLessThanOrEqual(64);
+    }
   }
 });
 

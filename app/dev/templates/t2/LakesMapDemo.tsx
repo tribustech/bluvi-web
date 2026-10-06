@@ -12,7 +12,6 @@ import { MapPinIcon as MapPinSolidIcon, StarIcon as StarSolidIcon } from '@heroi
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useId, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
-import { LakeCard } from '@/components/cards';
 import { formatDecimal, formatInt, plural } from '@/components/cards/format';
 import { Pill } from '@/components/cards/parts';
 import { TextInput } from '@/components/forms/TextInput';
@@ -28,7 +27,6 @@ import {
   ListEmpty,
   ListError,
   ListFooter,
-  ListSearch,
 } from '@/components/templates/T1';
 import { Button, buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
@@ -62,7 +60,6 @@ import {
   T2Map,
   T2MapCard,
   T2MapPill,
-  T2RailAction,
   T2SearchPill,
   T2_EXPANDED,
   T2_FLOATING_BUTTON,
@@ -73,6 +70,9 @@ import {
   type T2MapFocus,
   type T2SheetSnap,
 } from '@/components/templates/T2';
+import { LakeRowCard } from '../../../(site)/balti/_list/LakeRowCard';
+import { DirectionsDialog } from '../../../(site)/balti/_list/ResultCards';
+import { WaterKindSwitch } from '../../../(site)/balti/_list/WaterKindSwitch';
 import type { DemoLake } from './data';
 import type { DemoState } from './states';
 
@@ -224,6 +224,8 @@ export function LakesMapDemo({
   const noData = loading || failed || data.length === 0;
 
   const [filters, setFilters] = useState<LakeFilterValues>(() => initialFilters(state));
+  // «Direcții» on a list card: the production dialog (Google Maps, Waze, Apple Maps).
+  const [directionsFor, setDirectionsFor] = useState<DemoLake | null>(null);
   const [query, setQuery] = useState(() => (state === 'no-match' ? 'zzzz' : state === 'bbox-failed' ? busiestPlace(lakes) : ''));
   /** fish nearby mode: lakes within this radius of the user, nearest first. */
   const [nearbyKm, setNearbyKm] = useState<number | null>(state === 'nearby' ? NEARBY_KM : null);
@@ -245,6 +247,8 @@ export function LakesMapDemo({
   const [viewportKnown, setViewportKnown] = useState(startBounds === ROMANIA_BOUNDS && state !== 'selected');
   const [selectedId, setSelectedId] = useState<string | null>(() => (state === 'selected' ? (richestLake(lakes)?.id ?? null) : null));
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  // A hovered pin outlines its list card (rule 7, card ↔ marker), as on /balti/harta.
+  const [pinHoverId, setPinHoverId] = useState<string | null>(null);
   const [sheetSnap, setSheetSnap] = useState<T2SheetSnap>(state === 'list-hidden' ? 'hidden' : state === 'list-full' ? 'full' : 'half');
   const [panel, setPanel] = useState<LakeFilterSection | null>(state === 'filters-open' ? 'all' : null);
   const [draft, setDraft] = useState<LakeFilterValues>(filters);
@@ -482,17 +486,35 @@ export function LakesMapDemo({
         ) : null}
         <T2List label="Bălți" stale={fetching}>
           {shown.map((lake) => (
-            <T2ListItem key={lake.id} id={lake.id} selected={lake.id === selectedId} onHighlight={setHighlightedId}>
-              <LakeCard
+            <T2ListItem
+              key={lake.id}
+              id={lake.id}
+              selected={lake.id === selectedId}
+              highlighted={lake.id === pinHoverId}
+              onHighlight={setHighlightedId}
+            >
+              {/* The production list card (/balti/harta's LakeRowCard, owner rule 7): one horizontal
+                  card per row — the demo approves what ships. */}
+              <LakeRowCard
+                href={routes.lake(lake.id)}
                 name={lake.name}
-                locationLabel={[distanceOf(lake.id), lake.location].filter(Boolean).join(' · ')}
-                species={lake.species.slice(0, 3)}
-                rating={lake.rating}
+                rating={lake.rating != null ? { overall: lake.rating, count: lake.reviewsCount } : null}
+                location={lake.location}
+                distanceLabel={distanceOf(lake.id)}
+                photos={lake.photos.map((src) => ({ src, blurhash: null }))}
                 priceMin={lake.priceMin}
                 priceMax={lake.priceMax}
-                onlineBooking={bookingKnown && lake.bookable}
-                imageSrc={lake.photos[0]}
-                href={routes.lake(lake.id)}
+                surface={lake.surface}
+                stands={lake.stands}
+                speciesCount={cardsKnown ? lake.species.length : 0}
+                // The production card's tags (ResultLakeCard): booking, regime, «Cazare».
+                tags={[
+                  bookingKnown && lake.bookable ? 'Rezervare online' : null,
+                  lake.regime,
+                  cardsKnown && lake.facilities.some((f) => /caz|căsu|casu/i.test(f)) ? 'Cazare' : null,
+                ].filter((t): t is string => Boolean(t))}
+                bookHref={bookingKnown && lake.bookable ? routes.lakeBooking(lake.id) : null}
+                onDirections={() => setDirectionsFor(lake)}
               />
             </T2ListItem>
           ))}
@@ -522,7 +544,7 @@ export function LakesMapDemo({
         <T2FilterChip
           key={chip.key}
           label={chip.label}
-          count={chip.badgeCount}
+          value={chipValue(chip.key, railValues)}
           active={chip.active}
           icon={CHIP_ICON[chip.key]}
           kind={chip.key === 'booking' ? 'toggle' : 'menu'}
@@ -541,7 +563,7 @@ export function LakesMapDemo({
   );
 
   // The same words at every width: a filter of this map, not the site search (the top bar's).
-  const placeholder = 'Filtrează bălțile de pe hartă…';
+  const placeholder = 'Caută bălți, lacuri...';
   const summary = nearbyKm != null ? `În jurul meu · ${nearbyKm} km` : query.trim();
   const clearLabel = 'Șterge filtre';
   const toolbar = (
@@ -549,32 +571,20 @@ export function LakesMapDemo({
       title="Hartă bălți"
       disabled={noData}
       leading={<T2BackLink href={routes.lakes()} label="Înapoi la Bălți" />}
+      switcher={<WaterKindSwitch current="balti" hrefs={{ balti: routes.lakesMap() }} />}
       search={
-        <>
-          {/* Phone: fish MapChrome's pill opens the search. From 768: the field types in place. */}
-          <div className="md:hidden">
-            <T2SearchPill
-              summary={summary || placeholder}
-              placeholder={!summary}
-              searchLabel={summary ? `Filtrează bălțile de pe hartă: ${summary}` : 'Filtrează bălțile de pe hartă'}
-              onSearch={() => {
-                setSearchDraft(query);
-                setSearchOpen(true);
-              }}
-            />
-          </div>
-          <ListSearch
-            className="hidden md:block"
-            label="Filtrează bălțile de pe hartă după nume, județ sau localitate"
-            placeholder={placeholder}
-            committed={query}
-            onCommit={(v) => {
-              setQuery(v);
-              setSelectedId(null);
+        // /balti/harta's search: the pill at every width (flat in the band from 768), opening the search.
+        <div className="contents md:[&>button]:shadow-none!">
+          <T2SearchPill
+            summary={summary || placeholder}
+            placeholder={!summary}
+            searchLabel={summary ? `Caută bălți, lacuri. Acum: ${summary}` : 'Caută bălți, lacuri'}
+            onSearch={() => {
+              setSearchDraft(query);
+              setSearchOpen(true);
             }}
-            onClear={() => setQuery('')}
           />
-        </>
+        </div>
       }
       filtersButton={
         // The T1 button at every width (icon only on a phone, floating there; the rail's first item
@@ -588,22 +598,13 @@ export function LakesMapDemo({
         />
       }
       filters={chips}
-      // The panel has its own «Resetează»; while it is open this would edit the applied filters
-      // behind the draft, so it steps aside.
-      trailing={
-        hasAnyFilter && !panelOpen ? (
-          <Button variant="ghost" icon={<ArrowUturnLeftIcon />} onClick={clearAll}>
-            {clearLabel}
-          </Button>
-        ) : null
-      }
-      railTrailing={
-        hasAnyFilter && !panelOpen ? (
-          <T2RailAction icon={<ArrowUturnLeftIcon aria-hidden />} onClick={clearAll}>
-            {clearLabel}
-          </T2RailAction>
-        ) : null
-      }
+      // The T1 FilterBar's anatomy, as /balti/harta: «Filtre» leading (from 768), «Resetează» at the
+      // end — stepping aside while the panel edits a draft.
+      onOpenFilters={() => openPanel('all')}
+      filterCount={countFilters(railValues)}
+      filtersExpanded={panel === 'all'}
+      onReset={clearAll}
+      canReset={hasAnyFilter && !panelOpen}
     />
   );
 
@@ -616,6 +617,7 @@ export function LakesMapDemo({
       clusterLabel={(n) => `${plural(n, 'baltă', 'bălți')} — mărește harta aici`}
       selectedId={selectedId}
       highlightedId={highlightedId}
+      onPointHover={setPinHoverId}
       onSelect={(l) => setSelectedId(l.id)}
       initialBounds={startBounds}
       placeholder={staticMap}
@@ -726,6 +728,14 @@ export function LakesMapDemo({
 
   return (
     <>
+      {directionsFor ? (
+        <DirectionsDialog
+          open
+          onClose={() => setDirectionsFor(null)}
+          name={directionsFor.name}
+          coordinate={{ latitude: directionsFor.lat, longitude: directionsFor.lng }}
+        />
+      ) : null}
       <T2Layout
         toolbar={toolbar}
         listLabel="Rezultate"
@@ -976,4 +986,12 @@ function FiltersBody({
       )}
     </div>
   );
+}
+
+/** A menu chip's chosen value, as /balti/harta shows it («Crap», «Crap +1»). */
+function chipValue(key: string, f: LakeFilterValues): string | null {
+  const names =
+    key === 'regime' ? f.selectedRegimes.map((v) => v.name) : key === 'facilities' ? f.selectedFacilities.map((v) => v.name) : key === 'fish' ? f.selectedFish.map((v) => v.name) : [];
+  if (!names.length) return null;
+  return names.length === 1 ? names[0]! : `${names[0]} +${names.length - 1}`;
 }

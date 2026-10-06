@@ -10,12 +10,14 @@ import { TRACK_GAP, TRACKS } from '../tracks';
  *
  * Regions, top to bottom on a phone (the fish order: title → tabs → search row → list):
  *   header   — ListHeader (title, count, actions) and ListTabs, full width.
- *   filters  — the filter column. ≥1280 only, sticky, live-apply (nothing to confirm on a desk).
- *              Below 1280 the same content opens in FiltersSurface (Sheet / Dialog) from the
- *              toolbar's FilterButton, so the caller renders it twice — inline here, in the
- *              surface there — and keeps one state.
- *   children — the content column, in this order: ListToolbar → ActiveFilters (right under the
- *              «Filtre» button that produced them, never cut off from it by the results) → hero →
+ *   context  — a NAVIGATION column on the left (≥1280, sticky): a detail sub-page's sibling pages
+ *              (LakePages) and nothing else. Never filters, sorting or a period pick: owner rule 2
+ *              (ROADMAP §4b, 2026-10-06) puts every one of those in a horizontal FilterBar (chips,
+ *              FilterChipMenu) at the top of the content column. (`filters` is the old name of this
+ *              slot, kept only until its last callers move; FilterSection / ChoiceChips
+ *              layout="list" belong in FiltersSurface dialogs, not in this column.)
+ *   children — the content column, in this order: ListToolbar → FilterBar (quick chips + «Filtre»
+ *              opening FiltersSurface) → ActiveFilters where the bar is not shown → hero →
  *              ListSummary → the body → ListFooter.
  *   aside    — the right column ("ce mă așteaptă", your registrations, a CTA). Docked from 1280
  *              (ROADMAP §4: three columns from 1280). Below 1280 it is NOT dropped: it renders
@@ -36,13 +38,21 @@ import { TRACK_GAP, TRACKS } from '../tracks';
  * the late 320 track (TRACKS.*ThenRight), so the centre is 952 at 1280 and 752 at 1440 — three
  * posters at both, a wider screen never shows fewer columns.
  */
+/**
+ * A page whose list chrome stays pinned from 1280 (Concursuri) writes its height here, on <html>:
+ * the docked side columns stick under it (bar 64 + chrome + 24), never slide under it.
+ */
+export const LIST_CHROME_H_VAR = '--list-chrome-h';
+
 /** The aside's inline grid below the dock: two blocks share a row from 768, a lone block spans it. */
 export const ASIDE_INLINE = 'grid gap-4 md:grid-cols-2 md:[&>:only-child]:col-span-2';
 
 export function ListPage({
   header,
+  context,
+  contextLabel,
   filters,
-  filtersLabel = 'Filtre',
+  filtersLabel,
   aside,
   asideLabel,
   asideFrom = 'xl',
@@ -53,9 +63,16 @@ export function ListPage({
   className,
 }: {
   header: ReactNode;
-  /** Desktop filter column (≥1280). Omit for lists without filters (notifications). */
+  /** Left navigation column (≥1280): a sub-page's sibling pages. Never filters (owner rule 2). */
+  context?: ReactNode;
+  /** Accessible name of the context column landmark («Paginile bălții»). */
+  contextLabel?: string;
+  /**
+   * @deprecated The old name of `context`. A list's filters go in a horizontal FilterBar (owner
+   * rule 2); move what is navigation to `context` and the rest to the bar.
+   */
   filters?: ReactNode;
-  /** Accessible name of the filter column landmark. */
+  /** @deprecated Use `contextLabel`. */
   filtersLabel?: string;
   /** Right column. undefined / null when empty (see above). */
   aside?: ReactNode;
@@ -72,7 +89,9 @@ export function ListPage({
   children: ReactNode;
   className?: string;
 }) {
-  const hasFilters = Boolean(filters);
+  const column = context ?? filters;
+  const columnLabel = contextLabel ?? filtersLabel ?? (context ? 'Pagini' : 'Filtre');
+  const hasFilters = Boolean(column);
   const hasAside = aside !== undefined && aside !== null && aside !== false;
   const xl = asideFrom === 'xl';
 
@@ -97,12 +116,12 @@ export function ListPage({
       >
         {hasFilters ? (
           <aside
-            aria-label={filtersLabel}
+            aria-label={columnLabel}
             // A flex column capped at the viewport: FilterColumn scrolls its sections INSIDE the card,
             // so the card's padding and radius always show (never sliced mid-row by the sticky clip).
             className="hidden xl:sticky xl:top-22 xl:flex xl:max-h-[calc(100dvh-(--spacing(28)))] xl:flex-col"
           >
-            {filters}
+            {column}
           </aside>
         ) : null}
         <div className={cn('flex min-w-0 flex-col', LIST_GUTTER)}>{children}</div>
@@ -116,9 +135,9 @@ export function ListPage({
               asideInline === 'end' ? cn('mt-8', ASIDE_INLINE) : 'hidden',
               // Docked: stacked blocks keep the page's 16px step whether or not they also render inline.
               xl
-                ? 'xl:sticky xl:top-22 xl:mt-0 xl:flex xl:flex-col xl:gap-4'
+                ? 'xl:sticky xl:top-[calc(--spacing(22)_+_var(--list-chrome-h,0px))] xl:mt-0 xl:flex xl:flex-col xl:gap-4'
                 : cn(
-                    '2xl:sticky 2xl:top-22 2xl:mt-0 2xl:flex 2xl:flex-col 2xl:gap-4',
+                    '2xl:sticky 2xl:top-[calc(--spacing(22)_+_var(--list-chrome-h,0px))] 2xl:mt-0 2xl:flex 2xl:flex-col 2xl:gap-4',
                     // 1280–1439: under the content, in the content's column, not under the filters.
                     hasFilters && 'xl:col-start-2 2xl:col-start-auto',
                   ),

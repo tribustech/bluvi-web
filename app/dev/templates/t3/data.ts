@@ -2,12 +2,12 @@ import 'server-only';
 import { connection } from 'next/server';
 import * as z from 'zod';
 import { competitionListItemSchema } from '@/core/competitions';
-import { getLake, getReviewsForLake, type LakeDetail, type Review } from '@/core/lakes';
-import { getCommunityVenueSection, type CommunityLakeSectionDTO } from '@/core/partide';
+import { getLake, type LakeDetail } from '@/core/lakes';
 import { paginatedSchema } from '@/core/shared';
-import { ApiError, call, type Transport } from '@/core/transport';
+import { ApiError, call } from '@/core/transport';
 import { createServerTransport } from '@/lib/server/transport';
 import { loadCompetition, type LooseCompetitionDetail } from '../../../(site)/concursuri/[id]/_components/load';
+import { loadLakeSections, type LakeSections } from '../../../(site)/balti/[id]/_components/load';
 
 /*
  * Real data for the T3 demo, read through core/ from the local CMS (all public, cached reads):
@@ -21,15 +21,9 @@ import { loadCompetition, type LooseCompetitionDetail } from '../../../(site)/co
  *    instead of an endless skeleton (parity lakes.detail.c2, competition-page «request failed»);
  *  - a 404 from the main read stays an ApiError with status 404: the page turns it into
  *    `notFound()` (isNotFound below), never into the retryable error;
- *  - the secondary sections (Partide, Concursuri, Recenzii) start with the main read but are NOT
- *    awaited with it: they are handed to the page as promises and stream behind their own Suspense
- *    (lakes.detail.c32 — they never block the hero). Each is settled and resolves to «failed»
- *    after SECTION_TIMEOUT_MS, showing its own error with «Încearcă din nou» (fish keeps each
- *    section's query independent); the section nav takes its final list when they land.
+ *  - the lake's secondary sections are the real route's (loadLakeSections): settled, bounded
+ *    promises that stream behind their own Suspense (lakes.detail.c32).
  */
-
-/** How long a secondary section may take before it shows its error instead. */
-const SECTION_TIMEOUT_MS = 3000;
 
 /** How long the main read may take before the page shows its error (with «Încearcă din nou»). */
 export const PAGE_TIMEOUT_MS = 8000;
@@ -61,12 +55,6 @@ export const DEMO_LAKE_ID = 's84u55lo4n9z0emngozttt6e';
 
 export type Settled<T> = { ok: true; value: T } | { ok: false };
 
-const settle = <T>(p: Promise<T>): Promise<Settled<T>> =>
-  p.then(
-    value => ({ ok: true as const, value }),
-    () => ({ ok: false as const }),
-  );
-
 /**
  * `p`, or `fallback` if it has not answered within `ms`. `connection()` first (as the site layout's
  * `bounded`): the timer only runs for a real request, never while prerendering.
@@ -84,49 +72,25 @@ export async function bounded<T>(p: Promise<T>, ms: number, fallback: T): Promis
   }
 }
 
-const section = <T>(p: Promise<T>): Promise<Settled<T>> => bounded(settle(p), SECTION_TIMEOUT_MS, { ok: false });
-
 /**
  * Core gap (same as app/(site)/concursuri/[id]/_components/load.ts): `rankingType` is a strict enum,
  * so one feeder competition on the lake fails the whole list. The demo reads the same public GET
  * with that field loosened; the lake page port should get a tolerant list schema in core.
  */
 const looseCompetitionItemSchema = competitionListItemSchema.extend({ rankingType: z.string() });
-export type LakeCompetition = z.infer<typeof looseCompetitionItemSchema>;
-
-function lakeCompetitions(t: Transport, lakeId: string, status: 'started' | 'notStarted') {
-  // fish LakeCompetitionsSection: useFilteredCompetitions({ status, pagination: { pageSize: 5 }, lakeId }).
-  return call(
-    t,
-    { method: 'GET', path: '/feed/competitions', query: { status, lakeId, page: 1, pageSize: 5 }, auth: 'none' },
-    paginatedSchema(looseCompetitionItemSchema),
-  ).then(r => r.data);
-}
-
-export type LakeCompetitions = { live: LakeCompetition[]; upcoming: LakeCompetition[] };
-
-/** The lake (awaited) and its secondary sections (streamed: settled promises, never rejecting). */
-export type LakeScreenData = {
-  lake: LakeDetail;
-  community: Promise<Settled<CommunityLakeSectionDTO>>;
-  /** fish LakeReviewsPreview: the latest two. */
-  reviews: Promise<Settled<Review[]>>;
-  competitions: Promise<Settled<LakeCompetitions>>;
-};
-
 /**
- * Throws when the lake itself cannot be read (the page-level error). Resolves as soon as the lake
- * is read: the sections' reads start at the same time but are returned as promises.
+ * The lake (awaited, bounded) and the REAL route's section reads (/balti/[id] loadLakeSections:
+ * settled promises, streamed) — the demo renders the route's own LakeScreen, so what the owner
+ * reviews here is what ships.
  */
+export type LakeScreenData = { lake: LakeDetail; sections: LakeSections };
+
+/** Throws when the lake itself cannot be read (the page-level error). */
 export async function loadLakeScreen(id = DEMO_LAKE_ID): Promise<LakeScreenData> {
   const t = createServerTransport();
-  const community = section(getCommunityVenueSection(t, { kind: 'lake', id }));
-  const reviews = section(getReviewsForLake(t, id, { page: 1, pageSize: 2 }).then(r => r.data));
-  const competitions = section(
-    Promise.all([lakeCompetitions(t, id, 'started'), lakeCompetitions(t, id, 'notStarted')]).then(([live, upcoming]) => ({ live, upcoming })),
-  );
+  const sections = loadLakeSections(id);
   const lake = await mainRead(getLake(t, id), `/feed/lakes/${id}`);
-  return { lake, community, reviews, competitions };
+  return { lake, sections };
 }
 
 /**

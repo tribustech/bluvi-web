@@ -7,6 +7,7 @@ import { cn } from '@/components/ui/cn';
 import { DetailActionBar } from './DetailActionBar';
 import { DetailHeader, headerChipClass } from './DetailHeader';
 import { DetailBand, DetailPage } from './DetailPage';
+import { SUMMARY_TRACKS } from './DetailBody';
 import { photoHeroHeight } from './DetailPhotoHero';
 import { FULL_BLEED_HAIRLINE, FULL_BLEED_SURFACE } from './metrics';
 import { STATE_CARD_FRAME } from '../stateCard';
@@ -59,11 +60,13 @@ export type DetailSkeletonProps = {
   /** The lake / public-water photo hero (phone: first, 300px; from 768 the mosaic under the title). */
   photo?: boolean;
   /**
-   * How many photos the loaded hero is likely to have (default 1, the common case — a single
-   * strip): the bone takes DetailPhotoHero's own height for it (photoHeroHeight), so the body does
-   * not jump when the photos land.
+   * How many photos the loaded hero has: 0 = none (no bone from 768). Any other count is one
+   * height (photoHeroHeight: the grid is as tall for 1 photo as for 5), so the body does not jump
+   * when the photos land.
    */
   photoCount?: number;
+  /** `band`: the hero leaves from 1024 (the public water: its map moves into the summary card). */
+  photoUntil?: 'band';
   /** Route tabs under the header (competition) instead of the sticky section chips. */
   tabs?: boolean;
   /**
@@ -73,7 +76,15 @@ export type DetailSkeletonProps = {
    * cards the right column stacks (the first an action card, the others lists). `centre`: three
    * text cards (default) or one table card (a header row + 8 participant rows).
    */
-  columns?: { left?: boolean | 'toc'; aside?: boolean; leftCards?: number; asideCards?: number; centre?: 'text' | 'table' };
+  columns?: {
+    left?: boolean | 'toc';
+    aside?: boolean;
+    leftCards?: number;
+    asideCards?: number;
+    centre?: 'text' | 'table';
+    /** DetailBody `layout="summary"` (lake, public water): no left column, one summary card from 1024, chips at every width. */
+    layout?: 'columns' | 'summary';
+  };
   /** The loaded header's optional rows, so the skeleton header is as tall as the real one. */
   header?: {
     /** Caps line over the title (from 768). */
@@ -86,9 +97,10 @@ export type DetailSkeletonProps = {
     badges?: 'pill' | 'badge';
     /**
      * From 768: the action cluster. `true` = one button; `2` = a primary + the share button (the
-     * share is icon-only below 1280, labelled from 1280 — DetailShareButton `button`).
+     * share is icon-only below 1280, labelled from 1280 — DetailShareButton `button`). `share-cta`:
+     * the share first, then a primary that leaves from 1024 (the summary card takes it: the lake).
      */
-    actions?: boolean | 2;
+    actions?: boolean | 2 | 'share-cta';
     /** Phone, centred header: the share chip at the right. */
     phoneEnd?: boolean;
   };
@@ -114,6 +126,7 @@ export type DetailSkeletonProps = {
 export function DetailSkeleton({
   photo = false,
   photoCount = 1,
+  photoUntil,
   tabs = false,
   columns = { left: true, aside: true },
   header = {},
@@ -126,15 +139,16 @@ export function DetailSkeleton({
 }: DetailSkeletonProps) {
   const { eyebrow = false, titleAside = false, meta = 1, badges, actions = false, phoneEnd = false } = header;
   const centred = tabs;
+  const summary = columns.layout === 'summary';
   const leftCards = columns.leftCards ?? 1;
   const asideCards = columns.asideCards ?? 1;
   // The centred phone header (competition) keeps its meta bones short enough to stay on one dotted
   // line from 768, as the loaded «Organizat de… · Chita Lake · 6 octombrie 2026» does.
   const metaWidths = centred ? ['w-40 md:w-32', 'w-28 md:w-20', 'w-24'] : ['w-40', 'w-28', 'w-28'];
   const photoBone = photo ? (
-    // First in the DOM, as the loaded page (the hero leads on the phone); from 768 `md:order-1` puts it under the title.
-    <div data-t3="photo" className={cn('relative md:order-1 md:mx-6 md:mb-6 xl:mx-8', photoCount <= 0 && 'md:hidden')}>
-      <span aria-hidden className={cn('block md:rounded-bento', photoHeroHeight(photoCount), BLOCK)} />
+    // After the header in the DOM, as the loaded page (title → photos from 768); on the phone `max-md:-order-1` lifts it to the top.
+    <div data-t3="photo" className={cn('relative max-md:-order-1 md:mx-6 md:mb-6 xl:mx-8', photoCount <= 0 && 'md:hidden', photoUntil === 'band' && 'min-[1024px]:hidden')}>
+      <span aria-hidden className={cn('block md:rounded-card', photoHeroHeight(photoCount), BLOCK)} />
       {back ? <div className="absolute top-4 left-4 md:hidden">{back}</div> : null}
       <div aria-hidden className="absolute top-4 right-4 md:hidden">
         <span className={headerChipClass({ onPhoto: true })} />
@@ -149,7 +163,6 @@ export function DetailSkeleton({
       {trail ? <BreadcrumbBand trail={trail} pendingCurrent /> : null}
       <DetailPage phoneGround={phoneGround}>
         <DetailBand hairline={tabs}>
-          {photoBone}
           <DetailHeader
             phoneAlign={centred ? 'center' : 'start'}
             className={photo ? 'md:pt-5' : undefined}
@@ -179,7 +192,12 @@ export function DetailSkeleton({
             }
             media={!photo ? <span aria-hidden className={cn('block size-24 rounded-card', BLOCK)} /> : undefined}
             actions={
-              actions === 2 ? (
+              actions === 'share-cta' ? (
+                <>
+                  <Chip className="h-12 w-12 xl:h-10 xl:w-32" />
+                  <Chip className="h-12 w-32 min-[1024px]:hidden" />
+                </>
+              ) : actions === 2 ? (
                 <>
                   <Chip className="h-12 w-32 xl:h-10 xl:w-44" />
                   <Chip className="h-12 w-12 xl:h-10 xl:w-32" />
@@ -191,6 +209,7 @@ export function DetailSkeleton({
             phoneStart={centred ? (back ?? <Chip className="size-12" />) : undefined}
             phoneEnd={centred && phoneEnd ? <Chip className="size-12" /> : undefined}
           />
+          {photoBone}
           {tabs ? (
             <span aria-hidden data-t3="tabs" className="flex gap-6 overflow-hidden px-4 md:gap-7 md:px-6 xl:px-8">
               {['w-20', 'w-22', 'w-28', 'w-24', 'w-24'].map((w, i) => (
@@ -202,7 +221,11 @@ export function DetailSkeleton({
           ) : null}
         </DetailBand>
         {!tabs ? (
-          <div aria-hidden data-t3="chips" className={cn('flex h-14.5 items-center gap-2 px-4 md:px-6 xl:hidden', FULL_BLEED_SURFACE, FULL_BLEED_HAIRLINE)}>
+          <div
+            aria-hidden
+            data-t3="chips"
+            className={cn('flex h-14.5 items-center gap-2 px-4 md:px-6', summary ? 'xl:px-8' : 'xl:hidden', FULL_BLEED_SURFACE, FULL_BLEED_HAIRLINE)}
+          >
             {['w-24', 'w-20', 'w-16', 'w-22'].map(w => (
               <span key={w} className={cn('h-9 shrink-0 rounded-full', BLOCK, w)} />
             ))}
@@ -212,13 +235,18 @@ export function DetailSkeleton({
           aria-hidden
           data-t3="body"
           className={cn(
-            'flex flex-1 flex-col gap-2 pt-2 pb-8 md:gap-4 md:px-6 md:pt-6 md:pb-12 xl:grid xl:items-start xl:px-8 xl:pt-8',
-            TRACK_GAP,
-            // DetailBody's tracks (../tracks.ts), so the skeleton has the page's geometry.
-            columns.left && columns.aside ? TRACKS.three : columns.aside ? TRACKS.mainRight : columns.left ? TRACKS.leftMain : '',
+            'flex flex-1 flex-col gap-2 pt-2 pb-8 md:gap-4 md:px-6 md:pt-6 md:pb-12 xl:px-8 xl:pt-8',
+            // DetailBody's tracks (../tracks.ts, or the summary layout's), so the skeleton has the page's geometry.
+            summary
+              ? cn(SUMMARY_TRACKS, 'min-[1024px]:items-start')
+              : cn(
+                  'xl:grid xl:items-start',
+                  TRACK_GAP,
+                  columns.left && columns.aside ? TRACKS.three : columns.aside ? TRACKS.mainRight : columns.left ? TRACKS.leftMain : '',
+                ),
           )}
         >
-          {columns.left === 'toc' ? (
+          {summary ? null : columns.left === 'toc' ? (
             // The section index (DetailSectionToc): an eyebrow and 40px rows, no surface.
             <span className="-mx-3 flex flex-col gap-2 max-xl:hidden">
               <span className="px-3">
@@ -298,7 +326,27 @@ export function DetailSkeleton({
               ))
             )}
           </span>
-          {columns.aside ? (
+          {summary && columns.aside ? (
+            // DetailSummaryCard: the headline, a pill, the main button, two secondary ones, then a facts list.
+            <span className="flex flex-col gap-4 bg-surface p-6 max-[1024px]:hidden md:rounded-card md:shadow-e2">
+              <Line className="w-40 t-title2" />
+              <span className={cn('h-6.5 w-32 rounded-full', BLOCK)} />
+              <span className={cn('h-10 rounded-control', BLOCK)} />
+              <span className="grid grid-cols-2 gap-2">
+                <span className={cn('h-10 rounded-control', BLOCK)} />
+                <span className={cn('h-10 rounded-control', BLOCK)} />
+              </span>
+              <span className="flex flex-col border-t border-hairline pt-4">
+                {[0, 1, 2, 3, 4].map(r => (
+                  <span key={r} className="flex items-center gap-3 border-b border-hairline py-3 first:pt-0 last:border-b-0 last:pb-0">
+                    <Chip className="size-6" />
+                    <Line className="w-[35%] t-body" />
+                    <Line className="ml-auto w-[25%] t-body-strong" />
+                  </span>
+                ))}
+              </span>
+            </span>
+          ) : columns.aside ? (
             <span className="flex flex-col gap-5 max-xl:hidden">
               {Array.from({ length: asideCards }, (_, i) =>
                 i === 0 ? (

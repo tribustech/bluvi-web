@@ -24,7 +24,11 @@ export const STATES = [
   { key: 'long-title', label: 'Titlu lung' },
   // Lake only.
   { key: 'no-photo', label: 'Fără poze', screens: ['lake'] },
-  { key: 'gallery', label: 'Galerie (3+ poze)', screens: ['lake'] },
+  // The Airbnb photo grid (owner rule 1) for every count it lays out differently: 2 · 3 · 4 · 5+.
+  { key: 'photos-2', label: '2 poze', screens: ['lake'] },
+  { key: 'photos-3', label: '3 poze', screens: ['lake'] },
+  { key: 'photos-4', label: '4 poze', screens: ['lake'] },
+  { key: 'gallery', label: 'Galerie (5+ poze)', screens: ['lake'] },
   { key: 'booking-phone', label: 'Rezervări la telefon', screens: ['lake'] },
   { key: 'no-booking', label: 'Fără rezervări', screens: ['lake'] },
   { key: 'no-coords', label: 'Fără coordonate', screens: ['lake'] },

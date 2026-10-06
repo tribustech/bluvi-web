@@ -172,16 +172,22 @@ function BookingControl({ source, className, children }: { source: LakeBookingIn
 export function BookingCta({
   source,
   block = false,
+  variant = 'primary',
+  label = 'Rezervă acum',
   className,
 }: {
   source: LakeBookingInterestSource;
   block?: boolean;
+  /** `secondary` + «Vreau să rezerv online»: the summary card while the lake takes no online
+   * bookings — the call is the main action then, the demand signal (fish) stays one click away. */
+  variant?: 'primary' | 'secondary';
+  label?: string;
   className?: string;
 }) {
   return (
-    <BookingControl source={source} className={buttonClass({ variant: 'primary', block, className: cn('[&>svg]:size-5', className) })}>
+    <BookingControl source={source} className={buttonClass({ variant, block, className: cn('[&>svg]:size-5', className) })}>
       <CalendarDaysIcon aria-hidden />
-      Rezervă acum
+      {label}
     </BookingControl>
   );
 }

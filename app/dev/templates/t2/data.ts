@@ -25,6 +25,10 @@ export type DemoLake = {
   reviewsCount: number;
   priceMin: number | null;
   priceMax: number | null;
+  /** Hectares, when the CMS has it (the card's facts row). */
+  surface: number | null;
+  /** Stands («standuri»), when known. */
+  stands: number | null;
   /** Up to 3 photo URLs (medium format), first = card photo. */
   photos: string[];
   species: string[];
@@ -129,6 +133,8 @@ export async function loadDemoLakes(): Promise<DemoLakesResult> {
         reviewsCount: reviews?.count ?? 0,
         priceMin: n.priceMin ?? null,
         priceMax: n.priceMax ?? null,
+        surface: n.surface ?? null,
+        stands: n.numberOfSeats ?? null,
         photos: n.images.slice(0, 3).map(photoOf),
         species: card?.fishSpecies.map((s) => s.fish.Name) ?? [],
         facilities: card?.facility.map((f) => f.name) ?? [],

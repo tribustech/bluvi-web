@@ -545,20 +545,23 @@ test.describe('competitions-list.filters', () => {
     await expect(dialog(page).getByRole('radio', { name: 'Ilfov' })).toBeAttached();
   });
 
-  test('competitions-list.filters.c11 competitions-list.filters.c9 — ≥1280 the docked column opens Județ and the calendar on their own; a pick applies at once', async ({ page }) => {
+  test('competitions-list.filters.c11 competitions-list.filters.c9 — the filter bar\'s Județ chip and «Alege din calendar» open their sub-view on its own; a pick applies at once', async ({ page }) => {
     await page.route(COUNTIES, (r) => json(r, countyPage([{ type: 'county', title: 'Ilfov', countyId: 'c-if' }, { type: 'lake', title: 'Chita' }], 1, 1)));
     await page.setViewportSize(DESKTOP);
     await open(page);
-    const column = page.getByRole('complementary', { name: 'Filtre concursuri' });
-    await column.getByRole('button', { name: 'Județ: toate județele' }).click();
+    const bar = page.getByRole('group', { name: 'Filtre concursuri' });
+    await bar.getByRole('button', { name: 'Județ', exact: true }).click();
     await expect(dialog(page).getByRole('heading', { name: 'Județ', exact: true })).toBeVisible();
     await expect(dialog(page).getByRole('button', { name: 'Înapoi la filtre' })).toHaveCount(0);
     await dialog(page).getByRole('radiogroup', { name: 'Județe' }).getByText('Ilfov', { exact: true }).click();
     await expect(dialog(page)).toBeHidden();
     await expect(page).toHaveURL(/countyId=c-if/);
     await expect(heading(page)).toHaveText('Concursuri filtrate');
-    await expect(column.getByRole('button', { name: 'Județ: Ilfov' })).toBeVisible();
-    await column.getByRole('button', { name: 'Alege perioada din calendar' }).click();
+    await expect(bar.getByRole('button', { name: 'Județ: Ilfov' })).toBeVisible();
+    // The badge counts the state (results mode) and the county.
+    await expect(bar.getByRole('button', { name: 'Filtre, 2 active' })).toBeVisible();
+    await bar.getByRole('button', { name: /^Perioadă/ }).click();
+    await page.getByRole('dialog', { name: 'Perioadă' }).getByRole('button', { name: 'Alege perioada din calendar' }).click();
     await expect(dialog(page).getByRole('heading', { name: 'Perioadă', exact: true })).toBeVisible();
     await dialog(page).getByRole('button', { name: 'Renunță' }).click();
     await expect(dialog(page)).toBeHidden();
@@ -819,13 +822,17 @@ test.describe('competitions-list keyboard, focus and results chrome', () => {
   test('competitions-list.results.c14 competitions-list.results.c3 — ≥1280: the chrome in the centre column, no rail, no circle, no aside; Reîmprospătează re-reads the list', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await open(page, `/concursuri?lakeId=${CHITA}&label=Chita+Lake&format=team`);
-    // The row sits inside the centre column (right of the docked filters), not over all three.
-    const column = page.getByRole('complementary', { name: 'Filtre concursuri' });
-    const colBox = (await column.boundingBox())!;
+    // The row and, under it, the filter bar (owner rule 2: no filter column) — the bar's «Filtre» is
+    // the only one (no circle in the pill, no rail).
+    const bar = page.getByRole('group', { name: 'Filtre concursuri' });
     const backBox = (await backButton(page).boundingBox())!;
-    expect(backBox.x).toBeGreaterThan(colBox.x + colBox.width);
+    const barBox = (await bar.boundingBox())!;
+    expect(barBox.y).toBeGreaterThan(backBox.y + backBox.height);
+    expect(Math.abs(barBox.x - backBox.x)).toBeLessThan(2);
     await expect(page.getByRole('group', { name: 'Filtre active' })).toBeHidden();
-    await expect(page.getByRole('button', { name: /^Filtre(, \d+ active)?$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Filtre(, \d+ active)?$/ })).toHaveCount(1);
+    await expect(bar.getByRole('button', { name: 'Filtre, 1 active' })).toBeVisible();
+    await expect(bar.getByRole('button', { name: 'Format: Echipe' })).toBeVisible();
     await expect(page.getByRole('complementary', { name: 'Ce se întâmplă acum' })).toHaveCount(0);
     // The square back and the pill share one height.
     const pill = page.getByRole('button', { name: 'Chita Lake. Schimbă căutarea' });
@@ -834,11 +841,10 @@ test.describe('competitions-list keyboard, focus and results chrome', () => {
     await page.getByRole('button', { name: 'Reîmprospătează' }).click();
     await asked;
     await expect(pill).toBeVisible();
-    // Filters only: the label focuses the docked column instead of opening a dialog.
+    // Filters only: the label opens the filters dialog (c4), as below 1280.
     await open(page, '/concursuri?format=team');
     await page.getByRole('button', { name: 'Concursuri filtrate. Schimbă căutarea' }).click();
-    await expect(dialog(page)).toBeHidden();
-    await expect(column.getByRole('radio', { name: 'Orice stare' })).toBeFocused();
+    await expect(dialog(page).getByRole('heading', { name: 'Filtre', exact: true })).toBeVisible();
   });
 
   test('competitions-list.results.c14 — results narrowed to Live poll every 60s, as the Live tab', async ({ page }) => {
@@ -982,16 +988,38 @@ test.describe('competitions-list batch 2 review fixes', () => {
     await expect.poll(() => radios.count(), { timeout: 20_000 }).toBeGreaterThan(1);
   });
 
-  test('competitions-list.results.c3 competitions-list.filters.c3 — ≥1280 entering results from the docked column keeps the column where it was; the header band says the answer', async ({ page }) => {
+  test('competitions-list.results.c3 competitions-list.filters.c3 — ≥1280 entering results from the filter bar keeps the bar where it was; the header band says the answer', async ({ page }) => {
     for (const width of [1280, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await open(page);
-      const column = page.getByRole('complementary', { name: 'Filtre concursuri' });
-      const before = (await column.boundingBox())!.y;
-      await column.getByText('Echipe', { exact: true }).click();
+      const bar = page.getByRole('group', { name: 'Filtre concursuri' });
+      // Owner review 2026-10-06: the bar is over the list it filters — after the bento, right above
+      // the list's summary — not ~550px above it.
+      const bento = page.getByRole('region', { name: 'Pulsul concursurilor' });
+      await expect(bento).toBeVisible();
+      const bentoBox = (await bento.boundingBox())!;
+      const barAt = (await bar.boundingBox())!;
+      expect(barAt.y).toBeGreaterThan(bentoBox.y + bentoBox.height);
+      const listTop = (await page.locator('#concursuri-lista').boundingBox())!.y;
+      expect(listTop - (barAt.y + barAt.height)).toBeLessThan(120);
+      // Reached by scrolling (it is under the bento): the chip used stays under the pointer when
+      // the page flips into results mode and the bento leaves.
+      await page.evaluate((y) => window.scrollTo(0, y), Math.round(barAt.y + (await page.evaluate(() => window.scrollY)) - 200));
+      await page.waitForTimeout(300);
+      const before = (await bar.boundingBox())!.y;
+      const format = bar.getByRole('button', { name: /^Format/ });
+      const formatX = (await format.boundingBox())!.x;
+      await format.click();
+      await page.getByRole('dialog', { name: 'Format' }).getByText('Echipe', { exact: true }).click();
       await expect(page).toHaveURL(/format=team/);
       await expect(page.getByRole('button', { name: 'Concursuri filtrate. Schimbă căutarea' }).first()).toBeVisible();
-      expect((await column.boundingBox())!.y).toBe(before);
+      await expect(bar.getByRole('button', { name: 'Format: Echipe' })).toBeFocused();
+      expect(Math.abs((await bar.boundingBox())!.y - before)).toBeLessThanOrEqual(1);
+      // The «Stare» chip joins at the END of the row: the chip just used does not move sideways.
+      expect(Math.abs((await bar.getByRole('button', { name: 'Format: Echipe' }).boundingBox())!.x - formatX)).toBeLessThanOrEqual(1);
+      const stare = (await bar.getByRole('button', { name: /^Stare/ }).boundingBox())!;
+      const judet = (await bar.getByRole('button', { name: /^Județ/ }).boundingBox())!;
+      expect(stare.y > judet.y || stare.x > judet.x).toBe(true);
       // The visible h1 stays, over a band with the count.
       await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeVisible();
       await expect(page.locator('header [aria-hidden]', { hasText: /concurs/ }).first()).toBeVisible();

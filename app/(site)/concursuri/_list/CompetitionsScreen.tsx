@@ -16,12 +16,12 @@ import {
   ActiveFilters,
   AsideSection,
   AsideSkeleton,
-  ChoiceChips,
-  FilterButton,
-  FilterColumn,
-  FilterSection,
-  FilterSwitch,
+  FilterBar,
+  FilterChipButton,
+  FilterChipMenu,
+  FilterChipToggle,
   FOCUS_RING,
+  LIST_CHROME_H_VAR,
   ListEmpty,
   ListError,
   ListFooter,
@@ -46,7 +46,7 @@ import {
   type ListTab,
 } from '@/components/templates/T1';
 import { signInPath } from '@/components/nav/items';
-import { T4_HEADER_TOP } from '@/components/templates/T4/T4Frame';
+import { UNDER_BAR_TOP } from '@/components/nav/shell';
 import { DashboardRefresh, type RefreshResult } from '@/components/templates/T5';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { Button } from '@/components/ui/Button';
@@ -68,6 +68,7 @@ import {
   type CompetitionFilterValues,
   type CompetitionsCommittedSearch,
 } from '@/core/competitions';
+import type { Transport } from '@/core/transport';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { createPulseTracker, logFiltersApplied, logScopeChanged, logSearchCommitted, logStatusChanged } from './analytics';
@@ -105,8 +106,12 @@ import { SearchDialog } from './SearchDialog';
  * Web adaptations, each named where it happens:
  *  - the fish fixed chrome (title + tabs over the scrolling list, a short fade under it) is a sticky
  *    band under the top bar below 1280 — following the top bar up to the edge when it slides away
- *    on a phone (the shared shell offset, as T4 / T5); from 1280 the docked filter column and the
- *    top bar's ⌘K search are always on screen, so the header scrolls with the page;
+ *    on a phone (the shared shell offset, as T4 / T5); from 1280 the top bar's ⌘K search
+ *    is always on screen, so the header scrolls with the page;
+ *  - the filters are a horizontal bar over the results (owner rule 2, ROADMAP §4b): «Filtre» with
+ *    the active count opens the whole dialog, quick chips (Perioadă, Format, Locuri libere, Județ —
+ *    plus Stare in results mode, where the tabs are gone) apply in one tap; the left column the
+ *    filters used to take goes to the cards (three 280px cards in the 872 centre at 1280);
  *  - pull-to-refresh is the kit's stand-in (DashboardRefresh, as on Acasă): «Reîmprospătează» in
  *    the header, its outcome announced, the spinner its own (never a tab switch's);
  *  - the cards auto-fill the content column (ListGrid, ROADMAP §4), one column on the phone as in
@@ -133,6 +138,7 @@ export function CompetitionsScreen({
   initialDensity = 'compact',
   isAuthenticated,
   seed,
+  transport,
 }: {
   initial: ListPlace;
   /** The density cookie as the server read it: the server render and hydration use it (no re-layout). */
@@ -141,8 +147,13 @@ export function CompetitionsScreen({
   isAuthenticated: boolean;
   /** The hero stack's shuffle for this visit. */
   seed: number;
+  /**
+   * Dev demo only (/dev/templates/t1): the template demo renders THIS screen over a fixture
+   * transport that forces its states, so approving the demo approves the shipped page.
+   */
+  transport?: Transport;
 }) {
-  const t = useMemo(() => createBrowserTransport(), []);
+  const t = useMemo(() => transport ?? createBrowserTransport(), [transport]);
   const session = { isAuthenticated };
   const qc = useQueryClient();
   const router = useRouter();
@@ -153,7 +164,7 @@ export function CompetitionsScreen({
   const [filters, setFilters] = useState<CompetitionFilterValues>(initial.filters);
   const { density, setDensity } = useCardDensity(initialDensity);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // Which view the filters dialog opens on: the whole sheet, or (from the docked column) a sub-view.
+  // Which view the filters dialog opens on: the whole sheet, or (from a quick chip) a sub-view.
   const [filtersEntry, setFiltersEntry] = useState<FiltersView>('filters');
   const [searchOpen, setSearchOpen] = useState(false);
   // Where leaving results returns to. A reloaded filtered «Urmărite» list goes back to «Urmărite».
@@ -261,10 +272,10 @@ export function CompetitionsScreen({
   /**
    * fish onApply (filters.c15, results.c6): filters and status commit together. Filtering is a status
    * change (it leaves «Ale mele», keeps «Urmărite», which stays the scope to return to). A state the
-   * period cannot describe sends the period back to «Oricând» (filters.c4 — the docked column applies
-   * as it goes, so it is checked here too).
+   * period cannot describe sends the period back to «Oricând» (filters.c4 — the quick chips apply
+   * as they go, so it is checked here too).
    *
-   * `restore` (a chip ✕, «Șterge tot», the column's «Resetează»): back at nothing narrowing and no
+   * `restore` (a chip ✕, «Șterge tot», the bar's «Resetează»): back at nothing narrowing and no
    * state picked, the list returns to the tab it came from. An explicit apply never does — «Orice
    * stare» applied is fish's «Toate concursurile» across every state, as the dialog's count promised.
    * `log`: only an apply logs competitions_filters_applied (fish: the chips log nothing). `focus`:
@@ -471,6 +482,54 @@ export function CompetitionsScreen({
     };
   }, [resultsMode]);
   const tucked = toolsTucked && !resultsMode;
+  // The pinned chrome's height, for what docks under it (the T1 aside's sticky top, LIST_CHROME_H_VAR).
+  useEffect(() => {
+    const chrome = chromeRef.current;
+    if (!chrome) return;
+    const root = document.documentElement;
+    const ro = new ResizeObserver(() => root.style.setProperty(LIST_CHROME_H_VAR, `${Math.round(chrome.offsetHeight)}px`));
+    ro.observe(chrome);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty(LIST_CHROME_H_VAR);
+    };
+  }, [resultsMode]);
+
+  /*
+   * The filter bar sits over the list, after the bento (owner review 2026-10-06). A chip that flips
+   * the page into results mode (or back) removes the bento above the bar: the page scrolls by what
+   * moved, so the bar — and the chip just used — stays under the pointer (as far as the page can
+   * scroll; at the very top it lands right under the header, over its results).
+   */
+  const barRef = useRef<HTMLDivElement>(null);
+  const barTop = useRef<number | null>(null);
+  const holdBar = () => {
+    barTop.current = barRef.current?.getBoundingClientRect().top ?? null;
+  };
+  const lastResults = useRef(resultsMode);
+  useLayoutEffect(() => {
+    if (lastResults.current === resultsMode) return;
+    lastResults.current = resultsMode;
+    const before = barTop.current;
+    barTop.current = null;
+    const root = document.documentElement;
+    root.style.removeProperty('min-height');
+    const now = barRef.current?.getBoundingClientRect().top;
+    if (before == null || now == null || !barRef.current?.offsetParent) return;
+    const target = window.scrollY + now - before;
+    if (Math.abs(now - before) <= 1 || target < 0) return;
+    // A short answer (a few results) may leave the page too short to scroll that far: the page
+    // keeps the room until the next mode change, so the bar never jumps up under the pointer.
+    const need = target + window.innerHeight;
+    if (need > root.scrollHeight) root.style.minHeight = `${Math.ceil(need)}px`;
+    window.scrollTo({ top: target, behavior: 'instant' });
+  }, [resultsMode]);
+  useEffect(
+    () => () => {
+      document.documentElement.style.removeProperty('min-height');
+    },
+    [],
+  );
   const filterCount = (resultsMode && status !== 'all' ? 1 : 0) + countActiveFilters(filters);
   const followedOn = scope === 'followed';
 
@@ -498,11 +557,6 @@ export function CompetitionsScreen({
   // What the pill says: the search, else that the list is filtered — and, filtered on «Urmărite»
   // (results.c6 keeps the scope), that it is still the followed list.
   const resultsLabel = resultsLabelFor(place);
-  // ≥1280 without a search the label has no dialog to open: the docked column is the filters.
-  const focusColumn = () => {
-    const column = document.querySelector<HTMLElement>(`aside[aria-label="${FILTERS_LABEL}"]`);
-    (column?.querySelector<HTMLElement>('input:checked') ?? column?.querySelector<HTMLElement>('input, button'))?.focus();
-  };
   // Below 768 the refresh takes the back square's framing (RESULTS_REFRESH); from 768 the labelled tool.
   const refreshTool = (
     <span className={RESULTS_REFRESH}>
@@ -521,13 +575,14 @@ export function CompetitionsScreen({
   const header = resultsMode ? (
     <div
       ref={chromeRef}
+      data-list-chrome=""
       className={cn(
         // fish's results chrome is fixed over the list: below 1280 it is sticky under the top bar,
         // on the page ground, with the same short fade as the browse chrome — and the browse
         // header's top inset, so it never sits flush on the edge once the phone's bar slides away.
         'sticky z-sticky -mx-4 bg-page px-4 pt-2 md:-mx-6 md:px-6',
         RESULTS_STACK,
-        T4_HEADER_TOP.shell,
+        UNDER_BAR_TOP,
         "after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-linear-to-b after:from-page after:to-transparent after:content-['']",
         // From 1280 the chrome is in the centre column (below), where the index has its search row.
         'xl:static xl:mx-0 xl:p-0 xl:after:hidden',
@@ -548,7 +603,7 @@ export function CompetitionsScreen({
           filtersExpanded={filtersOpen}
           trailing={refreshTool}
         />
-        {/* With the column docked (≥1280) it already shows every choice: no rail there. */}
+        {/* From 1280 the filter bar's chips show every choice: no rail there. */}
         <ActiveFilters
           filters={chips}
           onClearAll={clearAll}
@@ -561,16 +616,17 @@ export function CompetitionsScreen({
   ) : (
     <div
       ref={chromeRef}
+      data-list-chrome=""
       className={cn(
-        // Below 1280: fish's fixed chrome — sticky under the top bar (and up to the edge when the
-        // phone's bar slides away: the shell offset T4 and T5 share), on the page ground, the list
-        // fading into it through a short gradient (c1).
-        'sticky z-sticky -mx-4 bg-page px-4 md:-mx-6 md:px-6',
-        T4_HEADER_TOP.shell,
+        // fish's fixed chrome — sticky under the top bar at every width (and up to the edge when the
+        // phone's bar slides away, on the bar's own timing: UNDER_BAR_TOP), on the page ground, the
+        // list fading into it through a short gradient (c1). From 1280 too: the same list behaves the
+        // same at every width (tabs, and once the search row scrolled under it, search and «Filtre»).
+        'sticky z-sticky -mx-4 bg-page px-4 md:-mx-6 md:px-6 xl:-mx-8 xl:px-8',
+        UNDER_BAR_TOP,
         // The fade starts with a few px of solid page under the tab rule, so nothing scrolling under
         // it is legible right against the active tab's underline (c1).
         "after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-10 after:bg-linear-to-b after:from-page after:from-25% after:to-transparent after:content-['']",
-        'xl:static xl:mx-0 xl:px-0 xl:after:hidden',
       )}
     >
       <ListHeader
@@ -583,7 +639,7 @@ export function CompetitionsScreen({
               // Out of the layout until the row is tucked (the phone's title row holds three tools, as
               // fish's), then faded in; never interactive together with the row (inert).
               className={cn(
-                'gap-2 opacity-100 transition-[opacity,display] transition-discrete duration-(--duration-fast) ease-fast starting:opacity-0 xl:hidden',
+                'gap-2 opacity-100 transition-[opacity,display] transition-discrete duration-(--duration-fast) ease-fast starting:opacity-0',
                 tucked ? 'flex' : 'hidden',
               )}
             >
@@ -632,7 +688,7 @@ export function CompetitionsScreen({
     </div>
   );
 
-  /* ---------------- filters (column ≥1280, dialog below and for its sub-views) ---------------- */
+  /* ---------------- filters (the bar over the results, the dialog for everything) ---------------- */
 
   const statusChoices: Choice<Status>[] = [
     { value: 'all', label: 'Orice stare' },
@@ -647,56 +703,69 @@ export function CompetitionsScreen({
   ];
   const customRange = parseCustomPeriod(filters.period);
 
-  // ≥1280 the column applies as it goes (T1); Județ and «Alege din calendar» open the dialog's
-  // sub-view, whose pick applies at once.
-  const filtersColumn = (
-    <FilterColumn onReset={clearAll} canReset={chips.length > 0}>
-      {/* filters.c3: the state, as list rows like Perioadă and Format below it (one look for one
-          single-choice control; the card scrolls its sections, so Județ is never cut off). On the
-          index a pick is a tab switch; «Orice stare» is the tab-less «Toate concursurile». */}
-      <FilterSection title="Stare">
-        <ChoiceChips name="stare" layout="list" options={statusChoices} value={mineActive ? 'all' : status} onChange={(s) => applyFilters(filters, s)} />
-      </FilterSection>
-      {status === 'notStarted' ? (
-        // The column's short copy (the dialog keeps fish's), the switch on the label's first line.
-        <div className="[&>div]:items-start">
-          <FilterSwitch
-            label="Locuri libere"
-            description="Doar cu locuri disponibile"
-            checked={filters.availableOnly}
-            onChange={(availableOnly) => applyFilters({ ...filters, availableOnly })}
+  // The chips apply as they are picked (the old docked column's live-apply); Județ and «Alege din
+  // calendar» open the dialog's sub-view, whose pick applies at once.
+  const filterBar = (
+    <FilterBar
+      label={FILTERS_LABEL}
+      count={filterCount}
+      onOpenFilters={() => openFilters()}
+      expanded={filtersOpen && filtersEntry === 'filters'}
+      onReset={clearAll}
+      canReset={chips.length > 0}
+    >
+      <FilterChipMenu
+        label="Perioadă"
+        name="perioada"
+        options={periodChoices(filters.period, status, now)}
+        value={filters.period}
+        defaultValue="all"
+        chosenLabel={customRange ? periodChipLabel(filters.period, now) : null}
+        onChange={(period) => applyFilters({ ...filters, period })}
+        after={(close) => (
+          <PickerRow
+            compact
+            label={customRange ? periodChipLabel(filters.period, now) : 'Alege din calendar'}
+            accessibleLabel={customRange ? `Perioadă aleasă: ${periodChipLabel(filters.period, now)}` : 'Alege perioada din calendar'}
+            active={Boolean(customRange)}
+            onClick={() => {
+              close();
+              openFilters('range');
+            }}
           />
-        </div>
+        )}
+      />
+      <FilterChipMenu
+        label="Format"
+        name="format"
+        options={formatChoices}
+        value={filters.format}
+        defaultValue="all"
+        onChange={(format) => applyFilters({ ...filters, format })}
+      />
+      {/* filters.c5: free places only exist for a competition that has not started. */}
+      {status === 'notStarted' ? (
+        <FilterChipToggle label="Locuri libere" pressed={filters.availableOnly} onChange={(availableOnly) => applyFilters({ ...filters, availableOnly })} />
       ) : null}
-      <FilterSection title="Perioadă">
-        <ChoiceChips
-          name="perioada"
-          layout="list"
-          options={periodChoices(filters.period, status, now)}
-          value={filters.period}
-          onChange={(period) => applyFilters({ ...filters, period })}
+      <FilterChipButton
+        label="Județ"
+        value={filters.countyName ?? (filters.countyId ? 'Județ selectat' : null)}
+        expanded={filtersOpen && filtersEntry === 'county'}
+        onClick={() => openFilters('county')}
+      />
+      {/* filters.c3: the state — on the index the tabs carry it; in results mode they are gone. Last
+          in the row, so a chip that flips the page into results mode stays under the pointer. */}
+      {resultsMode ? (
+        <FilterChipMenu
+          label="Stare"
+          name="stare"
+          options={statusChoices}
+          value={status}
+          defaultValue="all"
+          onChange={(s) => applyFilters(filters, s)}
         />
-        <PickerRow
-          compact
-          label={customRange ? periodChipLabel(filters.period, now) : 'Alege din calendar'}
-          accessibleLabel={customRange ? `Perioadă aleasă: ${periodChipLabel(filters.period, now)}` : 'Alege perioada din calendar'}
-          active={Boolean(customRange)}
-          onClick={() => openFilters('range')}
-        />
-      </FilterSection>
-      <FilterSection title="Format">
-        <ChoiceChips name="format" layout="list" options={formatChoices} value={filters.format} onChange={(format) => applyFilters({ ...filters, format })} />
-      </FilterSection>
-      <FilterSection title="Județ">
-        <PickerRow
-          compact
-          label={filters.countyName ?? (filters.countyId ? 'Județ selectat' : 'Toate județele')}
-          accessibleLabel={`Județ: ${filters.countyName ?? 'toate județele'}`}
-          active={Boolean(filters.countyId)}
-          onClick={() => openFilters('county')}
-        />
-      </FilterSection>
-    </FilterColumn>
+      ) : null}
+    </FilterBar>
   );
 
   const dialogs = (
@@ -714,8 +783,8 @@ export function CompetitionsScreen({
         now={now}
         onApply={(values, nextStatus) => {
           setFiltersOpen(false);
-          // From the toolbar / pill the opener may unmount with the mode change; from the docked
-          // column (a sub-view entry) the column stays, and the dialog returns focus to its row.
+          // From «Filtre» / the pill the opener may unmount with the mode change; from a chip (a
+          // sub-view entry) the bar stays, and the dialog returns focus to the chip.
           applyFilters(values, nextStatus, { focus: filtersEntry === 'filters' });
         }}
       />
@@ -932,44 +1001,58 @@ export function CompetitionsScreen({
   return (
     <ListPage
       header={header}
-      filters={filtersColumn}
-      filtersLabel={FILTERS_LABEL}
       aside={aside}
       asideLabel="Ce se întâmplă acum"
       asideBusy={asidePending}
     >
-      {resultsMode ? (
-        // ≥1280: the results chrome in the search row's slot, inside the centre column (T1).
-        <div className="hidden xl:block">
+      {/* The hero/bento first: it is promo, not the list's chrome. */}
+      {bento}
+      {/* Owner rule 6 (ROADMAP §4b): the search pill and the filter chips are ONE block, directly
+          over the results they ask about. On a phone it stays at the top of the column (fish's
+          order: title → tabs → search row), the bento under it. */}
+      <div
+        data-list-search=""
+        className={cn('flex flex-col gap-3', resultsMode ? 'hidden xl:flex' : 'max-md:-order-1')}
+      >
+        {resultsMode ? (
+          // ≥1280: the results chrome in the search row's slot, inside the centre column (T1).
           <ResultsChrome
             label={resultsLabel}
             filterCount={filterCount}
             onBack={() => exitResults(true)}
-            onPressLabel={search ? openSearch : focusColumn}
-            labelOpensDialog={Boolean(search)}
+            onPressLabel={search ? openSearch : () => openFilters()}
             trailing={refreshTool}
           />
+        ) : (
+          <div ref={toolbarRef}>
+            <ListToolbar>
+              {/* search.c1: the pill opens the search dialog — typing there never filters this list. */}
+              <button
+                type="button"
+                onClick={openSearch}
+                aria-haspopup="dialog"
+                aria-expanded={searchOpen}
+                aria-label="Caută un concurs, o baltă sau un organizator"
+                className={cn(SEARCH_SHELL, 'min-w-0 flex-1 cursor-pointer gap-2.5 pl-3.5 text-left hover:bg-soft-fill!', FOCUS_RING)}
+              >
+                <MagnifyingGlassIcon aria-hidden className="size-5 shrink-0 text-muted" />
+                <span className="min-w-0 flex-1 truncate t-body text-muted">Concurs, baltă sau organizator</span>
+              </button>
+            </ListToolbar>
+          </div>
+        )}
+        {/* ONE bar in both modes, so a chip that enters (or leaves) results mode keeps focus. In
+            results mode below 1280 the sticky chrome has the filters circle and the chip rail instead. */}
+        <div
+          ref={barRef}
+          onPointerDownCapture={holdBar}
+          onKeyDownCapture={holdBar}
+          onFocusCapture={holdBar}
+          className={resultsMode ? 'hidden xl:block' : undefined}
+        >
+          {filterBar}
         </div>
-      ) : (
-        <div ref={toolbarRef}>
-          <ListToolbar>
-            {/* search.c1: the pill opens the search dialog — typing there never filters this list. */}
-            <button
-              type="button"
-              onClick={openSearch}
-              aria-haspopup="dialog"
-              aria-expanded={searchOpen}
-              aria-label="Caută un concurs, o baltă sau un organizator"
-              className={cn(SEARCH_SHELL, 'min-w-0 flex-1 cursor-pointer gap-2.5 pl-3.5 text-left hover:bg-soft-fill!', FOCUS_RING)}
-            >
-              <MagnifyingGlassIcon aria-hidden className="size-5 shrink-0 text-muted" />
-              <span className="min-w-0 flex-1 truncate t-body text-muted">Concurs, baltă sau organizator</span>
-            </button>
-            <FilterButton count={filterCount} onClick={() => openFilters()} expanded={filtersOpen} />
-          </ListToolbar>
-        </div>
-      )}
-      {bento}
+      </div>
       <p aria-live="polite" className="sr-only">
         {settledEmpty ? emptyTitle : ''}
       </p>
@@ -1077,13 +1160,14 @@ function CardsSkeleton({ density }: { density: Density }) {
 
 /**
  * The cards' grid: the kit ListGrid (LIST_GUTTER between columns, so the bento's channels continue
- * into it), 280px minimums in both densities — two cards in the 608 centre at 1280, three from a
- * ~900 centre. Listă keeps fish's tighter 10px between rows (ItemSeparator, c14); the column gutter
+ * into it). Listă (horizontal cards: a 76px thumbnail + text) takes the 340px minimum, so the ~870
+ * centre at 1280 holds two well-proportioned cards (titles and chips on one line) instead of three
+ * cramped ones; Afiș (posters) keeps 280. Listă keeps fish's tighter 10px between rows (ItemSeparator, c14); the column gutter
  * stays the shared one. TODO(kit): a ListGrid `rowGap` / density prop instead of this className.
  */
 function CardsGrid({ density, labelledBy, children }: { density: Density; labelledBy?: string; children: ReactNode }) {
   return (
-    <ListGrid min="md" labelledBy={labelledBy} className={density === 'expanded' ? undefined : 'gap-y-2.5'}>
+    <ListGrid min={density === 'expanded' ? 'md' : 'lg'} labelledBy={labelledBy} className={density === 'expanded' ? undefined : 'gap-y-2.5'}>
       {children}
     </ListGrid>
   );

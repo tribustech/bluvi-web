@@ -23,7 +23,14 @@ const OPTIONS = [
   { key: 'ape', label: 'Ape publice', href: routes.publicWaters() },
 ] as const;
 
-export function WaterKindSwitch({ current }: { current: 'balti' | 'ape' }) {
+export function WaterKindSwitch({
+  current,
+  hrefs,
+}: {
+  current: 'balti' | 'ape';
+  /** Where each option goes (the map view: «Bălți» = /balti/harta). Default: the section pages. */
+  hrefs?: Partial<Record<'balti' | 'ape', string>>;
+}) {
   return (
     <nav aria-label="Tip de apă" className={cn('grid w-60 shrink-0 grid-cols-2 rounded-control border border-hairline bg-surface p-0.75', CONTROL_H)}>
       {OPTIONS.map((o) => {
@@ -31,7 +38,7 @@ export function WaterKindSwitch({ current }: { current: 'balti' | 'ape' }) {
         return (
           <Link
             key={o.key}
-            href={o.href}
+            href={hrefs?.[o.key] ?? o.href}
             aria-current={active ? 'page' : undefined}
             className={cn(
               'flex items-center justify-center rounded-[calc(var(--radius-control)-3px)] t-body-strong transition-[background-color,color] duration-(--duration-fast) ease-select',

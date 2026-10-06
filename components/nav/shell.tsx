@@ -33,6 +33,55 @@ export const SHELL_EDGE_PAD = 'md:pl-6 xl:pl-[max(var(--spacing)*8,calc((100vw_-
 /** The same edge as a `left` offset, without the gutter (T2's panel box). */
 export const SHELL_EDGE_LEFT = 'xl:left-[max(0px,calc((100vw_-_var(--spacing)*436)/2))]';
 
+/*
+ * The sticky header stack (owner rule 3, ROADMAP §4b: a sticky header never floats): the top bar
+ * (sticky at 56 / 64 from 768), then the offline banner, then whatever a page pins. On the phone
+ * the bar slides away on scroll down, so everything below it follows it to the top edge and back,
+ * on the bar's own timing (conceal: medium / ease-slow; reveal: fast / ease-fast) — no gap ever
+ * opens between them. Desktop never conceals.
+ *
+ * The state lives on <html> (components/nav/stickyStack.ts), never in a `:has()` selector:
+ *  - `html[data-bar-concealed]`: the phone bar is hidden;
+ *  - `--shell-banner-h`: the offline banner's height (unset = 0).
+ * Use these constants; never write `header[data-concealed]` or a raw `top-14 md:top-16` for a
+ * pinned row (eslint no-restricted-syntax fails on the first). Plain strings (not cn): every
+ * variant duration must survive.
+ */
+
+/** The bar's own edge: the offline banner sits here. */
+export const BAR_EDGE_TOP = [
+  'top-14 md:top-16 max-md:[html[data-bar-concealed]_&]:top-0',
+  'transition-[top] duration-(--duration-fast) ease-fast',
+  'max-md:[html[data-bar-concealed]_&]:duration-(--duration-medium) max-md:[html[data-bar-concealed]_&]:ease-slow',
+  'motion-reduce:transition-none',
+].join(' ');
+
+/** `top` for anything pinned under the bar (and under the offline banner while it shows). */
+export const UNDER_BAR_TOP = [
+  'top-[calc(--spacing(14)_+_var(--shell-banner-h,0px))] md:top-[calc(--spacing(16)_+_var(--shell-banner-h,0px))]',
+  'max-md:[html[data-bar-concealed]_&]:top-[var(--shell-banner-h,0px)]',
+  'transition-[top] duration-(--duration-fast) ease-fast',
+  'max-md:[html[data-bar-concealed]_&]:duration-(--duration-medium) max-md:[html[data-bar-concealed]_&]:ease-slow',
+  'motion-reduce:transition-none',
+].join(' ');
+
+/** UNDER_BAR_TOP below 768 only (a row that pins on the phone and does something else from 768). */
+export const UNDER_BAR_TOP_PHONE = [
+  'max-md:top-[calc(--spacing(14)_+_var(--shell-banner-h,0px))] max-md:[html[data-bar-concealed]_&]:top-[var(--shell-banner-h,0px)]',
+  'max-md:transition-[top] max-md:duration-(--duration-fast) max-md:ease-fast',
+  'max-md:[html[data-bar-concealed]_&]:duration-(--duration-medium) max-md:[html[data-bar-concealed]_&]:ease-slow',
+  'motion-reduce:transition-none',
+].join(' ');
+
+/** UNDER_BAR_TOP from 768 only (the bar never conceals there). */
+export const UNDER_BAR_TOP_MD = 'md:top-[calc(--spacing(16)_+_var(--shell-banner-h,0px))]';
+
+/**
+ * The top bar's shadow: lifted once the page scrolls under it, unless something is pinned below
+ * it — then only the lowest member of the stack casts the shadow (data-stack-pinned).
+ */
+export const BAR_SHADOW = 'data-scrolled:shadow-e1 [html[data-stack-pinned]_&]:shadow-none';
+
 /** Page gutters: 16 below 768, 24 from 768, 32 from 1280 (the bar uses the same steps). */
 export const SHELL_GUTTERS = 'px-4 md:px-6 xl:px-8';
 

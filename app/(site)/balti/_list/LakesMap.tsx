@@ -20,7 +20,6 @@ import {
   T2ListItem,
   T2Map,
   T2MapPill,
-  T2RailAction,
   T2SearchPill,
   T2_EXPANDED,
   T2_FLOATING_BUTTON,
@@ -76,6 +75,7 @@ import { LocationDialog } from './LocationDialog';
 import { PinLakeCard, ResultCardsSkeleton, ResultLakeCard } from './ResultCards';
 import { KitSheetCloseButton } from './PhoneSheet';
 import { SearchLayer } from './SearchLayer';
+import { WaterKindSwitch } from './WaterKindSwitch';
 import { countLakeFilters, lakesMapQuery, parseLakesMapParams, withCatalogNames } from './url';
 
 /*
@@ -353,6 +353,8 @@ export function LakesMap() {
   /* ------------------------------------------------------------------ selection + sheet */
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  // The reverse direction: a hovered pin highlights its list card (rule 7, card ↔ marker).
+  const [pinHoverId, setPinHoverId] = useState<string | null>(null);
   const [sheetSnap, setSheetSnap] = useState<T2SheetSnap>('half');
   const selectedNode = points.find((p) => p.id === selectedId)?.node ?? null;
   // A pin without photos borrows them from the lake page's data (fish selectedLakeFull).
@@ -439,6 +441,8 @@ export function LakesMap() {
   };
 
   /* ------------------------------------------------------------------ list */
+  // The price per lake, from its own pin (in-bbox carries none): a lake inside a cluster has none yet.
+  const priceById = new Map(points.map((p) => [p.id, { min: p.node.priceMin, max: p.node.priceMax }]));
   const countTitle = `${plural(total, 'baltă', 'bălți')} în această zonă`;
   let listBody;
   let announcement = '';
@@ -485,9 +489,15 @@ export function LakesMap() {
                 key={lake.documentId}
                 id={lake.documentId}
                 selected={lake.documentId === shownSelectedId}
+                highlighted={lake.documentId === pinHoverId}
                 onHighlight={setHighlightedId}
               >
-                <ResultLakeCard lake={lake} photos={lakePhotos(lake)} distanceLabel={distanceTo(user, c)} />
+                <ResultLakeCard
+                  lake={lake}
+                  photos={lakePhotos(lake, 6)}
+                  distanceLabel={distanceTo(user, c)}
+                  price={priceById.get(lake.documentId) ?? null}
+                />
               </T2ListItem>
             );
           })}
@@ -520,13 +530,17 @@ export function LakesMap() {
       title="Hartă bălți"
       leading={<T2BackLink href={routes.lakes()} label="Înapoi la Bălți" />}
       search={
+        // From 768 the field sits flat in the solid band (hairline), not floating over the map.
+        <div className="contents md:[&>button]:shadow-none!">
         <T2SearchPill
           summary={summary}
           placeholder={searchPlaceholder}
           searchLabel={searchPlaceholder ? 'Caută bălți, lacuri' : `Caută bălți, lacuri. Acum: ${summary}`}
           onSearch={() => setSearchOpen(true)}
         />
+        </div>
       }
+      switcher={<WaterKindSwitch current="balti" hrefs={{ balti: routes.lakesMap() }} />}
       filtersButton={
         <FilterButton
           count={countLakeFilters(railFilters)}
@@ -536,11 +550,17 @@ export function LakesMap() {
           className={cn(T2_EXPANDED, 'max-md:shadow-e2!', '[[data-solid]_&]:shadow-e0!')}
         />
       }
+      // From 768 the T1 FilterBar's own «Filtre» leads the chips (one bar anatomy with /concursuri).
+      onOpenFilters={() => openPanel('all')}
+      filterCount={countLakeFilters(railFilters)}
+      filtersExpanded={panel === 'all'}
+      onReset={clearAll}
+      canReset={hasAnyFilter && panel === null}
       filters={getLakeFilterChips(railFilters).map((chip) => (
         <T2FilterChip
           key={chip.key}
           label={chip.label}
-          count={chip.badgeCount}
+          value={chipValue(chip.key, railFilters)}
           active={chip.active}
           icon={CHIP_ICONS[chip.key]}
           kind={chip.key === 'booking' ? 'toggle' : 'menu'}
@@ -556,20 +576,6 @@ export function LakesMap() {
           }}
         />
       ))}
-      trailing={
-        hasAnyFilter && panel === null ? (
-          <Button variant="ghost" icon={<ArrowUturnLeftIcon />} onClick={clearAll}>
-            {clearLabel}
-          </Button>
-        ) : null
-      }
-      railTrailing={
-        hasAnyFilter && panel === null ? (
-          <T2RailAction icon={<ArrowUturnLeftIcon aria-hidden />} onClick={clearAll}>
-            {clearLabel}
-          </T2RailAction>
-        ) : null
-      }
     />
   );
 
@@ -632,6 +638,7 @@ export function LakesMap() {
         clusterLabel={(n) => `${plural(n, 'baltă', 'bălți')} — mărește harta aici`}
         selectedId={shownSelectedId}
         highlightedId={highlightedId}
+        onPointHover={setPinHoverId}
         onSelect={(p) => {
           track('lakes_map_results_pin_tap', {
             lake_id: p.id,
@@ -719,7 +726,7 @@ export function LakesMap() {
           title: filterPanelTitle(filterSection),
           children: (
             <>
-              {/* The phone sheet's «Închide» X (lakes.filters.c9); hidden from 768 (SidePanel has its own). */}
+              {/* The phone sheet's «Închide» X (lakes.filters.c9); hidden from 768 (the Dialog has its own). */}
               <KitSheetCloseButton onClose={closePanel} />
               <FiltersBody section={filterSection} draft={draft} setDraft={setDraft} committed={filters} catalogs={catalogs} />
             </>
@@ -749,4 +756,15 @@ export function LakesMap() {
       <LocationDialog mode={locationDialog.mode} onClose={locationDialog.close} onRetry={locationDialog.onRetry} />
     </>
   );
+}
+
+/**
+ * A menu chip's chosen value (T1: the choice replaces the question): «Crap», «Crap +1»; the rating
+ * tier's label is the chip's own label already.
+ */
+function chipValue(key: string, f: LakeFilterValues): string | null {
+  const names =
+    key === 'regime' ? f.selectedRegimes.map((v) => v.name) : key === 'facilities' ? f.selectedFacilities.map((v) => v.name) : key === 'fish' ? f.selectedFish.map((v) => v.name) : [];
+  if (!names.length) return null;
+  return names.length === 1 ? names[0]! : `${names[0]} +${names.length - 1}`;
 }

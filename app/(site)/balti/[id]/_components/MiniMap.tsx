@@ -17,7 +17,20 @@ import { cn } from '@/components/ui/cn';
  * style host the tile stays a pin on the soft fill, still a link to the map page.
  */
 
-export function MiniMap({ lat, lng, href, name }: { lat: number; lng: number; href?: string; name: string }) {
+export function MiniMap({
+  lat,
+  lng,
+  href,
+  name,
+  tile = false,
+}: {
+  lat: number;
+  lng: number;
+  href?: string;
+  name: string;
+  /** A tile of the photo grid (beside a lone lake photo, from 768): its box's height, square corners (the grid rounds). */
+  tile?: boolean;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
 
@@ -79,13 +92,14 @@ export function MiniMap({ lat, lng, href, name }: { lat: number; lng: number; hr
       <span className="absolute bottom-1 left-2 t-nano text-muted">© OpenStreetMap</span>
     </>
   );
-  const BOX = 'group relative block h-37.5 overflow-hidden rounded-control bg-soft-fill md:h-48';
+  const BOX = cn('group relative block overflow-hidden bg-soft-fill', tile ? 'h-full' : 'h-37.5 rounded-control md:h-48');
+  const testId = tile ? 'lake-hero-map' : 'lake-mini-map';
   return href ? (
-    <Link href={href} aria-label={`Deschide harta: ${name}`} className={BOX} data-testid="lake-mini-map">
+    <Link href={href} aria-label={`Deschide harta: ${name}`} className={BOX} data-testid={testId}>
       {inner}
     </Link>
   ) : (
-    <div className={BOX} data-testid="lake-mini-map">
+    <div className={BOX} data-testid={testId}>
       {inner}
     </div>
   );

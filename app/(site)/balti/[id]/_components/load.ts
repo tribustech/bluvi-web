@@ -2,7 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { connection } from 'next/server';
 import { getCompetitionsByStatus, type CompetitionListItem } from '@/core/competitions';
-import { getLake, getLakesIndex, getReviewsForLake, parseLakeCoordinates, type LakeDetail, type Review } from '@/core/lakes';
+import { buildGalleryCatchItems, getLake, getLakesIndex, getReviewsForLake, parseLakeCoordinates, type LakeDetail, type Review } from '@/core/lakes';
 import { getCommunityVenueCatches, getCommunityVenueSection, type CommunityLakeSectionDTO } from '@/core/partide';
 import { ApiError, isApiError } from '@/core/transport';
 import { richTextToPlain } from '@/components/templates/T3';
@@ -92,18 +92,37 @@ export const LATEST_REVIEWS = 2;
 export type LakeSections = {
   /** /feed/community/lakes/:id — the Partide section (the browser polls it, lakes.detail.c21). */
   community: Promise<Settled<CommunityLakeSectionDTO>>;
-  /** /feed/community/lakes/:id/catches total — the hero photo pill adds it (lakes.detail.c7). */
-  catchesTotal: Promise<Settled<number>>;
+  /** /feed/community/lakes/:id/catches — the total (the hero photo pill / «Vezi toate fotografiile»
+   * add it, lakes.detail.c7) and the first photographed catches (from 768 they fill the photo grid
+   * beside a lake's only photo — owner rule 1). */
+  catches: Promise<Settled<LakeCatchPhotos>>;
   competitions: Promise<LakeCompetitions>;
   reviews: Promise<Settled<Review[]>>;
 };
+
+/** How many catches the hero reads: two stack beside a lone lake photo (one spare for a catch
+ * without a photo — those are skipped, core buildGalleryCatchItems). */
+const HERO_CATCHES = 4;
+
+export type LakeCatchPhotos = { total: number; photos: { src: string; alt: string }[] };
 
 export function loadLakeSections(id: string): LakeSections {
   const t = createServerTransport();
   const venue = { kind: 'lake', id } as const;
   return {
     community: settle(id, () => getCommunityVenueSection(t, venue), 'community'),
-    catchesTotal: settle(id, () => getCommunityVenueCatches(t, venue, { page: 1, pageSize: 1 }).then(r => r.meta.pagination.total), 'catches'),
+    catches: settle(
+      id,
+      () =>
+        getCommunityVenueCatches(t, venue, { page: 1, pageSize: HERO_CATCHES }).then(r => ({
+          total: r.meta.pagination.total,
+          photos: buildGalleryCatchItems(r.data).map(c => ({
+            src: c.gridUri,
+            alt: [c.species, c.anglerName].filter(Boolean).join(' · ') || 'Captură',
+          })),
+        })),
+      'catches',
+    ),
     competitions: Promise.all([
       settle(id, () => getCompetitionsByStatus(t, 'started', { page: 1, pageSize: 5 }, id).then(r => r.data), 'competitions-live'),
       settle(id, () => getCompetitionsByStatus(t, 'notStarted', { page: 1, pageSize: 5 }, id).then(r => r.data), 'competitions-upcoming'),

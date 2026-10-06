@@ -4,8 +4,10 @@
  */
 export { DetailPage, DetailBand, type DetailPageProps, type DetailBandProps } from './DetailPage';
 export { DetailHeader, HEADER_CHIP, PHOTO_CHIP, headerChipClass, type DetailHeaderProps, type HeaderChipGround } from './DetailHeader';
-export { DetailPhotoHero, PHOTO_PILL, SURFACE_PILL, photoHeroHeight, type DetailPhoto, type DetailPhotoHeroProps } from './DetailPhotoHero';
+export { DetailHeroTopControls, DetailPhotoHero, PHOTO_PILL, SHOW_ALL_CLASS, SURFACE_PILL, photoHeroHeight, type DetailPhoto, type DetailPhotoHeroProps } from './DetailPhotoHero';
+export { DetailPhotoViewer, DetailPhotoShowAll } from './DetailPhotoViewer';
 export { DetailTabs, type DetailTab } from './DetailTabs';
+export { DetailPinnedBand, DetailPinnedTitle } from './DetailPinned';
 export {
   DetailSectionsProvider,
   DetailSectionNav,
@@ -13,7 +15,7 @@ export {
   type DetailSectionItem,
   type DetailSectionNavProps,
 } from './DetailSections';
-export { DetailBody, DetailSection, DetailAsideCard, H3_CLASS, type DetailBodyProps, type DetailSectionProps } from './DetailBody';
+export { DetailBody, DetailSection, DetailAsideCard, DetailSummaryCard, H3_CLASS, type DetailBodyProps, type DetailSectionProps } from './DetailBody';
 export { DetailActionBar, type DetailActionBarProps } from './DetailActionBar';
 export { DetailQuickActions, type DetailQuickAction } from './DetailQuickActions';
 export { DetailFacts, type DetailFact } from './DetailFacts';

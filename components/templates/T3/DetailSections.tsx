@@ -1,7 +1,10 @@
 'use client';
 
 import { createContext, Suspense, use, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { settledScrollMargin } from '@/components/nav/stickyStack';
 import { cn } from '@/components/ui/cn';
+import { DetailPinnedTitle } from './DetailPinned';
+import { usePinnedFollowingBar } from './followBar';
 import { FULL_BLEED_HAIRLINE, FULL_BLEED_SURFACE, STICKY_TOP } from './metrics';
 
 /*
@@ -10,7 +13,7 @@ import { FULL_BLEED_HAIRLINE, FULL_BLEED_SURFACE, STICKY_TOP } from './metrics';
  *
  *  - <DetailSectionsProvider sections> owns the scroll spy: the active section is the last one
  *    whose top has passed its own scroll-margin (the pinned rows), the last one at the page end.
- *    Sections hidden at this width (`hideFromXl`) are skipped. A chip tap jumps straight to its
+ *    Sections hidden at this width (`hideFromXl` / `hideFromLg`) are skipped. A chip tap jumps straight to its
  *    section and holds the highlight there until the scroll settles (fish
  *    isScrollingToSectionRef), so the highlight never walks through the sections in between; and
  *    when the jump ends at the page end (a short last section), the section the user picked keeps
@@ -33,6 +36,12 @@ export type DetailSectionItem = {
    * `xl:hidden`: it stays a chip below 1280, and is left out of the ≥1280 index.
    */
   hideFromXl?: boolean;
+  /**
+   * The same from 1024 (`min-[1024px]:hidden` on the section — e.g. a lake's Prezentare with no
+   * description, whose tiles and facts move into the summary card there): no chip from 1024, no
+   * entry in the ≥1280 index.
+   */
+  hideFromLg?: boolean;
 };
 
 type Ctx = { sections: DetailSectionItem[]; active: string | undefined; go: (id: string) => void };
@@ -137,8 +146,13 @@ export function DetailSectionsProvider({
   const go = useCallback((id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const margin = parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
-    const target = Math.max(0, el.getBoundingClientRect().top + window.scrollY - margin);
+    // The margin for the bar state the jump ends in: a jump down hides the phone bar (the pinned
+    // stack is 56px shorter), a jump up brings it back — else the heading lands 56px under a
+    // pinned row with an empty band between them.
+    const from = window.scrollY;
+    const top = el.getBoundingClientRect().top + from;
+    const guess = Math.max(0, top - (parseFloat(getComputedStyle(el).scrollMarginTop) || 0));
+    const target = Math.max(0, top - settledScrollMargin(el, from, guess));
     setActive(id);
     picked.current = id;
     // fish shouldLockForSectionScroll: only lock when the page will actually move.
@@ -210,30 +224,9 @@ export function DetailSectionNav({
   const { sections, active, go } = useSections();
   const navRef = useRef<HTMLElement>(null);
   const rowRef = useRef<HTMLUListElement>(null);
-  const [pinned, setPinned] = useState(false);
-
-  useEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return;
-    let frame = 0;
-    const measure = () => {
-      frame = 0;
-      const top = parseFloat(getComputedStyle(nav).top) || 0;
-      const next = nav.getBoundingClientRect().top <= top + 0.5 && window.scrollY > 0;
-      setPinned(prev => (prev === next ? prev : next));
-    };
-    const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(measure);
-    };
-    window.addEventListener('scroll', schedule, { passive: true });
-    window.addEventListener('resize', schedule);
-    schedule();
-    return () => {
-      window.removeEventListener('scroll', schedule);
-      window.removeEventListener('resize', schedule);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, []);
+  // Pinned: it also flags the sticky stack, so the top bar above drops its shadow (shell BAR_SHADOW).
+  // …and follows the phone bar as a compositor transform (followBar.ts, owner rule 3).
+  const pinned = usePinnedFollowingBar(navRef);
 
   // fish: the selected chip scrolls into view, 60px from the row's left edge.
   useEffect(() => {
@@ -252,36 +245,28 @@ export function DetailSectionNav({
       data-t3="chips"
       data-pinned={pinned || undefined}
       className={cn(
-        'group/pin sticky z-above max-md:-mt-11.5',
+        // Phone: click-through over the header's last 46px (the mini row's place) until it pins.
+        'group/pin sticky z-above max-md:pointer-events-none max-md:-mt-11.5',
         STICKY_TOP,
         FULL_BLEED_SURFACE,
         FULL_BLEED_HAIRLINE,
         // Phone: the surface only shows once pinned (the mini row is transparent over the header).
         'max-md:before:opacity-0 max-md:data-pinned:before:opacity-100 max-md:after:opacity-0 max-md:data-pinned:after:opacity-100',
-        // Pinned, it lifts like the top bar does once scrolled (TopBar data-scrolled:shadow-e1).
+        // Pinned, it is the lowest member of the sticky stack: it alone casts the shadow (the bar drops its own).
         'data-pinned:shadow-e1',
         hideFromXl && 'xl:hidden',
         className,
       )}
     >
-      {/* Phone mini row (fish PINNED_MINI_HEIGHT 46). Hidden from assistive tech: it repeats the h1. */}
-      <div
-        aria-hidden={!pinned}
-        inert={!pinned}
-        className="flex h-11.5 items-center gap-3 px-4 opacity-0 transition-opacity duration-(--duration-fast) group-data-pinned/pin:opacity-100 md:hidden"
-      >
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate t-body-strong">{pinnedTitle}</span>
-          {pinnedMeta ? <span className="flex items-center gap-1 t-label text-muted">{pinnedMeta}</span> : null}
-        </div>
-        {pinnedEnd}
-      </div>
+      {/* Phone mini row (fish PINNED_MINI_HEIGHT 46): the shared T3 pinned anatomy. */}
+      <DetailPinnedTitle pinned={pinned} title={pinnedTitle} meta={pinnedMeta} end={pinnedEnd} />
       {/* The chip row: white on the phone even before pinning (it sits on the white header band). */}
-      <ul ref={rowRef} className="flex h-14.5 items-center gap-2 overflow-x-auto bg-surface px-4 [scrollbar-width:none] md:bg-transparent md:px-6">
+      <ul ref={rowRef} className="pointer-events-auto flex h-14.5 items-center gap-2 overflow-x-auto bg-surface px-4 [scrollbar-width:none] md:bg-transparent md:px-6 xl:px-8">
         {sections.map(s => {
           const selected = s.id === active;
           return (
-            <li key={s.id} className="shrink-0">
+            // A section with no box at this width keeps no chip pointing at it.
+            <li key={s.id} className={cn('shrink-0', s.hideFromXl && 'xl:hidden', s.hideFromLg && 'min-[1024px]:hidden')}>
               <a
                 href={`#${s.id}`}
                 data-section={s.id}
@@ -308,7 +293,7 @@ export function DetailSectionNav({
 /** ≥1280: the section index in the left column (sticky with it). */
 export function DetailSectionToc({ title = 'Pe această pagină', className }: { title?: string; className?: string }) {
   const { sections: all, active, go } = useSections();
-  const sections = all.filter(s => !s.hideFromXl);
+  const sections = all.filter(s => !s.hideFromXl && !s.hideFromLg);
   if (!sections.length) return null;
   return (
     // -mx-3: the rows keep their 12px hover / active padding, while the labels and the eyebrow sit

@@ -57,9 +57,10 @@ export function DisabledRegisterButton({ label, describedBy, block = false }: { 
 /**
  * What «Înscrie-te» is for this viewer (fish RankingActionBar notStarted + disabledInscrieTe, which
  * does not depend on the session: a full competition or a passed deadline is closed for a guest too):
- *  - `pending`: the session is not known yet — a bone, never the guest's sign-in link;
- *  - `unknown`: the session could not be read (a cookie whose read failed) — closed, with the reason
- *    and a way to check again (SessionRecheck), never a bone that never resolves;
+ *  - `pending`: the session is not known yet, or could not be read — a bone, never the guest's
+ *    sign-in link and never a «could not check» reason (owner rule 4, ROADMAP §4b: when we don't
+ *    know, we don't show); the shell re-reads an unknown session quietly (SiteTopBar);
+ *  - `unknown`: no longer produced (kept until ActionBar drops its branch);
  *  - `signIn`: a guest, registration open — sign in first;
  *  - `offered`: signed in, allowed — it continues in the Bluvi app;
  *  - `disabled`: closed by the rules, with fish's reason.
@@ -76,16 +77,12 @@ export function registerState(
   registration: { label: string; disabled: boolean; reason: string | null } | null | undefined,
   fallbackLabel: string,
 ): RegisterState {
-  if (v === undefined) return { kind: 'pending' };
+  if (v === undefined || v === 'unknown') return { kind: 'pending' };
   const label = registration?.label ?? fallbackLabel;
-  if (v === 'unknown') return { kind: 'unknown', label, reason: SESSION_UNKNOWN_REASON };
   if (registration?.disabled) return { kind: 'disabled', label, reason: registration.reason };
   if (v === null) return { kind: 'signIn', label };
   return registration ? { kind: 'offered', label } : { kind: 'disabled', label, reason: null };
 }
-
-/** Why «Înscrie-te» is closed while the session could not be read. */
-export const SESSION_UNKNOWN_REASON = 'Nu am putut verifica sesiunea.';
 
 /**
  * «Reîncearcă» for an unread session, as a text button inside a reason line: re-reads the page

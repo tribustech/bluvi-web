@@ -1,5 +1,6 @@
 import { controlShell } from '@/components/forms/Field';
 import { cn } from '@/components/ui/cn';
+import { RING_SELECTED } from '../rings';
 
 /*
  * Toolbar class lists, in a module with no 'use client' so a Server Component (ListPageSkeleton,
@@ -84,3 +85,18 @@ export function filterButtonClass({ active = false }: { active?: boolean } = {})
  * TODO(kit): a Chip in components/forms (ChoiceChips, ActiveFilters, T2CheckChips) owning this rule.
  */
 export const PILL_H = 'h-9';
+
+/**
+ * A FilterBar chip (FilterBar.tsx, and FilterBarSkeleton): a 36 pill on the PAGE ground — surface +
+ * hairline at rest (soft-fill would vanish on #f4f5fa), soft-fill on hover; holding a choice it is
+ * the selected look of every T1 choice (accent tint + accent ink + the 2px accent ring).
+ */
+export function filterChipClass({ active = false }: { active?: boolean } = {}) {
+  return cn(
+    PILL_H,
+    'inline-flex shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-full px-3.5 t-label whitespace-nowrap',
+    'transition-[background-color,color,box-shadow,opacity] duration-(--duration-fast) ease-fast active:opacity-80',
+    FOCUS_RING,
+    active ? cn('bg-accent-tint text-accent-ink hover:bg-accent-tint-2', RING_SELECTED) : 'bg-surface text-ink shadow-e0 hover:bg-soft-fill',
+  );
+}

@@ -12,8 +12,8 @@ import { RESULTS_BACK, RESULTS_LABEL, RESULTS_ROW, resultsCircleClass, resultsPi
  * (./resultsChromeStyles, shared with the page's Suspense frame).
  *
  * Two placements (CompetitionsScreen): below 1280 a sticky band over the list, with the filters
- * circle; from 1280 in the centre column, where the search row sits on the index — the docked
- * filter column is on screen there, so no circle (as ListToolbar's FilterButton).
+ * circle; from 1280 in the centre column, where the search row sits on the index — the filter bar
+ * (its «Filtre» and quick chips) sits right under it there, so no circle.
  */
 export function ResultsChrome({
   label,
@@ -28,11 +28,11 @@ export function ResultsChrome({
   label: string;
   filterCount: number;
   onBack: () => void;
-  /** Reopens the search when one is committed, else the filters (c4) — or, docked, focuses the column. */
+  /** Reopens the search when one is committed, else the filters (c4). */
   onPressLabel: () => void;
-  /** The label opens a dialog (search / filters) — false when it moves focus to the docked column. */
+  /** The label opens a dialog (search / filters). */
   labelOpensDialog?: boolean;
-  /** The filters circle; omitted where the docked column is on screen. */
+  /** The filters circle; omitted where the filter bar is on screen (from 1280). */
   onOpenFilters?: () => void;
   filtersExpanded?: boolean;
   /** After the pill: «Reîmprospătează» (results.c14, the index's pull-to-refresh stand-in). */

@@ -5,8 +5,9 @@ export const DEMO_PATH = '/dev/templates/t1';
 /**
  * Every state the demo can be put in (`?state=`), one per state of
  * docs/parity/areas/competitions-list.yml that needs forcing. `live` = real data, real session.
- * Outages (loading / empty / error) are forced in the TRANSPORT (demoTransport.ts), so every region
- * — tabs, bento, aside — reacts as it would in production; see CompetitionsDemo for the rest.
+ * The demo renders the PRODUCTION screen (/concursuri's CompetitionsScreen); outages (loading /
+ * empty / error) are forced in its TRANSPORT (demoTransport.ts), so every region — tabs, bento,
+ * aside — reacts exactly as the shipped page does.
  */
 export const DEMO_STATES = [
   { key: 'live', label: 'Date reale' },
@@ -19,12 +20,10 @@ export const DEMO_STATES = [
   { key: 'error-session', label: 'Eroare: sesiune expirată' },
   { key: 'error-server', label: 'Eroare: server' },
   { key: 'slow', label: 'CMS blocat' },
-  { key: 'slow-server', label: 'Server lent' },
   { key: 'results', label: 'Căutare' },
   { key: 'results-empty', label: 'Căutare fără rezultate' },
   { key: 'filtered', label: 'Filtre active' },
   { key: 'filtered-empty', label: 'Filtre fără rezultate' },
-  { key: 'busy', label: 'Schimbare de tab' },
   { key: 'next-page', label: 'Pagina următoare' },
   { key: 'next-page-error', label: 'Pagina următoare eșuează' },
   { key: 'gate', label: 'Urmărite, deconectat' },
@@ -33,7 +32,6 @@ export const DEMO_STATES = [
   { key: 'mine-finished', label: 'Ale mele, toate încheiate' },
   { key: 'live-tab', label: 'Tab Live' },
   { key: 'completed', label: 'Rezultate · listă' },
-  { key: 'actions', label: 'Acțiune fixă' },
   { key: 'crash', label: 'Eroare de randare' },
 ] as const;
 

@@ -30,13 +30,14 @@ import { SHELL_EDGE_PAD } from '@/components/nav/shell';
  *   toolbar (search pill + chip rail) floats over its top; the list is a bottom sheet with three
  *   rests: hidden · half (45%) · full (up to the toolbar). Panning the map hides it and a floating
  *   «Vezi lista (N)» brings it back; a selected pin's card replaces it.
- * - ≥768 — the toolbar is a band under the top bar; below it the list column and the map side by
- *   side, each its own scroll. 768–1279: a 360px column of single cards. ≥1280: the list takes
- *   7/12 and its cards auto-fill (2 columns at 1280–1440, more on wider screens — never wider
- *   cards), the map the rest, to the right edge of the window (maps take all the width).
+ * - ≥768 — the toolbar is a band under the top bar; below it the map and the list side by side,
+ *   each its own scroll (owner rule 7, ROADMAP §4b refinement 2026-10-06 — imobiliare.ro): the
+ *   map on the LEFT, about half the width, from the window's left edge (maps take all the width);
+ *   the list on the right, ONE horizontal card per row (T2List). The list stays first in the DOM
+ *   (keyboard: «Sari la hartă»); only the grid places the map first.
  *
- * The template is full-bleed (it breaks out of the shell's 1744px column) but its left edge lines
- * up with the shell column, so the list starts under the logo at every width.
+ * The template is full-bleed (it breaks out of the shell's 1744px column); the toolbar's left edge
+ * lines up with the shell column, so it starts under the logo at every width.
  *
  * First paint: everything a phone needs at rest is CSS (sheet rests at 45% / below the toolbar,
  * the map controls and attribution placed by --t2-top / --t2-bottom), so the server render is
@@ -111,7 +112,7 @@ export type T2LayoutProps = {
   announcement?: string;
   /** The selected item's card (T2MapCard), floating at the bottom of the map. Hides the phone sheet. */
   detail?: ReactNode;
-  /** A panel over the list column (filters): a sheet on a phone. */
+  /** The filters surface: a sheet on a phone, a dialog from 768 (never a column over the list). */
   panel?: T2PanelProps | null;
   /** Phone sheet rest; ignored from 768. */
   sheetSnap: T2SheetSnap;
@@ -257,8 +258,6 @@ export function T2Layout({
   /** Phone sheet hidden — the look (CSS, overridden from 768) and, once the width is known, inert. */
   const sheetHidden = snap === 'hidden';
   const fullBar = snap === 'full' && !hasDetail;
-  /** The docked panel covers the list column: the list under it leaves the tab order and the tree. */
-  const covered = hydrated && split && !!panel?.open;
 
   const frame = split
     ? { split, top: 0, bottom: hasDetail ? size.detail + 16 : 0 }
@@ -293,8 +292,8 @@ export function T2Layout({
           '[--t2-top:calc(var(--t2-toolbar)+var(--spacing)*2)] md:[--t2-top:0px]',
           bottomVar,
           'relative isolate mx-[calc(50%-50vw)] w-screen overflow-clip bg-page',
-          'md:grid md:grid-cols-[--spacing(90)_minmax(0,1fr)] md:grid-rows-[auto_minmax(0,1fr)]',
-          'xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]',
+          // Map | list, about half each (rule 7); the list never narrower than a horizontal card needs.
+          'md:grid md:grid-cols-[minmax(0,1fr)_minmax(--spacing(96),1fr)] md:grid-rows-[auto_minmax(0,1fr)]',
           className,
         )}
       >
@@ -333,8 +332,8 @@ export function T2Layout({
             snap === 'full' ? 'h-[calc(100%-var(--t2-toolbar))] rounded-none shadow-none' : 'h-[45%] rounded-t-card shadow-e2',
             measured && !dragging && 'transition-[height,translate,border-radius] duration-(--duration-slow) ease-slow',
             sheetHidden && 'translate-y-[calc(100%+var(--spacing)*4)]',
-            'md:relative md:inset-auto md:z-auto md:col-start-1 md:row-start-2 md:h-auto md:translate-y-0 md:rounded-none md:bg-page md:shadow-none md:transition-none',
-            'md:border-r md:border-hairline',
+            'md:relative md:inset-auto md:z-auto md:col-start-2 md:row-start-2 md:h-auto md:translate-y-0 md:rounded-none md:bg-page md:shadow-none md:transition-none',
+            'md:border-l md:border-hairline',
             'outline-none',
           )}
         >
@@ -358,12 +357,10 @@ export function T2Layout({
               <span aria-hidden className="h-1 w-9 rounded-full bg-handle" />
             </button>
             <div
-              inert={covered}
               className={cn(
-                'border-b px-4 pb-2 md:pt-4 md:pr-6',
+                'border-b px-4 pb-2 md:px-6 md:pt-4 xl:px-8',
                 'transition-[border-color] duration-(--duration-fast) ease-fast',
                 scrolled ? 'border-hairline' : 'border-transparent',
-                ALIGN_LEFT,
               )}
             >
               {/* The row keeps its height without a header (empty / error): states start on its line. */}
@@ -373,14 +370,14 @@ export function T2Layout({
           <div
             ref={scrollRef}
             data-t2-scroll
-            inert={covered}
             aria-busy={busy || undefined}
-            className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-1 pb-6 md:pr-6', ALIGN_LEFT)}
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-1 pb-6 md:px-6 xl:px-8"
           >
             <div ref={sentinelRef} aria-hidden className="h-px shrink-0" />
             {list}
           </div>
-          {/* CSS, not `split`, decides where it shows: the server render (breakpoint unknown) is right. */}
+          {/* From 768 the filters dialog (T2Panel docked = the kit Dialog, modal, in the top layer).
+              CSS, not `split`, decides where it shows: the server render (breakpoint unknown) is right. */}
           {panel?.open ? (
             <div className="hidden md:contents">
               <T2Panel {...panel} docked />
@@ -394,7 +391,7 @@ export function T2Layout({
           tabIndex={-1}
           // Fully under the phone sheet at its full rest: out of the tab order (as the hidden sheet is).
           inert={phone && fullBar}
-          className="absolute inset-0 outline-none md:relative md:inset-auto md:col-start-2 md:row-start-2"
+          className="absolute inset-0 outline-none md:relative md:inset-auto md:col-start-1 md:row-start-2"
         >
           {!(phone && sheetHidden) ? (
             <a
@@ -444,7 +441,7 @@ export function T2Layout({
         </div>
 
         {/* The modal phone Sheet only once the width is known to be a phone: mounted during hydration
-            at 768+, its showModal() would take focus from the docked panel and drop it on <body>. */}
+            at 768+, its showModal() would race the dialog's and drop focus on <body>. */}
         {phone && panel ? <T2Panel {...panel} /> : null}
       </div>
       </T2LayoutBridgeContext.Provider>

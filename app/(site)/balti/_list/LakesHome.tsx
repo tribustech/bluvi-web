@@ -6,8 +6,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Dialog } from '@/components/surfaces/Dialog';
-import { SidePanel } from '@/components/surfaces/SidePanel';
-import { pickSurface } from '@/components/surfaces/rule';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { ListEmpty, ListError } from '@/components/templates/T1';
 import { T2_FLOATING_BUTTON } from '@/components/templates/T2';
@@ -27,6 +25,7 @@ import {
   type LakeFilterSection,
   type LakeFilterValues,
   type LakeHomeSection,
+  type LakeHomeSectionLake,
   type LakesCommittedSearch,
 } from '@/core/lakes';
 import { createBrowserTransport } from '@/lib/client/transport';
@@ -44,6 +43,9 @@ import { readErrorDescription, useFocusAfterRetry } from './errors';
 import { HomeHeader } from './HomeHeader';
 import { HOME_LIMIT, HOME_PARAMS } from './homeParams';
 import { HomeRow, HomeSkeleton, NearbyPlaceholder, NearbySlotSkeleton, SlotRowSkeleton } from './HomeRow';
+import { homeCategories } from './categories';
+import { distanceLabel } from './distance';
+import { CategoryBar, HomeGrid, HomeGridSkeleton, RecentStrip } from './HomeGrid';
 import { markAutoDialogShown, requestUserPosition, useLakesLocation, useLocationDialog, watchAutoDialog } from './location';
 import { LocationDialog } from './LocationDialog';
 import { PhoneSheet } from './PhoneSheet';
@@ -160,9 +162,27 @@ export function LakesHome() {
     return routes.lakesMap();
   };
 
+  /* -------------------------------------------------------------- categories (owner rule 5) */
+  // The icon row over the grid: picked in place, never a navigation. «Toate» on a phone keeps
+  // fish's rails; any other category (and «Toate» from 768) is one dense grid.
+  const [categoryKey, setCategoryKey] = useState('all');
+  const categories = homeCategories(sections, seeAllHref);
+  const category = categories.find((c) => c.key === categoryKey) ?? categories[0] ?? null;
+  const picked = category && category.key !== 'all' ? category : null;
+  const nearbyKm = new Map(
+    (sections.find((s) => s.key === 'nearby')?.lakes ?? []).map((l) => [l.documentId, (l as { distanceKm?: number }).distanceKm]),
+  );
+  const distanceOf = (lake: LakeHomeSectionLake) => {
+    const km = nearbyKm.get(lake.documentId);
+    return km == null ? null : distanceLabel(km);
+  };
+
   /* -------------------------------------------------------------- body */
-  const recentPending = ids.length > 0 && recent.isPending;
   const recentFailed = ids.length > 0 && recent.isError && !recent.data;
+  // Secondary reads that failed are hidden, then retried quietly (no card, no focus move).
+  useQuietRetry(nearbyFailed, home.refetch);
+  useQuietRetry(recentFailed, recent.refetch);
+  const recentPending = ids.length > 0 && recent.isPending;
   const loading = !homeData && home.isPending;
   const rowsRef = useRef<HTMLDivElement>(null);
   const armRetryFocus = useFocusAfterRetry(Boolean(homeData) && !loading, () => rowsRef.current?.querySelector<HTMLElement>('h2') ?? null);
@@ -172,7 +192,17 @@ export function LakesHome() {
   };
   let body: ReactNode;
   if (loading) {
-    body = <HomeSkeleton nearbySlot={location.state === 'granted' ? 'row' : 'placeholder'} />;
+    body = (
+      <>
+        <div className="md:hidden">
+          <HomeSkeleton nearbySlot={location.state === 'granted' ? 'row' : 'placeholder'} />
+        </div>
+        <div aria-hidden className="flex flex-col gap-9 max-md:hidden">
+          {location.state === 'granted' ? null : <NearbySlotSkeleton />}
+          <HomeGridSkeleton />
+        </div>
+      </>
+    );
   } else if (home.isError && !homeData && totalLakes === 0 && !recentPending) {
     // fish ErrorScreen (c25): the page's one message and a retry. fish checks «no sections», and its
     // never-asked location placeholder counts as one — a failed read then shows that card alone,
@@ -191,18 +221,10 @@ export function LakesHome() {
     );
   } else {
     // The nearby slot when no section fills it: reserved while the permission is read or the
-    // located read runs, an inline error when that read failed (the rows stay).
+    // located read runs. A failed located read hides the slot (owner rule 4, ROADMAP §4b: when we
+    // don't know, we don't show) — the rows stay, and a quiet retry runs in the background.
     const nearbySlot: ReactNode = sections.some((s) => s.key === 'nearby') ? null : !location.known ? (
       <NearbySlotSkeleton key="nearby-slot" />
-    ) : nearbyFailed ? (
-      <InlineError
-        key="nearby-slot"
-        title="Nu am putut încărca bălțile din zona ta"
-        error={home.error}
-        attempt={home.errorUpdateCount}
-        onRetry={() => void home.refetch()}
-        retrying={home.isFetching}
-      />
     ) : nearbyPending ? (
       <SlotRowSkeleton key="nearby-slot" />
     ) : null;
@@ -221,19 +243,9 @@ export function LakesHome() {
       ) : null;
 
     const blocks: ReactNode[] = [];
+    // A failed /lakes/by-ids read hides «Vizualizate recent» (rule 4; the rows below stay, a quiet
+    // retry runs in the background).
     if (recentPending) blocks.push(<SlotRowSkeleton key="recent-slot" compact />);
-    // A failed /lakes/by-ids read is said in its own slot, with its retry (the rows below stay).
-    else if (recentFailed)
-      blocks.push(
-        <InlineError
-          key="recent-slot"
-          title="Nu am putut încărca bălțile vizualizate recent"
-          error={recent.error}
-          attempt={recent.errorUpdateCount}
-          onRetry={() => void recent.refetch()}
-          retrying={recent.isFetching}
-        />,
-      );
     let nearbyPlaced = false;
     const placeNearby = () => {
       if (nearbyPlaced) return;
@@ -241,16 +253,51 @@ export function LakesHome() {
       if (nearbySlot) blocks.push(nearbySlot);
       if (homeError) blocks.push(homeError);
     };
-    sections.forEach((section, i) => {
-      if (section.key !== 'recent_viewed') placeNearby();
-      blocks.push(renderSection(section, i + 1));
-    });
-    placeNearby();
+    if (picked) {
+      // A picked category: its grid alone, at every width.
+      blocks.length = 0;
+      blocks.push(<HomeGrid key={`grid-${picked.key}`} category={picked} distanceOf={distanceOf} />);
+    } else {
+      sections.forEach((section, i) => {
+        if (section.key !== 'recent_viewed') placeNearby();
+        if (section.key === 'recent_viewed') {
+          // Phone: fish's compact rail. From 768: a compact strip (rule 5, no near-empty rail).
+          blocks.push(
+            <div key="recent-phone" className="md:hidden">
+              {renderSection(section, i + 1)}
+            </div>,
+            <RecentStrip key="recent-wide" lakes={section.lakes} className="max-md:hidden" />,
+          );
+        } else if (section.key === 'nearby') {
+          // One of the two curated rails from 768 — only when it fills a row; a short nearby set
+          // is in the grid (with its distances) and behind «Aproape de tine».
+          const short = !section.nearbyPermissionPlaceholderMode && section.lakes.length < 4;
+          blocks.push(
+            short ? (
+              <div key="nearby" className="md:hidden">
+                {renderSection(section, i + 1)}
+              </div>
+            ) : (
+              renderSection(section, i + 1)
+            ),
+          );
+        } else {
+          // The CMS rows are fish's rails on a phone; from 768 their lakes are the grid below.
+          blocks.push(
+            <div key={section.key} className="md:hidden">
+              {renderSection(section, i + 1)}
+            </div>,
+          );
+        }
+      });
+      placeNearby();
+      if (category) blocks.push(<HomeGrid key="grid-all" category={category} distanceOf={distanceOf} className="max-md:hidden" />);
+    }
     body = (
       // `@container`: the rails size their tracks from this column (HorizontalRail RAIL_GRID, 100cqw).
       <div ref={rowsRef} className="@container flex flex-col gap-7 xl:gap-9">
         {blocks}
-        {!sections.length && !homeError && !recentPending && !recentFailed && !nearbySlot ? (
+        {!sections.length && !homeError && !recentPending && !nearbySlot ? (
           <ListEmpty title="Momentan nu este disponibilă nicio baltă." />
         ) : null}
       </div>
@@ -290,25 +337,14 @@ export function LakesHome() {
   }
 
   /* -------------------------------------------------------------- filter surface */
-  // The kit's surface rule (Fundații §07): a sheet on a phone, a dialog on a tablet, from 1280 the
-  // side panel — docked as T1 ListPage docks its aside: a sticky column beside the page, which
-  // gives up its width while it is open, so the rails reflow to fewer tracks and nothing sits under
-  // the panel. Not modal: the rows stay usable beside it.
-  const surface = pickSurface('context', bp);
-  const surfaceRef = useRef<HTMLDivElement>(null);
-  const returnTo = useRef<HTMLElement | null>(null);
+  // Owner rule 2 (ROADMAP §4b): the filters open from the horizontal bar (the header's «Filtre» and
+  // its quick chips) in a Sheet on a phone and a Dialog from 768 — never a column beside the rows.
+  const surface = bp === 'mobile' ? 'sheet' : 'dialog';
   const filtersOpen = panel !== null;
-  // The side panel is not modal (no focus trap of its own): focus goes in on open and back to
-  // «Filtre» on close. The dialog and the sheet do both themselves.
-  useEffect(() => {
-    if (surface !== 'panel') return;
-    if (filtersOpen) {
-      const id = requestAnimationFrame(() => surfaceRef.current?.querySelector<HTMLElement>('aside button')?.focus());
-      return () => cancelAnimationFrame(id);
-    }
-    returnTo.current?.focus();
-    returnTo.current = null;
-  }, [filtersOpen, surface]);
+  const openPanel = (section: LakeFilterSection) => {
+    setDraft(EMPTY_LAKE_FILTERS);
+    setPanel(section);
+  };
 
   const filterSection = panel ?? 'all';
   const filterBody = (gap: 'gap-5' | 'gap-6' = 'gap-6') => (
@@ -328,83 +364,36 @@ export function LakesHome() {
     />
   );
 
-  // The docked panel stays mounted while it closes (its column animates to 0), then unmounts.
-  const [panelMounted, setPanelMounted] = useState(false);
-  if (surface === 'panel' && filtersOpen && !panelMounted) setPanelMounted(true);
-  if (surface !== 'panel' && panelMounted) setPanelMounted(false);
-
   return (
     <>
-      {/* The toolbar spans the page above the rows AND the docked panel: opening the panel never
-          moves «Filtre» (which also closes it) from under the pointer. */}
       <HomeHeader
         searchRef={searchPillRef}
         onSearch={() => setSearchOpen(true)}
-        filtersExpanded={filtersOpen}
+        filtersExpanded={panel === 'all'}
         showMap={totalLakes > 0}
-        onFilters={() => {
-          // From 1280 the panel is docked, not modal: «Filtre» stays on screen and says
-          // aria-expanded, so a second press closes it (the draft is not wiped under the user).
-          if (panel !== null) return setPanel(null);
-          returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-          setDraft(EMPTY_LAKE_FILTERS);
-          setPanel('all');
-        }}
+        onFilters={() => openPanel('all')}
+        categories={<CategoryBar categories={categories} current={category?.key ?? 'all'} onPick={setCategoryKey} />}
       />
 
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] pt-4 md:pt-5">
-        <div className="col-start-1 row-start-1 min-w-0">
-          <p role="status" className="sr-only">
-            {statusLine}
-          </p>
-          <div className="pb-28 md:pb-12" aria-busy={loading || undefined}>
-            {body}
-          </div>
+      <div className="pt-4 md:pt-5">
+        <p role="status" className="sr-only">
+          {statusLine}
+        </p>
+        <div className="pb-28 md:pb-12" aria-busy={loading || undefined}>
+          {body}
         </div>
-
-        {/* The docked side panel (from 1280), as T1 ListPage docks its aside: a sticky column beside
-            the rows, which gives up its width while open, so the rails reflow to fewer tracks and
-            nothing sits under it. Not modal: the rows stay usable beside it. Its column springs open
-            and closed (Fundații §06: ease-medium, 300ms; opacity only, 120ms, under reduced motion)
-            and unmounts once closed. Sticky under the stuck toolbar (top-16 + its 73px + the 20px
-            gap the rows start with); its width is SidePanel's 420 + the 32px gutter. */}
-        {surface === 'panel' && panelMounted ? (
-          <div
-            ref={surfaceRef}
-            inert={!filtersOpen}
-            onTransitionEnd={(e) => {
-              if (e.target === e.currentTarget && !filtersOpen) setPanelMounted(false);
-            }}
-            className={cn(
-              'sticky top-39 z-sticky col-start-2 row-start-1 self-start overflow-hidden',
-              'transition-[width,opacity] duration-(--duration-medium) ease-medium motion-reduce:transition-opacity motion-reduce:duration-120',
-              filtersOpen ? 'w-113 opacity-100 starting:w-0 starting:opacity-0' : 'w-0 opacity-0',
-            )}
-          >
-            <div className="w-113 pb-4 pl-8">
-              <SidePanel
-                title={filterPanelTitle(filterSection)}
-                onClose={() => setPanel(null)}
-                footer={filterFooter}
-                className="max-h-[calc(100dvh-(--spacing(46)))] overflow-hidden rounded-card"
-              >
-                <div className="pt-2">{filterBody()}</div>
-              </SidePanel>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       {totalLakes > 0 ? (
-        // fish: the floating «Vezi bălțile pe hartă» (c23) — the all-lakes map, filters cleared. A
-        // phone pattern: from 768 «Hartă» is in the header.
+        // fish: the floating map button (c23) — the all-lakes map, filters cleared; «Arată harta»
+        // (owner rule 6). A phone pattern: from 768 it is the header's primary action.
         <div className="pointer-events-none fixed inset-x-0 bottom-[max(var(--spacing)*4,env(safe-area-inset-bottom))] z-sticky flex justify-center px-4 md:hidden">
           <Link
             href={routes.lakesMap()}
             className={buttonClass({ variant: 'primary', className: cn('pointer-events-auto gap-2 px-5.5', T2_FLOATING_BUTTON) })}
           >
             <MapIcon aria-hidden className="size-5 stroke-2" />
-            Vezi bălțile pe hartă
+            Arată harta
           </Link>
         </div>
       ) : null}
@@ -420,8 +409,8 @@ export function LakesHome() {
         onLocationBlocked={locationDialog.onLocationBlocked}
       />
 
-      {/* Below 1280, T1 FiltersSurface's surfaces with its exact metrics (the dialog's scrolling body
-          over the fixed footer, gap-5; the sheet's gap-6), plus what it cannot take yet: the live
+      {/* T1 FiltersSurface's surfaces with its exact metrics (the dialog's scrolling body over the
+          fixed footer, gap-5; the sheet's gap-6), plus what it cannot take yet: the live
           «Aplică · N bălți» footer with «Șterge», and the phone sheet's «Închide» X (PhoneSheet).
           TODO(kit): a `footer` slot on T1 FiltersSurface; then this renders FiltersSurface. */}
       {surface === 'dialog' ? (
@@ -444,6 +433,21 @@ export function LakesHome() {
       <LocationDialog mode={locationDialog.mode} onClose={locationDialog.close} onRetry={locationDialog.onRetry} />
     </>
   );
+}
+
+const QUIET_RETRY_MS = 30_000;
+
+/** While `failed`, refetch every 30 s without a word on screen (a hidden secondary block). */
+function useQuietRetry(failed: boolean, refetch: () => unknown) {
+  const ref = useRef(refetch);
+  useEffect(() => {
+    ref.current = refetch;
+  });
+  useEffect(() => {
+    if (!failed) return;
+    const id = window.setInterval(() => void ref.current(), QUIET_RETRY_MS);
+    return () => window.clearInterval(id);
+  }, [failed]);
 }
 
 /** A slot's own failure, inline in the rows (the rest of the page stays): the kit error card. */

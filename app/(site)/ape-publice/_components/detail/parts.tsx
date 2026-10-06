@@ -36,6 +36,8 @@ export type QuickAction = {
   badge?: number;
   /** What the badge counts, for screen readers («2 partide active acum»): read after the label. */
   badgeLabel?: (n: number) => string;
+  /** From 1024 the summary card carries it (Direcții, the map): no tile there. */
+  belowSummary?: boolean;
 };
 
 const TILE =
@@ -81,7 +83,7 @@ export function QuickActions({ actions, title = 'Acțiuni rapide', className }: 
               </>
             );
             return (
-              <li key={a.key} className="flex justify-center">
+              <li key={a.key} className={cn('flex justify-center', a.belowSummary && 'min-[1024px]:hidden')}>
                 {a.href && a.external ? (
                   <a href={a.href} target="_blank" rel="noopener noreferrer" className={TILE} data-action={a.key}>
                     {tile}

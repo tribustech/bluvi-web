@@ -7,7 +7,7 @@ import { LIST_GUTTER, ListSummary } from './ListBody';
 import { ListHeader } from './ListHeader';
 import { ListPage } from './ListPage';
 import { ListSkeleton } from './ListStates';
-import { filterButtonClass, PAGE_RULE, SEARCH_SHELL } from './toolbarStyles';
+import { filterButtonClass, filterChipClass, PAGE_RULE, SEARCH_SHELL } from './toolbarStyles';
 
 /*
  * A whole T1 page while the server reads — a route's Suspense fallback. Built from the real pieces
@@ -71,6 +71,29 @@ export function FilterColumnSkeleton({
   );
 }
 
+/**
+ * FilterBar's shape while the page reads: the real «Filtre» chip, the divider, then `chips` quick
+ * chips holding their real labels (inert), so nothing moves when the bar hydrates.
+ */
+export function FilterBarSkeleton({ chips }: { chips: string[] }) {
+  return (
+    <div aria-hidden className="flex min-w-0 items-center gap-2">
+      <span className={cn(filterChipClass(), 'pointer-events-none')}>
+        <AdjustmentsHorizontalIcon className="size-4.5" />
+        Filtre
+      </span>
+      {chips.length ? <span className="h-6 w-px shrink-0 bg-shimmer" /> : null}
+      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden md:flex-wrap">
+        {chips.map((c) => (
+          <span key={c} className={cn(filterChipClass(), 'pointer-events-none')}>
+            {c}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** The ListToolbar row, inert: the search shell with its placeholder and, below 1280, the filter button. */
 export function ToolbarSkeleton({ placeholder, filterButton = true }: { placeholder: string; filterButton?: boolean }) {
   return (
@@ -94,6 +117,7 @@ export function ListPageSkeleton({
   header,
   tabs = 3,
   filters,
+  filterBar,
   aside = 0,
   asideFrom = 'xl',
   searchPlaceholder,
@@ -112,8 +136,10 @@ export function ListPageSkeleton({
   header?: ReactNode;
   /** Tab count (0: the list has no tabs). */
   tabs?: number;
-  /** The docked column's skeleton (FilterColumnSkeleton); omit for lists without filters. */
+  /** The docked column's skeleton (FilterColumnSkeleton) — context columns only; list filters are `filterBar`. */
   filters?: ReactNode;
+  /** The horizontal filter bar's skeleton (FilterBarSkeleton), under the search row. */
+  filterBar?: ReactNode;
   /** Aside blocks held from the dock breakpoint (0: the page has no aside). */
   aside?: number;
   /** The page's ListPage `asideFrom`, so the skeleton docks the aside where the page will. */
@@ -139,7 +165,8 @@ export function ListPageSkeleton({
       asideInline={false}
       asideBusy={aside > 0}
     >
-      {searchPlaceholder ? <ToolbarSkeleton placeholder={searchPlaceholder} filterButton={Boolean(filters)} /> : null}
+      {searchPlaceholder ? <ToolbarSkeleton placeholder={searchPlaceholder} filterButton={Boolean(filters) && !filterBar} /> : null}
+      {filterBar}
       {hero}
       <div className={cn('flex flex-col', LIST_GUTTER)}>
         {summary ?? <ListSummary title={summaryTitle} loading />}

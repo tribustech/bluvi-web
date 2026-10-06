@@ -36,11 +36,10 @@ type Props = {
   onClose: () => void;
   /**
    * Angler search is per-user (users-permissions): signed out (false) it shows a sign-in hint
-   * instead; while the session is still resolving (null) it says nothing about anglers.
+   * instead; while the session is resolving or unknown (null) anglers are left out silently (owner
+   * rule 4: never say "we don't know"); the shell's QuietSessionRetry upgrades it once known.
    */
   signedIn: boolean | null;
-  /** The session could not be read (signedIn is null): anglers are left out, and the hint says so. */
-  sessionUnknown?: boolean;
   signInHref?: string;
   admin?: AdminLink[];
 };
@@ -68,7 +67,7 @@ function useDebounced<T>(value: T, ms: number): T {
  * search). WAI-ARIA combobox + listbox: focus stays in the field, ↑/↓ move the active option,
  * Enter opens it, Escape closes. Empty field: the sections and Administrare shortcuts.
  */
-export function CommandPalette({ open, onClose, signedIn, sessionUnknown = false, signInHref = '/intra', admin = [] }: Props) {
+export function CommandPalette({ open, onClose, signedIn, signInHref = '/intra', admin = [] }: Props) {
   const dialog = useModalDialog(open, onClose);
   const titleId = useId();
   const listId = useId();
@@ -251,9 +250,6 @@ export function CommandPalette({ open, onClose, signedIn, sessionUnknown = false
             </Link>{' '}
             ca să cauți și pescari.
           </p>
-        ) : null}
-        {searching && signedIn === null && sessionUnknown ? (
-          <p className="t-caption px-3 py-2 text-muted">Pescarii nu pot fi căutați acum: nu am putut verifica contul.</p>
         ) : null}
 
         {searching && pending && options.length === 0 && !groups.error ? <SkeletonRows /> : null}

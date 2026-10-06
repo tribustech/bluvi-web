@@ -35,8 +35,9 @@ const STRETCHED =
  */
 export async function ProfileCard({ className }: { className?: string }) {
   const session = await getHomeSession();
-  // Unknown (the session read failed): a neutral card, neither the greeting nor «Conectează-te» —
-  // the column under it shows the session error with its retry (HomeSessionError).
+  // Unknown (the session read failed): the card's neutral skeleton — neither the greeting nor
+  // «Conectează-te», and no «could not check» copy (owner rule 4, ROADMAP §4b). Its refresh is the
+  // silent retry (as HomeFocusRefresh): a re-render re-reads the session.
   if (session === 'unknown') return <NeutralProfileCard className={className} />;
   const viewer = session;
 
@@ -68,18 +69,18 @@ export async function ProfileCard({ className }: { className?: string }) {
   );
 }
 
-/** The card when the session could not be read: the logo and «Acasă», no link, no slogan prompt. */
+/**
+ * The card when the session could not be read: a slim row — the Bluvi mark, the page's h1 (for
+ * assistive tech only) and the real refresh, the retry. Owner rule 4 (ROADMAP §4b): nothing about
+ * the viewer and no «could not check» copy; and no skeleton either — nothing will resolve it until
+ * a refresh (or HomeFocusRefresh), so a bone that shimmers for good would read as stuck loading.
+ */
 function NeutralProfileCard({ className }: { className?: string }) {
   return (
-    <div className={cn(CARD, className)}>
-      <Image src={logo} alt="" width={64} height={64} className="size-16 shrink-0 rounded-avatar object-cover" priority />
-      <div className="flex min-w-0 flex-col gap-1">
-        <h1 className="t-title1 text-ink">Acasă</h1>
-        <p className="line-clamp-3 min-h-15 t-body text-muted">Nu am putut verifica contul tău.</p>
-      </div>
-      <div className="relative z-above">
-        <HomeRefresh />
-      </div>
+    <div className={cn('flex items-center justify-between gap-3 rounded-card bg-surface p-3 shadow-e0', className)}>
+      <Image src={logo} alt="" width={40} height={40} className="size-10 shrink-0 rounded-avatar object-cover" />
+      <h1 className="sr-only">Acasă</h1>
+      <HomeRefresh />
     </div>
   );
 }
@@ -88,8 +89,17 @@ function NeutralProfileCard({ className }: { className?: string }) {
 export function ProfileCardSkeleton({ className }: { className?: string }) {
   return (
     <div className={cn(CARD, className)} role="status" aria-label="Se încarcă profilul">
+      <ProfileCardBones />
+      <span aria-hidden className="size-12 rounded-control" />
+    </div>
+  );
+}
+
+/** The avatar and text bones (the card's first two grid columns), each on its text's line box. */
+function ProfileCardBones() {
+  return (
+    <>
       <span aria-hidden className="size-16 shrink-0 rounded-avatar bg-soft-fill animate-shimmer" />
-      {/* Each bone on the line box of the text it stands for: the card's own height. */}
       <span aria-hidden className="flex min-w-0 flex-col gap-1">
         <span className="t-title1">
           <span className="inline-block h-5 w-3/5 rounded-full bg-soft-fill align-middle animate-shimmer" />
@@ -103,8 +113,7 @@ export function ProfileCardSkeleton({ className }: { className?: string }) {
           </span>
         </span>
       </span>
-      <span aria-hidden className="size-12 rounded-control" />
-    </div>
+    </>
   );
 }
 
@@ -117,8 +126,8 @@ export function ProfileCardSkeleton({ className }: { className?: string }) {
 export async function HomeHeader() {
   const session = await getHomeSession();
   if (session === 'unknown') {
-    // The session read failed: a neutral title (never the signed-out welcome) and no caption — the
-    // ONE page-level session error (HomeSessionError) heads the main column below, with its retry.
+    // The session read failed: a neutral title (never the signed-out welcome), no caption and no
+    // alert (owner rule 4, ROADMAP §4b) — the refresh beside it is the retry.
     return <DashboardHeader className="max-md:hidden" title="Acasă" actions={<HomeRefresh />} />;
   }
   const viewer = session;

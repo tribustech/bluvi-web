@@ -12,11 +12,14 @@ import { FOCUS_RING, PILL_H } from './toolbarStyles';
 import { RING_SELECTED_CHECKED } from '../rings';
 
 /*
- * The filter UI of T1. One set of sections, two hosts:
- *  - ≥1280: FilterColumn, docked in ListPage's left column. Choices apply as they are made.
- *  - <1280: FiltersSurface — a Sheet on the phone, a Dialog on the tablet (Fundații §07 surface
- *    rule) — over a DRAFT, confirmed by «Arată N …» whose count previews the draft (fish
- *    CompetitionFiltersSheet: everything is draft-local until the button).
+ * The filter UI of T1. List pages filter from a horizontal bar (FilterBar.tsx — owner rule 2,
+ * ROADMAP §4b): quick chips over the results, and «Filtre» opening FiltersSurface with every
+ * section — a Sheet on the phone, a Dialog from 768 (Fundații §07 surface rule) — over a DRAFT,
+ * confirmed by «Arată N …» whose count previews the draft (fish CompetitionFiltersSheet: everything
+ * is draft-local until the button).
+ *
+ * FilterColumn stays for the CONTEXT columns of detail sub-pages (a lake's statistics, reviews,
+ * stands: the page's sections and its options), which are not list filters.
  */
 
 /** Desktop filter column: a surface card (same padding and header row as the aside) with «Resetează». */
@@ -64,8 +67,8 @@ function ResetButton({ onReset, disabled }: { onReset: () => void; disabled?: bo
 }
 
 /**
- * Below 1280: the same sections in a Sheet (phone) or Dialog (tablet). From 1280 it renders
- * nothing — the column is already on screen — so a caller can leave it mounted.
+ * Every filter section in a Sheet (phone) or a Dialog (from 768), opened by FilterBar's «Filtre».
+ * `desktop="none"` keeps the old behaviour for a page that still docks a FilterColumn from 1280.
  */
 export function FiltersSurface({
   open,
@@ -75,6 +78,7 @@ export function FiltersSurface({
   canReset,
   apply,
   initialSnap = 0.9,
+  desktop = 'dialog',
   children,
 }: {
   open: boolean;
@@ -89,10 +93,12 @@ export function FiltersSurface({
    * footer), 0.9 when they would scroll. TODO(kit): a measured 'fit' snap in surfaces/Sheet.
    */
   initialSnap?: 0.5 | 0.9;
+  /** From 1280: a Dialog (default), or nothing when the page docks a FilterColumn there. */
+  desktop?: 'dialog' | 'none';
   children: ReactNode;
 }) {
   const bp = useBreakpoint();
-  if (bp === 'desktop') return null;
+  if (bp === 'desktop' && desktop === 'none') return null;
 
   const applyButton = (
     <div className="min-w-0 flex-1">
@@ -108,7 +114,7 @@ export function FiltersSurface({
     </div>
   );
 
-  if (bp === 'tablet') {
+  if (bp !== 'mobile') {
     return (
       <Dialog open={open} onClose={onClose} title={title} closeButton actions={footer} className="max-h-[85dvh]">
         <div className="-mx-5 mt-2 flex max-h-[60dvh] flex-col gap-5 overflow-y-auto px-5 pb-1">{children}</div>

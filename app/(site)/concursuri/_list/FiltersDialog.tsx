@@ -47,8 +47,9 @@ import { RangeCalendar } from './RangeCalendar';
  * whose count previews the draft; Județ and Perioadă are sub-views of the same dialog (fish: a second
  * view inside the sheet, never a stacked one).
  *
- * `entry` lets the docked filter column (≥1280, live-apply) open a sub-view on its own: a county pick
- * or «Gata» then applies at once and closes, and the way back is the close.
+ * `entry` lets a quick chip of the filter bar (Județ, «Alege din calendar») open a sub-view on its
+ * own: a county pick or the range's «Aplică» then applies at once and closes, and the way back is
+ * the close.
  */
 
 export type FiltersView = 'filters' | 'county' | 'range';
@@ -114,7 +115,7 @@ export function FiltersDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  /** 'filters' from a filters button; 'county' / 'range' straight from the docked column. */
+  /** 'filters' from «Filtre»; 'county' / 'range' straight from a quick chip. */
   entry?: FiltersView;
   /** The committed filters and status — every opening starts its draft from them (c1). */
   values: CompetitionFilterValues;
@@ -345,7 +346,7 @@ export function PickerRow({
   active: boolean;
   leading?: ReactNode;
   onClick: () => void;
-  /** The docked column's row height (40, the list rows'). */
+  /** The popover rows' height (40, the list rows'). */
   compact?: boolean;
 }) {
   return (
@@ -395,7 +396,7 @@ function RangeView({
 }) {
   const lineRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
-    // After showModal() (an entry straight from the docked column), which focuses the close X.
+    // After showModal() (an entry straight from a quick chip), which focuses the close X.
     const id = requestAnimationFrame(() => lineRef.current?.focus());
     return () => cancelAnimationFrame(id);
   }, []);

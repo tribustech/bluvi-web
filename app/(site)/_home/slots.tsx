@@ -1,17 +1,27 @@
 import { cache, Suspense, type ReactNode } from 'react';
 import { HydrationBoundary } from '@tanstack/react-query';
-import { DashboardSection } from '@/components/templates/T5';
 import { currentPollQuery } from '@/core/competitions';
 import { suggestedAnglersHomeInfiniteQuery } from '@/core/social';
 import { ActivePartidaCard, ActivePartidaDock } from './ActivePartida';
-import { getHomeSession, getHomeViewer, loadActivePartida, loadActiveWeighing, loadMyBookingsCount, loadMyLiveCompetition, loadRaffle, prefetchTracked } from './data';
+import {
+  getHomeSession,
+  getHomeViewer,
+  loadActivePartida,
+  loadActiveWeighing,
+  loadMyBookingsCount,
+  loadMyLiveCompetition,
+  loadOrganizerDashboard,
+  loadOwnedLakes,
+  loadRaffle,
+  prefetchTracked,
+} from './data';
+import { LateLiveCompetition, LateOrganizerBanner, LateOwnedLakesCard } from './LateBlocks';
 import { MyLiveCompetition } from './MyLiveCompetition';
 import { OrganizerBanner, OrganizerBannerSkeleton } from './OrganizerBanner';
 import { OwnedLakesCard, OwnedLakesCardSkeleton } from './OwnedLakesCard';
 import { PartidaCta } from './PartidaCta';
 import { PollCard } from './PollCard';
 import { RaffleCard } from './RaffleCard';
-import { RetryRefresh } from './RetryRefresh';
 import { SuggestedAnglers } from './SuggestedAnglers';
 import { BookingsBadge } from './Widgets';
 
@@ -50,29 +60,41 @@ export async function OrganizerSlot({ layout }: { layout: 'mobile' | 'desktop' }
   if (!(await getHomeViewer())?.isOrganizer) return null;
   return (
     <Suspense fallback={<OrganizerBannerSkeleton />}>
-      <OrganizerBanner layout={layout} />
+      <OrganizerBannerLoaded layout={layout} />
     </Suspense>
   );
 }
 
+/**
+ * The banner once its stats are read. A 4xx (no stats): nothing — owner rule 4 and fish
+ * (OrganizerBanner.tsx:61 `if (!stats) return null`). No answer in time: the browser takes over
+ * (LateOrganizerBanner: the skeleton stays until it answers).
+ */
+export async function OrganizerBannerLoaded({ layout }: { layout: 'mobile' | 'desktop' }) {
+  const stats = await loadOrganizerDashboard();
+  if (stats === 'failed') return <LateOrganizerBanner layout={layout} />;
+  return stats ? <OrganizerBanner stats={stats} layout={layout} /> : null;
+}
+
 export async function OperatorSlot({ layout }: { layout: 'mobile' | 'desktop' }) {
   const viewer = await getHomeViewer();
-  // «Not an operator» and «could not check» never look the same: the operator's card place keeps a
-  // retry (the top bar's Administrare keeps its own, SiteTopBar onAdminRetry) — inside the card the
-  // block always is (T5 card, «Balta mea»), so the column keeps its rhythm of cards.
-  if (viewer?.ownedLakesFailed) {
-    return (
-      <DashboardSection variant="card" title="Balta mea">
-        <RetryRefresh message="Nu am putut încărca bălțile tale." />
-      </DashboardSection>
-    );
-  }
-  if (!viewer?.ownedLakes.length) return null;
+  // Owner rule 4 (ROADMAP §4b): when we don't know, we don't show. A failed owned-lakes read hides
+  // the card, as fish does (OwnedLakesCard.tsx:64 `if (!ownsLakes || !stats) return null`); the top
+  // bar's Administrare keeps its own retry (SiteTopBar onAdminRetry).
+  if (viewer?.ownedLakesFailed || !viewer?.ownedLakes.length) return null;
   return (
     <Suspense fallback={<OwnedLakesCardSkeleton layout={layout} />}>
-      <OwnedLakesCard layout={layout} />
+      <OwnedLakesLoaded layout={layout} />
     </Suspense>
   );
+}
+
+/** «Balta mea» once its stats are read: as OrganizerBannerLoaded (4xx: nothing; no answer: the browser reads). */
+export async function OwnedLakesLoaded({ layout }: { layout: 'mobile' | 'desktop' }) {
+  const owned = await loadOwnedLakes();
+  if (!owned) return null;
+  if (owned.stats === 'failed') return <LateOwnedLakesCard lakes={owned.lakes} layout={layout} />;
+  return owned.stats ? <OwnedLakesCard lakes={owned.lakes} stats={owned.stats} layout={layout} /> : null;
 }
 
 /**
@@ -82,11 +104,11 @@ export async function OperatorSlot({ layout }: { layout: 'mobile' | 'desktop' })
 export async function PartidaCtaSlot({ layout, className }: { layout: 'mobile' | 'desktop'; className?: string }) {
   const session = await getHomeSession();
   if (session === 'unknown') return null;
-  // Hidden only on a CONFIRMED live partidă (the dock owns that entry). A probe with no answer
-  // ('failed') keeps the hero, as fish shows it whenever no partidă is known to be live — the
-  // start flow itself finds a running one.
+  // Signed in, the hero is offered only on a CONFIRMED «no live partidă» (data.ts loadActivePartida,
+  // home.acasa.s-partida-failed). A probe with no answer ('failed') shows nothing — owner rule 4
+  // (ROADMAP §4b): someone fishing right now must not be offered a new partidă instead of their dock.
   const active = session ? await loadActivePartida() : null;
-  if (active !== null && active !== 'failed') return null;
+  if (active !== null) return null;
   return <PartidaCta signedIn={!!session} layout={layout} className={className} />;
 }
 
@@ -162,7 +184,11 @@ export async function MobileDockSlot() {
   const [partida, live] = await Promise.all([loadActivePartida(), loadMyLiveCompetition()]);
   if (partida && partida !== 'failed') return <ActivePartidaDock session={partida} />;
   // From 1280 the right column carries it (RightColumnLiveSlot).
-  if (live === 'failed') return <LiveCompetitionRetryDock />;
+  // Owner rule 4 (ROADMAP §4b): only a CONFIRMED live competition shows the sheet (fish
+  // DashboardSheet index -1 without one). A read with no answer ('failed') is read again in the
+  // browser (LateLiveCompetition): nothing until it confirms, then the dock — sticky at the column's
+  // end, so arriving late pushes nothing.
+  if (live === 'failed') return <LateLiveCompetition layout="dock" />;
   if (!live) return null;
   const weighings = await loadActiveWeighing(live.competition.documentId);
   return <MyLiveCompetition live={live} weighings={weighings} layout="dock" />;
@@ -173,40 +199,19 @@ export async function RightColumnLiveSlot() {
   if (!(await getHomeViewer())) return null;
   const [partida, live] = await Promise.all([loadActivePartida(), loadMyLiveCompetition()]);
   if (partida && partida !== 'failed') return <ActivePartidaCard session={partida} />;
-  if (live === 'failed') return <LiveCompetitionRetry />;
-  if (!live) return null;
+  // 'failed': RightColumnLateLiveSlot reads it in the browser, at the column's end.
+  if (!live || live === 'failed') return null;
   return <MyLiveCompetition live={live} weighings={await loadActiveWeighing(live.competition.documentId)} layout="card" />;
 }
 
 /**
- * «Am I in a live competition?» could not be answered (no answer in the budget, or a 5xx): never
- * folded into «no» — a participant would lose «concursul meu» without a word. The block keeps its
- * place as a T5 card with a retry (as OperatorSlot), in the right column and at the stacked
- * column's end.
+ * Desktop right column, LAST block: my live competition when the server read got no answer — the
+ * browser reads it (LateLiveCompetition) and the card lands at the end of the column, under the
+ * tools, so nothing already painted moves. Not when a live partidă took the top slot.
  */
-/**
- * Below 1280, the same retry in the dock's form (MyLiveCompetition layout="dock": sticky at the
- * bottom edge, the indigo sheet) — never a plain block at the end of a 4000px column, below the
- * fold, which is what a participant would lose. xl:hidden: from 1280 the right column has it.
- */
-function LiveCompetitionRetryDock() {
-  return (
-    <section
-      aria-labelledby="acasa-concursul-meu-retry"
-      className="sticky bottom-0 z-sticky -mx-4 -mb-8 flex flex-col gap-1.5 rounded-t-bento bg-accent px-5 pt-5 pb-[max(--spacing(5),env(safe-area-inset-bottom))] text-on-accent shadow-tabbar md:-mx-6 md:-mb-10 xl:hidden"
-    >
-      <h2 id="acasa-concursul-meu-retry" className="t-caption">
-        CONCURSUL MEU
-      </h2>
-      <RetryRefresh tone="accent" message="Nu am putut verifica dacă ești într-un concurs live." />
-    </section>
-  );
-}
-
-function LiveCompetitionRetry() {
-  return (
-    <DashboardSection variant="card" title="Concursul meu">
-      <RetryRefresh message="Nu am putut verifica dacă ești într-un concurs live." />
-    </DashboardSection>
-  );
+export async function RightColumnLateLiveSlot() {
+  if (!(await getHomeViewer())) return null;
+  const [partida, live] = await Promise.all([loadActivePartida(), loadMyLiveCompetition()]);
+  if (partida && partida !== 'failed') return null;
+  return live === 'failed' ? <LateLiveCompetition layout="card" /> : null;
 }

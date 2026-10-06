@@ -1,24 +1,29 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import type { getSponsors } from '@/core/competitions';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { cn } from '@/components/ui/cn';
-import { HorizontalRail, RailItem } from './HorizontalRail';
-import { RailSection } from './RailSection';
+import { DashboardSection } from '@/components/templates/T5';
 import { homeLinks } from './links';
 import { homeSponsorsQuery } from './queries';
+import { SPONSOR_CHIP, SPONSOR_STRIP } from './sponsorStrip';
 
 type Sponsor = NonNullable<Awaited<ReturnType<typeof getSponsors>>>['data'][number];
 
 /**
- * fish (tabs)/index.tsx «Sponsori»: shown only when there is at least one; fish's 245×150 logo tiles
- * as the 1.6:1 frame (8:5) on the rails' 224 slot and track grid (HorizontalRail — the same rule as
- * every rail of the column). A tap opens the sponsor (fish also logs `sponsor_dashboard`: GA4 lands
- * in M8). Rendered inside a <Suspense> whose fallback is SponsorsView from the server's data.
+ * fish (tabs)/index.tsx «Sponsori»: shown only when there is at least one; a tap opens the sponsor
+ * (fish also logs `sponsor_dashboard`: GA4 lands in M8). Rendered inside a <Suspense> whose fallback
+ * is SponsorsView from the server's data.
+ *
+ * Web difference: fish's 245×150 tiles made a third rail of big cards here. The web shows a compact
+ * logo strip — small chips of one fixed size, every logo the same way (contained on the surface) —
+ * owner rule 5 (ROADMAP §4b: at most two rails per page, no sparse carousels). Sponsori has no list
+ * page, so the header has no «Vezi toate» and no arrows: below 768 the strip scrolls sideways
+ * (bleeding to the screen edge, as the rails); from 768 it wraps.
  */
 export function SponsorsSection() {
   const t = useMemo(() => createBrowserTransport(), []);
@@ -30,55 +35,38 @@ export function SponsorsSection() {
 export function SponsorsView({ sponsors }: { sponsors: Sponsor[] }) {
   if (sponsors.length === 0) return null;
   return (
-    <RailSection title="Sponsori">
-      <HorizontalRail label="Sponsori" width={224}>
+    <DashboardSection variant="plain" title="Sponsori">
+      {/* pb-4 is the chips' shadow room; -mb-3 gives it back (the column's own rhythm). */}
+      <ul aria-label="Sponsori" className={cn(SPONSOR_STRIP, '-mb-3')}>
         {sponsors.map((s) => (
-          <RailItem key={s.documentId} width={224}>
-            <SponsorTile sponsor={s} />
-          </RailItem>
+          <li key={s.documentId} className="shrink-0">
+            <SponsorChip sponsor={s} />
+          </li>
         ))}
-      </HorizontalRail>
-    </RailSection>
+      </ul>
+    </DashboardSection>
   );
 }
 
-/** Landscape artwork from 4:3 to 2:1 fills the 8:5 frame (a few px of crop on a banner is fine). */
-const FILL_MIN = 4 / 3;
-const FILL_MAX = 2;
-
 /**
- * One tile, the CardShell interaction (e2 lift on hover, .7 pressed), on the surface with the e0
- * hairline at every width. Landscape artwork (its ratio known once it loads) fills the frame edge
- * to edge. A square or tall logo sits centred with air around it (`contain`, p-6) on the same
- * white: most logos ship on their own opaque white, which then melts into the tile instead of
- * reading as a white card inside a tinted one.
+ * One chip, the CardShell interaction (e2 lift on hover, .7 pressed), on the surface with the e0
+ * hairline. Every logo is contained with the same inset — banner artwork and square marks alike —
+ * so no chip is a full-bleed slab beside white ones.
  */
-function SponsorTile({ sponsor: s }: { sponsor: Sponsor }) {
+function SponsorChip({ sponsor: s }: { sponsor: Sponsor }) {
   const src = s.image?.smallUrl ?? s.image?.url ?? null;
-  const [fills, setFills] = useState(false);
   return (
     <Link
       href={homeLinks.sponsor(s.documentId)}
       className={cn(
-        'relative flex aspect-8/5 w-full items-center justify-center overflow-hidden rounded-card bg-surface shadow-e0 transition-[box-shadow,opacity] duration-(--duration-fast) ease-fast hover:shadow-[var(--shadow-e2),var(--shadow-e0)] active:opacity-70'
+        'relative flex items-center justify-center overflow-hidden rounded-card bg-surface px-3 shadow-e0 transition-[box-shadow,opacity] duration-(--duration-fast) ease-fast hover:shadow-[var(--shadow-e2),var(--shadow-e0)] active:opacity-70',
+        SPONSOR_CHIP
       )}
     >
       {src ? (
-        <Image
-          src={src}
-          alt={s.name}
-          fill
-          sizes="(min-width: 768px) 304px, 224px"
-          onLoad={(e) => {
-            const img = e.currentTarget;
-            if (img.naturalHeight === 0) return;
-            const ratio = img.naturalWidth / img.naturalHeight;
-            setFills(ratio >= FILL_MIN && ratio <= FILL_MAX);
-          }}
-          className={cn(fills ? 'object-cover' : 'object-contain p-6')}
-        />
+        <Image src={src} alt={s.name} fill sizes="160px" className="object-contain p-2.5" />
       ) : (
-        <span className="p-3 text-center t-body-strong text-ink">{s.name}</span>
+        <span className="line-clamp-2 text-center t-caption text-ink">{s.name}</span>
       )}
     </Link>
   );

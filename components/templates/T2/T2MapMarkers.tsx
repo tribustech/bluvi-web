@@ -20,6 +20,7 @@ export function T2MapPin({
   selected = false,
   highlighted = false,
   onClick,
+  onHover,
 }: {
   /** The point id (`data-t2-pin`): focus returns here when the pin card closes. */
   id?: string;
@@ -27,14 +28,21 @@ export function T2MapPin({
   selected?: boolean;
   highlighted?: boolean;
   onClick?: () => void;
+  /** Pointer / focus on (true) and off (false): the page highlights the list card. */
+  onHover?: (on: boolean) => void;
 }) {
   return (
     <button
       type="button"
       data-t2-pin={id}
+      data-highlighted={highlighted || undefined}
       aria-label={label}
       aria-pressed={selected}
       onClick={onClick}
+      onMouseEnter={onHover ? () => onHover(true) : undefined}
+      onMouseLeave={onHover ? () => onHover(false) : undefined}
+      onFocus={onHover ? () => onHover(true) : undefined}
+      onBlur={onHover ? () => onHover(false) : undefined}
       className={cn(
         // 44×44 target, content at its bottom: the tip stays on the coordinate (anchor «bottom»).
         'group flex min-h-11 min-w-11 cursor-pointer flex-col items-center justify-end outline-none',
@@ -78,11 +86,14 @@ export function T2MapCluster({
   label,
   count,
   large,
+  highlighted = false,
   onClick,
 }: {
   label: string;
   count: number;
   large: boolean;
+  /** It holds the lake hovered in the list (owner rule 7, card ↔ marker): ringed, its count kept. */
+  highlighted?: boolean;
   onClick?: () => void;
 }) {
   return (
@@ -90,9 +101,11 @@ export function T2MapCluster({
       type="button"
       onClick={onClick}
       aria-label={label}
+      data-highlighted={highlighted || undefined}
       className={cn(
         'group flex cursor-pointer items-center justify-center rounded-full bg-accent-tint outline-none',
         'transition-transform duration-(--duration-fast) ease-select hover:scale-105',
+        highlighted && 'scale-110 ring-2 ring-accent-ink ring-offset-2 ring-offset-surface',
         large ? 'size-16' : 'size-14',
       )}
     >

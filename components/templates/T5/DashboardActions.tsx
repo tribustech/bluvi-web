@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { createContext, use, useEffect, useRef, useState, type ReactNode } from 'react';
+import { UNDER_BAR_TOP } from '@/components/nav/shell';
 import { cn } from '@/components/ui/cn';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { CountBadge, countLabel } from './CountBadge';
@@ -53,7 +54,7 @@ export interface DashboardActionsProps {
 
 /**
  * T5 sticky actions. Children are <DashboardAction>s. On a phone the shell's top bar hides on
- * scroll down (TopBar `data-concealed`); the pinned row then moves up to the top edge with it.
+ * scroll down; the pinned row then moves up to the top edge with it (shell UNDER_BAR_TOP).
  */
 export function DashboardActions({ label, layout = 'bar', title, caption, children, className }: DashboardActionsProps) {
   if (layout === 'list') return <ActionList label={label} title={title} caption={caption} className={className}>{children}</ActionList>;
@@ -124,11 +125,11 @@ function StickyBar({ label, className, children }: { label: string; className?: 
       aria-label={label}
       data-stuck={stuck || undefined}
       className={cn(
-        // Under the 56 / 64px top bar; at the top edge while the phone bar is hidden.
-        'group/bar sticky top-14 z-above md:top-16 [:root:has(header[data-concealed])_&]:top-0',
-        // Only `top` moves (with the top bar); the bleed is not animated — the row's padding takes
-        // it back in the same frame, so nothing slides sideways.
-        'transition-[top] duration-(--duration-medium) ease-medium',
+        // Under the 56 / 64px top bar; at the top edge while the phone bar is hidden. Only `top`
+        // moves (on the bar's own timing); the bleed is not animated — the row's padding takes it
+        // back in the same frame, so nothing slides sideways.
+        'group/bar sticky z-above',
+        UNDER_BAR_TOP,
         stuck && BLEED,
         className,
       )}

@@ -17,5 +17,9 @@ export default defineConfig({
     baseURL: BASE_URL,
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Owner rule 3 (the phone header stack never floats) where it used to fail: iOS Safari's engine.
+    { name: 'webkit-iphone', use: { ...devices['iPhone 13'] }, testMatch: /detail-airbnb\.spec\.ts$/, grep: /owner rule 3/ },
+  ],
 });

@@ -113,14 +113,18 @@ export function CompetitionRailCard({
 /** fish CompetitionRailCard `withHours`: «SÂM, 27 SEPT. · 07:00–15:00» for a one-day competition. */
 const withHours = (c: CompetitionCard) => (c.hoursLabel ? `${c.dateLabel} · ${c.hoursLabel}` : c.dateLabel);
 
-/** Live totals as one line — catches and weighed kilos (fish LiveFooter). */
+/**
+ * Live totals as one line — catches and weighed kilos (fish LiveFooter). Without results (the
+ * totals did not load) only the faces: fish's «Statisticile nu sunt disponibile.» is dropped by
+ * owner rule 4 (ROADMAP §4b — when we don't know, we don't show).
+ */
 function LiveFooter({ c }: { c: CompetitionCard }) {
   const results = c.results;
   if (!results?.hasCatches) {
     return (
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <FaceStack people={c.participantFaces.slice(0, 3).map((src, i) => ({ name: `Participant ${i + 1}`, src }))} size={24} />
-        <p className="line-clamp-2 min-w-0 t-caption text-muted">{results ? 'Încă nu sunt capturi' : 'Statistici indisponibile'}</p>
+        {results ? <p className="line-clamp-2 min-w-0 t-caption text-muted">Încă nu sunt capturi</p> : null}
       </div>
     );
   }

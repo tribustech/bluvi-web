@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { cn } from '@/components/ui/cn';
-import { listGridClass } from '@/components/templates/T1';
 import { useT2Frame } from './context';
 
 /*
@@ -62,16 +61,19 @@ export function T2ListHeader({
 }
 
 /**
- * The T1 card grid (listGridClass): one column on a phone and in the 360px tablet column; from 1280
- * the cards auto-fill (min 280px) — more columns as the list grows, never wider cards.
- * `stale`: refreshing after a pan — the cards fade (they are still the last answer, still usable).
+ * One card per row at every width (owner rule 7, imobiliare.ro): the list column holds horizontal
+ * cards, never a grid of vertical ones. `stale`: refreshing after a pan — the cards fade (they are
+ * still the last answer, still usable).
  */
+/** The list's one column of cards. */
+export const T2_LIST = 'flex flex-col gap-3';
+
 export function T2List({ children, label, stale = false }: { children: ReactNode; label?: string; stale?: boolean }) {
   return (
     <ul
       aria-label={label}
       aria-busy={stale || undefined}
-      className={cn(listGridClass('md'), 'transition-opacity duration-(--duration-fast) ease-fast', stale && 'opacity-60')}
+      className={cn(T2_LIST, 'transition-opacity duration-(--duration-fast) ease-fast', stale && 'opacity-60')}
     >
       {children}
     </ul>
@@ -81,11 +83,14 @@ export function T2List({ children, label, stale = false }: { children: ReactNode
 export function T2ListItem({
   id,
   selected = false,
+  highlighted = false,
   onHighlight,
   children,
 }: {
   id: string;
   selected?: boolean;
+  /** Its pin is hovered / focused on the map (T2Map `onPointHover`): the card lifts its outline. */
+  highlighted?: boolean;
   /** Called with the id on hover / focus and with null when it leaves (highlights the pin). */
   onHighlight?: (id: string | null) => void;
   children: ReactNode;
@@ -110,6 +115,7 @@ export function T2ListItem({
     <li
       ref={ref}
       data-t2-id={id}
+      data-highlighted={highlighted || undefined}
       onMouseEnter={() => onHighlight?.(id)}
       onMouseLeave={() => onHighlight?.(null)}
       onFocus={() => onHighlight?.(id)}
@@ -117,7 +123,7 @@ export function T2ListItem({
       // The card fills its grid cell, so cards in one row end together (content stays top-aligned).
       className={cn(
         'flex flex-col rounded-card *:flex-1',
-        selected && 'outline-2 outline-accent',
+        selected ? 'outline-2 outline-accent' : highlighted && 'outline-2 outline-accent-tint-3',
       )}
     >
       {children}
@@ -126,32 +132,31 @@ export function T2ListItem({
 }
 
 /**
- * Card skeletons while the first page loads, in the shape of the card they stand in for — LakeCard
- * (Fundații §07 card · baltă): the 132px photo band shimmering, then in the card's 12px padding and
- * 6px rhythm a t-heading line (title), a t-caption line (place · species) and, with `stat`, the
- * t-stat price line. Each bar sits in a line box of its text step, so the skeleton is the card's
- * height and nothing moves when the cards land (§5 CLS). Same grid as T2List.
- * Silent: T2Layout's live region says «Se încarcă rezultatele» once.
- * TODO(kit): LakeCardSkeleton in components/cards (this task may only touch T2).
+ * Card skeletons while the first page loads, in the shape of the horizontal list card (rule 7):
+ * the 4:3 photo on the left, then a t-heading line (title), with `stat` the t-stat price line, and
+ * two t-caption lines (place, facts). Silent: T2Layout's live region says «Se încarcă rezultatele».
  */
 export function T2ListSkeleton({ count = 4, stat = false }: { count?: number; stat?: boolean }) {
   return (
-    <ul aria-hidden className={listGridClass('md')}>
+    <ul aria-hidden className={T2_LIST}>
       {Array.from({ length: count }, (_, i) => (
-        <li key={i} className="flex flex-col overflow-hidden rounded-card bg-surface shadow-[var(--shadow-e1),var(--shadow-e0)]">
-          <span className="block h-33 shrink-0 animate-shimmer" />
-          <span className="flex flex-col gap-1.5 p-3">
+        <li key={i} className="flex gap-3 rounded-card bg-surface p-2.5 shadow-[var(--shadow-e1),var(--shadow-e0)] md:gap-4 md:p-3">
+          <span className="block aspect-4/3 w-30 shrink-0 animate-shimmer rounded-avatar sm:w-40 md:w-[42%] md:max-w-60 md:rounded-control" />
+          <span className="flex flex-1 flex-col gap-1.5 pt-1">
             <span className="block t-heading">
               <span className="inline-block h-4 w-[70%] rounded-full bg-soft-fill align-middle" />
             </span>
-            <span className="block t-caption">
-              <span className="inline-block h-3 w-1/2 rounded-full bg-soft-fill align-middle" />
-            </span>
             {stat ? (
-              <span className="block pt-0.5 t-stat">
+              <span className="block t-stat">
                 <span className="inline-block h-5 w-24 rounded-full bg-soft-fill align-middle" />
               </span>
             ) : null}
+            <span className="block t-caption">
+              <span className="inline-block h-3 w-1/2 rounded-full bg-soft-fill align-middle" />
+            </span>
+            <span className="block t-caption">
+              <span className="inline-block h-3 w-2/3 rounded-full bg-soft-fill align-middle" />
+            </span>
           </span>
         </li>
       ))}

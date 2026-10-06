@@ -18,7 +18,10 @@ import { IconButton } from './IconButton';
 import { PATHS, PROFILE_ITEM, SECTIONS, SIGN_IN_ITEM, type AdminLink, type NavItem } from './items';
 import { BAR } from './shell';
 
-/** in / out; pending = still resolving (no account row yet); unknown = the read failed (retry row). */
+/**
+ * in / out; pending = still resolving (no account row yet); unknown = the read failed — shown exactly
+ * like pending (owner rule 4: when we don't know, we don't show); the shell re-reads it quietly.
+ */
 export type MenuSession = 'in' | 'out' | 'pending' | 'unknown';
 
 type Props = {
@@ -26,16 +29,16 @@ type Props = {
   onClose: () => void;
   /**
    * in: the account group (Profil, Notificări, Setări, Ieși din cont); out: «Intră în cont» pinned
-   * at the bottom; pending: neither yet; unknown: a «Reîncearcă» row instead.
+   * at the bottom; pending and unknown: neither yet.
    */
   session: MenuSession;
   /** «Ieși din cont» (signed in). */
   onSignOut?: () => void;
   /** A sign-out is running: its row is busy. */
   signingOut?: boolean;
-  /** Unknown session: re-read it (the bar's retry). */
+  /** @deprecated Ignored: an unknown session shows no retry row. */
   onRetry?: () => void;
-  /** A retry is running. */
+  /** An Administrare retry (onAdminRetry) is running: its row is busy. */
   retrying?: boolean;
   /** Where «Intră» goes (returns to the current page). */
   signInHref?: string;
@@ -80,7 +83,6 @@ export function MobileMenu({
   session,
   onSignOut,
   signingOut = false,
-  onRetry,
   retrying = false,
   signInHref,
   active,
@@ -178,23 +180,6 @@ export function MobileMenu({
       >
         <ul className="flex flex-col gap-1">
           {SECTIONS.map(({ key, label, href, Icon }) => linkRow(key, href, label, Icon))}
-          {session === 'unknown' ? (
-            <li>
-              <button
-                type="button"
-                onClick={retrying ? undefined : onRetry}
-                aria-disabled={retrying || undefined}
-                aria-busy={retrying || undefined}
-                className={cn(ROW, 'text-ink hover:bg-soft-fill aria-disabled:cursor-progress aria-disabled:active:opacity-100')}
-              >
-                <ArrowPathIcon className={cn('size-6 shrink-0 text-ink-2', retrying && 'animate-spin')} aria-hidden />
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate">{retrying ? 'Se verifică sesiunea…' : 'Reîncearcă'}</span>
-                  <span className="t-caption truncate text-muted">Nu am putut verifica contul</span>
-                </span>
-              </button>
-            </li>
-          ) : null}
         </ul>
 
         {admin.length > 0 || onAdminRetry ? (

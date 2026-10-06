@@ -1,20 +1,23 @@
-import { ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { iconButtonClass } from '@/components/nav/IconButton';
-import { SEARCH_SHELL } from '@/components/templates/T1/toolbarStyles';
+import { FilterBar } from '@/components/templates/T1/FilterBar';
+import { filterChipClass, SEARCH_SHELL } from '@/components/templates/T1/toolbarStyles';
 import { cn } from '@/components/ui/cn';
 import { RING_SELECTED_EXPANDED } from '../rings';
 
 /*
- * T2 toolbar — fish components/map/MapChrome.tsx: back, a search (a button in the search shell on a
- * phone, an inline field from 768), «Filtre» (the T1 FilterButton at every width) and a chip rail.
- * On a phone it floats over the map (white controls with a shadow) and the back square leads it. From 768 the shell's breadcrumb carries the way back
- * (ROADMAP §4), so the back square is phone-only. 768–1279 it is a band of two rows: title + search
- * + «Filtre» + trailing, then the chip rail alone, so a filter turning on never re-wraps the rail.
- * From 1280 everything sits on one row that never wraps: the rail scrolls (right edge faded, as on a
- * phone) and the trailing action is its last item, so the band is 64px whatever is on. Controls are
- * the kit control height (48 below 1280, 40 from 1280 — Fundații §07); chips are 36, 40 from 1280.
+ * T2 toolbar — fish components/map/MapChrome.tsx, in the owner's map-view anatomy (rule 7,
+ * ROADMAP §4b, imobiliare.ro): the Bălți / Ape publice segmented switch, the search, then the
+ * filters. From 1280 ONE row: [switch][search, growing][the T1 FilterBar, its chips on one line that
+ * scrolls sideways if they outgrow it] — the map gains the row's height. 768–1279 two rows:
+ * [switch][search], then the T1 FilterBar — «Filtre» leading with a
+ * divider, the quick chips (T2FilterChip = the T1 chip primitive: 36px, disclosure chevron on the
+ * menu chips, the chosen value in place of the question) and «Resetează» at the end: one chip
+ * primitive and one bar anatomy for T1 and T2. On a phone the toolbar floats over the map: the back
+ * square, the search pill and the «Filtre» square, the chips scrolling sideways under them; the
+ * shell's breadcrumb carries the way back from 768 (ROADMAP §4), so the back square is phone-only.
  *
  * Disabled (first load, failed data) keeps every floating surface opaque at full elevation and only
  * dims what is on it (faint glyphs and text): a faded white control over the map shows the map
@@ -33,83 +36,94 @@ export const T2_SOLID_E0 = '[[data-solid]_&]:shadow-e0';
 export function T2Toolbar({
   title,
   leading,
+  switcher,
   search,
   filtersButton,
   filters,
   trailing,
   railTrailing = trailing,
+  onOpenFilters,
+  filterCount = 0,
+  filtersExpanded,
+  onReset,
+  canReset = false,
   disabled = false,
 }: {
   /**
    * The page's h1 («Hartă bălți»). Visually hidden on a phone, where the search pill is the visible
-   * heading (fish); from 768 a t-title1, the step every template's page title uses (T1 ListHeader).
+   * heading (fish), and wherever a `switcher` names the page; otherwise a t-title1 from 768.
    */
   title: string;
   /** Back to the section (T2BackLink). Phone only: from 768 the breadcrumb leads back. */
   leading?: ReactNode;
+  /**
+   * The Bălți / Ape publice segmented control (owner rule 7: the map's header mirrors
+   * imobiliare.ro's — the segmented switch first, then the search, then the filters). From 768.
+   */
+  switcher?: ReactNode;
   /** The search: T2SearchPill on a phone, an inline field (T1 ListSearch) from 768. */
   search: ReactNode;
   /**
-   * Right after the search, at every width: the T1 FilterButton (radius 10, the kit control height —
-   * 48, 40 from 1280). On a phone it is the icon square beside the search; from 1280 it leads the rail.
+   * Right after the search. With `onOpenFilters` it is the PHONE's «Filtre» square only (from 768
+   * the bar's own «Filtre» chip leads the chips, T1 FilterBar); without, it shows at every width.
    */
   filtersButton?: ReactNode;
-  /** T2FilterChip × n — a scrolling rail on a phone and from 1280, wraps 768–1279. */
+  /** T2FilterChip × n — the quick chips of the T1 FilterBar (one bar anatomy with T1). */
   filters?: ReactNode;
-  /** «Șterge filtre» from 768: right end of the first row 768–1279 (a kit Button at the row's height). */
+  /** Legacy: an action at the right end of the first row 768–1279 (pages without `onReset`). */
   trailing?: ReactNode;
-  /**
-   * The same action as the last item of the rail from 1280, in the chips' step and height
-   * (T2RailAction). Default: `trailing`.
-   */
+  /** Legacy: the same action as the last item of the chips from 1280. Default: `trailing`. */
   railTrailing?: ReactNode;
+  /** Opens every filter: the bar's leading «Filtre» chip from 768 (T1 FilterBar). */
+  onOpenFilters?: () => void;
+  /** Active filters (the «Filtre» badge). */
+  filterCount?: number;
+  filtersExpanded?: boolean;
+  /** «Resetează» at the end of the chips, once anything is chosen (T1 FilterBar). */
+  onReset?: () => void;
+  canReset?: boolean;
   /** Nothing to search or filter yet (first load) or the data failed: search, chips and trailing are inert. */
   disabled?: boolean;
 }) {
+  const barMode = Boolean(onOpenFilters);
   return (
-    <div className="flex flex-col gap-2 md:gap-3 xl:flex-row xl:items-center">
-      <div className="flex items-center gap-2.5 md:gap-3 xl:contents">
+    <div className="flex flex-col gap-2 md:gap-3 xl:flex-row xl:items-center xl:gap-4">
+      <div className="flex items-center gap-2.5 md:gap-3 xl:min-w-0 xl:flex-[1_1_26rem]">
         {leading ? <div className="flex shrink-0 md:hidden">{leading}</div> : null}
-        <h1 className="sr-only md:not-sr-only md:shrink-0 md:t-title1 md:whitespace-nowrap md:text-ink">{title}</h1>
+        <h1 className={cn('sr-only', !switcher && 'md:not-sr-only md:shrink-0 md:t-title1 md:whitespace-nowrap md:text-ink')}>{title}</h1>
+        {switcher ? <div className="hidden shrink-0 md:flex">{switcher}</div> : null}
         <div
           inert={disabled}
-          className={cn('min-w-0 flex-1 md:max-w-120 xl:w-64 xl:max-w-none xl:flex-none 2xl:w-80', disabled && DIMMED)}
+          className={cn('min-w-0 flex-1 md:max-w-120 xl:max-w-none', disabled && DIMMED)}
         >
           {search}
         </div>
         {filtersButton ? (
-          <div inert={disabled} className={cn('flex shrink-0', disabled && DIMMED)}>
+          <div inert={disabled} className={cn('flex shrink-0', barMode && 'md:hidden', disabled && DIMMED)}>
             {filtersButton}
           </div>
         ) : null}
-        {trailing ? (
-          <div inert={disabled} className="ml-auto hidden shrink-0 items-center gap-2 md:flex xl:hidden">
-            {trailing}
-          </div>
-        ) : null}
+
       </div>
-      {filters ? (
-        <div
-          role="group"
-          aria-label="Filtre"
-          inert={disabled}
-          className={cn(
-            // Phone: edge-to-edge rail; the padding inside the scroller keeps the chip shadows.
-            '-mx-4 flex gap-2 overflow-x-auto px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-            // fish MapChrome: the right edge fades to hint that more chips scroll in.
-            '[mask-image:linear-gradient(to_right,black_calc(100%-var(--spacing)*8),transparent)]',
-            // 768–1279 the chips wrap on their own row: every chip is reachable with a mouse.
-            'md:mx-0 md:min-w-0 md:flex-wrap md:overflow-visible md:px-0 md:py-0 md:[mask-image:none]',
-            // From 1280 one line that scrolls, faded at the right edge like the phone rail: a filter
-            // turning on never grows the band. The 4px inset keeps the focus rings and shadows; the
-            // right padding keeps the last item out of the fade when everything fits.
-            'xl:-m-1 xl:flex-1 xl:flex-nowrap xl:overflow-x-auto xl:p-1 xl:pr-8',
-            'xl:[mask-image:linear-gradient(to_right,black_calc(100%-var(--spacing)*8),transparent)]',
-            disabled && DIMMED,
-          )}
-        >
-          {filters}
-          {railTrailing ? <div className="hidden shrink-0 items-center xl:flex">{railTrailing}</div> : null}
+      {filters || barMode ? (
+        <div inert={disabled} className={cn('min-w-0 xl:flex-[0_1_auto]', disabled && DIMMED)}>
+          {/* The T1 FilterBar (owner: one chip primitive, one bar anatomy for T1 and T2): «Filtre»
+              leads with a divider (from 768 — the phone has the square above), the chips, and
+              «Resetează» at the end. A rail that scrolls on a phone, wrapping from 768. */}
+          <FilterBar
+            label="Filtre"
+            count={filterCount}
+            onOpenFilters={onOpenFilters}
+            expanded={filtersExpanded}
+            filtersClassName="max-md:hidden"
+            onReset={onReset}
+            canReset={canReset}
+            end={!barMode && railTrailing ? <div className="hidden md:flex">{railTrailing}</div> : undefined}
+            // From 1280 the chips stay on the search's line: one line, scrolling sideways if needed.
+            className="max-md:-mx-4 max-md:px-4 max-md:py-1 xl:[&>div]:flex-nowrap xl:[&>div]:overflow-x-auto"
+          >
+            {filters}
+          </FilterBar>
         </div>
       ) : railTrailing ? (
         <div inert={disabled} className="hidden shrink-0 items-center gap-2 xl:ml-auto xl:flex">
@@ -209,14 +223,17 @@ export function T2RailAction({ icon, children, onClick }: { icon?: ReactNode; ch
 }
 
 /**
- * A filter chip on the toolbar rail (fish components/FilterChip.tsx): «Regim», «Pești · 2»,
- * «Rezervări». Active = accent-ink fill (AA at t-label; the same «filter on» as T1 ActiveFilters).
- * `toggle` chips flip a value in place (aria-pressed); `menu` chips open the panel for their
- * section (aria-haspopup). Only for the rail — choices inside the filter panel are the kit choice
- * chips (T1 FilterSection / ChoiceChips, T2CheckChips).
+ * A quick filter chip of the T2 bar — the T1 chip primitive (filterChipClass: 36px pill, surface +
+ * hairline at rest, the selected tint + ring holding a choice), so T1 and T2 chips are one design:
+ * - `toggle` flips a value in place (aria-pressed), like T1 FilterChipToggle;
+ * - `menu` opens the panel on its section (aria-haspopup) with T1's disclosure chevron, and shows
+ *   the chosen value instead of the question («Crap +1», «Peste 4,5»), like T1 FilterChipButton.
+ * Over the phone's map it floats (e1 shadow). Only for the bar — choices inside the filter panel are
+ * the kit choice chips (T1 FilterSection / ChoiceChips, T2CheckChips).
  */
 export function T2FilterChip({
   label,
+  value,
   count = 0,
   active = false,
   icon,
@@ -229,10 +246,12 @@ export function T2FilterChip({
   className,
 }: {
   label: string;
-  /** Selected values: renders «Pești · 2». */
+  /** `menu`: the chosen value, shown instead of the label («Crap +1»). */
+  value?: string | null;
+  /** Selected values when the page has no value text: «Județe (2)». Prefer `value`. */
   count?: number;
   active?: boolean;
-  /** A 16px outline icon. */
+  /** A leading 18px outline icon. */
   icon?: ReactNode;
   kind: 'toggle' | 'menu';
   onClick: () => void;
@@ -246,8 +265,9 @@ export function T2FilterChip({
   describedBy?: string;
   className?: string;
 }) {
-  const text = count > 0 ? `${label} · ${count}` : label;
-  const name = disabled ? `${label}, ${disabledHint ?? 'indisponibil momentan'}` : undefined;
+  const shown = value || (count > 0 ? `${label} (${count})` : null);
+  const text = shown ?? label;
+  const name = disabled ? `${label}, ${disabledHint ?? 'indisponibil momentan'}` : value ? `${label}: ${value}` : undefined;
   return (
     <button
       type="button"
@@ -260,23 +280,22 @@ export function T2FilterChip({
       aria-haspopup={kind === 'menu' ? 'dialog' : undefined}
       aria-expanded={kind === 'menu' ? expanded : undefined}
       className={cn(
-        'flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3.5 t-label whitespace-nowrap xl:h-10',
-        'transition-[background-color,color,opacity] duration-(--duration-fast) ease-fast active:opacity-80',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-        '[&>svg]:size-4 [&>svg]:shrink-0',
-        disabled
-          ? 'cursor-not-allowed bg-surface text-faint shadow-e1 md:shadow-e0'
-          : active
-            ? 'bg-accent-ink text-on-accent shadow-e1 hover:brightness-110'
-            : 'bg-surface text-ink shadow-e1 hover:bg-soft-fill md:shadow-e0',
-        // The chip whose section is open in the panel.
-        kind === 'menu' && !disabled && T2_EXPANDED,
+        filterChipClass({ active: active && !disabled }),
+        'max-md:shadow-e1',
+        disabled && 'cursor-not-allowed text-faint',
         T2_SOLID_E0,
         className,
       )}
     >
-      {icon}
-      {text}
+      {icon ? (
+        <span aria-hidden className="flex items-center [&>svg]:size-4.5">
+          {icon}
+        </span>
+      ) : null}
+      <span className="max-w-48 truncate">{text}</span>
+      {kind === 'menu' ? (
+        <ChevronDownIcon aria-hidden className={cn('size-4 shrink-0 transition-transform duration-(--duration-fast) ease-fast', expanded && 'rotate-180')} />
+      ) : null}
     </button>
   );
 }

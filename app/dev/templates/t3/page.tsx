@@ -23,8 +23,8 @@ import { readViewerState, type DemoViewer } from './viewer';
 /*
  * /dev/templates/t3 — T3 «Detail with tabs» (components/templates/T3) rendered with REAL data from
  * the local CMS through core/:
- *  - `?screen=lake` (default): the lake page's first screen, fish lakes/[lakeId].tsx — photo hero,
- *    title block, sticky chip nav over one long scroll, sections; ≥1280 three columns.
+ *  - `?screen=lake` (default): the REAL /balti/[id] LakeScreen on the QA lake (./LakeScreen.tsx
+ *    only reshapes its read per state), so owner feedback here applies to production as is.
  *  - `?screen=competition`: the route-tabs variant, extracted from the competition page.
  * `?state=` forces each state (StateBar). Dev only: 404 in production builds, like /dev/kit.
  *
@@ -134,8 +134,8 @@ function back(screen: Screen, ground: HeaderChipGround = 'surface') {
 /** The skeleton of the screen asked for, shaped like its loaded page (header rows, columns, bars). */
 function Loading({ screen }: { screen: Screen }) {
   return screen === 'lake' ? (
-    // One photo is the common case (Chita): the bone takes the single strip's height. The left
-    // column is the section index (no card), the right one the booking + characteristics cards.
+    // The route's own skeleton shape (/balti/[id]/loading.tsx): the photo grid's one height, the
+    // header's share + CTA (the CTA leaves from 1024), the summary card right from 1024.
     <DetailSkeleton
       photo
       photoCount={1}
@@ -143,8 +143,8 @@ function Loading({ screen }: { screen: Screen }) {
       back={back('lake', 'photo')}
       heading="Baltă"
       label="Se încarcă balta"
-      columns={{ left: 'toc', aside: true, asideCards: 2 }}
-      header={{ eyebrow: true, titleAside: true, meta: 1, badges: 'badge', actions: true }}
+      columns={{ layout: 'summary', aside: true }}
+      header={{ eyebrow: true, titleAside: true, meta: 1, badges: 'badge', actions: 'share-cta' }}
     />
   ) : (
     <DetailSkeleton
@@ -226,5 +226,5 @@ async function Body({ screen, state, signIn, viewer }: { screen: Screen; state: 
   const data = await loadLakeScreen().catch(orError);
   if (data === 'dead') return sessionDead;
   if (!data) return pageError;
-  return <LakeScreen data={data} state={state} viewer={viewer} signIn={signIn} />;
+  return <LakeScreen data={data} state={state} />;
 }

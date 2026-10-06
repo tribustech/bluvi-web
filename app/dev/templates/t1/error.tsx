@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
-import { FilterColumnSkeleton, ListError, ListHeader, ListPage, ListTabs, type ListTab } from '@/components/templates/T1';
+import { ListError, ListHeader, ListPage, ListTabs, type ListTab } from '@/components/templates/T1';
 import { DEMO_PATH } from './StateSwitcher';
 
 type Place = 'notStarted' | 'started' | 'completed';
@@ -33,7 +33,6 @@ export default function T1Error({ error, retry }: { error: Error & { digest?: st
   return (
     <ListPage
       header={<ListHeader title="Competiții" below={<ListTabs label="Stare concursuri" tabs={TABS} active={active} />} />}
-      filters={<FilterColumnSkeleton switchRow sections={[5, 3]} />}
     >
       <ListError
         title="Pagina nu a putut fi afișată"

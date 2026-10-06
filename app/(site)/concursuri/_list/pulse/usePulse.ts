@@ -38,8 +38,9 @@ export type Pulse = {
   faces: string[];
   followedLiveCount: number;
   /**
-   * The followed-live count is a real answer: signed out (nothing to follow), or the read settled.
-   * Until then (or if it failed) the invite stays out — it would claim «you follow nothing live».
+   * The followed-live count is a real answer only signed in, once the read settled. Signed out we
+   * don't know what the visitor would follow (owner rule 4b-4): no invite, not even a sign-in one.
+   * Until the read settles (or if it failed) the invite stays out too.
    */
   followedLiveKnown: boolean;
   /** Per block: the hero reveals on its own; person + count reveal together (fish PulseBento). */
@@ -116,7 +117,7 @@ export function usePulse(t: Transport, enabled: boolean, isAuthenticated: boolea
     startingSoonCount: ready ? tile.startingSoonCount : 0,
     faces: ready ? tile.faces : [],
     followedLiveCount: followedLiveTotal,
-    followedLiveKnown: !isAuthenticated || followedLive.isSuccess,
+    followedLiveKnown: isAuthenticated && followedLive.isSuccess,
     loading: {
       // The hero is decided once: a wanted featured draw is waited for, so the local pick is never
       // painted and then swapped (a featured answer replaces it in fish; on the web it lands first).

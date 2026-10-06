@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { DashboardSection, LINK_ACTION, LINK_ACTION_TEXT } from '@/components/templates/T5';
+import { DashboardSection, LINK_ACTION } from '@/components/templates/T5';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { announce, prepareAnnouncer, restoreFocusTo } from './announce';
@@ -23,7 +23,7 @@ export function RailSection({
   className,
 }: {
   title: string;
-  /** «Vezi toate» target; no link when omitted (Sponsori). */
+  /** «Vezi toate» target; no link when omitted. */
   href?: string;
   linkLabel?: string;
   /** Before the title (the live dot). Decorative. */
@@ -58,13 +58,8 @@ export function RailSection({
           // the header cluster never grows after hydration.
           <span className="flex items-center gap-3">
             <RailArrows rail={rail} />
-            {link ?? (
-              // No «Vezi toate» (Sponsori): its width is held by an invisible twin, so every rail's
-              // arrows sit at the same x down the feed. Only where the arrows show (768+, a mouse).
-              <span aria-hidden className={cn('invisible -my-3 hidden min-h-11 shrink-0 items-center md:pointer-fine:inline-flex', LINK_ACTION_TEXT)}>
-                {linkLabel}
-              </span>
-            )}
+            {/* No link (none today): nothing holds its place — the arrows end on the column edge. */}
+            {link}
           </span>
         }
       >

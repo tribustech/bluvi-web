@@ -5,7 +5,8 @@ import { HydrateQueries } from '@/lib/client/hydration';
 import { absoluteUrl, routes } from '@/lib/routes';
 import { createServerTransport } from '@/lib/server/transport';
 import { HomeHeader } from './_list/HomeHeader';
-import { HomeSkeleton } from './_list/HomeRow';
+import { HomeSkeleton, NearbySlotSkeleton } from './_list/HomeRow';
+import { CategoryBarSkeleton, HomeGridSkeleton } from './_list/HomeGrid';
 import { GeoHintScript } from './_list/GeoHintScript';
 import { HOME_PARAMS } from './_list/homeParams';
 import { LakesHome } from './_list/LakesHome';
@@ -43,10 +44,16 @@ export default function LakesPage() {
       <Suspense
         fallback={
           <>
-            <HomeHeader />
+            <HomeHeader categories={<CategoryBarSkeleton />} />
             <p className="sr-only">Se încarcă bălțile</p>
             <div className="pt-4 pb-28 md:pt-5 md:pb-12">
-              <HomeSkeleton />
+              <div className="md:hidden">
+                <HomeSkeleton />
+              </div>
+              <div aria-hidden className="flex flex-col gap-9 max-md:hidden">
+                <NearbySlotSkeleton />
+                <HomeGridSkeleton />
+              </div>
             </div>
           </>
         }

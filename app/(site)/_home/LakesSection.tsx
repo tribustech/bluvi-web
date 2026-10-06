@@ -7,6 +7,7 @@ import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { HomeLakeCard, LAKE_CARD_HEIGHT } from './HomeLakeCard';
 import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem, useRailRead } from './HorizontalRail';
+import { HomeGrid, HomeGridSkeleton } from './HomeGrid';
 import { RailEmpty, RailSection, RailSkeleton } from './RailSection';
 import { homeLakesQuery } from './queries';
 
@@ -82,29 +83,46 @@ export function LakesView({
   return (
     <RailSection title={`Bălți${total ? ` (${total})` : ''}`} href={routes.lakes()}>
       {loading ? (
-        <RailSkeleton label="Se încarcă bălțile" width={200} heightClass={LAKE_CARD_HEIGHT} />
+        <>
+          <div className="xl:hidden">
+            <RailSkeleton label="Se încarcă bălțile" width={200} heightClass={LAKE_CARD_HEIGHT} />
+          </div>
+          <HomeGridSkeleton kind="lakes" heightClass={LAKE_CARD_HEIGHT} className="max-xl:hidden" />
+        </>
       ) : lakes.length === 0 ? (
         <RailEmpty>Momentan nu este disponibilă nicio baltă.</RailEmpty>
       ) : (
-        <HorizontalRail
-          label="Bălți"
-          width={200}
-          onEndReached={onEndReached}
-          footer={
-            // A retry keeps its slot (and the focus) while it runs; a first next page shows a bone.
-            nextError && onRetryNext ? (
-              <RailRetryItem width={200} heightClass={LAKE_CARD_HEIGHT} onRetry={onRetryNext} retrying={fetchingNext} />
-            ) : fetchingNext ? (
-              <CardSkeleton width={200} heightClass={LAKE_CARD_HEIGHT} />
-            ) : null
-          }
-        >
-          {lakes.map((lake) => (
-            <RailItem key={lake.documentId} width={200}>
-              <HomeLakeCard lake={lake} />
-            </RailItem>
-          ))}
-        </HorizontalRail>
+        <>
+          {/* Below 1280 the rail (a phone swipes); from 1280 two full rows of the grid (HomeGrid). */}
+          <div className="xl:hidden">
+            <HorizontalRail
+              label="Bălți"
+              width={200}
+              onEndReached={onEndReached}
+              footer={
+                // A retry keeps its slot (and the focus) while it runs; a first next page shows a bone.
+                nextError && onRetryNext ? (
+                  <RailRetryItem width={200} heightClass={LAKE_CARD_HEIGHT} onRetry={onRetryNext} retrying={fetchingNext} />
+                ) : fetchingNext ? (
+                  <CardSkeleton width={200} heightClass={LAKE_CARD_HEIGHT} />
+                ) : null
+              }
+            >
+              {lakes.map((lake) => (
+                <RailItem key={lake.documentId} width={200}>
+                  <HomeLakeCard lake={lake} />
+                </RailItem>
+              ))}
+            </HorizontalRail>
+          </div>
+          <HomeGrid kind="lakes" label="Bălți" className="max-xl:hidden">
+            {lakes.map((lake) => (
+              <li key={lake.documentId} className="flex">
+                <HomeLakeCard lake={lake} />
+              </li>
+            ))}
+          </HomeGrid>
+        </>
       )}
     </RailSection>
   );

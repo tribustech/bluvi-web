@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { SHELL_GUTTERS, SHELL_MAX } from '@/components/nav/shell';
+import { SHELL_GUTTERS, SHELL_MAX, UNDER_BAR_TOP } from '@/components/nav/shell';
 import { cn } from '@/components/ui/cn';
 import { TRACK_GAP, TRACKS } from '../tracks';
 
@@ -11,12 +11,11 @@ export type T4Offset = 'shell' | 'none';
 
 /**
  * The header band below 1280 (it scrolls away from 1280, where the rail carries the steps). On a
- * phone the top bar slides away on scroll down (TopBar `data-concealed`): the header follows it up
- * to the edge, as T5's pinned actions do.
+ * phone the top bar slides away on scroll down: the header follows it up to the edge on the bar's
+ * own timing (shell UNDER_BAR_TOP), as every pinned row does.
  */
 export const T4_HEADER_TOP: Record<T4Offset, string> = {
-  shell:
-    'top-14 md:top-16 [:root:has(header[data-concealed])_&]:top-0 transition-[top] duration-(--duration-medium) ease-slow',
+  shell: UNDER_BAR_TOP,
   none: 'top-0',
 };
 

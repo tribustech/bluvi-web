@@ -7,23 +7,25 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SetBreadcrumb } from '@/app/(site)/_shell/SiteHeader';
 import {
-  DetailAsideCard,
   DetailBand,
   DetailBody,
+  DetailBackButton,
   DetailFacts,
   DetailHeader,
+  DetailHeroTopControls,
   DetailPage,
   DetailSection,
   DetailSectionNav,
   DetailSectionsProvider,
-  DetailSectionToc,
+  DetailShareButton,
+  DetailSummaryCard,
   PRESENCE_ICON,
   type DetailSectionItem,
 } from '@/components/templates/T3';
 import { plural } from '@/components/cards/format';
 import { ErrorState } from '@/components/surfaces/StateCard';
 import { T2Spinner } from '@/components/templates/T2';
-import { Button } from '@/components/ui/Button';
+import { Button, buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import {
   buildPublicWaterSectionChips,
@@ -47,9 +49,12 @@ import { waterTrail } from '../trail';
 
 /*
  * The public-water page body — fish app/(app)/public-waters/[id].tsx on T3 (single scroll with
- * section chips, like the lake page): the still map hero, the title block, the sticky chips
- * (phone + tablet; the section index in the left column from 1280), then Prezentare, Partide,
- * Capturi, Locație. From 1280 the right column holds the water's facts and the way there.
+ * section chips, like the lake page): the still map hero, the title block, the sticky chips (every
+ * width), then Prezentare, Partide, Capturi, Locație. From 768 it is the Airbnb detail page (owner
+ * rule 1, ROADMAP §4b): the title row, then the map as the photo band (768–1023); from 1024 two
+ * columns — the sections left, a sticky summary card right that holds the map itself, Direcții
+ * and the water's facts. One map entry per area: the band (or the card's map) — from 1024 the
+ * Direcții / Hartă tiles and Locație's «Vezi apa pe hartă» leave (the card has them).
  *
  * Remounted per water (keyed by the page), so a new water starts at Prezentare with no pagination
  * left over from the previous one (c30); Next scrolls the new page to the top.
@@ -70,8 +75,13 @@ function settled<T>(value: T): Promise<T> {
   return p;
 }
 
-function sectionItems(key: string): DetailSectionItem[] {
-  return (key.split('|') as (keyof typeof PUBLIC_WATER_SECTION_LABEL)[]).map((id) => ({ id, label: PUBLIC_WATER_SECTION_LABEL[id] }));
+/** `bare`: Prezentare holds nothing from 1024 (its tiles and facts are in the summary card there). */
+function sectionItems(key: string, bare: boolean): DetailSectionItem[] {
+  return (key.split('|') as (keyof typeof PUBLIC_WATER_SECTION_LABEL)[]).map((id) => ({
+    id,
+    label: PUBLIC_WATER_SECTION_LABEL[id],
+    hideFromLg: id === 'prezentare' && bare ? true : undefined,
+  }));
 }
 
 /** fish: the next catch page loads when the page is within 600px of its end. */
@@ -99,6 +109,7 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
   const [directions, setDirections] = useState(false);
 
   const name = publicWaterName(water);
+  const shareText = `Intră în Bluvi să vezi ${name}.`;
   const subtitle = publicWaterSubtitle(water);
   const key = water.linkCode ?? water.id;
   const facts = useMemo(() => waterDetailFacts(publicWaterFacts(water)), [water]);
@@ -110,10 +121,6 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
   const idsKey = buildPublicWaterSectionChips({ hasPartide: partideVisible, hasCatches: catchesTotal > 0, hasSpecies }).join('|');
   const showPartide = idsKey.includes('partide');
   const showCapturi = idsKey.includes('capturi');
-  const sections = useMemo(() => sectionItems(idsKey), [idsKey]);
-  // The chip set changes when the community reads land / poll (a section appears or goes): the
-  // provider takes the new list in place (no remount of the body).
-  const refined = useMemo(() => settled(sections), [sections]);
 
   // c25: the next 20 catches when the page nears its end, one request at a time. A failed page is
   // not asked again by scrolling (that would flood the CMS): its own retry under the grid does it.
@@ -145,6 +152,14 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
     const runs = [community.isError ? community.refetch() : null, catchesFailed ? catches.refetch() : null];
     void Promise.allSettled(runs).then(() => setRetrying(false));
   };
+  // The reads' error banner is the one thing Prezentare keeps from 1024; without it the section
+  // (and its chip) leaves there — never an empty card.
+  const prezentareBare = !(communityFailed || retrying);
+  const sections = useMemo(() => sectionItems(idsKey, prezentareBare), [idsKey, prezentareBare]);
+  // The chip set changes when the community reads land / poll (a section appears or goes): the
+  // provider takes the new list in place (no remount of the body).
+  const refined = useMemo(() => settled(sections), [sections]);
+
   const scrollToCapturi = () => {
     const link = [...document.querySelectorAll<HTMLAnchorElement>('a[href="#capturi"]')].find((a) => a.getClientRects().length > 0);
     if (link) link.click();
@@ -152,8 +167,9 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
   };
 
   const actions: QuickAction[] = [
-    { key: 'directii', label: 'Direcții', icon: <PaperAirplaneIcon aria-hidden />, onClick: () => setDirections(true) },
-    { key: 'harta', label: 'Hartă', icon: <MapIcon aria-hidden />, href: routes.publicWaterMap(key) },
+    // From 1024 the summary card has both (its map and Direcții): one map entry per area.
+    { key: 'directii', label: 'Direcții', icon: <PaperAirplaneIcon aria-hidden />, onClick: () => setDirections(true), belowSummary: true },
+    { key: 'harta', label: 'Hartă', icon: <MapIcon aria-hidden />, href: routes.publicWaterMap(key), belowSummary: true },
     {
       key: 'partide',
       label: 'Partide',
@@ -167,6 +183,10 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
       ? [{ key: 'capturi', label: 'Capturi', icon: <PhotoIcon aria-hidden />, onClick: scrollToCapturi, badge: catchesTotal, badgeLabel: (n: number) => plural(n, 'captură cu poză', 'capturi cu poză') }]
       : []),
   ];
+
+  // From 1024 the tiles leave Prezentare: the pages no section links to sit in the summary card as
+  // the lake's «Mai multe despre baltă» buttons (Direcții and the map are already there).
+  const more = actions.filter((a) => (a.key === 'partide' || a.key === 'statistici') && a.href);
 
   const alt = altName(water);
   const pin = <MapPinIcon aria-hidden className={cn(PRESENCE_ICON.meta, 'shrink-0 text-accent')} />;
@@ -185,19 +205,29 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
       <FocusAfterWaterRetry target="apa-titlu" />
       <DetailPage>
         <DetailBand hairline={false}>
-          <WaterHero water={water} name={name} mapHref={routes.publicWaterMap(key)} />
+          {/* Phone: back + share over the map, first in the DOM as on screen; then the header, then
+              the map band (lifted to the top on the phone) — from 768 the DOM reads title → actions
+              → map, as the screen does. */}
+          <DetailHeroTopControls
+            start={<DetailBackButton fallbackHref={routes.publicWaters()} onPhoto />}
+            end={<DetailShareButton look="photo" title={name} text={shareText} label="Distribuie apa" />}
+          />
           <DetailHeader
             title={name}
             titleId="apa-titlu"
             meta={meta}
             className="md:pt-5"
             actions={
-              // From 1280 «Cum ajungi» in the right column owns Direcții.
-              <Button variant="secondary" icon={<PaperAirplaneIcon />} onClick={() => setDirections(true)} className="xl:hidden">
-                Direcții
-              </Button>
+              <>
+                <DetailShareButton look="button" title={name} text={shareText} />
+                {/* From 1024 the summary card owns Direcții. */}
+                <Button variant="secondary" icon={<PaperAirplaneIcon />} onClick={() => setDirections(true)} className="min-[1024px]:hidden">
+                  Direcții
+                </Button>
+              </>
             }
           />
+          <WaterHero water={water} name={name} mapHref={routes.publicWaterMap(key)} />
         </DetailBand>
 
         <DetailSectionsProvider sections={sections} refined={refined}>
@@ -209,36 +239,48 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
                 <span className="truncate">{subtitle}</span>
               </>
             }
+            hideFromXl={false}
           />
           <DetailBody
-            left={<DetailSectionToc />}
+            layout="summary"
             asideBelowXl="hidden"
             asideSticky
+            asideLabel="Pe scurt"
             aside={
-              <>
-                {facts.length ? (
-                  <DetailAsideCard title="Detalii">
-                    <DetailFacts facts={facts} layout="list" />
-                  </DetailAsideCard>
+              <DetailSummaryCard
+                headline={<WaterHero variant="card" water={water} name={name} mapHref={routes.publicWaterMap(key)} />}
+                actions={
+                  <Button icon={<PaperAirplaneIcon />} onClick={() => setDirections(true)} block>
+                    Direcții
+                  </Button>
+                }
+              >
+                <CoordinatesRow lat={water.centerLat} lng={water.centerLng} />
+                {facts.length ? <DetailFacts facts={facts} layout="list" /> : null}
+                {more.length ? (
+                  <ul aria-label="Mai multe despre apă" className="flex flex-wrap gap-2">
+                    {more.map((a) => (
+                      <li key={a.key}>
+                        <Link href={a.href!} className={buttonClass({ variant: 'secondary', size: 'compact', className: '[&>svg]:size-5' })}>
+                          {a.icon}
+                          {a.label}
+                          {a.badge && a.badgeLabel ? <span className="sr-only">{`, ${a.badgeLabel(a.badge)}`}</span> : null}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 ) : null}
-                <DetailAsideCard title="Cum ajungi">
-                  <div className="flex flex-col gap-3">
-                    <CoordinatesRow lat={water.centerLat} lng={water.centerLng} />
-                    <Button variant="secondary" icon={<PaperAirplaneIcon />} onClick={() => setDirections(true)} className="justify-center">
-                      Direcții
-                    </Button>
-                  </div>
-                </DetailAsideCard>
-              </>
+              </DetailSummaryCard>
             }
           >
-            <DetailSection id="prezentare">
+            <DetailSection id="prezentare" className={prezentareBare ? 'min-[1024px]:hidden' : undefined}>
               {/* The section's name (the chips and the index point here) and the h1 → h2 → h3 order. */}
               <h2 className="sr-only">Prezentare</h2>
               <div className="flex flex-col gap-5.5">
-                <QuickActions actions={actions} />
+                {/* From 1024: Direcții and the map in the summary card, Partide / Statistici under its facts. */}
+                <QuickActions actions={actions} className="min-[1024px]:hidden" />
                 {facts.length ? (
-                  <div className="flex flex-col gap-3 xl:hidden">
+                  <div className="flex flex-col gap-3 min-[1024px]:hidden">
                     <h3 className="t-heading">Detalii</h3>
                     {/* The aside's list at every width: one compact row per fact, never an orphan tile. */}
                     <DetailFacts facts={facts} layout="list" />
@@ -302,10 +344,11 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
                     </ul>
                   </div>
                 ) : null}
+                {/* From 1024 the summary card's map is the way to it. */}
                 <Link
                   href={routes.publicWaterMap(key)}
                   aria-label="Deschide apa pe hartă"
-                  className="flex items-center gap-2.5 rounded-card bg-accent-tint p-3.5 transition-[filter] duration-(--duration-fast) hover:brightness-97 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="flex items-center min-[1024px]:hidden gap-2.5 rounded-card bg-accent-tint p-3.5 transition-[filter] duration-(--duration-fast) hover:brightness-97 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   <MapIcon aria-hidden className="size-6 shrink-0 text-accent-ink" />
                   <span className="flex min-w-0 flex-col">

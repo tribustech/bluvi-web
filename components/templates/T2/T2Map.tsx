@@ -83,6 +83,11 @@ export type T2MapProps<P extends T2MapPoint> = {
   /** The point whose list row is hovered / focused: drawn raised so the eye finds it. */
   highlightedId?: string | null;
   onSelect?: (point: P) => void;
+  /**
+   * A pin is hovered / focused (id) or left (null): the page highlights its list card — the
+   * reverse of `highlightedId` (owner rule 7: card ↔ marker).
+   */
+  onPointHover?: (id: string | null) => void;
   /** Accessible name of a cluster («12 bălți — mărește harta aici»). */
   clusterLabel?: (count: number) => string;
   /** Merge nearby points into counted clusters (default true). */
@@ -136,6 +141,7 @@ export function T2Map<P extends T2MapPoint>({
   selectedId = null,
   highlightedId = null,
   onSelect,
+  onPointHover,
   clusterLabel = (count) => `${count} locuri — mărește harta aici`,
   cluster = true,
   initialBounds = ROMANIA_BOUNDS,
@@ -305,10 +311,12 @@ export function T2Map<P extends T2MapPoint>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, focusKey]);
 
-  // Clustering. The selected / highlighted points are left out of the index the map draws, so the
-  // lifted pin never sits on a bubble that still counts it (a cluster of one left becomes a pin).
+  // Clustering. The selected point is left out of the index the map draws, so the lifted pin never
+  // sits on a bubble that still counts it (a cluster of one left becomes a pin). A highlighted (list
+  // hover) point is NOT lifted: drawn at its place it covered the bubble around it and hid its count.
+  // It is raised when it stands alone, else the bubble that holds it takes the highlight ring.
   // `fullIndex` holds every point: it answers «which cluster hides this point» for the framing below.
-  const liftedKey = [selectedId, highlightedId].filter(Boolean).join('|');
+  const liftedKey = selectedId ?? '';
   const fullIndex = useMemo(() => (cluster ? buildIndex(points) : null), [points, cluster]);
   const index = useMemo(() => {
     if (!cluster) return null;
@@ -403,8 +411,16 @@ export function T2Map<P extends T2MapPoint>({
   };
 
   const shownIds = new Set(nodes.flatMap((n) => (n.kind === 'point' ? [n.point.id] : [])));
+  // The bubble that holds the highlighted point (when it is not a pin of its own at this zoom).
+  const hotCluster =
+    index && highlightedId && highlightedId !== selectedId && !shownIds.has(highlightedId)
+      ? (nodes.find(
+          (n): n is ClusterNode =>
+            n.kind === 'cluster' && index.getLeaves(n.clusterId, Infinity).some((leaf) => leaf.properties.id === highlightedId),
+        )?.key ?? null)
+      : null;
   // The selected / highlighted point is always drawn as a pin (it is not in `index`).
-  const extras = [selectedId, highlightedId, ...nodesLifted.split('|')]
+  const extras = [selectedId, ...nodesLifted.split('|')]
     .filter((id, i, all): id is string => !!id && all.indexOf(id) === i && !shownIds.has(id))
     .flatMap((id) => {
       const p = byId.get(id);
@@ -469,11 +485,12 @@ export function T2Map<P extends T2MapPoint>({
           */}
           {[...nodes, ...extras.map((point): PointNode<P> => ({ kind: 'point', key: point.id, point }))].map((node) =>
             node.kind === 'cluster' ? (
-              <MapMarker key={node.key} state={state} at={node}>
+              <MapMarker key={node.key} state={state} at={node} raised={node.key === hotCluster}>
                 <T2MapCluster
                   label={clusterLabel(node.count)}
                   count={node.count}
                   large={node.count > LARGE_CLUSTER}
+                  highlighted={node.key === hotCluster}
                   onClick={() => zoomIntoCluster(node)}
                 />
               </MapMarker>
@@ -491,6 +508,7 @@ export function T2Map<P extends T2MapPoint>({
                   selected={node.point.id === selectedId}
                   highlighted={node.point.id === highlightedId}
                   onClick={() => onSelect?.(node.point)}
+                  onHover={onPointHover ? (on) => onPointHover(on ? node.point.id : null) : undefined}
                 />
               </MapMarker>
             ),

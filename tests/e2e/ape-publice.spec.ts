@@ -108,7 +108,7 @@ test.describe('public-waters.detaliu', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Snagov' })).toBeVisible();
     await expect(page.locator('[data-t3="header"]').getByText('Lac de acumulare · Ilfov')).toBeVisible();
     // c16: every fact, formatted like fish.
-    const facts = page.getByRole('complementary', { name: 'Detalii' });
+    const facts = page.getByRole('complementary', { name: 'Pe scurt' });
     await expect(facts.getByText('Bazin hidrografic')).toBeVisible();
     await expect(facts.getByText('5.57 km²')).toBeVisible();
     await expect(facts.getByText('32 mil. m³')).toBeVisible();
@@ -173,7 +173,8 @@ test.describe('public-waters.detaliu', () => {
   test('public-waters.detaliu.c15 — Direcții offers Google Maps and Waze to the centre', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await page.goto(`/ape-publice/${WATER.snagov.id}`);
-    await page.locator('[data-action="directii"]').click();
+    // From 1024 Direcții is the summary card's (the tile row drops it — one entry per area).
+    await page.getByRole('complementary', { name: 'Pe scurt' }).getByRole('button', { name: 'Direcții' }).click();
     const dialog = page.getByRole('dialog', { name: 'Direcții' });
     await expect(dialog.getByRole('link', { name: /Google Maps/ })).toHaveAttribute('href', /google\.com\/maps\/dir\/\?api=1&destination=44\.70\d+,26\.14\d+&travelmode=driving/);
     await expect(dialog.getByRole('link', { name: /Waze/ })).toHaveAttribute('href', /waze\.com\/ul\?ll=44\.70\d+,26\.14\d+&navigate=yes/);
@@ -184,8 +185,9 @@ test.describe('public-waters.detaliu', () => {
     await page.setViewportSize(DESKTOP);
     await page.goto(`/ape-publice/${WATER.tineretului.id}`);
     await expect(page.getByRole('heading', { name: 'Partide pe această apă' })).toBeVisible();
-    const toc = page.getByRole('navigation', { name: 'Pe această pagină' });
-    await expect(toc.getByRole('link')).toHaveText(['Prezentare', 'Partide', 'Capturi', 'Locație']);
+    const toc = page.getByRole('navigation', { name: 'Secțiuni' });
+    // From 1024 Prezentare (tiles + facts, both in the summary card there) leaves the page and the index.
+    await expect(toc.getByRole('link')).toHaveText(['Partide', 'Capturi', 'Locație']);
     // c18: «Vezi tot» and «Vezi toate partidele» lead to the water's partide page.
     const partide = page.locator('#partide');
     const code = encodeURIComponent(WATER.tineretului.code);
@@ -203,7 +205,7 @@ test.describe('public-waters.detaliu', () => {
     await page.setViewportSize(DESKTOP);
     // Canalul Piatra Neamț - Buhuși: one of the few rows with an EU water-body code.
     await page.goto('/ape-publice/5250');
-    const facts = page.getByRole('complementary', { name: 'Detalii' });
+    const facts = page.getByRole('complementary', { name: 'Pe scurt' });
     await expect(facts.getByText('Cod corp de apă')).toBeVisible();
     await expect(facts.getByText('ROA1', { exact: true })).toBeVisible();
   });
@@ -221,7 +223,8 @@ test.describe('public-waters.detaliu', () => {
   });
 
   test('public-waters.detaliu.c14 — the Capturi badge is read with Romanian agreement (1 captură, 20 de capturi)', async ({ page }) => {
-    await page.setViewportSize(DESKTOP);
+    // The tiles are below 1024 only (from 1024 the summary card carries them).
+    await page.setViewportSize(PHONE);
     await page.route(venueUrl(WATER.tineretului.code), fulfill(section()));
     let total = 1;
     await page.route(catchesUrl(WATER.tineretului.code), (route) => fulfill(catchesPage(1, total))(route));
@@ -236,8 +239,8 @@ test.describe('public-waters.detaliu', () => {
     await page.setViewportSize(DESKTOP);
     await page.goto(`/ape-publice/${WATER.dunarea.id}`);
     await expect(page.getByRole('heading', { level: 1, name: 'Dunarea' })).toBeVisible();
-    const toc = page.getByRole('navigation', { name: 'Pe această pagină' });
-    await expect(toc.getByRole('link')).toHaveText(['Prezentare', 'Locație']);
+    const toc = page.getByRole('navigation', { name: 'Secțiuni' });
+    await expect(toc.getByRole('link')).toHaveText(['Locație']);
     await expect(page.getByRole('heading', { name: 'Partide pe această apă' })).toHaveCount(0);
   });
 
@@ -509,7 +512,12 @@ test.describe('public-waters.detaliu', () => {
     const loc = page.locator('#locatie');
     await expect(loc.getByRole('heading', { name: 'Județe (12)' })).toBeVisible();
     await expect(loc.getByRole('listitem')).toHaveCount(12);
+    // From 1024 the map is the summary card's; the Locație map card is there below 1024.
+    await expect(loc.getByRole('link', { name: 'Deschide apa pe hartă' })).toBeHidden();
+    await expect(page.getByRole('complementary', { name: 'Pe scurt' }).getByRole('link', { name: /^Deschide harta pentru/ })).toHaveAttribute('href', /\/harta$/);
+    await page.setViewportSize(PHONE);
     await expect(loc.getByRole('link', { name: 'Deschide apa pe hartă' })).toHaveAttribute('href', /\/harta$/);
+    await page.setViewportSize(DESKTOP);
     const copy = loc.getByRole('button', { name: `Copiază codul apei ${WATER.dunarea.code}` });
     await copy.click();
     await expect(copy).toContainText('Copiat');
@@ -618,7 +626,7 @@ test.describe('public-waters.detaliu', () => {
     await withFaults(page, WATER.tineretului.id, ['nolinkcode'], async () => {
       await page.goto(`/ape-publice/${WATER.tineretului.id}`);
       await expect(page.getByRole('heading', { level: 1, name: 'Tineretului' })).toBeVisible();
-      await expect(page.getByRole('navigation', { name: 'Pe această pagină' }).getByRole('link')).toHaveText(['Prezentare', 'Locație']);
+      await expect(page.getByRole('navigation', { name: 'Secțiuni' }).getByRole('link')).toHaveText(['Locație']);
       await expect(page.locator('#partide')).toHaveCount(0);
       await expect(page.locator('#capturi')).toHaveCount(0);
       await expect(page.getByRole('alert').filter({ hasText: 'Activitatea comunității' })).toHaveCount(0);
@@ -637,7 +645,9 @@ test.describe('public-waters.detaliu', () => {
         await expect(page.getByRole('heading', { name: 'Detalii' })).toHaveCount(0);
         await expect(page.getByText('Bazin hidrografic')).toHaveCount(0);
         await expect(page.getByText('Suprafață')).toHaveCount(0);
-        await expect(page.getByText('Acțiuni rapide')).toBeVisible();
+        // The tiles: below 1024 only (the summary card carries them from 1024).
+        if (size === PHONE) await expect(page.getByText('Acțiuni rapide')).toBeVisible();
+        else await expect(page.getByText('Acțiuni rapide')).toBeHidden();
       });
     }
   });
@@ -652,7 +662,7 @@ test.describe('public-waters.detaliu', () => {
       await expect(page.getByTestId('catch-grid').getByRole('button')).toHaveCount(3);
       await expect(page.locator('main').getByText(/Intră în cont/)).toHaveCount(0);
       return {
-        toc: await page.getByRole('navigation', { name: 'Pe această pagină' }).getByRole('link').allTextContents(),
+        toc: await page.getByRole('navigation', { name: 'Secțiuni' }).getByRole('link').allTextContents(),
         tiles: await page.locator('[data-action]').evaluateAll((els) => els.map((e) => e.getAttribute('data-action'))),
         h2: await page.locator('main h2').allTextContents(),
       };

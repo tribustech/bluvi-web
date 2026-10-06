@@ -55,6 +55,13 @@ const eslintConfig = defineConfig([
           selector: "ImportDeclaration[source.value='zod'][importKind!='type'] > ImportSpecifier[imported.name='z'][importKind!='type']",
           message: "Use `import * as z from 'zod'`: Turbopack bundles all of zod (every locale) for `import { z }`.",
         },
+        // The sticky header stack follows one state on <html> (components/nav/stickyStack.ts): a
+        // hand-written `header[data-concealed]` selector drifts from the bar's timing (and :has() is
+        // WebKit-sensitive). Use UNDER_BAR_TOP / UNDER_BAR_TOP_PHONE / BAR_EDGE_TOP from shell.tsx.
+        {
+          selector: "Literal[value=/header\\[data-concealed\\]/], TemplateElement[value.raw=/header\\[data-concealed\\]/]",
+          message: "Pinned rows use UNDER_BAR_TOP (components/nav/shell.tsx), never a `header[data-concealed]` selector.",
+        },
       ],
     },
   },

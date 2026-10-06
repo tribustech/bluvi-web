@@ -159,18 +159,12 @@ for (const id of [ID.chita, ID.belin]) {
         // c32: the streamed sections arrive (the hero never waited for them).
         await expect(page.locator('#recenzii')).toBeVisible();
         await settle(page);
-        // c10: the chips (phone + tablet) or the section index (≥1280), in fish order.
+        // c10: the chips, in fish order — at every width (owner rule 1: no section index column).
         const partide = partideShown.get(id)!;
         // fish: the chip is there while Live + Viitoare hold something (the lake's own CMS state).
         const counts = competitionCounts.get(id)!;
         const competitions = counts.live + counts.upcoming > 0;
-        if (vp.width < 1280) {
-          await expect(chips(page).getByRole('link')).toHaveText(expectedChips(l, partide, competitions));
-        } else {
-          await expect(page.getByRole('navigation', { name: 'Pe această pagină' }).getByRole('link')).toHaveText(
-            expectedChips(l, partide, competitions).map(label => new RegExp(`^${label}`)),
-          );
-        }
+        await expect(chips(page).getByRole('link')).toHaveText(expectedChips(l, partide, competitions));
         await expectNoA11yViolations(page, {
           // MapLibre's own canvas region (the mini map is aria-hidden; its attribution is ours).
           exclude: ['.maplibregl-canvas-container'],
@@ -298,9 +292,14 @@ test('lakes.detail.c14 lakes.detail.c15 — quick actions in fish order, every s
   await list.getByRole('link', { name: 'Recenzii' }).click();
   await expect(chips(page).getByRole('link', { name: 'Recenzii', exact: true })).toHaveAttribute('aria-current', 'location');
   await expect(page.locator('#recenzii')).toBeFocused();
-  // ≥1280 the side columns carry the same jumps: no quick actions.
+  // From 1024 the tiles leave for the summary card beside them (owner rule 1): its buttons and its
+  // Partide / Statistici links carry the pages no section links to.
   await page.setViewportSize(DESKTOP);
   await expect(page.getByRole('list', { name: 'Acțiuni rapide' })).toBeHidden();
+  const more = page.getByRole('complementary', { name: 'Pe scurt' }).getByRole('list', { name: 'Mai multe despre baltă' });
+  await expect(more.getByRole('link', { name: 'Partide' })).toHaveAttribute('href', `/balti/${ID.chita}/partide`);
+  await expect(more.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `/balti/${ID.chita}/statistici`);
+  await page.setViewportSize(PHONE);
   // Prețuri scrolls to its section (Belin has prices).
   await open(page, ID.belin);
   await expect(tiles(page).getByRole('link', { name: 'Prețuri' })).toHaveAttribute('href', '#preturi');
@@ -329,9 +328,12 @@ test('lakes.detail.c31 — «Direcții» offers Google Maps, Waze and Apple Maps
   await expectApps();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
-  // ≥1280 the quick actions are hidden: Locație & contact carries «Direcții» (under the mini map).
+  // Desktop: the summary card and Locație & contact (under the mini map) carry «Direcții» too.
   await open(page, ID.chita, DESKTOP);
-  await expect(page.getByRole('list', { name: 'Acțiuni rapide' })).toBeHidden();
+  await page.getByRole('complementary', { name: 'Pe scurt' }).getByRole('button', { name: 'Direcții' }).click();
+  await expectApps();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
   await page.locator('#contact').getByRole('button', { name: 'Direcții' }).click();
   await expectApps();
 });
@@ -384,8 +386,8 @@ test('lakes.detail.c16 lakes.detail.c6 lakes.detail.c33 lakes.detail.s6 lakes.de
       await expect(button).not.toHaveAttribute('aria-disabled', 'true');
       await expect(button).toHaveClass(/bg-accent/);
     }
-    // ≥1280 the booking card says why, under the same button.
-    await expect(page.getByRole('complementary', { name: 'Rezervare și caracteristici' })).toContainText(
+    // From 1024 the summary card says why, under the same button.
+    await expect(page.getByRole('complementary', { name: 'Pe scurt' })).toContainText(
       'Rezervarea online e în curând pe web; până atunci rezervă din aplicația Bluvi.',
     );
   }
@@ -519,9 +521,9 @@ test('lakes.detail.c21 lakes.detail.c20 lakes.detail.s10 — a lake without acti
   let live = false;
   await page.route('**/feed/community/lakes/*', route => (live ? route.fulfill({ json: LIVE_SECTION }) : route.continue()));
   await open(page, ID.belin, DESKTOP);
-  // s10: no activity — no section, no index entry.
+  // s10: no activity — no section, no chip.
   await expect(page.locator('#partide')).toHaveCount(0);
-  await expect(page.getByRole('navigation', { name: 'Pe această pagină' }).getByRole('link', { name: /^Partide/ })).toHaveCount(0);
+  await expect(chips(page).getByRole('link', { name: 'Partide', exact: true })).toHaveCount(0);
   live = true;
   await page.clock.fastForward(61_000);
   await expect(page.locator('#partide').getByTestId('live-partide-card')).toContainText('1 ACTIVI ACUM');
@@ -918,8 +920,8 @@ test('lakes.detail.c11 lakes.detail.c12 — keyboard: a focused control never la
     // The page may scroll smoothly: measure once it has settled.
     await page.waitForTimeout(800);
     const top = Math.round((await target.boundingBox())!.y);
-    // Phone: bar 56 + pinned title 46 + chips 58; ≥1280: the 64px bar.
-    expect(top).toBeGreaterThanOrEqual(vp === PHONE ? 160 : 64);
+    // Phone: bar 56 + pinned title 46 + chips 58; desktop: the 64px bar + the chips (58).
+    expect(top).toBeGreaterThanOrEqual(vp === PHONE ? 160 : 122);
   }
 });
 

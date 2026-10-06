@@ -39,7 +39,7 @@ import { RepeatIcon } from './icons';
  * (fieldset + legend), T2CheckChips for the multi-selects, T1 ChoiceChips (radios) for the rating,
  * a one-pill T2CheckChips for Rezervări (fish's on/off option pill) — a draft until «Aplică», the live result count on the
  * button. The page puts it in its surface: T2Panel on the map (a sheet on a phone,
- * docked over the list from 768), ResponsiveSurface on the Bălți home.
+ * a dialog from 768 — owner rule 2: never a column over the list), the Sheet / Dialog on the Bălți home.
  */
 
 export const FILTER_SECTION_TITLES: Record<Exclude<LakeFilterSection, 'all'>, string> = {

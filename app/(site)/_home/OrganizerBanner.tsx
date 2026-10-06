@@ -1,9 +1,8 @@
 import Link from 'next/link';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/components/ui/cn';
-import { loadOrganizerDashboard } from './data';
+import type { getOrganizerDashboard } from '@/core/organizer';
 import { homeLinks } from './links';
-import { RetryRefresh } from './RetryRefresh';
 
 /**
  * fish components/OrganizerBanner.tsx — organisers only, hidden until the dashboard has loaded.
@@ -12,18 +11,20 @@ import { RetryRefresh } from './RetryRefresh';
  * card beside it in the same column); flat — the indigo fill already separates it, and e1 is for
  * cards with a photo. «Deschide ›» is a UI glyph: the 24 outline chevron at its own size (§05).
  */
-export async function OrganizerBanner({ layout, className }: { layout: 'mobile' | 'desktop'; className?: string }) {
-  // Rendered only for organisers (OrganizerSlot): no stats here means the read failed. The banner
-  // stays — its link to the panel still works — with an inline retry instead of the figures.
-  const stats = await loadOrganizerDashboard();
+export type OrganizerStats = Awaited<ReturnType<typeof getOrganizerDashboard>>;
 
-  const items = stats
-    ? [
-        { dot: 'bg-status-info-fg', value: stats.byStatus?.notStarted || 0, label: 'Viitoare' },
-        { dot: 'bg-status-pending-fg', value: stats.pendingRegistrations, label: 'În așteptare' },
-        { dot: 'bg-status-success-fg', value: stats.emptySpots, label: 'Locuri libere' },
-      ]
-    : null;
+/**
+ * The banner from its stats alone (no read): the server slot (slots.tsx OrganizerSlot) and the
+ * browser takeover (LateBlocks.tsx) render the same markup. Without stats there is no banner (owner
+ * rule 4, fish OrganizerBanner.tsx:61 `if (!stats) return null`) — the callers decide that.
+ */
+export function OrganizerBanner({ stats, layout, className }: { stats: OrganizerStats; layout: 'mobile' | 'desktop'; className?: string }) {
+
+  const items = [
+    { dot: 'bg-status-info-fg', value: stats.byStatus?.notStarted || 0, label: 'Viitoare' },
+    { dot: 'bg-status-pending-fg', value: stats.pendingRegistrations, label: 'În așteptare' },
+    { dot: 'bg-status-success-fg', value: stats.emptySpots, label: 'Locuri libere' },
+  ];
 
   return (
     <section
@@ -48,22 +49,19 @@ export async function OrganizerBanner({ layout, className }: { layout: 'mobile' 
           <ChevronRightIcon className="size-6" />
         </span>
       </div>
-      {!items ? <RetryRefresh tone="accent" message="Nu am putut încărca situația." /> : null}
-      {items ? (
-        <dl className="flex items-center">
-          {items.map((s, i) => (
-            <div key={s.label} className={cn('flex flex-1 flex-col-reverse items-center gap-1', i > 0 && 'border-l border-on-accent/20')}>
-              {/* The status dot sits on the label line, never beside the number (beside it, a dot
-                  reads as a glyph: «O2»). A plain filled dot, no ring. */}
-              <dt className="flex items-center justify-center gap-1.5 text-center t-caption text-on-accent/85">
-                <span aria-hidden className={cn('size-2 shrink-0 rounded-full', s.dot)} />
-                {s.label}
-              </dt>
-              <dd className="t-stat tabular-nums">{s.value}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
+      <dl className="flex items-center">
+        {items.map((s, i) => (
+          <div key={s.label} className={cn('flex flex-1 flex-col-reverse items-center gap-1', i > 0 && 'border-l border-on-accent/20')}>
+            {/* The status dot sits on the label line, never beside the number (beside it, a dot
+                reads as a glyph: «O2»). A plain filled dot, no ring. */}
+            <dt className="flex items-center justify-center gap-1.5 text-center t-caption text-on-accent/85">
+              <span aria-hidden className={cn('size-2 shrink-0 rounded-full', s.dot)} />
+              {s.label}
+            </dt>
+            <dd className="t-stat tabular-nums">{s.value}</dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }

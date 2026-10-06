@@ -1,5 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
+import { cookies } from 'next/headers';
 import { getMyBookingsUpcomingCount } from '@/core/booking';
 import { getLiveCompetition } from '@/core/competitions';
 import { getOwnedLakesStats } from '@/core/lakes';
@@ -34,9 +35,11 @@ import { isUnknownViewer } from '../_shell/viewer-state';
  * How long one per-user read may hold its block (and, below 1280, the stacked column's single
  * reveal) — a deadline for the REVEAL, never one that silently drops the block: past it, a
  * TanStack block (poll, suggested anglers) mounts and finishes its read in the browser
- * (prefetchTracked), the live competition keeps its place with a retry (loadMyLiveCompetition
- * FAILED), the raffle says it could not check the registration, and the partidă hero stays (fish
- * shows it unless a partidă is confirmed live). Staging / prod add 2–3 s per request, so no budget
+ * (prefetchTracked); so do the live competition, the organiser and operator cards (LateBlocks.tsx),
+ * which show nothing until the browser read confirms them (owner rule 4, ROADMAP §4b: when we don't
+ * know, we don't show — never «we could not check» copy); the raffle drops its status row, and the
+ * partidă hero is hidden (offered only on a confirmed «no live partidă»). Staging / prod add 2–3 s
+ * per request, so no budget
  * here would be «long enough»: the client takeover is what keeps the blocks.
  */
 const READ_BUDGET_MS = 2500;
@@ -67,6 +70,10 @@ const FAILED = Symbol('failed');
  * not retried (a second wait would hold the column's reveal for another budget).
  */
 async function attempt<T>(label: string, read: (t: Transport) => Promise<T>): Promise<T | null | typeof FAILED> {
+  if (await injectedFault(label)) {
+    console.warn(`[acasa] ${label}: failed (injected by ${FAULT_COOKIE})`);
+    return FAILED;
+  }
   for (let i = 0; ; i++) {
     const started = Date.now();
     try {
@@ -86,6 +93,22 @@ async function attempt<T>(label: string, read: (t: Transport) => Promise<T>): Pr
       return FAILED;
     }
   }
+}
+
+/**
+ * Test-only fault injection (owner rule 4 specs, tests/e2e/acasa.spec.ts): the `bluvi_e2e_fault`
+ * cookie names the reads (attempt() labels, comma-separated) that fail as a 5xx would — no answer —
+ * so the e2e suite can put each per-user block into its «unknown» state without a broken CMS.
+ * Server reads cannot be page.route()d. Off in a production build unless BLUVI_E2E_FAULTS=1 (CI
+ * running the suite against `next start`); the cookie is never set by the app.
+ */
+export const FAULT_COOKIE = 'bluvi_e2e_fault';
+const FAULTS_ON = process.env.NODE_ENV !== 'production' || process.env.BLUVI_E2E_FAULTS === '1';
+
+async function injectedFault(label: string): Promise<boolean> {
+  if (!FAULTS_ON) return false;
+  const value = (await cookies()).get(FAULT_COOKIE)?.value;
+  return !!value && value.split(',').some((l) => l.trim() === label);
 }
 
 /** attempt(), with a failure folded into null (the block is hidden, as fish hides it without data). */
@@ -124,8 +147,8 @@ export type HomeViewer = ShellUser & { isOrganizer: boolean };
  * The session as Acasă reads it — the shell's own read (../_shell/session.ts, one CMS call per
  * request): the user, null (signed out), or 'unknown' (a session cookie, but /users/me failed or
  * gave no answer). Unknown is NEVER the signed-out page (fish keeps the session and shows its
- * ErrorScreen, (tabs)/index.tsx isErrorProfile): the personal blocks show the session error card
- * (HomeSessionError) and no guest prompt is rendered.
+ * ErrorScreen, (tabs)/index.tsx isErrorProfile): the personal blocks and the guest prompts are
+ * left out, with no alert in their place (owner rule 4, ROADMAP §4b); the refresh retries.
  */
 export const getHomeSession = cache(async (): Promise<HomeViewer | null | 'unknown'> => {
   // The shell's bounded read (SHELL_SESSION_TIMEOUT_MS): the page and the top bar flip to «unknown»
@@ -144,25 +167,30 @@ export const getHomeViewer = cache(async (): Promise<HomeViewer | null> => {
   return session === 'unknown' ? null : session;
 });
 
-/** fish OrganizerBanner → `useOrganizerDashboard` (organisers only). */
+/**
+ * fish OrganizerBanner → `useOrganizerDashboard` (organisers only): the stats, null (a 4xx — no
+ * grant: no banner) or 'failed' (no answer: the banner's query takes over in the browser,
+ * LateBlocks.tsx — hidden until it answers).
+ */
 export const loadOrganizerDashboard = cache(async () => {
   const viewer = await getHomeViewer();
   if (!viewer?.isOrganizer) return null;
-  return quiet('organizer dashboard', (t) => getOrganizerDashboard(t));
+  const stats = await attempt('organizer dashboard', (t) => getOrganizerDashboard(t));
+  return stats === FAILED ? ('failed' as const) : stats;
 });
 
 /**
  * fish OwnedLakesCard → `useOwnedLakes` + `useOwnedLakesStats(ownsLakes)`. The owned-lakes list is
  * the authoritative ownership signal — the session already read it (Viewer.ownedLakes, the same
- * /feed/owned-lakes) — and stats are read only when it is non-empty. A failed stats read is NOT
- * «no card»: the operator keeps the card, its shortcuts and a retry (`stats: null`).
+ * /feed/owned-lakes) — and stats are read only when it is non-empty. `stats`: null on a 4xx (no
+ * card), 'failed' with no answer (the card's query takes over in the browser, LateBlocks.tsx).
  */
 export const loadOwnedLakes = cache(async () => {
   const viewer = await getHomeViewer();
   const lakes = viewer?.ownedLakes ?? [];
   if (lakes.length === 0) return null;
-  const stats = await quiet('owned lakes stats', (t) => getOwnedLakesStats(t));
-  return { lakes, stats };
+  const stats = await attempt('owned lakes stats', (t) => getOwnedLakesStats(t));
+  return { lakes, stats: stats === FAILED ? ('failed' as const) : stats };
 });
 
 /** fish WidgetsList → `useMyBookingsCount({ enabled: isAuthenticated })`. */
@@ -206,7 +234,8 @@ export const loadActivePartida = cache(async () => {
 export const loadMyLiveCompetition = cache(async () => {
   const viewer = await getHomeViewer();
   if (!viewer) return null;
-  // FAILED is kept (never folded into «not in a live competition»): the slot keeps a retry.
+  // FAILED is kept distinct from «not in a live competition» (null) for the callers; both hide the
+  // block (owner rule 4) — only a confirmed live competition shows «CONCURSUL MEU».
   const live = await attempt('live competition', (t) => getLiveCompetition(t));
   if (live === FAILED) return 'failed' as const;
   if (!live) return null;

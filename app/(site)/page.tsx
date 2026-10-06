@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense, type ReactNode } from 'react';
 import { DashboardLayout, DashboardPage } from '@/components/templates/T5';
+import { cn } from '@/components/ui/cn';
 import { AppPromo } from './_home/AppPromo';
 import { COMPETITION_CARD_HEIGHT } from './_home/CompetitionRailCard';
 import { CompetitionsSection } from './_home/CompetitionsSection';
@@ -12,7 +13,6 @@ import { PartidaCtaSkeleton } from './_home/PartidaCta';
 import { PrivacySettingsCard } from './_home/PrivacySettingsCard';
 import { HomeErrorGate } from './_home/HomeErrorGate';
 import { HomeFocusRefresh } from './_home/HomeRefresh';
-import { HomeSessionError } from './_home/HomeSessionError';
 import { LAKE_CARD_HEIGHT } from './_home/HomeLakeCard';
 import { HomeHeader, HomeHeaderSkeleton, ProfileCard, ProfileCardSkeleton } from './_home/ProfileCard';
 import {
@@ -35,12 +35,15 @@ import {
   PartidaCtaSlot,
   PollSlot,
   RaffleSlot,
+  RightColumnLateLiveSlot,
   RightColumnLiveSlot,
   SignedOutOnly,
   SuggestedAnglersSlot,
 } from './_home/slots';
-import { HomeShortcuts, HomeShortcutsSkeleton } from './_home/Shortcuts';
+import { HomeShortcutStrip, HomeShortcutStripSkeleton, HomeShortcuts, HomeShortcutsSkeleton } from './_home/Shortcuts';
 import { SponsorsSection } from './_home/SponsorsSection';
+import { SPONSOR_CHIP, SPONSOR_STRIP } from './_home/sponsorStrip';
+import { HomeGridSkeleton } from './_home/HomeGrid';
 import { Widgets } from './_home/Widgets';
 import { absoluteUrl, routes } from '@/lib/routes';
 import ogImage from './_home/assets/og-home.jpg';
@@ -82,12 +85,19 @@ export const metadata: Metadata = {
  * - from 1280 the sticky right column «Ce mă așteaptă» (my partidă or live competition, organiser
  *   panel, my lake, tools — fish's blocks above the hero, which below 1280 open the main column
  *   instead); from 1440 (ROADMAP §4 width rule, three columns) also the sticky left column
- *   «Scurtături» (quick links — web only, _home/Shortcuts.tsx). At 1280 the shortcuts open the
- *   right column instead (`contextFrom="2xl"`), so the centre is 872 wide — three rail cards, as
- *   at 1440 — not 608. Those few small cards are the only blocks written twice (one copy
- *   display:none at any width); DashboardLayout `sidesBelowXl="hidden"`.
+ *   «Scurtături» (quick links — web only, _home/Shortcuts.tsx). At 1280 there is no left column
+ *   (`contextFrom="2xl"`, so the centre is 872 wide — three rail cards, as at 1440 — not 608):
+ *   the same shortcuts open the main column as one row of chips (HomeShortcutStrip), never the
+ *   right column, which must stay short enough to stick under the top bar. Those few small blocks
+ *   are the only ones written twice (one copy display:none at any width); DashboardLayout
+ *   `sidesBelowXl="hidden"`.
  *
- * Public rails (competitions, lakes, news, sponsors) are TanStack client sections: TanStack reads
+ * Owner rule 5 (ROADMAP §4b, at most two rails per page): from 1280 only Concursuri and Pescari de
+ * urmărit are rails; Bălți and Noutăți are dense grids capped to whole rows (_home/HomeGrid.tsx) and
+ * Sponsori is a compact logo strip at every width. Below 1280 Bălți and Noutăți stay rails (a phone
+ * swipes).
+ *
+ * Public sections (competitions, lakes, news, sponsors) are TanStack client sections: TanStack reads
  * the current time while building query state, so each sits in its own <Suspense> whose fallback
  * is the same markup rendered on the server from the cached first page (_home/prerendered.tsx).
  * Each rail's server prefetch (HydrateRail) is inside that boundary, never at the page root: a
@@ -158,8 +168,8 @@ export default function Home() {
                   Ce mă așteaptă
                 </h2>
                 <Suspense fallback={<AsideColumnSkeleton />}>
-                  {/* Unknown: the session-independent blocks (shortcuts at 1280, the tools) — never
-                      an empty column; the ONE session error heads the main column. */}
+                  {/* Unknown: the session-independent block (the tools) — never an empty column,
+                      and never «we could not check» copy (owner rule 4, ROADMAP §4b). */}
                   <AfterSession unknown={<UnknownSessionAside />}>
                     <AsideColumn />
                   </AfterSession>
@@ -183,6 +193,7 @@ const BELOW_XL = 'contents xl:hidden';
 function MainColumn() {
   return (
     <>
+      <ShortcutsAt1280 />
       {/* fish's blocks above the hero; from 1280 they are the right column (AsideColumn). */}
       <div className={BELOW_XL}>
         <OrganizerSlot layout="mobile" />
@@ -246,15 +257,22 @@ function MainColumn() {
 }
 
 /**
- * The main column when the session could not be read («unknown»): ONE page-level alert with its
- * retry (HomeSessionError) at the top, then the public rails, which do not depend on the session
- * (their reads succeeded) — never three copies of the error, never a blank page around one card.
- * No per-user block and no guest prompt: who the viewer is, is exactly what is not known.
+ * The main column when the session could not be read («unknown»): the tools (below 1280) and the
+ * public sections, which do not depend on the session (their reads succeeded), and no alert — owner rule 4 (ROADMAP §4b, «when
+ * we don't know, we don't show»): no per-user block, no guest prompt and no «could not check your
+ * account» copy. The retry is silent: the refresh control (header / phone card) and
+ * HomeFocusRefresh re-render the page, which re-reads the session; a failed manual refresh says
+ * so in a toast (useHomeRefresh), never as a standing block.
  */
 function UnknownSessionColumn() {
   return (
     <>
-      <HomeSessionError />
+      <ShortcutsAt1280 />
+      {/* The tools do not depend on the session: the phone keeps them, as the aside does from 1280
+          (UnknownSessionAside) — no Rezervări count without a known viewer. */}
+      <div className={BELOW_XL}>
+        <Widgets layout="mobile" />
+      </div>
       <Suspense fallback={<CompetitionsPrerendered />}>
         <HydrateRail rail="competitions">
           <CompetitionsSection />
@@ -292,6 +310,7 @@ function MainColumnSkeleton() {
       <span role="status" className="sr-only">
         Se încarcă pagina
       </span>
+      <HomeShortcutStripSkeleton className={AT_1280} />
       <div aria-hidden className={BELOW_XL}>
         <SkeletonSection>
           {/* Instrumente: the tiles card (Widgets), its thirds and the pill band. */}
@@ -316,18 +335,28 @@ function MainColumnSkeleton() {
         </IfRaffle>
       </Suspense>
       <SkeletonSection>
-        <RailSkeleton label="Se încarcă bălțile" width={200} heightClass={LAKE_CARD_HEIGHT} />
+        <div className="xl:hidden">
+          <RailSkeleton label="Se încarcă bălțile" width={200} heightClass={LAKE_CARD_HEIGHT} />
+        </div>
+        <HomeGridSkeleton kind="lakes" heightClass={LAKE_CARD_HEIGHT} className="max-xl:hidden" />
       </SkeletonSection>
       <span aria-hidden className="h-64 rounded-bento bg-soft-fill @2xl:h-40" />
       <Suspense fallback={null}>
         <IfSponsors>
           <SkeletonSection>
-            <RailSkeleton label="Se încarcă sponsorii" width={224} heightClass="aspect-8/5" />
+            <span className={cn(SPONSOR_STRIP, '-mb-3 overflow-hidden')}>
+              {[0, 1, 2, 3].map((i) => (
+                <span key={i} className={cn('shrink-0 rounded-card bg-soft-fill animate-shimmer', SPONSOR_CHIP)} />
+              ))}
+            </span>
           </SkeletonSection>
         </IfSponsors>
       </Suspense>
       <SkeletonSection>
-        <RailSkeleton label="Se încarcă noutățile" width={224} heightClass={NEWS_CARD_HEIGHT} />
+        <div className="xl:hidden">
+          <RailSkeleton label="Se încarcă noutățile" width={224} heightClass={NEWS_CARD_HEIGHT} />
+        </div>
+        <HomeGridSkeleton kind="news" heightClass={NEWS_CARD_HEIGHT} className="max-xl:hidden" />
       </SkeletonSection>
     </div>
   );
@@ -348,46 +377,44 @@ function SkeletonSection({ children }: { children: ReactNode }) {
 
 /**
  * From 1280, the sticky right column «Ce mă așteaptă»: my partidă or live competition, organiser
- * panel, my lake, tools — rendered after the session (one reveal, as MainColumn). Short
- * enough to fit the viewport under the top bar, so `sticky` holds.
+ * panel, my lake, tools — rendered after the session (one reveal, as MainColumn). The shortcuts
+ * are never here (at 1280 they head the main column): with every role card at once the column
+ * may still outgrow the viewport, and then StickyColumn sticks it by its bottom edge (its end
+ * stays reachable) — the shortcuts would be the part cut off under the top bar.
  */
 function AsideColumn() {
   return (
     <>
-      <ShortcutsAt1280 />
       <RightColumnLiveSlot />
       <OrganizerSlot layout="desktop" />
       <OperatorSlot layout="desktop" />
       <Widgets layout="desktop" bookingsBadge={bookingsBadge} />
+      {/* My live competition when the server read got no answer: read in the browser, landing
+          last so nothing in the column moves (owner rule 4: nothing until it is confirmed). */}
+      <RightColumnLateLiveSlot />
     </>
   );
 }
 
 /**
- * The right column when the session could not be read: what does not depend on it — the
- * shortcuts (1280) and the tools. No guest cards (Contact, privacy: fish shows them to a known
- * guest only) and no per-user block.
+ * The right column when the session could not be read: what does not depend on it — the tools.
+ * No guest cards (Contact, privacy: fish shows them to a known guest only) and no per-user block.
  */
 function UnknownSessionAside() {
-  return (
-    <>
-      <ShortcutsAt1280 />
-      <Widgets layout="desktop" />
-    </>
-  );
+  return <Widgets layout="desktop" />;
 }
 
+/** 1280–1439 only: Acasă is centre · right there (DashboardLayout `contextFrom="2xl"`). */
+const AT_1280 = 'hidden xl:max-2xl:flex';
+
 /**
- * At 1280 Acasă is centre · right (DashboardLayout `contextFrom="2xl"`: three columns from 1440),
- * so the left column's shortcuts open the right one there. display:none from 1440, where the left
- * column carries them.
+ * At 1280 there is no left column, so its shortcuts open the main column as one row of chips
+ * (~44px) — not a 7-row card prepended to the right column, which then outgrew the viewport and
+ * stuck with its top cut off under the top bar. display:none below 1280 (the phone has the top
+ * bar's menu and the rails' «Vezi toate») and from 1440 (the left column carries them).
  */
 function ShortcutsAt1280() {
-  return (
-    <div className="contents 2xl:hidden">
-      <HomeShortcuts />
-    </div>
-  );
+  return <HomeShortcutStrip className={AT_1280} />;
 }
 
 /** The aside while the session is read: the tools card's footprint, nothing readable. */

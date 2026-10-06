@@ -2,27 +2,31 @@
 
 import { MagnifyingGlassIcon, MapIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
-import { useEffect, useRef, useState, type RefObject } from 'react';
-import { FilterButton, FOCUS_RING, pageToolClass, SEARCH_SHELL } from '@/components/templates/T1';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { UNDER_BAR_TOP } from '@/components/nav/shell';
+import { FilterButton, FOCUS_RING, SEARCH_SHELL } from '@/components/templates/T1';
 import { T2_EXPANDED } from '@/components/templates/T2';
-import { T4_HEADER_TOP } from '@/components/templates/T4/T4Frame';
+import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { routes } from '@/lib/routes';
 import { WaterKindSwitch } from './WaterKindSwitch';
 
 /*
- * The Bălți home's top: the Bălți / Ape publice switch (fish's SegmentedToggle; it names the page,
- * the h1 is for screen readers at every width), then the search bubble (fish LakesSearchBubble,
- * lakes.home.c4) growing from the left up to the reading measure, then «Filtre» (c5) + «Hartă» right
- * after it. The toolbar spans the whole page, above the rows and the docked filter panel, so opening
- * the panel never moves the button that opened it (ROADMAP §4). The map
- * page has its own T2 toolbar (back link, title, chips): the two are different bars, not one bar
- * that stays put. «Hartă» shows from 768 when there are lakes to map (fish hides the map entry at
- * totalLakesCount 0, lakes.home.s10); on a phone the floating «Vezi bălțile pe hartă» carries it (c23).
+ * The Bălți home's search header — one designed unit (owner rule 6, ROADMAP §4b, 2026-10-06): the
+ * Bălți / Ape publice switch (fish's SegmentedToggle; the h1 is for screen readers), the search pill
+ * (fish LakesSearchBubble, lakes.home.c4) taking the rest of the row, «Filtre» (c5), and from 768
+ * the map as the row's primary action — «Arată harta», filled accent, icon and label (never a small
+ * tool lost at the end). The group spans the content width, so no dead band opens after it. On a
+ * phone the floating «Arată harta» carries the map (c23); fish hides the map entry at
+ * totalLakesCount 0 (lakes.home.s10), so does the web.
  *
- * Sticky under the top bar (c27), on the templates' one sticky offset (T4_HEADER_TOP: up to the
- * edge when the phone's top bar slides away). Once stuck it gets its edge — a hairline — and a
- * fade into the rows that scroll under it. Without handlers (the first paint) the controls are inert.
+ * Right under it, attached, the icon categories (rule 5: Airbnb's row; each one filters the grid
+ * below in place — HomeGrid CategoryBar). The map page has its own T2 toolbar and chips.
+ *
+ * Sticky under the top bar (c27), on the shell's under-bar offset (UNDER_BAR_TOP, on the bar's own
+ * timing: up to the edge when the phone's top bar slides away). Once stuck it gets its edge — a
+ * hairline — and a fade into the rows that scroll under it. Without handlers (the first paint) the
+ * controls are inert.
  */
 export function HomeHeader({
   onSearch,
@@ -30,14 +34,17 @@ export function HomeHeader({
   filtersExpanded = false,
   showMap = false,
   searchRef,
+  categories = null,
 }: {
   onSearch?: () => void;
   onFilters?: () => void;
   filtersExpanded?: boolean;
-  /** «Hartă» (from 768): only when a row has lakes. Off on the first paint without data. */
+  /** «Arată harta» (from 768): only when the page has lakes. Off on the first paint without data. */
   showMap?: boolean;
   /** The search pill: the search dialog opens over it (SearchLayer `anchorRef`). */
   searchRef?: RefObject<HTMLButtonElement | null>;
+  /** The icon category row under the header (HomeGrid CategoryBar). */
+  categories?: ReactNode;
 }) {
   const ready = Boolean(onSearch && onFilters);
   const sentinel = useRef<HTMLDivElement>(null);
@@ -72,9 +79,10 @@ export function HomeHeader({
       <div
         ref={bar}
         data-stuck={stuck || undefined}
+        data-list-chrome=""
         className={cn(
           'sticky z-sticky -mx-4 border-b border-transparent bg-page px-4 pt-3 pb-2 md:-mx-6 md:px-6 md:pt-5 md:pb-3 xl:-mx-8 xl:px-8',
-          T4_HEADER_TOP.shell,
+          UNDER_BAR_TOP,
           'data-stuck:border-hairline',
           "after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-5 after:bg-linear-to-b after:from-page after:to-transparent after:opacity-0 after:content-[''] data-stuck:after:opacity-100 md:after:h-8",
         )}
@@ -86,8 +94,8 @@ export function HomeHeader({
           </div>
           <div inert={!ready} className="flex min-w-0 items-center gap-3 md:flex-1">
             {/* The search pill (T2SearchPill's look, lakes.home.c4) in the toolbar's one family: surface
-                + hairline, like the switch and «Filtre» — the map-floating shadow-e2 halo is for the
-                map, not the page ground. TODO(kit): an `elevation` pass-through on T2SearchPill. */}
+                + hairline, like the switch and «Filtre». It takes the rest of the row: the switch,
+                pill, «Filtre» and the map span the content width as one group. */}
             <button
               ref={searchRef}
               type="button"
@@ -96,7 +104,7 @@ export function HomeHeader({
               aria-haspopup="dialog"
               className={cn(
                 SEARCH_SHELL,
-                'min-w-0 flex-1 cursor-pointer gap-2.5 pl-3.5 text-left md:max-w-120 xl:max-w-180',
+                'min-w-0 flex-1 cursor-pointer gap-2.5 pl-3.5 text-left',
                 'transition-[background-color,opacity] duration-(--duration-fast) ease-fast hover:bg-soft-fill! active:opacity-80',
                 FOCUS_RING,
               )}
@@ -104,21 +112,18 @@ export function HomeHeader({
               <MagnifyingGlassIcon aria-hidden className="size-5 shrink-0 text-muted" />
               <span className="min-w-0 flex-1 truncate t-body text-muted">Caută bălți, lacuri...</span>
             </button>
-            {/* Right after the pill (not pushed to the far edge): nothing moves when the docked
-                filter panel opens, and no dead band opens between the pill and the buttons. Only the
-                expanded «Filtre» is tinted (T2_EXPANDED); «Hartă» is the same surface tool. */}
-            <div className="flex shrink-0 items-center gap-3">
-              <FilterButton desktopHidden={false} expanded={filtersExpanded} onClick={() => onFilters?.()} className={T2_EXPANDED} />
-              {showMap ? (
-                <Link href={routes.lakesMap()} className={cn(pageToolClass({ iconOnly: false }), 'max-md:hidden')}>
-                  <MapIcon aria-hidden />
-                  Hartă
-                </Link>
-              ) : null}
-            </div>
+            <FilterButton desktopHidden={false} expanded={filtersExpanded} onClick={() => onFilters?.()} className={T2_EXPANDED} />
+            {showMap ? (
+              // The map is the row's primary action (rule 6): filled accent, icon and label.
+              <Link href={routes.lakesMap()} className={buttonClass({ variant: 'primary', className: 'gap-2 max-md:hidden' })}>
+                <MapIcon aria-hidden className="size-5 stroke-2" />
+                Arată harta
+              </Link>
+            ) : null}
           </div>
         </div>
       </div>
+      {categories ? <div className="pt-1">{categories}</div> : null}
     </>
   );
 }

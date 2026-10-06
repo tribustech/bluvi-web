@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { connection } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
 import { HydrationBoundary, type DehydratedState } from '@tanstack/react-query';
-import { FilterColumnSkeleton, ListHeader, ListPageSkeleton, ListSummary, PILL_H, TabsSkeleton } from '@/components/templates/T1';
+import { FilterBarSkeleton, ListHeader, ListPageSkeleton, ListSummary, PILL_H, TabsSkeleton } from '@/components/templates/T1';
 import { DashboardRefresh } from '@/components/templates/T5';
 import { AdjustmentsHorizontalIcon, ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { SHELL_GUTTERS } from '@/components/nav/shell';
@@ -94,15 +94,16 @@ export default function CompetitionsPage({ searchParams }: Props) {
 }
 
 const STATUS_LINKS = [
-  { list: 'viitoare', label: 'Viitoare' },
-  { list: 'live', label: 'Live' },
-  { list: 'incheiate', label: 'Trecute' },
+  { status: 'notStarted', label: 'Viitoare' },
+  { status: 'started', label: 'Live' },
+  { status: 'completed', label: 'Rezultate' },
 ] as const;
 
 /**
- * The three global status lists (/concursuri/viitoare · /live · /incheiate — fish reaches them from a
- * rail's «Vezi toate» with no lake): linked from the page's end, in the static shell, so people and
- * crawlers find them. Inside the page's bottom padding (ListPage pb-10 / pb-16), under the list.
+ * The three status tabs as plain links (/concursuri?status=…; the old /concursuri/viitoare · /live
+ * · /incheiate redirect there): at the page's end, in the static shell, so people and crawlers find
+ * them — in the tabs' own order and names (Viitoare · Live · Rezultate). Inside the page's bottom
+ * padding (ListPage pb-10 / pb-16), under the list.
  */
 function StatusListsNav() {
   return (
@@ -110,10 +111,10 @@ function StatusListsNav() {
       <p className="flex flex-wrap items-center gap-x-1 t-caption text-muted">
         Toate concursurile:
         {STATUS_LINKS.map((l, i) => (
-          <span key={l.list} className="inline-flex items-center gap-x-1">
+          <span key={l.status} className="inline-flex items-center gap-x-1">
             {i > 0 ? <span aria-hidden className="text-faint">·</span> : null}
             <Link
-              href={routes.competitionsByStatus(l.list)}
+              href={routes.competitions(l.status)}
               className="-mx-1 inline-flex min-h-6 items-center rounded-control px-1 text-accent-ink transition-colors duration-(--duration-fast) hover:underline"
             >
               {l.label}
@@ -245,8 +246,8 @@ function itemListJsonLd(cards: CompetitionCard[]) {
 }
 
 /**
- * The prerendered shell: what every /concursuri URL shares — the page's h1 (spoken), the docked
- * filter column and plain card bones in the centre column. Nothing that names a mode.
+ * The prerendered shell: what every /concursuri URL shares — the page's h1 (spoken) and plain card
+ * bones. Nothing that names a mode (the filter bar is the browse mode's, or results' from 1280).
  */
 function NeutralFallback() {
   return (
@@ -254,7 +255,6 @@ function NeutralFallback() {
       <ListPageSkeleton
         title="Concursuri"
         header={<h1 className="sr-only">Concursuri</h1>}
-        filters={<FilterColumnSkeleton sections={FILTER_SECTIONS} />}
         summaryTitle={null}
         summary={<span aria-hidden />}
         list={<CompetitionsFallbackBody withPulse={false} />}
@@ -263,12 +263,14 @@ function NeutralFallback() {
   );
 }
 
-/** The docked column's rows per section: Stare, Perioadă (presets + calendar row), Format, Județ. */
-const FILTER_SECTIONS = [4, 6, 3, 1];
+/** The filter bar's quick chips as the page draws them (Stare only in results mode, where the tabs are gone). */
+function barChips(place: ListPlace, results: boolean): string[] {
+  return [...(results ? ['Stare'] : []), 'Perioadă', 'Format', ...(place.status === 'notStarted' ? ['Locuri libere'] : []), 'Județ'];
+}
 
 /**
  * The page's frame while it reads, in the shape it will open in: the tabs (or the results chrome),
- * the docked filter column, the search row, the bento where the list opens on it, the summary's
+ * the search row and the filter bar, the bento where the list opens on it, the summary's
  * real title and compact card bones.
  */
 function Fallback({ place, density = 'compact' }: { place: ListPlace; density?: Density }) {
@@ -288,8 +290,8 @@ function Fallback({ place, density = 'compact' }: { place: ListPlace; density?: 
             <ListHeader title="Concursuri" below={<TabsSkeleton count={3} />} />
           )
         }
-        // The column the page docks: Stare, «Locuri libere» on Viitoare, Perioadă, Format, Județ.
-        filters={<FilterColumnSkeleton switchRow={place.status === 'notStarted'} sections={FILTER_SECTIONS} />}
+        // The filter bar under the search row (results mode: under the results row, from 1280 — the hero slot).
+        filterBar={results ? undefined : <FilterBarSkeleton chips={barChips(place, false)} />}
         // Results mode has no aside (results.c14).
         aside={results ? 0 : 1}
         searchPlaceholder={results ? undefined : 'Concurs, baltă sau organizator'}
@@ -298,7 +300,16 @@ function Fallback({ place, density = 'compact' }: { place: ListPlace; density?: 
         summary={results ? <ListSummary title={heading} loading titleHiddenFrom="xl" /> : undefined}
         list={<CompetitionsFallbackBody withPulse={false} density={density} />}
         // ≥1280 the results chrome sits in the centre column, in the search row's slot.
-        hero={showsPulse(place) ? <PulseSkeleton /> : results ? <ResultsRowFrame label={label} className="hidden xl:flex" /> : undefined}
+        hero={
+          showsPulse(place) ? (
+            <PulseSkeleton />
+          ) : results ? (
+            <div className="hidden flex-col gap-4 xl:flex">
+              <ResultsRowFrame label={label} />
+              <FilterBarSkeleton chips={barChips(place, true)} />
+            </div>
+          ) : undefined
+        }
       />
     </div>
   );
@@ -339,7 +350,7 @@ function ResultsChromeFrame({ label, chips, filterCount, band }: { label: string
   );
 }
 
-/** One results row (back, pill, refresh); `circle` below 1280, where the docked column is not on screen. */
+/** One results row (back, pill, refresh); `circle` below 1280, where the filter bar is not on screen. */
 function ResultsRowFrame({
   label,
   circle = false,

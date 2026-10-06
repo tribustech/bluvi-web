@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/components/ui/cn';
 import { TRACK_GAP, TRACKS } from '../tracks';
-import { DetailStickyAside } from './DetailStickyAside';
+import { CHIP_ROW_STEPS, DetailStickyAside, TAB_BAND_STEPS } from './DetailStickyAside';
 import { COLUMN_STICKY_TOP, COLUMN_STICKY_TOP_BELOW_TABS, SECTION_SCROLL_MARGIN } from './metrics';
 
 /*
@@ -15,6 +15,11 @@ import { COLUMN_STICKY_TOP, COLUMN_STICKY_TOP_BELOW_TABS, SECTION_SCROLL_MARGIN 
  *    centre is full width — the layout for a table or a map (ROADMAP §4: they take all the width).
  *  - `asideFrom="2xl"`: the right column only joins from 1440 (--breakpoint-2xl), on the late 320
  *    track (../tracks.ts TRACKS.*ThenRight) — for a centre that needs the 1280 row; never a table.
+ *  - `layout="summary"` — the Airbnb detail page (owner rule 1, ROADMAP §4b; lake, public water):
+ *    no left column; from 1024 two columns, the content left and a 360 / 400 summary column right
+ *    (<DetailSummaryCard>: price, the main action, contact, key facts), 48 apart, sticky under the
+ *    bar AND the section chip row, which stays at every width on such a page (DetailSectionNav
+ *    `hideFromXl={false}`) — so section anchors clear bar + chips from 1280 too.
  */
 
 export type DetailBodyProps = {
@@ -44,6 +49,8 @@ export type DetailBodyProps = {
    * `asideBelowXl`. A table never takes a right column (ROADMAP §4): leave `aside` out.
    */
   asideFrom?: 'xl' | '2xl';
+  /** `columns` (default): the three-column body from 1280. `summary`: content + summary card from 1024. */
+  layout?: 'columns' | 'summary';
   className?: string;
   /** The centre: <DetailSection>s. */
   children: ReactNode;
@@ -57,9 +64,17 @@ export function DetailBody({
   asideBelowXl = 'end',
   asideSticky = false,
   asideFrom = 'xl',
+  layout = 'columns',
   className,
   children,
 }: DetailBodyProps) {
+  if (layout === 'summary') {
+    return (
+      <SummaryBody aside={aside} asideLabel={asideLabel} asideBelowXl={asideBelowXl} asideSticky={!!asideSticky} className={className}>
+        {children}
+      </SummaryBody>
+    );
+  }
   const late = asideFrom === '2xl';
   const cols = left
     ? aside
@@ -97,7 +112,7 @@ export function DetailBody({
         asideSticky ? (
           <DetailStickyAside
             label={asideLabel}
-            belowTabs={asideSticky === 'below-tabs'}
+            offsetSteps={asideSticky === 'below-tabs' ? TAB_BAND_STEPS : 0}
             className={cn(asideClass, late ? '2xl:sticky 2xl:self-start' : 'xl:sticky xl:self-start', asideSticky === 'below-tabs' ? COLUMN_STICKY_TOP_BELOW_TABS : COLUMN_STICKY_TOP)}
           >
             {aside}
@@ -108,6 +123,96 @@ export function DetailBody({
           </aside>
         )
       ) : null}
+    </div>
+  );
+}
+
+/** The summary column from 1024 (360, 400 from 1440) and the gutter between it and the content. */
+export const SUMMARY_TRACKS = 'min-[1024px]:grid min-[1024px]:grid-cols-[minmax(0,1fr)_--spacing(90)] min-[1024px]:gap-x-8 xl:gap-x-12 2xl:grid-cols-[minmax(0,1fr)_--spacing(100)]';
+
+/**
+ * Section anchors (and the scroll spy) with the chip row pinned at every width: md's 64 + 58 + 12
+ * from 1280 too. A descendant selector, so it outranks the sections' own `xl:scroll-mt-22`.
+ */
+const SUMMARY_ANCHORS = 'xl:[&_section[id]]:scroll-mt-34';
+
+function SummaryBody({
+  aside,
+  asideLabel,
+  asideBelowXl,
+  asideSticky,
+  className,
+  children,
+}: {
+  aside?: ReactNode;
+  asideLabel: string;
+  asideBelowXl: 'start' | 'end' | 'hidden';
+  asideSticky: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  const asideClass = cn(
+    'flex min-w-0 flex-col gap-2 md:gap-4',
+    asideBelowXl === 'start' && 'max-[1024px]:order-first',
+    asideBelowXl === 'hidden' && 'max-[1024px]:hidden',
+  );
+  return (
+    <div
+      data-t3="body"
+      data-layout="summary"
+      className={cn(
+        'flex flex-1 flex-col gap-2 pt-2 pb-8 md:gap-4 md:px-6 md:pt-6 md:pb-12 min-[1024px]:items-start xl:px-8 xl:pt-8',
+        SUMMARY_TRACKS,
+        SUMMARY_ANCHORS,
+        className,
+      )}
+    >
+      <div className="flex min-w-0 flex-col gap-2 md:gap-4 xl:gap-5">{children}</div>
+      {aside ? (
+        asideSticky ? (
+          // Before mount: bar 64 + chips 58 + 24 = 146 (top-36.5); then measured (useStickyTop).
+          <DetailStickyAside label={asideLabel} offsetSteps={CHIP_ROW_STEPS} className={cn(asideClass, 'min-[1024px]:sticky min-[1024px]:top-36.5 min-[1024px]:self-start')}>
+            {aside}
+          </DetailStickyAside>
+        ) : (
+          <aside aria-label={asideLabel} className={asideClass}>
+            {aside}
+          </aside>
+        )
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The summary card (owner rule 1, Airbnb's booking card) for <DetailBody layout="summary">: a
+ * raised white card — the headline (a price «de la 45 RON / tură», or the thing's kind), its status
+ * badges, the main action(s) at full width, a footnote, then the key facts / contact under a
+ * hairline. One card, not a stack: the right column says «what it costs and how to go» at a glance.
+ */
+export function DetailSummaryCard({
+  headline,
+  badges,
+  actions,
+  footnote,
+  children,
+  className,
+}: {
+  headline?: ReactNode;
+  badges?: ReactNode;
+  actions?: ReactNode;
+  footnote?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    // No landmark of its own: it is the content of <DetailBody>'s labelled <aside> (`asideLabel`).
+    <div data-t3="summary" className={cn('flex flex-col gap-4 bg-surface px-4 py-5 md:rounded-card md:p-6 md:shadow-e2', className)}>
+      {headline ? <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">{headline}</div> : null}
+      {badges ? <div className="flex flex-wrap items-center gap-1.5">{badges}</div> : null}
+      {actions ? <div className="flex flex-col gap-2">{actions}</div> : null}
+      {footnote ? <p className="t-caption text-muted">{footnote}</p> : null}
+      {children ? <div className="flex flex-col gap-4 border-t border-hairline pt-4">{children}</div> : null}
     </div>
   );
 }
