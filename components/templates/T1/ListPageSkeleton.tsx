@@ -122,6 +122,7 @@ export function ListPageSkeleton({
   asideFrom = 'xl',
   searchPlaceholder,
   hero,
+  heroFirst = false,
   summaryTitle,
   summary,
   list,
@@ -148,6 +149,12 @@ export function ListPageSkeleton({
   searchPlaceholder?: string;
   /** The hero's skeleton, when the page opens on one (PulseHeroSkeleton). */
   hero?: ReactNode;
+  /**
+   * The page draws its hero ABOVE the search row and filter bar from 768 (Concursuri · Viitoare:
+   * the live band and the spotlight), the search row first on the phone — the page's own order, so
+   * nothing moves when the stream resolves. Default: search row, filter bar, then the hero.
+   */
+  heroFirst?: boolean;
   /** The summary's real title («Alege următorul start»), with the count line shimmering. */
   summaryTitle: ReactNode;
   /** The whole summary row, when the page's is not the title + shimmering count (results mode). */
@@ -165,9 +172,22 @@ export function ListPageSkeleton({
       asideInline={false}
       asideBusy={aside > 0}
     >
-      {searchPlaceholder ? <ToolbarSkeleton placeholder={searchPlaceholder} filterButton={Boolean(filters) && !filterBar} /> : null}
-      {filterBar}
-      {hero}
+      {heroFirst ? (
+        <>
+          {hero}
+          {/* The page's search block: one column (gap-3), first on the phone. */}
+          <div className="flex flex-col gap-3 max-md:-order-1">
+            {searchPlaceholder ? <ToolbarSkeleton placeholder={searchPlaceholder} filterButton={Boolean(filters) && !filterBar} /> : null}
+            {filterBar}
+          </div>
+        </>
+      ) : (
+        <>
+          {searchPlaceholder ? <ToolbarSkeleton placeholder={searchPlaceholder} filterButton={Boolean(filters) && !filterBar} /> : null}
+          {filterBar}
+          {hero}
+        </>
+      )}
       <div className={cn('flex flex-col', LIST_GUTTER)}>
         {summary ?? <ListSummary title={summaryTitle} loading />}
         {list ?? <ListSkeleton variant="cards" min="sm" count={6} label={label} />}

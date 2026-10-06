@@ -1,8 +1,9 @@
+import { AvatarPhoto } from "./AvatarPhoto";
 import { cn } from "./cn";
 import { getInitials, hashString } from "./initials";
 
 /**
- * Avatar + FaceStack — Fundații §07. Photo when there is one, otherwise initials
+ * Avatar + FaceStack — Fundații §07. Photo when there is one (initials if it fails to load), otherwise initials
  * (fish anglerInitials.ts) on a pastel tone from the status pairs. Round by default;
  * square (radius 12) for teams and lakes. `solid` is fish's filled indigo placeholder disc (the
  * followers list): never picked by name, only asked for.
@@ -75,18 +76,15 @@ export function Avatar({
     : { role: "img" as const, "aria-label": name };
 
   if (src) {
+    // A photo that fails to load falls back to the initials (./AvatarPhoto).
     return (
-      <span className={cn(base, "bg-soft-fill")} {...a11y}>
-        {/* Remote CMS photos at avatar size: the image optimizer buys nothing here. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt=""
-          className="size-full object-cover"
-          loading="lazy"
-          decoding="async"
-        />
-      </span>
+      <AvatarPhoto
+        src={src}
+        className={base}
+        fallbackClassName={TONE[tone ?? toneForName(name)]}
+        initials={getInitials(name)}
+        a11y={a11y}
+      />
     );
   }
   return (

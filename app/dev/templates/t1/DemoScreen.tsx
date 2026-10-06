@@ -21,12 +21,10 @@ export function DemoScreen({
   state,
   initial,
   isAuthenticated,
-  seed,
 }: {
   state: DemoState;
   initial: ListPlace;
   isAuthenticated: boolean;
-  seed: number;
 }) {
   const [client] = useState(() => makeQueryClient());
   const transport = useMemo(() => {
@@ -42,7 +40,7 @@ export function DemoScreen({
   if (state === 'crash') throw new Error('T1 demo: forced render error');
   return (
     <QueryClientProvider client={client}>
-      <CompetitionsScreen initial={initial} isAuthenticated={isAuthenticated} seed={seed} transport={transport} mirrorPath={false} />
+      <CompetitionsScreen initial={initial} isAuthenticated={isAuthenticated} transport={transport} mirrorPath={false} />
     </QueryClientProvider>
   );
 }

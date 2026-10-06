@@ -1,60 +1,25 @@
 'use client';
 
-import { useCallback, useState } from 'react';
 import type { CompetitionCard } from '@/core/competitions';
 import type { Transport } from '@/core/transport';
-import { Agenda } from './Agenda';
-import { useLiveData, useMineStates, useResultDetails, useUpcomingPeople, type DesktopViewer } from './data';
-import { LiveHub } from './LiveHub';
+import { useMineStates, type DesktopViewer } from './data';
 import { MineRows } from './MineRows';
-import { pickHero } from './model';
 import { useDesktop } from './motion';
-import { Results } from './Results';
 
 /*
- * The /concursuri tabs from 1024 (owner-approved prototype A2, 2026-10-06): each tab gets the shape
- * its question asks for, on the same list the phone shows as fish's cards (same query, same pages,
- * same «Încarcă mai multe»):
- *   Viitoare → agenda grouped by time, with faces and a capacity bar   (./Agenda)
- *   Live     → the live hub                                            (./LiveHub)
- *   Rezultate→ compact winner rows that expand inline                  (./Results)
- *   Ale mele → my registrations, led by my status                      (./MineRows)
+ * «Ale mele» from 1024 (owner-approved prototype A2, 2026-10-06): my registrations, led by my
+ * status (./MineRows), on the same list the phone shows as fish's cards (same query, same pages,
+ * same «Încarcă mai multe»). (Viitoare draws its own poster groups: ../upcoming.)
  * Rendered next to the cards and swapped by CSS at `lg` (no layout shift on hydration); the extra
  * reads start only once the viewport really is ≥1024.
  */
 
-export type DesktopTab = 'notStarted' | 'started' | 'completed' | 'mine';
+export type DesktopTab = 'mine';
 
 type Props = { tab: DesktopTab; cards: CompetitionCard[]; t: Transport; viewer: DesktopViewer };
 
 export function DesktopTabView(props: Props) {
-  if (props.tab === 'started') return <LiveView {...props} />;
-  if (props.tab === 'completed') return <ResultsView {...props} />;
-  if (props.tab === 'mine') return <MineView {...props} />;
-  return <UpcomingView {...props} />;
-}
-
-function UpcomingView({ cards, t, viewer }: Props) {
-  const people = useUpcomingPeople(t, cards, viewer, useDesktop());
-  return <Agenda cards={cards} people={people} />;
-}
-
-function LiveView({ cards, t }: Props) {
-  // The hero is picked once per visit (as the bento's, pulse.c5): a poll never swaps it under the
-  // reader; only its leaving the live list does. It is the one competition read in full.
-  const picked = pickHero(cards);
-  const [heroId, setHeroId] = useState(picked);
-  if (picked && !cards.some((c) => c.documentId === heroId)) setHeroId(picked);
-  const { live, updatedAt, rankingState } = useLiveData(t, cards, heroId, useDesktop());
-  return <LiveHub cards={cards} heroId={heroId} live={live} rankingState={rankingState} updatedAt={updatedAt} />;
-}
-
-function ResultsView({ cards, t, viewer }: Props) {
-  // Rows whose ranking is wanted: hovered, focused or opened once (kept, so it never re-hides).
-  const [wanted, setWanted] = useState<ReadonlySet<string>>(() => new Set());
-  const want = useCallback((id: string) => setWanted((w) => (w.has(id) ? w : new Set(w).add(id))), []);
-  const details = useResultDetails(t, cards, viewer, useDesktop(), wanted);
-  return <Results cards={cards} details={details} onWant={want} />;
+  return <MineView {...props} />;
 }
 
 function MineView({ cards, t, viewer }: Props) {

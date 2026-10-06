@@ -21,7 +21,9 @@ import {
   pastPollsPageSchema,
   personSchema,
   pollSchema,
+  pulsePeopleResponseSchema,
   pulsePersonSchema,
+  recentWeighingsResponseSchema,
   rankingResponseSchema,
   registrationSchema,
   registrationWriteResultSchema,
@@ -289,6 +291,34 @@ export async function getPulsePerson(t: Transport) {
     z.object({ data: pulsePersonSchema.nullable() }).nullish()
   );
   return res?.data ?? null;
+}
+
+/**
+ * Web only: `GET /feed/pulse-person?limit=N` — up to `limit` people for «În lumina reflectoarelor».
+ * The same public, edge-cached read as `getPulsePerson`. A CMS that does not know `limit` answers
+ * with `data` alone: that one person then stands for the list. `[]` on an empty database.
+ */
+export async function getPulsePeople(t: Transport, limit: number) {
+  const res = await call(
+    t,
+    { method: 'GET', path: '/feed/pulse-person', query: { limit }, auth: 'none' },
+    pulsePeopleResponseSchema
+  );
+  if (res?.items) return res.items;
+  return res?.data ? [res.data] : [];
+}
+
+/* ------------------------------------------------------------------ */
+/* CMS feed/recent-weighings (web only)                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * `GET /feed/recent-weighings` — the newest closed weighings across live competitions, newest
+ * first. Public (shared, 30s edge cache). `[]` when nothing is live.
+ */
+export async function getRecentWeighings(t: Transport) {
+  const res = await call(t, { method: 'GET', path: '/feed/recent-weighings', auth: 'none' }, recentWeighingsResponseSchema);
+  return res?.data ?? [];
 }
 
 /* ------------------------------------------------------------------ */

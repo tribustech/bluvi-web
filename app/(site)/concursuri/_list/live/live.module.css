@@ -1,0 +1,97 @@
+/*
+ * The Live tab's motion (prototype app/dev/hub hub.module.css): a card that just got a weighing
+ * washes indigo and fades back (it never moves), a new strip item slides in, a fresh weighing's dot
+ * breathes three times, the cards rise in once. Reduced motion: none of it.
+ */
+
+/* A card that just got a weighing: an indigo wash laid over it (poster included) that fades out; the card never moves. */
+.wash {
+  background-color: var(--color-accent-tint-2);
+  mix-blend-mode: multiply;
+  animation: wash 1600ms ease-out both;
+}
+@keyframes wash {
+  from {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.slideIn {
+  animation: slideIn 320ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 300ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation-delay: calc(min(var(--i, 0), 8) * 40ms);
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ping {
+  position: relative;
+}
+.ping::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  animation: ping 1.6s cubic-bezier(0, 0, 0.2, 1) 3;
+  opacity: 0;
+}
+@keyframes ping {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+/* The strip: a horizontal shelf that snaps, without scrollbar chrome. */
+.rail {
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+.rail > * {
+  scroll-snap-align: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slideIn,
+  .rise {
+    animation: none;
+  }
+  .wash {
+    display: none;
+  }
+  .ping::after {
+    animation: none;
+  }
+}

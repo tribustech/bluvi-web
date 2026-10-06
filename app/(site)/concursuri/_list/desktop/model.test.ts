@@ -1,34 +1,9 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { bucketOf } from './dates';
 import { miniRanking, resultsPodium, viewerRow } from './model';
 
-/* competitions-list.index c30 (agenda buckets), c33 (one podium source), c33/c35 (the viewer by identity). */
-
-describe('bucketOf — the agenda never files a passed start under «Săptămâna asta»', () => {
-  // Tuesday 6 Oct 2026, noon in Bucharest.
-  const now = new Date('2026-10-06T09:00:00Z');
-
-  it('a not-started competition whose start day passed goes last, in its own bucket — after the months and «Fără dată»', () => {
-    const past = bucketOf('2026-09-28T05:00:00Z', now);
-    expect(past.key).toBe('past');
-    expect(past.order).toBeGreaterThan(bucketOf('2027-12-02T05:00:00Z', now).order);
-    expect(past.order).toBeGreaterThan(bucketOf(null, now).order);
-    // Sunday 4 Oct: still last week, and still before today.
-    expect(bucketOf('2026-10-04T05:00:00Z', now).key).toBe('past');
-    // Monday 5 Oct: this week, but yesterday — passed.
-    expect(bucketOf('2026-10-05T05:00:00Z', now).key).toBe('past');
-  });
-
-  it('today and the rest of the week are «Săptămâna asta»; then next week; then the month', () => {
-    expect(bucketOf('2026-10-06T04:00:00Z', now)).toMatchObject({ key: 'w0', label: 'Săptămâna asta' });
-    expect(bucketOf('2026-10-11T15:00:00Z', now).key).toBe('w0');
-    expect(bucketOf('2026-10-12T05:00:00Z', now)).toMatchObject({ key: 'w1', label: 'Săptămâna viitoare' });
-    expect(bucketOf('2026-11-02T05:00:00Z', now)).toMatchObject({ label: 'Noiembrie' });
-    expect(bucketOf(null, now).key).toBe('tbd');
-  });
-});
+/* competitions-list.index c33 (one podium source), c33/c35 (the viewer by identity). */
 
 const ranking = (rows: Array<Record<string, unknown>>, rankingType = 'quantity') => miniRanking({ rankings: rows, metadata: { rankingType } });
 

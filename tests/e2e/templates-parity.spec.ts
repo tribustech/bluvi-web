@@ -30,19 +30,20 @@ async function landmarks(page: Page) {
 
 test('T1 demo = /concursuri/viitoare: the same h1, tabs, regions and filter chips (1280)', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  // The demo opens on Viitoare (with the bento); /concursuri itself opens on Live when something is live.
+  // The demo opens on Viitoare (with «În lumina reflectoarelor»); /concursuri itself opens on Live when something is live.
   await page.goto('/concursuri/viitoare');
   await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByRole('region', { name: 'Pulsul concursurilor' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('heading', { name: 'Rezultate recente' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('region', { name: 'În lumina reflectoarelor' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('group', { name: /^Filtre/ }).first()).toBeVisible({ timeout: 30_000 });
   const prod = await landmarks(page);
   await page.goto('/dev/templates/t1');
   await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByRole('region', { name: 'Pulsul concursurilor' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('heading', { name: 'Rezultate recente' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('region', { name: 'În lumina reflectoarelor' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('group', { name: /^Filtre/ }).first()).toBeVisible({ timeout: 30_000 });
+  // The tab badges (meta.counts) land with the demo's own lists, after the spotlight.
+  await expect.poll(async () => (await landmarks(page)).tabs, { timeout: 30_000 }).toEqual(prod.tabs);
   const demo = await landmarks(page);
   expect(demo.h1).toEqual(prod.h1);
-  expect(demo.tabs).toEqual(prod.tabs);
   expect(demo.chips).toEqual(prod.chips);
   expect(demo.regions).toEqual(prod.regions);
   expect(prod.chips).toEqual(expect.arrayContaining(['Filtre', 'Județ']));

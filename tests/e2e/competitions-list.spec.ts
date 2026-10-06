@@ -58,22 +58,6 @@ const tab = (page: Page, name: string | RegExp) => page.getByRole('tab', { name 
 const list = (page: Page) => page.locator('#concursuri-lista');
 const cardLink = (page: Page, name: string) => list(page).getByRole('link', { name, exact: true });
 
-/**
- * The person tile (pulse.c16–c18): a competition person links to its ranking; an angler person is
- * plain text while the web has no angler profile (M2) — never a link to /pescari or /intra.
- */
-async function expectPersonTile(bento: ReturnType<Page['getByRole']>) {
-  const tile = bento.getByRole('link', { name: /^[A-ZĂÂÎȘȚ1 ]+: .+/ });
-  if (await tile.count()) {
-    expect((await tile.getAttribute('href')) ?? '').toMatch(/^\/concursuri\/[^/]+(\/clasament)?$/);
-  } else {
-    await expect(bento.locator('.t-title2').first()).toBeVisible();
-  }
-  for (const href of await bento.locator('a').evaluateAll((as) => as.map((a) => a.getAttribute('href') ?? ''))) {
-    expect(href).not.toMatch(/\/pescari\/|^\/intra/);
-  }
-}
-
 /** The desktop rows rise in once (a staggered fade): axe reads the settled colours, never mid-fade. */
 async function settled(page: Page) {
   await page.waitForFunction(() =>
@@ -110,7 +94,9 @@ test.describe('signed out', () => {
     await expect(tab(page, /Ale mele/)).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 2, name: 'Alege următorul start' })).toBeVisible();
     await expect(list(page).getByText(/^\d+ (de )?concursuri viitoare$|^1 concurs viitor$/).first()).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Pulsul concursurilor' })).toBeVisible();
+    // The tab's own promo (competitions-upcoming.spec.ts): «În lumina reflectoarelor», no fish bento.
+    await expect(page.getByRole('region', { name: 'În lumina reflectoarelor' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Pulsul concursurilor' })).toHaveCount(0);
     // c15: scope all never touches the per-user endpoint.
     expect(personal).toEqual([]);
     // c2 + §4b.20: the active tab is filled (not the track's surface) and keeps the 2px accent underline.
@@ -156,8 +142,8 @@ test.describe('signed out', () => {
     await tab(page, 'Live').click();
     await expect(page.getByRole('heading', { level: 2, name: 'Live acum' })).toBeVisible();
     await expect(list(page).getByText(/^\d+ (de )?concursuri în desfășurare$|^1 concurs în desfășurare$/).first()).toBeVisible();
-    // c28: no bento off Viitoare.
-    await expect(page.getByRole('region', { name: 'Pulsul concursurilor' })).toHaveCount(0);
+    // c28: no Viitoare promo off Viitoare.
+    await expect(page.getByRole('region', { name: 'În lumina reflectoarelor' })).toHaveCount(0);
     expect(await events(page)).toContainEqual({ name: 'competitions_status_changed', params: { status: 'started', scope: 'all' } });
     // c18: the live list re-reads on its own every minute.
     const polled = page.waitForRequest((r) => PUBLIC.test(r.url()) && r.url().includes('status=started'), { timeout: 10_000 });
@@ -273,21 +259,19 @@ test.describe('signed out', () => {
     await expect(page.getByRole('dialog')).toBeVisible();
   });
 
-  test('competitions-list.index.c13 competitions-list.index.c14 competitions-list.index.s15 — WEB no Listă / Afiș toggle: one density — fish\'s compact cards below 1024, each tab\'s own layout from 1024', async ({ page, context }) => {
+  test('competitions-list.index.c13 competitions-list.index.c14 competitions-list.index.s15 — WEB no Listă / Afiș toggle: one density — fish\'s poster cards at every width (owner, 2026-10-06)', async ({ page, context }) => {
     await page.setViewportSize(CARDS);
     await open(page);
     await expect(page.getByRole('group', { name: 'Afișare' })).toHaveCount(0);
     await expect(page.getByRole('radio', { name: 'Afiș' })).toHaveCount(0);
-    // The compact cards, fish's 10px between rows (c14), a thumbnail — never a full-width poster.
-    const grid = list(page).locator('ul').first();
-    await expect(grid).toHaveCSS('row-gap', '10px');
+    // The poster cards (expanded density), the poster across the top.
     await expect(list(page).locator('article').first()).toBeVisible();
-    await expect(list(page).locator('[class*="poster-ratio"]')).toHaveCount(0);
+    await expect(list(page).locator('[class*="poster-ratio"]').first()).toBeVisible();
     // Nothing remembered: no density cookie.
     expect((await context.cookies()).some((c) => c.name === 'bluvi_competition_density')).toBe(false);
-    // From 1024 the tab's own layout (competitions-list-desktop.spec.ts), still no toggle.
+    // From 1024 the same cards, still no toggle.
     await page.setViewportSize(DESKTOP);
-    await expect(list(page).locator('[data-desktop-tab="notStarted"]')).toBeVisible();
+    await expect(list(page).locator('[class*="poster-ratio"]').first()).toBeVisible();
     await expect(page.getByRole('group', { name: 'Afișare' })).toHaveCount(0);
     // And on the phone.
     await page.setViewportSize(PHONE);
@@ -298,7 +282,8 @@ test.describe('signed out', () => {
   test('competitions-list.index.c16 competitions-list.index.s6 — Rezultate loads page 2 near the end, with the footer', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await open(page, '/concursuri/rezultate');
-    const items = list(page).locator('ul').first().locator(':scope > li');
+    // Rezultate is rows grouped by day (results/ResultsList): every row of every day.
+    const items = list(page).locator('li[data-result-row]');
     await expect(items).toHaveCount(20);
     const next = page.waitForRequest((r) => PUBLIC.test(r.url()) && r.url().includes('status=completed') && r.url().includes('page=2'));
     const footer = page.getByText(/^20 din \d+ concursuri$/);
@@ -338,19 +323,21 @@ test.describe('signed out', () => {
     await expect(page).toHaveURL(/\/concursuri\/a6xjl65ooe9eadrtvvqj9hn1/);
   });
 
-  test('competitions-list.cards.c2 competitions-list.cards.c3 competitions-list.cards.c4 competitions-list.index.c26 competitions-list.index.s18 — poster button, LIVE date line, the photo viewer', async ({ page }) => {
+  test('competitions-list.cards.c2 competitions-list.cards.c3 competitions-list.cards.c4 competitions-list.index.c26 competitions-list.index.s18 — poster button, LIVE pill + date line, the photo viewer', async ({ page }) => {
     const errors = consoleErrors(page);
     await page.setViewportSize(CARDS);
     await open(page, '/concursuri/live');
     const name = '[CHAT25] Test chat v2 — Cantitate';
     const item = list(page).locator('article').filter({ has: page.getByRole('link', { name, exact: true }) });
-    await expect(item.getByText(/^LIVE · /)).toBeVisible();
-    // c2: a competition with a banner shows the banner (small), not the lake.
-    const thumb = item.getByRole('button', { name: `Vezi imaginea pentru ${name}` });
-    const src = await thumb.locator('img').getAttribute('src');
     const core = await (await page.request.get('http://localhost:1337/api/feed/competition-cards?status=started&page=1&pageSize=20')).json();
     const dto = core.data.find((c: { name: string }) => c.name === name);
-    expect(decodeURIComponent(src ?? '')).toContain(dto.banner.smallUrl ?? dto.banner.url);
+    // The poster card (fish expanded density): «LIVE» on the photo, the DTO's date line over the name.
+    await expect(item.getByText('LIVE', { exact: true }).first()).toBeVisible();
+    await expect(item.getByText(dto.dateLabel, { exact: true })).toBeVisible();
+    // c2: a competition with a banner shows the banner (the poster's medium size), not the lake.
+    const thumb = item.getByRole('button', { name: `Vezi imaginea pentru ${name}` });
+    const src = await thumb.locator('img').getAttribute('src');
+    expect(decodeURIComponent(src ?? '')).toContain(dto.banner.mediumUrl ?? dto.banner.url);
     await thumb.click();
     const viewer = page.getByRole('dialog', { name });
     await expect(viewer).toBeVisible();
@@ -400,101 +387,6 @@ test.describe('signed out', () => {
 
   /* ------------------------------ pulse ------------------------------ */
 
-  test('competitions-list.pulse.c1 competitions-list.pulse.c4 competitions-list.pulse.c7 competitions-list.pulse.c9 competitions-list.pulse.c10 competitions-list.pulse.c11 competitions-list.pulse.c12 competitions-list.pulse.c15 competitions-list.pulse.c24 competitions-list.pulse.s3 — the live stack: chips, pill, the biggest catch, dots, impression', async ({ page, context }) => {
-    await captureEvents(context);
-    await page.setViewportSize(DESKTOP);
-    await open(page);
-    const bento = page.getByRole('region', { name: 'Pulsul concursurilor' });
-    const live = (await (await page.request.get('http://localhost:1337/api/feed/competition-cards?status=started&page=1&pageSize=20')).json()).meta.pagination.total;
-    test.skip(live < 2, 'needs two or more live competitions locally');
-    const pages = Math.min(6, live);
-    const heroes = bento.getByRole('link', { name: /\. Vezi clasamentul$/ });
-    await expect(heroes).toHaveCount(pages);
-    await expect(bento.getByText('LIVE', { exact: true }).first()).toBeVisible();
-    await expect(bento.getByText(/^\d+ (de )?capturi$|^Fără capturi$|^1 captură$/).first()).toBeVisible();
-    await expect(bento.getByText(/^(CEA MAI MARE CAPTURĂ|DE PE BALTĂ)$/).first()).toBeVisible();
-    await expect(bento.getByText(/în concurs · /).first()).toBeVisible();
-    // c8: the dots are decoration.
-    await expect(bento.locator('[aria-hidden="true"] > .rounded-full.bg-navy:visible')).toHaveCount(pages);
-    // From 768 the dots ride inside the card: the hero ends level with the tiles.
-    const heroBottom = await bento.locator('.snap-x').evaluate((el) => el.getBoundingClientRect().bottom);
-    const tileBottom = await bento.getByRole('button', { name: /concursuri live$/ }).evaluate((el) => el.closest('.rounded-bento')!.getBoundingClientRect().bottom);
-    expect(Math.abs(heroBottom - tileBottom)).toBeLessThanOrEqual(1);
-    const ev = await events(page);
-    expect(ev.filter((e) => e.name === 'competitions_hero_impression')).toHaveLength(1);
-    await heroes.first().click();
-    await expect(page).toHaveURL(/\/concursuri\/[a-z0-9]+$/);
-    expect((await events(page)).some((e) => e.name === 'competitions_hero_pressed')).toBe(true);
-  });
-
-  test('competitions-list.pulse.c8 — the stack advances every 5s; a resting pointer pauses it; the first touch stops it', async ({ page }) => {
-    await page.clock.install();
-    await page.setViewportSize(DESKTOP);
-    await open(page);
-    const scroller = page.getByRole('region', { name: 'Pulsul concursurilor' }).locator('.snap-x');
-    expect(await scroller.evaluate((el) => el.scrollLeft)).toBe(0);
-    // A mouse resting on the stack pauses it: the card never changes under the cursor.
-    await scroller.hover();
-    await page.clock.runFor(11_000);
-    expect(await scroller.evaluate((el) => el.scrollLeft)).toBe(0);
-    // Leaving resumes it (paused, not stopped).
-    await page.mouse.move(5, 5);
-    await page.clock.runFor(5_100);
-    await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(100);
-    await page.clock.runFor(2_000);
-    await page.waitForTimeout(800);
-    await scroller.dispatchEvent('pointerdown');
-    const at = await scroller.evaluate((el) => el.scrollLeft);
-    await page.clock.runFor(11_000);
-    expect(await scroller.evaluate((el) => el.scrollLeft)).toBe(at);
-  });
-
-  test('competitions-list.pulse.c6 competitions-list.pulse.c16 competitions-list.pulse.c17 competitions-list.pulse.c18 competitions-list.pulse.c19 competitions-list.pulse.c20 competitions-list.pulse.c22 competitions-list.pulse.s8 competitions-list.pulse.s9 competitions-list.pulse.s10 competitions-list.pulse.s11 — person, count, invite (signed out)', async ({ page, context }) => {
-    const featured: string[] = [];
-    page.on('request', (r) => {
-      if (r.url().includes('/feed/featured-competition')) featured.push(r.url());
-    });
-    await captureEvents(context);
-    await page.setViewportSize(DESKTOP);
-    await open(page);
-    const bento = page.getByRole('region', { name: 'Pulsul concursurilor' });
-    await expect(bento.getByRole('button', { name: /concursuri live$/ })).toBeVisible();
-    // The server draws a new person per request. The angler profile is M2: until it ships the tile
-    // never links to /pescari (a 404) — a competition person opens its ranking, an angler is text.
-    await expectPersonTile(bento);
-    // c6: something is live → no featured request.
-    expect(featured).toEqual([]);
-    const count = bento.getByRole('button', { name: /^\d+ concursuri live$/ });
-    await expect(count).toBeVisible();
-    await expect(count).toHaveText(/^concurs(uri)? live$/);
-    // Rule 4b-4: we don't know what a visitor follows, so signed out there is no invite at all
-    // (not a sign-in variant of it) — at every width.
-    await expect(bento.getByText(/Nu urmărești|Urmărește unul|Unul e LIVE acum/)).toHaveCount(0);
-    await count.click();
-    await expect(tab(page, 'Live')).toHaveAttribute('aria-selected', 'true');
-    expect((await events(page)).some((e) => e.name === 'competitions_count_tile_pressed')).toBe(true);
-    await page.setViewportSize(PHONE);
-    await tab(page, 'Viitoare').click();
-    await expect(bento.getByRole('button', { name: /^\d+ concursuri live$/ })).toBeVisible();
-    await expect(page.getByText(/Nu urmărești|Urmărește unul|Unul e LIVE acum/)).toHaveCount(0);
-  });
-
-  test('competitions-list.pulse.c25 competitions-list.pulse.c8 competitions-list.pulse.s12 — reduced motion: the live dots do not pulse, the stack never auto-advances (the arrows still move it)', async ({ page }) => {
-    await page.clock.install();
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.setViewportSize(DESKTOP);
-    await open(page);
-    const dot = tab(page, 'Live').locator('.animate-live');
-    await expect(dot).toHaveCSS('animation-iteration-count', '1');
-    const bento = page.getByRole('region', { name: 'Pulsul concursurilor' });
-    const scroller = bento.locator('.snap-x');
-    await page.mouse.move(5, 5);
-    await page.clock.runFor(16_000);
-    expect(await scroller.evaluate((el) => el.scrollLeft)).toBe(0);
-    await bento.getByRole('button', { name: 'Concursul următor' }).click();
-    await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(100);
-  });
-
   test('competitions-list.index.c17 competitions-list.index.s7 competitions-list.pulse.c23 — «Reîmprospătează» re-reads the list, the person and every card list', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await open(page);
@@ -514,7 +406,7 @@ test.describe('signed out', () => {
     for (const size of [PHONE, { width: 768, height: 1024 }, WIDE]) {
       await page.setViewportSize(size);
       await open(page);
-      await expect(page.getByRole('region', { name: 'Pulsul concursurilor' })).toBeVisible();
+      await expect(page.getByRole('region', { name: 'În lumina reflectoarelor' })).toBeVisible();
       await settled(page);
       await expectNoA11yViolations(page);
     }
@@ -679,14 +571,6 @@ test.describe('signed in', () => {
     await expect(tab(page, 'Live').locator('.animate-live')).toHaveCount(0);
   });
 
-  test('competitions-list.pulse.c18 — signed in, the person never opens the (M2) angler profile, nor sign-in', async ({ page }) => {
-    await page.setViewportSize(DESKTOP);
-    await open(page);
-    const bento = page.getByRole('region', { name: 'Pulsul concursurilor' });
-    await expect(bento.getByRole('button', { name: /concursuri live$/ })).toBeVisible();
-    await expectPersonTile(bento);
-  });
-
   test('competitions-list.cards.c9 competitions-list.cards.c13 competitions-list.cards.c14 competitions-list.cards.c15 competitions-list.cards.c16 competitions-list.cards.c17 competitions-list.cards.s1 competitions-list.cards.s2 competitions-list.cards.s3 competitions-list.cards.s6 competitions-list.cards.s7 competitions-list.cards.s8 competitions-list.cards.s9 — every footer and chip state (Listă); footers line up across a row', async ({ page }) => {
     const errors = consoleErrors(page);
     await page.route(FOLLOWED, (r) => json(r, cardsPage(Object.values(STATE_CARDS))));
@@ -779,271 +663,8 @@ test.describe('signed in', () => {
 });
 
 /* ================================================================== */
-/* Mocked lists: pulse states, list states the local data lacks       */
+/* Mocked lists: list states the local data lacks                     */
 /* ================================================================== */
-
-type MockCard = ReturnType<typeof card>;
-const DAY = 86_400_000;
-const inDays = (d: number) => new Date(Date.now() + d * DAY).toISOString();
-const podiumRow = (over: Record<string, unknown> = {}) => ({ position: 1, displayName: 'Ana Pop', tied: false, standName: null, clubName: null, avatarUrls: [], ...over });
-const caught = (podium: unknown[] = []) => ({ capturedAt: inDays(-1), hasCatches: true, catchCount: 12, totalKg: 84.5, biggestFishKg: 6.2, podium });
-
-/** A pulse fixture card: no organizer, so no local person is drawn unless a test wants one. */
-const pc = (id: string, over: Record<string, unknown> = {}) =>
-  card(id, { name: `FX ${id}`, organizer: null, startDate: inDays(3), endDate: inDays(3), banner: null, lake: null, viewers: 0, ...over });
-
-type PulseMock = { live?: MockCard[]; upcoming?: MockCard[]; completed?: MockCard[]; mine?: MockCard[]; person?: unknown; featured?: MockCard | null };
-
-/**
- * Serves the bento's sources from `state` (read on every request, so a test can change it between
- * reads): the three public card lists by status, «Ale mele», the person and the featured draw.
- */
-async function mockPulse(page: Page, state: PulseMock, gates: { person?: Promise<void>; featured?: Promise<void> } = {}) {
-  await page.route(PUBLIC, (r) => {
-    const status = new URL(r.request().url()).searchParams.get('status');
-    const cards = status === 'started' ? state.live : status === 'notStarted' ? state.upcoming : status === 'completed' ? state.completed : undefined;
-    if (!cards) return r.fallback();
-    const counts = { notStarted: state.upcoming?.length ?? 0, started: state.live?.length ?? 0, completed: state.completed?.length ?? 0 };
-    return json(r, cardsPage(cards, { counts, total: cards.length }));
-  });
-  if (state.mine) await page.route(REGISTERED, (r) => json(r, cardsPage(state.mine ?? [])));
-  await page.route(/\/feed\/pulse-person/, async (r) => {
-    await gates.person;
-    await json(r, { data: state.person ?? null });
-  });
-  await page.route(/\/feed\/featured-competition/, async (r) => {
-    await gates.featured;
-    await json(r, { data: state.featured ?? null });
-  });
-}
-
-/**
- * Opens on Live (no bento: the server reads no person / featured), re-reads every card list from
- * the mocks («Reîmprospătează»), then shows Viitoare — the bento picks from the mocked lists, and
- * its person / featured reads go to the mocks too.
- */
-async function openPulse(page: Page) {
-  await open(page, '/concursuri/live');
-  await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-  await expect(page.getByRole('button', { name: 'Reîmprospătează' })).not.toHaveAttribute('aria-disabled');
-  await tab(page, 'Viitoare').click();
-  return page.getByRole('region', { name: 'Pulsul concursurilor' });
-}
-
-const heroLinks = (bento: ReturnType<Page['getByRole']>) => bento.getByRole('link', { name: /\. Vezi (clasamentul|concursul|rezultatele)$/ });
-
-test.describe('pulse states (mocked lists)', () => {
-  test.beforeEach(async ({ page }) => {
-    await fixtureImages(page);
-  });
-
-  test('competitions-list.pulse.s1 competitions-list.pulse.c2 competitions-list.pulse.s6 — loading: hero and two equal tile skeletons; the tiles reveal together', async ({ page }) => {
-    let releasePerson!: () => void;
-    let releaseFeatured!: () => void;
-    const person = new Promise<void>((r) => (releasePerson = r));
-    const featured = new Promise<void>((r) => (releaseFeatured = r));
-    await page.setViewportSize(DESKTOP);
-    await mockPulse(page, { live: [], upcoming: [pc('soon', { name: 'FX Curând', organizer: { documentId: 'o1', username: 'org_fx', avatarUrl: null } })], completed: [] }, { person, featured });
-    const bento = await openPulse(page);
-    // Nothing live → the featured draw is waited for (the hero is decided once), the person too.
-    await expect(bento).toHaveAttribute('aria-busy', 'true');
-    const skeletons = bento.locator('.animate-shimmer.rounded-bento');
-    await expect(skeletons).toHaveCount(3);
-    const [a, b] = await Promise.all([skeletons.nth(1).boundingBox(), skeletons.nth(2).boundingBox()]);
-    expect(Math.round(a!.width)).toBe(Math.round(b!.width));
-    expect(Math.round(a!.height)).toBe(Math.round(b!.height));
-    releasePerson();
-    // Person + count land together (the local moment: the organizer of the upcoming one).
-    await expect(bento.getByRole('button', { name: /concursuri încep în 7 zile$/ })).toBeVisible();
-    await expect(bento.getByRole('link', { name: /^ORGANIZATOR|^[A-ZĂÂÎȘȚ ]+: org_fx/ })).toBeVisible();
-    await expect(skeletons).toHaveCount(1);
-    // The featured draw answers empty: the local discovery pick (ÎN CURÂND) takes the hero.
-    releaseFeatured();
-    await expect(heroLinks(bento)).toHaveCount(1);
-    await expect(bento.getByText('ÎN CURÂND', { exact: true })).toBeVisible();
-    await expect(bento).not.toHaveAttribute('aria-busy');
-  });
-
-  test('competitions-list.pulse.s6 competitions-list.pulse.c6 — nothing live: a featured competition takes the hero as RECOMANDAT', async ({ page }) => {
-    await page.setViewportSize(DESKTOP);
-    await mockPulse(page, { live: [], upcoming: [pc('a')], completed: [], featured: pc('promo', { name: 'FX Promovat', joinedCount: 3 }) });
-    const bento = await openPulse(page);
-    await expect(heroLinks(bento)).toHaveText('FX Promovat');
-    await expect(bento.getByText('RECOMANDAT', { exact: true })).toBeVisible();
-  });
-
-  test('competitions-list.pulse.s2 competitions-list.pulse.c1 competitions-list.index.s4 — no hero once everything settled: no bento; the empty Descoperă list', async ({ page }) => {
-    await page.setViewportSize(DESKTOP);
-    await mockPulse(page, { live: [], upcoming: [], completed: [] });
-    await openPulse(page);
-    await expect(list(page).getByText('Niciun concurs găsit')).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Pulsul concursurilor' })).toHaveCount(0);
-  });
-
-  test('competitions-list.pulse.s7 competitions-list.pulse.c4 competitions-list.pulse.c14 — nothing upcoming: the latest results card, over an empty list', async ({ page }) => {
-    const state: PulseMock = {
-      live: [],
-      upcoming: [],
-      completed: [pc('old', { status: 'completed', endDate: inDays(-9), results: caught([podiumRow({ displayName: 'Vechi' })]) }), pc('rez', { name: 'FX Rezultate', status: 'completed', endDate: inDays(-1), results: caught([podiumRow()]) })],
-    };
-    await page.setViewportSize(DESKTOP);
-    await mockPulse(page, state);
-    const bento = await openPulse(page);
-    // The list below is empty; the bento stands on its own sources (fish renders it regardless).
-    await expect(list(page).getByText('Niciun concurs găsit')).toBeVisible();
-    await expect(heroLinks(bento)).toHaveCount(1);
-    await expect(bento.getByRole('link', { name: 'FX Rezultate. Vezi rezultatele' })).toBeVisible();
-    // The hero card (the person tile may name the same winner).
-    const hero = bento.locator('article');
-    await expect(hero.getByText('REZULTATE', { exact: true })).toBeVisible();
-    await expect(hero.getByText('CÂȘTIGĂTOR', { exact: true })).toBeVisible();
-    await expect(hero.getByText('Ana Pop', { exact: true })).toBeVisible();
-    await expect(hero.getByText('84,5 kg cântărite')).toBeVisible();
-    // A team: ECHIPA CÂȘTIGĂTOARE; a tie for first: LOCUL 1 LA EGALITATE.
-    state.completed = [pc('rez', { name: 'FX Rezultate', status: 'completed', endDate: inDays(-1), format: { kind: 'team', teamSize: 2, unit: 'echipe' }, results: caught([podiumRow({ displayName: 'Echipa Alfa' })]) })];
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect(hero.getByText('ECHIPA CÂȘTIGĂTOARE', { exact: true })).toBeVisible();
-    await expect(hero.getByText('Echipa Alfa', { exact: true })).toBeVisible();
-    state.completed = [pc('rez', { name: 'FX Rezultate', status: 'completed', endDate: inDays(-1), results: caught([podiumRow({ tied: true })]) })];
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect(hero.getByText('LOCUL 1 LA EGALITATE', { exact: true })).toBeVisible();
-  });
-
-  test('competitions-list.pulse.c13 — the upcoming hero: ÎNSCRIȘI, / capacity, places left or complet, pending', async ({ page }) => {
-    const state: PulseMock = { live: [], completed: [], upcoming: [pc('up', { name: 'FX Viitor', joinedCount: 6, capacity: 10, placesLeft: 4, pendingCount: 2, dateLabel: '8 oct' })] };
-    await page.setViewportSize(DESKTOP);
-    await mockPulse(page, state);
-    const bento = await openPulse(page);
-    await expect(bento.getByRole('link', { name: 'FX Viitor. Vezi concursul' })).toBeVisible();
-    await expect(bento.getByText('PESCARI ÎNSCRIȘI', { exact: true })).toBeVisible();
-    await expect(bento.getByText('/ 10', { exact: true })).toBeVisible();
-    await expect(bento.getByText('8 oct · 4 locuri libere · 2 în așteptare')).toBeVisible();
-    state.upcoming = [pc('up', { name: 'FX Viitor', joinedCount: 10, capacity: 10, placesLeft: 0, pendingCount: 0, dateLabel: '8 oct' })];
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect(bento.getByText('8 oct · complet')).toBeVisible();
-  });
-
-  test('competitions-list.pulse.c21 competitions-list.pulse.s8 — no person at all: the count tile takes the whole row (phone)', async ({ page }) => {
-    await page.setViewportSize(PHONE);
-    await mockPulse(page, { live: [pc('live1', { name: 'FX Live singur', status: 'started', results: null })], upcoming: [], completed: [] });
-    const bento = await openPulse(page);
-    const count = bento.getByRole('button', { name: '1 concursuri live' });
-    await expect(count).toBeVisible();
-    await expect(bento.getByRole('link', { name: /^[A-ZĂÂÎȘȚ1 ]+: / })).toHaveCount(0);
-    const tile = await count.evaluate((el) => el.closest('.rounded-bento')!.getBoundingClientRect().width);
-    const row = await bento.evaluate((el) => el.getBoundingClientRect().width);
-    expect(Math.abs(tile - row)).toBeLessThanOrEqual(1);
-  });
-
-  test('competitions-list.pulse.c5 — the pick is frozen: a re-read upcoming list does not swap the hero; a refresh does', async ({ page }) => {
-    await page.clock.install();
-    const state: PulseMock = { live: [], completed: [], upcoming: [pc('a', { name: 'FX Primul', joinedCount: 5 })] };
-    await page.setViewportSize(DESKTOP);
-    await mockPulse(page, state);
-    const bento = await openPulse(page);
-    await expect(heroLinks(bento)).toHaveText('FX Primul');
-    // A busier start appears; the list re-reads on its own (stale after 5 min, back on the tab)…
-    state.upcoming = [pc('a', { name: 'FX Primul', joinedCount: 5 }), pc('b', { name: 'FX Al doilea', joinedCount: 9 })];
-    await page.clock.fastForward(301_000);
-    const reread = page.waitForResponse((r) => PUBLIC.test(r.url()) && r.url().includes('status=notStarted'));
-    await tab(page, 'Rezultate').click();
-    await tab(page, 'Viitoare').click();
-    await reread;
-    await expect(cardLink(page, 'FX Al doilea')).toBeVisible();
-    // …but the live set did not change, so the hero stays.
-    await expect(heroLinks(bento)).toHaveText('FX Primul');
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect(heroLinks(bento)).toHaveText('FX Al doilea');
-  });
-
-  test('competitions-list.pulse.c7 competitions-list.pulse.c8 — from 768: arrows move the stack; the peeking page shows only its photo', async ({ page }) => {
-    await page.setViewportSize(DESKTOP);
-    await mockPulse(page, {
-      live: [pc('l1', { name: 'FX Live 1', status: 'started' }), pc('l2', { name: 'FX Live 2', status: 'started' }), pc('l3', { name: 'FX Live 3', status: 'started' })],
-      upcoming: [],
-      completed: [],
-    });
-    const bento = await openPulse(page);
-    await expect(heroLinks(bento)).toHaveCount(3);
-    const scroller = bento.locator('.snap-x');
-    // The second page's copy is hidden while it only peeks.
-    const second = heroLinks(bento).nth(1);
-    await expect(second.locator('xpath=ancestor::div[contains(@class,"text-on-photo-scrim")][1]')).toHaveCSS('opacity', '0');
-    await bento.getByRole('button', { name: 'Concursul următor' }).click();
-    await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(100);
-    await expect(second.locator('xpath=ancestor::div[contains(@class,"text-on-photo-scrim")][1]')).toHaveCSS('opacity', '1');
-    await bento.getByRole('button', { name: 'Concursul anterior' }).click();
-    await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBe(0);
-  });
-});
-
-test.describe('pulse states (mocked lists, signed in)', () => {
-  test.beforeEach(async ({ context, page }) => {
-    await signIn(context, jwt);
-    await fixtureImages(page);
-    // The invite needs the followed-live answer; nothing followed here.
-    await page.route(/\/feed\/my-competition-cards\?.*scope=followed/, (r) => json(r, cardsPage([], { total: 0 })));
-  });
-
-  test('competitions-list.pulse.s4 — my own live competition leads the stack', async ({ page }) => {
-    const mineLive = pc('mylive', { name: 'FX Al meu live', status: 'started' });
-    await page.setViewportSize(DESKTOP);
-    await mockPulse(page, {
-      live: [pc('l1', { name: 'FX Live 1', status: 'started' }), mineLive, pc('l3', { name: 'FX Live 3', status: 'started' })],
-      upcoming: [],
-      completed: [],
-      mine: [mineLive],
-    });
-    const bento = await openPulse(page);
-    await expect(heroLinks(bento)).toHaveCount(3);
-    await expect(heroLinks(bento).first()).toHaveText('FX Al meu live');
-    await expect(bento.getByText('CONCURSUL TĂU · LIVE', { exact: true })).toBeVisible();
-  });
-
-  test('competitions-list.pulse.s5 competitions-list.pulse.c3 — my start within two days leads; the live ones follow; stale and live starts leave the upcoming list', async ({ page }) => {
-    const mineSoon = pc('mysoon', { name: 'FX Al meu mâine', startDate: inDays(1) });
-    const state: PulseMock = {
-      live: [pc('l1', { name: 'FX Live 1', status: 'started' }), pc('l2', { name: 'FX Live 2', status: 'started' })],
-      // l1 also in the (older) upcoming page: live wins, it is never in the stack twice.
-      upcoming: [pc('l1', { name: 'FX Live 1' }), mineSoon],
-      completed: [],
-      mine: [mineSoon],
-    };
-    await page.setViewportSize(DESKTOP);
-    await mockPulse(page, state);
-    const bento = await openPulse(page);
-    await expect(heroLinks(bento)).toHaveCount(3);
-    await expect(heroLinks(bento).first()).toHaveText('FX Al meu mâine');
-    await expect(bento.getByText('CONCURSUL TĂU', { exact: true })).toBeVisible();
-    await expect(bento.getByRole('link', { name: 'FX Live 1. Vezi clasamentul' })).toHaveCount(1);
-    // c3: a start more than a day past is dropped; my registrations are merged in.
-    state.live = [];
-    state.upcoming = [pc('stale', { name: 'FX Nepornit', startDate: inDays(-2) }), pc('u1', { startDate: inDays(5) })];
-    state.mine = [pc('m1', { name: 'FX Înscris', startDate: inDays(4) })];
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect(bento.getByRole('button', { name: '2 concursuri încep în 7 zile' })).toBeVisible();
-  });
-
-  test('competitions-list.pulse.c22 — signed in and following nothing live: the invite opens Live', async ({ page }) => {
-    await page.setViewportSize(DESKTOP);
-    await mockPulse(page, { live: [pc('l1', { name: 'FX Live 1', status: 'started' }), pc('l2', { name: 'FX Live 2', status: 'started' })], upcoming: [], completed: [] });
-    const bento = await openPulse(page);
-    const invite = bento.getByRole('button', { name: 'Nu urmărești niciun concurs live. Vezi concursurile live.' });
-    await expect(invite.getByText(/sunt LIVE acum\. Urmărește unul|Unul e LIVE acum/)).toBeVisible();
-    await invite.click();
-    await expect(tab(page, 'Live')).toHaveAttribute('aria-selected', 'true');
-  });
-
-  test('competitions-list.pulse.c22 competitions-list.pulse.s10 — the invite waits for the followed-live answer and stays out when it fails', async ({ page }) => {
-    await page.unroute(/\/feed\/my-competition-cards\?.*scope=followed/);
-    await page.route(/\/feed\/my-competition-cards\?.*scope=followed/, (r) => json(r, { error: { status: 400, message: 'bad' } }, 400));
-    await page.setViewportSize(DESKTOP);
-    await mockPulse(page, { live: [pc('l1', { name: 'FX Live 1', status: 'started' })], upcoming: [], completed: [] });
-    const bento = await openPulse(page);
-    await expect(bento.getByRole('button', { name: '1 concursuri live' })).toBeVisible();
-    await expect(bento.getByRole('button', { name: /^Nu urmărești niciun concurs live/ })).toHaveCount(0);
-  });
-});
 
 test.describe('list states (mocked)', () => {
   test.beforeEach(async ({ context, page }) => {
@@ -1068,13 +689,15 @@ test.describe('list states (mocked)', () => {
     await expect(cardLink(page, 'FX Viitor cu așteptare')).toBeVisible();
     await tab(page, 'Rezultate').click();
     await expect(tab(page, 'Rezultate')).toHaveAttribute('aria-selected', 'true');
-    await expect(cardLink(page, 'FX Viitor cu așteptare')).toBeVisible();
+    // The previous list stays (drawn in the new tab's shape) under the busy bar.
+    await expect(list(page).getByText('FX Viitor cu așteptare', { exact: true })).toBeVisible();
     await expect(list(page)).toHaveAttribute('aria-busy', 'true');
     await expect(list(page).locator('span.h-0\\.5.bg-accent')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reîmprospătează' })).not.toHaveAttribute('aria-disabled');
     release();
-    await expect(cardLink(page, 'FX Încheiat cu podium')).toBeVisible();
-    await expect(cardLink(page, 'FX Viitor cu așteptare')).toHaveCount(0);
+    // Rezultate is result rows (a button that opens the row), not cards.
+    await expect(list(page).getByRole('button', { name: 'FX Încheiat cu podium', exact: true })).toBeVisible();
+    await expect(list(page).getByText('FX Viitor cu așteptare', { exact: true })).toHaveCount(0);
     await expect(list(page)).not.toHaveAttribute('aria-busy');
   });
 
@@ -1123,9 +746,9 @@ test.describe('list states (mocked)', () => {
       await page.goto(path);
       const loading = page.getByRole('status').filter({ hasText: 'Se încarcă concursurile…' }).first();
       await expect(loading).toBeVisible();
-      // c23: six bones, the compact card's shape (thumb + face footer), in the list's grid.
+      // c23: six bones, the poster card's shape (poster + face footer), in the list's grid.
       await expect(loading.locator('article')).toHaveCount(6);
-      await expect(loading.locator('article').first().locator('.size-19')).toHaveCount(1);
+      await expect(loading.locator('article').first().locator('[class*="aspect-4/3"]')).toHaveCount(1);
       await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeAttached();
       await expect(page.getByRole('heading', { level: 2, name: 'Alege următorul start' })).toHaveCount(0);
       await expect(page.getByRole('heading', { level: 2, name: /^Rezultate pentru|^Concursuri filtrate/ })).toHaveCount(0);
@@ -1137,7 +760,7 @@ test.describe('list states (mocked)', () => {
   test('competitions-list.index.c17 competitions-list.index.c18 competitions-list.index.s7 — a failed re-read keeps the cards, marked; «Încearcă din nou» clears it', async ({ page }) => {
     await page.setViewportSize(CARDS);
     await open(page, '/concursuri/rezultate');
-    const first = list(page).locator('article').first();
+    const first = list(page).locator('li[data-result-row]').first();
     await expect(first).toBeVisible();
     await page.route(PUBLIC, (r) => (r.request().url().includes('status=completed') ? json(r, { error: { status: 400, message: 'bad' } }, 400) : r.fallback()));
     await page.getByRole('button', { name: 'Reîmprospătează' }).click();
@@ -1177,7 +800,7 @@ test.describe('another timezone', () => {
     await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
     const item = (name: string) => list(page).locator('article').filter({ has: page.getByRole('link', { name, exact: true }) });
     // 05:00Z is 22:00 the day before in Los Angeles: the card still says the server's Bucharest label.
-    await expect(item('FX Viitor cu așteptare').getByText('20 oct', { exact: true })).toBeVisible();
+    await expect(item('FX Viitor cu așteptare').getByText(/^20 oct( · 08:00–16:00)?$/)).toBeVisible();
     await expect(item('FX Live cu capturi').getByText('1.024,3')).toBeVisible();
     await expect(item('FX Live cu capturi').getByText('7,647')).toBeVisible();
   });

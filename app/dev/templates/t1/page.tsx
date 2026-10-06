@@ -51,12 +51,6 @@ async function Demo({ searchParams }: Props) {
       state={state}
       initial={place}
       isAuthenticated={viewer !== null}
-      seed={drawSeed()}
     />
   );
-}
-
-/** A per-request draw (after connection(): request time), as /concursuri draws it. */
-function drawSeed(): number {
-  return Math.floor(Math.random() * 0x7fffffff);
 }

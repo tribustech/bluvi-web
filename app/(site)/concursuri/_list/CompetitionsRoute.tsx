@@ -12,11 +12,12 @@ import { cn } from '@/components/ui/cn';
 import {
   COMPETITION_CARDS_PAGE_SIZE,
   competitionCardsInfiniteQuery,
-  featuredCompetitionQuery,
   getCompetitionCards,
+  getPulsePeople,
   PULSE_CARD_PARAMS,
-  pulsePersonQuery,
+  pulsePeopleQuery,
   type CompetitionCard,
+  type PulsePerson,
   type CompetitionCardStatus,
 } from '@/core/competitions';
 import { prefetchState } from '@/lib/client/hydration';
@@ -26,7 +27,10 @@ import { createServerTransport } from '@/lib/server/transport';
 import { getShellSession } from '../../_shell/session';
 import { userOf } from '../../_shell/viewer-state';
 import { CompetitionsFallbackBody, CompetitionsScreen } from './CompetitionsScreen';
-import { PulseSkeleton } from './pulse/PulseBento';
+import { LiveBand } from './upcoming/LiveBand';
+import { SpotlightView } from './upcoming/Spotlight';
+import { SPOTLIGHT_LIMIT, SpotlightSkeleton, UPCOMING_TOP } from './upcoming/SpotlightSkeleton';
+import { UpcomingGroupsShell } from './upcoming/UpcomingGroups';
 import {
   chipLabels,
   DEFAULT_PLACE,
@@ -36,7 +40,6 @@ import {
   placeFromUrl,
   REGISTERED_PARAMS,
   resultsLabelFor,
-  showsPulse,
   TAB_LABEL,
   type ListPlace,
   type ListRoute,
@@ -137,6 +140,52 @@ async function listHead(status: CompetitionCardStatus): Promise<ListHead> {
 
 const STATUS_LIST = { notStarted: 'upcoming', started: 'live', completed: 'completed' } as const;
 
+/**
+ * «În lumina reflectoarelor»'s people (/feed/pulse-person?limit=6: public, 30 min at the edge, no
+ * Cache-Tag), cached for the static shell and the request-time hydration alike — one answer, so the
+ * shell's people are the ones the page then hydrates. Tag `pulse-person` (purgeable through
+ * /api/revalidate); a failed read is null, re-read within minutes (as listHead).
+ */
+async function spotlightPeople(): Promise<PulsePerson[] | null> {
+  'use cache';
+  cacheTag('pulse-person');
+  try {
+    const people = await getPulsePeople(createServerTransport(), SPOTLIGHT_LIMIT);
+    cacheLife({ stale: 300, revalidate: 1800, expire: 86_400 });
+    return people;
+  } catch (e) {
+    console.error('[concursuri] spotlight people failed', e);
+    cacheLife('minutes');
+    return null;
+  }
+}
+
+/** The shell's clock (Viitoare's time groups): one per cached shell, never a request-time read. */
+async function shellClock(): Promise<number> {
+  'use cache';
+  cacheLife('minutes');
+  return Date.now();
+}
+
+/**
+ * Viitoare's public part, for the static shell: the live band (the Live list's count and first
+ * posters), the spotlight's people and the tab's first page of cards — all cached reads.
+ */
+type UpcomingShell = { live: ListHead; upcoming: ListHead; people: PulsePerson[] | null; at: number };
+
+async function upcomingShell(): Promise<UpcomingShell> {
+  const [live, upcoming, people, at] = await Promise.all([listHead('started'), listHead('notStarted'), spotlightPeople(), shellClock()]);
+  return { live, upcoming, people, at };
+}
+
+/**
+ * Viitoare's Top (the live band, the spotlight) — on «Toate» and on «Urmărite» alike (the client
+ * tab draws it on both: neither is about what the viewer follows).
+ */
+function showsUpcomingTop(place: ListPlace): boolean {
+  return !isResultsMode(place) && place.status === 'notStarted' && (place.scope === 'all' || place.scope === 'followed');
+}
+
 /** /concursuri opens on Live when at least one competition is live, else on Viitoare. */
 async function indexTab(): Promise<CompetitionCardStatus> {
   const live = await listHead('started');
@@ -146,7 +195,7 @@ async function indexTab(): Promise<CompetitionCardStatus> {
 export async function CompetitionsRoute({ searchParams, tab }: Props) {
   const route: ListRoute = tab ? { tab } : { index: await indexTab() };
   const status = tab ?? ('index' in route ? route.index : 'notStarted');
-  const head = await listHead(status);
+  const [head, shell] = await Promise.all([listHead(status), status === 'notStarted' ? upcomingShell() : null]);
   return (
     <ScreenBoundary>
       {head.cards.length ? (
@@ -158,17 +207,17 @@ export async function CompetitionsRoute({ searchParams, tab }: Props) {
       ) : null}
       {/* A tab page's shell is that tab's frame; /concursuri's is mode-neutral (a search URL lands
           there): only the inner fallback, which knows the place, commits to index or results. */}
-      <Suspense fallback={tab ? <Fallback place={{ ...DEFAULT_PLACE, status: tab }} /> : <NeutralFallback />}>
-        <Routed searchParams={searchParams} route={route} />
+      <Suspense fallback={tab ? <Fallback place={{ ...DEFAULT_PLACE, status: tab }} shell={shell} /> : <NeutralFallback />}>
+        <Routed searchParams={searchParams} route={route} shell={shell} />
       </Suspense>
     </ScreenBoundary>
   );
 }
 
-async function Routed({ searchParams, route }: { searchParams: Promise<UrlParams>; route: ListRoute }) {
+async function Routed({ searchParams, route, shell }: { searchParams: Promise<UrlParams>; route: ListRoute; shell: UpcomingShell | null }) {
   const place = placeFromUrl(await searchParams, route);
   return (
-    <Suspense fallback={<Fallback place={place} />}>
+    <Suspense fallback={<Fallback place={place} shell={shell} />}>
       <Data place={place} indexTab={'index' in route ? route.index : null} />
     </Suspense>
   );
@@ -200,9 +249,20 @@ async function Data({ place, indexTab }: { place: ListPlace; indexTab: Competiti
     else if (token) perUser.push(urlList);
   }
 
-  // The bento's own reads. Featured is only shown when nothing is live (the client decides), but it
-  // is read alongside rather than after the live page: a cached public read, never a second wait.
-  const pulseExtras = showsPulse(place) ? [pulsePersonQuery(t, true), featuredCompetitionQuery(t, true)] : [];
+  // Viitoare draws «În lumina reflectoarelor» (./tabs/UpcomingTab): its people, from the same
+  // cached read as the static shell (spotlightPeople) — the shell's people are the hydrated ones.
+  const pulseExtras = showsUpcomingTop(place)
+    ? [
+        {
+          ...pulsePeopleQuery(t, SPOTLIGHT_LIMIT, true),
+          queryFn: async () => {
+            const people = await spotlightPeople();
+            if (!people) throw new Error('spotlight people unavailable');
+            return people;
+          },
+        },
+      ]
+    : [];
 
   const [viewer, sharedState, mineState, pulseState] = await Promise.all([
     // The top bar's session read (shared per request, 4s): over it, «unknown» — never a 10s wait.
@@ -214,24 +274,17 @@ async function Data({ place, indexTab }: { place: ListPlace; indexTab: Competiti
   // Unknown (a session cookie, the read over its deadline) is still signed in: the per-user reads
   // run through /api/cms, which knows the cookie. Only a real «no session» is signed out.
   const isAuthenticated = viewer !== null;
-  // The hero stack's shuffle: once per visit, the same on the server render and in the browser.
-  const seed = drawSeed();
 
   const user = userOf(viewer);
   const desktopViewer = user ? { id: user.id, documentId: user.documentId, username: user.username } : null;
   let screen: ReactNode = (
-    <CompetitionsScreen initial={place} indexTab={indexTab} isAuthenticated={isAuthenticated} viewer={desktopViewer} seed={seed} />
+    <CompetitionsScreen initial={place} indexTab={indexTab} isAuthenticated={isAuthenticated} viewer={desktopViewer} />
   );
   if (mineState && isAuthenticated) screen = <HydrationBoundary state={mineState}>{screen}</HydrationBoundary>;
   if (pulseState) screen = <HydrationBoundary state={pulseState}>{screen}</HydrationBoundary>;
   screen = <HydrationBoundary state={sharedState}>{screen}</HydrationBoundary>;
 
   return screen;
-}
-
-/** A per-request draw (after connection(): request time, never prerendered). */
-function drawSeed(): number {
-  return Math.floor(Math.random() * 0x7fffffff);
 }
 
 /** schema.org: the page's competitions (its tab's first page), as SportsEvents. */
@@ -281,7 +334,7 @@ function NeutralFallback() {
         header={<h1 className="sr-only">Concursuri</h1>}
         summaryTitle={null}
         summary={<span aria-hidden />}
-        list={<CompetitionsFallbackBody withPulse={false} />}
+        list={<CompetitionsFallbackBody />}
       />
     </div>
   );
@@ -297,14 +350,17 @@ function barChips(place: ListPlace, results: boolean): string[] {
  * the search row and the filter bar, the bento where the list opens on it, the summary's
  * real title and compact card bones.
  */
-function Fallback({ place }: { place: ListPlace }) {
+function Fallback({ place, shell }: { place: ListPlace; shell: UpcomingShell | null }) {
   const results = isResultsMode(place);
+  if (showsUpcomingTop(place)) return <UpcomingFallback place={place} shell={shell} />;
   const heading = headingFor(place);
   // Only a results URL has chips; it is read after searchParams (request time), never prerendered.
   const chips = results ? chipLabels(place, new Date()) : [];
   const label = resultsLabelFor(place);
-  // From 1024 each tab's own rows (./desktop), with no aside — the bones match them.
+  // A status tab (or «Ale mele») takes the whole width, with no aside; its list's bones are the
+  // tab module's own (./tabs).
   const desktopRows = !results && place.status !== 'all';
+  const tab = desktopRows && place.scope !== 'registered' && place.status !== 'all' ? place.status : undefined;
   return (
     <div aria-busy>
       <ListPageSkeleton
@@ -324,18 +380,50 @@ function Fallback({ place }: { place: ListPlace }) {
         summaryTitle={heading}
         // Results from 1280: the header's band carries the answer and the summary row takes no space.
         summary={results ? <ListSummary title={heading} loading titleHiddenFrom="xl" /> : undefined}
-        list={<CompetitionsFallbackBody withPulse={false} desktopRows={desktopRows} />}
+        list={<CompetitionsFallbackBody tab={tab} />}
         // ≥1280 the results chrome sits in the centre column, in the search row's slot.
         hero={
-          showsPulse(place) ? (
-            <PulseSkeleton />
-          ) : results ? (
+          results ? (
             <div className="hidden flex-col gap-4 xl:flex">
               <ResultsRowFrame label={label} />
               <FilterBarSkeleton chips={barChips(place, true)} />
             </div>
           ) : undefined
         }
+      />
+    </div>
+  );
+}
+
+/**
+ * Viitoare's frame, in the tab's own order (./tabs/UpcomingTab under CompetitionsScreen): from 768
+ * the live band and the spotlight, THEN the search row and the filter bar, then the list (the phone
+ * keeps the search row first). With the cached shell (`shell`) it is the tab's public content
+ * itself — the real band, people and first page of cards (start order: who reads is not known
+ * here; a signed-in viewer's registrations take the lead of their group when the page lands) — so
+ * it is prerendered, and only per-user parts arrive with the request. Without it (another tab's
+ * route), bones in the same places. «Urmărite» lists per-user cards: bones under the public Top.
+ */
+function UpcomingFallback({ place, shell }: { place: ListPlace; shell: UpcomingShell | null }) {
+  const liveCount = shell ? (shell.live.counts?.started ?? shell.live.cards.length) : 0;
+  const cards = place.scope === 'all' ? (shell?.upcoming.cards ?? []) : [];
+  const top = (
+    <div className={UPCOMING_TOP}>
+      {liveCount > 0 && shell ? <LiveBand count={liveCount} cards={shell.live.cards} /> : null}
+      {shell?.people ? <SpotlightView people={shell.people} isAuthenticated={false} /> : shell ? null : <SpotlightSkeleton />}
+    </div>
+  );
+  return (
+    <div aria-busy>
+      <ListPageSkeleton
+        title="Concursuri"
+        header={<ListHeader title="Concursuri" below={<FallbackTabs active="notStarted" />} />}
+        filterBar={<FilterBarSkeleton chips={barChips(place, false)} />}
+        searchPlaceholder="Concurs, baltă sau organizator"
+        summaryTitle={headingFor(place)}
+        hero={top}
+        heroFirst
+        list={cards.length && shell ? <UpcomingGroupsShell cards={cards} at={shell.at} /> : <CompetitionsFallbackBody tab="notStarted" />}
       />
     </div>
   );

@@ -1,0 +1,37 @@
+/*
+ * Viitoare's motion (prototype app/dev/hub/hub.module.css): the hover lift of the band and the
+ * spotlight tiles, the phone's snapping spotlight shelf.
+ */
+
+.lift {
+  transition:
+    transform var(--duration-medium) var(--ease-fast),
+    box-shadow var(--duration-medium) var(--ease-fast);
+}
+@media (hover: hover) {
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-e2);
+  }
+}
+
+/* The phone's shelf of small tiles: snap, no scrollbar chrome. */
+.rail {
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+.rail > * {
+  scroll-snap-align: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lift {
+    transition: none;
+  }
+  .lift:hover {
+    transform: none;
+  }
+}

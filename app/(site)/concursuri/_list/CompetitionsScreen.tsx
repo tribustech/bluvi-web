@@ -23,7 +23,6 @@ import {
   ListEmpty,
   ListError,
   ListFooter,
-  ListGrid,
   ListHeader,
   ListHeaderToggle,
   ListPage,
@@ -49,10 +48,10 @@ import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import {
   competitionCardsInfiniteQuery,
+  competitionCardsKeys,
   countActiveFilters,
   DEFAULT_COMPETITION_FILTERS,
   hasActiveFilters,
-  heroStack,
   parseCustomPeriod,
   periodChipLabel,
   periodFitsStatus,
@@ -67,10 +66,11 @@ import {
 import type { Transport } from '@/core/transport';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
-import { createPulseTracker, logFiltersApplied, logScopeChanged, logSearchCommitted, logStatusChanged } from './analytics';
-import { CardSkeleton, cardItemClass, CompetitionCardItem, type PhotoRequest } from './CompetitionCardItem';
+import { logFiltersApplied, logScopeChanged, logSearchCommitted, logStatusChanged } from './analytics';
+import { PosterGrid, PosterGridSkeleton } from './cards/PosterCard';
+import type { PhotoRequest } from './cards/parts';
 import { FiltersDialog, periodChoices, PickerRow, type FiltersView } from './FiltersDialog';
-import { DesktopRowsSkeleton, DesktopTabView, type DesktopTab } from './desktop/DesktopTabView';
+import { DesktopRowsSkeleton, DesktopTabView } from './desktop/DesktopTabView';
 import type { DesktopViewer } from './desktop/data';
 import { PhotoViewer } from './PhotoViewer';
 import {
@@ -92,12 +92,11 @@ import {
   type ListPlace,
   type Status,
 } from './place';
-import { PulseBento, PulseSkeleton } from './pulse/PulseBento';
-import { usePulse } from './pulse/usePulse';
 import { ResultsChrome } from './ResultsChrome';
 import { RESULTS_REFRESH, RESULTS_STACK } from './resultsChromeStyles';
 import { SearchDialog } from './SearchDialog';
 import { StatusTabs } from './StatusTabs';
+import { TAB_MODULES, type TabViewProps } from './tabs';
 
 /*
  * Concursuri — fish app/(app)/(tabs)/competitions/index.tsx on T1 (parity competitions-list.index,
@@ -114,9 +113,10 @@ import { StatusTabs } from './StatusTabs';
  *    filters used to take goes to the cards (three 280px cards in the 872 centre at 1280);
  *  - pull-to-refresh is the kit's stand-in (DashboardRefresh, as on Acasă): «Reîmprospătează» in
  *    the header, its outcome announced, the spinner its own (never a tab switch's);
- *  - the cards auto-fill the content column (ListGrid, ROADMAP §4), one column on the phone as in
- *    fish: fish's compact «Listă» cards with footers. No «Listă» / «Afiș» toggle (owner, 2026-10-06):
- *    the cards below 1024 and in results mode, each tab's own layout from 1024 (./desktop);
+ *  - the cards are fish's POSTER cards at every width (./cards/PosterCard; owner, 2026-10-06 — no
+ *    «Listă» / «Afiș» toggle), one column on the phone as in fish;
+ *  - each status tab fills its own content slots (./tabs: Top above the search row, Body as the
+ *    list) — the page keeps the header, tabs, search, filters, summary, states and load-more;
  *  - each tab is a page of its own (/concursuri/viitoare · /live · /rezultate; /concursuri opens on
  *    Live when something is live, else Viitoare): the tabs are real links, a switch happens in
  *    place and the list mirrors its tab into the path (search, filters, scope stay in the query);
@@ -141,7 +141,6 @@ export function CompetitionsScreen({
   indexTab = null,
   isAuthenticated,
   viewer = null,
-  seed,
   transport,
   mirrorPath = true,
 }: {
@@ -152,8 +151,6 @@ export function CompetitionsScreen({
   isAuthenticated: boolean;
   /** Who is signed in (the server's session read): the desktop views' «tu», followed faces and my stand. */
   viewer?: DesktopViewer;
-  /** The hero stack's shuffle for this visit. */
-  seed: number;
   /**
    * Dev demo only (/dev/templates/t1): the template demo renders THIS screen over a fixture
    * transport that forces its states, so approving the demo approves the shipped page.
@@ -197,7 +194,6 @@ export function CompetitionsScreen({
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
-  const [tracker] = useState(() => createPulseTracker());
 
   const mineActive = scope === 'registered';
   const place: ListPlace = { status, scope, search, filters };
@@ -244,8 +240,8 @@ export function CompetitionsScreen({
   const registeredAhead = regCounts ? regCounts.notStarted + regCounts.started : 0;
   const registeredTotal = regCounts ? regCounts.notStarted + regCounts.started + regCounts.completed : 0;
 
+  // Viitoare, unfiltered: the tab's own promo blocks (./tabs/UpcomingTab) sit over the list.
   const showPulse = showsPulse(place);
-  const pulse = usePulse(t, showPulse, isAuthenticated);
 
   /* ---------------- actions ---------------- */
 
@@ -329,11 +325,12 @@ export function CompetitionsScreen({
   };
   const openSearch = () => setSearchOpen(true);
 
-  // fish onRefresh: the list is the gesture's visible leg; the bento re-draws underneath it. A failed
+  // fish onRefresh: the list is the gesture's visible leg; every other card list (the tabs' own
+  // blocks, the spotlight people under the same root) re-reads underneath it. A failed
   // re-read over cards on screen is said by the stale strip (or the list's error card) — 'reported',
   // so DashboardRefresh does not announce it a second time.
   const refresh = async (): Promise<RefreshResult> => {
-    void pulse.refresh();
+    void qc.invalidateQueries({ queryKey: competitionCardsKeys.root });
     const r = await list.refetch();
     return r.isError ? 'reported' : true;
   };
@@ -844,14 +841,36 @@ export function CompetitionsScreen({
   const settledEmpty =
     !sel.requiresSignIn && list.isSuccess && !busy && !loading && competitions.length === 0 && !list.hasNextPage;
 
-  // Podium footers (one to six rows) hug their content; the cards share footer lines only while no
-  // card has a podium — one podium in a row (a results list across every state) stretched its
-  // upcoming neighbours to a tall empty body.
-  const aligned = status !== 'completed' && !competitions.some((c) => c.status === 'completed');
-
-  // From 1024 the tabs are not the phone's cards (owner-approved prototype A2): each tab has its own
-  // layout (./desktop); results mode and the tab-less «Toate concursurile» keep the cards.
-  const desktopTab: DesktopTab | null = resultsMode ? null : mineActive ? 'mine' : status === 'all' ? null : status;
+  // Each status tab's own content (./tabs): browsing a tab — not results mode, not «Ale mele», not
+  // the tab-less «Toate concursurile». «Ale mele» keeps its rows from 1024 (./desktop/MineRows).
+  const tabModule = !resultsMode && !mineActive && status !== 'all' ? TAB_MODULES[status] : null;
+  const tabBase: Omit<TabViewProps, 'priorityCount'> | null =
+    tabModule && status !== 'all'
+      ? {
+          status,
+          cards: competitions,
+          loading,
+          scope: scope === 'followed' ? 'followed' : 'all',
+          t,
+          viewer,
+          isAuthenticated,
+          onOpenPhoto: setPhoto,
+          labelledBy: SUMMARY_ID,
+        }
+      : null;
+  const tabProps: TabViewProps | null =
+    tabModule && tabBase
+      ? {
+          ...tabBase,
+          // The phone's first posters keep priority (LCP, §5) when nothing tall sits above the list;
+          // a tab whose Top may render nothing (or little) says how many itself.
+          priorityCount: showPulse ? 0 : tabModule.priorityCount ? tabModule.priorityCount(tabBase) : tabModule.Top ? 0 : 2,
+        }
+      : null;
+  const TabTop = tabModule?.Top;
+  const TabBody = tabModule?.Body;
+  const TabSkeleton = tabModule?.Skeleton;
+  const TabEmpty = tabModule?.Empty;
 
   let body: ReactNode;
   if (sel.requiresSignIn) {
@@ -882,10 +901,12 @@ export function CompetitionsScreen({
       />
     );
   } else if (loading) {
-    body = desktopTab ? (
+    body = TabSkeleton ? (
+      <TabSkeleton />
+    ) : mineActive ? (
       <>
         <div className="lg:hidden">
-          <CardsSkeleton />
+          <PosterGridSkeleton />
         </div>
         <div role="status" className="hidden lg:block">
           <span className="sr-only">Se încarcă concursurile…</span>
@@ -893,8 +914,10 @@ export function CompetitionsScreen({
         </div>
       </>
     ) : (
-      <CardsSkeleton />
+      <PosterGridSkeleton />
     );
+  } else if (competitions.length === 0 && TabEmpty && tabProps?.scope === 'all') {
+    body = <TabEmpty {...tabProps} />;
   } else if (competitions.length === 0) {
     body = (
       // Results: the card spans the column, edge to edge with the pill and the heading (its text
@@ -921,29 +944,15 @@ export function CompetitionsScreen({
         />
       </div>
     );
+  } else if (TabBody && tabProps) {
+    body = <TabBody {...tabProps} />;
   } else {
-    const cards = (
-      <CardsGrid labelledBy={SUMMARY_ID}>
-        {competitions.map((c, i) => (
-          // Aligned: a two-row subgrid (body, footer) of this grid — footers line up across a row.
-          <li key={c.documentId} className={cardItemClass(aligned)}>
-            <CompetitionCardItem
-              competition={c}
-              aligned={aligned}
-              onOpenPhoto={setPhoto}
-              // The phone's first posters keep priority (LCP, §5): with a desktop view this is the
-              // lg:hidden copy, so it only weighs on ≥1024 as two small eager thumbnails.
-              priority={!showPulse && i < 2}
-            />
-          </li>
-        ))}
-      </CardsGrid>
-    );
-    body = desktopTab ? (
+    const cards = <PosterGrid cards={competitions} onOpenPhoto={setPhoto} labelledBy={SUMMARY_ID} priorityCount={showPulse ? 0 : 2} />;
+    body = mineActive ? (
       <>
         <div className="lg:hidden">{cards}</div>
-        <div className="hidden lg:block" data-desktop-tab={desktopTab}>
-          <DesktopTabView tab={desktopTab} cards={competitions} t={t} viewer={viewer} />
+        <div className="hidden lg:block" data-desktop-tab="mine">
+          <DesktopTabView tab="mine" cards={competitions} t={t} viewer={viewer} />
         </div>
       </>
     ) : (
@@ -955,34 +964,23 @@ export function CompetitionsScreen({
 
   const myCards = regSel.competitions.filter((c) => c.status !== 'completed').slice(0, 3);
   const asideIsLive = status !== 'started';
-  // With the bento above the list, the aside never repeats it (the live stack, the counts): it is
-  // your registrations, else the latest results — minus anything the hero stack already shows.
-  const heroIds = useMemo(
-    () => new Set(pulse.hero ? heroStack(pulse.hero, seed).map((c) => c.competition.documentId) : []),
-    [pulse.hero, seed],
-  );
   const mineBlock =
     isAuthenticated && !mineActive && myCards.length > 0 ? (
       <AsideSection key="mine" title="Înscrierile mele" action={<TextAction onClick={() => toggleScope('registered')}>Vezi toate</TextAction>}>
         <AsideList items={myCards} />
       </AsideSection>
     ) : null;
-  // The same cache entries the tabs and the bento read (no extra request).
+  // The same cache entries the tabs read (no extra request).
   const liveList = useInfiniteQuery(competitionCardsInfiniteQuery(t, PULSE_CARD_PARAMS.live, session));
   const upcomingList = useInfiniteQuery(competitionCardsInfiniteQuery(t, PULSE_CARD_PARAMS.upcoming, session));
-  const completedList = useInfiniteQuery(competitionCardsInfiniteQuery(t, PULSE_CARD_PARAMS.completed, session));
   // Results mode has no aside (fish results.c14: the list only) — «Live acum» next to an answer
   // repeated its first cards, and its «Vezi toate» narrowed the answer instead of opening Live.
   const asideNext: { title: string; target: Status; source: typeof liveList; showLive: boolean } | null = resultsMode
     ? null
-    : showPulse
-    ? mineBlock
-      ? null
-      : { title: 'Rezultate recente', target: 'completed', source: completedList, showLive: false }
     : asideIsLive
       ? { title: 'Live acum', target: 'started', source: liveList, showLive: false }
       : { title: 'Încep curând', target: 'notStarted', source: upcomingList, showLive: true };
-  const asideItems = (asideNext?.source.data?.pages.flatMap((p) => p.data) ?? []).filter((c) => !heroIds.has(c.documentId)).slice(0, 4);
+  const asideItems = (asideNext?.source.data?.pages.flatMap((p) => p.data) ?? []).slice(0, 4);
   const nextBlock =
     asideNext && asideItems.length > 0 ? (
       <AsideSection
@@ -993,28 +991,12 @@ export function CompetitionsScreen({
         <AsideList items={asideItems} showLive={asideNext.showLive} />
       </AsideSection>
     ) : null;
-  // The desktop tab views use the whole width (the live hub has its own side column): no aside
-  // with them — nor on the phone in «Listă», which is fish's plain list.
-  const noAside = resultsMode || desktopTab !== null;
+  // The tabs and «Ale mele» use the whole width (each tab lays out its own columns): no aside with
+  // them; results mode neither (results.c14).
+  const noAside = resultsMode || tabModule !== null || mineActive;
   const asidePending = !noAside && ((isAuthenticated && registered.isPending) || Boolean(asideNext?.source.isPending));
   const docked = noAside ? [] : [mineBlock, nextBlock].filter(Boolean);
   const aside = asidePending ? <AsideSkeleton /> : docked.length > 0 ? <>{docked}</> : undefined;
-
-  /* ---------------- pulse ---------------- */
-
-  // Whatever the list below does (empty, failed): the bento has its own sources and hides itself
-  // only when no hero settles (pulse.c1) — a day with nothing upcoming still shows live or results.
-  const bento =
-    showPulse ? (
-      <PulseBento
-        pulse={pulse}
-        seed={seed}
-        isAuthenticated={isAuthenticated}
-        tracker={tracker}
-        onOpenLive={() => changeStatus('started')}
-        onOpenStartingSoon={() => changeStatus('notStarted')}
-      />
-    ) : null;
 
   // results.c10: «Rezultate pentru „…”» / «Concursuri filtrate» over the count, as fish's list header.
   const summary = (
@@ -1052,8 +1034,8 @@ export function CompetitionsScreen({
       asideLabel="Ce se întâmplă acum"
       asideBusy={asidePending}
     >
-      {/* The hero/bento first: it is promo, not the list's chrome. */}
-      {bento}
+      {/* The tab's own blocks first (./tabs): promo, not the list's chrome. */}
+      {TabTop && tabProps ? <TabTop {...tabProps} /> : null}
       {/* Owner rule 6 (ROADMAP §4b): the search pill and the filter chips are ONE block, directly
           over the results they ask about. On a phone it stays at the top of the column (fish's
           order: title → tabs → search row), the bento under it. */}
@@ -1181,54 +1163,8 @@ function AsideList({ items, showLive = true }: { items: CompetitionCard[]; showL
   );
 }
 
-/** The page's loading frame (Suspense fallback): header, tabs, toolbar, bento where it opens on one, cards. */
-export function CompetitionsFallbackBody({ withPulse, desktopRows = false }: { withPulse: boolean; desktopRows?: boolean }) {
-  return (
-    <>
-      {withPulse ? <PulseSkeleton /> : null}
-      {desktopRows ? (
-        <>
-          <div className="lg:hidden">
-            <CardsSkeleton />
-          </div>
-          <div className="hidden lg:block">
-            <DesktopRowsSkeleton />
-          </div>
-        </>
-      ) : (
-        <CardsSkeleton />
-      )}
-    </>
-  );
-}
-
-/** The first page's bones, in the grid the cards will land in (index.s2, c23). */
-function CardsSkeleton() {
-  return (
-    <div role="status">
-      <span className="sr-only">Se încarcă concursurile…</span>
-      <div aria-hidden>
-        <CardsGrid>
-          {Array.from({ length: 6 }, (_, i) => (
-            <CardSkeleton key={i} />
-          ))}
-        </CardsGrid>
-      </div>
-    </div>
-  );
-}
-
-/**
- * The cards' grid: the kit ListGrid (LIST_GUTTER between columns, so the bento's channels continue
- * into it). The horizontal cards (a 76px thumbnail + text) take the 340px minimum, so the ~870
- * centre at 1280 holds two well-proportioned cards (titles and chips on one line) instead of three
- * cramped ones; fish's tighter 10px between rows (ItemSeparator, c14); the column gutter stays the
- * shared one. TODO(kit): a ListGrid `rowGap` prop instead of this className.
- */
-function CardsGrid({ labelledBy, children }: { labelledBy?: string; children: ReactNode }) {
-  return (
-    <ListGrid min="lg" labelledBy={labelledBy} className="gap-y-2.5">
-      {children}
-    </ListGrid>
-  );
+/** The page's loading frame (Suspense fallback): the bones of the tab's list (its module's Skeleton), else the poster grid's. */
+export function CompetitionsFallbackBody({ tab }: { tab?: CompetitionCardStatus }) {
+  const Skeleton = tab ? TAB_MODULES[tab].Skeleton : PosterGridSkeleton;
+  return <Skeleton />;
 }

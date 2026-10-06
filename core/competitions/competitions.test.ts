@@ -22,6 +22,9 @@ import {
   updateCompetitionNotificationPreferencesMutation,
 } from './mutations';
 import {
+  RECENT_WEIGHINGS_POLL_MS,
+  pulsePeopleQuery,
+  recentWeighingsQuery,
   competitionCardsInfiniteQuery,
   competitionCardsKeys,
   competitionCatchesInfiniteQuery,
@@ -767,5 +770,74 @@ describe('pulse derivations', () => {
 
   it('reads the Live tab’s exact params', () => {
     expect(api.buildCompetitionCardsQuery({ ...PULSE_CARD_PARAMS.live })).toBe('status=started&page=1&pageSize=20');
+  });
+});
+
+describe('web-only feed reads: recent weighings, pulse people', () => {
+  const weighing = {
+    weighingDocumentId: 'w1',
+    endAt: '2026-10-06T09:12:00.000Z',
+    weighingType: 'normal',
+    competition: { documentId: 'c1', name: 'Cupa Toamnei', posterUrl: 'https://cdn/x.jpg' },
+    standLabel: 'Sector A, Stand 6',
+    angler: { displayName: 'Ion Pop', avatarUrl: null, isTeam: false },
+    catchCount: 3,
+    totalKg: 12.45,
+  };
+  const person = {
+    criterion: 'mostCompetitions',
+    avatarUrls: [],
+    destination: { type: 'angler', documentId: 'a1' },
+    rank: 1,
+    kicker: 'TOP CONCURSURI',
+    displayName: 'Florin',
+    line: '9 concursuri',
+    meta: 'Din toate timpurile',
+  };
+
+  it('reads /feed/recent-weighings as a public read (null angler, open weighing type)', async () => {
+    const odd = { ...weighing, weighingDocumentId: 'w2', angler: null, weighingType: 'bonus' };
+    const { transport, calls } = createFakeTransport([{ data: [weighing, odd] }, null]);
+    await expect(api.getRecentWeighings(transport)).resolves.toEqual([weighing, odd]);
+    await expect(api.getRecentWeighings(transport)).resolves.toEqual([]);
+    expect(calls[0]).toMatchObject({ method: 'GET', path: '/feed/recent-weighings', auth: 'none' });
+  });
+
+  it('reads /feed/pulse-person?limit and falls back to [data] on an older CMS', async () => {
+    const other = { ...person, displayName: 'Ana' };
+    const { transport, calls } = createFakeTransport([{ data: person, items: [person, other] }, { data: person }, { data: null }]);
+    await expect(api.getPulsePeople(transport, 6)).resolves.toEqual([person, other]);
+    await expect(api.getPulsePeople(transport, 6)).resolves.toEqual([person]);
+    await expect(api.getPulsePeople(transport, 6)).resolves.toEqual([]);
+    expect(calls[0]).toMatchObject({ method: 'GET', path: '/feed/pulse-person', query: { limit: 6 }, auth: 'none' });
+  });
+
+  it('polls recent weighings on the 30s TTL and never retries nor polls a 404', () => {
+    const { transport } = createFakeTransport();
+    const q = recentWeighingsQuery(transport);
+    expect(q.queryKey).toEqual(competitionCardsKeys.recentWeighings);
+    // The interval (and the focus re-read) read the query's error: a 404 stops them, anything else polls.
+    type Q = { state: { error: unknown } };
+    const interval = q.refetchInterval as unknown as (q: Q) => number | false;
+    const onFocus = q.refetchOnWindowFocus as unknown as (q: Q) => boolean;
+    const at = (error: unknown) => ({ state: { error } });
+    expect(interval(at(null))).toBe(RECENT_WEIGHINGS_POLL_MS);
+    expect(interval(at(new ApiError({ message: 'x', status: 500, code: 'HTTP' })))).toBe(RECENT_WEIGHINGS_POLL_MS);
+    expect(interval(at(new ApiError({ message: 'x', status: 404, code: 'HTTP' })))).toBe(false);
+    expect(onFocus(at(null))).toBe(true);
+    expect(onFocus(at(new ApiError({ message: 'x', status: 404, code: 'HTTP' })))).toBe(false);
+    expect(RECENT_WEIGHINGS_POLL_MS).toBe(30_000);
+    const off = recentWeighingsQuery(transport, { refetchInterval: false }).refetchInterval as unknown as (q: Q) => number | false;
+    expect(off(at(null))).toBe(false);
+    const retry = q.retry as (n: number, e: unknown) => boolean;
+    expect(retry(0, new ApiError({ message: 'x', status: 404, code: 'HTTP' }))).toBe(false);
+    expect(retry(0, new ApiError({ message: 'x', status: 500, code: 'HTTP' }))).toBe(true);
+    expect(retry(2, new ApiError({ message: 'x', status: 500, code: 'HTTP' }))).toBe(false);
+  });
+
+  it('keys pulse people by limit', () => {
+    const { transport } = createFakeTransport();
+    expect(pulsePeopleQuery(transport, 6).queryKey).toEqual(['competition-cards', 'pulse-people', 6]);
+    expect(pulsePeopleQuery(transport, 6, false).enabled).toBe(false);
   });
 });

@@ -460,6 +460,38 @@ export const pulsePersonSchema = z.object({
 });
 export type PulsePerson = z.infer<typeof pulsePersonSchema>;
 
+/**
+ * `GET /feed/pulse-person?limit=N` — `data` stays the one person (fish reads only that); `items` is
+ * up to `limit` people for the web's «În lumina reflectoarelor». A CMS older than `limit` sends
+ * `data` alone: callers fall back to `[data]` (`getPulsePeople`).
+ */
+export const pulsePeopleResponseSchema = z
+  .object({ data: pulsePersonSchema.nullable(), items: z.array(pulsePersonSchema).optional() })
+  .nullish();
+
+/* ------------------------------------------------------------------ */
+/* Recent weighings — CMS feed/recent-weighings (web only, no fish)   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One item of `GET /feed/recent-weighings` (public, 30s edge cache, tag `competitions-list`): the
+ * newest closed weighings across live competitions. `angler` is null when the stand has nobody
+ * resolvable. `weighingType` stays open (the CMS may add one).
+ */
+export const recentWeighingSchema = z.object({
+  weighingDocumentId: z.string(),
+  endAt: z.string(),
+  weighingType: z.union([z.enum(['normal', 'extra']), z.string()]),
+  competition: z.object({ documentId: z.string(), name: z.string(), posterUrl: z.string().nullable() }),
+  standLabel: z.string(),
+  angler: z.object({ displayName: z.string(), avatarUrl: z.string().nullable(), isTeam: z.boolean() }).nullable(),
+  catchCount: z.number(),
+  totalKg: z.number(),
+});
+export type RecentWeighing = z.infer<typeof recentWeighingSchema>;
+
+export const recentWeighingsResponseSchema = z.object({ data: z.array(recentWeighingSchema) }).nullish();
+
 /* ------------------------------------------------------------------ */
 /* Rankings — fish models/ranking.type.ts                             */
 /* ------------------------------------------------------------------ */

@@ -247,7 +247,11 @@ export function FilterChipMenu<V extends string>({
     const width = p.offsetWidth;
     const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
     p.style.left = `${Math.round(left)}px`;
-    p.style.top = `${Math.round(r.bottom + 8)}px`;
+    // Under the chip; above it when the window has no room below (a chip low on the screen).
+    const below = r.bottom + 8;
+    const above = r.top - 8 - p.offsetHeight;
+    const flip = below + p.offsetHeight > window.innerHeight - 8 && above >= 8;
+    p.style.top = `${Math.round(flip ? above : below)}px`;
   }, []);
 
   useEffect(() => {

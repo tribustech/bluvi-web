@@ -996,9 +996,9 @@ test.describe('competitions-list batch 2 review fixes', () => {
       await page.setViewportSize({ width, height: 900 });
       await open(page);
       const bar = page.getByRole('group', { name: 'Filtre concursuri' });
-      // Owner review 2026-10-06: the bar is over the list it filters — after the bento, right above
-      // the list's summary — not ~550px above it.
-      const bento = page.getByRole('region', { name: 'Pulsul concursurilor' });
+      // Owner review 2026-10-06: the bar is over the list it filters — after the tab's promo
+      // («În lumina reflectoarelor»), right above the list's summary — not ~550px above it.
+      const bento = page.getByRole('region', { name: 'În lumina reflectoarelor' });
       await expect(bento).toBeVisible();
       const bentoBox = (await bento.boundingBox())!;
       const barAt = (await bar.boundingBox())!;

@@ -1,6 +1,6 @@
 import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 import { infiniteQueryOptions, nextPageParam, queryOptions, type PaginationParams } from '../shared';
-import type { Transport } from '../transport';
+import { isApiError, type Transport } from '../transport';
 import {
   SIGNED_OUT_MY_STATUS,
   buildCompetitionCardsQuery,
@@ -24,7 +24,9 @@ import {
   getLiveCompetition,
   getMyCompetitions,
   getPastPolls,
+  getPulsePeople,
   getPulsePerson,
+  getRecentWeighings,
   getRankingBestN,
   getRankings,
   getSponsorById,
@@ -85,6 +87,10 @@ export const competitionCardsKeys = {
   pulsePerson: ['competition-cards', 'pulse-person'] as const,
   /** The bento's hero, when nothing is live. Same for everyone. */
   featured: ['competition-cards', 'featured'] as const,
+  /** Web only: «În lumina reflectoarelor» — up to `limit` people (/feed/pulse-person?limit). */
+  pulsePeople: (limit: number) => ['competition-cards', 'pulse-people', limit] as const,
+  /** Web only: the Live tab's «Cântăriri recente» (/feed/recent-weighings). */
+  recentWeighings: ['competition-cards', 'recent-weighings'] as const,
 };
 
 /** fish `queryKeys.competitions` */
@@ -350,6 +356,44 @@ export function pulsePersonQuery(t: Transport, enabled: boolean) {
     queryFn: () => getPulsePerson(t),
     enabled,
     ...pulsePersonQueryPolicy,
+  });
+}
+
+/**
+ * Web only: the people of «În lumina reflectoarelor» (Viitoare). The same draw-per-request read as
+ * the person tile, so the same policy: who is shown is decided when this fetches.
+ */
+export function pulsePeopleQuery(t: Transport, limit: number, enabled = true) {
+  return queryOptions({
+    queryKey: competitionCardsKeys.pulsePeople(limit),
+    queryFn: () => getPulsePeople(t, limit),
+    enabled,
+    ...pulsePersonQueryPolicy,
+  });
+}
+
+/** The CMS's edge TTL for /feed/recent-weighings: polling faster only re-reads the same answer. */
+export const RECENT_WEIGHINGS_POLL_MS = 30_000;
+
+/** A CMS without /feed/recent-weighings (not deployed yet) answers 404: that will not change mid-visit. */
+const isMissingEndpoint = (error: unknown) => isApiError(error) && error.status === 404;
+
+/**
+ * Web only: the Live tab's «Cântăriri recente». Polls on the endpoint's 30s TTL; TanStack pauses
+ * the interval while the page is hidden (refetchIntervalInBackground off). A 404 — a CMS without
+ * the endpoint — hides the strip and stops every re-read: no retry, no interval tick (TanStack's
+ * interval ignores the error state, so it has to be a function), no window-focus re-read.
+ */
+export function recentWeighingsQuery(t: Transport, options: { enabled?: boolean; refetchInterval?: number | false } = {}) {
+  return queryOptions({
+    queryKey: competitionCardsKeys.recentWeighings,
+    queryFn: () => getRecentWeighings(t),
+    enabled: options.enabled ?? true,
+    staleTime: RECENT_WEIGHINGS_POLL_MS,
+    refetchInterval: (q) => (isMissingEndpoint(q.state.error) ? false : (options.refetchInterval ?? RECENT_WEIGHINGS_POLL_MS)),
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: (q) => !isMissingEndpoint(q.state.error),
+    retry: (failures: number, error: unknown) => !isMissingEndpoint(error) && failures < 2,
   });
 }
 

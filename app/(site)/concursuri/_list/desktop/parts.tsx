@@ -2,15 +2,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { MapPinIcon } from '@heroicons/react/20/solid';
-import { Tag } from '@/components/cards/parts';
 import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
-import { cardRankingLabel, entrantsCount, unitSingular, type CardFormat, type CompetitionCard } from '@/core/competitions';
+import type { CompetitionCard } from '@/core/competitions';
 import { dayParts } from './dates';
 
 /*
  * What the desktop tab views share: dates in Bucharest, the calendar leaf, the photo, the lake line,
- * the format chips, the CTA and the row list. Composition only — every visual is a kit component
+ * the CTA and the row list. Composition only — every visual is a kit component
  * or a token utility.
  */
 
@@ -18,7 +17,6 @@ import { dayParts } from './dates';
 
 const DAYS = ['dum', 'lun', 'mar', 'mie', 'joi', 'vin', 'sâm'] as const;
 const MONTHS = ['ian', 'feb', 'mar', 'apr', 'mai', 'iun', 'iul', 'aug', 'sep', 'oct', 'noi', 'dec'] as const;
-export { bucketOf, dayParts, MONTHS_FULL, PAST_BUCKET, type DayParts } from './dates';
 
 /** The calendar leaf: weekday, day, month (start day; a range adds «+N» days). */
 export function DateBlock({ card, size = 'md' }: { card: CompetitionCard; size?: 'md' | 'sm' }) {
@@ -68,38 +66,6 @@ export function lakeLine(c: CompetitionCard): string {
   return c.lake.county ? `${c.lake.name} · ${c.lake.county.name}` : c.lake.name;
 }
 
-export function formatLabel(c: CompetitionCard): string {
-  if (c.format.kind === 'team') return c.format.teamSize ? `Echipe de ${c.format.teamSize}` : 'Echipe';
-  return 'Individual';
-}
-
-export function FormatChips({ card, size = 'md' }: { card: CompetitionCard; size?: 'sm' | 'md' }) {
-  return (
-    <span className="flex flex-wrap gap-1">
-      <Tag tone="indigo" size={size}>
-        {formatLabel(card)}
-      </Tag>
-      <Tag tone="gray" size={size}>
-        {cardRankingLabel(card)}
-      </Tag>
-    </span>
-  );
-}
-
-/**
- * The unit under a count shown on its own (a stat's label): `pescar` for one, else `pescari` /
- * `echipe`. Romanian agreement through the core helpers, never the raw plural after any number.
- */
-export function unitFor(count: number, unit: CardFormat['unit']): string {
-  return count === 1 ? unitSingular(unit) : unit;
-}
-
-/** `1 pescar înscris` / `24 de pescari înscriși` / `1 echipă înscrisă` / `3 echipe înscrise`. */
-export function enrolledCount(count: number, unit: CardFormat['unit']): string {
-  const participle = unit === 'echipe' ? (count === 1 ? 'înscrisă' : 'înscrise') : count === 1 ? 'înscris' : 'înscriși';
-  return `${entrantsCount(count, unit)} ${participle}`;
-}
-
 export function LakeLine({ card, className }: { card: CompetitionCard; className?: string }) {
   return (
     <p className={cn('flex min-w-0 items-center gap-1 t-label text-accent-ink', className)}>
@@ -107,17 +73,6 @@ export function LakeLine({ card, className }: { card: CompetitionCard; className
       <span className="truncate">{lakeLine(card)}</span>
     </p>
   );
-}
-
-/**
- * «Înscrie-te» while there are places, «Complet» when none, «Vezi» when the limit is unknown — and
- * «Vezi» on a row whose start already passed (no register promise for a start that is gone).
- */
-export function upcomingCta(c: CompetitionCard, startPassed = false): { label: string; variant: 'primary' | 'secondary' | 'ghost'; full: boolean } {
-  if (startPassed) return { label: 'Vezi', variant: 'secondary', full: false };
-  if (c.capacity != null && c.placesLeft === 0) return { label: 'Complet', variant: 'ghost', full: true };
-  if (c.capacity != null) return { label: 'Înscrie-te', variant: 'primary', full: false };
-  return { label: 'Vezi', variant: 'secondary', full: false };
 }
 
 /**

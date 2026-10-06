@@ -55,19 +55,19 @@ screens:
       - "loading next page: spinner footer"
       - pull-to-refresh in progress (spinner only for the gesture, never for a tab switch)
       - "tab switch: previous list stays on screen until the new one lands (keepPreviousData)"
-      - status = Viitoare (default) with the bento above the list
+      - "status = Viitoare (default) with «N concursuri live acum» (when something is live) and «În lumina reflectoarelor» above the list (WEB, replaces the bento: c38, c39)"
       - status = Live, polling every 60s while visible; red pulse dot on the tab when counts.started > 0
       - status = Rezultate (completed)
       - "scope = Ale mele (registered): mixed statuses, no status tab underlined, badge with competitions still ahead"
       - "Ale mele tab with registrations that are all finished: tab shown without a number"
       - scope = Urmărite (followed), eye button active
-      - "density: WEB one only (no Listă / Afiș toggle, owner 2026-10-06) — fish's compact cards below 1024, each tab's own layout from 1024"
+      - "density: WEB one only (no Listă / Afiș toggle, owner 2026-10-06) — fish's poster cards (expanded density) at every width"
       - "arrived on a tab's own page (/concursuri/viitoare · /live · /rezultate, e.g. from Acasă «Vezi toate») or on /concursuri (Live when something is live, else Viitoare)"
       - "chrome state: search row visible vs scrolled away (magnifier + filter icons fade into the title row)"
       - photo viewer open over the list
       - render error caught by the route error boundary (retry card)
-      - "WEB desktop ≥1024, Viitoare: the agenda (groups by time, faces, capacity bar)"
-      - "WEB desktop ≥1024, Live: the live hub (hero, top five, moments, recent weighings, heaviest fish, other live), polling with the list"
+      - "WEB Viitoare at every width: poster cards grouped on the time axis (Azi · Mâine · Săptămâna asta · Weekendul ăsta · Săptămâna viitoare · months), passed starts last (c40)"
+      - "WEB Live at every width: «Cântăriri recente» + «Concursul tău» above poster cards in a stable order (competitions-list.live c16–c24)"
       - "WEB desktop ≥1024, Rezultate: compact winner rows, one expanded inline (points rankings in points)"
       - "WEB desktop ≥1024, Ale mele: my registrations led by my status"
     criteria:
@@ -160,29 +160,30 @@ screens:
       - id: competitions-list.index.c28
         text: The Descoperă bento (competitions-list.pulse) is rendered above the heading only on Viitoare, scope all, outside results mode.
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:279
+        web_note: "WEB (owner 2026-10-07, prototype app/dev/hub): Viitoare draws its own promo instead of fish's bento — «N concursuri live acum» (c38) and «În lumina reflectoarelor» (c39); no «Momente cheie». Only on Viitoare (also «Urmărite»), outside results mode and «Ale mele» (tabs/UpcomingTab.tsx replacesBento)."
       - id: competitions-list.index.c29
         text: A render error in this route shows a retry card for this route only (route error boundary), not a blank page.
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:726
       - id: competitions-list.index.c30
         text: 'WEB (owner-approved prototype A2, 2026-10-06; fish has no desktop): from 1024 (outside results mode and the tab-less "Toate concursurile") each tab replaces the cards with its own layout on the SAME list (same query, pages, "Încarcă mai multe", polling, empty / error / loading states); below 1024 and in results mode the cards stay. No aside next to these layouts. Viitoare is an agenda: groups "Săptămâna asta" / "Săptămâna viitoare" / month (Bucharest), one row per competition (date leaf, photo from 1280, date line with the followers pill and a ticking "Începe în …" on the nearest start, name = the row''s one link, lake, format + ranking chips, people, CTA "Înscrie-te" / "Complet" / "Vezi").'
         fish_ref: app/(app)/(tabs)/competitions/index.tsx
-        web_note: "app/(site)/concursuri/_list/desktop/Agenda.tsx; a not-started competition whose start day already passed goes in a LAST, muted group «Data de start a trecut» (after the months and «Fără dată»; no explanatory sentence — rule 4), never «Săptămâna asta», and its CTA is «Vezi» (secondary, no register promise) (desktop/dates.ts bucketOf, model.test.ts). People: «N/M pescari» (or «1 pescar», «24 de pescari» without a capacity, core cardCopy helpers), «N în așteptare» when nobody is confirmed yet, «Fii primul înscris» only when nobody applied. From xl the name track is capped and the leftover width goes to the CTA track (§4b.16). e2e competitions-list-desktop.spec.ts."
+        web_note: "SUPERSEDED for Viitoare (owner 2026-10-07): Viitoare is fish's poster cards at every width, grouped by time (c40) — the agenda rows are gone. Was: app/(site)/concursuri/_list/desktop/Agenda.tsx; a not-started competition whose start day already passed goes in a LAST, muted group «Data de start a trecut» (after the months and «Fără dată»; no explanatory sentence — rule 4), never «Săptămâna asta», and its CTA is «Vezi» (secondary, no register promise) (desktop/dates.ts bucketOf, model.test.ts). People: «N/M pescari» (or «1 pescar», «24 de pescari» without a capacity, core cardCopy helpers), «N în așteptare» when nobody is confirmed yet, «Fii primul înscris» only when nobody applied. From xl the name track is capped and the leftover width goes to the CTA track (§4b.16). e2e competitions-list-desktop.spec.ts."
       - id: competitions-list.index.c31
-        text: 'WEB Live from 1024 is the live hub: a hero (most catches, then followers; picked once per visit) on navy with kg cântărite / capturi / cea mai mare, the ranking''s top five with position deltas since the latest weighing (quantity rankings only) and the gap to the leader, the weighing rhythm (kg per interval) when weighings exist; "Momente cheie" (record, latest weighing, leader, closest fight, top three fish); "Cântăriri recente" across the live competitions plus "Cei mai grei pești acum"; the other live competitions as cards (followers pill, top three, cumulative sparkline). Feeder values read points ("p"), never kg. The extra reads (ranking, weighing-statistics, catches?sort=weight_desc) start only at ≥1024.'
-        fish_ref: services/queries/useRankings.ts
-        web_note: "app/(site)/concursuri/_list/desktop/LiveHub.tsx + data.ts#useLiveData; a slot without data is hidden (ROADMAP §4b.4): per competition the ranking is pending (tower/top-three bones, aria-busy) / error (block hidden) / ready («Încă nicio captură cântărită» only when it answered with no catch); capturi is the ranking's or the card's count, else «–», never 0. Reads: ranking + weighing-statistics for every live competition, catches?sort=weight_desc for the hero only (the others' heaviest fish is their ranking's biggestCatch). The other live competitions: 1–2 → full-width horizontal rows, 3+ → an auto-fit grid; the ticker scrolls inside the hero's height from 1280."
+        text: 'WEB Live (owner-approved prototype app/dev/hub, 2026-10-06) is fish''s poster cards at every width under the tab''s own blocks — «Cântăriri recente» and «Concursul tău»; no live hub, no «Momente cheie», no rhythm, no heaviest-fish panel, no ticker column. Details: competitions-list.live c16–c24.'
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx
+        web_note: "app/(site)/concursuri/_list/tabs/LiveTab.tsx + _list/live/**; e2e competitions-live.spec.ts."
       - id: competitions-list.index.c32
-        text: 'WEB the hub''s reads re-read every 60s together with the Live list (fish LIVE_POLL_MS), only while the page is visible; rows whose value changed flash once. No toast for a new leader or record (fish has none).'
+        text: 'WEB every live read (the list 60s, recent weighings 30s, my live registration + its ranking 60s) polls only while the page is visible and stops when the tab is left; a new weighing never reorders the cards. No toast for a new leader or record (fish has none).'
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:211
-        web_note: "data.ts LIVE_POLL_MS; e2e competitions-list-desktop.spec.ts (clock)."
+        web_note: "core recentWeighingsQuery (RECENT_WEIGHINGS_POLL_MS, refetchIntervalInBackground off); desktop/data.ts LIVE_POLL_MS; e2e competitions-live.spec.ts (clock + hidden page)."
       - id: competitions-list.index.c33
         text: 'WEB Rezultate from 1024: rows grouped by month (sticky headers under the list chrome), each with the date leaf, name, lake · format, the winner only (avatar with the gold 1, name, value), the biggest fish and the entrants; hover reveals "Clasament"; the name is a button that expands the row inline (one open at a time): podium 2·1·3 with values, "În cifre" (capturi, kg total, entrants, cea mai mare), places 4–8, the viewer''s own place ("Locul tău"), links Clasamentul complet / Statistici / Toți peștii. ↑/↓/Home/End move between rows.'
         fish_ref: services/queries/useRankings.ts
-        web_note: "app/(site)/concursuri/_list/desktop/Results.tsx; a row's ranking (rankingsQuery, shared with the competition page) is read on intent only — hovered, focused or opened — so the collapsed row stands on the card (winner from its podium; the value once the ranking is in); while it reads a bone, failed → hidden. One podium source per row (model.ts resultsPodium): the ranking when it crowns the card's winner, else the card's podium without values in row AND panel (mismatch logged). «Locul tău» by identity (participant ids, else the viewer's own registration), never by name."
+        web_note: "SUPERSEDED (owner 2026-10-07, prototype app/dev/hub Results): Rezultate is the prototype's result rows at every width, grouped by DAY, read on open only — competitions-list.incheiate c16–c22 (app/(site)/concursuri/_list/results/**, tabs/ResultsTab.tsx; e2e competitions-results.spec.ts). Kept from this criterion: one row open at a time, ↑/↓/Home/End, one podium source per row (resultsPodium: the ranking when it crowns the card's winner, else the card's podium without values; mismatch logged), «Locul tău» by identity, never by name."
       - id: competitions-list.index.c34
         text: 'WEB the headline value follows the ranking type (fish ranking tables): quantity "kg total" (quantity); quality "kg · calitate" (quality); bestOf "kg · medie" (topNCatchesAvarage); bestOfTiers "kg · medie Best N" (the average at the tier the row won at); quantityQuality / qualityQuantity (qualityPoints + quantityPoints), calitateCalitate / calitateCantitateCMMC / feederRounds (totalPoints), nationalChampionship / fipsed (clubPoints) rank by POINTS, the fewest win: the winner reads "N puncte" ("1 punct", "20 de puncte"), podium and places "N p", never kg. A value the row does not carry shows "–", never another field.'
         fish_ref: helpers/table/getTableColumns.ts
-        web_note: "core/competitions/domain/resultHeadline.ts (unit tests on trimmed real payloads, tests/fixtures/rankings/*); model.ts miniRanking / pointsText."
+        web_note: "core/competitions/domain/resultHeadline.ts (unit tests on trimmed real payloads, tests/fixtures/rankings/*); desktop/model.ts miniRanking; Rezultate rows: results/model.ts headlineLabel / unitWord («Total», «Medie Best 5», «Puncte · 2 manșe», «Puncte club»; «1 punct», «3 puncte», «20 de puncte») — incheiate.c17."
       - id: competitions-list.index.c35
         text: 'WEB Ale mele from 1024: one row per registration of the registered list, led by MY status from /feed/competitions/:id/my-status (Înscris / În așteptare / Respins / Anulat, LIVE when live) and my stand once drawn (/registrations), then the next step ("Acum", "Rezultat", "Pasul următor") and its CTA; a neutral bone until the status answers, never a guessed or sample row.'
         fish_ref: services/queries/useCompetition.ts
@@ -190,11 +191,23 @@ screens:
       - id: competitions-list.index.c36
         text: 'WEB Viitoare people column: the registered entrants'' faces (signed in, from /registrations; signed out the card''s participantFaces), followed anglers first with an indigo ring, "+N", "N/M unit" or "Fii primul înscris", one social-proof line ("X participă" / "X și încă N pe care îi urmărești") else "N în așteptare", and the capacity bar labelled "N locuri libere" / "Ultimele N locuri" / "Ultimul loc" / "Complet" / "Fără limită de locuri".'
         fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx
-        web_note: "Agenda.tsx People; data.ts#useUpcomingPeople."
+        web_note: "SUPERSEDED (owner 2026-10-07): the poster card's fish UpcomingFooter (cards.c13: faces, N/M, «N în așteptare», places left) replaces the agenda's people column (cards/footers.tsx)."
       - id: competitions-list.index.c37
         text: 'WEB clean URLs (owner 2026-10-06; fish has no URLs): each tab is a page of its own — /concursuri/viitoare, /concursuri/live, /concursuri/rezultate — with its own Romanian <title> and description, a self canonical and an entry in the sitemap; /concursuri opens on Live when at least one competition is live, else on Viitoare (decided by the server from the cards'' counts), with its own title and canonical. The tabs are real links (<a href>, role tab) in the HTML; a plain click switches in place and moves the path (history.replaceState; /concursuri keeps its URL while the list stays on the tab it opened on); search, filters and scope stay query params (a filtered view canonicalises to its page); "Orice stare" applied is /concursuri?stare=toate. No ?status=, no redirects.'
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:350
         web_note: "app/(site)/concursuri/{page,viitoare/page,live/page,rezultate/page}.tsx → _list/CompetitionsRoute.tsx (static shell: a tab page's frame with the real tab links, /concursuri's mode-neutral bones; the JSON-LD and /concursuri's tab from listHead, 'use cache' + cacheTag competitions-list + cacheLife minutes); place.ts placeFromUrl / pathFor; StatusTabs links. Static segments win over /concursuri/[id]. e2e competitions-list.spec.ts, competitions-list-status.spec.ts; unit place.test.ts."
+      - id: competitions-list.index.c38
+        text: 'WEB Viitoare «N concursuri live acum» (prototype app/dev/hub LiveBand; stands in for fish CountTile): a navy band above the spotlight, only when the Live list''s counts.started > 0 (hidden while it reads or when it fails — rule 4), with the live dot, «1 concurs live acum» / «N concursuri live acum» (formatCount: «20 de concursuri»), up to five live posters, the live names from 768, and «Vezi live →»; one link to /concursuri/live. Press logs competitions_count_tile_pressed { live }.'
+        fish_ref: features/competitions/components/pulse/CountTile.tsx:24
+        web_note: "_list/upcoming/LiveBand.tsx; reads the Live tab's own cached first page (PULSE_CARD_PARAMS.live). e2e competitions-upcoming.spec.ts."
+      - id: competitions-list.index.c39
+        text: 'WEB Viitoare «În lumina reflectoarelor» (prototype app/dev/hub Spotlight; fish MomentCard for several people): GET /feed/pulse-person?limit=6 (public, edge-cached; `items`, else `[data]`), the first person on a big navy tile, the others on tinted bento tiles (two by two from 768, a snapping shelf on the phone; at most four small from 768, the last spanning the row when odd). Each tile: the server''s kicker, up to 3 round avatars (initials when none), the name, «Locul N · line» when ranked (a #N badge on the photo), the meta — the server''s copy, never rewritten. A tile is ONE link to its destination: competition → /concursuri/[id]/clasament; angler → the profile (signed out → sign-in) once the web has it (M2), until then not a link. Bones while it reads, nothing when it fails or is empty. Press logs competitions_moment_pressed. The server prefetches it with the page; «Reîmprospătează» re-reads it.'
+        fish_ref: features/competitions/components/pulse/MomentCard.tsx:40
+        web_note: "_list/upcoming/Spotlight.tsx + SpotlightSkeleton.tsx (also the server frame); core pulsePeopleQuery. e2e competitions-upcoming.spec.ts (mocked)."
+      - id: competitions-list.index.c40
+        text: 'WEB Viitoare list (prototype app/dev/hub Upcoming): fish''s poster cards with fish''s upcoming footer, grouped on the Bucharest calendar — «Azi», «Mâine», «Săptămâna asta», «Weekendul ăsta», «Săptămâna viitoare», «Mai târziu în <luna curentă>», then each month («Ianuarie 2027» in another year), «Fără dată»; a not-started competition whose start day passed goes in a LAST, muted «Data de start a trecut». Inside a group: the viewer''s registrations first, then by start time. From 1280 groups share rows (a group spans as many of the 3 columns — 4 from 1800 — as it has cards), one column grid across groups.'
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx
+        web_note: "_list/upcoming/{buckets.ts,UpcomingGroups.tsx} (unit buckets.test.ts); «Ale mele» keeps the page's own layout. e2e competitions-upcoming.spec.ts."
     mobile_only: false
     status: passing
   - id: competitions-list.cards
@@ -352,78 +365,103 @@ screens:
       - id: competitions-list.pulse.c1
         text: The bento shows only on Viitoare with scope all, no committed search and no active filters; it is not rendered at all when there is no hero once loading finished.
         fish_ref: features/competitions/components/pulse/PulseBento.tsx:88
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c2
         text: While loading, the hero slot is a skeleton of the hero height (plus the dots row when more than one competition is live) and the person + count row is two equal skeletons; the row reveals both tiles together.
         fish_ref: features/competitions/components/pulse/PulseBento.tsx:100
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c3
         text: Pulse inputs are the live (first 6), upcoming (first 12) and completed (first 6) card lists; upcoming drops notStarted competitions whose start is more than 24h past, merges in my own notStarted registrations, removes anything already in live, and is sorted by start date.
         fish_ref: features/competitions/helpers/useCompetitionsPulse.ts:102
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c4
         text: "Hero ladder: my live competition → my start within 2 days → first live → upcoming starting within 14 days (prefer ones with places, most joined, then soonest) → soonest dated upcoming → first upcoming → most recently ended completed → none."
         fish_ref: features/competitions/helpers/pickHero.ts:89
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c5
         text: "The local pick is frozen for the visit: it changes only when the set of live competitions changes or on pull-to-refresh, never on unrelated re-renders."
         fish_ref: features/competitions/helpers/useCompetitionsPulse.ts:127
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c6
         text: GET /feed/featured-competition is requested only when nothing is live and the hero is not my own upcoming competition; when it returns a card it replaces the local hero as an upcoming card with the chip "RECOMANDAT".
         fish_ref: features/competitions/helpers/useCompetitionsPulse.ts:172
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c7
         text: "When there are two or more pages (live competitions, my imminent start), the hero is a horizontal stack: my live one first, my imminent start next (first if nothing of mine is live), the other live ones shuffled once per visit; the next card peeks at the edge and a dots row tracks the position."
         fish_ref: features/competitions/helpers/heroOrder.ts:95
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c8
         text: The stack auto-advances every 5s while the page is visible; the first touch (swipe or tap) stops it for the rest of the visit; leaving the page pauses it and returning resumes it unless stopped. The dots are hidden from assistive tech.
         fish_ref: features/competitions/components/pulse/HeroStack.tsx:148
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c9
         text: A single hero page renders as a plain card without pager or dots.
         fish_ref: features/competitions/components/pulse/HeroStack.tsx:173
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c10
         text: 'Hero chip: live → "LIVE" (or "CONCURSUL TĂU · LIVE" when mine) in red with a white dot; upcoming → "RECOMANDAT" (featured), "CONCURSUL TĂU" (mine) or "ÎN CURÂND"; results → "REZULTATE".'
         fish_ref: features/competitions/components/pulse/HeroCard.tsx:31
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c11
         text: 'Hero top-right pill: live → "{n} captură/capturi" with a fish icon or "Fără capturi"; upcoming → dateLabel with a calendar icon; results → dateLabel with a trophy icon.'
         fish_ref: features/competitions/components/pulse/HeroCard.tsx:99
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c12
         text: 'Live hero body: "CEA MAI MARE CAPTURĂ" + "{kg} kg" when there are catches and a biggest fish, otherwise "DE PE BALTĂ" + "Așteptăm prima captură"; note line "{N pescari/echipe în concurs} · {ranking label}".'
         fish_ref: features/competitions/components/pulse/HeroCard.tsx:59
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c13
         text: 'Upcoming hero body: "PESCARI ÎNSCRIȘI" or "ECHIPE ÎNSCRISE", joinedCount (+ "/ {capacity}" when capped); note "{dateLabel} · {N locuri libere | complet} · {N în așteptare}" with empty parts dropped.'
         fish_ref: features/competitions/components/pulse/HeroCard.tsx:72
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c14
         text: 'Results hero body: "CÂȘTIGĂTOR" / "ECHIPA CÂȘTIGĂTOARE" / "LOCUL 1 LA EGALITATE", the winner name or "Fără capturi"; note "{total} kg cântărite" or the dateLabel.'
         fish_ref: features/competitions/components/pulse/HeroCard.tsx:91
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c15
         text: 'Hero card: lake photo (fallback banner) under a dark scrim, pin + lake name, name (2 lines), a divider and the action "Vezi clasamentul" (live) / "Vezi concursul" (upcoming) / "Vezi rezultatele" (results) with an arrow; the whole card opens the competition and is named "{nume}. {acțiune}".'
         fish_ref: features/competitions/components/pulse/HeroCard.tsx:98
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c16
         text: "Person tile: the server person from GET /feed/pulse-person wins as soon as it answers; until then, or when it is empty or fails, the local ladder fills it: CÂȘTIGĂTOR / ECHIPA CÂȘTIGĂTOARE (or PODIUM for a shared first place) → PE PODIUM (2nd, 3rd) → ORGANIZATOR; a win older than 14 days adds the date to the meta line."
         fish_ref: features/competitions/helpers/pickMoment.ts:72
+        web_note: "WEB → index.c39: the server people only (no local ladder); several at once."
       - id: competitions-list.pulse.c17
         text: 'Person tile shows the kicker, up to 3 overlapping round avatars (an initials disc when none), the name (2 lines), "Locul {rank} · {line}" when ranked, and the meta line; accessible name "{kicker}: {nume}, locul {rank} în top".'
         fish_ref: features/competitions/components/pulse/MomentCard.tsx:40
+        web_note: "WEB → index.c39 (each spotlight tile)."
       - id: competitions-list.pulse.c18
         text: "Person tap: server destination angler → angler profile (signed out → sign-in, since the profile is 403 anonymously); server destination competition → the competition's ranking (/concursuri/[id]/clasament); local fallback → the competition page."
         fish_ref: features/competitions/components/pulse/PulseBento.tsx:126
+        web_note: "WEB → index.c39 (each spotlight tile)."
       - id: competitions-list.pulse.c19
         text: 'Count tile: with anything live → pulsing dot, "LIVE", the live count and "concurs live" / "concursuri live"; otherwise "URMĂTOARELE 7 ZILE", the number of upcoming competitions starting within 7 days and "concurs începe" / "concursuri încep"; below, up to 6 distinct participant faces from those same competitions.'
         fish_ref: features/competitions/components/pulse/CountTile.tsx:24
+        web_note: "WEB → index.c38 (the live band; nothing when nothing is live)."
       - id: competitions-list.pulse.c20
         text: Count tile tap switches to the Live tab when something is live, otherwise stays on Viitoare; accessible name "{n} concursuri live" / "{n} concursuri încep în 7 zile".
         fish_ref: features/competitions/components/pulse/PulseBento.tsx:148
+        web_note: "WEB → index.c38 (the band links to /concursuri/live)."
       - id: competitions-list.pulse.c21
         text: With no person to show, the count tile takes the whole row.
         fish_ref: features/competitions/components/pulse/PulseBento.tsx:121
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c22
         text: When something is live and the viewer follows none of the live competitions (always true signed out), an invite card shows "Nu urmărești niciun concurs live" + "Unul e LIVE acum. Urmărește-l și ești la curent cu fiecare cântărire." / "{n} sunt LIVE acum. Urmărește unul …"; tapping it opens the Live tab.
         fish_ref: features/competitions/components/pulse/PulseBento.tsx:157
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
       - id: competitions-list.pulse.c23
         text: Pull-to-refresh re-draws the person (bypassing its 5 min freshness) and the featured hero (only when featured is wanted) and re-picks the hero from refetched lists.
         fish_ref: features/competitions/helpers/useCompetitionsPulse.ts:216
+        web_note: "WEB: «Reîmprospătează» re-reads every card list and the spotlight people (competition-cards root)."
       - id: competitions-list.pulse.c24
         text: "Analytics: hero impression once per competition per visit for the card actually leading the stack, hero press, person press, count tile press (competitions_hero_impression / _hero_pressed / _moment_pressed / _count_tile_pressed)."
         fish_ref: features/competitions/helpers/competitionsAnalytics.ts:68
+        web_note: "WEB: moment press and count-tile press kept (spotlight tile, live band); no hero events (no hero)."
       - id: competitions-list.pulse.c25
         text: The live pulse dot honours reduced motion (static dot).
         fish_ref: features/competitions/components/pulse/LivePulseDot.tsx:45
+        web_note: "WEB SUPERSEDED (owner 2026-10-07): Viitoare shows «N concursuri live acum» + «În lumina reflectoarelor» (index.c38, c39) instead of fish's bento; the hero stack is not on the web."
     mobile_only: false
     status: passing
   - id: competitions-list.search
@@ -850,6 +888,12 @@ screens:
       - loading next page
       - refreshing
       - live card overlay (LIVE + viewers)
+      - "WEB signed in, several live: «Cântăriri recente» strip, «Concursul tău» when registered in a live competition, poster cards mine first then by start"
+      - "WEB signed out: strip + hero blurred over fake data with the sign-in call to action"
+      - "WEB recent weighings unavailable (404 / error): strip hidden"
+      - "WEB one live competition: the single rich view (leader, top five, figures, its own weighings)"
+      - "WEB nothing live: «Niciun concurs live acum» with the next start"
+      - "WEB weighing detail open: popover ≥768, bottom sheet below"
     criteria:
       - id: competitions-list.live.c1
         text: Header with a back button and the title "Concursuri live".
@@ -897,6 +941,40 @@ screens:
       - id: competitions-list.live.c15
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/started/index.tsx:57
+      - id: competitions-list.live.c16
+        text: 'WEB «Cântăriri recente» on top (signed in): one horizontal strip of GET /feed/recent-weighings (public, 30s edge cache), newest left, at most 12 (narrowed to the followed competitions on «Urmărite»). Each item: the angler''s photo (a team''s square), else the competition''s poster, else initials; the angler (else the stand); «N pești · X kg» («1 pește», «20 de pești»; «Fără capturi» for an empty weighing, never «capot»); competition · stand · «acum N min» (red while ≤5 min, with a breathing dot). Bones while it first reads; hidden when the read fails (a CMS without the endpoint answers 404, not retried).'
+        fish_ref: components/WeighingDetailSheet.tsx
+        web_note: "_list/live/WeighingStrip.tsx, useRecentWeighings.ts, model.ts stripItems/shortAgo; core recentWeighingsQuery."
+      - id: competitions-list.live.c17
+        text: 'WEB a strip item opens that weighing''s detail — a popover anchored to it from 768 (Escape, «Închide» or a press outside close it; focus returns to the item), fish''s bottom sheet below 768 — with the competition and time, who and the stand, the total and its state, the catches by species from GET /feed/weighings/:id, and «Vezi concursul» / «Toate cântarele».'
+        fish_ref: components/WeighingDetailSheet.tsx
+        web_note: "_list/weighing/WeighingDetail.tsx (foundation)."
+      - id: competitions-list.live.c18
+        text: 'WEB «Concursul tău» (signed in, registered in a live competition — GET /feed/my-competition-cards?scope=registered&status=started): the navy signature tile with the poster, «CONCURSUL TĂU · STAND X», name, lake · county · ranking, my general place «N/total», my value in the ranking''s unit (kg one decimal, points «punct / puncte / de puncte») with «{valueLabel} · N capturi», «Locul N în sectorul S», the gap to the leader («X kg până la lider», «Ești pe primul loc») and «Deschide concursul». My row by identity (user id, else my registration from /registrations), never by name; a figure not known is left out; bones while the ranking reads; hidden when I am not in a live competition.'
+        fish_ref: services/queries/useRankings.ts
+        web_note: "_list/live/useMyLive.ts, MineHero.tsx, model.ts myStanding."
+      - id: competitions-list.live.c19
+        text: 'WEB the cards (fish''s poster card, live footer) keep a STABLE order — mine first, then by start time, then by name — whatever order a poll answers in; a competition with a new weighing washes indigo in place (never moves; reduced motion: no wash). 1 column, 2 from 768, 3 from 1280, 4 from 1800.'
+        fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx
+        web_note: "_list/live/model.ts liveOrder (unit tests); tabs/LiveTab.tsx Body; cards/PosterCard POSTER_GRID."
+      - id: competitions-list.live.c20
+        text: 'WEB signed out: the strip and «Concursul tău» are drawn BLURRED over fake placeholder data (never real people or figures, never read) with one call to action «Intră în cont ca să vezi cântăririle live» to sign-in that returns to the page; the blurred copy cannot be focused or clicked. The cards stay public.'
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx
+        web_note: "_list/SignedOutGate.tsx, _list/placeholders.ts, _list/live/placeholders.ts."
+      - id: competitions-list.live.c21
+        text: 'WEB one live competition: the grid collapses into one rich view (no strip, no hero) — poster (opens the photo viewer), «LIVE · START HH:MM · N pescari» (+ «Concursul tău»), the name linking to the competition, lake · county, how long since its latest weighing; the leader as a signature number with «Locul 2 X la Y», the top five (medal discs, avatar, stand, value); «Vezi clasamentul» / «Toate cântarele»; the card''s figures (Capturi, Total cântărit, Cea mai mare captură) and its own «Cântăriri recente» (each opens the detail). Signed out the leaderboard and the weighings are blurred over fake data.'
+        fish_ref: services/queries/useRankings.ts
+        web_note: "_list/live/SingleLive.tsx (boardOf)."
+      - id: competitions-list.live.c22
+        text: 'WEB nothing live (scope all): one card «Niciun concurs live acum», «Următorul, {nume}, începe pe {zi} la {ora}.» when an upcoming start is still ahead (from the upcoming list already held, the server''s labels), and «Vezi concursurile viitoare» → /concursuri/viitoare. «Urmărite» keeps the page''s own empty card.'
+        fish_ref: components/CompetitionsFullList.tsx:116
+        web_note: "_list/live/NoLive.tsx; tab contract Empty slot (tabs/types.ts)."
+      - id: competitions-list.live.c23
+        text: 'WEB the live reads poll on their TTLs (recent weighings 30s; the list, my live registration and its ranking 60s) only while the page is visible; a hidden page reads nothing.'
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx:211
+      - id: competitions-list.live.c24
+        text: 'WEB kept from the page: search, filters, «Urmărite», «Ale mele», results mode, the tab badges from meta.counts, the photo viewer, the followers pill and sheet, whole-card links to /concursuri/[id], analytics. Phone, tablet and desktop pass axe.'
+        fish_ref: app/(app)/(tabs)/competitions/index.tsx
     mobile_only: false
     status: passing
   - id: competitions-list.live-balta
@@ -1044,6 +1122,7 @@ screens:
       - id: competitions-list.incheiate.c8
         text: Tapping a card opens the competition page.
         fish_ref: components/CompetitionsFullList.tsx:66
+        web_note: "WEB Rezultate: a row opens inline (incheiate.c18); the competition is «Vezi concursul» in the opened area, the ranking «Vezi clasamentul complet»."
       - id: competitions-list.incheiate.c9
         text: "Card image: banner, else the lake's first image, shown whole (contain) over a blurred fill, small format; blurhash placeholder."
         fish_ref: components/CompetitionCard.tsx:64
@@ -1065,6 +1144,34 @@ screens:
       - id: competitions-list.incheiate.c15
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/completed/index.tsx:57
+      - id: competitions-list.incheiate.c16
+        text: 'WEB Rezultate (owner-approved prototype app/dev/hub Results, 2026-10-07) is result rows at every width — no poster grid, no toggle — grouped by the Bucharest day the competition ENDED, latest day first, a day never split (a load-more page or a CMS order not by end date adds to its day), the CMS order inside a day, «Fără dată» last. The header reads «Duminică, 4 octombrie» (the year when it is not the newest result''s year) and the count; in the browser «Azi» / «Ieri» replace it, with the date on the right (the page is prerendered: same structure, only the text changes).'
+        fish_ref: app/(app)/competitions/completed/index.tsx:17
+        web_note: "app/(site)/concursuri/_list/results/model.ts resultGroups (unit model.test.ts); tabs/ResultsTab.tsx. e2e competitions-results.spec.ts."
+      - id: competitions-list.incheiate.c17
+        text: 'WEB a result row (one button, named by the competition): the poster thumb, the name, lake · the server''s date label, the ranking + format chips (from 768), the winner (photo else initials, a gold trophy badge; «Câștigător», «Club câștigător» for NC / FIPSed once the club ranking is in) and on the right the ONE figure the ranking type is judged by, with its label — «Total 52,8 kg», «Medie top 5», «Medie Best 5 7,68 kg», «Calitate + cantitate 3 puncte», «Puncte · 2 manșe», «Puncte club 8 puncte» (resultHeadline; points agree: «1 punct», «20 de puncte»). Until the row''s ranking is read the figure is the card''s heaviest fish, labelled «CMMC», never a guessed total. On the phone the winner and «label: figure» sit under the name. No catches: «Fără capturi»; catches but no podium yet: «Clasament în lucru». Signed in, «Locul tău: N» once known.'
+        fish_ref: helpers/table/getTableColumns.ts
+        web_note: "results/ResultsList.tsx ResultRow; results/model.ts rowHeadline / headlineLabel."
+      - id: competitions-list.incheiate.c18
+        text: 'WEB click / Enter / Space opens the row inline (grid 0fr→1fr, one open at a time, the chevron turns; a region «Rezultate <name>»; reduced motion: no animation). The ranking (/competitions/:id/ranking, the competition page''s own query and cache) is read ONLY when a row is opened — never per row, never on hover; a ranking already cached shows at once; signed in, the registrations are read too («Locul tău» by identity). While it reads: the card''s podium names with value bones and place bones; when it fails: the card''s podium and figures, no error.'
+        fish_ref: services/queries/useRankings.ts
+        web_note: "results/reads.ts useResultReads; e2e competitions-results.spec.ts (request count, failing ranking)."
+      - id: competitions-list.incheiate.c19
+        text: 'WEB the opened row''s podium: three stepped SVG blocks (lit top face, lavender front, medal band, embossed numeral) in the order 2 · 1 · 3, rising 3 → 2 → 1; on each the competitor in a medal ring — the angler''s photo (initials without one), a team''s name over 2–3 members'' faces, a club''s square initials (NC / FIPSed: the club ranking''s podium, in points). Values only when the ranking backs the podium; a points ranking adds «Cele mai puține puncte câștigă». The list reads «Locul 1: <name>, <value>».'
+        fish_ref: components/ranking-table/NationalChampionshipTable.tsx
+        web_note: "results/Podium.tsx; results/model.ts resultView."
+      - id: competitions-list.incheiate.c20
+        text: 'WEB «Cum s-a câștigat: …» tiles per ranking type (the number and its unit apart, rule 10): every type CMMC (weight + who), capturi, kg cântărite; quantity + medie pe stand and standuri cu pește («26 din 30»); quality / bestOf / bestOfTiers + the winner''s N fish chips with their average; quantityQuality: the winner''s quantity and quality with their points; calitateCalitate / calitateCantitateCMMC: each part with its points; feeder: the winner''s sector place in every leg (kg under it) and manșe câștigate; NC / FIPSed: sectoare câștigate, kg club câștigător, cluburi. Without the ranking only the card''s figures.'
+        fish_ref: components/ranking-table/RankingTable.tsx
+        web_note: "results/model.ts typeStats (unit model.test.ts)."
+      - id: competitions-list.incheiate.c21
+        text: 'WEB places 4–8 under the podium (two columns from 768): the sector stripe, the place, the avatar, the name, «Sector X» (from 768) and the value; a row that caught nothing is never listed (it is in the full ranking — no «capot», rule 11); the viewer''s own row tinted with «· tu», else «Locul tău: N» under the list. The footer: «N de pescari|echipe · N sectoare», «Vezi concursul» and the primary «Vezi clasamentul complet» (/concursuri/[id]/clasament) — only in the opened area. No catches at all: «Concursul s-a încheiat fără capturi cântărite.» and «Vezi concursul».'
+        fish_ref: components/ranking-table/RankingTable.tsx
+        web_note: "results/ResultsList.tsx Expanded / Place."
+      - id: competitions-list.incheiate.c22
+        text: 'WEB keyboard and widths: the rows are one tab stop (roving tabindex; a refetch that drops the focused row moves it to the first row); ↑/↓ move between rows in reading order, Home / End jump. On the phone the opened row is a full-width panel (edge to edge, no horizontal scroll). The loading bones are a day header and rows in the rows'' shape (also the server''s fallback). Zero axe violations with a row open.'
+        fish_ref: components/CompetitionsFullList.tsx:78
+        web_note: "results/ResultsList.tsx ResultsList / ResultsListSkeleton. e2e competitions-results.spec.ts."
     mobile_only: false
     status: passing
   - id: competitions-list.incheiate-balta

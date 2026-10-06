@@ -1,6 +1,6 @@
 /*
- * Calendar maths for the desktop tab views, in Bucharest — pure (no React, no Next), unit-tested in
- * model.test.ts.
+ * Calendar maths for the tab views, in Bucharest — pure (no React, no Next); Viitoare's groups are
+ * ../upcoming/buckets.ts (unit-tested there).
  */
 
 const TZ = 'Europe/Bucharest';
@@ -20,21 +20,3 @@ export function dayParts(iso: string | Date): DayParts {
   return { year, month, day, weekday: WD[out.weekday] ?? 0, index: Math.round(Date.UTC(year, month, day) / 86_400_000) };
 }
 
-/** The bucket a start day before today falls in: a not-started competition whose date passed. */
-export const PAST_BUCKET = 'past';
-
-/**
- * Agenda bucket: this week (Mon–Sun, from today), next week, then the month's name, then no date;
- * a start day already gone (still «not started») comes LAST, muted — what is ahead leads.
- */
-export function bucketOf(startIso: string | null, now: Date): { key: string; label: string; order: number } {
-  if (!startIso) return { key: 'tbd', label: 'Fără dată', order: 9e9 };
-  const d = dayParts(startIso);
-  const today = dayParts(now);
-  if (d.index < today.index) return { key: PAST_BUCKET, label: 'Data de start a trecut', order: 1e10 };
-  const weekStart = today.index - ((today.weekday + 6) % 7);
-  if (d.index < weekStart + 7) return { key: 'w0', label: 'Săptămâna asta', order: 0 };
-  if (d.index < weekStart + 14) return { key: 'w1', label: 'Săptămâna viitoare', order: 1 };
-  const label = d.year === today.year ? MONTHS_FULL[d.month] : `${MONTHS_FULL[d.month]} ${d.year}`;
-  return { key: `m${d.year}-${d.month}`, label, order: 2 + d.year * 12 + d.month };
-}
