@@ -10,6 +10,7 @@ import { LakeRequestBanner } from './_home/LakeRequestBanner';
 import { NewsSection } from './_home/NewsSection';
 import { NEWS_CARD_HEIGHT } from './_home/newsCard';
 import { PartidaCtaSkeleton } from './_home/PartidaCta';
+import { Pillars } from './_home/Pillars';
 import { PrivacySettingsCard } from './_home/PrivacySettingsCard';
 import { HomeErrorGate } from './_home/HomeErrorGate';
 import { HomeFocusRefresh } from './_home/HomeRefresh';
@@ -194,6 +195,13 @@ function MainColumn() {
   return (
     <>
       <ShortcutsAt1280 />
+      {/* account.onboarding web replacement: what Bluvi is, under the guest's header card; from
+          1280 it heads the right column, above Instrumente. */}
+      <SignedOutOnly>
+        <div className={BELOW_XL}>
+          <Pillars layout="mobile" />
+        </div>
+      </SignedOutOnly>
       {/* fish's blocks above the hero; from 1280 they are the right column (AsideColumn). */}
       <div className={BELOW_XL}>
         <OrganizerSlot layout="mobile" />
@@ -388,6 +396,10 @@ function AsideColumn() {
       <RightColumnLiveSlot />
       <OrganizerSlot layout="desktop" />
       <OperatorSlot layout="desktop" />
+      {/* A guest learns what Bluvi is before its coming-soon tools (account.onboarding.c4). */}
+      <SignedOutOnly>
+        <Pillars layout="desktop" />
+      </SignedOutOnly>
       <Widgets layout="desktop" bookingsBadge={bookingsBadge} />
       {/* My live competition when the server read got no answer: read in the browser, landing
           last so nothing in the column moves (owner rule 4: nothing until it is confirmed). */}

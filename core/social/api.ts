@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { call, type Transport } from '../transport';
+import { call, isApiError, type Transport } from '../transport';
 import {
   anglerCatchPageSchema,
   anglerListPageSchema,
@@ -10,10 +10,12 @@ import {
   firebaseTokenResponseSchema,
   followResultSchema,
   messageDataSchema,
+  myWidgetNotificationSchema,
   notificationsPageSchema,
   organizerRoleRequestResponseSchema,
   profileSchema,
   publicSessionPageSchema,
+  registerWidgetNotificationResponseSchema,
   reputationSchema,
   successSchema,
   suggestedAnglerPageSchema,
@@ -25,7 +27,9 @@ import {
   userStatuteForCompetitionSchema,
   type CompetitionsHistoryFilter,
   type CreateAnglerReviewInput,
+  type FeatureKey,
   type Feedback,
+  type MyWidgetNotification,
   type ParticipantStats,
   type UpdateProfileRequest,
 } from './schemas';
@@ -367,6 +371,37 @@ export async function getUserReputation(t: Transport, userId: string) {
     t,
     { method: 'GET', path: `/feed/users/${enc(userId)}/reputation`, auth: 'none' },
     z.object({ data: reputationSchema })
+  );
+  return res.data;
+}
+
+// ── services/api/widgetNotification.ts ─────────────────────────────────────────────────────────────
+
+/**
+ * fish `services/api/widgetNotification.ts#getMyWidgetNotification` — has the caller signed up for
+ * this coming-soon widget? The route is `auth: false` with a manual JWT check, so a guest gets a 401,
+ * which fish maps to «not registered».
+ */
+export async function getMyWidgetNotification(t: Transport, feature: FeatureKey): Promise<MyWidgetNotification> {
+  try {
+    const res = await call(
+      t,
+      { method: 'GET', path: '/feed/widget-notifications/mine', query: { feature }, auth: 'required' },
+      z.object({ data: myWidgetNotificationSchema })
+    );
+    return res.data;
+  } catch (error) {
+    if (isApiError(error) && error.status === 401) return { feature, registered: false, registeredAt: null };
+    throw error;
+  }
+}
+
+/** fish `services/api/widgetNotification.ts#registerWidgetNotification` — idempotent server-side (one row per user + feature). */
+export async function registerWidgetNotification(t: Transport, feature: FeatureKey) {
+  const res = await call(
+    t,
+    { method: 'POST', path: '/feed/widget-notifications', body: { data: { feature } }, auth: 'required' },
+    z.object({ data: registerWidgetNotificationResponseSchema })
   );
   return res.data;
 }

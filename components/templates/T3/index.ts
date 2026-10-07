@@ -12,6 +12,7 @@ export {
   DetailSectionsProvider,
   DetailSectionNav,
   DetailSectionToc,
+  useRegisterSection,
   type DetailSectionItem,
   type DetailSectionNavProps,
 } from './DetailSections';

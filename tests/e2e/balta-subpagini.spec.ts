@@ -905,7 +905,7 @@ test('lakes.competitions.c3 — a card names its ranking type (the server label)
 
 test('lakes.gallery.c1 — ✕ after an in-site visit goes BACK (no new history entry), even on a lake page opened directly', async ({ page }) => {
   await go(page, `/balti/${ID.big}`, DESKTOP);
-  await page.locator(`a[href="/balti/${ID.big}/galerie"]`).first().click();
+  await page.locator(`a[href="/balti/${ID.big}/galerie"]`).filter({ visible: true }).first().click();
   await expect(page).toHaveURL(new RegExp(`/balti/${ID.big}/galerie$`), { timeout: 60_000 });
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Galerie', { timeout: 60_000 });
   const length = await page.evaluate(() => history.length);

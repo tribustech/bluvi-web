@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createContext, Suspense, use, useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
-import { CalendarDaysIcon, ShareIcon } from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, GlobeAltIcon, ShareIcon } from '@heroicons/react/24/outline';
 import { headerChipClass, type HeaderChipGround } from '@/components/templates/T3';
 import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
@@ -22,6 +22,7 @@ import { userOf } from '../../../_shell/viewer-state';
 import { track } from './analytics';
 import { lakeHref } from './availability';
 import { LakeDialogs, type LakeDialog } from './LakeDialogs';
+import { bookingReachable } from './bookingReach';
 import { onSectionJump } from './SectionLink';
 
 /*
@@ -44,6 +45,10 @@ export type LakeInfo = {
   bookingState: LakeBookingState;
   /** The full description, for the «Vezi mai mult» dialog (lakes.detail.c13). */
   description?: RichTextNode[] | null;
+  /** The first contact phone: a phone-booking lake books through it (bookingReach.ts). */
+  phone?: string | null;
+  /** The lake's website: the way to reach a phone-booking lake that lists no phone. */
+  website?: string | null;
 };
 
 /** null: signed out · user · unknown · undefined: not answered yet. */
@@ -101,6 +106,7 @@ export function LakeActionsProvider({ lake, children }: { lake: LakeInfo; childr
         <ViewerProbe onState={setSession} />
       </Suspense>
       <LakeDialogs lake={lake} session={session} dialog={dialog} source={source} onOpen={open} onClose={() => setDialog(null)} />
+      <ClaimAfterSignIn session={session} open={open} />
     </LakeContext>
   );
 }
@@ -118,7 +124,8 @@ export function LakeActionsProvider({ lake, children }: { lake: LakeInfo; childr
  *    unknown session follows the link (the flow gates on its own);
  *  - booking enabled, the flow not on the web yet: «Rezervă din aplicația Bluvi» (store links) for
  *    everyone — never a sign-in for a feature nobody can use here yet, never a disabled primary;
- *  - legacy phone reservations: the jump to Contact;
+ *  - legacy phone reservations: the jump to Contact (only with a phone number — BookingCta shows
+ *    the website or nothing otherwise, bookingReachable);
  *  - no booking: the «Rezervări prin Bluvi» dialog.
  */
 export function useBookingTarget(source: LakeBookingInterestSource) {
@@ -198,11 +205,40 @@ export function BookingCta({
   className?: string;
 }) {
   const { lake } = useLake();
+  if (!bookingReachable(lake)) {
+    return lake.website ? <WebsiteCta website={lake.website} block={block} className={className} /> : null;
+  }
   return (
     <BookingControl source={source} className={buttonClass({ variant, block, className: cn('[&>svg]:size-5', className) })}>
       <CalendarDaysIcon aria-hidden />
       {label ?? bookingCtaLabel(lake.bookingState)}
     </BookingControl>
+  );
+}
+
+/**
+ * «Contactează balta» — a phone-booking lake without a phone number (bookingReachable): its website
+ * (fish LakeReservation's website row, contact_pressed «Lake website»), in a new tab. Secondary:
+ * it reaches the lake, it does not book.
+ */
+export function WebsiteCta({ website, block = false, className, children }: { website: string; block?: boolean; className?: string; children?: ReactNode }) {
+  const { lake } = useLake();
+  return (
+    <a
+      href={website}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={() => track('contact_pressed', { contact_type: 'Lake website', lake_id: lake.documentId, lake_name: lake.name })}
+      className={children ? className : buttonClass({ variant: 'secondary', block, className: cn('[&>svg]:size-5', className) })}
+    >
+      {children ?? (
+        <>
+          <GlobeAltIcon aria-hidden />
+          Contactează balta
+        </>
+      )}
+      <span className="sr-only"> (se deschide într-o filă nouă)</span>
+    </a>
   );
 }
 
@@ -284,7 +320,7 @@ export function DialogTrigger({ dialog, className, label, children }: { dialog: 
 export function OwnerLink({ href, name, className, children }: { href: string; name: string; className?: string; children: ReactNode }) {
   const { session } = useLake();
   return (
-    <Link href={session === null ? routes.signIn() : href} aria-label={`${name} — vezi profilul`} className={className}>
+    <Link href={session === null ? routes.signIn(href) : href} aria-label={`${name} — vezi profilul`} className={className}>
       {children}
     </Link>
   );
@@ -304,17 +340,38 @@ export function PhoneLink({ phone, className, children }: { phone: string; class
   );
 }
 
+const CLAIM_PARAM = 'dialog';
+const CLAIM_VALUE = 'revendica';
+
+/**
+ * Back from sign-in with `?dialog=revendica` (ClaimTrigger): opens the claim dialog once the session
+ * says signed in, and drops the parameter so a reload or a shared link does not reopen it. Read from
+ * `location` (not useSearchParams): the page is static and this is a one-off on mount.
+ */
+function ClaimAfterSignIn({ session, open }: { session: Session; open: (d: LakeDialog) => void }) {
+  useEffect(() => {
+    if (session === undefined) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get(CLAIM_PARAM) !== CLAIM_VALUE) return;
+    url.searchParams.delete(CLAIM_PARAM);
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    if (userOf(session)) open('claim');
+  }, [session, open]);
+  return null;
+}
+
 /**
  * «Ești administratorul acestei bălți?» (lakes.detail.c30): opens the claim dialog. Anyone not known
  * to be signed in (a guest, a session not answered yet, an unknown one) goes to sign-in first — the
  * CMS route needs an account, fish lets the guest fill the form and fail (documented web
- * divergence, lakes.claim.c7 / lakes.b.claim-signed-out).
+ * divergence, lakes.claim.c7 / lakes.b.claim-signed-out) — and comes back to this lake with
+ * `?dialog=revendica`, which opens the claim dialog once the session is known (ClaimAfterSignIn).
  */
 export function ClaimTrigger({ className, children }: { className?: string; children: ReactNode }) {
-  const { session, open } = useLake();
+  const { lake, session, open } = useLake();
   if (!userOf(session)) {
     return (
-      <Link href={routes.signIn()} className={className}>
+      <Link href={routes.signIn(`${routes.lake(lake.documentId)}?${CLAIM_PARAM}=${CLAIM_VALUE}`)} className={className}>
         {children}
       </Link>
     );

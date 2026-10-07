@@ -51,9 +51,10 @@ for (const signedIn of [false, true]) {
       const errors = collectConsoleErrors(page);
       await open(page, vp, signedIn);
 
-      // One h1 per width: the greeting (fish profile card title). Signed out from 768 the T5
-      // header welcomes instead (the top bar's «Intră» is the sign-in there; ProfileCard.tsx).
-      const greeting = signedIn ? /^(Salut, .+!|Bine ai venit!)$/ : vp.width < 768 ? 'Conectează-te' : 'Bine ai venit pe Bluvi';
+      // One h1 per width: the greeting (fish profile card title). Signed out the same welcome at
+      // every width (account.onboarding web replacement; the phone card's «Conectează-te» is the
+      // sign-in, ProfileCard.tsx).
+      const greeting = signedIn ? /^(Salut, .+!|Bine ai venit!)$/ : 'Bine ai venit pe Bluvi';
       await expect(visible(page.getByRole('heading', { level: 1, name: greeting }))).toBeVisible();
 
       for (const name of [/^Concursuri (live|viitoare)/, /^Bălți/, 'Noutăți', 'Sponsori', 'Instrumente', 'Ești la pescuit?', 'Nu găsești balta preferată?']) {
@@ -64,7 +65,9 @@ for (const signedIn of [false, true]) {
       if (signedIn) {
         await expect(h2(page, /^Balta mea/)).toBeVisible();
         await expect(visible(page.getByRole('button', { name: 'Contactează-ne' }))).toHaveCount(0);
+        await expect(h2(page, 'Ce găsești pe Bluvi')).toHaveCount(0);
       } else {
+        await expect(h2(page, 'Ce găsești pe Bluvi')).toBeVisible();
         await expect(visible(page.getByRole('button', { name: 'Contactează-ne' }))).toBeVisible();
         await expect(visible(page.getByRole('link', { name: /Setări de confidențialitate/ }))).toBeVisible();
         await expect(h2(page, /^Balta mea/)).toHaveCount(0);
@@ -117,8 +120,9 @@ test('home.acasa.c1 c4 c5 — signed-in profile card: greeting, profile link, be
 
 test('home.acasa.c2 c4 — signed-out profile card opens sign-in', async ({ page }) => {
   await open(page, PHONE, false);
-  const title = visible(page.getByRole('heading', { level: 1, name: 'Conectează-te' }));
-  await expect(title.getByRole('link')).toHaveAttribute('href', '/intra');
+  // The card's title line (not a heading: the guest's h1 is «Bine ai venit pe Bluvi», above it).
+  await expect(visible(page.getByRole('main').getByRole('link', { name: 'Conectează-te', exact: true }))).toHaveAttribute('href', '/intra');
+  await expect(visible(page.getByRole('heading', { level: 1 }))).toHaveText('Bine ai venit pe Bluvi');
   await expect(visible(page.getByRole('main').getByRole('link', { name: /^Notificări/ }))).toHaveCount(0);
   const slogans = [
     'Creează-ți cont pentru a te alătura comunității',
@@ -235,7 +239,7 @@ for (const vp of [PHONE, { width: 1280, height: 800 }]) {
     await expect(visible(main.getByText(/Conectează-te|Intră în cont|Intră ca să/))).toHaveCount(0);
     await expect(visible(main.getByRole('button', { name: 'Contactează-ne' }))).toHaveCount(0);
     await expect(visible(main.getByRole('link', { name: /Setări de confidențialitate/ }))).toHaveCount(0);
-    for (const name of ['Ești la pescuit?', /^Balta mea/, 'Panou organizator', 'Pescari pe care îi poți urmări']) await expect(h2(page, name)).toHaveCount(0);
+    for (const name of ['Ești la pescuit?', /^Balta mea/, 'Panou organizator', 'Pescari pe care îi poți urmări', 'Ce găsești pe Bluvi']) await expect(h2(page, name)).toHaveCount(0);
     // Session-independent: the tools (phone: main column; 1280: the aside) and the public sections.
     await expect(h2(page, 'Instrumente')).toBeVisible();
     for (const name of [/^Bălți/, 'Noutăți']) await expect(h2(page, name)).toBeVisible();
@@ -384,19 +388,257 @@ test('home.acasa.c16 c17 c18 — Instrumente: Rezervări, «În curând» intere
   await expect(tools.getByRole('link', { name: /^Rezervări/ })).toHaveAttribute('href', '/rezervari');
   // After 2026-10-01 the «NOU» pill never shows.
   await expect(tools.getByText('NOU', { exact: true })).toHaveCount(0);
-  await tools.getByRole('button', { name: 'Vremea, în curând' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Vremea' });
+  // c18 (the panel) has its own tests below.
+  await expect(tools.getByRole('button', { name: 'Vremea, în curând' })).toBeVisible();
+  await expect(tools.getByRole('button', { name: 'Fazele Lunii, în curând' })).toBeVisible();
+});
+
+/* ---------- c18: the «În curând» interest panel (widget notifications) ---------- */
+
+const WIDGET_ROUTE = '**/api/cms/feed/widget-notifications**';
+const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+
+/**
+ * Answers GET mine with `registered` and POST with `post` (a status or a JSON answer), and records
+ * every request. The CMS write is never sent: these are mocks, the GET's contract is in
+ * tests/contract/social.contract.test.ts.
+ */
+async function mockWidgetNotifications(page: Page, init: { registered: boolean; post?: number | { delayMs: number } }) {
+  let registered = init.registered;
+  const post = init.post;
+  const requests: { method: string; url: string; body: unknown }[] = [];
+  await page.route(WIDGET_ROUTE, async (route) => {
+    const req = route.request();
+    requests.push({ method: req.method(), url: req.url(), body: req.postDataJSON() });
+    const feature = new URL(req.url()).searchParams.get('feature') ?? (req.postDataJSON() as { data: { feature: string } } | null)?.data.feature;
+    if (req.method() === 'GET') return route.fulfill(json({ data: { feature, registered, registeredAt: registered ? '2026-10-01T08:00:00.000Z' : null } }));
+    if (typeof post === 'number') return route.fulfill({ status: post, contentType: 'application/json', body: '{"error":{"status":500,"message":"x"}}' });
+    if (post?.delayMs) await new Promise((r) => setTimeout(r, post.delayMs));
+    registered = true; // the CMS row now exists: the invalidated read says so
+    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ data: { documentId: 'e2e', feature, registeredAt: '2026-10-07T08:00:00.000Z', created: true } }) });
+  });
+  return requests;
+}
+
+async function openInterest(page: Page, title: 'Vremea' | 'Fazele Lunii') {
+  await section(page, 'Instrumente').getByRole('button', { name: `${title}, în curând` }).click();
+  // A fitted sheet below 768, a plain dismissible dialog from 768 (ResponsiveSurface intent
+  // «info») — never an alertdialog: it is an informational offer, not a decision.
+  const dialog = page.getByRole('dialog', { name: title });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText(/Prognoza meteo/)).toBeVisible();
-  await page.keyboard.press('Escape');
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  return dialog;
+}
+
+/** From 768 the dialog has the «Închide» X (a mouse user's way out); the sheet closes by its scrim / handle drag. */
+async function expectCloseX(page: Page, dialog: Locator) {
+  const width = page.viewportSize()?.width ?? 0;
+  if (width >= 768) await expect(dialog.getByRole('button', { name: 'Închide' }).first()).toBeVisible();
+}
+
+const TABLET_900 = { width: 900, height: 1000 };
+
+for (const vp of [PHONE, TABLET_900, DESKTOP]) {
+  test(`home.acasa.c18 — signed out (${vp.width}px): image, title, description and «Intră în cont»; no read`, async ({ page }) => {
+    const requests = await mockWidgetNotifications(page, { registered: false });
+    await open(page, vp, false);
+    const dialog = await openInterest(page, 'Fazele Lunii');
+    // The name is the focal point, centred under the 64px artwork (the surface title is sr-only).
+    await expect(dialog.locator('p', { hasText: /^Fazele Lunii$/ })).toHaveCSS('text-align', 'center');
+    await expect(dialog.locator('img')).toHaveCSS('width', '64px');
+    await expectCloseX(page, dialog);
+    await expect(dialog.getByText('Urmărește fazele lunii și cele mai bune momente pentru pescuit. Lucrăm la asta!')).toBeVisible();
+    await expect(dialog.locator('img')).toHaveCount(1);
+    // fish: router.push('/sign-in') — sign-in returns to Acasă (lib/routes signIn: plain /intra for /).
+    await expect(dialog.getByRole('link', { name: 'Intră în cont' })).toHaveAttribute('href', '/intra');
+    await expect(dialog.getByRole('button', { name: 'Anunță-mă când e disponibil' })).toHaveCount(0);
+    // fish: the read is enabled only signed in.
+    expect(requests).toEqual([]);
+    await expectNoA11yViolations(page);
+  });
+
+  test(`home.acasa.c18 — signed in (${vp.width}px), not registered: «Anunță-mă» POSTs, pending, then «Ești pe listă!» + «Închide»`, async ({ page }) => {
+    const requests = await mockWidgetNotifications(page, { registered: false, post: { delayMs: 800 } });
+    await open(page, vp, true);
+    const dialog = await openInterest(page, 'Vremea');
+    await expect(dialog.getByText(/^Prognoza meteo pentru spoturile tale de pescuit/)).toBeVisible();
+    await expect(dialog.getByRole('link', { name: 'Intră în cont' })).toHaveCount(0);
+    await expectCloseX(page, dialog);
+    const notify = dialog.getByRole('button', { name: 'Anunță-mă când e disponibil' });
+    await expect(notify).not.toHaveAttribute('aria-disabled', 'true');
+    expect(requests.filter((r) => r.method === 'GET').map((r) => new URL(r.url).searchParams.get('feature'))).toEqual(['weather']);
+
+    await notify.click();
+    // Pending: one press, one write.
+    const saving = dialog.getByRole('button', { name: 'Se salvează…' });
+    await expect(saving).toHaveAttribute('aria-disabled', 'true');
+    await saving.click({ force: true });
+
+    await expect(dialog.getByText('Ești pe listă! 🎉 Te anunțăm imediat ce Vremea e disponibilă.')).toBeVisible();
+    const posts = requests.filter((r) => r.method === 'POST');
+    expect(posts).toHaveLength(1);
+    expect(posts[0].body).toEqual({ data: { feature: 'weather' } });
+    await expect(dialog.locator('img')).toHaveCount(0);
+    await expectNoA11yViolations(page);
+    // The footer «Închide» (from 768 the header X is a second «Închide»: take the last, the CTA).
+    await dialog.getByRole('button', { name: 'Închide' }).last().click();
+    await expect(dialog).toBeHidden();
+  });
+}
+
+test('home.acasa.c18 — signed in, already registered: check, «Ești pe listă!» and «Închide», no offer', async ({ page }) => {
+  await mockWidgetNotifications(page, { registered: true });
+  await open(page, PHONE, true);
+  const dialog = await openInterest(page, 'Fazele Lunii');
+  await expect(dialog.getByText('Ești pe listă! 🎉 Te anunțăm imediat ce Fazele Lunii sunt disponibile.')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Anunță-mă când e disponibil' })).toHaveCount(0);
+  await expect(dialog.getByText(/Lucrăm la asta!/)).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Închide' }).click();
   await expect(dialog).toBeHidden();
 });
 
-test('home.acasa.c18 — signed out, the interest panel asks to sign in', async ({ page }) => {
-  await open(page, PHONE, false);
-  await section(page, 'Instrumente').getByRole('button', { name: 'Fazele Lunii, în curând' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Fazele Lunii' });
-  await expect(dialog.getByRole('link', { name: 'Intră în cont' })).toHaveAttribute('href', '/intra');
+test('home.acasa.c18 — a failed save toasts «Nu am putut salva. Încearcă din nou.» and keeps the offer', async ({ page }) => {
+  await mockWidgetNotifications(page, { registered: false, post: 500 });
+  await open(page, PHONE, true);
+  const dialog = await openInterest(page, 'Vremea');
+  await dialog.getByRole('button', { name: 'Anunță-mă când e disponibil' }).click();
+  await expect(page.getByText('Nu am putut salva. Încearcă din nou.')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Anunță-mă când e disponibil' })).toBeVisible();
+  await expect(dialog.getByText(/Ești pe listă/)).toHaveCount(0);
+});
+
+/**
+ * Mocks GET mine with a delayed or failing answer (POST succeeds). The delay is released by the
+ * returned function, so the test sees the busy state for as long as it needs.
+ */
+async function mockMineRead(page: Page, mode: 'hold' | 500) {
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  const posts: unknown[] = [];
+  const counts = { gets: 0 };
+  await page.route(WIDGET_ROUTE, async (route) => {
+    const req = route.request();
+    const feature = new URL(req.url()).searchParams.get('feature') ?? 'weather';
+    if (req.method() === 'GET') counts.gets++;
+    if (req.method() === 'POST') {
+      posts.push(req.postDataJSON());
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ data: { documentId: 'e2e', feature: 'weather', registeredAt: '2026-10-07T08:00:00.000Z', created: true } }) });
+    }
+    if (mode === 500) return route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":{"status":500,"message":"x"}}' });
+    await held;
+    return route.fulfill(json({ data: { feature, registered: false, registeredAt: null } }));
+  });
+  return {
+    release,
+    posts,
+    get gets() {
+      return counts.gets;
+    },
+  };
+}
+
+test('home.acasa.c18 — while «am I registered?» loads: a busy, disabled offer (spinner, aria-busy), then the live offer', async ({ page }) => {
+  const read = await mockMineRead(page, 'hold');
+  await open(page, PHONE, true);
+  const dialog = await openInterest(page, 'Vremea');
+  const notify = dialog.getByRole('button', { name: 'Anunță-mă când e disponibil' });
+  await expect(notify).toHaveAttribute('aria-disabled', 'true');
+  await expect(notify).toHaveAttribute('aria-busy', 'true');
+  await expect(notify.locator('svg.animate-spin')).toHaveCount(1);
+  // A press while busy writes nothing.
+  await notify.click({ force: true });
+  expect(read.posts).toEqual([]);
+  read.release();
+  await expect(notify).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(notify).not.toHaveAttribute('aria-busy', 'true');
+  await expect(notify.locator('svg')).toHaveCount(0);
+});
+
+test('home.acasa.c18 — a failed read (500) still offers «Anunță-mă», and the save works', async ({ page }) => {
+  const read = await mockMineRead(page, 500);
+  await open(page, PHONE, true);
+  const dialog = await openInterest(page, 'Vremea');
+  const notify = dialog.getByRole('button', { name: 'Anunță-mă când e disponibil' });
+  // The read does not retry: the offer is live within 1s, not after ~3s of backoff (agreed web
+  // divergence, home.acasa.c18 — fish has no gate at all).
+  await expect(notify).not.toHaveAttribute('aria-disabled', 'true', { timeout: 1_000 });
+  expect(read.gets).toBe(1);
+  await notify.click();
+  await expect(dialog.getByText('Ești pe listă! 🎉 Te anunțăm imediat ce Vremea e disponibilă.')).toBeVisible();
+  expect(read.posts).toEqual([{ data: { feature: 'weather' } }]);
+});
+
+test('home.acasa.c18 — unknown session (a cookie whose read fails): no «Intră în cont», the offer instead', async ({ page }) => {
+  test.slow();
+  const requests = await mockWidgetNotifications(page, { registered: false });
+  // The session is unknown, never a guest (owner rule 4).
+  await page.setViewportSize(PHONE);
+  await openWith(page, PHONE, { bluvi_session: UNREADABLE_SESSION });
+  const dialog = await openInterest(page, 'Vremea');
+  await expect(dialog.getByRole('link', { name: 'Intră în cont' })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Anunță-mă când e disponibil' })).toBeVisible();
+  expect(requests.filter((r) => r.method === 'GET')).toHaveLength(1);
+});
+
+for (const vp of [PHONE, DESKTOP]) {
+  test(`home.acasa.c18 — keyboard (${vp.width}px): Enter opens with focus inside, Esc closes, focus returns to the tile`, async ({ page }) => {
+    await mockWidgetNotifications(page, { registered: true });
+    await open(page, vp, true);
+    const tile = section(page, 'Instrumente').getByRole('button', { name: 'Vremea, în curând' });
+    await tile.focus();
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog', { name: 'Vremea' });
+    await expect(dialog).toBeVisible();
+    await expect.poll(() => dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(tile).toBeFocused();
+
+    // Again, closed with the registered state's «Închide» (the footer CTA).
+    await page.keyboard.press('Enter');
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: 'Închide' }).last().click();
+    await expect(dialog).toBeHidden();
+    await expect(tile).toBeFocused();
+  });
+
+  test(`home.acasa.c18 — keyboard (${vp.width}px): Enter on «Anunță-mă» saves and focus stays on the same CTA, now «Închide»`, async ({ page }) => {
+    await mockWidgetNotifications(page, { registered: false });
+    await open(page, vp, true);
+    const tile = section(page, 'Instrumente').getByRole('button', { name: 'Vremea, în curând' });
+    await tile.focus();
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog', { name: 'Vremea' });
+    const notify = dialog.getByRole('button', { name: 'Anunță-mă când e disponibil' });
+    await expect(notify).not.toHaveAttribute('aria-disabled', 'true');
+    await notify.focus();
+    await page.keyboard.press('Enter');
+    await expect(dialog.getByText(/^Ești pe listă!/)).toBeVisible();
+    // The same node, relabelled: focus never falls to <body> behind the open dialog.
+    await expect(dialog.getByRole('button', { name: 'Închide' }).last()).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(dialog).toBeHidden();
+    await expect(tile).toBeFocused();
+  });
+}
+
+// Sheet owner (components/surfaces/Sheet.tsx): on a `fit` sheet the handle's «Extinde» takes the
+// first focus and snaps the short offer to 90dvh. Enable once the fit sheet drops the expand toggle
+// from the tab order and the initial focus goes to the CTA.
+test.fixme('home.acasa.c18 — phone sheet: focus starts on the CTA and the fitted sheet does not jump', async ({ page }) => {
+  await mockWidgetNotifications(page, { registered: false });
+  await open(page, PHONE, true);
+  const tile = section(page, 'Instrumente').getByRole('button', { name: 'Vremea, în curând' });
+  await tile.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Vremea' });
+  const notify = dialog.getByRole('button', { name: 'Anunță-mă când e disponibil' });
+  await expect(notify).toBeFocused();
+  const before = (await dialog.boundingBox())!.height;
+  await expect(dialog.getByRole('button', { name: 'Extinde' })).toHaveCount(0);
+  await page.keyboard.press('Tab');
+  await page.waitForTimeout(400);
+  expect(Math.abs((await dialog.boundingBox())!.height - before)).toBeLessThan(2);
 });
 
 for (const signedIn of [false, true]) {
@@ -702,4 +944,51 @@ test('home.acasa keyboard — skip link, rail arrows, header refresh reachable',
   // The refresh is the first control of the page body.
   await page.keyboard.press('Tab');
   await expect(visible(page.getByRole('button', { name: 'Reîmprospătează' }))).toBeFocused();
+});
+
+/* ---------- account.onboarding (mobile only): the web replacement ---------- */
+
+test('account.onboarding.c1 c2 c3 c4 replaced — a first visit to / never redirects; the signed-out home is the landing, «Intră» leads to /intra', async ({ browser }) => {
+  // A brand-new visitor: no cookies, no storage (fish's ONBOARDING_COMPLETE flag has no web twin).
+  for (const vp of [PHONE, { width: 1280, height: 800 }]) {
+    const context = await browser.newContext({ viewport: vp });
+    const page = await context.newPage();
+    const res = await page.goto('/', { waitUntil: 'domcontentloaded' });
+    expect(res?.status()).toBe(200);
+    expect(res?.request().redirectedFrom()).toBeNull();
+    expect(new URL(page.url()).pathname).toBe('/');
+    // No onboarding pager («Sari peste», «Continuă»): the home itself is the landing.
+    await expect(page.getByRole('button', { name: 'Sari peste' })).toHaveCount(0);
+    await expect(visible(page.getByRole('heading', { level: 1, name: 'Bine ai venit pe Bluvi' }))).toBeVisible();
+    // c4 — the landing says what Bluvi is: fish's four onboarding pillars (app/onboarding.tsx
+    // STORIES, kicker + headline), under the header card on the phone, heading the right column from 1280.
+    const pillars = visible(page.getByRole('region', { name: 'Ce găsești pe Bluvi' }));
+    await expect(pillars).toBeVisible();
+    for (const [kicker, headline] of [
+      ['DESCOPERĂ', 'Următoarea partidă începe aici.'],
+      ['TRĂIEȘTE PARTIDA', 'Fiecare lansetă. Fiecare moment.'],
+      ['INTRĂ ÎN COMPETIȚIE', 'Emoția concursului. Captură cu captură.'],
+      ['ÎNȚELEGE PESCUITUL', 'Mai mult decât o captură.'],
+    ]) {
+      await expect(pillars.getByText(kicker, { exact: true })).toBeVisible();
+      await expect(pillars.getByText(headline, { exact: true })).toBeVisible();
+    }
+    if (vp.width < 768) {
+      // Under the header card: the sign-in card's «Conectează-te» comes first.
+      const card = visible(page.getByRole('main').getByRole('link', { name: 'Conectează-te', exact: true }));
+      const [cardBox, pillarsBox] = [await card.boundingBox(), await pillars.boundingBox()];
+      expect(pillarsBox!.y).toBeGreaterThan(cardBox!.y);
+    } else {
+      // In «Ce mă așteaptă», above Instrumente: what Bluvi is before its coming-soon tools.
+      const tools = section(page, 'Instrumente');
+      const [toolsBox, pillarsBox] = [await tools.boundingBox(), await pillars.boundingBox()];
+      expect(pillarsBox!.y).toBeLessThan(toolsBox!.y);
+      expect(Math.abs(pillarsBox!.x - toolsBox!.x)).toBeLessThan(2);
+    }
+    const intra = visible(page.getByRole('banner').getByRole('link', { name: 'Intră', exact: true }));
+    await expect(intra).toHaveAttribute('href', '/intra');
+    await intra.click();
+    await expect(page).toHaveURL(/\/intra$/);
+    await context.close();
+  }
 });

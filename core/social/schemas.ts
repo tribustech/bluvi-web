@@ -438,3 +438,26 @@ export const firebaseTokenResponseSchema = z.object({ firebaseToken: z.string().
 
 /** `POST /user/organizer-request` → the updated user (only identity kept). */
 export const organizerRoleRequestResponseSchema = z.object({ id: z.number(), documentId: z.string() });
+
+// ── Widget notifications (fish `models/widgetNotification.type.ts`) ─────────────────────────────────
+
+/** Coming-soon widgets a user can sign up to be notified about. Mirrors the backend enum; strict, it
+ *  drives which panel answers. */
+export const FEATURE_KEYS = ['jurnalPartide', 'weather', 'moonPhases'] as const;
+export const featureKeySchema = z.enum(FEATURE_KEYS);
+export type FeatureKey = z.infer<typeof featureKeySchema>;
+
+export const myWidgetNotificationSchema = z.object({
+  feature: featureKeySchema,
+  registered: z.boolean(),
+  registeredAt: z.string().nullable(),
+});
+export type MyWidgetNotification = z.infer<typeof myWidgetNotificationSchema>;
+
+export const registerWidgetNotificationResponseSchema = z.object({
+  documentId: z.string(),
+  feature: featureKeySchema,
+  registeredAt: z.string().nullable(),
+  created: z.boolean(),
+});
+export type RegisterWidgetNotificationResponse = z.infer<typeof registerWidgetNotificationResponseSchema>;

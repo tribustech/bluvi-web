@@ -7,13 +7,16 @@
  * - **Desktop (≥1280):**
  *   - `context` — the user must keep seeing the list behind it (a stand, an angler, a weighing):
  *     **SidePanel**, 420px, docked next to the content so the list stays visible and clickable.
- *   - `decision` — a choice that interrupts (cancel, penalty, confirm): **Dialog**.
+ *   - `decision` — a choice that interrupts (cancel, penalty, confirm): **Dialog**, an alert
+ *     dialog (no «Închide» X — it must be answered).
+ *   - `info` — a non-blocking, informational panel (a «În curând» offer): **Dialog**, a plain
+ *     dialog with the «Închide» X (tablet too).
  *
  * Pure function so it is usable from server code and tests; `useBreakpoint()` supplies the
  * breakpoint in the browser.
  */
 export type Breakpoint = 'mobile' | 'tablet' | 'desktop';
-export type SurfaceIntent = 'context' | 'decision';
+export type SurfaceIntent = 'context' | 'decision' | 'info';
 export type SurfaceKind = 'sheet' | 'dialog' | 'panel';
 
 export const BREAKPOINT_MD = 768;

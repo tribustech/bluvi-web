@@ -566,7 +566,7 @@ screens:
       - "core/lakes: lakeQuery, lakeReviewsInfiniteQuery, getLakeRatingDisplay, formatReviewsCount, getLakeLocationSubtitle, pushRecentViewedLakeId"
       - "core/partide: communityVenueSectionQuery, communityVenueCatchesInfiniteQuery"
       - "core/competitions: filteredCompetitionsInfiniteQuery (status started/notStarted, lakeId, pageSize 5)"
-      - "missing in core: buildLakeSectionChips, hasPartideActivity (fish features/lakes/helpers/lakeDetailLogic.ts), VENUE_SECTION_ORDER/LABELS (features/venues/detail/sections.ts), computeActiveSection"
+      - "core/lakes (domain/lakeDetail.ts): buildLakeSectionChips, VENUE_SECTION_ORDER/LABELS, computeActiveSection, lakeCompetitionsVisible, lakeHasContact, lakeBookingState, buildLakeStats, buildMapUrls; core/partide: hasPartideActivity"
     states:
       - "loading (skeleton + back)"
       - "error without data (error screen + retry)"
@@ -584,49 +584,69 @@ screens:
       - id: lakes.detail.c1
         text: "While the lake loads, a detail skeleton with a back control is shown."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:369"
+        status: passing
       - id: lakes.detail.c2
         text: "When the request fails and no lake is cached, an error screen with „Încearcă din nou” is shown; an unknown id gives a not-found page."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:378"
+        status: passing
       - id: lakes.detail.c3
         text: "Opening the page records the lake id as most recent in the recently-viewed list (max 10) used by lakes.home."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:149"
+        status: passing
       - id: lakes.detail.c4
         text: "Hero (300 px on phone): carousel of every lake photo (medium → small → original), placeholder lake image when none; activating a photo opens the gallery when there is at least one photo."
         fish_ref: "features/lakes/detail/LakeHero.tsx:32"
+        web_note: "Phone: a tap on a photo opens /balti/[id]/galerie (kit DetailPhotoHero `phoneHref`, pointer only — the photo pill is the one named gallery link); from 768 the owner-rule-1 grid, whose tiles open the lightbox and whose «Vezi toate fotografiile (N)» opens the gallery (tests/e2e/detail-airbnb.spec.ts). No photo of its own (owner rule 4, never a screen-third of nothing): with coordinates the lake's map is the hero at every width (the one-photo height, so the skeleton holds; it opens /harta), without them no hero at all — back / share in the title row and the main action under it. Never fish's stock bitmap or a grey placeholder."
+        status: passing
       - id: lakes.detail.c5
         text: "Hero share button (accessible name „Distribuie balta”) opens lakes.share."
         fish_ref: "features/lakes/detail/LakeHero.tsx:67"
+        status: passing
       - id: lakes.detail.c6
         text: "Hero shows a red „Rezervă acum” button on every lake (bottom-left), wired to the booking affordance (c16)."
         fish_ref: "features/lakes/detail/LakeHero.tsx:71"
-        web_note: "One label per booking state at every width (owner rule 4 — never promise what is not there): «Rezervă acum» when the lake books (online, or by phone → Contact); «Vreau să rezerv online» when it takes no bookings, on the phone hero, the 768 header and the ≥1024 summary card alike (secondary when the lake has a phone: «Sună» is the main action in the card and the phone bar). Same target as fish (c16 → lakes.booking-interest). A deliberate departure from fish's «Rezervă acum» on every lake. tests/e2e/balta.spec.ts asserts it at 375 and 1440."
+        web_note: "One label per booking state at every width (owner rule 4 — never promise what is not there): «Rezervă acum» when the lake books (online, or by phone → Contact); «Vreau să rezerv online» when it takes no bookings, on the phone hero, the 768 header and the ≥1024 summary card alike (secondary when the lake has a phone: «Sună» is the main action in the card and the phone bar); the «Acțiuni rapide» tile says «Rezervă» / «Vreau online» by the same state. A phone-booking lake without a phone number has nothing to book through, so never a «Rezervă»: with a website the main action is a secondary «Contactează balta» (→ the website, new tab, contact_pressed «Lake website») on the hero, the header, the summary card, the phone bar and the tile («Contactează»); without one there is no booking control at all — the «Rezervare telefonică» pill and Direcții stay (Pondum C&R). Same target as fish (c16 → lakes.booking-interest). A deliberate departure from fish's «Rezervă acum» on every lake. tests/e2e/balta.spec.ts asserts it at 375 and 1440."
+        status: passing
       - id: lakes.detail.c7
         text: "Hero photo pill (bottom-right) shows lake images + total community catches; hidden at 0; opens /balti/[id]/galerie."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:155"
+        web_note: "From 768 the grid's «Vezi toate fotografiile (N)» (2+). A lake with no photo of its own but catches keeps the gallery at every width (fish opens it whenever photos + catches > 0): the surface pill on the phone, «Vezi fotografiile (N)» on the map hero, or in the title row when there is no hero (tests/e2e/balta.spec.ts at 1280)."
+        status: passing
       - id: lakes.detail.c8
         text: "Title block: lake name; to its right a star with „4,50” and „· N recenzii” (or only „Fără recenzii”); activating it scrolls to Recenzii; accessible label „Recenzii: 4,50 din 5, N recenzii”."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:434"
+        web_note: "Counts follow the owner plural rule: «20 de recenzii» (core formatReviewsCount → formatCount); fish writes «20 recenzii»."
+        status: passing
       - id: lakes.detail.c9
         text: "Under the name a pin icon and the location subtitle (city, county, address)."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:457"
+        status: passing
       - id: lakes.detail.c10
         text: "Section nav chips, in order and only when visible: Prezentare, Facilități (has facilities), Pești (has species), Partide (has activity), Prețuri (has prices), Concursuri (hidden only once live+upcoming counts are known to be 0), Recenzii, Contact (address, website, phones or coordinates)."
         fish_ref: "features/lakes/helpers/lakeDetailLogic.ts:46"
+        web_note: "The Partide chip follows the section's own 60s query, as fish builds it from the live community data (T3 useRegisterSection): it appears when the server read failed and the browser's succeeds, or when a partidă starts while the page is open, and leaves when the activity drops to none (tests/e2e/balta.spec.ts)."
+        status: passing
       - id: lakes.detail.c11
         text: "Activating a chip scrolls its section just below the sticky nav and marks it active immediately (no highlight walking through intermediate sections); scrolling updates the active chip; the chip row scrolls the active chip into view."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:218"
+        status: passing
       - id: lakes.detail.c12
         text: "After scrolling past the inline chip row a sticky header appears: back, lake name, rating meta „4,50 · N recenzii” (activates Recenzii), share button „Distribuie balta”, and the chip row."
         fish_ref: "features/venues/detail/VenuePinnedNav.tsx:40"
+        status: passing
       - id: lakes.detail.c13
         text: "Prezentare: „Descriere” heading with the description truncated and „Vezi mai mult”, which opens the full description titled „Descriere” (rich blocks); hidden when the lake has no description."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:477"
+        status: passing
       - id: lakes.detail.c14
         text: "„Acțiuni rapide” tiles in order: Rezervă; Prețuri (only with prices, scrolls to Prețuri); Partide (badge = partide active now) → /balti/[id]/partide; Statistici → /balti/[id]/statistici; Concursuri (badge = live count) → /balti/[id]/concursuri; Direcții and Hartă (only with coordinates; Hartă → /balti/[id]/harta); Recenzii (scrolls to Recenzii)."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:298"
+        web_note: "Owner (one entry point per page): while the Partide section is on the page its «Vezi tot» is the way in and the Partide tile steps aside. From 1024 the tiles leave for the sticky summary card «Pe scurt» (owner rule 1): booking, Sună, Direcții and the links no section carries — Partide and Concursuri while their sections are off the page (a lake with no live / upcoming competition links to its Trecute tab), Statistici always. The badges are fish's: Partide = stats.activeNow (same polled query as the section), Concursuri = the live count (streamed; nothing when none is live or the list failed). The Rezervă tile's label follows the booking state (c6)."
+        status: passing
       - id: lakes.detail.c15
         text: "The „NOU” badge on the Rezervă tile is date-gated to before 2026-10-01 (and only when booking exists) and must NOT render any more."
         fish_ref: "hooks/useNouBadge.ts:101"
+        status: passing
       - id: lakes.detail.c16
         text: "Booking affordance (hero CTA and Rezervă tile): bookingEnabled + signed-in → /balti/[id]/rezerva; bookingEnabled + guest → /intra (no redirect back into the grid); acceptsReservations only → scrolls to Contact; neither → opens lakes.booking-interest with source hero_cta or quick_action."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:256"
@@ -635,18 +655,25 @@ screens:
       - id: lakes.detail.c17
         text: "„Caracteristici” grid (2 columns) shows only present stats: Suprafață „X ha”, Adâncime „min – max m” („?” for a missing bound), Standuri pescuit „N locuri”, Regim de pescuit, Tip de pescuit, Loc de pescuit; hidden when none."
         fish_ref: "features/lakes/detail/LakeCharacteristics.tsx:18"
+        web_note: "Counts follow the owner plural rule (formatCount): «1 loc», «19 locuri», «20 de locuri»; a lake that books online shows «21 de standuri rezervabile» instead (one stand count). From 1024 the summary card states that count once — headline, footnote, or (a «de la» headline + the app-only footnote) its facts. fish writes «N locuri»."
+        status: passing
       - id: lakes.detail.c18
         text: "„Facilități” lists every facility with its icon in two columns."
         fish_ref: "features/lakes/detail/LakeFacilities.tsx:7"
+        status: passing
       - id: lakes.detail.c19
         text: "„Pești în această zonă” lists the lake's fish species."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:495"
+        status: passing
       - id: lakes.detail.c20
         text: "Partide section (only when the venue has activity: active now, catches this month, a record, or any monthly count): „Partide la această baltă” + „Vezi tot ›”, the live card (N ACTIVI ACUM, weighed-kg headline, ranked live sessions with roster, kg, rank bar, stand), the „Activitate · ultimele 7 luni” chart, and „Vezi toate partidele ›” → /balti/[id]/partide."
         fish_ref: "features/partide/components/community/VenuePartideSection.tsx:42"
+        web_note: "Owner (one entry point): the section's header «Vezi tot» → /balti/[id]/partide is the only link; no «Vezi toate partidele ›» button below the chart. The live pill follows the owner plural rule: «1 ACTIV ACUM», «20 DE ACTIVI ACUM» (fish «1 ACTIVI ACUM»). A quiet month (a record, no catch) is one compact navy row on the phone (record · 0 capturi luna aceasta); from 768, beside the chart, a «Record istoric» tile."
+        status: passing
       - id: lakes.detail.c21
         text: "The Partide data (/feed/community/venue-section) refreshes every 60s while the page is open and keeps the last good data when a refresh fails."
         fish_ref: "features/partide/community/hooks.ts:132"
+        status: passing
       - id: lakes.detail.c22
         text: "Opening a live session goes to the viewer's own partidă when it is theirs, otherwise to the read-only /partide/[id]."
         fish_ref: "features/partide/community/useOpenPartida.ts:28"
@@ -655,21 +682,29 @@ screens:
       - id: lakes.detail.c23
         text: "„Prețuri” rows: header, optional description, price „N RON”."
         fish_ref: "features/lakes/detail/LakePricesSection.tsx:7"
+        status: passing
       - id: lakes.detail.c24
         text: "„Concursuri”: horizontal „Live” and „Viitoare” lists (5 each, lake-scoped), each hidden when empty after loading; header „Vezi tot” → /balti/[id]/concursuri; a card → /concursuri/[id]; on error „A apărut o eroare la încărcarea datelor.” + „Încearcă din nou”."
         fish_ref: "features/lakes/detail/LakeCompetitionsSection.tsx:12"
+        web_note: "Owner: one «Vezi tot» per section, never one per rail — /balti/[id]/concursuri when both rails show, else that rail's tab (?tab=viitoare / live)."
+        status: passing
       - id: lakes.detail.c25
         text: "„Recenzii” summary: big score „4,50”, star + „N recenzii”, bars for Pescuit / Facilități / Atmosferă with „4,5”; without reviews „Această baltă nu are încă recenzii.”"
         fish_ref: "features/lakes/detail/LakeReviewsPreview.tsx:32"
+        status: passing
       - id: lakes.detail.c26
         text: "Link „Vezi cum funcționează recenziile” opens the reviews explainer (Pescuit / Facilități / Atmosferă bullet lists)."
         fish_ref: "components/ReveiwsInfoSheet.tsx:23"
+        status: passing
       - id: lakes.detail.c27
         text: "The latest 2 reviews render as read-only review cards; the button reads „Scrie prima recenzie” (0), „Vezi recenzia” (1) or „Vezi toate cele N recenzii” and opens /balti/[id]/recenzii."
         fish_ref: "features/lakes/detail/LakeReviewsPreview.tsx:80"
+        web_note: "«Vezi toate cele 20 de recenzii» (formatCount). The button is the section's header action."
+        status: passing
       - id: lakes.detail.c28
         text: "„Locație & contact”: a static mini map with a marker (activates /balti/[id]/harta) when coordinates parse; „Adresă”; one row per phone labelled with its header or „Telefon”, value „Nume · telefon”, opening tel:; „Website” opening the URL."
         fish_ref: "features/lakes/detail/LakeContactSection.tsx:9"
+        status: passing
       - id: lakes.detail.c29
         text: "„Administrator” card when the lake has an operator: initial avatar, trimmed name, „Administrează această baltă în Bluvi”; with ownerDocumentId it links to /pescari/[id] for signed-in users and to /intra for guests (label „{nume} — vezi profilul”); without ownerDocumentId it is not interactive."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:386"
@@ -678,15 +713,22 @@ screens:
       - id: lakes.detail.c30
         text: "Without an operator: „Această baltă nu are încă un administrator în Bluvi.” and the link „Ești administratorul acestei bălți?” opening lakes.claim."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:595"
+        web_note: "A guest goes to /intra?next=/balti/[id]?dialog=revendica and comes back to the lake with the claim dialog open (fish lets the guest fill the sheet in place; the CMS needs an account)."
+        status: passing
       - id: lakes.detail.c31
         text: "„Direcții” offers Google Maps, Waze and Apple Maps to the lake coordinates."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:337"
+        web_note: "One entry point per width (owner): below 1024 the tile and the button under the contact map; from 1024 the summary card's only. Locație & contact is two columns from 1280 (map left, rows + Administrator right)."
+        status: passing
       - id: lakes.detail.c32
         text: "Partide, Concursuri and Recenzii render after the first paint with a spinner placeholder (web: streamed/suspended sections), never blocking the hero."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:403"
+        status: passing
       - id: lakes.detail.c33
         text: "Analytics: share_lake_button_pressed (lake_id, lake_name) and lake_booking_cta_pressed (lake_id, lake_name, source, booking_state)."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:243"
+        status: passing
+    e2e: tests/e2e/balta.spec.ts tests/e2e/detail-airbnb.spec.ts
     mobile_only: false
     status: proposed
 
@@ -710,21 +752,28 @@ screens:
       - id: lakes.share.c1
         text: "A chat-style preview shows an incoming bubble „Salut! Ce faci sâmbătă? 🎣” from „Prieten” and an outgoing bubble with the message, the line „🎣 {nume baltă}” and the link."
         fish_ref: "features/lakes/components/ShareLakeSheet.tsx:38"
+        status: passing
       - id: lakes.share.c2
         text: "Input „Mesajul tău” defaults to „Mergem la pescuit aici?”; the preview follows the field as it is typed (and commits again on blur)."
         fish_ref: "features/lakes/components/ShareLakeSheet.tsx:120; features/lakes/components/ShareLakeSheet.tsx:189"
+        status: passing
       - id: lakes.share.c3
         text: "Shared text = message, blank line, „🎣 {nume baltă}”, new line, the lake URL (web: absolute /balti/[id])."
         fish_ref: "features/lakes/components/ShareLakeSheet.tsx:130"
+        status: passing
       - id: lakes.share.c4
         text: "„Copiază” copies the full text with the URL and shows the toast „Mesaj copiat în clipboard”."
         fish_ref: "features/lakes/components/ShareLakeSheet.tsx:158"
+        status: passing
       - id: lakes.share.c5
         text: "„Distribuie” opens the system share (Web Share API; copy fallback) and closes the dialog."
         fish_ref: "features/lakes/components/ShareLakeSheet.tsx:140"
+        status: passing
       - id: lakes.share.c6
         text: "Analytics share_lake on a completed share and copy_lake_share_text on copy (lake_id, lake_name)."
         fish_ref: "features/lakes/components/ShareLakeSheet.tsx:148"
+        status: passing
+    e2e: tests/e2e/balta.spec.ts
     mobile_only: false
     status: passing
 

@@ -26,7 +26,7 @@ import {
   type QuantityStandRanking,
   type RankingResponse,
 } from '@/core/competitions';
-import { cellNumber, sectorColorMap, type RankingRowData } from '@/components/ranking';
+import { cellNumber, paletteLetter, sectorColorMap, type RankingRowData } from '@/components/ranking';
 import { toWebColumns } from '@/components/ranking/columns';
 import { EMPTY_STAND } from '@/components/ranking/rankingColumns';
 import { formatDecimal } from '@/components/cards/format';
@@ -90,7 +90,9 @@ export function buildRankingTable(data: RankingResponse | undefined, sortBy: Ran
   const rankings = sortStandRankings(data.rankings as BaseStandRanking[], sortBy);
   if (!rankings.length) return null;
 
-  const sectorColors = sectorColorMap();
+  // fish getColorsBySector: the palette by the sorted sector names present in the ranking (B and C
+  // alone are palette[0] and palette[1]; a sector named «1» is coloured too) — parity clasament.c17.
+  const sectorColors = sectorColorMap(rankings.map(r => r.sectorName));
   // Catch columns for quality-type rankings: the largest sectorMinNumberOfFish of all rows.
   const nrOfCatchesColumns = Math.max(...rankings.map(r => (r as QualityStandRanking).sectorMinNumberOfFish));
 
@@ -220,6 +222,21 @@ export function matchesRankingSearch(row: Pick<RankingRowData, 'position' | 'par
   return (
     (named && row.participant.toLocaleLowerCase('ro').includes(q)) || stand === compactQ || standNumber === compactQ || stand.startsWith(compactQ)
   );
+}
+
+/**
+ * The palette letter each sector of a built table is coloured with (fish's by-index colours, carried
+ * on the rows' backgroundColor): for the dots and edges drawn outside the table (the sector chips,
+ * the «Pe sectoare» titles, the side column), so they match the table's fills. A sector the rows do
+ * not colour keeps its own name (sector.ts sectorFill then falls back to the given colour).
+ */
+export function sectorLetters(rows: ReadonlyArray<Pick<RankingRowData, 'position' | 'backgroundColor'>>): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const row of rows) {
+    const sector = rowSector(row);
+    if (!out.has(sector)) out.set(sector, paletteLetter(row.backgroundColor) ?? sector);
+  }
+  return out;
 }
 
 /** Sector names present in a ranking, A→X order. */

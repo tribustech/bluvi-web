@@ -11,14 +11,13 @@ import {
   compareByStand,
   formatRankingPlain,
   formatRankingWeight,
-  isPodium,
   mainValueKey,
   penaltyMarker,
   rankingColumns,
   winnerMode,
   type RankingColumn,
 } from './rankingColumns';
-import { parseStand, sectorFill, sectorInk, sectorVar } from './sector';
+import { paletteLetter, parseStand, sectorFill, sectorInk, sectorVar } from './sector';
 import { PenaltyMarker, PlaceCell, WinnerTrophy } from './shell';
 import { RANKING_HEAD, RANKING_HEAD_TIER } from './tableHead';
 
@@ -35,10 +34,12 @@ import { RANKING_HEAD, RANKING_HEAD_TIER } from './tableHead';
  * the avatar beside each name from 768 (§4b.13). A row without a catch reads «–» in its weights
  * (§4b.11).
  *
- * Kept from the web's ranking idiom: fish's 🎖️ becomes the tables' one place mark (./shell
- * PlaceCell), a trophy in the cell's own ink — on «Poziție generală» for the podium (places 1–3
- * with a catch) and bestOf / bestOfTiers / Best N winners, on «Poziție sector» for the sector
- * winners (./rankingColumns winnerMode).
+ * fish's 🎖️ is the tables' one place mark (./shell PlaceCell), a trophy in the cell's own ink, on
+ * «Poziție generală» of every winner row (`isWinner`: generalPosition 1..W, as fish draws it —
+ * fish RankingTable.tsx:315). A sector ranking with more than one sector also marks each sector's
+ * winner (sectorPosition 1) on «Poziție sector» (./rankingColumns winnerMode).
+ * Sector colours: fish getColorsBySector — the palette by the sorted sector names' index (the
+ * builders' `row.backgroundColor`, sector.ts sectorColorMap), never by the sector's own letter.
  * Everything else is fish: Stand order by default (the headers sort, «Poziție generală» = fish
  * Sortare → Poziția în clasament), three-decimal weights, the gold biggest-catch cell, grey catch
  * cells past the sector's minimum, SPLIT, the bestOfTiers indigo band with the solid green won
@@ -60,6 +61,9 @@ export const ME_ROW = [
 ].join(' ');
 
 type SortState = { key: string; dir: 'asc' | 'desc' };
+
+/** The Stand cell's text, as fish prints the builders' `position`: «A/1»; no sector, the stand alone. */
+export const standLabel = (sector: string, stand: string) => (sector ? `${sector}/${stand}` : stand);
 
 function compare(a: RankingRowData, b: RankingRowData, col: RankingColumn): number {
   if (col.kind === 'stand') return compareByStand(a, b);
@@ -113,6 +117,16 @@ export type RankingTableProps = {
   initialSort?: RankingTableSort;
   /** The row's face (photo / team); without it every name gets its initials (ROADMAP §4b.13). */
   faceOf?: (row: RankingRowData) => RankingFaceData | null | undefined;
+  /**
+   * Columns a sideways-scrolling wrapper may pin at the right, by priority: their cells carry
+   * `data-pin="r1"…"r4"` (the competition page's tableFixes useTablePins positions them).
+   */
+  pinRight?: ReadonlyArray<string>;
+  /**
+   * More than one sector in the whole ranking (a sector winner's trophy on «Poziție sector»).
+   * Default: read from `rows` — pass it when the rows are a filtered part of the ranking.
+   */
+  multiSector?: boolean;
 };
 
 export function RankingTable({
@@ -123,6 +137,8 @@ export function RankingTable({
   maxHeight = 'min(70vh, 720px)',
   initialSort = 'stand',
   faceOf,
+  pinRight,
+  multiSector,
 }: RankingTableProps) {
   const cols = useMemo(() => rankingColumns(columns), [columns]);
   const initial: SortState = useMemo(
@@ -136,6 +152,14 @@ export function RankingTable({
   const tied = useMemo(() => tiedIndices(rows), [rows]);
   const mainKey = useMemo(() => mainValueKey(columns), [columns]);
   const mode = useMemo(() => winnerMode(columns), [columns]);
+  const severalSectors = useMemo(
+    () => multiSector ?? new Set(rows.map(r => parseStand(r.position).sector)).size > 1,
+    [multiSector, rows],
+  );
+  const pinOf = useMemo(() => {
+    const at = new Map((pinRight ?? []).map((key, i) => [key, `r${i + 1}`]));
+    return (key: string) => at.get(key);
+  }, [pinRight]);
 
   const sorted = useMemo(() => {
     const col = cols.find(c => c.key === sort.key);
@@ -177,6 +201,7 @@ export function RankingTable({
                 <th
                   key={col.key}
                   scope="col"
+                  data-pin={pinOf(col.key)}
                   aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className={cn(
                     // fish HeaderCell: the indigo band, its titles wrap on two lines in a narrow column.
@@ -214,43 +239,48 @@ export function RankingTable({
             const noCatch = isNoCatch(row);
             const marker = penaltyMarker(row.penalties);
             const { sector, stand } = parseStand(row.position);
-            const fill = sectorFill(sector, row.backgroundColor);
+            // fish: the colour by the sector's index among the ranking's sorted names (the builders'
+            // backgroundColor); its palette letter drives the token classes and the AA ink.
+            const letter = paletteLetter(row.backgroundColor) ?? sector;
+            const fill = sectorFill(letter, row.backgroundColor);
             const minFish = typeof row.sectorMinNumberOfFish === 'number' ? row.sectorMinNumberOfFish : undefined;
             const empty = row.participant === EMPTY_STAND;
             // fish RankingTable: every value cell in the sector's colour — 40% under black, a
-            // winner row 90% under white or black (whichever clears AA for that sector).
-            const win = !!row.isWinner && !empty;
-            const sectorCell = win ? cn('rank-sector-win', sectorInk(sector, 'win')) : 'rank-sector-tint text-rank-on-light';
+            // winner row 90% under white or black (whichever clears AA for that sector). A row
+            // without a catch is never a winner here (as RankingRow and the feeder podium): with
+            // more winner places than anglers who caught, the last would read as a winner.
+            const win = !!row.isWinner && !empty && !noCatch;
+            const sectorCell = win ? cn('rank-sector-win', sectorInk(letter, 'win')) : 'rank-sector-tint text-rank-on-light';
             return (
               <tr
                 key={row.standId ?? `${row.position}-${index}`}
                 data-stand-id={row.standId}
                 data-winner={win || undefined}
                 data-me={me || undefined}
-                style={sectorVar(sector, row.backgroundColor) as CSSProperties}
+                style={sectorVar(letter, row.backgroundColor) as CSSProperties}
                 className={cn('h-12 t-table text-ink', me && cn('bg-accent-tint', ME_ROW))}
               >
                 {cols.map((col, i) => {
                   const edge = cn('border-t border-rank-line', i > 0 && 'border-l', i === last && 'pr-3.5');
+                  const pin = pinOf(col.key);
 
                   if (col.kind === 'stand') {
                     return (
-                      <td key={col.key} className={cn(edge, 'relative pr-3 pl-[18px] text-left font-bold whitespace-nowrap')}>
+                      <td key={col.key} data-pin={pin} className={cn(edge, 'relative pr-3 pl-[18px] text-left font-bold whitespace-nowrap')}>
                         {/* fish: the Stand cell stays white, the sector its 4px left edge. */}
                         <span aria-hidden className={cn('absolute inset-y-0 left-0 w-1', fill.className)} style={fill.style} />
                         <span className="sr-only">
                           Sector {sector}, stand {stand}
                         </span>
-                        <span aria-hidden>
-                          {sector}
-                          {stand}
-                        </span>
+                        {/* fish: the builders' «{sector}/{stand}» («A/1», «C/A14» — a stand named
+                            with another sector's letter stays readable). */}
+                        <span aria-hidden>{standLabel(sector, stand)}</span>
                       </td>
                     );
                   }
                   if (col.kind === 'name') {
                     return (
-                      <th key={col.key} scope="row" data-fill="" className={cn(edge, sectorCell, 'pr-2 pl-2.5 text-left font-bold md:pr-3')}>
+                      <th key={col.key} scope="row" data-fill="" data-pin={pin} className={cn(edge, sectorCell, 'pr-2 pl-2.5 text-left font-bold md:pr-3')}>
                         <span className="flex min-w-0 items-center gap-1.5">
                           {empty ? null : <RankingFace name={row.participant} face={faceOf?.(row)} className="mr-1" />}
                           <span className="max-md:text-balance max-md:break-normal md:truncate">
@@ -270,18 +300,19 @@ export function RankingTable({
                     );
                   }
                   if (col.kind === 'place') {
-                    // The podium (1–3 with a catch); bestOf-type winners ride on this place too.
-                    const mark = empty ? null : mode === 'prize' && row.isWinner && !noCatch ? 'prize' : isPodium(row.generalPosition, noCatch) ? 'podium' : null;
+                    // fish: 🎖️ before the general place of every winner row (isWinner, 1..W) with a catch.
+                    const mark = win ? 'prize' : null;
                     return (
-                      <td key={col.key} data-fill="" className={cn(edge, sectorCell, 'pr-3 pl-2 text-right')}>
+                      <td key={col.key} data-fill="" data-pin={pin} className={cn(edge, sectorCell, 'pr-3 pl-2 text-right')}>
                         <PlaceCell value={row.generalPosition} tied={tied.has(index)} mark={mark} onFill align="end" />
                       </td>
                     );
                   }
-                  if (col.kind === 'sectorPlace' && mode === 'sector' && row.isWinner && !noCatch && !empty) {
-                    // A sector winner: the trophy on its sector place (fish: 🎖️ on every winner row).
+                  if (col.kind === 'sectorPlace' && mode === 'sector' && severalSectors && row.sectorPosition === 1 && !noCatch && !empty) {
+                    // The sector's winner (its sector place 1 — not every isWinner row: with split
+                    // points or a sector without a catch, a sector's second can hold a place ≤ S).
                     return (
-                      <td key={col.key} data-fill="" className={cn(edge, sectorCell, 'pr-2.5 pl-1.5 text-right whitespace-nowrap')}>
+                      <td key={col.key} data-fill="" data-pin={pin} className={cn(edge, sectorCell, 'pr-2.5 pl-1.5 text-right whitespace-nowrap')}>
                         <span className="inline-flex items-center gap-1 align-middle">
                           <WinnerTrophy mark="sector" inherit />
                           {formatRankingPlain(row[col.key])}
@@ -296,13 +327,14 @@ export function RankingTable({
                     const n = Number(/^catch(\d+)$/.exec(col.key)?.[1] ?? 0);
                     // fish: catch cells past the row's sectorMinNumberOfFish are grey and empty (c21).
                     if (minFish !== undefined && n > minFish) {
-                      return <td key={col.key} data-fill="" aria-label="nu se punctează" className={cn(edge, 'bg-rank-unscored')} />;
+                      return <td key={col.key} data-fill="" data-pin={pin} aria-label="nu se punctează" className={cn(edge, 'bg-rank-unscored')} />;
                     }
                   }
-                  if (noCatch && col.key === mainKey) {
-                    // No catch: «–», as fish (never «capot», ROADMAP §4b.11).
+                  if (noCatch && (col.key === mainKey || col.kind === 'count')) {
+                    // No catch: «–», as fish (never «capot», ROADMAP §4b.11) — the catch count too, so
+                    // the row has one «nothing» mark, not «–» beside a «0».
                     return (
-                      <td key={col.key} data-fill="" className={cn(edge, sectorCell, align, 'font-extrabold')}>
+                      <td key={col.key} data-fill="" data-pin={pin} className={cn(edge, sectorCell, align, col.key === mainKey && 'font-extrabold')}>
                         <span aria-hidden>–</span>
                         <span className="sr-only">Fără capturi</span>
                       </td>
@@ -328,6 +360,7 @@ export function RankingTable({
                     <td
                       key={col.key}
                       data-fill=""
+                      data-pin={pin}
                       data-biggest={cell.isBiggest || undefined}
                       data-tier-win={cell.isTierWin || undefined}
                       className={cn(
@@ -339,7 +372,7 @@ export function RankingTable({
                         cell.isTierWin
                           ? 'bg-success font-extrabold text-on-accent'
                           : cell.isTier
-                            ? row.isWinner
+                            ? win
                               ? 'bg-accent-tint-3'
                               : 'bg-accent-tint-2'
                             : // fish: the competition's biggest catch is gold with bold dark text (c19).

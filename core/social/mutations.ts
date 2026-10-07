@@ -8,18 +8,20 @@ import {
   followAngler,
   markAllNotificationsAsRead,
   markNotificationAsRead,
+  registerWidgetNotification,
   sendFeedback,
   unfollowAngler,
   updateProfile,
   uploadMedia,
   type MediaFile,
 } from './api';
-import { anglersKeys, notificationsKeys, profileKeys, reputationKeys, socialForeignKeys } from './queries';
+import { anglersKeys, notificationsKeys, profileKeys, reputationKeys, socialForeignKeys, widgetNotificationKeys } from './queries';
 import type {
   AnglerListItem,
   AnglerProfile,
   AnglersPage,
   CreateAnglerReviewInput,
+  FeatureKey,
   Feedback,
   NotificationResponse,
   Profile,
@@ -278,6 +280,16 @@ export function createAnglerReviewMutation(t: Transport, qc: QueryClient) {
       qc.invalidateQueries({ queryKey: socialForeignKeys.bookingsAll });
       // Home counts the same queue in `pendingFeedback`; every per-lake dashboard window moves too.
       qc.invalidateQueries({ queryKey: socialForeignKeys.operatorStatsAll });
+    },
+  });
+}
+
+/** fish `useRegisterWidgetNotification`. fish's error toast («Nu am putut salva…») is the UI's. */
+export function registerWidgetNotificationMutation(t: Transport, qc: QueryClient, feature: FeatureKey) {
+  return mutationOptions({
+    mutationFn: () => registerWidgetNotification(t, feature),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: widgetNotificationKeys.mine(feature) });
     },
   });
 }

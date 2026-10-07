@@ -1,11 +1,14 @@
-import { useMemo, useRef } from 'react';
+import { ChevronDownIcon } from '@heroicons/react/16/solid';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { ColumnDefinition } from '@/core/competitions';
-import { compareByStand, mainValueKey, type RankingRowData } from '@/components/ranking';
+import { compareByStand, type RankingRowData } from '@/components/ranking';
 import { RANK_SCROLL_CAP_PHONE } from '@/components/ranking/shell';
 import { cn } from '@/components/ui/cn';
+import { formatCount } from '@/core/realtime/chat/format';
 import { CompetitionRankingTable } from './CompetitionRankingTable';
 import { PRESSABLE_ROWS, useRowPress } from './rowPress';
-import { GENERAL_TABLE_LAYOUT, RANKING_TABLE_FIXES, useTablePins } from './tableFixes';
+import { RankingLegend } from '@/components/ranking/RankingLegend';
+import { GENERAL_TABLE_LAYOUT, RANKING_TABLE_FIXES, rankingPinKeys, useTablePins } from './tableFixes';
 
 /*
  * The phone ranking: fish's ScrollableTable (components/ranking-table/RankingTable.tsx) — a table on
@@ -17,28 +20,27 @@ import { GENERAL_TABLE_LAYOUT, RANKING_TABLE_FIXES, useTablePins } from './table
  * (tableFixes useTablePins / GENERAL_TABLE_LAYOUT, the «wide» half: the table always scrolls in its
  * own region here). The rows keep the bar's Sortare order (stand by default, as fish); the column
  * headers sort too. No avatars at this width (RankingFace, §4b.13). The region is viewport-high
- * (RANK_SCROLL_CAP_PHONE), so its header row sticks while the rows scroll.
+ * (RANK_SCROLL_CAP_PHONE), so its header row sticks while the rows scroll. While rows are still
+ * below its bottom edge the region says so: its bottom fades, its rounded end squares off, and a
+ * «Încă N pescari» line under it (pressing it scrolls the region on) — the card never looks finished
+ * while anglers wait in the inner scroll (useRowsBelow).
  *
- * A table without catch columns (quantity, quality…) has no totals after its catches to pin: its
- * deciding columns — the main value and «Poziție generală» — close the table here (decidingLast) and
- * are pinned at the right, the name capped beside them (kit WIDTH), so Stand, name, value and Loc
- * are on the first screen at 375 and the rest (C.M.M.C, Nr. Buc, points, sector place) scrolls.
+ * fish's columns in fish's order (parity clasament c7–c13), never reordered: the deciding columns —
+ * «Poziție generală» and the value the ranking is decided on (Cantitate / Calitate / Medie / Puncte
+ * total; bestOfTiers: its last Best N) — wait pinned at the right edge (tableFixes rankingPinKeys,
+ * `sticky` in place), the name capped beside them (kit WIDTH), so Stand, name, value and Loc are on
+ * the first screen at 375 and the rest scrolls between them. The legend under the table names the
+ * marks the cells draw (RankingLegend).
  */
-function decidingLast(columns: ReadonlyArray<ColumnDefinition>): ReadonlyArray<ColumnDefinition> {
-  if (columns.some(c => /^(catch|tier)\d+$/.test(c.key))) return columns;
-  const main = mainValueKey(columns);
-  const place = columns.find(c => c.key === 'generalPosition');
-  const value = columns.find(c => c.key === main);
-  if (!place || !value) return columns;
-  return [...columns.filter(c => c !== place && c !== value), value, place];
-}
-
 export function MobileRanking({
   columns,
   rows,
   currentUserStandId,
   onRowPress,
+  sortNonce = 0,
 }: {
+  /** Bumped by every Sortare pick: the table starts over in the bar's order, the same pick too. */
+  sortNonce?: number;
   columns: ReadonlyArray<ColumnDefinition>;
   rows: ReadonlyArray<RankingRowData>;
   currentUserStandId: string | null;
@@ -46,32 +48,94 @@ export function MobileRanking({
   onRowPress?: (standId: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
-  const shown = useMemo(() => decidingLast(columns), [columns]);
-  const pins = useTablePins(host, shown, rows.length);
+  const pinRight = useMemo(() => rankingPinKeys(columns, rows), [columns, rows]);
+  const pins = useTablePins(host, columns, rows.length, rows);
   // The table sorts itself; it opens on the order the bar's Sortare built (stand or place).
   const byStand = useMemo(() => rows.every((r, i) => i === 0 || compareByStand(rows[i - 1], r) <= 0), [rows]);
   useRowPress<HTMLTableRowElement>(host, 'tbody tr', row => row.dataset.standId || null, onRowPress);
+  const tableKey = `${byStand ? 'stand' : 'place'}-${sortNonce}`;
+  const below = useRowsBelow(host, tableKey, rows.length);
   return (
+    <>
     <div
       ref={host}
+      data-rows-below={below || undefined}
       // Only the «wide» rules: without data-wide=false the region keeps its own sideways scroll.
       data-wide={pins.wide ? 'true' : undefined}
       data-fade={pins.wide && pins.fade ? 'true' : undefined}
+      data-pinned={pins.wide ? pins.pinned : undefined}
       style={pins.style}
-      className={cn(RANKING_TABLE_FIXES, GENERAL_TABLE_LAYOUT, PRESSABLE_ROWS)}
+      className={cn(
+        'relative',
+        RANKING_TABLE_FIXES,
+        GENERAL_TABLE_LAYOUT,
+        PRESSABLE_ROWS,
+        // More rows below: the region's end is not the table's end (no rounded bottom).
+        below > 0 && '[&>[role=region]]:rounded-b-none',
+      )}
     >
       <CompetitionRankingTable
-        // A new Sortare (the bar) starts the table over in that order.
-        key={byStand ? 'stand' : 'place'}
+        // Every Sortare pick (the bar) starts the table over in that order — after a header sort,
+        // the same pick too (sortNonce).
+        key={tableKey}
         caption="Clasament general"
-        columns={shown}
+        columns={columns}
         rows={rows}
+        pinRight={pinRight}
         currentUserStandId={currentUserStandId}
         initialSort={byStand ? 'stand' : 'place'}
         // Viewport-high, so the header row stays at the region's top while the rows scroll under
         // it (ROADMAP §4b.12) — at full height the whole table scrolled with the page, header too.
         maxHeight={RANK_SCROLL_CAP_PHONE}
       />
+      {below > 0 ? (
+        <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-above h-10 bg-linear-to-b from-transparent to-surface" />
+      ) : null}
     </div>
+    {below > 0 ? (
+      <button
+        type="button"
+        data-rows-below-cue=""
+        onClick={() => {
+          const region = host.current?.querySelector<HTMLElement>('[role=region]');
+          region?.scrollBy({ top: region.clientHeight * 0.8, behavior: 'smooth' });
+        }}
+        className="flex min-h-11 w-full items-center justify-center gap-1 rounded-b-card border-t border-hairline bg-surface t-label text-accent-ink shadow-e0 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent"
+      >
+        Încă {formatCount(below, 'pescar', 'pescari')} în tabel
+        <ChevronDownIcon aria-hidden className="size-4" />
+      </button>
+    ) : null}
+    <RankingLegend columns={columns} rows={rows} className="mt-2 rounded-card bg-surface px-4 py-3 shadow-e0" />
+    </>
   );
+}
+
+/**
+ * How many rows sit (even partly) below the scroll region's bottom edge: the cue under the phone
+ * table. Re-measured on the region's own scroll and on any resize; a new table (`key`) re-binds.
+ */
+function useRowsBelow(host: RefObject<HTMLDivElement | null>, key: string, count: number): number {
+  const [below, setBelow] = useState(0);
+  useEffect(() => {
+    const region = host.current?.querySelector<HTMLElement>('[role=region]');
+    if (!region) return;
+    const update = () => {
+      const edge = region.getBoundingClientRect().bottom + 1;
+      let n = 0;
+      for (const tr of region.querySelectorAll<HTMLElement>('tbody tr')) if (tr.getBoundingClientRect().bottom > edge) n += 1;
+      setBelow(n);
+    };
+    update();
+    region.addEventListener('scroll', update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(region);
+    const table = region.querySelector('table');
+    if (table) ro.observe(table);
+    return () => {
+      region.removeEventListener('scroll', update);
+      ro.disconnect();
+    };
+  }, [host, key, count]);
+  return below;
 }

@@ -35,9 +35,27 @@ export function sectorColor(sectorName: string): string {
   return SECTOR_LETTERS.includes(letter) ? `var(--color-sector-${letter.toLowerCase()})` : 'var(--color-muted)';
 }
 
-/** The `sectorColors` argument for createXRow(): every sector A–X mapped to its token. */
-export function sectorColorMap(): Record<string, string> {
-  return Object.fromEntries(SECTOR_LETTERS.map(l => [l, sectorColor(l)]));
+/**
+ * fish getColorsBySector: the 24 palette colours handed to the ranking's DISTINCT sector names, sorted
+ * (fish `.sort()`, code-unit order), by index — the i-th name gets palette[i] (the token of the i-th
+ * letter, --color-sector-a … x), whatever the name is: sectors B and C alone are blue and orange (A's
+ * and B's colours), a sector named «1» is coloured too. Without names (the kit's demo): every
+ * letter A–X mapped to its own token.
+ */
+export function sectorColorMap(sectorNames?: ReadonlyArray<string>): Record<string, string> {
+  if (!sectorNames) return Object.fromEntries(SECTOR_LETTERS.map(l => [l, sectorColor(l)]));
+  const sorted = [...new Set(sectorNames)].sort();
+  return Object.fromEntries(sorted.map((name, i) => [name, sectorColor(SECTOR_LETTERS[i % SECTOR_LETTERS.length])]));
+}
+
+/**
+ * The palette letter behind a colour sectorColorMap handed out («var(--color-sector-c)» → «C»), so the
+ * token classes (the dot, the edge) and the AA ink (sectorInk) follow fish's by-index colour rather
+ * than the sector's own name. null for any other colour.
+ */
+export function paletteLetter(color: string | null | undefined): string | null {
+  const m = /^var\(--color-sector-([a-x])\)$/.exec(color ?? '');
+  return m ? m[1].toUpperCase() : null;
 }
 
 /** The builders' `position` is "A/7" (sectorName/standName). */

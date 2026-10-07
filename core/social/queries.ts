@@ -7,6 +7,7 @@ import {
   getAnglerFollowing,
   getAnglerProfile,
   getAnglerSessions,
+  getMyWidgetNotification,
   getNotificationsForLoggedUser,
   getPaginatedUsers,
   getProfile,
@@ -17,7 +18,7 @@ import {
   getUserReputation,
   searchAnglers,
 } from './api';
-import type { CompetitionsHistoryFilter } from './schemas';
+import type { CompetitionsHistoryFilter, FeatureKey } from './schemas';
 
 /*
  * fish gates most of these hooks on `useSession().isAuthenticated` (via `skipToken`). core has no
@@ -66,6 +67,11 @@ export const notificationsKeys = {
 export const reputationKeys = {
   all: ['reputation'] as const,
   byUser: (id: string) => ['reputation', id] as const,
+};
+
+/** fish `queryKeys.widgetNotification` */
+export const widgetNotificationKeys = {
+  mine: (feature: FeatureKey) => ['widget-notification', 'mine', feature] as const,
 };
 
 /** Roots owned by booking / lakes that an angler review invalidates (social imports neither). */
@@ -317,5 +323,20 @@ export function unreadNotificationsCountQuery(t: Transport, { isAuthenticated = 
     enabled: isAuthenticated,
     select: (data: { count: number }) => data.count,
     staleTime: Infinity,
+  });
+}
+
+// ── useMyWidgetNotification ─────────────────────────────────────────────────────────────────────────
+
+/** fish `useMyWidgetNotification` — fish's `enabled` argument (the sheet is open) is the caller's to add. */
+export function myWidgetNotificationQuery(t: Transport, feature: FeatureKey, { isAuthenticated = true }: AuthGate = {}) {
+  return queryOptions({
+    queryKey: widgetNotificationKeys.mine(feature),
+    queryFn: () => getMyWidgetNotification(t, feature),
+    enabled: isAuthenticated,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    // The web gates its offer on this read (fish does not): no retries, so a failed read (5xx)
+    // reaches the offer at once instead of after the default ~3s of backoff.
+    retry: false,
   });
 }

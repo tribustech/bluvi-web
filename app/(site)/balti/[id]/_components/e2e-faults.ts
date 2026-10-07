@@ -13,8 +13,9 @@ import { ApiError } from '@/core/transport';
  *    streaming placeholders, c32); `<read>-hang` delays it 5s — past the timeout, so the read fails
  *    by timing out (the lake read's own bound is 8s: `lake-hang` is just slow);
  *  - `no-photos`, `no-coordinates`, `owner-without-profile`, `no-optional` (no facilities, fish,
- *    prices, contact, address, website, coordinates) reshape the lake (states s4, s9, s8, s12 —
- *    the local CMS has no such lake).
+ *    prices, contact, address, website, coordinates), `with-phone` (one contact phone — a
+ *    phone-booking lake that lists its number) reshape the lake (states s4, s9, s8, s12, c16 — the
+ *    local CMS has no such lake).
  * In production builds both functions are no-ops (NODE_ENV is inlined) and the route answers 404.
  */
 
@@ -50,6 +51,7 @@ export function e2eLakeStub(lakeId: string, lake: LakeDetail): LakeDetail {
     ...(faults.has('no-photos') ? { images: [] } : {}),
     ...(faults.has('no-coordinates') ? { coordinates: null } : {}),
     ...(faults.has('owner-without-profile') ? { ownerDocumentId: null } : {}),
+    ...(faults.has('with-phone') ? { contact: [{ id: 0, header: null, name: null, phone: '0700 000 000' }] } : {}),
     ...(faults.has('no-optional')
       ? { facility: [], fishSpecies: [], price: [], contact: [], address: null, website: null, coordinates: null }
       : {}),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, type ReactNode } from 'react';
+import { useMemo, useRef, type ReactNode } from 'react';
 import { PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { ButtonLink } from '@/components/ui/Button';
 import { IconButton } from '@/components/nav/IconButton';
@@ -9,7 +9,7 @@ import { cn } from '@/components/ui/cn';
 import type { RankingTableData } from './ranking';
 import { CompetitionRankingTable, type RankingInitialSort } from './CompetitionRankingTable';
 import { useMyStandId } from './rankingShell';
-import { GENERAL_TABLE_LAYOUT, RANKING_TABLE_FIXES, STICKY_HEAD_DIALOG, useTablePins } from './tableFixes';
+import { GENERAL_TABLE_LAYOUT, RANKING_TABLE_FIXES, STICKY_HEAD_DIALOG, rankingPinKeys, useTablePins } from './tableFixes';
 
 /**
  * fish «Vezi full» (/competitions/ranking-image: the whole table, every column) — on the web the
@@ -59,7 +59,8 @@ export function FullRankingDialog({
   // clasament.c22) — Loc and Stand pinned, as the inline table. Only the «wide» half of the layout:
   // without a data-wide attribute the «fits» rules (no inner scroll box) never apply here, so the
   // table keeps scrolling inside the dialog.
-  const pins = useTablePins(hostRef, table?.columns ?? [], open && table ? table.rows.length : 0);
+  const pins = useTablePins(hostRef, table?.columns ?? [], open && table ? table.rows.length : 0, table?.rows);
+  const pinRight = useMemo(() => (table ? rankingPinKeys(table.columns, table.rows) : []), [table]);
   const mine = useMyStandId();
   const myStandId = currentUserStandId === undefined ? mine.standId : currentUserStandId;
   return (
@@ -91,6 +92,7 @@ export function FullRankingDialog({
           ref={hostRef}
           data-wide={pins.wide ? 'true' : undefined}
           data-fade={pins.wide && pins.fade ? 'true' : undefined}
+          data-pinned={pins.wide ? pins.pinned : undefined}
           style={pins.style}
           // The table is as wide as its columns (ROADMAP §4b.16): centred, the rest is margin.
           className={cn('min-h-0 flex-1 p-3 md:p-6 [&>[role=region]]:mx-auto', RANKING_TABLE_FIXES, GENERAL_TABLE_LAYOUT, STICKY_HEAD_DIALOG)}
@@ -99,6 +101,7 @@ export function FullRankingDialog({
             caption="Clasament complet"
             columns={table.columns}
             rows={table.rows}
+            pinRight={pinRight}
             currentUserStandId={myStandId}
             maxHeight="100%"
             initialSort={initialSort}

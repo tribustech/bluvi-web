@@ -19,6 +19,8 @@ type Props = {
   alert?: boolean;
   /** Show an «Închide» X in the header (ignored for `alert`, which must be answered). */
   closeButton?: boolean;
+  /** Keep the title for assistive tech only (the body shows its own, e.g. centred under an icon). */
+  titleHidden?: boolean;
   className?: string;
 };
 
@@ -33,6 +35,7 @@ export function Dialog({
   children,
   alert,
   closeButton,
+  titleHidden,
   className,
 }: Props) {
   const dialog = useModalDialog(open, onClose);
@@ -54,7 +57,7 @@ export function Dialog({
       <div className="flex flex-col gap-2 p-5">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <h2 id={titleId} className="t-title2">
+            <h2 id={titleId} className={titleHidden ? 'sr-only' : 't-title2'}>
               {title}
             </h2>
             {subtitle ? <div className="t-caption text-muted">{subtitle}</div> : null}

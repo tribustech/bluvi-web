@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { DetailBackButton, DetailError } from '@/components/templates/T3';
 import { Button } from '@/components/ui/Button';
 import { routes } from '@/lib/routes';
+import { SetBreadcrumb } from '../../_shell/SiteHeader';
 import { markPageRetry } from './_components/RetryFocus';
 
 /** Retries started per page (a retry that throws again mounts a new card), see concursuri/[id]/error.tsx. */
@@ -16,6 +17,8 @@ const RETRY_WINDOW_MS = 30_000;
  * the route's own ErrorBoundary — parity lakes.detail.c2, lakes.b.route-error-boundary): the T3
  * page error inside the shell, which keeps working. The retry re-renders the segment and is never
  * silent: busy while it runs, «Tot nu s-a putut încărca.» when it fails again.
+ * ONE breadcrumb, as on not-found: the shell band carries «Bălți / Eroare» (SetBreadcrumb), so the
+ * kit card gets no `trail` of its own (two stacked trails at ≥768 otherwise).
  */
 export default function LakeError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   const pathname = usePathname() ?? '';
@@ -30,32 +33,34 @@ export default function LakeError({ error, retry }: { error: Error & { digest?: 
   }, [error]);
 
   return (
-    <DetailError
-      trail={[{ label: 'Bălți', href: routes.lakes() }]}
-      back={<DetailBackButton fallbackHref={routes.lakes()} ground="page" />}
-      heading="Balta nu a putut fi încărcată"
-      description={`Nu am putut încărca pagina. Verifică conexiunea și încearcă din nou.${error.digest ? ` Cod: ${error.digest}` : ''}`}
-      action={
-        <>
-          <Button
-            aria-busy={pending || undefined}
-            aria-disabled={pending || undefined}
-            onClick={() => {
-              if (pending) return;
-              retried.set(pathname, { n: attempt + 1, at: Date.now() });
-              // On success the lake's title takes focus (RetryFocus), not <body>.
-              markPageRetry();
-              start(() => retry());
-            }}
-          >
-            {pending ? 'Se încarcă…' : 'Încearcă din nou'}
-          </Button>
-          {attempt > 0 && !pending ? <p className="t-caption text-muted">Tot nu s-a putut încărca. Încercarea {attempt + 1}.</p> : null}
-          <span role="status" className="sr-only">
-            {attempt > 0 && !pending ? 'Tot nu s-a putut încărca.' : ''}
-          </span>
-        </>
-      }
-    />
+    <>
+      <SetBreadcrumb trail={[{ label: 'Bălți', href: routes.lakes() }, { label: 'Eroare' }]} />
+      <DetailError
+        back={<DetailBackButton fallbackHref={routes.lakes()} ground="page" />}
+        heading="Balta nu a putut fi încărcată"
+        description={`Nu am putut încărca pagina. Verifică conexiunea și încearcă din nou.${error.digest ? ` Cod: ${error.digest}` : ''}`}
+        action={
+          <>
+            <Button
+              aria-busy={pending || undefined}
+              aria-disabled={pending || undefined}
+              onClick={() => {
+                if (pending) return;
+                retried.set(pathname, { n: attempt + 1, at: Date.now() });
+                // On success the lake's title takes focus (RetryFocus), not <body>.
+                markPageRetry();
+                start(() => retry());
+              }}
+            >
+              {pending ? 'Se încarcă…' : 'Încearcă din nou'}
+            </Button>
+            {attempt > 0 && !pending ? <p className="t-caption text-muted">Tot nu s-a putut încărca. Încercarea {attempt + 1}.</p> : null}
+            <span role="status" className="sr-only">
+              {attempt > 0 && !pending ? 'Tot nu s-a putut încărca.' : ''}
+            </span>
+          </>
+        }
+      />
+    </>
   );
 }

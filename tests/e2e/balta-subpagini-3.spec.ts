@@ -427,7 +427,7 @@ test('lakes.partide.c5 lakes.partide.c10 lakes.partide.s4 — live sessions lead
   });
   await go(page, `/balti/${ID.big}/partide`);
   const live = page.getByTestId('live-block');
-  await expect(live).toContainText('1 ACTIVI ACUM');
+  await expect(live).toContainText('1 ACTIV ACUM');
   await expect(live).toContainText('Ion Pescaru');
   // c5: the live card comes before the rail and the finished partide.
   const order = await page.evaluate(() => {

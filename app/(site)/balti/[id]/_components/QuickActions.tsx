@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import {
   CalendarDaysIcon,
   ChartBarIcon,
+  GlobeAltIcon,
   MapIcon,
   PaperAirplaneIcon,
   StarIcon,
@@ -16,7 +17,8 @@ import { H3_CLASS } from '@/components/templates/T3';
 import { cn } from '@/components/ui/cn';
 import { routes } from '@/lib/routes';
 import { lakeHref } from './availability';
-import { BookingTile, DialogTrigger } from './LakeActions';
+import { bookingReachable } from './bookingReach';
+import { BookingTile, DialogTrigger, useLake, WebsiteCta } from './LakeActions';
 import { onSectionJump } from './SectionLink';
 
 /*
@@ -28,8 +30,13 @@ import { onSectionJump } from './SectionLink';
  * Like the kit, a tile only exists for what the web can do: an action whose page is not on the web
  * yet (availability.ts) is named once in the muted «Curând pe web: …» line, never a dead tile. The
  * Rezervă tile is always there (useBookingTarget decides on click), so the row never changes with
- * the session. No «NOU» on Rezervă: fish dated it to before 2026-10-01 (c15). The count badges
- * (Partide active now, Concursuri live) belong to tiles whose pages are not on the web yet.
+ * the session; its label is the booking state's (owner rule 4, c6): «Rezervă» when the lake books
+ * (online or by phone), «Vreau online» when it takes no bookings (the demand signal — never a
+ * booking promise the hero and the summary card say is not there). A phone-booking lake with no
+ * phone number has nothing to book through (bookingReachable): the tile is «Contactează» (its
+ * website) or gone. No «NOU» on Rezervă: fish dated
+ * it to before 2026-10-01 (c15). The count badges (fish: Partide `stats.activeNow`, Concursuri the
+ * live count) are streamed in by the page (`badges`: PartideActiveBadge, the live competitions).
  *
  * Rhythm: phone — always four 64px tracks spread over the row, filled from the left edge, so two
  * or three tiles keep fish's spacing instead of huddling or stretching; from 768 the kit's tracks —
@@ -44,9 +51,10 @@ type Tile = {
   label: string;
   icon: ReactNode;
   /** A link (route or `#section`), the booking affordance, or the directions dialog. */
-  kind: 'link' | 'booking' | 'directions';
+  kind: 'link' | 'booking' | 'directions' | 'website';
   href?: string;
-  badge?: number;
+  /** A count badge on the icon (QuickActionBadge), streamed in by the page. */
+  badge?: ReactNode;
   /** Not on the web yet: named in the «Curând pe web» line. */
   later?: boolean;
 };
@@ -54,17 +62,31 @@ type Tile = {
 const TILE =
   'group flex w-full cursor-pointer flex-col items-center gap-2 rounded-control text-center transition-opacity duration-(--duration-fast) ease-fast active:opacity-70';
 
+/** The red count on a tile's icon (fish quick-action `badge`); `label` is what a screen reader hears. */
+export function QuickActionBadge({ count, label }: { count: number; label: string }) {
+  return (
+    <span className="absolute -top-1.25 -right-1.25 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-surface bg-status-live-bg px-1.25 t-micro-strong text-status-live-fg">
+      <span aria-hidden>{count}</span>
+      <span className="sr-only">{`, ${label}`}</span>
+    </span>
+  );
+}
+
 export function QuickActions({
   lakeId,
   hasPrices,
   hasCoordinates,
+  badges,
   className,
 }: {
   lakeId: string;
   hasPrices: boolean;
   hasCoordinates: boolean;
+  /** Streamed badges (each behind its own Suspense): Partide active now, Concursuri live. */
+  badges?: Partial<Record<'partide' | 'concursuri', ReactNode>>;
   className?: string;
 }) {
+  const { lake } = useLake();
   const routeTile = (key: string, label: string, icon: ReactNode, href: string | undefined): Tile => ({
     key,
     label,
@@ -72,9 +94,15 @@ export function QuickActions({
     kind: 'link',
     href,
     later: !href,
+    badge: badges?.[key as keyof NonNullable<typeof badges>],
   });
+  const booking: Tile[] = bookingReachable(lake)
+    ? [{ key: 'rezerva', label: lake.bookingState === 'none' ? 'Vreau online' : 'Rezervă', icon: <CalendarDaysIcon />, kind: 'booking' }]
+    : lake.website
+      ? [{ key: 'rezerva', label: 'Contactează', icon: <GlobeAltIcon />, kind: 'website', href: lake.website }]
+      : [];
   const tiles: Tile[] = [
-    { key: 'rezerva', label: 'Rezervă', icon: <CalendarDaysIcon />, kind: 'booking' },
+    ...booking,
     ...(hasPrices ? [routeTile('preturi', 'Prețuri', <TagIcon />, '#preturi')] : []),
     routeTile('partide', 'Partide', <UsersIcon />, lakeHref('partide', routes.lakePartide(lakeId))),
     routeTile('statistici', 'Statistici', <ChartBarIcon />, lakeHref('stats', routes.lakeStats(lakeId))),
@@ -102,11 +130,7 @@ export function QuickActions({
             <>
               <span className="relative flex size-16 items-center justify-center rounded-card bg-accent-tint-2 text-accent-ink transition-[filter] duration-(--duration-fast) ease-fast group-hover:brightness-95 [&>svg]:size-6">
                 {t.icon}
-                {t.badge ? (
-                  <span className="absolute -top-1.25 -right-1.25 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-surface bg-status-live-bg px-1.25 t-micro-strong text-status-live-fg">
-                    {t.badge}
-                  </span>
-                ) : null}
+                {t.badge}
               </span>
               <span className="t-label whitespace-nowrap">{t.label}</span>
             </>
@@ -121,6 +145,10 @@ export function QuickActions({
             >
               {t.kind === 'booking' ? (
                 <BookingTile className={TILE}>{body}</BookingTile>
+              ) : t.kind === 'website' ? (
+                <WebsiteCta website={t.href as string} className={TILE}>
+                  {body}
+                </WebsiteCta>
               ) : t.kind === 'directions' ? (
                 <DialogTrigger dialog="directions" className={TILE}>
                   {body}

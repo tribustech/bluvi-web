@@ -9,6 +9,9 @@ import { Slogan } from './Slogan';
 import logo from './assets/logo_bluvi.png';
 
 /** fish: «Salut, {username}!», or «Bine ai venit!» without a username; «Conectează-te» signed out. */
+/** A guest's page title, the same at every width (the phone card's «Conectează-te» is the sign-in). */
+const GUEST_TITLE = 'Bine ai venit pe Bluvi';
+
 function greeting(viewer: { username: string | null } | null): string {
   if (!viewer) return 'Conectează-te';
   return viewer.username ? `Salut, ${viewer.username}!` : 'Bine ai venit!';
@@ -40,6 +43,9 @@ export async function ProfileCard({ className }: { className?: string }) {
   // silent retry (as HomeFocusRefresh): a re-render re-reads the session.
   if (session === 'unknown') return <NeutralProfileCard className={className} />;
   const viewer = session;
+  // Signed in the greeting is the phone's h1; a guest's h1 is GUEST_TITLE (HomeHeader, every width)
+  // and «Conectează-te» stays the card's title line — same look, not a heading.
+  const Title = viewer ? 'h1' : 'p';
 
   return (
     <div className={cn(CARD, className)}>
@@ -51,11 +57,11 @@ export async function ProfileCard({ className }: { className?: string }) {
         <Image src={logo} alt="" width={64} height={64} className="size-16 shrink-0 rounded-avatar object-cover" priority />
       )}
       <div className="flex min-w-0 flex-col gap-1">
-        <h1 className="t-title1 text-ink">
+        <Title className="t-title1 text-ink">
           <Link href={viewer ? homeLinks.profile : homeLinks.signIn} className={STRETCHED}>
             {greeting(viewer)}
           </Link>
-        </h1>
+        </Title>
         {/* Three lines (3 × 20) reserved: the longest slogan fits whole beside the refresh chip at
             375 (~190px of measure — a brand line never ends in «…»), and whichever one the visit
             picks, the card keeps its height (no shift after hydration). */}
@@ -132,12 +138,17 @@ export async function HomeHeader() {
   }
   const viewer = session;
   return (
-    <DashboardHeader
-      className="max-md:hidden"
-      title={viewer ? greeting(viewer) : 'Bine ai venit pe Bluvi'}
-      caption={<Slogan signedIn={!!viewer} as="span" className="" />}
-      actions={<HomeRefresh />}
-    />
+    <>
+      {/* A guest's h1 is the same at every width: on the phone a plain title above the sign-in
+          card (which carries the slogan and the refresh), from 768 the T5 header. */}
+      {viewer ? null : <h1 className="t-title1 text-ink md:hidden">{GUEST_TITLE}</h1>}
+      <DashboardHeader
+        className="max-md:hidden"
+        title={viewer ? greeting(viewer) : GUEST_TITLE}
+        caption={<Slogan signedIn={!!viewer} as="span" className="" />}
+        actions={<HomeRefresh />}
+      />
+    </>
   );
 }
 

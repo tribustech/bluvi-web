@@ -915,15 +915,26 @@ screens:
       - id: account.onboarding.c1
         text: "On first launch (no ONBOARDING_COMPLETE flag) the app opens the onboarding, otherwise home."
         fish_ref: "app/index.tsx:9-28"
+        status: passing
+        note: "replaced (mobile only): e2e tests/e2e/acasa.spec.ts «account.onboarding.c1 c2 c3 c4 replaced» — a first visit to / answers 200 with no redirect, no pager, the signed-out landing heading, and the top-bar «Intră» opens /intra."
       - id: account.onboarding.c2
         text: "Four stories: „DESCOPERĂ / Următoarea partidă începe aici.”, „TRĂIEȘTE PARTIDA / Fiecare lansetă. Fiecare moment.”, „INTRĂ ÎN COMPETIȚIE / Emoția concursului. Captură cu captură.”, „ÎNȚELEGE PESCUITUL / Mai mult decât o captură.” with their descriptions — copy the signed-out landing may reuse."
         fish_ref: "app/onboarding.tsx:36-57"
+        status: passing
+        note: "replaced (mobile only): the signed-out / reuses the four kicker/headline pairs in «Ce găsești pe Bluvi» (see c4); e2e tests/e2e/acasa.spec.ts «account.onboarding.c1 c2 c3 c4 replaced»."
       - id: account.onboarding.c3
         text: "„Sari peste” and „Ai deja cont? Intră în Bluvi” store the flag and go to sign-in; the last story's CTA is „Hai la pescuit”, the others „Continuă”."
         fish_ref: "app/onboarding.tsx:110-136,164-166,259,263-265"
+        status: passing
+        note: "replaced (mobile only): e2e tests/e2e/acasa.spec.ts «account.onboarding.c1 c2 c3 c4 replaced» — a first visit to / answers 200 with no redirect, no pager, the signed-out landing heading, and the top-bar «Intră» opens /intra."
+      - id: account.onboarding.c4
+        text: "Signed out, / explains what Bluvi offers with the onboarding pillars (kicker + headline of the four stories) beside the sign-in prompt, under one h1 «Bine ai venit pe Bluvi» at every width: under the header card on the phone (2×2), one row of four at 768–1279, heading the right column (above Instrumente) from 1280; never shown signed in or to an unknown session."
+        fish_ref: "app/onboarding.tsx:36-57"
+        status: passing
+        note: "replaced (mobile only): app/(site)/_home/Pillars.tsx; e2e tests/e2e/acasa.spec.ts «account.onboarding.c1 c2 c3 c4 replaced» at 375 and 1280 (copy + position), smoke «home.acasa.c58 blocks» (guest only, every width)."
     mobile_only: true
-    web_replacement: "No onboarding pager on web: the signed-out home (/) acts as the landing page (ROADMAP §3) and the top-bar „Intră” leads to /intra."
-    status: todo
+    web_replacement: "No onboarding pager on web: the signed-out home (/) acts as the landing page (ROADMAP §3) — it says what Bluvi is with the four onboarding pillars (c4) — and the top-bar „Intră” leads to /intra."
+    status: passing
 
   - id: account.cmp-personalize
     title: Setări de confidențialitate

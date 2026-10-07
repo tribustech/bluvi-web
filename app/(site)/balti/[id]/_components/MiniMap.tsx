@@ -23,6 +23,7 @@ export function MiniMap({
   href,
   name,
   tile = false,
+  className,
 }: {
   lat: number;
   lng: number;
@@ -30,6 +31,8 @@ export function MiniMap({
   name: string;
   /** A tile of the photo grid (beside a lone lake photo, from 768): its box's height, square corners (the grid rounds). */
   tile?: boolean;
+  /** More box classes (a taller box where the contact section lays it out beside the rows). */
+  className?: string;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
@@ -93,7 +96,7 @@ export function MiniMap({
       <span className="absolute bottom-1 left-2 t-nano text-muted">© OpenStreetMap</span>
     </>
   );
-  const BOX = cn('group relative block overflow-hidden bg-soft-fill', tile ? 'h-full' : 'h-37.5 rounded-control md:h-48');
+  const BOX = cn('group relative block overflow-hidden bg-soft-fill', tile ? 'h-full' : 'h-37.5 rounded-control md:h-48', className);
   const testId = tile ? 'lake-hero-map' : 'lake-mini-map';
   return href ? (
     <Link href={href} aria-label={`Deschide harta: ${name}`} className={BOX} data-testid={testId}>

@@ -1,4 +1,5 @@
 import type { ClaimedPublicWater, Review, ReviewMeta, ReviewReqBody } from '../schemas';
+import { formatCount } from '../../realtime/chat/format';
 
 /* fish `helpers/calculateOptimisticReviewMeta.ts` */
 
@@ -30,9 +31,12 @@ export const calculateOptimisticReviewMeta = (
 
 /* fish `helpers/formatReviewsCount.ts` */
 
-/** Romanian pluralization for review counts: 1 recenzie / N recenzii. */
+/**
+ * Romanian pluralization for review counts: 1 recenzie / 3 recenzii / 20 de recenzii. fish writes
+ * «20 recenzii»; the web follows the owner's plural rule (formatCount, ROADMAP §4b).
+ */
 export function formatReviewsCount(count: number): string {
-  return `${count} ${count === 1 ? 'recenzie' : 'recenzii'}`;
+  return formatCount(count, 'recenzie', 'recenzii');
 }
 
 /* fish `features/lakes/helpers/lakeDetailLogic.ts#getLakeRatingDisplay` */

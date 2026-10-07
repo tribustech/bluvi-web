@@ -43,9 +43,20 @@ export type DetailSectionItem = {
    * entry in the ≥1280 index.
    */
   hideFromLg?: boolean;
+  /**
+   * `false`: the section's place in the order is known, but whether it shows is not decided by the
+   * server read — it is left out until the page's own client read registers it (useRegisterSection).
+   * A registration always wins over this flag (a section that appears / leaves while the page is open).
+   */
+  visible?: boolean;
 };
 
-type Ctx = { sections: DetailSectionItem[]; active: string | undefined; go: (id: string) => void };
+type Ctx = {
+  sections: DetailSectionItem[];
+  active: string | undefined;
+  go: (id: string) => void;
+  register: (id: string, visible: boolean) => void;
+};
 const SectionsContext = createContext<Ctx | null>(null);
 
 function useSections(): Ctx {
@@ -55,6 +66,17 @@ function useSections(): Ctx {
 }
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * A section that shows or hides from a client read (a poll) tells the nav, so its chip appears and
+ * leaves with it. `undefined` (no data yet) keeps what the server list said. Outside a provider: a no-op.
+ */
+export function useRegisterSection(id: string, visible: boolean | undefined) {
+  const register = use(SectionsContext)?.register;
+  useEffect(() => {
+    if (register && visible !== undefined) register(id, visible);
+  }, [register, id, visible]);
+}
 
 /** Takes the streamed section list once its promise resolves (it must not reject: settle the reads first). */
 function Refine({ list, onList }: { list: Promise<DetailSectionItem[]>; onList: (l: DetailSectionItem[]) => void }) {
@@ -77,7 +99,13 @@ export function DetailSectionsProvider({
   refined?: Promise<DetailSectionItem[]>;
   children: ReactNode;
 }) {
-  const [sections, setSections] = useState(initial);
+  const [listed, setSections] = useState(initial);
+  const [registered, setRegistered] = useState<Record<string, boolean>>({});
+  const sections = useMemo(() => listed.filter(s => registered[s.id] ?? s.visible !== false), [listed, registered]);
+  const register = useCallback(
+    (id: string, visible: boolean) => setRegistered(r => (r[id] === visible ? r : { ...r, [id]: visible })),
+    [],
+  );
   const [active, setActive] = useState<string | undefined>(sections[0]?.id);
   const locked = useRef(false);
   const unlockTimer = useRef<number | undefined>(undefined);
@@ -170,7 +198,7 @@ export function DetailSectionsProvider({
     focusLandingSpot(el, { preventScroll: true });
   }, []);
 
-  const value = useMemo(() => ({ sections, active, go }), [sections, active, go]);
+  const value = useMemo(() => ({ sections, active, go, register }), [sections, active, go, register]);
   return (
     <SectionsContext value={value}>
       {children}

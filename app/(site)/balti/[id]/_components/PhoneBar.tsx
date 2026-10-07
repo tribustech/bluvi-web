@@ -5,14 +5,16 @@ import { DetailActionBar } from '@/components/templates/T3';
 import { cn } from '@/components/ui/cn';
 
 /**
- * The phone's bottom action bar (Airbnb), shown once the hero photo — and its own «Rezervă acum»
- * (fish c6) — has left the screen, so the first screen never carries the same button twice. It
- * slides up from the bottom edge; while it is away it is `inert` (no Tab stop, nothing read).
+ * The phone's bottom action bar (Airbnb), shown once the page's own main action — the hero's
+ * «Rezervă acum» (fish c6), or the title block's when the lake has no hero — has left the screen
+ * (`[data-phone-cta]`, else the hero `[data-t3="photo"]`), so the first screen never carries the
+ * same button twice. It slides up from the bottom edge; while it is away it is `inert` (no Tab
+ * stop, nothing read).
  */
 export function PhoneBar({ label, summary, children }: { label: string; summary: ReactNode; children: ReactNode }) {
   const [shown, setShown] = useState(false);
   useEffect(() => {
-    const hero = document.querySelector('[data-t3="photo"]');
+    const hero = document.querySelector('[data-phone-cta]') ?? document.querySelector('[data-t3="photo"]');
     if (!hero) return;
     const io = new IntersectionObserver(([e]) => setShown(!e.isIntersecting), { threshold: 0 });
     io.observe(hero);

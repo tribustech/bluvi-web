@@ -243,8 +243,8 @@ screens:
     core:
       - competitions.rankingsQuery
       - competitions.domain.table (getXColumns, createXRow, getCompetitorDisplayName)
-      - getColorsBySector / getTierCellColors (fish helpers/table) — check core/competitions/domain/table; not exported yet
-      - feeder-rounds table + model (feederColumns, feederRows, feederGeneralModel, feederLegModel, defaultFeederTab, futureLegMessage) — not in core yet; gap
+      - "getColorsBySector / getTierCellColors — presentation, in the kit (components/ranking/sector.ts sectorColorMap: the sector tokens by the sorted names' index, as fish; RankingTable tier fills)"
+      - competitions.domain.feeder (core/competitions/domain/feeder.ts — feederColumns, feederRows, feederGeneralModel, feederLegModel, defaultFeederTab, futureLegMessage)
       - competitions.competitionQuery (registrations, for row → registration)
     states:
       - loading (ranking skeleton)
@@ -263,21 +263,22 @@ screens:
         text: "While the competition loads, or the ranking loads in the Clasament/Statistici views, a ranking skeleton is shown."
         fish_ref: components/competition/CompetitionRankingWrapper.tsx:29-31; components/competition/CompetitionRanking.tsx:1216-1222
         status: passing
-        web_note: "Competition loading: the T3 page skeleton; ranking loading: the table skeleton (RankingView). Verified in code (the ranking is server-hydrated)."
+        web_note: "Competition loading: the T3 page skeleton (loading.tsx / CompetitionSkeleton, aria-busy) — e2e concurs.spec.ts with the navigation's server payload held. Ranking loading: RankingSkeleton (status «Se încarcă clasamentul») — the page hydrates the ranking from the server, so the browser never starts without it; unit RankingView.test.ts."
       - id: competition-page.clasament.c2
         text: "No rankingType → the tab renders nothing; a rankingType outside the supported set (quantity, quality, quantityQuality, qualityQuantity, bestOf, nationalChampionship, fipsed, calitateCalitate, calitateCantitateCMMC, bestOfTiers, feederRounds) shows „Actualizare necesara” with an explanation instead of a table (web: explicit unsupported message, no store button)."
         fish_ref: components/competition/CompetitionRankingWrapper.tsx:33-39; components/competition/CompetitionRankingUpdateRequired.tsx:6-23; helpers/rankingTypeSupport.ts:3-19
         status: passing
-        web_note: "Any type core cannot parse shows «Clasamentul acestui tip de concurs nu este încă disponibil pe web.» (load.ts `unsupported`). Every local type now renders, so the e2e runs only with E2E_COMPETITION_UNKNOWN_TYPE; verified in code."
+        web_note: "Any type core cannot parse shows «Clasamentul acestui tip de concurs nu este încă disponibil pe web.» (load.ts `unsupported`, decided on the server, so a proxy answer cannot fake it). Every local type renders: the e2e (concurs.spec.ts) runs only with E2E_COMPETITION_UNKNOWN_TYPE; verified in code."
       - id: competition-page.clasament.c3
         text: "nationalChampionship and fipsed render the National Championship ranking (competition-page.clasament-nc); every other type renders this ranking; status notStarted renders the preview (competition-page.previzualizare)."
         fish_ref: components/competition/CompetitionRankingWrapper.tsx:41-45; components/competition/CompetitionRanking.tsx:1224-1258
         status: passing
-        web_note: "notStarted → preview; nationalChampionship / fipsed → the club ranking (NcRanking.tsx); feederRounds → the feeder tables (FeederRanking.tsx). e2e concurs-clasamente.spec.ts."
+        web_note: "notStarted → preview (concurs-previzualizare.spec.ts); nationalChampionship / fipsed → the club ranking (NcRanking.tsx); feederRounds → the feeder tables (FeederRanking.tsx); every other type → the kit RankingTable. e2e concurs-clasamente.spec.ts (NC and feeder) + the fixture types in concurs-clasament-tabel.spec.ts."
       - id: competition-page.clasament.c4
         text: "Four views, in order Clasament, Cântare, Statistici, Toți peștii, with Clasament selected by default (web: tablist with keyboard arrows)."
         fish_ref: components/competition/CompetitionRanking.tsx:144-154,323,1500-1539
         status: passing
+        web_note: "A real tab bar (ViewSwitch, §4b.20) with arrow keys. e2e concurs.spec.ts (smoke at 4 widths + keyboard)."
       - id: competition-page.clasament.c5
         text: "Selecting Clasament or Statistici invalidates rankings, rankingBestN, weighingStatistics, timelineSnapshot and catchThresholdCounts; selecting Toți peștii invalidates the current catches query; selecting Cântare invalidates the competition's weighings."
         fish_ref: components/competition/CompetitionRanking.tsx:858-876
@@ -291,102 +292,103 @@ screens:
       - id: competition-page.clasament.c7
         text: "quantity columns: Stand, Participant, C.M.M.C, Cantitate, Nr. Buc, Puncte cantitate, Poziție sector, Poziție generală."
         fish_ref: helpers/table/getTableColumns.ts:8-27
-        status: todo
-        web_note: "The kit table (components/ranking/columns.ts, phone «Tot ecranul» and from 768) renames and reorders the builders' columns to the Fundații wording (Loc · Stand · Pescar · … · Capturi · CMMC · Loc sector · Puncte); the phone shows the kit RankingRow, no columns. Needs a kit change or an owner-approved web_note."
+        status: passing
+        web_note: "Columns, order and titles are exactly the core builders' (getTableColumns, fish wording) at every width — the inline table (768–1279 too: every catch column, a wider table scrolls sideways), «Clasament complet» and the phone table. Nothing is reordered: a table wider than its card keeps the Stand pinned at the left and the deciding columns («Poziție generală», the deciding value — Cantitate / Calitate / Medie / Puncte total, bestOfTiers the Best N that decided the most rows — then the totals after the catches) pinned at the right in place (`sticky`, tableFixes rankingPinKeys), so the phone's first screen holds Stand, name, value and Loc. Label wording pending the owner: the kit keeps fish's titles; the Fundații mapping (components/ranking/columns.ts toWebColumns, used only for the weight precision) would read Stand→Stand, Participant→Pescar, Nr. Buc→Capturi, C.M.M.C→CMMC, Poziție sector→Loc sector, Poziție generală→Loc, Puncte total→Puncte. Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c8
         text: "quality columns: Stand, Participant, catch columns 1..N (N = the largest sectorMinNumberOfFish in the ranking), Calitate, Nr. Buc, Poziție sector, Poziție generală."
         fish_ref: helpers/table/getTableColumns.ts:29-42; components/competition/CompetitionRanking.tsx:952,970-971
-        status: todo
-        web_note: "The kit table (components/ranking/columns.ts, phone «Tot ecranul» and from 768) renames and reorders the builders' columns to the Fundații wording (Loc · Stand · Pescar · … · Capturi · CMMC · Loc sector · Puncte); the phone shows the kit RankingRow, no columns. Needs a kit change or an owner-approved web_note."
+        status: passing
+        web_note: "Columns, order and titles are exactly the core builders' (getTableColumns, fish wording) at every width — the inline table (768–1279 too: every catch column, a wider table scrolls sideways), «Clasament complet» and the phone table. Nothing is reordered: a table wider than its card keeps the Stand pinned at the left and the deciding columns («Poziție generală», the deciding value — Cantitate / Calitate / Medie / Puncte total, bestOfTiers the Best N that decided the most rows — then the totals after the catches) pinned at the right in place (`sticky`, tableFixes rankingPinKeys), so the phone's first screen holds Stand, name, value and Loc. Label wording pending the owner: the kit keeps fish's titles; the Fundații mapping (components/ranking/columns.ts toWebColumns, used only for the weight precision) would read Stand→Stand, Participant→Pescar, Nr. Buc→Capturi, C.M.M.C→CMMC, Poziție sector→Loc sector, Poziție generală→Loc, Puncte total→Puncte. N = the largest sectorMinNumberOfFish (7 in the fixture). Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c9
         text: "quantityQuality and qualityQuantity columns: Stand, Participant, catches 1..N, Calitate, Cantitate, Nr. Buc, Puncte calitate, Puncte cantitate, Puncte total, Poziție sector, Poziție generală."
         fish_ref: helpers/table/getTableColumns.ts:44-61
-        status: todo
-        web_note: "The kit table (components/ranking/columns.ts, phone «Tot ecranul» and from 768) renames and reorders the builders' columns to the Fundații wording (Loc · Stand · Pescar · … · Capturi · CMMC · Loc sector · Puncte); the phone shows the kit RankingRow, no columns. Needs a kit change or an owner-approved web_note."
+        status: passing
+        web_note: "Columns, order and titles are exactly the core builders' (getTableColumns, fish wording) at every width — the inline table (768–1279 too: every catch column, a wider table scrolls sideways), «Clasament complet» and the phone table. Nothing is reordered: a table wider than its card keeps the Stand pinned at the left and the deciding columns («Poziție generală», the deciding value — Cantitate / Calitate / Medie / Puncte total, bestOfTiers the Best N that decided the most rows — then the totals after the catches) pinned at the right in place (`sticky`, tableFixes rankingPinKeys), so the phone's first screen holds Stand, name, value and Loc. Label wording pending the owner: the kit keeps fish's titles; the Fundații mapping (components/ranking/columns.ts toWebColumns, used only for the weight precision) would read Stand→Stand, Participant→Pescar, Nr. Buc→Capturi, C.M.M.C→CMMC, Poziție sector→Loc sector, Poziție generală→Loc, Puncte total→Puncte. Both types (8 and 6 catch columns in the fixtures). Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c10
         text: "bestOf columns: Stand, Participant, Nr buc., catches 1..maxBestOfFishCount (3 when absent), Medie (kg), Poziție sector only when the competition has more than one sector, Poziție generală."
         fish_ref: helpers/table/getTableColumns.ts:63-76; components/competition/CompetitionRanking.tsx:977-981
-        status: todo
-        web_note: "The kit table (components/ranking/columns.ts, phone «Tot ecranul» and from 768) renames and reorders the builders' columns to the Fundații wording (Loc · Stand · Pescar · … · Capturi · CMMC · Loc sector · Puncte); the phone shows the kit RankingRow, no columns. Needs a kit change or an owner-approved web_note."
+        status: passing
+        web_note: "Columns, order and titles are exactly the core builders' (getTableColumns, fish wording) at every width — the inline table (768–1279 too: every catch column, a wider table scrolls sideways), «Clasament complet» and the phone table. Nothing is reordered: a table wider than its card keeps the Stand pinned at the left and the deciding columns («Poziție generală», the deciding value — Cantitate / Calitate / Medie / Puncte total, bestOfTiers the Best N that decided the most rows — then the totals after the catches) pinned at the right in place (`sticky`, tableFixes rankingPinKeys), so the phone's first screen holds Stand, name, value and Loc. Label wording pending the owner: the kit keeps fish's titles; the Fundații mapping (components/ranking/columns.ts toWebColumns, used only for the weight precision) would read Stand→Stand, Participant→Pescar, Nr. Buc→Capturi, C.M.M.C→CMMC, Poziție sector→Loc sector, Poziție generală→Loc, Puncte total→Puncte. maxBestOfFishCount catch columns (3 when absent, unit); «Poziție sector» only with more than one sector (fixture with 1 and with 2 sectors). Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c11
         text: "bestOfTiers columns: Stand, Participant, catch columns = min(largest catchCount in the data, largest tier), Nr. Buc, one „Best N” column per tier in ascending order, Poziție generală; the Best-N block is a neutral indigo band (darker on winner rows) and the cell where the competitor won their place is solid green with white bold text."
         fish_ref: helpers/table/getTableColumns.ts:78-99; components/competition/CompetitionRanking.tsx:983-991,1066-1080; helpers/table/getTierCellColors.ts:14-37; components/ranking-table/RankingTable.tsx:279-313
-        status: todo
-        web_note: "The kit table (components/ranking/columns.ts, phone «Tot ecranul» and from 768) renames and reorders the builders' columns to the Fundații wording (Loc · Stand · Pescar · … · Capturi · CMMC · Loc sector · Puncte); the phone shows the kit RankingRow, no columns. Needs a kit change or an owner-approved web_note. Tier colours: the Best-N band on accent tint, the won cell accent-ink extrabold (not fish's solid green with white)."
+        status: passing
+        web_note: "Columns, order and titles are exactly the core builders' (getTableColumns, fish wording) at every width — the inline table (768–1279 too: every catch column, a wider table scrolls sideways), «Clasament complet» and the phone table. Nothing is reordered: a table wider than its card keeps the Stand pinned at the left and the deciding columns («Poziție generală», the deciding value — Cantitate / Calitate / Medie / Puncte total, bestOfTiers the Best N that decided the most rows — then the totals after the catches) pinned at the right in place (`sticky`, tableFixes rankingPinKeys), so the phone's first screen holds Stand, name, value and Loc. Label wording pending the owner: the kit keeps fish's titles; the Fundații mapping (components/ranking/columns.ts toWebColumns, used only for the weight precision) would read Stand→Stand, Participant→Pescar, Nr. Buc→Capturi, C.M.M.C→CMMC, Poziție sector→Loc sector, Poziție generală→Loc, Puncte total→Puncte. Catch columns = min(largest catchCount, largest tier): 9 with the fixture's 18 catches, 4 when nobody has more than 4. Best N ascending on fish's indigo4 header (RANKING_HEAD_TIER); the band indigo2 (accent-tint-2), indigo3 on winner rows (accent-tint-3); the won cell solid green (success) with white extrabold text, as fish getTierCellColors. Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c12
         text: "calitateCalitate columns: Stand, Participant, catches 1..N, Calitate 1, C.M.M.C, Nr. Buc, Puncte Cal. 1, Puncte Cal. 2, Puncte total, Poziție sector, Poziție generală."
         fish_ref: helpers/table/getTableColumns.ts:101-118
-        status: todo
-        web_note: "The kit table (components/ranking/columns.ts, phone «Tot ecranul» and from 768) renames and reorders the builders' columns to the Fundații wording (Loc · Stand · Pescar · … · Capturi · CMMC · Loc sector · Puncte); the phone shows the kit RankingRow, no columns. Needs a kit change or an owner-approved web_note."
+        status: passing
+        web_note: "Columns, order and titles are exactly the core builders' (getTableColumns, fish wording) at every width — the inline table (768–1279 too: every catch column, a wider table scrolls sideways), «Clasament complet» and the phone table. Nothing is reordered: a table wider than its card keeps the Stand pinned at the left and the deciding columns («Poziție generală», the deciding value — Cantitate / Calitate / Medie / Puncte total, bestOfTiers the Best N that decided the most rows — then the totals after the catches) pinned at the right in place (`sticky`, tableFixes rankingPinKeys), so the phone's first screen holds Stand, name, value and Loc. Label wording pending the owner: the kit keeps fish's titles; the Fundații mapping (components/ranking/columns.ts toWebColumns, used only for the weight precision) would read Stand→Stand, Participant→Pescar, Nr. Buc→Capturi, C.M.M.C→CMMC, Poziție sector→Loc sector, Poziție generală→Loc, Puncte total→Puncte. No local competition of the type: proven on the fixture only. Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c13
         text: "calitateCantitateCMMC columns: Stand, Participant, catches 1..N, Calitate, Cantitate, C.M.M.C, Nr. Buc, Pct. Cal., Pct. Cant., Pct. CMMC, Puncte total, Poziție sector, Poziție generală."
         fish_ref: helpers/table/getTableColumns.ts:120-139
-        status: todo
-        web_note: "The kit table (components/ranking/columns.ts, phone «Tot ecranul» and from 768) renames and reorders the builders' columns to the Fundații wording (Loc · Stand · Pescar · … · Capturi · CMMC · Loc sector · Puncte); the phone shows the kit RankingRow, no columns. Needs a kit change or an owner-approved web_note."
+        status: passing
+        web_note: "Columns, order and titles are exactly the core builders' (getTableColumns, fish wording) at every width — the inline table (768–1279 too: every catch column, a wider table scrolls sideways), «Clasament complet» and the phone table. Nothing is reordered: a table wider than its card keeps the Stand pinned at the left and the deciding columns («Poziție generală», the deciding value — Cantitate / Calitate / Medie / Puncte total, bestOfTiers the Best N that decided the most rows — then the totals after the catches) pinned at the right in place (`sticky`, tableFixes rankingPinKeys), so the phone's first screen holds Stand, name, value and Loc. Label wording pending the owner: the kit keeps fish's titles; the Fundații mapping (components/ranking/columns.ts toWebColumns, used only for the weight precision) would read Stand→Stand, Participant→Pescar, Nr. Buc→Capturi, C.M.M.C→CMMC, Poziție sector→Loc sector, Poziție generală→Loc, Puncte total→Puncte. Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c14
         text: "The Stand cell reads „{sector}/{stand}”; the Participant cell is the team name, else the participants' usernames joined by „, ”, else the guest name, else „-”."
         fish_ref: helpers/table/createTableRows.ts:112-129; helpers/getCompetitorDisplayName.ts
-        status: todo
-        web_note: "Phone shows the kit RankingRow (Fundații §07), not fish's grid; its stand reads «A · Stand 1» (from 768 «A1»), and a stand without an angler reads «Stand liber», not «-»."
+        status: passing
+        web_note: "Stand reads fish's «{sector}/{stand}» («A/8», «C/A14»; the builders' position after core's withPlainStand drops a repeated sector letter: stand «A3» in sector A reads «A/3»), spoken «Sector A, stand 8». Participant = core getCompetitorDisplayName (team → usernames → guest); the stand without anyone prints «–» (sr «Stand liber»), fish «-». Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c15
         text: "Weights are shown with three decimals (64 → 64.000); missing values and empty cells show „-”."
         fish_ref: helpers/table/createTableRows.ts:41-47; components/ranking-table/RankingTable.tsx:316-318
-        status: todo
-        web_note: "Phone shows the kit RankingRow (Fundații §07), not fish's grid; weights print with 1–3 decimals («25,31»), as the kit table from 768."
+        status: passing
+        web_note: "Every weight with three decimals and the Romanian decimal comma (fish «12.460» → «12,460»); a missing value «–» (fish «-»); a row without a catch reads «–» in its deciding value with «Fără capturi» for screen readers — never «capot» (§4b.11). Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c16
         text: "Default order is by stand (sector name A→Z, then stand number); after Sortare → „Poziția în clasament” rows are ordered by generalPosition."
         fish_ref: components/competition/CompetitionRanking.tsx:316,901-923
-        status: todo
-        web_note: "Phone: stand order by default, Sortare → place (e2e). From 768 the kit RankingTable (the page's table) opens in the bar's order through its `initialSort` prop (stand by default, as fish); the headers sort."
+        status: passing
+        web_note: "Stand order by default (sector A→Z, then the stand number) at every width; phone Sortare → «Poziția în clasament» orders by generalPosition (the table restarts in that order), from 768 the «Poziție generală» header sorts (fish Sortare), every header sorts. e2e concurs.spec.ts (live, phone + desktop) and concurs-clasament-tabel.spec.ts (fixture)."
       - id: competition-page.clasament.c17
         text: "Every row is tinted with its sector colour (24-colour palette assigned to the sorted sector names) at 40% opacity, with a 4px sector-coloured edge on the Stand cell."
         fish_ref: helpers/table/getColorsBySector.ts:10-54; components/ranking-table/RankingTable.tsx:125-130,285-289
-        status: todo
-        web_note: "Phone shows the kit RankingRow (Fundații §07), not fish's grid; the sector is only the 4px edge, no 40% row tint (Fundații: never under text) — as from 768."
+        status: passing
+        web_note: "fish's colour language (§4b.15): every cell but the Stand in the sector colour at 40% (rank-sector-tint), the Stand cell white with the sector's 4px left edge, fish's grid lines, at every width. The 24-colour palette is assigned as fish's getColorsBySector: to the sorted distinct sector names of the ranking, by index (sector.ts sectorColorMap(names)) — sectors B and C alone are palette[0] and palette[1], a sector named «1» is coloured too; the sector chips, the «Pe sectoare» titles and the side column's dots follow the same index (ranking.ts sectorLetters). Unit ranking.test.ts (B/C only, non-letter names); e2e on the B/C quantity fixture. Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c18
         text: "Winner rows (generalPosition 1..W, W = numberOfWinners for bestOf, number of tiers for bestOfTiers, numberOfSectors otherwise) are tinted at 90% with white text and a 🎖️ before the general position."
         fish_ref: components/competition/CompetitionRanking.tsx:1012-1040; components/ranking-table/RankingTable.tsx:285-318
-        status: todo
-        web_note: "No 90% tint and no 🎖️ (Fundații: never a fill under text). One place idiom for every ranking table (kit components/ranking/shell PlaceCell, 2026-10-06): the number, a solid trophy for the podium (1–3 with a catch); sector types' winners (places 1..S = the sector winners) get a muted trophy on «Poziție sector» (sr «, câștigător de sector»), bestOf / bestOfTiers / Best N winners the trophy on the general place. Phone (kit RankingRow): the navy pill only for the untied 1st place, a winner's trophy after the name. The navy pill on every winner made a 24-sector table a wall of navy."
+        status: passing
+        web_note: "Winner rows (generalPosition 1..W; W = numberOfWinners for bestOf, the number of tiers for bestOfTiers, numberOfSectors otherwise — ranking.ts buildRankingTable as fish) are filled at 90% (rank-sector-win) with white text where it clears AA for that sector, black otherwise (sector.ts sectorInk). fish's 🎖️ is the tables' trophy (kit PlaceCell), drawn as fish: one mark on «Poziție generală» of every isWinner row (sr «, câștigător»), with no podium or no-catch condition (a 24-sector quantity competition marks all 24 places, as fish). With more than one sector the web also marks each sector's winner — sectorPosition 1, never another isWinner row — on «Poziție sector» (sr «, câștigător de sector»); the legend names both. e2e: one-sector fixture (only Loc 1 marked), split-points fixture (a sector's second at a place ≤ S: no sector trophy). Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c19
         text: "The competition's biggest catch (metadata.biggestCatch stand + weight) is highlighted gold with bold black text on the matching catch cell and on that stand's C.M.M.C cell."
         fish_ref: helpers/table/createTableRows.ts:49-65,141-151; components/ranking-table/RankingTable.tsx:283-284,305-313
-        status: todo
-        web_note: "As fish: the gold cell with bold dark text (kit RankingTable = the page's table, «Cea mai mare captură» for screen readers); the phone row's «CMMC x» is gold too. fish compares a numeric ranking standId to a string for the catch cell, so quality-type catch cells are never flagged (a fish bug, still in fish); core now compares both as strings (createTableRows.ts, unit test 2026-10-06), so the web flags the catch cell."
+        status: passing
+        web_note: "Gold (medal-gold) with bold dark text on the matching catch cell and on that stand's C.M.M.C, at every width (the phone draws the same table); legend «C.M.M.C a concursului». fish compares a numeric standId to a string for the catch cell, so fish never flags quality-type catch cells (a fish bug, still in fish); core compares both as strings (createTableRows.ts), so the web flags it. Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c20
         text: "A split catch shows a small „SPLIT” marker in its cell."
         fish_ref: helpers/table/createTableRows.ts:146; components/ranking-table/RankingTable.tsx:322-331
         status: passing
-        web_note: "No local split catch; rendered from the builder flag (verified in code)."
+        web_note: "A small «SPLIT» (sup) after the weight. Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c21
         text: "Catch cells past the row's sectorMinNumberOfFish are grey and empty."
         fish_ref: components/ranking-table/RankingTable.tsx:269-278
         status: passing
-        web_note: "Kit grey fill (soft-fill), empty, kept in the pinned wide layout too (tableFixes.ts); e2e on the desktop table."
+        web_note: "Kit grey fill (rank-unscored), empty, aria-label «nu se punctează», kept in the pinned wide layout too (tableFixes.ts). e2e concurs.spec.ts (local quality competition) and concurs-clasament-tabel.spec.ts (fixture)."
       - id: competition-page.clasament.c22
         text: "The Stand column stays fixed while the other columns scroll horizontally; its width follows the longest stand label (60–140 px); dynamic columns size to content within their min/max."
         fish_ref: components/ranking-table/RankingTable.tsx:77-102,184-222
         status: passing
-        web_note: "From 768 and in «Tot ecranul» (the phone's table): a table wider than its card pins Loc + Stand (useTablePins); the kit stand column is a fixed 90px that fits every label. The phone list has no horizontal scroll."
+        web_note: "From 768 and in «Tot ecranul» / on the phone: a table wider than its card pins the Stand (with the name when there is room) and the deciding totals (useTablePins). The kit stand column is a fixed 76px track that grows to the longest label («C/A14»). e2e concurs.spec.ts + concurs-clasament-tabel.spec.ts (375)."
       - id: competition-page.clasament.c23
         text: "Rows with penalties show a marker next to the participant: red when any penalty is ELIMINATE (label „Echipa este eliminată”), yellow otherwise („Echipa are penalizări”)."
         fish_ref: components/penalty/PenaltyCard.tsx:6-19; components/ranking-table/RankingTable.tsx:291,320
-        status: todo
-        web_note: "Kit penalty chips (components/ranking/model.ts penaltyChips): one per penalty — red «eliminat», yellow «−x kg» / «avertisment» with the reason as title — not one marker per row named «Echipa este eliminată» / «Echipa are penalizări»."
+        status: passing
+        web_note: "One marker per row beside the name, as fish PenaltyCard: red (status-danger) «Echipa este eliminată» when any penalty is ELIMINATE, yellow «Echipa are penalizări» otherwise; the reasons ride along as its title. Proven on the real ranking payloads (tests/fixtures/rankings/<type>.json hydrated by hydrate.ts, answered through the proxy) in concurs-clasament-tabel.spec.ts and core unit ranking.test.ts."
       - id: competition-page.clasament.c24
         text: "Pressing the Stand or Participant cell of a row whose stand has a registration opens the angler stats dialog (competition-page.statistici-pescar), passing whether the row is a winner; rows without a registration do nothing."
         fish_ref: components/competition/CompetitionRanking.tsx:1857-1868; components/ranking-table/RankingTable.tsx:112-172,336-344
         status: passing
-        web_note: "A row's stand / participant opens the angler stats (competition-page.statistici-pescar: ?pescar=<registration>, sheet on the phone, docked panel from 1280); rows without a registration do nothing. e2e concurs-statistici.spec.ts statistici-pescar.c1."
+        web_note: "Phone (and 768–1023): a row's Stand / name opens the angler sheet (?pescar=<registration>); from 1024 the person popover anchored to the row (§4b.17). A row without a registration does nothing. e2e concurs-clasament-tabel.spec.ts (local data + fixture rows), concurs-statistici.spec.ts statistici-pescar.c1."
       - id: competition-page.clasament.c25
         text: "With no rows (or no columns) the view shows „Nu există date de afișat”."
         fish_ref: components/competition/CompetitionRanking.tsx:1869-1875
         status: passing
+        web_note: "EmptyState «Nu există date de afișat». e2e concurs.spec.ts (local live competition without rows) and concurs-clasament-tabel.spec.ts (fixture with no rows); unit RankingView.test.ts."
       - id: competition-page.clasament.c26
         text: "A failed ranking request in the Clasament or Statistici view shows the error screen without a back button; its retry refetches the ranking."
         fish_ref: components/competition/CompetitionRanking.tsx:1260-1262
         status: passing
-        web_note: "ErrorState with «Încearcă din nou» → refetch, no back button; verified in code."
+        web_note: "ErrorState «Clasamentul nu a putut fi încărcat.» with «Încearcă din nou» → refetch, no back button. The page hydrates the ranking from the server and a later failed re-read keeps the table (TanStack), so the screen only shows when the very first browser read fails — unit RankingView.test.ts."
       - id: competition-page.clasament.c27
         text: "feederRounds: chips General | Manșa 1 … Manșa N (N = max(roundsCount, legs present in the ranking)) and an info button „Cum se calculează clasamentul”; the default tab is the leg in progress (started and roundStatus running), otherwise General, and it keeps following the current leg until the reader picks a tab."
         fish_ref: components/competition/CompetitionRanking.tsx:319-321,767-779,1811-1821,2062-2113; features/competitions/feeder-rounds/feederRoundsTable.ts:23-36
@@ -422,8 +424,8 @@ screens:
         status: passing
         web_note: "Feeder rows carry their registration (data-registration) and open the angler stats for that entrant (rowPress.ts); e2e concurs-clasamente.spec.ts."
     mobile_only: false
-    status: todo
-    e2e: tests/e2e/concurs.spec.ts
+    status: proposed
+    e2e: tests/e2e/concurs.spec.ts tests/e2e/concurs-clasament-tabel.spec.ts tests/e2e/concurs-clasamente.spec.ts
 
   # ---------------------------------------------------------------------------------------------
   - id: competition-page.clasament-nc

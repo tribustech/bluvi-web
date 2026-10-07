@@ -86,9 +86,9 @@ screens:
       - booking.myBookingsCountQuery
       - news.newsInfiniteQuery (pageSize 10)
       - realtime.partide.activePartidaOf
-      - widget-notifications (/feed/widget-notifications/mine, POST /feed/widget-notifications) — not in core yet
+      - social.myWidgetNotificationQuery + registerWidgetNotificationMutation (/feed/widget-notifications/mine, POST /feed/widget-notifications)
     states:
-      - signed-out (guest card „Conectează-te”, no organizer/operator/suggested/live-competition blocks, Contact + Setări de confidențialitate shown)
+      - signed-out (h1 „Bine ai venit pe Bluvi”, guest card „Conectează-te”, „Ce găsești pe Bluvi” pillars (account.onboarding.c4), no organizer/operator/suggested/live-competition blocks, Contact + Setări de confidențialitate shown)
       - signed-in, profile loading
       - signed-in, profile incomplete (username missing / „null null” / isProfileComplete false) → complete-profile prompt
       - full-page error (lakes, profile, unread count or news query failed)
@@ -118,7 +118,7 @@ screens:
         text: "Signed out: the card shows the Bluvi logo, the title „Conectează-te” and the slogan from the signed-out list at the same index (e.g. „Creează-ți cont pentru a te alătura comunității”)."
         fish_ref: app/(app)/(tabs)/index.tsx:407-447
         status: passing
-        note: "e2e tests/e2e/acasa.spec.ts. Web: the profile card is the phone's header (<768); from 768 the T5 header welcomes signed-out visitors («Bine ai venit pe Bluvi», signed-out slogan) and the top bar's «Intră» is the sign-in (ROADMAP §4 top bar)."
+        note: "e2e tests/e2e/acasa.spec.ts. Web: the profile card is the phone's header (<768); a guest's h1 is «Bine ai venit pe Bluvi» at every width (phone: a title above the card, whose «Conectează-te» stays the sign-in link but is not a heading; from 768 the T5 header with the signed-out slogan) and the top bar's «Intră» is the sign-in (ROADMAP §4 top bar)."
       - id: home.acasa.c3
         text: "The slogan advances to the next one (mod 4) every time Acasă is shown again, with a fade-up enter animation."
         fish_ref: app/(app)/(tabs)/index.tsx:214-218
@@ -195,10 +195,10 @@ screens:
         status: passing
         note: "e2e tests/e2e/acasa.spec.ts"
       - id: home.acasa.c18
-        text: "A „În curând” tile opens an interest panel with the feature image, title and description; signed in it offers „Anunță-mă când e disponibil” (POST widget-notification), signed out „Intră în cont”; once registered it shows „Ești pe listă! 🎉 Te anunțăm imediat ce {title} e disponibil.” and „Închide”; a failed save toasts „Nu am putut salva. Încearcă din nou.”"
+        text: "A „În curând” tile opens an interest panel with the feature image, title and description; signed in it offers „Anunță-mă când e disponibil” (POST widget-notification), signed out „Intră în cont”; once registered it shows „Ești pe listă! 🎉 Te anunțăm imediat ce Vremea e disponibilă.” / „… ce Fazele Lunii sunt disponibile.” and „Închide”; a failed save toasts „Nu am putut salva. Încearcă din nou.”"
         fish_ref: components/WidgetNotificationSheet.tsx:41-94
-        status: failing
-        note: "«Anunță-mă când e disponibil» (POST /feed/widget-notifications) is not in core/ yet: signed in the panel only closes. Guest «Intră în cont» passes in e2e."
+        status: passing
+        note: "e2e tests/e2e/acasa.spec.ts (guest and signed in not registered → pending → registered at 375/900/1440, already registered, failed save, delayed GET (busy: spinner, aria-busy, aria-disabled), GET 500 (offer live within 1s, one GET, working save), unknown session, keyboard at 375/1440 (Enter opens with focus inside, Esc / «Închide» close, focus back on the tile; Enter on «Anunță-mă» keeps focus on the same CTA, now «Închide» — one button node across busy/offer/registered); GET/POST mocked with page.route). core/social widget-notification api/query/mutation; GET contract in tests/contract/social.contract.test.ts. Web: fish's copy «{title} e disponibil» is agreed per feature (correct Romanian); an informational surface (ResponsiveSurface intent «info»): a content-fitted sheet below 768, a plain dialog with the «Închide» X from 768 (never an alertdialog); one centred axis as fish (64px artwork → t-title1 name → description). An unknown session gets the signed-in offer (never «Intră în cont», rule 4). Agreed web divergence: while the «am I registered?» read is in flight the offer waits busy (spinner, aria-busy, aria-disabled) so it never flips to «Ești pe listă» under the user's finger — fish has no gate; the read never retries (retry: false), so a failed read reaches the offer at once. Open (Sheet owner): on the phone's fitted sheet the handle's «Extinde» takes the first focus — e2e test.fixme «phone sheet: focus starts on the CTA». fish's jurnalPartide entry has no tile in fish, so none on web."
       - id: home.acasa.c19
         text: "When no partidă is active the start-partidă hero „Ești la pescuit?” / „Capturi, lansete și cronometre — totul notat într-o singură partidă.” is shown with „Începe o partidă” and „Intră cu cod”; for guests both go to sign-in."
         fish_ref: app/(app)/(tabs)/index.tsx:460-469

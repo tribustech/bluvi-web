@@ -242,6 +242,20 @@ for (const [width, height] of [[1440, 900], [1280, 800]] as const) {
   }
 }
 
+test('owner rule 1 — Locație & contact at 1440: the map left (a real height), the rows and the Administrator right; Direcții only in the summary card', async ({ page }) => {
+  await open(page, `/balti/${LAKE}`, { width: 1440, height: 900 });
+  const contact = page.locator('#contact');
+  await contact.scrollIntoViewIfNeeded();
+  const map = (await contact.getByTestId('lake-mini-map').boundingBox())!;
+  const rows = (await contact.locator('dl').boundingBox())!;
+  expect(map.height).toBeGreaterThanOrEqual(280);
+  expect(rows.x).toBeGreaterThanOrEqual(map.x + map.width);
+  expect(Math.abs(rows.y - map.y)).toBeLessThan(40);
+  await expect(contact.getByRole('heading', { name: 'Administrator' })).toBeVisible();
+  await expect(contact.getByRole('button', { name: 'Direcții' })).toBeHidden();
+  await expect(page.getByRole('complementary', { name: 'Pe scurt' }).getByRole('button', { name: 'Direcții' })).toBeVisible();
+});
+
 test('from 768 the DOM order is the screen order: title → Distribuie → the photo tiles', async ({ page }) => {
   await open(page, `/balti/${ONE_PHOTO}`, { width: 1280, height: 900 });
   const order = await page.evaluate(() => {
@@ -326,8 +340,10 @@ for (const width of [1280, 1440]) {
     await expect(summary.getByRole('button', { name: 'Rezervă acum' }).or(summary.getByRole('link', { name: 'Rezervă acum' }))).toBeVisible();
     const text = (await summary.textContent()) ?? '';
     if (lake.stands?.length) {
-      expect(text).toContain(`${lake.stands.length} ${lake.stands.length === 1 ? 'stand rezervabil' : 'standuri rezervabile'}`);
-      expect(text).not.toMatch(/\d+ locuri/);
+      const n = lake.stands.length;
+      // The owner plural rule (formatCount): «1 stand rezervabil», «19 standuri…», «21 de standuri…».
+      expect(text).toContain(n === 1 ? '1 stand rezervabil' : n >= 20 && (n % 100 === 0 || n % 100 >= 20) ? `${n} de standuri rezervabile` : `${n} standuri rezervabile`);
+      expect(text).not.toMatch(/\d+ (de )?locuri/);
     }
     expect(text).not.toMatch(/\d+ standuri ·/);
     // The Partide section's «Vezi tot» is its one link: no card chip, no outline button from 768.

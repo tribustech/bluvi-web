@@ -314,6 +314,8 @@ describe('review helpers', () => {
   it('formats rating display and counts', () => {
     expect(formatReviewsCount(1)).toBe('1 recenzie');
     expect(formatReviewsCount(3)).toBe('3 recenzii');
+    expect(formatReviewsCount(20)).toBe('20 de recenzii');
+    expect(formatReviewsCount(101)).toBe('101 recenzii');
     expect(getLakeRatingDisplay(null).label).toBe('Fără recenzii');
     expect(getLakeRatingDisplay({ overall: 4.333, count: 3 })).toMatchObject({ label: '4,33 · 3 recenzii', scoreLabel: '4,33' });
   });

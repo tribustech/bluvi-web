@@ -11,11 +11,12 @@ import { ON_WEB } from '@/lib/routes';
  * QA user «Sim QA» (operator of Chita, author of the upcoming «SIM3 Cupa C&B Ed 8», a follower of
  * the live «[CHAT25]» competition — the follow tests leave it following again).
  *
- * Phone (375): the kit RankingRow list (Fundații §07) and the bottom action bar, the whole table
- * behind «Tot ecranul»; from 768 the T3 header actions and the kit ranking table. Only one of the
- * two renders is displayed, so locators are narrowed to their visible match. Criteria the web does
- * not meet yet (status todo in the yml) keep their fish expectations as `test.fixme`. Override the
- * ids with E2E_COMPETITION_* when the local data moves.
+ * Phone (375): the kit RankingTable as fish's ScrollableTable (MobileRanking) and the bottom
+ * action bar; from 768 the T3 header actions and the same kit table with its band of controls. Both
+ * renders are in the page and only one is displayed, so locators are narrowed to their visible match.
+ * The per-type columns and the cells' look are proven on the ranking fixtures in
+ * concurs-clasament-tabel.spec.ts (data-independent). Override the ids with E2E_COMPETITION_* when
+ * the local data moves.
  */
 
 const ID = {
@@ -63,10 +64,8 @@ test.beforeAll(async ({ request }) => {
 
 const path = (id: string) => `/concursuri/${id}`;
 const visible = (l: Locator) => l.locator('visible=true').first();
-/** From 768: the kit ranking table (inline, General). */
-const grid = (page: Page) => page.getByRole('region', { name: 'Clasament general' });
-/** Phone: the RankingRow list. */
-const phoneList = (page: Page) => page.getByRole('list', { name: 'Clasament', exact: true });
+/** The kit ranking table (inline, General): the phone's MobileRanking or, from 768, the desktop one — the visible one. */
+const grid = (page: Page) => page.getByRole('region', { name: 'Clasament general', exact: true }).locator('visible=true');
 const followButton = (page: Page) => page.getByRole('button', { name: /^(Urmăresc|Urmărește)$/ });
 const followersPill = (page: Page) => page.getByRole('button', { name: /^\d+ urmăritor(i)?$/ });
 
@@ -95,7 +94,7 @@ const settle = (page: Page) => page.waitForLoadState('networkidle', { timeout: 1
 for (const id of [ID.completed, ID.live]) {
   for (const signedIn of [false, true]) {
     for (const vp of [PHONE, TABLET, { width: 1280, height: 900 }, DESKTOP]) {
-      test(`smoke ${path(id)} · ${vp.width}px · ${signedIn ? 'signed in' : 'signed out'} — shell.c1 c17, clasament.c4, axe`, async ({
+      test(`smoke ${path(id)} · ${vp.width}px · ${signedIn ? 'signed in' : 'signed out'} — shell.c1 c17, competition-page.clasament.c4, axe`, async ({
         page,
         context,
       }) => {
@@ -115,12 +114,8 @@ for (const id of [ID.completed, ID.live]) {
         const tablist = visible(page.getByRole('tablist', { name: 'Vederi clasament' }));
         await expect(tablist.getByRole('tab')).toHaveText([/Clasament/, /Cântare/, /Statistici/, /Toți peștii/]);
         await expect(tablist.getByRole('tab', { selected: true })).toContainText('Clasament');
-        if (vp.width < 768) {
-          await expect(phoneList(page).getByRole('listitem').first()).toBeVisible();
-          await expect(page.getByRole('navigation', { name: 'Acțiuni concurs' })).toBeVisible();
-        } else {
-          await expect(grid(page).locator('tbody tr').first()).toBeVisible();
-        }
+        await expect(grid(page).locator('tbody tr').first()).toBeVisible();
+        if (vp.width < 768) await expect(page.getByRole('navigation', { name: 'Acțiuni concurs' })).toBeVisible();
 
         await settle(page);
         await expectNoA11yViolations(page);
@@ -414,14 +409,33 @@ test('shell «unknown id» — the T3 not-found card, noindex', async ({ page })
 // concurs-clasamente.spec.ts); the unknown-type path (load.ts `unsupported`) has no local data —
 // verified in code. Set E2E_COMPETITION_UNKNOWN_TYPE to a competition of a newer type to run it.
 const UNKNOWN_TYPE = process.env.E2E_COMPETITION_UNKNOWN_TYPE;
-test('clasament.c2 — a ranking type the web cannot render says so instead of a table', async ({ page }) => {
+test('competition-page.clasament.c2 — a ranking type the web cannot render says so instead of a table', async ({ page }) => {
   test.skip(!UNKNOWN_TYPE, 'no local competition of a ranking type core does not know');
   await open(page, UNKNOWN_TYPE!, DESKTOP);
   await expect(page.getByText('Clasamentul acestui tip de concurs nu este încă disponibil pe web.')).toBeVisible();
   await expect(page.getByRole('tablist', { name: 'Vederi clasament' })).toHaveCount(0);
 });
 
-test('clasament.c4 c5 — the views are a tablist with arrow keys; switching refetches that view', async ({ page, context }) => {
+test('competition-page.clasament.c1 — while the competition loads (a client navigation to Clasament), its skeleton holds the page; then the ranking table', async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await page.goto(`${path(ID.live)}/informatii`, { waitUntil: 'domcontentloaded' });
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await settle(page);
+  // Hold the navigation's server payload, so the loading state is on screen long enough to see.
+  await page.route(
+    () => true,
+    async route => {
+      if (route.request().headers()['rsc'] === '1') await new Promise(r => setTimeout(r, 2500));
+      await route.fallback();
+    },
+  );
+  await page.getByRole('navigation', { name: 'Secțiunile concursului' }).getByRole('link', { name: /^Clasament/ }).click();
+  await expect(page.locator('[aria-busy="true"]').locator('visible=true').first()).toBeVisible();
+  await expect(grid(page).locator('tbody tr').first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('[aria-busy="true"]').locator('visible=true')).toHaveCount(0);
+});
+
+test('competition-page.clasament.c4 competition-page.clasament.c5 — the views are a tablist with arrow keys; switching refetches that view', async ({ page, context }) => {
   // Signed in: the weighings summary behind «Cântare» is a signed-in read.
   await signIn(context, jwt);
   await open(page, ID.live, DESKTOP);
@@ -439,7 +453,7 @@ test('clasament.c4 c5 — the views are a tablist with arrow keys; switching ref
   await expect.poll(() => rankings.length).toBeGreaterThan(0);
 });
 
-test('clasament.c6 — coming back to the tab after a while refetches the ranking', async ({ page }) => {
+test('competition-page.clasament.c6 — coming back to the tab after a while refetches the ranking', async ({ page }) => {
   await page.clock.install();
   await open(page, ID.live, DESKTOP);
   await settle(page);
@@ -449,158 +463,67 @@ test('clasament.c6 — coming back to the tab after a while refetches the rankin
   await expect.poll(() => rankings.length).toBeGreaterThan(0);
 });
 
-const COLUMNS: [keyof typeof ID, string, RegExp[]][] = [
-  ['live', 'c7', [/^Stand$/, /^Participant$/, /^C\.M\.M\.C$/, /^Cantitate$/, /^Nr\. Buc$/, /^Puncte cantitate$/, /^Poziție sector$/, /^Poziție generală$/]],
-  ['quality', 'c8', [/^Stand$/, /^Participant$/, /^1$/, /^2$/, /\d/, /\d/, /\d/, /\d/, /\d/, /^Calitate$/, /^Nr\. Buc$/, /^Poziție sector$/, /^Poziție generală$/]],
-  [
-    'quantityQuality',
-    'c9',
-    [/^Stand$/, /^Participant$/, /^1$/, /^2$/, /\d/, /\d/, /\d/, /^Calitate$/, /^Cantitate$/, /^Nr\. Buc$/, /^Puncte calitate$/, /^Puncte cantitate$/, /^Puncte total$/, /^Poziție sector$/, /^Poziție generală$/],
-  ],
-  ['bestOf', 'c10', [/^Stand$/, /^Participant$/, /^Nr buc\.$/, /^1$/, /^2$/, /^Medie \(kg\)$/, /^Poziție generală$/]],
-  ['bestOfTiers', 'c11', [/^Stand$/, /^Participant$/, /^1$/, /^2$/, /^3$/, /^Nr\. Buc$/, /^Best 3$/, /^Best 5$/, /^Best 7$/, /^Best 9$/, /^Poziție generală$/]],
-  [
-    'cmmc',
-    'c13',
-    [/^Stand$/, /^Participant$/, /^1$/, /\d/, /\d/, /\d/, /\d/, /\d/, /\d/, /\d/, /^Calitate$/, /^Cantitate$/, /^C\.M\.M\.C$/, /^Nr\. Buc$/, /^Pct\. Cal\.$/, /^Pct\. Cant\.$/, /^Pct\. CMMC$/, /^Puncte total$/, /^Poziție sector$/, /^Poziție generală$/],
-  ],
-];
-// fish getTableColumns: the builders' titles and order, as they are (CompetitionRankingTable).
-for (const [key, criterion, titles] of COLUMNS) {
-  test(`competition-page.clasament.${criterion} — ${key} columns in fish order, in the inline table and in «Clasament complet»`, async ({ page }) => {
-    await open(page, ID[key], DESKTOP);
-    await expect(grid(page).locator('thead th')).toHaveText(titles);
-    await visible(page.getByRole('button', { name: 'Clasament complet' })).click();
-    await expect(page.getByRole('region', { name: 'Clasament complet' }).locator('thead th')).toHaveText(titles);
-  });
-}
+// The per-type columns (c7–c13) and the cells' look (c11, c14, c15, c17–c21, c23) are proven on the
+// ranking fixtures, whatever the local data holds: concurs-clasament-tabel.spec.ts.
 
-/** Answers the browser's ranking reads with `edit(real ranking)`, then makes the page re-read (a focus after 30 s, clasament.c6). */
-async function fakeRanking(page: Page, id: string, edit: (ranking: { metadata: Record<string, unknown>; rankings: Record<string, unknown>[] }) => void, viewport = DESKTOP) {
-  const real = await (await page.request.get(`/api/cms/competitions/${id}/ranking`)).json();
-  edit(real);
-  await page.route(new RegExp(`/api/cms/competitions/${id}/ranking(\\?|$)`), route => route.fulfill({ json: real }));
-  await page.clock.install({ time: new Date() });
-  await open(page, id, viewport);
-  await settle(page);
-  await page.clock.runFor(31_000);
-  await page.evaluate(() => {
-    window.dispatchEvent(new Event('focus'));
-    document.dispatchEvent(new Event('visibilitychange'));
-  });
-}
-
-test('competition-page.clasament.c12 — calitateCalitate columns in fish order (no local competition of the type: its ranking answered through the proxy)', async ({ page }) => {
-  await fakeRanking(page, ID.cmmc, r => {
-    r.metadata.rankingType = 'calitateCalitate';
-    // The calitateCalitate row's own points (the CMMC rows carry calitate / cmmc points).
-    for (const row of r.rankings) {
-      row.quality1Points = row.calitatePoints ?? 0;
-      row.quality2Points = row.cmmcPoints ?? 0;
-      row.quality2 = row.biggestFish ?? 0;
-      row.hasGrid = false;
-    }
-  });
-  await expect(grid(page).locator('thead th')).toHaveText(
-    [/^Stand$/, /^Participant$/, /^1$/, /\d/, /\d/, /\d/, /\d/, /\d/, /\d/, /\d/, /^Calitate 1$/, /^C\.M\.M\.C$/, /^Nr\. Buc$/, /^Puncte Cal\. 1$/, /^Puncte Cal\. 2$/, /^Puncte total$/, /^Poziție sector$/, /^Poziție generală$/],
-    { timeout: 15_000 },
-  );
-});
-
-test('competition-page.clasament.c14 competition-page.clasament.c15 competition-page.clasament.c17 competition-page.clasament.c18 — the cells: stand + sector edge, the name, three-decimal weights, the winner pill (no fill under text)', async ({ page }) => {
-  await open(page, ID.cmmc, DESKTOP);
-  const rows = grid(page).locator('tbody tr');
-  const first = rows.first();
-  // c14: the Stand cell reads the sector and the stand (spoken «Sector A, stand 1»), the name is the row header.
-  await expect(first.locator('td').first()).toHaveText('Sector A, stand 1A1');
-  await expect(first.locator('th[scope=row]')).toHaveText('Andrew R');
-  // c15: weights with three decimals (decimal comma), «–» for no value.
-  await expect(first.locator('td').nth(1)).toHaveText(/^\d+,\d{3}$/);
-  await expect(rows.filter({ hasText: 'Cucu' }).locator('td').nth(1)).toHaveText('–');
-  // c17: the sector is the 4px edge on the Stand cell; no cell of the row is tinted with it.
-  const edge = first.locator('td').first().locator('span[aria-hidden]').first();
-  expect((await edge.boundingBox())!.width).toBeCloseTo(4, 0);
-  const sectorColor = await edge.evaluate(e => getComputedStyle(e).backgroundColor);
-  expect(sectorColor).not.toBe('rgba(0, 0, 0, 0)');
-  for (const cell of await first.locator('td, th').all()) {
-    expect(await cell.evaluate(e => getComputedStyle(e).backgroundColor)).not.toBe(sectorColor);
-  }
-  // c18: winners (generalPosition ≤ numberOfSectors = 3) carry the place pill, the others a plain number.
-  const place = (name: string) => rows.filter({ hasText: name }).locator('td').last();
-  await expect(place('Andrew R')).toContainText('câștigător');
-  await expect(place('Cici')).toContainText('câștigător');
-  await expect(place('Bubu')).not.toContainText('câștigător');
-  await expectNoA11yViolations(page);
-});
-
-test('competition-page.clasament.c19 — the competition’s biggest catch is gold with bold dark text, on the phone too', async ({ page }) => {
-  await open(page, ID.cmmc, DESKTOP);
-  const biggest = grid(page).locator('td[data-biggest]');
-  await expect(biggest).toHaveCount(1);
-  await expect(biggest).toHaveText('Cea mai mare captură: 29,000');
-  await expect(biggest).toHaveClass(/bg-medal-gold/);
-  expect(Number(await biggest.evaluate(e => getComputedStyle(e).fontWeight))).toBeGreaterThanOrEqual(700);
-  await expect(page.getByRole('list', { name: 'Legendă' })).toContainText('C.M.M.C a concursului');
-  await page.setViewportSize(PHONE);
-  const mark = phoneList(page).locator('.bg-medal-gold');
-  await expect(mark).toHaveCount(1);
-  await expect(mark).toHaveText('Cea mai mare captură: CMMC 29,000');
-});
-
-test('competition-page.clasament.c11 — bestOfTiers: the Best-N block is one indigo band (deeper on winner rows), the won cell solid green, bold', async ({ page }) => {
-  await open(page, ID.bestOfTiers, DESKTOP);
-  const table = grid(page);
-  await expect(table.locator('thead th.bg-indigo-4')).toHaveText([/^Best 3$/, /^Best 5$/, /^Best 7$/, /^Best 9$/]);
-  const won = table.locator('td[data-tier-win]').first();
-  await expect(won).toHaveClass(/bg-success/);
-  expect(Number(await won.evaluate(e => getComputedStyle(e).fontWeight))).toBeGreaterThanOrEqual(700);
-  await expect(table.locator('td.bg-accent-tint-2, td.bg-accent-tint-3').first()).toBeVisible();
-});
-
-test('competition-page.clasament.c23 — one penalty marker per row beside the name: yellow «Echipa are penalizări», red «Echipa este eliminată» (an ELIMINATE answered through the proxy)', async ({ page }) => {
-  await fakeRanking(
-    page,
-    ID.live,
-    r => {
-      const b = r.rankings.find(x => x.standName === 'B1')!;
-      b.penalties = [
-        { documentId: 'pen-e2e-1', action: 'WARNING', value: null, reason: 'avertisment', createdAt: '2026-09-10T08:00:00.000Z' },
-        { documentId: 'pen-e2e-2', action: 'ELIMINATE', value: null, reason: 'fraudă', createdAt: '2026-09-10T08:01:00.000Z' },
-      ];
-    },
-    PHONE,
-  );
-  const list = phoneList(page);
-  const a1 = list.getByRole('listitem').filter({ hasText: 'A · Stand 1 ·' });
-  await expect(list.getByRole('img', { name: 'Echipa are penalizări' })).toHaveCount(1, { timeout: 15_000 });
-  await expect(a1.getByRole('img', { name: 'Echipa are penalizări' })).toHaveAttribute('title', /nadă în exces/);
-  // Two penalties, one of them ELIMINATE: one red marker, not one per penalty.
-  await expect(list.getByRole('img', { name: 'Echipa este eliminată' })).toHaveCount(1);
-  await page.setViewportSize(DESKTOP);
-  await expect(grid(page).getByRole('img', { name: 'Echipa este eliminată' })).toHaveCount(1);
-  await expect(grid(page).getByRole('img', { name: 'Echipa are penalizări' })).toHaveCount(1);
-});
-
-test('competition-page.clasament.c16 — the phone list opens in stand order; Sortare → Poziția în clasament orders by place', async ({ page }) => {
+test('competition-page.clasament.c16 — the phone table opens in stand order; Sortare → Poziția în clasament orders by place', async ({ page }) => {
   await open(page, ID.live);
-  const items = phoneList(page).getByRole('listitem');
-  await expect(items.first()).toBeVisible();
-  const stands = (await items.locator('p.t-caption').allTextContents()).map(t => {
-    const m = /^Sector ([A-X]) · Stand (\d+)/.exec(t);
-    expect(m, t).not.toBeNull();
-    return [m![1], Number(m![2])] as const;
-  });
-  expect(stands).toEqual([...stands].sort((a, b) => a[0].localeCompare(b[0]) || a[1] - b[1]));
+  const table = grid(page);
+  await expect(table.locator('tbody tr').first()).toBeVisible();
+  const stands = async () =>
+    (await table.locator('tbody tr td:first-child .sr-only').allTextContents()).map(t => {
+      const m = /^Sector ([A-X]), stand [A-X]?(\d+)/.exec(t);
+      expect(m, t).not.toBeNull();
+      return [m![1], Number(m![2])] as const;
+    });
+  const byStand = await stands();
+  expect(byStand.length).toBeGreaterThan(1);
+  expect(byStand).toEqual([...byStand].sort((a, b) => a[0].localeCompare(b[0]) || a[1] - b[1]));
 
   await page.getByRole('button', { name: 'Sortare clasament' }).click();
   await page.getByRole('navigation', { name: 'Sortare clasament' }).getByRole('button', { name: 'Poziția în clasament' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Sortarea clasamentului după poziția în clasament a fost efectuată.' })).toHaveCount(1);
-  // The place pill: «Locul » (sr-only) then the number.
-  const places = (await items.evaluateAll(lis => lis.map(li => li.querySelector('.sr-only')?.parentElement?.textContent ?? ''))).map(t =>
-    Number(t.replace(/[^\d]/g, '')),
-  );
+  // «Poziție generală» (pinned last on the phone): «Locul » (sr-only) then the number.
+  const places = (await table.locator('tbody tr > *:last-child').allInnerTexts()).map(t => Number(t.replace(/\D/g, '')));
   expect(places.length).toBeGreaterThan(1);
   expect(places).toEqual([...places].sort((a, b) => a - b));
+});
+
+test('competition-page.clasament.c16 — on the phone every Sortare pick leaves the rows in the order it names, even after a header sort (the same value too)', async ({ page }) => {
+  await open(page, ID.live);
+  const table = grid(page);
+  await expect(table.locator('tbody tr').first()).toBeVisible();
+  const stands = async () =>
+    (await table.locator('tbody tr td:first-child .sr-only').allTextContents()).map(t => {
+      const m = /^Sector ([A-X]), stand [A-X]?(\d+)/.exec(t);
+      expect(m, t).not.toBeNull();
+      return `${m![1]}${m![2].padStart(4, '0')}`;
+    });
+  const standOrder = (xs: string[]) => [...xs].sort((a, b) => a.localeCompare(b));
+  const places = async () => (await table.locator('tbody tr > *:last-child').allInnerTexts()).map(t => Number(t.replace(/\D/g, '')));
+  const sortare = async (label: string, done: string) => {
+    await page.getByRole('button', { name: 'Sortare clasament' }).click();
+    await page.getByRole('navigation', { name: 'Sortare clasament' }).getByRole('button', { name: label, exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: done })).toHaveCount(1);
+  };
+  const headerSort = async (title: RegExp) => {
+    await table.locator('thead th').filter({ hasText: title }).getByRole('button').click();
+  };
+
+  // Stand order (the default) → a header sort → Sortare → Stand (unchanged value): stand order again.
+  expect(await stands()).toEqual(standOrder(await stands()));
+  await headerSort(/Poziție generală/);
+  await expect.poll(async () => { const s = await stands(); return s.join() === standOrder(s).join(); }).toBe(false);
+  await sortare('Stand', 'Sortarea clasamentului după stand a fost efectuată.');
+  await expect.poll(async () => { const s = await stands(); return s.join() === standOrder(s).join(); }).toBe(true);
+
+  // Place order → a header sort → Sortare → Poziția în clasament (the same pick): place order again.
+  await sortare('Poziția în clasament', 'Sortarea clasamentului după poziția în clasament a fost efectuată.');
+  await expect.poll(async () => { const p = await places(); return p.join() === [...p].sort((a, b) => a - b).join(); }).toBe(true);
+  await headerSort(/^Stand/);
+  await expect.poll(async () => { const p = await places(); return p.join() === [...p].sort((a, b) => a - b).join(); }).toBe(false);
+  await sortare('Poziția în clasament', 'Sortarea clasamentului după poziția în clasament a fost efectuată.');
+  await expect.poll(async () => { const p = await places(); return p.join() === [...p].sort((a, b) => a - b).join(); }).toBe(true);
 });
 
 test('competition-page.clasament.c22 — in «Tot ecranul» on the phone the Stand column stays while the others scroll', async ({ page }) => {
@@ -643,7 +566,7 @@ test('competition-page.clasament.c16 — from 768 the table opens by stand too (
   expect(places).toEqual([...places].sort((a, b) => a - b));
 });
 
-test('clasament.c25 — a ranking with no rows says «Nu există date de afișat»', async ({ page }) => {
+test('competition-page.clasament.c25 — a ranking with no rows says «Nu există date de afișat»', async ({ page }) => {
   await open(page, ID.liveEmpty);
   await expect(page.getByText('Nu există date de afișat')).toBeVisible();
 });

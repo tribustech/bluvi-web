@@ -25,7 +25,7 @@ import { routes } from '@/lib/routes';
 import { competitionDateLabel } from '../../../concursuri/[id]/_components/dates';
 import { facilityIcon } from '../../../_home/facilityIcon';
 import { lakeHref } from './availability';
-import { lakeStandCount } from './standCount';
+import { bookableStandsLabel, lakeStandCount } from './standCount';
 import type { LakeCompetitions, Settled } from './load';
 import { ClaimTrigger, DialogTrigger, OwnerLink, PhoneLink } from './LakeActions';
 import { SectionRetry } from './RetryFocus';
@@ -85,14 +85,14 @@ const STAT_ICON: Record<LakeStatKey, ReactNode> = {
 
 /**
  * The characteristics. The stand count is lakeStandCount's: a lake that books online states its
- * bookable stands («21 standuri rezervabile»), never the CMS «50 locuri» beside them.
+ * bookable stands («21 de standuri rezervabile»), never the CMS «50 de locuri» beside them.
  */
 export function lakeFacts(lake: LakeDetail): DetailFact[] {
   const stands = lakeStandCount(lake);
   return buildLakeStats(lake).map(s => ({
     key: s.key,
     label: s.label,
-    value: s.key === 'seats' && stands?.bookable ? `${formatInt(stands.count)} ${stands.count === 1 ? 'stand rezervabil' : 'standuri rezervabile'}` : s.value,
+    value: s.key === 'seats' && stands?.bookable ? bookableStandsLabel(stands.count) : s.value,
     icon: STAT_ICON[s.key],
   }));
 }
@@ -271,7 +271,7 @@ export function ReviewsSummary({ meta, className }: { meta: ReviewMeta | null; c
 /** «Scrie prima recenzie» / «Vezi recenzia» / «Vezi toate cele N recenzii» → the reviews page, as the
  * section's header action (like Partide and Concursuri). */
 export function ReviewsMoreAction({ lakeId, count }: { lakeId: string; count: number }) {
-  const label = count === 0 ? 'Scrie prima recenzie' : count === 1 ? 'Vezi recenzia' : `Vezi toate cele ${count} recenzii`;
+  const label = count === 0 ? 'Scrie prima recenzie' : count === 1 ? 'Vezi recenzia' : `Vezi toate cele ${formatReviewsCount(count)}`;
   return <SectionAction href={lakeHref('reviews', routes.lakeReviews(lakeId))}>{label}</SectionAction>;
 }
 

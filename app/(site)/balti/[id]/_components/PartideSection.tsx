@@ -5,9 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Suspense, useMemo, useSyncExternalStore } from 'react';
 import { ChevronRightIcon } from '@heroicons/react/20/solid';
 import { Pill } from '@/components/cards/parts';
-import { DetailSection } from '@/components/templates/T3';
+import { DetailSection, useRegisterSection } from '@/components/templates/T3';
 import { FaceStack } from '@/components/ui/Avatar';
-import { BentoTile, CountTile } from '@/components/ui/BentoTile';
+import { BentoTile, bentoSurface, CountTile } from '@/components/ui/BentoTile';
 import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { SignatureNumber } from '@/components/ui/SignatureNumber';
@@ -25,11 +25,13 @@ import {
   type CommunityActiveSessionDTO,
   type CommunityLakeSectionDTO,
 } from '@/core/partide';
+import { formatCount } from '@/core/realtime/chat/format';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { useViewerState } from '../../../_shell/viewer-context';
 import { userOf } from '../../../_shell/viewer-state';
 import { lakeHref } from './availability';
+import { QuickActionBadge } from './QuickActions';
 import { SectionAction } from './SectionLink';
 
 /*
@@ -40,9 +42,8 @@ import { SectionAction } from './SectionLink';
  * 30s) and, as TanStack does, keeps the last good data when a refresh fails (c21) — so the section
  * never vanishes on a hiccup, and appears while the page is open when a partidă starts. It renders
  * nothing while there is no data or the data says the venue has no activity.
- * TODO(kit): the «Partide» chip follows the server read only; DetailSectionsProvider needs a setter
- * (or `useRegisterSection(id, visible)`) so this query can add / drop it as the section appears /
- * goes. TODO(kit): this section is forked with ape-publice VenuePartideSection — one shared
+ * The «Partide» chip follows the same query (useRegisterSection, c10): it appears and leaves with
+ * the section — also when the server read failed and the browser's succeeds. TODO(kit): this section is forked with ape-publice VenuePartideSection — one shared
  * DetailVenuePartide ({kind, id}, seeAllHref) belongs in the kit.
  */
 
@@ -65,7 +66,9 @@ export function useNow(): number | null {
 export function PartideSection({ lakeId }: { lakeId: string }) {
   const t = useMemo(() => createBrowserTransport(), []);
   const { data } = useQuery(communityVenueSectionQuery(t, { kind: 'lake', id: lakeId }));
-  if (!data || !hasPartideActivity(data)) return null;
+  const shown = data ? hasPartideActivity(data) : undefined;
+  useRegisterSection('partide', shown);
+  if (!data || !shown) return null;
   const all = lakeHref('partide', routes.lakePartide(lakeId));
   // Until /partide and /statistici are on the web (fish reaches the rankings and the catches from
   // there), this section is their way in: «Clasament» in the header, «Vezi capturile» under the card.
@@ -96,6 +99,17 @@ export function PartideSection({ lakeId }: { lakeId: string }) {
   );
 }
 
+/**
+ * The Partide quick-action tile's badge (fish [lakeId].tsx `badge: stats.activeNow`, c14): the
+ * partide at the water now, from the same polled query as the section. Nothing at 0.
+ */
+export function PartideActiveBadge({ lakeId }: { lakeId: string }) {
+  const t = useMemo(() => createBrowserTransport(), []);
+  const { data } = useQuery(communityVenueSectionQuery(t, { kind: 'lake', id: lakeId }));
+  const n = data?.stats.activeNow ?? 0;
+  return n > 0 ? <QuickActionBadge count={n} label={`${formatCount(n, 'partidă activă', 'partide active')} acum`} /> : null;
+}
+
 /** Your own row is marked (fish `isSelf`: an indigo name) once the session is known. */
 export function LiveCardForViewer({ data }: { data: CommunityLakeSectionDTO }) {
   const viewer = userOf(useViewerState());
@@ -123,7 +137,7 @@ export function LiveCard({ data, viewerUid }: { data: CommunityLakeSectionDTO; v
     // TODO(kit): CountTile has no badge slot (the live Pill) nor a right slot («cea mai mare»).
     <BentoTile tone="navy" className="min-h-0">
       <Pill tone="live" className="self-start">
-        {stats.activeNow} ACTIVI ACUM
+        {formatCount(stats.activeNow, 'activ', 'activi').toUpperCase()} ACUM
       </Pill>
       <div className="flex items-end justify-between gap-3">
         {liveKg != null ? (
@@ -141,13 +155,24 @@ export function LiveCard({ data, viewerUid }: { data: CommunityLakeSectionDTO; v
       <p className="t-caption text-lavender-3">{liveKg != null ? catchesLabel(head.catches) : 'la apă acum'}</p>
     </BentoTile>
   ) : quietMonth && record ? (
-    // A quiet month: one compact navy row — the record as the signature number, the empty month as
-    // its caption — not a tall tile around one data point.
-    // From 768 it stands beside the chart (as tall as it): the number on top, the caption at the foot.
-    <BentoTile tone="navy" className="min-h-0 flex-row items-center gap-4 py-3.5 md:flex-col md:items-start md:py-4.5">
+    // A quiet month. Phone: one compact navy row (~68px) — the record as the signature number, the
+    // empty month as its caption — not a tall tile around one data point. Its own anatomy on the
+    // kit surface (bentoSurface): BentoTile's 156px floor is not overridable (cn does not merge).
+    // From 768 it stands beside the chart (as tall as it), so it carries a real label: «Record
+    // istoric» on top, the number, the empty month at the foot.
+    <div
+      className={cn(
+        bentoSurface('navy'),
+        'flex items-center gap-4 rounded-bento px-4.5 py-3.5 md:flex-col md:items-start md:justify-between md:gap-2 md:py-4.5',
+      )}
+      data-testid="partide-record-tile"
+    >
+      <p className="t-label tracking-[0.4px] text-lavender-2 uppercase max-md:hidden">Record istoric</p>
       <SignatureNumber size="stat" tone="lavender" unitTone="lavender" value={record} unit=" kg" />
-      <p className="min-w-0 flex-1 text-right t-caption text-lavender-3 md:flex-none md:text-left">record · 0 capturi luna aceasta</p>
-    </BentoTile>
+      <p className="min-w-0 flex-1 text-right t-caption text-lavender-3 md:flex-none md:text-left">
+        <span className="md:hidden">record · </span>0 capturi luna aceasta
+      </p>
+    </div>
   ) : (
     <CountTile
       label="Luna aceasta"

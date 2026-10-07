@@ -91,7 +91,7 @@ const headTexts = (table: Locator) => table.locator('thead th').allInnerTexts();
 /* Feeder on legs                                                      */
 /* ------------------------------------------------------------------ */
 
-test('competition-page.clasament.c27 competition-page.clasament.c31 competition-page.clasament.s10 — feeder: General | Manșa 1 | Manșa 2, completed opens on General; «Cum se calculează» docked beside the table from 1280 (context), without the provisional chip', async ({
+test('competition-page.clasament.c3 competition-page.clasament.c27 competition-page.clasament.c31 competition-page.clasament.s10 — feeder: General | Manșa 1 | Manșa 2, completed opens on General; «Cum se calculează» docked beside the table from 1280 (context), without the provisional chip', async ({
   page,
 }) => {
   const errors = await open(page, ID.feeder);
@@ -509,7 +509,7 @@ for (const vp of [PHONE, { width: 768, height: 1024 }, { width: 1280, height: 90
 
 const ncPills = (page: Page) => visible(page.getByRole('radiogroup', { name: 'Clasament pe' }));
 
-test('competition-page.clasament-nc.c1 competition-page.clasament-nc.c2 competition-page.clasament-nc.c4 competition-page.clasament-nc.c5 competition-page.clasament-nc.c6 competition-page.clasament-nc.s1 — General club table: pills, columns, merged club cells, names, winners, three decimals', async ({ page }) => {
+test('competition-page.clasament.c3 competition-page.clasament-nc.c1 competition-page.clasament-nc.c2 competition-page.clasament-nc.c4 competition-page.clasament-nc.c5 competition-page.clasament-nc.c6 competition-page.clasament-nc.s1 — General club table: pills, columns, merged club cells, names, winners, three decimals', async ({ page }) => {
   const errors = await open(page, ID.nc);
   const pills = ncPills(page);
   await expect(pills.locator('label')).toHaveText(['General', 'Sector A', 'Sector B', 'Sector C']);
@@ -635,19 +635,29 @@ test('competition-page.clasament-nc.c13 — «Clasament complet» opens the club
   await expect(dialog.getByRole('region', { name: 'Sector C complet' })).toBeVisible();
 });
 
-test('competition-page.clasament-nc.c1 — on a 375 phone Club and Pescari stay pinned while the numbers scroll, under ~55% of the card', async ({ page }) => {
+test('competition-page.clasament-nc.c1 — on a 375 phone the club table keeps Club, Pescari, Loc General and Loc Individual on the first screen; Pescari and both places stay pinned while the numbers scroll', async ({ page }) => {
   await open(page, ID.nc, PHONE);
   const region = page.getByRole('region', { name: 'Clasament pe cluburi' });
-  const club = region.locator('th[scope="rowgroup"]').first();
-  const names = region.locator('tbody tr').first().locator('td').first();
   const card = (await region.boundingBox())!;
-  const nameBox = (await names.boundingBox())!;
-  expect(nameBox.x + nameBox.width - card.x).toBeLessThan(card.width * 0.6);
-  const clubX = (await club.boundingBox())!.x;
+  const head = (title: string) => region.locator('thead th').filter({ hasText: new RegExp(`^${title}$`) });
+  const inView = async (title: string) => {
+    const b = (await head(title).boundingBox())!;
+    return b.x >= card.x - 1 && b.x + b.width <= card.x + card.width + 1;
+  };
+  for (const title of ['Club', 'Pescari', 'Loc General', 'Loc Individual']) expect(await inView(title), title).toBe(true);
+  // Loc Individual closes the card at its right edge, Loc General beside it.
+  const individual = (await head('Loc Individual').boundingBox())!;
+  expect(Math.abs(individual.x + individual.width - (card.x + card.width))).toBeLessThanOrEqual(1.5);
+  const names = region.locator('tbody tr').first().locator('td').first();
+  const [generalX, individualX] = [(await head('Loc General').boundingBox())!.x, individual.x];
   await region.evaluate(el => el.scrollTo({ left: 400 }));
   await expect(region).toHaveAttribute('data-scrolled', 'true');
-  expect(Math.round((await club.boundingBox())!.x)).toBe(Math.round(clubX));
-  expect(Math.round((await names.boundingBox())!.x)).toBe(Math.round(nameBox.x));
+  // Club scrolled away under Pescari, which is pinned at the card's left; the places did not move.
+  await expect.poll(async () => Math.round((await names.boundingBox())!.x)).toBe(Math.round(card.x));
+  expect(Math.round((await head('Loc General').boundingBox())!.x)).toBe(Math.round(generalX));
+  expect(Math.round((await head('Loc Individual').boundingBox())!.x)).toBe(Math.round(individualX));
+  // No right-edge fade over the pinned places.
+  expect(await region.evaluate(el => getComputedStyle(el).maskImage)).toBe('none');
 });
 
 /** The NC ranking as the test says (the browser's own re-read, after a return to the tab). */
@@ -787,8 +797,16 @@ test('§4b.11 — bestOfTiers: a row without a catch, and a Best N the row never
     const texts = await region.locator(`tbody tr > :nth-child(${i + 1})`).allInnerTexts();
     expect(texts.filter(t => /0,000/.test(t))).toEqual([]);
   }
-  const noCatch = region.locator('tbody tr').filter({ has: page.locator('td', { hasText: /^0$/ }) }).first();
+  // A no-catch row has one «nothing» mark: «–» in «Nr. Buc» too, never «0» beside the «–»s.
+  const count = heads.findIndex(h => /Nr\.?\s*Buc/.test(h));
+  expect(count).toBeGreaterThan(-1);
+  const noCatch = region
+    .locator('tbody tr')
+    .filter({ has: page.locator(`> :nth-child(${count + 1}) .sr-only`, { hasText: 'Fără capturi' }) })
+    .first();
+  await expect(noCatch.locator(`> :nth-child(${count + 1}) span[aria-hidden]`)).toHaveText('–');
   await expect(noCatch.locator(`> :nth-child(${tierCols[0] + 1})`).getByText('Fără capturi')).toHaveClass(/sr-only/);
+  expect(await region.locator(`tbody tr > :nth-child(${count + 1})`).allInnerTexts()).not.toContain('0');
 });
 
 test('§4b.20 — feeder leg from 1280: the leg tabs stay in a card heading the sector grid (as wide as it), never loose on the page', async ({ page }) => {

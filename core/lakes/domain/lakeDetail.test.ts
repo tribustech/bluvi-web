@@ -82,11 +82,16 @@ describe('buildLakeStats', () => {
     ).toEqual([
       { key: 'surface', value: '10,5 ha', label: 'Suprafață' },
       { key: 'depth', value: '1,5 – ? m', label: 'Adâncime' },
-      { key: 'seats', value: '21 locuri', label: 'Standuri pescuit' },
+      { key: 'seats', value: '21 de locuri', label: 'Standuri pescuit' },
       { key: 'regime', value: 'C&R', label: 'Regim de pescuit' },
       { key: 'fishingType', value: 'Sportiv', label: 'Tip de pescuit' },
       { key: 'fishingSpotTypes', value: 'Pontoane', label: 'Loc de pescuit' },
     ]);
+  });
+
+  it('writes the seats with the Romanian plural (owner rule 20): «1 loc», «19 locuri», «20 de locuri»', () => {
+    const seats = (n: number) => buildLakeStats({ ...blank, numberOfSeats: n })[0].value;
+    expect([seats(1), seats(19), seats(20), seats(101)]).toEqual(['1 loc', '19 locuri', '20 de locuri', '101 locuri']);
   });
 
   it('drops a depth with neither bound', () => {

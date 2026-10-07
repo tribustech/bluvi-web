@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { PhotoIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/components/ui/cn';
@@ -61,6 +62,12 @@ export type DetailPhotoHeroProps = {
   viewer?: boolean;
   /** With `viewer`: the built-in «Vezi toate fotografiile» (lightbox). false: the page brings its own. */
   showAll?: boolean;
+  /**
+   * Phone only: a tap on a photo opens this page (fish PhotoHeroCarousel onPressPhoto → the gallery).
+   * Pointer only (out of the Tab order, hidden from AT): the page's own gallery link in
+   * `bottomEnd` is the one named control.
+   */
+  phoneHref?: string;
   /**
    * From 768, with fewer than five photos: more grid tiles after the photos (community catches, a
    * map), each a <DetailPhotoFillTile>, so the grid tops up to one large + four small (owner rule
@@ -153,6 +160,7 @@ export function DetailPhotoHero({
   bottomEnd,
   viewer = false,
   showAll: builtInShowAll = true,
+  phoneHref,
   fill,
   className,
 }: DetailPhotoHeroProps) {
@@ -200,6 +208,7 @@ export function DetailPhotoHero({
                   viewer && 'transition-[filter] duration-(--duration-fast) ease-fast md:group-hover/tile:brightness-90',
                 )}
               />
+              {phoneHref ? <Link href={phoneHref} tabIndex={-1} aria-hidden className="absolute inset-0 md:hidden" /> : null}
               {viewer && i < GRID_MAX ? <DetailPhotoTileButton index={i} label={`Deschide fotografia ${i + 1} din ${list.length}`} /> : null}
             </li>
           ))}

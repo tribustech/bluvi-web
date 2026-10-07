@@ -2,7 +2,7 @@ import { plural } from '@/components/cards/format';
 import { cn } from '@/components/ui/cn';
 import { isNoCatch, readCell, type RankingRowData } from './model';
 import { EMPTY_STAND, formatRankingWeight, penaltyMarker, type WinnerMode } from './rankingColumns';
-import { parseStand, sectorFill } from './sector';
+import { paletteLetter, parseStand, sectorFill } from './sector';
 import { PenaltyMarker, WinnerTrophy } from './shell';
 
 /**
@@ -75,7 +75,7 @@ export function RankingRow({ row, valueKey = 'quantity', tied = false, isCurrent
   const noCatch = isNoCatch(row);
   const marker = penaltyMarker(row.penalties);
   const biggest = readCell(row.biggestFish);
-  const stripe = sectorFill(sector, row.backgroundColor);
+  const stripe = sectorFill(paletteLetter(row.backgroundColor) ?? sector, row.backgroundColor);
   const empty = row.participant === EMPTY_STAND;
   const counts = typeof row.catchCount === 'number' ? plural(row.catchCount, 'captură', 'capturi') : null;
   const cmmc = !noCatch && biggest.raw != null && biggest.raw !== '-' ? formatRankingWeight(row.biggestFish) : null;

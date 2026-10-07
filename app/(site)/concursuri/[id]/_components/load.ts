@@ -15,16 +15,20 @@ import { absoluteUrl, routes } from '@/lib/routes';
 import { createServerTransport } from '@/lib/server/transport';
 import { competitionDateProse } from './dates';
 
-/** The competition core with a ranking type core does not parse (one added to the CMS after this build). */
+/**
+ * The competition core with a ranking type core does not parse: one added to the CMS after this
+ * build, or none at all (`''` — fish CompetitionRankingWrapper renders no ranking then).
+ */
 export type LooseCompetitionDetail = Omit<CompetitionDetail, 'rankingType'> & { rankingType: string };
 
 export type CompetitionLoad =
   | { kind: 'ok'; competition: CompetitionDetail }
   | { kind: 'missing' }
   /**
-   * The core parses except for `rankingType` (a type added to the CMS after this build): the web
+   * The core parses except for `rankingType`: a type added to the CMS after this build — the web
    * renders the header, the preview and an explicit «not available» ranking state (parity
-   * clasament.c2, b.supported-ranking-types).
+   * clasament.c2, b.supported-ranking-types) — or no type at all (`rankingType: ''`): no ranking
+   * area, as fish (CompetitionRankingWrapper returns null).
    */
   | { kind: 'unsupported'; competition: LooseCompetitionDetail }
   /** The CMS answered with a shape core does not know at all. */
@@ -40,15 +44,29 @@ async function getCompetitionLoose(t: Transport, id: string): Promise<LooseCompe
     const res = await call(
       t,
       { method: 'GET', path: `/feed/competitions/${encodeURIComponent(id)}`, auth: 'none' },
-      z.object({ data: competitionDetailSchema.extend({ rankingType: z.string() }) }),
+      z.object({ data: competitionDetailSchema.extend({ rankingType: z.string().nullish() }) }),
     );
-    return res.data;
+    return { ...res.data, rankingType: res.data.rankingType ?? '' };
   } catch (e) {
     // Only «the shape is still wrong» means invalid; a network failure or a timeout is transient and
     // goes to error.tsx (with its retry), never to the dead-end «invalid» state.
     if (isApiError(e) && e.code === 'INVALID_RESPONSE') return null;
     throw e;
   }
+}
+
+/**
+ * What a strict read that failed means, decided on `rankingType` alone (fish
+ * CompetitionRankingWrapper): the loose read (only `rankingType` relaxed) failing too means another
+ * field drifted → invalid; no ranking type → the page without a ranking; a type core knows → the
+ * strict failure was elsewhere after all → invalid (never «this ranking type is not available»);
+ * any other type → unsupported.
+ */
+export function classifyLoose(loose: LooseCompetitionDetail | null): CompetitionLoad {
+  if (!loose) return { kind: 'invalid' };
+  if (loose.rankingType === '') return { kind: 'unsupported', competition: loose };
+  if (rankingTypeSchema.safeParse(loose.rankingType).success) return { kind: 'invalid' };
+  return { kind: 'unsupported', competition: loose };
 }
 
 /** How long the competition read may take before the page shows its error («Încearcă din nou»). */
@@ -87,8 +105,7 @@ export const loadCompetition = cache(async (id: string): Promise<CompetitionLoad
   } catch (e) {
     if (isApiError(e) && (e.status === 404 || e.status === 400)) return { kind: 'missing' };
     if (isApiError(e) && e.code === 'INVALID_RESPONSE') {
-      const competition = await bounded(getCompetitionLoose(createServerTransport(), id), what);
-      return competition ? { kind: 'unsupported', competition } : { kind: 'invalid' };
+      return classifyLoose(await bounded(getCompetitionLoose(createServerTransport(), id), what));
     }
     throw e;
   }

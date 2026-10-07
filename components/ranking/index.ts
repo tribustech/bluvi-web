@@ -52,4 +52,4 @@ export {
   tiedIndices,
   type RankingRowData,
 } from './model';
-export { SECTOR_LETTERS, parseStand, sectorColor, sectorColorMap } from './sector';
+export { SECTOR_LETTERS, paletteLetter, parseStand, sectorColor, sectorColorMap } from './sector';

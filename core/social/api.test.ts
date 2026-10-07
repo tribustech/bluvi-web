@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createFakeTransport } from '@/tests/transport';
-import { isApiError } from '../transport';
+import { QueryClient } from '@tanstack/react-query';
+import { ApiError, isApiError } from '../transport';
 import {
   createAnglerReview,
   deleteProfile,
@@ -13,6 +14,7 @@ import {
   getAnglerProfile,
   getAnglerSessions,
   getFirebaseToken,
+  getMyWidgetNotification,
   getNotificationsForLoggedUser,
   getPaginatedUsers,
   getProfile,
@@ -25,6 +27,7 @@ import {
   markAllNotificationsAsRead,
   markNotificationAsRead,
   postUserStatisticsBatch,
+  registerWidgetNotification,
   requestOrganizerRole,
   searchAnglers,
   sendFeedback,
@@ -33,6 +36,8 @@ import {
   uploadMedia,
   uploadMediaAndAttachToEntity,
 } from './api';
+import { registerWidgetNotificationMutation } from './mutations';
+import { myWidgetNotificationQuery, widgetNotificationKeys } from './queries';
 
 const pagination = { page: 1, pageSize: 3, pageCount: 1, total: 1 };
 const anglerProfile = {
@@ -315,5 +320,61 @@ describe('getFirebaseToken (ported from fish firebase-token.test.ts)', () => {
   it('returns null when firebaseToken is null', async () => {
     const { transport } = createFakeTransport([{ firebaseToken: null }]);
     await expect(getFirebaseToken(transport)).resolves.toBeNull();
+  });
+});
+
+describe('widget notifications (fish services/api/widgetNotification.ts)', () => {
+  const mine = { feature: 'weather', registered: true, registeredAt: '2026-10-01T08:00:00.000Z' };
+
+  it('getMyWidgetNotification GETs /feed/widget-notifications/mine?feature= with the session', async () => {
+    const { transport, calls } = createFakeTransport([{ data: mine }]);
+    await expect(getMyWidgetNotification(transport, 'weather')).resolves.toEqual(mine);
+    expect(calls[0]).toMatchObject({ method: 'GET', path: '/feed/widget-notifications/mine', query: { feature: 'weather' }, auth: 'required' });
+  });
+
+  it('getMyWidgetNotification maps a 401 to «not registered», as fish does', async () => {
+    const { transport } = createFakeTransport(() => {
+      throw new ApiError({ message: 'Unauthorized', status: 401, code: 'HTTP' });
+    });
+    await expect(getMyWidgetNotification(transport, 'moonPhases')).resolves.toEqual({ feature: 'moonPhases', registered: false, registeredAt: null });
+  });
+
+  it('getMyWidgetNotification rethrows any other failure', async () => {
+    const { transport } = createFakeTransport(() => {
+      throw new ApiError({ message: 'x', status: 500, code: 'HTTP' });
+    });
+    await expect(getMyWidgetNotification(transport, 'weather')).rejects.toSatisfy(e => isApiError(e) && e.status === 500);
+  });
+
+  it('rejects a feature outside the strict enum', async () => {
+    const { transport } = createFakeTransport([{ data: { ...mine, feature: 'tides' } }]);
+    await expect(getMyWidgetNotification(transport, 'weather')).rejects.toSatisfy(e => isApiError(e) && e.code === 'INVALID_RESPONSE');
+  });
+
+  it('registerWidgetNotification POSTs {data:{feature}} and parses the answer', async () => {
+    const created = { documentId: 'w1', feature: 'jurnalPartide', registeredAt: null, created: true };
+    const { transport, calls } = createFakeTransport([{ data: created }]);
+    await expect(registerWidgetNotification(transport, 'jurnalPartide')).resolves.toEqual(created);
+    expect(calls[0]).toMatchObject({ method: 'POST', path: '/feed/widget-notifications', body: { data: { feature: 'jurnalPartide' } }, auth: 'required' });
+  });
+
+  it('the query keeps fish\'s key, staleTime and session gate', () => {
+    const { transport } = createFakeTransport();
+    expect(widgetNotificationKeys.mine('weather')).toEqual(['widget-notification', 'mine', 'weather']);
+    const q = myWidgetNotificationQuery(transport, 'weather', { isAuthenticated: false });
+    expect(q.queryKey).toEqual(['widget-notification', 'mine', 'weather']);
+    expect(q.staleTime).toBe(5 * 60 * 1000);
+    expect(q.enabled).toBe(false);
+    expect(myWidgetNotificationQuery(transport, 'weather').enabled).toBe(true);
+  });
+
+  it('the mutation invalidates that feature\'s «mine» only', async () => {
+    const qc = new QueryClient();
+    qc.setQueryData(widgetNotificationKeys.mine('weather'), mine);
+    qc.setQueryData(widgetNotificationKeys.mine('moonPhases'), { ...mine, feature: 'moonPhases' });
+    const { transport } = createFakeTransport([{ data: { documentId: 'w1', feature: 'weather', registeredAt: null, created: false } }]);
+    await qc.getMutationCache().build(qc, registerWidgetNotificationMutation(transport, qc, 'weather')).execute(undefined);
+    expect(qc.getQueryState(widgetNotificationKeys.mine('weather'))?.isInvalidated).toBe(true);
+    expect(qc.getQueryState(widgetNotificationKeys.mine('moonPhases'))?.isInvalidated).toBe(false);
   });
 });

@@ -299,6 +299,9 @@ function Screen({
     return () => window.removeEventListener('popstate', read);
   }, [id, router]);
   const [sortBy, setSortBy] = useState<RankingSort>('stand');
+  // Bumped by every Sortare pick, the same value too: the phone table starts over in the order the
+  // bar names even after a header sort (fish's Sortare always leaves the rows in that order).
+  const [sortNonce, setSortNonce] = useState(0);
   const [barMessage, setBarMessage] = useState<string | null>(null);
   const [fullOpen, setFullOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -487,6 +490,7 @@ function Screen({
   const changeSort = (by: string) => {
     if (nc || isNcType) setNcSort(by as NcSort);
     else setSortBy(by as RankingSort);
+    setSortNonce(n => n + 1);
     if (view !== 'clasament') selectView('clasament');
     setBarMessage(
       by === 'stand'
@@ -765,9 +769,12 @@ function Screen({
           {unsupported ? (
             // A ranking type newer than this build (core cannot parse it): the T3 in-body state, with
             // the way to see it (the app). Feeder legs and the club rankings have their own tables.
-            <DetailSection tone="plain">
-              <AppOnlyState id={id} title="Clasamentul acestui tip de concurs nu este încă disponibil pe web." />
-            </DetailSection>
+            // No ranking type at all (load.ts classifyLoose): no ranking area, as fish.
+            unsupported.rankingType ? (
+              <DetailSection tone="plain">
+                <AppOnlyState id={id} title="Clasamentul acestui tip de concurs nu este încă disponibil pe web." />
+              </DetailSection>
+            ) : null
           ) : (
             <>
               {/* From 768: the summary strip over the views (the phone has them in Statistici). It
@@ -875,6 +882,7 @@ function Screen({
                           }
                           query={rankingsQ}
                           table={table}
+                          sortNonce={sortNonce}
                           placeTable={placeTable}
                           currentUserStandId={me.standId}
                           rankingType={competition.rankingType}

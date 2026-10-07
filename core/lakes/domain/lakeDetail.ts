@@ -1,3 +1,4 @@
+import { formatCount } from '../../realtime/chat/format';
 import type { LakeDetail } from '../schemas';
 
 /*
@@ -158,7 +159,7 @@ export function buildLakeStats(
     const n = (v: number | null | undefined) => (v == null ? '?' : String(v).replace('.', ','));
     stats.push({ key: 'depth', value: `${n(lake.depth.min)} – ${n(lake.depth.max)} m`, label: 'Adâncime' });
   }
-  if (lake.numberOfSeats != null) stats.push({ key: 'seats', value: `${lake.numberOfSeats} locuri`, label: 'Standuri pescuit' });
+  if (lake.numberOfSeats != null) stats.push({ key: 'seats', value: formatCount(lake.numberOfSeats, 'loc', 'locuri'), label: 'Standuri pescuit' });
   if (lake.regime) stats.push({ key: 'regime', value: lake.regime, label: 'Regim de pescuit' });
   if (lake.fishingType) stats.push({ key: 'fishingType', value: lake.fishingType, label: 'Tip de pescuit' });
   if (lake.fishingSpotTypes) stats.push({ key: 'fishingSpotTypes', value: lake.fishingSpotTypes, label: 'Loc de pescuit' });

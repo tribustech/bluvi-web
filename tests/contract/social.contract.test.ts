@@ -8,6 +8,7 @@ import {
   getAnglerProfile,
   getAnglerSessions,
   getFirebaseToken,
+  getMyWidgetNotification,
   getNotificationsForLoggedUser,
   getPaginatedUsers,
   getProfile,
@@ -21,6 +22,7 @@ import {
   postUserStatisticsBatch,
   searchAnglers,
   unfollowAngler,
+  FEATURE_KEYS,
   type AnglerListItem,
 } from '@/core/social';
 import { isApiError } from '@/core/transport';
@@ -155,6 +157,16 @@ describe('profile + users', () => {
     const token = await getFirebaseToken(user);
     expect(token === null || typeof token === 'string').toBe(true);
     await expectDenied(getFirebaseToken(guest));
+  });
+});
+
+describe('widget notifications — GET mine only (the POST is a write)', () => {
+  it('parses as user for every feature; a guest gets fish\'s 401 mapping «not registered»', async () => {
+    for (const feature of FEATURE_KEYS) {
+      const mine = await getMyWidgetNotification(user, feature);
+      expect(mine.feature).toBe(feature);
+      expect(await getMyWidgetNotification(guest, feature)).toEqual({ feature, registered: false, registeredAt: null });
+    }
   });
 });
 

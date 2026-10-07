@@ -206,15 +206,24 @@ const NC_NAME_TH = 'whitespace-nowrap';
 const NC_TD = 'h-12 border-t border-l border-rank-line px-2';
 
 /*
- * Pinned at the left while the numbers scroll sideways: Club + Pescari (General), Stand + Pescari
- * (a sector). Below 768 the pinned block stays near half of a 343px card (club 80 + names 120);
- * names wrap between words, balanced, never mid-word. From 768 fish's widths: club 120 (a step
- * wider), names sized to their content.
+ * Pinned while the numbers scroll sideways. A sector: Stand + Pescari at the left. General: from 768
+ * Club + Pescari at the left (fish's widths: club 120, a step wider; names sized to their content).
+ * Below 768 the club ranking keeps what decides it on the first screen, as the standard table does
+ * (tableFixes useTablePins): the narrow Club (64px, its name in caption type) scrolls away under
+ * Pescari, which stays pinned at the left (120px, names wrapping between words, balanced, never
+ * mid-word), and «Loc General» (the club's place) and «Loc Individual» (the team's) stay pinned at
+ * the right (64px each) — Club, Pescari, Loc General and Loc Individual on a 375 phone's first
+ * screen, the club's numbers scrolling between them.
  */
-const CLUB_W = 'w-20 min-w-20 max-w-20 md:w-36 md:min-w-36 md:max-w-36';
-const NAMES_LEFT = 'left-20 md:left-36';
+const CLUB_W = 'w-16 min-w-16 max-w-16 md:w-36 md:min-w-36 md:max-w-36';
+const CLUB_PIN = 'max-md:relative md:sticky md:left-0';
+const NAMES_LEFT = 'left-0 md:left-36';
 const NAMES_W = 'max-md:max-w-30 max-md:min-w-30 md:min-w-44 md:max-w-80';
 const STAND_W = 'w-16 min-w-16 max-w-16';
+/** Below 768: the two places pinned at the right (Loc Individual last, Loc General before it). */
+const PLACE_W = 'max-md:w-16 max-md:min-w-16 max-md:max-w-16';
+const PIN_LOC_GENERAL = cn(PLACE_W, 'max-md:sticky max-md:right-16');
+const PIN_LOC_INDIVIDUAL = cn(PLACE_W, 'max-md:sticky max-md:right-0');
 
 function ClubTable({
   rankings,
@@ -250,7 +259,8 @@ function ClubTable({
     'Loc Individual',
   ];
   return (
-    <RankingFrame caption={caption} full={full} embedded={embedded}>
+    // Below 768 the places are pinned at the right: no right-edge fade over them.
+    <RankingFrame caption={caption} full={full} embedded={embedded} className="max-md:data-[more=true]:[mask-image:none]">
       <RankingGrid caption={caption} className="text-rank-on-light">
         <thead>
           <tr>
@@ -261,9 +271,10 @@ function ClubTable({
                 className={cn(
                   NC_TH,
                   i < 3 ? cn('text-left', NC_NAME_TH) : cn('text-right', NC_NUM_TH),
-                  i === 0 && cn(RANK_TH_PIN, CLUB_W, 'left-0 pl-3'),
+                  i === 0 && cn(CLUB_W, 'md:left-0 md:z-sticky pl-3 max-md:whitespace-normal'),
                   i === 1 && cn(RANK_TH_PIN, RANK_PIN_EDGE, NAMES_LEFT),
-                  i === head.length - 1 && 'pr-3.5',
+                  i === head.length - 2 && cn(PIN_LOC_GENERAL, 'max-md:z-sticky'),
+                  i === head.length - 1 && cn(PIN_LOC_INDIVIDUAL, 'max-md:z-sticky pr-3.5'),
                 )}
               >
                 {h}
@@ -297,9 +308,9 @@ function ClubTable({
                         className={cn(
                           NC_TD,
                           clubFill,
-                          RANK_PIN,
+                          CLUB_PIN,
                           CLUB_W,
-                          'left-0 border-l-0 py-2 pl-3 text-left align-middle font-bold break-normal whitespace-normal',
+                          'border-l-0 py-2 pl-3 text-left align-middle font-bold break-normal whitespace-normal max-md:t-caption max-md:font-bold',
                         )}
                       >
                         {/* fish: the club's colour as the merged cell's 4px left edge. */}
@@ -327,8 +338,9 @@ function ClubTable({
                       <span className="inline-flex justify-end">
                         <PlaceCell value={club.position} mark={club.winner ? 'prize' : null} onFill align="end" />
                       </span>,
+                      cn('text-right', PIN_LOC_GENERAL),
                     )}
-                    <td className={cn(NC_TD, team.individualWinner ? winFill(letter) : clubFill, 'pr-3.5 text-right')}>
+                    <td className={cn(NC_TD, team.individualWinner ? winFill(letter) : clubFill, PIN_LOC_INDIVIDUAL, 'pr-3.5 text-right')}>
                       <span className="inline-flex justify-end">
                         <PlaceCell value={team.generalPosition} mark={team.individualWinner ? 'sector' : null} onFill align="end" />
                       </span>

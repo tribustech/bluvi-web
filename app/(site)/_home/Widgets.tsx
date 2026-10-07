@@ -1,13 +1,18 @@
 'use client';
 
-import { Suspense, useEffect, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
+import { ArrowPathIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { myWidgetNotificationQuery, registerWidgetNotificationMutation, widgetNotificationKeys, type FeatureKey } from '@/core/social';
+import { createBrowserTransport } from '@/lib/client/transport';
 import { ResponsiveSurface } from '@/components/surfaces/ResponsiveSurface';
 import { CountBadge, DashboardSection } from '@/components/templates/T5';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { useSiteToast } from '../_shell/Toast';
 import { useViewerState } from '../_shell/viewer-context';
 import { homeLinks } from './links';
 import rezervari from './assets/rezervari_widget.webp';
@@ -19,17 +24,23 @@ import fazeleLunii from './assets/fazele_lunii.webp';
 const BOOKINGS_NOU_KEY = '@bluvi/bookings/visited/v1';
 const BOOKINGS_NEW_BADGE_UNTIL = Date.UTC(2026, 9, 1);
 
-type Interest = { title: string; description: string; image: StaticImageData };
+/** `ready`: the registered line, agreed with the feature's name (fish's `{title} e disponibil` is not). */
+type Interest = { feature: FeatureKey; title: string; description: string; ready: string; image: StaticImageData };
 
-// fish WidgetsList INTEREST
+// fish WidgetsList INTEREST. Its `jurnalPartide` entry has no tile in fish (Partide is live, the
+// start-partidă hero is its entry point), so it has none here either.
 const WEATHER: Interest = {
+  feature: 'weather',
   title: 'Vremea',
   description: 'Prognoza meteo pentru spoturile tale de pescuit — vânt, presiune, temperatură și precipitații. Lucrăm la asta!',
+  ready: 'Te anunțăm imediat ce Vremea e disponibilă.',
   image: vremea,
 };
 const MOON: Interest = {
+  feature: 'moonPhases',
   title: 'Fazele Lunii',
   description: 'Urmărește fazele lunii și cele mai bune momente pentru pescuit. Lucrăm la asta!',
+  ready: 'Te anunțăm imediat ce Fazele Lunii sunt disponibile.',
   image: fazeleLunii,
 };
 
@@ -106,19 +117,26 @@ export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop
       <ResponsiveSurface
         open={interest !== null}
         onClose={() => setInterest(null)}
-        intent="decision"
+        // An informational, dismissible offer (fish: a plain sheet, pan-down and backdrop close):
+        // a fitted sheet below 768, a plain dialog with «Închide» from 768 — never an alert.
+        intent="info"
+        sheetSnap="fit"
+        // The body shows the name centred under the artwork (fish title1); the header keeps it
+        // for the dialog's accessible name only.
+        titleHidden
         title={interest?.title ?? ''}
         actions={
-          <Suspense fallback={null}>
-            <InterestAction onClose={() => setInterest(null)} />
-          </Suspense>
+          interest ? (
+            <Suspense fallback={<BusyNotifyButton />}>
+              <InterestAction interest={interest} onClose={() => setInterest(null)} />
+            </Suspense>
+          ) : null
         }
       >
         {interest ? (
-          <div className="flex flex-col items-center gap-3 text-center">
-            <Image src={interest.image} alt="" className="size-20 rounded-card object-cover" />
-            <p className="t-body text-muted">{interest.description}</p>
-          </div>
+          <Suspense fallback={<InterestBody interest={interest} registered={false} />}>
+            <InterestBodyFor interest={interest} />
+          </Suspense>
         ) : null}
       </ResponsiveSurface>
     </DashboardSection>
@@ -126,22 +144,109 @@ export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop
 }
 
 /**
- * fish WidgetNotificationSheet: signed out → «Intră în cont»; signed in → «Anunță-mă când e
- * disponibil». The register endpoint is not in core/ yet, so signed in only closes for now.
+ * The session as the interest panel needs it: a known guest, or a session (signed in, or unknown —
+ * a cookie whose read failed; the GET and POST carry it, and a dead one answers 401 → «not
+ * registered» / the error toast). An unknown session is never shown the guest's «Intră în cont».
  */
-function InterestAction({ onClose }: { onClose: () => void }) {
-  // Only a known signed-out visitor is sent to sign in (an unknown session is never a guest).
-  if (useViewerState() === null) {
+function useInterestNotification(feature: FeatureKey) {
+  const signedOut = useViewerState() === null;
+  const t = useMemo(() => createBrowserTransport(), []);
+  const mine = useQuery(myWidgetNotificationQuery(t, feature, { isAuthenticated: !signedOut }));
+  return { signedOut, t, mine, registered: !!mine.data?.registered };
+}
+
+/** fish WidgetNotificationSheet body: the artwork + description, or the check + «Ești pe listă!». */
+function InterestBodyFor({ interest }: { interest: Interest }) {
+  const { registered } = useInterestNotification(interest.feature);
+  return <InterestBody interest={interest} registered={registered} />;
+}
+
+/**
+ * One centred axis, as fish: the 64px artwork (or the check), the name in t-title1 — the focal
+ * point — then the description. The name is the surface's title for assistive tech (visually
+ * hidden there), so here it is aria-hidden: read once.
+ */
+function InterestBody({ interest, registered }: { interest: Interest; registered: boolean }) {
+  return (
+    <div className="flex flex-col items-center gap-4 pt-1 text-center">
+      <div className="flex flex-col items-center gap-1.5">
+        {registered ? (
+          <CheckCircleIcon aria-hidden className="size-16 text-success" />
+        ) : (
+          <Image src={interest.image} alt="" className="size-16 rounded-card object-cover" />
+        )}
+        <p aria-hidden className="t-title1 text-ink">
+          {interest.title}
+        </p>
+      </div>
+      <p className="t-body text-muted" aria-live="polite">
+        {registered ? `Ești pe listă! 🎉 ${interest.ready}` : interest.description}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * fish WidgetNotificationSheet actions: signed out → «Intră în cont» (sign-in returns to Acasă);
+ * signed in → «Anunță-mă când e disponibil» (POST, idempotent), once registered → «Închide»; a failed
+ * save toasts fish's «Nu am putut salva. Încearcă din nou.» and keeps the panel open. While the
+ * «am I registered?» read is in flight the button waits disabled (never an offer that may flip to
+ * «Ești pe listă» a moment later): a spinner, aria-busy, then the offer — a failed read (500) falls
+ * through to the offer at once (the read does not retry: web divergence, home.acasa.c18).
+ */
+function InterestAction({ interest, onClose }: { interest: Interest; onClose: () => void }) {
+  const { signedOut, t, mine, registered } = useInterestNotification(interest.feature);
+  const qc = useQueryClient();
+  const toast = useSiteToast();
+  const register = useMutation(registerWidgetNotificationMutation(t, qc, interest.feature));
+
+  if (signedOut) {
     return (
       <ButtonLink href={homeLinks.signIn} block>
         Intră în cont
       </ButtonLink>
     );
   }
+  // ONE Button across busy / offer / registered — only its label, variant and press change — so the
+  // focused node survives the save: a keyboard / screen-reader user stays in the dialog, on «Închide».
+  const busy = !registered && (mine.isPending || register.isPending);
   return (
-    <Button variant="secondary" block onClick={onClose}>
-      Închide
+    <Button
+      block
+      variant={registered ? 'secondary' : 'primary'}
+      aria-disabled={busy || undefined}
+      aria-busy={busy || undefined}
+      className={cn(busy && 'opacity-60')}
+      onClick={() => {
+        if (registered) return onClose();
+        if (busy) return;
+        register.mutate(undefined, {
+          // The answer already says so: show «Ești pe listă» now, not after the invalidated read.
+          onSuccess: (r) => qc.setQueryData(widgetNotificationKeys.mine(r.feature), { feature: r.feature, registered: true, registeredAt: r.registeredAt }),
+          onError: () => toast('Nu am putut salva. Încearcă din nou.', 'danger'),
+        });
+      }}
+    >
+      <NotifyLabel busy={busy} label={registered ? 'Închide' : register.isPending ? 'Se salvează…' : 'Anunță-mă când e disponibil'} />
     </Button>
+  );
+}
+
+/** The Suspense placeholder of the offer's CTA: busy (spinner, aria-busy, aria-disabled). */
+function BusyNotifyButton() {
+  return (
+    <Button block aria-disabled aria-busy className="opacity-60">
+      <NotifyLabel busy label="Anunță-mă când e disponibil" />
+    </Button>
+  );
+}
+
+function NotifyLabel({ busy, label }: { busy: boolean; label: string }) {
+  return (
+    <>
+      {busy ? <ArrowPathIcon aria-hidden className="size-5 shrink-0 animate-spin motion-reduce:animate-none" /> : null}
+      {label}
+    </>
   );
 }
 

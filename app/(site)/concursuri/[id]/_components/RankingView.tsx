@@ -3,16 +3,17 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { ColumnDefinition, RankingResponse } from '@/core/competitions';
-import { formatPlain, isNoCatch, mainValueKey, readCell, tiedIndices, type RankingRowData } from '@/components/ranking';
-import { formatRankingWeight } from '@/components/ranking/rankingColumns';
+import { EMPTY_STAND, cellNumber, formatPlain, isNoCatch, isPodium, readCell, type RankingRowData } from '@/components/ranking';
+import { formatRankingWeight, kindOf } from '@/components/ranking/rankingColumns';
+import { RankingLegend } from '@/components/ranking/RankingLegend';
 import { InlineNumber } from '@/components/ui/SignatureNumber';
 import { COLUMN_STICKY_TOP_BELOW_TABS } from '@/components/templates/T3/metrics';
 import { sectorFill } from '@/components/ranking/sector';
 import { RANKING_HEAD } from '@/components/ranking/tableHead';
-import { CompetitionRankingTable, PenaltyMarker } from './CompetitionRankingTable';
+import { formatCount } from '@/core/realtime/chat/format';
+import { CompetitionRankingTable } from './CompetitionRankingTable';
 import { SegmentedControl } from '@/components/forms/SegmentedControl';
 import { Select } from '@/components/forms/Select';
-import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { TextInput } from '@/components/forms/TextInput';
 import { ChoiceChips, type Choice } from '@/components/templates/T1';
 import { QueryRetry } from './QueryRetry';
@@ -22,13 +23,15 @@ import { MobileRanking } from './MobileRanking';
 import { PRESSABLE_ROWS } from './rowPress';
 import { FullViewButtons, RANKING_TOOLBAR, useRankingPerson, useRankingRowPress } from './rankingShell';
 import { isOfflineEmpty, OfflineState } from './offline';
-import { isTableRankingType, matchesRankingSearch, rowSector, sectorsOf, type RankingTableData } from './ranking';
+import { isTableRankingType, matchesRankingSearch, rowSector, sectorLetters, sectorsOf, type RankingTableData } from './ranking';
 import {
   EMBEDDED_TABLE,
   GENERAL_TABLE_LAYOUT,
   RANKING_TABLE_FIXES,
   STATIC_PINS_LAYOUT,
   STICKY_HEAD_PAGE,
+  decidingKey,
+  rankingPinKeys,
   useTablePins,
 } from './tableFixes';
 
@@ -41,9 +44,6 @@ const ALL_SECTORS = 'toate';
 
 /** More sectors than this (up to 24, A–X): one compact «Sector» select instead of a row of chips. */
 const SELECT_SECTORS_FROM = 12;
-
-/** One catch per column (catch1…catchN): the per-catch detail, not a deciding total. */
-const isCatchColumn = (c: ColumnDefinition) => /^catch\d+$/.test(c.key);
 
 /**
  * Clasament view. Mobile: fish's ScrollableTable (MobileRanking: the kit table, the Stand pinned,
@@ -62,7 +62,10 @@ export function RankingView({
   onFullView,
   rankingType,
   onRowPress,
+  sortNonce = 0,
 }: {
+  /** Bumped by every Sortare pick (the bar): the phone table starts over in that order. */
+  sortNonce?: number;
   /** A row pressed: its stand id (the angler stats open; parity statistici-pescar.c1). */
   onRowPress?: (standId: string) => void;
   query: UseQueryResult<RankingResponse>;
@@ -101,12 +104,26 @@ export function RankingView({
   return (
     <>
       <div className="md:hidden">
-        <MobileRanking columns={table.columns} rows={table.rows} currentUserStandId={currentUserStandId} onRowPress={onRowPress} />
+        <MobileRanking
+          columns={table.columns}
+          rows={table.rows}
+          currentUserStandId={currentUserStandId}
+          onRowPress={onRowPress}
+          sortNonce={sortNonce}
+        />
       </div>
       <DesktopRanking table={placeTable} currentUserStandId={currentUserStandId} onFullView={onFullView} onRowPress={onRowPress} />
     </>
   );
 }
+
+/**
+ * A pressable row of the screen's own tables (feeder, club ranking) marks the pointer and the focus
+ * on its cells, as the standard table (tableFixes RANKING_TABLE_FIXES): their cells paint their own
+ * fills, so a row background never showed.
+ */
+const CUSTOM_ROW_CUE =
+  '[&_tbody_tr[data-pressable]>*]:transition-[filter] [&_tbody_tr[data-pressable]>*]:duration-(--duration-fast) [&_tbody_tr[data-pressable]:hover>*]:brightness-90 [&_tbody_tr[data-pressable]:focus-visible>*]:brightness-90';
 
 /**
  * The rankings the screen draws (feeder legs, the club rankings): their rows pressed open the person.
@@ -128,7 +145,7 @@ function CustomRanking({ onRowPress, children }: { onRowPress?: (standId: string
     return false;
   });
   return (
-    <div ref={host} className={PRESSABLE_ROWS}>
+    <div ref={host} className={cn(PRESSABLE_ROWS, CUSTOM_ROW_CUE)}>
       {children}
       {person.popover}
     </div>
@@ -163,15 +180,12 @@ function DesktopRanking({
   const sectors = useMemo(() => sectorsOf(table.rows), [table.rows]);
   const selectSectors = sectors.length > SELECT_SECTORS_FROM;
   const picked = sector === ALL_SECTORS ? null : sector;
-  // 768–1279: the per-catch columns leave the inline table (Loc, Stand, Pescar and the deciding
-  // totals fill the width); every column is still in «Clasament complet». Server render and 1280+:
-  // the whole table.
-  const compact = useBreakpoint() === 'tablet';
-  const hidesCatches = compact && table.columns.some(isCatchColumn);
-  const columns = useMemo(
-    () => (hidesCatches ? table.columns.filter(c => !isCatchColumn(c)) : table.columns),
-    [hidesCatches, table.columns],
-  );
+  // fish's columns at every width (parity clasament c7–c13): a table wider than its card scrolls
+  // sideways with the Stand pinned at the left and the deciding columns at the right (tableFixes).
+  const columns = table.columns;
+  const pinRight = useMemo(() => rankingPinKeys(columns, table.rows), [columns, table.rows]);
+  const letters = useMemo(() => sectorLetters(table.rows), [table.rows]);
+  const multiSector = sectors.length > 1;
 
   const rows = useMemo(
     () => table.rows.filter(r => (!picked || rowSector(r) === picked) && matchesRankingSearch(r, search)),
@@ -179,26 +193,15 @@ function DesktopRanking({
   );
 
   const generalRef = useRef<HTMLDivElement>(null);
-  const pins = useTablePins(generalRef, columns, mode === 'general' ? rows.length : 0);
+  const pins = useTablePins(generalRef, columns, mode === 'general' ? rows.length : 0, table.rows);
 
-  // The legend names only what the visible columns draw.
-  const shownKeys = columns.map(c => c.key);
-  const anyShownCell = (test: (cell: ReturnType<typeof readCell>) => boolean) =>
-    table.rows.some(r => shownKeys.some(k => test(readCell(r[k]))));
-  const hasPenalty = table.rows.some(r => (r.penalties?.length ?? 0) > 0 && !r.penalties?.some(p => p.action === 'ELIMINATE'));
-  const hasEliminated = table.rows.some(r => r.penalties?.some(p => p.action === 'ELIMINATE'));
-  const hasSplit = anyShownCell(c => c.isSplit);
-  const hasTie = useMemo(() => tiedIndices(table.rows).size > 0, [table.rows]);
-  // Quantity rankings never flag a cell (fish createQuantityRow): no gold cell, no legend entry.
-  const hasBiggest = anyShownCell(c => c.isBiggest);
-  const legend = (
-    <Legend hasBiggest={hasBiggest} hasSplit={hasSplit} hasPenalty={hasPenalty} hasEliminated={hasEliminated} hasTie={hasTie} catchesHidden={hidesCatches} />
-  );
+  // The legend names only what this ranking's cells draw (the same module under the phone table).
+  const legend = <RankingLegend columns={columns} rows={table.rows} />;
 
   const sectorChoices: Choice<string>[] = [
     { value: ALL_SECTORS, label: 'Toate' },
     ...sectors.map(s => {
-      const fill = sectorFill(s, 'var(--color-muted)');
+      const fill = sectorFill(letters.get(s) ?? s, 'var(--color-muted)');
       return {
         value: s,
         label: s,
@@ -273,6 +276,7 @@ function DesktopRanking({
           ref={generalRef}
           data-wide={pins.wide}
           data-fade={pins.fade}
+          data-pinned={pins.wide ? pins.pinned : undefined}
           data-static-pins={pins.staticCount}
           style={pins.style}
           className={cn(
@@ -296,6 +300,8 @@ function DesktopRanking({
                 caption="Clasament general"
                 columns={columns}
                 rows={rows}
+                pinRight={pinRight}
+                multiSector={multiSector}
                 currentUserStandId={currentUserStandId}
                 // Fits: full height, the header follows the page (STICKY_HEAD_PAGE). Wider: it
                 // scrolls in its own viewport-high region, where the header sticks at its top
@@ -318,7 +324,7 @@ function DesktopRanking({
             : (picked ? [picked] : sectors).map(s => {
                 const sectorRows = rows.filter(r => rowSector(r) === s);
                 if (!sectorRows.length) return null;
-                const fill = sectorFill(s, sectorRows[0].backgroundColor);
+                const fill = sectorFill(letters.get(s) ?? s, sectorRows[0].backgroundColor);
                 return (
                   <section key={s} aria-labelledby={`sector-${s}`} className="flex flex-col gap-2">
                     <h2 id={`sector-${s}`} className="flex items-center gap-2 t-title2">
@@ -329,6 +335,7 @@ function DesktopRanking({
                       caption={`Clasament sector ${s}`}
                       columns={columns}
                       rows={sectorRows}
+                      multiSector={multiSector}
                       currentUserStandId={currentUserStandId}
                       // A long sector scrolls in a viewport-high region: its header stays in view.
                       maxHeight={TABLE_SCROLL_CAP}
@@ -342,7 +349,7 @@ function DesktopRanking({
 
   return (
     <section ref={section} aria-label="Clasament" className={cn('hidden md:block', RANKING_TABLE_FIXES, PRESSABLE_ROWS)}>
-      <SideColumnLayout aside={<SectorLeaders table={table} onPress={onRowPress ? pressStand : undefined} />}>{card}</SideColumnLayout>
+      <SideColumnLayout aside={<RankingSide table={table} onPress={onRowPress ? pressStand : undefined} />}>{card}</SideColumnLayout>
       {person.popover}
     </section>
   );
@@ -353,16 +360,36 @@ const SIDE_MIN = 288;
 const SIDE_GAP = 24;
 
 /**
- * ROADMAP §4b.16: the table stays compact (as wide as its columns) and, from 1280, the width it
- * leaves goes to a sticky side column — never dead space beside a 763px table on a 1920 screen.
- * The column only shows when the leftover is wide enough for it (measured: the table keeps its own
- * width, it is never squeezed into a sideways scroll to make room), and it steps aside while the
- * angler panel is docked (opened below 1024 or by `?pescar=`: AnglerStats, the same column's job).
+ * ROADMAP §4b.16 (full-width desktop, like Facebook): the table stays compact (as wide as its
+ * columns) and, from 1280, ALL the width it leaves goes to a sticky side column — a bento stack
+ * (RankingSide), never dead space beside a 763px table on a 1440 / 1920 screen. The column only
+ * shows when the leftover is wide enough for it (measured: the table keeps its own width, it is
+ * never squeezed into a sideways scroll to make room), it is viewport-high (sticky under the tabs,
+ * its own scroll when the stack is taller), and it steps aside while the angler panel is docked
+ * (opened below 1024 or by `?pescar=`: AnglerStats, the same column's job).
  */
 function SideColumnLayout({ aside, children }: { aside: ReactNode; children: ReactNode }) {
   const wrap = useRef<HTMLDivElement>(null);
   const main = useRef<HTMLDivElement>(null);
+  const side = useRef<HTMLDivElement>(null);
   const [room, setRoom] = useState(false);
+  // The stack taller than the viewport-high column: more below → the column's bottom fades out, so
+  // a cut row never reads as the last one (the column scrolls on its own; the fade says so).
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = side.current;
+    if (!room || !el) return;
+    const update = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 1);
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => {
+      el.removeEventListener('scroll', update);
+      ro.disconnect();
+    };
+  }, [room]);
   useEffect(() => {
     const box = wrap.current;
     const content = main.current;
@@ -384,9 +411,14 @@ function SideColumnLayout({ aside, children }: { aside: ReactNode; children: Rea
       </div>
       {room ? (
         <div
+          ref={side}
+          data-ranking-side-column=""
+          data-more={more || undefined}
           className={cn(
-            'sticky max-h-[calc(100dvh-var(--spacing)*36)] max-w-96 min-w-0 flex-1 self-start overflow-y-auto rounded-card',
+            // Every pixel the table leaves (flex-1, no cap): the stack lays out by the column's width.
+            '@container sticky max-h-[calc(100dvh-var(--spacing)*36)] min-w-0 flex-1 self-start overflow-y-auto rounded-bento',
             COLUMN_STICKY_TOP_BELOW_TABS,
+            'data-more:[mask-image:linear-gradient(to_bottom,#000_calc(100%-4rem),transparent)]',
             // The angler panel docked beside the view (AnglerStats → ContextSurface → SidePanel).
             'in-[.flex:has(>.contents>aside)]:hidden',
           )}
@@ -398,56 +430,122 @@ function SideColumnLayout({ aside, children }: { aside: ReactNode; children: Rea
   );
 }
 
-/** A row's main value (kg for a quantity ranking, else the ranking's own points), «–» without one. */
-function mainValue(row: RankingRowData, key: string | undefined): { value: string; unit?: string } {
-  if (!key) return { value: '–' };
-  return key === 'quantity' ? { value: formatRankingWeight(row[key]), unit: 'kg' } : { value: formatPlain(row[key]) };
+type SideValue = { value: string; unit?: string; note?: string };
+
+/** A side tile lists at most this many sectors; the rest behind «Vezi încă N sectoare». */
+const SIDE_ROWS = 8;
+
+/** The side tiles' «more» line: the hidden sectors, counted, or back to the short list. */
+function SideMore({ hidden, open, onToggle, controls }: { hidden: number; open: boolean; onToggle: () => void; controls: string }) {
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      aria-controls={controls}
+      onClick={onToggle}
+      data-ranking-side-more=""
+      className="flex min-h-11 w-full items-center justify-center t-label text-accent-ink transition-colors duration-(--duration-fast) hover:bg-soft-fill focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent"
+    >
+      {open ? 'Arată mai puține' : `Vezi încă ${formatCount(hidden, 'sector', 'sectoare')}`}
+    </button>
+  );
 }
 
 /**
- * The side column on the ranking (live and completed alike): who leads each sector — one line per
- * sector, its colour dot, the leader and their main value; one sector: the podium. A line opens that
- * angler as a row does (the popover from 1024, rule 17). Nobody with a catch yet: no column (ROADMAP §4b.4).
+ * The value a row was ranked on, for the side column: the ranking's main value (Cantitate,
+ * Calitate, Medie — rankingColumns mainValueKey), else the points total; bestOfTiers: the Best N
+ * the row won its place at (its green cell). Unknown: nothing (ROADMAP §4b.4 — never a bare «–»).
  */
-function SectorLeaders({ table, onPress }: { table: RankingTableData; onPress?: (standId: string, anchor: HTMLElement) => void }) {
-  const key = useMemo(() => mainValueKey(table.columns), [table.columns]);
-  const title = table.columns.find(c => c.key === key)?.title;
+function sideValue(row: RankingRowData, columns: ReadonlyArray<ColumnDefinition>): SideValue | null {
+  const tierWin = columns.find(c => /^tier\d+$/.test(c.key) && readCell(row[c.key]).isTierWin);
+  const key = tierWin?.key ?? decidingKey(columns.filter(c => !/^tier\d+$/.test(c.key)));
+  if (!key || cellNumber(row[key]) === null) return null;
+  const weight = kindOf(key) === 'weight' || kindOf(key) === 'tier';
+  return {
+    value: weight ? formatRankingWeight(row[key]) : formatPlain(row[key]),
+    unit: weight ? 'kg' : undefined,
+    note: tierWin?.title,
+  };
+}
+
+/**
+ * The side column on the ranking (live and completed alike), an Apple-style bento stack laid out by
+ * the column's width (one column of tiles, two side by side from 672px): who leads (one line per
+ * sector; one sector: the podium) and the sectors side by side (their kg and catches, a bar per
+ * sector in its colour). Only from what the ranking already holds (the competition's totals, its
+ * biggest catch and its last weighing are the strip above the view); a tile without its data is left
+ * out (§4b.4). Nobody with a catch yet: no column.
+ */
+function RankingSide({ table, onPress }: { table: RankingTableData; onPress?: (standId: string, anchor: HTMLElement) => void }) {
+  const letters = useMemo(() => sectorLetters(table.rows), [table.rows]);
+  if (!table.rows.some(r => r.participant !== EMPTY_STAND && !isNoCatch(r) && r.generalPosition > 0)) return null;
+  return (
+    <div className="grid gap-4 @2xl:grid-cols-2 @2xl:items-start">
+      <SectorLeaders table={table} letters={letters} onPress={onPress} />
+      <SectorTotals table={table} letters={letters} />
+    </div>
+  );
+}
+
+/**
+ * Who leads: one line per sector (its colour dot, the leader, the value they lead on); one sector:
+ * the podium — the places 1–3 with a catch (isPodium), or, when none qualifies, «În frunte» with the
+ * best three. A line opens that angler as a row does (the popover from 1024, rule 17).
+ */
+function SectorLeaders({
+  table,
+  letters,
+  onPress,
+}: {
+  table: RankingTableData;
+  letters: Map<string, string>;
+  onPress?: (standId: string, anchor: HTMLElement) => void;
+}) {
   const sectors = useMemo(() => sectorsOf(table.rows), [table.rows]);
-  const scored = table.rows.filter(r => !isNoCatch(r) && Number.isFinite(r.generalPosition) && r.generalPosition > 0);
+  const scored = table.rows.filter(r => r.participant !== EMPTY_STAND && !isNoCatch(r) && Number.isFinite(r.generalPosition) && r.generalPosition > 0);
   const byPlace = [...scored].sort((a, b) => a.generalPosition - b.generalPosition);
   const perSector = sectors.length > 1;
+  const podium = byPlace.filter(r => isPodium(r.generalPosition, isNoCatch(r)));
   const lines: { label: string; sector: string; row: RankingRowData }[] = perSector
     ? sectors.flatMap(s => {
         const inSector = byPlace.filter(r => rowSector(r) === s);
         const lead = inSector.find(r => r.sectorPosition === 1) ?? inSector[0];
         return lead ? [{ label: `Sector ${s}`, sector: s, row: lead }] : [];
       })
-    : byPlace.slice(0, 3).map(r => ({ label: `Locul ${r.generalPosition}`, sector: rowSector(r), row: r }));
+    : (podium.length ? podium : byPlace.slice(0, 3)).map(r => ({ label: `Locul ${r.generalPosition}`, sector: rowSector(r), row: r }));
+  const [all, setAll] = useState(false);
   if (!lines.length) return null;
-  const heading = perSector ? 'Lideri pe sectoare' : 'Podium';
+  const shown = all ? lines : lines.slice(0, SIDE_ROWS);
+  const heading = perSector ? 'Lideri pe sectoare' : podium.length ? 'Podium' : 'În frunte';
+  // One value column for every line (bestOfTiers: each line names its own Best N instead).
+  const key = decidingKey(table.columns.filter(c => !/^tier\d+$/.test(c.key)));
+  const title = key ? table.columns.find(c => c.key === key)?.title : undefined;
   return (
-    <section aria-labelledby="ranking-side-title" data-ranking-side="" className="rounded-card bg-surface shadow-e0">
-      <header className="flex items-baseline justify-between gap-3 border-b border-hairline px-4 py-3">
+    <section aria-labelledby="ranking-side-title" data-ranking-side="" className="min-w-0 overflow-hidden rounded-bento bg-surface shadow-e0">
+      <header className="flex items-baseline justify-between gap-3 border-b border-hairline px-4.5 py-3.5">
         <h3 id="ranking-side-title" className="t-heading">
           {heading}
         </h3>
         {title ? <span className="t-caption text-muted">{title}</span> : null}
       </header>
-      <ul>
-        {lines.map(({ label, sector, row }) => {
-          const fill = sectorFill(sector, row.backgroundColor);
-          const v = mainValue(row, key);
+      <ul id="ranking-side-leaders">
+        {shown.map(({ label, sector, row }) => {
+          const fill = sectorFill(letters.get(sector) ?? sector, row.backgroundColor);
+          const v = sideValue(row, table.columns);
           const body = (
             <>
               <span aria-hidden className={cn('size-2.5 shrink-0 rounded-full', fill.className)} style={fill.style} />
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="t-caption text-muted">{label}</span>
+                <span className="t-caption text-muted">
+                  {label}
+                  {v?.note ? ` · ${v.note}` : null}
+                </span>
                 <span className="truncate t-body-strong text-ink">{row.participant}</span>
               </span>
-              <InlineNumber value={v.value} unit={v.unit} valueClassName="t-label text-ink" />
+              {v ? <InlineNumber value={v.value} unit={v.unit} valueClassName="t-label text-ink" /> : null}
             </>
           );
-          const line = 'flex w-full items-center gap-3 px-4 py-2.5 text-left';
+          const line = 'flex w-full items-center gap-3 px-4.5 py-2.5 text-left';
           return (
             <li key={`${label}-${row.standId ?? row.position}`} className="border-t border-hairline first:border-t-0">
               {onPress && row.standId ? (
@@ -468,82 +566,78 @@ function SectorLeaders({ table, onPress }: { table: RankingTableData; onPress?: 
           );
         })}
       </ul>
+      {lines.length > SIDE_ROWS ? (
+        <div className="border-t border-hairline">
+          <SideMore hidden={lines.length - SIDE_ROWS} open={all} onToggle={() => setAll(v => !v)} controls="ranking-side-leaders" />
+        </div>
+      ) : null}
     </section>
   );
 }
 
 /**
- * Design legend (table card footer). Each key is the very element the cells draw: the gold
- * biggest-catch cell, the cell's «SPLIT» mark, the penalty marker, the no-catch «–», the tied place.
+ * The sectors side by side (more than one sector): each sector's kg (a ranking with a Cantitate
+ * column) and its catches, a bar in the sector's colour against the strongest sector. Neither known:
+ * no tile.
  */
-function Legend({
-  hasBiggest,
-  hasSplit,
-  hasPenalty,
-  hasEliminated,
-  hasTie,
-  catchesHidden,
-}: {
-  hasBiggest: boolean;
-  hasSplit: boolean;
-  hasPenalty: boolean;
-  hasEliminated: boolean;
-  hasTie: boolean;
-  /** 768–1279: the per-catch columns are only in «Clasament complet». */
-  catchesHidden: boolean;
-}) {
+function SectorTotals({ table, letters }: { table: RankingTableData; letters: Map<string, string> }) {
+  const [all, setAll] = useState(false);
+  const sectors = sectorsOf(table.rows);
+  if (sectors.length < 2) return null;
+  const hasKg = table.columns.some(c => c.key === 'quantity');
+  const totals = sectors.map(s => {
+    const rows = table.rows.filter(r => rowSector(r) === s);
+    const kg = hasKg ? rows.reduce((sum, r) => sum + (cellNumber(r.quantity) ?? 0), 0) : null;
+    const counted = rows.filter(r => typeof r.catchCount === 'number');
+    const catches = counted.length ? counted.reduce((sum, r) => sum + (r.catchCount ?? 0), 0) : null;
+    return { sector: s, kg, catches };
+  });
+  const measure = (t: (typeof totals)[number]) => t.kg ?? t.catches ?? 0;
+  const max = Math.max(0, ...totals.map(measure));
+  if (!max) return null;
+  // A sector without a catch says so once («Fără capturi», as the table's «–»), never «0 capturi
+  // 0,000 kg» (§4b.11); those sectors go last, after the ones with something to compare.
+  const isEmpty = (t: (typeof totals)[number]) => !t.catches && !t.kg;
+  const ordered = [...totals.filter(t => !isEmpty(t)), ...totals.filter(isEmpty)];
   return (
-    <ul
-      aria-label="Legendă"
-      // Like the band: the legend wraps to the table's width, never widens the card.
-      className="flex flex-wrap [contain:inline-size] items-center gap-x-5 gap-y-2 border-t border-hairline px-5 py-3.5 t-caption text-muted first:border-t-0"
-    >
-      {hasBiggest ? (
-        <li className="flex items-center gap-1.5">
-          <span aria-hidden className="size-3.5 rounded-[4px] bg-medal-gold" />
-          C.M.M.C a concursului
-        </li>
+    <section aria-labelledby="ranking-sectors-title" data-ranking-sectors="" className="min-w-0 overflow-hidden rounded-bento bg-surface p-4.5 shadow-e0">
+      <h3 id="ranking-sectors-title" className="t-heading">
+        Pe sectoare
+      </h3>
+      <ul id="ranking-side-sectors" className="mt-3 flex flex-col gap-3">
+        {(all ? ordered : ordered.slice(0, SIDE_ROWS)).map(t => {
+          const fill = sectorFill(letters.get(t.sector) ?? t.sector, 'var(--color-muted)');
+          const empty = isEmpty(t);
+          return (
+            <li key={t.sector} data-empty={empty || undefined} className="flex flex-col gap-1.5">
+              <span className="flex items-baseline gap-2">
+                <span className={cn('t-label', empty ? 'text-muted' : 'text-ink')}>Sector {t.sector}</span>
+                <span className="ml-auto flex items-baseline gap-3">
+                  {empty ? (
+                    <span className="t-caption text-muted">Fără capturi</span>
+                  ) : (
+                    <>
+                      {t.catches !== null ? <span className="t-caption text-muted">{formatCount(t.catches, 'captură', 'capturi')}</span> : null}
+                      {t.kg !== null ? <InlineNumber value={formatRankingWeight(t.kg)} unit="kg" valueClassName="t-label text-ink" /> : null}
+                    </>
+                  )}
+                </span>
+              </span>
+              <span aria-hidden className="h-1.5 overflow-hidden rounded-full bg-soft-fill">
+                {empty ? null : (
+                  <span className={cn('block h-full rounded-full', fill.className)} style={{ ...fill.style, width: `${(measure(t) / max) * 100}%` }} />
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {ordered.length > SIDE_ROWS ? (
+        <div className="-mx-4.5 -mb-4.5 mt-3 border-t border-hairline">
+          <SideMore hidden={ordered.length - SIDE_ROWS} open={all} onToggle={() => setAll(v => !v)} controls="ranking-side-sectors" />
+        </div>
       ) : null}
-      {hasSplit ? (
-        <li className="flex items-center gap-1.5">
-          <span aria-hidden className="t-micro text-muted">
-            SPLIT
-          </span>
-          puncte împărțite la egalitate în sector
-        </li>
-      ) : null}
-      {hasPenalty ? (
-        <li className="flex items-center gap-1.5">
-          <span aria-hidden className="flex">
-            <PenaltyMarker eliminated={false} label="Echipa are penalizări" />
-          </span>
-          penalizare aplicată
-        </li>
-      ) : null}
-      {hasEliminated ? (
-        <li className="flex items-center gap-1.5">
-          <span aria-hidden className="flex">
-            <PenaltyMarker eliminated label="Echipa este eliminată" />
-          </span>
-          eliminat
-        </li>
-      ) : null}
-      <li className="flex items-center gap-1.5">
-        <span aria-hidden className="t-label text-ink">
-          –
-        </span>
-        fără capturi
-      </li>
-      {hasTie ? (
-        <li className="flex items-center gap-1.5">
-          <span aria-hidden className="t-label text-ink tabular-nums">
-            =4
-          </span>
-          egalitate la loc
-        </li>
-      ) : null}
-      {catchesHidden ? <li>Capturile, una câte una: în Clasament complet</li> : null}
-    </ul>
+    </section>
   );
 }
 
