@@ -29,16 +29,20 @@ export function DetailPhotoViewer({ photos, label, children }: { photos: Photo[]
   );
 }
 
-/** A grid tile's click target (from 768): the whole tile. */
-export function DetailPhotoTileButton({ index, label }: { index: number; label: string }) {
+/**
+ * A grid tile's click target (from 768): the whole tile. `onOpen`: the page's own viewer (a
+ * lightbox with its own captions — DetailPhotoHero `onOpenPhoto`) instead of the kit's.
+ */
+export function DetailPhotoTileButton({ index, label, onOpen }: { index: number; label: string; onOpen?: (index: number) => void }) {
   const ctx = use(ViewerContext);
-  if (!ctx) return null;
+  const open = onOpen ?? ctx?.open;
+  if (!open) return null;
   return (
     <button
       type="button"
       aria-haspopup="dialog"
       aria-label={label}
-      onClick={() => ctx.open(index)}
+      onClick={() => open(index)}
       className={cn(
         // The tile's photo darkens on hover (DetailPhotoHero: group/tile).
         'absolute inset-0 cursor-pointer max-md:hidden focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-accent',

@@ -79,6 +79,7 @@ export function staticEntries(): Entry[] {
     { url: absoluteUrl(routes.competitions('notStarted')), changeFrequency: 'hourly', priority: 0.8 },
     { url: absoluteUrl(routes.competitions('completed')), changeFrequency: 'daily', priority: 0.6 },
     { url: absoluteUrl(routes.news()), changeFrequency: 'daily', priority: 0.6 },
+    { url: absoluteUrl(routes.partide()), changeFrequency: 'hourly', priority: 0.7 },
   ];
 }
 

@@ -157,7 +157,7 @@ test.describe('signed in', () => {
     expect(anglerReads).toEqual([]);
     // c2: back control + h1 + «Caută pescari» (its own test below).
     await expect(page.getByRole('button', { name: 'Înapoi' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Caută pescari' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Caută pescari' })).toBeVisible();
 
     // c3: GET /feed/anglers/suggested-home?page=1&pageSize=10, once (later pages are the footer's).
     const firstPages = () => seen.filter((s) => new URL(s).searchParams.get('page') === '1');
@@ -365,25 +365,19 @@ test.describe('signed in', () => {
     expect(unfollows).toBe(0);
   });
 
-  test('c2: «Caută pescari» opens the top bar palette with the field focused; an angler name lists anglers', async ({ page }) => {
+  test('c2: «Caută pescari» opens the angler search /pescari (fish pushes /partide/pescari)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockPool(page, { page2Gate: new Promise(() => {}) });
     await page.goto('/pescari/sugerati');
     await expect(cards(page)).toHaveCount(10);
-    // fish: the button opens the angler search.
-    await page.getByRole('button', { name: 'Caută pescari' }).click();
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
-    const field = dialog.getByRole('combobox');
-    await expect(field).toBeFocused();
-    // A real local angler (the QA seed has «… Dumitrescu» anglers).
-    await field.fill('Dumitrescu');
-    const anglers = dialog.getByRole('group', { name: /Pescari/ });
-    await expect(anglers.getByRole('option').first()).toBeVisible({ timeout: 15_000 });
-    await expect(anglers.getByRole('option').first()).toHaveAttribute('href', /^\/pescari\/[^/]+$/);
-    await page.keyboard.press('Escape');
-    await expect(dialog).toBeHidden();
-    await expect(page.getByRole('button', { name: 'Caută pescari' })).toBeFocused();
+    const search = page.getByRole('link', { name: 'Caută pescari' });
+    await expect(search).toHaveAttribute('href', '/pescari');
+    // The keyboard path: the link takes focus and Enter follows it.
+    await search.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/pescari$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Pescari' })).toBeVisible();
+    await expect(page.getByRole('searchbox', { name: 'Caută pescari' })).toBeVisible();
   });
 
   test('c7 c12: dismiss removes the card, keeps focus, announces, and logs suggested_angler_dismiss (see_all)', async ({ page }) => {

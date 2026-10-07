@@ -150,7 +150,62 @@ export const routes = {
   },
   /** Join a partidă with a code (M4; fish partide/join). */
   partidaJoin: () => '/partide/intra',
+  // ── M4 Partide (docs/parity/areas/partide.yml). Pages that are not on the web yet are reached
+  // only through lib/partide-pages.ts, whose helpers answer null until the page ships. ──
+  /** The hub's «Explorează» tab (partide.exploreaza; fish (tabs)/partide sub-tab `partide`). */
+  partideExplore: () => '/partide/exploreaza',
+  /** The hub's «Ale mele» tab (partide.ale-mele; fish sub-tab `alemele`). */
+  partideMine: () => '/partide/ale-mele',
+  /**
+   * The viewer's history (fish partide/istoric): `perioada` week | month | year | all, `balta` a
+   * venue key («lake:<id>» / «water:<code>»), `rezultat` cu-capturi | fara-capturi. Defaults left out.
+   */
+  partideHistory: (filters: { perioada?: string; balta?: string; rezultat?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (filters.perioada) q.set('perioada', filters.perioada);
+    if (filters.balta) q.set('balta', filters.balta);
+    if (filters.rezultat) q.set('rezultat', filters.rezultat);
+    const s = q.toString();
+    return `/partide/istoric${s ? `?${s}` : ''}`;
+  },
+  /** «Statistici comunitate» (fish partide/statistici); `perioada`: week | month (default, left out) | year. */
+  partideStats: (perioada?: 'week' | 'month' | 'year') =>
+    `/partide/statistici${perioada && perioada !== 'month' ? `?perioada=${perioada}` : ''}`,
+  /** «Clasamente» (fish partide/clasament); `perioada` as partideStats, `tab` the ranking (first one left out). */
+  partideRanking: (perioada?: 'week' | 'month' | 'year', tab?: string) => {
+    const q = new URLSearchParams();
+    if (perioada && perioada !== 'month') q.set('perioada', perioada);
+    if (tab) q.set('tab', tab);
+    const s = q.toString();
+    return `/partide/clasament${s ? `?${s}` : ''}`;
+  },
+  /** The viewer's own catch gallery (fish partide/capturile-mele). */
+  myCatches: () => '/partide/capturile-mele',
+  /** Every catch of one partidă (fish community session catches). */
+  partidaCatches: (documentId: string) => `/partide/${encodeURIComponent(documentId)}/capturi`,
+  /** The photo gallery of one partidă. */
+  partidaGallery: (documentId: string) => `/partide/${encodeURIComponent(documentId)}/galerie`,
+  /** One tab of the partidă page (`tab` left out for the default one). */
+  partidaTab: (documentId: string, tab?: string) => `/partide/${encodeURIComponent(documentId)}${tab ? `?tab=${encodeURIComponent(tab)}` : ''}`,
+  /**
+   * The capture flow of a live partidă (fish partide/captura): a free capture, or one off a rod
+   * (`lanseta` = the rod index); `editare` = the catch's clientId to edit.
+   */
+  partidaCapture: (documentId: string, opts: { lanseta?: number; editare?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.lanseta != null) q.set('lanseta', String(opts.lanseta));
+    if (opts.editare) q.set('editare', opts.editare);
+    const s = q.toString();
+    return `/partide/${encodeURIComponent(documentId)}/captura${s ? `?${s}` : ''}`;
+  },
+  /** Join a partidă with its code already filled (invite link / PARTIDA_INVITE; fish partide/join?code=). */
+  partidaJoinCode: (cod: string) => `/partide/intra/${encodeURIComponent(cod)}`,
   suggestedAnglers: () => '/pescari/sugerati',
+  /**
+   * Angler search (partide.pescari; fish /partide/pescari): «Urmăriți de prietenii tăi» + «Activi
+   * recent», or the results for `q` (the settled search term, kept in the URL).
+   */
+  anglersSearch: (q?: string) => (q?.trim() ? `/pescari?q=${encodeURIComponent(q.trim())}` : '/pescari'),
   profile: () => '/profil',
   /** Edit the own profile (account.edit-profile; fish /edit-profile). */
   editProfile: () => '/setari/profil',

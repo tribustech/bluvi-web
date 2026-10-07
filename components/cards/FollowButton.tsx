@@ -14,6 +14,8 @@ import { cn } from '@/components/ui/cn';
  *    `size="row"` (look="profile" in a list row, fish's `size` prop): below 1024 a compact 13px label
  *    with 14px sides at one fixed 124px width (both labels, no jump on a toggle), so the row's name keeps
  *    most of a 320 row; the profile's 144px button from 1024, where the grid cards are wide.
+ *    `size="icon"` (fish size 'icon', the dense discovery rows with a subline): a 32px circle with
+ *    the glyph alone and a 44px hit area; the label is the accessible name and the tooltip.
  * Controlled when `following` + `onToggle` are passed; otherwise it keeps its own state so the
  * kit can show both looks. Sits above the card's stretched link (relative z-above).
  *
@@ -46,8 +48,11 @@ export function FollowButton({
   look?: 'card' | 'profile';
   /** `look="profile"`: stretch to the container's width. */
   block?: boolean;
-  /** `look="profile"`: `row` = compact below 1024 (connections / search rows); `compact` = fish small. */
-  size?: 'default' | 'row' | 'compact';
+  /**
+   * `look="profile"`: `row` = compact below 1024 (connections rows); `compact` = fish small;
+   * `icon` = fish's icon-only circle (discovery rows with a subline).
+   */
+  size?: 'default' | 'row' | 'compact' | 'icon';
   className?: string;
 }) {
   const [local, setLocal] = useState(defaultFollowing);
@@ -55,6 +60,7 @@ export function FollowButton({
   const profile = look === 'profile';
   const row = profile && size === 'row' && !block;
   const compact = profile && size === 'compact';
+  const iconOnly = profile && size === 'icon';
 
   return (
     <button
@@ -63,6 +69,7 @@ export function FollowButton({
       aria-disabled={pending || undefined}
       aria-busy={pending || undefined}
       data-following={isFollowing}
+      title={iconOnly ? (isFollowing ? 'Urmăresc' : 'Urmărește') : undefined}
       onClick={() => {
         if (pending) return;
         const next = !isFollowing;
@@ -73,7 +80,12 @@ export function FollowButton({
         'relative z-above flex items-center justify-center transition-colors duration-(--duration-fast) ease-fast aria-disabled:cursor-default aria-disabled:opacity-60',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent',
         row ? 't-button-compact lg:t-body-strong' : compact ? 't-button-compact' : 't-body-strong',
-        compact
+        iconOnly
+          ? cn(
+              "size-8 shrink-0 rounded-full before:absolute before:-inset-1.5 before:content-['']",
+              isFollowing ? 'bg-soft-fill text-ink hover:bg-hairline' : 'bg-accent text-on-accent hover:brightness-95',
+            )
+          : compact
           ? cn(
               "h-8 gap-1 rounded-lg px-3 before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']",
               block ? 'w-full' : 'min-w-28',
@@ -87,12 +99,12 @@ export function FollowButton({
     >
       {profile ? (
         isFollowing ? (
-          <CheckIcon aria-hidden className={cn('stroke-2', compact ? 'size-3.5' : 'size-4')} />
+          <CheckIcon aria-hidden className={cn('stroke-2', compact || iconOnly ? 'size-3.5' : 'size-4')} />
         ) : (
-          <UserPlusIcon aria-hidden className={cn('stroke-2', compact ? 'size-3.5' : 'size-4')} />
+          <UserPlusIcon aria-hidden className={cn('stroke-2', compact || iconOnly ? 'size-3.5' : 'size-4')} />
         )
       ) : null}
-      {isFollowing ? 'Urmăresc' : 'Urmărește'}
+      {iconOnly ? null : isFollowing ? 'Urmăresc' : 'Urmărește'}
     </button>
   );
 }

@@ -205,12 +205,11 @@ describe('notificationHref — a missing required id means no link', () => {
 describe('gates follow the pages that exist under app/(site)', () => {
   const site = path.resolve(__dirname, '../../app/(site)');
   const page = (rel: string) => existsSync(path.join(site, rel, 'page.tsx'));
-  const pages: Record<Exclude<keyof typeof NOTIFICATION_PAGES_ON_WEB, 'organizerPendingFilter'>, string> = {
+  const pages: Record<Exclude<keyof typeof NOTIFICATION_PAGES_ON_WEB, 'organizerPendingFilter' | 'ownPartida'>, string> = {
     competitionChat: 'concursuri/[id]/chat',
     penalties: 'concursuri/[id]/penalizari',
     polls: 'sondaje',
     partidaJoin: 'partide/intra/[code]',
-    ownPartida: 'partide/[id]',
     communityCatches: 'partide/[id]/capturi',
     organizer: 'organizator',
     booking: 'rezervari/[id]',
@@ -219,6 +218,12 @@ describe('gates follow the pages that exist under app/(site)', () => {
   it.each(Object.entries(pages))('%s ↔ %s', (gate, rel) => {
     // A page that lands while its gate is off: flip the gate and map the route in lib/notification-href.ts.
     expect(NOTIFICATION_PAGES_ON_WEB[gate as keyof typeof pages]).toBe(page(rel));
+  });
+
+  it('ownPartida stays off until a CLIENT id resolves to its page (not the existence of partide/[id])', () => {
+    // PARTIDA_FINISHED / AUTO_CLOSE_WARN carry the owner's client id, not the documentId that
+    // /partide/[id] (M4-B1 spectator view) takes; the member branch (M4-B2) adds that resolution.
+    expect(NOTIFICATION_PAGES_ON_WEB.ownPartida).toBe(false);
   });
 
   it('organizerPendingFilter ↔ the participants page reads `filtru`', () => {

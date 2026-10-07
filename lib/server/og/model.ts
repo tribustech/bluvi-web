@@ -102,6 +102,7 @@ export const BRAND_CARDS = {
   competitionsResults: { title: 'Rezultate concursuri de pescuit', tagline: 'Câștigători, podium și clasamente complete.' },
   publicWaters: { title: 'Ape publice', tagline: 'Lacuri și râuri din România, pe hartă, cu partidele pescarilor.' },
   news: { title: 'Noutăți', tagline: 'Știri, evenimente și tehnici din comunitatea Bluvi.' },
+  partide: { title: 'Partide de pescuit', tagline: 'Cine e la apă acum, ultimele capturi și recordurile comunității.' },
 } as const satisfies Record<string, { title: string; tagline: string }>;
 
 export type BrandKey = keyof typeof BRAND_CARDS;
@@ -335,6 +336,7 @@ export const OG_ALT = {
   competitionsResults: 'Bluvi — rezultate concursuri de pescuit',
   publicWaters: 'Bluvi — ape publice din România',
   news: 'Bluvi — noutăți',
+  partide: 'Bluvi — partide de pescuit',
 } as const satisfies Record<BrandKey | 'home', string>;
 
 export type EntityKind = keyof typeof FALLBACK;

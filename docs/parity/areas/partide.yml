@@ -79,89 +79,146 @@ screens:
       - id: partide.comunitate.c1
         text: "The page header shows the title „Partide” and, only when the viewer has NO active partidă, an indigo „Începe” pill (plus icon) that opens /partide/incepe."
         fish_ref: "features/partide/components/PartideChrome.tsx:39-65"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Web: the pill is shown only once the session and the live probe confirm no live partidă (owner rule 4) and only while lib/partide-pages `start` is on (a guest through sign-in)."
       - id: partide.comunitate.c2
         text: "Under the title an underline tab row offers „Comunitate” (this page, default), „Explorează” and „Ale mele”; the active tab is indigo with a 2.5px underline; re-selecting the active tab scrolls the page back to the top."
         fish_ref: "features/partide/components/PartideChrome.tsx:12-16"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Web: the tabs are links (Comunitate /partide, Explorează /partide/exploreaza, Ale mele /partide/ale-mele; a tab whose page is off is left out, never inert — lib/partide-pages; with «Comunitate» alone there is no tab bar), a tab bar that scrolls with the page (owner rules 3, 20); re-selecting Comunitate scrolls to the top."
       - id: partide.comunitate.c3
         text: "The sub-tab choice is not persisted: opening Partide fresh always lands on „Comunitate”."
         fish_ref: "features/partide/domain/viewAtoms.ts:6-8"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Web: the tab is the URL, so /partide always opens on Comunitate."
       - id: partide.comunitate.c4
         text: "Without an active partidă the page opens with the indigo hero card „Ești la pescuit?” / „Capturi, lansete și cronometre — totul notat într-o singură partidă.” with a white „Începe o partidă” pill (→ /partide/incepe) and an underlined „Intră cu cod” link (→ /partide/intra)."
         fish_ref: "features/partide/components/community/NoActiveCta.tsx:72-111"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Web: Acasă's hero (_home/PartidaCta) with the hub's targets; each action is left out while its page is off (start / join flags), a guest's goes through sign-in. With both off there is no hero (and no skeleton for it) — never an actionless glowing card (owner rule 4); the skeleton reserves an action row only when the loaded hero has one."
       - id: partide.comunitate.c5
         text: "With an active partidă the hero card is not rendered; the live partidă is shown in the ActivePartidaDock instead (no duplicate)."
         fish_ref: "app/(app)/(tabs)/partide.tsx:223-229"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Web: below 1280 the dock; from 1280 the live partidă's card leads the left column instead of the hero."
       - id: partide.comunitate.c6
         text: "A quick-nav row of three tiles: „Statistici” (→ /partide/statistici), „Clasamente” (→ /partide/clasament), „Pescari” (→ /pescari when signed in, → sign-in when signed out)."
         fish_ref: "features/partide/scenes/AcasaScene.tsx:115-130"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Web: a target that is not on the web yet is left out, and with none on there is no row; from 1280 the tiles are rows in the left column (no left column at all while it would carry neither hero nor quick nav)."
       - id: partide.comunitate.c7
         text: "„Ultimele capturi” is a horizontal rail of overview.latestCatches, shown only when non-empty; each landscape 4:3 card shows the photo (lake placeholder fallback), a relative-time badge (relativeRo), the weight in kg (omitted when weightKg is null — never „0,0 kg”), species (fallback „Captură”), venue name with a pin icon and the angler avatars (+ extra members)."
         fish_ref: "features/partide/components/community/LatestCatchesRail.tsx:23-107"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Web: phone fish's 250px rail; from 768 the cards fill a row in thirds (owner rule 5) and the rest scrolls on."
       - id: partide.comunitate.c8
         text: "Activating a latest-catch card opens that catch's partidă (/partide/[sessionDocumentId]); rail keys are sessionDocumentId:clientId (clientId alone is not unique across sessions)."
         fish_ref: "features/partide/components/community/LatestCatchesRail.tsx:126-132"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Web: a card opens /partide/[sessionDocumentId] once ON_WEB.partida is on (plain until then)."
       - id: partide.comunitate.c9
         text: "The middle section title is „În direct” when overview.activeVenues is non-empty (up to 5 venue cards), else „Ultimele partide” (first 3 rows of /feed/community/history page 1), else „Partide active” — live and finished cards never render together."
         fish_ref: "features/partide/scenes/AcasaScene.tsx:143-145"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts"
       - id: partide.comunitate.c10
         text: "The community history request is made only after overview resolved with zero live venues; while it is pending the whole dashboard keeps its skeleton (no flash of the empty prose)."
         fish_ref: "features/partide/scenes/AcasaScene.tsx:76-86"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts (history requested only after the overview, zero requests with live venues; skeleton while pending). The server prerenders the overview and, with nothing live, the first history page (_comunitate/state.ts)."
       - id: partide.comunitate.c11
         text: "Empty middle section shows two captions: „O partidă poate fi solo sau cu 2-3 pescari împreună.” and „Nicio partidă publică activă acum.”"
         fish_ref: "features/partide/scenes/AcasaScene.tsx:181-191"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts"
       - id: partide.comunitate.c12
         text: "The middle section header has a „Vezi toate” link that switches to the „Explorează” tab; below the section the indigo banner „Vrei să vezi ce au prins alții?” / „Explorează capturile din comunitate” does the same."
         fish_ref: "features/partide/scenes/AcasaScene.tsx:160-195"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Hidden while lib/partide-pages `explore` is off."
       - id: partide.comunitate.c13
         text: "A live venue with exactly 1 session renders the solo card: ribbon „Live”, members avatars + members label as title, venue name (+ stand suffix) as meta, stats (capturi count, „kg total” accent or „—”, duration „de pescuit”), photo strip, footer „Ultima captură {ago}” or „Începută {ago}” and link „Vezi partida”; the whole card opens that partidă."
         fish_ref: "features/partide/components/community/VenueGroup.tsx:38-72"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. «Vezi partida» and the card link appear once ON_WEB.partida is on."
       - id: partide.comunitate.c14
         text: "A live venue with exactly 2 sessions renders the duel card: ribbon „Duel live”, venue image + name, meta „{localitate} · {N standuri în duel}”, two sides (members, stand, captures, kg, leader highlighted by isDuelLeader); each side opens its own partidă; the shell and the „Vezi duelul” link open the venue's partide page (venuePartideHref), falling back to side A's partidă."
         fish_ref: "features/partide/components/community/VenueGroup.tsx:75-131"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Each side links its own partidă once ON_WEB.partida is on."
       - id: partide.comunitate.c15
         text: "A live venue with more than 2 sessions renders the leaderboard card: ribbon „Live”, venue header, one row per session (stand, members, kg, relative bar vs the leader; rows containing the viewer are marked „self”); each row opens its partidă; shell + „Vezi partidele ›” open the venue's partide page, else the lake page, else the leading partidă."
         fish_ref: "features/partide/components/community/VenueGroup.tsx:134-188"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts (signed-in «self» row via the QA user's documentId)."
       - id: partide.comunitate.c16
         text: "Venue partide page links: lake venue → /balti/[lakeId]/partide; publicWater venue → /ape-publice/[code]/partide (code from key „water:<code>”); manual pin → no page."
         fish_ref: "features/partide/community/venuePartideHref.ts:15-24"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts + lib/partide-community.test.ts (venuePartidePage on /balti/[id]/partide and /ape-publice/[code]/partide)."
       - id: partide.comunitate.c17
         text: "A finished card (fallback) shows ribbon „Încheiată”, members as title, venue + stand meta, stats (capturi, „kg total”, „durată”), photo strip, footer date range (fmtRange) and link „Vezi rezumatul”; it opens /partide/[documentId]."
         fish_ref: "features/partide/components/community/CommunityHistoryCard.tsx:11-42"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Dates in Romania's time (lib/partide-community partidaRange); past midnight both days are named."
       - id: partide.comunitate.c18
         text: "„Recorduri” is always rendered as a 2×2 grid of equal tiles: slots AZI (amber), SĂPTĂMÂNA (teal), LUNA (deep indigo, trophy) and a 4th tile „Statistici comunitate” / „Vezi cifrele” (→ /partide/statistici)."
         fish_ref: "features/partide/components/community/RecordsGrid.tsx:30-34"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Owner rule 19: records are photos under a scrim with the window badge (amber, teal, deep indigo), invitations take the window colour as their surface (their badge inverted — the surface ink as the pill — so it still reads as a badge), the statistics tile the navy signature surface."
       - id: partide.comunitate.c19
         text: "A filled record tile shows the photo with the window badge, weight kg, species (fallback „Captură”), venue and angler avatars, and opens /partide/[sessionDocumentId] when the record has one (else not interactive)."
         fish_ref: "features/partide/components/community/RecordsGrid.tsx:42-128"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts"
       - id: partide.comunitate.c20
         text: "An empty record window shows an invitation tile („Recordul de azi/săptămânii/lunii te așteaptă” + „Începe o partidă ›”) that opens /partide/incepe."
         fish_ref: "features/partide/components/community/RecordsGrid.tsx:36-40"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. The invitation opens /partide/incepe once lib/partide-pages `start` is on."
       - id: partide.comunitate.c21
         text: "„Locuri populare” (only when overview.popularVenues is non-empty) shows the top 2 venues side by side: image (placeholder fallback), rose „{n} live” badge when liveCount > 0, name, „{localitate} · {n} partidă/partide” (last 30 days); only venues with a lakeId are links (→ /balti/[lakeId])."
         fish_ref: "features/partide/components/community/PopularVenues.tsx:11-81"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Counts with formatCount («24 de partide»)."
       - id: partide.comunitate.c22
         text: "Relative times on the cards tick on a shared clock (useNowTick), not a per-card timer."
         fish_ref: "features/partide/scenes/AcasaScene.tsx:88-92"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts (page clock) + lib/partide-community.test.ts (createNowTickStore: one interval for every subscriber)."
       - id: partide.comunitate.c23
         text: "The overview is refetched every 60 s while the page is open (staleTime 30 s, no retry)."
         fish_ref: "features/partide/community/hooks.ts:65-73"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts"
       - id: partide.comunitate.c24
         text: "Pull-to-refresh (web: a refresh action) refetches the own-sessions list and invalidates every community query (queryKeys.community.all)."
         fish_ref: "app/(app)/(tabs)/partide.tsx:113-120"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Web: the T5 «Reîmprospătează» (fetches /feed/sessions/mine, refetches the live probe, invalidates communityKeys.all)."
       - id: partide.comunitate.c25
         text: "While loading, the scene shows the dashboard skeleton (AcasaSceneSkeleton) instead of zero-filled sections."
         fish_ref: "features/partide/scenes/AcasaScene.tsx:132-134"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts"
       - id: partide.comunitate.c26
         text: "With an active partidă a dock is pinned at the bottom: rose „ACTIVĂ” pill with pulsing dot, venue name, stats line „{n} captură/capturi · {n} scăpat/scăpate (if any) · {kg} kg max (if any)”, a green „Captură” button and one chip per running rod timer; activating the dock opens the partidă."
         fish_ref: "features/partide/components/ActivePartidaDock.tsx:67-153"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Web: the live partidă is read over REST (/feed/sessions/active → /feed/sessions/[id]) through /api/cms, as Acasă; the realtime provider can take over later. The venue links to the partidă (and the desktop card's «Deschide partida» shows) only while lib/partide-pages `partida` is on — else plain text, no dead link; Acasă passes the same gated href."
       - id: partide.comunitate.c27
         text: "Dock timer chips tick each second only while a rod is counting down, use the server-corrected clock, show the remaining time (fmtDurationCompact), „expirat” in rose when elapsed, and „sincronizare…” while the projection comes from cache or the server clock is unsampled."
         fish_ref: "features/partide/components/ActivePartidaDock.tsx:40-65,157-185"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. Web: the clock is sampled from the session read's Date header (core createServerClock); «sincronizare…» until it is."
       - id: partide.comunitate.c28
         text: "The dock's „Captură” is blocked offline with the toast „Fără conexiune. Reconectare…”; online it opens the capture flow for a free (no-rod) capture of the active partidă."
         fish_ref: "app/(app)/(tabs)/partide.tsx:125-132"
+        status: passing
+        note: "e2e tests/e2e/partide-comunitate.spec.ts. «Captură» → /partide/[id]/captura once lib/partide-pages `capture` is on, else the partidă page while that is on, else left out."
     mobile_only: false
-    status: todo
+    status: passing
+    note: "Web: app/(site)/partide (T5). Static: the overview (+ the first history page when nothing is live) is the cached public read, hydrated and polled every 60s. Links to later M4 pages go through lib/partide-pages (PARTIDE_PAGES_ON_WEB). Visual: tests/visual/partide-comunitate.visual.spec.ts (baselines pending approval)."
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.exploreaza
@@ -1205,7 +1262,7 @@ screens:
       - "app/(app)/partide/pescari.tsx"
       - components/profile/ConnectionRow.tsx
       - services/queries/useAnglerDiscovery.ts
-    web_route: /pescari
+    web_route: "/pescari (?q=)"
     template: T1
     milestone: M4
     roles: [angler, organizer, referee, operator]
@@ -1220,20 +1277,30 @@ screens:
       - id: partide.pescari.c1
         text: "Signed out, the route redirects to sign-in."
         fish_ref: "app/(app)/partide/pescari.tsx:23-27"
+        status: passing
+        web_note: "proxy.ts matcher /pescari (no cookie → real 307 to /intra?next=/pescari, the ?q= kept) + requireViewer(routes.anglersSearch(q)) inside the page's Suspense (dead cookie). e2e tests/e2e/pescari-cauta.spec.ts «c1» ×2."
       - id: partide.pescari.c2
         text: "Title „Pescari” with back and a search field „Caută pescari”; the query is debounced 300 ms and searching starts at 2 characters."
         fish_ref: "app/(app)/partide/pescari.tsx:19,34-41,110-126"
+        status: passing
+        web_note: "ListHeader back (useBack, else Home) + h1 «Pescari»; _search/SearchField (search pill, label/placeholder «Caută pescari», ✕ and Escape clear, Enter settles at once). PescariScreen debounces 300 ms; ≥2 trimmed chars search; the settled term mirrors to ?q= (T1 useListUrlState) so reload/back keep it. e2e «c2: debounced…» (1 char → no request; typed at 60 ms/key → exactly one request for the settled term; ?q= survives reload; Escape → browse, clean URL) and «keyboard» (field → ✕ → first result, Enter → profile, back keeps term)."
       - id: partide.pescari.c3
         text: "Without a search: „Urmăriți de prietenii tăi” (friends-of-follows, when any) above „Activi recent” (recently active, excluding those already listed)."
         fish_ref: "app/(app)/partide/pescari.tsx:55-69,128-161"
+        status: passing
+        web_note: "_search/BrowseSections: core suggestedAnglersInfiniteQuery; FoF (page 1) section only when non-empty, above «Activi recent» (all pages, dedupeByKey, FoF ids excluded); footer loads more after first scroll. e2e «c3 c5: Urmăriți de prietenii tăi above…» (order, no one twice, repeat shown once) + «nobody recently active»."
       - id: partide.pescari.c4
         text: "Searching: header „Rezultate {total}” (or „Rezultate”), results deduplicated by documentId, infinite scroll."
         fish_ref: "app/(app)/partide/pescari.tsx:47-51,161,165"
+        status: passing
+        web_note: "_search/ResultsList: core anglerSearchInfiniteQuery; h2 «Rezultate» + muted total (rule 10), polite «N pescari găsiți» (formatCount), dedupeByKey, ListFooter auto-load + «Mai mulți pescari» and «20 din 23 de pescari». e2e «c4 c5: Rezultate {total}…» (2 pages, a repeat, 23 rows) + «a failed search» (error card + retry)."
       - id: partide.pescari.c5
         text: "Rows are connection rows (avatar, name, subline; own row marked as self) opening /pescari/[id]; empty: „Niciun pescar găsit.”; loading: skeleton (7 rows)."
         fish_ref: "app/(app)/partide/pescari.tsx:93-101,173-181"
+        status: passing
+        web_note: "_search/AnglerRow: phone = fish's two shapes — «Urmăriți de prietenii tăi» one grouped surface of 60px rows with hairlines (anglerList('grouped')), «Activi recent» and results separate 12px-radius rows 8px apart (anglerList('separate')); avatar 40, name, subline verbatim (t-micro = weight 600, muted), kit FollowButton size=icon; ≥768 = auto-fill grid of angler cards (avatar 64, name, subline) with the same icon circle in the top-right corner (no wall of filled buttons; every card ends on its subline, own card included) — rules 5/14. Own entry: «Tu» badge, no follow. Name link stretched over the entry → /pescari/{id}. Empty «Niciun pescar găsit.»; loading: «Activi recent» heading over 7 skeleton rows on the phone, exactly two full grid rows from 768 (page Suspense, loading.tsx and the first page — BrowseSkeleton; ResultsList keeps «Rezultate» over its own). e2e «c2 c5: header…7 skeleton entries», «c3 c5» (Tu, no button, href, click → profile), «c4 c5» (no results), axe at 375/1280/1440/1920; visual tests/visual/pescari-cauta.visual.spec.ts (6 states × 4 widths)."
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.capturile-mele
@@ -1308,47 +1375,78 @@ screens:
       - id: partide.spectator.c1
         text: "Before rendering, the page checks the viewer's active session; if it is this partidă the viewer is sent to the member view instead (skeleton meanwhile; a failed check renders the spectator view)."
         fish_ref: "app/(app)/partide/comunitate/[id].tsx:207-242"
+        status: proposed
+        note: "Half done in M4-B1: _switch/OwnOrSpectator reads the viewer's live partidă (GET /feed/sessions/active — fish read its local pointer) with the spectator view on screen meanwhile (it is the static shell: the prerendered HTML holds the whole public page, never a skeleton); a failed check or someone else's partidă renders the spectator view (e2e «c1 …» ×2). The member view itself lands with partide.partida (M4-B2); until then the own partidă keeps the spectator view, marked data-own."
       - id: partide.spectator.c2
         text: "Not found: „Partida nu a fost găsită.” / „Poate a fost ștearsă sau nu mai este vizibilă.”; error: „Nu am putut încărca partida.” / „Verifică conexiunea și reîncearcă.” + „Reîncearcă”."
         fish_ref: "app/(app)/partide/comunitate/[id].tsx:291-323"
+        status: passing
+        note: "e2e tests/e2e/partide-spectator.spec.ts «c2 …» ×3: the CMS 404 (unknown or private) and a real unknown id on the server — the not-found state through OwnOrSpectator's `notFound` slot (no notFound(), noindex); 500 → error + «Reîncearcă» reads again."
       - id: partide.spectator.c3
         text: "Hero: carousel of catch photos (fallback venue image, else a fish placeholder) opening the gallery; a photo-count badge when photoCount > 0; status pill „ÎN DESFĂȘURARE” (pulsing) or „ÎNCHEIATĂ”; venue name as title linking to the lake / public-water page when it has one; meta „{localitate} · {date} · {duration or elapsed}”."
         fish_ref: "app/(app)/partide/comunitate/[id].tsx:349-451"
+        status: passing
+        note: "e2e tests/e2e/partide-spectator.spec.ts «c3 …». Web: T3 Airbnb title row from 768 (venue link → /balti/[id] or /ape-publice/[code]), phone hero carousel; until the gallery ships (B8, lib/partide-pages) photos and the count badge open the kit Lightbox. No photo + no venue image: fish placeholder on the phone, nothing from 768. Elapsed time only in the browser (no stale static «de 2 h»); meta durations spaced like the tile («72 h», «de 45 min», rule 10). A hero photo that fails to load shows fish's fish on the indigo tint (kit DetailPhotoHero `photoFallback`), never the broken-image glyph (e2e «c3 a broken hero photo…»)."
       - id: partide.spectator.c4
         text: "A follow control on the hero: „Urmărește” / „Notificări active”; signed out → sign-in; following again unfollows („Notificări dezactivate.”)."
         fish_ref: "features/partide/components/community/FollowSessionButton.tsx:119-150"
+        status: passing
+        note: "e2e tests/e2e/partide-spectator.spec.ts «c4 …»: «Urmărește» / «Notificări active»; signed out → sign-in with the page as `next`; again → unfollow + «Notificări dezactivate.». Session unknown → hidden (rule 4)."
       - id: partide.spectator.c5
         text: "First follow shows an intro dialog „Notificări pentru această partidă” („Activează notificările”); with Bluvi notifications off in the profile it shows „Notificările Bluvi sunt dezactivate” („Activează și urmărește”, also re-enables notifications); success toast „Vei primi notificări pentru capturile din această partidă.”, failure „Nu am putut actualiza notificările. Încearcă din nou.” with rollback."
         fish_ref: "features/partide/components/community/BellIntroSheet.tsx:38-45"
+        status: passing
+        note: "e2e tests/e2e/partide-spectator.spec.ts «c5 …» ×4: intro dialog (per-browser flag), «Nu acum» retires it, `reenable` («Activează și urmărește» PATCHes notifications + follows), failure toast + rollback. fish NotificationsOffSheet (OS push denied) has no web equivalent — the web has no push yet (ROADMAP §3)."
       - id: partide.spectator.c6
         text: "„TOTAL CÂNTĂRIT” card: total kg (or „—”), a segmented bar of the top 3 species by kg + „altele”, legend „{specie} {kg}” and „medie {kg} kg”."
         fish_ref: "app/(app)/partide/comunitate/[id].tsx:457-533"
+        status: passing
+        note: "e2e tests/e2e/partide-spectator.spec.ts «c3 c6 c7 c13 …» at 375/768/1280/1440/1920 and «c6 c9 c10 c11 no catches» («—», never 0 kg). Units apart (rule 10)."
       - id: partide.spectator.c7
         text: "Three tiles: max kg „cea mai mare”, catch count „capturi”, duration „durată” (ended) or elapsed „în desfășurare” (live)."
         fish_ref: "app/(app)/partide/comunitate/[id].tsx:538-611"
+        status: passing
+        note: "e2e tests/e2e/partide-spectator.spec.ts (same tests + «live partidă»): «cea mai mare», «capturi», «durată» / «în desfășurare» with the elapsed hours."
       - id: partide.spectator.c8
         text: "„Pescari {n}” lists members (avatar or initials, name or „Pescar”, „{n} urmăritor/urmăritori”) linking to /pescari/[uid], with a follow button for anyone but the viewer."
         fish_ref: "app/(app)/partide/comunitate/[id].tsx:102-145,620-631"
+        status: passing
+        note: "e2e tests/e2e/partide-spectator.spec.ts «c8 …» ×2: «Pescari N», names or «Pescar», links to /pescari/[uid], «1 urmăritor» / «25 de urmăritori» (signed in only — the angler header is per-user), no button on the viewer's row; signed out no member follow button (fish `profile &&`, so the bell stays the page's one filled «Urmărește»)."
       - id: partide.spectator.c9
         text: "„Evoluția capturilor” cumulative kg line chart with scrubbing (header shows the scrubbed label, else „cumulat · {kg} kg”)."
         fish_ref: "app/(app)/partide/comunitate/[id].tsx:42-100,635-637"
+        status: passing
+        note: "e2e tests/e2e/partide-spectator.spec.ts «c9 …»: arrows / hover name each catch, idle «cumulat · N kg». As fish code, one point per weighed catch (y = that catch's kg). Times in Europe/Bucharest."
       - id: partide.spectator.c10
         text: "„CEA MAI MARE CAPTURĂ” highlight (photo or star, kg, species · time) opening the lightbox when it has a photo."
         fish_ref: "app/(app)/partide/comunitate/[id].tsx:640-710"
+        status: passing
+        note: "e2e tests/e2e/partide-spectator.spec.ts «c10 c11 …» and «c10 a biggest catch with a photo…». Web: a bento tile (photo under a scrim, else amber + star), beside the total from 1280."
       - id: partide.spectator.c11
         text: "„CAPTURILE ECHIPEI” (or „CAPTURI” for one member): up to the server's first catches (thumb or fish, species or „Captură”, time, kg; the max catch in indigo); photo rows open the lightbox with caption „{specie} · {kg} kg · HH:MM”; empty „Nicio captură încă.”"
         fish_ref: "app/(app)/partide/comunitate/[id].tsx:714-744"
+        status: passing
+        note: "e2e tests/e2e/partide-spectator.spec.ts «c10 c11 …»: «Capturile echipei» / «Capturi», «Captură» fallback, max in indigo, lightbox caption «Crap · 3,4 kg · 14:30»."
       - id: partide.spectator.c12
         text: "When hasMoreCatches, „Vezi toate ({catchCount})” opens /partide/[id]/capturi."
         fish_ref: "app/(app)/partide/comunitate/[id].tsx:746-758"
+        status: proposed
+        note: "Hidden until /partide/[id]/capturi ships (B8; lib/partide-pages partidaCatches) — rule 4; e2e «c12 …» asserts it stays hidden. Flip with B8."
       - id: partide.spectator.c13
         text: "A venue card at the bottom (image or pin, name, locality + past-card meta) links to the venue page when one exists."
         fish_ref: "app/(app)/partide/comunitate/[id].tsx:766-800"
+        status: passing
+        note: "e2e tests/e2e/partide-spectator.spec.ts «c3 c6 c7 c13 …» and the public-water test: image (or pin), name, «localitate · 7 OCT · 2 h» (unit apart, rule 10 — the tile's words), link when the venue has a page."
       - id: partide.spectator.c14
         text: "A live partidă is refetched every 60 s and on focus / reconnect; an ended one is not polled."
         fish_ref: "features/partide/community/hooks.ts:203-213"
+        status: passing
+        note: "e2e tests/e2e/partide-spectator.spec.ts «live partidă … polled every 60 s» (fixed clock: 2 refetches in 2 min) and «an ended partidă is not polled». Focus / reconnect: core communitySessionQuery refetchOnWindowFocus / refetchOnReconnect (TanStack browser defaults)."
     mobile_only: false
-    status: todo
+    status: proposed
+    e2e: tests/e2e/partide-spectator.spec.ts
+    visual: tests/visual/partide-spectator.visual.spec.ts (baselines not committed until the owner approves)
+    web_note: "M4-B1. /partide/[id] public + prerendered from the cached public read (_spectator/load.ts: CMS 60 s live / 24 h ended, tag session-<id>), handed to communitySessionQuery (HydrationBoundary). JSON-LD SportsEvent (venue as Place) + breadcrumb, OG/Twitter card (venue, total kg, top photo; brand card for private/unknown). A private/unknown partidă (CMS 404) renders the not-found state through OwnOrSpectator's notFound slot with noindex — never notFound(), so B2 can show a member their private partidă. Layout: phone fish order; from 768 Airbnb title row + photo grid; from 1024 two columns (content | sticky tiles, Pescari, venue). c1 and c12 stay proposed (B2, B8). Kit: DetailPhotoHero `onOpenPhoto` (additive) so the grid opens the page's captioned lightbox. ON_WEB.partida stays false until B2 (own partide in profile lists would otherwise land on the spectator view)."
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.spectator-capturi
@@ -1503,6 +1601,7 @@ behaviours:
   - id: partide.b.signin-gating
     text: "Signed-out: start, join (both), pescari redirect to sign-in; the Ale mele tab shows the sign-in wall; the Pescari quick-nav tile and the follow bell push sign-in; Comunitate, Explorează, statistici, clasament and spectator pages are public."
     fish_ref: "features/partide/scenes/AcasaScene.tsx:119-126"
+    note: "Hub part passing (Comunitate public; Pescari tile and start / join through sign-in for a guest): e2e tests/e2e/partide-comunitate.spec.ts."
   - id: partide.b.own-vs-spectator
     text: "Opening a community partidă resolves own vs spectator: the device's active pointer or the cached own list → member view, otherwise spectator; the spectator page also self-redirects when getActiveSession matches."
     fish_ref: "features/partide/community/useOpenPartida.ts:28-43"
@@ -1515,12 +1614,15 @@ behaviours:
   - id: partide.b.refetch-intervals
     text: "Polling: community overview 60 s, venue section 60 s, community session 60 s while live (+ on focus/reconnect); stale times: active/history 30 s / 120 s, stats 120 s (60 s per venue), own sessions 5 min."
     fish_ref: "features/partide/community/hooks.ts:65-213"
+    note: "Overview part passing: e2e tests/e2e/partide-comunitate.spec.ts c23 (60s poll, staleTime 30s, no retry)."
   - id: partide.b.community-purge-grace
     text: "After finishing a partidă or saving a catch, community queries are invalidated after a 2 s grace (edge-cache purge), not immediately."
     fish_ref: "app/(app)/partide/[id].tsx:247-252"
   - id: partide.b.private-partida
     text: "A private partidă (visibleOnProfile false) offers no share link and does not appear in community feeds; photo tags only affect galleries when the partidă is public."
     fish_ref: "features/partide/helpers/deepLinks.ts:30-31"
+    status: proposed
+    note: "Spectator side (M4-B1): the CMS answers 404 for a private partidă; /partide/[id] then shows only «Partida nu a fost găsită.» (noindex, no venue, no share, brand OG card) — e2e tests/e2e/partide-spectator.spec.ts «c2 not found…». No cached copy (smoke 8): the CMS's opt-out purge reaches /api/revalidate, where `session-<id>` expires at once (revalidateTag {expire: 0}, lib/server/revalidate revalidateProfileFor — never stale-while-revalidate), so the page and its OG card are read fresh; and a browser already holding the partidă swaps to the not-found state on the refetch's 404 (e2e «b.private-partida a partidă that goes private…»). The member side (share link hidden on the member view) is partide.partida (B2)."
   - id: partide.b.nou-badge
     text: "The Partide nav entry shows a „NOU” pill until the first visit (persisted flag) and only before PARTIDE_NEW_BADGE_UNTIL (2026-09-18, already past — so no badge today); an unknown flag shows no badge. Web: not needed unless the owner re-dates it."
     fish_ref: "features/partide/domain/viewAtoms.ts:54-100"
@@ -1533,3 +1635,4 @@ behaviours:
   - id: partide.b.active-dock-global
     text: "The live-partidă dock appears on the Partide pages whenever the viewer has an active partidă; on web the home page already has its own ActivePartida card (home area)."
     fish_ref: "app/(app)/(tabs)/partide.tsx:279-282"
+    note: "Partide hub passing: components/partide/ActivePartidaDock.tsx shared with Acasă; its partidă / «Captură» links are the caller's gated hrefs (lib/partide-pages), plain text while off; e2e tests/e2e/partide-comunitate.spec.ts c26."

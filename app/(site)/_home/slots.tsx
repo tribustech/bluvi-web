@@ -3,6 +3,7 @@ import { HydrationBoundary } from '@tanstack/react-query';
 import { currentPollQuery } from '@/core/competitions';
 import { suggestedAnglersHomeInfiniteQuery } from '@/core/social';
 import { SuggestedHomeHydration } from '@/components/account/suggestions/SuggestedHomeHydration';
+import { partideHrefs } from '@/lib/partide-pages';
 import { ActivePartidaCard, ActivePartidaDock } from './ActivePartida';
 import {
   getHomeSession,
@@ -185,7 +186,7 @@ export async function MobileDockSlot() {
   if (!(await getHomeViewer())) return null;
   // Both asked at once (the partidă wins when both answer): two round trips, not four in a row.
   const [partida, live] = await Promise.all([loadActivePartida(), loadMyLiveCompetition()]);
-  if (partida && partida !== 'failed') return <ActivePartidaDock session={partida} />;
+  if (partida && partida !== 'failed') return <ActivePartidaDock session={partida} href={partideHrefs.partida(partida.documentId)} />;
   // From 1280 the right column carries it (RightColumnLiveSlot).
   // Owner rule 4 (ROADMAP §4b): only a CONFIRMED live competition shows the sheet (fish
   // DashboardSheet index -1 without one). A read with no answer ('failed') is read again in the
@@ -201,7 +202,7 @@ export async function MobileDockSlot() {
 export async function RightColumnLiveSlot() {
   if (!(await getHomeViewer())) return null;
   const [partida, live] = await Promise.all([loadActivePartida(), loadMyLiveCompetition()]);
-  if (partida && partida !== 'failed') return <ActivePartidaCard session={partida} />;
+  if (partida && partida !== 'failed') return <ActivePartidaCard session={partida} href={partideHrefs.partida(partida.documentId)} />;
   // 'failed': RightColumnLateLiveSlot reads it in the browser, at the column's end.
   if (!live || live === 'failed') return null;
   return <MyLiveCompetition live={live} weighings={await loadActiveWeighing(live.competition.documentId)} layout="card" />;

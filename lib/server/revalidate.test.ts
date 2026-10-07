@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseRevalidateBody, secretMatches } from './revalidate';
+import { parseRevalidateBody, revalidateProfileFor, secretMatches } from './revalidate';
 
 describe('revalidate webhook', () => {
   it('checks the shared secret', () => {
@@ -20,5 +20,11 @@ describe('revalidate webhook', () => {
     expect(parseRevalidateBody({ tags: [1] })).toHaveProperty('error');
     expect(parseRevalidateBody({ tags: ['x'.repeat(257)] })).toHaveProperty('error');
     expect(parseRevalidateBody({ tags: Array.from({ length: 101 }, (_, i) => `t${i}`) })).toHaveProperty('error');
+  });
+
+  it('expires a partidă tag at once (privacy opt-out), everything else stale-while-revalidate', () => {
+    expect(revalidateProfileFor('session-abc')).toEqual({ expire: 0 });
+    expect(revalidateProfileFor('lake-abc')).toBe('max');
+    expect(revalidateProfileFor('community-history')).toBe('max');
   });
 });

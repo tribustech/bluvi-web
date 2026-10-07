@@ -31,53 +31,73 @@ export const ON_DARK_FOCUS = 'focus-visible:outline-on-accent';
  * ground, wave strokes bottom-right, «Începe o partidă» and a quiet text link «Intră cu cod».
  * Signed out, both routes go to sign-in (fish). The page's one glowing card (Fundații §04).
  */
-export function PartidaCta({ signedIn, layout, className }: { signedIn: boolean; layout: 'mobile' | 'desktop'; className?: string }) {
+export function PartidaCta({
+  signedIn,
+  layout,
+  className,
+  links,
+}: {
+  signedIn: boolean;
+  layout: 'mobile' | 'desktop';
+  className?: string;
+  /**
+   * The two targets, when the caller decides them (the Partide hub, lib/partide-pages: null while
+   * that page is not on the web — the action is left out). Acasă's defaults otherwise.
+   */
+  links?: { start: string | null; join: string | null };
+}) {
+  const start = links ? links.start : signedIn ? homeLinks.partidaStart : homeLinks.signIn;
+  const join = links ? links.join : signedIn ? homeLinks.partidaJoin : homeLinks.signIn;
   return (
     <section aria-labelledby={`acasa-partida-cta-${layout}`} className={cn(BANNER, BANNER_ROW, 'bg-accent-ink text-on-accent shadow-glow', className)}>
       <Waves />
       <Copy layout={layout} />
-      <div className={cn(BANNER_ACTIONS, 'flex flex-wrap items-center gap-x-4 gap-y-2')}>
-        <ButtonLink
-          href={signedIn ? homeLinks.partidaStart : homeLinks.signIn}
-          variant="outline"
-          icon={<FishingRodIcon size={20} />}
-          className={ON_DARK_FOCUS}
-        >
-          Începe o partidă
-        </ButtonLink>
-        <Link
-          href={signedIn ? homeLinks.partidaJoin : homeLinks.signIn}
-          // In the row layout the waves sit behind the right-aligned actions: the link carries the
-          // banner's own fill there, so its underlined text never lies on the strokes.
-          className={cn(
-            'inline-flex min-h-11 items-center rounded-control t-body-strong underline underline-offset-2 @2xl:bg-accent-ink @2xl:px-2',
-            ON_DARK_FOCUS,
-          )}
-        >
-          Intră cu cod
-        </Link>
-      </div>
+      {start || join ? (
+        <div className={cn(BANNER_ACTIONS, 'flex flex-wrap items-center gap-x-4 gap-y-2')}>
+          {start ? (
+            <ButtonLink href={start} variant="outline" icon={<FishingRodIcon size={20} />} className={ON_DARK_FOCUS}>
+              Începe o partidă
+            </ButtonLink>
+          ) : null}
+          {join ? (
+            <Link
+              href={join}
+              // In the row layout the waves sit behind the right-aligned actions: the link carries the
+              // banner's own fill there, so its underlined text never lies on the strokes.
+              className={cn(
+                'inline-flex min-h-11 items-center rounded-control t-body-strong underline underline-offset-2 @2xl:bg-accent-ink @2xl:px-2',
+                ON_DARK_FOCUS,
+              )}
+            >
+              Intră cu cod
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
 
 /**
  * The hero's box while the session is read: same spec, no live links (a guest link clicked by a
- * signed-in viewer would send them to sign-in).
+ * signed-in viewer would send them to sign-in). `actions` false: the loaded card will have no
+ * action row (the caller's `links` are both null), so neither does its skeleton — no shift.
  */
-export function PartidaCtaSkeleton({ layout, className }: { layout: 'mobile' | 'desktop'; className?: string }) {
+export function PartidaCtaSkeleton({ layout, className, actions = true }: { layout: 'mobile' | 'desktop'; className?: string; actions?: boolean }) {
   return (
     <section aria-labelledby={`acasa-partida-cta-${layout}`} aria-busy className={cn(BANNER, BANNER_ROW, 'bg-accent-ink text-on-accent shadow-glow', className)}>
       <Waves />
       <Copy layout={layout} />
       {/* The loaded action row's own box (flex-wrap, the same gaps, the link's 44px line), so the
           row is as tall as the real one wherever it wraps. */}
-      <div aria-hidden className={cn(BANNER_ACTIONS, 'flex flex-wrap items-center gap-x-4 gap-y-2')}>
-        <span className="h-12 w-48 rounded-control bg-on-accent/20 xl:h-10" />
-        <span className="flex min-h-11 items-center @2xl:px-2">
-          <span className="h-5 w-24 rounded-full bg-on-accent/20" />
-        </span>
-      </div>
+      {actions ? (
+        <div aria-hidden className={cn(BANNER_ACTIONS, 'flex flex-wrap items-center gap-x-4 gap-y-2')}>
+          <span className="h-12 w-48 rounded-control bg-on-accent/20 xl:h-10" />
+          <span className="flex min-h-11 items-center @2xl:px-2">
+            <span className="h-5 w-24 rounded-full bg-on-accent/20" />
+          </span>
+        </div>
+      ) : null}
     </section>
   );
 }

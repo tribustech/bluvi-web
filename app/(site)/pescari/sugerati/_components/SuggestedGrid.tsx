@@ -2,11 +2,11 @@
 
 import { MagnifyingGlassIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { useInfiniteQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { SetBreadcrumb } from '@/app/(site)/_shell/SiteHeader';
 import type { Crumb } from '@/components/nav/Breadcrumbs';
 import { ICON_BUTTON_SIZE } from '@/components/nav/IconButton';
-import { openPalette } from '@/components/nav/openPalette';
 import { useBack } from '@/components/nav/useBack';
 import { dismissedStore, useDismissedSuggestions } from '@/components/account/suggestions/dismissedStore';
 import { SuggestedAnglerCard, SuggestedAnglerCardSkeleton } from '@/components/account/suggestions/SuggestedAnglerCard';
@@ -35,9 +35,9 @@ const GRID =
  * Sugestii pentru tine — fish app/(app)/anglers/suggested.tsx (parity account.suggested, T1), behind
  * the page's requireViewer gate (c1).
  *
- *  - Header: back (in-app history, else Home) + h1 + «Caută pescari» (c2). fish's button opens its
- *    angler search; here it opens the top bar's ⌘K palette (openPalette), which searches anglers
- *    for a signed-in viewer (core anglerSearchInfiniteQuery, the same /feed discovery search).
+ *  - Header: back (in-app history, else Home) + h1 + «Caută pescari» (c2): a link to /pescari, the
+ *    angler search, as fish pushes /partide/pescari (partide.pescari). The top bar's ⌘K palette
+ *    still searches anglers too, as a shortcut.
  *  - Data: core suggestedAnglersHomeInfiniteQuery — GET /feed/anglers/suggested-home, pageSize 10,
  *    the Home rail's own cache (c3): suggestedHomeQueryOptions (staleTime 6h, no refetch on focus,
  *    reconnect or mount, no retry) override the site's global focus refetch, so the cards never
@@ -143,10 +143,10 @@ export function SuggestedGrid() {
               title={TITLE}
               back={{ label: 'Înapoi', onClick: back }}
               actions={
-                <button type="button" onClick={openPalette} className={pageToolClass()}>
+                <Link href={routes.anglersSearch()} className={pageToolClass()}>
                   <MagnifyingGlassIcon aria-hidden />
                   <span className="sr-only md:not-sr-only">Caută pescari</span>
-                </button>
+                </Link>
               }
             />
           </div>

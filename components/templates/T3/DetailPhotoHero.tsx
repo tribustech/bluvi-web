@@ -1,9 +1,9 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { PhotoIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/components/ui/cn';
 import { DetailPhotoStrip } from './DetailPhotoStrip';
+import { DetailPhotoTileImage } from './DetailPhotoTileImage';
 import { DetailPhotoShowAll, DetailPhotoTileButton, DetailPhotoViewer } from './DetailPhotoViewer';
 
 /*
@@ -63,6 +63,12 @@ export type DetailPhotoHeroProps = {
   /** With `viewer`: the built-in «Vezi toate fotografiile» (lightbox). false: the page brings its own. */
   showAll?: boolean;
   /**
+   * From 768: the tiles open the PAGE's own viewer on photo `index` instead of the kit's (a lightbox
+   * with the page's captions — the partidă's catches). Use instead of `viewer`; the page brings its
+   * own «Vezi toate fotografiile» (SHOW_ALL_CLASS) in `bottomEnd`.
+   */
+  onOpenPhoto?: (index: number) => void;
+  /**
    * Phone only: a tap on a photo opens this page (fish PhotoHeroCarousel onPressPhoto → the gallery).
    * Pointer only (out of the Tab order, hidden from AT): the page's own gallery link in
    * `bottomEnd` is the one named control.
@@ -76,6 +82,11 @@ export type DetailPhotoHeroProps = {
    * 5 → the large one + a 2 × 2.
    */
   fill?: ReactNode;
+  /**
+   * What a photo that fails to load shows in its tile (DetailPhotoTileImage) — never the broken-image
+   * glyph. Default: the photo icon on the soft fill. The partidă: fish's fish on the indigo tint.
+   */
+  photoFallback?: ReactNode;
   className?: string;
 };
 
@@ -162,6 +173,8 @@ export function DetailPhotoHero({
   showAll: builtInShowAll = true,
   phoneHref,
   fill,
+  onOpenPhoto,
+  photoFallback,
   className,
 }: DetailPhotoHeroProps) {
   const list = photos;
@@ -194,7 +207,8 @@ export function DetailPhotoHero({
         >
           {list.map((photo, i) => (
             <li key={`${photo.src}-${i}`} className={cn('group/tile relative h-full w-full shrink-0 snap-center overflow-hidden bg-soft-fill', filled ? '' : tilePlace(i, shown))}>
-              <Image
+              <DetailPhotoTileImage
+                fallback={photoFallback}
                 src={photo.src}
                 alt={photo.alt ?? ''}
                 fill
@@ -205,11 +219,13 @@ export function DetailPhotoHero({
                 sizes={tileSizes(i, shown, filled)}
                 className={cn(
                   'object-cover',
-                  viewer && 'transition-[filter] duration-(--duration-fast) ease-fast md:group-hover/tile:brightness-90',
+                  (viewer || onOpenPhoto) && 'transition-[filter] duration-(--duration-fast) ease-fast md:group-hover/tile:brightness-90',
                 )}
               />
               {phoneHref ? <Link href={phoneHref} tabIndex={-1} aria-hidden className="absolute inset-0 md:hidden" /> : null}
-              {viewer && i < GRID_MAX ? <DetailPhotoTileButton index={i} label={`Deschide fotografia ${i + 1} din ${list.length}`} /> : null}
+              {(viewer || onOpenPhoto) && i < GRID_MAX ? (
+                <DetailPhotoTileButton index={i} label={`Deschide fotografia ${i + 1} din ${list.length}`} onOpen={onOpenPhoto} />
+              ) : null}
             </li>
           ))}
           {filled ? (

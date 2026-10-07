@@ -19,3 +19,15 @@ export function parseRevalidateBody(body: unknown): { tags: string[] } | { error
   if (clean.length !== tags.length) return { error: 'every tag must be a non-empty string ≤ 256 chars' };
   return { tags: [...new Set(clean)] };
 }
+
+/**
+ * How long Next may keep serving a page built from `tag` once the CMS purges it. Default `max`
+ * (stale-while-revalidate: the next visit still gets the old page while it regenerates). A
+ * partidă's own tag `session-<id>` is purged when it goes PRIVATE (visibleOnProfile false, CMS
+ * purgeTagsNow — domain invariants 14/15): a stale copy would show a private partidă (its page,
+ * JSON-LD, share card) to the next visitor, so it expires at once and the next visit blocks on a
+ * fresh read (next docs revalidateTag `{ expire: 0 }`, the webhook case).
+ */
+export function revalidateProfileFor(tag: string): 'max' | { expire: number } {
+  return tag.startsWith('session-') ? { expire: 0 } : 'max';
+}
