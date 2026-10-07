@@ -21,7 +21,10 @@ import type {
   ReviewReqBody,
 } from './schemas';
 
-/** fish `queryKeys.bookings` prefixes these invalidations touch (the bookings domain owns the rest). */
+/**
+ * core/booking `bookingKeys.toReview` (fish `queryKeys.bookings.toReview`), spelled out: lakes may not
+ * import booking (core-domain-deps). Keep the two in step.
+ */
 const BOOKINGS_TO_REVIEW = ['bookings', 'to-review'] as const;
 
 /* ------------------------------------------------------------------------------------------------

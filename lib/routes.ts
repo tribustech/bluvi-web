@@ -53,6 +53,15 @@ export const routes = {
     return `/balti/${encodeURIComponent(documentId)}/recenzie${s ? `?${s}` : ''}`;
   },
   lakeBooking: (documentId: string) => `/balti/${encodeURIComponent(documentId)}/rezerva`,
+  /**
+   * The booking flow's steps 2 and 3 (booking.rezerva-extra / -confirmare). The selection rides in
+   * the query (?stand&start&end[&extra…]) so a reload or Back re-seeds it — the codec is
+   * app/(site)/balti/[id]/rezerva/_flow/params.ts (readFlowParams); keep the two in step.
+   */
+  lakeBookingExtras: (documentId: string, sel: { stand: string; start: string; end: string; extras?: string[] }) =>
+    `/balti/${encodeURIComponent(documentId)}/rezerva/extra?${new URLSearchParams([['stand', sel.stand], ['start', sel.start], ['end', sel.end], ...(sel.extras ?? []).map(e => ['extra', e])])}`,
+  lakeBookingReview: (documentId: string, sel: { stand: string; start: string; end: string; extras?: string[] }) =>
+    `/balti/${encodeURIComponent(documentId)}/rezerva/confirmare?${new URLSearchParams([['stand', sel.stand], ['start', sel.start], ['end', sel.end], ...(sel.extras ?? []).map(e => ['extra', e])])}`,
   /** Sign in, returning to `next` (a path with its query; /intra validates it). Home and /intra itself: plain /intra. */
   signIn: (next?: string) => (!next || next === '/' || next === '/intra' ? '/intra' : `/intra?next=${encodeURIComponent(next)}`),
   /**
@@ -155,6 +164,8 @@ export const routes = {
   notificationPreferences: () => '/setari/notificari/concursuri',
   /** The viewer's bookings (booking.yml, fish /bookings). */
   myBookings: () => '/rezervari',
+  /** One of the viewer's bookings (booking.rezervare, fish /bookings/[id]); notifications land here. */
+  booking: (documentId: string) => `/rezervari/${encodeURIComponent(documentId)}`,
   /** The current poll (fish /polls/current). */
   polls: () => '/sondaje',
   raffle: () => '/tombola',
@@ -191,8 +202,10 @@ export const routes = {
  *  - startPartida → the start-partidă flow (M4);
  *  - settings → /setari, the settings hub (M2, account.settings) — ON since M2-B5 (the own profile's
  *    cog and the account menus' «Setări» rows);
- *  - myBookings → /rezervari, the viewer's bookings (M3, booking.yml): until then Setări hides its
- *    «Rezervările mele» row.
+ *  - myBookings → /rezervari, the viewer's bookings (M3, booking.rezervarile-mele) — ON since M3-B1
+ *    (Setări's «Rezervările mele» row);
+ *  - bookingDetail → /rezervari/[id], one booking (M3, booking.rezervare): until then a booking row is
+ *    a plain row.
  */
 export const ON_WEB = {
   angler: true,
@@ -200,7 +213,8 @@ export const ON_WEB = {
   partida: false,
   startPartida: false,
   settings: true,
-  myBookings: false,
+  myBookings: true,
+  bookingDetail: false,
 } as const;
 
 /** The angler's profile, or null while the web has none (render the person without a link). */
@@ -209,6 +223,9 @@ export const anglerHref = (documentId: string): string | null => (ON_WEB.angler 
 /** An angler's followers / following (the profile's «N urmăritori · N urmărește»), or null while the web has none. */
 export const anglerConnectionsHref = (documentId: string, tab?: 'urmaritori' | 'urmareste'): string | null =>
   ON_WEB.connections ? routes.anglerConnections(documentId, tab) : null;
+
+/** A booking's page (/rezervari/[id]), or null while the web has none (the row stays a plain row). */
+export const bookingHref = (documentId: string): string | null => (ON_WEB.bookingDetail ? routes.booking(documentId) : null);
 
 /** A partidă's page, or null while the web has none. */
 export const partidaHref = (documentId: string): string | null => (ON_WEB.partida ? routes.partida(documentId) : null);

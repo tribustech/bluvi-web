@@ -21,3 +21,4 @@ export * from './cancelNotes';
 export * from './cancelReasons';
 export * from './todayCounts';
 export * from './trendLabels';
+export * from './bookingPeriod';

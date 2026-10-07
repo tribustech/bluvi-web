@@ -102,9 +102,8 @@ test.describe('account.settings', () => {
       await expect(card).toContainText(String(profileJson.email));
       // c4
       await expect(page.getByRole('main').getByRole('link', { name: 'Notificări', exact: true })).toHaveAttribute('href', '/setari/notificari');
-      // c13: /rezervari is M3 (ON_WEB.myBookings false) — no row to the 404.
-      await expect(page.getByText('Rezervările mele')).toHaveCount(0);
-      await expect(page.locator('a[href="/rezervari"]')).toHaveCount(0);
+      // c13: the «Rezervările mele» row → /rezervari (ON_WEB.myBookings since M3-B1).
+      await expect(page.getByRole('main').getByRole('link', { name: 'Rezervările mele', exact: true })).toHaveAttribute('href', '/rezervari');
       // c14: the own reputation block.
       await expect(page.getByTestId('reputation').getByRole('heading', { level: 2, name: 'Reputație' })).toBeVisible();
       // c15

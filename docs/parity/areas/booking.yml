@@ -77,119 +77,196 @@ screens:
       - id: booking.rezerva-grila.c1
         text: "Entry: on the lake page the booking CTA, when booking is enabled and the user is signed out, opens sign-in (plain push, no redirectTo — back returns to the lake); signed in, it opens this grid. Web: a signed-out visit to /balti/[id]/rezerva redirects to /intra and back."
         fish_ref: app/(app)/lakes/[lakeId].tsx:271-284
+        status: passing
+        web_note: "Web: the page awaits requireViewer(routes.lakeBooking(id) + the selection's query) inside its Suspense boundary: a signed-out visit is a real 307 to /intra?next=/balti/[id]/rezerva?stand…, so sign-in returns to the same grid and selection. The lake page CTA (lakes.detail.c16) stays behind LAKE_ON_WEB.booking (flipped in M3-B3). e2e tests/e2e/rezerva-grila.spec.ts «c1 / booking.b.sign-in-gate»."
       - id: booking.rezerva-grila.c2
         text: "The lake availability tab also offers „Vezi disponibilitatea și rezervă” (disabled with „🔑 Trebuie să fii autentificat în contul tău pentru a putea face o rezervare.” when signed out) that opens this grid."
         fish_ref: features/lakes/booking/LakeAvailabilityTab.tsx:32-48
+        status: passing
+        web_note: "n/a — not a parity target: LakeAvailabilityTab is dead code in fish (no route renders it; lakes.b.dead-code). Nothing built for it on the web."
       - id: booking.rezerva-grila.c3
         text: "The header shows a back button, the lake name as title (fallback „Rezervare”), an „Azi” pill (aria „Mergi la ziua de azi”) that scrolls the grid to today, and the legend under it."
         fish_ref: features/lakes/booking/BookingGridStep.tsx:92-104
+        status: passing
+        web_note: "T4Header: back chip, eyebrow «Rezervă un stand», h1 = the cached lake's name (fallback «Rezervare» while the gate / lake read streams), trailing «Azi» pill (aria «Mergi la ziua de azi», smooth scroll to today, reduced motion: instant); the legend row under the header. e2e tests/e2e/rezerva-grila.spec.ts «c3 c4 c8 …», «c3 «Azi» + keyboard path»."
       - id: booking.rezerva-grila.c4
         text: "Legend chips: „Liber” (white), „Indisponibil” (red tint), „Doar telefonic” (yellow, angler flow only) and a cabin glyph labelled „Cabană”."
         fish_ref: features/lakes/booking/AvailabilityGrid.tsx:1208-1228
+        status: passing
+        web_note: "Legend: «Liber» (surface + faint border), «Indisponibil» (status-danger tint), «Doar telefonic» (status-warning tint, yellow-5 border), cabin glyph «Cabană» (status-success). e2e tests/e2e/rezerva-grila.spec.ts «c3 c4 c8 …»."
       - id: booking.rezerva-grila.c5
         text: "While a selection exists the header (title, Azi, legend) collapses to zero height with a 220ms fade, giving the space to the grid; it expands again when the selection is cleared."
         fish_ref: features/lakes/booking/BookingGridStep.tsx:16-17,80-89
+        status: passing
+        web_note: "Below 1024 the header + legend fold to 0 with a 220ms grid-rows + opacity transition while a selection exists (inert while folded) and return when it clears. web_note: from 1024 the header stays — the selection lives in the right summary card, so the grid never needs the pixels (owner rule 1). e2e tests/e2e/rezerva-grila.spec.ts «c5 c22 c23: phone…», «c5 (web): from 1024…»."
       - id: booking.rezerva-grila.c6
         text: "Availability is loaded one lake-zone calendar month per page starting with the current month (page 0), endlessly forward, never backward; staleTime 0 (live)."
         fish_ref: services/queries/useLakeAvailability.ts:7-19
+        status: passing
+        web_note: "core lakeAvailabilityInfiniteQuery (one month per page from the current month, endless forward, staleTime 0) read in the browser through /api/cms (createBrowserTransport direct:false) — never 'use cache', never in the HTML. e2e tests/e2e/rezerva-grila.spec.ts «c6 c7 c9 / booking.b.live-availability» (page 0 from = 1st of the current month; the SSR HTML has no availability)."
       - id: booking.rezerva-grila.c7
         text: "Every time the grid becomes the focused screen again (back from extras/review, from another screen or a notification) the availability query is invalidated and refetched. Web: refetch on mount, on return to the step and on window focus."
         fish_ref: app/(app)/book-lake/[lakeId]/index.tsx:21-37
+        status: passing
+        web_note: "_flow/hooks.ts useLiveAvailability: refetchOnMount 'always' (a return from extras / review is a mount) + refetchOnWindowFocus 'always' (every loaded page re-read). e2e tests/e2e/rezerva-grila.spec.ts «c6 c7 c9 …» (visibilitychange → new request; reload → new request)."
       - id: booking.rezerva-grila.c8
         text: "The grid starts at yesterday (local start of day), not at the month boundary: older history is clipped out."
         fish_ref: features/lakes/booking/AvailabilityGrid.tsx:257-265
+        status: passing
+        web_note: "model.ts buildGridModel: gridFrom = max(loaded range start, yesterday 00:00 local). e2e tests/e2e/rezerva-grila.spec.ts «c3 c4 c8 …» (first day pill = yesterday); unit _grid/model.test.ts."
       - id: booking.rezerva-grila.c9
         text: "Scrolling horizontally to within 2 day-columns of the loaded end fetches the next month once per approach (re-armed when scrolled back); while it loads a dimmed placeholder column and a spinner in the header mark the incoming page."
         fish_ref: features/lakes/booking/AvailabilityGrid.tsx:381-387,718-728,1106-1110
+        status: passing
+        web_note: "One scroller: within 2 day columns of the loaded end → fetchNextPage once per approach, re-armed when scrolled back; a dimmed soft-fill placeholder column + T4Spinner header cell («Se încarcă luna următoare…») while it loads. e2e tests/e2e/rezerva-grila.spec.ts «c6 c7 c9 …» (next month's from, placeholder + spinner in view, wider grid after)."
       - id: booking.rezerva-grila.c10
         text: "Rows are stands (frozen left column titled „Stand” with the stand name and a cabin mark when the stand has extras), columns are days; the day header row is sticky and each day is a pill reading „{Weekday} {d MMM}” (e.g. „Sâmbătă 15 aug”)."
         fish_ref: features/lakes/booking/AvailabilityGrid.tsx:745-765,1040-1070,1116-1126
+        status: passing
+        web_note: "Rows = stands, frozen sticky-left column «Stand» (name + HomeModern mark when the stand has extras); the day header is the scroller's sticky first row — one element scrolls both axes, so header and names never drift (owner rule 3); day pills «{Weekday} {d MMM}». Full width of its column (ROADMAP §4); from 768 the time axis is 1.5× wider (180px/day for 12h slots) so pills and chips read in full. e2e tests/e2e/rezerva-grila.spec.ts «c3 c4 c8 …», «owner rule 3 / c10» (375 + 1440, four scroll positions)."
       - id: booking.rezerva-grila.c11
         text: "Under the day pills each slot has a chip with its interval („06–18”, or „07:30–19:30” off the hour) and a sun (day shift) or moon (night shift) glyph; a slot of 24h or more shows „{n}h · HH:mm → HH:mm” and no glyph; the glyph is dropped when the column is too narrow."
         fish_ref: features/lakes/booking/AvailabilityGrid.tsx:1079-1104
+        status: passing
+        web_note: "DayHeader chips from core headerSlots: «06–18» + sun, «18–06» + moon, «24h · 06:00 → 06:00» without glyph; the glyph drops under CHIP_MIN_FIT_PX. e2e tests/e2e/rezerva-grila.spec.ts «c3 c4 c8 …», «c11: a 24h slot…»."
       - id: booking.rezerva-grila.c12
         text: "Slot status: a block on that stand wins over a lake-wide block, any block wins over a booking (half-open overlap, touching ends do not overlap); otherwise booked if a booking overlaps, else available."
         fish_ref: features/lakes/booking/availabilityStatus.ts:72-91
+        status: passing
+        web_note: "core resolveSlotStatus/indexExceptions unchanged. e2e tests/e2e/rezerva-grila.spec.ts «c3 c4 c8 …» (stand 6: booked + blocked → blocked); unit core availabilityStatus.test.ts."
       - id: booking.rezerva-grila.c13
         text: "Free cells are white and silent; booked and blocked cells share one red „indisponibil” look; booked cells show the booker's initials; a competition block shows a trophy; a blocked run spans the block's full extent."
         fish_ref: features/lakes/booking/GridBand.tsx:47-55,224-231
+        status: passing
+        web_note: "GridBand looks: free = surface + hairline, booked/blocked = one status-danger look, initials on booked, solid trophy on competition runs; mergeRowBands keeps a block as one run (the competition is one pill per stand). e2e tests/e2e/rezerva-grila.spec.ts «c3 c4 c8 …»; unit _grid/model.test.ts."
       - id: booking.rezerva-grila.c14
         text: "A slot that started is past (dashed, dimmed, neutral); tapping it toasts „Interval trecut — alege o zi viitoare.”"
         fish_ref: features/lakes/booking/GridBand.tsx:76,174-176,200-206
+        status: passing
+        web_note: "Past runs: page ground, dashed faint border, muted text (no opacity, so the initials stay AA); tap → danger toast «Interval trecut — alege o zi viitoare.» (useSiteToast). e2e tests/e2e/rezerva-grila.spec.ts «c14 c15 c16 …»."
       - id: booking.rezerva-grila.c15
         text: "A free slot starting within the lake's lead hours (leadHours, default 24) is yellow and NOT selectable; tapping it opens the „Rezervare din scurt” panel."
         fish_ref: features/lakes/booking/availabilityStatus.ts:19-20,83; features/lakes/booking/AvailabilityGrid.tsx:964-967
+        status: passing
+        web_note: "Lead = availability leadHours (24 when absent); a free run inside it is yellow, not selectable, and opens the too-soon panel. e2e tests/e2e/rezerva-grila.spec.ts «c14 c15 c16 …» (48h), «c16: with a lake phone…» (absent → 24)."
       - id: booking.rezerva-grila.c16
         text: "Too-soon panel: title „Rezervare din scurt”, text „Rezervările care încep în mai puțin de {o oră / N ore / N de ore} nu se pot face din aplicație — administratorul are nevoie de timp să confirme. Sună-l direct pentru un loc pe termen scurt.”, „Sună administratorul” (tel: link to the lake's first contact phone, only when it exists; logs contact_pressed 'Lake too soon contact') and „Am înțeles” closing it."
         fish_ref: features/lakes/booking/TooSoonSheet.tsx:17,39-47,63-77
+        status: passing
+        web_note: "TooSoonDialog (ResponsiveSurface info: sheet <768, dialog ≥768): fish copy with hoursRo; «Sună administratorul» = tel: link to lake.contact[0].phone only when it exists, track('contact_pressed', {contact_type:'Lake too soon contact', lake_id, lake_name}); «Am înțeles» closes. e2e tests/e2e/rezerva-grila.spec.ts «c14 c15 c16 …» (no phone: no call), «c16: with a lake phone…» (dev fault with-phone; tel href + the analytics event)."
       - id: booking.rezerva-grila.c17
         text: "Tapping a future blocked slot that carries a competition id or a label opens the block panel: trophy + title (block label, else reason label, else „Indisponibil”) + caption „Concurs” for competitions; text „Balta e rezervată integral pentru concurs, toate standurile, între {d MMM, HH:mm} și {d MMM, HH:mm}.” or „Indisponibil între … și ….”; „Vezi concursul” (only with competitionId) opens the competition; „Am înțeles” closes."
         fish_ref: features/lakes/booking/CompetitionBlockSheet.tsx:39-101; features/lakes/booking/GridBand.tsx:155,177-179
+        status: passing
+        web_note: "BlockDialog: title = label || reason label || «Indisponibil», subtitle «Concurs» for competitions, fish sentences with «d MMM, HH:mm», «Vezi concursul» (only with competitionId) → routes.competition(id). e2e tests/e2e/rezerva-grila.spec.ts «c17 c18 …» (labelled block, competition → /concursuri/<id>)."
       - id: booking.rezerva-grila.c18
         text: "Tapping a booked slot or a blocked slot without label/competition does nothing visible (error haptic only on mobile); the angler cannot open someone else's booking."
         fish_ref: features/lakes/booking/GridBand.tsx:163-183
+        status: passing
+        web_note: "Booked and plain-blocked runs are buttons that do nothing (no dialog, toast or selection; no haptic on the web). e2e tests/e2e/rezerva-grila.spec.ts «c17 c18 …»."
       - id: booking.rezerva-grila.c19
         text: "Selection rules: one stand row, one contiguous run of available cells; tapping a cell on another stand restarts there; tapping the only selected cell clears it; tapping a later/earlier available cell extends the run when every cell between is available, else restarts at the tapped cell; tapping inside a multi-cell run collapses to that cell; tapping an unavailable cell is a no-op."
         fish_ref: features/lakes/booking/useGridSelection.ts:55-118
+        status: passing
+        web_note: "core toggleSelectionCell on the run's first cell (fish onPress(run.cellIndex)). e2e tests/e2e/rezerva-grila.spec.ts «c19 c21 c36 …» (extend, collapse, toggle off, other stand, gap → restart, unavailable no-op)."
       - id: booking.rezerva-grila.c20
         text: "Tapping a day pill selects the whole day on the selected stand; refusals toast: no selection → „Selectează mai întâi un stand.”; day before today → „Ziua a trecut — alege o zi viitoare.”; a slot of that day already started → „Ziua a început deja — alege o zi viitoare.”; a taken cell on that stand → „Ziua nu e liberă integral la standul ales.”"
         fish_ref: features/lakes/booking/AvailabilityGrid.tsx:528-551; features/lakes/booking/useGridSelection.ts:205-222
+        status: passing
+        web_note: "Day pill → core selectDaySelection; refusals as danger toasts in fish's order (model.ts dayRefusal). e2e tests/e2e/rezerva-grila.spec.ts «c20 …»; unit _grid/model.test.ts."
       - id: booking.rezerva-grila.c21
         text: "The selected run is drawn as one indigo pill carrying its interval: the compact hours („18–06”) for a single slot, the day-aware range for a multi-slot run."
         fish_ref: features/lakes/booking/AvailabilityGrid.tsx:512-519; features/lakes/booking/rowRuns.ts:76
+        status: passing
+        web_note: "The selected run is one accent pill (aria-pressed) labelled formatInterval for one slot, formatSelectionLabel for a run. e2e tests/e2e/rezerva-grila.spec.ts «c19 c21 c36 …», «c20 …»; unit _grid/model.test.ts."
       - id: booking.rezerva-grila.c22
         text: "On selection the selected stand's row is scrolled to the vertical centre of the visible grid area, above the selection panel; the grid reserves the panel's height so every row can scroll clear of it."
         fish_ref: features/lakes/booking/AvailabilityGrid.tsx:499-507; features/lakes/booking/BookingGridStep.tsx:113-114
+        status: passing
+        web_note: "Phone: the panel is docked under the grid in the flow, so the grid's scroller ends above it; a new selection scrolls its row to the middle of the visible rows (re-run when the scroller height changes). e2e tests/e2e/rezerva-grila.spec.ts «c5 c22 c23: phone…» (stand 8 within 30px of the middle, grid bottom ≤ panel top)."
       - id: booking.rezerva-grila.c23
         text: "When the selection's right edge is scrolled out of view a chevron hint appears on the grid's right edge; a right-edge fade always signals the grid continues."
         fish_ref: features/lakes/booking/AvailabilityGrid.tsx:458-482,765-800
+        status: passing
+        web_note: "A static right-edge fade (surface gradient) and a chevron cap shown while the selection's right edge is past the viewport. e2e tests/e2e/rezerva-grila.spec.ts «c5 c22 c23: phone…» (visible when scrolled back, hidden when in view)."
       - id: booking.rezerva-grila.c24
         text: "The grid opens scrolled to today; when re-entered with a seeded selection (back from extras/review) it opens on the selection's day instead; the selection is restored from the flow state."
         fish_ref: features/lakes/booking/AvailabilityGrid.tsx:569-597; features/lakes/booking/useGridSelection.ts:187-198
+        status: passing
+        web_note: "The selection is the URL (?stand&start&end, _flow/params.ts): a reload, a later step's link or Back re-seeds it (matched by instant), reading ahead up to 12 months, and the grid opens on its day; extras in the URL are dropped (the grid quotes the bare tour); a selection that is no longer a free run is dropped, never guessed. e2e tests/e2e/rezerva-grila.spec.ts «c24 …», «c35 …» (Back from the review step)."
       - id: booking.rezerva-grila.c25
         text: "Grid cells expose accessible labels „{stand}, {interval label if any}, trecut|indisponibil|disponibil[, selectat]” and selected state; day pills are buttons labelled with the day."
         fish_ref: features/lakes/booking/availabilityStatus.ts:93-110; features/lakes/booking/GridBand.tsx:213-221
+        status: passing
+        web_note: "Bands are buttons: core cellA11yLabel with the day and interval in the label slot (the web's buttons need them to be told apart), «, doar telefonic» / «, <block title>» appended, aria-pressed; day pills «{day}, selectează toată ziua». Keyboard: one roving tab stop for the day pills (←/→/Home/End) and one for the bands (←/→ within a row, ↑/↓ between rows, Home/End), Enter/Space press, focus kept on the selection. e2e tests/e2e/rezerva-grila.spec.ts «c3 c4 c8 …», «c3 «Azi» + keyboard path»; axe at 375/1280/1440/1920 in every state."
       - id: booking.rezerva-grila.c26
         text: "Booking disabled for the lake → empty state „Rezervările nu sunt disponibile” / „Acest lac nu acceptă deocamdată rezervări online.”; no stands or no slots → „Nicio disponibilitate” / „Nu există standuri sau intervale disponibile pentru această perioadă.”"
         fish_ref: features/lakes/booking/AvailabilityGrid.tsx:610-629
+        status: passing
+        web_note: "T4Gate: «Rezervările nu sunt disponibile» / «Acest lac nu acceptă deocamdată rezervări online.» (+ «Sună la baltă» when the lake lists a phone, «Înapoi la baltă»); «Nicio disponibilitate» / «Nu există standuri sau intervale disponibile pentru această perioadă.». e2e tests/e2e/rezerva-grila.spec.ts «c26 c27 …», «states at …»."
       - id: booking.rezerva-grila.c27
         text: "No cached availability and the query failed → „A apărut o eroare la încărcarea disponibilității.” with „Încearcă din nou” (refetch); still loading → grid skeleton."
         fish_ref: features/lakes/booking/BookingGridStep.tsx:123-139
+        status: passing
+        web_note: "GridSkeleton (10 rows × 4 days on a phone, 8 days from 768 to fill the column) for the gate, the lake read and the first page; no data + failed read → T4Gate danger «A apărut o eroare la încărcarea disponibilității.» + «Încearcă din nou» (held while refetching). e2e tests/e2e/rezerva-grila.spec.ts «c26 c27 …»."
       - id: booking.rezerva-grila.c28
         text: "A selection opens a non-modal selection panel (grid stays interactive, no backdrop, cannot be swiped away) showing „Stand {name}” and a start/end timeline: „{Weekday}, d MMM · HH:mm” for the start and the end minus the lake's checkoutBufferMinutes."
         fish_ref: features/lakes/booking/BookingSelectionSheet.tsx:16-25,98-142; helpers/formatBookingPeriod.ts:31-35
+        status: passing
+        web_note: "SelectionPanel: «Stand {name}», start/end timeline with core formatBookingPoint (end minus the checkout buffer). Non-modal everywhere: phone = bottom panel docked in the flow (no backdrop, the grid stays interactive); from 1024 = the right summary card (owner rule 1). web_note: the buffer is read from the live availability page (the same CMS field as the lake's), falling back to the lake's. e2e tests/e2e/rezerva-grila.spec.ts «c28–c30 c33 c34 …» (buffer 30 → 17:30); unit core bookingPeriod.test.ts (midnight end pulled back into the previous day)."
       - id: booking.rezerva-grila.c29
         text: "The panel asks the server for the bare-tour price (POST /feed/lakes/:id/quote with stand, start, end, extras [] and walkIn false); while it loads the price slot shows a spinner + „se calculează”; a newer answer in flight dims the previous price instead of hiding it."
         fish_ref: services/queries/useBookingQuote.ts:34-48; features/lakes/booking/BookingSelectionSheet.tsx:148-158,182-189
+        status: passing
+        web_note: "useFlowQuote = core bookingQuoteQuery (POST /feed/lakes/:id/quote, extras [], walkIn false, placeholder = previous); spinner + «se calculează»; a newer answer in flight dims the previous price (opacity .45, data-stale). e2e tests/e2e/rezerva-grila.spec.ts «c28–c30 c33 c34 …» (request body asserted; dimmed 300 while 450 loads)."
       - id: booking.rezerva-grila.c30
         text: "Priced: „{total} lei” large in indigo, a duration pill („{h}h zi” when starting before 12:00, „{h}h noapte” from 12:00, plain „{h}h” at 24h+), and a green pill with the rate row's own name only when it says more than the duration (e.g. not „Tur 12h”)."
         fish_ref: features/lakes/booking/BookingSelectionSheet.tsx:148-208; features/bookings/ui/chipModel.ts:28-50
+        status: passing
+        web_note: "«{total}» t-display accent-ink + «lei» its own smaller muted element (rule 10), ro-RO digits; durationLabel pill; the rate row's name only when rowLabelAddsMeaning. e2e tests/e2e/rezerva-grila.spec.ts «c28–c30 c33 c34 …» (12h zi / 12h noapte / 24h; «Tur 12h» hidden, «Pachet noapte» shown)."
       - id: booking.rezerva-grila.c31
         text: "Refused by the lake (quote.refusal): price shows „—”, the server's refusal sentence is shown in red, Continuă disabled."
         fish_ref: features/lakes/booking/BookingSelectionSheet.tsx:159-165,225-229,241
+        status: passing
+        web_note: "Refusal: «—», the server sentence in status-danger (role alert), Continuă held. e2e tests/e2e/rezerva-grila.spec.ts «c31 c32 …»."
       - id: booking.rezerva-grila.c32
         text: "Quote request failed: „Nu am putut calcula prețul” in red with „Încearcă din nou” that refetches the quote."
         fish_ref: features/lakes/booking/BookingSelectionSheet.tsx:166-181; features/lakes/booking/useBookingGridFlow.ts:158-173
+        status: passing
+        web_note: "Failed request: «Nu am putut calcula prețul» + «Încearcă din nou» → refetch. e2e tests/e2e/rezerva-grila.spec.ts «c31 c32 …»."
       - id: booking.rezerva-grila.c33
         text: "Note under the price: „Poți adăuga extra la pasul următor.” when this stand offers extras for this tour; else deposit lakes „Avans {p}%: {round2(total×p/100)} lei”; else non-full lakes „Plata se face la fața locului.”; full-payment lakes no note."
         fish_ref: features/lakes/booking/BookingSelectionSheet.tsx:88-92,213-223
+        status: passing
+        web_note: "model.ts selectionNote (fish order and rounding). e2e tests/e2e/rezerva-grila.spec.ts «c28–c30 c33 c34 …» (offline lake: «Plata se face la fața locului.»; cabin night: «Poți adăuga extra la pasul următor.»); unit _grid/model.test.ts (deposit «Avans 30%: 94,5 lei», full → none). Web fix over fish (owner rule 4): a deposit lake without a server total (quoting, refused, failed) shows no deposit line — fish shows «Avans 30%: 0 lei»; a deposit read off a stale price is dimmed with it. e2e «c33 / owner rule 4: a deposit lake …» (dev fault deposit-30 on the local offline lake: quoting / «—» / failed → no note; 300 → «Avans 30%: 90 lei»)."
       - id: booking.rezerva-grila.c34
         text: "Extras offered for a tour = the lake extras the stand provides, minus per-night extras when the tour crosses no lake-local midnight."
         fish_ref: features/lakes/booking/offeredExtras.ts:17-23; features/lakes/booking/nights.ts:13-20
+        status: passing
+        web_note: "_flow/guards.ts offeredForSelection = core offeredExtras + countNights (lake zone). e2e tests/e2e/rezerva-grila.spec.ts «c28–c30 c33 c34 …» (cabin stand by day: no extras); unit _flow/flow.test.ts."
       - id: booking.rezerva-grila.c35
         text: "„Anulează” clears the selection (grid and flow) and closes the panel; „Continuă” (disabled while quoting, without a price or when refused) goes to the extras step when extras are offered for this tour, else straight to the review step, and resets chosen extras."
         fish_ref: features/lakes/booking/BookingSelectionSheet.tsx:232-246; features/lakes/booking/useBookingGridFlow.ts:251-254,294-302
+        status: passing
+        web_note: "«Anulează» clears grid + URL (and pops the entry the selection pushed); «Continuă» is a held (aria-disabled) button while quoting, without a total or on a refusal; enabled it pushes routes.lakeBookingExtras when offeredForSelection is non-empty, else routes.lakeBookingReview, with extras [] (the targets ship in M3-B2: URL asserted). e2e tests/e2e/rezerva-grila.spec.ts «c35 / booking.b.flow-state», «c31 c32 …»."
       - id: booking.rezerva-grila.c36
         text: "Changing the selection while the panel is open updates it live (stand, period and a fresh quote) without closing it; returning to the grid always resets extras to none."
         fish_ref: features/lakes/booking/useBookingGridFlow.ts:121-132
+        status: passing
+        web_note: "The panel follows the live selection (stand, period, a fresh quote) without closing; the grid never carries extras. e2e tests/e2e/rezerva-grila.spec.ts «c19 c21 c36 …», «c28–c30 …»."
       - id: booking.rezerva-grila.c37
         text: "While a selection is active, Back first clears the selection instead of leaving the flow; the next Back leaves (to wherever the flow was entered from)."
         fish_ref: features/lakes/booking/useBookingGridFlow.ts:256-266; features/lakes/booking/BookingFlowProvider.tsx:59,68-71
+        status: passing
+        web_note: "The first selection pushes a history entry (later changes replace it): browser Back or the header back («Anulează selecția» while a selection exists) clears it first; the next Back leaves (useBack → previous page, else the lake). The entry is marked in history.state, so this also holds after a return from a later step (a new mount on that entry). e2e tests/e2e/rezerva-grila.spec.ts «c37 …», «c37 after a later step …»."
       - id: booking.rezerva-grila.c38
         text: "The lake-viewer chip („👁 {n} privesc acum”) is NOT shown in the angler flow (the toolbar it lives in is hidden; presence is flag-gated)."
         fish_ref: features/lakes/booking/BookingGridStep.tsx:107-109; features/lakes/booking/AvailabilityGrid.tsx:634-641
+        status: passing
+        web_note: "No viewer chip. e2e tests/e2e/rezerva-grila.spec.ts «c3 c4 c8 …»."
     mobile_only: false
-    status: todo
+    status: proposed
+    web_note: "Built in M3-B1 (app/(site)/balti/[id]/rezerva: page.tsx gate + _flow/ URL state for the 3 steps + _grid/). T4 pieces (T4Header, T4Gate, held CTA) in a viewport-tall frame (BookingFrame) instead of T4Frame: T4Frame lays a step on the page's scroll, the grid needs one bounded scroller that owns both axes so its day header stays on the grid's top edge (owner rule 3). The selection lives in the URL, written with the History API (Next follows it in useSearchParams) — router.replace would re-run the session gate on every tap. Availability and quote: browser-only through /api/cms (live). LAKE_ON_WEB.booking still off (M3-B3). e2e tests/e2e/rezerva-grila.spec.ts (23 tests: every criterion, all states at 375/1280/1440/1920 with axe, a keyboard path; availability/quote route-mocked, no writes); unit core/booking/domain/bookingPeriod.test.ts, rezerva/_flow/flow.test.ts, rezerva/_grid/model.test.ts. Screenshots .shots/rezerva-grila/."
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: booking.rezerva-extra
@@ -425,7 +502,7 @@ screens:
       - booking.domain.cancelNotes (meaningfulNoShowNote)
       - booking.domain.cancelReasons.MIN_CANCEL_REASON_LEN
       - lakes filters (bookableOnly) for the empty-state CTA
-      - friendlyCancelError — not in core yet (fish helpers/friendlyCancelError.ts)
+      - booking.domain.cancelReasons.friendlyCancelError (M3-B1)
     states:
       - signed-out (redirect to /intra)
       - first load of a tab → 3 card skeletons (chrome stays)
@@ -441,71 +518,116 @@ screens:
       - id: booking.rezervarile-mele.c1
         text: "Title „Rezervările mele” with back; the title row scrolls away while the tab rows stay pinned at the top."
         fish_ref: app/(app)/bookings/index.tsx:48-62,282-295
+        status: passing
+        note: "MyBookingsFrame (T1 ListPage): ListHeader (back = history, else Acasă; h1) scrolls away; BookingsChrome is sticky under the top bar on the shell's UNDER_BAR_TOP (follows the phone bar to the edge, owner rule 3), full bleed on the page ground, at every width; its height feeds LIST_CHROME_H_VAR so the docked column sticks under it. e2e «c1» at 375 and 1440 (chrome top = bar bottom, title above it)."
       - id: booking.rezervarile-mele.c2
         text: "Tabs in order „Toate”, „În așteptare”, „Confirmate”, „Nefinalizate” with icons (list, clock, check-circle, x-circle); the landing tab is „Toate”."
         fish_ref: features/bookings/myBookingBuckets.ts:25-32; app/(app)/bookings/index.tsx:37-42,67-70
+        status: passing
+        note: "Kit ListTabs (ARIA tablist, ← → Home End, underline + accent, owner rule 20) in MY_BUCKETS order with fish's Heroicons (QueueList, Clock, CheckCircle, XCircle); «Toate» lands. On the phone the row runs to the screen edges (the chip row's bleed) and, when it overflows (375), fades the edge that hides tabs (fish SegmentedTabs edge fades); the selected tab is scrolled into view on mount and on every switch (deep link / reload / Back never land on an off-screen tab). e2e «c2 c3», keyboard in «c4 c5», «c2 at 375 the selected tab is scrolled into view…»."
       - id: booking.rezervarile-mele.c3
         text: "Only „În așteptare” carries a count („În așteptare · {n}”) when the server's pendingCount (read from the FIRST page) is > 0."
         fish_ref: app/(app)/bookings/index.tsx:88-90,166-177; features/bookings/ui/SegmentedTabs.tsx:102
+        status: passing
+        note: "Count badge on «În așteptare» only, from pages[0].pendingCount > 0 (spoken «În așteptare, n»). e2e «c2 c3» (page 2 with pendingCount 9 does not move it), «c3 no count»."
       - id: booking.rezervarile-mele.c4
         text: "Sub-filters: „Confirmate” → „Azi”, „Viitoare”, „Trecute” (no unfiltered view, default „Viitoare”); „Nefinalizate” → „Toate”, „Respinse”, „Anulate”, „Neprezentări” (default unfiltered); „Toate” and „În așteptare” have no sub row."
         fish_ref: features/bookings/myBookingBuckets.ts:34-62; app/(app)/bookings/index.tsx:179-184
+        status: passing
+        note: "A horizontal chip row in the pinned chrome (owner rule 2; T1 filterChipClass, aria-pressed) per mySubsFor / allowsUnfilteredView / myDefaultSub. e2e «c4 c5» (each bucket's chips, defaults, request params)."
       - id: booking.rezervarile-mele.c5
         text: "The chosen sub-filter is remembered per tab during the visit; switching tab or sub scrolls the list to the top and shows the header."
         fish_ref: app/(app)/bookings/index.tsx:71-74,147-164
+        status: passing
+        note: "subByBucket kept for the visit; ?tab= / ?filtru= (Romanian slugs, defaults omitted) via useListUrlState (replaceState) and read back on load (and in the sign-in return path); a switch scrolls to the top, where the title shows. e2e «c4 c5» (remembered «Trecute», URL, reload, scrollY 0, a foreign sub falls back)."
       - id: booking.rezervarile-mele.c6
         text: "Each (tab, sub) is its own paged query (page size 20; a short page is the last page); the next page loads near the end of the list with a spinner footer. Previous tab rows are not kept while a new uncached tab loads."
         fish_ref: services/queries/useMyBookingsPage.ts:6-23; app/(app)/bookings/index.tsx:268-278
+        status: passing
+        note: "core myBookingsPageInfiniteQuery (pageSize 20, a short page ends it, no keepPreviousData); ListFooter auto-loads near the end with the spinner (and a button for keyboards). e2e «c6» (pages [1,2], pageSize 20, spinner, an uncached tab shows the skeleton and none of the previous rows)."
       - id: booking.rezervarile-mele.c7
         text: "Uncached tab loading → 3 card skeletons under the chrome; error → „Nu am putut încărca rezervările.” / „Verifică conexiunea și încearcă din nou.” / „Încearcă din nou” (refetch), no sign-out offered."
         fish_ref: app/(app)/bookings/index.tsx:241-252; features/bookings/ui/InlineErrorState.tsx:13-33; features/bookings/ui/BookingListSkeleton.tsx:15-24
+        status: passing
+        note: "BookingCardsSkeleton (3 cards) under the chrome; T1 ListError «Nu am putut încărca rezervările.» / «Verifică conexiunea și încearcă din nou.» / «Încearcă din nou», no sign-out. e2e «c7»."
       - id: booking.rezervarile-mele.c8
         text: "Empty on „Toate” without sub → hero „Rezervările tale, într-un loc” / „Rezervi standul din aplicație și îl gestionezi de aici: dată, oră, cod și anulare.” with „Caută o baltă”, plus three rows: „Alegi standul” / „Vezi ce e liber pe zile și ore, direct în pagina bălții.”; „Primești confirmarea” / „Administratorul acceptă, tu primești notificare și codul rezervării.”; „Le ții pe toate aici” / „Data, standul, totalul de plată — și anulezi din aplicație dacă se schimbă planul.”"
         fish_ref: features/bookings/ui/BookingsEmptyState.tsx:25-41,80-133; app/(app)/bookings/index.tsx:226-228
+        status: passing
+        note: "EmptyHero: the indigo gradient card with the wave lines and the white «Caută o baltă» pill, plus the three rows; side by side from 1024, the rows in the docked right column from 1280 (so the T1 aside is never empty and the tracks never change). Web copy deviates on purpose (rule 4): the code and the cancel live on the booking page, not on the web while ON_WEB.bookingDetail is false — subtitle «Rezervi standul din pagina bălții și le găsești pe toate aici: dată, oră, stand și total.», «Administratorul acceptă cererea, tu primești notificare.», «Data, standul și totalul de plată, într-un singur loc.». Put fish's copy back with M3-B2. e2e «c8 c9» at 375/1280/1440/1920 + axe."
       - id: booking.rezervarile-mele.c9
         text: "„Caută o baltă” opens Bălți with the „Acceptă rezervări online” (bookableOnly) filter pre-applied."
         fish_ref: app/(app)/bookings/index.tsx:92-99
+        status: passing
+        note: "«Caută o baltă» → /balti?rezervari=1 (balti/_list/url.ts PARAM.bookable = bookableOnly). e2e «c8 c9»."
       - id: booking.rezervarile-mele.c10
         text: "Empty narrower tab → one line: „Nicio cerere în așteptare.”, „Nicio rezervare astăzi.”, „Nicio rezervare viitoare.”, „Nicio rezervare încheiată.”, „Nicio rezervare respinsă.”, „Nicio rezervare anulată.”, „Nicio neprezentare.”, „Nimic nefinalizat.” (fallback „Nicio rezervare.”); no empty state while fetching."
         fish_ref: features/bookings/myBookingBuckets.ts:64-79; app/(app)/bookings/index.tsx:226-236
+        status: passing
+        note: "myEmptyCopy per (bucket, sub), one centred line; nothing while THIS key has no settled answer (isFetching && !isFetched). Web deviation: a background refetch (window focus after staleTime, «Reîmprospătează») keeps the empty state — fish hides it on any fetch, but RN never refetches on focus, so there it never flashes. e2e «c10» (all eight lines, none during a first fetch, kept through a refetch)."
       - id: booking.rezervarile-mele.c11
         text: "Review prompt above the list when lakes-to-review is non-empty (first entry): amber star card „Cum a fost la {lake}?” with „Ai fost acolo, dar n-ai lăsat încă o recenzie.” or, with more, „Ai fost acolo și n-ai lăsat recenzie. Încă {n} baltă așteaptă|bălți așteaptă.”; „Scrie” opens the lake review form with lakeId and booking id."
         fish_ref: app/(app)/bookings/index.tsx:186-222
+        status: passing
+        note: "ReviewPrompt (fish AlertCard amber): above the list below 1280, the docked right column from 1280 (T1 aside, button under the text); «Încă {formatCount} așteaptă» (owner plural rule: «20 de bălți»); «Scrie» → routes.lakeReview(lakeId, {rezervare: bookingId}); a failed read hides it (rule 4). The right column is an AsideSkeleton only until the FIRST answers; after that a switch to an uncached tab keeps its content, and it is never empty (prompt + FindLakeCard, or the hero's rows on the empty account), so the main column never changes width (T1). e2e «c11» (1 / 2 / 4 / 21 lakes, href, placement at 375/1280/1440/1920), «c11 a failed review read», «T1 aside (≥1280)…»."
       - id: booking.rezervarile-mele.c12
         text: "Refresh (pull on mobile) refetches both the current list and the review prompt."
         fish_ref: app/(app)/bookings/index.tsx:101-107
+        status: passing
+        note: "Header «Reîmprospătează» (pageToolClass; fish pull-to-refresh) refetches the list and lakes-to-review together. e2e «c12»."
       - id: booking.rezervarile-mele.c13
         text: "Row: lake photo thumb (indigo pin placeholder when none, dimmed on dead bookings), lake name (fallback „Lac”), „Standul {name}” bold indigo, a green pill per extra, the period „{Wd} d MMM HH:mm → {Wd} d MMM HH:mm” (end minus checkout buffer) followed by „ · {h}h”, price „{priceTotal} lei” and the status pill on the right."
         fish_ref: features/bookings/MyBookingRow.tsx:28-29,64-171; features/bookings/ui/BookingLeadThumb.tsx:24-37
+        status: passing
+        note: "components/booking/BookingRow + model.ts (bookingCardModel): BookingLeadThumb (photo / indigo pin placeholder, broken image → placeholder, .55 when dead), name (fallback «Lac»), «Standul {name}» extra-bold accent ink, green extras pills (status-success pair: fish's green-3 is under AA), period «{Wd} d MMM HH:mm → …» end minus checkoutBufferMinutes « · {h}h», «{total} lei» with the unit spaced and muted, the status pill. e2e «c13–c19» + unit tests/unit/booking-card-model.test.ts."
       - id: booking.rezervarile-mele.c14
         text: "Status pill (angler view): În așteptare (yellow), Confirmată (green), Încheiată (outlined), Respinsă (red, quiet), Anulată / „Anulată de tine” / „Anulată de baltă” / „Anulare automată” (red, quiet), no-show → „Nu a venit” (red, quiet) regardless of status; unknown status falls back to pending."
         fish_ref: features/bookings/ui/statusModel.ts:12-66
+        status: passing
+        note: "BookingStatusPill: statusAppearance labels (viewer angler), tones on the kit status tokens (yellow / green / outlined white / red), no-show «Nu a venit», unknown → pending. e2e «c13–c19» (data-tone per variant)."
       - id: booking.rezervarile-mele.c15
         text: "Quiet (dead) bookings render on a receded card with muted lake name and price."
         fish_ref: features/bookings/MyBookingRow.tsx:73-77,110-115,161
+        status: passing
+        note: "Quiet card: flat hairline edge (shadow-e0) instead of the shadow, muted name and price, dimmed thumb. e2e «c13–c19»."
       - id: booking.rezervarile-mele.c16
         text: "Live booking (confirmed, started, not ended, not no-show): period without the hours suffix plus a progress bar and „{elapsed}h din {h}h”."
         fish_ref: features/bookings/MyBookingRow.tsx:78-80,139-153
+        status: passing
+        note: "Live: no hours suffix, accent progress bar + «{elapsed}h din {h}h» (browser clock, useNowTick). e2e «c13–c19»."
       - id: booking.rezervarile-mele.c17
         text: "Not-started, non-quiet booking: „Începe astăzi” / „Începe mâine” / „Începe în {n} zile” („de zile” above 19) in indigo."
         fish_ref: features/bookings/MyBookingRow.tsx:41-49,91,154-158
+        status: passing
+        note: "startsInText: fish startsInLabel with formatCount («Începe în 25 de zile», «102 zile» — the owner's plural rule instead of fish's «de» above 19). e2e «c13–c19», unit booking-card-model."
       - id: booking.rezervarile-mele.c18
         text: "Dead reason line: no-show → the operator's note unless it is the default „Pescarul nu s-a prezentat.”; cancelled/rejected → cancelReason; max 2 lines in the list."
         fish_ref: features/bookings/MyBookingRow.tsx:51-56,173-177; features/operator/cancelNotes.ts:25-29
+        status: passing
+        note: "deadBookingReason (meaningfulNoShowNote drops the default note), line-clamp-2 in the list, full on the detail (clampReason=false). e2e «c13–c19»."
       - id: booking.rezervarile-mele.c19
         text: "Pending booking shows the red warning „Locul nu e al tău până confirmă administratorul. Primești notificare.”"
         fish_ref: features/bookings/MyBookingRow.tsx:179-194
+        status: passing
+        note: "Red warning box with the triangle on pending requests only. e2e «c13–c19»."
       - id: booking.rezervarile-mele.c20
         text: "In the list the row carries no action buttons; activating it opens the booking detail (/rezervari/[id])."
         fish_ref: features/bookings/MyBookingRow.tsx:21-24,196; app/(app)/bookings/index.tsx:135-145
+        status: todo
+        note: "B1 half done: the row links through bookingHref(id) (lib/routes.ts), null while ON_WEB.bookingDetail is false, so the row is a plain card (no dead link) and carries no buttons — e2e «c13–c19» asserts no a[href^=/rezervari/] and no button/link in a card. Flips to passing with /rezervari/[id] (M3-B2)."
       - id: booking.rezervarile-mele.c21
         text: "Visiting this screen retires the home „NOU” pill on the Rezervări tile (persisted per browser)."
         fish_ref: app/(app)/bookings/index.tsx:64-65; hooks/useNouBadge.ts:62-70,92-93
+        status: passing
+        note: "markBookingsVisited (lib/bookings-nou.ts: BOOKINGS_NOU_KEY moved there, shared with the home Widgets tile) on mount, try/catch. e2e «c21 b.nou-badge», «c21 storage blocked»."
       - id: booking.rezervarile-mele.c22
         text: "Cancel from the list (sheet wiring kept for parity): success toast „Rezervare anulată” and the sheet closes; error toasts friendlyCancelError; the deposit warning „Avansul de {n} lei poate să nu fie restituit, conform politicii lacului.” is added when depositAmount > 0."
         fish_ref: app/(app)/bookings/index.tsx:109-133,310-319
+        status: todo
+        note: "fish rows carry no actions, so the list never opens the sheet. components/booking/CancelBookingDialog (ResponsiveSurface decision: sheet on phone, dialog from 768; deposit warning, reason ≥ 5 trimmed, «Înapoi» / «Da, anulează», cancelBookingMutation, toast «Rezervare anulată», friendlyCancelError — core/booking/domain/cancelReasons.ts + unit cancelReasons.test.ts) is built here; its e2e comes with the booking page (booking.rezervare c6–c9, M3-B2)."
     mobile_only: false
-    status: todo
+    status: proposed
+    web_note: "M3-B1 (app/(site)/rezervari, components/booking): T1 — ListHeader + pinned tabs/chips chrome, a dense auto-fill grid of booking cards (1 column on the phone, ≥340px columns from 768: 2 at 1280/1440, 3 at 1920; owner rules 5, 14), the right column from 1280 (review prompt + «Alegi standul / Caută o baltă», a web-only standing card so the column never empties under the cards). Auth-only: proxy.ts 307 + requireViewer in Suspense, noindex; per-user reads through /api/cms. Shared booking UI (BookingRow linked/inert + actions slot, BookingLeadThumb, BookingStatusPill, CancelBookingDialog) is reused by /rezervari/[id] in B2. e2e tests/e2e/rezervari.spec.ts (one unmocked real read; the rest route-mocked; axe at 375/1280/1440/1920; keyboard through tabs and chips). Open: c20 (detail link) and c22 (cancel e2e) land with M3-B2."
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: booking.rezervare
@@ -616,30 +738,42 @@ behaviours:
   - id: booking.b.flow-state
     text: "The three steps share one flow state per visit (selection, retained selection for the panel, extras, quote); leaving the flow resets it. Back walks one step; a refused/dead selection returns straight to the grid (dismissTo). Web: the steps are real URLs; direct access without state redirects to the grid."
     fish_ref: features/lakes/booking/BookingFlowProvider.tsx:36-75; features/lakes/booking/useBookingGridFlow.ts:304-312
+    status: passing
+    web_note: "_flow/params.ts (readFlowParams / flowQuery / stepHref) + _flow/guards.ts (guardStep: no selection or a stand the lake no longer has → the grid; the extras step for a tour with nothing to add → the review), unit _flow/flow.test.ts. The grid writes the selection with the History API (first selection pushes, later replace); Back walks one step; the pushed entry carries a history-state mark (rezervaSel), so a remount on it (Back from a later step, a reload) still clears by stepping back. The extras / review steps (M3-B2) must return to the grid with Back (router.back), not a pushed link — a pushed copy of the selection has no bare grid under it. e2e tests/e2e/rezerva-grila.spec.ts «c35 / booking.b.flow-state», «c24 …», «c37 …», «c37 after a later step …». The extras / review steps (M3-B2) consume the same module."
   - id: booking.b.server-priced
     text: "The client never prices a booking: every figure (selection panel, review, confirm) comes from the server quote, and the submit carries expectedTotal so a changed rate answers 409 instead of charging a different amount."
     fish_ref: features/lakes/booking/useBookingGridFlow.ts:149-170; app/(app)/book-lake/[lakeId]/review.tsx:159-183
   - id: booking.b.live-availability
     text: "Availability is live (staleTime 0) and refetched each time the grid regains focus; quotes are refetched immediately even when cached; both are invalidated after a price change or a taken/blocked stand."
     fish_ref: services/queries/useLakeAvailability.ts:18; services/queries/useBookingQuote.ts:17-22,46-47; app/(app)/book-lake/[lakeId]/index.tsx:31-37
+    status: passing
+    web_note: "_flow/hooks.ts: availability staleTime 0, refetch on mount (every step return) and on window focus, all pages; quote staleTime 0 with the previous answer as placeholder. Browser only, through /api/cms. The grid's «now» follows every fresh read (max(mount, dataUpdatedAt)), so past / lead-time cells are re-judged after a refetch; the month the pages count from moves when the tab returns in a later month. After every read the live selection is re-checked with the seed verdict's test (model.ts selectionFree): taken / started / inside the lead → cleared with «Intervalul ales nu mai e liber.» (web addition: fish pins now per mount and keeps the pill). e2e tests/e2e/rezerva-grila.spec.ts «c6 c7 c9 / booking.b.live-availability», «booking.b.live-availability: a re-read that finds the selection taken …», «c28–c30 …»; unit _grid/model.test.ts selectionFree."
   - id: booking.b.write-invalidation
     text: "Every booking write (create, cancel) invalidates the whole ['bookings'] root and ['operator-stats'], so home counts, my bookings, availability and operator surfaces refresh."
     fish_ref: services/mutations/invalidateOperatorSurfaces.ts:4-21
   - id: booking.b.lead-time
     text: "Slots starting within the lake's leadHours (default 24, mirrors backend BOOKING_TOO_SOON) are phone-only for anglers; operators (walk-in) are exempt."
     fish_ref: features/lakes/booking/availabilityStatus.ts:19-20,72-91; features/lakes/booking/BookingGridStep.tsx:28-31
+    status: passing
+    web_note: "The angler grid always enforces the lake's leadHours (24 when absent): inside it a free slot is yellow, unselectable and opens «Rezervare din scurt». Walk-in (operator, M7) will pass the exemption. e2e tests/e2e/rezerva-grila.spec.ts «c14 c15 c16 …», «c16: with a lake phone…»."
   - id: booking.b.timezone
     text: "Month windows and nights are computed in the lake's IANA timezone (falls back to device-local); displayed times use the local clock; end times shown to the angler subtract the lake's checkoutBufferMinutes everywhere (panel, review, confirm, list, detail, timeline)."
     fish_ref: features/lakes/booking/availabilityPaging.ts:18-41; features/lakes/booking/nights.ts:13-20; helpers/formatBookingPeriod.ts:9-24
+    status: passing
+    web_note: "Slots are generated in the lake's IANA zone (core generateSlots); nights for extras in the lake zone (countNights); month windows follow fish (device-local, core monthWindow without tz — fish useLakeAvailability does the same); the end shown in the panel subtracts the checkout buffer (formatBookingPoint). Displayed times (day columns, chips, panel, dialogs, day-pill refusals) use the BROWSER's clock like fish; when it differs from the lake zone the grid says so under the legend («Orele sunt afișate după ceasul tău, cu 2 ore în urma orei României.», model.ts zoneHint). OWNER DECISION PENDING: format the grid, panel and dialogs in the lake zone instead (core gridGeometry day split + formatters take a timeZone) — the web audience is not tied to a Romanian device. Unit core bookingPeriod.test.ts, _grid/model.test.ts zoneHint; e2e tests/e2e/rezerva-grila.spec.ts «c28–c30 c33 c34 / booking.b.timezone» (Europe/Bucharest) and «browser in Europe/London» (pins «04–16» shown for the lake's 06–18, the quote / URL carrying the lake's instants, the hint)."
   - id: booking.b.double-submit-guard
     text: "Navigation into the flow is guarded against double taps (800ms window, navigate not push), and back is frozen while a booking submit is in flight."
     fish_ref: hooks/useNavigationGuard.ts:4-23; app/(app)/lakes/[lakeId].tsx:281-284; features/lakes/booking/useBookingGridFlow.ts:304-308
   - id: booking.b.nou-badge
     text: "The home Rezervări tile's „NOU” pill (until 2026-10-01T00:00Z) is retired by the first visit to Rezervările mele (storage key @bluvi/bookings/visited/v1)."
     fish_ref: hooks/useNouBadge.ts:92-93; app/(app)/bookings/index.tsx:64-65
+    status: passing
+    web_note: "lib/bookings-nou.ts (BOOKINGS_NOU_KEY, BOOKINGS_NEW_BADGE_UNTIL, markBookingsVisited — every storage access in try/catch): written by /rezervari on mount and by the home tile's click; the home Widgets reads it. e2e tests/e2e/rezervari.spec.ts «c21 b.nou-badge», «c21 storage blocked»."
   - id: booking.b.analytics
     text: "Analytics events: lake_booking_cta_pressed / lake_availability_cta_pressed (entry), contact_pressed ('Lake too soon contact', 'Booking lake contact'), rebook_button_pressed."
     fish_ref: app/(app)/lakes/[lakeId].tsx:265-270; features/lakes/booking/LakeAvailabilityTab.tsx:41-44; features/lakes/booking/TooSoonSheet.tsx:41-45; features/bookings/MyBookingRow.tsx:100-104; app/(app)/bookings/[id].tsx:69
   - id: booking.b.legacy-cms-paging
     text: "A CMS without the bucket contract (no meta) degrades to one full page: pendingCount 0, pageSize = max(rows, 20), so the list does not page forever."
     fish_ref: services/api/booking.ts:94-124
+    status: passing
+    web_note: "core getMyBookingsPage ports fish's fallbacks 1:1 (pendingCount 0, page = asked page, pageSize = max(rows, 20)). e2e tests/e2e/rezervari.spec.ts «b.legacy-cms-paging» (no meta, 12 rows → one request, no footer, no count). FLAG (fish and web alike, not fixed — core is a 1:1 port): with 20 or more rows and no meta, pageSize = rows, so the short-page rule never fires and page 2 is requested (a legacy CMS answers the whole list again → duplicated rows). The criterion's «does not page forever» only holds under 20 rows; owner to decide whether fish's helper should return pageSize = rows + 1 (or stop when meta is absent)."

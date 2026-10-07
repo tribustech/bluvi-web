@@ -76,3 +76,23 @@ export function friendlyActionError(error: { bluCode?: string; message?: string 
       return error?.message || 'Acțiunea nu a putut fi finalizată. Încearcă din nou.';
   }
 }
+
+/**
+ * fish `helpers/friendlyCancelError.ts` (verbatim) — what to show when the ANGLER's cancellation
+ * fails.
+ *
+ * The server now sends a Romanian sentence with every code, so the default is
+ * simply to show it — a refusal added to the backend later reads correctly on an
+ * app built today. Nothing is mapped here any more: the two codes this file used
+ * to name (`ALREADY_CANCELLED`, `NOT_CANCELLABLE`) were never emitted by the
+ * server, while the three that are — CANCEL_NOTICE_TOO_SHORT,
+ * CANCELLATION_WINDOW_PASSED, INVALID_STATUS — fell through and reached the
+ * angler as raw uppercase codes.
+ */
+export function friendlyCancelError(error: unknown): string {
+  const message = typeof error === 'string' ? error : (error as { message?: string } | null | undefined)?.message;
+  const bluCode = (error as { bluCode?: string } | null | undefined)?.bluCode;
+  // A message that IS the code means an older backend; do not show it.
+  if (message && message !== bluCode && !/^[A-Z_]+$/.test(message)) return message;
+  return 'Nu am putut anula rezervarea. Încearcă din nou.';
+}

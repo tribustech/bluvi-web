@@ -22,8 +22,7 @@ import { expect, test, type Page, type Route } from '@playwright/test';
  * Blocked criteria are never cited in a title (so /web-drift does not count them as covered):
  * lakes.stats c9 (the record opens its partidă, M4),
  * lakes.partide c4 («Începe o partidă aici» → /partide/incepe, M4), c8 («Vezi rezumatul») and c9 (a
- * card opens its partidă, M4), lakes.reviews c5 (an author opens /pescari/[id], M2), c6 («Editează» →
- * /recenzie?editare=1, M3) and c9 (signed in, «Adaugă o recenzie» → /recenzie, M3). The tests below assert the interim state (no dead link) under a
+ * card opens its partidă, M4), lakes.reviews c5 (an author opens /pescari/[id], M2). The tests below assert the interim state (no dead link) under a
  * «blocked:» note; flip them with the hrefs in _components/availability.ts.
  */
 
@@ -1066,7 +1065,7 @@ test('lakes.reviews.c11 — the reviews are cached 5 minutes: leaving and coming
   await expectNoA11yViolations(page);
 });
 
-test('lakes.reviews.c7 lakes.reviews.s5 lakes.reviews.s6 — signed in: no add bar on the own review, Editează / Șterge, the confirmation, the delete (blocked: «Editează» opens the app until /recenzie ships, M3)', async ({ page, context }) => {
+test('lakes.reviews.c6 lakes.reviews.c7 lakes.reviews.s5 lakes.reviews.s6 — signed in: no add bar on the own review, Editează (→ the form) / Șterge, the confirmation, the delete', async ({ page, context }) => {
   await signIn(context, jwt, BASE);
   const own = chitaReviews[0];
   await page.route(cms('/feed/reviews/mine'), route => json(route, { data: own }));
@@ -1076,6 +1075,16 @@ test('lakes.reviews.c7 lakes.reviews.s5 lakes.reviews.s6 — signed in: no add b
     deletes += 1;
     return json(route, { message: 'ok' });
   });
+  // The delete is mocked, so the CMS still has the review: the lake-page refresh that follows a
+  // delete (server action refreshLakeAfterReview → updateTag, which re-renders this page from the
+  // server's reads) would bring it back. Answer the action with an error: the page then keeps its
+  // own state, which is what this test checks (the action itself: balta-recenzie.spec.ts).
+  let actions = 0;
+  await page.route(`**/balti/${ID.chita}/recenzii`, route => {
+    if (route.request().method() !== 'POST' || !route.request().headers()['next-action']) return route.continue();
+    actions += 1;
+    return route.fulfill({ status: 500, body: '' });
+  });
   await go(page, `/balti/${ID.chita}/recenzii`);
   const card = page.getByTestId('reviews-list').getByTestId('lake-review').first();
   // c6
@@ -1084,10 +1093,9 @@ test('lakes.reviews.c7 lakes.reviews.s5 lakes.reviews.s6 — signed in: no add b
   // c9: the viewer reviewed — no add bar.
   await expect(page.getByTestId('review-add')).toHaveCount(0);
   await expect(page.getByTestId('review-sign-in')).toHaveCount(0);
-  // The review form is M3: «Editează» explains where to edit, never a dead link.
-  await card.getByTestId('review-edit').click();
-  await expect(page.getByTestId('review-in-app').locator('visible=true')).toContainText('aplicație');
-  await page.keyboard.press('Escape');
+  // c6: «Editează» is the review form in edit mode (lakes.review-form; the round trip is in
+  // balta-recenzie.spec.ts).
+  await expect(card.getByTestId('review-edit')).toHaveAttribute('href', `/balti/${ID.chita}/recenzie?editare=1`);
   // c7: the confirmation — «Închide» keeps the review.
   await card.getByTestId('review-delete').click();
   const confirm = page.getByRole('alertdialog', { name: 'Ești sigur că vrei să îți ștergi recenzia?' });
@@ -1104,6 +1112,7 @@ test('lakes.reviews.c7 lakes.reviews.s5 lakes.reviews.s6 — signed in: no add b
   await confirm.getByTestId('review-delete-confirm').click();
   await expect(page.getByText('Recenzia ta a fost ștearsă cu succes.')).toBeVisible();
   expect(deletes).toBe(1);
+  await expect.poll(() => actions).toBe(1);
   await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
   await page.waitForTimeout(1500);
   await expect(page.getByTestId('reviews-list').getByTestId('lake-review').filter({ hasText: own.author?.username ?? 'Pescar' })).toHaveCount(0);
@@ -1142,18 +1151,21 @@ test('lakes.reviews.c7 — a failed delete shows the error\'s message', async ({
   await expect(page.locator('[role="status"], [role="alert"]').filter({ hasText: /eroare|Forbidden|permisiun|acces/i }).first()).toBeVisible();
 });
 
-test('lakes.reviews.s6 — signed in without a review: «Adaugă o recenzie» (pinned on a phone, in the header from 768) (blocked: it opens the app until /recenzie ships, M3)', async ({ page, context }) => {
+test('lakes.reviews.c9 lakes.reviews.s6 — signed in without a review: «Adaugă o recenzie» (pinned on a phone, in the header from 768) opens /recenzie', async ({ page, context }) => {
   await signIn(context, jwt, BASE);
   await page.route(cms('/feed/reviews/mine'), route => json(route, { data: null }));
   await go(page, `/balti/${ID.chita}/recenzii`);
   const add = page.getByTestId('review-add').locator('visible=true');
   await expect(add).toHaveText('Adaugă o recenzie');
-  await add.click();
-  await expect(page.getByTestId('review-in-app').locator('visible=true')).toBeVisible();
-  await page.keyboard.press('Escape');
+  await expect(add).toHaveAttribute('href', `/balti/${ID.chita}/recenzie`);
   await page.setViewportSize(TABLET);
   await expect(page.getByTestId('review-add').locator('visible=true')).toHaveCount(1);
+  await expect(page.getByTestId('review-add').locator('visible=true')).toHaveAttribute('href', `/balti/${ID.chita}/recenzie`);
   await expectNoA11yViolations(page);
+  // The form (lakes.review-form, signed in: no detour through /intra).
+  await page.getByTestId('review-add').locator('visible=true').click();
+  await expect(page).toHaveURL(`${BASE}/balti/${ID.chita}/recenzie`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Adaugă o recenzie', { timeout: 60_000 });
 });
 
 /* ============================================================================================== */

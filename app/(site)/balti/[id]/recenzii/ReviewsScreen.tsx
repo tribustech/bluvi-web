@@ -29,6 +29,7 @@ import { useSiteToast } from '../../../_shell/Toast';
 import { useViewerState, type ViewerState } from '../../../_shell/viewer-context';
 import { isUnknownViewer, userOf } from '../../../_shell/viewer-state';
 import { lakeHref } from '../_components/availability';
+import { refreshLakeAfterReview } from '../recenzie/_components/actions';
 import { ReviewInAppDialog, ReviewsInfoDialog } from '../_components/LakeDialogs';
 import { RatingStars } from '../_components/RatingStars';
 import { ReviewCard } from '../_components/ReviewCard';
@@ -52,17 +53,17 @@ import { useBack } from '../_sub/useBack';
  *    between columns with the data);
  *  - c3 10 a page, the next page as the list's end nears (T1 ListFooter);
  *  - c4 the lake page's ReviewCard; c5 another author opens /pescari/[id] once the web has it;
- *  - c6 the viewer's own card: «Editează» (→ /recenzie?editare=1 once the web has the form; until
- *    then the app) and «Șterge» (red); c7 «Ești sigur că vrei să îți ștergi recenzia?» (Închide /
+ *  - c6 the viewer's own card: «Editează» (→ /recenzie?editare=1, lakes.review-form) and «Șterge»
+ *    (red); c7 «Ești sigur că vrei să îți ștergi recenzia?» (Închide /
  *    Șterge) → delete, «Recenzia ta a fost ștearsă cu succes.» or the error's message, then core
  *    invalidateReviewQueries (reviews, the lake — its scores here —, my review, lakes lists,
- *    bookings to review);
+ *    bookings to review) + refreshLakeAfterReview (the static lake page's `lake-<id>` reads);
  *  - c8 none: the kit empty card (ListEmpty: the sad star, «Momentan nu există recenzii pentru
  *    această baltă», «Fii primul care adaugă una!», the explainer link under it) with the add /
  *    sign-in action inside it — the header and the phone bar drop theirs while it shows;
  *  - c9 the bottom bar: gone once the viewer has reviewed (and while that read is pending — never a
  *    CTA to a duplicate); the read failed: «Nu am putut verifica recenzia ta.» + «Încearcă din nou»
- *    in the CTA's place (never a silent gap); signed in «Adaugă o recenzie»; signed out «Autentifică-te pentru
+ *    in the CTA's place (never a silent gap); signed in «Adaugă o recenzie» (→ /recenzie); signed out «Autentifică-te pentru
  *    a putea adăuga o recenzie» (outline, → /intra?next= back here). A phone pins it above the
  *    thumb (StickyActions); from 768 it is the header's action;
  *  - c10 the loading view, the error view with retry (and no back of its own); c11 core: 5 min.
@@ -422,6 +423,9 @@ function OwnActions({ review, lakeId, lakeName }: { review: Review; lakeId: stri
       qc.setQueryData(myLakeReviewQuery(t, lakeId, null).queryKey, null);
       invalidateReviewQueries(qc, lakeId);
       void qc.cancelQueries({ queryKey: list });
+      // The lake page is static (cached reads tagged lake-<id>): expire them now so it no longer
+      // shows the deleted review or its rating (lakes.b.review-invalidation).
+      void refreshLakeAfterReview(lakeId).catch(() => undefined);
       toast('Recenzia ta a fost ștearsă cu succes.', 'success');
       // The card (and «Șterge», which had focus) is gone: land on the page's h1 (WCAG 2.4.3).
       requestAnimationFrame(() => {

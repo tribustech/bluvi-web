@@ -1238,8 +1238,8 @@ screens:
       - id: account.settings.c13
         text: "Row „Rezervările mele” opens /rezervari."
         fish_ref: "app/(app)/settings.tsx:235-240"
-        status: todo
-        note: "Hidden (rule 4): /rezervari is M3; the row shows once ON_WEB.myBookings (lib/routes.ts) is flipped by the bookings batch. e2e «c2 c3 c4…» asserts no row and no a[href=/rezervari] meanwhile."
+        status: passing
+        note: "ON_WEB.myBookings flipped in M3-B1 (/rezervari ships): the NavRow «Rezervările mele» → /rezervari. e2e tests/e2e/setari.spec.ts «c2 c3 c4…» (the row's href at every width)."
       - id: account.settings.c14
         text: "The user's own reputation block („Reputație”) is shown, as in account.angler-profile c36–c37."
         fish_ref: "app/(app)/settings.tsx:243-244"

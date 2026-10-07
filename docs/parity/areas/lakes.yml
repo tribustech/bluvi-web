@@ -1389,8 +1389,8 @@ screens:
       - id: lakes.reviews.c6
         text: "The viewer's own review shows „Editează” (→ /balti/[id]/recenzie?editare=1) and „Șterge” (red)."
         fish_ref: "features/reviews/components/ReviewCard.tsx:144"
-        status: todo
-        web_note: "BLOCKED on M3: «Editează» and «Șterge» show on the own review and delete works (c7); «Editează» opens the app until /balti/[id]/recenzie (lakes.review-form) ships (LAKE_ON_WEB.reviewForm)."
+        status: passing
+        web_note: "UNBLOCKED 2026-10-07 by M3-B1 (lakes.review-form shipped, LAKE_ON_WEB.reviewForm true): «Editează» is a link to /balti/[id]/recenzie?editare=1. e2e tests/e2e/balta-subpagini-3.spec.ts «lakes.reviews.c6 lakes.reviews.c7 …» (href) + tests/e2e/balta-recenzie.spec.ts «REAL write» (the own card's «Editează» opens the prefilled form)."
       - id: lakes.reviews.c7
         text: "„Șterge” asks „Ești sigur că vrei să îți ștergi recenzia?” (Închide / Șterge); confirming deletes, shows „Recenzia ta a fost ștearsă cu succes.” (error toast with the message on failure) and invalidates the review queries."
         fish_ref: "features/reviews/components/ReviewCard.tsx:52"
@@ -1402,8 +1402,8 @@ screens:
       - id: lakes.reviews.c9
         text: "Bottom bar: hidden when the viewer already reviewed; signed-in → „Adaugă o recenzie” (→ /balti/[id]/recenzie); guest → outlined „Autentifică-te pentru a putea adăuga o recenzie” (→ /intra; fish copy lacks the diacritic in „adăuga”)."
         fish_ref: "components/AddReviewButton.tsx:20"
-        status: todo
-        web_note: "BLOCKED on M3: the bar is hidden with an own review and the guest sign-in bar passes; signed-in «Adaugă o recenzie» opens the app until /balti/[id]/recenzie ships (LAKE_ON_WEB.reviewForm)."
+        status: passing
+        web_note: "UNBLOCKED 2026-10-07 by M3-B1: signed-in «Adaugă o recenzie» links to /balti/[id]/recenzie (phone bar, header from 768, inside the empty card). e2e tests/e2e/balta-subpagini-3.spec.ts «lakes.reviews.c9 lakes.reviews.s6» (href at 375/768, opens the form) + «lakes.reviews.c1 …» (guest bar) + «lakes.reviews.c7 …» (hidden with an own review); tests/e2e/balta-recenzie.spec.ts «REAL write» (add from the empty card, the bar gone afterwards)."
       - id: lakes.reviews.c10
         text: "Loading shows a loading view; a failed request shows the error view with retry and no back button."
         fish_ref: "features/reviews/components/ReviewList.tsx:84"
@@ -1443,35 +1443,57 @@ screens:
       - id: lakes.review-form.c1
         text: "Title „Adaugă o recenzie” or, with editare, „Editează recenzia”; back control."
         fish_ref: "app/(app)/lakes/review/[lakeId].tsx:26"
+        status: passing
+        web_note: "Header band (T4Header): back (fish goBackOrHome: history when the previous page is the site's, else the lake's reviews), the lake's name as the eyebrow, the h1. e2e «REAL write» (both titles)."
       - id: lakes.review-form.c2
         text: "Heading „Cum evaluezi această baltă?” and three whole-star ratings „Pescuit”, „Facilități”, „Atmosferă”, 1–5, default 5, never below 1."
         fish_ref: "features/reviews/components/LakeReviewForms.tsx:66"
+        status: passing
+        web_note: "Each score is a native radio group named by its title (arrows move and choose, «N stele» per star, ring on :focus-visible only); no «0» option, so never below 1. Phone: title left of the stars; from 768 three tiles. e2e «REAL write» (defaults, keyboard, pointer, focus ring) + unit recenzie/_components/schema.test.ts."
       - id: lakes.review-form.c3
         text: "Comment (placeholder „Împărtășiți cu noi experiența dvs.”) is required: empty → „Pentru o experiență mai bună, te rugăm să lași un comentariu.”, under 10 trimmed chars → „Acest câmp trebuie să aibă cel puțin 10 caractere”, over 2000 → „Acest câmp trebuie să aibă cel mult 2000 de caractere”."
         fish_ref: "features/reviews/components/LakeReviewForms.tsx:87"
+        status: passing
+        web_note: "Messages after the first submit, then live (react-hook-form onSubmit / reValidate onChange), in RHF's order (required → max, untrimmed → min, trimmed). The field takes focus on a refused submit; a «N / 2000» counter under it (web addition). e2e «REAL write» + unit schema.test.ts."
       - id: lakes.review-form.c4
         text: "Checkbox „Recomand această baltă”, checked by default."
         fish_ref: "features/reviews/components/LakeReviewForms.tsx:123"
+        status: passing
+        web_note: "T4ChoiceCard checkbox. e2e «REAL write» (default on, toggled, sent, prefilled)."
       - id: lakes.review-form.c5
         text: "Submit button reads „Adaugă o recenzie” / „Editează recenzia”, shows loading and is disabled while sending."
         fish_ref: "features/reviews/components/LakeReviewForms.tsx:154"
+        status: passing
+        web_note: "Kit Button + T4Spinner, disabled + aria-busy while sending; the header's back is inert meanwhile. e2e «REAL write» (POST held 1.2s)."
       - id: lakes.review-form.c6
         text: "Add posts the review with the booking id when opened from a completed booking (so it is marked verified); success → „Recenzia a fost adăugată cu succes!” and the form closes; failure → error toast with the message."
         fish_ref: "features/reviews/components/LakeReviewForms.tsx:15"
+        status: passing
+        web_note: "?rezervare={bookingId} → body.booking. Success: toast, then back to the site page it came from (Navigation API; never /intra, never the form) else replace → /recenzii. Failure: danger toast with the ApiError message (the CMS's own copy when it sends a bluCode, else the generic one). e2e «lakes.review-form.c6» (mocked POST: body carries booking, failure toast) + «REAL write» (real POST body, back to /recenzii, the review listed)."
       - id: lakes.review-form.c7
         text: "Edit loads the viewer's review (spinner; on failure „A apărut o eroare, te rugăm să încerci mai târziu”) and prefills every field."
         fish_ref: "features/reviews/components/LakeReviewForms.tsx:24"
+        status: passing
+        web_note: "Edit: skeleton + «Se încarcă recenzia ta…» spinner; failure: T4Gate danger with fish's copy and «Încearcă din nou» (web addition: a retry). e2e «lakes.review-form.c7» (slow → error → retry → prefilled) + «REAL write»."
       - id: lakes.review-form.c8
         text: "Edit updates optimistically my review, the review list and the lake's rating meta, rolls back on error (error toast), and on success shows „Recenzia a fost editată cu succes!” and closes."
         fish_ref: "features/reviews/mutations.ts:28"
+        status: passing
+        web_note: "core editReviewMutation (optimistic + rollback), toast on error / success, leaves on success. e2e «lakes.review-form.c8» (mocked PUT 500, re-reads held: the list shows the original after back) + «REAL write» (real PUT, list updated)."
       - id: lakes.review-form.c9
         text: "After add/edit/delete these are refetched: lake reviews, the lake, my review for the lake, every lakes list, and bookings awaiting a review."
         fish_ref: "features/reviews/mutations.ts:11"
+        status: passing
+        web_note: "core invalidateReviewQueries (incl. ['bookings','to-review'], spelled out: lakes may not import booking) refreshes the React Query caches; the lake page is static (cached public reads tagged lake-<id>), so every write also runs the server action recenzie/_components/actions.ts refreshLakeAfterReview (updateTag lake-<id>, read-your-own-writes, after a 1s wait for the CMS's edge purge so the forced re-read is not the stale edge copy; signed-in callers only; the form stays busy meanwhile) and the form router.refresh()es before leaving. Unit core/lakes/lakes.test.ts «review writes invalidate …»; e2e «REAL write» (back on /recenzii: the new review, «1 recenzie», no add bar; the lake page after add («1 recenzie», the review), edit (the new text) and delete («nu are încă recenzii»)). Caveat: the local CMS sends no CDN-Cache-Control, so the lake page is not cached in e2e and those steps pass with or without the updateTag (checked 2026-10-07); the cached path is exercised only on staging / production."
       - id: lakes.review-form.c10
         text: "Signed-out visitors are sent to /intra (fish only reaches the form through signed-in entry points)."
         fish_ref: "components/AddReviewButton.tsx:24"
+        status: passing
+        web_note: "requireViewer(routes.lakeReview(id, {editare, rezervare})) inside Suspense; proxy.ts answers the cookie-less case with a 307. e2e «lakes.review-form.c10» (all three modes keep their query in next)."
+    e2e: tests/e2e/balta-recenzie.spec.ts
+    web_note: "Web divergences (fish's entry points never reach them, a typed / stale link can): opening the add mode while the viewer already has a review replaces the URL with ?editare=1 (the CMS refuses a second review); opening ?editare=1 with no review replaces it with the add mode (fish would show an empty edit form whose PUT fails). ?rezervare= is kept through both replaces, so an edit link from a booking still posts a verified review (only the add body carries it). The add mode waits for the own-review read (skeleton) before showing the form, so it never flips under the user's typing; if that read fails the form shows (as fish). From 1280 the lake card (photo, name → the lake, location, rating) in the right column with the CTA docked under it; below 1280 the CTA is pinned and lifted above the on-screen keyboard (VisualViewport). e2e «web divergences», «layout»."
     mobile_only: false
-    status: todo
+    status: proposed
 
 behaviours:
   - id: lakes.b.share-link
@@ -1507,6 +1529,8 @@ behaviours:
   - id: lakes.b.review-invalidation
     text: "Any review write (add/edit/delete) invalidates lake reviews, the lake detail, my review, all lakes lists and bookings-to-review, so the lake rating and the Rezervările mele prompt update."
     fish_ref: "features/reviews/mutations.ts:11"
+    status: passing
+    web_note: "core/lakes invalidateReviewQueries, called by post/edit (onSettled) and by the reviews page's delete; the bookings key is core/booking bookingKeys.toReview spelled out (core-domain-deps). The lake detail is server data on the web (static, cached reads tagged lake-<id>): add / edit / delete also call the server action refreshLakeAfterReview (updateTag lake-<id>) so the lake page's rating, count and latest reviews are fresh at once (the CMS purge is batched and stale-while-revalidate); the form also router.refresh()es before leaving. Unit core/lakes/lakes.test.ts; e2e tests/e2e/balta-recenzie.spec.ts «REAL write» (lake page after add / edit / delete — see lakes.review-form.c9 for the local-cache caveat) and balta-subpagini-3 «lakes.reviews.c7»."
   - id: lakes.b.route-error-boundary
     text: "The Bălți tab, lake page and lake competitions page each have their own error boundary: a crash shows a retry card for that route only, the shell keeps working (web: route-level error.tsx)."
     fish_ref: "app/(app)/lakes/[lakeId].tsx:680"

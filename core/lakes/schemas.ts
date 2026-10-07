@@ -19,6 +19,17 @@ export const reviewMetaSchema = z.object({
 });
 export type ReviewMeta = z.infer<typeof reviewMetaSchema>;
 
+/**
+ * The lake's `reviewsMeta` field as the endpoints send it. A lake whose reviews were all deleted
+ * keeps the aggregate of none — `{ count: 0, quality: null, facilities: null, atmosphere: null,
+ * overall: null }` (seen on the local CMS after a review delete, 2026-10-07) — which is read as
+ * «no reviews» (null), exactly like a lake that never had one; fish only reads it behind
+ * `count > 0`. Without this the whole lake read failed to parse.
+ */
+const emptyReviewMeta = (v: unknown) =>
+  v !== null && typeof v === 'object' && ((v as { count?: unknown }).count === 0 || (v as { quality?: unknown }).quality == null) ? null : v;
+export const reviewsMetaFieldSchema = z.preprocess(emptyReviewMeta, reviewMetaSchema.nullable());
+
 /** `countyRef` / `cityRef`. The legacy map payloads omit `id`. */
 export const locationRefSchema = z.object({
   id: z.number().optional(),
@@ -65,7 +76,7 @@ export const lakeCardSchema = z.object({
   countyRef: locationRefSchema.nullish(),
   cityRef: locationRefSchema.nullish(),
   regime: z.string().nullable(),
-  reviewsMeta: reviewMetaSchema.nullable(),
+  reviewsMeta: reviewsMetaFieldSchema,
   images: z.array(feedLakeImageSchema),
   facility: z.array(lakeCardFacilitySchema),
   fishSpecies: z.array(lakeCardFishSpeciesSchema),
@@ -215,7 +226,7 @@ export const legacyLakeSchema = z.object({
   images: z.array(strapiImageSchema).nullish(),
   coordinates: coordinatesSchema.nullish(),
   fishSpecies: z.array(legacyFishSpeciesSchema).nullish(),
-  reviewsMeta: reviewMetaSchema.nullish(),
+  reviewsMeta: z.preprocess(emptyReviewMeta, reviewMetaSchema.nullish()),
   acceptsReservations: z.boolean().nullish(),
   bookingEnabled: z.boolean().nullish(),
   incrementHours: z.number().nullish(),
@@ -259,7 +270,7 @@ export const lakeMapLeafSchema = z.object({
   countyRef: locationRefSchema.nullish(),
   cityRef: locationRefSchema.nullish(),
   images: z.array(lakePinImageSchema),
-  reviewsMeta: reviewMetaSchema.nullable(),
+  reviewsMeta: reviewsMetaFieldSchema,
   coordinate: lakeMapCoordinateSchema,
   priceMin: z.number().nullish(),
   priceMax: z.number().nullish(),

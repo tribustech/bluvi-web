@@ -33,7 +33,7 @@ export const LAKE_ON_WEB: Record<
   /** /balti/[id]/recenzii — «Scrie prima recenzie» / «Vezi recenzia» / «Vezi toate …». */
   reviews: true,
   /** /balti/[id]/recenzie — add / edit the viewer's review (lakes.review-form, M3): «Adaugă o recenzie», «Editează». */
-  reviewForm: false,
+  reviewForm: true,
   /** /balti/[id]/rezerva — the booking flow (a signed-in angler on a booking-enabled lake). */
   booking: false,
   /** /partide/[id] — a live partidă row (c22: own vs spectator still to resolve there). */

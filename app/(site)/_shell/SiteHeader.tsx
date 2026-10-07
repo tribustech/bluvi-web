@@ -73,6 +73,9 @@ const OWN_BAND_ROUTES: readonly RegExp[] = [
   /^\/setari\/notificari\/concursuri\/?$/,
   // «Completează profilul» (T6, account.complete-profile.c1): no way back at all (fish goBack={false}).
   /^\/profil\/completeaza\/?$/,
+  // The booking flow (T4, booking.rezerva-*): its header's back control owns the way back, and the
+  // grid step is a viewport-tall frame with no room for a band above it.
+  /^\/balti\/[^/]+\/rezerva(\/(extra|confirmare))?\/?$/,
 ];
 
 export function ownsBreadcrumbBand(pathname: string): boolean {

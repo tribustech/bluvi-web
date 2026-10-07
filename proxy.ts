@@ -29,5 +29,10 @@ export const config = {
     { source: '/profil', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // /profil/completeaza: complete profile (M2, account.complete-profile).
     { source: '/profil/completeaza', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    // M3 booking: my bookings and one booking (/rezervari, /rezervari/[id]), the booking flow
+    // (/balti/[id]/rezerva and its steps) and the lake review form — per user, signed in only.
+    { source: '/rezervari/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    { source: '/balti/:id/rezerva/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    { source: '/balti/:id/recenzie', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
   ],
 };

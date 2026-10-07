@@ -354,6 +354,13 @@ describe('lakes api — catalogs, claims, interest, suggestions', () => {
 describe('lakes api — reviews', () => {
   const body = { quality: 5, facilities: 4, atmosphere: 3, recommendToOthers: true, comment: 'ok' };
 
+  it('a lake whose reviews were all deleted (the aggregate of none, nulls) reads as no reviews', async () => {
+    const emptied = { count: 0, overall: null, quality: null, atmosphere: null, facilities: null };
+    const { transport } = createFakeTransport([{ data: { ...detail, reviewsMeta: emptied } }, { data: [{ ...card, reviewsMeta: emptied }], meta: { pagination } }]);
+    expect((await api.getLake(transport, 'L')).reviewsMeta).toBeNull();
+    expect((await api.getLakes(transport, { page: 1, pageSize: 3 })).data[0].reviewsMeta).toBeNull();
+  });
+
   it('lists a lake’s reviews', async () => {
     const res = { data: [review], meta: { pagination } };
     const { transport, calls } = createFakeTransport([res]);

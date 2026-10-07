@@ -14,15 +14,12 @@ import { cn } from '@/components/ui/cn';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { useSiteToast } from '../_shell/Toast';
 import { useViewerState } from '../_shell/viewer-context';
+import { BOOKINGS_NEW_BADGE_UNTIL, BOOKINGS_NOU_KEY, markBookingsVisited } from '@/lib/bookings-nou';
 import { homeLinks } from './links';
 import rezervari from './assets/rezervari_widget.webp';
 import vremea from './assets/vremea_widget.webp';
 import fazeleLunii from './assets/fazele_lunii.webp';
 
-// fish hooks/useNouBadge.ts — the «NOU» pill shows before the launch deadline and until the
-// first visit of Rezervări.
-const BOOKINGS_NOU_KEY = '@bluvi/bookings/visited/v1';
-const BOOKINGS_NEW_BADGE_UNTIL = Date.UTC(2026, 9, 1);
 
 /** `ready`: the registered line, agreed with the feature's name (fish's `{title} e disponibil` is not). */
 type Interest = { feature: FeatureKey; title: string; description: string; ready: string; image: StaticImageData };
@@ -86,11 +83,7 @@ export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop
         <li className={cell}>
           <Link
             href={homeLinks.myBookings}
-            onClick={() => {
-              try {
-                localStorage.setItem(BOOKINGS_NOU_KEY, '1');
-              } catch {}
-            }}
+            onClick={markBookingsVisited}
             className={target}
           >
             <span className={cn('relative block', tile)}>
