@@ -763,8 +763,8 @@ screens:
         status: passing
         web_note: "useFollowAngler → core followAnglerMutation (row flip in every loaded connections/search/suggested list unit-tested in core/social/mutations.test.ts). e2e tests/e2e/pescar-conexiuni.spec.ts «c11»: real follow of cristian_Test from Andrew R's following tab — the row flips while the POST is held, the button never navigates, the followed profile shows +1 follower and «Urmăresc», back on the list the row is still flipped, the viewer's own profile shows +1 «urmărește»; undone in afterEach (verified through the API)."
     mobile_only: false
-    status: passing
-    web_note: "/pescari/[id]/conexiuni (M2-B2), T1. ON_WEB.connections flipped: the profile's «N urmăritori · N urmărește» are links here. axe (0 violations) at 375 / 768 / 1280 / 1440 / 1920 + keyboard tab switching in tests/e2e/pescar-conexiuni.spec.ts. noindex."
+    status: shipped
+    web_note: "/pescari/[id]/conexiuni (M2-B2, closed out in M2-B5), T1. ON_WEB.connections flipped: the profile's «N urmăritori · N urmărește» are links here. axe (0 violations) at 375 / 768 / 1280 / 1440 / 1920 + keyboard tab switching in tests/e2e/pescar-conexiuni.spec.ts (25/25 green after the B3 FollowButton change; the c11 real follow on the LOCAL CMS undone and re-checked through the API). noindex. M2-B5 critic + parity pass (fidelity / polish / states lenses, fish connections.tsx + ConnectionRow.tsx re-read): one fix — the owner line's 24px avatar on the neutral tone vanished into the page background, now the kit ring (white rim); a second round on the new captures found nothing new. Visual baselines (§9): tests/visual/pescar-conexiuni.visual.spec.ts, route-mocked angler, 9 states × 375 / 1280 / 1440 / 1920 — loading, followers, following, empty followers, empty following, error + retry, next-page footer, own row (no button), followed toggle (the POST answered by the mock, nothing written); macOS set committed, Linux set per tests/visual/README.md when CI gets a fixed-data CMS. The owner's M2 review can reopen it."
 
   - id: account.suggested
     title: Sugestii pentru tine

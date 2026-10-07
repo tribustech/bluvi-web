@@ -195,12 +195,13 @@ const countOf = (n: number, singular: string, plural: string) => formatCount(n, 
  * Whose connections these are — the page's context, so an identity line rather than a caption: a
  * 24px avatar (the tone keyed by documentId, as on the profile header and the rows) and the name as
  * a link back to the profile (the phone has no breadcrumb), one line, the full name as the title
- * when cut. The same 24px box as the placeholder before it (OWNER_LINE).
+ * when cut. The same 24px box as the placeholder before it (OWNER_LINE). The kit ring (a white
+ * rim) keeps the disc readable on the page background, which the neutral tone matches.
  */
 function Owner({ documentId, username, avatarUrl }: { documentId: string; username: string; avatarUrl: string | null }) {
   return (
     <span className={OWNER_LINE}>
-      <Avatar name={username} src={avatarUrl} size={24} tone={toneForId(documentId)} />
+      <Avatar name={username} src={avatarUrl} size={24} tone={toneForId(documentId)} ring />
       <Link
         href={routes.angler(documentId)}
         title={username}
