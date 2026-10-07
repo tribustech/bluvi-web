@@ -7,7 +7,7 @@ import { absoluteUrl, routes } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
 import { lakeIdsToPrerender, loadLake } from '../_components/load';
 import { jsonLdHtml } from '@/lib/json-ld';
-import { breadcrumbJsonLd, prefetchSub, subMetadata, subTrail } from '../_sub/server';
+import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { GalleryScreen } from './GalleryScreen';
 
 /*
@@ -34,6 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: 'Galerie',
     description: `Fotografiile bălții ${load.lake.name} și capturile pescarilor din comunitatea Bluvi.`,
     path: routes.lakeGallery(load.lake.documentId),
+    empty: await lakeSubpageEmpty(load.lake, 'galerie'),
   });
 }
 

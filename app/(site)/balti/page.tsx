@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   alternates: { canonical: routes.lakes() },
   openGraph: { type: 'website', url: routes.lakes(), siteName: 'Bluvi', locale: 'ro_RO', title: TITLE, description: DESCRIPTION },
-  twitter: { card: 'summary', title: TITLE, description: DESCRIPTION },
+  twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION },
 };
 
 export default function LakesPage() {

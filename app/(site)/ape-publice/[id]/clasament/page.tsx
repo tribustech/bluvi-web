@@ -13,11 +13,14 @@ import {
   metadataWater,
   unresolvedMetadata,
   prefetchWater,
+  qualifiedWaterName,
   subMetadata,
   subPath,
   subTrail,
+  waterAbout,
   type CommunityWater,
 } from '../../_server/sub';
+import { anglersRankingJsonLd, statsFromState } from '@/lib/seo/community';
 
 /*
  * Clasament · <apă> — fish app/(app)/public-waters/[id]/clasament.tsx (parity
@@ -38,11 +41,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const water = await metadataWater((await params).id);
   if (typeof water === 'string') return unresolvedMetadata(water);
-  return subMetadata(water, {
-    page: 'clasament',
-    title: 'Clasament pescari',
-    description: `Cei mai buni pescari pe ${water.name ?? 'această apă'}: podiumul, kilogramele prinse și speciile, pe săptămână, lună și an, din partidele comunității Bluvi.`,
-  });
+  return subMetadata(water, { page: 'clasament', title: 'Clasament' });
 }
 
 export default async function PublicWaterRankingPage({ params, searchParams }: Props) {
@@ -64,8 +63,11 @@ export default async function PublicWaterRankingPage({ params, searchParams }: P
 async function Ranking({ id, cw, title, searchParams }: { id: string; cw: CommunityWater; title: string; searchParams: Props['searchParams'] }) {
   const period = parseStatsPeriodParam(param(await searchParams, 'perioada'));
   const state = await prefetchWater(id, (t) => [communityStatsQuery(t, period, cw.venue)]);
+  // CollectionPage + the ranking on screen as an ItemList, at the canonical URL.
+  const ld = anglersRankingJsonLd(`Clasament · ${qualifiedWaterName(cw.water)}`, subPath(cw.water, 'clasament'), waterAbout(cw.water), statsFromState(state));
   return (
     <HydrationBoundary state={state}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(ld)} />
       <RankingScreen venue={cw.venue} waterKey={cw.key} title={title} backHref={routes.publicWater(cw.key)} initialPeriod={period} />
     </HydrationBoundary>
   );

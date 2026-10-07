@@ -91,3 +91,27 @@ export function photoEntrantsLabel(c: Pick<CompetitionCard, 'status' | 'capacity
 export function dateWithHours(c: Pick<CompetitionCard, 'dateLabel' | 'hoursLabel'>): string {
   return c.hoursLabel ? `${c.dateLabel} · ${c.hoursLabel}` : c.dateLabel;
 }
+
+/** Intl's Romanian short months without the dot (`sept.` → `sept`), as the CMS renders them. */
+const RO_MONTHS = ['ian', 'feb', 'mar', 'apr', 'mai', 'iun', 'iul', 'aug', 'sept', 'oct', 'nov', 'dec'];
+
+/**
+ * The card's date line: the server's `dateLabel`, except when the window runs backwards. Reopening a
+ * finished competition moves its startDate past its endDate (local CMS 2026-10-07: start
+ * 2026-10-05T21:02Z, end 2026-10-04T18:00Z), and the CMS formatShortRange then prints «6–4 oct».
+ * A range never runs backwards on a card: the start day alone, in Bucharest like every card date.
+ * The year rides along only when the server's label carries one, so no clock is read while
+ * rendering (a prerendered page must not, and server and browser can never disagree).
+ * CMS fix proposed in docs/private/cms-patches/M1-competition-dateLabel.md.
+ */
+export function cardDateLabel(c: Pick<CompetitionCard, 'dateLabel' | 'startDate' | 'endDate'>): string {
+  const start = c.startDate ? Date.parse(c.startDate) : NaN;
+  const end = c.endDate ? Date.parse(c.endDate) : NaN;
+  if (Number.isNaN(start) || Number.isNaN(end) || end >= start) return c.dateLabel;
+  const [year, month, day] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Bucharest', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(start)
+    .split('-')
+    .map(Number);
+  const label = `${day} ${RO_MONTHS[month - 1]}`;
+  return /\d{4}/.test(c.dateLabel) ? `${label} ${year}` : label;
+}

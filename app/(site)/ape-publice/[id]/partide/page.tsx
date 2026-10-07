@@ -3,8 +3,8 @@ import { HydrationBoundary } from '@tanstack/react-query';
 import { communityHistoryInfiniteQuery, communityVenueCatchesInfiniteQuery, communityVenueKey, communityVenueSectionQuery } from '@/core/partide';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
 import { PartideScreen } from '../../_components/venue/PartideScreen';
-import { jsonLdHtml } from '@/lib/json-ld';
-import { breadcrumbJsonLd, loadCommunityWater, metadataWater, unresolvedMetadata, prefetchWater, subMetadata, subPath, subTrail } from '../../_server/sub';
+import { collectionPageJsonLd, jsonLdHtml } from '@/lib/json-ld';
+import { breadcrumbJsonLd, loadCommunityWater, metadataWater, unresolvedMetadata, prefetchWater, qualifiedWaterName, subMetadata, subPath, subTrail, waterAbout } from '../../_server/sub';
 
 /*
  * Partide pe <apă> — fish app/(app)/public-waters/[id]/partide.tsx (parity public-waters.partide,
@@ -24,11 +24,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const water = await metadataWater((await params).id);
   if (typeof water === 'string') return unresolvedMetadata(water);
-  return subMetadata(water, {
-    page: 'partide',
-    title: 'Partide',
-    description: `Partidele de pescuit pe ${water.name ?? 'această apă'}: cine pescuiește acum, ultimele capturi și partidele încheiate, din comunitatea Bluvi.`,
-  });
+  return subMetadata(water, { page: 'partide', title: 'Partide' });
 }
 
 export default async function PublicWaterPartidePage({ params }: Props) {
@@ -42,7 +38,13 @@ export default async function PublicWaterPartidePage({ params }: Props) {
   return (
     <>
       <SetBreadcrumb trail={subTrail(cw.water, 'Partide')} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(breadcrumbJsonLd(cw.water, 'Partide', subPath(cw.water, 'partide')))} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={jsonLdHtml([
+          collectionPageJsonLd({ name: `Partide · ${qualifiedWaterName(cw.water)}`, path: subPath(cw.water, 'partide'), about: waterAbout(cw.water) }),
+          breadcrumbJsonLd(cw.water, 'Partide', subPath(cw.water, 'partide')),
+        ])}
+      />
       <HydrationBoundary state={state}>
         <PartideScreen code={cw.code} waterKey={cw.key} title={cw.water.name ?? 'Partide'} />
       </HydrationBoundary>

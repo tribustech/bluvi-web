@@ -8,8 +8,8 @@ import { prefetchState, type Prefetchable } from '@/lib/client/hydration';
 import { breadcrumbListJsonLd } from '@/lib/json-ld';
 import { absoluteUrl, routes } from '@/lib/routes';
 import { createServerTransport } from '@/lib/server/transport';
+import { hasCompetitions, lakeSubpageHas, lakesWithCompetitions, venueFacts, venueSubpageHas, type VenueSubpage } from '@/lib/server/sitemap-entries';
 import { e2eFault } from '../_components/e2e-faults';
-import { lakeImage } from '../_components/load';
 
 /*
  * The lake subpages' server reads (galerie, capturi, clasament, standuri, concursuri — parity
@@ -90,25 +90,49 @@ export function breadcrumbJsonLd(lake: LakeDetail, label: string, path: string) 
 }
 
 /**
- * A subpage's metadata: «{title} · {lake}», its own canonical (without the view params — the
- * period, the tab, a photo — so one URL is indexed per subpage) and the lake's photo for sharing.
+ * Whether a lake subpage has nothing of its own to show — decided by the same predicates and the
+ * same cached reads as the sitemap (lib/server/sitemap-entries.ts lakeUrls), so the two never
+ * disagree: no reviews (/recenzii), no coordinates (/harta), no competition at the lake
+ * (/concursuri, hasCompetitions), and for the community subpages the month AND year stats (a stats
+ * page is judged by the widest period it offers) / the first catches page / the history (/galerie
+ * also counts the lake's own photos). A read that fails (or times out) is «not known»: never empty
+ * — a CMS hiccup must not noindex a page.
  */
-export function subMetadata(lake: LakeDetail, { title, description, path }: { title: string; description: string; path: string }): Metadata {
+export async function lakeSubpageEmpty(lake: LakeDetail, page: VenueSubpage | 'recenzii' | 'harta' | 'concursuri'): Promise<boolean> {
+  if (page === 'recenzii') return !lakeSubpageHas.recenzii(lake);
+  if (page === 'harta') return !lakeSubpageHas.harta(lake);
+  if (page === 'concursuri') {
+    const lakes = await lakesWithCompetitions(subTransport(lake.documentId, 'competitions-tab')).catch(() => null);
+    return lakes ? hasCompetitions(lake.documentId, lakes) === false : false;
+  }
+  const facts = await venueFacts(subTransport(lake.documentId, 'stats'), { kind: 'lake', id: lake.documentId });
+  return venueSubpageHas(page, facts, lake.images.length) === false;
+}
+
+/**
+ * A subpage's metadata: «{title} · {lake}», its own canonical (without the view params — the
+ * period, the tab, a photo — so one URL is indexed per subpage), Open Graph and a large Twitter
+ * card. No image keys: the route's generated opengraph-image / twitter-image files provide the
+ * share image (global.seo-og) and would be overridden by one set here.
+ * `empty` (lakeSubpageEmpty): `noindex, follow` — the page has nothing of its own to show (rule 4,
+ * global.b.seo-metadata m5) and the sitemap leaves it out.
+ */
+export function subMetadata(
+  lake: LakeDetail,
+  { title, description, path, empty = false }: { title: string; description: string; path: string; empty?: boolean },
+): Metadata {
   const full = `${title} · ${lake.name}`;
-  const image = lakeImage(lake);
   return {
     title: full,
     description,
     alternates: { canonical: path },
-    openGraph: {
-      type: 'website',
-      title: full,
-      description,
-      url: absoluteUrl(path),
-      siteName: 'Bluvi',
-      locale: 'ro_RO',
-      ...(image ? { images: [{ url: image }] } : {}),
-    },
-    twitter: { card: image ? 'summary_large_image' : 'summary', title: full, description },
+    ...(empty ? { robots: { index: false, follow: true } } : {}),
+    openGraph: { type: 'website', title: full, description, url: absoluteUrl(path), siteName: 'Bluvi', locale: 'ro_RO' },
+    twitter: { card: 'summary_large_image', title: full, description },
   };
+}
+
+/** The lake as the `about` of a subpage's CollectionPage. */
+export function lakeAbout(lake: LakeDetail) {
+  return { type: 'TouristAttraction', name: lake.name, path: routes.lake(lake.documentId) };
 }

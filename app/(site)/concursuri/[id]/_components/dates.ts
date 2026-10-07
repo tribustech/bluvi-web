@@ -52,6 +52,16 @@ function parts(iso: string): Parts | null {
   };
 }
 
+/**
+ * The end the page shows: the end date, clamped to the start when it falls before it (seeded /
+ * reopened data — a reopened competition's startDate moves past its endDate). One clamp for the
+ * header, the metadata and the JSON-LD, so none prints a backwards range («27–25 septembrie») or
+ * says endDate < startDate. An unparsable date is left as is.
+ */
+export function displayEnd(c: { startDate: string; endDate: string }): string {
+  return Date.parse(c.endDate) < Date.parse(c.startDate) ? c.startDate : c.endDate;
+}
+
 /** Header line (design): «SÂM, 27 – DUM, 28 SEPT.» · «SÂM, 30 SEPT. – DUM, 1 OCT.» · «SÂM, 27 SEPT.» */
 export function competitionDateLabel(startIso: string, endIso: string): string {
   const s = parts(startIso);

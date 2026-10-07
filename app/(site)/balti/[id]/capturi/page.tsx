@@ -6,7 +6,7 @@ import { absoluteUrl, routes } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
 import { lakeIdsToPrerender, loadLake } from '../_components/load';
 import { jsonLdHtml } from '@/lib/json-ld';
-import { breadcrumbJsonLd, prefetchSub, subMetadata, subTrail } from '../_sub/server';
+import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { CatchesScreen } from './CatchesScreen';
 
 /*
@@ -33,6 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: 'Capturi',
     description: `Toate capturile fotografiate la ${load.lake.name} de pescarii din comunitatea Bluvi: specia, greutatea și pescarul.`,
     path: routes.lakeCatches(load.lake.documentId),
+    empty: await lakeSubpageEmpty(load.lake, 'capturi'),
   });
 }
 

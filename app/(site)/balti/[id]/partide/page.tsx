@@ -8,7 +8,8 @@ import { routes } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
 import { lakeIdsToPrerender, loadLake } from '../_components/load';
 import { jsonLdHtml } from '@/lib/json-ld';
-import { breadcrumbJsonLd, prefetchSub, subMetadata, subTrail } from '../_sub/server';
+import { breadcrumbJsonLd, lakeAbout, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
+import { collectionPageJsonLd } from '@/lib/json-ld';
 import { PartideFallback, PartideScreen } from './PartideScreen';
 
 /*
@@ -36,6 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: 'Partide',
     description: `Partidele de pescuit de la ${load.lake.name}: cine pescuiește acum, ultimele capturi și partidele încheiate, din comunitatea Bluvi.`,
     path: routes.lakePartide(load.lake.documentId),
+    empty: await lakeSubpageEmpty(load.lake, 'partide'),
   });
 }
 
@@ -47,7 +49,13 @@ export default async function LakePartidePage({ params }: Props) {
   return (
     <>
       <SetBreadcrumb trail={subTrail(lake, 'Partide')} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(breadcrumbJsonLd(lake, 'Partide', routes.lakePartide(lake.documentId)))} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={jsonLdHtml([
+          collectionPageJsonLd({ name: `Partide · ${lake.name}`, path: routes.lakePartide(lake.documentId), about: lakeAbout(lake) }),
+          breadcrumbJsonLd(lake, 'Partide', routes.lakePartide(lake.documentId)),
+        ])}
+      />
       {/* The feeds' reads (up to the read budget on a slow CMS) behind the page's own skeleton, under
           the lake's name — loading.tsx is only for the lake read itself. */}
       <Suspense fallback={<PartideFallback lakeName={lake.name} lakeId={lake.documentId} />}>

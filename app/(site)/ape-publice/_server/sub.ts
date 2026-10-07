@@ -3,13 +3,15 @@ import { connection } from 'next/server';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import type { DehydratedState } from '@tanstack/react-query';
-import { publicWaterName, type PublicWaterDetail } from '@/core/lakes';
+import { publicWaterLocationLabel, publicWaterName, type PublicWaterDetail } from '@/core/lakes';
 import type { CommunityVenueRef } from '@/core/partide';
 import type { Transport, TransportRequest } from '@/core/transport';
 import { prefetchState, type Prefetchable } from '@/lib/client/hydration';
 import { breadcrumbListJsonLd } from '@/lib/json-ld';
 import { absoluteUrl, routes } from '@/lib/routes';
 import { createServerTransport } from '@/lib/server/transport';
+import { venueFacts, venueSubpageHas } from '@/lib/server/sitemap-entries';
+import { waterSubDescription } from '@/lib/seo/describe';
 import { e2eSkipPrefetch, e2eWaterFault, e2eWaterOverride } from './e2e-faults';
 import { canonicalPath, loadPublicWater } from './load';
 
@@ -125,21 +127,60 @@ export function subTrail(water: PublicWaterDetail, label: string) {
   ];
 }
 
-/** schema.org BreadcrumbList of a subpage. */
-export function breadcrumbJsonLd(water: PublicWaterDetail, label: string, path: string) {
-  return breadcrumbListJsonLd(subTrail(water, label), path);
+/**
+ * The water named as its subpages' titles, descriptions and JSON-LD name it: «Nebunul · Ialomița»
+ * (publicWaterLocationLabel: the county, or «3 județe» for a river across several) — ANAR names
+ * repeat a lot (Nebunul, Valea …, Izvorul …), so the bare name would give thousands of subpages the
+ * same title. A water without a location reads its name alone.
+ */
+export function qualifiedWaterName(water: Pick<PublicWaterDetail, 'name' | 'type' | 'county' | 'countyIds'>): string {
+  return [publicWaterName(water), publicWaterLocationLabel(water)].filter(Boolean).join(' · ');
 }
 
-/** «<titlu> · <apă>», its own canonical and Open Graph. */
-export function subMetadata(water: PublicWaterDetail, { title, description, page }: { title: string; description: string; page: SubPage }): Metadata {
-  const full = `${title} · ${publicWaterName(water)}`;
+/** schema.org BreadcrumbList of a subpage (the water's step qualified, as the title: qualifiedWaterName). */
+export function breadcrumbJsonLd(water: PublicWaterDetail, label: string, path: string) {
+  const trail = subTrail(water, label);
+  trail[2] = { ...trail[2], label: qualifiedWaterName(water) };
+  return breadcrumbListJsonLd(trail, path);
+}
+
+/** The water as the `about` of a subpage's JSON-LD (its type as on the detail page). */
+export function waterAbout(water: PublicWaterDetail) {
+  const type = water.type === 'river' ? 'RiverBodyOfWater' : water.type === 'reservoir_lake' ? 'Reservoir' : 'LakeBodyOfWater';
+  return { type, name: publicWaterName(water), path: canonicalPath(water) };
+}
+
+/**
+ * Whether a water's community subpage has nothing of its own to show — the same predicates and
+ * cached reads as the sitemap (lib/server/sitemap-entries.ts publicWaterEntries): the month AND
+ * year stats (a stats page is judged by the widest period it offers), the first catches page, the
+ * history. A failed / slow read is «not known»: never empty (a CMS hiccup must not noindex a page).
+ */
+export async function waterSubpageEmpty(water: PublicWaterDetail, page: SubPage): Promise<boolean> {
+  if (!water.linkCode) return true;
+  const facts = await venueFacts(boundedTransport(), { kind: 'water', code: water.linkCode });
+  return venueSubpageHas(page, facts) === false;
+}
+
+/**
+ * «<titlu> · <apă> · <județ>» (qualifiedWaterName), its own canonical, Open Graph and a large Twitter card. No image keys: the
+ * route's generated opengraph-image / twitter-image files provide the share image (global.seo-og).
+ * The description names the water and its county as the title does (waterSubDescription). An empty subpage
+ * (waterSubpageEmpty) is `noindex, follow` — rule 4, global.b.seo-metadata m5 — and the sitemap
+ * leaves it out.
+ */
+export async function subMetadata(water: PublicWaterDetail, { title, page }: { title: string; page: SubPage }): Promise<Metadata> {
+  const full = `${title} · ${qualifiedWaterName(water)}`;
   const path = subPath(water, page);
+  const description = waterSubDescription(water, page);
+  const empty = await waterSubpageEmpty(water, page);
   return {
     title: full,
     description,
     alternates: { canonical: path },
+    ...(empty ? { robots: { index: false, follow: true } } : {}),
     openGraph: { type: 'website', title: full, description, url: absoluteUrl(path), siteName: 'Bluvi', locale: 'ro_RO' },
-    twitter: { card: 'summary', title: full, description },
+    twitter: { card: 'summary_large_image', title: full, description },
   };
 }
 

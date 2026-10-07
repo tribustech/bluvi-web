@@ -105,7 +105,7 @@ export function competitionsMetadata(tab?: CompetitionCardStatus): Metadata {
     description,
     alternates: { canonical: url },
     openGraph: { type: 'website', url, siteName: 'Bluvi', locale: 'ro_RO', title: `${title} · Bluvi`, description },
-    twitter: { card: 'summary', title: `${title} · Bluvi`, description },
+    twitter: { card: 'summary_large_image', title: `${title} · Bluvi`, description },
   };
 }
 

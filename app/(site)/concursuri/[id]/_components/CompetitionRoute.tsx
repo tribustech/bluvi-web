@@ -10,12 +10,28 @@ import { COMPETITIONS_CRUMB } from './crumbs';
 import { CompetitionScreen } from './CompetitionScreen';
 import { CompetitionSkeleton } from './CompetitionSkeleton';
 import { HEADER_ERROR_COPY, skeletonVariantOf } from './screen-state';
-import { competitionDateLabel, competitionDateProse, competitionDateTime, competitionStartShort, competitionDateTimeCompact } from './dates';
-import { competitionJsonLd, loadCompetition } from './load';
-import type { RankingViewKey } from './views';
-import { tabLabel, type CompetitionTab } from './tabs';
+import { competitionDateLabel, competitionDateProse, competitionDateTime, competitionStartShort, competitionDateTimeCompact, displayEnd } from './dates';
+import { competitionPageJsonLd, loadCompetition } from './load';
+import { VIEWS, viewPath, type RankingViewKey } from './views';
+import { COMPETITION_TABS, type CompetitionTab } from './tabs';
 import type { HeaderCore } from './headerMeta';
 import { jsonLdHtml } from '@/lib/json-ld';
+
+/**
+ * The band's trail and BreadcrumbList: Concursuri › {concurs} on Clasament, › {tab} on a route tab,
+ * › {view} on a Clasament view with its own path (/cantare «Cântare», /capturi «Toți peștii»,
+ * /statistici). The last step carries the page's own path (the visible crumb is never a link), so the
+ * JSON-LD's last item is the page (global.b.seo-json-ld j2).
+ */
+function competitionTrail(name: string, id: string, tab: CompetitionTab, view: RankingViewKey) {
+  const page = routes.competition(id);
+  if (tab !== 'clasament') {
+    const t = COMPETITION_TABS.find(x => x.key === tab)!;
+    return [COMPETITIONS_CRUMB, { label: name, href: page }, { label: t.label, href: t.href(id) }];
+  }
+  if (view === 'clasament') return [COMPETITIONS_CRUMB, { label: name, href: page }];
+  return [COMPETITIONS_CRUMB, { label: name, href: page }, { label: VIEWS.find(v => v.key === view)!.label, href: viewPath(page, view) }];
+}
 
 /** Only what the fallback header shows crosses to the client (not the whole core: registrations, sectors…). */
 function headerCore(c: HeaderCore): HeaderCore {
@@ -87,16 +103,18 @@ export async function CompetitionRoute({
     );
   }
   const c = load.competition;
-  // An end before the start (seeded / edited data) would print a backwards range: the start day alone.
-  const endIso = Date.parse(c.endDate) < Date.parse(c.startDate) ? c.startDate : c.endDate;
+  // An end before the start (seeded / reopened data) would print a backwards range: the start day
+  // alone — the same clamp as the metadata and the JSON-LD (displayEnd).
+  const endIso = displayEnd(c);
+  const jsonLd = await competitionPageJsonLd(c, tab === 'clasament' ? initialView : null);
   const dates = {
     label: competitionDateLabel(c.startDate, endIso),
     prose: competitionDateProse(c.startDate, endIso),
     start: competitionDateTime(c.startDate),
-    end: competitionDateTime(c.endDate),
+    end: competitionDateTime(endIso),
     startShort: competitionStartShort(c.startDate),
     startCompact: competitionDateTimeCompact(c.startDate),
-    endCompact: competitionDateTimeCompact(c.endDate),
+    endCompact: competitionDateTimeCompact(endIso),
   };
 
   return (
@@ -104,14 +122,11 @@ export async function CompetitionRoute({
       <script
         type="application/ld+json"
         // JSON-LD: `<` escaped so CMS text can never close the script tag.
-        dangerouslySetInnerHTML={jsonLdHtml(competitionJsonLd(c))}
+        dangerouslySetInnerHTML={jsonLdHtml(jsonLd)}
       />
       {/* The breadcrumb band, server-rendered with the real title and its BreadcrumbList JSON-LD
           (the layout's band skips this route: SiteHeader ownsBreadcrumbBand), as the T3 demo. */}
-      <BreadcrumbBand
-        trail={tab === 'clasament' ? [COMPETITIONS_CRUMB, { label: c.name }] : [COMPETITIONS_CRUMB, { label: c.name, href: routes.competition(id) }, { label: tabLabel(tab) }]}
-        jsonLd
-      />
+      <BreadcrumbBand trail={competitionTrail(c.name, id, tab, initialView)} jsonLd />
       {load.kind === 'ok' ? (
         // The fallback is what the static shell carries (the screen is a TanStack client tree, which
         // suspends while prerendering): the header's real title and meta, so the first paint has

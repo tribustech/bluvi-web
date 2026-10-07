@@ -49,7 +49,7 @@ export const communityKeys = {
 // Matches the CMS default so both community feeds page identically.
 const HISTORY_PAGE_SIZE = 10;
 const LIVE_PAGE_SIZE = 10;
-const VENUE_CATCHES_PAGE_SIZE = 20;
+export const VENUE_CATCHES_PAGE_SIZE = 20;
 
 /** TanStack's `keepPreviousData` is a runtime export of react-query; this is the same identity. */
 const keepPreviousData = <T>(previousData: T | undefined): T | undefined => previousData;

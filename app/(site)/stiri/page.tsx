@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     siteName: 'Bluvi',
     locale: 'ro_RO',
   },
-  twitter: { card: 'summary', title: 'Noutăți · Bluvi', description: DESCRIPTION },
+  twitter: { card: 'summary_large_image', title: 'Noutăți · Bluvi', description: DESCRIPTION },
 };
 
 export default function NewsPage() {

@@ -14,11 +14,14 @@ import {
   metadataWater,
   unresolvedMetadata,
   prefetchWater,
+  qualifiedWaterName,
   subMetadata,
   subPath,
   subTrail,
+  waterAbout,
   type CommunityWater,
 } from '../../_server/sub';
+import { statsFromState, statsPageJsonLd } from '@/lib/seo/community';
 
 /*
  * Statisticile apei — fish app/(app)/public-waters/[id]/statistici.tsx (parity
@@ -39,11 +42,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const water = await metadataWater((await params).id);
   if (typeof water === 'string') return unresolvedMetadata(water);
-  return subMetadata(water, {
-    page: 'statistici',
-    title: 'Statistici',
-    description: `Statisticile partidelor pe ${water.name ?? 'această apă'}: partide, pescari, capturi, activitate, top pescari, recordul și speciile prinse, pe săptămână, lună și an.`,
-  });
+  return subMetadata(water, { page: 'statistici', title: 'Statistici' });
 }
 
 export default async function PublicWaterStatsPage({ params, searchParams }: Props) {
@@ -64,8 +63,11 @@ export default async function PublicWaterStatsPage({ params, searchParams }: Pro
 async function Stats({ id, cw, title, searchParams }: { id: string; cw: CommunityWater; title: string; searchParams: Props['searchParams'] }) {
   const period = parseStatsPeriodParam(param(await searchParams, 'perioada'));
   const state = await prefetchWater(id, (t) => [communityStatsQuery(t, period, cw.venue)]);
+  // CollectionPage of the period on screen (its totals and «Top pescari»), at the canonical URL.
+  const ld = statsPageJsonLd(`Statistici · ${qualifiedWaterName(cw.water)}`, subPath(cw.water, 'statistici'), waterAbout(cw.water), statsFromState(state));
   return (
     <HydrationBoundary state={state}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(ld)} />
       <StatsRoute code={cw.code} waterKey={cw.key} title={title} initialPeriod={period} />
     </HydrationBoundary>
   );

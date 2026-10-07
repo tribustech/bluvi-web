@@ -1,11 +1,19 @@
+import type { Metadata } from 'next';
 import { CompetitionRoute } from '../_components/CompetitionRoute';
+import { competitionViewMetadata } from '../_components/tabMetadata';
 
 /*
  * /concursuri/<id>/cantare: the competition screen with the «cantare» view already open (parity
- * competition-page.b.tab-deep-links), so the server renders that view's panel. Same metadata (its
- * canonical is /concursuri/<id>) and the same prerendered completed ids as ../page.
+ * competition-page.b.tab-deep-links), so the server renders that view's panel. Its own metadata
+ * (competitionViewMetadata) and the same prerendered completed ids as ../page.
  */
-export { generateMetadata, generateStaticParams } from '../page';
+
+export { generateStaticParams } from '../page';
+
+/** Its own title, description and canonical once the competition has started (tabMetadata.ts). */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  return competitionViewMetadata((await params).id, 'cantare');
+}
 // Segment config is read statically from each page file, so it is not re-exported: same opt-out as ../page.
 export const instant = false;
 

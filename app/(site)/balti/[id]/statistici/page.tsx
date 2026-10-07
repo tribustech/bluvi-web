@@ -9,7 +9,8 @@ import { SetBreadcrumb } from '../../../_shell/SiteHeader';
 import { lakeIdsToPrerender, loadLake } from '../_components/load';
 import { param } from '@/lib/search-params';
 import { jsonLdHtml } from '@/lib/json-ld';
-import { breadcrumbJsonLd, prefetchSub, subMetadata, subTrail } from '../_sub/server';
+import { breadcrumbJsonLd, lakeAbout, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
+import { statsFromState, statsPageJsonLd } from '@/lib/seo/community';
 import { StatsFallback, StatsScreen } from './StatsScreen';
 
 /*
@@ -19,6 +20,9 @@ import { StatsFallback, StatsScreen } from './StatsScreen';
  * lake:<id>` (the same entry as clasament / standuri) — are prefetched into the HTML; the client
  * screen takes the same query over and switches periods in the browser. Canonical: the bare page.
  */
+
+/** The subpage's one name: breadcrumb band, BreadcrumbList, <title> and the page's JSON-LD. */
+const LABEL = 'Statistici';
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -34,9 +38,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const load = await loadLake(id);
   if (load.kind === 'missing') return { title: 'Balta nu a fost găsită' };
   return subMetadata(load.lake, {
-    title: 'Statistici',
+    title: LABEL,
     description: `Statisticile partidelor de la ${load.lake.name}: partide, pescari, capturi, activitate, top pescari, top standuri, recordul și speciile prinse, pe săptămână, lună și an.`,
     path: routes.lakeStats(load.lake.documentId),
+    empty: await lakeSubpageEmpty(load.lake, 'statistici'),
   });
 }
 
@@ -47,8 +52,8 @@ export default async function LakeStatsPage({ params, searchParams }: Props) {
   const lake = load.lake;
   return (
     <>
-      <SetBreadcrumb trail={subTrail(lake, 'Statistici')} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(breadcrumbJsonLd(lake, 'Statistici', routes.lakeStats(lake.documentId)))} />
+      <SetBreadcrumb trail={subTrail(lake, LABEL)} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(breadcrumbJsonLd(lake, LABEL, routes.lakeStats(lake.documentId)))} />
       <Suspense fallback={<StatsFallback lakeName={lake.name} lakeId={lake.documentId} />}>
         <Stats lake={lake} searchParams={searchParams} />
       </Suspense>
@@ -59,8 +64,11 @@ export default async function LakeStatsPage({ params, searchParams }: Props) {
 async function Stats({ lake, searchParams }: { lake: LakeDetail; searchParams: Props['searchParams'] }) {
   const period = parseStatsPeriodParam(param(await searchParams, 'perioada'));
   const { state } = await prefetchSub(lake.documentId, 'stats', t => [communityStatsQuery(t, period, { kind: 'lake', id: lake.documentId })]);
+  // CollectionPage of the period on screen (its totals and «Top pescari»), at the canonical URL.
+  const ld = statsPageJsonLd(`${LABEL} · ${lake.name}`, routes.lakeStats(lake.documentId), lakeAbout(lake), statsFromState(state));
   return (
     <HydrationBoundary state={state}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(ld)} />
       <StatsScreen lakeId={lake.documentId} lakeName={lake.name} initialPeriod={period} />
     </HydrationBoundary>
   );

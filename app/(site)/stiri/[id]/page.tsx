@@ -49,7 +49,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const n = load.data;
   const canonical = routes.newsItem(n.documentId);
   const description = n.shortDescription || `${categoryLabel(n.category)} pe Bluvi, ${newsDate(n.createdAt).toLocaleLowerCase('ro')}.`;
-  const images = bannerImages(n.banner).map((b) => ({ url: b.src }));
   return {
     title: n.title,
     description,
@@ -63,9 +62,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       locale: 'ro_RO',
       publishedTime: n.createdAt,
       section: categoryLabel(n.category),
-      ...(images.length ? { images } : {}),
+      // No `images` here: the segment's generated card (opengraph-image.tsx, parity global.b.seo-og-images)
+      // is og:image — it already carries the photo, sized 1200×630, with its alt.
     },
-    twitter: { card: images.length ? 'summary_large_image' : 'summary', title: n.title, description },
+    twitter: { card: 'summary_large_image', title: n.title, description },
   };
 }
 
@@ -82,7 +82,7 @@ export default async function NewsItemPage({ params }: Props) {
   return (
     <>
       {/* The page's own band, on the server: the real title in the HTML + BreadcrumbList JSON-LD. */}
-      <BreadcrumbBand trail={[NEWS_CRUMB, { label: n.title }]} jsonLd />
+      <BreadcrumbBand trail={[NEWS_CRUMB, { label: n.title, href: routes.newsItem(n.documentId) }]} jsonLd />
       <JsonLd
         data={{
           '@context': 'https://schema.org',

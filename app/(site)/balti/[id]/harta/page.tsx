@@ -7,8 +7,8 @@ import { parseLakeCoordinates, type LakeDetail } from '@/core/lakes';
 import { routes } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
 import { lakeIdsToPrerender, loadLake } from '../_components/load';
-import { jsonLdHtml } from '@/lib/json-ld';
-import { breadcrumbJsonLd, prefetchSub, subMetadata, subTrail } from '../_sub/server';
+import { jsonLdHtml, mapJsonLd } from '@/lib/json-ld';
+import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { LakeMapLoading } from './LakeMapLoading';
 import { LakeMapScreen } from './LakeMapScreen';
 
@@ -36,6 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: 'Hartă',
     description: `Harta din satelit a bălții ${load.lake.name}: standurile cu cea mai mare captură, calitatea și numărul de capturi, plus navigarea până la baltă sau la un stand.`,
     path: routes.lakeMap(load.lake.documentId),
+    empty: await lakeSubpageEmpty(load.lake, 'harta'),
   });
 }
 
@@ -64,6 +65,13 @@ async function LakeMap({ lake }: { lake: LakeDetail }) {
     : { state: { queries: [], mutations: [] } };
   return (
     <HydrationBoundary state={state}>
+      {/* The satellite map of the lake (schema.org Map about its place) — only with coordinates. */}
+      {coords ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={jsonLdHtml(mapJsonLd({ name: `Hartă · ${lake.name}`, path: routes.lakeMap(lake.documentId), place: { type: 'TouristAttraction', name: lake.name, path: routes.lake(lake.documentId), lat: coords.lat, lng: coords.lng } }))}
+        />
+      ) : null}
       <LakeMapScreen lakeId={lake.documentId} lakeName={lake.name} coords={coords} />
     </HydrationBoundary>
   );

@@ -2,12 +2,13 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { HydrationBoundary } from '@tanstack/react-query';
-import { formatReviewsCount, lakeQuery, lakeReviewsInfiniteQuery, type LakeDetail } from '@/core/lakes';
+import { lakeQuery, lakeReviewsInfiniteQuery, type GetReviewsForLakeResponse, type LakeDetail } from '@/core/lakes';
 import { routes } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
 import { lakeIdsToPrerender, loadLake } from '../_components/load';
 import { jsonLdHtml } from '@/lib/json-ld';
-import { breadcrumbJsonLd, prefetchSub, subMetadata, subTrail } from '../_sub/server';
+import { reviewScoreSentence, reviewsJsonLd } from '@/lib/seo/reviews';
+import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { ReviewsFallback, ReviewsScreen } from './ReviewsScreen';
 
 /*
@@ -32,12 +33,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const load = await loadLake(id);
   if (load.kind === 'missing') return { title: 'Balta nu a fost găsită' };
-  const meta = load.lake.reviewsMeta;
-  const score = meta && meta.count > 0 ? ` Nota medie ${(meta.overall ?? 0).toFixed(2).replace('.', ',')} din ${formatReviewsCount(meta.count)}.` : '';
+  // The score is the JSON-LD's AggregateRating (lib/seo/reviews.ts): one number, one rounding.
   return subMetadata(load.lake, {
     title: 'Recenzii',
-    description: `Recenziile pescarilor despre ${load.lake.name}: pescuit, facilități și atmosferă.${score}`,
+    description: `Recenziile pescarilor despre ${load.lake.name}: pescuit, facilități și atmosferă.${reviewScoreSentence(load.lake.reviewsMeta)}`,
     path: routes.lakeReviews(load.lake.documentId),
+    empty: await lakeSubpageEmpty(load.lake, 'recenzii'),
   });
 }
 
@@ -61,8 +62,13 @@ export default async function LakeReviewsPage({ params }: Props) {
 
 async function Reviews({ lake }: { lake: LakeDetail }) {
   const { state } = await prefetchSub(lake.documentId, 'reviews-page', t => [lakeQuery(t, lake.documentId), lakeReviewsInfiniteQuery(t, lake.documentId, 10)]);
+  // The lake with its rating and the first page of reviews as the page shows them — only when the
+  // lake has reviews (no AggregateRating of nothing).
+  const first = (state.queries[1]?.state.data as { pages?: GetReviewsForLakeResponse[] } | undefined)?.pages?.[0]?.data ?? [];
+  const ld = reviewsJsonLd(lake, routes.lakeReviews(lake.documentId), first);
   return (
     <HydrationBoundary state={state}>
+      {ld ? <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(ld)} /> : null}
       <ReviewsScreen lakeId={lake.documentId} lakeName={lake.name} />
     </HydrationBoundary>
   );

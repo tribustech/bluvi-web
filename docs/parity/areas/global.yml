@@ -513,6 +513,11 @@ behaviours:
   - id: global.b.share-urls
     text: "Links the app shares are built on WEB_DOMAIN (https://bluvi-app.wearetribus.com): competition /competitions/{id}, lake /lakes/{documentId}, poll /polls/current, partidă join /partide/join/{code}, partidă spectate /partide/comunitate/{documentId}. Web share actions build absolute web URLs with lib/routes absoluteUrl(); until the domain decision (M8) both URL shapes must resolve (global.b.legacy-path-redirects)."
     fish_ref: "common/utils/constants.ts:35; app/(app)/competitions/[competitionId].tsx:324-325; features/lakes/components/ShareLakeSheet.tsx:118; helpers/sharePoll.ts:5; features/partide/components/CoopCard.tsx:38-39; features/partide/helpers/deepLinks.ts:19-20"
+  - id: global.b.seo-og-images
+    text: "Every public page shares as a rich preview: a generated 1200×630 PNG Open Graph / Twitter image (file convention opengraph-image.tsx + twitter-image.tsx, drawn by lib/server/og in the fish visual language from the globals.css tokens, Nunito). Brand card (logo, title, tagline) for /, /balti, /balti/harta, /concursuri (+ /viitoare, /live, /rezultate), /ape-publice, /stiri; lake card (photo or brand panel, name, «oraș, județ», «4,50 ★ (N recenzii)», «de la X RON») on /balti/[id] and its subpages (labelled «Baltă · Statistici»…); competition card (banner/poster or brand panel, name, lake, date range, the status pill as the competition page shows it — «Live» only, plus «Anulat» for a cancelled one — and once completed the podium by fish's card rule: places within the competition's podium depth (one per sector / bestOf winners / tier, 3–6) that caught something, none when nothing was weighed or there is no 1st place, a shared place's badge reading «=1» with «= la egalitate» said once under the podium (never on the name's line), the angler named in an individual competition — never the team name typed, often a sponsor (CMS podiumFromPlacements) —, the ranking's figure with kg or puncte as a separate unit, never «capot»; web deviation, deliberate: a 1200×630 card holds at most 6 rows where fish's card lists every row within depth, so places are kept whole while they fit — a place is never cut inside, the first that does not fit ends the podium, a 1st place shared by more than 6 gives no podium) on /concursuri/[id] and subpages (Imagine clasament included: its page metadata names no image, the segment's card is the one og/twitter image, summary_large_image); public-water card (name, «tip · localizare», area in km², the outline from the bundled dataset) on /ape-publice/[id] and subpages; news card (cover, category, date, title) on /stiri/[id]; sponsor card (logo contained, name) on /sponsori/[id]. Owner rule 4: an unknown fact is left out; an entity the CMS cannot give answers the section's brand card (200), never an error. Pictures: a lake photo or portrait poster is cropped to the panel; a news cover is drawn whole on a blurred copy of itself (never cut) unless its shape is within 15% of the panel's (then cropped — no dark slivers); a competition banner is drawn whole only when clearly landscape (wider than the panel by > 15%). Layout (lib/server/og/layout.ts, text measured with Nunito's advance widths): the logo, eyebrow and title start on the same lines whatever the picture; with no picture the brand panel is a narrow 220 px band (gradient + fish) and the facts take the width; a podium card's photo narrows to 380 px so team names read whole; figures / podium sit at the bottom, without them the facts are centred; the facts are fitted to the space left, by priority: the title whole (≤ 2 lines at the bottom, ≤ 3 centred; «hero» only when it fits 2 hero lines; lines balanced, a « — » bound to the word before), then the lake and the dates (two lines, else one «Lac · 10–11 oct. 2026» line — a results card always says where and when), then the tie legend; ≤ 2 meta lines; secondary text ≥ 30 px on the 1200 px canvas (legible in a ~340 px chat preview). On entity pages og:image AND twitter:image are the card (the page metadata names no raw photo — WhatsApp / Facebook read og:image), with a per-entity alt naming the entity and only the facts the card draws, read off the same layout (generateImageMetadata: «Concursul X, Lac, 10–11 octombrie 2026 — podium: …»). Each image is a cached CMS read + drawing under the entity's CMS tag (purge redraws it); only a slow / failed read is retried within minutes («no price» or an unknown ranking type is an answer, cached as the entity); ≤ 300 KB."
+    fish_ref: "features/lakes/components/ShareLakeSheet.tsx:118; app/(app)/competitions/[competitionId].tsx:324-325"
+    status: passing
+    note: "e2e tests/e2e/og-images.spec.ts (a1 meta points at the route's image with size/type/alt, a2 200 image/png 1200×630 ≤ 300 KB, a3 warm < 1.5 s, a4 unknown / malformed id → brand card) + unit tests/unit/og-model.test.ts (card copy, rule 4 omissions, fish podium rule — no-catch rows dropped, no 1st → none, ties, depth —, status pill, per-entity alt, units / plurals, clamping, tokens, every text step ≥ 30 px) + tests/unit/og-images.test.ts (timeout / error vs «no data») + tests/unit/og-layout.test.ts (Nunito metrics vs the font files, a tied 1st place with two long team names fits its row and is rendered to PNG, meta lines by the space left for 1–6 places, the brand band, the 15% picture rule, balanced titles); e2e also checks Imagine clasament's single og:image source. fish has no web previews (it shares links only): this is the web's replacement for a shared link's look. Metadata objects are global.seo's: / still names og-home.jpg itself (the route draws the same artwork) and most pages say twitter card «summary» — «summary_large_image» would show the card full size."
   - id: global.b.unmatched-route
     text: "fish has no not-found route: an unmatched link renders a black page, which is why every notification/link target must exist in all app versions. Web: any unmatched path inside the site renders „Pagina nu există” inside the shell with a link home, with HTTP 404 or noindex (app/(site)/[...rest] → not-found.tsx)."
     fish_ref: "app/_layout.tsx:95; ../bluvi-redirect-stores/src/App.tsx:34-40"
@@ -546,3 +551,72 @@ behaviours:
   - id: global.b.mobile-only-bits
     text: "Not ported (mobile only): native splash + animated loader, status bar style / Android edge-to-edge, keyboard provider, bottom-sheet/portal providers, gesture root, timer bootstrap and rod alarms (useTimerBootstrap), Android notification channels, push token registration, app version wall, CMP SDK provider (web: cookie banner, M8), Reanimated logger."
     fish_ref: "app/_layout.tsx:27-28,53-56,65,68-107"
+  # SEO (web only: fish has no crawlable pages; its only public URLs are the share links on
+  # WEB_DOMAIN, global.b.share-urls). Proof: tests/e2e/seo.spec.ts (criteria ids in the test names),
+  # tests/unit/seo-json-ld.test.ts, tests/unit/seo-robots.test.ts, lib/server/sitemap-entries.test.ts.
+  - id: global.b.seo-sitemap
+    text: >-
+      Web only. /sitemap.xml is a sitemap index (app/sitemap.xml/route.ts) of sitemaps split by group
+      (app/sitemaps/sitemap.ts generateSitemaps: pagini, balti-<n>, concursuri-viitoare / -live /
+      -rezultate, ape-publice-<n>; each ≤ 45 000 URLs), built from the same cached public CMS reads as
+      the pages ('use cache' + CMS tags) with the MAX_PAGES guard.
+      s1 the index lists every sitemap; each is a valid <urlset> of ≤ 50 000 unique URLs without a query string.
+      s2 it lists the list pages, every lake, competition, news article, sponsor and public water, and
+      the self-canonical subpages that have content: lake /galerie (photos or catches), /capturi
+      (catches), /partide (catches, partide this month or finished partide on record), /statistici
+      (partide this month), /clasament (ranked anglers), /standuri (stand rows), /concursuri (a
+      competition of any status at the lake: the bare page opens Live, else the first tab with
+      competitions; its ItemList url is the bare path), /recenzii (reviews), /harta (coordinates);
+      competition /informatii, /participanti (someone registered), /regulament (a regulation),
+      /cantare and /capturi (started or completed); public water /harta (not claimed) and, with a
+      linkCode, the community subpages by the SAME rules as a lake's (/partide, /statistici,
+      /clasament, /capturi — read per water only for the waters with a partida in the community
+      history, bounded concurrency); a claimed water's page and map (redirects to its lake) are left out.
+      The predicates are shared with the subpages' metadata (sitemap-entries venueSubpageHas /
+      lakeSubpageHas): a subpage the sitemap leaves out for lack of content is noindex (m5).
+      s3 never listed: noindex pages (competition /statistici, /extra-cantare, /clasament/imagine,
+      /statistici/cronologie, a tab or venue subpage without content) and aliases
+      (/concursuri/<id>/clasament, period / sort / tab / photo params).
+      s4 a list or per-item read that fails leaves its URLs out, never guessed in; the rest is served.
+      A failed claimed-waters read leaves out the page and map of every linkCode water (any may
+      redirect); a failed history walk lists no water community subpage.
+      s5 robots.txt disallows everything unless SITE_INDEXABLE=1; then it allows / except /api/ and names /sitemap.xml.
+      lastModified: only news (createdAt) — the lake, competition and sponsor DTOs carry no updatedAt.
+    fish_ref: common/utils/constants.ts:35
+    status: passing
+  - id: global.b.seo-json-ld
+    text: >-
+      Web only. Every public M1 page carries schema.org JSON-LD built with lib/json-ld.ts (jsonLdHtml
+      escapes «<») and never says more than the page shows (rule 4).
+      j1 every block parses and has the schema.org context.
+      j2 every detail / subpage has a BreadcrumbList whose last step is the page (its `item` is the
+      page's path) and whose labels are the visible breadcrumb band's (one label per subpage, as
+      its H1 and <title> name it: lake «Clasament», «Clasament standuri»; competition /cantare
+      «Cântare», /capturi «Toți peștii», /statistici «Statistici»).
+      j3 generated values never say «capot» (UI: «fără captură»).
+      j4 lake and public-water Statistici / Clasament / Standuri: CollectionPage about the venue with the
+      ranked rows on screen as an ItemList (none for an empty period); Partide: CollectionPage;
+      Hartă: Map about the place (coordinates when known); lake Recenzii: the lake with an
+      AggregateRating (mean of the three shown scores) and the listed reviews, only when it has
+      reviews; Galerie / Capturi: ImageGallery; competition pages and tabs: SportsEvent + BreadcrumbList.
+    fish_ref: common/utils/constants.ts:35
+    status: passing
+  - id: global.b.seo-metadata
+    text: >-
+      Web only. Every public page has a Romanian title and description (diacritics), a self canonical
+      without view params, Open Graph url / siteName «Bluvi» / locale ro_RO and twitter.card
+      summary_large_image. Share images come from the routes' opengraph-image / twitter-image files
+      (global.seo-og), so subpage metadata sets no image keys.
+      m1 title + description; m2 og:url = canonical, og:site_name, og:locale, twitter:card;
+      m3 canonical = the bare path (?perioada, ?sortare, ?tab, ?foto ignored);
+      m4 a page the sitemap lists is indexable (no noindex);
+      m5 noindex, follow: competition Statistici (signed-in only), Extra Cântare (at every stage: a
+      utility list read in the browser), Regulament without a regulation, Participanți with nobody
+      registered; a lake / public-water subpage without content (the sitemap's predicates, s2: no
+      reviews, no coordinates, nothing in the month's stats / catches / history); a read that
+      fails is «not known» and never noindexes. Before the start /cantare and /capturi show the
+      preview and canonicalise to /concursuri/<id>. Descriptions: counts via formatCount, the
+      venue named as the title names it, the reviews score = the AggregateRating (mean of the
+      three scores, one decimal).
+    fish_ref: common/utils/constants.ts:35
+    status: passing

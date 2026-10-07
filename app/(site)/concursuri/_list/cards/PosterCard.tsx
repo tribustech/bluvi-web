@@ -6,7 +6,7 @@ import { MapPinIcon } from '@heroicons/react/20/solid';
 import { CardShell } from '@/components/cards/CardShell';
 import { Pill } from '@/components/cards/parts';
 import { cn } from '@/components/ui/cn';
-import { dateWithHours, type CardMedia, type CompetitionCard } from '@/core/competitions';
+import { cardDateLabel, dateWithHours, type CardMedia, type CompetitionCard } from '@/core/competitions';
 import { blurDataUrl } from '@/lib/blurhash';
 import { FollowersPill } from '../Followers';
 import { posterFrame } from '../posterFit';
@@ -158,7 +158,7 @@ function PosterCopy({ c }: { c: CompetitionCard }) {
   return (
     <div className="flex flex-col gap-2 p-4">
       <div className="flex items-start gap-2">
-        <p className="shrink-0 pt-0.5 t-eyebrow text-accent-ink uppercase">{c.status === 'notStarted' ? dateWithHours(c) : c.dateLabel}</p>
+        <p className="shrink-0 pt-0.5 t-eyebrow text-accent-ink uppercase">{c.status === 'notStarted' ? dateWithHours(c) : cardDateLabel(c)}</p>
         {/* Wraps instead of truncating: a long ranking name takes a second row, right-aligned. */}
         <div className="flex min-w-0 flex-1 flex-wrap justify-end gap-1.5">
           <Chips c={c} />

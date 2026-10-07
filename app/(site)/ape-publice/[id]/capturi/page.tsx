@@ -25,11 +25,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const water = await metadataWater((await params).id);
   if (typeof water === 'string') return unresolvedMetadata(water);
-  return subMetadata(water, {
-    page: 'capturi',
-    title: 'Capturi',
-    description: `Toate capturile fotografiate pe ${water.name ?? 'această apă'} de pescarii din comunitatea Bluvi: specia, greutatea și pescarul.`,
-  });
+  return subMetadata(water, { page: 'capturi', title: 'Capturi' });
 }
 
 export default async function PublicWaterCatchesPage({ params }: Props) {

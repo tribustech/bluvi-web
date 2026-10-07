@@ -50,21 +50,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const s = load.data;
   const canonical = routes.sponsor(s.documentId);
   const description = plainText(s.description) || `${s.name}, sponsor Bluvi — aplicația pescarilor din România.`;
-  const image = sponsorImage(s.image);
+  // No image keys: the route's generated opengraph-image / twitter-image provide it (global.seo-og).
   return {
     title: `${s.name} · Sponsor`,
     description,
     alternates: { canonical },
-    openGraph: {
-      type: 'website',
-      title: s.name,
-      description,
-      url: absoluteUrl(canonical),
-      siteName: 'Bluvi',
-      locale: 'ro_RO',
-      ...(image ? { images: [{ url: image.src }] } : {}),
-    },
-    twitter: { card: 'summary', title: s.name, description },
+    openGraph: { type: 'website', title: s.name, description, url: absoluteUrl(canonical), siteName: 'Bluvi', locale: 'ro_RO' },
+    twitter: { card: 'summary_large_image', title: s.name, description },
   };
 }
 
@@ -82,7 +74,7 @@ export default async function SponsorPage({ params }: Props) {
   return (
     <>
       {/* The page's own band, on the server: the real name in the HTML + BreadcrumbList JSON-LD. */}
-      <BreadcrumbBand trail={[HOME_CRUMB, { label: s.name }]} jsonLd />
+      <BreadcrumbBand trail={[HOME_CRUMB, { label: s.name, href: routes.sponsor(s.documentId) }]} jsonLd />
       <JsonLd
         data={{
           '@context': 'https://schema.org',

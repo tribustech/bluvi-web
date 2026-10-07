@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   alternates: { canonical: routes.lakesMap() },
   openGraph: { type: 'website', url: routes.lakesMap(), siteName: 'Bluvi', locale: 'ro_RO', title: TITLE, description: DESCRIPTION },
-  twitter: { card: 'summary', title: TITLE, description: DESCRIPTION },
+  twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION },
 };
 
 /** The page as a map of the lakes, and its place under Bălți. */

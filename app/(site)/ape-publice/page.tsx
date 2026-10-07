@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   alternates: { canonical: routes.publicWaters() },
   openGraph: { type: 'website', title: 'Ape publice', description: DESCRIPTION, url: absoluteUrl(routes.publicWaters()), siteName: 'Bluvi', locale: 'ro_RO' },
+  twitter: { card: 'summary_large_image', title: 'Ape publice', description: DESCRIPTION },
 };
 
 /** The page as a collection of the waters on its map, and its place under Bălți (the shell's trail). */

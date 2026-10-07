@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { CardShell } from '@/components/cards/CardShell';
 import { LiveDot } from '@/components/templates/T1';
 import { cn } from '@/components/ui/cn';
-import type { CompetitionCard } from '@/core/competitions';
+import { cardDateLabel, type CompetitionCard } from '@/core/competitions';
 import { blur, CardName, Chips, LakeLine, photoRequestOf, posterOf, type PhotoRequest } from './cards/parts';
 import { StatusFooter } from './cards/footers';
 import { FollowersPill } from './Followers';
@@ -103,7 +103,7 @@ function CompactCopy({ c }: { c: CompetitionCard }) {
       <div className="flex min-h-5.5 items-center gap-1.5">
         {live ? <LiveDot /> : null}
         <p className={cn('min-w-0 flex-1 truncate t-label', live ? 'text-live' : 'text-accent-ink uppercase')}>
-          {live ? `LIVE · ${c.dateLabel}` : c.dateLabel}
+          {live ? `LIVE · ${cardDateLabel(c)}` : cardDateLabel(c)}
         </p>
         <FollowersPill viewers={c.viewers} competitionId={c.documentId} />
       </div>

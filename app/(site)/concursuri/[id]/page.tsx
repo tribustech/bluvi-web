@@ -52,7 +52,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const c = load.competition;
   const description = competitionSummary(c);
   const canonical = routes.competition(c.documentId);
-  const image = c.banner?.formats.large?.url ?? c.banner?.url;
   return {
     title: c.lake?.name ? `${c.name} · ${c.lake.name}` : c.name,
     description,
@@ -64,9 +63,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: absoluteUrl(canonical),
       siteName: 'Bluvi',
       locale: 'ro_RO',
-      ...(image ? { images: [{ url: image }] } : {}),
+      // No `images` here: the segment's generated card (opengraph-image.tsx, parity global.b.seo-og-images)
+      // is og:image — it already carries the photo, sized 1200×630, with its alt.
     },
-    twitter: { card: image ? 'summary_large_image' : 'summary', title: c.name, description },
+    twitter: { card: 'summary_large_image', title: c.name, description },
   };
 }
 

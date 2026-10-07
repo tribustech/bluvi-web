@@ -659,18 +659,24 @@ test('lakes.stands-ranking.c5 lakes.stands-ranking.s1 lakes.stands-ranking.s2 �
 test('lakes.competitions.c1 lakes.competitions.c2 lakes.competitions.c4 lakes.competitions.s3 — header, tabs (Live first), the empty tab', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   const lake = lakes.get(ID.chita)!;
-  await go(page, `/balti/${ID.chita}/concursuri`);
+  // ?tab=live: the bare URL opens the first tab that has competitions when nothing is live
+  // (competitions-list-balta.spec.ts pins that); this test is about Live's empty tab.
+  await go(page, `/balti/${ID.chita}/concursuri?tab=live`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(lake.name);
   await expect(page.getByRole('button', { name: 'Înapoi' })).toBeVisible();
   const tabs = page.getByRole('tablist', { name: 'Concursuri la baltă' });
-  await expect(tabs.getByRole('tab')).toHaveText(['Live', 'Viitoare', 'Trecute']);
+  // Each tab carries its count pill (zero hidden).
+  await expect(tabs.getByRole('tab')).toHaveText([/^Live/, /^Viitoare/, /^Trecute/]);
   await expect(tabs.getByRole('tab', { name: 'Live' })).toHaveAttribute('aria-selected', 'true');
   // Chita has nothing live: no LIVE dot on the tab (it would signal activity that is not there), and
   // the empty card leads to the next tab that has competitions.
   test.skip(chitaCounts.started > 0, 'needs no live competition at Chita');
-  await expect(page.getByRole('tabpanel')).toContainText('Momentan nu este disponibil niciun concurs.');
-  // The Live tab is built like its neighbours: no leading dot element.
-  expect(await tabs.getByRole('tab', { name: 'Live' }).locator('*').count()).toBe(await tabs.getByRole('tab', { name: 'Trecute' }).locator('*').count());
+  // The tab's own empty title; fish's «Momentan nu este disponibil…» only when the lake has none at all.
+  await expect(page.getByRole('tabpanel')).toContainText(
+    chitaCounts.notStarted + chitaCounts.completed > 0 ? 'Niciun concurs live acum.' : 'Momentan nu este disponibil niciun concurs.',
+  );
+  // The Live tab is its label alone: no leading dot element, no count pill (zero is hidden).
+  expect(await tabs.getByRole('tab', { name: 'Live' }).locator('*').count()).toBe(1);
   const next = chitaCounts.notStarted ? 'Vezi concursurile viitoare' : chitaCounts.completed ? 'Vezi concursurile trecute' : null;
   if (next) {
     await page.getByRole('tabpanel').getByRole('button', { name: next }).click();
@@ -701,7 +707,8 @@ test('lakes.competitions.c3 lakes.competitions.c6 lakes.competitions.s4 lakes.co
   await tabs.getByRole('tab', { name: 'Trecute' }).focus();
   await page.keyboard.press('ArrowLeft');
   await expect(tabs.getByRole('tab', { name: 'Viitoare' })).toHaveAttribute('aria-selected', 'true');
-  await expect(page).toHaveURL(/\?tab=viitoare$/);
+  // The tab the bare URL opens (Viitoare while nothing is live) keeps the URL bare, as Live did.
+  await expect(page).toHaveURL(chitaCounts.started === 0 ? /\/concursuri$/ : /\?tab=viitoare$/);
   for (const w of [PHONE, TABLET, LAPTOP, DESKTOP]) {
     await page.setViewportSize(w);
     await expectNoHorizontalScroll(page);
@@ -727,7 +734,8 @@ test('lakes.competitions.c5 lakes.competitions.s1 lakes.competitions.s2 — a fa
   await expect(page.getByRole('tabpanel').getByRole('status')).toBeVisible({ timeout: 60_000 });
   release();
   const alert = page.getByRole('tabpanel').getByRole('alert');
-  await expect(alert).toContainText('Nu am putut încărca concursurile');
+  // describeError: a 500 is the server's (fish ErrorScreen), with its retry.
+  await expect(alert).toContainText('Serverul nu răspunde');
   await expectNoA11yViolations(page);
   fail = false;
   await alert.getByRole('button', { name: 'Încearcă din nou' }).click();
@@ -751,7 +759,7 @@ test('lakes subpages — canonical, title and JSON-LD on every subpage; an unkno
   for (const [path, title] of [
     ['galerie', 'Galerie'],
     ['capturi', 'Capturi'],
-    ['clasament', 'Clasament pescari'],
+    ['clasament', 'Clasament'], // as its H1 «Clasament · {baltă}» and breadcrumb name it (global.b.seo-json-ld j2)
     ['standuri', 'Clasament standuri'],
     ['concursuri', 'Concursuri'],
   ] as const) {

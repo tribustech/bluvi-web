@@ -4,13 +4,11 @@ import { cacheLife, cacheTag } from 'next/cache';
 import {
   getClaimedPublicWaters,
   parsePublicWaterRouteParam,
-  publicWaterBasinName,
-  publicWaterName,
-  publicWaterSubtitle,
   toClaimedPublicWatersMap,
   type PublicWaterDetail,
 } from '@/core/lakes';
 import { routes } from '@/lib/routes';
+import { waterDetailDescription } from '@/lib/seo/describe';
 import { createServerTransport } from '@/lib/server/transport';
 import { sqlitePublicWatersSource as src } from './source';
 
@@ -96,16 +94,9 @@ export const loadClaimedLakeId = cache(async (linkCode: string | null): Promise<
   }
 });
 
-const AREA = new Intl.NumberFormat('ro-RO', { maximumFractionDigits: 2 });
-
-/** Meta description: «Snagov — lac de acumulare · ilfov, suprafață 5,57 km², …» (Romanian notation). */
+/** Meta description, a sentence: «Snagov, lac de acumulare în județul Ilfov, 5,57 km², …» (lib/seo/describe.ts). */
 export function waterDescription(water: PublicWaterDetail): string {
-  const name = publicWaterName(water);
-  const parts = [`${name} — ${publicWaterSubtitle(water).toLowerCase()}`];
-  if (water.areaKm2) parts.push(`suprafață ${AREA.format(water.areaKm2)} km²`);
-  const basin = publicWaterBasinName(water.basin);
-  if (basin) parts.push(`bazinul hidrografic ${basin}`);
-  return `${parts.join(', ')}. Hartă, partide de pescuit și capturi pe ${name} în Bluvi.`;
+  return waterDetailDescription(water);
 }
 
 /** The canonical URL: the stable linkCode (row ids may change with a new dataset version). */

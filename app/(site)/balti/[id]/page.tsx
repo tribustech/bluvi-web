@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { absoluteUrl, routes } from '@/lib/routes';
 import { LakeScreen } from './_components/LakeScreen';
-import { lakeIdsToPrerender, lakeImage, lakeJsonLd, lakeSummary, loadLake, loadLakeSections } from './_components/load';
+import { lakeIdsToPrerender, lakeJsonLd, lakeSummary, loadLake, loadLakeSections } from './_components/load';
 import { lakePriceFrom } from './_components/priceFrom';
 import { jsonLdHtml } from '@/lib/json-ld';
 
@@ -39,7 +39,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const lake = load.lake;
   const description = lakeSummary(lake);
   const canonical = routes.lake(lake.documentId);
-  const image = lakeImage(lake);
   const where = lake.countyRef?.name ? ` · ${lake.countyRef.name}` : '';
   return {
     title: `${lake.name}${where}`,
@@ -52,9 +51,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: absoluteUrl(canonical),
       siteName: 'Bluvi',
       locale: 'ro_RO',
-      ...(image ? { images: [{ url: image }] } : {}),
+      // No `images` here: the segment's generated card (opengraph-image.tsx, parity global.b.seo-og-images)
+      // is og:image — it already carries the photo, sized 1200×630, with its alt.
     },
-    twitter: { card: image ? 'summary_large_image' : 'summary', title: lake.name, description },
+    twitter: { card: 'summary_large_image', title: lake.name, description },
   };
 }
 

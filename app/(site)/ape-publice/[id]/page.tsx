@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description,
     alternates: { canonical },
     openGraph: { type: 'website', title: name, description, url: absoluteUrl(canonical), siteName: 'Bluvi', locale: 'ro_RO' },
-    twitter: { card: 'summary', title: name, description },
+    twitter: { card: 'summary_large_image', title: name, description },
   };
 }
 

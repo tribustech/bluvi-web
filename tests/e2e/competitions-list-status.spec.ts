@@ -84,7 +84,8 @@ for (const b of BALTA) {
       release();
       // c6 / s2: the error card with «Încearcă din nou»; the header's back stays.
       const alert = page.getByRole('tabpanel').getByRole('alert');
-      await expect(alert).toContainText('Nu am putut încărca concursurile', { timeout: 20_000 });
+      // describeError (lakes.competitions.c5): a 503 is the server's, not the connection's.
+      await expect(alert).toContainText('Serverul nu răspunde', { timeout: 20_000 });
       await expect(page.getByRole('button', { name: 'Înapoi' })).toBeVisible();
       // c7 / s3: the retry answers empty.
       mode = 'empty';

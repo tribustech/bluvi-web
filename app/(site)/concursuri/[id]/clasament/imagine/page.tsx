@@ -26,8 +26,10 @@ import { RankingImageScreen, type RankingImageScreenProps } from './RankingImage
  * ranking read fails, the browser's fetch decides instead.
  *
  * SEO: a utility view of the ranking — not indexed (the competition page is the canonical
- * content); its Open Graph image is the ranking image itself when there is one to draw, else the
- * competition's banner, so a shared link never previews a broken image.
+ * content). Its Open Graph / Twitter image is the segment's file-convention card
+ * (opengraph-image.tsx: the competition card labelled «Imagine clasament», with the podium once it
+ * is over — parity global.b.seo-og-images), never named here: file-based metadata overrides this
+ * object, and a 1200×630 card previews well where the tall ranking sheet would be cropped.
  */
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -48,13 +50,6 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const canonical = routes.competitionRankingImage(c.documentId, query);
   const title = `${TITLE} · ${c.name}`;
   const description = `Clasamentul concursului ${c.name}${c.lake?.name ? ` de pe ${c.lake.name}` : ''}, ca imagine de descărcat și distribuit.`;
-  const banner = c.banner?.formats.large?.url ?? c.banner?.url;
-  const image =
-    plan?.kind === 'ok'
-      ? { url: absoluteUrl(routes.competitionRankingImageFile(c.documentId, query)), alt: `Clasament ${c.name}` }
-      : banner
-        ? { url: banner, alt: c.name }
-        : null;
   return {
     title,
     description,
@@ -67,9 +62,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       url: absoluteUrl(canonical),
       siteName: 'Bluvi',
       locale: 'ro_RO',
-      ...(image ? { images: [image] } : {}),
     },
-    twitter: { card: image ? 'summary_large_image' : 'summary', title, description, ...(image ? { images: [image.url] } : {}) },
+    twitter: { card: 'summary_large_image', title, description },
   };
 }
 

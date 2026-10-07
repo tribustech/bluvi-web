@@ -801,64 +801,96 @@ screens:
       - "unknown or missing lakeId (fish: request still sent; empty or error)"
     criteria:
       - id: competitions-list.viitoare-balta.c1
-        text: Header with a back button and the title "Concursuri viitoare".
+        text: "Header: a back control beside the lake's name (fallback „baltă”) over the Live · Viitoare · Trecute tabs, «Viitoare» selected (fish: back + the title „Concursuri viitoare”)."
         fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:47
+        status: passing
+        note: "owner override (merged into lakes.competitions, README «Shared routes»); fish behaviour kept in fish_ref only: the lake page's header (lakes.competitions.c1/c2). e2e competitions-list-balta.spec.ts c1."
       - id: competitions-list.viitoare-balta.c2
-        text: "Data: GET /feed/competitions?status=notStarted&lakeId={lakeId}&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards)."
+        text: "Data: GET /feed/competition-cards?status=notStarted&lakeId={lakeId}&page={n}&pageSize=10 as an infinite list — the /concursuri competition cards (fish: legacy /feed/competitions DTO, pageSize=5)."
         fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:19
+        status: passing
+        note: "owner override (merged into lakes.competitions, README «Shared routes»); fish behaviour kept in fish_ref only: the lake page reads the /concursuri cards, 10 a page (lakes.competitions.c3). e2e asserts lakeId + pageSize=10 on the request."
       - id: competitions-list.viitoare-balta.c3
         text: The lake comes from the lakeId route parameter; only that lake's competitions are listed.
         fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:9
+        status: passing
       - id: competitions-list.viitoare-balta.c4
-        text: Competitions render as a two-column grid of the compact legacy competition card.
+        text: "Cards render as the /concursuri compact card (CompetitionCardItem) in ListGrid min=md: one column at 375, more as the width allows (fish: a two-column grid of the legacy card, CompetitionsFullList numColumns=2)."
         fish_ref: components/CompetitionsFullList.tsx:53
+        status: passing
+        note: "owner override (merged into lakes.competitions, README «Shared routes»); fish behaviour kept in fish_ref only: one card per row on a phone (a 280px minimum per card); e2e «tab counts … one column at 375» pins it."
       - id: competitions-list.viitoare-balta.c5
         text: First load shows the competitions list skeleton instead of the grid.
         fish_ref: components/CompetitionsFullList.tsx:78
+        status: passing
       - id: competitions-list.viitoare-balta.c6
-        text: A failed request replaces the screen with the shared error screen (with back button), retry and sign-out per describeError.
+        text: A failed request replaces the screen with the shared error screen (with back button), title, message and retry per describeError (retry only when canRetry).
         fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:38
+        status: passing
+        note: "owner override (web, 2026-10-07 M1 close-out): sign-out does not apply — this is the public, unauthenticated /feed/competition-cards read and the proxy already dropped a dead session's cookie, so the error card offers the retry instead. e2e competitions-list-balta.spec.ts «a failed tab says what failed …»; competitions-list-status.spec.ts (503 → «Serverul nu răspunde»)."
       - id: competitions-list.viitoare-balta.c7
         text: 'Empty list: "Momentan nu este disponibil niciun concurs."'
         fish_ref: components/CompetitionsFullList.tsx:116
+        status: passing
       - id: competitions-list.viitoare-balta.c8
         text: Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads.
         fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:26
+        status: passing
       - id: competitions-list.viitoare-balta.c9
         text: Tapping a card opens the competition page.
         fish_ref: components/CompetitionsFullList.tsx:66
+        status: passing
       - id: competitions-list.viitoare-balta.c10
-        text: "Card image: banner, else the lake's first image, shown whole (contain) over a blurred fill, small format; blurhash placeholder."
+        text: "Card image: banner, else the lake's image (small format, cover in the 76px thumb, blurhash placeholder); the thumb opens the poster whole."
         fish_ref: components/CompetitionCard.tsx:64
+        status: passing
+        note: "Fish parity kept (banner → lake image), so on the lake's own page cards without a banner all show the same lake photo. OPEN owner call (2026-10-07 review): drop the fallback on this page only (the card's no-poster tile) or keep fish. e2e asserts the lake image today."
       - id: competitions-list.viitoare-balta.c11
         text: "Card overlay: live competitions show the LIVE + viewers pill; upcoming and finished ones show the followers pill."
         fish_ref: components/CompetitionCard.tsx:123
+        status: passing
       - id: competitions-list.viitoare-balta.c12
         text: "Card date: start–end from getDisplayedDate in uppercase, a single day when start and end are the same day."
         fish_ref: components/CompetitionCard.tsx:74
+        status: passing
+        note: "A reopened competition's start can pass its end (local CMS: «6–4 oct»): the card never prints a backwards range, it shows the start day alone (core cardDateLabel, shared with /concursuri; CMS clamp proposed in docs/private/cms-patches/M1-competition-dateLabel.md). e2e competitions-list-balta.spec.ts c12 (fixture end < start)."
       - id: competitions-list.viitoare-balta.c13
-        text: 'Card body: name (2 lines), pin + lake name when present, avatars of registered + pending entrants, "{registered}/{participantsLimit, fallback 21} pescari|echipe".'
+        text: "Card body: date line, name (2 lines), format + ranking chips; NO lake line on the lake's own page; footer = the /concursuri Upcoming footer (competitions-list.cards.c13): faces + «{registered}/{participantsLimit} pescari|echipe», or «{n} pescari|echipe» when there is no limit (fish: pin + lake name; limit fallback 21)."
         fish_ref: components/CompetitionCard.tsx:144
+        status: passing
+        note: "owner override (merged into lakes.competitions, README «Shared routes»); fish behaviour kept in fish_ref only: the /concursuri card minus the lake line (withoutLake), no 21 fallback (cards/footers.tsx). e2e asserts the lake line is absent and «6/10 pescari»."
       - id: competitions-list.viitoare-balta.c14
         text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare").'
         fish_ref: components/CompetitionCard.tsx:191
+        status: passing
       - id: competitions-list.viitoare-balta.c15
         text: 'Card badges: "Individual" / "Echipe" (green) and the ranking type (yellow).'
         fish_ref: components/CompetitionCard.tsx:234
+        status: passing
       - id: competitions-list.viitoare-balta.c16
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/notStarted/[lakeId].tsx:59
+        status: passing
     mobile_only: false
     # Merged into lakes.competitions (header = the lake's name, page size 10, /feed/competition-cards and the
-    # /concursuri compact card are that page's). c3, c5–c7 are checked there by
-    # tests/e2e/competitions-list-status.spec.ts; c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts
-    # (2026-10-06, all passing); state «unknown lakeId» (s7) by the .s7 test there (web: not-found page,
-    # no card read). Open: c8 / state «refreshing» (s5) — the owner page has no refresh control (fish
-    # pull-to-refresh; /concursuri lists have «Reîmprospătează» via DashboardRefresh); it needs a
-    # ListHeader `end` refresh in app/(site)/balti/[id]/concursuri/LakeCompetitionsScreen.tsx (lakes area).
-    # Round 3 (2026-10-06): both specs re-run green (9 + 4); the owner page still has no refresh control,
-    # and that file is outside this area (lakes redesign in progress), so the screen stays proposed.
-    status: proposed
+    # /concursuri compact card are that page's). c3, c5–c7 are checked by tests/e2e/competitions-list-status.spec.ts;
+    # c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts; state «unknown lakeId» (s7) by its .s7 test
+    # (web: not-found page, no card read). c8 / «refreshing» (s5), 2026-10-07: fish pull-to-refresh is the
+    # /concursuri stand-in, DashboardRefresh «Reîmprospătează» in the T1 header's action slot — one read of the
+    # open tab per press, cards kept (spinning glyph, region aria-busy), a failed re-read keeps them under
+    # «Nu am putut actualiza lista.» with its own retry. Verifier lens (B4): all 16 criteria and 7 states covered;
+    # balta spec 13/13 and status spec 7/7 green on :3121.
+    # 2026-10-07 review round: c1, c2, c4, c13 rewritten to the merged page's behaviour (owner overrides, see each
+    # note — they described fish's legacy list, which the web deliberately does not have); c10 keeps fish (lake image
+    # fallback), owner call open. Bare URL opens the tab that has competitions when nothing is live; tab count pills;
+    # the empty card's action logs the tab press and focuses the new tab; footer «10 din 24 de concursuri»; one column
+    # at 375 pinned. balta spec 15/15 green on :3121.
+    # 2026-10-07 M1 close-out (lakes.competitions fix): c6 describeError (title / message / retry when canRetry, no
+    # sign-out on this public read), c12 never a backwards range for a reopened competition (cardDateLabel), c13
+    # rewritten per status to the cards' footers (Upcoming / Live / Results) with e2e for each, empty tab titled per
+    # tab (fish's sentence only when every count is 0), «Concursuri» caption under the lake's name. balta spec 16/16,
+    # status spec + balta-subpagini green on :3121.
+    status: passing
   - id: competitions-list.live
     title: Concursuri live
     fish:
@@ -1010,64 +1042,96 @@ screens:
       - "unknown or missing lakeId (fish: request still sent; empty or error)"
     criteria:
       - id: competitions-list.live-balta.c1
-        text: Header with a back button and the title "Concursuri live".
+        text: "Header: a back control beside the lake's name (fallback „baltă”) over the Live · Viitoare · Trecute tabs, «Live» selected (fish: back + the title „Concursuri live”)."
         fish_ref: app/(app)/competitions/started/[lakeId].tsx:47
+        status: passing
+        note: "owner override (merged into lakes.competitions, README «Shared routes»); fish behaviour kept in fish_ref only: the lake page's header (lakes.competitions.c1/c2). e2e competitions-list-balta.spec.ts c1."
       - id: competitions-list.live-balta.c2
-        text: "Data: GET /feed/competitions?status=started&lakeId={lakeId}&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards)."
+        text: "Data: GET /feed/competition-cards?status=started&lakeId={lakeId}&page={n}&pageSize=10 as an infinite list — the /concursuri competition cards (fish: legacy /feed/competitions DTO, pageSize=5)."
         fish_ref: app/(app)/competitions/started/[lakeId].tsx:19
+        status: passing
+        note: "owner override (merged into lakes.competitions, README «Shared routes»); fish behaviour kept in fish_ref only: the lake page reads the /concursuri cards, 10 a page (lakes.competitions.c3). e2e asserts lakeId + pageSize=10 on the request."
       - id: competitions-list.live-balta.c3
         text: The lake comes from the lakeId route parameter; only that lake's competitions are listed.
         fish_ref: app/(app)/competitions/started/[lakeId].tsx:9
+        status: passing
       - id: competitions-list.live-balta.c4
-        text: Competitions render as a two-column grid of the compact legacy competition card.
+        text: "Cards render as the /concursuri compact card (CompetitionCardItem) in ListGrid min=md: one column at 375, more as the width allows (fish: a two-column grid of the legacy card, CompetitionsFullList numColumns=2)."
         fish_ref: components/CompetitionsFullList.tsx:53
+        status: passing
+        note: "owner override (merged into lakes.competitions, README «Shared routes»); fish behaviour kept in fish_ref only: one card per row on a phone (a 280px minimum per card); e2e «tab counts … one column at 375» pins it."
       - id: competitions-list.live-balta.c5
         text: First load shows the competitions list skeleton instead of the grid.
         fish_ref: components/CompetitionsFullList.tsx:78
+        status: passing
       - id: competitions-list.live-balta.c6
-        text: A failed request replaces the screen with the shared error screen (with back button), retry and sign-out per describeError.
+        text: A failed request replaces the screen with the shared error screen (with back button), title, message and retry per describeError (retry only when canRetry).
         fish_ref: app/(app)/competitions/started/[lakeId].tsx:38
+        status: passing
+        note: "owner override (web, 2026-10-07 M1 close-out): sign-out does not apply — this is the public, unauthenticated /feed/competition-cards read and the proxy already dropped a dead session's cookie, so the error card offers the retry instead. e2e competitions-list-balta.spec.ts «a failed tab says what failed …»; competitions-list-status.spec.ts (503 → «Serverul nu răspunde»)."
       - id: competitions-list.live-balta.c7
         text: 'Empty list: "Momentan nu este disponibil niciun concurs."'
         fish_ref: components/CompetitionsFullList.tsx:116
+        status: passing
       - id: competitions-list.live-balta.c8
         text: Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads.
         fish_ref: app/(app)/competitions/started/[lakeId].tsx:26
+        status: passing
       - id: competitions-list.live-balta.c9
         text: Tapping a card opens the competition page.
         fish_ref: components/CompetitionsFullList.tsx:66
+        status: passing
       - id: competitions-list.live-balta.c10
-        text: "Card image: banner, else the lake's first image, shown whole (contain) over a blurred fill, small format; blurhash placeholder."
+        text: "Card image: banner, else the lake's image (small format, cover in the 76px thumb, blurhash placeholder); the thumb opens the poster whole."
         fish_ref: components/CompetitionCard.tsx:64
+        status: passing
+        note: "Fish parity kept (banner → lake image), so on the lake's own page cards without a banner all show the same lake photo. OPEN owner call (2026-10-07 review): drop the fallback on this page only (the card's no-poster tile) or keep fish. e2e asserts the lake image today."
       - id: competitions-list.live-balta.c11
         text: "Card overlay: live competitions show the LIVE + viewers pill; upcoming and finished ones show the followers pill."
         fish_ref: components/CompetitionCard.tsx:123
+        status: passing
       - id: competitions-list.live-balta.c12
         text: "Card date: start–end from getDisplayedDate in uppercase, a single day when start and end are the same day."
         fish_ref: components/CompetitionCard.tsx:74
+        status: passing
+        note: "A reopened competition's start can pass its end (local CMS: «6–4 oct»): the card never prints a backwards range, it shows the start day alone (core cardDateLabel, shared with /concursuri; CMS clamp proposed in docs/private/cms-patches/M1-competition-dateLabel.md). e2e competitions-list-balta.spec.ts c12 (fixture end < start)."
       - id: competitions-list.live-balta.c13
-        text: 'Card body: name (2 lines), pin + lake name when present, avatars of registered + pending entrants, "{registered}/{participantsLimit, fallback 21} pescari|echipe".'
+        text: "Card body: date line, name (2 lines), format + ranking chips; NO lake line on the lake's own page; footer = the /concursuri Live footer (competitions-list.cards.c14/c15): faces + «{n} pescari|echipe în concurs» and the catch stats when there are catches, else «Încă nu sunt capturi înregistrate.» / «Statisticile nu sunt disponibile.» — no «{registered}/{limit}» (fish: pin + lake name; N/limit + faces on every status)."
         fish_ref: components/CompetitionCard.tsx:144
+        status: passing
+        note: "owner override (merged into lakes.competitions, README «Shared routes»; 2026-10-07 M1 close-out rewrote it — it claimed fish's N/limit footer, which the Live card does not render): the /concursuri card minus the lake line (withoutLake), its Live footer (cards/footers.tsx LiveFooter). e2e competitions-list-balta.spec.ts c13 asserts the lake line is absent, «6 pescari în concurs» + the stats, both notes, and no «6/10 pescari»."
       - id: competitions-list.live-balta.c14
         text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare").'
         fish_ref: components/CompetitionCard.tsx:191
+        status: passing
       - id: competitions-list.live-balta.c15
         text: 'Card badges: "Individual" / "Echipe" (green) and the ranking type (yellow).'
         fish_ref: components/CompetitionCard.tsx:234
+        status: passing
       - id: competitions-list.live-balta.c16
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/started/[lakeId].tsx:59
+        status: passing
     mobile_only: false
     # Merged into lakes.competitions (header = the lake's name, page size 10, /feed/competition-cards and the
-    # /concursuri compact card are that page's). c3, c5–c7 are checked there by
-    # tests/e2e/competitions-list-status.spec.ts; c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts
-    # (2026-10-06, all passing); state «unknown lakeId» (s7) by the .s7 test there (web: not-found page,
-    # no card read). Open: c8 / state «refreshing» (s5) — the owner page has no refresh control (fish
-    # pull-to-refresh; /concursuri lists have «Reîmprospătează» via DashboardRefresh); it needs a
-    # ListHeader `end` refresh in app/(site)/balti/[id]/concursuri/LakeCompetitionsScreen.tsx (lakes area).
-    # Round 3 (2026-10-06): both specs re-run green (9 + 4); the owner page still has no refresh control,
-    # and that file is outside this area (lakes redesign in progress), so the screen stays proposed.
-    status: proposed
+    # /concursuri compact card are that page's). c3, c5–c7 are checked by tests/e2e/competitions-list-status.spec.ts;
+    # c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts; state «unknown lakeId» (s7) by its .s7 test
+    # (web: not-found page, no card read). c8 / «refreshing» (s5), 2026-10-07: fish pull-to-refresh is the
+    # /concursuri stand-in, DashboardRefresh «Reîmprospătează» in the T1 header's action slot — one read of the
+    # open tab per press, cards kept (spinning glyph, region aria-busy), a failed re-read keeps them under
+    # «Nu am putut actualiza lista.» with its own retry. Verifier lens (B4): all 16 criteria and 7 states covered;
+    # balta spec 13/13 and status spec 7/7 green on :3121.
+    # 2026-10-07 review round: c1, c2, c4, c13 rewritten to the merged page's behaviour (owner overrides, see each
+    # note — they described fish's legacy list, which the web deliberately does not have); c10 keeps fish (lake image
+    # fallback), owner call open. Bare URL opens the tab that has competitions when nothing is live; tab count pills;
+    # the empty card's action logs the tab press and focuses the new tab; footer «10 din 24 de concursuri»; one column
+    # at 375 pinned. balta spec 15/15 green on :3121.
+    # 2026-10-07 M1 close-out (lakes.competitions fix): c6 describeError (title / message / retry when canRetry, no
+    # sign-out on this public read), c12 never a backwards range for a reopened competition (cardDateLabel), c13
+    # rewritten per status to the cards' footers (Upcoming / Live / Results) with e2e for each, empty tab titled per
+    # tab (fish's sentence only when every count is 0), «Concursuri» caption under the lake's name. balta spec 16/16,
+    # status spec + balta-subpagini green on :3121.
+    status: passing
   - id: competitions-list.incheiate
     title: Concursuri trecute
     fish:
@@ -1206,64 +1270,96 @@ screens:
       - "unknown or missing lakeId (fish: request still sent; empty or error)"
     criteria:
       - id: competitions-list.incheiate-balta.c1
-        text: Header with a back button and the title "Concursuri trecute".
+        text: "Header: a back control beside the lake's name (fallback „baltă”) over the Live · Viitoare · Trecute tabs, «Trecute» selected (fish: back + the title „Concursuri încheiate”)."
         fish_ref: app/(app)/competitions/completed/[lakeId].tsx:47
+        status: passing
+        note: "owner override (merged into lakes.competitions, README «Shared routes»); fish behaviour kept in fish_ref only: the lake page's header (lakes.competitions.c1/c2). e2e competitions-list-balta.spec.ts c1."
       - id: competitions-list.incheiate-balta.c2
-        text: "Data: GET /feed/competitions?status=completed&lakeId={lakeId}&page={n}&pageSize=5 as an infinite list (legacy list DTO, not competition cards)."
+        text: "Data: GET /feed/competition-cards?status=completed&lakeId={lakeId}&page={n}&pageSize=10 as an infinite list — the /concursuri competition cards (fish: legacy /feed/competitions DTO, pageSize=5)."
         fish_ref: app/(app)/competitions/completed/[lakeId].tsx:19
+        status: passing
+        note: "owner override (merged into lakes.competitions, README «Shared routes»); fish behaviour kept in fish_ref only: the lake page reads the /concursuri cards, 10 a page (lakes.competitions.c3). e2e asserts lakeId + pageSize=10 on the request."
       - id: competitions-list.incheiate-balta.c3
         text: The lake comes from the lakeId route parameter; only that lake's competitions are listed.
         fish_ref: app/(app)/competitions/completed/[lakeId].tsx:9
+        status: passing
       - id: competitions-list.incheiate-balta.c4
-        text: Competitions render as a two-column grid of the compact legacy competition card.
+        text: "Cards render as the /concursuri compact card (CompetitionCardItem) in ListGrid min=md: one column at 375, more as the width allows (fish: a two-column grid of the legacy card, CompetitionsFullList numColumns=2)."
         fish_ref: components/CompetitionsFullList.tsx:53
+        status: passing
+        note: "owner override (merged into lakes.competitions, README «Shared routes»); fish behaviour kept in fish_ref only: one card per row on a phone (a 280px minimum per card); e2e «tab counts … one column at 375» pins it."
       - id: competitions-list.incheiate-balta.c5
         text: First load shows the competitions list skeleton instead of the grid.
         fish_ref: components/CompetitionsFullList.tsx:78
+        status: passing
       - id: competitions-list.incheiate-balta.c6
-        text: A failed request replaces the screen with the shared error screen (with back button), retry and sign-out per describeError.
+        text: A failed request replaces the screen with the shared error screen (with back button), title, message and retry per describeError (retry only when canRetry).
         fish_ref: app/(app)/competitions/completed/[lakeId].tsx:38
+        status: passing
+        note: "owner override (web, 2026-10-07 M1 close-out): sign-out does not apply — this is the public, unauthenticated /feed/competition-cards read and the proxy already dropped a dead session's cookie, so the error card offers the retry instead. e2e competitions-list-balta.spec.ts «a failed tab says what failed …»; competitions-list-status.spec.ts (503 → «Serverul nu răspunde»)."
       - id: competitions-list.incheiate-balta.c7
         text: 'Empty list: "Momentan nu este disponibil niciun concurs."'
         fish_ref: components/CompetitionsFullList.tsx:116
+        status: passing
       - id: competitions-list.incheiate-balta.c8
         text: Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads.
         fish_ref: app/(app)/competitions/completed/[lakeId].tsx:26
+        status: passing
       - id: competitions-list.incheiate-balta.c9
         text: Tapping a card opens the competition page.
         fish_ref: components/CompetitionsFullList.tsx:66
+        status: passing
       - id: competitions-list.incheiate-balta.c10
-        text: "Card image: banner, else the lake's first image, shown whole (contain) over a blurred fill, small format; blurhash placeholder."
+        text: "Card image: banner, else the lake's image (small format, cover in the 76px thumb, blurhash placeholder); the thumb opens the poster whole."
         fish_ref: components/CompetitionCard.tsx:64
+        status: passing
+        note: "Fish parity kept (banner → lake image), so on the lake's own page cards without a banner all show the same lake photo. OPEN owner call (2026-10-07 review): drop the fallback on this page only (the card's no-poster tile) or keep fish. e2e asserts the lake image today."
       - id: competitions-list.incheiate-balta.c11
         text: "Card overlay: live competitions show the LIVE + viewers pill; upcoming and finished ones show the followers pill."
         fish_ref: components/CompetitionCard.tsx:123
+        status: passing
       - id: competitions-list.incheiate-balta.c12
         text: "Card date: start–end from getDisplayedDate in uppercase, a single day when start and end are the same day."
         fish_ref: components/CompetitionCard.tsx:74
+        status: passing
+        note: "A reopened competition's start can pass its end (local CMS: «6–4 oct»): the card never prints a backwards range, it shows the start day alone (core cardDateLabel, shared with /concursuri; CMS clamp proposed in docs/private/cms-patches/M1-competition-dateLabel.md). e2e competitions-list-balta.spec.ts c12 (fixture end < start)."
       - id: competitions-list.incheiate-balta.c13
-        text: 'Card body: name (2 lines), pin + lake name when present, avatars of registered + pending entrants, "{registered}/{participantsLimit, fallback 21} pescari|echipe".'
+        text: "Card body: date line, name (2 lines), format + ranking chips; NO lake line on the lake's own page; footer = the /concursuri Results footer (competitions-list.cards.c16/c17): the podium, else «Rezultatele nu sunt disponibile.» / «Fără capturi înregistrate.» / «Deschide concursul pentru clasament.» — no entrant count or faces (fish: pin + lake name; N/limit + faces on every status)."
         fish_ref: components/CompetitionCard.tsx:144
+        status: passing
+        note: "owner override (merged into lakes.competitions, README «Shared routes»; 2026-10-07 M1 close-out rewrote it — it claimed fish's N/limit footer, which the Trecute card does not render): the /concursuri card minus the lake line (withoutLake), its Results footer (cards/footers.tsx ResultsFooter). e2e competitions-list-balta.spec.ts c13 asserts the lake line is absent, the podium list, both notes, and no «6/10 pescari»."
       - id: competitions-list.incheiate-balta.c14
         text: 'Upcoming card with pending registrations adds "{n} in așteptare" in orange (fish copy lacks the diacritic: "în așteptare").'
         fish_ref: components/CompetitionCard.tsx:191
+        status: passing
       - id: competitions-list.incheiate-balta.c15
         text: 'Card badges: "Individual" / "Echipe" (green) and the ranking type (yellow).'
         fish_ref: components/CompetitionCard.tsx:234
+        status: passing
       - id: competitions-list.incheiate-balta.c16
         text: A render error shows the route error boundary's retry card.
         fish_ref: app/(app)/competitions/completed/[lakeId].tsx:59
+        status: passing
     mobile_only: false
     # Merged into lakes.competitions (header = the lake's name, page size 10, /feed/competition-cards and the
-    # /concursuri compact card are that page's). c3, c5–c7 are checked there by
-    # tests/e2e/competitions-list-status.spec.ts; c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts
-    # (2026-10-06, all passing); state «unknown lakeId» (s7) by the .s7 test there (web: not-found page,
-    # no card read). Open: c8 / state «refreshing» (s5) — the owner page has no refresh control (fish
-    # pull-to-refresh; /concursuri lists have «Reîmprospătează» via DashboardRefresh); it needs a
-    # ListHeader `end` refresh in app/(site)/balti/[id]/concursuri/LakeCompetitionsScreen.tsx (lakes area).
-    # Round 3 (2026-10-06): both specs re-run green (9 + 4); the owner page still has no refresh control,
-    # and that file is outside this area (lakes redesign in progress), so the screen stays proposed.
-    status: proposed
+    # /concursuri compact card are that page's). c3, c5–c7 are checked by tests/e2e/competitions-list-status.spec.ts;
+    # c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts; state «unknown lakeId» (s7) by its .s7 test
+    # (web: not-found page, no card read). c8 / «refreshing» (s5), 2026-10-07: fish pull-to-refresh is the
+    # /concursuri stand-in, DashboardRefresh «Reîmprospătează» in the T1 header's action slot — one read of the
+    # open tab per press, cards kept (spinning glyph, region aria-busy), a failed re-read keeps them under
+    # «Nu am putut actualiza lista.» with its own retry. Verifier lens (B4): all 16 criteria and 7 states covered;
+    # balta spec 13/13 and status spec 7/7 green on :3121.
+    # 2026-10-07 review round: c1, c2, c4, c13 rewritten to the merged page's behaviour (owner overrides, see each
+    # note — they described fish's legacy list, which the web deliberately does not have); c10 keeps fish (lake image
+    # fallback), owner call open. Bare URL opens the tab that has competitions when nothing is live; tab count pills;
+    # the empty card's action logs the tab press and focuses the new tab; footer «10 din 24 de concursuri»; one column
+    # at 375 pinned. balta spec 15/15 green on :3121.
+    # 2026-10-07 M1 close-out (lakes.competitions fix): c6 describeError (title / message / retry when canRetry, no
+    # sign-out on this public read), c12 never a backwards range for a reopened competition (cardDateLabel), c13
+    # rewritten per status to the cards' footers (Upcoming / Live / Results) with e2e for each, empty tab titled per
+    # tab (fish's sentence only when every count is 0), «Concursuri» caption under the lake's name. balta spec 16/16,
+    # status spec + balta-subpagini green on :3121.
+    status: passing
 behaviours:
   - id: competitions-list.b.tab-entry
     text: The area is a main tab labelled "Competiții" with a trophy icon; on web it is the top-bar link "Competiții" → /concursuri, open to guests (the (app) group does not redirect signed-out users).

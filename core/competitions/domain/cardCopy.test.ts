@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cardDateLabel,
   cardRankingLabel,
   dateWithHours,
   enrolledLabel,
@@ -73,5 +74,16 @@ describe('counting copy', () => {
   it('dateWithHours', () => {
     expect(dateWithHours({ dateLabel: '20 oct', hoursLabel: '08:00–16:00' })).toBe('20 oct · 08:00–16:00');
     expect(dateWithHours({ dateLabel: '20–21 oct', hoursLabel: null })).toBe('20–21 oct');
+  });
+  it('cardDateLabel: the server label, never a backwards range', () => {
+    const c = { dateLabel: '20–21 oct', startDate: '2026-10-20T05:00:00.000Z', endDate: '2026-10-21T15:00:00.000Z' };
+    expect(cardDateLabel(c)).toBe('20–21 oct');
+    expect(cardDateLabel({ ...c, endDate: null })).toBe('20–21 oct');
+    expect(cardDateLabel({ ...c, startDate: null })).toBe('20–21 oct');
+    // A reopened competition: start 2026-10-05T21:02Z (6 oct in Bucharest), end 4 oct.
+    const reopened = { dateLabel: '6–4 oct', startDate: '2026-10-05T21:02:00.000Z', endDate: '2026-10-04T18:00:00.000Z' };
+    expect(cardDateLabel(reopened)).toBe('6 oct');
+    expect(cardDateLabel({ ...reopened, dateLabel: '6–4 oct 2026' })).toBe('6 oct 2026');
+    expect(cardDateLabel({ dateLabel: '5 sept – 4 aug', startDate: '2026-09-05T08:00:00.000Z', endDate: '2026-08-04T08:00:00.000Z' })).toBe('5 sept');
   });
 });

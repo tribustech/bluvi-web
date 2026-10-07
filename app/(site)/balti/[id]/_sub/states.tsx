@@ -33,6 +33,7 @@ export function firstReadFailed(q: ReadState, hasData = q.data !== undefined): b
  */
 export function SubListError({
   title,
+  description,
   onRetry,
   retrying,
   attempt,
@@ -40,7 +41,10 @@ export function SubListError({
   retryKey = LIST_RETRY,
 }: {
   title: string;
-  onRetry: () => void;
+  /** The kit's «Verifică conexiunea…» when absent; a describeError message otherwise. */
+  description?: string;
+  /** Absent: no retry button (describeError `canRetry` false — retrying cannot fix it). */
+  onRetry?: () => void;
   retrying: boolean;
   attempt: number;
   testId?: string;
@@ -55,10 +59,15 @@ export function SubListError({
     <div data-testid={testId}>
       <ListError
         title={title}
-        onRetry={() => {
-          markRetry(retryKey);
-          onRetry();
-        }}
+        description={description}
+        onRetry={
+          onRetry
+            ? () => {
+                markRetry(retryKey);
+                onRetry();
+              }
+            : undefined
+        }
         retrying={retrying}
         attempt={attempt}
       />

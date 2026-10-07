@@ -1241,26 +1241,46 @@ screens:
       - "empty tab"
       - "results"
       - "loading more"
+      - "refreshing (Reîmprospătează: cards kept, failed re-read marked with a retry)"
+      - "unknown lakeId → not-found (noindex), no card read"
     criteria:
       - id: lakes.competitions.c1
-        text: "Header: back control beside the lake name (fallback „baltă”), no promotional subtitle."
+        text: "Header: back control beside the lake name (fallback „baltă”), no promotional subtitle; the caption «Concursuri» under the name says what the page is (ListHeader description, also in the loading frame)."
         fish_ref: "app/(app)/lakes/[lakeId]/concursuri.tsx:146"
+        status: passing
+        note: "2026-10-07 M1 close-out: at 375 the breadcrumb is hidden and the lake's name over Live · Viitoare · Trecute read as the lake page. The caption is the page's subject, not promotion. e2e competitions-list-balta.spec.ts c1 asserts it."
       - id: lakes.competitions.c2
-        text: "Tabs „Live” (started), „Viitoare” (notStarted), „Trecute” (completed); Live is selected first."
+        text: "Tabs „Live” (started), „Viitoare” (notStarted), „Trecute” (completed), in that order, each with its count pill (meta.counts, zero hidden; the LIVE dot only while something is live). The bare URL opens Live while something is live, else Viitoare, else Trecute (fish always opens Live)."
         fish_ref: "app/(app)/lakes/[lakeId]/concursuri.tsx:102"
+        status: passing
+        note: "owner override (2026-10-07 review): fish lands on an empty Live for a lake with nothing live; the web's canonical, sitemapped bare URL lands where the competitions are (its JSON-LD ItemList is no longer empty), the URL stays bare, an explicit ?tab=live wins. Count pills as the approved /concursuri tabs. e2e competitions-list-balta.spec.ts «the bare URL with nothing live …» and «tab counts …»."
       - id: lakes.competitions.c3
         text: "Each tab lists that lake's competitions 10 per page with infinite scroll; a card opens /concursuri/[id]."
         fish_ref: "app/(app)/lakes/[lakeId]/concursuri.tsx:46"
+        status: passing
       - id: lakes.competitions.c4
-        text: "Empty tab: „Momentan nu este disponibil niciun concurs.”"
+        text: "Empty tab: its own title — «Niciun concurs live acum.» / «Niciun concurs programat.» / «Niciun concurs încheiat încă.»; fish's „Momentan nu este disponibil niciun concurs.” only when every count is 0 — with «Vezi concursurile viitoare|trecute|live» to the next tab that has some — a tab switch like any other (competition_list_tab_pressed logged, focus on the newly active tab, never <body>)."
         fish_ref: "components/CompetitionsFullList.tsx:119"
+        status: passing
+        note: "owner override (2026-10-07 M1 close-out): fish's sentence is a single-status list's; under a strip that shows «Viitoare 2 · Trecute 12» it contradicted the counts. e2e competitions-list-balta.spec.ts «tab counts …» (per-tab title), competitions-list-status.spec.ts (all zero → fish's sentence)."
       - id: lakes.competitions.c5
-        text: "A failed tab shows the error screen with „Încearcă din nou”; refresh refetches the active tab."
+        text: "A failed tab shows the error card with title, message and „Încearcă din nou” chosen by describeError (server down → «Serverul nu răspunde» + retry; a request the server refuses → its message, no retry); refresh refetches the active tab. No «Deconectează-te»: the read is public and the proxy already dropped a dead session's cookie, so the retry reads anonymously."
         fish_ref: "app/(app)/lakes/[lakeId]/concursuri.tsx:73"
+        status: passing
+        note: "2026-10-07 M1 close-out: was a fixed title + «Verifică conexiunea…» + an unconditional retry for every failure. e2e competitions-list-balta.spec.ts «a failed tab says what failed …»."
       - id: lakes.competitions.c6
-        text: "?tab=live|viitoare|trecute selects the open tab (default Live) and changing tab updates the URL; the lake page rails' „Vezi toate” (fish /competitions/{started|notStarted|completed}/{lakeId}) land here with the matching tab, so the per-lake status lists of competitions-list (*-balta, merged_into this screen) need no page of their own."
+        text: "?tab=live|viitoare|trecute selects the open tab (default: see c2) and changing tab updates the URL; the lake page rails' „Vezi toate” (fish /competitions/{started|notStarted|completed}/{lakeId}) land here with the matching tab, so the per-lake status lists of competitions-list (*-balta, merged_into this screen) need no page of their own."
         fish_ref: "components/HorizontalCompetitionsList.tsx:75"
+        status: passing
     mobile_only: false
+    # c5 refresh (2026-10-07): DashboardRefresh «Reîmprospătează» in the header re-reads the open tab
+    # (tests/e2e/competitions-list-balta.spec.ts, lakes.competitions.c5 / s6 / s7).
+    # 2026-10-07 review round: bare URL → the tab that has competitions (c2 note), count pills, the empty card's
+    # action logged + focus kept (c4), «N din 24 de concursuri» (formatCount). OPEN owner call: on this page every
+    # card without a banner shows the same lake photo (fish banner → lake image, kept for parity) — drop the
+    # fallback here or keep fish? balta spec 15/15, balta-subpagini lakes.competitions 7/7 green on :3121.
+    # 2026-10-07 M1 close-out: c1 caption «Concursuri», c4 per-tab empty titles, c5 describeError; the shared
+    # card never prints a backwards date range (reopened competitions; CMS note M1-competition-dateLabel.md).
     status: passing
 
   # ───────────────────────────────────────────── lake map with stands
