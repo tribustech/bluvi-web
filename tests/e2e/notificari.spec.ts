@@ -507,6 +507,16 @@ test.describe('account.notifications', () => {
     await page.setViewportSize({ width: 375, height: 900 });
     await expect(summary).toBeHidden();
     await expect(markAll(page)).toHaveCount(1);
+    // The settings gear is a header tool only 768–1279 (☰ holds the row on a phone, the summary from
+    // 1280): a fourth phone tool cut «Notificări» to «Notifică…» (seen in the 375 baseline).
+    const gear = page.getByRole('main').getByRole('link', { name: 'Setări notificări' });
+    await expect(gear).toBeHidden();
+    const h1 = (await title(page).boundingBox())!;
+    expect(await title(page).evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+    expect(h1.width).toBeGreaterThan(0);
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect(gear).toBeVisible();
+    await page.setViewportSize({ width: 375, height: 900 });
     await expectNoA11yViolations(page);
   });
 

@@ -12,6 +12,11 @@ import { anglerHref, partidaHref, routes } from '@/lib/routes';
  * tests/unit/notification-href.test.ts checks every gate against app/(site) (a page that lands
  * while its gate is still off fails the test, so nobody forgets to flip it). Shared switches
  * (ON_WEB in lib/routes) stay there: the angler profile and the partidă page.
+ *
+ * Re-checked after M2 (2026-10-07): fish sends no notification to Setări, Setări → Notificări,
+ * Preferințe concursuri, the own profile, the suggested anglers or Completează profilul (none of
+ * those routes appears in fish helpers/getRedirectLocationForNotification.ts), so the M2 account
+ * pages add no link here; the unit test pins that no type maps onto them.
  */
 export const NOTIFICATION_PAGES_ON_WEB = {
   /** /concursuri/[id]/chat?camera= — competition chat (M5, participant.yml). */

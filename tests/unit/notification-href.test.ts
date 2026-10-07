@@ -129,6 +129,29 @@ describe('notificationHref — every type with its ids', () => {
   });
 });
 
+describe('notificationHref — the M2 account pages are no notification target (as fish)', () => {
+  // fish getRedirectLocationForNotification sends nothing to settings, notification settings,
+  // competition preferences, the own profile, suggested anglers or complete-profile (re-checked
+  // 2026-10-07 once /setari, /setari/notificari(/concursuri), /profil(/completeaza) and
+  // /pescari/sugerati shipped). A full payload of every id for every type must never land there.
+  const ACCOUNT = /^\/(setari|profil)(\/|\?|$)|^\/pescari\/sugerati(\/|\?|$)/;
+  const FULL = {
+    competitionId: 'c1', sectorName: 'A', standName: '1', standId: 's1', weighingId: 'w1', newsId: 'n1',
+    followerDocumentId: 'u1', partidaCode: 'ABC', sessionId: 'local-1', sessionDocumentId: 'p1',
+    bookingId: 'b1', lakeId: 'l1', tab: 'general',
+  };
+  it.each(Object.values(T))('%s → not an account page', (type) => {
+    const target = href(type, FULL);
+    if (target !== null) expect(target).not.toMatch(ACCOUNT);
+  });
+  it('the account pages exist (so the check above is about real pages)', () => {
+    const site = path.resolve(__dirname, '../../app/(site)');
+    for (const rel of ['setari', 'setari/notificari', 'setari/notificari/concursuri', 'profil', 'profil/completeaza', 'pescari/sugerati']) {
+      expect(existsSync(path.join(site, rel, 'page.tsx')), rel).toBe(true);
+    }
+  });
+});
+
 describe('notificationHref — a missing required id means no link', () => {
   const missing: [string, Record<string, unknown>][] = [
     [T.COMPETITION_START, {}],

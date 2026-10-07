@@ -139,7 +139,7 @@ export function NotificationsScreen() {
           {/* The way to the notification settings (fish: Setări → Notificări; /setari is not on the web
               yet): this gear 768–1279, the summary column's row from 1280, the ☰ menu's row on a phone
               (a fourth header tool would squeeze the title there). */}
-          <Link href={routes.notificationSettings()} className={cn(pageToolClass(), 'hidden md:inline-flex md:w-12 md:px-0 md:[&>svg]:size-6 xl:hidden')}>
+          <Link href={routes.notificationSettings()} className={cn(pageToolClass(), 'max-md:hidden md:w-12 md:px-0 md:[&>svg]:size-6 xl:hidden')}>
             <Cog6ToothIcon aria-hidden />
             <span className="sr-only">{SETTINGS_LINK}</span>
           </Link>

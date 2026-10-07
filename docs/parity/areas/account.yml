@@ -897,58 +897,72 @@ screens:
       - id: account.notifications.c1
         text: "While the first page loads a full loading state is shown; on error an error state with retry that refetches; a dead session (401) offers «Deconectează-te» instead of retry."
         fish_ref: "app/(app)/notifications.tsx:57-64; components/ErrorScreen.tsx"
+        status: passing
         web_note: "Skeleton rows in the real rows' shape (NotificationRowsSkeleton, also the route's loading.tsx and the gate's Suspense fallback); error (only while nothing is loaded): the T1 ListError card (describeError copy) with «Încearcă din nou» → refetch. Dead session (401 / SESSION_DEAD after the gate passed, e.g. a refetch): «Sesiunea a expirat» + «Deconectează-te» (fish ErrorScreen showSignOut) → POST /api/auth/logout, router.refresh, and the gate sends the visitor to /intra?next=/notificari. e2e tests/e2e/notificari.spec.ts «c1 loading», «c1 error», «c1 error: a dead session (401)…»."
       - id: account.notifications.c2
         text: "The header has a back control (to home when there is no history) and the title „Notificări”."
         fish_ref: "app/(app)/notifications.tsx:68-74; helpers/goBackOrHome.ts:15-21"
+        status: passing
         web_note: "Back = history when the previous entry is the site's own (Navigation API canGoBack, same-origin referrer fallback), else router.replace('/') (_components/back.ts). e2e tests/e2e/notificari.spec.ts «c2 back without history goes home»."
       - id: account.notifications.c3
         text: "„Citește tot” is shown in the header only when at least one loaded notification is unread."
         fish_ref: "app/(app)/notifications.tsx:46-49,75-79"
+        status: passing
         web_note: "Shown while a loaded row is unread OR the top bar's unread count is above 0 (deliberate widening: the server action reads everything, so unread rows past the loaded pages still get it; header below 1280 and the summary column from 1280 use the same rule). The summary says «Le-ai citit pe toate.» only when the count is 0 and no loaded row is unread; a stale 0 over an unread row says no number. e2e tests/e2e/notificari.spec.ts «c3/c4 + account.b.unread-badge» (shown with unread rows, hidden once all are read), «summary and «Citește tot» agree…» and «c10 empty»."
       - id: account.notifications.c4
         text: "„Citește tot” posts /notification-users/mark-all-as-read, marks every loaded item read immediately, shows an error toast on failure, and refetches all notification queries (list and unread count) afterwards."
         fish_ref: "services/mutations/useMarkAllNotificationsAsRead.ts:14-43; services/api/notifications.ts:72-79"
+        status: passing
         web_note: "core markAllNotificationsAsReadMutation (optimistic markAllReadInPages, invalidate notificationsKeys.all on settle) + the site toast (danger) with the server message; focus moves to the h1 when the button goes. e2e tests/e2e/notificari.spec.ts «c3/c4 …» (POST sent once, dots gone, list refetched) and «c4 a failed «Citește tot»…» (toast, refetch restores the unread rows)."
       - id: account.notifications.c5
         text: "The list loads GET /notification-users with pagination[page] and pagination[pageSize]=10, paging until page equals pageCount."
         fish_ref: "app/(app)/notifications.tsx:40; services/api/notifications.ts:32-50; services/queries/useNotificationsForLoggedUser.ts:9-21"
+        status: passing
         web_note: "Offset paging by sentAt: a notification arriving between two page loads makes page N+1 repeat page N's last row — the flattened pages are deduped by row documentId (first kept; fish's FlatList shows the repeat with index keys), and the footer counts the deduped rows. e2e tests/e2e/notificari.spec.ts «c5 real list» (pagination[page]=1, pagination[pageSize]=10 against the local CMS), «c11 next page» (page 2 asked for, pageCount 2) and «c11 next page repeating the previous page's last row…»."
       - id: account.notifications.c6
         text: "An item shows the Bluvi fish mark, the title (bold when unread) with an accent dot when unread, the body, and the sent time „d MMMM, 'ora' HH:mm” (Romanian) — with the year added when it is not the current year."
         fish_ref: "app/(app)/notifications.tsx:156-175"
+        status: passing
         web_note: "Time in Europe/Bucharest via Intl (_components/format.ts, unit-tested incl. the year rule across New Year). The unread dot carries sr-only «necitită». e2e tests/e2e/notificari.spec.ts «c6/c7 rows»."
       - id: account.notifications.c7
         text: "Read items are dimmed (60% opacity in fish)."
         fish_ref: "app/(app)/notifications.tsx:152"
+        status: passing
         web_note: "Deliberate deviation: 60% opacity on the text fails AA, so a read row is quieter by colour and weight instead — title ink-2 at the body weight, body and time muted, the fish mark at opacity-50, and from 768 a flat card (no hairline); an unread row keeps the title in ink at the strong weight, the body ink-2, the hairline card (all AA). Unread signal at every width: fish's accent dot right of the title (no background wash). Hover: a read link greys (soft-fill), an unread link takes the accent tint — each differs from both rests. axe at 4 widths. e2e tests/e2e/notificari.spec.ts «c6/c7 rows» (weights, read vs unread colours, the dot at 1280 and 375, no wash, flat read card, the two hovers)."
       - id: account.notifications.c8
         text: "Activating an item opens the route given by the notification-route map (whole data payload spread, type from the notification, weighihngId normalised to weighingId); items with no route do nothing and give no press feedback."
         fish_ref: "app/(app)/notifications.tsx:112-126,154"
+        status: passing
         web_note: "Mapping: core getRouteForNotificationItem → lib/notification-href.ts notificationHref (global.b.notification-routes-web). A row with a web page is a <Link> with a chevron; a row whose target is not on the web yet (chat, penalties, polls, bookings, operator, organizer, partide) or has no route is, when UNREAD, a <button> (same card, no chevron, no hover and no press fade — fish pressStyle opacity 1 without a redirectUrl; only the keyboard focus ring) that marks it read and logs notification_clicked_from_list with redirect_url 'none' — fish handleNotificationPress does both even without a route — and, when read, plain text: no hover, no press, no focus stop. Known gap: COMPETITION_NEW_REGISTRATION_ORGANIZER opens Participanți UNFILTERED (fish: participantsFilter=pending) until the participants page has the pending filter (M6; gate NOTIFICATION_PAGES_ON_WEB.organizerPendingFilter, global.b.notification-routes-web). e2e tests/e2e/notificari.spec.ts «c8 + global.b.notification-routes-web», «c8/c9/c13 …NEWS…», «c8/c9 a NEW_FOLLOWER row…», «c8/c9 an unread row with no page (booking)…» (background and opacity unchanged on hover + press)."
       - id: account.notifications.c9
         text: "Activating an unread item posts /notification-users/{documentId}/mark-as-read and then refetches all notification queries."
         fish_ref: "app/(app)/notifications.tsx:135-137; services/mutations/useMarkNotificationAsRead.ts:5-15; services/api/notifications.ts:63-70"
-        web_note: "POST with the notification's documentId (not the row's), only when unread. e2e tests/e2e/notificari.spec.ts «c8/c9/c13» (mocked), «c8/c9 a NEW_FOLLOWER row…» (read row: no POST) and «c9 real» (a real unread row on the local CMS: 200, then its page)."
+        status: passing
+        web_note: "POST with the notification's documentId (not the row's), only when unread. e2e tests/e2e/notificari.spec.ts «c8/c9/c13» (mocked), «c8/c9 a NEW_FOLLOWER row…» (read row: no POST) and «c9 real» (a real unread row on the local CMS: 200, then its page; it skips itself when the QA user has no unread row with a page left — skipped in the M2-B6 run, the mocked tests carry c9)."
       - id: account.notifications.c10
         text: "With no notifications the page reads „Nu există notificări”."
         fish_ref: "app/(app)/notifications.tsx:93-97"
+        status: passing
         web_note: "T1 ListEmpty with the bell and one helper line. e2e tests/e2e/notificari.spec.ts «c10 empty»."
       - id: account.notifications.c11
         text: "Pull/refresh refetches; scrolling near the end loads the next page and the footer shows loading / end state."
         fish_ref: "app/(app)/notifications.tsx:90,98-102"
+        status: passing
         web_note: "Pull-to-refresh → the header's «Reîmprospătează» (refetches every loaded page). Infinite scroll: T1 ListFooter (IntersectionObserver 600px + a button for keyboards, «10 din 13 notificări», «Se încarcă…»); a failed next page keeps every loaded row and the header tools, and the footer says «Nu am putut încărca mai multe notificări.» with a retry; a failed «Reîmprospătează» keeps the rows and says so in a toast (the full error card is only for a first load with nothing on screen; fish shows its ErrorScreen in both cases). «Ai ajuns la finalul listei.» once more than one page was loaded (fish hides it). e2e tests/e2e/notificari.spec.ts «c11 next page», «c11 «Reîmprospătează»», «c11 a failed next page…», «c11 a failed «Reîmprospătează»…»."
       - id: account.notifications.c12
         text: "The query is skipped while signed out; on web the route redirects to /intra?next=/notificari."
         fish_ref: "services/queries/useNotificationsForLoggedUser.ts:7-13"
+        status: passing
         web_note: "requireViewer('/notificari') inside Suspense (page.tsx); error.tsx for an unknown session. e2e tests/e2e/notificari.spec.ts «c12 signed out»."
       - id: account.notifications.c13
         text: "An analytics event notification_clicked_from_list records type, documentId, title and redirect url (or none)."
         fish_ref: "app/(app)/notifications.tsx:127-133"
+        status: passing
         web_note: "lib/analytics track with fish's param names (notification_type, notification_documentId, notification_title, redirect_url = the web href or 'none'). e2e tests/e2e/notificari.spec.ts «c8/c9/c13»."
     mobile_only: false
-    status: passing
-    note: "Web: app/(site)/notificari (T1; rows are cards). Below 1280 one column up to 720; from 1280 the list (≤ 840) anchored to the shell's left gutter with a docked «Rezumat» column right after it (320 / 360, 24 apart; fixed tracks: the empty state keeps the summary with «Le-ai citit pe toate.», a failed first load keeps the track empty — the card never stretches or moves) holding the top bar's unread count («18 necitite») and «Citește tot» (the header's copy hides there); with «Setări notificări» last (→ /setari/notificari; the header's gear 768–1279). Every criterion e2e-proven in tests/e2e/notificari.spec.ts (mocks of /api/cms/notification-users* except the real-list and real mark-as-read tests; axe at 375/1280/1440/1920); mapping unit-tested in tests/unit/notification-href.test.ts."
+    e2e: tests/e2e/notificari.spec.ts
+    status: shipped
+    note: "Web: app/(site)/notificari (T1; rows are cards). Below 1280 one column up to 720; from 1280 the list (≤ 840) anchored to the shell's left gutter with a docked «Rezumat» column right after it (320 / 360, 24 apart; fixed tracks: the empty state keeps the summary with «Le-ai citit pe toate.», a failed first load keeps the track empty — the card never stretches or moves) holding the top bar's unread count («18 necitite») and «Citește tot» (the header's copy hides there); with «Setări notificări» last (→ /setari/notificari; the header's gear 768–1279). Every criterion e2e-proven in tests/e2e/notificari.spec.ts (mocks of /api/cms/notification-users* except the real-list and real mark-as-read tests; axe at 375/1280/1440/1920); mapping unit-tested in tests/unit/notification-href.test.ts. M2-B6 close-out (2026-10-07): per-criterion statuses set (c1–c13 passing, 22/22 green + «c9 real» skipped for lack of a real unread row, against the shared dev server); lib/notification-href.ts re-checked against fish getRedirectLocationForNotification — no type targets /setari, /setari/notificari(/concursuri), /profil(/completeaza) or /pescari/sugerati in fish, so no row became a link; tests/unit/notification-href.test.ts pins it. Critic fix from the 375 capture: the header's settings gear showed on phones (its `hidden` lost to the tool's `inline-flex`; cn does not merge) and cut the title to «Notifică…» — now `max-md:hidden`, e2e-asserted in «wide screens: from 1280…» (gear hidden at 375, title unclipped, visible at 1024). Visual baselines (§9): tests/visual/notificari.visual.spec.ts, route-mocked, fixed clock, 9 states × 375 / 768 / 1280 / 1440 — loading, list (unread + read, a routeless row), all read, empty, error, dead session, next page loading, next page failed, end of list; macOS set committed, Linux set per tests/visual/README.md. The owner's M2 review can reopen it."
 
   - id: account.notification-settings
     title: Notificări (setări)
@@ -1365,7 +1379,7 @@ behaviours:
     text: "Notification → route: registration/pending/modified/start → competition; END, ROUND_END, FOLLOW_COMPETITION_END/PODIUM → competition ranking tab; NEW_REGISTRATION_ORGANIZER → participants tab filtered pending; ALLOCATION, ROUND_START, CANCELLATION/MODIFIED_ORGANIZER, FOLLOW_COMPETITION_REGISTERED/DIGEST → participants tab; WEIGHING_MODIFIED/END (needs sector, stand, standId, weighingId) → competition with that weighing open; EXTRA_WEIGHT_REQUEST → extra-scales tab; CHAT_MESSAGE → competition chat (tab from tab/chatRoom, default general; name passed); PENALTY → penalties; POLL_* → current poll; NEWS → news item; NEW_LAKES → lakes; NEW_FOLLOWER → /pescari/{followerDocumentId}; PARTIDA_INVITE → join with code; PARTIDA_FINISHED/AUTO_CLOSE_WARN → own partidă; PARTIDA_CATCH, PARTIDA_FINISHED_FOLLOWED, FOLLOW_PARTIDA_START/FIRST_CATCH → community partidă; FOLLOW_RECORD_PERSONAL/LAKE → community catches; FOLLOW_LAKE_REVIEW → lake reviews; COMPETITION_AUTO_CANCELLED_ORGANIZER → organizer panel; booking angler types → booking detail; operator booking types → operator bookings with status pending/rejected/cancelled; NEW_COMPETITIONS → competition or competitions list; COMPETITIONS_DIGEST → competitions list; SCHEDULED_NOTIFICATION, COMPETITION_CANCELLED_USER and unknown → no route. Missing required ids → no route. Ported as core social.domain.getRedirectLocationForNotification."
     fish_ref: "helpers/getRedirectLocationForNotification.ts:30-193"
     status: passing
-    web_note: "Ported as core social getRedirectLocationForNotification / getRouteForNotificationItem (route descriptors) + lib/notification-href.ts (web paths, global.b.notification-routes-web). COMPETITION_ROUND_END / ROUND_START (fish 70b62908) were missing from core NotificationTypes until 2026-10-07 (they fell to «no route»); now ROUND_END → clasament, ROUND_START → participanți. tests/unit/notification-href.test.ts and core/social/domain/notificationRoute.test.ts cover every type (both assert Object.values(NotificationTypes) is fully covered) and every missing-id case."
+    web_note: "Ported as core social getRedirectLocationForNotification / getRouteForNotificationItem (route descriptors) + lib/notification-href.ts (web paths, global.b.notification-routes-web). COMPETITION_ROUND_END / ROUND_START (fish 70b62908) were missing from core NotificationTypes until 2026-10-07 (they fell to «no route»); now ROUND_END → clasament, ROUND_START → participanți. tests/unit/notification-href.test.ts and core/social/domain/notificationRoute.test.ts cover every type (both assert Object.values(NotificationTypes) is fully covered) and every missing-id case. Re-checked after the M2 account pages shipped (2026-10-07): fish routes no notification to settings, notification settings / preferences, the own profile, complete-profile or suggested anglers, so the map is unchanged; the unit test pins that no type (with every id present) lands on /setari*, /profil* or /pescari/sugerati."
   - id: account.b.push-tap
     text: "A push tap (mobile only; web has in-app notifications) dedupes double delivery, routes like the list, opens the weighing in place when already on that competition, switches chat tab in place when already in that chat, invalidates news/competition caches by type and marks the notification read (except chat). Web keeps only the in-app equivalents: list tap routing and mark-as-read."
     fish_ref: "contexts/NotificationsContextProvider.tsx:147-244"
