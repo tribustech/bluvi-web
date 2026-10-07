@@ -1,6 +1,6 @@
 /**
- * Provider JS SDKs, loaded on demand (first hover/focus/click of a sign-in button) so /intra and
- * every other page ship none of them. Each function resolves to the body that
+ * Provider JS SDKs, loaded by /intra only (idle after first paint, then hover/focus/click), so no
+ * other page ships any of them. Each function resolves to the body that
  * POST /api/auth/{provider} expects (lib/server/auth-providers.ts) or throws a SignInError.
  */
 
@@ -61,10 +61,17 @@ declare global {
 
 const GOOGLE_SRC = 'https://accounts.google.com/gsi/client';
 
-export async function googleCredential(clientId: string): Promise<{ code: string }> {
-  await loadScript(GOOGLE_SRC);
-  const oauth2 = window.google?.accounts?.oauth2;
-  if (!oauth2) throw new SignInError('sdk');
+export function googleCredential(clientId: string): Promise<{ code: string }> {
+  // c24: preloaded → requestCode runs inside the tap's own click dispatch (no await before it).
+  if (window.google?.accounts?.oauth2) return requestGoogleCode(window.google.accounts.oauth2, clientId);
+  return loadScript(GOOGLE_SRC).then(() => {
+    const oauth2 = window.google?.accounts?.oauth2;
+    if (!oauth2) throw new SignInError('sdk');
+    return requestGoogleCode(oauth2, clientId);
+  });
+}
+
+function requestGoogleCode(oauth2: GoogleOAuth2, clientId: string): Promise<{ code: string }> {
   return new Promise((resolve, reject) => {
     oauth2
       .initCodeClient({
@@ -86,17 +93,20 @@ type FacebookLoginResponse = {
 };
 type FacebookSdk = {
   init(cfg: { appId: string; version: string; cookie?: boolean; xfbml?: boolean }): void;
-  login(cb: (r: FacebookLoginResponse) => void, opts: { scope: string; return_scopes?: boolean }): void;
+  login(cb: (r: FacebookLoginResponse) => void, opts: { scope: string; return_scopes?: boolean; auth_type?: 'rerequest' }): void;
 };
 
 const FACEBOOK_SRC = 'https://connect.facebook.net/ro_RO/sdk.js';
 let facebookReady: Promise<FacebookSdk> | undefined;
+/** The initialised SDK, once fbAsyncInit ran: lets the press call FB.login synchronously (c24). */
+let facebookSdk: FacebookSdk | undefined;
 
 function loadFacebook(appId: string): Promise<FacebookSdk> {
   facebookReady ??= new Promise<FacebookSdk>((resolve, reject) => {
     window.fbAsyncInit = () => {
       if (!window.FB) return reject(new SignInError('sdk'));
       window.FB.init({ appId, version: 'v21.0', cookie: false, xfbml: false });
+      facebookSdk = window.FB;
       resolve(window.FB);
     };
     loadScript(FACEBOOK_SRC).catch(reject);
@@ -107,8 +117,23 @@ function loadFacebook(appId: string): Promise<FacebookSdk> {
   return facebookReady;
 }
 
-export async function facebookCredential(appId: string): Promise<{ accessToken: string }> {
-  const FB = await loadFacebook(appId);
+/**
+ * A permission the user already declined is not asked again by FB.login unless it says
+ * auth_type 'rerequest' (fish's native LoginManager re-presents it on its own). Set after any
+ * «Facebook without email» answer (c7), so the retry the copy asks for shows the email box again.
+ */
+let rerequestEmail = false;
+export function askFacebookEmailAgain(): void {
+  rerequestEmail = true;
+}
+
+export function facebookCredential(appId: string): Promise<{ accessToken: string }> {
+  // c24: preloaded → FB.login (and its window.open) runs inside the tap's click dispatch.
+  if (facebookSdk) return facebookLogin(facebookSdk);
+  return loadFacebook(appId).then(facebookLogin);
+}
+
+function facebookLogin(FB: FacebookSdk): Promise<{ accessToken: string }> {
   return new Promise((resolve, reject) => {
     FB.login(
       (r) => {
@@ -116,10 +141,13 @@ export async function facebookCredential(appId: string): Promise<{ accessToken: 
         if (!token) return reject(new SignInError('cancelled'));
         // fish AUTH_FB_EMAIL_DECLINED: the user unticked the email permission in the dialog.
         const scopes = r.authResponse?.grantedScopes?.split(',') ?? [];
-        if (scopes.length > 0 && !scopes.includes('email')) return reject(new SignInError('missing-email'));
+        if (scopes.length > 0 && !scopes.includes('email')) {
+          rerequestEmail = true;
+          return reject(new SignInError('missing-email'));
+        }
         resolve({ accessToken: token });
       },
-      { scope: 'public_profile,email', return_scopes: true }
+      { scope: 'public_profile,email', return_scopes: true, ...(rerequestEmail ? { auth_type: 'rerequest' as const } : {}) }
     );
   });
 }
@@ -141,7 +169,8 @@ export async function appleCredential(
   servicesId: string,
   redirectUri: string
 ): Promise<{ identityToken: string; authorizationCode: string; fullName?: string; email?: string }> {
-  await loadScript(APPLE_SRC);
+  // c24: preloaded → no await before signIn() opens its popup (inside the tap's click dispatch).
+  if (!window.AppleID?.auth) await loadScript(APPLE_SRC);
   const auth = window.AppleID?.auth;
   if (!auth) throw new SignInError('sdk');
   auth.init({ clientId: servicesId, scope: 'name email', redirectURI: redirectUri, usePopup: true });
@@ -160,7 +189,13 @@ export async function appleCredential(
   return { identityToken, authorizationCode, fullName, email: r.user?.email };
 }
 
-/** Warms the SDK while the pointer is on its way to the button. */
+/**
+ * Loads an SDK ahead of the press (c24). A loaded SDK is called synchronously from the click
+ * handler, so its window.open happens inside the tap's own dispatch; an SDK still downloading at
+ * the tap would put the network between the gesture and window.open, and iOS Safari drops the
+ * popup. The page preloads every configured provider once the screen is idle (SignIn.tsx),
+ * hover/focus stay as a second warm-up.
+ */
 export function preload(provider: 'google' | 'facebook' | 'apple', ids: { facebookAppId?: string }) {
   if (provider === 'google') void loadScript(GOOGLE_SRC).catch(() => undefined);
   else if (provider === 'apple') void loadScript(APPLE_SRC).catch(() => undefined);

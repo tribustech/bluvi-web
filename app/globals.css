@@ -80,6 +80,19 @@
   --bluvi-on-photo-scrim: #ffffff;
   /* Pill on a photo that must read as a light chip ("Rezervare online"). */
   --bluvi-photo-chip: #ffffff;
+  /*
+   * Sign-in welcome (fish features/onboarding/welcomeTheme.ts): a fixed deep-water screen with white
+   * copy and white provider buttons — the same in light and dark, like fish.
+   */
+  --bluvi-welcome: #071d29;
+  --bluvi-on-welcome: #ffffff;
+  --bluvi-welcome-2: #c7d4df;
+  --bluvi-welcome-line: rgb(255 255 255 / 0.18);
+  --bluvi-welcome-field: rgb(255 255 255 / 0.1);
+  --bluvi-welcome-button: #ffffff;
+  --bluvi-welcome-button-hover: #eef2f5;
+  --bluvi-welcome-ink: #172c38;
+  --bluvi-welcome-accent: #4f46e5;
   /* LIVE pill: rose-600 + white. */
   --bluvi-status-live-bg: #e11d48;
   --bluvi-status-live-fg: #ffffff;
@@ -296,6 +309,15 @@
   --color-photo-scrim: var(--bluvi-photo-scrim);
   --color-on-photo-scrim: var(--bluvi-on-photo-scrim);
   --color-photo-chip: var(--bluvi-photo-chip);
+  --color-welcome: var(--bluvi-welcome);
+  --color-on-welcome: var(--bluvi-on-welcome);
+  --color-welcome-2: var(--bluvi-welcome-2);
+  --color-welcome-line: var(--bluvi-welcome-line);
+  --color-welcome-field: var(--bluvi-welcome-field);
+  --color-welcome-button: var(--bluvi-welcome-button);
+  --color-welcome-button-hover: var(--bluvi-welcome-button-hover);
+  --color-welcome-ink: var(--bluvi-welcome-ink);
+  --color-welcome-accent: var(--bluvi-welcome-accent);
   --color-status-live-bg: var(--bluvi-status-live-bg);
   --color-status-live-fg: var(--bluvi-status-live-fg);
   --color-status-success-bg: var(--bluvi-status-success-bg);
@@ -471,6 +493,8 @@
   --text-facestack-24: 10px;
   --text-facestack-32: 12px;
   --text-facestack-40: 14px;
+  /* fish WelcomeButton provider label (20/24 medium), the sign-in screen only. */
+  --text-welcome-provider: 20px;
 
   /* ---- motion: Tamagui springs as CSS linear() (fast/select/medium/slow) ---- */
   --ease-fast: linear(0, 0.33 12%, 0.71 30%, 0.92 50%, 0.99 70%, 1);

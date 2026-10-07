@@ -1,55 +1,62 @@
 'use client';
 
-import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import Image from 'next/image';
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type MouseEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button } from '@/components/ui/Button';
+import { getProfile, profileKeys } from '@/core/social';
+import { track } from '@/lib/analytics';
+import { createBrowserTransport } from '@/lib/client/transport';
+import { routes } from '@/lib/routes';
 import { cn } from '@/components/ui/cn';
-import { appleCredential, facebookCredential, googleCredential, preload, SignInError } from './sdk';
+import lakeDawn from './lake-dawn.jpg';
+import {
+  GENERIC_ERROR,
+  LINK_ERROR,
+  MISSING_EMAIL_ERROR,
+  messageFor,
+  PRIVACY_URL,
+  safeNext,
+  SDK_ERROR,
+  SERVER_ERROR,
+  TERMS_URL,
+  visibleProviders,
+  type Provider,
+  type RouteErrorBody,
+  type SignInConfig,
+  type SocialProvider,
+} from './logic';
+import { rearmSessionGuard } from '@/lib/client/session-expired';
+import { appleCredential, askFacebookEmailAgain, facebookCredential, googleCredential, preload, SignInError } from './sdk';
 
-export type SignInConfig = {
-  googleClientId?: string;
-  facebookAppId?: string;
-  appleServicesId?: string;
-  appleRedirectUri?: string;
-  localAuth: boolean;
+export type { SignInConfig } from './logic';
+
+/*
+ * account.sign-in — fish app/sign-in.tsx + features/onboarding/{useWelcomeSignIn,WelcomeControls,
+ * WelcomeBackdrop,welcomeTheme}.ts. The welcome look is fish's: the dawn lake photo fading into
+ * the deep-water ground, white provider buttons, white copy.
+ *
+ * Geometry: <768 the screen itself (full bleed under the top bar, photo behind the top half);
+ * 768–1279 the same screen as a bento card; ≥1280 a full-width bento split like Facebook's sign-in —
+ * the photo with the intro on the left, the providers on a 480px column on the right.
+ *
+ * After the session cookie is set (POST /api/auth/{provider}): the Firebase bridge runs in the
+ * background (c13), GET /user/profile decides where to go (c15/c16), sign_in is logged (c21).
+ * fish's active-partidă probe (c14) restores a live session in the background — the web has no
+ * live partidă until M4, so there is nothing to restore yet.
+ */
+
+/** fish welcomeTheme.ts — a fixed palette (the screen is dark in both themes, like fish). */
+const W = {
+  bg: 'bg-welcome',
+  ink: 'text-welcome-ink',
+  secondary: 'text-welcome-2',
+  border: 'border-welcome-line',
 };
 
-type Provider = 'google' | 'facebook' | 'apple' | 'local';
+type AuthOk = { firebaseToken?: string | null };
 
-// Copy from fish features/onboarding/useWelcomeSignIn.ts.
-const GENERIC_ERROR = 'Autentificarea nu a reușit. Te rugăm să încerci din nou.';
-const MISSING_EMAIL_ERROR =
-  'Facebook nu ne-a dat adresa ta de email. Permite accesul la email în fereastra Facebook sau intră cu Google ori Apple.';
-const SDK_ERROR: Record<Exclude<Provider, 'local'>, string> = {
-  google: 'Nu am putut deschide fereastra Google. Verifică conexiunea, permite ferestrele pop-up pentru Bluvi și încearcă din nou.',
-  facebook: 'Nu am putut deschide fereastra Facebook. Verifică conexiunea, permite ferestrele pop-up pentru Bluvi și încearcă din nou.',
-  apple: 'Nu am putut deschide fereastra Apple. Verifică conexiunea, permite ferestrele pop-up pentru Bluvi și încearcă din nou.',
-};
-const SERVER_ERROR = 'Serverul Bluvi nu răspunde acum. Încearcă din nou în câteva minute.';
-const LOCAL_ERROR = 'Email sau parolă greșită.';
-
-/** Only same-site paths: `/x`, never `//host` or `/\host`. */
-export function safeNext(next: string | null): string {
-  if (!next || !/^\/(?!\/)/.test(next) || /[\\\s]/.test(next) || next.startsWith('/intra')) return '/';
-  return next;
-}
-
-type RouteErrorBody = { error?: { status?: number; message?: string; name?: string; details?: { bluCode?: string } } };
-
-/** Turns a failed /api/auth answer into Romanian copy. */
-function messageFor(provider: Provider, status: number, body: RouteErrorBody | null): string {
-  const err = body?.error;
-  if (err?.details?.bluCode === 'AUTH:EMAIL_REQUIRED') return MISSING_EMAIL_ERROR;
-  if (status >= 500) return SERVER_ERROR;
-  if (provider === 'local' && status === 400) return LOCAL_ERROR;
-  // Our route's own 400s carry Romanian copy and no Strapi `name`; Strapi messages are English.
-  if (status === 400 && err?.message && !err.name) return err.message;
-  if (status === 429) return 'Prea multe încercări. Așteaptă un minut și încearcă din nou.';
-  return GENERIC_ERROR;
-}
-
-async function post(provider: Provider, body: unknown): Promise<void> {
+async function post(provider: Provider, body: unknown): Promise<AuthOk> {
   const res = await fetch(`/api/auth/${provider}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -60,45 +67,190 @@ async function post(provider: Provider, body: unknown): Promise<void> {
     const json = (await res.json().catch(() => null)) as RouteErrorBody | null;
     throw new Error(messageFor(provider, res.status, json));
   }
+  return ((await res.json().catch(() => null)) as AuthOk | null) ?? {};
+}
+
+/**
+ * c13: fish signInToFirebase(firebaseToken) — Firebase Auth only (chat, live partide later), never
+ * a Firestore write. Background and non-fatal: a failure leaves Firestore unauthenticated until
+ * a later re-mint (lib/client/firebase getCustomToken) and never fails or delays the sign-in.
+ */
+async function bridgeFirebase(token: string | null | undefined): Promise<void> {
+  if (!token) return;
+  try {
+    const [{ getRealtimeContext }, { signInToFirebase }] = await Promise.all([
+      import('@/lib/client/firebase'),
+      import('@/core/realtime'),
+    ]);
+    await signInToFirebase(getRealtimeContext(), token);
+  } catch {
+    // Non-fatal by contract.
+  }
+}
+
+/** fish router.canGoBack(): only this tab's own history counts (Navigation API), never another site. */
+function canGoBackInApp(): boolean {
+  const nav = (window as unknown as { navigation?: { canGoBack?: boolean } }).navigation;
+  if (nav && typeof nav.canGoBack === 'boolean') return nav.canGoBack;
+  return window.history.length > 1 && document.referrer.startsWith(window.location.origin);
+}
+
+function subscribeReducedMotion(onChange: () => void) {
+  const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+}
+/** The live system preference (fish useWelcomeMotion: reduce until known, so the server says reduce). */
+function useReducedMotion(): boolean {
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    () => true
+  );
 }
 
 export function SignIn({ config }: { config: SignInConfig }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const reduceMotion = useReducedMotion();
   const [pending, setPending] = useState<Provider | null>(null);
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
+  const busyNow = pending !== null;
+  // Leaving /intra while an attempt is in flight (browser Back): fish blocks the hardware back
+  // while pending; the web cannot block Back, so a late success must not navigate from elsewhere.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  // c4 on a phone: every popup must open inside the tap's user activation, so the SDKs are loaded
+  // before the first tap (idle after first paint), not on the tap itself (sdk.ts preload).
+  const { googleClientId, facebookAppId, appleServicesId } = config;
+  useEffect(() => {
+    const warm = () => {
+      if (appleServicesId) preload('apple', {});
+      if (googleClientId) preload('google', {});
+      if (facebookAppId) preload('facebook', { facebookAppId });
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(warm, { timeout: 2000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(warm, 300);
+    return () => window.clearTimeout(id);
+  }, [googleClientId, facebookAppId, appleServicesId]);
+
+  const finish = (incomplete: boolean) => {
+    // c16 before c17: an incomplete profile always completes it first (replace: Back never
+    // returns here). Otherwise a safe `next`, else back, else home.
+    const target = incomplete ? routes.completeProfile() : safeNext(new URLSearchParams(window.location.search).get('next'));
+    if (target) {
+      router.replace(target);
+      router.refresh();
+    } else if (canGoBackInApp()) {
+      // The page we return to was rendered signed out: re-render it once we are there.
+      window.addEventListener('popstate', () => router.refresh(), { once: true });
+      router.back();
+    } else {
+      router.replace(routes.home());
+      router.refresh();
+    }
+  };
 
   const run = async (provider: Provider, credential: () => Promise<unknown>) => {
+    // c5: one attempt at a time; a second press while one is in flight sends nothing.
     if (busy.current) return;
     busy.current = true;
     setPending(provider);
     setError(null);
+    let navigating = false;
     try {
-      await post(provider, await credential());
-      // Anything cached while signed out (optional-auth reads) is now wrong.
+      const auth = await post(provider, await credential());
+      void bridgeFirebase(auth.firebaseToken);
+      rearmSessionGuard();
+      if (!mounted.current) {
+        // Signed in from a page the user already left: keep the session, re-render where they
+        // are now, never navigate (account.sign-in.c23).
+        queryClient.clear();
+        router.refresh();
+        return;
+      }
+      let profile;
+      try {
+        profile = await getProfile(createBrowserTransport());
+      } catch {
+        // c15: no profile → nothing stays stored (fish throws before navigating; the JWT it kept
+        // would make a half signed-in app — the web drops the cookie instead).
+        await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+        throw new Error(GENERIC_ERROR);
+      }
+      // Anything cached while signed out (optional-auth reads) is now wrong; the profile is fresh.
       queryClient.clear();
-      router.replace(safeNext(new URLSearchParams(window.location.search).get('next')));
-      router.refresh();
+      queryClient.setQueryData(profileKeys.my, profile);
+      // c21: telemetry never holds up navigation (track swallows its own failures).
+      track('sign_in', { sign_in_method: provider });
+      if (!mounted.current) {
+        router.refresh();
+        return;
+      }
+      navigating = true;
+      finish(!profile.isProfileComplete);
     } catch (e) {
       if (e instanceof SignInError) {
+        // c6: a cancelled provider dialog is silent.
         if (e.kind !== 'cancelled') {
           setError(
             e.kind === 'missing-email' ? MISSING_EMAIL_ERROR : e.kind === 'sdk' && provider !== 'local' ? SDK_ERROR[provider] : GENERIC_ERROR
           );
         }
       } else {
-        setError(e instanceof Error && e.message ? e.message : GENERIC_ERROR);
+        const message = e instanceof Error && e.message ? e.message : GENERIC_ERROR;
+        // c7 via the CMS (AUTH:EMAIL_REQUIRED): the retry must show Facebook's email box again.
+        if (message === MISSING_EMAIL_ERROR) askFacebookEmailAgain();
+        setError(message);
       }
     } finally {
-      busy.current = false;
-      setPending(null);
+      // On success the screen stays locked until the next page replaces it.
+      if (!navigating) {
+        busy.current = false;
+        setPending(null);
+      }
     }
   };
 
-  const { googleClientId, facebookAppId, appleServicesId } = config;
+  const continueAsGuest = () => {
+    if (busy.current) return;
+    if (canGoBackInApp()) router.back();
+    else router.replace(routes.home());
+  };
+
+  const openLegal = (e: MouseEvent<HTMLAnchorElement>, url: string) => {
+    // A modified click (new tab / window) is the browser's own business.
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    setError(null);
+    let win: Window | null = null;
+    try {
+      win = window.open(url, '_blank');
+    } catch {
+      win = null;
+    }
+    // c20: fish Linking.openURL rejecting ↔ the browser refusing the window.
+    if (!win) setError(LINK_ERROR);
+    else win.opener = null;
+  };
+
+  const providers = visibleProviders(config);
   const appleRedirect = () => config.appleRedirectUri || `${window.location.origin}/intra`;
-  const hasSocial = Boolean(googleClientId || facebookAppId || appleServicesId);
+  const credentialFor: Record<SocialProvider, () => Promise<unknown>> = {
+    apple: () => appleCredential(config.appleServicesId!, appleRedirect()),
+    google: () => googleCredential(config.googleClientId!),
+    facebook: () => facebookCredential(config.facebookAppId!),
+  };
 
   const onLocal = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -107,79 +259,169 @@ export function SignIn({ config }: { config: SignInConfig }) {
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      {appleServicesId ? (
-        <ProviderButton
-          label="Continuă cu Apple"
-          icon={<AppleMark />}
-          pending={pending === 'apple'}
-          disabled={pending !== null}
-          onWarm={() => preload('apple', {})}
-          onClick={() => void run('apple', () => appleCredential(appleServicesId, appleRedirect()))}
-        />
-      ) : null}
-      {googleClientId ? (
-        <ProviderButton
-          label="Continuă cu Google"
-          icon={<GoogleMark />}
-          pending={pending === 'google'}
-          disabled={pending !== null}
-          onWarm={() => preload('google', {})}
-          onClick={() => void run('google', () => googleCredential(googleClientId))}
-        />
-      ) : null}
-      {facebookAppId ? (
-        <ProviderButton
-          label="Continuă cu Facebook"
-          icon={<FacebookMark />}
-          pending={pending === 'facebook'}
-          disabled={pending !== null}
-          onWarm={() => preload('facebook', { facebookAppId })}
-          onClick={() => void run('facebook', () => facebookCredential(facebookAppId))}
-        />
-      ) : null}
+    <section
+      aria-labelledby="intra-titlu"
+      data-pending={busyNow || undefined}
+      className={cn(
+        'relative isolate flex min-h-[calc(100dvh-56px)] flex-col overflow-hidden text-on-welcome',
+        W.bg,
+        'md:mx-auto md:my-8 md:min-h-[min(860px,calc(100dvh-128px))] md:max-w-[520px] md:rounded-bento md:shadow-e2',
+        'xl:mx-8 xl:grid xl:min-h-[max(640px,calc(100dvh-128px))] xl:max-w-none xl:grid-cols-[minmax(0,1fr)_480px]'
+      )}
+    >
+      <Backdrop animate={!reduceMotion && !busyNow} />
 
-      {!hasSocial && !config.localAuth ? (
-        <p className="t-body text-ink-2">Autentificarea nu este disponibilă momentan. Încearcă mai târziu.</p>
-      ) : null}
+      {/* The intro: under the sky <1280; over the photo's foot on the left column ≥1280. Both
+          columns are anchored to the same bottom line ≥1280 (the subtitle and the legal links). */}
+      <div className="relative flex flex-1 flex-col px-6 pt-2 md:px-10 xl:justify-end xl:px-14 xl:pb-14">
+        <div aria-hidden className="min-h-32 flex-1" />
+        <div className="flex flex-col gap-3 pb-7 xl:max-w-[560px] xl:pb-0">
+          <p className={cn('t-label tracking-[2px]', W.secondary)}>MAI APROAPE DE CE IUBEȘTI</p>
+          <h1 id="intra-titlu" className="t-hero text-on-welcome">
+            Hai la pescuit.
+          </h1>
+          <p className={cn('t-title2 font-semibold', W.secondary)}>Locurile tale. Capturile tale. Comunitatea ta.</p>
+        </div>
+      </div>
 
-      {config.localAuth ? (
-        <form onSubmit={onLocal} className={cn('flex flex-col gap-3', hasSocial && 'mt-3 border-t border-hairline pt-5')}>
-          <p className="t-label text-muted">Cont de test (doar QA)</p>
-          <label className="flex flex-col gap-1.5">
-            <span className="t-label text-ink-2">Email</span>
-            <input name="identifier" type="email" autoComplete="username" required className={INPUT} />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="t-label text-ink-2">Parolă</span>
-            <input name="password" type="password" autoComplete="current-password" required className={INPUT} />
-          </label>
-          <Button type="submit" block disabled={pending !== null}>
-            {pending === 'local' ? 'Se conectează…' : 'Intră'}
-          </Button>
-        </form>
-      ) : null}
+      <div className="relative flex flex-col px-6 pb-4 md:px-10 md:pb-8 xl:justify-end xl:px-12 xl:pt-14 xl:pb-11">
+        <div className="flex flex-col gap-3">
+          {providers.map((p) => (
+            <ProviderButton
+              key={p}
+              provider={p}
+              pending={pending === p}
+              disabled={busyNow}
+              onWarm={() => preload(p, { facebookAppId: config.facebookAppId })}
+              onClick={() => void run(p, credentialFor[p])}
+            />
+          ))}
 
-      <p role="alert" aria-live="assertive" className={cn('t-body text-status-danger-fg', !error && 'sr-only')}>
-        {error}
-      </p>
+          {providers.length === 0 && !config.localAuth ? (
+            <p className={cn('t-body', W.secondary)}>Autentificarea nu este disponibilă momentan. Încearcă mai târziu.</p>
+          ) : null}
+
+          {/* c9 / c20: one alert slot under the buttons, emptied when a new attempt starts. ≥1280 the
+              column is bottom-anchored, so the slot keeps three lines of room: an error never moves
+              the buttons the user just pressed. */}
+          <div className="contents xl:block xl:min-h-18">
+            <p role="alert" aria-live="assertive" className={cn('t-body text-on-welcome', !error && 'sr-only')}>
+              {error}
+            </p>
+          </div>
+
+          {config.localAuth ? <LocalForm pending={pending === 'local'} disabled={busyNow} spaced={providers.length > 0} onSubmit={onLocal} /> : null}
+
+        </div>
+
+        <div className="py-3">
+          <button
+            type="button"
+            onClick={continueAsGuest}
+            disabled={busyNow}
+            className={cn(
+              't-body-strong flex min-h-11 w-full items-center justify-center rounded-control px-3 py-3 text-on-welcome',
+              busyNow ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-welcome-field active:opacity-80'
+            )}
+          >
+            Explorează fără cont
+          </button>
+        </div>
+
+        <div className={cn('border-t pt-3', W.border)}>
+          <p className={cn('t-caption text-center', W.secondary)}>
+            Continuând, accepți Termenii și condițiile. Află cum îți prelucrăm datele în Politica de confidențialitate.
+          </p>
+          <div className="flex flex-wrap justify-center gap-x-4">
+            <LegalLink href={TERMS_URL} onClick={(e) => openLegal(e, TERMS_URL)}>
+              Termeni și condiții
+            </LegalLink>
+            <LegalLink href={PRIVACY_URL} onClick={(e) => openLegal(e, PRIVACY_URL)}>
+              Confidențialitate
+            </LegalLink>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * fish WelcomeBackdrop: the dawn lake, a slow 16s camera push (scale 1.025 → 1.08, up 10px,
+ * ease-out quad) and a gradient into the ground. The push runs only without reduced motion and
+ * pauses while a sign-in is pending (fish `animate && !pending`), resuming from where it stopped.
+ */
+function Backdrop({ animate }: { animate: boolean }) {
+  const camera = useRef<HTMLDivElement>(null);
+  const motion = useRef<Animation | null>(null);
+
+  useEffect(() => {
+    const el = camera.current;
+    if (!el || typeof el.animate !== 'function') return;
+    if (!animate) {
+      motion.current?.pause();
+      return;
+    }
+    if (motion.current) {
+      motion.current.play();
+      return;
+    }
+    motion.current = el.animate(
+      [{ transform: 'scale(1.025) translateY(0)' }, { transform: 'scale(1.08) translateY(-10px)' }],
+      { duration: 16000, easing: 'cubic-bezier(0.5, 1, 0.89, 1)', fill: 'forwards' }
+    );
+  }, [animate]);
+
+  useEffect(
+    () => () => {
+      motion.current?.cancel();
+      motion.current = null;
+    },
+    []
+  );
+
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-behind h-[calc(100dvh-56px)] overflow-hidden md:h-auto md:bottom-0 xl:right-[360px]">
+      <div ref={camera} data-backdrop className="absolute inset-0 scale-[1.025]">
+        <Image
+          src={lakeDawn}
+          alt=""
+          fill
+          placeholder="blur"
+          fetchPriority="high"
+          loading="eager"
+          sizes="(min-width: 1280px) 70vw, (min-width: 768px) 520px, 100vw"
+          className="object-cover object-[50%_30%]"
+        />
+      </div>
+      {/* fish login gradient: 0.10 → 0.32 at 20% → solid from 53%. ≥1280 the photo bleeds 120px under
+          the 480px panel and a long eased horizontal fade (from 40%, 88% where the panel starts, solid
+          120px into it) dissolves the sky into it — one surface, no seam. */}
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-welcome)_10%,transparent)_0%,color-mix(in_srgb,var(--color-welcome)_32%,transparent)_20%,var(--color-welcome)_53%,var(--color-welcome)_100%)] md:bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-welcome)_10%,transparent)_0%,color-mix(in_srgb,var(--color-welcome)_32%,transparent)_22%,var(--color-welcome)_58%,var(--color-welcome)_100%)] xl:bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-welcome)_5%,transparent)_0%,color-mix(in_srgb,var(--color-welcome)_20%,transparent)_45%,color-mix(in_srgb,var(--color-welcome)_92%,transparent)_85%,var(--color-welcome)_100%),linear-gradient(90deg,transparent_40%,color-mix(in_srgb,var(--color-welcome)_25%,transparent)_60%,color-mix(in_srgb,var(--color-welcome)_60%,transparent)_78%,color-mix(in_srgb,var(--color-welcome)_88%,transparent)_calc(100%-120px),var(--color-welcome)_100%)]" />
     </div>
   );
 }
 
-const INPUT =
-  't-body h-12 rounded-control bg-soft-fill px-3.5 text-ink outline-none placeholder:text-muted focus-visible:bg-surface focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent),0_0_0_4px_var(--color-accent-tint-2)] focus-visible:outline-none xl:h-10';
+const PROVIDER_LABEL: Record<SocialProvider, string> = {
+  apple: 'Continuă cu Apple',
+  google: 'Continuă cu Google',
+  facebook: 'Continuă cu Facebook',
+};
+const PROVIDER_MARK: Record<SocialProvider, () => ReactNode> = {
+  apple: () => <AppleMark />,
+  google: () => <GoogleMark />,
+  facebook: () => <FacebookMark />,
+};
 
+/** fish WelcomeButton `provider`: white, 56px, the mark and label in a 238px left-aligned box. */
 function ProviderButton({
-  label,
-  icon,
+  provider,
   pending,
   disabled,
   onWarm,
   onClick,
 }: {
-  label: string;
-  icon: ReactNode;
+  provider: SocialProvider;
   pending: boolean;
   disabled: boolean;
   onWarm: () => void;
@@ -193,18 +435,102 @@ function ProviderButton({
       onFocus={onWarm}
       disabled={disabled}
       aria-busy={pending || undefined}
+      data-provider={provider}
       className={cn(
-        't-body-strong relative flex h-12 w-full items-center justify-center gap-3 rounded-control bg-surface px-5 text-ink shadow-[inset_0_0_0_1px_var(--color-hairline),var(--shadow-e1)] transition-[background-color,opacity] duration-(--duration-fast) ease-fast',
-        disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-soft-fill active:opacity-80'
+        'flex min-h-14 w-full items-center justify-center rounded-2xl bg-welcome-button px-4 py-3.5 transition-[opacity,transform] duration-(--duration-fast) ease-fast',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-welcome',
+        disabled
+          ? cn('cursor-not-allowed', !pending && 'opacity-50')
+          : 'cursor-pointer hover:bg-welcome-button-hover active:scale-[0.98] active:opacity-80 motion-reduce:active:scale-100'
       )}
     >
-      <span aria-hidden className="flex size-5 items-center justify-center">
-        {icon}
+      <span className="flex w-[238px] max-w-full items-center gap-3">
+        <span aria-hidden className="flex size-6 shrink-0 items-center justify-center">
+          {pending ? <Spinner /> : PROVIDER_MARK[provider]()}
+        </span>
+        <span className={cn('text-left text-welcome-provider/6 font-medium', W.ink)}>{PROVIDER_LABEL[provider]}</span>
       </span>
-      {pending ? 'Se conectează…' : label}
+      {pending ? <span className="sr-only">, se conectează…</span> : null}
     </button>
   );
 }
+
+/**
+ * Turns via the Web Animations API, not a CSS animation: the global reduced-motion clamp
+ * (globals.css, 120ms × 1) would stop a CSS spin after one turn and leave a static ring for the
+ * whole sign-in. Under reduced motion it keeps turning, slower (fish: the only progress cue).
+ */
+function Spinner() {
+  const ref = useRef<HTMLSpanElement>(null);
+  const reduceMotion = useReducedMotion();
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof el.animate !== 'function') return;
+    const spin = el.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], {
+      duration: reduceMotion ? 1500 : 1000,
+      iterations: Infinity,
+      easing: 'linear',
+    });
+    return () => spin.cancel();
+  }, [reduceMotion]);
+  return <span ref={ref} data-spinner className="size-5 rounded-full border-2 border-welcome-ink/20 border-t-welcome-ink" />;
+}
+
+function LegalLink({ href, onClick, children }: { href: string; onClick: (e: MouseEvent<HTMLAnchorElement>) => void; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={onClick}
+      className="t-caption inline-flex min-h-11 items-center rounded-control px-1 py-2.5 text-on-welcome underline underline-offset-2 hover:text-welcome-2"
+    >
+      {children}
+    </a>
+  );
+}
+
+/** QA only (ENABLE_LOCAL_AUTH=1): the local CMS account the e2e specs sign in with. */
+function LocalForm({
+  pending,
+  disabled,
+  spaced,
+  onSubmit,
+}: {
+  pending: boolean;
+  disabled: boolean;
+  spaced: boolean;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} className={cn('flex flex-col gap-3', spaced && cn('mt-2 border-t pt-4', W.border))}>
+      <p className={cn('t-label', W.secondary)}>Cont de test (doar QA)</p>
+      <label className="flex flex-col gap-1.5">
+        <span className={cn('t-label', W.secondary)}>Email</span>
+        <input name="identifier" type="email" autoComplete="username" required className={INPUT} />
+      </label>
+      <label className="flex flex-col gap-1.5">
+        <span className={cn('t-label', W.secondary)}>Parolă</span>
+        <input name="password" type="password" autoComplete="current-password" required className={INPUT} />
+      </label>
+      <button
+        type="submit"
+        disabled={disabled}
+        aria-busy={pending || undefined}
+        className={cn(
+          't-body-strong flex h-12 items-center justify-center gap-2 rounded-2xl bg-welcome-accent px-4 text-on-welcome',
+          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-welcome',
+          disabled ? cn('cursor-not-allowed', !pending && 'opacity-50') : 'cursor-pointer hover:opacity-90 active:opacity-80'
+        )}
+      >
+        {pending ? 'Se conectează…' : 'Intră'}
+      </button>
+    </form>
+  );
+}
+
+const INPUT =
+  't-body h-12 rounded-control bg-welcome-field px-3.5 text-on-welcome outline-none shadow-[inset_0_0_0_1px_var(--color-welcome-line)] focus-visible:shadow-[inset_0_0_0_2px_var(--color-on-welcome)]';
 
 /* Provider marks: brand colours are fixed by the providers, so raw hex here is deliberate. */
 function GoogleMark() {
@@ -230,10 +556,10 @@ function FacebookMark() {
   );
 }
 
-/** Apple logo in the text colour (black on light, white on dark), as Apple's guidelines ask. */
+/** fish Ionicons logo-apple, black on the white button. */
 function AppleMark() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="size-5">
+    <svg viewBox="0 0 24 24" fill="#000000" className="size-[22px]">
       <path d="M16.365 1.43c0 1.14-.462 2.236-1.21 3.026-.8.85-2.1 1.505-3.15 1.42-.135-1.11.42-2.27 1.17-3.05.83-.87 2.24-1.52 3.19-1.396zM20.5 17.03c-.56 1.29-.83 1.87-1.55 3.01-1.01 1.59-2.43 3.57-4.19 3.58-1.57.02-1.97-1.02-4.1-1.01-2.13.01-2.57 1.03-4.14 1.01-1.76-.02-3.11-1.8-4.12-3.39C-.43 15.82-.73 10.5 1.08 7.7c1.29-2 3.32-3.17 5.23-3.17 1.95 0 3.17 1.07 4.78 1.07 1.56 0 2.51-1.07 4.77-1.07 1.7 0 3.5.93 4.78 2.53-4.2 2.3-3.52 8.29-.14 9.97z" />
     </svg>
   );

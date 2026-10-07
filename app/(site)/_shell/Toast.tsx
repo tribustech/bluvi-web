@@ -3,6 +3,7 @@
 import { createContext, use, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { CheckCircleIcon, ExclamationCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/components/ui/cn';
+import { onSessionExpired } from '@/lib/client/session-expired';
 
 /**
  * One toast host for every (site) page (fish showSuccessToast / showErrorToast): one short message,
@@ -67,6 +68,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [start],
   );
   useEffect(() => stop, [stop]);
+  // global.b.session-expired: the root providers announce a dead session here (one per burst).
+  useEffect(() => onSessionExpired((text) => show(text, 'danger')), [show]);
 
   const isAlert = message?.tone === 'danger';
 

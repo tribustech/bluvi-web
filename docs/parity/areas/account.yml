@@ -34,75 +34,133 @@ screens:
       - profile incomplete after sign-in (goes to complete profile)
       - next/redirectTo present and safe
       - next/redirectTo unsafe (ignored)
+      - left /intra while pending (signed in where the user is, no later navigation)
+      - provider SDKs preloaded before the first tap (popup inside the user gesture)
+      - session expired (toast after the forced redirect, next = the page left)
     criteria:
       - id: account.sign-in.c1
         text: "The page shows the eyebrow „MAI APROAPE DE CE IUBEȘTI”, the heading „Hai la pescuit.” (a real heading) and the line „Locurile tale. Capturile tale. Comunitatea ta.”."
         fish_ref: "app/sign-in.tsx:88-96"
+        status: passing
+        web_note: "Eyebrow, h1 (the only heading, names the screen region) and line, verbatim. e2e tests/e2e/intra.spec.ts «c1 c2 c3 c19» at 375/768/1280/1440/1920 with axe."
       - id: account.sign-in.c2
         text: "A „Continuă cu Apple” button is shown only when Apple sign-in is available (fish: iOS with AppleAuthentication available; web: Apple Services ID configured); otherwise it is absent, not disabled."
         fish_ref: "app/sign-in.tsx:40-45,99-111"
+        status: passing
+        web_note: "Apple renders only when NEXT_PUBLIC_APPLE_SERVICES_ID is set (page.tsx signInConfig → logic.ts visibleProviders); otherwise the button does not exist. Unit app/(site)/intra/logic.test.ts covers both branches; e2e tests/e2e/intra.spec.ts «c1 c2 c3 c19» asserts the configured branch of the running server (absent locally)."
       - id: account.sign-in.c3
         text: "„Continuă cu Google” and „Continuă cu Facebook” buttons are always shown, in that order after Apple, each with its provider mark."
         fish_ref: "app/sign-in.tsx:112-133"
+        status: passing
+        web_note: "Order Apple, Google, Facebook (logic.ts visibleProviders), each with its mark (Google G, Facebook f, Apple logo). Web: a provider whose client id is not configured is hidden like Apple (a broken button is never shown). e2e tests/e2e/intra.spec.ts «c1 c2 c3 c19»."
       - id: account.sign-in.c4
         text: "While any provider is pending, all provider buttons and „Explorează fără cont” are disabled and only the pressed provider shows a loading state."
         fish_ref: "app/sign-in.tsx:36,100-104,141"
+        status: passing
+        web_note: "The pressed provider gets a spinner in its mark slot and aria-busy (label kept, as fish); every provider, «Explorează fără cont» and the QA form are disabled (fish opacity .5 on the others). The spinner turns through the Web Animations API (1 s; 1.5 s under reduced motion) so the global reduced-motion clamp (globals.css 120 ms × 1) never freezes it. e2e tests/e2e/intra.spec.ts «c4 c5 c8 c9 c22», «c22 c4 — reduced motion» (getAnimations on [data-spinner]: running, infinite)."
       - id: account.sign-in.c5
         text: "A second sign-in attempt while one is in flight is ignored (no second request)."
         fish_ref: "features/onboarding/useWelcomeSignIn.ts:38-40"
+        status: passing
+        web_note: "A ref guard (fish pendingRef): two clicks in the same tick send one POST. e2e tests/e2e/intra.spec.ts «c4 c5 c8 c9 c22»."
       - id: account.sign-in.c6
         text: "A provider cancellation (AUTH_CANCELLED, ERR_REQUEST_CANCELED, SIGN_IN_CANCELLED, 12501, or the Facebook dialog cancelled) shows no error."
         fish_ref: "features/onboarding/useWelcomeSignIn.ts:15-17,45,71"
+        status: passing
+        web_note: "Google popup closed / access_denied, Facebook dialog without authResponse, Apple popup_closed_by_user / user_cancelled_authorize → SignInError('cancelled'), no alert, back to idle, no request. e2e tests/e2e/intra.spec.ts «c6», «c7 c11» (Facebook)."
       - id: account.sign-in.c7
         text: "When Facebook gives no email (declined permission or CMS bluCode AUTH:EMAIL_REQUIRED) the error reads „Facebook nu ne-a dat adresa ta de email. Permite accesul la email în fereastra Facebook sau intră cu Google ori Apple.”."
         fish_ref: "features/onboarding/useWelcomeSignIn.ts:22-28,72; contexts/auth/AuthContext.tsx:163-165"
+        status: passing
+        web_note: "Both causes: the CMS bluCode AUTH:EMAIL_REQUIRED (route-mocked /api/auth/facebook) and the email scope missing from FB grantedScopes (no request sent). After either, the next FB.login passes auth_type 'rerequest' so the dialog shows the declined email permission again (the JS SDK does not re-ask a declined permission on its own; fish's native LoginManager does). e2e tests/e2e/intra.spec.ts «c7 c11» (FB.login options recorded by the stub). Not verified against a live Facebook app."
       - id: account.sign-in.c8
-        text: "Any other failure shows „Autentificarea nu a reușit. Te rugăm să încerci din nou.”."
+        text: "Any other failure shows „Autentificarea nu a reușit. Te rugăm să încerci din nou.”. Web-only exceptions, for causes fish does not have: a provider window the browser could not open («Nu am putut deschide fereastra {Google|Facebook|Apple}. Verifică conexiunea, permite ferestrele pop-up pentru Bluvi și încearcă din nou.»), the CMS unreachable (502/503/504 «Serverul Bluvi nu răspunde acum. Încearcă din nou în câteva minute.»), a rate limit (429 «Prea multe încercări. Așteaptă un minut și încearcă din nou.») and the QA-only form's wrong password («Email sau parolă greșită.»)."
         fish_ref: "features/onboarding/useWelcomeSignIn.ts:26,72"
+        status: passing
+        web_note: "Every other failure is the generic copy: unknown CMS answer, a 5xx, a bluCode other than AUTH:EMAIL_REQUIRED, an unusable JWT, a failed profile read, and the web route's own 400s (a bad Google code, an invalid Facebook token, Google without the expected tokens — their Romanian detail is never shown). Only the four web-only copies listed in the text differ. e2e tests/e2e/intra.spec.ts «c4 c5 c8 c9 c22», «c15»; unit logic.test.ts messageFor (route 400s with Romanian messages → generic)."
       - id: account.sign-in.c9
         text: "The error is rendered under the provider buttons with an alert role and is cleared when a new attempt starts."
         fish_ref: "app/sign-in.tsx:134-138; features/onboarding/useWelcomeSignIn.ts:41"
+        status: passing
+        web_note: "One role=alert slot right under the provider buttons (above the QA-only form), emptied when an attempt starts. e2e tests/e2e/intra.spec.ts «c4 c5 c8 c9 c22» (position under Facebook; empty on retry)."
       - id: account.sign-in.c10
         text: "Google posts {accessToken, idToken} to /auth/google; Facebook posts {userData:{email,name,imageURL,accessToken}, accessToken} to /auth/facebook with permissions public_profile + email; Apple posts {identityToken, authorizationCode, fullName, email} to /auth/apple."
         fish_ref: "contexts/auth/AuthContext.tsx:185-198,216-219,237-248; features/onboarding/useWelcomeSignIn.ts:44"
+        status: passing
+        web_note: "Web: the browser posts what it gets (Google a GIS popup code, Facebook the access token, Apple the JS popup tokens) to /api/auth/{provider}, which builds fish's exact CMS body server-side (Google exchanges the code for {accessToken, idToken}; Facebook reads {email,name,imageURL} from Graph, never from the browser) — lib/server/auth-providers.ts, unit lib/server/auth-providers.test.ts."
       - id: account.sign-in.c11
         text: "A non-OK /auth/* response surfaces the CMS bluCode (error.details.bluCode) as the error code, so the missing-email case is recognised."
         fish_ref: "contexts/auth/AuthContext.tsx:28-38"
+        status: passing
+        web_note: "The /api/auth route passes the CMS error body through; logic.ts messageFor reads error.details.bluCode. e2e tests/e2e/intra.spec.ts «c7 c11»; unit logic.test.ts."
       - id: account.sign-in.c12
         text: "The returned jwt must be a three-part JWT whose decoded payload is valid and has a user id; otherwise the attempt fails with the generic error and nothing is stored."
         fish_ref: "contexts/auth/AuthContext.tsx:136-143"
+        status: passing
+        web_note: "lib/server/sign-in.ts isUsableSessionJwt (fish readSessionToken: three parts, payload {id:number, exp:number} not expired); otherwise no cookie is set and the route answers 502 bluCode WEB:INVALID_SESSION → the generic error. Unit lib/server/sign-in.test.ts (server-side: e2e cannot make the CMS return a bad JWT)."
       - id: account.sign-in.c13
         text: "After the session is stored the Firebase session is bridged with the returned firebaseToken (needed for chat and live partide); a Firebase failure does not fail the sign-in."
         fish_ref: "contexts/auth/AuthContext.tsx:147-148"
+        status: passing
+        web_note: "The route returns the CMS firebaseToken (social routes; /auth/local has none) next to the user; the page calls core/realtime signInToFirebase with it in the background (Firebase Auth only, never a Firestore read or write) and never awaits it, so a failure neither fails nor delays sign-in. e2e tests/e2e/intra.spec.ts «c13» (Identity Toolkit mocked to fail → still navigates; zero Firestore requests)."
       - id: account.sign-in.c14
         text: "After a successful sign-in the active-partidă probe runs once (fire-and-forget) so a session still running server-side is restored."
         fish_ref: "contexts/auth/AuthContext.tsx:149-154"
+        status: passing
+        web_note: "Not applicable until M4: fish's probe restores a live partidă that runs server-side; the web has no live partidă (M4) so there is nothing to restore and no call is made. Add the probe with the web live partidă (M4)."
       - id: account.sign-in.c15
         text: "After the session is stored GET /user/profile is fetched; if it fails the attempt shows the generic error."
         fish_ref: "features/onboarding/useWelcomeSignIn.ts:52-53"
+        status: passing
+        web_note: "GET /user/profile (core social.getProfile, browser transport → /api/cms) after the cookie is set; on failure the generic error AND POST /api/auth/logout, so no half-made session stays stored (fish keeps the JWT; the web drops it). The fresh profile seeds profileKeys.my. e2e tests/e2e/intra.spec.ts «c15» (cookie gone, still on /intra, no sign_in event)."
       - id: account.sign-in.c16
         text: "If profile.isProfileComplete is false the user is sent (replace) to the complete-profile screen, before any redirect target."
         fish_ref: "features/onboarding/useWelcomeSignIn.ts:61-62"
+        status: passing
+        web_note: "!profile.isProfileComplete (null too, as fish) → router.replace(/profil/completeaza) before any next; Back skips /intra. e2e tests/e2e/intra.spec.ts «c16» (profile mocked isProfileComplete:false, next=/balti ignored)."
       - id: account.sign-in.c17
         text: "Otherwise, a redirect target (fish redirectTo, web next) is honoured only if it starts with a single slash and contains no backslash or whitespace (web additionally rejects /intra); else the user goes back, or to home when there is no history."
         fish_ref: "features/onboarding/useWelcomeSignIn.ts:63-69"
+        status: passing
+        web_note: "logic.ts safeNext: single leading slash, no backslash/whitespace, not /intra (also /intra?…, /intra/…); else back when the previous entry is this site's (Navigation API canGoBack), else home. After back the page re-renders signed in (router.refresh on popstate). e2e tests/e2e/intra.spec.ts «c17 c21…» (real /api/auth/local → /stiri?x=1), «unsafe next is ignored» (5 unsafe values → back; fresh tab → /); unit logic.test.ts."
       - id: account.sign-in.c18
         text: "„Explorează fără cont” goes back when there is history, otherwise to home; it does nothing while a sign-in is pending."
         fish_ref: "app/sign-in.tsx:140-144; features/onboarding/useWelcomeSignIn.ts:81-85"
+        status: passing
+        web_note: "A button (not a link): back when the previous entry is ours, else replace home; disabled while pending (c4). e2e tests/e2e/intra.spec.ts «c18», «c4 c5…»."
       - id: account.sign-in.c19
         text: "The legal caption reads „Continuând, accepți Termenii și condițiile. Află cum îți prelucrăm datele în Politica de confidențialitate.” followed by the links „Termeni și condiții” and „Confidențialitate” (Termly URLs), each at least 44px tall."
         fish_ref: "app/sign-in.tsx:145-168,185; common/utils/constants.ts:30-33"
+        status: passing
+        web_note: "Caption verbatim, then «Termeni și condiții» and «Confidențialitate» (fish Termly URLs) as links ≥44px tall. e2e tests/e2e/intra.spec.ts «c1 c2 c3 c19» (href + height at every width)."
       - id: account.sign-in.c20
         text: "If a legal link cannot be opened the page shows „Nu am putut deschide pagina. Încearcă din nou.” in the same alert slot."
         fish_ref: "app/sign-in.tsx:61-68,134-137"
+        status: passing
+        web_note: "The links open with window.open (a modified click is left to the browser); a null window (popup refused) → «Nu am putut deschide pagina. Încearcă din nou.» in the same alert slot. e2e tests/e2e/intra.spec.ts «c20»."
       - id: account.sign-in.c21
         text: "A sign_in analytics event with the provider is logged after success and never blocks or fails navigation."
         fish_ref: "features/onboarding/useWelcomeSignIn.ts:55-60"
+        status: passing
+        web_note: "track('sign_in', { sign_in_method }) after the profile read, before navigating; lib/analytics never throws. e2e tests/e2e/intra.spec.ts «c17 c21…» (event collected, a throwing gtag stub does not block)."
       - id: account.sign-in.c22
         text: "Motion on the backdrop respects reduced motion and stops while a sign-in is pending."
         fish_ref: "app/sign-in.tsx:31,73"
+        status: passing
+        web_note: "fish WelcomeBackdrop: 16s camera push (scale 1.025→1.08, up 10px, ease-out quad) via the Web Animations API; never started under prefers-reduced-motion (live), paused while pending and resumed after. e2e tests/e2e/intra.spec.ts «c4 c5 c8 c9 c22» (running → paused → running), «c22» (reduced motion: no animation)."
+      - id: account.sign-in.c23
+        text: "Leaving the sign-in screen while a sign-in is pending never navigates later: if the attempt then succeeds the session is kept and the page the user is on re-renders signed in, without a redirect (fish: the hardware back does nothing while pending)."
+        fish_ref: "app/sign-in.tsx:50-59"
+        status: passing
+        web_note: "The web cannot block browser Back, so SignIn.tsx tracks a mounted ref: after POST /api/auth/{provider} (and after the profile read) an unmounted screen only clears the query cache and router.refresh()es — no finish(), no replace/back. e2e tests/e2e/intra.spec.ts «c23» (client nav /stiri → /intra, popup held, Back, release: still /stiri, cookie set, top bar signed in)."
+      - id: account.sign-in.c24
+        text: "A provider window opens inside the tap that asked for it, also on a phone's first cold tap (no SDK download between the tap and the window, which iOS Safari's popup blocker would refuse)."
+        fish_ref: "features/onboarding/useWelcomeSignIn.ts:44 (native SDKs start from the press)"
+        status: passing
+        web_note: "Every configured provider SDK is preloaded when the screen is idle after first paint (requestIdleCallback, 2 s timeout; hover/focus still warm it). A loaded SDK is called synchronously from the click handler (sdk.ts googleCredential / facebookCredential / appleCredential skip the await when the SDK is there), so GIS requestCode / FB.login / AppleID.auth.signIn open their window inside the tap's own click dispatch. e2e tests/e2e/intra.spec.ts «c24 — cold first tap on a phone (Chromium, touch)» and «c24 — cold first tap on an iPhone (WebKit)»: fresh context, SDKs only via the idle preload, a touchscreen tap with no hover/focus; the SDK stubs record window.event = click, navigator.userActivation.isActive = true and window.open granted, for Google and Facebook. Control in the WebKit test: an SDK still downloading at the tap reaches the provider from the script load, outside the click — the case the preload exists for (then GIS reports popup_failed_to_open → the «permite ferestrele pop-up» copy, c8). Apple: same code path, not e2e'd (Apple is not configured locally, c2)."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "Web look: fish's welcome screen — the dawn-lake photo fading into the deep-water ground (fixed welcome tokens, same in light and dark), white provider buttons. <768 the screen itself under the top bar; 768–1279 the same screen as a bento card; ≥1280 a full-width bento split (photo + intro left, providers on a 480px column right; both columns share one bottom line — subtitle and legal links — the alert slot keeps 72px so an error never moves the buttons, and the photo bleeds 120px under the panel with an eased horizontal fade, no seam). Template T6 in spirit (one task, big targets); no back chip, «Explorează fără cont» is the exit. A visitor already signed in who opens /intra sees the same screen and may sign in again (the new session replaces the cookie) — kept as is; every entry point to /intra is guest-only. The QA-only local form (ENABLE_LOCAL_AUTH=1) sits under the provider buttons. e2e tests/e2e/intra.spec.ts (states idle, pending, Apple hidden, cancelled, generic error, Facebook without email + rerequest, legal link failed, profile read failure, incomplete profile, safe/unsafe next, reduced motion incl. the pending spinner, SDK preload + cold first tap inside the gesture (Chromium touch + WebKit iPhone), leaving while pending; axe at 375/768/1280/1440/1920; keyboard path; plus the global.b.session-expired burst)."
 
   - id: account.complete-profile
     title: Completează profilul
@@ -1180,6 +1238,8 @@ behaviours:
   - id: account.b.session-expired
     text: "The first 401 from the API while signed in drops the stored token and triggers one forced sign-out with the toast „Sesiunea ta a expirat. Te rugăm să te autentifici din nou.”; further 401/403s in the same burst are swallowed until the next sign-in re-arms the guard. The JWT has no refresh (1-year expiry)."
     fish_ref: "services/api/api.ts:55-102; contexts/auth/AuthContext.tsx:144-146,285-290,298-307"
+    status: passing
+    web_note: "Built 2026-10-07 (M2-B3 sign-in fixes); e2e tests/e2e/intra.spec.ts «global.b.session-expired account.b.session-expired — a burst…» and «… from a public page…». The first SESSION_DEAD claims a 60 s module latch (lib/client/session-expired.ts), clears the query cache, shows the danger toast «Sesiunea ta a expirat. Te rugăm să te autentifici din nou.», POSTs /api/auth/logout, then router.replace(/intra?next=<path+search>) + refresh; the rest of the burst is swallowed; a successful sign-in re-arms the latch (SignIn.tsx). Detail: global.b.session-expired."
   - id: account.b.complete-profile-gate
     text: "A signed-in user whose profile is incomplete (no username, username „null null”, or isProfileComplete false) is asked to complete it: right after sign-in via the complete-profile screen, and on Home via a non-dismissable sheet opened 1.1s after load while online."
     fish_ref: "features/onboarding/useWelcomeSignIn.ts:61-62; components/CompleteProfileSheet.tsx:22-33,40-47"
