@@ -196,7 +196,7 @@ async function asUser(page: Page) {
   await signIn(page.context(), jwt);
 }
 
-/** A tab by its label; signed in, Sesiuni/Concursuri also speak their count badge («Concursuri, 4»). */
+/** A tab by its label; signed in, Partide/Concursuri also speak their count badge («Concursuri, 4»). */
 const tab = (page: Page, name: string) => page.getByRole('tab', { name: new RegExp(`^${name}(, \\d+)?$`) });
 const GUEST_EMPTY = 'Intră în cont ca să vezi profilul';
 
@@ -228,7 +228,7 @@ test.describe('signed out', () => {
     expect(cta.y - (chips.y + chips.height), 'space under the chip row').toBeGreaterThanOrEqual(12);
     // Rule 4: no count badges for a guest (we do not know the totals).
     await expect(page.getByRole('tab', { name: 'Concursuri', exact: true })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Sesiuni', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Partide', exact: true })).toBeVisible();
     await expect(page.getByTestId('profile-header')).toHaveCount(0);
     await expect(page.getByTestId('competition-card').first()).toBeVisible();
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
@@ -328,7 +328,7 @@ test.describe('deep links', () => {
     await page.goto(`/pescari/${UNKNOWN}`);
     await expect(page.getByTestId('guest-hint')).toBeVisible();
     await expect(page.getByTestId('tab-empty')).toHaveText(GUEST_EMPTY);
-    await tab(page, 'Sesiuni').click();
+    await tab(page, 'Partide').click();
     await expect(page.getByTestId('tab-empty')).toHaveText(GUEST_EMPTY);
     await expect(page.getByText(/încă$/)).toHaveCount(0);
   });
@@ -374,7 +374,7 @@ test.describe('signed in — real data', () => {
     await page.waitForLoadState('networkidle');
     expect(lists.filter(l => l !== 'catches'), 'only the selected tab is read').toEqual([]);
 
-    await tab(page, 'Sesiuni').click();
+    await tab(page, 'Partide').click();
     await expect(page).toHaveURL(new RegExp(`/pescari/${ANDREW_R}\\?tab=sesiuni$`));
     await expect(page.getByTestId('session-month').first()).toBeVisible();
     expect(lists).toContain('sessions');
@@ -669,7 +669,7 @@ test.describe('signed in — mocked states', () => {
     });
     await page.clock.install();
     await page.goto(`/pescari/${MOCK}?tab=concursuri`);
-    await tab(page, 'Sesiuni').click();
+    await tab(page, 'Partide').click();
     await expect(page.getByTestId('tab-skeleton-sesiuni')).toBeVisible();
     const cards = page.getByTestId('session-card');
     await expect(cards).toHaveCount(2);
@@ -740,7 +740,7 @@ test.describe('signed in — mocked states', () => {
     await page.route(new RegExp(`/feed/users/${MOCK}/reputation`), r => json(r, { data: NO_REPUTATION }));
     await page.goto(`/pescari/${MOCK}`);
     await expect(page.getByTestId('tab-empty')).toHaveText('Nicio captură încă');
-    await tab(page, 'Sesiuni').click();
+    await tab(page, 'Partide').click();
     await expect(page.getByTestId('tab-empty')).toHaveText('Nicio partidă publică încă');
     await tab(page, 'Concursuri').click();
     await expect(page.getByTestId('tab-empty')).toHaveText('Niciun concurs încă');
@@ -807,7 +807,7 @@ test.describe('signed in — mocked states', () => {
     await page.goto(`/pescari/${MOCK}?tab=concursuri`);
     await expect(page.getByTestId('profile-header')).toBeVisible();
     // Counts as badges where the header knows them (sessions 2, competitions 4); none on Capturi.
-    await expect(page.getByRole('tab', { name: 'Sesiuni, 2' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Partide, 2' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Concursuri, 4' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Capturi', exact: true })).toBeVisible();
     const bar = page.getByRole('tablist').locator('..');

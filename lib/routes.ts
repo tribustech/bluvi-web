@@ -76,7 +76,12 @@ export const routes = {
   competition: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}`,
   competitionRanking: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/clasament`,
   competitionInfo: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/informatii`,
-  competitionParticipants: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/participanti`,
+  /**
+   * `filtru`: in-asteptare — the pending registrations (fish participantsFilter=pending, the
+   * NEW_REGISTRATION_ORGANIZER notification); read by the organizer's list (M6), ignored before.
+   */
+  competitionParticipants: (documentId: string, filtru?: 'in-asteptare') =>
+    `/concursuri/${encodeURIComponent(documentId)}/participanti${filtru ? `?filtru=${filtru}` : ''}`,
   competitionExtraScales: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/extra-cantare`,
   competitionRules: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/regulament`,
   /**
@@ -181,11 +186,13 @@ export const routes = {
  * area): until the batch that ships a page flips its entry, its targets render as plain rows /
  * text — never a dead link to the catch-all 404.
  *  - angler → /pescari/[id], the angler profile (M2, docs/parity/areas/account.yml) — ON since M2-B1;
- *  - connections → /pescari/[id]/conexiuni, an angler's followers / following (M2, account.connections);
+ *  - connections → /pescari/[id]/conexiuni, an angler's followers / following (M2, account.connections) — ON since M2-B2;
  *  - partida → /partide/[id], with the own-vs-spectator resolution (M4);
- *  - startPartida → the start-partidă flow (M4).
+ *  - startPartida → the start-partidă flow (M4);
+ *  - settings → /setari, the settings hub (M2, account.settings): until then the own profile's cog
+ *    and the account menus' «Setări» rows are not shown (/setari/profil, edit profile, exists).
  */
-export const ON_WEB = { angler: true, connections: false, partida: false, startPartida: false } as const;
+export const ON_WEB = { angler: true, connections: true, partida: false, startPartida: false, settings: false } as const;
 
 /** The angler's profile, or null while the web has none (render the person without a link). */
 export const anglerHref = (documentId: string): string | null => (ON_WEB.angler ? routes.angler(documentId) : null);

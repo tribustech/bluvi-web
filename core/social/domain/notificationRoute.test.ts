@@ -30,7 +30,7 @@ const CASES: { type: string; data: Omit<NotificationData, 'type'>; expected: Not
     T.FOLLOW_COMPETITION_START,
   ].map(type => ({ type, data: { competitionId: C }, expected: { kind: 'competition', params: { competitionId: C } } as NotificationRoute, nullWithout: ['competitionId' as const] })),
   // /competitions/:id?activeTabId=clasament
-  ...[T.COMPETITION_END, T.FOLLOW_COMPETITION_END, T.FOLLOW_COMPETITION_PODIUM].map(type => ({
+  ...[T.COMPETITION_END, T.COMPETITION_ROUND_END, T.FOLLOW_COMPETITION_END, T.FOLLOW_COMPETITION_PODIUM].map(type => ({
     type,
     data: { competitionId: C },
     expected: { kind: 'competition', params: { competitionId: C, activeTabId: 'clasament' } } as NotificationRoute,
@@ -46,6 +46,7 @@ const CASES: { type: string; data: Omit<NotificationData, 'type'>; expected: Not
   // /competitions/:id?activeTabId=participanti
   ...[
     T.COMPETITION_PARTICIPANTS_ALLOCATION,
+    T.COMPETITION_ROUND_START,
     T.COMPETITION_NEW_CANCELLATION_ORGANIZER,
     T.COMPETITION_REGISTRATION_MODIFIED_ORGANIZER,
     T.FOLLOW_COMPETITION_REGISTERED,

@@ -9,7 +9,7 @@ import { FollowButton } from '@/components/cards/FollowButton';
 import { Lightbox } from '@/components/surfaces/Lightbox';
 import { ResponsiveSurface } from '@/components/surfaces/ResponsiveSurface';
 import { AvatarPhoto } from '@/components/ui/AvatarPhoto';
-import { toneForName } from '@/components/ui/Avatar';
+import { toneForId, toneForName } from '@/components/ui/Avatar';
 import { cn } from '@/components/ui/cn';
 import { getInitials } from '@/components/ui/initials';
 import { formatCount } from '@/core/realtime/chat/format';
@@ -31,8 +31,8 @@ import { useFollowAngler } from './useFollowAngler';
  *    (it opens the reputation panel), the name as the page's h1, «{n} urmăritori · {n} urmărește»,
  *    the trophy row, the four-column stat strip, the follow button (another angler only), the bio.
  *  - ≥1280 (T3 two columns, the left sticky identity card): avatar, name, counts, follow, bio, then
- *    the trophies, the stats as small bento tiles (owner rules 9, 19) and the reputation summary
- *    (the same panel), each in that order (CSS order on one DOM).
+ *    the stats as small bento tiles — the podiums one of them (owner rules 9, 19) — and the
+ *    reputation summary (the same panel), each in that order (CSS order on one DOM).
  * The follow button is fish's FollowButton (kit components/cards FollowButton look="profile") on
  * useFollowAngler; the counts open the connections page once the web has it (anglerConnectionsHref).
  */
@@ -45,10 +45,13 @@ const AVATAR_TONE: Record<string, string> = {
   neutral: 'bg-status-neutral-bg text-status-neutral-fg',
 };
 
-/** The 100px avatar (fish InitialsAvatar size 100): the kit Avatar's tones and initials, a step up. Also the edit-profile preview («Așa te văd ceilalți»). */
-export function BigAvatar({ name, src }: { name: string; src: string | null }) {
+/**
+ * The 100px avatar (fish InitialsAvatar size 100): the kit Avatar's tones and initials, a step up. Also the edit-profile preview («Așa te văd ceilalți»).
+ * `toneKey`: the angler's documentId, so the tone matches their connection rows and survives a rename (toneForId).
+ */
+export function BigAvatar({ name, src, toneKey }: { name: string; src: string | null; toneKey?: string }) {
   const base = 'relative inline-flex size-25 shrink-0 items-center justify-center overflow-hidden rounded-full t-title1 font-extrabold leading-none select-none';
-  const tone = AVATAR_TONE[toneForName(name)] ?? AVATAR_TONE.indigo;
+  const tone = AVATAR_TONE[toneKey ? toneForId(toneKey) : toneForName(name)] ?? AVATAR_TONE.indigo;
   if (src) {
     return <AvatarPhoto src={src} className={base} fallbackClassName={tone} initials={getInitials(name)} a11y={{ 'aria-hidden': true }} />;
   }
@@ -80,10 +83,10 @@ export function ProfileHeader({ profile, mode, signedIn }: { profile: AnglerProf
             className="flex cursor-pointer rounded-full transition-opacity duration-(--duration-fast) hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent"
             data-testid="profile-avatar-button"
           >
-            <BigAvatar name={profile.username} src={profile.avatarUrl} />
+            <BigAvatar name={profile.username} src={profile.avatarUrl} toneKey={profile.documentId} />
           </button>
         ) : (
-          <BigAvatar name={profile.username} src={null} />
+          <BigAvatar name={profile.username} src={null} toneKey={profile.documentId} />
         )}
         {ratingText ? (
           <button
@@ -110,7 +113,9 @@ export function ProfileHeader({ profile, mode, signedIn }: { profile: AnglerProf
         <CountLink href={anglerConnectionsHref(profile.documentId, 'urmareste')} n={profile.counts.following} verb="urmărește" testId="following-count" />
       </p>
 
-      <TrophyRow podium={profile.podium} className="order-1 mt-2 xl:order-3 xl:mt-4" />
+      {/* Phone / tablet: fish's inline row under the counts. ≥1280 the podium is its own bento tile
+          (StatBento «Podiumuri»), never a small caption between the button and the bento. */}
+      <TrophyRow podium={profile.podium} className="order-1 mt-2 xl:hidden" />
       <div className="order-2 w-full xl:hidden">
         <StatStrip profile={profile} />
       </div>

@@ -21,5 +21,9 @@ export const config = {
   matcher: [
     // /setari and below: settings, edit profile (M2).
     { source: '/setari/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    // An angler's followers / following (account.connections): auth-scoped on the CMS.
+    { source: '/pescari/:id/conexiuni', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    // /profil: the own profile (M2, account.own-profile).
+    { source: '/profil', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
   ],
 };

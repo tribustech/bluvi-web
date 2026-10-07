@@ -37,6 +37,14 @@ export function toneForName(name: string): AvatarTone {
   return TONES[hashString(name) % TONES.length];
 }
 
+/**
+ * An angler's tone keyed by their documentId (fish colorForId): stable across renames and the same
+ * on every screen that shows them (connection rows, the profile header, the connections owner line).
+ */
+export function toneForId(documentId: string): AvatarTone {
+  return toneForName(documentId);
+}
+
 export interface AvatarProps {
   name: string;
   src?: string | null;

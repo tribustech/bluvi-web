@@ -186,6 +186,8 @@ export function TabContent({
       {tab.count ? (
         <span
           aria-hidden={tab.accessibleLabel ? true : undefined}
+          // Capped at 99+: the full figure (ro-RO grouped, «1.234») on hover.
+          title={tab.count > 99 ? tab.count.toLocaleString('ro-RO') : undefined}
           className={cn(
             't-micro-strong inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1.5 tabular-nums',
             look === 'active' ? 'bg-accent-ink text-on-accent' : 'bg-soft-fill text-ink-2',

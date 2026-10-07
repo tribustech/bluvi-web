@@ -16,6 +16,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { FishLogo } from './brand';
 import { ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
+import { ON_WEB } from '@/lib/routes';
 import { LogoHorizontal } from './brand';
 import { iconButtonClass } from './IconButton';
 import { PATHS, SECTIONS, type AdminLink } from './items';
@@ -464,14 +465,19 @@ function AccountSlot({
       current: active === 'profil' ? activeCurrent : undefined,
       icon: <UserCircleIcon className={MENU_ICON} aria-hidden />,
     },
-    {
-      kind: 'link',
-      key: 'setari',
-      label: 'Setări',
-      href: PATHS.settings,
-      current: active === 'setari' ? activeCurrent : undefined,
-      icon: <Cog6ToothIcon className={MENU_ICON} aria-hidden />,
-    },
+    // /setari only once the web has it (ON_WEB.settings) — never a menu row to the 404.
+    ...(ON_WEB.settings
+      ? ([
+          {
+            kind: 'link',
+            key: 'setari',
+            label: 'Setări',
+            href: PATHS.settings,
+            current: active === 'setari' ? activeCurrent : undefined,
+            icon: <Cog6ToothIcon className={MENU_ICON} aria-hidden />,
+          },
+        ] satisfies MenuEntry[])
+      : []),
     ...(onSignOut
       ? ([
           { kind: 'separator', key: 'sep-iesi' },
@@ -486,9 +492,10 @@ function AccountSlot({
         ] satisfies MenuEntry[])
       : []),
   ];
-  // The avatar is fish's Profil tab: its accent ring (round the 32px avatar, the trigger's 4px
-  // inset is the gap) and the «current page inside» name show on /profil only (parity
-  // global.shell.c7). /setari is marked by its own menu row («current»), never by the ring.
+  // The avatar is fish's Profil tab: its accent ring (hugging the 32px avatar with a 2px surface gap,
+  // fish's selected-tab border round the thumb — _layout.tsx:117-121 — not round the whole trigger,
+  // where it would read as the keyboard focus ring) and the «current page inside» name show on
+  // /profil only (parity global.shell.c7). /setari is marked by its own menu row, never by the ring.
   const accountActive = active === 'profil';
   // «Ieși din cont» is on its way: the trigger stays mounted (focus stays on it) but is busy — no
   // menu, a spinner in place of the avatar; SiteTopBar announces it in its polite status.
@@ -519,14 +526,13 @@ function AccountSlot({
             <ArrowPathIcon className="size-6 animate-spin" aria-hidden />
           </span>
         ) : (
-          <AccountAvatar name={viewer.name} src={viewer.avatarUrl} size={32} />
+          <AccountAvatar name={viewer.name} src={viewer.avatarUrl} size={32} current={accountActive} />
         )
       }
       triggerClassName={cn(
         slot,
         PRESS,
         'hover:bg-soft-fill aria-expanded:bg-soft-fill aria-disabled:cursor-progress aria-disabled:active:opacity-100',
-        accountActive && 'ring-2 ring-accent',
       )}
       entries={entries}
     />
@@ -537,10 +543,23 @@ function AccountSlot({
  * The account's picture: the profile photo, or — without one — the round Bluvi mark, as fish's
  * Profil tab draws it (global.shell.c6), never initials on a colour disc.
  */
-function AccountAvatar({ name, src, size }: { name: string; src?: string | null; size: 32 | 40 }) {
-  if (src) return <Avatar name={name} src={src} size={size} tone="indigo" />;
+function AccountAvatar({ name, src, size, current = false }: { name: string; src?: string | null; size: 32 | 40; current?: boolean }) {
+  // `current`: the Profil «selected tab» ring, on the thumb itself (data-current for the e2e).
+  const ring = current ? 'rounded-full ring-2 ring-accent ring-offset-2 ring-offset-surface' : undefined;
+  if (src) {
+    return (
+      <span className={cn('flex shrink-0', ring)} data-account-avatar data-current={current || undefined}>
+        <Avatar name={name} src={src} size={size} tone="indigo" />
+      </span>
+    );
+  }
   return (
-    <span aria-hidden className={cn('flex shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent', size === 40 ? 'size-10' : 'size-8')}>
+    <span
+      aria-hidden
+      data-account-avatar
+      data-current={current || undefined}
+      className={cn('flex shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent', size === 40 ? 'size-10' : 'size-8', ring)}
+    >
       <FishLogo className={size === 40 ? 'size-6' : 'size-5'} />
     </span>
   );

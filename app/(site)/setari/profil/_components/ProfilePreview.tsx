@@ -38,7 +38,7 @@ export function ProfilePreview({ form, viewerId, savedName }: { form: ProfileFor
       }
     >
       <div className={PANEL} data-testid="profile-preview">
-        <BigAvatar name={name} src={src} />
+        <BigAvatar name={name} src={src} toneKey={viewerId} />
         <p className="mt-3 t-title1 break-words text-ink" data-testid="profile-preview-name">
           {name}
         </p>

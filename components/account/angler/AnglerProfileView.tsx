@@ -1,17 +1,18 @@
 'use client';
 
-import { ArrowPathIcon, Cog6ToothIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, Cog6ToothIcon, PhotoIcon, TrophyIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import { useInfiniteQuery, useQuery, type InfiniteData, type UseInfiniteQueryResult } from '@tanstack/react-query';
 import Link from 'next/link';
 import { notFound, usePathname } from 'next/navigation';
-import { useMemo, useState, useTransition, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, useTransition, type ReactNode } from 'react';
 import { SetBreadcrumb } from '@/app/(site)/_shell/SiteHeader';
 import { useViewerState } from '@/app/(site)/_shell/viewer-context';
 import { isUnknownViewer, userOf } from '@/app/(site)/_shell/viewer-state';
 import { FollowButton } from '@/components/cards/FollowButton';
 import { ListError, ListFooter, ListTabs } from '@/components/templates/T1';
-import { COLUMN_STICKY_TOP, DetailBackButton, headerChipClass } from '@/components/templates/T3';
+import { DetailBackButton, headerChipClass } from '@/components/templates/T3';
 import { DashboardRefresh } from '@/components/templates/T5';
+import { FishOutlineIcon } from '@/components/nav/brand';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import {
@@ -31,7 +32,7 @@ import {
 import { formatCount } from '@/core/realtime/chat/format';
 import { isApiError } from '@/core/transport';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { routes } from '@/lib/routes';
+import { ON_WEB, routes } from '@/lib/routes';
 import { CatchGrid } from './CatchGrid';
 import { CompetitionHistoryCard } from './CompetitionHistoryCard';
 import { FilterChips, type ChipOption } from './FilterChips';
@@ -54,8 +55,10 @@ import { useFollowAngler } from './useFollowAngler';
  *  - `mode="other"` (/pescari/[id]): below 1280 a back control (DetailBackButton; home when there
  *    is no history, c35 — from 1280 the breadcrumb is the way back), the follow button unless the profile is the viewer's own (isSelf, c38 keeps
  *    the back control), the page's breadcrumb «Acasă › {nume}».
- *  - `mode="own"` (/profil): the settings cog to /setari and no back (account.own-profile c3), no
- *    follow, a header skeleton without the follow pill (c4); the page sets its own breadcrumb.
+ *  - `mode="own"` (/profil): the settings cog to /setari (only once the web has /setari,
+ *    ON_WEB.settings — never a dead 404 link) and no back (account.own-profile c3), no follow, a
+ *    header skeleton without the follow pill but with the edit button's and trophy row's bones (c4);
+ *    the page sets its own breadcrumb. Headings say whose page it is: «Profilul meu» / «Despre mine».
  *  - `initialTab`: the server's `?tab=` (the tab whose first page the server prefetched into the
  *    HydrationBoundary). Switching tabs keeps the URL in step (`?tab=`, Capturi bare) without a
  *    server round trip, and only the selected tab's list is ever requested (c16).
@@ -72,6 +75,10 @@ import { useFollowAngler } from './useFollowAngler';
  * Layout: phone / tablet = fish's column (white header band, the tab bar, the selected list on
  * the grey ground). ≥1280 = two columns: the identity card left (sticky under the bar), the tabs
  * and the list right — a full-width page (ROADMAP §4), the grids auto-fill.
+ * The identity card is never height-capped nor scrolled inside itself (a long bio + the podium
+ * tile must never slice the bento): it pins under the bar while it fits the viewport; a taller card
+ * scrolls with the page until its bottom is 24px above the window's, and pins there (STICKY_CARD_TOP,
+ * --aside-h measured by useAsideHeight).
  */
 export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: { documentId: string; mode: 'own' | 'other'; initialTab?: ProfileTab }) {
   const viewer = useViewerState();
@@ -114,6 +121,10 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
     return !results.some(r => r?.isError);
   };
 
+  const asideRef = useAsideHeight();
+  /** Own mode without /setari: the phone / tablet header row would hold only refresh (c3 is hidden). */
+  const loneRefresh = mode === 'own' && !ON_WEB.settings;
+
   const header: ReactNode = unknown || (signedIn && profileQ.isPending) ? (
     <ProfileHeaderSkeleton mode={mode} />
   ) : !signedIn ? (
@@ -127,29 +138,42 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
   return (
     <div className="flex min-h-dvh flex-col pb-12" data-testid="angler-profile" data-mode={mode}>
       {mode === 'other' ? <Crumbs profile={profile} signedIn={signedIn} /> : null}
-      {!profile ? <h1 className="sr-only">Profil de pescar</h1> : null}
+      {/* Until the header lands (or when it fails) the page still has its h1 — the own one on /profil,
+          the same «Profilul meu» OwnProfileFallback streamed, so it never changes during load. */}
+      {!profile ? <h1 className="sr-only">{mode === 'own' ? 'Profilul meu' : 'Profil de pescar'}</h1> : null}
       <div
         className={cn(
-          'flex flex-col xl:grid xl:items-start xl:gap-x-6 xl:px-8',
+          'relative flex flex-col xl:grid xl:items-start xl:gap-x-6 xl:px-8',
           'xl:grid-cols-[--spacing(90)_minmax(0,1fr)] 2xl:grid-cols-[--spacing(100)_minmax(0,1fr)]',
         )}
       >
         {/* Phone / tablet: fish's header row (back · refresh · settings) on the white band. From
             1280 there is no such row (rule 1: the breadcrumb is the way back, the identity card and
-            the tabs start right under it); refresh and settings move into the tab bar's end. */}
-        <div className="flex min-h-14 items-center gap-2 bg-surface px-4 pt-2 md:px-6 xl:hidden">
+            the tabs start right under it); refresh and settings move into the tab bar's end.
+            Own mode while the web has no /setari: no row of one lone chip (a white band pushing the
+            avatar down) — refresh sits in the header band's top-right corner, over the avatar's
+            top padding (OwnProfileFallback mirrors it). */}
+        <div
+          className={cn(
+            'flex items-center gap-2 xl:hidden',
+            loneRefresh ? 'absolute top-2 right-4 z-above md:right-6' : 'min-h-14 bg-surface px-4 pt-2 md:px-6',
+          )}
+          data-testid="profile-header-row"
+        >
           {mode === 'other' ? <DetailBackButton fallbackHref={routes.home()} /> : null}
-          <span className="flex-1" />
+          {loneRefresh ? null : <span className="flex-1" />}
           <DashboardRefresh onRefresh={refresh} />
-          {mode === 'own' ? <SettingsChip /> : null}
+          {mode === 'own' && ON_WEB.settings ? <SettingsChip /> : null}
         </div>
 
         <aside
-          aria-label={profile ? `Despre ${profile.username}` : 'Despre pescar'}
+          ref={asideRef}
+          aria-label={mode === 'own' ? 'Despre mine' : profile ? `Despre ${profile.username}` : 'Despre pescar'}
           className={cn(
-            'bg-surface px-5 pt-1 pb-5 md:px-6',
-            'xl:sticky xl:mt-4 xl:max-h-[calc(100dvh-(--spacing(28)))] xl:overflow-y-auto xl:rounded-card xl:p-6 xl:shadow-e0',
-            COLUMN_STICKY_TOP,
+            'bg-surface px-5 pb-5 md:px-6',
+            loneRefresh ? 'pt-4' : 'pt-1',
+            'xl:sticky xl:mt-4 xl:rounded-card xl:p-6 xl:shadow-e0',
+            STICKY_CARD_TOP,
           )}
         >
           {header}
@@ -172,7 +196,7 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
             <span className="flex-1 max-xl:hidden" />
             <div className="flex items-center gap-2 self-center pb-1 max-xl:hidden">
               <RefreshChip onRefresh={refresh} />
-              {mode === 'own' ? <SettingsChip compact /> : null}
+              {mode === 'own' && ON_WEB.settings ? <SettingsChip compact /> : null}
             </div>
           </div>
           <div
@@ -184,12 +208,13 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
             data-testid={`panel-${tab}`}
           >
             <h2 className="sr-only">{TAB_LABELS[tab]}</h2>
-            {tab === 'capturi' ? <CatchesPanel q={catchesQ} guest={guest} allCatches={profile?.counts.catches} /> : null}
-            {tab === 'sesiuni' ? <SessionsPanel q={sessionsQ} guest={guest} /> : null}
+            {tab === 'capturi' ? <CatchesPanel q={catchesQ} guest={guest} own={mode === 'own'} allCatches={profile?.counts.catches} /> : null}
+            {tab === 'sesiuni' ? <SessionsPanel q={sessionsQ} guest={guest} own={mode === 'own'} /> : null}
             {tab === 'concursuri' ? (
               <CompetitionsPanel
                 q={compsQ}
                 guest={guest}
+                own={mode === 'own'}
                 knownTotal={profile?.counts.competitions}
                 compChip={compChip}
                 yearChip={yearChip}
@@ -206,9 +231,34 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
 
 const PANEL_ID = 'profil-istoric';
 
-const TAB_LABELS: Record<ProfileTab, string> = { capturi: 'Capturi', sesiuni: 'Sesiuni', concursuri: 'Concursuri' };
+/**
+ * ≥1280 the identity card's sticky top: T3 COLUMN_STICKY_TOP (88px under the bar) while the card
+ * fits; a taller card (--aside-h) gets a negative top, so it scrolls with the page until its bottom
+ * is 24px above the viewport's and pins there — all of it is always reachable, nothing scrolls inside.
+ */
+const STICKY_CARD_TOP =
+  'xl:top-[min(calc(--spacing(22)_+_var(--shell-banner-h,0px)),calc(100dvh_-_var(--aside-h,0px)_-_--spacing(6)))]';
 
-/** A tab with its count badge when the header gave us one (Sesiuni = counts.sessions, the public ones). */
+/** Writes the element's height into --aside-h (STICKY_CARD_TOP) and keeps it current. */
+function useAsideHeight() {
+  return useCallback((el: HTMLElement | null) => {
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const write = () => el.style.setProperty('--aside-h', `${el.offsetHeight}px`);
+    write();
+    const ro = new ResizeObserver(write);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+}
+
+/**
+ * «Partide» — the web's one name for fish's sessions (the stat strip, the bento tile, the top nav
+ * and this tab's empty copy all say partidă); fish's «Sesiuni» tab label is an internal leftover.
+ * The URL value stays ?tab=sesiuni (links already out there).
+ */
+const TAB_LABELS: Record<ProfileTab, string> = { capturi: 'Capturi', sesiuni: 'Partide', concursuri: 'Concursuri' };
+
+/** A tab with its count badge when the header gave us one (Partide = counts.sessions, the public ones — the same figure as the stat tile). */
 function tabSpec(key: ProfileTab, profile: AnglerProfile | undefined) {
   const count = !profile ? undefined : key === 'sesiuni' ? profile.counts.sessions : key === 'concursuri' ? profile.counts.competitions : undefined;
   return { key, label: TAB_LABELS[key], count, accessibleLabel: count ? `${TAB_LABELS[key]}, ${count}` : undefined };
@@ -329,12 +379,45 @@ type CatchesQ = UseInfiniteQueryResult<InfiniteData<Awaited<ReturnType<typeof ge
  */
 const GUEST_EMPTY = 'Intră în cont ca să vezi profilul';
 
-function Empty({ children }: { children: string }) {
+/**
+ * An empty tab. Phone: fish's centred muted title (+ its line) on the grey ground. From 768 the
+ * templates' state card (T1 ListEmpty's frame: icon, title, one muted line, in a white card like the
+ * tab bar's), so an empty tab next to the identity card reads as intentionally empty. No CTA the
+ * web cannot fulfil (rule 4) — catches and partide are made in the app, the line says so.
+ * `tab-empty` is the title alone; `action` (a filter reset) sits under the line.
+ */
+function Empty({ icon, title, line, action }: { icon: ReactNode; title: string; line?: string; action?: ReactNode }) {
   return (
-    <p className="mx-4 my-8 text-center t-body-strong text-muted md:mx-0" data-testid="tab-empty">
-      {children}
-    </p>
+    <div
+      className={cn(
+        'mx-4 my-8 flex flex-col items-center gap-2 text-center md:my-0',
+        // From 768 the state card spans the column, edge to edge with the tab bar above it (as the
+        // Concursuri chips and cards do), so switching tabs never jumps between left and centre;
+        // only its line keeps a reading measure (max-w-md). md: so the phone keeps its 16px gutters.
+        'md:mx-0 md:w-full',
+        'md:rounded-card md:bg-surface md:px-6 md:py-14 md:shadow-e0 xl:py-16',
+      )}
+      data-testid="tab-empty-state"
+    >
+      <span aria-hidden className="mb-1 flex size-12 items-center justify-center text-muted max-md:hidden [&>svg]:size-10">
+        {icon}
+      </span>
+      <p className="t-body-strong text-muted md:t-heading md:text-ink" data-testid="tab-empty">
+        {title}
+      </p>
+      {line ? (
+        <p className="max-w-md t-caption text-muted" data-testid="tab-empty-line">
+          {line}
+        </p>
+      ) : null}
+      {action ? <div className="mt-1 md:mt-3">{action}</div> : null}
+    </div>
   );
+}
+
+/** A guest's empty tab (GUEST_EMPTY): the same card, the sign-in hint's icon. */
+function GuestEmpty() {
+  return <Empty icon={<UserCircleIcon />} title={GUEST_EMPTY} />;
 }
 
 function more(q: { hasNextPage: boolean; isFetchingNextPage: boolean; fetchNextPage: () => unknown }) {
@@ -343,13 +426,44 @@ function more(q: { hasNextPage: boolean; isFetchingNextPage: boolean; fetchNextP
   };
 }
 
-function CatchesPanel({ q, guest, allCatches }: { q: CatchesQ; guest: boolean; /** The header's counts.catches (signed in). */ allCatches: number | undefined }) {
+function CatchesPanel({
+  q,
+  guest,
+  own,
+  allCatches,
+}: {
+  q: CatchesQ;
+  guest: boolean;
+  own: boolean;
+  /** The header's counts.catches (signed in). */
+  allCatches: number | undefined;
+}) {
   const catches = useMemo(() => dedupeByKey((q.data?.pages ?? []).flatMap(p => p.data), c => c.key), [q.data]);
   const total = q.data?.pages[0]?.meta.pagination.total ?? catches.length;
   const loadMore = more(q);
   if (q.isPending) return <ProfileTabSkeleton tab="capturi" />;
   if (q.isError && !q.data) return <TabError what="capturile" onRetry={() => void q.refetch()} retrying={q.isFetching} attempt={q.errorUpdateCount} />;
-  if (!catches.length) return <Empty>{guest ? GUEST_EMPTY : 'Nicio captură încă'}</Empty>;
+  if (!catches.length) {
+    if (guest) return <GuestEmpty />;
+    // The header counts catches the grid cannot list (no photo): «Nicio captură încă» under «1
+    // Capturi» would read as lost data — say what is missing instead.
+    if (allCatches) {
+      return (
+        <Empty
+          icon={<PhotoIcon />}
+          title="Nicio captură cu fotografie"
+          line={`${formatCount(allCatches, 'captură', 'capturi')} fără fotografie. Aici apar doar capturile cu fotografie.`}
+        />
+      );
+    }
+    return (
+      <Empty
+        icon={<FishOutlineIcon />}
+        title="Nicio captură încă"
+        line={own ? 'Capturile le adaugi din aplicația Bluvi, la o partidă.' : 'Capturile cu fotografie ale pescarului apar aici.'}
+      />
+    );
+  }
   return (
     <>
       {/* The header counts every catch; the grid only those with a photo — say so, or «57 Capturi»
@@ -367,7 +481,7 @@ function CatchesPanel({ q, guest, allCatches }: { q: CatchesQ; guest: boolean; /
 
 type SessionsQ = UseInfiniteQueryResult<InfiniteData<Awaited<ReturnType<typeof getAnglerSessions>>, unknown>>;
 
-function SessionsPanel({ q, guest }: { q: SessionsQ; guest: boolean }) {
+function SessionsPanel({ q, guest, own }: { q: SessionsQ; guest: boolean; own: boolean }) {
   const groups = useMemo(() => {
     const rows = groupPublicSessionsByMonth(dedupeByKey((q.data?.pages ?? []).flatMap(p => p.data), s => s.documentId));
     const out: { label: string; sessions: PublicSession[] }[] = [];
@@ -380,7 +494,16 @@ function SessionsPanel({ q, guest }: { q: SessionsQ; guest: boolean }) {
   }, [q.data]);
   if (q.isPending) return <ProfileTabSkeleton tab="sesiuni" />;
   if (q.isError && !q.data) return <TabError what="partidele" onRetry={() => void q.refetch()} retrying={q.isFetching} attempt={q.errorUpdateCount} />;
-  if (!groups.length) return <Empty>{guest ? GUEST_EMPTY : 'Nicio partidă publică încă'}</Empty>;
+  if (!groups.length) {
+    if (guest) return <GuestEmpty />;
+    return (
+      <Empty
+        icon={<FishOutlineIcon />}
+        title="Nicio partidă publică încă"
+        line={own ? 'Partidele le pornești din aplicația Bluvi; aici apar cele publice.' : 'Partidele publice ale pescarului apar aici.'}
+      />
+    );
+  }
   return (
     <>
       <div className="flex flex-col gap-2 px-4 md:px-0" data-testid="sessions">
@@ -407,6 +530,7 @@ type CompsQ = UseInfiniteQueryResult<InfiniteData<Awaited<ReturnType<typeof getA
 function CompetitionsPanel({
   q,
   guest,
+  own,
   knownTotal,
   compChip,
   yearChip,
@@ -415,6 +539,7 @@ function CompetitionsPanel({
 }: {
   q: CompsQ;
   guest: boolean;
+  own: boolean;
   /** The header's counts.competitions (signed in); undefined for a guest. */
   knownTotal: number | undefined;
   compChip: CompChip;
@@ -449,16 +574,23 @@ function CompetitionsPanel({
       ) : !items.length ? (
         filtered && !noneAtAll ? (
           // A filter emptied the list: say so, not that the angler has none (rule 4).
-          <div className="mx-4 my-8 flex flex-col items-center gap-3 text-center md:mx-0">
-            <p className="t-body-strong text-muted" data-testid="tab-empty">
-              Niciun concurs pentru filtrele alese
-            </p>
-            <Button variant="secondary" size="compact" onClick={reset} data-testid="competition-filters-reset">
-              Vezi toate concursurile
-            </Button>
-          </div>
+          <Empty
+            icon={<TrophyIcon />}
+            title="Niciun concurs pentru filtrele alese"
+            action={
+              <Button variant="secondary" size="compact" onClick={reset} data-testid="competition-filters-reset">
+                Vezi toate concursurile
+              </Button>
+            }
+          />
+        ) : guest ? (
+          <GuestEmpty />
         ) : (
-          <Empty>{guest ? GUEST_EMPTY : 'Niciun concurs încă'}</Empty>
+          <Empty
+            icon={<TrophyIcon />}
+            title="Niciun concurs încă"
+            line={own ? 'Concursurile la care participi apar aici.' : 'Concursurile la care participă pescarul apar aici.'}
+          />
         )
       ) : (
         <>

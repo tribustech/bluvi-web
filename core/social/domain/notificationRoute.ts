@@ -96,12 +96,14 @@ export function getRedirectLocationForNotification(data: NotificationData): Noti
     case NotificationTypes.COMPETITION_START:
       return competition();
     case NotificationTypes.COMPETITION_END:
+    case NotificationTypes.COMPETITION_ROUND_END:
       return competition({ activeTabId: CompetitionTabs.CLASAMENT });
 
     case NotificationTypes.COMPETITION_NEW_REGISTRATION_ORGANIZER:
       return competition({ activeTabId: CompetitionTabs.PARTICIPANTI, participantsFilter: 'pending' });
 
     case NotificationTypes.COMPETITION_PARTICIPANTS_ALLOCATION:
+    case NotificationTypes.COMPETITION_ROUND_START:
     case NotificationTypes.COMPETITION_NEW_CANCELLATION_ORGANIZER:
     case NotificationTypes.COMPETITION_REGISTRATION_MODIFIED_ORGANIZER:
       return competition({ activeTabId: CompetitionTabs.PARTICIPANTI });

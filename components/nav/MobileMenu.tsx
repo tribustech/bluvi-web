@@ -13,6 +13,7 @@ import { BREAKPOINT_MD } from '@/components/surfaces/rule';
 import { useModalDialog } from '@/components/surfaces/useModalDialog';
 import { ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
+import { ON_WEB } from '@/lib/routes';
 import { LogoHorizontal } from './brand';
 import { IconButton } from './IconButton';
 import { PATHS, PROFILE_ITEM, SECTIONS, SIGN_IN_ITEM, type AdminLink, type NavItem } from './items';
@@ -67,7 +68,8 @@ const EYEBROW = 't-eyebrow px-3 pb-1 text-muted uppercase';
 const ACCOUNT: { key: string; label: string; href: string; Icon: NavItem['Icon'] }[] = [
   PROFILE_ITEM,
   { key: 'notificari', label: 'Notificări', href: PATHS.notifications, Icon: BellIcon },
-  { key: 'setari', label: 'Setări', href: PATHS.settings, Icon: Cog6ToothIcon },
+  // /setari only once the web has it (ON_WEB.settings) — never a row to the 404.
+  ...(ON_WEB.settings ? [{ key: 'setari', label: 'Setări', href: PATHS.settings, Icon: Cog6ToothIcon }] : []),
 ];
 
 /**

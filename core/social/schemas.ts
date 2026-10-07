@@ -270,6 +270,10 @@ export const NotificationTypes = {
   COMPETITION_START: 'competition:start',
   COMPETITION_END: 'competition:end',
   COMPETITION_PARTICIPANTS_ALLOCATION: 'competition:participants-allocation',
+  /** A FIPS round (manșă) ended; tap opens the Clasament tab. */
+  COMPETITION_ROUND_END: 'competition:round-end',
+  /** A FIPS round (manșă) started; tap opens the Participanți tab. */
+  COMPETITION_ROUND_START: 'competition:round-start',
   /** Sent to all registered participants when a weighing (cântar) ends. */
   COMPETITION_WEIGHING_END: 'competition:weighing-end',
   /** Sent when a closed weighing is reopened and modified. */

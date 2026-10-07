@@ -3,7 +3,7 @@ import { ArrowTrendingUpIcon, CameraIcon, FireIcon, TrophyIcon } from '@heroicon
 import { BENTO_ART_CLEAR, BentoArt, BentoTile, FactTile } from '@/components/ui/BentoTile';
 import { SignatureNumber } from '@/components/ui/SignatureNumber';
 import { cn } from '@/components/ui/cn';
-import { fmtProfileKg, type AnglerProfile } from '@/core/social';
+import { fmtProfileKg, trophyTiers, type AnglerProfile } from '@/core/social';
 
 /*
  * fish components/profile/StatStrip.tsx (parity account.angler-profile c9) — Capturi, Partide,
@@ -13,8 +13,43 @@ import { fmtProfileKg, type AnglerProfile } from '@/core/social';
  *    unit is its own smaller muted word after a space (owner rule 10).
  *  - StatBento: ≥1280, in the identity card — the same four facts as small Apple-style bento tiles
  *    (owner rules 9, 19): the record on the wide navy signature tile first (the headline
- *    number), then three tinted fact tiles — tiles of different sizes, never a grid of equal cards.
+ *    number), then — only when the angler made a podium — the «Podiumuri» tile (the medals with
+ *    their counts, the tiers above zero as fish TrophyRow c8; the phone keeps the inline row), then
+ *    three tinted fact tiles — tiles of different sizes, never a grid of equal cards.
  */
+
+const MEDAL = {
+  first: { emoji: '🥇', spoken: 'locul 1' },
+  second: { emoji: '🥈', spoken: 'locul 2' },
+  third: { emoji: '🥉', spoken: 'locul 3' },
+} as const;
+
+/** ≥1280: the podiums as their own soft amber tile — the angler's most prestigious fact. */
+function PodiumTile({ podium }: { podium: AnglerProfile['podium'] }) {
+  const tiers = trophyTiers(podium);
+  if (!tiers.length) return null;
+  return (
+    <BentoTile tone="amber" className="col-span-2 min-h-0! justify-start! gap-2 py-4">
+      <BentoArt>
+        <TrophyIcon />
+      </BentoArt>
+      <p className="t-label font-semibold" id="podium-tile-label">
+        Podiumuri
+      </p>
+      <ul aria-labelledby="podium-tile-label" className="flex flex-wrap items-center gap-x-5 gap-y-1" data-testid="podium-tile">
+        {tiers.map(t => (
+          <li key={t.key} className="flex items-center gap-1.5" data-tier={t.key}>
+            <span aria-hidden className="t-title2 leading-none">
+              {MEDAL[t.key].emoji}
+            </span>
+            <SignatureNumber size="fact" tone="ink" value={t.count} />
+            <span className="sr-only">{` × ${MEDAL[t.key].spoken}`}</span>
+          </li>
+        ))}
+      </ul>
+    </BentoTile>
+  );
+}
 
 const VERIFIED = 'Cântărită la concurs';
 
@@ -87,6 +122,7 @@ export function StatBento({ profile }: { profile: AnglerProfile }) {
           </p>
         ) : null}
       </BentoTile>
+      <PodiumTile podium={profile.podium} />
       <FactTile tone="sky" label="Capturi" value={counts.catches} icon={<CameraIcon />} />
       <FactTile tone="mint" label="Partide" value={counts.sessions} icon={<FireIcon />} />
       <FactTile tone="lavender" label="Concursuri" value={counts.competitions} icon={<TrophyIcon />} className="col-span-2" />
