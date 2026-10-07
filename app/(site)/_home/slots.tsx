@@ -2,6 +2,7 @@ import { cache, Suspense, type ReactNode } from 'react';
 import { HydrationBoundary } from '@tanstack/react-query';
 import { currentPollQuery } from '@/core/competitions';
 import { suggestedAnglersHomeInfiniteQuery } from '@/core/social';
+import { SuggestedHomeHydration } from '@/components/account/suggestions/SuggestedHomeHydration';
 import { ActivePartidaCard, ActivePartidaDock } from './ActivePartida';
 import {
   getHomeSession,
@@ -165,10 +166,12 @@ export async function SuggestedAnglersSlot() {
   // Refused: nothing. No answer in time: the rail reads in the browser (fish SuggestedAnglersRail
   // fills in when its query answers) rather than vanishing for the life of the page.
   if (state.queries.length === 0 && !transient) return null;
+  // Hydrated only into an empty browser cache: a Home visit never replaces the pool the tab already
+  // holds (fish: one read per launch; account.suggested c13).
   return (
-    <HydrationBoundary state={state}>
+    <SuggestedHomeHydration state={state}>
       <SuggestedAnglers />
-    </HydrationBoundary>
+    </SuggestedHomeHydration>
   );
 }
 

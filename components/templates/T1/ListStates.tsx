@@ -293,6 +293,8 @@ export function ListFooter({
   endLabel,
   errorLabel,
   auto = true,
+  moreLabel = 'Încarcă mai multe',
+  spinner = false,
 }: {
   hasMore: boolean;
   loadingMore: boolean;
@@ -315,6 +317,10 @@ export function ListFooter({
   errorLabel?: string;
   /** Load the next page when the footer scrolls into view. */
   auto?: boolean;
+  /** The button's label at rest («Mai multe» on account.suggested, fish's see-all). */
+  moreLabel?: string;
+  /** A spinner beside «Se încarcă…» while a page loads (fish's ActivityIndicator footer). */
+  spinner?: boolean;
 }) {
   const sentinel = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLParagraphElement>(null);
@@ -382,7 +388,10 @@ export function ListFooter({
           if (!loadingMore) onLoadMore();
         }}
       >
-        {loadingMore ? 'Se încarcă…' : error ? 'Reîncearcă' : 'Încarcă mai multe'}
+        {loadingMore && spinner ? (
+          <span aria-hidden className="size-4 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none" data-testid="list-footer-spinner" />
+        ) : null}
+        {loadingMore ? 'Se încarcă…' : error ? 'Reîncearcă' : moreLabel}
       </Button>
     </div>
   );

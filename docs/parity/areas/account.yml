@@ -711,7 +711,7 @@ screens:
     core: [social.suggestedAnglersHomeInfiniteQuery, social.suggestedHomeQueryOptions, social.domain.pickTopStats, social.domain.formatFollowers, social.domain.dismissSuggestion, social.domain.withoutDismissed, social.followAnglerMutation]
     states:
       - signed-out (redirect to /intra)
-      - loading (spinner)
+      - loading (card skeletons)
       - error („Nu am putut încărca sugestiile.”)
       - empty („Nu avem sugestii momentan.”)
       - grid
@@ -723,41 +723,71 @@ screens:
       - id: account.suggested.c1
         text: "Signed out, the route sends the visitor to sign-in."
         fish_ref: "app/(app)/anglers/suggested.tsx:45"
+        status: passing
+        web_note: "proxy.ts matcher (no cookie → real 307 to /intra?next=/pescari/sugerati) + requireViewer (dead cookie → /intra). e2e tests/e2e/pescari-sugerati.spec.ts «c1» ×2."
       - id: account.suggested.c2
         text: "The header has a back control, the title „Sugestii pentru tine” and a search button labelled „Caută pescari” that opens the angler search (fish /partide/pescari)."
         fish_ref: "app/(app)/anglers/suggested.tsx:49-64"
+        status: todo
+        web_note: "Back (useBack: history, else Home) + h1. The «Caută pescari» button is HIDDEN until the /pescari angler search ships (partide.yml M4; rule 4, ON_WEB-style comment in SuggestedGrid.tsx) — add it as ListHeader actions then. e2e tests/e2e/pescari-sugerati.spec.ts «static segment, c2 c3 c8» asserts back + h1 + no search control."
       - id: account.suggested.c3
         text: "Cards load from GET /feed/anglers/suggested-home, pageSize 10; the query is fetched once per app start (staleTime 6h, no refetch on focus, reconnect or mount, no retry) so cards never reshuffle under the user."
         fish_ref: "services/queries/useSuggestedAnglersHome.ts:7-50"
+        status: passing
+        web_note: "core suggestedAnglersHomeInfiniteQuery (the Home rail's cache key) with suggestedHomeQueryOptions overriding the site's focus refetch. e2e «static segment, c2 c3 c8»: one page=1&pageSize=10 request, none after focus / visibilitychange / online."
       - id: account.suggested.c4
         text: "Cards are laid out two per row on a phone (fish computes (width − 2·20 − 12)/2); wider screens may show more columns."
         fish_ref: "app/(app)/anglers/suggested.tsx:19-27,69-79"
+        status: passing
+        web_note: "grid-cols-2 below 768, auto-fill minmax(160px) from 768, minmax(176px) from 1024 so long names («Valentin Dumitrescu») fit: 4 at 768, 5 at 1024, 6 at 1280, 7 at 1440, 8 at 1920. e2e «c4 c5» (per-row counts + a long name not cut at 1280)."
       - id: account.suggested.c5
         text: "A card shows a 64px avatar, the username on one line, the followers line („fără urmăritori”, „1 urmăritor”, „1.284 urmăritori”), up to two stats picked podiums → concursuri → CMMC → partide with singular/plural labels (zeros skipped) or „Pescar nou” when none, and a full-width small follow button."
         fish_ref: "features/anglers/components/SuggestedAnglerCard.tsx:27-112; features/anglers/helpers/pickTopStats.ts:8-29"
+        status: passing
+        web_note: "components/account/suggestions/SuggestedAnglerCard.tsx — ONE card for the page and the Home rail, as fish (only the analytics source differs): Avatar 64 (tone by documentId), one-line name, formatFollowers, pickTopStats (kg unit apart, rule 10) or «Pescar nou», full-width kit FollowButton look=profile size=compact block = fish size=small (32px, 13px label, 14px icon, radius 8, no shadow; 40px hit area via an inset pseudo-element); the dismiss X a 14px stroke-2.5 muted glyph in a 40px target. e2e «c4 c5» (mocked 1.284 / 1 / zero followers, singular/plural, CMMC, «Pescar nou», 64px, nowrap, full width, button 32px no shadow, X glyph 14 in 40)."
       - id: account.suggested.c6
         text: "Activating the card (outside its buttons) opens /pescari/{id}."
         fish_ref: "features/anglers/components/SuggestedAnglerCard.tsx:39-41; app/(app)/anglers/suggested.tsx:43"
+        status: passing
+        web_note: "Name link stretched over the card; buttons z-above. e2e «c6» clicks the card beside the avatar → /pescari/{id}."
       - id: account.suggested.c7
         text: "A dismiss button labelled „Ascunde sugestia” at the card's top right removes the card; dismissals last for the session (in memory, shared with the Home rail) and the angler may reappear on the next load."
         fish_ref: "features/anglers/components/SuggestedAnglerCard.tsx:43-60; features/anglers/state/dismissedSuggestionsAtom.ts:3-15; app/(app)/anglers/suggested.tsx:30-40"
+        status: passing
+        web_note: "«Ascunde sugestia: {nume}» top right; components/account/suggestions/dismissedStore.ts shared with the Home rail; focus moves to the next card's dismiss, «Sugestie ascunsă.» announced; a reload brings it back. e2e «c7 c12» + «account.b.suggested-rail + account.b.suggestion-dismissals»."
       - id: account.suggested.c8
         text: "While the first page loads a spinner is shown."
         fish_ref: "app/(app)/anglers/suggested.tsx:66-67"
+        status: passing
+        web_note: "Web idiom per owner rule 4 / T1: a skeleton grid of cards in the grid's own columns at the card's real height (8 on a phone, 14 from 768; SuggestedAnglerCardSkeleton), role=status «Se încarcă sugestiile…»; the same in loading.tsx and the Suspense fallback under the real header, so nothing jumps when the cards land. e2e «static segment, c2 c3 c8» (page 1 held: one skeleton grid, 8 cards at 375, status attached)."
       - id: account.suggested.c9
         text: "With no cards the page reads „Nu am putut încărca sugestiile.” when the request failed, otherwise „Nu avem sugestii momentan.”."
         fish_ref: "app/(app)/anglers/suggested.tsx:80-84"
+        status: passing
+        web_note: "ListError «Nu am putut încărca sugestiile.» (retry button; no automatic retry) / ListEmpty «Nu avem sugestii momentan.». e2e «c9» (mocked 500 → exactly one request; mocked empty; axe)."
       - id: account.suggested.c10
         text: "Scrolling near the end loads the next page with a spinner footer; cards repeated across pages are shown once."
         fish_ref: "app/(app)/anglers/suggested.tsx:33-41,75-86"
+        status: passing
+        web_note: "Kit ListFooter (auto-load near the viewport, spinner + «Se încarcă…», «Mai multe» as the keyboard path; additive props moreLabel/spinner) + core dedupeByKey. e2e «c10» ×2 (page 2 held: spinner; repeat across pages shown once)."
       - id: account.suggested.c11
         text: "Following from a card keeps the card in place with „Urmăresc” (patched in cache) and only marks the pool stale for the next start."
         fish_ref: "services/mutations/useFollowAngler.ts:94-104,147-150"
+        status: passing
+        web_note: "useFollowAngler → core followAnglerMutation (patch, suggested-home invalidated with refetchType none). e2e «c11 c12»: real follow on the local CMS, card stays with «Urmăresc», no page-1 refetch, server-side follow verified, undone in afterEach (re-checked via API)."
       - id: account.suggested.c12
         text: "Analytics events suggested_angler_follow (only when following, not unfollowing) and suggested_angler_dismiss carry source see_all."
         fish_ref: "features/anglers/components/SuggestedAnglerCard.tsx:50-54,108-110; app/(app)/anglers/suggested.tsx:78"
+        status: passing
+        web_note: "lib/analytics track('suggested_angler_follow' only when next=true, 'suggested_angler_dismiss'), params { source: 'see_all' }. e2e «c7 c12» + «c11 c12» (no event on unfollow)."
+      - id: account.suggested.c13
+        text: "Leaving for Home and coming back through „Vezi toate” shows the same cards in the same order (every loaded page kept, follows kept), with no new suggested-home request: one cache entry per launch shared by the rail and the page."
+        fish_ref: "services/queries/useSuggestedAnglersHome.ts:16-20; services/mutations/useFollowAngler.ts:147-150"
+        status: passing
+        web_note: "Home's server render prefetches page 1 on every visit (client Link navigations too); components/account/suggestions/SuggestedHomeHydration.tsx (used by app/(site)/_home/slots.tsx SuggestedAnglersSlot) hydrates it only into an EMPTY browser cache, so a tab that already holds the pool keeps it. e2e «c13» (browser clock an hour behind so the server read is always newer: page → follow → Link to Home → «Vezi toate»; same ids in order, «Urmăresc» kept, no page re-read; fails with a plain HydrationBoundary). Not fixed here: the Home server render still runs the scoring query on each visit (its result is discarded when the tab holds the pool) — home owner."
     mobile_only: false
-    status: todo
+    status: proposed
+    web_note: "/pescari/sugerati (M2-B3), T1 dense card grid (2 per row on a phone, auto-fill from 768). Static segment wins over /pescari/[id] (e2e: no /feed/anglers/sugerati read). Proposed, not passing: c2's «Caută pescari» stays hidden until the /pescari search ships (partide.yml M4); c1, c3–c12 pass in e2e. States: loading (card skeletons), error + retry, empty, grid, next page, dismissed (session-only, as fish), followed, «Pescar nou» — all in tests/e2e/pescari-sugerati.spec.ts; axe 0 violations at 375 / 1280 / 1440 / 1920. noindex. The local CMS has the suggestedHome grant (real reads, no mock needed)."
 
   - id: account.notifications
     title: Notificări
@@ -1180,9 +1210,13 @@ behaviours:
   - id: account.b.suggested-rail
     text: "Home shows the rail „Pescari pe care îi poți urmări” only to signed-in users, built from page 1 of suggested-home minus dismissed cards, hidden while loading, on error, or with fewer than 3 visible cards (no skeleton); „Vezi toate” opens /pescari/sugerati. Inventoried as part of home.acasa."
     fish_ref: "features/anglers/components/SuggestedAnglersRail.tsx:13-53; app/(app)/(tabs)/index.tsx:504; components/SeeAllTitle.tsx:30"
+    status: passing
+    web_note: "app/(site)/_home/SuggestedAnglers.tsx (home.acasa), drawing the page's own SuggestedAnglerCard (components/account/suggestions, source home_rail, h3 under the rail's h2) — same follow button, X and kg unit as «Vezi toate», and the suggested_angler_follow / _dismiss events now fire with source home_rail (home.b.analytics). «Vezi toate» → /pescari/sugerati verified in tests/e2e/pescari-sugerati.spec.ts «account.b.suggested-rail + account.b.suggestion-dismissals» (href + client navigation lands on the page) and tests/e2e/acasa.spec.ts «home.acasa.c40 c41 c42»."
   - id: account.b.suggestion-dismissals
     text: "Dismissed suggestions are held in memory for the app session only (not persisted), shared by the Home rail and /pescari/sugerati."
     fish_ref: "features/anglers/state/dismissedSuggestionsAtom.ts:3-15"
+    status: passing
+    web_note: "components/account/suggestions/dismissedStore.ts: a module-level in-memory set (useSyncExternalStore, never persisted) read and written by the Home rail and /pescari/sugerati. e2e tests/e2e/pescari-sugerati.spec.ts «account.b.suggested-rail + account.b.suggestion-dismissals»: dismissed on Home → absent from the page; dismissed on the page → absent from the rail after back; «c7 c12»: a reload brings a dismissed card back."
   - id: account.b.follow-celebrate
     text: "Following a competition opens the same preferences panel in celebrate mode („Te-ai abonat 🎉”, competition name, „Alege ce notificări vrei să primești.”) with preferences prefetched; inventoried with the competition screen, it reuses account.notification-preferences c6–c16."
     fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:43-45,106-126; services/queries/useCompetitionNotificationPreferences.ts:16-29"

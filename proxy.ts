@@ -23,6 +23,8 @@ export const config = {
     { source: '/setari/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // An angler's followers / following (account.connections): auth-scoped on the CMS.
     { source: '/pescari/:id/conexiuni', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    // Suggested anglers (account.suggested): per viewer, signed in only.
+    { source: '/pescari/sugerati', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // /profil: the own profile (M2, account.own-profile).
     { source: '/profil', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
   ],
