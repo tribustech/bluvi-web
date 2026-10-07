@@ -67,8 +67,10 @@ export async function stabilize(page: Page) {
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.evaluate(async () => {
     await Promise.all(
+      // Only rendered images: a lazy <img> inside a display:none subtree (e.g. a ≥1280-only aside)
+      // never loads, so its decode() would never settle.
       Array.from(document.images).map((img) =>
-        img.complete ? null : img.decode().catch(() => null),
+        img.complete || img.getClientRects().length === 0 ? null : img.decode().catch(() => null),
       ),
     );
   });

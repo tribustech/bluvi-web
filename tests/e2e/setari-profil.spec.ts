@@ -251,6 +251,44 @@ test.describe('account.edit-profile', () => {
     await onOwnProfile(page);
   });
 
+  test('c17 entry points from Setări: the profile card, and «Editează profil» in the no-phone organizer alert; back and a save return to Setări', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 900 });
+    await signIn(page.context(), jwt);
+    await mockDicebear(page);
+    const patches = await mockPatch(page);
+
+    // 1. The profile card (fish settings.tsx:116).
+    await page.goto('/setari');
+    await page.getByTestId('settings-profile-card').click();
+    await expect(page).toHaveURL(new RegExp(`${PATH}$`));
+    await expect(page.getByRole('heading', { level: 1, name: 'Editează profilul' })).toBeVisible();
+    await loaded(page);
+    await page.getByRole('button', { name: 'Înapoi' }).click();
+    await onSettings(page);
+    // A save opened from the card closes back to Setări, toast on top.
+    await page.getByTestId('settings-profile-card').click();
+    await loaded(page);
+    await bio(page).fill(`${original.bio ?? ''} e2e`.slice(0, 200));
+    await submit(page).click();
+    await expect(page.getByRole('status').filter({ hasText: SAVED_TOAST })).toBeVisible();
+    await onSettings(page);
+    expect(patches).toHaveLength(1);
+
+    // 2. The organizer-request alert of an angler without a phone (fish settings.tsx:174).
+    await mockProfile(page, { role: { id: 1, documentId: 'role-doc', name: 'Authenticated' }, hasRequestedOrganizerRole: false, phone: null });
+    await page.goto('/setari');
+    await page.getByRole('button', { name: 'Devino organizator' }).click();
+    const alert = page.getByRole('alertdialog', { name: 'Nu poți trimite cererea pentru a deveni organizator fără număr de telefon' });
+    await alert.getByRole('link', { name: 'Editează profil' }).click();
+    await expect(page).toHaveURL(new RegExp(`${PATH}$`));
+    await expect(page.getByRole('heading', { level: 1, name: 'Editează profilul' })).toBeVisible();
+    await loaded(page);
+    await expect(phone(page)).toHaveValue('');
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Înapoi' }).click();
+    await onSettings(page);
+  });
+
   test('leave guard: unsaved edits ask «Renunți la modificări?» on back, on an in-app link and on closing the tab', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await signIn(page.context(), jwt);
