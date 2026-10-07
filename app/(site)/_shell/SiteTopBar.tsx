@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notificationsKeys, unreadNotificationsCountQuery } from '@/core/social';
 import { CommandPalette } from '@/components/nav/CommandPalette';
+import { OPEN_PALETTE_EVENT } from '@/components/nav/openPalette';
 import { activeAdminKey, adminLinks, currentKind, navKeyForPath, PATHS, SECTIONS, type AdminLink } from '@/components/nav/items';
 import { MobileMenu, type MenuSession } from '@/components/nav/MobileMenu';
 import { BREAKPOINT_MD } from '@/components/surfaces/rule';
@@ -137,8 +138,17 @@ export function SiteTopBar() {
         setSearchOpen((o) => !o);
       }
     };
+    // A page's own search button (openPalette, e.g. «Caută pescari») opens it too.
+    const onOpen = () => {
+      setMenuOpen(false);
+      setSearchOpen(true);
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener(OPEN_PALETTE_EVENT, onOpen);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener(OPEN_PALETTE_EVENT, onOpen);
+    };
   }, []);
 
   const scrolled = useScrolled();

@@ -1,15 +1,16 @@
 'use client';
 
-import { UsersIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { SetBreadcrumb } from '@/app/(site)/_shell/SiteHeader';
 import type { Crumb } from '@/components/nav/Breadcrumbs';
 import { ICON_BUTTON_SIZE } from '@/components/nav/IconButton';
+import { openPalette } from '@/components/nav/openPalette';
 import { useBack } from '@/components/nav/useBack';
 import { dismissedStore, useDismissedSuggestions } from '@/components/account/suggestions/dismissedStore';
 import { SuggestedAnglerCard, SuggestedAnglerCardSkeleton } from '@/components/account/suggestions/SuggestedAnglerCard';
-import { ListEmpty, ListError, ListFooter, ListHeader, ListPage, ListRegion } from '@/components/templates/T1';
+import { ListEmpty, ListError, ListFooter, ListHeader, ListPage, ListRegion, pageToolClass } from '@/components/templates/T1';
 import { cn } from '@/components/ui/cn';
 import { dedupeByKey, suggestedAnglersHomeInfiniteQuery, withoutDismissed, type SuggestedAngler } from '@/core/social';
 import { createBrowserTransport } from '@/lib/client/transport';
@@ -34,10 +35,9 @@ const GRID =
  * Sugestii pentru tine — fish app/(app)/anglers/suggested.tsx (parity account.suggested, T1), behind
  * the page's requireViewer gate (c1).
  *
- *  - Header: back (in-app history, else Home) + h1 (c2). fish's «Caută pescari» opens the angler
- *    search, fish /partide/pescari — the web's /pescari search is partide.yml M4 and not on the web
- *    yet (ON_WEB-style switch: add it as ListHeader `actions` once that route ships), so the button
- *    is hidden rather than leading nowhere (owner rule 4).
+ *  - Header: back (in-app history, else Home) + h1 + «Caută pescari» (c2). fish's button opens its
+ *    angler search; here it opens the top bar's ⌘K palette (openPalette), which searches anglers
+ *    for a signed-in viewer (core anglerSearchInfiniteQuery, the same /feed discovery search).
  *  - Data: core suggestedAnglersHomeInfiniteQuery — GET /feed/anglers/suggested-home, pageSize 10,
  *    the Home rail's own cache (c3): suggestedHomeQueryOptions (staleTime 6h, no refetch on focus,
  *    reconnect or mount, no retry) override the site's global focus refetch, so the cards never
@@ -51,7 +51,10 @@ const GRID =
  *    skeletons — no lone spinner over an empty page, no jump when the cards land);
  *    «Nu am putut încărca sugestiile.» with a retry when it failed and «Nu avem sugestii momentan.»
  *    when there is nothing (c9); the next page as the footer nears the viewport, with a spinner and
- *    the footer's «Mai multe» button as the keyboard path (c10).
+ *    the footer's «Mai multe» button as the keyboard path (c10). Auto-load waits for the reader's
+ *    first scroll (ListFooter armOnScroll): on a wide screen the first 10 cards fill two rows and
+ *    the footer is in range at once, and each page is a server scoring query that reshuffles the
+ *    pool (fish loads page 1, at most one more on a phone).
  */
 export function SuggestedGrid() {
   const t = useMemo(() => createBrowserTransport(), []);
@@ -114,8 +117,8 @@ export function SuggestedGrid() {
             ))}
           </ul>
         ) : null}
-        {/* Every card of the loaded pages dismissed but more on the server: the footer is in range
-            at once and loads the next page (fish onEndReached on a short list). */}
+        {/* Every card of the loaded pages dismissed but more on the server: the footer loads the
+            next page at once, scroll or not (fish onEndReached on a short list). */}
         <ListFooter
           hasMore={!!q.hasNextPage}
           loadingMore={q.isFetchingNextPage}
@@ -124,6 +127,7 @@ export function SuggestedGrid() {
           errorLabel="Nu am putut încărca mai multe sugestii."
           moreLabel="Mai multe"
           spinner
+          armOnScroll={items.length > 0}
         />
       </>
     );
@@ -135,7 +139,16 @@ export function SuggestedGrid() {
       <ListPage
         header={
           <div ref={titleRef}>
-            <ListHeader title={TITLE} back={{ label: 'Înapoi', onClick: back }} />
+            <ListHeader
+              title={TITLE}
+              back={{ label: 'Înapoi', onClick: back }}
+              actions={
+                <button type="button" onClick={openPalette} className={pageToolClass()}>
+                  <MagnifyingGlassIcon aria-hidden />
+                  <span className="sr-only md:not-sr-only">Caută pescari</span>
+                </button>
+              }
+            />
           </div>
         }
       >

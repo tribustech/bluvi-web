@@ -545,7 +545,9 @@ test('home.acasa.c18 — while «am I registered?» loads: a busy, disabled offe
   await expect(notify).toHaveAttribute('aria-disabled', 'true');
   await expect(notify).toHaveAttribute('aria-busy', 'true');
   await expect(notify.locator('svg.animate-spin')).toHaveCount(1);
-  // A press while busy writes nothing.
+  // A press while busy writes nothing (force skips the actionability wait, so wait for the sheet
+  // to dock first: it slides up from below the viewport and is a clipped box, not a scroller).
+  await expect(notify).toBeInViewport({ ratio: 1 });
   await notify.click({ force: true });
   expect(read.posts).toEqual([]);
   read.release();
@@ -754,8 +756,8 @@ test('home.acasa.c40 c41 c42 — suggested anglers: follow round-trip, dismiss',
   const follow = card.getByRole('button', { name: /^Urmărește pe / });
   if (await follow.count()) {
     await follow.click();
-    await expect(card.getByRole('button', { name: /^Nu mai urmări pe / })).toHaveAttribute('aria-pressed', 'true');
-    await card.getByRole('button', { name: /^Nu mai urmări pe / }).click();
+    await expect(card.getByRole('button', { name: /^Urmăresc pe / })).toHaveText('Urmăresc');
+    await card.getByRole('button', { name: /^Urmăresc pe / }).click();
     await expect(card.getByRole('button', { name: /^Urmărește pe / })).toBeVisible();
   }
 
@@ -780,7 +782,7 @@ test('home.acasa.c41 — a followed suggestion reads «Urmăresc» (fish FollowB
   const follow = card.getByRole('button', { name: /^Urmărește pe / });
   if ((await follow.count()) === 0) test.skip(true, 'first suggestion already followed');
   await follow.click();
-  const following = card.getByRole('button', { name: /^Nu mai urmări pe / });
+  const following = card.getByRole('button', { name: /^Urmăresc pe / });
   try {
     await expect(following).toHaveText('Urmăresc', { timeout: 5_000 });
   } finally {

@@ -125,7 +125,7 @@ test.describe('signed out', () => {
 test.describe('signed in', () => {
   test.beforeEach(async ({ page }) => signIn(page.context(), jwt));
 
-  test('static segment, c2 c3 c8: the page (not an angler «sugerati»), header without search, card skeletons, one pageSize-10 request, no refetch on focus', async ({ page }) => {
+  test('static segment, c2 c3 c8: the page (not an angler «sugerati»), header with «Caută pescari», card skeletons, one pageSize-10 request, no refetch on focus', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     const errors = collectConsoleErrors(page);
     let release!: () => void;
@@ -155,10 +155,9 @@ test.describe('signed in', () => {
 
     // Static «sugerati» wins over /pescari/[id]: never read as an angler id.
     expect(anglerReads).toEqual([]);
-    // c2: back control + h1; «Caută pescari» hidden until the /pescari search ships (M4, rule 4).
+    // c2: back control + h1 + «Caută pescari» (its own test below).
     await expect(page.getByRole('button', { name: 'Înapoi' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Caută pescari' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Caută pescari' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Caută pescari' })).toBeVisible();
 
     // c3: GET /feed/anglers/suggested-home?page=1&pageSize=10, once (later pages are the footer's).
     const firstPages = () => seen.filter((s) => new URL(s).searchParams.get('page') === '1');
@@ -213,7 +212,7 @@ test.describe('signed in', () => {
     expect(nameBox).toBe('nowrap');
     // Full-width follow button.
     const widths = await a.evaluate((el) => {
-      const btn = el.querySelector('button[aria-pressed]') as HTMLElement;
+      const btn = el.querySelector('button[data-following]') as HTMLElement;
       const pad = parseFloat(getComputedStyle(el).paddingLeft) + parseFloat(getComputedStyle(el).paddingRight);
       return [Math.round(btn.getBoundingClientRect().width), Math.round(el.getBoundingClientRect().width - pad)];
     });
@@ -222,7 +221,7 @@ test.describe('signed in', () => {
 
     // fish FollowButton size="small": 32px, no shadow; the dismiss X is a 14px glyph in a 40px target.
     const look = await a.evaluate((el) => {
-      const btn = el.querySelector('button[aria-pressed]') as HTMLElement;
+      const btn = el.querySelector('button[data-following]') as HTMLElement;
       const x = el.querySelector('button[data-dismiss]') as HTMLElement;
       return {
         button: Math.round(btn.getBoundingClientRect().height),
@@ -296,17 +295,95 @@ test.describe('signed in', () => {
     await expect(page.getByRole('button', { name: 'Mai multe' })).toHaveCount(0);
   });
 
-  test('c10: the «Mai multe» button loads the next page (keyboard path)', async ({ page }) => {
+  test('c10: at 1920 only page 1 loads before any scroll; the «Mai multe» button loads the next page (keyboard path)', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
-    // At 1920 the footer is in auto-load range at once: hold page 2, then check the button's states.
-    await mockPool(page, { page2Gate: gate });
+    // At 1920 the 10 cards fill two rows and the footer sits in range at once: it must still wait
+    // for a scroll (each page is a server scoring query that reshuffles the pool).
+    const seen = await mockPool(page, { page2Gate: gate });
     await page.goto('/pescari/sugerati');
     await expect(cards(page)).toHaveCount(10);
-    await expect(page.getByRole('button', { name: 'Se încarcă…' })).toBeVisible();
+    await page.waitForTimeout(1_500);
+    const pages = () => seen.map((s) => new URL(s).searchParams.get('page'));
+    expect(pages(), 'one page=1, no page=2 before a scroll').toEqual(['1']);
+    const more = page.getByRole('button', { name: /^(Mai multe|Se încarcă…)$/ });
+    await expect(more).toHaveText('Mai multe');
+    await more.focus();
+    await page.keyboard.press('Enter');
+    await expect(more).toHaveText('Se încarcă…');
+    await expect(more).toBeFocused();
     release();
     await expect(cards(page)).toHaveCount(13);
+    expect(pages()).toEqual(['1', '2']);
+  });
+
+  test('c10: the first scroll arms the auto-load at 1920', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    const seen = await mockPool(page);
+    await page.goto('/pescari/sugerati');
+    await expect(cards(page)).toHaveCount(10);
+    await page.waitForTimeout(800);
+    expect(seen).toHaveLength(1);
+    await page.mouse.move(960, 600);
+    await page.mouse.wheel(0, 300);
+    await expect(cards(page)).toHaveCount(13);
+    expect(seen.map((s) => new URL(s).searchParams.get('page'))).toEqual(['1', '2']);
+  });
+
+  test('c11: Enter on «Urmărește» keeps focus on the same button while the follow runs, then it reads «Urmăresc»', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockPool(page, { page2Gate: new Promise(() => {}) });
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    // Mocked anglers: the follow POST is mocked too (nothing reaches the CMS).
+    await page.route(new RegExp(`/feed/anglers/${idOf(3)}/follow$`), async (r) => {
+      await held;
+      await json(r, { following: true, followersCount: 1 });
+    });
+    await page.goto('/pescari/sugerati');
+    await expect(cards(page)).toHaveCount(10);
+    const button = cardOf(page, idOf(3)).locator('button[data-following]');
+    await expect(button).toHaveAccessibleName('Urmărește pe Pescar Record');
+    await button.focus();
+    await page.keyboard.press('Enter');
+    await expect(button).toHaveText('Urmăresc');
+    await expect(button).toHaveAttribute('aria-busy', 'true');
+    await expect(button).toHaveAttribute('aria-disabled', 'true');
+    await expect(button).toBeFocused();
+    // A second press while pending is ignored (no unfollow request).
+    let unfollows = 0;
+    page.on('request', (r) => {
+      if (r.url().endsWith(`/feed/anglers/${idOf(3)}/unfollow`)) unfollows++;
+    });
+    await page.keyboard.press('Enter');
+    release();
+    await expect(button).not.toHaveAttribute('aria-busy', 'true');
+    await expect(button).toBeFocused();
+    await expect(button).toHaveText('Urmăresc');
+    await expect(button).toHaveAccessibleName('Urmăresc pe Pescar Record — apasă ca să nu mai urmărești');
+    expect(unfollows).toBe(0);
+  });
+
+  test('c2: «Caută pescari» opens the top bar palette with the field focused; an angler name lists anglers', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockPool(page, { page2Gate: new Promise(() => {}) });
+    await page.goto('/pescari/sugerati');
+    await expect(cards(page)).toHaveCount(10);
+    // fish: the button opens the angler search.
+    await page.getByRole('button', { name: 'Caută pescari' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    const field = dialog.getByRole('combobox');
+    await expect(field).toBeFocused();
+    // A real local angler (the QA seed has «… Dumitrescu» anglers).
+    await field.fill('Dumitrescu');
+    const anglers = dialog.getByRole('group', { name: /Pescari/ });
+    await expect(anglers.getByRole('option').first()).toBeVisible({ timeout: 15_000 });
+    await expect(anglers.getByRole('option').first()).toHaveAttribute('href', /^\/pescari\/[^/]+$/);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Caută pescari' })).toBeFocused();
   });
 
   test('c7 c12: dismiss removes the card, keeps focus, announces, and logs suggested_angler_dismiss (see_all)', async ({ page }) => {
@@ -382,9 +459,9 @@ test.describe('signed in', () => {
     followedId = id;
     const card = cardOf(page, id);
     await card.getByRole('button', { name: /^Urmărește pe / }).click();
-    const following = card.getByRole('button', { name: /^Nu mai urmări pe / });
+    const following = card.getByRole('button', { name: /^Urmăresc pe .+ — apasă ca să nu mai urmărești$/ });
     await expect(following).toHaveText('Urmăresc');
-    await expect(following).toHaveAttribute('aria-pressed', 'true');
+    await expect(following).not.toHaveAttribute('aria-pressed');
     await expect(page).toHaveURL(/\/pescari\/sugerati$/);
     // Server side really followed.
     await expect
@@ -426,7 +503,7 @@ test.describe('signed in', () => {
     const id = (await target.getAttribute('data-id'))!;
     followedId = id;
     await cardOf(page, id).getByRole('button', { name: /^Urmărește pe / }).click();
-    await expect(cardOf(page, id).getByRole('button', { name: /^Nu mai urmări pe / })).toHaveAttribute('aria-pressed', 'true');
+    await expect(cardOf(page, id).getByRole('button', { name: /^Urmăresc pe / })).toHaveText('Urmăresc');
     await expect
       .poll(async () => (await (await page.request.get(`${CMS}/feed/anglers/${id}`, { headers: auth() })).json()).data.isFollowedByMe)
       .toBe(true);
@@ -447,7 +524,7 @@ test.describe('signed in', () => {
 
     // The footer may go on to the NEXT page (infinite scroll), never back to one already loaded.
     expect((await ids()).slice(0, before.length), 'same cards, same order, every loaded page kept').toEqual(before);
-    await expect(cardOf(page, id).getByRole('button', { name: /^Nu mai urmări pe / })).toHaveText('Urmăresc');
+    await expect(cardOf(page, id).getByRole('button', { name: /^Urmăresc pe / })).toHaveText('Urmăresc');
     const pageOf = (u: string) => Number(new URL(u).searchParams.get('page'));
     const loaded = Math.max(...reads.slice(0, readsBefore).map(pageOf));
     expect(

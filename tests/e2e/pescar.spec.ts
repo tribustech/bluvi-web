@@ -451,14 +451,14 @@ test.describe('signed in — real data', () => {
     await expect(page.getByTestId('profile-settings-button')).toHaveCount(0);
   });
 
-  test('c10–c12: follow is optimistic, disabled while pending, persists; unfollow posts /unfollow (afterEach double-checks)', async ({ page, request }) => {
+  test('c10–c12: follow is optimistic, aria-disabled while pending, persists; unfollow posts /unfollow (afterEach double-checks)', async ({ page, request }) => {
     const errors = collectConsoleErrors(page, { ignore: EXPECTED_CONSOLE });
     await page.goto(`/pescari/${FOLLOW}`);
     const button = page.getByTestId('follow-slot').getByRole('button');
     await expect(button).toHaveText('Urmărește');
     const before = Number((await page.getByTestId('followers-count').innerText()).match(/\d+/)?.[0]);
 
-    // Hold the POST: the button is disabled and the count already moved (optimistic).
+    // Hold the POST: the button is busy (aria-disabled, keeps focus) and the count already moved (optimistic).
     let release!: () => void;
     const held = new Promise<void>(res => (release = res));
     await page.route(new RegExp(`/feed/anglers/${FOLLOW}/follow$`), async r => {
@@ -468,12 +468,12 @@ test.describe('signed in — real data', () => {
     followed = true;
     const posted = page.waitForResponse(r => r.url().endsWith(`/feed/anglers/${FOLLOW}/follow`) && r.request().method() === 'POST');
     await button.click();
-    await expect(button).toBeDisabled();
+    await expect(button).toHaveAttribute('aria-disabled', 'true');
     await expect(button).toHaveText('Urmăresc');
     await expect(page.getByTestId('followers-count')).toContainText(String(before + 1));
     release();
     expect((await posted).ok()).toBe(true);
-    await expect(button).toBeEnabled();
+    await expect(button).not.toHaveAttribute('aria-disabled');
 
     await page.reload();
     await expect(page.getByTestId('follow-slot').getByRole('button')).toHaveText('Urmăresc');

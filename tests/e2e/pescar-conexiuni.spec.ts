@@ -270,7 +270,7 @@ test.describe('signed in', () => {
     const other = rowOf(page, ANDREW_R);
     await expect(own).toBeVisible();
     await expect(own.getByRole('button')).toHaveCount(0);
-    await expect(other.getByRole('button', { name: /^(Urmărește|Nu mai urmări) pe Andrew R$/ })).toBeVisible();
+    await expect(other.getByRole('button', { name: /^(Urmărește pe Andrew R|Urmăresc pe Andrew R — apasă ca să nu mai urmărești)$/ })).toBeVisible();
 
     // Avatar: 40px (a photo here; the initials fallback is checked on the mocked rows, c9).
     const avatar = other.locator('> :first-child');
@@ -313,12 +313,12 @@ test.describe('signed in', () => {
     const posted = page.waitForResponse(r => r.url().endsWith(`/feed/anglers/${TARGET}/follow`) && r.request().method() === 'POST');
     await button.click();
     await expect(button).toHaveText('Urmăresc');
-    await expect(button).toHaveAttribute('aria-pressed', 'true');
-    await expect(button).toBeDisabled();
+    await expect(button).toHaveAccessibleName(/^Urmăresc pe /);
+    await expect(button).toHaveAttribute('aria-disabled', 'true');
     await expect(page).toHaveURL(new RegExp(`/pescari/${ANDREW_R}/conexiuni\\?tab=urmareste$`)); // the button never navigates
     release();
     expect((await posted).ok()).toBe(true);
-    await expect(button).toBeEnabled();
+    await expect(button).not.toHaveAttribute('aria-disabled');
 
     // The followed angler's profile: one more follower, «Urmăresc».
     await rowOf(page, TARGET).getByRole('link').click();

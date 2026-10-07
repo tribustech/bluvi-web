@@ -15,8 +15,17 @@ import { cn } from '@/components/ui/cn';
  *    with 14px sides at one fixed 124px width (both labels, no jump on a toggle), so the row's name keeps
  *    most of a 320 row; the profile's 144px button from 1024, where the grid cards are wide.
  * Controlled when `following` + `onToggle` are passed; otherwise it keeps its own state so the
- * kit can show both looks. Disabled while `pending`. Sits above the card's stretched link (relative z-above).
+ * kit can show both looks. Sits above the card's stretched link (relative z-above).
+ *
+ * Accessible name: an action button, not a toggle (no aria-pressed: a toggle needs a stable name,
+ * and «Urmăresc» is not «Urmărește»). The name starts with the visible label (WCAG 2.5.3, voice
+ * control): «Urmărește pe X» / «Urmăresc pe X — apasă ca să nu mai urmărești».
+ * While `pending`: aria-disabled + aria-busy and clicks ignored — never native `disabled`, which
+ * would drop keyboard focus to <body> mid-list and leave the new state unannounced.
  */
+export const followLabel = (following: boolean, name: string) =>
+  following ? `Urmăresc pe ${name} — apasă ca să nu mai urmărești` : `Urmărește pe ${name}`;
+
 export function FollowButton({
   following,
   defaultFollowing = false,
@@ -50,17 +59,18 @@ export function FollowButton({
   return (
     <button
       type="button"
-      aria-pressed={isFollowing}
-      aria-label={isFollowing ? `Nu mai urmări pe ${name}` : `Urmărește pe ${name}`}
-      disabled={pending}
+      aria-label={followLabel(isFollowing, name)}
+      aria-disabled={pending || undefined}
       aria-busy={pending || undefined}
+      data-following={isFollowing}
       onClick={() => {
+        if (pending) return;
         const next = !isFollowing;
         if (following === undefined) setLocal(next);
         onToggle?.(next);
       }}
       className={cn(
-        'relative z-above flex items-center justify-center transition-colors duration-(--duration-fast) ease-fast disabled:opacity-60',
+        'relative z-above flex items-center justify-center transition-colors duration-(--duration-fast) ease-fast aria-disabled:cursor-default aria-disabled:opacity-60',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent',
         row ? 't-button-compact lg:t-body-strong' : compact ? 't-button-compact' : 't-body-strong',
         compact

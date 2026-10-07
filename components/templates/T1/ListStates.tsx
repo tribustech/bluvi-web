@@ -295,6 +295,7 @@ export function ListFooter({
   auto = true,
   moreLabel = 'Încarcă mai multe',
   spinner = false,
+  armOnScroll = false,
 }: {
   hasMore: boolean;
   loadingMore: boolean;
@@ -321,6 +322,13 @@ export function ListFooter({
   moreLabel?: string;
   /** A spinner beside «Se încarcă…» while a page loads (fish's ActivityIndicator footer). */
   spinner?: boolean;
+  /**
+   * Auto-load only after the reader's first scroll (or wheel/touch move) on this page. For a short
+   * first page on a tall screen, where the footer sits in range at once and the observer would
+   * chain page after page before anyone scrolled (account.suggested: each page is a server scoring
+   * query). The button still loads on demand.
+   */
+  armOnScroll?: boolean;
 }) {
   const sentinel = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLParagraphElement>(null);
@@ -329,9 +337,32 @@ export function ListFooter({
     load.current = onLoadMore;
   });
 
+  const [scrolled, setScrolled] = useState(false);
+  const armed = !armOnScroll || scrolled;
+  useEffect(() => {
+    if (armed || !auto || !hasMore) return;
+    const arm = () => setScrolled(true);
+    // A scroll down by the reader; the router's own scroll-to-top on arrival (scrollY 0) is not one.
+    const onScroll = () => {
+      if (window.scrollY > 0) arm();
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY > 0) arm();
+    };
+    const opts = { passive: true } as const;
+    window.addEventListener('scroll', onScroll, opts);
+    window.addEventListener('touchmove', arm, opts);
+    window.addEventListener('wheel', onWheel, opts);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('touchmove', arm);
+      window.removeEventListener('wheel', onWheel);
+    };
+  }, [armed, auto, hasMore]);
+
   useEffect(() => {
     const el = sentinel.current;
-    if (!auto || !hasMore || loadingMore || error || !el) return;
+    if (!armed || !auto || !hasMore || loadingMore || error || !el) return;
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) load.current();
@@ -340,7 +371,7 @@ export function ListFooter({
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [auto, hasMore, loadingMore, error]);
+  }, [armed, auto, hasMore, loadingMore, error]);
 
   // The button unmounts with the last page: if it had focus (focus fell to <body>), keep a keyboard
   // user's place on the end line instead.
