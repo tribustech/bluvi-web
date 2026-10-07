@@ -299,29 +299,46 @@ screens:
       - id: booking.rezerva-extra.c1
         text: "Without a selection, a selected stand or availability (direct link, reload) the step redirects to the grid. Web: the selection must survive a reload (URL/search params or session) or the redirect applies."
         fish_ref: app/(app)/book-lake/[lakeId]/extras.tsx:17-19; app/(app)/book-lake/[lakeId]/__tests__/stepGuards.test.tsx:53-56
+        status: passing
+        web_note: "Client guard (extra/model.ts extrasRedirect) on the LIVE availability, router.replace: no or malformed selection (URL codec _flow/params), a stand the lake does not have or booking turned off → the bare grid. The selection survives a reload in the URL (?stand&start&end[&extra…]). e2e tests/e2e/rezerva-extra.spec.ts «c1 …»; unit extra/model.test.ts."
       - id: booking.rezerva-extra.c2
         text: "The step exists only when the stand offers at least one extra for this tour; otherwise Continuă on the grid skips it and Back from review returns to the grid."
         fish_ref: features/lakes/booking/useBookingGridFlow.ts:280-302
+        status: passing
+        web_note: "The grid's Continuă goes here only when offeredExtras(stand, extras, countNights in the lake zone) is non-empty (_flow nextStepFromGrid). Reached anyway (a link, a reload after the lake changed): router.replace to the grid WITH the selection kept, extras dropped (web: fish would render an empty step). e2e tests/e2e/rezerva-extra.spec.ts «c2 …» (stand without extras; day tour on a per-night-only stand); unit extra/model.test.ts."
       - id: booking.rezerva-extra.c3
         text: "Screen title „Extra”; heading „Extra” with subtitle „Poți adăuga la rezervare, dacă vrei.”"
         fish_ref: app/(app)/book-lake/[lakeId]/extras.tsx:26-28; features/lakes/booking/ExtrasStep.tsx:36-44
+        status: passing
+        web_note: "T4Header: back, eyebrow = the cached lake's name, h1 «Extra»; the subtitle «Poți adăuga la rezervare, dacă vrei.» opens the step; document title «Extra · Rezervă un stand» (noindex). e2e tests/e2e/rezerva-extra.spec.ts «c3 c4 c5 c7 …»."
       - id: booking.rezerva-extra.c4
         text: "One card per offered extra: round checkbox (filled indigo with a check when selected), the extra's label, and „+{price} lei” on the right; tapping the card toggles it (multi-select)."
         fish_ref: features/lakes/booking/ExtrasStep.tsx:30-31,46-57,62-107
+        status: passing
+        web_note: "T4ChoiceCard type=checkbox (native checkbox, visually hidden): round marker (accent fill + check when chosen), label, «+{price} lei» right with the unit as its own muted word (owner rule 10); multi-select, Space toggles. One per row on a phone; two across from 768 only when several are offered (a lone extra spans the column). e2e also asserts the lone card's width = the list's. e2e tests/e2e/rezerva-extra.spec.ts «c3 c4 c5 c7 …» (Space on the focused checkbox), «c5: a per-stay extra …» (two cards)."
       - id: booking.rezerva-extra.c5
         text: "A per-night extra shows price × nights and the note „{price} lei/noapte · {n} noapte|nopți”; a per-stay extra shows its flat price and no note. Nights = lake-local midnights crossed."
         fish_ref: features/lakes/booking/ExtrasStep.tsx:52-53; features/lakes/booking/nights.ts:13-20
+        status: passing
+        web_note: "extraLine: per night = price × nights + «{price} lei/noapte · {n} noapte|nopți» (formatCount: «20 de nopți»); per stay = flat price, no note. Nights = core countNights in the availability's timezone. e2e tests/e2e/rezerva-extra.spec.ts «c3 c4 c5 c7 …» (2 nights), «c5: a per-stay extra …»; unit extra/model.test.ts."
       - id: booking.rezerva-extra.c6
         text: "Each toggle re-quotes the selection with the sorted extras list (cached per stand/window/extras so toggling back shows the previous answer instantly)."
         fish_ref: services/queries/useBookingQuote.ts:13-15,34-48; features/lakes/booking/useBookingGridFlow.ts:163-170
+        status: passing
+        web_note: "Each toggle re-quotes core bookingQuoteQuery with the sorted list (key per stand/window/extras, staleTime 0); toggling back shows that list's cached answer at once (held while re-read); another list's placeholder is never shown as the price. The list is in the URL (history.replaceState, no entry per toggle): a reload keeps it; a key the tour cannot have is dropped. e2e tests/e2e/rezerva-extra.spec.ts «c6: a reload …», «c6 c7: every toggle …» (quote bodies '', key, '')."
       - id: booking.rezerva-extra.c7
         text: "Footer „Continuă” is disabled (and dimmed) while re-quoting or when the quote has no total; enabled it opens the review step."
         fish_ref: app/(app)/book-lake/[lakeId]/extras.tsx:21,31-43
+        status: passing
+        web_note: "«Continuă» is a held button (aria-disabled + the kit's disabled look, click swallowed, stays focusable) while re-quoting, refused, failed or without a total; enabled it pushes routes.lakeBookingReview with the selection + extras. Refused: the server sentence + «Debifează extra-ul sau alege alt interval.» when an extra is ticked («Alege alt interval sau alt stand.» for the bare tour), the card the sentence names aria-invalid, the total's reason «Indisponibil»; failed: «Nu am putut calcula prețul pentru acest interval.» + «Verifică legătura la internet și încearcă din nou.» + «Încearcă din nou». e2e tests/e2e/rezerva-extra.spec.ts «c3 c4 c5 c7 …» (Enter → /confirmare?…&extra=…), «c6 c7 …», «states: …»."
       - id: booking.rezerva-extra.c8
         text: "Back returns to the grid with the selection kept; extras are reset on return to the grid."
         fish_ref: app/(app)/book-lake/[lakeId]/extras.tsx:28; features/lakes/booking/useBookingGridFlow.ts:127-132,304-308
+        status: passing
+        web_note: "Header back («Înapoi la selecție») and the bar's «Înapoi» (from 768): router.back() when the entry under this one is the grid (Navigation API), else router.replace(grid + selection); the grid never carries extras, so they reset. e2e tests/e2e/rezerva-extra.spec.ts «c8 …» (from the grid; opened directly)."
     mobile_only: false
-    status: todo
+    status: proposed
+    web_note: "Built in M3-B2 (app/(site)/balti/[id]/rezerva/extra: page.tsx gate requireViewer(routes.lakeBookingExtras(…)) inside Suspense + ExtrasScreen + ExtrasSkeleton + model.ts). T4Frame + T4Header (lake eyebrow), T4ChoiceCard checkboxes, from 1280 the T4Summary aside (stand, formatBookingPeriod with the checkout buffer, the server's price lines and total) with the held CTA docked under it; below 1280 a context line and the action bar total. Availability LIVE through /api/cms (useLiveAvailability), quote per user (useFlowQuote). States: signed-out (307 /intra), no selection → grid, none selected, re-quote in flight, priced, refused, failed, per-night on a multi-night tour — screenshots .shots/rezerva-extra/ at 375/1280/1440/1920. e2e tests/e2e/rezerva-extra.spec.ts (10 tests, real local Chita availability + real quote; only in-flight/refused/failed/cache route-mocked; axe; keyboard; no writes); unit extra/model.test.ts. Review fixes: the period and the zi/noapte hour read the LAKE's clock (core formatBookingPeriod/formatBookingPoint/wallHour take the lake timeZone, as countNights does; e2e «visitor in another time zone» runs in Europe/London); a re-quote keeps the last priced receipt in the summary dimmed + aria-busy under «Calculăm prețul…» (e2e: summary height and CTA position unchanged)."
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: booking.rezerva-confirmare
@@ -384,83 +401,136 @@ screens:
       - id: booking.rezerva-confirmare.c1
         text: "Without a selection, selected stand or loaded lake the step redirects to the grid before rendering anything."
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:408-417; app/(app)/book-lake/[lakeId]/__tests__/stepGuards.test.tsx:58-61
+        status: passing
+        web_note: "Server: a URL without a selection is redirected to the grid in the page's gate (streamed replace when the shell has flushed); in the browser, once the live availability is read, a stand the lake no longer has or booking turned off → router.replace to the grid (_flow/guards guardStep). Web addition: the tour itself is re-judged against the live availability with the grid's selectionFree (taken — the angler's own booking reached again too —, blocked, started, inside the lead time) → the bare grid + toast «Intervalul ales nu mai e liber.» (the CMS quote never checks occupancy); a tour past the loaded months reads ahead first. Only the skeleton renders meanwhile. An unknown lake is a 404. e2e tests/e2e/rezerva-confirmare.spec.ts «c1: no selection…», «c1: an unknown lake…», «c1: a tour the live availability no longer has free…»; unit _flow/flow.test.ts."
       - id: booking.rezerva-confirmare.c2
         text: "Screen title „Confirmă rezervarea”; back goes one step back (extras or grid) and is ignored while the submit is in flight."
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:97-102,267-269; features/lakes/booking/useBookingGridFlow.ts:304-308
+        status: passing
+        web_note: "T4Header h1 «Confirmă rezervarea» (eyebrow: the lake). Back = _flow/nav stepBack: a history pop to the extras step when this tour has one, else the grid (selection kept); a pushed copy never. Frozen while submitting (header + action-bar back aria-disabled; any same-tab link click swallowed; the browser's Back / a push cancelled via the Navigation API, or undone by a sentinel entry without it). e2e «c2: back walks one step…», «c18 c19 c20 / b.double-submit-guard…», «b.double-submit-guard: without the Navigation API…»."
       - id: booking.rezerva-confirmare.c3
         text: "No price yet: quoting → card with spinner „Se calculează prețul…”; refused → red server sentence + „Alege alt interval sau alt stand.”; failed → „Nu am putut calcula prețul pentru acest interval.” + „Verifică legătura la internet și încearcă din nou.” + „Încearcă din nou” (refetch quote). Both offer „Înapoi la selecție” (back to the grid). No footer CTA in these states."
         fish_ref: features/lakes/booking/QuoteUnavailable.tsx:35-71; app/(app)/book-lake/[lakeId]/review.tsx:286-310
+        status: passing
+        web_note: "QuoteUnavailable: quoting card (spinner + «Se calculează prețul…»), refused / failed as danger T4Notices with fish copy; every state has «Înapoi la selecție» (the bare grid), failed also «Încearcă din nou»; no CTA. e2e «c3: …» (all 4 widths, axe)."
       - id: booking.rezerva-confirmare.c4
         text: "Summary card: stand badge (stand name), lake name and county (when present), chips „Standul {name}”, duration („{h}h zi|noapte” / „{h}h”) and „Numerar” for offline payment, then the period „{Weekday}, d MMM · HH:mm–HH:mm” (or both dates when multi-day), end minus checkoutBufferMinutes."
         fish_ref: features/lakes/booking/BookingReview.tsx:53-60,89-113; features/bookings/ui/chipModel.ts:52-71; helpers/formatBookingPeriod.ts:15-24
+        status: passing
+        web_note: "SummaryCard: stand badge pill, lake + county, chips (buildBookingChips on token tints, 16px glyphs), formatBookingPeriod with the live checkout buffer. e2e «c4 c5 c6 c7 c8 …»."
       - id: booking.rezerva-confirmare.c5
         text: "A green pill with the rate row's own name is shown only when it adds meaning beyond the duration."
         fish_ref: features/lakes/booking/BookingReview.tsx:120-126
+        status: passing
+        web_note: "Green pill only when rowLabelAddsMeaning. e2e «c4 …» (Pachet weekend redus), «c5 c6: a rate named after its length…»."
       - id: booking.rezerva-confirmare.c6
         text: "Price rows come only from the server quote: tour row (row name if meaningful, else „{h}h”) = tourPrice lei, then one row per extra („{label} × {qty}” when qty > 1) = its total lei; nothing is recomputed."
         fish_ref: features/lakes/booking/BookingReview.tsx:62-77
+        status: passing
+        web_note: "Price rows only from the quote (model.ts priceRows), units apart (rule 10). Below 1280 in the card, from 1280 in the sticky right column. e2e «c4 …»."
       - id: booking.rezerva-confirmare.c7
         text: "Total row by payment mode: deposit → „Avans de plată” / „{p}% din {total} lei” / „{round2(total×p/100)} lei”; full → „De plată acum” / „{total} lei”; otherwise „Total” / „se plătește la fața locului” / „{total} lei”."
         fish_ref: features/lakes/booking/BookingReview.tsx:79-85; features/bookings/ui/DetailRows.tsx:31-48
+        status: passing
+        web_note: "model.ts totalRow (deposit round2, full, offline); T4TotalLine with a separate «lei» unit (T4Total.unit, additive). e2e «c7 c8: payment modes…»; unit confirmare/model.test.ts."
       - id: booking.rezerva-confirmare.c8
         text: "Request lakes (confirmationMode manual or paymentMode offline) show the notice „Este o cerere, nu o rezervare confirmată” / „Administratorul lacului o acceptă sau o refuză.”"
         fish_ref: features/lakes/booking/BookingReview.tsx:51,131-143
+        status: passing
+        web_note: "T4Notice pending under the summary for manual or offline lakes (core isBookingRequest). e2e «c4 …», «c7 c8 …» (absent on an instant deposit lake)."
       - id: booking.rezerva-confirmare.c9
         text: "Contact card „Date de contact” with „Nume și prenume” (placeholder „Numele tău”), „Număr telefon” (placeholder „07XX XXX XXX”, phone keypad allowing +) and „Detalii adiționale” (multiline, placeholder „Detalii adiționale, ora estimată de sosire, etc.”)."
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:321-385
+        status: passing
+        web_note: "ContactCard (T4Section «Date de contact»): fish labels and placeholders; phone input type=tel (keypad with +). e2e «c9 c10 c11 c12 c13 …»."
       - id: booking.rezerva-confirmare.c10
         text: "Name and phone are prefilled from the profile (username, phone), also when the profile arrives after mount, without overwriting what the user already typed."
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:104-131
+        status: passing
+        web_note: "model.ts prefillContact: defaults from a cached profile; a late profile fills only empty untouched fields (keepDirtyValues). e2e (profile GET delayed after typing a name), unit model.test.ts."
       - id: booking.rezerva-confirmare.c11
         text: "Phone input keeps digits and one leading + only (everything else is dropped as typed)."
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:361; schemas/phone.schema.ts:13-17
+        status: passing
+        web_note: "sanitizePhoneInput imported from components/account/profile-form/schema.ts. e2e «c9 … c11»."
       - id: booking.rezerva-confirmare.c12
         text: "Validation: name required „Acest câmp este obligatoriu”; phone required „Adaugă un număr de telefon.” and /^\\+?\\d{7,15}$/ „Numărul de telefon trebuie să aibă între 7 și 15 cifre”; notes ≤ 1000 „Ai voie maxim 1000 de caractere”."
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:71-75; schemas/phone.schema.ts:9-21
+        status: passing
+        web_note: "contactSchema (model.ts) with PHONE_REGEX / PHONE_ERROR imported, fish copy. e2e + unit."
       - id: booking.rezerva-confirmare.c13
         text: "Footer „Continuă” (only when priced) validates the form; on failure the first invalid field (name → phone → notes order) receives focus and scrolls into view; on success it opens the confirmation panel. It shows a spinner and is disabled while submitting."
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:79-80,133-144,286-299
+        status: passing
+        web_note: "Continuă only when priced (held while a fresh quote after a price change loads, and while submitting — spinner); a refusal shows T4ErrorSummary and focuses + scrolls to the first invalid field (name → phone → notes). Web: the summary on top too. e2e «c9 … c13»."
       - id: booking.rezerva-confirmare.c14
         text: "Confirmation panel: „Confirmă rezervarea”, „{lake} · Standul {stand}”, then term rows appearing one after another: period; money („Avans {p}% din {total} lei, restul la fața locului” / „{total} lei, se plătesc acum” / „{total} lei, se plătesc la fața locului”); „Este o cerere, nu o confirmare. Administratorul o acceptă sau o refuză.” (request) or „Rezervarea se confirmă imediat.” (instant)."
         fish_ref: features/lakes/booking/BookingConfirmSheet.tsx:100-154
+        status: passing
+        web_note: "ConfirmDialog (ResponsiveSurface decision: sheet <768, alert dialog ≥768): title, «{lake} · Standul {stand}», term rows entering one after another (80 + 60·i ms, @starting-style; reduced motion: none). e2e «c14 c17: request lake …» (terms, delays, focus trap, Escape, focus return, axe on dialog and sheet), «c14 c15 c16 c17: instant deposit …»."
       - id: booking.rezerva-confirmare.c15
         text: "Cancellation-policy row only when money is collected up front (deposit or full): refundable → „Anulare cu rambursare dacă anulezi cu cel puțin {h} ore înainte.” / „Anulare cu rambursare.”; nonRefundable → „Avansul nu se restituie.”; rescheduleOnly → „Reprogramare posibilă dacă anunți cu cel puțin {h} ore înainte.” / „Reprogramare (fără rambursare în numerar).”; none/unknown → „Contactează administratorul lacului pentru detalii despre anulare.”"
         fish_ref: features/lakes/booking/BookingConfirmSheet.tsx:96-98,155-162; features/lakes/booking/BookingReview.tsx:149-167
+        status: passing
+        web_note: "Cancellation row (core cancellationPolicyText) only for deposit / full. e2e «c15: the other policies…», «c14 c17» (absent for a cash lake)."
       - id: booking.rezerva-confirmare.c16
         text: "When the lake has a regulation URL the panel shows „Deschide regulamentul (PDF)” opening it (new tab on web)."
         fish_ref: features/lakes/booking/BookingConfirmSheet.tsx:90-94,165-183
+        status: passing
+        web_note: "«Deschide regulamentul (PDF)» link, target _blank rel noopener. e2e «c14 c15 c16 c17 …»."
       - id: booking.rezerva-confirmare.c17
         text: "Panel actions „Înapoi” (closes it) and the submit button labelled „Trimite cererea” for request lakes or „Rezervă” for instant ones (loading while pending), with the line „Prin continuare confirmi că ai citit și accepți regulamentul bălții.”"
         fish_ref: features/lakes/booking/BookingConfirmSheet.tsx:185-206; app/(app)/book-lake/[lakeId]/review.tsx:151-152
+        status: passing
+        web_note: "«Înapoi» (disabled while sending) + «Trimite cererea» / «Rezervă» (spinner, aria-busy) + the consent line. e2e «c14 …», «c18 c19 c20 …»."
       - id: booking.rezerva-confirmare.c18
         text: "Submit sends lake, stand, startDate, endDate, extras, notes, contactFullname, contactPhone and expectedTotal = quote.total; it is never sent without a quote."
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:159-183
+        status: passing
+        web_note: "core createBookingMutation with model.ts createInput (trimmed contact, expectedTotal = quote.total); never without a priced quote. e2e «c18 c19 c20 …» (exact body), plus ONE real create on the local Chita «c18 c20 c21 / b.write-invalidation …», cancelled in finally (core cancel endpoint, reason ≥ 5) and verified cancelled."
       - id: booking.rezerva-confirmare.c19
         text: "If the submitted phone differs from the profile phone it is written back to the profile (fire-and-forget, the booking does not wait for it)."
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:165-170
+        status: passing
+        web_note: "updateProfileMutation (PATCH /user/profile) fire-and-forget only when the phone changed. e2e (mocked PATCH): none when unchanged, {phone} when changed."
       - id: booking.rezerva-confirmare.c20
         text: "Success (no payment branch): the panel closes, the whole flow is left (back to where it was entered) and a success toast reads „Cererea a fost trimisă! Cod: {code}. Vei fi notificat când este confirmată.” (request) or „Rezervare confirmată! Cod: {code}.” — the „ Cod: …” part only when the server returned a code."
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:185-217
+        status: passing
+        web_note: "Success: dialog closes, _flow/nav exitFlow (history pop to the entry page in this document, the review's entry sealed to the bare grid first so Forward never returns to a priced review — fish dismisses the flow; a full-page entry or none → router.replace, default the lake page), toast via core bookingSuccessMessage (« Cod: …» only when returned) from the mutation's own onSuccess, so it lands even if the page is gone. e2e «c18 c19 c20 …» (goForward → the bare grid), «c19 c20: … no code …», real create."
       - id: booking.rezerva-confirmare.c21
         text: "A successful create invalidates every bookings query (availability, my bookings, counts, operator inbox) and the operator stats."
         fish_ref: services/mutations/useCreateBooking.ts:9-14; services/mutations/invalidateOperatorSurfaces.ts:17-20
+        status: passing
+        web_note: "createBookingMutation invalidates bookingKeys.all + operator-stats (core OPERATOR_SURFACES). e2e real create, from the client cache: entered from /rezervari (its list cached, fresh for 60s), the review reached client-side; success traverses back and the list is read again through /api/cms only because it was invalidated, and that read carries the new booking (fails with the invalidation removed). The live availability shows it too."
       - id: booking.rezerva-confirmare.c22
         text: "409 / PRICE_CHANGED: panel closes, toast „Prețul s-a actualizat la {fresh} lei. Verifică și confirmă din nou.” (or „Prețul s-a actualizat. Verifică noul total și confirmă din nou.” without a fresh figure); availability and every quote are invalidated and the user stays on review with the new price."
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:224-239
+        status: passing
+        web_note: "core bookingSubmitFailure → price-changed: dialog closes, toast with / without the fresh figure, availability + ['booking-quote'] invalidated, stays; the CTA waits for the fresh quote; the next submit carries the new expectedTotal. e2e «c22 / b.server-priced …»."
       - id: booking.rezerva-confirmare.c23
         text: "STAND_TAKEN / STAND_BLOCKED: availability and quotes invalidated, selection cleared, user sent back to the grid with toast „Standul tocmai a fost rezervat. Am actualizat intervalele — alege altul.” / „Intervalul nu mai este disponibil. Am actualizat intervalele — alege altul.”"
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:240-256
+        status: passing
+        web_note: "stand-gone: invalidate, back to the grid without the selection (_flow/nav backToGrid), toast. e2e «c23: STAND_TAKEN …», «c23: STAND_BLOCKED …»."
       - id: booking.rezerva-confirmare.c24
         text: "Other errors toast the server's sentence when it sent one with a code, else the mapped copy (NAME_REQUIRED „Adaugă numele pentru rezervare.”, PHONE_REQUIRED „Adaugă un număr de telefon.”, INVALID_DURATION „Durata selectată nu este validă.”, INVALID_SLOT_ALIGNMENT „Intervalul ales nu începe la o oră de start validă.”, END_TIME_NOT_ALLOWED „Balta nu acceptă rezervări care se încheie la ora aceasta. Alege alt interval.”, START_IN_PAST „Nu poți rezerva un interval din trecut.”, BOOKING_DISABLED „Rezervările nu sunt active pentru acest lac.”, PAYMENTS_NOT_CONFIGURED „Plățile online nu sunt disponibile momentan.”), else „A apărut o eroare. Încearcă din nou.”"
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:37-69,257
+        status: passing
+        web_note: "core friendlyBookingError (fish review.tsx:37-69 1:1): the 10 mapped codes → fish copy; any other code → the server sentence; no code → «A apărut o eroare. Încearcă din nou.». Note: fish (and the web) show the mapped copy even when a server sentence came with a mapped code — the criterion's wording orders it the other way; fish code wins (rule 3). e2e «c24 …»; unit core/booking/domain/bookingErrors.test.ts."
       - id: booking.rezerva-confirmare.c25
         text: "Online payment is dormant: only when the payments flag is on and the server returns a client secret is a payment sheet presented (ok → leave flow + „Rezervare confirmată!”; cancelled → stay + „Plata a fost anulată.”; else mapped error). Web keeps it off until payments ship."
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:190-208; config/bookingFlags.ts
+        status: passing
+        web_note: "Online payment off: `payment.clientSecret` is never read; no payment UI. e2e «c25 …», «c19 c20 …»."
       - id: booking.rezerva-confirmare.c26
         text: "On mobile a „Gata” action closes the keyboard while it is up (web: not needed; the CTA must stay reachable above any on-screen keyboard)."
         fish_ref: app/(app)/book-lake/[lakeId]/review.tsx:146-148,270-283
+        status: passing
+        web_note: "The T4ActionBar is sticky to the bottom edge and lifted by the VisualViewport keyboard inset (recenzie useKeyboardInset, --review-kb-inset). e2e «c26 …»."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "Built in M3-B2 (app/(site)/balti/[id]/rezerva/confirmare: page.tsx gate + ReviewStep, SummaryCard, ContactCard, ConfirmDialog, QuoteUnavailable, model.ts; _flow/nav.ts for back / back-to-grid / exit). T4Frame: centre summary + request notice + contact; from 1280 the price in the sticky right column with the CTA docked under it; phone: one column, CTA pinned above the keyboard. Data: the cached public lake; availability, quote, profile and create in the browser via /api/cms. New core: booking/domain/bookingErrors.ts (friendlyBookingError, bookingSubmitFailure, bookingSuccessMessage, isBookingRequest). Dev-only lake reshape cookie for e2e (payment modes, regulation, policy). e2e tests/e2e/rezerva-confirmare.spec.ts (21 tests, states at 375/1280/1440/1920 with axe, keyboard through the dialog; one real create on the local CMS, cancelled). Screenshots .shots/rezerva-confirmare/."
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: booking.rezervarile-mele
@@ -613,8 +683,8 @@ screens:
       - id: booking.rezervarile-mele.c20
         text: "In the list the row carries no action buttons; activating it opens the booking detail (/rezervari/[id])."
         fish_ref: features/bookings/MyBookingRow.tsx:21-24,196; app/(app)/bookings/index.tsx:135-145
-        status: todo
-        note: "B1 half done: the row links through bookingHref(id) (lib/routes.ts), null while ON_WEB.bookingDetail is false, so the row is a plain card (no dead link) and carries no buttons — e2e «c13–c19» asserts no a[href^=/rezervari/] and no button/link in a card. Flips to passing with /rezervari/[id] (M3-B2)."
+        status: passing
+        note: "ON_WEB.bookingDetail on (M3-B2): bookingHref(id) → /rezervari/{id}, the whole card is the link (BookingRow linked mode), no button or link inside it. e2e tests/e2e/rezervari.spec.ts «c13–c19 … c20 each row is one link» (href per variant, Enter opens it, Back returns) and tests/e2e/rezervare.spec.ts «c8 c9 rezervarile-mele.c22» (a row click opens the booking)."
       - id: booking.rezervarile-mele.c21
         text: "Visiting this screen retires the home „NOU” pill on the Rezervări tile (persisted per browser)."
         fish_ref: app/(app)/bookings/index.tsx:64-65; hooks/useNouBadge.ts:62-70,92-93
@@ -623,8 +693,8 @@ screens:
       - id: booking.rezervarile-mele.c22
         text: "Cancel from the list (sheet wiring kept for parity): success toast „Rezervare anulată” and the sheet closes; error toasts friendlyCancelError; the deposit warning „Avansul de {n} lei poate să nu fie restituit, conform politicii lacului.” is added when depositAmount > 0."
         fish_ref: app/(app)/bookings/index.tsx:109-133,310-319
-        status: todo
-        note: "fish rows carry no actions, so the list never opens the sheet. components/booking/CancelBookingDialog (ResponsiveSurface decision: sheet on phone, dialog from 768; deposit warning, reason ≥ 5 trimmed, «Înapoi» / «Da, anulează», cancelBookingMutation, toast «Rezervare anulată», friendlyCancelError — core/booking/domain/cancelReasons.ts + unit cancelReasons.test.ts) is built here; its e2e comes with the booking page (booking.rezervare c6–c9, M3-B2)."
+        status: passing
+        note: "fish rows carry no actions, so the list never opens the sheet; the same CancelBookingDialog (components/booking: sheet on phone, dialog from 768) runs on the booking page, and a cancel there returns to the list, which refetches. e2e tests/e2e/rezervare.spec.ts «c6 c7 …» (deposit warning), «c8 c9 rezervarile-mele.c22: … back to the list, which refetches» (toast «Rezervare anulată», the row now «Anulată de tine»), «c8 rezervarile-mele.c22 failure» (server sentence / bare code → «Nu am putut anula rezervarea. Încearcă din nou.»); unit core cancelReasons.test.ts."
     mobile_only: false
     status: proposed
     web_note: "M3-B1 (app/(site)/rezervari, components/booking): T1 — ListHeader + pinned tabs/chips chrome, a dense auto-fill grid of booking cards (1 column on the phone, ≥340px columns from 768: 2 at 1280/1440, 3 at 1920; owner rules 5, 14), the right column from 1280 (review prompt + «Alegi standul / Caută o baltă», a web-only standing card so the column never empties under the cards). Auth-only: proxy.ts 307 + requireViewer in Suspense, noindex; per-user reads through /api/cms. Shared booking UI (BookingRow linked/inert + actions slot, BookingLeadThumb, BookingStatusPill, CancelBookingDialog) is reused by /rezervari/[id] in B2. e2e tests/e2e/rezervari.spec.ts (one unmocked real read; the rest route-mocked; axe at 375/1280/1440/1920; keyboard through tabs and chips). Open: c20 (detail link) and c22 (cancel e2e) land with M3-B2."
@@ -683,47 +753,76 @@ screens:
       - id: booking.rezervare.c1
         text: "Title „Rezervare” with back; loading → full loading state; error or no data → error screen with retry."
         fish_ref: app/(app)/bookings/[id].tsx:74-81
+        status: passing
+        note: "T3 without tabs: DetailHeader «Rezervare» (h1) + DetailBackButton on the phone (history, else /rezervari), the shell breadcrumb «Rezervările mele / Rezervare» from 768. Loading → BookingDetailSkeleton (the page's own shape; also the route Suspense / loading.tsx — the list's loading moved into rezervari/(lista) so it never paints over this page). Any failed read → DetailError: 404 / 403 (not this account's) «Rezervarea nu a fost găsită» / «Nu am găsit această rezervare în contul tău.», else «Rezervarea nu a putut fi încărcată»; «Încearcă din nou» refetches (fish: the loading state again) + «Rezervările mele»; never a sign-out. An id that cannot be a documentId → not-found.tsx. e2e «c1 … 5xx …», «c1 first load …», «c1 not found (404) and not mine (403) …»."
       - id: booking.rezervare.c2
         text: "The booking card from the list is shown inert (not a link) and with actions: lake thumb, lake, stand, extras pills, period, live progress or starts-in label, price, status pill, dead reason (full length) and the pending warning."
         fish_ref: app/(app)/bookings/[id].tsx:83; features/bookings/MyBookingRow.tsx:108-194
+        status: passing
+        note: "components/booking/BookingRow inert (href absent → a div, no link inside), clampReason=false (the dead reason in full), the pending warning, live progress; from 1280 it spans the left column's two card tracks. e2e «c2 the list card, inert …»."
       - id: booking.rezervare.c3
         text: "„Lasă o recenzie” (yellow, star) appears when the booking is confirmed/completed, ended (end minus checkout buffer < now), not a no-show, and the angler has no review for that lake yet; it opens the lake review form with lakeId and booking id."
         fish_ref: features/bookings/MyBookingRow.tsx:82-85,95-98,198-202
+        status: passing
+        note: "_components/model.ts reviewable (confirmed/completed, end − checkoutBuffer < now, !noShow, lake) + lakes.myLakeReviewQuery (GET /feed/reviews/mine?lakeId, read only when reviewable, offered only once it SETTLED with no review — rule 4: loading / failed → none). Yellow: kit rating amber + medal ink (fish amber-500 + white fails AA), solid star; → routes.lakeReview(lake, {rezervare: id}). Phone bar below 1024, the action card from 1024. e2e «c3 «Lasă o recenzie» …», «c3 no «Lasă o recenzie» …»; unit model.test.ts."
       - id: booking.rezervare.c4
         text: "Cancellable = status pending or confirmed and not yet ended. When cancellable and the lake has a contact phone, a call button reads „Sună pentru anulare” when the notice window is closed and the stay has not started, else „Sună la baltă”; it opens tel: and logs contact_pressed 'Booking lake contact'."
         fish_ref: features/bookings/MyBookingRow.tsx:27,81,86-89,99-106,203-212
+        status: passing
+        note: "model canCancel / callLabel / lakePhone: a tel: link (spaces stripped) «Sună pentru anulare» when the window is closed and the stay has not started, else «Sună la baltă»; track('contact_pressed', {contact_type: 'Booking lake contact', lake_id, lake_name}). None without a lake phone or when not cancellable. e2e «c4 the call …» at 375 and 1280; unit model.test.ts."
       - id: booking.rezervare.c5
         text: "Notice window closed = lake.minCancelNoticeHours > 0 and now > start − hours. „Anulează” is shown only when cancellable and the window is open; when closed the line „Anulările cu mai puțin de {h} oră|ore înainte de început se fac telefonic.” is shown instead."
         fish_ref: features/bookings/MyBookingRow.tsx:31-35,213-229
+        status: passing
+        note: "model noticeClosed (core cancelWindowClosed) / showCancel / noticeLine; the line uses the owner's plural rule (formatCount: «1 oră», «12 ore», «24 de ore» — fish says «24 ore»): inside the booking card below 1024 (as fish), the action card's footnote from 1024. e2e «c5 …»; unit model.test.ts cancelNoticeLine."
       - id: booking.rezervare.c6
         text: "Cancel sheet: title „Anulează rezervarea”, text „Această acțiune este definitivă. Spune-ne motivul — îl trimitem celeilalte părți.” plus the deposit warning „Avansul de {n} lei poate să nu fie restituit, conform politicii lacului.” when depositAmount > 0; free-text reason (placeholder „Motivul anulării...”); „Înapoi” and „Da, anulează”."
         fish_ref: features/bookings/CancelBookingSheet.tsx:36-45,108-115,151-190; app/(app)/bookings/[id].tsx:141-150
+        status: passing
+        note: "components/booking/CancelBookingDialog (ResponsiveSurface «decision»: sheet below 768, alert dialog from 768): title, text, deposit warning when depositAmount > 0, «Motivul anulării» field with fish's placeholder, «Înapoi» / «Da, anulează». e2e «c6 c7 cancel dialog …» at 375 and 1280 (+ axe on the open and the invalid dialog)."
       - id: booking.rezervare.c7
         text: "The reason is required: trimmed length ≥ 5, else after a confirm attempt the field turns red with „Motivul este obligatoriu (minim 5 caractere).”; the sheet resets its text and error when closed."
         fish_ref: features/bookings/CancelBookingSheet.tsx:14,61-80,97-101,162,170-176
+        status: passing
+        note: "Trimmed ≥ MIN_CANCEL_REASON_LEN (5) else, after a confirm, the field turns red (aria-invalid) with «Motivul este obligatoriu (minim 5 caractere).»; the surface is mounted only while open, so closing resets text and error. Focus returns to the «Anulează» that opened it (Înapoi or Escape). e2e «c6 c7 …»."
       - id: booking.rezervare.c8
         text: "Confirm cancels with the trimmed reason (button loading, Înapoi disabled while pending); success → toast „Rezervare anulată”, sheet closes and the user returns to the previous screen; failure → toast with the server's Romanian sentence, or „Nu am putut anula rezervarea. Încearcă din nou.” when the message is a bare code."
         fish_ref: app/(app)/bookings/[id].tsx:46-62; helpers/friendlyCancelError.ts:12-18
+        status: passing
+        note: "core cancelBookingMutation (PATCH /feed/bookings/{id}/cancel {reason: trimmed}); «Se anulează…» aria-busy and «Înapoi» disabled while it runs; success → toast «Rezervare anulată», the surface closes, back (history in the site, else /rezervari — a notification link has nothing behind it); failure → toast friendlyCancelError (server sentence, a bare code → «Nu am putut anula rezervarea. Încearcă din nou.»), the dialog stays. e2e «c8 c9 …», «c8 opened directly …», «c8 … failure …»."
       - id: booking.rezervare.c9
         text: "A cancel invalidates every bookings query and the operator stats (list, counts, availability refresh)."
         fish_ref: services/mutations/useCancelBooking.ts:5-15
+        status: passing
+        note: "cancelBookingMutation → invalidateOperatorSurfaces (['bookings'] root + operator stats). e2e «c8 c9 …»: back on /rezervari the list is read again and the row shows «Anulată de tine»."
       - id: booking.rezervare.c10
         text: "Past bookings (cancelled, rejected, or end < now) with a lake show the card „Mergi din nou la {lake}?” with „Rezervă din nou” opening the booking grid for that lake (logs rebook_button_pressed); it is not gated on the lake still accepting bookings (the grid explains)."
         fish_ref: app/(app)/bookings/[id].tsx:26-34,66-71,85-101
+        status: passing
+        note: "model rebook (fish isPastBooking: cancelled / rejected, or the RAW end past, with a lake): RebookCard «Mergi din nou la {lake}?» / «Rezervă din nou» → routes.lakeBooking(lake), track('rebook_button_pressed', {lake_id, booking_id}); a card after the booking card below 1024, inside the sticky action card from 1024; not gated on the lake taking bookings. e2e «c10 rebook …»."
       - id: booking.rezervare.c11
         text: "When the booking has a price basis: card „Cum s-a calculat” / „Prețurile de la momentul rezervării.” with the tour row (row name or „{h}h”) and extras rows („{label} × {qty}” when qty > 1), a divider, „Total” = priceTotal lei, and „Tura s-a compus din {a}h + {b}h.” when composed from more than one rate; no card without basis."
         fish_ref: app/(app)/bookings/[id].tsx:103; features/bookings/ui/PriceBreakdownCard.tsx:21-82
+        status: passing
+        note: "PriceBreakdownCard (only with basis): rows «{rowLabel ?? h}h», extras «{label} × {qty}» above 1, hairline, «Total» in accent ink, units spaced and muted (rule 10), «Tura s-a compus din 12h + 12h.» when composedFrom > 1. e2e «c11 …»; unit model.test.ts priceRows / composedLine."
       - id: booking.rezervare.c12
         text: "Card „Parcursul cererii” with the angler timeline: Cerere trimisă ✓ → „Așteaptă răspunsul lacului” (current when pending) → „Confirmată” (current when confirmed) → „Încheiată” with „după {d MMM, HH:mm}” (end minus checkout buffer; done when completed); rejected / cancelled replace the rest with a single current „Respinsă” / „Anulată” step carrying that date. No fabricated timestamps on the earlier steps."
         fish_ref: app/(app)/bookings/[id].tsx:105-125; features/bookings/ui/timelineModel.ts:24-58; features/bookings/ui/RequestTimeline.tsx:7-50
+        status: passing
+        note: "RequestTimeline on core buildTimeline (audience angler; endedLabel «după {d MMM, HH:mm}» of end − checkoutBuffer; no createdAt / confirmedAt invented): an ordered list, each step's state spoken («finalizat / în curs / urmează»). e2e «c12 …» (pending / confirmed / completed / rejected / cancelled, buffer 30 → 17:30); unit model.test.ts."
       - id: booking.rezervare.c13
         text: "„Mesajul tău” card shows only the angler's own note in „…” quotes, with the operator's appended „[Anulare operator]” / „[Refuz operator]” part stripped; hidden when empty."
         fish_ref: app/(app)/bookings/[id].tsx:64,127-138; features/operator/cancelNotes.ts:10-15
+        status: passing
+        note: "MessageCard «Mesajul tău» with „…” only for stripAppendedCancelReason(notes) ≠ ''. e2e «c13 …» (the operator's «[Anulare operator]» part stripped, a note that is only the operator's part → no card)."
       - id: booking.rezervare.c14
         text: "Reached from every angler booking notification (request received, confirmed, rejected, cancelled, reminder, no-show, walk-in) via /bookings/{bookingId}; web uses /rezervari/{id}."
         fish_ref: helpers/getRedirectLocationForNotification.ts:135-144
+        status: passing
+        note: "routes.booking(id) = /rezervari/{id}; lib/notification-href maps every BOOKING_*_ANGLER (NOTIFICATION_PAGES_ON_WEB.booking on); signed out → proxy 307 /intra?next=/rezervari/{id} and requireViewer returns there; legacy /bookings/{id} and /bookings → 308 (next.config.ts). e2e «c14 b.sign-in-gate …», «c14 b.notification-routes …»; unit tests/unit/notification-href.test.ts."
     mobile_only: false
-    status: todo
+    status: proposed
+    web_note: "M3-B2 (app/(site)/rezervari/[id]): T3 without tabs, owner rule 1 — phone one column + DetailActionBar (hideFrom summary: the bar leaves at 1024), from 1024 the content left and a sticky DetailStickyAside action card right (the summary tracks 360 / 400: total as the headline with the unit spaced, status pill, lake · stand, the actions full width, the notice footnote, the rebook block), from 1280 the left column's cards two by two under the booking card. Auth-only (proxy 307 + requireViewer in Suspense), noindex; per-user reads through /api/cms. Gates in _components/model.ts (unit model.test.ts). e2e tests/e2e/rezervare.spec.ts: every state is a route mock (no real writes; the real create → cancel round trip is the confirmation spec's), one unmocked real read, axe for every state at 375 / 1280 / 1440 / 1920, keyboard (Tab order, dialog focus return). Not shipped yet: the critic / parity-verifier rounds and the visual baselines (§9)."
 
 behaviours:
   - id: booking.b.sign-in-gate
@@ -735,6 +834,8 @@ behaviours:
   - id: booking.b.notification-routes
     text: "Angler booking notifications (BOOKING_REQUEST_RECEIVED/CONFIRMED/REJECTED/CANCELLED/REMINDER/NO_SHOW/WALK_IN_ANGLER) open the booking detail; without bookingId nothing opens. Operator booking notifications go to the operator inbox (operator area)."
     fish_ref: helpers/getRedirectLocationForNotification.ts:135-157
+    status: passing
+    web_note: "lib/notification-href.ts: case 'booking' → routes.booking(bookingId) (NOTIFICATION_PAGES_ON_WEB.booking on since M3-B2); core getRouteForNotificationItem gives null without a bookingId (no link). Operator types stay unlinked until /operator/[lakeId]/rezervari (M7, NOTIFICATION_PAGES_ON_WEB.operatorBookings). Legacy /bookings/{id} → /rezervari/{id} (next.config.ts, 308). Unit tests/unit/notification-href.test.ts (all 7 angler types → /rezervari/{id}, encoding, a reminder without bookingId → null, operator types never /rezervari); e2e tests/e2e/rezervare.spec.ts «c14 b.notification-routes …» (a /notificari row opens the booking) and tests/e2e/notificari.spec.ts «c8 + global.b.notification-routes-web»."
   - id: booking.b.flow-state
     text: "The three steps share one flow state per visit (selection, retained selection for the panel, extras, quote); leaving the flow resets it. Back walks one step; a refused/dead selection returns straight to the grid (dismissTo). Web: the steps are real URLs; direct access without state redirects to the grid."
     fish_ref: features/lakes/booking/BookingFlowProvider.tsx:36-75; features/lakes/booking/useBookingGridFlow.ts:304-312
@@ -743,6 +844,8 @@ behaviours:
   - id: booking.b.server-priced
     text: "The client never prices a booking: every figure (selection panel, review, confirm) comes from the server quote, and the submit carries expectedTotal so a changed rate answers 409 instead of charging a different amount."
     fish_ref: features/lakes/booking/useBookingGridFlow.ts:149-170; app/(app)/book-lake/[lakeId]/review.tsx:159-183
+    status: passing
+    web_note: "Review: every figure from the quote (priced rows, total, dialog), Continuă held while a fresh quote loads after a 409; the create carries expectedTotal = quote.total and a 409 re-quotes. e2e tests/e2e/rezerva-confirmare.spec.ts «c4 …», «c22 / b.server-priced …»; unit confirmare/model.test.ts."
   - id: booking.b.live-availability
     text: "Availability is live (staleTime 0) and refetched each time the grid regains focus; quotes are refetched immediately even when cached; both are invalidated after a price change or a taken/blocked stand."
     fish_ref: services/queries/useLakeAvailability.ts:18; services/queries/useBookingQuote.ts:17-22,46-47; app/(app)/book-lake/[lakeId]/index.tsx:31-37
@@ -751,6 +854,8 @@ behaviours:
   - id: booking.b.write-invalidation
     text: "Every booking write (create, cancel) invalidates the whole ['bookings'] root and ['operator-stats'], so home counts, my bookings, availability and operator surfaces refresh."
     fish_ref: services/mutations/invalidateOperatorSurfaces.ts:4-21
+    status: passing
+    web_note: "Create: core createBookingMutation → invalidateOperatorSurfaces (['bookings'] + ['operator-stats']); proven from the client cache on the real local create (the cached, still-fresh /rezervari list is refetched on return and shows the new booking — the test fails with the invalidation removed). Cancel: CancelBookingDialog (M3-B1). e2e tests/e2e/rezerva-confirmare.spec.ts «c18 c20 c21 / b.write-invalidation …»."
   - id: booking.b.lead-time
     text: "Slots starting within the lake's leadHours (default 24, mirrors backend BOOKING_TOO_SOON) are phone-only for anglers; operators (walk-in) are exempt."
     fish_ref: features/lakes/booking/availabilityStatus.ts:19-20,72-91; features/lakes/booking/BookingGridStep.tsx:28-31
@@ -764,6 +869,8 @@ behaviours:
   - id: booking.b.double-submit-guard
     text: "Navigation into the flow is guarded against double taps (800ms window, navigate not push), and back is frozen while a booking submit is in flight."
     fish_ref: hooks/useNavigationGuard.ts:4-23; app/(app)/lakes/[lakeId].tsx:281-284; features/lakes/booking/useBookingGridFlow.ts:304-308
+    status: proposed
+    web_note: "Review submit: the CTA and the dialog's submit refuse while pending (one POST), Escape / «Înapoi» ignored, header back aria-disabled, a same-tab link click (site header included) swallowed before Next's <Link>, the browser's Back / a push cancelled via the Navigation API, or undone by a sentinel history entry without it. The outcome's toast and invalidations are mutation-level (they run after an unmount); only navigation is per call. Entry double-tap (lake CTA) belongs to M3-B3. e2e tests/e2e/rezerva-confirmare.spec.ts «c18 c19 c20 / b.double-submit-guard …»."
   - id: booking.b.nou-badge
     text: "The home Rezervări tile's „NOU” pill (until 2026-10-01T00:00Z) is retired by the first visit to Rezervările mele (storage key @bluvi/bookings/visited/v1)."
     fish_ref: hooks/useNouBadge.ts:92-93; app/(app)/bookings/index.tsx:64-65

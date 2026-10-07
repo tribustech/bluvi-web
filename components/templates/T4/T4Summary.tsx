@@ -19,6 +19,11 @@ export type T4Row = {
 export type T4Total = {
   label: string;
   value: string | null;
+  /**
+   * The value's unit («lei»), set apart from the figure: smaller, muted, a space before it (owner
+   * rule 10). Omit when `value` already carries it.
+   */
+  unit?: string;
   sub?: string;
   /** The price is being computed (say so in `sub`: «Calculăm prețul…»): no «—» meanwhile. */
   busy?: boolean;
@@ -115,7 +120,10 @@ export function T4TotalLine({ total, live = false }: { total: T4Total; live?: bo
           )}
         </span>
       ) : (
-        <p className="t-display shrink-0 text-accent-ink tabular-nums">{total.value}</p>
+        <p className="shrink-0 whitespace-nowrap">
+          <span className="t-display text-accent-ink tabular-nums">{total.value}</span>
+          {total.unit ? <span className="t-body-strong text-muted">{` ${total.unit}`}</span> : null}
+        </p>
       )}
     </div>
   );

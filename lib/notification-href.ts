@@ -33,8 +33,8 @@ export const NOTIFICATION_PAGES_ON_WEB = {
   communityCatches: false,
   /** /organizator — the organizer panel (M6). */
   organizer: false,
-  /** /rezervari/[id] — the angler's booking detail (M3). */
-  booking: false,
+  /** /rezervari/[id] — the angler's booking detail (M3) — ON since M3-B2. */
+  booking: true,
   /** /operator/[lakeId]/rezervari?status= — the operator's bookings (M7). */
   operatorBookings: false,
   /**
@@ -100,8 +100,9 @@ export function notificationHref(route: NotificationRoute): string | null {
     case 'organizerDashboard':
       return NOTIFICATION_PAGES_ON_WEB.organizer ? routes.organizer() : null;
     case 'booking':
-      // TODO(M3): routes.booking(id) (/rezervari/[id]).
-      return null; // NOTIFICATION_PAGES_ON_WEB.booking is off: no page yet
+      // Every BOOKING_*_ANGLER (request received, confirmed, rejected, cancelled, reminder, no-show,
+      // walk-in) → the booking page; signed out, /intra returns there (booking.rezervare.c14).
+      return routes.booking(route.params.bookingId);
     case 'operatorBookings':
       // TODO(M7): routes.operatorBookings(lakeId, status) — its status union needs «rejected».
       return null; // NOTIFICATION_PAGES_ON_WEB.operatorBookings is off: no page yet

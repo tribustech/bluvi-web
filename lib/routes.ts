@@ -204,8 +204,8 @@ export const routes = {
  *    cog and the account menus' «Setări» rows);
  *  - myBookings → /rezervari, the viewer's bookings (M3, booking.rezervarile-mele) — ON since M3-B1
  *    (Setări's «Rezervările mele» row);
- *  - bookingDetail → /rezervari/[id], one booking (M3, booking.rezervare): until then a booking row is
- *    a plain row.
+ *  - bookingDetail → /rezervari/[id], one booking (M3, booking.rezervare) — ON since M3-B2 (the
+ *    Rezervările mele rows and the booking notifications link to it).
  */
 export const ON_WEB = {
   angler: true,
@@ -214,7 +214,7 @@ export const ON_WEB = {
   startPartida: false,
   settings: true,
   myBookings: true,
-  bookingDetail: false,
+  bookingDetail: true,
 } as const;
 
 /** The angler's profile, or null while the web has none (render the person without a link). */

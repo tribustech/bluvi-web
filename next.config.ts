@@ -44,6 +44,10 @@ const nextConfig: NextConfig = {
       },
       { source: '/anglers/:id/connections', destination: '/pescari/:id/conexiuni', permanent: true },
       { source: '/anglers/:id', destination: '/pescari/:id', permanent: true },
+      // fish's /bookings paths (BOOKING_*_ANGLER links; global.b.deep-link-scheme) → Rezervările mele
+      // and the booking page (booking.rezervare.c14).
+      { source: '/bookings', destination: '/rezervari', permanent: true },
+      { source: '/bookings/:id', destination: '/rezervari/:id', permanent: true },
     ];
   },
   async headers() {

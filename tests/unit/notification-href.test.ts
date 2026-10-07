@@ -78,6 +78,8 @@ describe('notificationHref — every type with its ids', () => {
     [T.NEW_LAKES, {}, '/balti'],
     [T.NEW_FOLLOWER, { followerDocumentId: 'u7' }, ON_WEB.angler ? '/pescari/u7' : null],
     [T.FOLLOW_LAKE_REVIEW, { lakeId: 'l3' }, '/balti/l3/recenzii'],
+    // → the angler's booking page (booking.b.notification-routes, booking.rezervare.c14)
+    // (the BOOKING_*_ANGLER rows below)
     // → pages not on the web yet: no link (each gate in NOTIFICATION_PAGES_ON_WEB / ON_WEB)
     [T.CHAT_MESSAGE, { ...C, tab: 'participants' }, null],
     [T.PENALTY, C, null],
@@ -94,13 +96,13 @@ describe('notificationHref — every type with its ids', () => {
     [T.FOLLOW_RECORD_PERSONAL, { sessionDocumentId: 'p1' }, null],
     [T.FOLLOW_RECORD_LAKE, { sessionDocumentId: 'p1' }, null],
     [T.COMPETITION_AUTO_CANCELLED_ORGANIZER, {}, null],
-    [T.BOOKING_REQUEST_RECEIVED_ANGLER, { bookingId: 'b1' }, null],
-    [T.BOOKING_CONFIRMED_ANGLER, { bookingId: 'b1' }, null],
-    [T.BOOKING_REJECTED_ANGLER, { bookingId: 'b1' }, null],
-    [T.BOOKING_CANCELLED_ANGLER, { bookingId: 'b1' }, null],
-    [T.BOOKING_REMINDER_ANGLER, { bookingId: 'b1' }, null],
-    [T.BOOKING_NO_SHOW_ANGLER, { bookingId: 'b1' }, null],
-    [T.BOOKING_WALK_IN_ANGLER, { bookingId: 'b1' }, null],
+    [T.BOOKING_REQUEST_RECEIVED_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
+    [T.BOOKING_CONFIRMED_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
+    [T.BOOKING_REJECTED_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
+    [T.BOOKING_CANCELLED_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
+    [T.BOOKING_REMINDER_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
+    [T.BOOKING_NO_SHOW_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
+    [T.BOOKING_WALK_IN_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
     [T.BOOKING_NEW_REQUEST_OPERATOR, { lakeId: 'l1' }, null],
     [T.BOOKING_PENDING_NUDGE_OPERATOR, { lakeId: 'l1' }, null],
     [T.BOOKING_AUTO_REJECTED_OPERATOR, { lakeId: 'l1' }, null],
@@ -122,6 +124,16 @@ describe('notificationHref — every type with its ids', () => {
 
   it('encodes ids', () => {
     expect(href(T.NEWS, { newsId: 'a/b c' })).toBe('/stiri/a%2Fb%20c');
+    expect(href(T.BOOKING_CONFIRMED_ANGLER, { bookingId: 'a/b c' })).toBe('/rezervari/a%2Fb%20c');
+  });
+
+  it('booking.b.notification-routes: every angler booking type opens /rezervari/{bookingId}; operator types never do', () => {
+    const angler = Object.values(T).filter((type) => /^booking:.*-angler$/.test(type));
+    expect(angler).toHaveLength(7);
+    for (const type of angler) expect(href(type, { bookingId: 'bk_9', lakeId: 'l1' })).toBe('/rezervari/bk_9');
+    for (const type of Object.values(T).filter((type) => /^booking:.*-operator$/.test(type))) {
+      expect(href(type, { bookingId: 'bk_9', lakeId: 'l1' }) ?? '').not.toMatch(/^\/rezervari/);
+    }
   });
 
   it('the type outside `data` wins over a stray `type` inside it', () => {
@@ -178,6 +190,7 @@ describe('notificationHref — a missing required id means no link', () => {
     [T.PARTIDA_CATCH, {}],
     [T.FOLLOW_RECORD_LAKE, {}],
     [T.BOOKING_CONFIRMED_ANGLER, {}],
+    [T.BOOKING_REMINDER_ANGLER, { lakeId: 'l1' }],
     [T.BOOKING_CANCELLED_OPERATOR, {}],
   ];
   it.each(missing)('%s %j → null', (type, data) => {

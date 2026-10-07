@@ -16,6 +16,11 @@ export type DetailActionBarProps = {
   above?: ReactNode;
   /** Also show on 768–1279. */
   tablet?: boolean;
+  /**
+   * Where the bar leaves, overriding `tablet`: `summary` = from 1024, the summary layout's
+   * breakpoint (DetailBody layout="summary": its sticky card takes the actions from there).
+   */
+  hideFrom?: 'summary';
   label?: string;
   /** While the page keeps the bar away (slid off, e.g. until the hero's own CTA has scrolled by). */
   inert?: boolean;
@@ -23,8 +28,8 @@ export type DetailActionBarProps = {
   children: ReactNode;
 };
 
-export function DetailActionBar({ summary, above, tablet = false, label = 'Acțiuni', inert, className, children }: DetailActionBarProps) {
-  const hide = tablet ? 'xl:hidden' : 'md:hidden';
+export function DetailActionBar({ summary, above, tablet = false, hideFrom, label = 'Acțiuni', inert, className, children }: DetailActionBarProps) {
+  const hide = hideFrom === 'summary' ? 'min-[1024px]:hidden' : tablet ? 'xl:hidden' : 'md:hidden';
   return (
     <>
       {/* Room for the bar (72 + the inset), so the page ends above it. */}

@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { routes } from '@/lib/routes';
 import { requireViewer } from '@/lib/server/require-viewer';
-import { MyBookingsSkeleton } from './_components/frame';
-import { MyBookingsScreen } from './_components/MyBookingsScreen';
-import { myBookingsQuery, SUB_PARAM, TAB_PARAM } from './_components/url';
+import { MyBookingsSkeleton } from '../_components/frame';
+import { MyBookingsScreen } from '../_components/MyBookingsScreen';
+import { myBookingsQuery, SUB_PARAM, TAB_PARAM } from '../_components/url';
 
 export const metadata: Metadata = {
   title: 'Rezervările mele',

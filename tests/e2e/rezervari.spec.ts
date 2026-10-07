@@ -356,7 +356,7 @@ test.describe('booking.rezervarile-mele', () => {
     await expect.poll(() => review.n).toBe(r + 1);
   });
 
-  test('c13–c19 row variants; c20 plain rows (no link, no actions) until the booking page ships', async ({ page }) => {
+  test('c13–c19 row variants; c20 each row is one link to /rezervari/{id}, no action buttons', async ({ page }) => {
     await mockMine(page, () => ({ body: body([...ALL_VARIANTS], { pendingCount: 1 }) }));
     await mockToReview(page, []);
     await open(page);
@@ -427,9 +427,18 @@ test.describe('booking.rezervarile-mele', () => {
     await expect(card(page, 'unknown')).not.toContainText(warning);
     await expect(tomorrow).not.toContainText(warning);
 
-    // c20 (B1 half): no link to the 404, no action buttons in the list.
-    await expect(page.locator('a[href^="/rezervari/"]')).toHaveCount(0);
+    // c20: the whole card is the link to the booking page (/rezervari/[id], M3-B2); nothing inside it
+    // is a control (no action buttons in the list, fish MyBookingRow).
+    for (const b of ALL_VARIANTS) {
+      await expect(card(page, b.documentId)).toHaveAttribute('href', `/rezervari/${b.documentId}`);
+      expect(await card(page, b.documentId).evaluate((el) => el.tagName)).toBe('A');
+    }
     await expect(cards(page).locator('button, a')).toHaveCount(0);
+    await card(page, 'tomorrow').focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/rezervari\/tomorrow$/);
+    await page.goBack();
+    await expect(cards(page)).toHaveCount(ALL_VARIANTS.length);
 
     // Never «capot».
     await expect(page.locator('body')).not.toContainText(/capot/i);

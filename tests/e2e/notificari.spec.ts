@@ -329,12 +329,11 @@ test.describe('account.notifications', () => {
     await expect(rows(page).nth(0).getByRole('link')).toHaveAttribute('href', '/stiri/stire-1');
     await expect(rows(page).nth(1).getByRole('link')).toHaveAttribute('href', '/pescari/pescar-1');
     await expect(rows(page).nth(4).getByRole('link')).toHaveAttribute('href', '/concursuri/c1/clasament');
-    // SCHEDULED_NOTIFICATION never routes; a booking's page is M3: no link. Unread, it is a button
-    // that only marks it read; read, it is plain text with no focus stop.
+    // A booking notification opens the booking page (M3-B2, booking.rezervare.c14).
+    await expect(rows(page).nth(3).getByRole('link')).toHaveAttribute('href', '/rezervari/b1');
+    // SCHEDULED_NOTIFICATION never routes. Unread, it is a button that only marks it read.
     await expect(rows(page).nth(2).getByRole('link')).toHaveCount(0);
     await expect(rows(page).nth(2).getByRole('button')).toHaveCount(1);
-    await expect(rows(page).nth(3).getByRole('link')).toHaveCount(0);
-    await expect(rows(page).nth(3).getByRole('button')).toHaveCount(0);
   });
 
   test('c8/c9/c13 activating an unread NEWS row marks it read, logs the event and opens the article', async ({ page }) => {
@@ -415,9 +414,10 @@ test.describe('account.notifications', () => {
     expect(calls.list.length).toBeGreaterThan(before);
   });
 
-  test('c8/c9 an unread row with no page (booking) is a button: marks it read, logs it, navigates nowhere', async ({ page }) => {
+  test('c8/c9 an unread row with no page (scheduled message) is a button: marks it read, logs it, navigates nowhere', async ({ page }) => {
     const events = await collectAnalytics(page);
-    const booking: Row = { documentId: 'n-book', read: false, title: 'Rezervare confirmată', type: 'booking:confirmed-angler', data: { bookingId: 'b1' } };
+    // (A booking was the example until its page shipped, M3-B2; a scheduled message never routes.)
+    const booking: Row = { documentId: 'n-book', read: false, title: 'Mesaj de la Bluvi', type: 'scheduled-notification' };
     let read = false;
     const calls = await mock(page, {
       list: () => pageBody([{ ...booking, read }]),
@@ -441,9 +441,9 @@ test.describe('account.notifications', () => {
     await expect(bell(page)).toHaveAttribute('aria-label', 'Notificări');
     const ev = (await events()).find((e) => e.name === 'notification_clicked_from_list');
     expect(ev?.params).toEqual({
-      notification_type: 'booking:confirmed-angler',
+      notification_type: 'scheduled-notification',
       notification_documentId: 'n-book',
-      notification_title: 'Rezervare confirmată',
+      notification_title: 'Mesaj de la Bluvi',
       redirect_url: 'none',
     });
   });
