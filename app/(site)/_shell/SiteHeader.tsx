@@ -64,6 +64,8 @@ const OWN_BAND_ROUTES: readonly RegExp[] = [
   /^\/dev\/templates\/t2\/?$/,
   // «Editează profilul» (T6, account.edit-profile): its header's back control owns the way back.
   /^\/setari\/profil\/?$/,
+  // «Completează profilul» (T6, account.complete-profile.c1): no way back at all (fish goBack={false}).
+  /^\/profil\/completeaza\/?$/,
 ];
 
 export function ownsBreadcrumbBand(pathname: string): boolean {

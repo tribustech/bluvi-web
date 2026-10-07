@@ -392,8 +392,8 @@ screens:
       - id: home.acasa.c57
         text: "Signed in with an incomplete profile (no username, „null null” or isProfileComplete false) and online, a non-dismissable „Completează profilul” form opens about 1.1s after load and closes on successful submit."
         fish_ref: components/CompleteProfileSheet.tsx:22-66
-        status: failing
-        note: "complete-profile form not built (M2, needs the profile update form)."
+        status: passing
+        note: "app/(site)/_home/CompleteProfileSheet.tsx (mounted once in app/(site)/page.tsx) with the shared ProfileForm. e2e tests/e2e/profil-completeaza.spec.ts «home.acasa.c57»: route-mocked isProfileComplete:false at 375 and 1280 → opens ≥1s after the profile answered, first focus on the title (no ring), no close control, Escape ×2 / backdrop do nothing, the 375 sheet has one 90% snap (no «Restrânge» handle button, a header drag does nothing), Tab stays in the modal, «Finalizează» enabled untouched, mocked PATCH closes it and (now complete) it does not come back; «null null» opens it and a failed save shows its message inside (the site toast is under the modal); «null null» + pristine «Finalizează» (PATCH keeps the username) → it closes and opens again ≥1s after the refetch (fish: the effect re-runs on the profile object); complete profile → none; guest → none, /user/profile never read; offline (context.setOffline) → none, back online → it opens; axe on the open surface at 375/1280/1440/1920 (and the 768 dialog)."
       - id: home.acasa.c58
         text: "Section order: profile card, organizer banner, operator card, Instrumente, partidă hero, competition rail, poll, raffle, suggested anglers, Bălți, lake-request banner, Sponsori, Noutăți, feedback, Contact (guest), confidentiality (guest)."
         fish_ref: app/(app)/(tabs)/index.tsx:343-650
@@ -401,7 +401,7 @@ screens:
         note: "e2e tests/e2e/acasa.spec.ts"
     mobile_only: false
     # proposed: built on T5 (2026-10-05), every criterion has a check (status per criterion);
-    # c18, c34, c53, c57 still fail — see their notes.
+    # c18, c34, c53 still fail — see their notes.
     status: proposed
 
   - id: home.stiri

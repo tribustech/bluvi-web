@@ -142,7 +142,8 @@ test.describe('account.b.signed-out-gate', () => {
   test('signed out in a browser lands on sign-in with the return path; a dead session too (requireViewer)', async ({ page }) => {
     await open(page, { signedIn: false });
     await expect(page).toHaveURL(/\/intra\?next=%2Fsetari%2Fprofil$/);
-    await expect(page.getByRole('heading', { name: 'Intră în Bluvi' })).toBeVisible();
+    // The sign-in screen rendered (its copy is account.sign-in's, asserted in intra.spec.ts).
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
     // A cookie the CMS refuses passes the proxy (it only checks presence): the page gate decides.
     await page.context().addCookies([{ name: 'bluvi_session', value: 'dead-token', url: page.url() }]);
@@ -328,16 +329,26 @@ test.describe('account.edit-profile', () => {
   });
 
   for (const width of [1280, 1440, 1920]) {
-    test(`≥1280 at ${width}: avatar column | fields capped at 576, never the phone form stretched`, async ({ page }) => {
+    test(`≥1280 at ${width}: avatar column | fields capped at 576 (two up on a wide card), never the phone form stretched`, async ({ page }) => {
       await open(page, { width });
       await loaded(page);
       const avatar = (await page.getByRole('button', { name: 'Schimbă fotografia de profil' }).boundingBox())!;
       const user = (await username(page).boundingBox())!;
       const phoneBox = (await phone(page).boundingBox())!;
       const bioBox = (await bio(page).boundingBox())!;
-      // Fields: one column, capped (the input sits inside its 2px-bordered shell).
-      for (const b of [user, phoneBox, bioBox]) expect(b.width).toBeLessThanOrEqual(576);
+      // Fields capped (the input sits inside its 2px-bordered shell). On a wide card (≥1024 inner,
+      // 1920) username | phone go two up and the bio spans both, to the card's inner edge.
+      const twoUp = Math.abs(user.y - phoneBox.y) <= 2;
+      expect(twoUp).toBe(width >= 1920);
+      for (const b of twoUp ? [user, phoneBox] : [user, phoneBox, bioBox]) expect(b.width).toBeLessThanOrEqual(576);
       expect(Math.abs(user.x - bioBox.x)).toBeLessThanOrEqual(2);
+      if (twoUp) {
+        expect(phoneBox.x).toBeGreaterThan(user.x + user.width);
+        expect(Math.abs(bioBox.x + bioBox.width - (phoneBox.x + phoneBox.width))).toBeLessThanOrEqual(2);
+      }
+      // The card is filled: the field column ends near the card's inner edge (24px padding).
+      const card = (await page.locator('section[aria-labelledby]').filter({ has: username(page) }).boundingBox())!;
+      expect(card.x + card.width - (bioBox.x + bioBox.width)).toBeLessThanOrEqual(width >= 1920 ? 40 : 120);
       // The avatar block is a left column, top-aligned with the fields.
       expect(avatar.x + avatar.width).toBeLessThan(user.x);
       const label = (await page.getByText('Nume utilizator*', { exact: true }).boundingBox())!;

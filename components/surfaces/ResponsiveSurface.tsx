@@ -24,12 +24,14 @@ type Props = {
   panelClassName?: string;
   /** The sheet's opening snap (<768); `fit` for short content. */
   sheetSnap?: SheetSnap;
+  /** The sheet keeps its one snap (no handle button, no drag): a sheet that cannot be dismissed. */
+  sheetFixed?: boolean;
   /** Title for assistive tech only (the body shows its own). */
   titleHidden?: boolean;
 };
 
 /** Opens the right surface for the breakpoint per `pickSurface` (see rule.ts for the rule). */
-export function ResponsiveSurface({ open, onClose, intent, title, subtitle, children, actions, panelClassName, sheetSnap, titleHidden }: Props) {
+export function ResponsiveSurface({ open, onClose, intent, title, subtitle, children, actions, panelClassName, sheetSnap, sheetFixed, titleHidden }: Props) {
   const kind = pickSurface(intent, useBreakpoint());
   if (kind === 'panel') {
     return open ? (
@@ -55,7 +57,7 @@ export function ResponsiveSurface({ open, onClose, intent, title, subtitle, chil
     );
   }
   return (
-    <Sheet open={open} onClose={onClose} title={title} subtitle={subtitle} footer={actions} initialSnap={sheetSnap} titleHidden={titleHidden}>
+    <Sheet open={open} onClose={onClose} title={title} subtitle={subtitle} footer={actions} initialSnap={sheetSnap} fixed={sheetFixed} titleHidden={titleHidden}>
       {children}
     </Sheet>
   );

@@ -20,6 +20,11 @@ type Props = {
   initialSnap?: SheetSnap;
   /** Keep the title for assistive tech only (the body shows its own, e.g. centred under an icon). */
   titleHidden?: boolean;
+  /**
+   * One snap, no resize: the handle is decorative (no «Restrânge» button, no drag) — for a sheet
+   * that cannot be dismissed (Acasă's «Completează profilul», fish: one 90% snap, no pan-down).
+   */
+  fixed?: boolean;
   className?: string;
 };
 
@@ -29,7 +34,7 @@ type Props = {
  * handle is also a button (Enter/Space toggles initial ↔ 90) so the snap is reachable without a
  * pointer. Modal: scrim, Escape and scrim tap close.
  */
-export function Sheet({ open, onClose, title, subtitle, children, footer, initialSnap = 0.5, titleHidden, className }: Props) {
+export function Sheet({ open, onClose, title, subtitle, children, footer, initialSnap = 0.5, titleHidden, fixed, className }: Props) {
   const dialog = useModalDialog(open, onClose);
   const titleId = useId();
   const [snap, setSnap] = useState<SheetSnap>(initialSnap);
@@ -99,20 +104,23 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, initia
         )}
       >
         <div
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          className="shrink-0 cursor-grab touch-none px-5 pt-2.5 pb-3 select-none active:cursor-grabbing"
+          {...(fixed ? {} : { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp })}
+          className={cn('shrink-0 px-5 pt-2.5 pb-3', !fixed && 'cursor-grab touch-none select-none active:cursor-grabbing')}
         >
-          <button
-            type="button"
-            onClick={() => setSnap(snap === 0.9 ? low : 0.9)}
-            aria-label={snap === 0.9 ? 'Restrânge' : 'Extinde'}
-            className="mx-auto mb-2 flex h-4 w-12 items-center justify-center rounded-full"
-          >
-            <span aria-hidden className="h-1 w-9 rounded-full bg-handle" />
-          </button>
+          {fixed ? (
+            <span aria-hidden className="mx-auto mb-2 flex h-4 w-12 items-center justify-center">
+              <span className="h-1 w-9 rounded-full bg-handle" />
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSnap(snap === 0.9 ? low : 0.9)}
+              aria-label={snap === 0.9 ? 'Restrânge' : 'Extinde'}
+              className="mx-auto mb-2 flex h-4 w-12 items-center justify-center rounded-full"
+            >
+              <span aria-hidden className="h-1 w-9 rounded-full bg-handle" />
+            </button>
+          )}
           <h2 id={titleId} className={titleHidden ? 'sr-only' : 't-heading'}>
             {title}
           </h2>

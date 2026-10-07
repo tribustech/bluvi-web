@@ -5,6 +5,7 @@ import { cn } from '@/components/ui/cn';
 import { AppPromo } from './_home/AppPromo';
 import { COMPETITION_CARD_HEIGHT } from './_home/CompetitionRailCard';
 import { CompetitionsSection } from './_home/CompetitionsSection';
+import { CompleteProfileSheet } from './_home/CompleteProfileSheet';
 import { ContactCard, FeedbackSection } from './_home/Feedback';
 import { LakeRequestBanner } from './_home/LakeRequestBanner';
 import { NewsSection } from './_home/NewsSection';
@@ -125,6 +126,8 @@ export default function Home() {
       />
       {/* Coming back to the tab re-reads the live parts (fish useFocusEffect). */}
       <HomeFocusRefresh />
+      {/* home.acasa.c57: signed in with an incomplete profile, the non-dismissable form (1.1s after load). */}
+      <CompleteProfileSheet />
       <DashboardPage
         className="max-md:pt-4"
         header={

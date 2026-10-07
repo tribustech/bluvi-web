@@ -27,5 +27,7 @@ export const config = {
     { source: '/pescari/sugerati', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // /profil: the own profile (M2, account.own-profile).
     { source: '/profil', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    // /profil/completeaza: complete profile (M2, account.complete-profile).
+    { source: '/profil/completeaza', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
   ],
 };

@@ -1,6 +1,6 @@
 import { FlowFieldSkeleton } from '@/components/templates/T6';
 import { cn } from '@/components/ui/cn';
-import { AVATAR_CELL, FORM_CONTAINER, FORM_GRID, PROVIDER_ROW } from './layout';
+import { AVATAR_CELL, FIELDS, FORM_CONTAINER, FORM_GRID, PROVIDER_ROW } from './layout';
 
 const BAR = 'inline-block max-w-full rounded-full bg-soft-fill animate-shimmer align-middle';
 
@@ -27,7 +27,7 @@ export function ProfileFormSkeleton({ className }: { className?: string }) {
             </span>
           </span>
         </div>
-        <div className="flex min-w-0 flex-col gap-4">
+        <div className={FIELDS}>
           <FlowFieldSkeleton height="h-11" label="w-28" />
           <FlowFieldSkeleton height="h-11" label="w-28" />
           <FlowFieldSkeleton height="h-25" label="w-16" helper />

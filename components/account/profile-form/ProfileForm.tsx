@@ -8,7 +8,7 @@ import { T4TextArea } from '@/components/templates/T4/T4TextArea';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { AvatarPicker } from './AvatarPicker';
-import { AVATAR_CELL, FORM_CONTAINER, FORM_GRID, PROVIDER_ROW } from './layout';
+import { AVATAR_CELL, FIELDS, FORM_CONTAINER, FORM_GRID, PROVIDER_ROW } from './layout';
 import { BIO_MAX, type ProfileField } from './schema';
 import type { ProfileFormState } from './useProfileForm';
 
@@ -78,7 +78,7 @@ export function ProfileForm({ form, formId, className }: { form: ProfileFormStat
             disabled={busy}
             className={AVATAR_CELL}
           />
-          <div className="flex flex-col gap-4">
+          <div className={FIELDS}>
             <TextInput
               name="username"
               label="Nume utilizator*"
