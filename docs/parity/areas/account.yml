@@ -948,7 +948,7 @@ screens:
         web_note: "lib/analytics track with fish's param names (notification_type, notification_documentId, notification_title, redirect_url = the web href or 'none'). e2e tests/e2e/notificari.spec.ts «c8/c9/c13»."
     mobile_only: false
     status: passing
-    note: "Web: app/(site)/notificari (T1; rows are cards). Below 1280 one column up to 720; from 1280 the list (≤ 840) anchored to the shell's left gutter with a docked «Rezumat» column right after it (320 / 360, 24 apart; fixed tracks: the empty state keeps the summary with «Le-ai citit pe toate.», a failed first load keeps the track empty — the card never stretches or moves) holding the top bar's unread count («18 necitite») and «Citește tot» (the header's copy hides there); the notification-settings link joins it when /setari/notificari ships. Every criterion e2e-proven in tests/e2e/notificari.spec.ts (mocks of /api/cms/notification-users* except the real-list and real mark-as-read tests; axe at 375/1280/1440/1920); mapping unit-tested in tests/unit/notification-href.test.ts."
+    note: "Web: app/(site)/notificari (T1; rows are cards). Below 1280 one column up to 720; from 1280 the list (≤ 840) anchored to the shell's left gutter with a docked «Rezumat» column right after it (320 / 360, 24 apart; fixed tracks: the empty state keeps the summary with «Le-ai citit pe toate.», a failed first load keeps the track empty — the card never stretches or moves) holding the top bar's unread count («18 necitite») and «Citește tot» (the header's copy hides there); with «Setări notificări» last (→ /setari/notificari; the header's gear 768–1279). Every criterion e2e-proven in tests/e2e/notificari.spec.ts (mocks of /api/cms/notification-users* except the real-list and real mark-as-read tests; axe at 375/1280/1440/1920); mapping unit-tested in tests/unit/notification-href.test.ts."
 
   - id: account.notification-settings
     title: Notificări (setări)
@@ -973,20 +973,31 @@ screens:
       - id: account.notification-settings.c1
         text: "The header has a back control and the title „Notificări”."
         fish_ref: "app/(app)/notification-settings.tsx:23-37"
+        status: passing
+        web_note: "ListHeader back (useBack: history when the page before is the site's own, else Setări once ON_WEB.settings, Acasă until then — never a 404) + h1 «Notificări». No crumb band (SiteHeader OWN_BAND_ROUTES): the header owns the way back. e2e «c1 c2 c4» and «c1 back»."
       - id: account.notification-settings.c2
         text: "A master switch „Permite notificări” with the helper „Oprește tot: concursuri, chat, rezervări.” reflects profile.notificationsEnabled."
         fish_ref: "app/(app)/notification-settings.tsx:17-18,49-59"
+        status: passing
+        web_note: "SwitchRow: a native checkbox role=switch named «Permite notificări» by its <label>, the helper as its description; checked = Boolean(profile.notificationsEnabled) (null = off, e2e). Space and Enter toggle. e2e «c1 c2 c4» (real profile), «c5» (off, null)."
       - id: account.notification-settings.c3
         text: "Toggling the switch sends PATCH /notifications/enable-disable-pns {enabled}, flips profile.notificationsEnabled immediately, and refetches the profile when the request settles (so a failure reverts it)."
         fish_ref: "components/settings/SettingsRows.tsx:67-93; services/mutations/useToggleNotifications.ts:6-35; services/api/notifications.ts:52-61"
+        status: passing
+        web_note: "core toggleNotificationsMutation (fish 1:1: optimistic flip, invalidate profileKeys.my on settle). Web adds: on error the snapshot is restored at once and the site toast (danger) says «Nu am putut salva setarea. Încearcă din nou.»; aria-busy while pending. One save at a time: a toggle while the PATCH is in flight is ignored (no queued PATCHes, no settle refetch flipping the switch between two saves). A failed refetch keeps the screen (TanStack keeps data on a refetch error; the error card only when no profile was ever read). e2e: the real PATCH {enabled} against the local CMS (keyboard Space + Enter, value restored in afterEach), pending (gated mock), failure (500 mock: rollback + toast + refetch), failure with the CMS down (PATCH 500 + profile GET 503 with retries: the switch stays, rolled back, toast, no error card; same after a failed focus refetch), double click while pending (one PATCH, no flicker)."
       - id: account.notification-settings.c4
         text: "A section „CONCURSURI” holds the row „Concursuri urmărite” with a chevron and the helper „Alege ce primești din fiecare concurs urmărit.”, opening /setari/notificari/concursuri."
         fish_ref: "app/(app)/notification-settings.tsx:61-82"
+        status: passing
+        web_note: "SettingsSection «Concursuri» (an h2 drawn in caps) + NavRow: one link named «Concursuri urmărite», helper as description, chevron (T6 TileChevron, spinner while navigating) → routes.notificationPreferences(). e2e «c1 c2 c4», «c4»."
       - id: account.notification-settings.c5
         text: "When the master switch is off the CONCURSURI card is dimmed to half opacity and its row is not activatable."
         fish_ref: "app/(app)/notification-settings.tsx:66-74"
+        status: passing
+        web_note: "SettingsCard inactive → opacity .5; NavRow disabled → role=link aria-disabled=true, no href, no tab stop, click does nothing. e2e «c5» at 375/768/1280/1440/1920 with axe."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "Web: app/(site)/setari/notificari (no template: the shared settings kit components/account/settings — SettingsScreenFrame, SettingsCard, SettingsSection, NavRow, SwitchRow, InfoRow, skeletons — a port of fish SettingsRows.tsx, reused by M2-B5 Setări). Layout = /notificari's edges (ROADMAP §4 full width, only reading text capped): phone, fish's stacked cards edge to the 16px gutters; 768–1279 one column up to 720, centred; from 1280 the header and cards anchored to the shell's left gutter, ≤ 840 (a switch stays next to its label), with a docked right track (320/360) reserved for the future Setări nav — empty for now, so going between /notificari and here never moves the header. No sticky header. Gate requireViewer inside Suspense (307 to /intra?next=… signed out or with a refused session), error.tsx for an unknown session. Loading: the skeleton in the rows' shape with «Se încarcă setările…» as a status OUTSIDE the aria-busy cards (the frame's `status`). States in e2e tests/e2e/setari-notificari.spec.ts: signed out, loading, profile error + retry, on, off, toggle pending, toggle failed, toggle failed with the CMS down, double toggle; axe 0 at 375/768/1280/1440/1920. Entry point (dependency: until /setari ships, ON_WEB.settings false, fish's Setări → Notificări has no web parent): /notificari's «Rezumat» column row «Setări notificări» from 1280, its header gear 768–1279, the ☰ phone menu's account row «Setări notificări» (components/nav/MobileMenu.tsx; becomes «Setări» when ON_WEB.settings flips); e2e «entry point» clicks each. Web push is out of scope: the switch drives the CMS flag only, nothing on the page mentions the browser. The local CMS answers the PATCH (no grant missing). Open: critic panel + visual baselines (ROADMAP §6, §9); the avatar menu (desktop) gets the row with /setari."
 
   - id: account.notification-preferences
     title: Concursuri urmărite
@@ -1029,53 +1040,86 @@ screens:
       - id: account.notification-preferences.c1
         text: "The header has a back control and the title „Concursuri urmărite”."
         fish_ref: "app/(app)/notification-preferences.tsx:35-49"
+        status: passing
+        web_note: "T1 ListHeader: «Înapoi» (in-app history, else /setari/notificari) + h1 «Concursuri urmărite»; the page owns its way back (no breadcrumb band, SiteHeader OWN_BAND_ROUTES). e2e tests/e2e/setari-notificari-concursuri.spec.ts «c1 c2»."
       - id: account.notification-preferences.c2
         text: "The list loads GET /feed/followed-competitions; while loading a centred spinner is shown."
         fish_ref: "services/api/notification-preferences.ts:17-20; app/(app)/notification-preferences.tsx:21,50-53"
+        status: passing
+        web_note: "core followedCompetitionsQuery through /api/cms; fish's centred spinner (role=status «Se încarcă…») in the gate fallback, loading.tsx and while the list loads. Web-only: a failed list is the T1 error card with «Încearcă din nou», never the empty copy (owner rule 4; fish shows the empty list). Local CMS 403s the route (grant in docs/private/cms-patches/M2-grants.md): the list is route-mocked in the spec. e2e tests/e2e/setari-notificari-concursuri.spec.ts «c1 c2», «list error»."
       - id: account.notification-preferences.c3
         text: "With no followed competitions the page reads „Nu urmărești niciun concurs în desfășurare.”."
         fish_ref: "app/(app)/notification-preferences.tsx:59-65"
+        status: passing
+        web_note: "ListEmpty with the copy verbatim (bell-slash icon). e2e tests/e2e/setari-notificari-concursuri.spec.ts «c3» (axe at 375)."
       - id: account.notification-preferences.c4
         text: "A row shows the competition banner thumbnail as a 36px circle, or its initials (letters only) on an accent circle; the name bold on one line; and „Toate notificările pornite” or „{n} tip oprit / {n} tipuri oprite” in red when some types are muted; plus a chevron."
         fish_ref: "app/(app)/notification-preferences.tsx:66-99"
+        status: passing
+        web_note: "Row-card button: 36px circle — the banner thumb (kit AvatarPhoto: a plain <img>, initials if it fails; next/image is not used because local CMS media hosts are not in images.remotePatterns and the optimizer buys nothing at 36px) or the letters-only initials on the solid accent disc; name t-body-strong truncated; summary formatCount «1 tip oprit / N tipuri oprite» in status-danger ink, «Toate notificările pornite» muted; chevron. Desktop: an auto-fill grid of 352px+ row-cards (3 columns at 1280/1440, 4 at 1920, never one stretched row). e2e tests/e2e/setari-notificari-concursuri.spec.ts «c4», «desktop»."
       - id: account.notification-preferences.c5
         text: "Activating a row (accessible name = competition name) opens the preferences panel for that competition; each competition gets a fresh panel."
         fish_ref: "app/(app)/notification-preferences.tsx:22-30,67,103-112"
+        status: passing
+        web_note: "The row's accessible name is the competition name (summary = description, aria-haspopup=dialog); the panel is keyed by the competition id (fresh draft + mutation per competition) and stays mounted after closing so focus returns to the row. e2e tests/e2e/setari-notificari-concursuri.spec.ts «c5 c6», «a11y» (focus return)."
       - id: account.notification-preferences.c6
         text: "The panel is titled „Ce notificări vrei?” with the competition name under it and loads GET /feed/competitions/{id}/notification-preferences only while open."
         fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:49-50,127-138; services/api/notification-preferences.ts:4-7"
+        status: passing
+        web_note: "Shared components/account/notification-preferences PreferencesPanel mode=edit: title «Ce notificări vrei?», the name as subtitle; the GET is issued only once opened (none on page load). e2e tests/e2e/setari-notificari-concursuri.spec.ts «c5 c6»."
       - id: account.notification-preferences.c7
         text: "While preferences load the panel shows four skeleton rows announced as „Se încarcă notificările”; on error it reads „Nu am putut încărca notificările. Le poți seta mai târziu din Setări.”."
         fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:139-150"
+        status: passing
+        web_note: "role=status «Se încarcă notificările» with four 46px shimmer rows; on error fish's copy and the button becomes «Închide». e2e tests/e2e/setari-notificari-concursuri.spec.ts «c7»."
       - id: account.notification-preferences.c8
         text: "Each group row has an expand control („Desfășoară {grup}” / „Restrânge {grup}”), the group label, „parțial” under it when some but not all types are muted, and a switch that is on unless every type is muted."
         fish_ref: "features/notifications/components/PreferenceGroupRow.tsx:20-56; features/notifications/domain/preferenceState.ts:22-27"
+        status: passing
+        web_note: "Every group (one-type groups too, as fish) has the disclosure named «Desfășoară / Restrânge {grup}» (aria-expanded) and «parțial» as the group switch's description; the switch is on unless every type is muted. e2e tests/e2e/setari-notificari-concursuri.spec.ts «c8 c9»."
       - id: account.notification-preferences.c9
         text: "Toggling a group switch turns all its types on or off; expanded, each type has its own labelled switch (on = not muted)."
         fish_ref: "features/notifications/components/PreferenceGroupRow.tsx:57-77; features/notifications/domain/preferenceState.ts:12-20"
+        status: passing
+        web_note: "core toggleGroup / toggleType; type switches named by their label, on = not muted. e2e tests/e2e/setari-notificari-concursuri.spec.ts «c8 c9»."
       - id: account.notification-preferences.c10
         text: "Edits are local until „Salvează”; every time the panel opens the local state is reset from the server (closing without saving discards edits)."
         fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:52-59"
+        status: passing
+        web_note: "Local draft (usePreferencesDraft) that follows every server answer while untouched (the cached one on opening, then the refetch a stale cache triggers — fish's [isOpen, data] effect), so an untouched «Salvează» never PUTs a stale list. Web deviation: the first toggle marks the draft dirty and no later answer overwrites it (nor any answer while the PUT is in flight), so a failed save keeps the angler's choices for the retry (fish's effect reset them); closing and a successful save clear it. e2e tests/e2e/setari-notificari-concursuri.spec.ts «c10 c16», «c10 — an untouched draft follows a fresher answer», «c10 — a touched draft is not overwritten», «c14»."
       - id: account.notification-preferences.c11
         text: "„Salvează” stays pinned at the bottom and shows loading while saving or while preferences have not loaded."
         fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:71-84"
+        status: passing
+        web_note: "Phone: fixed 90% Sheet with «Salvează» in its pinned footer; ≥768: Dialog scrollBody (actions pinned under the scrolling body). Busy (spinner, aria-busy, presses ignored) while saving or while the groups have not loaded. e2e tests/e2e/setari-notificari-concursuri.spec.ts «c7», «c11 c12 c13 c15»."
       - id: account.notification-preferences.c12
         text: "Saving sends PUT /feed/competitions/{id}/notification-preferences {mutedTypes} including muted keys outside the catalog (extraMuted, e.g. chat rooms); the cache is updated optimistically and replaced with the response."
         fish_ref: "features/notifications/domain/preferenceState.ts:3-10,35-46; services/mutations/useUpdateCompetitionNotificationPreferences.ts:7-25"
+        status: passing
+        web_note: "PUT {mutedTypes} = mutedTypesOf(draft) keeps extraMuted (proved on the LOCAL CMS with the chat room key chat:message:participants seeded and restored); core mutation optimistic + replaced by the response. e2e tests/e2e/setari-notificari-concursuri.spec.ts «c11 c12 c13 c15»."
       - id: account.notification-preferences.c13
         text: "On success the panel closes and the followed-competitions list is refetched (muted counts update)."
         fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:61-65; app/(app)/notification-preferences.tsx:109; services/mutations/useUpdateCompetitionNotificationPreferences.ts:24"
+        status: passing
+        web_note: "Success → onSaved (list refetch) → close; the row's summary follows («N tipuri oprite»). e2e tests/e2e/setari-notificari-concursuri.spec.ts «c11 c12 c13 c15»."
       - id: account.notification-preferences.c14
         text: "On failure the cache is rolled back and a toast says „Nu am putut salva preferințele. Te rugăm să încerci din nou.”; the panel stays open."
         fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:66-68; services/mutations/useUpdateCompetitionNotificationPreferences.ts:20-22"
+        status: passing
+        web_note: "Rollback (core onError), danger toast with the copy verbatim, the panel stays open; reopened it shows the server state. While the PUT is in flight Escape and the «Închide» X do nothing (fish has no close path during a save), so the toast always lands on the open panel. e2e tests/e2e/setari-notificari-concursuri.spec.ts «c14», «c14 — while the save is in flight…»."
       - id: account.notification-preferences.c15
         text: "The panel ends with „Poți schimba oricând din clopoțelul din chat sau din Setări → Notificări.”."
         fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:160-162"
+        status: passing
+        web_note: "Footnote verbatim at the end of the body. e2e tests/e2e/setari-notificari-concursuri.spec.ts «c11 c12 c13 c15»."
       - id: account.notification-preferences.c16
         text: "The panel is not dismissed by dragging or clicking the backdrop (fish: only „Salvează” closes it); the web dialog must still offer an accessible close (Escape) that discards edits."
         fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:25-26,87-95"
+        status: passing
+        web_note: "No drag (Sheet fixed) and no backdrop/scrim dismissal (useModalDialog backdrop:false). Web a11y deviation from fish (only «Salvează» closes there): Escape and a visible «Închide» X close it and discard the edits (WCAG 2.1.2 keyboard way out). e2e tests/e2e/setari-notificari-concursuri.spec.ts «c10 c16» at 1440 and 375."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "M2-B4 (app/(site)/setari/notificari/concursuri, T1 + the shared PreferencesPanel). Signed out → 307 /intra?next=%2Fsetari%2Fnotificari%2Fconcursuri (proxy) / requireViewer in Suspense. All states at 375/768/1280/1440/1920; axe 0 at 375/768/1280/1440 with the panel open and closed; keyboard path row → switch (Space) → «Salvează» (Enter) → focus back on the row. Local CMS 403 on /feed/followed-competitions: list mocked, grant in docs/private/cms-patches/M2-grants.md. noindex. Critic panel + visual baselines pending (ROADMAP §6, §9)."
 
   - id: account.settings
     title: Setări
@@ -1300,6 +1344,8 @@ behaviours:
   - id: account.b.follow-celebrate
     text: "Following a competition opens the same preferences panel in celebrate mode („Te-ai abonat 🎉”, competition name, „Alege ce notificări vrei să primești.”) with preferences prefetched; inventoried with the competition screen, it reuses account.notification-preferences c6–c16."
     fish_ref: "features/notifications/components/FollowNotificationsSheet.tsx:43-45,106-126; services/queries/useCompetitionNotificationPreferences.ts:16-29"
+    status: passing
+    web_note: "Follow.tsx renders the shared components/account/notification-preferences PreferencesPanel mode=celebrate (the local FollowPreferencesDialog/PreferenceGroupRow are gone): «Te-ai abonat» without the 🎉 (Fundații §05), the competition name as subtitle, a success check + «Alege ce notificări vrei să primești.»; preferences prefetched on follow (core prefetchCompetitionNotificationPreferences). Same c6–c16 behaviour as the settings screen (backdrop-proof; Escape / «Închide» close). e2e tests/e2e/concurs.spec.ts «shell.c10 c12 c13» + tests/e2e/setari-notificari-concursuri.spec.ts."
   - id: account.b.profile-entry
     text: "The top bar's avatar opens /profil when signed in (avatar thumb, Bluvi logo fallback); signed out it offers „Intră” (fish: profile tab hidden, Home card „Conectează-te” → sign-in)."
     fish_ref: "app/(app)/(tabs)/_layout.tsx:96-126; app/(app)/(tabs)/index.tsx:270-276,343-345,420-445"

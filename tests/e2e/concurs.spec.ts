@@ -256,16 +256,22 @@ test('shell.c10 c12 c13 — follow toggles once per burst, a follow opens the pr
   expect(follows).toHaveLength(1);
   expect(follows[0].postDataJSON()).toEqual({ follow: false });
 
-  // Follow again: optimistic label, then the preferences dialog (not dismissable by Escape).
+  // Follow again: optimistic label, then the shared preferences panel in celebrate mode
+  // (account.b.follow-celebrate): «Te-ai abonat» without the emoji, the competition's name, the
+  // instruction; not dismissed by a click on the backdrop (Escape and «Închide» do close it — the
+  // web's a11y deviation, proven in setari-notificari-concursuri.spec.ts c10 c16).
   await button.click();
   await expect(button).toHaveText('Urmăresc');
-  const prefs = page.getByRole('dialog', { name: 'Te-ai abonat' });
+  const prefs = page.getByRole('dialog', { name: 'Te-ai abonat', exact: true });
   await expect(prefs).toBeVisible();
+  await expect(prefs.getByText(core.get(ID.live)!.name, { exact: true })).toBeVisible();
   await expect(prefs.getByText('Alege ce notificări vrei să primești.')).toBeVisible();
   await expect(prefs.getByRole('switch').first()).toBeVisible();
   expect(follows.at(-1)!.postDataJSON()).toEqual({ follow: true });
-  await page.keyboard.press('Escape');
+  await page.mouse.click(5, 5);
   await expect(prefs).toBeVisible();
+  // The dialog's entrance has finished (axe reads the colours at rest).
+  await prefs.evaluate(e => Promise.all(e.getAnimations({ subtree: true }).filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => undefined))));
   await expectNoA11yViolations(page);
   await prefs.getByRole('button', { name: 'Salvează' }).click();
   await expect(prefs).toBeHidden();

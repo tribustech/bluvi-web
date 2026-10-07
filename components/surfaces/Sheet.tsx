@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/components/ui/cn';
 import { useModalDialog } from './useModalDialog';
 
@@ -25,6 +26,10 @@ type Props = {
    * that cannot be dismissed (Acasă's «Completează profilul», fish: one 90% snap, no pan-down).
    */
   fixed?: boolean;
+  /** false: a tap on the scrim does not close it (Escape and the X still do). Default true. */
+  backdropDismiss?: boolean;
+  /** An «Închide» X at the header's right end — the visible way out of a `fixed`, scrim-proof sheet. */
+  closeButton?: boolean;
   className?: string;
 };
 
@@ -34,8 +39,21 @@ type Props = {
  * handle is also a button (Enter/Space toggles initial ↔ 90) so the snap is reachable without a
  * pointer. Modal: scrim, Escape and scrim tap close.
  */
-export function Sheet({ open, onClose, title, subtitle, children, footer, initialSnap = 0.5, titleHidden, fixed, className }: Props) {
-  const dialog = useModalDialog(open, onClose);
+export function Sheet({
+  open,
+  onClose,
+  title,
+  subtitle,
+  children,
+  footer,
+  initialSnap = 0.5,
+  titleHidden,
+  fixed,
+  backdropDismiss = true,
+  closeButton = false,
+  className,
+}: Props) {
+  const dialog = useModalDialog(open, onClose, { backdrop: backdropDismiss });
   const titleId = useId();
   const [snap, setSnap] = useState<SheetSnap>(initialSnap);
   /** While dragging: the pointer's travel and the panel's height when the drag began (px). */
@@ -93,7 +111,8 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, initia
         // panel is still translated down (starting:translate-y-full), and a scrollable <dialog> would
         // scroll to reveal it and stay scrolled — the panel left undocked, its top clipped. A clipped
         // box is not a scroll container: the panel's own body scrolls instead.
-        'fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none overflow-clip bg-transparent p-0 text-ink',
+        // text-left: a <dialog> inherits from where it is mounted (a centred header would centre it).
+        'fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none overflow-clip bg-transparent p-0 text-left text-ink',
         'backdrop:bg-scrim open:flex open:flex-col open:justify-end',
         className,
       )}
@@ -109,8 +128,19 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, initia
       >
         <div
           {...(fixed ? {} : { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp })}
-          className={cn('shrink-0 px-5 pt-2.5 pb-3', !fixed && 'cursor-grab touch-none select-none active:cursor-grabbing')}
+          className={cn('relative shrink-0 px-5 pt-2.5 pb-3', !fixed && 'cursor-grab touch-none select-none active:cursor-grabbing')}
         >
+          {closeButton ? (
+            <button
+              type="button"
+              onClick={onClose}
+              onPointerDown={e => e.stopPropagation()}
+              aria-label="Închide"
+              className="absolute top-1.5 right-2 flex size-11 items-center justify-center rounded-control text-ink-2 hover:bg-soft-fill"
+            >
+              <XMarkIcon className="size-5" aria-hidden />
+            </button>
+          ) : null}
           {fixed ? (
             <span aria-hidden className="mx-auto mb-2 flex h-4 w-12 items-center justify-center">
               <span className="h-1 w-9 rounded-full bg-handle" />
@@ -125,10 +155,10 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, initia
               <span aria-hidden className="h-1 w-9 rounded-full bg-handle" />
             </button>
           )}
-          <h2 id={titleId} className={titleHidden ? 'sr-only' : 't-heading'}>
+          <h2 id={titleId} className={titleHidden ? 'sr-only' : cn('t-heading', closeButton && 'pr-10')}>
             {title}
           </h2>
-          {subtitle ? <div className="t-caption text-muted">{subtitle}</div> : null}
+          {subtitle ? <div className={cn('t-caption text-muted', closeButton && 'pr-10')}>{subtitle}</div> : null}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4">{children}</div>
         {footer ? (

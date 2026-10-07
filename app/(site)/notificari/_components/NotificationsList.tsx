@@ -3,7 +3,8 @@
 import { useId, useMemo, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowPathIcon, BellIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
+import { ArrowPathIcon, BellIcon, ChevronRightIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import {
   getRouteForNotificationItem,
   markNotificationAsReadMutation,
@@ -18,6 +19,7 @@ import { formatCount } from '@/core/realtime/chat/format';
 import { track } from '@/lib/analytics';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { notificationHref } from '@/lib/notification-href';
+import { routes } from '@/lib/routes';
 import { MarkAllRead } from './MarkAllRead';
 import { NotificationRow } from './NotificationRow';
 import { useSiteToast } from '../../_shell/Toast';
@@ -27,6 +29,9 @@ import { ROWS } from './styles';
 
 /** fish notifications.tsx:40 — `useNotificationsForLoggedUser({ pageSize: 10 })` (c5). */
 export const NOTIFICATIONS_PAGE_SIZE = 10;
+
+/** The way to /setari/notificari (the header's gear 768–1279, the summary's row from 1280; ☰ on a phone). */
+const SETTINGS_LINK = 'Setări notificări';
 
 /**
  * /notificari (account.notifications, T1 without filters) — fish app/(app)/notifications.tsx.
@@ -114,8 +119,9 @@ export function NotificationsScreen() {
       titleId={titleId}
       back={{ label: 'Înapoi', onClick: back }}
       actions={
-        loaded ? (
-          <>
+        <>
+          {loaded ? (
+            <>
             <button
               type="button"
               onClick={() => void refresh()}
@@ -128,8 +134,16 @@ export function NotificationsScreen() {
             </button>
             {/* From 1280 «Citește tot» is the summary column's labelled action. */}
             {canMarkAll ? <MarkAllRead t={t} onDone={focusTitle} className={cn(pageToolClass({ iconOnly: false }), 'xl:hidden')} /> : null}
-          </>
-        ) : null
+            </>
+          ) : null}
+          {/* The way to the notification settings (fish: Setări → Notificări; /setari is not on the web
+              yet): this gear 768–1279, the summary column's row from 1280, the ☰ menu's row on a phone
+              (a fourth header tool would squeeze the title there). */}
+          <Link href={routes.notificationSettings()} className={cn(pageToolClass(), 'hidden md:inline-flex md:w-12 md:px-0 md:[&>svg]:size-6 xl:hidden')}>
+            <Cog6ToothIcon aria-hidden />
+            <span className="sr-only">{SETTINGS_LINK}</span>
+          </Link>
+        </>
       }
     />
   );
@@ -215,8 +229,8 @@ export function NotificationsScreen() {
  * and the bell's dot agree — and «Citește tot» whenever that count or a loaded row says something is
  * unread (the same rule as the header's copy; the server action reads everything). «Le-ai citit pe
  * toate.» only when both agree nothing is; a count of 0 against an unread loaded row (a count not
- * re-read yet) says no number (rule 4) and keeps the button. A link to the notification settings
- * joins it when /setari/notificari ships (account.notification-settings).
+ * re-read yet) says no number (rule 4) and keeps the button. Last, «Setări notificări» →
+ * /setari/notificari (account.notification-settings; 768–1279 the header's gear, ☰ on a phone).
  */
 function Summary({ count, hasUnread, markAll }: { count: number | undefined; hasUnread: boolean; markAll: ReactNode }) {
   const canMarkAll = (count ?? 0) > 0 || hasUnread;
@@ -234,6 +248,14 @@ function Summary({ count, hasUnread, markAll }: { count: number | undefined; has
         </p>
       ) : null}
       {canMarkAll ? markAll : null}
+      <Link
+        href={routes.notificationSettings()}
+        className="-mx-2 flex min-h-12 items-center gap-3 rounded-control px-2 t-body-strong text-ink hover:bg-soft-fill focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent"
+      >
+        <Cog6ToothIcon aria-hidden className="size-5 shrink-0" />
+        <span className="flex-1">{SETTINGS_LINK}</span>
+        <ChevronRightIcon aria-hidden className="size-5 shrink-0 text-muted" />
+      </Link>
     </AsideSection>
   );
 }

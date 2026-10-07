@@ -2,30 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowPathIcon, ChevronDownIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { BellAlertIcon as BellAlertSolidIcon } from '@heroicons/react/24/solid';
 import { EyeIcon as EyeSolidIcon } from '@heroicons/react/20/solid';
 import {
   competitionFollowersQuery,
   competitionKeys,
-  competitionNotificationPreferencesQuery,
   followCompetitionMutation,
-  groupState,
-  mutedTypesOf,
   prefetchCompetitionNotificationPreferences,
-  toggleGroup,
-  toggleType,
-  updateCompetitionNotificationPreferencesMutation,
   type CompetitionWithMyStatus,
-  type NotificationPreferenceGroup,
 } from '@/core/competitions';
 import type { UserStatuteForCompetition } from '@/core/social';
 import { isApiError } from '@/core/transport';
-import { FilterSwitch } from '@/components/templates/T1';
 import { PRESENCE_ICON } from '@/components/templates/T3';
 import { Dialog } from '@/components/surfaces/Dialog';
 import { Sheet } from '@/components/surfaces/Sheet';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
+import { PreferencesPanel } from '@/components/account/notification-preferences';
 import { FollowersList, followersSubtitle } from '@/components/cards/FollowersList';
 import { Button, type ButtonSize } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
@@ -247,7 +240,10 @@ export function FollowToggle({
         {isFollowing ? 'Urmăresc' : 'Urmărește'}
       </Button>
       {viewer ? (
-        <FollowPreferencesDialog
+        // fish FollowNotificationsSheet `celebrate` (account.b.follow-celebrate): the shared panel.
+        <PreferencesPanel
+          key={competition.documentId}
+          mode="celebrate"
           open={prefsOpen}
           onClose={() => setPrefsOpen(false)}
           competitionId={competition.documentId}
@@ -255,150 +251,5 @@ export function FollowToggle({
         />
       ) : null}
     </>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Post-follow notification preferences                                */
-/* ------------------------------------------------------------------ */
-
-/**
- * fish FollowNotificationsSheet (`celebrate`): «Te-ai abonat» (fish's emoji dropped, Fundații §05), the groups with switches, and
- * «Salvează». Not dismissable by a tap outside (fish renderNonDismissableBackdrop); only when the
- * groups could not be read does Escape / «Închide» let the angler go (fish: «… mai târziu din Setări»).
- */
-function FollowPreferencesDialog({
-  open,
-  onClose,
-  competitionId,
-  competitionName,
-}: {
-  open: boolean;
-  onClose: () => void;
-  competitionId: string;
-  competitionName: string;
-}) {
-  const t = useMemo(() => pageTransport(), []);
-  const qc = useQueryClient();
-  const toast = useSiteToast();
-  const { data, isPending, isError } = useQuery(competitionNotificationPreferencesQuery(t, competitionId, open));
-  const update = useMutation(updateCompetitionNotificationPreferencesMutation(t, qc, competitionId));
-  const [muted, setMuted] = useState<string[]>([]);
-  // Re-sync on every open, so a closed-without-saving edit never shows the next time.
-  const [synced, setSynced] = useState<object | null>(null);
-  if (open && data && synced !== data) {
-    setSynced(data);
-    setMuted(mutedTypesOf(data));
-  }
-  if (!open && synced) setSynced(null);
-
-  const save = async () => {
-    try {
-      await update.mutateAsync(muted);
-      onClose();
-    } catch {
-      toast('Nu am putut salva preferințele. Te rugăm să încerci din nou.', 'danger');
-    }
-  };
-
-  return (
-    <Dialog
-      open={open}
-      onClose={() => {
-        if (isError) onClose();
-      }}
-      title="Te-ai abonat"
-      subtitle={competitionName}
-      actions={
-        isError ? (
-          <Button variant="secondary" onClick={onClose}>
-            Închide
-          </Button>
-        ) : (
-          <Button onClick={() => void save()} disabled={!data || update.isPending} aria-busy={update.isPending || undefined}>
-            {update.isPending ? 'Se salvează…' : 'Salvează'}
-          </Button>
-        )
-      }
-    >
-      <p className="t-body text-ink-2">Alege ce notificări vrei să primești.</p>
-      <div className="-mx-5 mt-2 max-h-[50dvh] overflow-y-auto px-5">
-        {isPending && open ? (
-          <div role="status" aria-label="Se încarcă notificările" className="flex flex-col gap-3 py-1">
-            {Array.from({ length: 4 }, (_, i) => (
-              <span key={i} aria-hidden className="block h-11.5 animate-shimmer rounded-control" />
-            ))}
-          </div>
-        ) : isError ? (
-          <p className="py-2 t-body text-muted">Nu am putut încărca notificările. Le poți seta mai târziu din Setări.</p>
-        ) : (
-          <ul className="flex flex-col">
-            {data?.groups.map(group => (
-              <PreferenceGroupRow
-                key={group.key}
-                group={group}
-                muted={muted}
-                onToggleGroup={(g, on) => setMuted(m => toggleGroup(m, g, on))}
-                onToggleType={(key, on) => setMuted(m => toggleType(m, key, on))}
-              />
-            ))}
-          </ul>
-        )}
-      </div>
-      <p className="mt-1 t-caption text-muted">Poți schimba oricând din clopoțelul din chat sau din Setări → Notificări.</p>
-    </Dialog>
-  );
-}
-
-/** fish PreferenceGroupRow: the group's switch (on / off / «parțial»), its types behind a disclosure. */
-function PreferenceGroupRow({
-  group,
-  muted,
-  onToggleGroup,
-  onToggleType,
-}: {
-  group: NotificationPreferenceGroup;
-  muted: string[];
-  onToggleGroup: (group: NotificationPreferenceGroup, on: boolean) => void;
-  onToggleType: (key: string, on: boolean) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const state = groupState(muted, group);
-  return (
-    <li className="flex flex-col border-b border-hairline py-2.5 last:border-b-0">
-      <div className="flex items-center gap-2">
-        {group.types.length > 1 ? (
-          <button
-            type="button"
-            aria-expanded={expanded}
-            aria-label={expanded ? `Restrânge ${group.label}` : `Desfășoară ${group.label}`}
-            onClick={() => setExpanded(v => !v)}
-            className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-control text-muted hover:bg-soft-fill"
-          >
-            <ChevronDownIcon aria-hidden className={cn('size-6 transition-transform duration-(--duration-fast)', expanded && 'rotate-180')} />
-          </button>
-        ) : (
-          // Keeps every group's label on one line of alignment.
-          <span aria-hidden className="size-10 shrink-0" />
-        )}
-        <div className="min-w-0 flex-1">
-          <FilterSwitch
-            label={group.label}
-            description={state === 'partial' ? 'parțial' : undefined}
-            checked={state !== 'off'}
-            onChange={on => onToggleGroup(group, on)}
-          />
-        </div>
-      </div>
-      {expanded ? (
-        <ul className="flex flex-col gap-2 pt-2 pl-12">
-          {group.types.map(type => (
-            <li key={type.key}>
-              <FilterSwitch label={type.label} checked={!muted.includes(type.key)} onChange={on => onToggleType(type.key, on)} />
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </li>
   );
 }

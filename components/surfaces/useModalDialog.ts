@@ -6,8 +6,10 @@ import { useEffect, useRef, type MouseEvent, type SyntheticEvent } from 'react';
  * Drives a native <dialog> as a modal from an `open` prop: showModal() gives the top layer, focus
  * containment, Escape and focus return for free. Escape and backdrop clicks call onClose instead
  * of closing on their own, so the parent stays the source of truth. Locks page scroll while open.
+ * `backdrop: false`: a click on the backdrop does nothing (fish's non-dismissable backdrop); Escape
+ * still calls onClose.
  */
-export function useModalDialog(open: boolean, onClose: () => void) {
+export function useModalDialog(open: boolean, onClose: () => void, { backdrop = true }: { backdrop?: boolean } = {}) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export function useModalDialog(open: boolean, onClose: () => void) {
     },
     // A click whose target is the <dialog> itself landed on the backdrop area.
     onClick: (e: MouseEvent<HTMLDialogElement>) => {
-      if (e.target === e.currentTarget) onClose();
+      if (backdrop && e.target === e.currentTarget) onClose();
     },
   };
   return dialogProps;

@@ -118,7 +118,7 @@ screens:
         text: "The post-follow preferences dialog celebrates („Te-ai abonat 🎉”, the competition name, „Alege ce notificări vrei să primești.”), lists the preference groups with toggles (skeleton rows while loading; „Nu am putut încărca notificările. Le poți seta mai târziu din Setări.” on error) and saves with „Salvează”; a failed save shows „Nu am putut salva preferințele. Te rugăm să încerci din nou.”; it is not dismissable by tapping outside."
         fish_ref: features/notifications/components/FollowNotificationsSheet.tsx:60-160
         status: passing
-        web_note: "«Te-ai abonat» without the 🎉 (Fundații §05: no emoji). Escape / scrim do nothing; only when the groups failed to load can the dialog be closed («Închide»)."
+        web_note: "The shared PreferencesPanel (components/account/notification-preferences, mode celebrate — account.b.follow-celebrate). «Te-ai abonat» without the 🎉 (Fundații §05: no emoji), the competition name, «Alege ce notificări vrei să primești.». A click on the scrim does nothing; Escape and the visible «Închide» X close it (web a11y deviation, as account.notification-preferences.c16); when the groups failed to load the button is «Închide». Re-verified 2026-10-07: e2e tests/e2e/concurs.spec.ts «shell.c10 c12 c13»."
       - id: competition-page.shell.c13
         text: "Repeated presses on the follow button within 200 ms trigger a single toggle."
         fish_ref: components/FollowButton.tsx:14-21

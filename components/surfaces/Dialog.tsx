@@ -26,6 +26,8 @@ type Props = {
    * stay pinned under it behind a hairline — the submit never ends up below the fold.
    */
   scrollBody?: boolean;
+  /** false: a click on the backdrop does not close it (Escape and the X still do). Default true. */
+  backdropDismiss?: boolean;
   className?: string;
 };
 
@@ -42,9 +44,10 @@ export function Dialog({
   closeButton,
   titleHidden,
   scrollBody,
+  backdropDismiss = true,
   className,
 }: Props) {
-  const dialog = useModalDialog(open, onClose);
+  const dialog = useModalDialog(open, onClose, { backdrop: backdropDismiss });
   const titleId = useId();
   const descId = useId();
   return (
@@ -54,7 +57,8 @@ export function Dialog({
       aria-labelledby={titleId}
       aria-describedby={description ? descId : undefined}
       className={cn(
-        'm-auto w-[calc(100%-32px)] max-w-[480px] rounded-card bg-surface p-0 text-ink shadow-e2',
+        // text-left: a <dialog> inherits from where it is mounted (a centred header would centre it).
+        'm-auto w-[calc(100%-32px)] max-w-[480px] rounded-card bg-surface p-0 text-left text-ink shadow-e2',
         'backdrop:bg-scrim open:flex open:flex-col',
         scrollBody && 'max-h-[calc(100dvh-32px)] overflow-clip',
         'scale-100 opacity-100 transition-[opacity,scale] duration-(--duration-slow) ease-slow starting:scale-95 starting:opacity-0',

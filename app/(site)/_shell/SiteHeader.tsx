@@ -64,6 +64,11 @@ const OWN_BAND_ROUTES: readonly RegExp[] = [
   /^\/dev\/templates\/t2\/?$/,
   // «Editează profilul» (T6, account.edit-profile): its header's back control owns the way back.
   /^\/setari\/profil\/?$/,
+  // «Notificări» settings (account.notification-settings.c1): its header's back control owns the way
+  // back (the «Setări» parent crumb would link a hub that is not on the web yet: ON_WEB.settings).
+  /^\/setari\/notificari\/?$/,
+  // «Concursuri urmărite» (T1, account.notification-preferences.c1): the same — its back control.
+  /^\/setari\/notificari\/concursuri\/?$/,
   // «Completează profilul» (T6, account.complete-profile.c1): no way back at all (fish goBack={false}).
   /^\/profil\/completeaza\/?$/,
 ];
