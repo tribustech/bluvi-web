@@ -8,7 +8,7 @@ import { ProfileForm, ProfileSubmitButton, useProfileForm, type ProfileFormSourc
 import { describeError } from '@/components/templates/T1/describeError';
 import { T4Gate } from '@/components/templates/T4/T4Gate';
 import { Button } from '@/components/ui/Button';
-import { profileQuery } from '@/core/social';
+import { profileKeys, profileQuery } from '@/core/social';
 import { isApiError } from '@/core/transport';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
@@ -30,7 +30,9 @@ export const LOAD_ERROR_TITLE = 'Nu am putut încărca profilul';
  * - loaded → the shared ProfileForm with `allowPristineSubmit` («Finalizează» on untouched: the
  *   prefilled values are accepted as they are); without a saved avatar a generated one is set and
  *   counts as a change, so it is uploaded on submit (useProfileForm);
- * - success → replace to Acasă and refresh the server parts (the top bar's Viewer), no toast.
+ * - success → wait for the refetched own profile, then replace to Acasă and refresh the server parts
+ *   (the top bar's Viewer), no toast. Waiting matters: Acasă's CompleteProfileSheet reads the same
+ *   query, and a stale isProfileComplete:false there would open its non-dismissable form again.
  * A complete profile opening the page gets the same form (fish does not guard it).
  */
 export function CompleteProfileScreen() {
@@ -96,19 +98,25 @@ function LoadError({ error, retrying, onRetry }: { error: unknown; retrying: boo
 function LoadedForm({ profile }: { profile: ProfileFormSource & { documentId: string } }) {
   const toast = useSiteToast();
   const router = useRouter();
+  const qc = useQueryClient();
 
-  const onSaved = useCallback(() => {
+  const onSaved = useCallback(async () => {
+    // The update mutation already started the my-profile refetch (un-awaited, as fish): join it
+    // (cancelRefetch false — no second GET) so Acasă mounts on the fresh profile.
+    await qc.invalidateQueries({ queryKey: profileKeys.my }, { cancelRefetch: false });
     // fish router.replace('/'): no way back to the form; the top bar's Viewer is a server read.
     router.replace(routes.home());
     router.refresh();
-  }, [router]);
+  }, [qc, router]);
   const onError = useCallback((message: string) => toast(message, 'danger'), [toast]);
 
   const form = useProfileForm(profile, { allowPristineSubmit: true, onSaved, onError });
 
   return (
     <CompleteProfileFrame
-      aside={<ProfilePreview form={form} viewerId={profile.documentId} savedName={profile.username} />}
+      // No «Vezi profilul public» here: c1 has no way out of this screen (and for a fresh social
+      // sign-in the public page would be titled «null null»).
+      aside={<ProfilePreview form={form} viewerId={profile.documentId} savedName={profile.username} publicLink={false} />}
       actions={<EditProfileActions primary={<ProfileSubmitButton form={form} formId={FORM_ID} />} />}
     >
       <ProfileForm form={form} formId={FORM_ID} />

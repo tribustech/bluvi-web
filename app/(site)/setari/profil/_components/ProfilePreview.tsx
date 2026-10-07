@@ -11,6 +11,9 @@ import { routes } from '@/lib/routes';
 export const PREVIEW_TITLE = 'Așa te văd ceilalți';
 const PREVIEW_ID = 'asa-te-vad-ceilalti';
 export const UNSAVED_NOTE = 'Modificări nesalvate';
+export const NAME_PLACEHOLDER = 'Numele tău';
+/** The username a social sign-in leaves before the profile is completed (fish CompleteProfileSheet). */
+const NULL_NAME = 'null null';
 
 /**
  * ≥1280 aside of «Editează profilul» (web addition, owner rule: full width, 3-column desktop): the
@@ -20,10 +23,23 @@ export const UNSAVED_NOTE = 'Modificări nesalvate';
  * header, live from the form values. «Vezi profilul public» is a quiet link in the card's title row;
  * while the user has unsaved edits a «Modificări nesalvate» note says the preview is ahead of the
  * public page. The card's bottom is the docked «Finalizează» (EditProfileActions joins the two).
- * Only data already loaded; while the username field is empty the saved one stands in.
+ * Only data already loaded; while the username field is empty the saved one stands in — unless
+ * there is none worth showing (empty, or the social sign-in placeholder «null null»): then a muted
+ * «Numele tău». `publicLink={false}` drops the link (complete profile: no way out of that screen).
  */
-export function ProfilePreview({ form, viewerId, savedName }: { form: ProfileFormState; viewerId: string; savedName: string }) {
-  const name = form.values.username.trim() || savedName;
+export function ProfilePreview({
+  form,
+  viewerId,
+  savedName,
+  publicLink = true,
+}: {
+  form: ProfileFormState;
+  viewerId: string;
+  savedName: string;
+  publicLink?: boolean;
+}) {
+  const fallback = savedName.trim() && savedName !== NULL_NAME ? savedName.trim() : '';
+  const name = form.values.username.trim() || fallback;
   const src = form.avatar.kind === 'file' ? form.avatar.previewUrl : form.avatar.url;
   const bio = form.values.bio.trim();
   return (
@@ -32,15 +48,17 @@ export function ProfilePreview({ form, viewerId, savedName }: { form: ProfileFor
       id={PREVIEW_ID}
       className={CARD}
       meta={
-        <Link href={routes.angler(viewerId)} className={LINK}>
-          Vezi profilul public
-        </Link>
+        publicLink ? (
+          <Link href={routes.angler(viewerId)} className={LINK}>
+            Vezi profilul public
+          </Link>
+        ) : undefined
       }
     >
       <div className={PANEL} data-testid="profile-preview">
-        <BigAvatar name={name} src={src} toneKey={viewerId} />
-        <p className="mt-3 t-title1 break-words text-ink" data-testid="profile-preview-name">
-          {name}
+        <BigAvatar name={name || NAME_PLACEHOLDER} src={src} toneKey={viewerId} />
+        <p className={cn('mt-3 t-title1 break-words', name ? 'text-ink' : 'text-muted')} data-testid="profile-preview-name">
+          {name || NAME_PLACEHOLDER}
         </p>
         {bio ? (
           <BioText bio={bio} className="mt-2 max-w-full" />

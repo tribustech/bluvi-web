@@ -68,7 +68,15 @@ function ProfileGate() {
   const profile = useQuery(profileQuery(t));
   const online = useOnline();
   const [open, setOpen] = useState(false);
+  /** Bumped by every opening: the form is remounted, so it starts from the profile of that moment. */
+  const [opening, setOpening] = useState(0);
   const incomplete = profile.data ? isProfileIncomplete(profile.data) : false;
+  // A cached profile being refetched (stale) is not an answer yet: e.g. right after
+  // /profil/completeaza saved, the cache may still say incomplete until the refetch lands.
+  const settling = profile.isFetching && profile.isStale;
+
+  // A fresher profile that is complete closes it (nothing else would: it has no close control).
+  if (open && !incomplete) setOpen(false);
 
   // Re-run on every profile that lands, not only when `incomplete` flips (fish: the present() effect
   // depends on the profile object): a save that leaves it incomplete (the CMS sets isProfileComplete
@@ -76,13 +84,18 @@ function ProfileGate() {
   // update mutation triggers brings it back 1.1s later.
   const updatedAt = profile.dataUpdatedAt;
   useEffect(() => {
-    if (!online || !incomplete) return;
-    const timeout = setTimeout(() => setOpen(true), OPEN_DELAY_MS);
+    if (!online || !incomplete || settling) return;
+    const timeout = setTimeout(() => {
+      setOpening((n) => n + 1);
+      setOpen(true);
+    }, OPEN_DELAY_MS);
     return () => clearTimeout(timeout);
-  }, [online, incomplete, updatedAt]);
+  }, [online, incomplete, settling, updatedAt]);
 
   if (!profile.data || (!incomplete && !open)) return null;
-  return <Surface key={profile.data.documentId} profile={profile.data} open={open} onSaved={() => setOpen(false)} />;
+  // fish's BottomSheetModal unmounts its content on dismiss, so a re-presented form re-seeds from
+  // the refetched profile (an avatar saved by the first opening is not generated + uploaded again).
+  return <Surface key={`${profile.data.documentId}:${opening}`} profile={profile.data} open={open} onSaved={() => setOpen(false)} />;
 }
 
 const ignore = () => {};
@@ -135,6 +148,7 @@ function Surface({ profile, open, onSaved }: { profile: ProfileFormSource; open:
       title={SHEET_TITLE}
       sheetSnap={0.9}
       sheetFixed
+      pinnedActions
       actions={<ProfileSubmitButton form={form} formId={FORM_ID} block />}
     >
       <div ref={body} className="flex flex-col gap-4 pt-1">

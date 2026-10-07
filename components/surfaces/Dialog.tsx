@@ -21,6 +21,11 @@ type Props = {
   closeButton?: boolean;
   /** Keep the title for assistive tech only (the body shows its own, e.g. centred under an icon). */
   titleHidden?: boolean;
+  /**
+   * Long content (a form): the dialog fits the viewport, the body scrolls on its own and the actions
+   * stay pinned under it behind a hairline — the submit never ends up below the fold.
+   */
+  scrollBody?: boolean;
   className?: string;
 };
 
@@ -36,6 +41,7 @@ export function Dialog({
   alert,
   closeButton,
   titleHidden,
+  scrollBody,
   className,
 }: Props) {
   const dialog = useModalDialog(open, onClose);
@@ -50,12 +56,13 @@ export function Dialog({
       className={cn(
         'm-auto w-[calc(100%-32px)] max-w-[480px] rounded-card bg-surface p-0 text-ink shadow-e2',
         'backdrop:bg-scrim open:flex open:flex-col',
+        scrollBody && 'max-h-[calc(100dvh-32px)] overflow-clip',
         'scale-100 opacity-100 transition-[opacity,scale] duration-(--duration-slow) ease-slow starting:scale-95 starting:opacity-0',
         className,
       )}
     >
-      <div className="flex flex-col gap-2 p-5">
-        <div className="flex items-start gap-3">
+      <div className={cn('flex flex-col gap-2 p-5', scrollBody && 'min-h-0 flex-1 overflow-y-auto overscroll-contain')}>
+        <div className={cn('flex items-start gap-3', scrollBody && 'shrink-0')}>
           <div className="min-w-0 flex-1">
             <h2 id={titleId} className={titleHidden ? 'sr-only' : 't-title2'}>
               {title}
@@ -81,7 +88,14 @@ export function Dialog({
         {children}
       </div>
       {actions ? (
-        <div className="flex flex-col-reverse gap-2 px-5 pb-5 md:flex-row md:justify-end">{actions}</div>
+        <div
+          className={cn(
+            'flex flex-col-reverse gap-2 px-5 pb-5 md:flex-row md:justify-end',
+            scrollBody && 'shrink-0 border-t border-hairline pt-3',
+          )}
+        >
+          {actions}
+        </div>
       ) : null}
     </dialog>
   );

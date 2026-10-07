@@ -89,7 +89,11 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, initia
       {...dialog}
       aria-labelledby={titleId}
       className={cn(
-        'fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none bg-transparent p-0 text-ink',
+        // overflow-clip, not the UA's overflow:auto: showModal() focuses the first control while the
+        // panel is still translated down (starting:translate-y-full), and a scrollable <dialog> would
+        // scroll to reveal it and stay scrolled — the panel left undocked, its top clipped. A clipped
+        // box is not a scroll container: the panel's own body scrolls instead.
+        'fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none overflow-clip bg-transparent p-0 text-ink',
         'backdrop:bg-scrim open:flex open:flex-col open:justify-end',
         className,
       )}

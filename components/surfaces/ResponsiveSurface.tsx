@@ -28,10 +28,15 @@ type Props = {
   sheetFixed?: boolean;
   /** Title for assistive tech only (the body shows its own). */
   titleHidden?: boolean;
+  /**
+   * Long content on the dialog (≥768): it fits the viewport, the body scrolls, the actions stay
+   * pinned (Dialog `scrollBody`). The sheet and the panel always pin their footer.
+   */
+  pinnedActions?: boolean;
 };
 
 /** Opens the right surface for the breakpoint per `pickSurface` (see rule.ts for the rule). */
-export function ResponsiveSurface({ open, onClose, intent, title, subtitle, children, actions, panelClassName, sheetSnap, sheetFixed, titleHidden }: Props) {
+export function ResponsiveSurface({ open, onClose, intent, title, subtitle, children, actions, panelClassName, sheetSnap, sheetFixed, titleHidden, pinnedActions }: Props) {
   const kind = pickSurface(intent, useBreakpoint());
   if (kind === 'panel') {
     return open ? (
@@ -51,6 +56,7 @@ export function ResponsiveSurface({ open, onClose, intent, title, subtitle, chil
         alert={intent === 'decision'}
         closeButton={intent !== 'decision'}
         titleHidden={titleHidden}
+        scrollBody={pinnedActions}
       >
         {children}
       </Dialog>

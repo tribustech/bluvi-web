@@ -52,10 +52,13 @@ async function mockDicebear(page: Page) {
  * can make it complete after the save). Records when each GET was answered.
  */
 async function mockProfile(page: Page, patch: Record<string, unknown>) {
-  const state = { patch, answeredAt: [] as number[], onAnswer: undefined as undefined | (() => Promise<void>) };
+  const state = { patch, delayMs: 0, answeredAt: [] as number[], onAnswer: undefined as undefined | (() => Promise<void>) };
   await page.route(PROFILE, async (r) => {
     if (r.request().method() !== 'GET') return r.fallback();
-    await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...profileJson, ...state.patch }) });
+    // Read before the delay: a slow answer carries what the CMS had when it was asked.
+    const body = { ...profileJson, ...state.patch };
+    if (state.delayMs) await new Promise((res) => setTimeout(res, state.delayMs));
+    await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     state.answeredAt.push(Date.now());
     await state.onAnswer?.();
   });
@@ -81,8 +84,11 @@ const bluError = (bluCode: string, message: string) => (r: Route) =>
     body: JSON.stringify({ data: null, error: { status: 400, name: 'BadRequestError', message, details: { bluCode } } }),
   });
 
-async function open(page: Page, { width = 375, signedIn = true, path = PATH }: { width?: number; signedIn?: boolean; path?: string } = {}) {
-  await page.setViewportSize({ width, height: 900 });
+async function open(
+  page: Page,
+  { width = 375, height = 900, signedIn = true, path = PATH }: { width?: number; height?: number; signedIn?: boolean; path?: string } = {},
+) {
+  await page.setViewportSize({ width, height });
   if (signedIn) await signIn(page.context(), jwt);
   await mockDicebear(page);
   await page.goto(path);
@@ -281,6 +287,45 @@ test.describe('account.complete-profile', () => {
   });
 });
 
+test.describe('account.complete-profile — handoff to Acasă', () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test('c3 a slow profile refetch after «Finalizează»: Acasă waits for it, the sheet never opens', async ({ page }) => {
+    const state = await mockProfile(page, { isProfileComplete: false });
+    let uploads = 0;
+    await page.route(UPLOAD, (r) => {
+      uploads += 1;
+      return r.fulfill({ status: 500, body: '' });
+    });
+    await mockPatch(page, async (r) => {
+      // The CMS sets isProfileComplete on every PATCH; every GET after it answers 2.5s late.
+      state.patch = { isProfileComplete: true };
+      state.delayMs = 2500;
+      await r.fulfill({ status: 204, body: '' });
+    });
+    await open(page);
+    await loaded(page);
+    await submit(page).click();
+    // Still on the form, busy, while the refetch is out (no second submit meanwhile).
+    await expect(submit(page)).toBeDisabled();
+    await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
+    await page.waitForTimeout(4000);
+    await expect(sheet(page)).toHaveCount(0);
+    expect(uploads).toBe(0);
+  });
+
+  test('c1 ≥1280 preview: no «Vezi profilul public»; an empty name shows «Numele tău», never «null null»', async ({ page }) => {
+    await mockProfile(page, { username: 'null null', isProfileComplete: false });
+    await open(page, { width: 1280 });
+    await loaded(page);
+    const name = page.getByTestId('profile-preview-name');
+    await expect(name).toHaveText('null null');
+    await username(page).fill('');
+    await expect(name).toHaveText('Numele tău');
+    await expect(page.getByRole('link', { name: 'Vezi profilul public' })).toHaveCount(0);
+  });
+});
+
 test.describe('account.complete-profile — a11y and keyboard', () => {
   for (const width of WIDTHS) {
     test(`axe and the keyboard path at ${width}`, async ({ page }) => {
@@ -294,10 +339,8 @@ test.describe('account.complete-profile — a11y and keyboard', () => {
         await expect(el).toBeFocused();
       }
       await page.keyboard.press('Tab');
-      if (width >= 1280) {
-        await expect(page.getByRole('link', { name: 'Vezi profilul public' })).toBeFocused();
-        await page.keyboard.press('Tab');
-      }
+      // No «Vezi profilul public» in the ≥1280 preview: c1, no way out of this screen.
+      await expect(page.getByRole('link', { name: 'Vezi profilul public' })).toHaveCount(0);
       await expect(submit(page)).toBeFocused();
       expect(errors).toEqual([]);
     });
@@ -424,6 +467,77 @@ test.describe('home.acasa.c57 — «Completează profilul» on Acasă', () => {
     const back = Date.now();
     expect(back - state.answeredAt[before]).toBeGreaterThanOrEqual(1000);
     await expect(username(dialog)).toHaveValue('null null');
+  });
+
+  for (const height of [667, 900]) {
+    test(`375×${height}: the sheet is docked — its bottom is the viewport's, nothing scrolled`, async ({ page }) => {
+      await mockProfile(page, { username: 'null null', isProfileComplete: false, avatar: null });
+      await open(page, { width: 375, height, path: '/' });
+      const dialog = sheet(page);
+      await expect(dialog).toBeVisible({ timeout: 45_000 });
+      await settle(page);
+      const geo = await dialog.evaluate((d) => {
+        const panel = d.firstElementChild!.getBoundingClientRect();
+        return { scrollTop: d.scrollTop, top: panel.top, bottom: panel.bottom, height: panel.height, vh: window.innerHeight };
+      });
+      expect(geo.scrollTop).toBe(0);
+      expect(geo.bottom).toBeCloseTo(geo.vh, 0);
+      expect(geo.height).toBeCloseTo(geo.vh * 0.9, -1);
+      expect(geo.top).toBeGreaterThan(0);
+      // «Finalizează» is on screen and is what a tap there hits.
+      await expect(submit(dialog)).toBeInViewport({ ratio: 1 });
+    });
+  }
+
+  test('1280×720: the dialog fits, «Finalizează» is pinned in view without scrolling; the body scrolls', async ({ page }) => {
+    await mockProfile(page, { username: 'null null', isProfileComplete: false, avatar: null });
+    await open(page, { width: 1280, height: 720, path: '/' });
+    const dialog = sheet(page);
+    await expect(dialog).toBeVisible({ timeout: 45_000 });
+    await settle(page);
+    await expect(submit(dialog)).toBeInViewport({ ratio: 1 });
+    const hit = await submit(dialog).evaluate((b) => {
+      const r = b.getBoundingClientRect();
+      const d = b.closest('dialog')!.getBoundingClientRect();
+      const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { inside: r.bottom <= d.bottom && r.top >= d.top, hits: Boolean(at && b.contains(at)), dialogBottom: d.bottom };
+    });
+    expect(hit.inside).toBe(true);
+    expect(hit.hits).toBe(true);
+    expect(hit.dialogBottom).toBeLessThanOrEqual(720);
+  });
+
+  test('«null null» with no avatar: the re-opened form starts from the refetched profile — no second upload', async ({ page }) => {
+    const realAvatar = profileJson.avatar;
+    test.skip(!realAvatar, 'the QA user needs a saved avatar for the refetch');
+    const state = await mockProfile(page, { username: 'null null', isProfileComplete: false, avatar: null });
+    let uploads = 0;
+    await page.route(UPLOAD, async (r) => {
+      uploads += 1;
+      await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ id: 777, url: 'https://example.test/g.jpg' }]) });
+    });
+    const patches = await mockPatch(page, async (r) => {
+      // Saved: the avatar is now on the profile, the username still «null null».
+      state.patch = { username: 'null null', isProfileComplete: true, avatar: realAvatar };
+      await r.fulfill({ status: 204, body: '' });
+    });
+    await open(page, { width: 375, path: '/' });
+    const dialog = sheet(page);
+    await expect(dialog).toBeVisible({ timeout: 45_000 });
+    await expect(avatarImg(dialog)).toHaveAttribute('data-avatar-kind', 'generated');
+    await submit(dialog).click();
+    await expect(dialog).toBeHidden();
+    expect(uploads).toBe(1);
+    await expect(dialog).toBeVisible({ timeout: 10_000 });
+    // Re-seeded: the saved avatar, not the first opening's generated one.
+    await expect(avatarImg(dialog)).not.toHaveAttribute('data-avatar-kind', 'generated');
+    await settle(page);
+    await submit(dialog).click();
+    await expect(dialog).toBeHidden();
+    expect(uploads).toBe(1);
+    expect(patches).toHaveLength(2);
+    expect(patches[0]).toMatchObject({ avatar: 777 });
+    expect(patches[1]).toEqual({ username: 'null null', phone: original.phone, bio: original.bio });
   });
 
   for (const width of [1440, 1920]) {

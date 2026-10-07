@@ -17,8 +17,12 @@ export type UseProfileFormOptions = {
    * accepted as they are). Edit profile keeps fish's default: disabled until the form is dirty.
    */
   allowPristineSubmit?: boolean;
-  /** Called after a successful save (the screen navigates and toasts). */
-  onSaved: () => void;
+  /**
+   * Called after a successful save (the screen navigates and toasts). When it returns a promise
+   * (complete-profile waits for the refetched profile before it leaves), the form stays busy until
+   * it settles.
+   */
+  onSaved: () => void | Promise<void>;
   /** Called with the message of every failure (the screen toasts it). */
   onError: (message: string) => void;
 };
@@ -51,7 +55,10 @@ export function useProfileForm(profile: ProfileFormSource, { allowPristineSubmit
   const [submitted, setSubmitted] = useState(false);
   const [serverErrors, setServerErrors] = useState<ProfileErrors>({});
   const [preparing, setPreparing] = useState(false);
-  const { save, phase, pending } = useSaveProfile(profile.id);
+  /** The save landed and onSaved's promise is still running (no second submit meanwhile). */
+  const [finishing, setFinishing] = useState(false);
+  const { save, phase, pending: saving } = useSaveProfile(profile.id);
+  const pending = saving || finishing;
 
   // A picked photo's preview is an object URL: revoked when it is replaced or the form unmounts.
   const previewUrl = avatar.kind === 'file' ? avatar.previewUrl : null;
@@ -105,7 +112,12 @@ export function useProfileForm(profile: ProfileFormSource, { allowPristineSubmit
     const result: SaveResult = await save(values, avatarChanged ? avatar : null);
     if (result.ok) {
       setSaved(true);
-      onSaved();
+      setFinishing(true);
+      try {
+        await onSaved();
+      } finally {
+        setFinishing(false);
+      }
       return null;
     }
     setServerErrors(result.fieldErrors);
