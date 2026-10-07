@@ -28,7 +28,7 @@ export const LOAD_ERROR_TITLE = 'Nu am putut încărca profilul';
  * so it is read here through the /api/cms proxy (core profileQuery: GET /user/profile, staleTime and
  * gcTime 24h — parity account.b.profile-cache).
  * - loading → the whole form in grey (EditProfileSkeleton);
- * - error → fish ErrorScreen through describeError: its title and message (never the raw server or
+ * - error without data → fish ErrorScreen through describeError: its title and message (never the raw server or
  *   parser text), «Încearcă din nou» only when retrying can help, «Deconectează-te» for a 401. A dead
  *   session (SESSION_DEAD) keeps the skeleton: the providers' onSessionDead already refreshes the
  *   route and requireViewer redirects to /intra;
@@ -39,15 +39,20 @@ export function EditProfileScreen({ viewerId }: { viewerId: string }) {
   const t = useMemo(() => createBrowserTransport(), []);
   const profile = useQuery(profileQuery(t));
 
-  if (profile.isPending) return <EditProfileSkeleton back={<BackControl viewerId={viewerId} />} />;
+  // Data first: a failed background refetch (the save's onSettled invalidation, a CMS 5xx) keeps
+  // `data` with status 'error' — the form and what the user typed stay; only a first load without
+  // data shows the skeleton or the error.
+  if (profile.data) {
+    // Keyed by the account: a different profile is a new form, never a merge of two.
+    return <LoadedForm key={profile.data.documentId} profile={profile.data} viewerId={viewerId} />;
+  }
   if (profile.isError) {
     if (isApiError(profile.error) && profile.error.code === 'SESSION_DEAD') {
       return <EditProfileSkeleton back={<BackControl viewerId={viewerId} />} />;
     }
     return <LoadError error={profile.error} retrying={profile.isFetching} onRetry={() => void profile.refetch()} viewerId={viewerId} />;
   }
-  // Keyed by the account: a different profile is a new form, never a merge of two.
-  return <LoadedForm key={profile.data.documentId} profile={profile.data} viewerId={viewerId} />;
+  return <EditProfileSkeleton back={<BackControl viewerId={viewerId} />} />;
 }
 
 function LoadError({ error, retrying, onRetry, viewerId }: { error: unknown; retrying: boolean; onRetry: () => void; viewerId: string }) {

@@ -21,6 +21,17 @@ export const HEADER_ROW = 'flex items-center gap-2 xl:hidden';
 export const HEADER_ROW_BAND = 'min-h-14 bg-surface px-4 pt-2 md:px-6';
 
 /**
+ * Own mode below 1280 (fish AnglerProfileScreen's floating top row): no band — the ghost actions
+ * (refresh, then the cog) float in the header band's top-right corner, over the avatar's top padding,
+ * their glyphs on the band's 20 / 24px gutter. The identity card then starts with `pt-4`.
+ */
+export const OWN_ACTIONS = 'absolute top-2 right-2 z-above flex items-center xl:hidden md:right-3';
+
+/** The own actions' ghost icon button (44px hit area, no fill until hovered). */
+export const GHOST_ICON =
+  'relative flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition-[background-color,color,opacity] duration-(--duration-fast) ease-fast hover:bg-soft-fill active:opacity-60';
+
+/**
  * ≥1280 the identity card's sticky top: T3 COLUMN_STICKY_TOP (88px under the bar) while the card
  * fits; a taller card (--aside-h) gets a negative top, so it scrolls with the page until its bottom
  * is 24px above the viewport's and pins there — all of it is always reachable, nothing scrolls inside.

@@ -346,6 +346,92 @@ test.describe('account.edit-profile', () => {
     await expect(page).toHaveURL(/\/$/);
   });
 
+  test('leave guard: browser Back after a client navigation asks too; «Continuă editarea» stays, «Renunță» goes back', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await signIn(page.context(), jwt);
+    await mockDicebear(page);
+    await page.goto('/setari');
+    // Client navigation: Back is a same-document traversal (no beforeunload).
+    await page.getByTestId('settings-profile-card').click();
+    await expect(page).toHaveURL(new RegExp(`${PATH}$`));
+    await loaded(page);
+    let unloadPrompts = 0;
+    page.on('dialog', async (d) => {
+      unloadPrompts += 1;
+      await d.dismiss();
+    });
+    // A real keystroke (user activation: the browser lets the page cancel a traversal after one).
+    await username(page).click();
+    await page.keyboard.type('x');
+    const typed = `${original.username}x`;
+    await expect(username(page)).toHaveValue(typed);
+    const dialog = page.getByRole('alertdialog', { name: LEAVE });
+
+    await page.evaluate(() => history.back());
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`${PATH}$`));
+    await dialog.getByRole('button', { name: 'Continuă editarea' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`${PATH}$`));
+    await expect(username(page)).toHaveValue(typed);
+
+    await page.keyboard.type('y');
+    await page.evaluate(() => history.back());
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: 'Renunță' }).click();
+    await onSettings(page);
+    expect(unloadPrompts).toBe(0);
+  });
+
+  for (const width of [1280, 1920]) {
+    test(`≥1280 preview at ${width}: a 200-character bio without spaces wraps inside the card`, async ({ page }) => {
+      await open(page, { width });
+      await loaded(page);
+      await bio(page).fill('a'.repeat(200));
+      const panel = page.getByTestId('profile-preview');
+      await expect(panel.getByTestId('bio')).toHaveText('a'.repeat(200));
+      const { scroll, client } = await panel.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
+      expect(scroll).toBeLessThanOrEqual(client);
+      const card = (await page.getByRole('region', { name: 'Așa te văd ceilalți' }).boundingBox())!;
+      const text = (await panel.getByTestId('bio').boundingBox())!;
+      expect(text.x + text.width).toBeLessThanOrEqual(card.x + card.width);
+    });
+  }
+
+  test('a failed save whose refetch fails too keeps the form, its values and the toast', async ({ page }) => {
+    const errors = collectConsoleErrors(page, { ignore: EXPECTED_CONSOLE });
+    let failGets = false;
+    let failedGets = 0;
+    let patches = 0;
+    await page.route(PROFILE, (r) => {
+      const method = r.request().method();
+      if (method === 'PATCH') {
+        patches += 1;
+        failGets = true;
+        return r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":{"status":500}}' });
+      }
+      if (method === 'GET' && failGets) {
+        failedGets += 1;
+        return r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":{"status":500}}' });
+      }
+      return r.fallback();
+    });
+    await open(page, { width: 1280 });
+    await loaded(page);
+    await bio(page).fill('ciornă care nu se pierde');
+    await submit(page).click();
+    const toast = page.getByRole('alert').filter({ hasText: GENERIC });
+    await expect(toast).toBeVisible();
+    expect(patches).toBe(1);
+    // The invalidation refetch and its two retries fail: the query errs but keeps its data.
+    await expect.poll(() => failedGets, { timeout: 15_000 }).toBeGreaterThanOrEqual(3);
+    await page.waitForTimeout(500);
+    await expect(page.getByRole('alert').filter({ hasText: 'Serverul nu răspunde' })).toHaveCount(0);
+    await expect(bio(page)).toHaveValue('ciornă care nu se pierde');
+    await expect(username(page)).toHaveValue(original.username);
+    expect(errors).toEqual([]);
+  });
+
   test('≥1280 preview «Așa te văd ceilalți»: live from the form, with «Vezi profilul public»', async ({ page }) => {
     await open(page, { width: 1440 });
     await loaded(page);

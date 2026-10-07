@@ -9,10 +9,11 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  * global.b.notification-routes-web, global.push (web replacement). fish: app/(app)/notifications.tsx.
  *
  * Data: the local QA user against the LOCAL CMS. The real list is read as is; every other state is
- * a route mock of /api/cms/notification-users* (the browser's proxy calls). Writes: only
- * mark-as-read (allowed, idempotent) — one real one on the first unread row with a page; «Citește
- * tot» is mocked so the QA user's unread rows stay for the next run. Nothing is ever created
- * (notifications are sent through FCM/Firestore by the CMS: never from a test).
+ * a route mock of /api/cms/notification-users* (the browser's proxy calls). One real write: «c9
+ * real» seeds a throwaway notification + notification-user for the QA user through the LOCAL
+ * Strapi's REST API (E2E_STRAPI_API_TOKEN, .env.local; no push, no Firestore — those are sent by
+ * other CMS services, not on create), marks it read through the page and deletes both rows after.
+ * «Citește tot» is always mocked: there is no mark-unread API to undo it.
  */
 
 const PATH = '/notificari';
@@ -54,9 +55,12 @@ function pageBody(rows: Row[], page = 1, pageCount = 1, total = rows.length) {
   });
 }
 
+/** A body, a status (message 'x'), or a status with the CMS's message. */
+type Failure = string | number | { status: number; message: string };
+
 type Mock = {
   /** GET /notification-users: the body for a page, or a status. */
-  list?: (page: number, call: number) => string | number | Promise<string | number>;
+  list?: (page: number, call: number) => Failure | Promise<Failure>;
   unread?: () => number;
   markAll?: () => number;
   markOne?: () => number;
@@ -89,7 +93,9 @@ async function mock(page: Page, m: Mock) {
       if (!m.list) return r.fallback();
       const p = Number(url.searchParams.get('pagination[page]') ?? '1');
       const out = await m.list(p, calls.list.length);
-      return typeof out === 'number' ? json(JSON.stringify({ data: null, error: { status: out, message: 'x' } }), out) : json(out);
+      if (typeof out === 'string') return json(out);
+      const [status, message] = typeof out === 'number' ? [out, 'x'] : [out.status, out.message];
+      return json(JSON.stringify({ data: null, error: { status, message } }), status);
     }
     return r.fallback();
   });
@@ -209,6 +215,15 @@ test.describe('account.notifications', () => {
     await open(page);
     await expect(page.getByText('Nu există notificări')).toBeVisible();
     await expect(markAll(page)).toHaveCount(0);
+    // From 1440 the list and its summary are one group centred in the shell column (owner rule:
+    // full-width layouts) — at 1920 the empty card sits in the middle, not glued to the left.
+    await page.setViewportSize({ width: 1920, height: 900 });
+    const head = (await page.getByRole('button', { name: 'Înapoi' }).boundingBox())!;
+    const side = (await page.getByRole('complementary', { name: 'Rezumat' }).boundingBox())!;
+    const left = head.x - ((1920 - 1744) / 2 + 32);
+    const right = 1920 - (1920 - 1744) / 2 - 32 - (side.x + side.width);
+    expect(left).toBeGreaterThan(200);
+    expect(Math.abs(left - right)).toBeLessThanOrEqual(2);
     for (const w of WIDTHS) {
       await page.setViewportSize({ width: w, height: 900 });
       await page.screenshot({ path: `${SHOTS}/empty-${w}.png` });
@@ -467,16 +482,33 @@ test.describe('account.notifications', () => {
     expect(errors).toEqual([]);
   });
 
-  test('c1 error: a dead session (401) offers «Deconectează-te», which leads to sign-in with the way back', async ({ page }) => {
+  test('c1 dead session (SESSION_DEAD): no sign-out card — the global handler toasts and sends to sign-in with the way back', async ({ page }) => {
     const errors = collectConsoleErrors(page, { ignore: [/status of 401/] });
+    await mock(page, { list: () => ({ status: 401, message: 'Missing or invalid credentials' }), unread: () => 0 });
+    await open(page);
+    await expect(page).toHaveURL(/\/intra\?next=%2Fnotificari$/, { timeout: 20_000 });
+    await expect(page.getByText('Sesiunea ta a expirat. Te rugăm să te autentifici din nou.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Deconectează-te' })).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('c1 error: another 401 (no dead-session message) offers «Deconectează-te», the site sign-out, to sign-in with the way back', async ({ page }) => {
+    const errors = collectConsoleErrors(page, { ignore: [/status of 401/, ...EXPECTED_CONSOLE] });
     await mock(page, { list: () => 401, unread: () => 0 });
     await open(page);
     await expect(page.getByRole('alert').filter({ hasText: 'Sesiunea a expirat' })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('button', { name: 'Încearcă din nou' })).toHaveCount(0);
     await page.screenshot({ path: `${SHOTS}/dead-session-375.png` });
     await expectNoA11yViolations(page);
+    // A failed logout leaves the visitor signed in and says so (useSignOut's SIGN_OUT_FAILED toast).
+    let logoutFails = true;
+    await page.route('**/api/auth/logout', (r) => (logoutFails ? r.fulfill({ status: 500, body: '' }) : r.fallback()));
     await page.getByRole('button', { name: 'Deconectează-te' }).click();
-    await expect(page).toHaveURL(/\/intra\?next=%2Fnotificari$/);
+    await expect(page.getByText('A apărut o problemă. Te rugăm să încerci mai târziu.')).toBeVisible();
+    await expect(page).toHaveURL(/\/notificari$/);
+    logoutFails = false;
+    await page.getByRole('button', { name: 'Deconectează-te' }).click();
+    await expect(page).toHaveURL(/\/intra\?next=%2Fnotificari$/, { timeout: 30_000 });
     expect(errors).toEqual([]);
   });
 
@@ -491,15 +523,18 @@ test.describe('account.notifications', () => {
     for (const w of [1280, 1440, 1920]) {
       await page.setViewportSize({ width: w, height: 900 });
       await expect(summary).toBeVisible();
-      // The list is a readable column (≤ 840) anchored to the shell's left gutter, the title above
-      // it on the same edge, and the summary right after it (24 apart) — never a centred island.
+      // The list is a readable column (≤ 840), the title above it on the same edge, the summary right
+      // after it (24 apart). 1280–1439 the pair starts at the shell's left gutter; from 1440 the pair
+      // (840 + 24 + 360) is centred in the shell column (1680 + 2 × 32 gutters, itself centred).
       const box = (await list(page).boundingBox())!;
       const head = (await title(page).boundingBox())!;
       const side = (await summary.boundingBox())!;
-      // The shell column: 1680 + 2 × 32 gutters, centred (the top bar's logo sits on the same edge).
       const shellLeft = Math.max(0, (w - 1744) / 2) + 32;
+      const shellWidth = Math.min(w, 1744) - 64;
+      const groupLeft = w >= 1440 ? shellLeft + (shellWidth - 1224) / 2 : shellLeft;
       expect(box.width).toBeLessThanOrEqual(840);
-      expect(Math.abs(box.x - shellLeft)).toBeLessThanOrEqual(1);
+      expect(Math.abs(box.x - groupLeft)).toBeLessThanOrEqual(1);
+      expect(head.x).toBeGreaterThanOrEqual(box.x - 1);
       expect(head.x).toBeLessThan(box.x + 80);
       expect(Math.abs(side.x - (box.x + box.width + 24))).toBeLessThanOrEqual(1);
       await page.screenshot({ path: `${SHOTS}/wide-${w}.png`, fullPage: true });
@@ -520,25 +555,52 @@ test.describe('account.notifications', () => {
     await expectNoA11yViolations(page);
   });
 
-  test('summary and «Citește tot» agree: a count beyond the loaded rows offers it; a stale 0 never says «all read» over an unread row', async ({ page }) => {
+  test('c3 summary and «Citește tot» follow the loaded rows (fish): a count the list cannot back is never shown', async ({ page }) => {
     const allRead = MIXED.map((r) => ({ ...r, read: true }));
-    let rowsNow = allRead;
-    let count = 16;
-    await mock(page, { list: () => pageBody(rowsNow), unread: () => count });
+    let rowsNow: Row[] = allRead;
+    let count = 2;
+    let pages = 1;
+    await mock(page, { list: (p) => (p === 1 ? pageBody(rowsNow, 1, pages) : new Promise<never>(() => {})), unread: () => count });
     await open(page, 1280);
     const summary = page.getByRole('complementary', { name: 'Rezumat' });
-    await expect(summary.getByTestId('notifications-unread-count')).toHaveText('16 necitite');
-    await expect(summary.getByRole('button', { name: 'Citește tot' })).toBeVisible();
+    const refresh = () => page.getByRole('button', { name: 'Reîmprospătează' }).click();
+    // Every row loaded and read, the CMS still counts 2 (rows whose notification is gone): no number,
+    // no «Citește tot» anywhere — the list is all read.
+    await expect(rows(page)).toHaveCount(allRead.length);
+    await expect(summary.getByText('Le-ai citit pe toate.')).toBeVisible();
+    await expect(summary.getByText(/necitit/)).toHaveCount(0);
+    await expect(markAll(page)).toHaveCount(0);
     await page.setViewportSize({ width: 375, height: 900 });
-    await expect(markAll(page)).toBeVisible();
-    // A count of 0 not re-read yet while a loaded row is unread: no «Le-ai citit pe toate.», the button stays.
+    await expect(markAll(page)).toHaveCount(0);
+    // Three unread rows arrive, the count is still the old 2: it cannot back the list — no number
+    // (rule 4), never «all read»; the button follows the rows. (A count that covers them, «18
+    // necitite» over 3 unread rows, is shown: «wide screens…».)
     rowsNow = MIXED;
-    count = 0;
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
+    await refresh();
     await expect(page.locator('[data-unread-dot]')).toHaveCount(3);
-    await expect(summary.getByText('Le-ai citit pe toate.')).toHaveCount(0);
+    await expect(summary.getByTestId('notifications-unread-count')).toHaveCount(0);
     await expect(summary.getByRole('button', { name: 'Citește tot' })).toBeVisible();
+    // All loaded rows read but a page left (it never answers): unknown — neither «all read» nor a
+    // number nor the button.
+    rowsNow = allRead;
+    pages = 2;
+    count = 5;
+    await refresh();
+    await expect(page.locator('[data-unread-dot]')).toHaveCount(0);
+    await expect(summary.getByTestId('notifications-unread-count')).toHaveCount(0);
+    await expect(markAll(page)).toHaveCount(0);
+  });
+
+  test('c10 + c3 an empty list with a dangling unread count says no number and offers no «Citește tot»', async ({ page }) => {
+    await mock(page, { list: () => pageBody([]), unread: () => 1 });
+    for (const w of [375, 1280]) {
+      await open(page, w);
+      await expect(page.getByText('Nu există notificări')).toBeVisible();
+      await expect(markAll(page)).toHaveCount(0);
+      await expect(page.getByText(/necitit/)).toHaveCount(0);
+    }
+    await expect(page.getByRole('complementary', { name: 'Rezumat' }).getByRole('link', { name: 'Setări notificări' })).toBeVisible();
   });
 
   test('wide screens: the empty list and a failed first load keep the summary track — the card never stretches or moves', async ({ page }) => {
@@ -561,9 +623,11 @@ test.describe('account.notifications', () => {
       });
       edges[m] = col;
       if (m === 'empty') {
+        // Nothing to sum up: no status line (the list says it), no button, the settings row.
         const summary = page.getByRole('complementary', { name: 'Rezumat' });
-        await expect(summary.getByText('Le-ai citit pe toate.')).toBeVisible();
+        await expect(summary.getByTestId('notifications-unread-count')).toHaveCount(0);
         await expect(summary.getByRole('button', { name: 'Citește tot' })).toHaveCount(0);
+        await expect(summary.getByRole('link', { name: 'Setări notificări' })).toBeVisible();
       }
       await page.screenshot({ path: `${SHOTS}/wide-${m}-1440.png`, fullPage: true });
     }
@@ -573,24 +637,57 @@ test.describe('account.notifications', () => {
     expect(errors).toEqual([]);
   });
 
-  test('c9 real: the first unread row with a page is marked read on the local CMS and opens its page', async ({ page, request }) => {
-    const res = await request.get(`${CMS}/notification-users?pagination[page]=1&pagination[pageSize]=10`, {
-      headers: { authorization: `Bearer ${jwt}` },
+  test('c9 real: a seeded unread row is marked read on the local CMS and opens its page; the seed is removed', async ({ page, request }) => {
+    const token = process.env.E2E_STRAPI_API_TOKEN;
+    // Never skipped: without the token the test fails and says why.
+    expect(token, 'Set E2E_STRAPI_API_TOKEN (LOCAL Strapi full-access API token) in .env.local').toBeTruthy();
+    expect(CMS, 'c9 real writes: only against the local CMS').toMatch(/^http:\/\/(localhost|127\.0\.0\.1):1337\//);
+    const admin = { authorization: `Bearer ${token}` };
+    const me = (await (await request.get(`${CMS}/users/me`, { headers: { authorization: `Bearer ${jwt}` } })).json()) as { id: number; documentId: string };
+    const stamp = Date.now();
+    const notification = await request.post(`${CMS}/notifications`, {
+      headers: admin,
+      data: {
+        data: {
+          title: `E2E c9 ${stamp}`,
+          body: 'Rând de test, șters la final.',
+          type: 'user:new-follower',
+          sentAt: new Date().toISOString(),
+          // The QA user's own profile: a page that exists on the web.
+          data: { type: 'user:new-follower', followerDocumentId: me.documentId },
+        },
+      },
     });
-    const real = (await res.json()) as { data: ReturnType<typeof row>[] };
-    const calls = await mock(page, {});
-    await open(page, 1280);
-    // The footer is in range at 900px, so page 2 may load too: the first page's rows are there first.
-    if (real.data.length) await expect.poll(() => rows(page).count()).toBeGreaterThanOrEqual(real.data.length);
-    const index = await rows(page).evaluateAll((lis) => lis.findIndex((li) => !li.hasAttribute('data-read') && li.querySelector('a')));
-    test.skip(index < 0 || real.data.length === 0, 'No unread row with a page for the QA user on the first page');
-    const target = real.data[index];
-    const link = rows(page).nth(index).getByRole('link');
-    const href = (await link.getAttribute('href'))!;
-    const mark = page.waitForResponse((r) => r.url().includes(`/notification-users/${target.notification.documentId}/mark-as-read`));
-    await link.click();
-    expect((await mark).ok()).toBe(true);
-    await expect(page).toHaveURL(new RegExp(`${href.replace(/[?]/g, '\\?')}$`));
-    expect(calls.markOne).toEqual([target.notification.documentId]);
+    expect(notification.ok()).toBe(true);
+    const notificationId = ((await notification.json()) as { data: { documentId: string } }).data.documentId;
+    let rowId: string | undefined;
+    try {
+      const link = await request.post(`${CMS}/notification-users`, {
+        headers: admin,
+        data: { data: { user: me.id, notification: notificationId, read: false } },
+      });
+      expect(link.ok()).toBe(true);
+      rowId = ((await link.json()) as { data: { documentId: string } }).data.documentId;
+
+      const calls = await mock(page, {});
+      await open(page, 1280);
+      // The newest notification: page 1, found by its own title, never by an index.
+      const target = rows(page).filter({ hasText: `E2E c9 ${stamp}` });
+      await expect(target).toHaveCount(1);
+      await expect(target).not.toHaveAttribute('data-read', 'true');
+      const anchor = target.getByRole('link');
+      await expect(anchor).toHaveAttribute('href', `/pescari/${me.documentId}`);
+      const mark = page.waitForResponse((r) => r.url().includes(`/notification-users/${notificationId}/mark-as-read`));
+      await anchor.click();
+      expect((await mark).ok()).toBe(true);
+      await expect(page).toHaveURL(new RegExp(`/pescari/${me.documentId}$`));
+      expect(calls.markOne).toEqual([notificationId]);
+      // The CMS has it read.
+      const after = (await (await request.get(`${CMS}/notification-users/${rowId}`, { headers: admin })).json()) as { data: { read: boolean } };
+      expect(after.data.read).toBe(true);
+    } finally {
+      if (rowId) expect((await request.delete(`${CMS}/notification-users/${rowId}`, { headers: admin })).ok()).toBe(true);
+      expect((await request.delete(`${CMS}/notifications/${notificationId}`, { headers: admin })).ok()).toBe(true);
+    }
   });
 });

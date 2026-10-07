@@ -6,18 +6,25 @@ import { ROW_CARD, ROWS } from './styles';
 
 /**
  * The list column. Below 1280 one centred column up to 720 (a phone list; on a tablet the rows would
- * otherwise be 1000px lines of short text). From 1280 it is anchored to the shell's left gutter
- * (ROADMAP §4: full width with the shell gutters, only reading text capped) and capped at 840 — the
- * rows are short lines, never 1300px ones on a 1920 screen.
+ * otherwise be 1000px lines of short text). From 1280 capped at 840 — the rows are short lines, never
+ * 1300px ones on a 1920 screen.
  */
 const COLUMN = 'mx-auto w-full max-w-180 xl:mx-0 xl:max-w-210';
 
 /**
  * From 1280: the list (≤ 840) and the summary column right after it on the template's right track
- * (320 → 360 from 1440, 24 apart: ../tracks.ts), left-aligned in the shell column. Fixed tracks, so
- * the list never changes width or moves when the summary lands, empties or the page errors.
+ * (320 → 360 from 1440, 24 apart: ../tracks.ts). Fixed tracks, so the list never changes width or
+ * moves when the summary lands, empties or the page errors.
+ * 1280–1439 the pair (≤ 1184) nearly fills the shell column and starts at its left gutter. From 1440
+ * the pair (1224) is one group centred in the shell column, the title above the list on the same
+ * edge — a feed with its side column, as Facebook's: never a page glued to the left with a third of a
+ * 1920 screen blank on the right.
  */
-const BODY = 'xl:grid xl:items-start xl:gap-6 xl:grid-cols-[minmax(0,--spacing(210))_--spacing(80)] 2xl:grid-cols-[minmax(0,--spacing(210))_--spacing(90)]';
+const GROUP = '2xl:mx-auto 2xl:w-full 2xl:max-w-306';
+const BODY = cn(
+  GROUP,
+  'xl:grid xl:items-start xl:gap-6 xl:grid-cols-[minmax(0,--spacing(210))_--spacing(80)] 2xl:grid-cols-[minmax(0,--spacing(210))_--spacing(90)]',
+);
 
 /**
  * The page frame (account.notifications, T1 without filters): ListPage's shell (gutters, rhythm)
@@ -28,7 +35,7 @@ const BODY = 'xl:grid xl:items-start xl:gap-6 xl:grid-cols-[minmax(0,--spacing(2
  */
 export function NotificationsFrame({ header, aside, children }: { header: ReactNode; aside?: ReactNode; children: ReactNode }) {
   return (
-    <ListPage header={<div className={COLUMN}>{header}</div>}>
+    <ListPage header={<div className={GROUP}><div className={COLUMN}>{header}</div></div>}>
       <div className={BODY}>
         <div className={cn(COLUMN, 'flex flex-col gap-4')}>{children}</div>
         {aside ? (

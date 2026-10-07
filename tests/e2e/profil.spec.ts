@@ -89,6 +89,29 @@ const cog = (page: Page) => page.getByTestId('profile-settings-button').filter({
 const account = (page: Page) => page.getByRole('banner').getByRole('button', { name: /^Contul meu, / }).filter({ visible: true });
 const headerUrl = (id: string) => new RegExp(`/api/cms/feed/anglers/${id}(\\?.*)?$`);
 
+/**
+ * The signed-in document for `path` cut where the profile's own streamed segment begins: the loading
+ * state a visitor sees. The segments before it (the site header, the fallback's ?tab= island) stay,
+ * with React's inline swap scripts ($RC), as they arrive in the first flush; only the gated profile
+ * (session + first tab, the slow part) is left out.
+ */
+async function streamedShell(request: import('@playwright/test').APIRequestContext, path: string) {
+  const res = await request.get(path, { headers: { cookie: `bluvi_session=${jwt}` } });
+  expect(res.status()).toBe(200);
+  const html = await res.text();
+  const profile = html.indexOf('data-testid="angler-profile"');
+  expect(profile, 'the profile streams after the shell').toBeGreaterThan(0);
+  const cut = html.lastIndexOf('<div hidden id="S:', profile);
+  expect(cut, 'the profile is a streamed segment').toBeGreaterThan(0);
+  return html.slice(0, cut);
+}
+
+/** Serves `shell` for `pathname` (any query) with the app's scripts blocked: the loading state frozen. */
+async function showShell(page: Page, pathname: string, shell: string) {
+  await page.route('**/_next/static/**/*.js', r => r.abort());
+  await page.route(u => u.pathname === pathname, r => r.fulfill({ status: 200, contentType: 'text/html', body: `${shell}</body></html>` }));
+}
+
 /* ------------------------------------------------------------------------------------------------
  * Signed out
  * ---------------------------------------------------------------------------------------------- */
@@ -371,43 +394,60 @@ test.describe('signed in', () => {
   });
 
   for (const width of [375, 768]) {
-    test(`phone/tablet (${width}): no header row of one lone refresh chip — it sits in the header band's top-right corner, the avatar right under the bar`, async ({ page }) => {
-      test.skip(ON_WEB.settings, 'with /setari the row holds refresh + the cog');
+    test(`c2 phone/tablet (${width}): no toolbar row — the ghost refresh and cog float top right in the white band, the avatar right under the bar; the streamed fallback sits on the same lines`, async ({ page, request }) => {
+      // Landed view.
       await open(page, { width });
       await loaded(page);
       const row = page.getByTestId('profile-header-row');
-      expect(await row.evaluate(el => getComputedStyle(el).position)).toBe('absolute');
+      expect(await row.evaluate(el => getComputedStyle(el).position), 'the actions float, no row of their own').toBe('absolute');
       const aside = (await page.getByRole('complementary', { name: 'Despre mine' }).boundingBox())!;
-      const chip = (await row.getByRole('button', { name: 'Reîmprospătează' }).boundingBox())!;
-      // Inside the white band, top right.
-      expect(chip.y).toBeGreaterThanOrEqual(aside.y);
-      expect(chip.y + chip.height).toBeLessThanOrEqual(aside.y + 64);
-      expect(aside.x + aside.width - (chip.x + chip.width)).toBeLessThanOrEqual(24);
-      const avatar = (await page.getByTestId('profile-header').locator('div').first().boundingBox())!;
+      const rowBox = (await row.boundingBox())!;
+      const refresh = (await row.getByRole('button', { name: 'Reîmprospătează' }).boundingBox())!;
+      const gear = (await row.getByRole('link', { name: 'Setări' }).boundingBox())!;
+      // Top right inside the band: the cog last, its glyph on the gutter; ghost (no fill), 44px hit areas.
+      expect(rowBox.y).toBeGreaterThanOrEqual(aside.y);
+      expect(rowBox.y + rowBox.height).toBeLessThanOrEqual(aside.y + 56);
+      expect(aside.x + aside.width - (gear.x + gear.width), 'cog at the right edge').toBeLessThanOrEqual(16);
+      expect(refresh.x + refresh.width).toBeLessThanOrEqual(gear.x + 1);
+      for (const b of [refresh, gear]) expect(Math.round(b.width)).toBe(44);
+      for (const name of ['Reîmprospătează', 'Setări']) {
+        const el = row.getByRole(name === 'Setări' ? 'link' : 'button', { name });
+        expect(await el.evaluate(e => getComputedStyle(e).backgroundColor), `${name}: ghost, no grey chip`).toBe('rgba(0, 0, 0, 0)');
+      }
+      // Refresh is secondary: a smaller glyph than the cog's.
+      const glyph = async (name: string, role: 'button' | 'link') => (await row.getByRole(role, { name }).locator('svg').boundingBox())!.width;
+      expect(await glyph('Reîmprospătează', 'button')).toBeLessThan(await glyph('Setări', 'link'));
+      const avatarEl = page.getByTestId('profile-header').locator('div').first();
+      const avatar = (await avatarEl.boundingBox())!;
       expect(avatar.y - aside.y, 'avatar under the bar, no empty toolbar above it').toBeLessThanOrEqual(20);
-      // The chip never covers the avatar.
-      expect(chip.x).toBeGreaterThan(avatar.x + avatar.width);
+      expect(gear.x, 'the actions never cover the avatar').toBeGreaterThan(avatar.x + avatar.width);
       await page.screenshot({ path: `test-results/profil-header-${width}.png`, fullPage: false });
+
+      // The streamed fallback at the same width: the same row and avatar lines (±2px).
+      const shell = await streamedShell(request, PATH);
+      await showShell(page, PATH, shell);
+      await page.goto(PATH);
+      const fallback = page.getByTestId('profile-fallback').filter({ visible: true }).first();
+      await expect(fallback).toBeVisible();
+      const fRow = (await fallback.getByTestId('profile-header-row').boundingBox())!;
+      const fAvatar = (await fallback.getByTestId('profile-header-skeleton').locator('span').first().boundingBox())!;
+      expect(Math.abs(fRow.y - rowBox.y), `actions y ${fRow.y} vs ${rowBox.y}`).toBeLessThanOrEqual(2);
+      expect(Math.abs(fRow.x + fRow.width - (rowBox.x + rowBox.width)), 'actions right edge').toBeLessThanOrEqual(2);
+      expect(Math.abs(fAvatar.y - avatar.y), `avatar y ${fAvatar.y} vs ${avatar.y}`).toBeLessThanOrEqual(2);
     });
   }
 
-  test('loading: the streamed shell is the own-mode skeleton (chips right, no back, no follow pill) at 4 widths', async ({ page, request }) => {
+  test('loading: the streamed shell is the own-mode skeleton (ghost actions right, no back, no follow pill) at 4 widths; ?tab=sesiuni streams Partide bones with «Partide» selected', async ({ page, request }) => {
     // The document streams the route skeleton (loading.tsx / the page's Suspense fallback) first,
     // then the profile in hidden segments («<div hidden id="S:…">») that React swaps in. The dev
     // server cannot be slowed from the browser (the session gate is a server read, and a held RSC
     // request keeps the old page), so the loading state is rendered from the real HTML cut where the
     // streamed segments begin, with scripts blocked: exactly what a visitor sees until they land.
-    const res = await request.get(PATH, { headers: { cookie: `bluvi_session=${jwt}` } });
-    expect(res.status()).toBe(200);
-    const html = await res.text();
-    const cut = html.indexOf('<div hidden id="S:');
-    expect(cut, 'the profile streams after the shell').toBeGreaterThan(0);
-    const shell = html.slice(0, cut);
+    const shell = await streamedShell(request, PATH);
     expect(shell).toContain('data-testid="profile-fallback" data-mode="own"');
     expect(shell).not.toContain('follow-skeleton');
     expect(shell).not.toContain('data-testid="angler-profile"');
-    await page.route('**/_next/static/**/*.js', r => r.abort());
-    await page.route(new RegExp(`${PATH}$`), r => r.fulfill({ status: 200, contentType: 'text/html', body: `${shell}</body></html>` }));
+    await showShell(page, PATH, shell);
     for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(PATH);
@@ -415,7 +455,28 @@ test.describe('signed in', () => {
       await expect(fallback).toBeVisible();
       await expect(fallback).toHaveAttribute('aria-label', 'Se încarcă profilul');
       await expect(fallback.getByTestId('profile-header-skeleton').filter({ visible: true })).toHaveCount(1);
+      await expect(fallback.getByTestId('tab-skeleton-capturi')).toBeVisible();
       await expect(page.getByRole('button', { name: 'Înapoi', exact: true })).toHaveCount(0);
+    }
+
+    // ?tab=sesiuni: the Partide panel's bones (never the catch grid) and the second tab bone underlined.
+    const tabbed = `${PATH}?tab=sesiuni`;
+    const sesiuniShell = await streamedShell(request, tabbed);
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await showShell(page, PATH, sesiuniShell);
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(tabbed);
+      const fallback = page.getByTestId('profile-fallback').filter({ visible: true }).first();
+      await expect(fallback.getByTestId('tab-skeleton')).toHaveAttribute('data-tab', 'sesiuni');
+      await expect(fallback.getByTestId('tab-skeleton-sesiuni')).toBeVisible();
+      await expect(fallback.getByTestId('tab-skeleton-capturi')).toHaveCount(0);
+      const bones = fallback.getByTestId('tab-bar-skeleton').locator(':scope > div').first().locator(':scope > span');
+      await expect(bones).toHaveCount(3);
+      await expect(bones.nth(1)).toHaveAttribute('data-selected', 'true');
+      expect(await bones.nth(1).evaluate(el => getComputedStyle(el, '::after').backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+      expect(await bones.nth(0).evaluate(el => getComputedStyle(el, '::after').backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+      await page.screenshot({ path: `test-results/profil-loading-sesiuni-${width}.png` });
     }
   });
 

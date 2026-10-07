@@ -57,7 +57,7 @@ export function ProfilePreview({
     >
       <div className={PANEL} data-testid="profile-preview">
         <BigAvatar name={name || NAME_PLACEHOLDER} src={src} toneKey={viewerId} />
-        <p className={cn('mt-3 t-title1 break-words', name ? 'text-ink' : 'text-muted')} data-testid="profile-preview-name">
+        <p className={cn('mt-3 max-w-full t-title1 break-words [overflow-wrap:anywhere]', name ? 'text-ink' : 'text-muted')} data-testid="profile-preview-name">
           {name || NAME_PLACEHOLDER}
         </p>
         {bio ? (

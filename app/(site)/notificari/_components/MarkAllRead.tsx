@@ -13,7 +13,7 @@ const FALLBACK_ERROR = 'A apărut o eroare necunoscută. Te rugăm să reîncerc
  * row turns read at once (core markAllReadInPages), POST /notification-users/mark-all-as-read, an
  * error toast with the server's message on failure, and every notification query — the list and
  * the top bar's unread count — is refetched when it settles (so a failure shows the truth again).
- * The page shows it while a loaded row is unread or the unread count is above 0; when it goes, focus moves to the title
+ * The page shows it only while a loaded row is unread (fish c3); when it goes, focus moves to the title
  * (`onDone`), never to <body>. `className` restyles it (the summary column's labelled button).
  */
 export function MarkAllRead({ t, onDone, className }: { t: Transport; onDone?: () => void; className?: string }) {

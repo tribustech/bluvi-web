@@ -1,5 +1,6 @@
 'use client';
 
+import { ArrowPathIcon as ArrowPathMini } from '@heroicons/react/20/solid';
 import { ArrowPathIcon, Cog6ToothIcon, PhotoIcon, TrophyIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import { useInfiniteQuery, useQuery, type InfiniteData, type UseInfiniteQueryResult } from '@tanstack/react-query';
 import Link from 'next/link';
@@ -36,7 +37,7 @@ import { ON_WEB, routes } from '@/lib/routes';
 import { CatchGrid } from './CatchGrid';
 import { CompetitionHistoryCard } from './CompetitionHistoryCard';
 import { FilterChips, type ChipOption } from './FilterChips';
-import { ASIDE, COLUMN, HEADER_ROW, HEADER_ROW_BAND, PANEL, PROFILE_GRID, TAB_BAR, TAB_BAR_END, TAB_ROW } from './frame';
+import { ASIDE, COLUMN, GHOST_ICON, HEADER_ROW, HEADER_ROW_BAND, OWN_ACTIONS, PANEL, PROFILE_GRID, TAB_BAR, TAB_BAR_END, TAB_ROW } from './frame';
 import { ProfileHeader } from './ProfileHeader';
 import { ProfileHeaderSkeleton, ProfileTabSkeleton } from './ProfileSkeleton';
 import { SessionHistoryCard } from './SessionHistoryCard';
@@ -123,8 +124,6 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
   };
 
   const asideRef = useAsideHeight();
-  /** Own mode without /setari: the phone / tablet header row would hold only refresh (c3 is hidden). */
-  const loneRefresh = mode === 'own' && !ON_WEB.settings;
 
   const header: ReactNode = unknown || (signedIn && profileQ.isPending) ? (
     <ProfileHeaderSkeleton mode={mode} />
@@ -144,26 +143,29 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
       {!profile ? <h1 className="sr-only">{mode === 'own' ? 'Profilul meu' : 'Profil de pescar'}</h1> : null}
       {/* The frame's classes live in ./frame, shared with the route fallbacks (c3: nothing moves when the page lands). */}
       <div className={PROFILE_GRID}>
-        {/* Phone / tablet: fish's header row (back · refresh · settings) on the white band. From
-            1280 there is no such row (rule 1: the breadcrumb is the way back, the identity card and
-            the tabs start right under it); refresh and settings move into the tab bar's end.
-            Own mode while the web has no /setari: no row of one lone chip (a white band pushing the
-            avatar down) — refresh sits in the header band's top-right corner, over the avatar's
-            top padding (OwnProfileFallback mirrors it). */}
-        <div
-          className={cn(HEADER_ROW, loneRefresh ? 'absolute top-2 right-4 z-above md:right-6' : HEADER_ROW_BAND)}
-          data-testid="profile-header-row"
-        >
-          {mode === 'other' ? <DetailBackButton fallbackHref={routes.home()} /> : null}
-          {loneRefresh ? null : <span className="flex-1" />}
-          <DashboardRefresh onRefresh={refresh} />
-          {mode === 'own' && ON_WEB.settings ? <SettingsChip /> : null}
-        </div>
+        {/* Phone / tablet, another angler: fish's header row (back · refresh) on the white band.
+            Own mode (fish floats one bare cog over the content; refresh is pull-to-refresh): no row —
+            two ghost icons in the header band's top-right corner, over the avatar's top padding, the
+            cog first in weight and a smaller muted refresh beside it (OwnProfileFallback mirrors it).
+            From 1280 neither (rule 1: the breadcrumb is the way back); refresh and settings move into
+            the tab bar's end. */}
+        {mode === 'own' ? (
+          <div className={OWN_ACTIONS} data-testid="profile-header-row">
+            <RefreshChip onRefresh={refresh} look="ghost" />
+            {ON_WEB.settings ? <SettingsChip look="ghost" /> : null}
+          </div>
+        ) : (
+          <div className={cn(HEADER_ROW, HEADER_ROW_BAND)} data-testid="profile-header-row">
+            <DetailBackButton fallbackHref={routes.home()} />
+            <span className="flex-1" />
+            <DashboardRefresh onRefresh={refresh} />
+          </div>
+        )}
 
         <aside
           ref={asideRef}
           aria-label={mode === 'own' ? 'Despre mine' : profile ? `Despre ${profile.username}` : 'Despre pescar'}
-          className={cn(ASIDE, loneRefresh ? 'pt-4' : 'pt-1')}
+          className={cn(ASIDE, mode === 'own' ? 'pt-4' : 'pt-1')}
         >
           {header}
         </aside>
@@ -185,7 +187,7 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
             <span className="flex-1 max-xl:hidden" />
             <div className={TAB_BAR_END}>
               <RefreshChip onRefresh={refresh} />
-              {mode === 'own' && ON_WEB.settings ? <SettingsChip compact /> : null}
+              {mode === 'own' && ON_WEB.settings ? <SettingsChip look="compact" /> : null}
             </div>
           </div>
           <div
@@ -245,14 +247,14 @@ function tabSpec(key: ProfileTab, profile: AnglerProfile | undefined) {
   return { key, label: TAB_LABELS[key], count, accessibleLabel: count ? `${TAB_LABELS[key]}, ${count}` : undefined };
 }
 
-/** The own profile's settings cog: the header row's chip, or (compact) the ≥1280 tab bar's. */
-function SettingsChip({ compact = false }: { compact?: boolean }) {
+/** The own profile's settings cog: the bare ghost cog below 1280 (fish's), the ≥1280 tab bar's compact chip. */
+function SettingsChip({ look }: { look: 'ghost' | 'compact' }) {
   return (
     <Link
       href={routes.settings()}
       aria-label="Setări"
-      title={compact ? 'Setări' : undefined}
-      className={headerChipClass({ size: compact ? 'size-10' : undefined })}
+      title="Setări"
+      className={look === 'ghost' ? cn(GHOST_ICON, 'text-ink [&>svg]:size-6') : headerChipClass({ size: 'size-10' })}
       data-testid="profile-settings-button"
     >
       <Cog6ToothIcon aria-hidden />
@@ -263,9 +265,10 @@ function SettingsChip({ compact = false }: { compact?: boolean }) {
 /**
  * ≥1280: refresh as a compact icon chip at the tab bar's end (a tooltip names it), not a lone text
  * button across the page — fish's pull-to-refresh has no desktop gesture, so it stays reachable.
+ * `ghost` (own mode below 1280): a smaller muted 20px glyph in a 44px hit area, secondary to the cog.
  * Same contract as T5 DashboardRefresh (`false` = failed, announced politely; focusable while busy).
  */
-function RefreshChip({ onRefresh }: { onRefresh: () => Promise<boolean> }) {
+function RefreshChip({ onRefresh, look = 'chip' }: { onRefresh: () => Promise<boolean>; look?: 'chip' | 'ghost' }) {
   const [, start] = useTransition();
   const [outcome, setOutcome] = useState<'idle' | 'pending' | 'done' | 'failed'>('idle');
   const pending = outcome === 'pending';
@@ -289,10 +292,14 @@ function RefreshChip({ onRefresh }: { onRefresh: () => Promise<boolean> }) {
         onClick={run}
         aria-disabled={pending || undefined}
         aria-busy={pending || undefined}
-        className={headerChipClass({ size: 'size-10' })}
-        data-testid="profile-refresh-chip"
+        className={look === 'ghost' ? cn(GHOST_ICON, 'text-muted hover:text-ink [&>svg]:size-5') : headerChipClass({ size: 'size-10' })}
+        data-testid={look === 'ghost' ? 'profile-refresh-ghost' : 'profile-refresh-chip'}
       >
-        <ArrowPathIcon aria-hidden className={cn(pending && 'animate-spin motion-reduce:animate-none')} />
+        {look === 'ghost' ? (
+          <ArrowPathMini aria-hidden className={cn(pending && 'animate-spin motion-reduce:animate-none')} />
+        ) : (
+          <ArrowPathIcon aria-hidden className={cn(pending && 'animate-spin motion-reduce:animate-none')} />
+        )}
       </button>
       <span role="status" className="sr-only">
         {outcome === 'pending' ? 'Se actualizează…' : outcome === 'done' ? 'Actualizat' : outcome === 'failed' ? 'Nu s-a putut actualiza' : ''}

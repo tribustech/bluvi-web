@@ -11,7 +11,9 @@ import { DEFAULT_MASKS, stabilize, VISUAL_WIDTHS } from './capture';
  */
 
 const PATH = '/notificari';
-const HEIGHT: Record<number, number> = { 375: 812, 768: 1024, 1280: 800, 1440: 900 };
+const HEIGHT: Record<number, number> = { 375: 812, 768: 1024, 1280: 800, 1440: 900, 1920: 1080 };
+/** The states also captured at 1920 (the list + summary group centred in the shell column). */
+const AT_1920 = new Set(['list', 'empty']);
 const NOW = new Date('2026-10-07T12:00:00+03:00');
 
 type Row = { id: string; read: boolean; title: string; body?: string; type: string; data?: Record<string, unknown>; sentAt?: string };
@@ -118,6 +120,8 @@ const STATES: State[] = [
     ready: (page) => expect(page.getByRole('button', { name: 'Încearcă din nou' })).toBeVisible({ timeout: 30_000 }),
   },
   {
+    // A 401 without the CMS's dead-session message: no global sign-out (that is only SESSION_DEAD,
+    // which keeps the skeleton and redirects), so this card is what the visitor sees and keeps.
     name: 'dead-session',
     mock: (page) => mock(page, () => 401, 0),
     ready: (page) => expect(page.getByRole('button', { name: 'Deconectează-te' })).toBeVisible({ timeout: 30_000 }),
@@ -159,7 +163,7 @@ test.beforeAll(async ({ request }) => {
 
 test.describe(`notificari · ${PATH}`, () => {
   for (const state of STATES) {
-    for (const width of VISUAL_WIDTHS) {
+    for (const width of [...VISUAL_WIDTHS, ...(AT_1920.has(state.name) ? [1920] : [])]) {
       test(`${state.name} · ${width}px`, async ({ page, context, baseURL }) => {
         await page.setViewportSize({ width, height: HEIGHT[width] });
         // stabilize() waits for networkidle, which a held request never reaches: bound the wait.
