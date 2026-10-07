@@ -7,12 +7,15 @@ import { Suspense, useMemo, useState, type ReactNode } from 'react';
 import { SegmentedControl } from '@/components/forms/SegmentedControl';
 import { AsideSkeleton, ChoiceChips, FilterColumn, FilterSection, ListEmpty, ListHeader, ListPage, useListUrlState } from '@/components/templates/T1';
 import { T2Spinner } from '@/components/templates/T2';
+import { formatDecimal } from '@/components/cards/format';
+import { MEDAL } from '@/components/ranking';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import {
   communityStatsQuery,
   firstNameOf,
+  isWeighed,
   periodPhraseFor,
   type CommunityStatsDTO,
   type SpeciesShare,
@@ -25,14 +28,17 @@ import { useViewerState } from '../../../_shell/viewer-context';
 import { userOf } from '../../../_shell/viewer-state';
 import { lakeHref } from '../_components/availability';
 import { PERIOD_OPTIONS } from '@/lib/stats-period';
+import { LakePages } from '../_sub/LakePages';
 import { firstReadFailed, SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_sub/states';
 import { PeriodAside, PeriodChips, plural, QuietNote, rankKg, RankRow, ROWS_CARD, RowsSkeleton } from '../_sub/stats';
 import { useBack } from '../_sub/useBack';
+import { RANKING_CAPTION } from './caption';
 
 /*
  * Clasament pescari la baltă — fish app/(app)/lakes/[lakeId]/clasament.tsx →
  * AnglersLeaderboardScreen with `venue` (parity lakes.anglers-ranking), on T1:
- *  - c1 «Clasament · {baltă}» with the back control (on a phone the lake takes its own line);
+ *  - c1 «Clasament · {baltă}» with the back control (on a phone the lake takes its own line), and
+ *    «Clasament pescari» as its caption line — the same two-line header as the other subpages;
  *  - c2 Săptămâna / Luna / Anul curent, in the URL (`?perioada=`, replaced, never pushed —
  *    lakes.b.period-and-sort-in-url); the previous period stays on screen while the next loads,
  *    dimmed and busy (a spinner by the chips — in the docked column too —, aria-busy, not
@@ -44,7 +50,7 @@ import { useBack } from '../_sub/useBack';
  *  - c7 «EU» + «Ești pe locul N din M {perioada} — X kg» for the signed-in, ranked user, under the
  *    list (docked in the right column from 1280);
  *  - c8 the empty period and the error (never an empty period, never the previous period's data).
- * From 1280 the period and the list choice dock in the left column, the right column holds your
+ * From 1280 the period, the list choice and the lake's pages (LakePages) dock in the left column, the right column holds your
  * place and the period's card — its numbers in one row and the stand ranking as its action, the
  * same block as on standuri (ROADMAP §4, three columns). The right column
  * is there in every state (a skeleton while loading, the period's card when empty or failed), so a
@@ -91,6 +97,9 @@ export function RankingScreen({ lakeId, lakeName, initialPeriod }: { lakeId: str
           <span className="max-sm:block">{lakeName || 'baltă'}</span>
         </>
       }
+      // The caption line every lake subpage has (Partide, Statistici, Recenzii: name + caption),
+      // so the three columns hold still when moving between them with «Pe această baltă».
+      description={RANKING_CAPTION}
       back={{ label: 'Înapoi', onClick: back }}
     />
   );
@@ -103,6 +112,8 @@ export function RankingScreen({ lakeId, lakeName, initialPeriod }: { lakeId: str
       <FilterSection title="Arată">
         <ChoiceChips name="segment-col" layout="list" options={SEGMENTS} value={segment} onChange={setSegment} />
       </FilterSection>
+      {/* The lake's pages, as on Partide, Statistici and Recenzii: the sideways way out of here. */}
+      <LakePages lakeId={lakeId} current="clasament" period={shownPeriod} />
     </FilterColumn>
   );
 
@@ -119,7 +130,9 @@ export function RankingScreen({ lakeId, lakeName, initialPeriod }: { lakeId: str
       <PeriodAside
         period={shownPeriod}
         totals={ready ? ready.totals : null}
-        quiet={failed ? 'Numerele perioadei nu s-au putut încărca.' : 'Nicio partidă în această perioadă.'}
+        // Failed: no second sentence beside the centre's error card (rule 4) — the title and the
+        // stand ranking's link only.
+        quiet={failed ? undefined : 'Nicio partidă în această perioadă.'}
         action={{ href: routes.lakeStands(lakeId, { perioada: shownPeriod }), label: 'Clasament standuri' }}
         note={ready?.stands?.length ? `${plural(ready.stands.length, 'stand cu activitate', 'standuri cu activitate')} în perioada aleasă.` : undefined}
         dimmed={switching}
@@ -140,7 +153,10 @@ export function RankingScreen({ lakeId, lakeName, initialPeriod }: { lakeId: str
       <section
         aria-label="Clasament"
         aria-busy={switching || loading || undefined}
-        className={cn('flex flex-col gap-3 transition-opacity', switching && 'pointer-events-none opacity-60')}
+        // Owner rule 16: the ranking is a compact column — from 1280 capped at the podium's measure
+        // (its 560px steps + the card's inset) and centred in the column, so a row's kg sits next to
+        // its name on a 1440 / 1920 screen; the leftover width is margin.
+        className={cn('flex w-full flex-col gap-3 transition-opacity xl:mx-auto xl:max-w-150', switching && 'pointer-events-none opacity-60')}
         data-testid="ranking-content"
       >
         {failed ? (
@@ -199,7 +215,7 @@ export function RankingSkeletonBody() {
   const steps = [STEP_H[2], STEP_H[1], STEP_H[3]];
   const avatars = ['size-11 md:size-12', 'size-12 md:size-16', 'size-11 md:size-12'];
   return (
-    <div role="status" className="flex flex-col gap-3" data-testid="ranking-skeleton">
+    <div role="status" className="flex w-full flex-col gap-3 xl:mx-auto xl:max-w-150" data-testid="ranking-skeleton">
       <span className="sr-only">Se încarcă clasamentul…</span>
       <div aria-hidden className="rounded-card bg-surface px-4.5 pt-4 shadow-e0">
         <div className="mx-auto flex max-w-140 items-end gap-2.25 md:gap-4">
@@ -224,17 +240,17 @@ export function RankingSkeletonBody() {
  * ---------------------------------------------------------------------------------------------- */
 
 /*
- * The steps take the ranking's place roles (Fundații §05, the PositionPill that replaces fish's
- * medals): the winner on navy with lavender, the others on the accent tint with accent ink — never
- * the star colour or a text token used as a fill (both collide in the dark theme). From 768 the
- * podium is the page's hero: 64 / 48 avatars, taller steps, the whole name (truncated) — first names
- * alone collide («Andrew» on 1 and 2); on a phone, fish's first name.
+ * The steps in the medal colours (fish rankColor: gold, silver, bronze — the kit MEDAL map, the
+ * same podium as a public water's Clasament): the navy digit on each, AA in both themes. The kg
+ * above stays in accent ink (the medal as a text colour is under AA on white — silver 2.6:1). From
+ * 768 the podium is the page's hero: 64 / 48 avatars, taller steps, the whole name (truncated) —
+ * first names alone collide («Andrew» on 1 and 2); on a phone, fish's first name.
  */
 const STEP_H: Record<1 | 2 | 3, string> = { 1: 'h-16 md:h-20', 2: 'h-11.5 md:h-14', 3: 'h-8.5 md:h-10' };
 const STEP: Record<1 | 2 | 3, string> = {
-  1: cn(STEP_H[1], 'bg-navy text-lavender t-num-18'),
-  2: cn(STEP_H[2], 'bg-accent-tint text-accent-ink t-num-16'),
-  3: cn(STEP_H[3], 'bg-accent-tint text-accent-ink t-num-16'),
+  1: cn(STEP_H[1], MEDAL[1], 't-num-18'),
+  2: cn(STEP_H[2], MEDAL[2], 't-num-16'),
+  3: cn(STEP_H[3], MEDAL[3], 't-num-16'),
 };
 
 function AnglerLink({ uid, className, children, label }: { uid: string; className?: string; children: ReactNode; label: string }) {
@@ -250,11 +266,17 @@ function AnglerLink({ uid, className, children, label }: { uid: string; classNam
 
 const PODIUM_NAME = 'max-w-full truncate t-micro-strong md:t-body-strong';
 
+/** Statistici's «Top pescari» rule (isWeighed): no weight is «—», never «0,00 kg». */
+function anglerKg(kg: number): { text: string; value: string; unit?: string; weighed: boolean } {
+  return isWeighed(kg) ? { text: `${rankKg(kg)} kg`, value: rankKg(kg), unit: 'kg', weighed: true } : { text: '—', value: '—', weighed: false };
+}
+
 function PodiumColumn({ angler, rank }: { angler: TopAngler; rank: 1 | 2 | 3 }) {
   const name = angler.name ?? 'Pescar';
+  const kg = anglerKg(angler.totalKg);
   return (
     <li className="flex min-w-0 flex-1 flex-col" data-rank={rank}>
-      <AnglerLink uid={angler.uid} label={`Locul ${rank}: ${name}, ${rankKg(angler.totalKg)} kg`} className="flex min-w-0 flex-1 flex-col items-center gap-1.5 pt-1">
+      <AnglerLink uid={angler.uid} label={`Locul ${rank}: ${name}, ${kg.weighed ? kg.text : 'fără greutate'}`} className="flex min-w-0 flex-1 flex-col items-center gap-1.5 pt-1">
         {/* Avatar's own display class would beat `hidden`: each size sits in its own wrapper. */}
         <span className="flex md:hidden">
           <Avatar name={name} src={angler.avatarUrl} size={rank === 1 ? 48 : 44} ring className="shadow-e1" />
@@ -266,8 +288,10 @@ function PodiumColumn({ angler, rank }: { angler: TopAngler; rank: 1 | 2 | 3 }) 
           <span className="md:hidden">{firstNameOf(angler.name)}</span>
           <span className="hidden md:inline">{name}</span>
         </span>
-        <span className="t-label text-accent-ink tabular-nums md:t-body-strong">{rankKg(angler.totalKg)} kg</span>
-        <span className={cn('flex w-full items-center justify-center rounded-t-control', STEP[rank])}>
+        <span className={cn('t-label tabular-nums md:t-body-strong', kg.weighed ? 'text-accent-ink' : 'text-muted')} data-testid="podium-kg">
+          {kg.text}
+        </span>
+        <span className={cn('flex w-full items-center justify-center rounded-t-control', STEP[rank])} data-testid="podium-step">
           <span className="sr-only">Locul </span>
           {rank}
         </span>
@@ -320,6 +344,7 @@ function AnglerRows({ anglers }: { anglers: TopAngler[] }) {
     <ol aria-label="Pescari" className={cn(ROWS_CARD, 'divide-y divide-hairline')} data-testid="angler-rows">
       {anglers.slice(3).map((a, i) => {
         const name = a.name ?? 'Pescar';
+        const kg = anglerKg(a.totalKg);
         return (
           <RankRow
             key={a.uid}
@@ -327,8 +352,9 @@ function AnglerRows({ anglers }: { anglers: TopAngler[] }) {
             lead={<Avatar name={name} src={a.avatarUrl} size={32} />}
             title={name}
             meta={`${plural(a.partide, 'partidă', 'partide')} · ${plural(a.catches, 'captură', 'capturi')}`}
-            value={rankKg(a.totalKg)}
-            unit="kg"
+            value={kg.value}
+            unit={kg.unit}
+            muted={!kg.weighed}
             href={lakeHref('angler', routes.angler(a.uid))}
             label={`Locul ${i + 4}: ${name}`}
           />
@@ -351,7 +377,7 @@ function SpeciesRows({ species }: { species: SpeciesShare[] }) {
   return (
     <ol aria-label="Specii" className={cn(ROWS_CARD, 'divide-y divide-hairline')} data-testid="species-rows">
       {species.map((s, i) => (
-        <RankRow key={s.name} rank={i + 1} title={s.name} meta={plural(s.count, 'captură', 'capturi')} value={`${s.pct}%`} unit="din capturi" />
+        <RankRow key={s.name} rank={i + 1} title={s.name} meta={plural(s.count, 'captură', 'capturi')} value={`${formatDecimal(s.pct, 0, 1)}%`} />
       ))}
     </ol>
   );
@@ -377,7 +403,9 @@ function MePill({ rank, total, period, kg, className }: { rank: number; total: n
         EU
       </span>
       <p className="t-label text-ink">
-        Ești pe locul {rank} din {total} {periodPhraseFor(period)} — {rankKg(kg)} kg
+        {/* No weight: the sentence ends at the place (a «— —» would read as a typo; never «0,00 kg»). */}
+        Ești pe locul {rank} din {total} {periodPhraseFor(period)}
+        {isWeighed(kg) ? ` — ${anglerKg(kg).text}` : ''}
       </p>
     </div>
   );

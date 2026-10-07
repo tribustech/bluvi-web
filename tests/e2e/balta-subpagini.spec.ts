@@ -1,6 +1,7 @@
 import { collectConsoleErrors as watchConsole } from './helpers/console';
 import { BASE_URL as BASE } from './helpers/base-url';
 import { cardRankingLabel } from '../../core/competitions/domain/cardCopy';
+import { formatCount } from '../../core/realtime/chat/format';
 import { LAKE_ON_WEB } from '../../app/(site)/balti/[id]/_components/availability';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
@@ -412,7 +413,7 @@ test('lakes.catches.c3 lakes.catches.s1 lakes.catches.s2 — masonry skeleton wh
 /* Clasament — lakes.anglers-ranking                                                               */
 /* ============================================================================================== */
 
-test('lakes.anglers-ranking.c1 lakes.anglers-ranking.c3 lakes.anglers-ranking.c4 lakes.anglers-ranking.c5 lakes.anglers-ranking.c6 — title, podium, Pescari / Specii', async ({ page }) => {
+test('lakes.anglers-ranking.c1 lakes.anglers-ranking.c4 lakes.anglers-ranking.c5 lakes.anglers-ranking.c6 lakes.anglers-ranking.s5 — title, podium, Pescari / Specii (blocked: the podium opens no profile until M2)', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   const lake = lakes.get(ID.big)!;
   await go(page, `/balti/${ID.big}/clasament?perioada=year`);
@@ -437,10 +438,15 @@ test('lakes.anglers-ranking.c1 lakes.anglers-ranking.c3 lakes.anglers-ranking.c4
   const a4 = bigYear.topAnglers[3];
   await expect(rows.first()).toContainText('4');
   await expect(rows.first()).toContainText(a4.name ?? 'Pescar');
-  await expect(rows.first()).toContainText(`${a4.partide} ${a4.partide === 1 ? 'partidă' : 'partide'} · ${a4.catches} ${a4.catches === 1 ? 'captură' : 'capturi'}`);
+  await expect(rows.first()).toContainText(`${formatCount(a4.partide, 'partidă', 'partide')} · ${formatCount(a4.catches, 'captură', 'capturi')}`);
   await expect(rows.first().getByTestId('rank-value')).toHaveText(kgCell(a4.totalKg));
-  // The place is the kit PositionPill (36px square, Fundații §05) on every row.
-  expect(await rows.first().locator('span.size-9').first().evaluate(e => getComputedStyle(e).width)).toBe('36px');
+  // fish RankBadge: from 4 a muted place (no medal), the same mark as a public water's Clasament.
+  await expect(rows.first().getByTestId('rank')).not.toHaveAttribute('data-medal');
+  await expect(rows.first().getByTestId('rank')).toHaveClass(/text-muted/);
+  // The podium's steps in the fish medal colours (kit MEDAL: gold, silver, bronze), as on a public water.
+  await expect(podium.locator('[data-rank="1"]').getByTestId('podium-step')).toHaveClass(/bg-medal-gold/);
+  await expect(podium.locator('[data-rank="2"]').getByTestId('podium-step')).toHaveClass(/bg-medal-silver/);
+  await expect(podium.locator('[data-rank="3"]').getByTestId('podium-step')).toHaveClass(/bg-medal-bronze/);
   // c6: species — the podium stays (fish shows it over both lists), the toggle under it.
   await seg.getByText('Specii').click();
   await expect(page.getByTestId('podium')).toBeVisible();
@@ -454,15 +460,24 @@ test('lakes.anglers-ranking.c1 lakes.anglers-ranking.c3 lakes.anglers-ranking.c4
   await expect(sp).toHaveCount(bigYear.species.length);
   const s0 = bigYear.species[0];
   await expect(sp.first()).toContainText(s0.name);
-  await expect(sp.first()).toContainText(`${s0.count} ${s0.count === 1 ? 'captură' : 'capturi'}`);
-  await expect(sp.first()).toContainText(`${s0.pct}%`);
-  // One leader rule: the first species is the winner (navy pill), as the first stand.
-  await expect(sp.first().locator('span.size-9').first()).toHaveClass(/bg-navy/);
+  await expect(sp.first()).toContainText(formatCount(s0.count, 'captură', 'capturi'));
+  // The share in Romanian notation («14,5%»), never «14.5%».
+  await expect(sp.first()).toContainText(`${String(s0.pct).replace(".", ",")}%`);
+  // Ranks 1–3 carry the medal chip (fish rankColor), as the stands and Statistici's Top pescari.
+  await expect(sp.first().getByTestId('rank')).toHaveAttribute('data-medal', '1');
+  await expect(sp.first().getByTestId('rank')).toHaveClass(/bg-medal-gold/);
   await expectNoA11yViolations(page);
   // Three columns from 1280: the options left, the period right.
   await page.setViewportSize(DESKTOP);
-  await expect(page.getByRole('complementary', { name: 'Opțiuni clasament' })).toBeVisible();
+  const options = page.getByRole('complementary', { name: 'Opțiuni clasament' });
+  await expect(options).toBeVisible();
+  // The lake's pages under «Arată», as on Partide, Statistici and Recenzii (the period carried).
+  const lakePages = options.getByRole('navigation', { name: 'Pe această baltă' });
+  await expect(lakePages.getByRole('link', { name: 'Clasament pescari' })).toHaveAttribute('aria-current', 'page');
+  await expect(lakePages.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `/balti/${ID.big}/statistici?perioada=year`);
   await expect(page.getByTestId('period-totals')).toContainText(String(bigYear.totals.partide));
+  // The period's total by magnitude (core fmtKgStat: «204 kg», «1,9 t»), never «1906,81kg».
+  await expect(page.getByTestId('period-totals')).not.toContainText(/\d{4},\d{2}/);
   for (const w of [PHONE, TABLET, LAPTOP, DESKTOP]) {
     await page.setViewportSize(w);
     await expectNoHorizontalScroll(page);
@@ -521,6 +536,13 @@ test('lakes.anglers-ranking.c8 lakes.anglers-ranking.s1 lakes.anglers-ranking.s2
   const err = page.getByTestId('stats-error');
   await expect(err).toContainText('Nu am putut încărca statisticile.');
   await expect(page.getByTestId('ranking-empty')).toHaveCount(0);
+  // Rule 4: the error card is the page's one message — the period's card keeps its title and the
+  // stand ranking's link, with no second sentence about the missing numbers.
+  const periodCard = page.getByRole('complementary', { name: 'Perioada și poziția ta' });
+  await expect(periodCard.getByRole('link', { name: 'Clasament standuri' })).toBeVisible();
+  await expect(periodCard.getByTestId('period-totals-quiet')).toHaveCount(0);
+  await expect(periodCard.getByTestId('period-totals')).toHaveCount(0);
+  await expect(page.getByText('Numerele perioadei nu s-au putut încărca.')).toHaveCount(0);
   await expectNoA11yViolations(page);
   fail = false;
   await err.getByRole('button', { name: 'Încearcă din nou' }).click();
@@ -542,7 +564,7 @@ test('lakes.anglers-ranking.c5 lakes.anglers-ranking.c7 lakes.anglers-ranking.s4
   const pill = page.getByTestId('me-pill').locator('visible=true');
   await expect(pill).toHaveCount(1);
   await expect(pill).toContainText('EU');
-  await expect(pill).toContainText('Ești pe locul 2 din 7 anul asta — 12,50 kg');
+  await expect(pill).toContainText('Ești pe locul 2 din 7 anul ăsta — 12,50 kg');
   const pillTop = await pill.evaluate(e => e.getBoundingClientRect().top);
   const podiumTop = await page.getByTestId('podium').evaluate(e => e.getBoundingClientRect().top);
   const listTop = await page.getByTestId('podium-only').evaluate(e => e.getBoundingClientRect().top);
@@ -574,7 +596,7 @@ test('lakes.stands-ranking.c1 lakes.stands-ranking.c2 lakes.stands-ranking.c3 la
   await expect(sort.locator('label')).toHaveText(['Kg total', 'Capturi', 'Record']);
   await expect(sort.getByRole('radio', { name: 'Kg total' })).toBeChecked();
   // c3
-  await expect(page.getByTestId('stands-count')).toHaveText(`${stands.length} standuri cu activitate`);
+  await expect(page.getByTestId('stands-count')).toHaveText(formatCount(stands.length, 'stand cu activitate', 'standuri cu activitate'));
   const rows = page.getByTestId('stand-rows').getByRole('listitem');
   await expect(rows).toHaveCount(stands.length);
   const byKg = [...stands].sort((a, b) => b.totalKg - a.totalKg || a.name.localeCompare(b.name, 'ro'));
@@ -860,13 +882,40 @@ test('lakes.anglers-ranking.c8 lakes.anglers-ranking.s3 — an empty or failed p
   await expect(aside).toContainText('Nicio partidă în această perioadă.');
 });
 
-test('lakes.anglers-ranking.c3 — fewer than three ranked anglers: the podium keeps its 2 · 1 · 3 shape with a ghost step', async ({ page }) => {
-  test.skip(chitaYear.topAnglers.length >= 3 || chitaYear.topAnglers.length === 0, 'needs one or two ranked anglers at Chita this year');
-  await go(page, `/balti/${ID.chita}/clasament?perioada=year`);
-  await expect(page.getByTestId('podium').locator('[data-ghost="3"]')).toHaveCount(1);
+test('lakes.anglers-ranking.s4 — fewer than three ranked anglers: the podium keeps its 2 · 1 · 3 shape with a ghost step', async ({ page }) => {
+  // Data-independent: the server read fails, the browser's read answers two ranked anglers.
+  await faults(page, ID.big, ['stats']);
+  const fixture = { ...bigYear, totals: { ...bigYear.totals, anglers: 2 }, topAnglers: bigYear.topAnglers.slice(0, 2) };
+  await page.route('**/feed/community/stats**', route => json(route, { data: fixture }));
+  await go(page, `/balti/${ID.big}/clasament?perioada=year`);
+  const podium = page.getByTestId('podium');
+  await expect(podium.locator('[data-rank]')).toHaveCount(2);
+  await expect(podium.locator('[data-ghost="3"]')).toHaveCount(1);
+  await expect(page.getByTestId('podium-only')).toHaveText('Doar podiumul are date pentru perioada asta.');
 });
 
-test('lakes.anglers-ranking.c3 — each podium column and row opens /pescari/[uid]', async ({ page }) => {
+test('lakes.anglers-ranking.c3 lakes.anglers-ranking.c5 lakes.anglers-ranking.c7 — an unweighed angler reads «—» (Statistici\'s rule), never «0,00 kg», on the podium, the rows and «EU»', async ({ page, context }) => {
+  await signIn(context, jwt, BASE);
+  await faults(page, ID.big, ['stats']);
+  const base = bigYear.topAnglers;
+  test.skip(base.length < 4, 'needs four ranked anglers at the big lake this year');
+  const fixture = {
+    ...bigYear,
+    topAnglers: [base[0], base[1], { ...base[2], totalKg: 0 }, { ...base[3], uid: me, totalKg: 0 }, ...base.slice(4)],
+  };
+  await page.route('**/feed/community/stats**', route => json(route, { data: fixture }));
+  await go(page, `/balti/${ID.big}/clasament?perioada=year`);
+  const third = page.getByTestId('podium').locator('[data-rank="3"]');
+  await expect(third.getByTestId('podium-kg')).toHaveText('—');
+  await expect(third.getByTestId('podium-kg')).toHaveClass(/text-muted/);
+  const row = page.getByTestId('angler-rows').getByRole('listitem').first();
+  await expect(row.getByTestId('rank-value')).toHaveText('—');
+  await expect(page.getByTestId('me-pill').locator('visible=true')).toContainText('Ești pe locul 4');
+  await expect(page.getByTestId('me-pill').locator('visible=true')).not.toContainText('kg');
+  await expect(page.getByTestId('ranking-content')).not.toContainText('0,00 kg');
+});
+
+test('lakes.anglers-ranking (c3 once /pescari/[id] ships, M2) — each podium column and row opens /pescari/[uid]', async ({ page }) => {
   // Blocked: /pescari/[id] is not on the web yet (availability.ts `angler`); flips on with it.
   test.skip(!LAKE_ON_WEB.angler, 'c3 waits on /pescari/[id] (LAKE_ON_WEB.angler)');
   await go(page, `/balti/${ID.big}/clasament?perioada=year`);
@@ -930,14 +979,6 @@ test('lakes.gallery.c8 lakes.catches.c5 — on a phone a horizontal swipe pages 
   await expect(box).toContainText(`Capturi · 2 din ${bigTotal}`);
   await swipe(r.x + r.width * 0.2, r.x + r.width * 0.8);
   await expect(box).toContainText(`Capturi · 1 din ${bigTotal}`);
-});
-
-test('lakes.b.inbound-links — the lake page leads to the ranking and the catches while /partide and /statistici are not on the web', async ({ page }) => {
-  test.skip(LAKE_ON_WEB.partide, 'the Partide page carries these links once it ships');
-  await go(page, `/balti/${ID.big}`, DESKTOP);
-  const section = page.locator('#partide');
-  await expect(section.getByRole('link', { name: 'Clasament' })).toHaveAttribute('href', `/balti/${ID.big}/clasament`);
-  await expect(section.getByRole('link', { name: 'Vezi capturile' })).toHaveAttribute('href', `/balti/${ID.big}/capturi`);
 });
 
 /* ============================================================================================== */
@@ -1073,7 +1114,7 @@ test('lakes.stands-ranking.c2 lakes.stands-ranking.s4 — a period switch with n
   await expect(header).toHaveText(/Anul curent$/);
 });
 
-test('lakes.anglers-ranking.c3 — from 768 the podium names the whole angler (first names collide) at the hero size', async ({ page }) => {
+test('lakes.anglers-ranking.s4 — from 768 the podium names the whole angler (first names collide) at the hero size', async ({ page }) => {
   await go(page, `/balti/${ID.big}/clasament?perioada=year`, DESKTOP);
   const a1 = bigYear.topAnglers[0];
   const first = page.getByTestId('podium').locator('[data-rank="1"]');
@@ -1115,4 +1156,18 @@ test('lakes.competitions.c2 — a tab press logs fish\'s competition_list_tab_pr
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __events: unknown[][] }).__events.filter(e => e[1] === 'competition_list_tab_pressed')))
     .toEqual([['event', 'competition_list_tab_pressed', { tab_id: 'past', screen_name: 'Competitions List', screen_class: 'Competitions List' }]]);
+});
+
+test('lakes.anglers-ranking.c1 — Clasament keeps the subpages\' two-line header (the columns hold still between Partide, Statistici, Clasament, Recenzii)', async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  const top = async (path: string) => {
+    await page.goto(path);
+    await expect(page.getByRole('navigation', { name: 'Pe această baltă' })).toBeVisible({ timeout: 60_000 });
+    return page.getByRole('navigation', { name: 'Pe această baltă' }).evaluate(e => Math.round(e.closest('aside')!.getBoundingClientRect().top));
+  };
+  const ranking = await top(`/balti/${ID.big}/clasament`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Clasament · ${lakes.get(ID.big)!.name}`);
+  await expect(page.getByText('Clasament pescari', { exact: true }).first()).toBeVisible();
+  expect(await top(`/balti/${ID.big}/statistici`)).toBe(ranking);
+  expect(await top(`/balti/${ID.big}/recenzii`)).toBe(ranking);
 });

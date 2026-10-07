@@ -6,9 +6,9 @@ import type { StatsPeriod } from '@/core/partide';
 import { routes } from '@/lib/routes';
 
 /*
- * «Pe această baltă» — the lake's pages, the same list in the left column of Partide, Statistici and
- * Recenzii from 1280 (the current one marked aria-current="page"), so moving between them works the
- * same way on each: the community pages (the rankings carry the period in view —
+ * «Pe această baltă» — the lake's pages, the same list in the left column of Partide, Statistici,
+ * Clasament pescari and Recenzii from 1280 (the current one marked aria-current="page"), so moving
+ * between them works the same way on each: the community pages (the rankings carry the period in view —
  * lakes.b.period-and-sort-in-url), then the lake's own (reviews, photos, map, competitions).
  * TODO(kit): ape-publice WaterPages is the same nav for a public water — one VenuePages in the kit.
  */

@@ -15,7 +15,10 @@ import { Dialog } from '@/components/surfaces/Dialog';
 import { H3_CLASS, type DetailFact } from '@/components/templates/T3';
 import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
-import { DIRECTIONS_UNAVAILABLE, directionsLinks, type PublicWaterFact } from '@/core/lakes';
+import { ChevronRightIcon } from '@heroicons/react/20/solid';
+import { formatDecimal, formatInt } from '@/components/cards/format';
+import { FactTile } from '@/components/ui/BentoTile';
+import { DIRECTIONS_UNAVAILABLE, directionsLinks, publicWaterFacts, type PublicWaterDetail } from '@/core/lakes';
 
 /*
  * Pieces of the public-water page that the T3 kit has no part for yet.
@@ -120,9 +123,121 @@ const FACT_ICON: Record<string, ReactNode> = {
   euCode: <HashtagIcon />,
 };
 
-/** fish «Detalii» facts as the kit's DetailFacts (the lake page's look: list in the aside, tiles below 1280). */
-export function waterDetailFacts(facts: PublicWaterFact[]): DetailFact[] {
-  return facts.map((f) => ({ ...f, icon: FACT_ICON[f.key] }));
+/** A numeric fact: fish's rounding (toFixed), drawn in Romanian notation, the unit a word of its own. */
+export type WaterFigure = { key: 'area' | 'volume' | 'elevation'; label: string; value: string; unit: string };
+
+/**
+ * The water's numeric facts (core publicWaterFacts' presence rules and fish's toFixed rounding),
+ * in Romanian notation — «0,18», never «0.18» beside the coordinates' «44,40606°» — with the unit
+ * apart (owner rule 10). formatDecimal / formatInt, not Intl: server and client draw the same string.
+ */
+export function waterFigures(water: Pick<PublicWaterDetail, 'areaKm2' | 'volumeMilM3' | 'elevationM'>): WaterFigure[] {
+  const out: WaterFigure[] = [];
+  if (water.areaKm2) out.push({ key: 'area', label: 'Suprafață', value: formatDecimal(Number(water.areaKm2.toFixed(2)), 2, 2), unit: 'km²' });
+  if (water.volumeMilM3) out.push({ key: 'volume', label: 'Volum', value: formatInt(Number(water.volumeMilM3.toFixed(0))), unit: 'mil. m³' });
+  if (water.elevationM) out.push({ key: 'elevation', label: 'Altitudine', value: formatInt(Number(water.elevationM.toFixed(0))), unit: 'm' });
+  return out;
+}
+
+/** «5,57 km²» inside a line: the figure at the line's weight, the unit smaller and muted after a no-break space. */
+function FigureValue({ figure }: { figure: WaterFigure }) {
+  return (
+    <span className="whitespace-nowrap tabular-nums">
+      {figure.value}
+      <span className="ms-0.5 t-caption text-muted">{`\u00a0${figure.unit}`}</span>
+    </span>
+  );
+}
+
+/** fish «Detalii» facts as the kit's DetailFacts (the list in the aside and the phone's «Detalii»). */
+export function waterDetailFacts(water: PublicWaterDetail): DetailFact[] {
+  const figures = waterFigures(water);
+  return publicWaterFacts(water).map((f) => {
+    const figure = figures.find((g) => g.key === f.key);
+    return { ...f, value: figure ? <FigureValue figure={figure} /> : f.value, icon: FACT_ICON[f.key] };
+  });
+}
+
+/**
+ * The bento's tiles: the figures but `omit` (the summary card's headline figure — one figure, one
+ * place), then the basin and the EU code. Fewer than two is no bento (never an orphan tile).
+ */
+export function waterBentoTiles(water: PublicWaterDetail, omit?: WaterFigure['key']) {
+  const figures = waterFigures(water).filter((f) => f.key !== omit);
+  const texts = publicWaterFacts(water).filter((f) => f.key === 'basin' || f.key === 'euCode');
+  return { figures, texts, count: figures.length + texts.length };
+}
+
+/**
+ * From 1024, when the water has no community sections: «Detalii» as a bento in the left column
+ * (owner rules 1, 9) — area, volume and altitude as fact tiles at the signature step, the basin and
+ * the EU code as small text tiles — so the page is not a map over a stub card.
+ */
+export function WaterDetailsBento({ water, omit, className }: { water: PublicWaterDetail; omit?: WaterFigure['key']; className?: string }) {
+  const { figures, texts, count } = waterBentoTiles(water, omit);
+  if (count < 2) return null;
+  const figSpan = figures.length === 1 ? 'col-span-6' : figures.length === 2 ? 'col-span-3' : 'col-span-2';
+  const textSpan = texts.length === 1 ? 'col-span-6' : 'col-span-3';
+  return (
+    <div className={cn('flex flex-col gap-3.5', className)} data-testid="water-details-bento">
+      <h3 className={H3_CLASS}>Detalii</h3>
+      <ul className="grid grid-cols-6 gap-2.5">
+        {figures.map((f) => (
+          <li key={f.key} className={figSpan}>
+            <FactTile label={f.label} icon={FACT_ICON[f.key]} value={f.value} unit={f.unit} className="h-full" />
+          </li>
+        ))}
+        {texts.map((f) => (
+          <li key={f.key} className={cn(textSpan, 'flex min-w-0 items-center gap-3 rounded-bento bg-page p-4')}>
+            <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent [&>svg]:size-4">
+              {FACT_ICON[f.key]}
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="t-label text-muted">{f.label}</span>
+              <span className="truncate t-body-strong text-ink">{f.value}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export type MoreLink = { key: string; label: string; icon: ReactNode; href: string; srSuffix?: string };
+
+/**
+ * The summary card's way to the water's other pages: full-width rows (icon, label, chevron) under a
+ * small «Mai multe despre apă» heading, a hairline above them — navigation, not tags.
+ */
+export function MoreAboutWater({ links }: { links: MoreLink[] }) {
+  if (!links.length) return null;
+  return (
+    <nav aria-labelledby="mai-multe-apa" className="flex flex-col gap-1 border-t border-hairline pt-4">
+      <h3 id="mai-multe-apa" className="t-label text-muted">
+        Mai multe despre apă
+      </h3>
+      <ul className="flex flex-col">
+        {links.map((l) => (
+          <li key={l.key} className="border-b border-hairline last:border-b-0">
+            <Link
+              href={l.href}
+              data-more={l.key}
+              className="-mx-2 flex min-h-12 items-center gap-3 rounded-control px-2 py-2.5 transition-colors duration-(--duration-fast) hover:bg-soft-fill focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              <span aria-hidden className="flex size-6 shrink-0 items-center justify-center text-accent [&>svg]:size-6">
+                {l.icon}
+              </span>
+              <span className="min-w-0 flex-1 t-body text-ink-2">
+                {l.label}
+                {l.srSuffix ? <span className="sr-only">{l.srSuffix}</span> : null}
+              </span>
+              <ChevronRightIcon aria-hidden className="size-5 shrink-0 text-muted" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
 }
 
 /**

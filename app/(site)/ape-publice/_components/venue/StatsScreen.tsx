@@ -29,6 +29,7 @@ import { ActivityChart } from './ActivityChart';
 import {
   AnglerAvatar,
   AnglerLink,
+  anglerSubtitle,
   ChipsSkeleton,
   EmptyIcon,
   PeriodChips,
@@ -41,10 +42,16 @@ import {
   VENUE_HEADER_INSET,
   VenueHeader,
   WaterPages,
-  kgText,
+  WaterTabs,
+  WaterTabsSkeleton,
+  WiderPeriodAction,
+  rankAnglers,
+  scoreText,
+  useShownPeriod,
 } from './bits';
 import { dayMonth } from './dates';
 import { PERIOD_OPTIONS } from '@/lib/stats-period';
+import { formatCount } from '@/core/realtime/chat/format';
 
 /*
  * Statisticile apei — fish app/(app)/public-waters/[id]/statistici.tsx → VenueStatsScreen (parity
@@ -97,8 +104,15 @@ export function StatsScreen({
   const switching = q.isFetching && q.isPlaceholderData;
   const isEmpty = !q.isPending && !q.isError && (data?.totals.partide ?? 0) === 0;
   const ready = !showError && data && !isEmpty ? data : null;
+  // c7: the period the figures belong to — the old one while a switch loads (useShownPeriod).
+  const shownPeriod = useShownPeriod(period, !!data && !q.isPlaceholderData);
 
-  const header = <VenueHeader className={VENUE_HEADER_INSET} title={title} description={CAPTION} backHref={backHref} onRefresh={async () => !(await q.refetch()).isError} />;
+  const header = (
+    <div className={VENUE_HEADER_INSET}>
+      <VenueHeader title={title} description={CAPTION} backHref={backHref} onRefresh={async () => !(await q.refetch()).isError} />
+      <WaterTabs waterKey={waterKey} current="statistici" period={period} />
+    </div>
+  );
 
   if (q.isPending && !failedBefore) return <StatsFallback title={title} backHref={backHref} />;
 
@@ -110,6 +124,7 @@ export function StatsScreen({
     <div data-testid="stats-empty">
       <DashboardEmpty
         title="Nicio partidă în perioada selectată."
+        action={<WiderPeriodAction period={shownPeriod} onChange={setPeriod} />}
         icon={
           <EmptyIcon>
             <ChartBarIcon aria-hidden />
@@ -118,15 +133,19 @@ export function StatsScreen({
       />
     </div>
   ) : (
-    <StatsMain data={ready} period={period} rankingHref={links.ranking(period)} />
+    <StatsMain data={ready} period={shownPeriod} rankingHref={links.ranking(period)} />
   );
 
   // The right column is there in EVERY state (from 1280): the centre track keeps its width, so an
-  // empty or failed period's card sits where the figures start, never across main + aside.
+  // empty or failed period's card sits where the figures start, never across main + aside. An
+  // empty period leaves the track bare: the centre card already says it (and offers the wider
+  // period); a second «nicio partidă» beside it would only repeat it.
   const aside = ready ? (
-    <StatsAside data={ready} period={period} empty={<QuietAside>Nicio captură cu record în această perioadă.</QuietAside>} />
+    <StatsAside data={ready} period={shownPeriod} empty={<QuietAside>Nicio captură cu record în această perioadă.</QuietAside>} />
+  ) : showError ? (
+    <QuietAside>Recordul și speciile apar când se încarcă perioada.</QuietAside>
   ) : (
-    <QuietAside>{showError ? 'Recordul și speciile apar când se încarcă perioada.' : 'Nicio partidă în această perioadă.'}</QuietAside>
+    <span aria-hidden data-testid="stats-aside-bare" />
   );
 
   return (
@@ -178,7 +197,7 @@ function QuietAside({ children }: { children: ReactNode }) {
 /** The left column from 1280: the period (as Clasament's) and the water's pages (as every sibling's). */
 function StatsContext({ period, onPeriod, waterKey }: { period: StatsPeriod; onPeriod: (p: StatsPeriod) => void; waterKey: string }) {
   return (
-    <FilterColumn title="Statistici">
+    <FilterColumn title="Opțiuni">
       <FilterSection title="Perioadă">
         <ChoiceChips name="perioada-col" layout="list" options={PERIOD_OPTIONS} value={period} onChange={onPeriod} />
       </FilterSection>
@@ -195,6 +214,7 @@ function StatsMain({ data, period, rankingHref }: { data: CommunityStatsDTO; per
   const today = useToday();
   const series = data.weeklySeries;
   const detail = useMemo(() => (today ? seriesDetailLabels(period, series.length, new Date(today)) : series.map((s) => s.label)), [period, series, today]);
+  const top = useMemo(() => rankAnglers(data.topAnglers).slice(0, 3), [data.topAnglers]);
   return (
     <>
       {/* fish StatStrip: partide · pescari · capturi (D1: deliberately no kg figure). */}
@@ -204,7 +224,7 @@ function StatsMain({ data, period, rankingHref }: { data: CommunityStatsDTO; per
           testId="activity-card"
           points={series.map((s, i) => ({ label: s.label, count: s.count, detail: detail[i] }))}
           noun={['captură', 'capturi']}
-          summary={`Activitate pe perioada aleasă: ${series.reduce((a, s) => a + s.count, 0)} capturi.`}
+          summary={`Activitate pe perioada aleasă: ${formatCount(series.reduce((a, s) => a + s.count, 0), 'captură', 'capturi')}.`}
         />
       ) : null}
       {data.topAnglers.length > 0 ? (
@@ -219,7 +239,7 @@ function StatsMain({ data, period, rankingHref }: { data: CommunityStatsDTO; per
           }
         >
           <ol aria-label="Top pescari" className="divide-y divide-hairline pt-1" data-testid="top-anglers">
-            {data.topAnglers.slice(0, 3).map((a, i) => (
+            {top.map((a, i) => (
               <TopAnglerRow key={a.uid} angler={a} rank={i + 1} />
             ))}
           </ol>
@@ -258,14 +278,19 @@ function StatsAside({ data, period, empty = null }: { data: CommunityStatsDTO; p
 export function StatsFallback({ title, backHref }: { title?: string; backHref: string }) {
   return (
     <DashboardPage
-      header={<VenueHeader className={VENUE_HEADER_INSET} title={title ?? <TitleBone label="Statistici" />} description={CAPTION} backHref={backHref} />}
+      header={
+        <div className={VENUE_HEADER_INSET}>
+          <VenueHeader title={title ?? <TitleBone label="Statistici" />} description={CAPTION} backHref={backHref} />
+          <WaterTabsSkeleton />
+        </div>
+      }
       toolbar={<ChipsSkeleton className="xl:hidden" />}
     >
       <div role="status" data-testid="stats-skeleton">
         <span className="sr-only">Se încarcă statisticile…</span>
         <DashboardLayout
           sidesBelowXl="hidden"
-          context={<FilterColumnSkeleton title="Statistici" sections={[3, 4]} />}
+          context={<FilterColumnSkeleton title="Opțiuni" sections={[3, 4]} />}
           main={
             <div aria-hidden className="flex flex-col gap-4 xl:gap-6">
               {/* PeriodNumbers' box: the strip card, three cells. */}
@@ -300,12 +325,10 @@ function TopAnglerRow({ angler, rank }: { angler: TopAngler; rank: number }) {
         <AnglerAvatar uid={angler.uid} name={name} src={angler.avatarUrl} size={32} />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate t-body-strong text-ink">{name}</span>
-          <span className="t-caption text-muted">
-            {angler.partide} {angler.partide === 1 ? 'partidă' : 'partide'} · {angler.catches} {angler.catches === 1 ? 'captură' : 'capturi'}
-          </span>
+          <span className="t-caption text-muted">{anglerSubtitle(angler)}</span>
         </span>
-        {/* The leader's weight in accent only when something was weighed: «—» (0 / none) is muted. */}
-        <span className={cn('shrink-0 t-body-strong tabular-nums', !isWeighed(angler.totalKg) ? 'text-muted' : rank === 1 ? 'text-accent-ink' : 'text-ink')}>{kgText(angler.totalKg)}</span>
+        {/* The weight, the leader's in accent; nothing weighed: the catches the order rests on, muted (scoreText). */}
+        <span className={cn('shrink-0 t-body-strong tabular-nums', !isWeighed(angler.totalKg) ? 'text-muted' : rank === 1 ? 'text-accent-ink' : 'text-ink')}>{scoreText(angler)}</span>
       </AnglerLink>
     </li>
   );

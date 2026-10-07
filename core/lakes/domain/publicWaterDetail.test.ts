@@ -81,12 +81,16 @@ describe('labels', () => {
 describe('detail', () => {
   it('facts only when present, formatted like fish', () => {
     expect(publicWaterFacts({ basin: 'XI', areaKm2: 5.57354554, volumeMilM3: 32.2, elevationM: 92.89, euCode: null })).toEqual([
-      { key: 'basin', label: 'Bazin hidrografic', value: 'XI' },
+      { key: 'basin', label: 'Bazin hidrografic', value: 'Ialomița' },
       { key: 'area', label: 'Suprafață', value: '5.57 km²' },
       { key: 'volume', label: 'Volum', value: '32 mil. m³' },
       { key: 'elevation', label: 'Altitudine', value: '93 m' },
     ]);
     expect(publicWaterFacts({ basin: null, areaKm2: null, volumeMilM3: null, elevationM: null, euCode: null })).toEqual([]);
+    // A basin code by its name (Dunărea's «XIV»), a name as is, an unknown code dropped.
+    expect(publicWaterFacts({ basin: 'XIV', areaKm2: null, volumeMilM3: null, elevationM: null, euCode: null })[0]?.value).toBe('Dunărea');
+    expect(publicWaterFacts({ basin: 'Dâmbovița', areaKm2: null, volumeMilM3: null, elevationM: null, euCode: null })[0]?.value).toBe('Dâmbovița');
+    expect(publicWaterFacts({ basin: 'XLV', areaKm2: null, volumeMilM3: null, elevationM: null, euCode: null })).toEqual([]);
   });
 
   it('section chips in order; Capturi on photos OR species', () => {

@@ -115,7 +115,7 @@ const historyPage = (rows: number) => ({ data: Array.from({ length: rows }, (_, 
 const emptyHistory = historyPage(0);
 const emptySection = { data: { stats: { activeNow: 0, catchesThisMonth: 0, recordKg: null }, activeSessions: [], monthlyActivity: [], speciesCounts: [] } };
 
-const angler = (i: number, uid = `a${i}`) => ({ uid, name: `Pescar ${i} Popescu`, avatarUrl: null as string | null, partide: 10 - i, catches: 20 - i, totalKg: 50 - i * 5 });
+const angler = (i: number, uid = `a${i}`) => ({ uid, name: `Pescar ${i} Popescu` as string | null, avatarUrl: null as string | null, partide: 10 - i, catches: 20 - i, totalKg: 50 - i * 5 });
 const stats = (period: string, o: Partial<{ partide: number; anglers: number; top: ReturnType<typeof angler>[]; species: { name: string; count: number; pct: number }[]; record: unknown; series: { label: string; count: number }[] }> = {}) => ({
   data: {
     period,
@@ -151,6 +151,7 @@ test.describe('public-waters subpages — the water', () => {
       try {
         await page.goto(`/ape-publice/${TIN.id}/${sub}`);
         await expect(page.getByRole('heading', { name: 'Apa publică nu a fost găsită.' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Încearcă din nou' })).toHaveCount(0);
         // A dataset failure keeps its retry.
         await setFaults(page, TIN.id, ['error']);
         await page.goto(`/ape-publice/${TIN.id}/${sub}`);
@@ -181,31 +182,82 @@ test.describe('public-waters subpages — the water', () => {
  * ========================================================================================== */
 
 test.describe('public-waters.partide', () => {
-  test('public-waters.partide.c2 c9 c10 public-waters.partide.s7 s8 — real data: history paginates, the statistics card', async ({ page }) => {
+  test('public-waters.partide.c2 public-waters.partide.s7 — real data: the header and the history', async ({ page, request }) => {
     const errors = watchConsole(page);
+    // Whatever the local CMS holds today: the first page is its first min(total, 10) partide.
+    const total = (await (await request.get(`${CMS}/feed/community/history?page=1&pageSize=10&venue=${encodeURIComponent(`water:${TIN.code}`)}`)).json()).meta.pagination.total as number;
     await page.setViewportSize(DESKTOP);
     await page.goto(`/ape-publice/${TIN.id}/partide`);
     await expect(page.getByRole('heading', { level: 1, name: TIN.name })).toBeVisible();
     await expect(page.getByText('Partide pe apă', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Înapoi' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Partide încheiate' })).toBeVisible();
-    const cards = page.getByTestId('history-card');
-    // The first page is 10; on a tall window the footer is already near the viewport and the next
-    // page may follow at once.
-    await expect.poll(() => cards.count()).toBeGreaterThanOrEqual(10);
-    // c10: the next page loads near the end of the list; 12 distinct partide in all.
-    await cards.last().scrollIntoViewIfNeeded();
-    await page.mouse.wheel(0, 3000);
-    await expect(cards).toHaveCount(12);
-    const ids = await cards.evaluateAll((els) => els.map((e) => e.textContent));
-    expect(ids.length).toBe(12);
-    // c9: the statistics card opens the water's statistics.
-    const cta = page.locator('[data-testid="stats-cta"]:visible');
-    await expect(cta).toContainText('Statisticile apei');
-    await expect(cta).toContainText('Top pescari, standuri și recorduri');
-    await expect(cta).toHaveAttribute('href', `/ape-publice/${CODE}/statistici`);
+    if (total > 0) {
+      await expect(page.getByRole('heading', { name: 'Partide încheiate' })).toBeVisible();
+      await expect.poll(() => page.getByTestId('history-card').count()).toBeGreaterThanOrEqual(Math.min(total, 10));
+    }
     await expectNoA11yViolations(page);
     expect(errors).toEqual([]);
+  });
+
+  test('public-waters.partide.c9 c10 public-waters.partide.s7 s8 — the statistics card; history pages of 10, de-duplicated', async ({ page }) => {
+    await clientReads(page, async () => {
+      const pages: number[] = [];
+      await page.route(venueUrl, fulfill(emptySection));
+      await page.route(catchesUrl, fulfill(catchesPage(1, 0)));
+      await page.route(historyUrl, (route) => {
+        const url = new URL(route.request().url());
+        const n = Number(url.searchParams.get('page') ?? '1');
+        pages.push(n);
+        expect(url.searchParams.get('pageSize')).toBe('10');
+        // Page 2 repeats the last row of page 1 (a partidă finished between the reads): shown once.
+        const rows = n === 1 ? Array.from({ length: 10 }, (_, i) => historyRow(i)) : [historyRow(9), historyRow(10), historyRow(11)];
+        return fulfill({ data: rows, meta: { pagination: { page: n, pageSize: 10, pageCount: 2, total: 13 } } })(route);
+      });
+      await page.setViewportSize(DESKTOP);
+      await page.goto(`/ape-publice/${TIN.id}/partide`);
+      const cards = page.getByTestId('history-card');
+      await expect.poll(() => cards.count()).toBeGreaterThanOrEqual(10);
+      // c10: the next page near the end of the list.
+      await cards.last().scrollIntoViewIfNeeded();
+      await page.mouse.wheel(0, 3000);
+      await expect(cards).toHaveCount(12);
+      expect(pages).toEqual([1, 2]);
+      // c9: the statistics card opens the water's statistics.
+      const cta = page.locator('[data-testid="stats-cta"]:visible');
+      await expect(cta).toContainText('Statisticile apei');
+      // A water's Statistici has no stands (statistici.c11): the caption never promises them.
+      await expect(cta).toContainText('Top pescari, recorduri și specii');
+      await expect(cta).not.toContainText('standuri');
+      await expect(cta).toContainText('Vezi statisticile');
+      await expect(cta).toHaveAttribute('href', `/ape-publice/${CODE}/statistici`);
+      await cta.click();
+      await expect(page).toHaveURL(new RegExp(`/ape-publice/${CODE.replace(/[.%]/g, '\\$&')}/statistici$`));
+    });
+  });
+
+  test('public-waters.partide.c8 — rail tiles: kg, initials, «acum» / «acum N min» / «acum N h» under a day, else the short date', async ({ page }) => {
+    await clientReads(page, async () => {
+      const at = (i: number, iso: string) => ({ ...aCatch(i, `s${i}`), occurredAt: iso, angler: { uid: `u${i}`, name: 'Ana Maria', avatarUrl: null } });
+      const now = Date.now();
+      const data = [at(1, new Date(now - 20_000).toISOString()), at(2, new Date(now - 2 * 3_600_000 - 60_000).toISOString()), at(3, '2026-07-27T10:00:00.000Z')];
+      await page.route(venueUrl, fulfill(emptySection));
+      await page.route(historyUrl, fulfill(historyPage(1)));
+      await page.route(catchesUrl, fulfill({ data, meta: { pagination: { page: 1, pageSize: 20, pageCount: 1, total: 3 } } }));
+      for (const size of [PHONE, DESKTOP]) {
+        await page.setViewportSize(size);
+        await page.goto(`/ape-publice/${TIN.id}/partide`);
+        const rail = page.locator('[data-testid="catches-rail"]:visible');
+        await expect(rail.getByRole('heading')).toHaveText('Ultimele capturi');
+        const tiles = rail.getByRole('link');
+        await expect(tiles).toHaveCount(3);
+        await expect(tiles.nth(0)).toHaveText(/^2,1\s*kgAM\s*acum$/);
+        await expect(tiles.nth(1)).toContainText('acum 2 h');
+        await expect(tiles.nth(2)).toContainText('27 IUL');
+        await expect(tiles.nth(2)).not.toContainText('acum');
+        await expect(tiles.nth(1)).toHaveAccessibleName('Deschide captura: Crap, 2,2 kg, Ana Maria');
+        for (const [i, tile] of (await tiles.all()).entries()) await expect(tile).toHaveAttribute('href', `/ape-publice/${CODE}/capturi?foto=c${i + 1}`);
+      }
+    });
   });
 
   test('public-waters.partide.c3 public-waters.partide.s3 — the skeleton while a feed is pending', async ({ page }) => {
@@ -378,27 +430,30 @@ test.describe('public-waters.partide', () => {
  * ========================================================================================== */
 
 test.describe('public-waters.statistici', () => {
-  test('public-waters.statistici.c2 c3 c8 c9 c11 public-waters.statistici.s7 — real data (year): content order, «Clasament ›» carries the period', async ({ page }) => {
+  test('public-waters.statistici.c2 c3 c8 c9 c11 public-waters.statistici.s7 — real data (year): content order, «Clasament ›» carries the period', async ({ page, request }) => {
     const errors = watchConsole(page);
+    // The figures are whatever the local CMS holds today (never hard-coded: local data drifts).
+    const year = (await (await request.get(`${CMS}/feed/community/stats?period=year&venue=${encodeURIComponent(`water:${TIN.code}`)}`)).json()).data;
+    test.skip(year.totals.partide === 0 || year.topAnglers.length === 0, 'needs a year of partide on Lacul Tineretului in the local CMS');
     await page.setViewportSize(DESKTOP);
     await page.goto(`/ape-publice/${TIN.id}/statistici?perioada=year`);
     await expect(page.getByRole('heading', { level: 1, name: TIN.name })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Anul curent' })).toBeChecked();
     const strip = page.getByTestId('stat-strip');
-    await expect(strip).toContainText('12');
-    await expect(strip).toContainText('partide');
+    await expect(strip).toContainText(String(year.totals.partide));
+    await expect(strip).toContainText(year.totals.partide === 1 ? 'partidă' : 'partide');
     await expect(page.getByText('Statisticile apei', { exact: true })).toBeVisible();
     // c2: the back control at every width (the family's header).
     await expect(page.getByRole('button', { name: 'Înapoi' })).toBeVisible();
     await expect(page.getByTestId('activity-card')).toBeVisible();
-    await expect(page.getByTestId('top-anglers').getByRole('listitem')).toHaveCount(3);
+    await expect(page.getByTestId('top-anglers').getByRole('listitem')).toHaveCount(Math.min(3, year.topAnglers.length));
     // c9: «Clasament ›» and the left column's link both carry the period.
     const toRanking = page.getByRole('link', { name: 'Clasament' });
     await expect(toRanking).toHaveCount(2);
     for (const link of await toRanking.all()) await expect(link).toHaveAttribute('href', `/ape-publice/${CODE}/clasament?perioada=year`);
     // From 1280 three columns, as Clasament: the period in the left column.
     await expect(page.getByRole('complementary', { name: 'Perioada și paginile apei' })).toBeVisible();
-    await expect(page.locator('[data-testid="species-card"]:visible')).toContainText('Crap');
+    if (year.species.length) await expect(page.locator('[data-testid="species-card"]:visible')).toContainText(year.species[0].name);
     // c11: never «Top standuri» on a public water.
     await expect(page.getByText('Top standuri')).toHaveCount(0);
     // c3: switching the period replaces the URL (no new history entry).
@@ -408,19 +463,77 @@ test.describe('public-waters.statistici', () => {
     expect(await page.evaluate(() => history.length)).toBe(length);
     await chip(page, 'Luna').click();
     await expect(page).toHaveURL(/statistici$/);
-    // Settled (the switch is over) before the contrast audit.
-    await expect(page.getByTestId('stats-empty')).toBeVisible();
+    // Settled (the switch is over) before the contrast audit — the month may or may not have partide.
+    await expect(page.getByTestId('stats-empty').or(page.getByTestId('stat-strip'))).toBeVisible();
     await expect(page.getByTestId('switching-bar')).toHaveCount(0);
     await expectNoA11yViolations(page);
     expect(errors).toEqual([]);
   });
 
   test('public-waters.statistici.c3 c6 public-waters.statistici.s5 — unknown period → month; an empty period keeps the chips', async ({ page }) => {
-    await page.setViewportSize(PHONE);
-    await page.goto(`/ape-publice/${TIN.id}/statistici?perioada=decenii`);
-    await expect(page.getByRole('radio', { name: 'Luna' })).toBeChecked();
-    await expect(page.getByTestId('stats-empty')).toHaveText('Nicio partidă în perioada selectată.');
-    await expect(page.getByTestId('period-chips')).toBeVisible();
+    await clientReads(page, async () => {
+      const asked: string[] = [];
+      await page.route(statsUrl, (route) => {
+        const url = new URL(route.request().url());
+        asked.push(`${url.searchParams.get('period')}|${url.searchParams.get('venue')}`);
+        return fulfill(stats(url.searchParams.get('period') ?? 'month', { partide: 0, anglers: 0, top: [], species: [], record: null, series: [] }))(route);
+      });
+      for (const size of [PHONE, DESKTOP]) {
+        await page.setViewportSize(size);
+        await page.goto(`/ape-publice/${TIN.id}/statistici?perioada=decenii`);
+        await expect(page.getByRole('radio', { name: 'Luna' }).locator('visible=true')).toBeChecked();
+        await expect(page.getByTestId('stats-empty')).toContainText('Nicio partidă în perioada selectată.');
+        // c6: the chips stay, and they still switch.
+        await expect(chip(page, 'Săptămâna')).toBeVisible();
+        await expect(page.getByTestId('stat-strip')).toHaveCount(0);
+      }
+      expect(asked[0]).toBe(`month|water:${TIN.code}`);
+      await chip(page, 'Săptămâna').click();
+      await expect(page).toHaveURL(/statistici\?perioada=week$/);
+      await expect(page.getByTestId('stats-empty')).toContainText('Nicio partidă în perioada selectată.');
+    });
+  });
+
+  test('public-waters.statistici.c11 c12 — never «Top standuri» on a water; cached per period for 60s; a failed read is not retried', async ({ page }) => {
+    watchConsole(page, [/500/, /Failed to load resource/]);
+    await clientReads(page, async () => {
+      const asked: string[] = [];
+      let broken = false;
+      const stand = { standId: 's1', name: '7', partide: 3, catches: 5, totalKg: 12, recordKg: 4 };
+      await page.route(statsUrl, (route) => {
+        const period = new URL(route.request().url()).searchParams.get('period') ?? 'month';
+        asked.push(period);
+        if (broken) return fail(route);
+        const body = stats(period);
+        return fulfill({ data: { ...body.data, stands: [stand] } })(route);
+      });
+      await page.clock.install();
+      await page.setViewportSize(DESKTOP);
+      await page.goto(`/ape-publice/${TIN.id}/statistici`);
+      await expect(page.getByTestId('stat-strip')).toContainText('7');
+      // c11: the CMS may send stands; a water never shows them.
+      await expect(page.getByText('Top standuri')).toHaveCount(0);
+      await expect(page.getByText('Stand 7')).toHaveCount(0);
+      // c12: month → week → month inside 60s: the month comes from the cache.
+      await chip(page, 'Săptămâna').click();
+      await expect(page).toHaveURL(/perioada=week$/);
+      await expect(page.getByTestId('switching-bar')).toHaveCount(0);
+      await chip(page, 'Luna').click();
+      await expect(page.getByTestId('stat-strip')).toBeVisible();
+      expect(asked).toEqual(['month', 'week']);
+      // Past 60s the month is stale: going back to it reads it again.
+      await page.clock.runFor(61_000);
+      await chip(page, 'Săptămâna').click();
+      await expect.poll(() => asked.length).toBe(3);
+      expect(asked[2]).toBe('week');
+      // A failed read is one request: no automatic retry.
+      broken = true;
+      await page.clock.runFor(61_000);
+      await chip(page, 'Anul curent').click();
+      await expect(page.getByTestId('stats-error')).toBeVisible();
+      await page.clock.runFor(30_000);
+      expect(asked.filter((p) => p === 'year')).toHaveLength(1);
+    });
   });
 
   test('public-waters.statistici.c4 c7 c12 public-waters.statistici.s3 s6 — skeleton, then the switch dims the previous period', async ({ page }) => {
@@ -551,8 +664,10 @@ test.describe('public-waters.statistici', () => {
  * ========================================================================================== */
 
 test.describe('public-waters.clasament', () => {
-  test('public-waters.clasament.c2 c3 c5 c6 c7 public-waters.clasament.s6 — real data (year): podium only', async ({ page }) => {
+  test('public-waters.clasament.c2 c5 c6 public-waters.clasament.s6 — real data (year)', async ({ page, request }) => {
     const errors = watchConsole(page);
+    const year = (await (await request.get(`${CMS}/feed/community/stats?period=year&venue=${encodeURIComponent(`water:${TIN.code}`)}`)).json()).data;
+    test.skip(year.topAnglers.length < 3, 'needs three ranked anglers this year on Lacul Tineretului in the local CMS');
     await page.setViewportSize(PHONE);
     await page.goto(`/ape-publice/${TIN.id}/clasament?perioada=year`);
     // c2 (the family header, parity note): the water's name, «Clasamentul apei» under it.
@@ -561,7 +676,8 @@ test.describe('public-waters.clasament', () => {
     const podium = page.getByTestId('podium');
     await expect(podium.locator('[data-rank]')).toHaveCount(3);
     expect(await podium.locator('[data-rank]').evaluateAll((els) => els.map((e) => e.getAttribute('data-rank')))).toEqual(['2', '1', '3']);
-    await expect(page.getByTestId('podium-only')).toHaveText('Doar podiumul are date pentru perioada asta.');
+    if (year.topAnglers.length === 3) await expect(page.getByTestId('podium-only')).toHaveText('Doar 3 pescari au partide în această perioadă.');
+    else await expect(page.getByTestId('angler-rows').getByRole('listitem')).toHaveCount(year.topAnglers.length - 3);
     // c6: Pescari / Specii only.
     const seg = page.getByRole('group', { name: 'Arată' });
     await expect(seg.getByRole('radio')).toHaveCount(2);
@@ -594,14 +710,95 @@ test.describe('public-waters.clasament', () => {
       await expect(rows.first()).toContainText('6 partide · 16 capturi');
       await expect(rows.first()).toContainText('30,0 kg');
       await page.getByRole('group', { name: 'Arată' }).getByText('Specii').click();
-      await expect(page.getByTestId('species-rows').getByRole('listitem').first()).toContainText('20 capturi');
+      await expect(page.getByTestId('species-rows').getByRole('listitem').first()).toContainText('20 de capturi');
       await expect(page.getByTestId('species-rows').getByRole('listitem').first()).toContainText('65%');
       mode = 'empty';
       await page.getByTestId('period-chips').getByText('Săptămâna', { exact: true }).click();
-      await expect(page.getByTestId('ranking-empty')).toHaveText('Niciun clasament pentru perioada selectată încă.');
+      await expect(page.getByTestId('ranking-empty')).toContainText('Niciun clasament pentru perioada selectată încă.');
+      await expect(page.getByTestId('ranking-empty').getByRole('button', { name: 'Vezi luna' })).toBeVisible();
       mode = 'fail';
       await page.getByTestId('period-chips').getByText('Anul curent', { exact: true }).click();
-      await expect(page.getByTestId('stats-error')).toContainText('Nu am putut încărca statisticile.');
+      // The error names the page (not Statistici's copy).
+      await expect(page.getByTestId('ranking-error')).toContainText('Nu am putut încărca clasamentul.');
+      await expect(page.getByTestId('stats-error')).toHaveCount(0);
+      await expectNoA11yViolations(page);
+    });
+  });
+
+  test('public-waters.clasament.c3 — chips from ?perioada= (default month), switching replaces the URL', async ({ page }) => {
+    await clientReads(page, async () => {
+      const asked: string[] = [];
+      await page.route(statsUrl, (route) => {
+        const period = new URL(route.request().url()).searchParams.get('period') ?? 'month';
+        asked.push(period);
+        return fulfill(stats(period))(route);
+      });
+      for (const [query, label] of [['', 'Luna'], ['?perioada=week', 'Săptămâna'], ['?perioada=year', 'Anul curent'], ['?perioada=zi', 'Luna']] as const) {
+        await page.goto(`/ape-publice/${TIN.id}/clasament${query}`);
+        await expect(page.getByRole('radio', { name: label }).locator('visible=true')).toBeChecked();
+      }
+      // Each load read its own period (an unknown one is the month).
+      expect(asked.slice(0, 3)).toEqual(['month', 'week', 'year']);
+      expect(new Set(asked.slice(3))).toEqual(new Set(asked.length > 3 ? ['month'] : []));
+      await page.goto(`/ape-publice/${TIN.id}/clasament`);
+      await expect(page.getByTestId('podium')).toBeVisible();
+      const length = await page.evaluate(() => history.length);
+      await chip(page, 'Anul curent').click();
+      await expect(page).toHaveURL(/clasament\?perioada=year$/);
+      await chip(page, 'Luna').click();
+      await expect(page).toHaveURL(/clasament$/);
+      expect(await page.evaluate(() => history.length)).toBe(length);
+    });
+  });
+
+  test('public-waters.clasament.c6 c7 c8 — Pescari / Specii only; row copy, «Pescar» fallback, singulars; podium only; empty species', async ({ page }) => {
+    await clientReads(page, async () => {
+      let mode: 'rows' | 'podium' = 'rows';
+      const loner = { uid: 'a9', name: null, avatarUrl: null, partide: 1, catches: 1, totalKg: 2.5 };
+      await page.route(statsUrl, (route) => {
+        const period = new URL(route.request().url()).searchParams.get('period') ?? 'month';
+        if (mode === 'podium') return fulfill(stats(period, { top: [angler(1), angler(2), angler(3)], species: [] }))(route);
+        return fulfill(stats(period, { top: [angler(1), angler(2), angler(3), angler(4), loner], species: [{ name: 'Crap', count: 21, pct: 95 }, { name: 'Șalău', count: 1, pct: 5 }] }))(route);
+      });
+      for (const size of [PHONE, DESKTOP]) {
+        await page.setViewportSize(size);
+        mode = 'rows';
+        await page.goto(`/ape-publice/${TIN.id}/clasament`);
+        // c6: only «Pescari» and «Specii».
+        const seg = page.getByRole('group', { name: 'Arată' });
+        await expect(seg.getByRole('radio')).toHaveCount(2);
+        await expect(seg.getByRole('radio', { name: 'Pescari' })).toBeChecked();
+        await expect(seg.getByRole('radio', { name: 'Specii' })).toHaveCount(1);
+        // c7: rows from rank 4.
+        const rows = page.getByTestId('angler-rows').getByRole('listitem');
+        await expect(rows).toHaveCount(2);
+        await expect(rows.nth(0)).toContainText('4');
+        await expect(rows.nth(0)).toContainText('6 partide · 16 capturi');
+        await expect(rows.nth(0)).toContainText('30,0 kg');
+        await expect(rows.nth(1)).toContainText('5');
+        await expect(rows.nth(1)).toContainText('Pescar');
+        await expect(rows.nth(1)).toContainText('1 partidă · 1 captură');
+        await expect(rows.nth(1)).toContainText('2,5 kg');
+        // fish initialsOf(null): «?» on the disc, never the fallback name's letters.
+        await expect(rows.nth(1).getByTestId('angler-avatar')).toHaveText('?');
+        // c8: Specii rows.
+        await seg.getByText('Specii').click();
+        const species = page.getByTestId('species-rows').getByRole('listitem');
+        await expect(species).toHaveCount(2);
+        await expect(species.nth(0)).toContainText('Crap');
+        await expect(species.nth(0)).toContainText('21 de capturi');
+        await expect(species.nth(0)).toContainText('95%');
+        await expect(species.nth(1)).toContainText('Șalău');
+        await expect(species.nth(1)).toContainText('1 captură');
+        await expect(species.nth(1)).toContainText('5%');
+        // ≤3 anglers: the podium only; no species: the empty copy.
+        mode = 'podium';
+        await page.goto(`/ape-publice/${TIN.id}/clasament?perioada=week`);
+        await expect(page.getByTestId('podium-only')).toHaveText('Doar 3 pescari au partide în această perioadă.');
+        await expect(page.getByTestId('angler-rows')).toHaveCount(0);
+        await page.getByRole('group', { name: 'Arată' }).getByText('Specii').click();
+        await expect(page.getByTestId('species-empty')).toHaveText('Nicio specie înregistrată în această perioadă.');
+      }
       await expectNoA11yViolations(page);
     });
   });
@@ -615,7 +812,7 @@ test.describe('public-waters.clasament', () => {
       await page.setViewportSize(DESKTOP);
       await page.goto(`/ape-publice/${TIN.id}/clasament`);
       const pill = page.locator('[data-testid="me-pill"]:visible');
-      await expect(pill).toHaveText(/Ești pe locul 5 din 9 luna asta — 25,0 kg/);
+      await expect(pill).toContainText('Ești pe locul 5 din 9 pescari luna asta — 25,0 kg');
       // From 1280 in the right column.
       await expect(page.getByRole('complementary', { name: 'Poziția ta și perioada' }).getByTestId('me-pill')).toBeVisible();
       // Below 1280 after the rows (the fish order), at the list's full width.
@@ -676,7 +873,7 @@ test.describe('public-waters.clasament', () => {
       const content = page.getByTestId('ranking-content');
       await expect(page.getByTestId('podium')).toBeVisible();
       await chip(page, 'Anul curent').click();
-      await expect(page.getByTestId('switching-bar')).toBeVisible();
+      await expect(content.getByTestId('switching-bar')).toBeVisible();
       await expect(content).toHaveAttribute('inert', '');
       await expect(content).toHaveAttribute('aria-busy', 'true');
       await expect(content).toHaveCSS('opacity', '1');
@@ -769,6 +966,8 @@ test.describe('public-waters.capturi', () => {
       await expect(box).toContainText('Captura 2 din 25');
       await expect(box).toContainText('2,1');
       await expect(box).toContainText('Pescar 1');
+      // axe reads colours mid fade-in (the dialog's opacity blends them): let the finite animations land.
+      await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))));
       await expectNoA11yViolations(page);
       await page.keyboard.press('Escape');
       await expect(box).toBeHidden();
@@ -867,6 +1066,306 @@ test.describe('public-waters.capturi', () => {
       broken = false;
       await page.getByRole('button', { name: 'Încearcă din nou' }).click();
       await expect(page.getByTestId('catch-grid').getByRole('button')).toHaveCount(3);
+    });
+  });
+});
+
+/* ============================================================================================
+ * Review 2026-10-07: the family's way out of an empty period, the sibling tabs below 1280, the
+ * unweighed ranking, the medal ranks, the period the labels name during a switch.
+ * ========================================================================================== */
+
+test.describe('public-waters subpages — the period, the siblings, the unweighed ranking', () => {
+  test('public-waters.statistici.c6 public-waters.clasament.c4 — an empty period offers the wider one; the aside never repeats it', async ({ page }) => {
+    await clientReads(page, async () => {
+      await page.route(statsUrl, (route) => {
+        const period = new URL(route.request().url()).searchParams.get('period') ?? 'month';
+        const empty = { partide: 0, anglers: 0, top: [], species: [], record: null, series: [] };
+        return fulfill(stats(period, period === 'year' ? {} : empty))(route);
+      });
+      for (const size of [PHONE, DESKTOP]) {
+        await page.setViewportSize(size);
+        // Statistici: Luna (default) empty → «Vezi anul curent» opens the year.
+        await page.goto(`/ape-publice/${TIN.id}/statistici`);
+        const empty = page.getByTestId('stats-empty');
+        await expect(empty).toContainText('Nicio partidă în perioada selectată.');
+        // One statement of the fact: no «Nicio partidă în această perioadă.» in the right column.
+        await expect(page.getByText('Nicio partidă în această perioadă.')).toHaveCount(0);
+        await empty.getByRole('button', { name: 'Vezi anul curent' }).click();
+        await expect(page).toHaveURL(/statistici\?perioada=year$/);
+        await expect(page.getByTestId('stat-strip').locator('visible=true').first()).toBeVisible();
+        // Săptămâna empty → «Vezi luna»; the year has nothing wider.
+        await page.goto(`/ape-publice/${TIN.id}/statistici?perioada=week`);
+        await expect(page.getByTestId('stats-empty').getByRole('button', { name: 'Vezi luna' })).toBeVisible();
+        // Clasament: the same way out.
+        await page.goto(`/ape-publice/${TIN.id}/clasament`);
+        const rEmpty = page.getByTestId('ranking-empty');
+        await expect(rEmpty).toContainText('Niciun clasament pentru perioada selectată încă.');
+        await expect(page.getByText('Nicio partidă în această perioadă.')).toHaveCount(0);
+        await rEmpty.getByRole('button', { name: 'Vezi anul curent' }).click();
+        await expect(page).toHaveURL(/clasament\?perioada=year$/);
+        await expect(page.getByTestId('podium')).toBeVisible();
+      }
+      await expectNoA11yViolations(page);
+    });
+  });
+
+  test('public-waters.partide.c2 public-waters.statistici.c2 public-waters.clasament.c2 — below 1280 the water’s pages are tabs under the header', async ({ page }) => {
+    await clientReads(page, async () => {
+      await page.route(venueUrl, fulfill(emptySection));
+      await page.route(catchesUrl, fulfill(catchesPage(1, 0)));
+      await page.route(historyUrl, fulfill(historyPage(2)));
+      // An empty period: the tabs are the only way to a sibling besides back.
+      await page.route(statsUrl, (route) => fulfill(stats(new URL(route.request().url()).searchParams.get('period') ?? 'month', { partide: 0, top: [], species: [], record: null, series: [] }))(route));
+      const subs = [
+        ['partide', 'Partide'],
+        ['statistici', 'Statistici'],
+        ['clasament', 'Clasament'],
+      ] as const;
+      for (const [sub, label] of subs) {
+        await page.setViewportSize(PHONE);
+        await page.goto(`/ape-publice/${TIN.id}/${sub}`);
+        const tabs = page.getByTestId('water-tabs').getByRole('navigation', { name: 'Pe această apă' });
+        await expect(tabs).toBeVisible();
+        await expect(tabs.getByRole('link')).toHaveText(['Partide', 'Statistici', 'Clasament', 'Capturi']);
+        await expect(tabs.getByRole('link', { name: label })).toHaveAttribute('aria-current', 'page');
+        // Under the header, above the content.
+        const [h1, nav] = await Promise.all([page.getByRole('heading', { level: 1 }).boundingBox(), tabs.boundingBox()]);
+        expect(nav!.y).toBeGreaterThan(h1!.y);
+        // From 1280 the left column's list takes over: the row is gone.
+        await page.setViewportSize(DESKTOP);
+        await expect(page.getByTestId('water-tabs')).toBeHidden();
+        await expect(page.getByTestId('water-pages')).toBeVisible();
+      }
+      // The tabs move between siblings.
+      await page.setViewportSize(PHONE);
+      await page.getByTestId('water-tabs').getByRole('link', { name: 'Partide' }).click();
+      await expect(page).toHaveURL(new RegExp(`/ape-publice/${CODE.replace(/[.%]/g, '\\$&')}/partide$`));
+      await expectNoA11yViolations(page);
+    });
+  });
+
+  test('public-waters.clasament.c5 c7 c8 public-waters.statistici.c8 — nothing weighed: catches explain the order; species ranks in medal colours', async ({ page }) => {
+    await clientReads(page, async () => {
+      // The CMS order when nothing is weighed (kg ties → uid): a1 2 capturi, a2 7, a3 5, a4 7 with more partide.
+      const NAMES = ['Ana Pop', 'Bogdan Ion', 'Cristi Mihai', 'Dan Radu'];
+      const un = (i: number, catches: number, partide: number) => ({ ...angler(i), name: NAMES[i - 1], totalKg: 0, catches, partide });
+      const top = [un(1, 2, 1), un(2, 7, 1), un(3, 5, 2), un(4, 7, 3)];
+      await page.route(statsUrl, fulfill(stats('month', { top })));
+      await page.setViewportSize(PHONE);
+      await page.goto(`/ape-publice/${TIN.id}/clasament`);
+      const podium = page.getByTestId('podium');
+      // Ordered by catches, then partide: 1st Dan (7, 3 partide), 2nd Bogdan (7, 1), 3rd Cristi (5).
+      await expect(podium.locator('[data-rank="1"]')).toContainText('Dan');
+      await expect(podium.locator('[data-rank="2"]')).toContainText('Bogdan');
+      await expect(podium.locator('[data-rank="3"]')).toContainText('Cristi');
+      await expect(podium.locator('[data-rank="1"] [data-testid="podium-score"]')).toHaveText('7 capturi');
+      await expect(podium.locator('[data-rank="2"] [data-testid="podium-score"]')).toHaveText('7 capturi');
+      await expect(podium.locator('[data-rank="3"] [data-testid="podium-score"]')).toHaveText('5 capturi');
+      await expect(podium.getByText('— kg')).toHaveCount(0);
+      const rows = page.getByTestId('angler-rows').getByRole('listitem');
+      await expect(rows).toHaveCount(1);
+      await expect(rows.first()).toContainText('Ana Pop');
+      await expect(rows.first()).toContainText('2 capturi');
+      await expect(rows.first()).not.toContainText('— kg');
+      // c8: the top three species ranks in gold, silver, bronze (fish RankBadge rankColor), the 4th muted.
+      await page.unroute(statsUrl);
+      const species = ['Crap', 'Caras', 'Somn', 'Știucă'].map((name, i) => ({ name, count: 10 - i, pct: 40 - i * 10 }));
+      await page.route(statsUrl, fulfill(stats('week', { top, species })));
+      await page.goto(`/ape-publice/${TIN.id}/clasament?perioada=week`);
+      await page.getByRole('group', { name: 'Arată' }).getByText('Specii').click();
+      const ranks = page.getByTestId('species-rows').getByTestId('rank');
+      await expect(ranks).toHaveCount(4);
+      const bg = await ranks.evaluateAll((els) => els.map((e) => getComputedStyle(e).backgroundColor));
+      const medalVars = await page.evaluate(() => {
+        const probe = document.createElement('span');
+        document.body.append(probe);
+        const out = ['gold', 'silver', 'bronze'].map((m) => {
+          probe.style.backgroundColor = `var(--color-medal-${m})`;
+          return getComputedStyle(probe).backgroundColor;
+        });
+        probe.remove();
+        return out;
+      });
+      expect(bg.slice(0, 3)).toEqual(medalVars);
+      expect(new Set(medalVars).size).toBe(3);
+      expect(bg[3]).toBe('rgba(0, 0, 0, 0)');
+      // Statistici's Top pescari: the same order and figure.
+      await page.goto(`/ape-publice/${TIN.id}/statistici?perioada=week`);
+      const topRows = page.getByTestId('top-anglers').getByRole('listitem');
+      await expect(topRows.nth(0)).toContainText('Dan Radu');
+      await expect(topRows.nth(0)).toContainText('7 capturi');
+      await expect(topRows.nth(2)).toContainText('Cristi Mihai');
+      await expect(page.getByTestId('top-anglers').getByText('— kg')).toHaveCount(0);
+      await expectNoA11yViolations(page);
+    });
+  });
+
+  test('public-waters.clasament.c9 — the «EU» pill: noun and plural on the total, no kg clause when nothing weighed', async ({ page, context, request }) => {
+    const jwt = await qaJwt(request);
+    const me = await (await request.get(`${CMS}/users/me`, { headers: { authorization: `Bearer ${jwt}` } })).json();
+    await signIn(context, jwt, BASE_URL);
+    await clientReads(page, async () => {
+      const mine = { ...angler(4, me.documentId), totalKg: 0, catches: 1, partide: 1 };
+      await page.route(statsUrl, fulfill(stats('month', { top: [angler(1), angler(2), angler(3), mine], anglers: 24 })));
+      await page.setViewportSize(DESKTOP);
+      await page.goto(`/ape-publice/${TIN.id}/clasament`);
+      const pill = page.locator('[data-testid="me-pill"]:visible');
+      await expect(pill).toContainText('Ești pe locul 4 din 24 de pescari luna asta');
+      await expect(pill).not.toContainText('kg');
+    });
+  });
+
+  test('public-waters.clasament.c10 public-waters.statistici.c7 — while a period loads, every label still names the period on screen', async ({ page, context, request }) => {
+    const jwt = await qaJwt(request);
+    const me = await (await request.get(`${CMS}/users/me`, { headers: { authorization: `Bearer ${jwt}` } })).json();
+    await signIn(context, jwt, BASE_URL);
+    await clientReads(page, async () => {
+      let release: () => void = () => {};
+      const year = new Promise<void>((r) => (release = r));
+      await page.route(statsUrl, async (route) => {
+        const period = new URL(route.request().url()).searchParams.get('period') ?? 'month';
+        if (period === 'year') await year;
+        return fulfill(stats(period, { top: [angler(1), angler(2), angler(3), angler(4, me.documentId)], anglers: 9 }))(route);
+      });
+      await page.setViewportSize(DESKTOP);
+      // Clasament: the pill and the right column's heading.
+      await page.goto(`/ape-publice/${TIN.id}/clasament`);
+      const aside = page.getByTestId('ranking-aside');
+      const pill = page.locator('[data-testid="me-pill"]:visible');
+      await expect(pill).toContainText('Ești pe locul 4 din 9 pescari luna asta — 30,0 kg');
+      await expect(aside.getByText('Luna aceasta')).toBeVisible();
+      await chip(page, 'Anul curent').click();
+      await expect(page.getByTestId('switching-bar').first()).toBeVisible();
+      // The month's figures are still on screen: so is the month's name — and the column is busy too.
+      await expect(pill).toContainText('Ești pe locul 4 din 9 pescari luna asta — 30,0 kg');
+      await expect(aside.getByText('Luna aceasta')).toBeVisible();
+      await expect(aside.getByText('Anul curent')).toHaveCount(0);
+      await expect(aside).toHaveAttribute('aria-busy', 'true');
+      await expect(aside).toHaveAttribute('inert', '');
+      await expect(aside.getByTestId('switching-bar')).toBeVisible();
+      release();
+      await expect(page.getByTestId('switching-bar')).toHaveCount(0);
+      await expect(pill).toContainText('Ești pe locul 4 din 9 pescari anul ăsta — 30,0 kg');
+      await expect(aside.getByText('Anul curent')).toBeVisible();
+      await expect(aside).not.toHaveAttribute('aria-busy');
+    });
+    await clientReads(page, async () => {
+      let release: () => void = () => {};
+      const week = new Promise<void>((r) => (release = r));
+      await page.unroute(statsUrl);
+      await page.route(statsUrl, async (route) => {
+        const period = new URL(route.request().url()).searchParams.get('period') ?? 'month';
+        if (period === 'week') await week;
+        return fulfill(stats(period))(route);
+      });
+      // Statistici: the record's tag.
+      await page.goto(`/ape-publice/${TIN.id}/statistici`);
+      const hero = page.locator('[data-testid="record-hero"]:visible');
+      await expect(hero).toContainText('RECORDUL LUNII');
+      await chip(page, 'Săptămâna').click();
+      await expect(page.getByTestId('switching-bar').first()).toBeVisible();
+      await expect(hero).toContainText('RECORDUL LUNII');
+      await expect(hero).not.toContainText('SĂPTĂMÂNII');
+      release();
+      await expect(page.getByTestId('switching-bar')).toHaveCount(0);
+      await expect(hero).toContainText('RECORDUL SĂPTĂMÂNII');
+    });
+  });
+});
+
+/* ============================================================================================
+ * Review 2026-10-07 (b): history cards, the left column's title, unweighed rankings
+ * ========================================================================================== */
+
+test.describe('public-waters subpages — review 2026-10-07 (b)', () => {
+  test('public-waters.partide.c10 — card strip: kg only when weighed, the longest duration on one line, «+N» photos, the year on old cards, «de» in the progress', async ({ page }) => {
+    await clientReads(page, async () => {
+      // 123 h 59 min, nothing weighed, 7 photos of which the CMS sends 3 (PHOTO_STRIP_CAP).
+      const long = {
+        ...historyRow(1),
+        startedAt: '2026-09-15T05:00:00.000Z',
+        endedAt: '2026-09-20T08:59:00.000Z',
+        catchCount: 0,
+        maxKg: 0,
+        totalKg: 0,
+        photos: [1, 2, 3].map(() => ({ url: PIXEL, thumbUrl: PIXEL, weightKg: null })),
+        photoCount: 7,
+      };
+      // The worst strip: weighed (three cells) and the longest duration.
+      const weighed = { ...historyRow(2), startedAt: '2026-09-15T05:00:00.000Z', endedAt: '2026-09-20T08:59:00.000Z' };
+      // Last year's partidă (Romania: 9 AUG 2025 09:07 – 13:20).
+      const old = { ...historyRow(3), startedAt: '2025-08-09T06:07:00.000Z', endedAt: '2025-08-09T10:20:00.000Z', totalKg: 0, photos: [], photoCount: 0 };
+      await page.route(venueUrl, fulfill(emptySection));
+      await page.route(catchesUrl, fulfill(catchesPage(1, 0)));
+      await page.route(historyUrl, fulfill({ data: [long, weighed, old], meta: { pagination: { page: 1, pageSize: 10, pageCount: 3, total: 23 } } }));
+      for (const width of [375, 1280, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(`/ape-publice/${TIN.id}/partide`);
+        const cards = page.getByTestId('history-card');
+        await expect(cards).toHaveCount(3);
+        // Unweighed: two cells (capturi · durată), no «—» placeholder.
+        const strip = cards.nth(0).getByTestId('history-stats');
+        await expect(strip.locator('dd')).toHaveCount(2);
+        await expect(strip).not.toContainText('kg total');
+        await expect(strip).not.toContainText('—');
+        // The longest duration fits one line: its value is as tall as the catches' value.
+        const dd = strip.locator('dd');
+        await expect(dd.nth(1)).toHaveText('123 h 59 min');
+        const [h0, h1] = await dd.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
+        expect(h1).toBe(h0);
+        // Weighed: three cells, the kg in the middle.
+        const wstrip = cards.nth(1).getByTestId('history-stats');
+        await expect(wstrip.locator('dd')).toHaveCount(3);
+        await expect(wstrip).toContainText('9,5');
+        await expect(wstrip).toContainText('kg total');
+        const [w0, w1, w2] = await wstrip.locator('dd').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
+        expect([w1, w2]).toEqual([w0, w0]);
+        // fish PhotoStrip: 3 tiles in thirds, «+4» over the last one.
+        const photos = cards.nth(0).getByTestId('history-photos');
+        await expect(photos.getByRole('listitem')).toHaveCount(3);
+        await expect(photos.getByRole('listitem').nth(2).getByTestId('history-photos-more')).toHaveText('+4');
+        await expect(photos).toHaveAccessibleName('7 fotografii');
+        await expect(cards.nth(1).getByTestId('history-photos-more')).toHaveCount(0);
+        // Another year's partidă carries it; this year's keeps fish's form.
+        await expect(cards.nth(2)).toContainText('9 AUG 2025 · 09:07 – 13:20');
+        await expect(cards.nth(1)).toContainText('15 SEP 08:00 – 20 SEP 11:59');
+        await expect(wstrip.locator('dd').nth(2)).toHaveText('123 h 59 min');
+        // «de» from 20.
+        await expect(page.getByText('3 din 23 de partide', { exact: true })).toBeVisible();
+      }
+      // From 1280 the column holds only the water's pages: titled «Pe această apă», said once.
+      const column = page.getByRole('complementary', { name: 'Paginile apei' });
+      await expect(column.getByRole('heading', { level: 2 })).toHaveText('Pe această apă');
+      await expect(column.getByText('Pe această apă', { exact: true })).toHaveCount(1);
+      await expect(column.getByRole('link', { name: 'Partide' })).toHaveAttribute('aria-current', 'page');
+      await expectNoA11yViolations(page);
+    });
+  });
+
+  test('public-waters.clasament.c5 c7 public-waters.statistici.c8 — nothing weighed: the catches said once per row; a catchless podium place shows its partide; columns titled «Opțiuni»', async ({ page }) => {
+    await clientReads(page, async () => {
+      const un = (i: number, catches: number, partide: number) => ({ ...angler(i), name: `Pescar ${i} Ionescu`, totalKg: 0, catches, partide });
+      const top = [un(1, 4, 8), un(2, 0, 3), un(3, 0, 2), un(4, 0, 1)];
+      await page.route(statsUrl, fulfill(stats('month', { top })));
+      await page.setViewportSize(DESKTOP);
+      await page.goto(`/ape-publice/${TIN.id}/clasament`);
+      const podium = page.getByTestId('podium');
+      await expect(podium.locator('[data-rank="1"] [data-testid="podium-score"]')).toHaveText('4 capturi');
+      await expect(podium.locator('[data-rank="2"] [data-testid="podium-score"]')).toHaveText('3 partide');
+      await expect(podium.locator('[data-rank="3"] [data-testid="podium-score"]')).toHaveText('2 partide');
+      await expect(podium).not.toContainText('0 capturi');
+      const row = page.getByTestId('angler-rows').getByRole('listitem').first();
+      await expect(row).toContainText('1 partidă');
+      await expect(row).not.toContainText('·');
+      await expect(row).toContainText('0 capturi');
+      await expect(page.getByRole('complementary', { name: 'Opțiuni clasament' }).getByRole('heading', { level: 2 }).first()).toHaveText('Opțiuni');
+      await page.goto(`/ape-publice/${TIN.id}/statistici`);
+      const first = page.getByTestId('top-anglers').getByRole('listitem').first();
+      await expect(first).toContainText('8 partide');
+      expect(((await first.innerText()).match(/4 capturi/g) ?? []).length).toBe(1);
+      await expect(page.getByRole('complementary', { name: 'Perioada și paginile apei' }).getByRole('heading', { level: 2 }).first()).toHaveText('Opțiuni');
+      await expectNoA11yViolations(page);
     });
   });
 });

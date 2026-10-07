@@ -5,15 +5,13 @@ import { Suspense, useMemo, useState } from 'react';
 import { TrophyIcon } from '@heroicons/react/24/outline';
 import { SegmentedControl } from '@/components/forms/SegmentedControl';
 import { AsideSection, AsideSkeleton, ChoiceChips, FilterColumn, FilterColumnSkeleton, FilterSection, ListEmpty, ListError, ListPage, useListUrlState } from '@/components/templates/T1';
-import { MEDAL } from '@/components/ranking';
+import { MEDAL, isMedalPlace } from '@/components/ranking';
 import { cn } from '@/components/ui/cn';
 import {
   communityStatsQuery,
   firstNameOf,
-  fmtKg,
   isWeighed,
   periodPhraseFor,
-  type CommunityStatsDTO,
   type CommunityVenueRef,
   type SpeciesShare,
   type StatsPeriod,
@@ -25,6 +23,7 @@ import { userOf } from '../../../_shell/viewer-state';
 import {
   AnglerAvatar,
   AnglerLink,
+  anglerSubtitle,
   ChipsSkeleton,
   EmptyIcon,
   PeriodChips,
@@ -38,9 +37,17 @@ import {
   TitleBone,
   VenueHeader,
   WaterPages,
+  WaterTabs,
+  WaterTabsSkeleton,
+  WiderPeriodAction,
   kgText,
+  podiumScoreText,
+  rankAnglers,
+  scoreText,
+  useShownPeriod,
 } from './bits';
 import { PERIOD_OPTIONS, PERIOD_TITLE } from '@/lib/stats-period';
+import { formatCount } from '@/core/realtime/chat/format';
 
 /*
  * Clasament · <apă> — fish app/(app)/public-waters/[id]/clasament.tsx → AnglersLeaderboardScreen
@@ -63,8 +70,6 @@ const SEGMENTS: { value: Segment; label: string }[] = [
   { value: 'pescari', label: 'Pescari' },
   { value: 'specii', label: 'Specii' },
 ];
-
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /** The family header's caption (Partide: «Partide pe apă», Statistici: «Statisticile apei»). */
 const CAPTION = 'Clasamentul apei';
@@ -97,11 +102,20 @@ export function RankingScreen({
   const loading = q.isPending && !failedBefore;
   const isEmpty = !data || data.totals.partide === 0;
   const ready = !loading && !showError && !isEmpty && data ? data : null;
+  // c10: the period the figures belong to — the old one while a switch loads (useShownPeriod).
+  const shownPeriod = useShownPeriod(period, !!data && !q.isPlaceholderData);
+  // Ties on kg (nothing weighed) ordered by catches, then partide (bits rankAnglers).
+  const anglers = useMemo(() => (ready ? rankAnglers(ready.topAnglers) : []), [ready]);
 
-  const header = <VenueHeader title={title} description={CAPTION} backHref={backHref} onRefresh={async () => !(await q.refetch()).isError} />;
+  const header = (
+    <div>
+      <VenueHeader title={title} description={CAPTION} backHref={backHref} onRefresh={async () => !(await q.refetch()).isError} />
+      <WaterTabs waterKey={waterKey} current="clasament" period={period} />
+    </div>
+  );
 
   const filters = (
-    <FilterColumn title="Clasament">
+    <FilterColumn title="Opțiuni">
       <FilterSection title="Perioadă">
         <ChoiceChips name="perioada-col" layout="list" options={PERIOD_OPTIONS} value={period} onChange={setPeriod} />
       </FilterSection>
@@ -113,27 +127,37 @@ export function RankingScreen({
   );
 
   // The right column is there in every state (ListPage keeps its tracks): an empty or failed period
-  // keeps the card in the centre track, never across centre + right.
+  // keeps the card in the centre track, never across centre + right. An empty period leaves it
+  // bare: the centre card already says so (and offers the wider period). While a period loads it
+  // takes the centre's switch treatment (bar, inert, busy) and keeps naming the period shown.
   const aside = loading ? (
     <AsideSkeleton rows={2} />
-  ) : (
-    <div inert={switching} className="flex flex-col gap-4">
+  ) : ready || showError ? (
+    <div
+      inert={switching}
+      aria-busy={switching || undefined}
+      className={cn('relative flex flex-col gap-4', switching && SWITCHING_DIM)}
+      data-testid="ranking-aside"
+    >
+      <SwitchingBar on={switching} />
       {ready && segment === 'pescari' ? (
         <Suspense fallback={null}>
-          <MeForViewer data={ready} period={period} />
+          <MeForViewer anglers={anglers} total={ready.totals.anglers} period={shownPeriod} />
         </Suspense>
       ) : null}
       {ready ? (
         // The period in numbers: the strip is its own card, so the section is bare (no card in card).
-        <AsideSection title={PERIOD_TITLE[period]} bare>
+        <AsideSection title={PERIOD_TITLE[shownPeriod]} bare>
           <PeriodNumbers totals={ready.totals} />
         </AsideSection>
       ) : (
         <AsideSection title={PERIOD_TITLE[period]}>
-          <p className="t-body text-muted">{showError ? 'Cifrele perioadei apar când se încarcă clasamentul.' : 'Nicio partidă în această perioadă.'}</p>
+          <p className="t-body text-muted">Cifrele perioadei apar când se încarcă clasamentul.</p>
         </AsideSection>
       )}
     </div>
+  ) : (
+    <span aria-hidden data-testid="ranking-aside-bare" />
   );
 
   return (
@@ -155,13 +179,14 @@ export function RankingScreen({
         {loading ? (
           <RankingSkeletonBody />
         ) : showError ? (
-          <div data-testid="stats-error">
-            <ListError title="Nu am putut încărca statisticile." onRetry={() => void q.refetch()} retrying={q.isFetching} attempt={q.errorUpdateCount} />
+          <div data-testid="ranking-error">
+            <ListError title="Nu am putut încărca clasamentul." onRetry={() => void q.refetch()} retrying={q.isFetching} attempt={q.errorUpdateCount} />
           </div>
         ) : !ready ? (
           <div data-testid="ranking-empty">
             <ListEmpty
               title="Niciun clasament pentru perioada selectată încă."
+              action={<WiderPeriodAction period={shownPeriod} onChange={setPeriod} />}
               icon={
                 <EmptyIcon>
                   <TrophyIcon aria-hidden />
@@ -171,14 +196,14 @@ export function RankingScreen({
           </div>
         ) : (
           <>
-            <Podium top3={ready.topAnglers.slice(0, 3)} />
+            <Podium top3={anglers.slice(0, 3)} />
             <SegmentedControl className={cn('xl:hidden [&>legend]:sr-only', SEGMENT_ON_PAGE)} label="Arată" name="segment" options={SEGMENTS} value={segment} onChange={setSegment} />
-            {segment === 'pescari' ? <AnglerRows anglers={ready.topAnglers} /> : <SpeciesRows species={ready.species} />}
+            {segment === 'pescari' ? <AnglerRows anglers={anglers} /> : <SpeciesRows species={ready.species} />}
             {/* fish order: the pill AFTER the rows (podium → toggle → rows → MePill) — the viewer
                 resolves in the browser, so its arrival here never pushes the list down. */}
             {segment === 'pescari' ? (
               <Suspense fallback={null}>
-                <MeForViewer data={ready} period={period} className="xl:hidden" />
+                <MeForViewer anglers={anglers} total={ready.totals.anglers} period={shownPeriod} className="xl:hidden" />
               </Suspense>
             ) : null}
           </>
@@ -197,8 +222,13 @@ export function RankingFallback({ title, backHref }: { title?: string; backHref:
   return (
     <div aria-busy>
       <ListPage
-        header={<VenueHeader title={title ?? <TitleBone label="Clasament" />} description={CAPTION} backHref={backHref} />}
-        filters={<FilterColumnSkeleton title="Clasament" sections={[3, 2, 4]} />}
+        header={
+          <div>
+            <VenueHeader title={title ?? <TitleBone label="Clasament" />} description={CAPTION} backHref={backHref} />
+            <WaterTabsSkeleton />
+          </div>
+        }
+        filters={<FilterColumnSkeleton title="Opțiuni" sections={[3, 2, 4]} />}
         aside={<AsideSkeleton rows={2} />}
         asideInline={false}
         asideBusy
@@ -260,14 +290,18 @@ function podiumNames(top3: TopAngler[]): string[] {
 function PodiumColumn({ angler, rank, shortName }: { angler: TopAngler; rank: 1 | 2 | 3; shortName: string }) {
   const name = angler.name ?? 'Pescar';
   const weighed = isWeighed(angler.totalKg);
+  const score = podiumScoreText(angler);
   return (
     <li className="flex min-w-0 flex-1 flex-col" data-rank={rank}>
-      <AnglerLink uid={angler.uid} label={`Locul ${rank}: ${name}, ${kgText(angler.totalKg)}`} className="flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-t-control pt-1 md:gap-2">
+      <AnglerLink uid={angler.uid} label={`Locul ${rank}: ${name}, ${score}`} className="flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-t-control pt-1 md:gap-2">
         <AnglerAvatar uid={angler.uid} name={name} src={angler.avatarUrl} size={rank === 1 ? 48 : 44} ring className="shadow-e1 md:hidden" />
         <AnglerAvatar uid={angler.uid} name={name} src={angler.avatarUrl} size={rank === 1 ? 64 : 48} ring className="shadow-e1 max-md:hidden" />
         <span className="max-w-full truncate t-micro-strong text-ink md:t-body-strong">{shortName}</span>
-        {/* Accent only for a real weight: «— kg» (nothing weighed) is muted. */}
-        <span className={cn('t-label tabular-nums md:t-heading', weighed ? 'text-accent-ink' : 'text-muted')}>{kgText(angler.totalKg)}</span>
+        {/* The weight in accent; nothing weighed: the catches the order rests on, muted (scoreText);
+            no catch either: the partide that placed it (podiumScoreText), never «0 capturi» on a medal. */}
+        <span className={cn('t-label tabular-nums md:t-heading', weighed ? 'text-accent-ink' : 'text-muted')} data-testid="podium-score">
+          {score}
+        </span>
         <span className={cn('flex w-full items-center justify-center rounded-t-control t-body-strong md:t-heading', STEP[rank], MEDAL[rank])}>
           <span className="sr-only">Locul </span>
           {rank}
@@ -294,11 +328,23 @@ function Podium({ top3 }: { top3: TopAngler[] }) {
 
 /* Lists — fish AnglerRow / SpeciesRow (c7, c8). */
 
+/**
+ * fish RankBadge: ranks 1–3 in the medal colours (rankColor). Here as the medal chip Statistici's
+ * Top pescari uses (MEDAL: the navy digit on gold / silver / bronze) — the medal as a text colour
+ * (MEDAL_TEXT) is 2.6:1 for silver on white, under AA. Rank 4+ muted.
+ */
 function Rank({ rank }: { rank: number }) {
+  const medal = isMedalPlace(rank);
   return (
-    <span className="w-6 shrink-0 text-center t-label text-muted tabular-nums">
-      <span className="sr-only">Locul </span>
-      {rank}
+    <span className="flex w-6 shrink-0 justify-center">
+      <span
+        className={cn('flex size-6 items-center justify-center rounded-full tabular-nums', medal ? cn('t-micro-strong', MEDAL[rank]) : 't-label text-muted')}
+        data-testid="rank"
+        data-medal={medal ? rank : undefined}
+      >
+        <span className="sr-only">Locul </span>
+        {rank}
+      </span>
     </span>
   );
 }
@@ -308,7 +354,7 @@ function AnglerRows({ anglers }: { anglers: TopAngler[] }) {
     return (
       <div className={ROWS_CARD}>
         <QuietNote testId="podium-only">
-          Doar podiumul are date pentru perioada asta.
+          {anglers.length === 1 ? 'Doar un pescar are partide în această perioadă.' : `Doar ${formatCount(anglers.length, 'pescar', 'pescari')} au partide în această perioadă.`}
         </QuietNote>
       </div>
     );
@@ -321,14 +367,12 @@ function AnglerRows({ anglers }: { anglers: TopAngler[] }) {
           <li key={a.uid}>
             <AnglerLink uid={a.uid} label={`Locul ${i + 4}: ${name}`} className="flex items-center gap-3 px-4 py-3">
               <Rank rank={i + 4} />
-              <AnglerAvatar uid={a.uid} name={name} src={a.avatarUrl} size={32} />
+              <AnglerAvatar uid={a.uid} name={a.name ?? ''} src={a.avatarUrl} size={32} />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate t-body-strong text-ink">{name}</span>
-                <span className="t-caption text-muted">
-                  {plural(a.partide, 'partidă', 'partide')} · {plural(a.catches, 'captură', 'capturi')}
-                </span>
+                <span className="t-caption text-muted">{anglerSubtitle(a)}</span>
               </span>
-              <span className={cn('shrink-0 t-body-strong tabular-nums', isWeighed(a.totalKg) ? 'text-ink' : 'text-muted')}>{kgText(a.totalKg)}</span>
+              <span className={cn('shrink-0 t-body-strong tabular-nums', isWeighed(a.totalKg) ? 'text-ink' : 'text-muted')}>{scoreText(a)}</span>
             </AnglerLink>
           </li>
         );
@@ -354,7 +398,7 @@ function SpeciesRows({ species }: { species: SpeciesShare[] }) {
           <Rank rank={i + 1} />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate t-body-strong text-ink">{s.name}</span>
-            <span className="t-caption text-muted">{plural(s.count, 'captură', 'capturi')}</span>
+            <span className="t-caption text-muted">{formatCount(s.count, 'captură', 'capturi')}</span>
           </span>
           <span className="shrink-0 t-body-strong text-ink tabular-nums">{s.pct}%</span>
         </li>
@@ -366,18 +410,20 @@ function SpeciesRows({ species }: { species: SpeciesShare[] }) {
 /* Aside — your place (c9) and the period in numbers. */
 
 /** fish `myRank`: the signed-in viewer's place among the ranked anglers (profile.documentId = uid). */
-function MeForViewer({ data, period, className }: { data: CommunityStatsDTO; period: StatsPeriod; className?: string }) {
+function MeForViewer({ anglers, total, period, className }: { anglers: TopAngler[]; total: number; period: StatsPeriod; className?: string }) {
   const viewer = userOf(useViewerState());
   if (!viewer?.documentId) return null;
-  const idx = data.topAnglers.findIndex((a) => a.uid === viewer.documentId);
+  const idx = anglers.findIndex((a) => a.uid === viewer.documentId);
   if (idx === -1) return null;
+  const kg = anglers[idx].totalKg;
   return (
     <div className={cn('flex items-center gap-2 rounded-card bg-accent-tint px-3 py-2.5 inset-ring inset-ring-accent-tint-2', className)} data-testid="me-pill">
       <span aria-hidden className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent-ink t-micro-strong text-on-accent">
         EU
       </span>
       <p className="t-label text-ink">
-        Ești pe locul {idx + 1} din {data.totals.anglers} {periodPhraseFor(period)} — {fmtKg(data.topAnglers[idx].totalKg)} kg
+        Ești pe locul {idx + 1} din {formatCount(total, 'pescar', 'pescari')} {periodPhraseFor(period)}
+        {isWeighed(kg) ? ` — ${kgText(kg)}` : null}
       </p>
     </div>
   );

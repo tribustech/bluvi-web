@@ -9,7 +9,7 @@ import { BuildingStorefrontIcon, SparklesIcon } from '@heroicons/react/24/outlin
 import { FishingRodIcon, SadStarIcon } from '@/components/icons/brand';
 import { Dialog } from '@/components/surfaces/Dialog';
 import { signInPath } from '@/components/nav/items';
-import { AsideSection, FilterColumn, FilterColumnSkeleton, FOCUS_RING, ListEmpty, ListFooter, ListHeader, ListPage, listGridClass, StickyActions } from '@/components/templates/T1';
+import { AsideSection, FilterColumn, FilterColumnSkeleton, FOCUS_RING, ListEmpty, ListFooter, ListHeader, ListPage, LIST_GUTTER, StickyActions } from '@/components/templates/T1';
 import { KpiGrid, KpiTile, LINK_ACTION } from '@/components/templates/T5';
 import { cn } from '@/components/ui/cn';
 import { Button, buttonClass } from '@/components/ui/Button';
@@ -45,9 +45,11 @@ import { useBack } from '../_sub/useBack';
  *  - c1 the lake's name as the title, «Recenzii» under it (as on every lake subpage), the back
  *    control;
  *  - c2 with reviews, the three scores Pescuit / Facilități / Atmosferă (value with one decimal,
- *    stars) then «N recenzii» + «Vezi cum funcționează recenziile» (the lake page's explainer) —
- *    the T5 KPI tiles below 1280 (Statistici's figures), one card of three rows (glyph + label ·
- *    value + stars) in the 360px column from 1280;
+ *    stars) — the T5 KPI tiles above the list below 1280 (Statistici's figures), one card of three
+ *    rows (glyph + label · value + stars) titled «Scorurile bălții» in the 360px column from 1280;
+ *    «N recenzii» + «Vezi cum funcționează recenziile» (the lake page's explainer) is ALWAYS the
+ *    centre column's section header, right above the list or the empty card (it never moves
+ *    between columns with the data);
  *  - c3 10 a page, the next page as the list's end nears (T1 ListFooter);
  *  - c4 the lake page's ReviewCard; c5 another author opens /pescari/[id] once the web has it;
  *  - c6 the viewer's own card: «Editează» (→ /recenzie?editare=1 once the web has the form; until
@@ -58,14 +60,16 @@ import { useBack } from '../_sub/useBack';
  *  - c8 none: the kit empty card (ListEmpty: the sad star, «Momentan nu există recenzii pentru
  *    această baltă», «Fii primul care adaugă una!», the explainer link under it) with the add /
  *    sign-in action inside it — the header and the phone bar drop theirs while it shows;
- *  - c9 the bottom bar: gone once the viewer has reviewed (or while that read is unknown or failed —
- *    never a CTA to a duplicate); signed in «Adaugă o recenzie»; signed out «Autentifică-te pentru
+ *  - c9 the bottom bar: gone once the viewer has reviewed (and while that read is pending — never a
+ *    CTA to a duplicate); the read failed: «Nu am putut verifica recenzia ta.» + «Încearcă din nou»
+ *    in the CTA's place (never a silent gap); signed in «Adaugă o recenzie»; signed out «Autentifică-te pentru
  *    a putea adăuga o recenzie» (outline, → /intra?next= back here). A phone pins it above the
  *    thumb (StickyActions); from 768 it is the header's action;
  *  - c10 the loading view, the error view with retry (and no back of its own); c11 core: 5 min.
  * From 1280 three columns (ROADMAP §4) in every state: the lake's pages · the reviews · the scores
- * (their own skeleton / error in that slot while the lake read is pending / failed, a quiet card
- * while there are none — the centre never moves sideways).
+ * (their own skeleton / error in that slot while the lake read is pending / failed; while there are
+ * none the track stays reserved but empty — the centre's empty card is the page's one message, rule
+ * 4 — so the centre never moves sideways).
  */
 
 const SCORES = [
@@ -92,6 +96,8 @@ export function ReviewsScreen({ lakeId, lakeName }: { lakeId: string; lakeName: 
   const rows = useMemo(() => reviews.data?.pages.flatMap(p => p.data) ?? [], [reviews.data]);
   const meta = lake.data?.reviewsMeta ?? null;
   const failed = firstReadFailed(reviews);
+  // The centre's header counts the list it heads (its own total, which a delete lowers at once).
+  const total = reviews.data?.pages[0]?.meta.pagination.total ?? rows.length;
   // c8: with no review the empty card carries the add / sign-in action — not the header too.
   const empty = !reviews.isPending && !failed && rows.length === 0;
 
@@ -125,13 +131,9 @@ export function ReviewsScreen({ lakeId, lakeName }: { lakeId: string; lakeName: 
   const scoresFor = (inline: boolean) =>
     lake.data ? (
       meta && meta.count > 0 ? (
-        <Summary meta={meta} onInfo={() => setInfo(true)} variant={inline ? 'tiles' : 'card'} />
+        <Summary meta={meta} variant={inline ? 'tiles' : 'card'} />
       ) : inline ? null : (
-        <AsideSection title="Scorurile bălții">
-          <p className="t-caption text-muted" data-testid="scores-quiet">
-            Scorurile apar după prima recenzie.
-          </p>
-        </AsideSection>
+        <div data-testid="scores-reserved" />
       )
     ) : lakeFailed ? (
       <SubListError
@@ -185,6 +187,7 @@ export function ReviewsScreen({ lakeId, lakeName }: { lakeId: string; lakeName: 
       {rows.length ? (
         <>
           {inlineScores ? <div className="xl:hidden">{inlineScores}</div> : null}
+          <ReviewsCount count={total} onInfo={() => setInfo(true)} header />
           <Suspense fallback={<ReviewRows rows={rows} lakeId={lakeId} lakeName={lakeName} me={null} />}>
             <ReviewRowsForViewer rows={rows} lakeId={lakeId} lakeName={lakeName} />
           </Suspense>
@@ -218,44 +221,48 @@ export function ReviewsScreen({ lakeId, lakeName }: { lakeId: string; lakeName: 
 
 /* c2 — the three scores, the count and the explainer link (fish ListHeaderComponent). */
 
-function Summary({ meta, onInfo, variant }: { meta: ReviewMeta; onInfo: () => void; variant: 'tiles' | 'card' }) {
-  const id = variant === 'card' ? 'scorurile-baltii' : 'scorurile-baltii-sus';
+function Summary({ meta, variant }: { meta: ReviewMeta; variant: 'tiles' | 'card' }) {
+  if (variant === 'card') {
+    // The docked column: the aside's one titled block, the card of rows inside it.
+    return (
+      <AsideSection title="Scorurile bălții" bare>
+        <div id="scorurile-baltii" tabIndex={-1} className="outline-none" data-testid="reviews-summary">
+          <FocusAfterRetry retry={SCORES_RETRY} target="scorurile-baltii" />
+          <dl className="flex flex-col divide-y divide-hairline rounded-card bg-surface px-4 shadow-e0">
+            {SCORES.map(s => (
+              <div key={s.key} className="flex items-center justify-between gap-3 py-3.5">
+                <dt className="flex min-w-0 items-center gap-2.5 t-body-strong text-ink">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-accent-tint text-accent-ink">{s.icon}</span>
+                  {s.label}
+                </dt>
+                <dd className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="t-stat text-ink tabular-nums" data-testid={`score-${s.key}`}>
+                    {one(meta[s.key])}
+                  </span>
+                  <RatingStars value={meta[s.key]} />
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </AsideSection>
+    );
+  }
+  // Below 1280, above the list: Statistici's figures, the T5 KPI row, three across at every width.
   return (
-    <section id={id} tabIndex={-1} aria-label="Scorurile bălții" className="flex flex-col gap-4 outline-none" data-testid="reviews-summary">
-      <FocusAfterRetry retry={SCORES_RETRY} target={id} />
-      {variant === 'tiles' ? (
-        // Statistici's figures: the T5 KPI row, compact, three across at every width below 1280.
-        <KpiGrid label="Scorurile bălții" columns="quad" compact className={SCORE_GRID}>
-          {SCORES.map(s => (
-            <KpiTile
-              key={s.key}
-              label={s.label}
-              value={<span data-testid={`score-${s.key}`}>{one(meta[s.key])}</span>}
-              detail={<RatingStars value={meta[s.key]} size="xs" />}
-              className="max-md:px-3 max-md:py-3.5"
-            />
-          ))}
-        </KpiGrid>
-      ) : (
-        // The 360px column: one card, a row per score (glyph + label · value + stars).
-        <dl className="flex flex-col divide-y divide-hairline rounded-card bg-surface px-4 shadow-e0">
-          {SCORES.map(s => (
-            <div key={s.key} className="flex items-center justify-between gap-3 py-3.5">
-              <dt className="flex min-w-0 items-center gap-2.5 t-body-strong text-ink">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-accent-tint text-accent-ink">{s.icon}</span>
-                {s.label}
-              </dt>
-              <dd className="flex shrink-0 flex-col items-end gap-1">
-                <span className="t-stat text-ink tabular-nums" data-testid={`score-${s.key}`}>
-                  {one(meta[s.key])}
-                </span>
-                <RatingStars value={meta[s.key]} />
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
-      <ReviewsCount count={meta.count} onInfo={onInfo} />
+    <section id="scorurile-baltii-sus" tabIndex={-1} aria-label="Scorurile bălții" className="outline-none" data-testid="reviews-summary">
+      <FocusAfterRetry retry={SCORES_RETRY} target="scorurile-baltii-sus" />
+      <KpiGrid label="Scorurile bălții" columns="quad" compact className={SCORE_GRID}>
+        {SCORES.map(s => (
+          <KpiTile
+            key={s.key}
+            label={s.label}
+            value={<span data-testid={`score-${s.key}`}>{one(meta[s.key])}</span>}
+            detail={<RatingStars value={meta[s.key]} size="xs" />}
+            className="max-md:px-3 max-md:py-3.5"
+          />
+        ))}
+      </KpiGrid>
     </section>
   );
 }
@@ -293,31 +300,50 @@ function ScoresSkeleton({ variant }: { variant: 'tiles' | 'card' }) {
           ))}
         </div>
       )}
-      <span aria-hidden className="flex flex-col gap-1">
-        <span className="h-5 w-28 animate-shimmer rounded-full" />
-        <span className="h-4 w-52 animate-shimmer rounded-full" />
-      </span>
     </div>
   );
 }
 
-/** The explainer (the lake page's ReviewsInfoDialog): the pages' accent text action. */
-function InfoLink({ onInfo }: { onInfo: () => void }) {
+/** The centre header's grey shape («N recenzii» over the explainer link). */
+function CountSkeleton() {
   return (
-    <button type="button" onClick={onInfo} aria-haspopup="dialog" className={cn(LINK_ACTION, 'min-h-9 cursor-pointer', FOCUS_RING)} data-testid="reviews-info-link">
+    <span aria-hidden className={cn(READING, 'flex flex-col gap-1 xl:min-h-9 xl:flex-row xl:items-center xl:justify-between')}>
+      <span className="h-5 w-28 animate-shimmer rounded-full" />
+      <span className="h-4 w-52 animate-shimmer rounded-full" />
+    </span>
+  );
+}
+
+/** The explainer (the lake page's ReviewsInfoDialog): the pages' accent text action. */
+function InfoLink({ onInfo, className }: { onInfo: () => void; className?: string }) {
+  return (
+    <button type="button" onClick={onInfo} aria-haspopup="dialog" className={cn(LINK_ACTION, 'min-h-9 cursor-pointer', FOCUS_RING, className)} data-testid="reviews-info-link">
       Vezi cum funcționează recenziile
     </button>
   );
 }
 
-/** fish ReviewsCount: «N recenzii» (title) and the explainer link under it. */
-function ReviewsCount({ count, onInfo }: { count: number; onInfo: () => void }) {
+/**
+ * Reviews are long text: one readable column (~680px, never a two-up grid whose short and long
+ * cards leave ragged holes, never a 1000px line). The count header above it takes the same measure.
+ */
+const READING = 'w-full max-w-170';
+
+/**
+ * fish ReviewsCount: «N recenzii» (title) and the explainer link under it. `header` (above the
+ * list): from 1280 the two share one 36px row, the count at the docked columns' heading step —
+ * the aside's «Scorurile bălții» row (T1 ColumnHeader) — so the three columns' first lines sit on
+ * one top and the list's card starts level with the scores' card (-mb-1: the aside's 12px title gap
+ * under the page's 16px column gap).
+ */
+function ReviewsCount({ count, onInfo, header = false }: { count: number; onInfo: () => void; header?: boolean }) {
   return (
-    <div className="flex flex-col items-start">
-      <p className="t-title2 text-ink" data-testid="reviews-count">
+    <div className={cn('flex flex-col items-start', header && cn(READING, 'xl:-mb-1 xl:min-h-9 xl:flex-row xl:items-center xl:justify-between xl:gap-3'))}>
+      <h2 className={cn('t-title2 text-ink', header && 'xl:t-heading')} data-testid="reviews-count">
         {formatReviewsCount(count)}
-      </p>
-      <InfoLink onInfo={onInfo} />
+      </h2>
+      {/* In the 36px header row the 44px target overhangs it (-my-1) instead of growing the row. */}
+      <InfoLink onInfo={onInfo} className={header ? 'xl:-my-1' : undefined} />
     </div>
   );
 }
@@ -353,7 +379,7 @@ function ReviewRowsForViewer({ rows, lakeId, lakeName }: { rows: Review[]; lakeI
 
 function ReviewRows({ rows, lakeId, lakeName, me }: { rows: Review[]; lakeId: string; lakeName: string; me: string | null }) {
   return (
-    <ul aria-label="Recenzii" className={cn(listGridClass('md'), 'items-start')} data-testid="reviews-list">
+    <ul aria-label="Recenzii" className={cn(READING, 'flex flex-col', LIST_GUTTER)} data-testid="reviews-list">
       {rows.map(r => (
         <li key={r.documentId}>
           {me && r.author?.documentId === me ? (
@@ -481,12 +507,24 @@ function AddBarFor({ viewer, lakeId, lakeName, placement }: { viewer: ViewerStat
   const mine = useQuery(myLakeReviewQuery(t, lakeId, user?.documentId));
   const [inApp, setInApp] = useState(false);
   if (isUnknownViewer(viewer)) return null;
-  // Unknown (pending) or failed own-review read: no CTA — offering «Adaugă» could lead to a duplicate.
-  if (user && (mine.isPending || mine.isError || mine.data)) return null;
   // Inside the empty card the long sign-in label may wrap on a phone (the kit Button is one line).
   const inline = placement === 'inline' ? 'max-w-full shrink whitespace-normal! h-auto! min-h-12 py-2.5 text-center xl:min-h-10' : undefined;
   const wrap = (node: ReactNode) =>
     placement === 'sticky' ? <StickyActions>{node}</StickyActions> : placement === 'inline' ? node : <div className="hidden md:flex">{node}</div>;
+  // Failed own-review read: never «Adaugă» (it could lead to a duplicate), never a silent gap
+  // either — say so in the CTA's place, with the retry.
+  if (user && mine.isError) {
+    return wrap(
+      <div className={cn('flex items-center gap-3', placement === 'sticky' ? 'w-full justify-between' : 'flex-wrap justify-center md:justify-end')} data-testid="review-mine-error">
+        <p className="t-caption text-muted">Nu am putut verifica recenzia ta.</p>
+        <Button variant="outline" size="compact" onClick={() => void mine.refetch()} aria-busy={mine.isFetching || undefined}>
+          Încearcă din nou
+        </Button>
+      </div>,
+    );
+  }
+  // Pending own-review read, or the viewer already reviewed: no CTA (never one to a duplicate).
+  if (user && (mine.isPending || mine.data)) return null;
   if (!user) {
     // c9: back to this list after signing in (fish pushes /sign-in over it), where the bar flips.
     return wrap(
@@ -550,12 +588,13 @@ export function ReviewsFallback({ lakeName, lakeId: id }: { lakeName?: string; l
       asideInline={false}
       asideBusy
     >
-      <div role="status" className="flex flex-col gap-4" data-testid="reviews-skeleton">
+      <div role="status" className="flex flex-col gap-4 xl:max-w-170" data-testid="reviews-skeleton">
         <span className="sr-only">Se încarcă recenziile…</span>
         <div aria-hidden className="xl:hidden">
           <ScoresSkeleton variant="tiles" />
         </div>
-        <ul aria-hidden className={listGridClass('md')}>
+        <CountSkeleton />
+        <ul aria-hidden className={cn(READING, 'flex flex-col', LIST_GUTTER)}>
           {[0, 1, 2, 3].map(i => (
             <li key={i} className="flex flex-col gap-3 rounded-card bg-surface p-3.5 shadow-e0">
               <span className="flex items-center gap-2">

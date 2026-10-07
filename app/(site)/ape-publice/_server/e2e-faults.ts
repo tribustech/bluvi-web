@@ -11,6 +11,7 @@ import 'server-only';
  *  - `claimed:<lakeDocumentId>`: the claim map says a lake claimed this water (c4 / s4 redirect);
  *  - `nolinkcode`: the water has no ANAR link code (c32 / s5: no community sections, no code row);
  *  - `nofacts`: no basin / area / volume / altitude / EU code (s12: no «Detalii»);
+ *  - `noname`: a nameless ANAR row (c6: the title falls back to «Apă publică»);
  *  - `point`: a geometry with one coordinate (harta s5: centre ± 0.1°);
  *  - `noprefetch`: the subpages (partide, statistici, clasament, capturi) skip their server prefetch,
  *    so the browser makes the community reads and a test can serve them with page.route.
@@ -55,6 +56,7 @@ export function e2eWaterOverride(param: string, water: PublicWaterDetail): Publi
   let w = water;
   if (faults.has('nolinkcode')) w = { ...w, linkCode: null };
   if (faults.has('nofacts')) w = { ...w, basin: null, areaKm2: null, volumeMilM3: null, elevationM: null, euCode: null };
+  if (faults.has('noname')) w = { ...w, name: null, nameEn: null };
   if (faults.has('point')) w = { ...w, geometry: { type: 'LineString', coordinates: [[w.centerLng, w.centerLat]] } };
   return w;
 }

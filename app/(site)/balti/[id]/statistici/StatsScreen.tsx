@@ -6,13 +6,16 @@ import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useId, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { ChevronRightIcon } from '@heroicons/react/20/solid';
-import { ChartBarIcon } from '@heroicons/react/24/outline';
+import { ChartBarIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import { ChoiceChips, FilterColumn, FilterColumnSkeleton, FilterSection, ListHeader, useListUrlState } from '@/components/templates/T1';
 import { T2Spinner } from '@/components/templates/T2';
 import { CardShell } from '@/components/cards/CardShell';
 import { formatDecimal } from '@/components/cards/format';
 import { Pill } from '@/components/cards/parts';
-import { DashboardEmpty, DashboardLayout, DashboardPage, DashboardSection, KpiGrid, KpiTile, LINK_ACTION } from '@/components/templates/T5';
+import { DashboardEmpty, DashboardLayout, DashboardPage, DashboardSection, LINK_ACTION } from '@/components/templates/T5';
+import { FishIcon, FishingRodIcon } from '@/components/icons/brand';
+import { BentoArt, bentoSurface, FactTile } from '@/components/ui/BentoTile';
+import { SignatureNumber } from '@/components/ui/SignatureNumber';
 import { cn } from '@/components/ui/cn';
 import {
   communityStatsQuery,
@@ -124,12 +127,12 @@ export function StatsScreen({ lakeId, lakeName, initialPeriod }: { lakeId: strin
   );
 
   // From 1280 the three tracks stay in every state, so the centre never moves sideways between a
-  // period with figures, an empty one and a failed read: an empty or failed period gets the quiet
-  // card in the right column (the centre's own card says what happened).
-  const quiet = (
-    <QuietAside>{failed ? 'Recordul și speciile apar după ce se încarcă statisticile.' : 'Nicio captură cu record în această perioadă.'}</QuietAside>
-  );
-  const aside = ready ? <RecordAndSpecies data={ready} period={shownPeriod} empty={quiet} /> : quiet;
+  // period with figures, an empty one and a failed read. Nothing to show on the right (an empty
+  // period, or no record and no species): the track stays reserved but empty — the centre's card
+  // is the page's one message (rule 4: never a second «nothing here»), and so is a failed read's
+  // error card (never a second sentence about the missing data beside it).
+  const reserved = <div data-testid="stats-aside-reserved" />;
+  const aside = ready ? <RecordAndSpecies data={ready} period={shownPeriod} empty={reserved} /> : reserved;
 
   return (
     <DashboardPage
@@ -152,7 +155,7 @@ export function StatsScreen({ lakeId, lakeName, initialPeriod }: { lakeId: strin
         main={
           <div
             inert={switching}
-            className={cn('flex flex-col gap-4 transition-opacity md:gap-5 xl:gap-6', switching && 'pointer-events-none opacity-60')}
+            className={cn('@container flex flex-col gap-4 transition-opacity md:gap-5 xl:gap-6', switching && 'pointer-events-none opacity-60')}
             data-testid="stats-content"
           >
             {main}
@@ -192,14 +195,6 @@ function StatsContext({
   );
 }
 
-function QuietAside({ children }: { children: ReactNode }) {
-  return (
-    <DashboardSection title="Recordul și speciile">
-      <p className="t-body text-muted">{children}</p>
-    </DashboardSection>
-  );
-}
-
 /** «now» only in the browser (the series' detail labels count back from today). */
 const noSubscribe = () => () => {};
 const useToday = () => useSyncExternalStore(noSubscribe, () => new Date().toDateString(), () => null);
@@ -209,6 +204,7 @@ function StatsMain({ data, period, lakeId }: { data: CommunityStatsDTO; period: 
   const series = data.weeklySeries;
   const detail = useMemo(() => (today ? seriesDetailLabels(period, series.length, new Date(today)) : series.map(s => s.label)), [period, series, today]);
   const hasSpecies = data.species.length > 0;
+  const hasStands = (data.stands?.length ?? 0) > 0;
   return (
     <>
       <PeriodKpis totals={data.totals} />
@@ -217,27 +213,40 @@ function StatsMain({ data, period, lakeId }: { data: CommunityStatsDTO; period: 
           testId="activity-card"
           points={series.map((s, i) => ({ label: s.label, count: s.count, detail: detail[i] }))}
           noun={['captură', 'capturi']}
-          summary={`Activitate pe perioada aleasă: ${series.reduce((a, s) => a + s.count, 0)} capturi.`}
+          summary={`Activitate pe perioada aleasă: ${plural(series.reduce((a, s) => a + s.count, 0), 'captură', 'capturi')}.`}
         />
       ) : null}
-      {data.topAnglers.length > 0 ? (
-        <DashboardSection
-          title="Top pescari"
-          flush
-          action={
-            <Link href={routes.lakeRanking(lakeId, period)} className={cn(LINK_ACTION, '-my-3 inline-flex items-center gap-0.5')} data-testid="top-anglers-ranking">
-              Clasament
-              <ChevronRightIcon aria-hidden className="size-4" />
-            </Link>
-          }
-        >
-          <ol aria-label="Top pescari" className="divide-y divide-hairline border-t border-hairline" data-testid="top-anglers">
-            {data.topAnglers.slice(0, 3).map((a, i) => (
-              <TopAnglerRow key={a.uid} angler={a} rank={i + 1} />
-            ))}
-          </ol>
-        </DashboardSection>
-      ) : null}
+      {/*
+        The two ranked lists (owner rule 16: numbers never float across a wide column): once the
+        column holds two (container ≥ 704px — a tablet, 1440 and up) Top pescari and Top standuri
+        share a bento row, each name next to its number; narrower, they stack. On a phone the
+        wrapper dissolves (fish order: the anglers, the record, the stands, the species).
+      */}
+      <div className="contents @[44rem]:grid @[44rem]:grid-cols-2 @[44rem]:items-start @[44rem]:gap-5 @[44rem]:[&>:only-child]:col-span-2" data-testid="ranked-pair">
+        {data.topAnglers.length > 0 ? (
+          <DashboardSection
+            title="Top pescari"
+            flush
+            action={
+              <Link href={routes.lakeRanking(lakeId, period)} className={cn(LINK_ACTION, '-my-3 inline-flex items-center gap-0.5')} data-testid="top-anglers-ranking">
+                Clasament
+                <ChevronRightIcon aria-hidden className="size-4" />
+              </Link>
+            }
+          >
+            <ol aria-label="Top pescari" className="divide-y divide-hairline border-t border-hairline" data-testid="top-anglers">
+              {data.topAnglers.slice(0, 3).map((a, i) => (
+                <TopAnglerRow key={a.uid} angler={a} rank={i + 1} />
+              ))}
+            </ol>
+          </DashboardSection>
+        ) : null}
+        {hasStands ? (
+          <div className="max-md:order-1">
+            <TopStands stands={data.stands ?? []} lakeId={lakeId} period={period} />
+          </div>
+        ) : null}
+      </div>
       {/*
         fish order below 768: the record between the anglers and the stands, the species last. From
         768 to 1279 the record and the species share a row (the tablet's width, not a 720px photo and
@@ -253,31 +262,51 @@ function StatsMain({ data, period, lakeId }: { data: CommunityStatsDTO; period: 
           ) : null}
         </div>
       ) : null}
-      <TopStands stands={data.stands ?? []} lakeId={lakeId} period={period} />
     </>
   );
 }
 
-/**
- * lakes.stats.c6 — partide · pescari · capturi (no kg): the T5 KPI row in its compact step, three
- * across at every width (fish StatStrip is one row of three).
+/*
+ * lakes.stats.c6 — partide · pescari · capturi (no kg; fish StatStrip), as an Apple-style bento
+ * (owner rules 9 and 19): one idea per tile, each on its own surface. Capturi is the signature —
+ * the navy tile, the 64px lavender number, the fish as its corner art; Partide (indigo, the rod) and
+ * Pescari (lavender, the group) are the small fact tiles beside it. Phone: Capturi across the row,
+ * the two facts under it; from 768 Capturi on the left as tall as the two facts stacked on the
+ * right. The skeleton (PeriodKpisSkeleton) is the same grid on the same surfaces.
+ * TODO(kit): a BentoTile `compact` floor (its 156px minimum is not overridable — cn does not
+ * merge), so the signature tile could be a BentoTile instead of its own anatomy on bentoSurface.
  */
-const KPI_LABELS = ['Partide', 'Pescari', 'Capturi'] as const;
-/* Three across on a phone too. No detail line on these tiles: the number track hugs the 26px figure
-   and the empty caption row closes (variants, so they win over the kit's base tracks). The skeleton
-   uses the same row and tiles. TODO(kit): a KpiGrid `dense` row for detail-less compact tiles. */
-const KPI_GRID = 'max-md:grid-cols-3 max-md:gap-2 max-md:auto-rows-[auto_auto_0px] md:auto-rows-[auto_auto_0px]';
-const KPI_TILE = 'max-md:p-3 max-md:pb-1 md:pb-2.5';
+const KPI_BENTO = 'grid grid-cols-2 gap-2.5 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:grid-rows-[auto_auto] md:gap-3 xl:gap-4';
+const KPI_SIGNATURE = cn(bentoSurface('signature'), 'col-span-2 flex min-w-0 flex-col justify-between gap-2 rounded-bento p-4.5 md:col-span-1 md:row-span-2 md:min-h-39');
+const KPI_LABEL = 't-label tracking-[0.4px] text-lavender-2 uppercase';
 
 function PeriodKpis({ totals }: { totals: { partide: number; anglers: number; catches: number } }) {
-  const values = [totals.partide, totals.anglers, totals.catches];
+  const n = (v: number) => <span data-testid="stat-value">{v.toLocaleString('ro-RO')}</span>;
   return (
-    <div data-testid="stat-strip">
-      <KpiGrid label="Perioada, pe scurt" columns="quad" compact className={KPI_GRID}>
-        {KPI_LABELS.map((label, i) => (
-          <KpiTile key={label} label={label} value={<span data-testid="stat-value">{values[i].toLocaleString('ro-RO')}</span>} className={KPI_TILE} />
-        ))}
-      </KpiGrid>
+    <div role="group" aria-label="Perioada, pe scurt" className={KPI_BENTO} data-testid="stat-strip">
+      <div className={KPI_SIGNATURE} data-testid="stat-catches">
+        <BentoArt>
+          <FishIcon />
+        </BentoArt>
+        <p className={KPI_LABEL}>Capturi</p>
+        <SignatureNumber size="tile" tone="lavender" unitTone="lavender" value={n(totals.catches)} className="whitespace-nowrap" />
+      </div>
+      <FactTile tone="indigo" label="Partide" icon={<FishingRodIcon />} value={n(totals.partide)} className="md:min-h-19" />
+      <FactTile tone="lavender" label="Pescari" icon={<UserGroupIcon />} value={n(totals.anglers)} className="md:min-h-19" />
+    </div>
+  );
+}
+
+/** PeriodKpis in grey: the same grid and surfaces, the labels known, the numbers as bones. */
+function PeriodKpisSkeleton() {
+  return (
+    <div aria-hidden className={KPI_BENTO}>
+      <div className={KPI_SIGNATURE}>
+        <p className={KPI_LABEL}>Capturi</p>
+        <span className="h-14 w-28 rounded-full bg-lavender/15" />
+      </div>
+      <FactTile tone="indigo" label="Partide" icon={<FishingRodIcon />} value={<span className="inline-block h-6 w-10 rounded-full bg-on-bento-indigo/20 align-middle" />} className="md:min-h-19" />
+      <FactTile tone="lavender" label="Pescari" icon={<UserGroupIcon />} value={<span className="inline-block h-6 w-10 animate-shimmer rounded-full align-middle" />} className="md:min-h-19" />
     </div>
   );
 }
@@ -422,10 +451,14 @@ function TopStands({ stands, lakeId, period }: { stands: StandStat[]; lakeId: st
   );
 }
 
-function standValue(stand: StandStat, sort: StandSort): { value: string; unit?: string } {
-  if (sort === 'catches') return { value: String(stand.catches), unit: stand.catches === 1 ? 'captură' : 'capturi' };
+/**
+ * The row's value for the sort. A kg sort with no weight (none recorded, or 0 kg — the isWeighed
+ * rule of «Top pescari» and Clasament, owner rule 11) is a muted «—», never «0,00 kg».
+ */
+function standValue(stand: StandStat, sort: StandSort): { value: string; unit?: string; muted?: boolean } {
+  if (sort === 'catches') return { value: String(stand.catches), unit: plural(stand.catches, 'captură', 'capturi').slice(String(stand.catches).length + 1) };
   const kg = standSortValue(stand, sort);
-  return kg == null ? { value: '—' } : { value: rankKg(kg), unit: 'kg' };
+  return kg == null || !isWeighed(kg) ? { value: '—', muted: true } : { value: rankKg(kg), unit: 'kg' };
 }
 
 /** fish StandRow showBar: the shared RankRow, the proportion bar (vs the leader) under the meta line. */
@@ -444,13 +477,20 @@ function StandBarRow({ stand, sort, rank, lead }: { stand: StandStat; sort: Stan
             {plural(stand.partide, 'partidă', 'partide')} · {plural(stand.catches, 'captură', 'capturi')}
             {stand.recordKg != null ? ` · record ${rankKg(stand.recordKg)} kg` : ''}
           </span>
-          <span aria-hidden className="mt-1.5 block h-1 overflow-hidden rounded-full bg-accent-tint">
-            <span className="block h-full rounded-full bg-accent" style={{ width: `${fraction * 100}%` }} data-testid="stand-bar" />
-          </span>
+          {/* Nothing to measure (no weight / no catch for the sort): no track — an empty bar reads as
+              a zero the row does not claim; the row keeps the track's height so rows stay even. */}
+          {fraction > 0 ? (
+            <span aria-hidden className="mt-1.5 block h-1 overflow-hidden rounded-full bg-accent-tint">
+              <span className="block h-full rounded-full bg-accent" style={{ width: `${fraction * 100}%` }} data-testid="stand-bar" />
+            </span>
+          ) : (
+            <span aria-hidden className="mt-1.5 block h-1" data-testid="stand-bar-none" />
+          )}
         </>
       }
       value={<span data-testid="stand-value">{v.value}</span>}
       unit={v.unit}
+      muted={v.muted}
     />
   );
 }
@@ -487,7 +527,7 @@ function SpeciesSection({ species }: { species: SpeciesShare[] }) {
  * it needs only the lake's id; the period's chips shimmer, the period is not known here), the KPI
  * row's own three tiles, the «Activitate» card at its height, the anglers' rows.
  * TODO(kit): DashboardSkeleton's blocks (tile, chart card) are not exported — this unit may only
- * touch the lake pages, so the shapes below reuse the real KpiGrid / KpiTile instead.
+ * touch the lake pages, so the shapes below reuse the real bento (PeriodKpisSkeleton) instead.
  */
 export function StatsFallback({ lakeName, lakeId: id }: { lakeName?: string; lakeId?: string }) {
   // loading.tsx knows no params: the back square goes to the lake as soon as its id is in the URL.
@@ -532,11 +572,7 @@ export function StatsFallback({ lakeName, lakeId: id }: { lakeName?: string; lak
           contextLabel="Perioada și paginile bălții"
           main={
             <div aria-hidden className="flex flex-col gap-4 md:gap-5 xl:gap-6">
-              <KpiGrid label="Perioada, pe scurt" columns="quad" compact className={KPI_GRID}>
-                {KPI_LABELS.map(label => (
-                  <KpiTile key={label} label={label} value={<span className="inline-block h-6 w-10 animate-shimmer rounded-full align-middle" />} className={KPI_TILE} />
-                ))}
-              </KpiGrid>
+              <PeriodKpisSkeleton />
               <div className="flex h-64.5 flex-col gap-3 rounded-card bg-surface p-4.5 shadow-e0">
                 <span className="h-4 w-24 animate-shimmer rounded-full" />
                 <span className="min-h-0 flex-1 animate-shimmer rounded-control" />

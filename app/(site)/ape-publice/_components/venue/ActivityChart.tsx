@@ -3,6 +3,7 @@
 import { useId, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { labelIndices, yAxisScale } from '@/core/partide';
 import { cn } from '@/components/ui/cn';
+import { formatCount } from '@/core/realtime/chat/format';
 
 /*
  * «Activitate» — fish ActivityCard + ActivityLineChart: the buckets of a period as a line over a
@@ -51,7 +52,7 @@ export function ActivityChart({
   const area = `${line} L${x(n - 1).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`;
   const shown = new Set(labelIndices(n));
   const point = active >= 0 && active < n ? points[active] : null;
-  const count = (c: number) => `${c} ${c === 1 ? noun[0] : noun[1]}`;
+  const count = (c: number) => formatCount(c, noun[0], noun[1]);
 
   const pick = (e: PointerEvent<SVGSVGElement>) => {
     const box = e.currentTarget.getBoundingClientRect();

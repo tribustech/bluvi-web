@@ -2,7 +2,8 @@
 
 import { ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import type { Map as MlMap } from 'maplibre-gl';
+import { useEffect, useState, type ReactNode } from 'react';
 import { PHOTO_PILL, photoHeroHeight } from '@/components/templates/T3';
 import { cn } from '@/components/ui/cn';
 import { waterFitBounds, type PublicWaterDetail } from '@/core/lakes';
@@ -26,7 +27,15 @@ import { MapAttribution, WaterMap, type WaterPadding } from '../WaterMap';
  * so the page does not jump when it loads. The fit keeps fish's 34px on every side as a minimum and
  * reserves the overlays on top of it — the «Deschide harta» pill (top), the back chip and its scrim
  * (phone top), the «ⓘ» credits chip (bottom) — so the water is never drawn under them.
+ *
+ * Until the map has drawn (the library, the style, the tiles and the water's outline — MapLibre's
+ * first `idle` after it is up), the band keeps the loading skeleton's shimmer over it, then fades
+ * it out: never a flat grey slab that reads as a broken image, never the outline caught mid-fit.
+ * The band changes width when the catch photos arrive: the water is fitted again at the new size.
  */
+
+/** Past this after the map is up, the shimmer gives way even if a tile is still on its way. */
+const DRAWN_DEADLINE_MS = 6000;
 
 export const WATER_HERO_HEIGHT = photoHeroHeight(2);
 
@@ -36,6 +45,26 @@ function heroPadding(): WaterPadding {
 }
 
 export function WaterHero({ water, name, mapHref, fill }: { water: PublicWaterDetail; name: string; mapHref: string; fill?: ReactNode }) {
+  const [map, setMap] = useState<MlMap | null>(null);
+  const [drawn, setDrawn] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
+  useEffect(() => {
+    if (!map) return;
+    // Registered after the map's own effects gave the selection source its data (child effects
+    // first), so this `idle` is the frame with the outline in place.
+    const done = () => setDrawn(true);
+    map.once('idle', done);
+    const deadline = window.setTimeout(done, DRAWN_DEADLINE_MS);
+    const bounds = waterFitBounds(water);
+    const refit = () => map.fitBounds(bounds, { padding: heroPadding(), animate: false });
+    map.on('resize', refit);
+    return () => {
+      map.off('idle', done);
+      map.off('resize', refit);
+      window.clearTimeout(deadline);
+    };
+  }, [map, water]);
+  const covered = !drawn && !unavailable;
   return (
     <div
       data-t3="photo"
@@ -57,8 +86,20 @@ export function WaterHero({ water, name, mapHref, fill }: { water: PublicWaterDe
             selected={{ id: water.id, type: water.type, geometry: water.geometry }}
             selectedFill="indigo"
             loadingStatus={false}
+            onReady={setMap}
+            onUnavailableChange={setUnavailable}
           />
         </div>
+        {/* The skeleton's own bone (DetailSkeleton photo), so loading → map is one continuous surface. */}
+        <span
+          aria-hidden
+          data-testid="water-hero-cover"
+          data-covered={covered || undefined}
+          className={cn(
+            'pointer-events-none absolute inset-0 animate-shimmer transition-opacity duration-(--duration-medium) ease-fast',
+            covered ? 'opacity-100' : 'opacity-0',
+          )}
+        />
         <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-linear-to-b from-photo-scrim to-transparent md:hidden" />
         <Link
           href={mapHref}

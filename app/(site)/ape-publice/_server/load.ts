@@ -4,6 +4,7 @@ import { cacheLife, cacheTag } from 'next/cache';
 import {
   getClaimedPublicWaters,
   parsePublicWaterRouteParam,
+  publicWaterBasinName,
   publicWaterName,
   publicWaterSubtitle,
   toClaimedPublicWatersMap,
@@ -102,7 +103,8 @@ export function waterDescription(water: PublicWaterDetail): string {
   const name = publicWaterName(water);
   const parts = [`${name} — ${publicWaterSubtitle(water).toLowerCase()}`];
   if (water.areaKm2) parts.push(`suprafață ${AREA.format(water.areaKm2)} km²`);
-  if (water.basin) parts.push(`bazinul hidrografic ${water.basin}`);
+  const basin = publicWaterBasinName(water.basin);
+  if (basin) parts.push(`bazinul hidrografic ${basin}`);
   return `${parts.join(', ')}. Hartă, partide de pescuit și capturi pe ${name} în Bluvi.`;
 }
 

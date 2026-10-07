@@ -39,6 +39,7 @@ import { SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_sub/states';
 import { useBack } from '../_sub/useBack';
 import { rankKg, StatCell } from '../_sub/stats';
 import { AnglerAvatar, dateRange, EmptyIcon, FaceRow, SafePhoto } from '../_sub/venue';
+import { formatCount } from '@/core/realtime/chat/format';
 
 /*
  * Partide la baltă — fish app/(app)/lakes/[lakeId]/partide.tsx → VenueSessionsScreen (parity
@@ -449,7 +450,7 @@ function HistoryCard({ row }: { row: CommunityHistorySessionDTO }) {
         <StatCell centered label="Durată" value={duration.value} unit={duration.unit} />
       </dl>
       {shown.length ? (
-        <ul aria-label={`${photoTotal} ${photoTotal === 1 ? 'fotografie' : 'fotografii'}`} className="grid grid-cols-3 gap-1.5" data-testid="history-photos">
+        <ul aria-label={formatCount(photoTotal, 'fotografie', 'fotografii')} className="grid grid-cols-3 gap-1.5" data-testid="history-photos">
           {shown.map((p, i) => {
             const more = hidden > 0 && i === shown.length - 1;
             return (

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useState, type ReactNode } from 'react';
 import { ChevronRightIcon } from '@heroicons/react/20/solid';
-import { ChoiceChips, FOCUS_RING, ListHeader } from '@/components/templates/T1';
+import { ChoiceChips, FOCUS_RING, ListHeader, ListTabs, TabsSkeleton } from '@/components/templates/T1';
 import { T2Spinner } from '@/components/templates/T2';
 import { DashboardRefresh, type RefreshResult } from '@/components/templates/T5';
 import { Avatar, toneForName } from '@/components/ui/Avatar';
@@ -12,6 +12,8 @@ import { cn } from '@/components/ui/cn';
 import { fmtKg, isWeighed, type StatsPeriod } from '@/core/partide';
 import { ON_WEB, routes } from '@/lib/routes';
 import { PERIOD_OPTIONS } from '@/lib/stats-period';
+import { formatCount, pluralNoun } from '@/core/realtime/chat/format';
+import { Button } from '@/components/ui/Button';
 
 /*
  * Pieces the public water's community pages share (partide, statistici, clasament, capturi): the
@@ -118,6 +120,39 @@ export function PeriodChips({ value, onChange, busy, name = 'perioada' }: { valu
       {/* Fixed slot so the spinner appearing never nudges the chips sideways. */}
       <span className="flex size-6 shrink-0 items-center justify-center text-accent">{busy ? <T2Spinner className="size-5" /> : null}</span>
     </div>
+  );
+}
+
+/**
+ * The period the figures on screen belong to. While a switch loads, TanStack keeps the previous
+ * period's data (keepPreviousData) but `period` is already the new one: every label naming the
+ * period («Ești pe locul 3 din … luna asta», the aside's «Luna aceasta», the record's tag, the
+ * chart's day labels) reads this instead, so it never names the new period over the old figures.
+ * `settled`: the query holds the current period's own answer (data, not a placeholder).
+ */
+export function useShownPeriod(period: StatsPeriod, settled: boolean): StatsPeriod {
+  const [shown, setShown] = useState(period);
+  if (settled && shown !== period) setShown(period);
+  return settled ? period : shown;
+}
+
+/** The next wider period, for an empty one (Săptămâna → Luna → Anul curent; the year has none). */
+const WIDER: Partial<Record<StatsPeriod, { period: StatsPeriod; label: string }>> = {
+  week: { period: 'month', label: 'Vezi luna' },
+  month: { period: 'year', label: 'Vezi anul curent' },
+};
+
+/**
+ * The empty period's way out (Statistici c6, Clasament c4): switch to the next wider period, so an
+ * empty «Luna» on a water with partide this year is never a dead end. Nothing for the year.
+ */
+export function WiderPeriodAction({ period, onChange }: { period: StatsPeriod; onChange: (p: StatsPeriod) => void }) {
+  const wider = WIDER[period];
+  if (!wider) return null;
+  return (
+    <Button variant="secondary" onClick={() => onChange(wider.period)} data-testid="wider-period">
+      {wider.label}
+    </Button>
   );
 }
 
@@ -313,19 +348,36 @@ export type WaterPage = 'partide' | 'statistici' | 'clasament' | 'capturi';
  * sibling from 1280 (the current one marked, aria-current="page"), so moving between them works
  * the same way on each. Statistici and Clasament carry the period in view.
  */
-export function WaterPages({ waterKey, current, period }: { waterKey: string; current: WaterPage; period?: StatsPeriod }) {
-  const pages: { key: WaterPage; label: string; href: string }[] = [
+function waterPages(waterKey: string, period?: StatsPeriod): { key: WaterPage; label: string; href: string }[] {
+  return [
     { key: 'partide', label: 'Partide', href: routes.publicWaterPartide(waterKey) },
     { key: 'statistici', label: 'Statistici', href: routes.publicWaterStats(waterKey, period) },
     { key: 'clasament', label: 'Clasament', href: routes.publicWaterRanking(waterKey, period) },
     { key: 'capturi', label: 'Capturi', href: routes.publicWaterCatches(waterKey) },
   ];
+}
+
+export function WaterPages({
+  waterKey,
+  current,
+  period,
+  eyebrow = true,
+}: {
+  waterKey: string;
+  current: WaterPage;
+  period?: StatsPeriod;
+  /** false when the column holding the list is itself titled «Pe această apă» (Partide). */
+  eyebrow?: boolean;
+}) {
+  const pages = waterPages(waterKey, period);
   return (
     <nav aria-label="Pe această apă" className="flex min-w-0 flex-col" data-testid="water-pages">
       {/* FilterSection's legend look (a nav, not a fieldset: these are links, not a choice). */}
-      <p aria-hidden className="mb-2.5 t-eyebrow text-muted uppercase">
-        Pe această apă
-      </p>
+      {eyebrow ? (
+        <p aria-hidden className="mb-2.5 t-eyebrow text-muted uppercase">
+          Pe această apă
+        </p>
+      ) : null}
       <ul className="-mx-2 flex flex-col gap-0.5">
         {pages.map((p) => {
           const on = p.key === current;
@@ -352,20 +404,43 @@ export function WaterPages({ waterKey, current, period }: { waterKey: string; cu
 }
 
 /**
+ * «Pe această apă» below 1280 (phone, tablet): the same four pages as the left column, as the kit's
+ * underline tab row (link mode, aria-current on the current one) under the header — the sibling
+ * pages are places, so they look like tabs (owner rules 2, «tabs that look like tabs»). From 1280
+ * the left column's list takes over and this row is gone.
+ */
+export function WaterTabs({ waterKey, current, period, className }: { waterKey: string; current: WaterPage; period?: StatsPeriod; className?: string }) {
+  return (
+    <div className={cn('mt-3 md:mt-4 xl:hidden', className)} data-testid="water-tabs">
+      <ListTabs label="Pe această apă" tabs={waterPages(waterKey, period)} active={current} />
+    </div>
+  );
+}
+
+/** WaterTabs' place while the page's data loads (same height: nothing moves when it lands). */
+export function WaterTabsSkeleton() {
+  return (
+    <div className="mt-3 md:mt-4 xl:hidden">
+      <TabsSkeleton count={4} />
+    </div>
+  );
+}
+
+/**
  * «The period in numbers» — fish StatStrip: ONE compact white card, three columns split by
  * hairlines, the value (title2) over its lowercase label. The one look of both siblings (Statistici
  * under the header, Clasament's right column): no bento tiles with an empty lower half. D1: no kg.
  */
 export function PeriodNumbers({ totals, label = 'Perioada, pe scurt', className }: { totals: { partide: number; anglers: number; catches: number }; label?: string; className?: string }) {
   const cells = [
-    { value: totals.partide, label: totals.partide === 1 ? 'partidă' : 'partide' },
-    { value: totals.anglers, label: totals.anglers === 1 ? 'pescar' : 'pescari' },
-    { value: totals.catches, label: totals.catches === 1 ? 'captură' : 'capturi' },
+    { key: 'partide', value: totals.partide, label: pluralNoun(totals.partide, 'partidă', 'partide') },
+    { key: 'anglers', value: totals.anglers, label: pluralNoun(totals.anglers, 'pescar', 'pescari') },
+    { key: 'catches', value: totals.catches, label: pluralNoun(totals.catches, 'captură', 'capturi') },
   ];
   return (
     <dl aria-label={label} className={cn(ROWS_CARD, 'grid grid-cols-3 divide-x divide-hairline py-3', className)} data-testid="stat-strip">
       {cells.map((c) => (
-        <div key={c.label} className="flex min-w-0 flex-col-reverse items-center gap-0.5 px-2">
+        <div key={c.key} className="flex min-w-0 flex-col-reverse items-center gap-0.5 px-2">
           <dt className="t-micro text-muted">{c.label}</dt>
           <dd className="t-title2 text-ink tabular-nums">{c.value.toLocaleString('ro-RO')}</dd>
         </div>
@@ -384,3 +459,42 @@ export function EmptyIcon({ children }: { children: ReactNode }) {
 
 /** A weight that means «nothing weighed» (0 / missing, core isWeighed) reads «—», never as a figure to highlight. */
 export const kgText = (kg: number | null | undefined) => (isWeighed(kg) ? `${fmtKg(kg)} kg` : '— kg');
+
+
+/**
+ * An angler's figure in a ranking: the weight when something was weighed, otherwise the catches —
+ * what the ranking then ordered by (catches, then partide), so an unweighed podium still says why
+ * 1st is 1st instead of three «— kg». Callers mute it when !isWeighed.
+ */
+export const scoreText = (a: { totalKg: number | null | undefined; catches: number }) =>
+  isWeighed(a.totalKg) ? kgText(a.totalKg) : formatCount(a.catches, 'captură', 'capturi');
+
+/**
+ * The podium's figure: scoreText, except that an unweighed place with no catch shows what put it
+ * there — its partide (rankAnglers' last key) — never a medal over «0 capturi» (rule 4).
+ */
+export const podiumScoreText = (a: { totalKg: number | null | undefined; catches: number; partide: number }) =>
+  !isWeighed(a.totalKg) && a.catches === 0 ? formatCount(a.partide, 'partidă', 'partide') : scoreText(a);
+
+/**
+ * An angler row's subtitle: «N partide · N capturi» beside a weight; nothing weighed, the figure on
+ * the right is already the catches (scoreText), so the subtitle is the partide alone.
+ */
+export const anglerSubtitle = (a: { totalKg: number | null | undefined; catches: number; partide: number }) =>
+  isWeighed(a.totalKg)
+    ? `${formatCount(a.partide, 'partidă', 'partide')} · ${formatCount(a.catches, 'captură', 'capturi')}`
+    : formatCount(a.partide, 'partidă', 'partide');
+
+/**
+ * The CMS ranks a period's anglers by kg, ties by uid (stats-aggregates rankAnglers): when nothing
+ * was weighed — the common case on a public water — the order is the uids', meaningless. Within a
+ * group tied on kg the web orders by catches, then partide (the uid order kept after that), so
+ * the figure shown beside each place (scoreText) explains it. A weighed ranking is unchanged.
+ * Proposed server-side in docs/private/cms-patches/M1-community-ranking-ties.md (then fish agrees).
+ */
+export function rankAnglers<T extends { totalKg: number; catches: number; partide: number }>(anglers: T[]): T[] {
+  return anglers
+    .map((a, i) => ({ a, i }))
+    .sort((x, y) => y.a.totalKg - x.a.totalKg || y.a.catches - x.a.catches || y.a.partide - x.a.partide || x.i - y.i)
+    .map((x) => x.a);
+}

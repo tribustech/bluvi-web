@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { PositionPill } from '@/components/ranking';
+import { isMedalPlace, MEDAL } from '@/components/ranking';
 import { AsideSection, ChoiceChips, TEXT_ACTION } from '@/components/templates/T1';
 import { T2Spinner } from '@/components/templates/T2';
 import { cn } from '@/components/ui/cn';
-import type { StatsPeriod, StatsTotals } from '@/core/partide';
+import { fmtKgStat, type StatsPeriod, type StatsTotals } from '@/core/partide';
+import { formatCount } from '@/core/realtime/chat/format';
 import { PERIOD_OPTIONS, PERIOD_TITLE } from '@/lib/stats-period';
 import { ChipStrip } from './states';
 
@@ -29,7 +30,8 @@ export function rankKg(kg: number): string {
   return KG2.format(kg);
 }
 
-export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+/** «1 captură», «12 capturi», «42 de capturi» — Romanian counts take «de» from 20 (formatCount). */
+export const plural = (n: number, one: string, many: string) => formatCount(n, one, many);
 
 /**
  * fish PeriodChips: three chips + a fixed spinner slot (a period switch in flight). `fill`: the
@@ -76,7 +78,7 @@ export function RowsSkeleton({ rows = 6, avatar = true }: { rows?: number; avata
     <ul aria-hidden className={cn(ROWS_CARD, 'divide-y divide-hairline')}>
       {Array.from({ length: rows }, (_, i) => (
         <li key={i} className="flex items-center gap-3 px-4 py-3">
-          <span className="size-9 shrink-0 animate-shimmer rounded-control" />
+          <span className="size-6 shrink-0 animate-shimmer rounded-full" />
           {avatar ? <span className="size-8 shrink-0 animate-shimmer rounded-full" /> : null}
           <span className="flex min-w-0 flex-1 flex-col gap-1.5">
             <span className="h-3.5 w-[55%] rounded-full bg-soft-fill" />
@@ -116,11 +118,31 @@ export function ChipsSkeleton({ widths = ['w-24', 'w-16', 'w-28'], fill = false 
  * ---------------------------------------------------------------------------------------------- */
 
 /**
- * One ranked line of the lake's rankings, in the kit RankingRow's grammar (Fundații §07): the
- * PositionPill, an optional avatar, the name over its meta line, then the value in the ranking's
- * stat step (t-stat) with its unit under it (t-micro) — one gap (2.5), one leader rule: the row in
- * first place is the winner (navy pill), on every list where rank 1 is a row (species, stands; the
- * anglers' first three are the podium).
+ * The place of a ranked row — fish RankBadge (AnglersLeaderboardScreen rankColor): 1–3 the medal
+ * chip (kit MEDAL: the navy digit on gold / silver / bronze, AA on every theme), 4+ a muted digit —
+ * the same mark as the public water's Clasament and Statistici (ape-publice venue Rank), so the
+ * two venues' rankings read alike.
+ */
+export function RankMark({ rank }: { rank: number }) {
+  const medal = isMedalPlace(rank);
+  return (
+    <span className="flex w-6 shrink-0 justify-center">
+      <span
+        className={cn('flex size-6 items-center justify-center rounded-full tabular-nums', medal ? cn('t-micro-strong', MEDAL[rank]) : 't-label text-muted')}
+        data-testid="rank"
+        data-medal={medal ? rank : undefined}
+      >
+        <span className="sr-only">Locul </span>
+        {rank}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * One ranked line of the lake's rankings: the place (RankMark — the medals for 1–3), an optional
+ * avatar, the name over its meta line, then the value in the ranking's stat step (t-stat) with its
+ * unit beside it on the baseline (t-caption) — one gap (2.5).
  * TODO(kit): a generic `StatRankRow` in components/ranking (outside this task's scope).
  */
 export function RankRow({
@@ -153,15 +175,17 @@ export function RankRow({
 }) {
   const body = (
     <>
-      <PositionPill position={rank} winner={rank === 1} />
+      <RankMark rank={rank} />
       {lead}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate t-body-strong text-ink">{title}</span>
         {meta ? <span className="t-caption text-muted">{meta}</span> : null}
       </span>
-      <span className="shrink-0 text-right" data-testid="rank-value">
-        <span className={cn('block t-stat tabular-nums', muted ? 'text-muted' : 'text-ink')}>{value}</span>
-        {unit ? <span className="block t-micro text-muted">{unit}</span> : null}
+      {/* The unit inline on the number's baseline («161,52 kg», fish TopAnglerRow) — never a second
+          stacked line that reads as another number and makes the row taller. */}
+      <span className="flex shrink-0 items-baseline gap-1 text-right" data-testid="rank-value">
+        <span className={cn('t-stat tabular-nums', muted ? 'text-muted' : 'text-ink')}>{value}</span>
+        {unit ? <span className="t-caption text-muted">{unit}</span> : null}
       </span>
     </>
   );
@@ -198,13 +222,15 @@ export function PeriodAside({
   dimmed = false,
 }: {
   period: StatsPeriod;
-  /** The period's numbers; null → `quiet` (empty or failed). */
+  /** The period's numbers; null → `quiet` (empty), or nothing (failed: the centre's error card is
+   *  the page's one message — rule 4 — so the block keeps only its title and action). */
   totals: StatsTotals | null;
-  quiet: string;
+  quiet?: string;
   action: { href: string; label: string };
   note?: ReactNode;
   dimmed?: boolean;
 }) {
+  const totalKg = totals ? fmtKgStat(totals.totalKg) : null;
   return (
     <AsideSection
       title={PERIOD_TITLE[period]}
@@ -215,17 +241,19 @@ export function PeriodAside({
         </Link>
       }
     >
-      {totals ? (
+      {totals && totalKg ? (
         <dl aria-label={`${PERIOD_TITLE[period]} în cifre`} className="grid grid-cols-3 divide-x divide-hairline" data-testid="period-totals">
-          <StatCell label="Total" value={rankKg(totals.totalKg)} unit="kg" detail={plural(totals.catches, 'captură', 'capturi')} />
+          {/* A period total is read by magnitude, not to the gram: fmtKgStat («204 kg», «1,9 t»)
+              fits a third of the card; rankKg's two decimals are for the ranked rows only. */}
+          <StatCell label="Total" value={totalKg.value} unit={totalKg.unit} detail={plural(totals.catches, 'captură', 'capturi')} />
           <StatCell label="Partide" value={String(totals.partide)} />
           <StatCell label="Pescari" value={String(totals.anglers)} />
         </dl>
-      ) : (
+      ) : quiet ? (
         <p className="t-caption text-muted" data-testid="period-totals-quiet">
           {quiet}
         </p>
-      )}
+      ) : null}
       {note ? <p className="t-caption text-muted">{note}</p> : null}
     </AsideSection>
   );
@@ -258,7 +286,7 @@ export function StatCell({
       <dt className="truncate t-caption text-muted">{label}</dt>
       <dd className={cn('whitespace-nowrap t-stat tabular-nums', muted ? 'text-muted' : 'text-ink')}>
         {value}
-        {unit ? <span className="ml-0.5 t-micro-strong text-muted">{unit}</span> : null}
+        {unit ? <span className="ml-1 t-micro-strong text-muted">{unit}</span> : null}
       </dd>
       {detail ? <dd className="truncate t-micro text-muted">{detail}</dd> : null}
     </div>

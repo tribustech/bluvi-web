@@ -16,7 +16,8 @@ import { LAKES_CRUMB, PUBLIC_WATERS_CRUMB } from './trail';
  * public-waters.detaliu.c2/c3, harta.c1/c2.
  *
  * One breadcrumb band, the shell's (as on /balti/<id>): the states never draw their own, so
- * nothing moves when the page lands. Loading leaves the band's placeholder; the error names
+ * nothing moves when the page lands. Loading leaves the band on «Bălți / Ape publice / ▭» (the
+ * shell's URL trail, the landed page's parents); the error names
  * itself in it; not found drops it (MarkNotFound, a 404 is in no section).
  */
 
@@ -32,6 +33,8 @@ export function WaterLoading() {
       photoCount={2}
       back={<DetailBackButton fallbackHref={routes.publicWaters()} onPhoto />}
       columns={{ layout: 'summary', aside: true }}
+      // From 768 the landed nav is a tab bar: Prezentare and Locație at least (the community sections join later).
+      sectionTabs={2}
       header={{ meta: 1, actions: true }}
       label="Se încarcă apa publică"
       heading="Apă publică"

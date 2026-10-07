@@ -282,10 +282,11 @@ export function recordTagFor(period: StatsPeriod): string {
 const PERIOD_PHRASE: Record<StatsPeriod, string> = {
   week: 'săptămâna asta',
   month: 'luna asta',
-  year: 'anul asta',
+  // fish says «anul asta» (a gender slip: «an» is masculine); the web writes the correct «anul ăsta».
+  year: 'anul ăsta',
 };
 
-/** "săptămâna asta" / "luna asta" / "anul asta" — used by the Clasamente "Tu" pill copy. */
+/** "săptămâna asta" / "luna asta" / "anul ăsta" — used by the Clasamente "Tu" pill copy. */
 export function periodPhraseFor(period: StatsPeriod): string {
   return PERIOD_PHRASE[period];
 }

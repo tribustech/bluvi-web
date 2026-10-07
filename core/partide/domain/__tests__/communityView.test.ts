@@ -387,7 +387,7 @@ describe('periodPhraseFor', () => {
   it('labels each period for the "Tu" pill copy', () => {
     expect(periodPhraseFor('week')).toBe('săptămâna asta');
     expect(periodPhraseFor('month')).toBe('luna asta');
-    expect(periodPhraseFor('year')).toBe('anul asta');
+    expect(periodPhraseFor('year')).toBe('anul ăsta');
   });
 });
 

@@ -197,9 +197,15 @@ for (const width of [1280, 1440]) {
     // As the lake: no quick-action tiles from 1024 (Prezentare leaves with them); Partide /
     // Statistici are the card's compact buttons; «Distribuie» in the header.
     await expect(page.getByRole('heading', { name: 'Acțiuni rapide' })).toBeHidden();
-    await expect(page.locator('#prezentare')).toBeHidden();
-    await expect(page.locator('[data-t3="chips"] a[href="#prezentare"]')).toBeHidden();
-    const more = summary.getByRole('list', { name: 'Mai multe despre apă' });
+    // Prezentare leaves from 1024 — unless the water has no community sections, when it comes back
+    // as the «Detalii» bento (public-waters.detaliu.c16, its own e2e); never the quick actions.
+    if (await page.getByTestId('water-details-bento').isVisible()) {
+      await expect(page.locator('#prezentare').getByTestId('water-details-bento')).toBeVisible();
+    } else {
+      await expect(page.locator('#prezentare')).toBeHidden();
+      await expect(page.locator('[data-t3="chips"] a[href="#prezentare"]')).toBeHidden();
+    }
+    const more = summary.getByRole('navigation', { name: 'Mai multe despre apă' });
     await expect(more.getByRole('link', { name: /^Partide/ })).toHaveAttribute('href', /\/ape-publice\/.+\/partide/);
     await expect(more.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', /\/ape-publice\/.+\/statistici/);
     await expect(page.locator('[data-t3="header"]').getByRole('button', { name: 'Distribuie' })).toBeVisible();

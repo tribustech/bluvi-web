@@ -989,12 +989,15 @@ screens:
       - id: lakes.partide.c1
         text: "Title is the lake name (fallback „Partide”) with a back control."
         fish_ref: "app/(app)/lakes/[lakeId]/partide.tsx:10"
+        status: passing
       - id: lakes.partide.c2
         text: "While the live section or history is pending, a history skeleton is shown."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:133"
+        status: passing
       - id: lakes.partide.c3
         text: "When both live and history requests fail: „Nu am putut încărca partidele.” + a retry hint (web: retry button instead of pull-to-refresh) — never the empty copy."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:137"
+        status: passing
       - id: lakes.partide.c4
         text: "No live and no finished partide: „Nicio partidă înregistrată la această baltă încă.” and a green „Începe o partidă aici” → /partide/incepe?balta={id}."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:155"
@@ -1003,12 +1006,15 @@ screens:
       - id: lakes.partide.c5
         text: "With live sessions, the live card (same as on the lake page) leads the page."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:174"
+        status: passing
       - id: lakes.partide.c6
         text: "Latest catches rail (3 tiles): „Ultimele capturi”, or „Capturi în partidele active” when several partide are live; with exactly one live partidă its catches are excluded; a tile opens /balti/[id]/capturi?foto={clientId}; hidden when empty."
         fish_ref: "features/partide/components/community/VenueLatestCatchesRail.tsx:128"
+        status: passing
       - id: lakes.partide.c7
         text: "A „Statisticile bălții” / „Top pescari, standuri și recorduri” card opens /balti/[id]/statistici."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:186"
+        status: passing
       - id: lakes.partide.c8
         text: "„Partide încheiate” lists finished partide (deduped, infinite scroll) as cards ribboned „Încheiată” with „Vezi rezumatul”, each opening the partidă."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:188"
@@ -1022,6 +1028,8 @@ screens:
       - id: lakes.partide.c10
         text: "Live data refreshes every 60s; refresh reloads live + history together."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:57"
+        status: passing
+    e2e: tests/e2e/balta-subpagini-3.spec.ts
     mobile_only: false
     status: proposed
 
@@ -1047,7 +1055,7 @@ screens:
     roles: [guest, angler, organizer, referee, operator]
     core:
       - "core/partide: communityStatsQuery(period, {kind:'lake', id}), parseStatsPeriodParam"
-      - "missing in core: sortStands, standSortValue, STAND_SORT_OPTIONS (fish features/partide/helpers/standSort.ts)"
+      - "core/partide: sortStands, standSortValue, STAND_SORT_OPTIONS (domain/standSort.ts)"
     states:
       - "loading (stats skeleton)"
       - "error"
@@ -1058,24 +1066,32 @@ screens:
       - id: lakes.stats.c1
         text: "Title is the lake name (fallback „Statistici”) with a back control."
         fish_ref: "app/(app)/lakes/[lakeId]/statistici.tsx:10"
+        status: passing
       - id: lakes.stats.c2
         text: "Period chips „Săptămâna”, „Luna”, „Anul curent”; default Luna; the period is read from and written to the URL without adding history entries."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:52"
+        status: passing
       - id: lakes.stats.c3
         text: "While a new period loads the previous numbers stay but are dimmed and non-interactive, with a spinner next to the chips."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:76"
+        status: passing
       - id: lakes.stats.c4
         text: "First load shows the stats skeleton; a failed fetch shows „Nu am putut încărca statisticile.” + retry hint and never the empty state or stale data."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:125"
+        status: passing
       - id: lakes.stats.c5
         text: "Zero partide in the period: „Nicio partidă în perioada selectată.” with the chips still visible."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:167"
+        status: passing
       - id: lakes.stats.c6
         text: "Stat strip: partide, pescari, capturi (no total kg)."
         fish_ref: "features/partide/components/stats/StatStrip.tsx:14"
+        web_note: "An Apple-style bento (owner rules 9, 19): Capturi the navy signature tile (64px number, fish corner art), Partide (indigo) and Pescari (lavender) fact tiles beside it; the skeleton is the same grid."
+        status: passing
       - id: lakes.stats.c7
         text: "Activity chart for the weekly series when non-empty."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:178"
+        status: passing
       - id: lakes.stats.c8
         text: "„Top pescari” with „Clasament ›” → /balti/[id]/clasament?perioada=…; top 3 rows each open /pescari/[uid]."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:182"
@@ -1089,12 +1105,17 @@ screens:
       - id: lakes.stats.c10
         text: "„Top standuri”: sort chips „Kg total” / „Capturi” / „Record” (default Kg total), top 5 stands with bars relative to the leader, „Clasament ›” → /balti/[id]/standuri?perioada=…&sortare=…; hidden when no stand has data."
         fish_ref: "features/partide/components/stats/TopStandsCard.tsx:10"
+        web_note: "A kg sort with no weight (0 kg) reads a muted «—» with no bar track, never «0,00 kg» (owner rule 11, Top pescari's isWeighed rule). Ranks 1–3 carry the medal chip (kit MEDAL). Once the column holds two (≥ 704px), Top pescari and Top standuri share a row (owner rule 16)."
+        status: passing
       - id: lakes.stats.c11
         text: "„Specii prinse” card when any species was caught in the period."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:203"
+        status: passing
       - id: lakes.stats.c12
         text: "Venue stats are cached 60s and keep the previous period's data while switching."
         fish_ref: "features/partide/community/hooks.ts:168"
+        status: passing
+    e2e: tests/e2e/balta-subpagini-3.spec.ts
     mobile_only: false
     status: proposed
 
@@ -1124,29 +1145,40 @@ screens:
       - id: lakes.anglers-ranking.c1
         text: "Title „Clasament · {nume baltă}” (fallback „baltă”) with a back control."
         fish_ref: "app/(app)/lakes/[lakeId]/clasament.tsx:10"
+        web_note: "Under the title the caption „Clasament pescari” — the two-line header of every lake subpage, so the three columns hold still between Partide, Statistici, Clasament and Recenzii."
+        status: passing
       - id: lakes.anglers-ranking.c2
         text: "Period chips Săptămâna / Luna / Anul curent synced with the URL; switching dims the content."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:244"
+        status: passing
       - id: lakes.anglers-ranking.c3
         text: "Podium: 2nd left, 1st center (larger), 3rd right; avatar or initials, first name, total kg, numbered step; each opens /pescari/[uid]."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:76"
         status: todo
-        web_note: "BLOCKED on M2: the podium layout, avatars/initials, names, kg and steps pass; each place opens /pescari/[uid] once that page ships (ON_WEB.angler)."
+        web_note: "BLOCKED on M2: the podium layout, avatars/initials, names, kg and steps pass (the steps in the fish medal colours, kit MEDAL — the same podium as a public water's); each place opens /pescari/[uid] once that page ships (ON_WEB.angler)."
       - id: lakes.anglers-ranking.c4
         text: "Segments „Pescari” and „Specii” only — „Bălți” is hidden for a lake-scoped ranking."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:238"
+        status: passing
       - id: lakes.anglers-ranking.c5
         text: "Pescari list continues from rank 4: name (or „Pescar”), „N partide · N capturi”, kg; when only the podium has data: „Doar podiumul are date pentru perioada asta.”"
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:328"
+        status: passing
       - id: lakes.anglers-ranking.c6
         text: "Specii list: rank, species, „N capturi”, share „X%”; empty „Nicio specie înregistrată în această perioadă.”"
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:357"
+        web_note: "The share in Romanian notation («14,5%»); counts take «de» from 20 («117 de capturi», formatCount)."
+        status: passing
       - id: lakes.anglers-ranking.c7
         text: "On Pescari, when the signed-in user is ranked: pill „EU” + „Ești pe locul N din M {perioadă} — X kg”."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:369"
+        web_note: "fish writes «anul asta» (core periodPhraseFor); the web corrects it to «anul ăsta»."
+        status: passing
       - id: lakes.anglers-ranking.c8
         text: "Empty period: „Niciun clasament pentru perioada selectată încă.”; error: „Nu am putut încărca statisticile.” + retry hint."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:304"
+        status: passing
+    e2e: tests/e2e/balta-subpagini.spec.ts
     mobile_only: false
     status: proposed
 
@@ -1310,19 +1342,25 @@ screens:
       - "signed-in without review (Adaugă)"
       - "signed-out (sign-in bar)"
       - "verified review"
+      - "signed-in, own-review read failed («Nu am putut verifica recenzia ta.» + «Încearcă din nou» in the CTA's place; never «Adaugă», never a silent gap)"
     criteria:
       - id: lakes.reviews.c1
-        text: "Header „Recenzii” with a back control."
+        text: "The lake's name as the title, „Recenzii” under it, with a back control."
         fish_ref: "app/(app)/lakes/[lakeId]/reviews.tsx:16"
+        web_note: "Deliberate web deviation: fish's title1 is literally „Recenzii”; the web keeps the lake subpages' one header pattern (lake name as the h1, the page as the caption — Partide, Statistici, Clasament) so moving between them with «Pe această baltă» never changes the header, and the h1 names the lake for search."
+        status: passing
       - id: lakes.reviews.c2
         text: "When the lake has reviews, the list starts with three cards Pescuit / Facilități / Atmosferă (icon, value with 1 decimal, stars) and „N recenzii” + „Vezi cum funcționează recenziile” (opens the explainer)."
         fish_ref: "features/reviews/components/ReviewList.tsx:52"
+        status: passing
       - id: lakes.reviews.c3
         text: "Reviews load 10 per page with infinite scroll."
         fish_ref: "features/reviews/components/ReviewList.tsx:40"
+        status: passing
       - id: lakes.reviews.c4
         text: "Review card: author avatar (when set), username, green „Verificat” badge for verified reviews, relative date „acum …” (Romanian), „Recomandă” (green, thumbs up) / „Nu recomandă” (red, thumbs down), star rows Pescuit / Facilități / Atmosferă, comment."
         fish_ref: "features/reviews/components/ReviewCard.tsx:73"
+        status: passing
       - id: lakes.reviews.c5
         text: "Activating another author's name/avatar opens /pescari/[id]."
         fish_ref: "features/reviews/components/ReviewCard.tsx:79"
@@ -1336,9 +1374,11 @@ screens:
       - id: lakes.reviews.c7
         text: "„Șterge” asks „Ești sigur că vrei să îți ștergi recenzia?” (Închide / Șterge); confirming deletes, shows „Recenzia ta a fost ștearsă cu succes.” (error toast with the message on failure) and invalidates the review queries."
         fish_ref: "features/reviews/components/ReviewCard.tsx:52"
+        status: passing
       - id: lakes.reviews.c8
         text: "No reviews: „0 recenzii” + explainer link, sad-star illustration, „Momentan nu există recenzii pentru această baltă”, „Fii primul care adaugă una!”."
         fish_ref: "features/reviews/components/ReviewListEmptyComponent.tsx:13"
+        status: passing
       - id: lakes.reviews.c9
         text: "Bottom bar: hidden when the viewer already reviewed; signed-in → „Adaugă o recenzie” (→ /balti/[id]/recenzie); guest → outlined „Autentifică-te pentru a putea adăuga o recenzie” (→ /intra; fish copy lacks the diacritic in „adăuga”)."
         fish_ref: "components/AddReviewButton.tsx:20"
@@ -1347,9 +1387,12 @@ screens:
       - id: lakes.reviews.c10
         text: "Loading shows a loading view; a failed request shows the error view with retry and no back button."
         fish_ref: "features/reviews/components/ReviewList.tsx:84"
+        status: passing
       - id: lakes.reviews.c11
         text: "Reviews are cached 5 minutes."
         fish_ref: "features/reviews/queries.ts:19"
+        status: passing
+    e2e: tests/e2e/balta-subpagini-3.spec.ts
     mobile_only: false
     status: proposed
 

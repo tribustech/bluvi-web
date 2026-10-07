@@ -34,8 +34,18 @@ export function formatDayLabel(date: Date | undefined, now: Date = new Date()): 
  * two digits fall between 01 and 19, where it is not: `101 pescari`.
  */
 export function formatCount(count: number, singular: string, plural: string): string {
-  if (count === 1) return `1 ${singular}`;
+  const noun = pluralNoun(count, singular, plural);
+  if (count === 1) return `1 ${noun}`;
   const lastTwo = count % 100;
   const needsDe = count >= 20 && (lastTwo === 0 || lastTwo >= 20);
-  return needsDe ? `${count} de ${plural}` : `${count} ${plural}`;
+  return needsDe ? `${count} de ${noun}` : `${count} ${noun}`;
+}
+
+/**
+ * The noun alone for `count` (web): the label under a figure («partidă» / «partide»). The one
+ * singular/plural choice formatCount also makes, so a label and an inline count never disagree;
+ * inline, use formatCount (it adds the «de» from 20).
+ */
+export function pluralNoun(count: number, singular: string, plural: string): string {
+  return count === 1 ? singular : plural;
 }

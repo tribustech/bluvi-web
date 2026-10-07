@@ -16,7 +16,6 @@ import {
   communityVenueSectionQuery,
   dedupeByDocumentId,
   fmtKg,
-  fmtSpan,
   initialsOf,
   isWeighed,
   membersLabel,
@@ -30,8 +29,9 @@ import { createBrowserTransport } from '@/lib/client/transport';
 import { ON_WEB, partidaHref, routes } from '@/lib/routes';
 import { LiveCard, LiveCardForViewer, useNow } from '../detail/VenuePartideSection';
 import { APP_STORE, PLAY_STORE } from '../stores';
-import { AnglerAvatar, EmptyIcon, FaceRow, SafePhoto, TitleBone, VenueHeader, WaterPages } from './bits';
-import { dateRange } from './dates';
+import { AnglerAvatar, EmptyIcon, FaceRow, SafePhoto, TitleBone, VenueHeader, WaterPages, WaterTabs, WaterTabsSkeleton } from './bits';
+import { dateRange, fmtDuration } from './dates';
+import { formatCount, pluralNoun } from '@/core/realtime/chat/format';
 
 /*
  * Partide pe <apă> — fish app/(app)/public-waters/[id]/partide.tsx → VenueSessionsScreen (parity
@@ -72,7 +72,13 @@ export function PartideScreen({ code, waterKey, title }: { code: string; waterKe
     const [a, b] = await Promise.all([live.refetch(), history.refetch()]);
     return !(a.isError || b.isError);
   };
-  const header = <VenueHeader title={title} description={CAPTION} backHref={backHref} onRefresh={refresh} />;
+  // Below 1280 the water's pages as tabs under the title (from 1280 the left column's list).
+  const header = (
+    <div>
+      <VenueHeader title={title} description={CAPTION} backHref={backHref} onRefresh={refresh} />
+      <WaterTabs waterKey={waterKey} current="partide" />
+    </div>
+  );
   const filters = <PartideColumn waterKey={waterKey} />;
 
   // Both feeds are retry:false. A feed counts as failed while it has nothing to show and its last
@@ -182,7 +188,7 @@ export function PartideScreen({ code, waterKey, title }: { code: string; waterKe
             }}
             shown={rows.length}
             total={total}
-            noun="partide"
+            formatTotal={(n) => formatCount(n, 'partidă', 'partide')}
             errorLabel="Nu am putut încărca mai multe partide."
           />
         </section>
@@ -200,8 +206,13 @@ export function PartideFallback({ title, backHref }: { title?: string; backHref:
   return (
     <div aria-busy>
       <ListPage
-        header={<VenueHeader title={title ?? <TitleBone label="Partide" />} description={CAPTION} backHref={backHref} />}
-        filters={<FilterColumnSkeleton title="Partide" sections={[4]} />}
+        header={
+          <div>
+            <VenueHeader title={title ?? <TitleBone label="Partide" />} description={CAPTION} backHref={backHref} />
+            <WaterTabsSkeleton />
+          </div>
+        }
+        filters={<FilterColumnSkeleton title="Pe această apă" sections={[4]} />}
         aside={<AsideSkeleton rows={2} blocks={2} />}
         asideInline={false}
         asideBusy
@@ -258,8 +269,18 @@ function LatestCatchesRail({ venue, liveIds, waterKey }: { venue: CommunityVenue
 
 const railSrc = (c: LakeCatchDTO) => c.photoGridUrl || c.photoThumbUrl || c.photoUrl;
 
+/**
+ * useNow ticks on a 30s grid, so a catch made since the last tick lies slightly "in the future" and
+ * caughtLabel would read it as clock skew (a date). Within one tick it is simply «acum».
+ */
+const NOW_TICK_MS = 30_000;
+function tickedNow(now: number, iso: string): number {
+  const at = Date.parse(iso);
+  return at > now && at - now <= NOW_TICK_MS ? at : now;
+}
+
 function RailTile({ c, now, href }: { c: LakeCatchDTO; now: number | null; href: string }) {
-  const when = now != null ? caughtLabel(now, c.occurredAt) : null;
+  const when = now != null ? caughtLabel(tickedNow(now, c.occurredAt), c.occurredAt) : null;
   const name = c.angler.name ?? 'Pescar';
   const label = [c.species, c.weightKg != null ? `${fmtKg(c.weightKg)} kg` : null, name].filter(Boolean).join(', ');
   return (
@@ -312,7 +333,8 @@ function StatsCta({ href }: { href: string }) {
       </span>
       <span className="relative flex max-w-[58%] flex-col gap-0.75">
         <span className="t-title2 text-ink">Statisticile apei</span>
-        <span className="t-caption text-muted">Top pescari, standuri și recorduri</span>
+        {/* Not fish's «Top pescari, standuri și recorduri»: a water's Statistici has no stands (statistici.c11). */}
+        <span className="t-caption text-muted">Top pescari, recorduri și specii</span>
       </span>
       <span className={buttonClass({ variant: 'primary', size: 'compact', className: 'relative self-start' })}>Vezi statisticile</span>
     </Link>
@@ -325,9 +347,14 @@ function StatsCta({ href }: { href: string }) {
  * TODO(kit): PartidaCard with photos / dateRange / members, or this card as a named kit card with
  * a /dev/kit entry — components/cards is out of this unit's scope. */
 
+/** fish PhotoStrip MAX_TILES (the CMS's PHOTO_STRIP_CAP). */
+const PHOTO_TILES = 3;
+
 function HistoryCard({ row }: { row: CommunityHistorySessionDTO }) {
-  const photos = row.photos ?? [];
-  const photoTotal = row.photoCount ?? photos.length;
+  const tiles = (row.photos ?? []).slice(0, PHOTO_TILES);
+  const photoTotal = Math.max(row.photoCount ?? 0, tiles.length);
+  const more = photoTotal - tiles.length;
+  const weighed = isWeighed(row.totalKg);
   const duration = new Date(row.endedAt).getTime() - new Date(row.startedAt).getTime();
   const title = membersLabel(row.members);
   const stand = standLabel(row.standName);
@@ -350,19 +377,25 @@ function HistoryCard({ row }: { row: CommunityHistorySessionDTO }) {
         </span>
         {/* No «Încheiată» pill: the section is «Partide încheiate» (every card would repeat it). */}
       </header>
-      <dl className="grid grid-cols-3 divide-x divide-hairline rounded-control bg-page py-2.5">
-        <Stat value={String(row.catchCount)} label={row.catchCount === 1 ? 'captură' : 'capturi'} />
-        {/* Accent only for a real weight: «—» (never weighed) is muted. */}
-        <Stat value={isWeighed(row.totalKg) ? fmtKg(row.totalKg) : '—'} label="kg total" accent={isWeighed(row.totalKg)} />
-        <Stat value={fmtSpan(duration)} label="durată" />
+      {/* kg only when something was weighed (rule 4: never a column of «—» on a public water,
+          where almost nothing is); then catches · kg · duration, the duration given the most room so
+          «123 h 59 min» stays on one line in the narrowest card. */}
+      <dl className={cn('grid divide-x divide-hairline rounded-control bg-page py-2.5', weighed ? 'grid-cols-[1fr_1fr_1.4fr]' : 'grid-cols-2')} data-testid="history-stats">
+        <Stat value={String(row.catchCount)} label={pluralNoun(row.catchCount, 'captură', 'capturi')} />
+        {weighed && row.totalKg != null ? <Stat value={fmtKg(row.totalKg)} label="kg total" accent /> : null}
+        <Stat value={fmtDuration(duration)} label="durată" />
       </dl>
-      {photos.length ? (
-        <ul aria-label={`${photoTotal} ${photoTotal === 1 ? 'fotografie' : 'fotografii'}`} className="grid grid-cols-4 gap-1.5">
-          {photos.slice(0, 4).map((p, i) => (
+      {tiles.length ? (
+        // fish PhotoStrip: at most 3 tiles in thirds (the CMS sends at most 3), «+N» over the last
+        // one when the partidă holds more photos than the strip shows.
+        <ul aria-label={formatCount(photoTotal, 'fotografie', 'fotografii')} className="grid grid-cols-3 gap-1.5" data-testid="history-photos">
+          {tiles.map((p, i) => (
             <li key={i} className="relative aspect-square overflow-hidden rounded-control bg-soft-fill">
               <SafePhoto src={p.thumbUrl ?? p.url} className="size-full object-cover" />
-              {i === 3 && photoTotal > 4 ? (
-                <span className="absolute inset-0 flex items-center justify-center bg-photo-scrim t-body-strong text-on-photo-scrim">+{photoTotal - 4}</span>
+              {i === tiles.length - 1 && more > 0 ? (
+                <span className="absolute inset-0 flex items-center justify-center bg-photo-scrim t-body-strong text-on-photo-scrim" data-testid="history-photos-more">
+                  +{more}
+                </span>
               ) : p.weightKg != null ? (
                 <span className="absolute bottom-1 left-1 rounded-badge bg-photo-scrim px-1.25 t-micro-strong text-on-photo-scrim">{fmtKg(p.weightKg)} kg</span>
               ) : null}
@@ -389,16 +422,19 @@ function Stat({ value, label, accent }: { value: ReactNode; label: string; accen
   return (
     <div className="flex flex-col-reverse items-center gap-0.5">
       <dt className="t-micro text-muted">{label}</dt>
-      <dd className={cn('t-heading tabular-nums', accent ? 'text-accent-ink' : value === '—' ? 'text-muted' : 'text-ink')}>{value}</dd>
+      <dd className={cn('t-heading whitespace-nowrap tabular-nums', accent ? 'text-accent-ink' : 'text-ink')}>{value}</dd>
     </div>
   );
 }
 
-/** The left column from 1280: the water's pages (every sibling's «Pe această apă»). */
+/**
+ * The left column from 1280: the water's pages alone, so the column is titled with their eyebrow
+ * («Pe această apă») and the list drops its own — the page's name is already the selected row.
+ */
 function PartideColumn({ waterKey }: { waterKey: string }) {
   return (
-    <FilterColumn title="Partide">
-      <WaterPages waterKey={waterKey} current="partide" />
+    <FilterColumn title="Pe această apă">
+      <WaterPages waterKey={waterKey} current="partide" eyebrow={false} />
     </FilterColumn>
   );
 }

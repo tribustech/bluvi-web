@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { HydrationBoundary } from '@tanstack/react-query';
-import { lakeQuery, lakeReviewsInfiniteQuery, type LakeDetail } from '@/core/lakes';
+import { formatReviewsCount, lakeQuery, lakeReviewsInfiniteQuery, type LakeDetail } from '@/core/lakes';
 import { routes } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
 import { lakeIdsToPrerender, loadLake } from '../_components/load';
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const load = await loadLake(id);
   if (load.kind === 'missing') return { title: 'Balta nu a fost găsită' };
   const meta = load.lake.reviewsMeta;
-  const score = meta && meta.count > 0 ? ` Nota medie ${(meta.overall ?? 0).toFixed(2).replace('.', ',')} din ${meta.count} ${meta.count === 1 ? 'recenzie' : 'recenzii'}.` : '';
+  const score = meta && meta.count > 0 ? ` Nota medie ${(meta.overall ?? 0).toFixed(2).replace('.', ',')} din ${formatReviewsCount(meta.count)}.` : '';
   return subMetadata(load.lake, {
     title: 'Recenzii',
     description: `Recenziile pescarilor despre ${load.lake.name}: pescuit, facilități și atmosferă.${score}`,

@@ -289,6 +289,7 @@ export function ListFooter({
   shown,
   total,
   noun,
+  formatTotal,
   endLabel,
   errorLabel,
   auto = true,
@@ -303,6 +304,11 @@ export function ListFooter({
   total?: number;
   /** Plural noun for the progress line («concursuri»). */
   noun?: string;
+  /**
+   * The total with its noun, plural-correct («23 de partide», «1 partidă» — formatCount); wins over
+   * `noun`, which cannot say the «de» from 20.
+   */
+  formatTotal?: (total: number) => string;
   /** Shown when everything is loaded; omit to show nothing. */
   endLabel?: string;
   /** «Nu am putut încărca mai multe concursuri.» */
@@ -340,7 +346,13 @@ export function ListFooter({
   }, [focusEnd, hasMore]);
 
   const progress =
-    shown !== undefined && total !== undefined && noun ? `${shown} din ${total} ${noun}` : undefined;
+    shown === undefined || total === undefined
+      ? undefined
+      : formatTotal
+        ? `${shown} din ${formatTotal(total)}`
+        : noun
+          ? `${shown} din ${total} ${noun}`
+          : undefined;
 
   if (!hasMore) {
     if (endLabel) {

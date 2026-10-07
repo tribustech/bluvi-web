@@ -2,6 +2,7 @@ import { collectConsoleErrors as watchConsole } from './helpers/console';
 import { BASE_URL as BASE } from './helpers/base-url';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { formatCount } from '../../core/realtime/chat/format';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 /*
@@ -137,8 +138,12 @@ test('lakes.stats.c1 lakes.stats.c2 lakes.stats.c6 lakes.stats.c7 lakes.stats.c1
   await expect(page.getByTestId('period-chips').getByRole('radio', { name: 'Anul curent' })).toBeChecked();
   // c6: partide · pescari · capturi, no kg — the T5 KPI row (compact tiles).
   const strip = page.getByTestId('stat-strip');
-  await expect(strip.getByRole('group', { name: 'Perioada, pe scurt' })).toBeVisible();
-  await expect(strip.getByTestId('stat-value')).toHaveText([String(bigYear.totals.partide), String(bigYear.totals.anglers), bigYear.totals.catches.toLocaleString('ro-RO')]);
+  await expect(strip).toHaveAttribute('role', 'group');
+  await expect(strip).toHaveAttribute('aria-label', 'Perioada, pe scurt');
+  // The bento: Capturi the navy signature tile first, then Partide (indigo) and Pescari (lavender).
+  await expect(strip.getByTestId('stat-value')).toHaveText([bigYear.totals.catches.toLocaleString('ro-RO'), String(bigYear.totals.partide), String(bigYear.totals.anglers)]);
+  await expect(strip.getByTestId('stat-catches')).toHaveClass(/from-navy/);
+  await expect(strip.getByTestId('stat-catches')).toContainText('Capturi');
   await expect(strip).not.toContainText('kg');
   // c7
   if (bigYear.weeklySeries.length) await expect(page.getByTestId('activity-card')).toBeVisible();
@@ -148,6 +153,10 @@ test('lakes.stats.c1 lakes.stats.c2 lakes.stats.c6 lakes.stats.c7 lakes.stats.c1
   await expect(top.first()).toContainText(bigYear.topAnglers[0].name ?? 'Pescar');
   // The rankings' grammar (Clasament's RankRow): the place pill, kg with two decimals and the unit.
   await expect(top.first().getByTestId('rank-value')).toHaveText(`${kg2(bigYear.topAnglers[0].totalKg)}kg`);
+  // The unit sits beside the number on its baseline («161,52 kg», fish TopAnglerRow), never under it.
+  const [num, unit] = await top.first().getByTestId('rank-value').locator('span').evaluateAll(els => els.map(e => e.getBoundingClientRect()));
+  expect(unit.left).toBeGreaterThan(num.right);
+  expect(Math.abs(unit.bottom - num.bottom)).toBeLessThan(6);
   await expect(top.first()).toContainText('Locul 1');
   // An unweighed angler: «—» muted, no «kg» under it (the stands card's rule).
   const unweighed = bigYear.topAnglers.slice(0, 3).findIndex(a => !(a.totalKg > 0));
@@ -200,6 +209,24 @@ test('lakes.stats.c10 lakes.stats.s5 — «Top standuri»: sort chips, top 5 wit
   await expectNoA11yViolations(page);
 });
 
+test('lakes.stats.c10 — a stand with no weight reads a muted «—» with no bar, never «0,00 kg» (owner rule 11, Top pescari\'s rule)', async ({ page }) => {
+  // Data-independent: the year's answer plus one stand fished without a catch (0 kg, no record).
+  const zero = { standId: 'e2e-zero-stand', name: '99', partide: 1, catches: 0, totalKg: 0, recordKg: null };
+  // The page prerenders its period on the server: the mocked answer is the next period's (a switch).
+  await page.route('**/feed/community/stats?*period=week*', route => json(route, { data: { ...chitaYear, stands: [...(chitaYear.stands ?? []).slice(0, 2), zero] } }));
+  await go(page, `/balti/${ID.chita}/statistici?perioada=year`, TABLET);
+  await page.getByTestId('period-chips').getByText('Săptămâna').click();
+  const row = page.getByTestId('top-stand-e2e-zero-stand');
+  await expect(row.getByTestId('stand-value')).toHaveText('—');
+  await expect(row.getByTestId('rank-value')).not.toContainText('kg');
+  await expect(row.getByTestId('rank-value').locator('span').first()).toHaveClass(/text-muted/);
+  await expect(row.getByTestId('stand-bar')).toHaveCount(0);
+  await expect(row).not.toContainText('0,00');
+  // The record sort: no record is «—» too.
+  await page.getByRole('radiogroup', { name: 'Ordonează standurile după' }).getByText('Record').click();
+  await expect(row.getByTestId('stand-value')).toHaveText('—');
+});
+
 test('lakes.stats.c2 lakes.stats.c3 lakes.stats.c12 lakes.stats.s4 — a period switch replaces the URL, keeps the previous figures dimmed with a spinner, then lands', async ({ page }) => {
   await go(page, `/balti/${ID.big}/statistici?perioada=year`);
   await expect(page.getByTestId('period-chips').getByRole('radio', { name: 'Anul curent' })).toBeChecked();
@@ -217,14 +244,14 @@ test('lakes.stats.c2 lakes.stats.c3 lakes.stats.c12 lakes.stats.s4 — a period 
   await expect(content).toHaveClass(/opacity-60/);
   await expect(content).toHaveAttribute('inert', '');
   await expect(page.getByTestId('period-chips').locator('svg.animate-spin, [class*="animate-spin"]').first()).toBeVisible();
-  await expect(page.getByTestId('stat-strip').getByTestId('stat-value').first()).toHaveText(String(bigYear.totals.partide));
+  await expect(page.getByTestId('stat-strip').getByTestId('stat-value').nth(1)).toHaveText(String(bigYear.totals.partide));
   release();
   await expect(content).not.toHaveClass(/opacity-60/);
   expect(await page.evaluate(() => history.length), 'the chips replace the entry, never push').toBe(length);
   // Back to the year comes from the cache (c12: the previous period is kept) — no dimming.
   await page.getByTestId('period-chips').getByText('Anul curent').click();
   await expect(page).toHaveURL(/\?perioada=year$/);
-  await expect(page.getByTestId('stat-strip').getByTestId('stat-value').first()).toHaveText(String(bigYear.totals.partide));
+  await expect(page.getByTestId('stat-strip').getByTestId('stat-value').nth(1)).toHaveText(String(bigYear.totals.partide));
   await expect(content).not.toHaveClass(/opacity-60/);
   // Luna (empty at this lake now or not) is the default: it leaves the URL bare.
   await page.getByTestId('period-chips').getByText('Luna').click();
@@ -238,12 +265,14 @@ test('lakes.stats.c5 lakes.stats.s3 — an empty period: «Nicio partidă în pe
   await expect(page.getByTestId('period-chips').getByRole('radio')).toHaveCount(3);
   await expect(page.getByTestId('stat-strip')).toHaveCount(0);
   await expectNoA11yViolations(page);
-  // From 1280 the three tracks stay (the centre never jumps sideways): the right column says there
-  // is no record, the centre says there is no partidă — once each.
+  // From 1280 the three tracks stay (the centre never jumps sideways), but the right column is
+  // empty: the centre's card is the page's one message (rule 4 — never a second «nothing here»).
   await page.setViewportSize(DESKTOP);
   const aside = page.getByRole('complementary', { name: 'Recordul și speciile' });
-  await expect(aside).toContainText('Nicio captură cu record în această perioadă.');
-  await expect(page.getByText(/Nicio partidă/)).toHaveCount(1);
+  await expect(aside.getByTestId('stats-aside-reserved')).toBeAttached();
+  await expect(aside).toHaveText('');
+  expect((await aside.boundingBox())!.width).toBeGreaterThan(300);
+  await expect(page.getByText(/Nicio partidă|Nicio captură/)).toHaveCount(1);
 });
 
 test('lakes.stats.s3 lakes.stats.s5 — from 1280 the centre column keeps its place between a period with figures and an empty one', async ({ page }) => {
@@ -277,6 +306,12 @@ test('lakes.stats.c4 lakes.stats.s1 lakes.stats.s2 — the skeleton, then the er
   await expect(page.getByTestId('stats-empty')).toHaveCount(0);
   await expect(page.getByTestId('period-chips').getByRole('radio')).toHaveCount(3);
   await expectNoA11yViolations(page);
+  // From 1280 the right track stays reserved but empty: the error card is the page's one message
+  // (rule 4 — never a second sentence about the record and the species).
+  await page.setViewportSize(DESKTOP);
+  const aside = page.getByRole('complementary', { name: 'Recordul și speciile' });
+  await expect(aside.getByTestId('stats-aside-reserved')).toBeAttached();
+  await expect(aside).toHaveText('');
   fail = false;
   await error.getByRole('button', { name: /Încearcă din nou|Reîncearcă/ }).click();
   await expect(page.getByTestId('stat-strip')).toBeVisible();
@@ -447,6 +482,23 @@ test('lakes.partide.c5 lakes.partide.c10 lakes.partide.s4 — live sessions lead
   await expect(refresh).not.toHaveAttribute('aria-busy', 'true');
   await expect(refresh).toBeFocused();
   await expectNoA11yViolations(page);
+});
+
+test('lakes.partide.c10 — the live section is read again every 60s (fish refetchInterval), not sooner', async ({ page }) => {
+  await faults(page, ID.big, ['partide']);
+  let liveReads = 0;
+  await page.route(cms(`/feed/community/lakes/${ID.big}`), route => {
+    liveReads += 1;
+    return json(route, liveSection());
+  });
+  await page.clock.install();
+  await go(page, `/balti/${ID.big}/partide`);
+  await expect(page.getByTestId('live-block')).toContainText('1 ACTIV ACUM');
+  const l0 = liveReads;
+  await page.clock.runFor(45_000);
+  expect(liveReads).toBe(l0);
+  await page.clock.runFor(16_000);
+  await expect.poll(() => liveReads).toBeGreaterThan(l0);
 });
 
 test('lakes.partide.c2 lakes.partide.c3 lakes.partide.s1 lakes.partide.s2 — the skeleton; both feeds failed: the error, never the empty copy; the retry reads both', async ({ page }) => {
@@ -775,8 +827,11 @@ test('lakes.reviews.c1 lakes.reviews.c2 lakes.reviews.c4 lakes.reviews.s4 lakes.
   // Below 1280 the T5 KPI tiles (Statistici's figures): the label over the value, the stars under it.
   for (const label of ['Pescuit', 'Facilități', 'Atmosferă']) await expect(summary.getByText(label, { exact: true })).toBeVisible();
   await expect(summary.getByRole('img', { name: /din 5$/ })).toHaveCount(3);
-  await expect(summary.getByTestId('reviews-count')).toHaveText(`${meta.count} ${meta.count === 1 ? 'recenzie' : 'recenzii'}`);
-  await summary.getByTestId('reviews-info-link').click();
+  // «N recenzii» + the explainer: the centre column's header (once), right above the list.
+  const count = page.getByTestId('reviews-count');
+  await expect(count).toHaveCount(1);
+  await expect(count).toHaveText(formatCount(chitaReviews.length, 'recenzie', 'recenzii'));
+  await page.getByTestId('reviews-info-link').click();
   const info = page.getByRole('dialog', { name: 'Cum funcționează recenziile' });
   await expect(info.getByRole('heading', { level: 3 })).toHaveText(['Pescuit', 'Facilități', 'Atmosferă']);
   await page.keyboard.press('Escape');
@@ -800,6 +855,31 @@ test('lakes.reviews.c1 lakes.reviews.c2 lakes.reviews.c4 lakes.reviews.s4 lakes.
   await expectNoHorizontalScroll(page);
   await expectNoA11yViolations(page);
   expect(errors).toEqual([]);
+});
+
+test('lakes.reviews.c2 lakes.reviews.s4 — from 1280 «N recenzii» stays the centre\'s header above the list; the scores are the aside\'s one titled block', async ({ page }) => {
+  await go(page, `/balti/${ID.chita}/recenzii`, DESKTOP);
+  const aside = page.getByRole('complementary', { name: 'Scorurile bălții' });
+  await expect(aside.getByRole('heading', { name: 'Scorurile bălții' })).toHaveCount(1);
+  await expect(aside.getByTestId('reviews-summary')).toBeVisible();
+  await expect(aside.getByTestId('reviews-count')).toHaveCount(0);
+  const count = page.getByTestId('reviews-count');
+  await expect(count).toHaveCount(1);
+  const c = (await count.boundingBox())!;
+  const list = (await page.getByTestId('reviews-list').boundingBox())!;
+  expect(Math.abs(c.x - list.x)).toBeLessThan(2);
+  expect(c.y).toBeLessThan(list.y);
+  // The three columns start on one line: «N recenzii» sits on the aside title's row (same centre),
+  // and the list's card starts level with the scores' card.
+  const title = (await aside.getByRole('heading', { name: 'Scorurile bălții' }).boundingBox())!;
+  expect(Math.abs(c.y + c.height / 2 - (title.y + title.height / 2))).toBeLessThan(3);
+  const scoresCard = (await aside.getByTestId('reviews-summary').locator('dl').boundingBox())!;
+  expect(Math.abs(list.y - scoresCard.y)).toBeLessThan(3);
+  // One readable column (~680px), never a two-up grid of ragged cards.
+  expect(list.width).toBeLessThanOrEqual(681);
+  const cards = await page.getByTestId('reviews-list').locator(':scope > li').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().x)));
+  expect(new Set(cards).size).toBe(1);
+  await expectNoA11yViolations(page);
 });
 
 test('lakes.reviews.c8 lakes.reviews.s3 — no reviews: «0 recenzii» + the explainer, the sad star and the copy', async ({ page }) => {
@@ -827,10 +907,15 @@ test('lakes.reviews.c8 lakes.reviews.s3 — no reviews: «0 recenzii» + the exp
   await expectNoHorizontalScroll(page);
   await expectNoA11yViolations(page);
   await page.setViewportSize(DESKTOP);
-  // From 1280 the lake's pages on the left, as on Partide and Statistici; the three tracks stay
-  // (the scores' column says there are none yet).
+  // From 1280 the lake's pages on the left, as on Partide and Statistici; the three tracks stay,
+  // the scores' column reserved but empty (the empty card is the page's one message, rule 4).
   await expect(page.getByRole('navigation', { name: 'Pe această baltă' }).getByRole('link', { name: 'Recenzii' })).toHaveAttribute('aria-current', 'page');
-  await expect(page.getByRole('complementary', { name: 'Scorurile bălții' })).toContainText('Scorurile apar după prima recenzie.');
+  const scores = page.getByRole('complementary', { name: 'Scorurile bălții' });
+  await expect(scores.getByTestId('scores-reserved')).toBeAttached();
+  await expect(scores).toHaveText('');
+  // The count still leads the centre column, as with reviews.
+  const main = (await page.getByTestId('reviews-empty').boundingBox())!;
+  expect((await page.getByTestId('reviews-count').boundingBox())!.x).toBeGreaterThanOrEqual(main.x - 1);
 });
 
 test('lakes.reviews.c4 — «Nu recomandă» is the red (danger) pill', async ({ page }) => {
@@ -1007,13 +1092,25 @@ test('lakes.reviews.c7 lakes.reviews.s5 lakes.reviews.s6 — signed in: no add b
   await expect(page.getByTestId('reviews-list').getByTestId('lake-review').filter({ hasText: own.author?.username ?? 'Pescar' })).toHaveCount(0);
 });
 
-test('lakes.reviews — the own-review read failed: no add / sign-in CTA (never a duplicate review)', async ({ page, context }) => {
+test('lakes.reviews.s9 — the own-review read failed: «Nu am putut verifica recenzia ta.» + a retry in the CTA\'s place (never «Adaugă», never a silent gap)', async ({ page, context }) => {
   await signIn(context, jwt, BASE);
-  await page.route(cms('/feed/reviews/mine'), route => route.abort());
+  let fail = true;
+  await page.route(cms('/feed/reviews/mine'), route => (fail ? route.abort() : json(route, { data: null })));
   await go(page, `/balti/${ID.chita}/recenzii`);
-  await page.waitForTimeout(4000);
+  const notice = page.getByTestId('review-mine-error').locator('visible=true');
+  await expect(notice).toHaveCount(1, { timeout: 30_000 });
+  await expect(notice).toContainText('Nu am putut verifica recenzia ta.');
   await expect(page.getByTestId('review-add')).toHaveCount(0);
   await expect(page.getByTestId('review-sign-in')).toHaveCount(0);
+  await expectNoA11yViolations(page);
+  // From 768 the notice is the header's action (one copy on screen).
+  await page.setViewportSize(TABLET);
+  await expect(page.getByTestId('review-mine-error').locator('visible=true')).toHaveCount(1);
+  // The retry reads again: no review → «Adaugă o recenzie».
+  fail = false;
+  await page.getByTestId('review-mine-error').locator('visible=true').getByRole('button', { name: 'Încearcă din nou' }).click();
+  await expect(page.getByTestId('review-add').locator('visible=true')).toHaveCount(1, { timeout: 30_000 });
+  await expect(page.getByTestId('review-mine-error')).toHaveCount(0);
 });
 
 test('lakes.reviews.c7 — a failed delete shows the error\'s message', async ({ page, context }) => {

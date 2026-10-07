@@ -30,6 +30,11 @@ const SECTION: Record<string, string> = {
 export function crumbsForPath(pathname: string): Crumb[] {
   const [first, ...rest] = pathname.split('/').filter(Boolean);
   if (!first) return [{ label: 'Acasă' }];
+  // Public waters live in the Bălți section (ape-publice/_components/trail.ts): the same parents
+  // while a water page is still loading, so the band does not change words when it names itself.
+  if (first === 'ape-publice') {
+    return [{ label: 'Bălți', href: routes.lakes() }, rest.length > 0 ? { label: 'Ape publice', href: routes.publicWaters() } : { label: 'Ape publice' }];
+  }
   const label = SECTION[first];
   if (!label) return [{ label: 'Acasă', href: '/' }];
   return rest.length > 0 ? [{ label, href: `/${first}` }] : [{ label }];

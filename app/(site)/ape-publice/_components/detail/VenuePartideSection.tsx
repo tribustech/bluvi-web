@@ -132,24 +132,14 @@ export function LiveCard({ data, viewerUid, partidaHref }: { data: CommunityLake
   const head = liveHeadStats(sessions);
   // fish LivePartideCard (c20): live with weighed kg → «N kg» + «M capturi» and the biggest-fish
   // box; live and unweighed → the catch count alone; idle → the month's count with «luna aceasta ·
-  // record istoric N kg» under it. Never «0 kg».
+  // record istoric N kg» under it — also when the month has none and there is no record: «0 capturi /
+  // luna aceasta», as fish draws it (LivePartideCard.tsx:264-321). Never «0 kg».
   const liveKg = isLive && isWeighed(head.totalKg) ? head.totalKg : null;
   const catches = isLive ? head.catches : stats.catchesThisMonth;
   const record = stats.recordKg != null ? `${fmtKg(stats.recordKg)} kg` : null;
   const leaderKg = sessions[0]?.totalKg ?? null;
   const [count, word] = splitCount(catchesLabel(catches) ?? '0 capturi');
   const meta = liveKg != null ? catchesLabel(head.catches) : isLive ? null : `luna aceasta${record ? ` · record istoric ${record}` : ''}`;
-
-  // Idle, nothing this month and no record: a navy card would only say «0» three times above a
-  // chart that shows the activity. One muted line instead, pointing at the last active month.
-  if (!isLive && catches === 0 && !record) {
-    const last = lastActiveMonth(data.monthlyActivity);
-    return (
-      <p className="t-caption text-muted" data-testid="live-partide-card">
-        {`Nicio captură luna aceasta${last ? ` · ultima activitate: ${last}` : ''}`}
-      </p>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-3" data-testid="live-partide-card">
@@ -191,31 +181,6 @@ export function LiveCard({ data, viewerUid, partidaHref }: { data: CommunityLake
       ) : null}
     </div>
   );
-}
-
-/** The chart's month labels («AUG») as words («august»). */
-const MONTH_NAME: Record<string, string> = {
-  IAN: 'ianuarie',
-  FEB: 'februarie',
-  MAR: 'martie',
-  APR: 'aprilie',
-  MAI: 'mai',
-  IUN: 'iunie',
-  IUL: 'iulie',
-  AUG: 'august',
-  SEP: 'septembrie',
-  OCT: 'octombrie',
-  NOI: 'noiembrie',
-  NOV: 'noiembrie',
-  DEC: 'decembrie',
-};
-
-/** The latest month of the activity series with any partidă, as a word («august»); null if none. */
-function lastActiveMonth(months: CommunityLakeSectionDTO['monthlyActivity']): string | null {
-  const m = [...months].reverse().find(x => x.count > 0);
-  if (!m) return null;
-  const key = m.month.normalize('NFD').replace(/\p{M}/gu, '').toUpperCase().slice(0, 3);
-  return MONTH_NAME[key] ?? m.month.toLowerCase();
 }
 
 /** «3 capturi» → ['3', 'capturi'] (the number takes the signature size, the word the unit). */

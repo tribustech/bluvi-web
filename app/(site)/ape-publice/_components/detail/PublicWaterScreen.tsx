@@ -4,6 +4,7 @@ import { ChartBarIcon, MapIcon, PaperAirplaneIcon, PhotoIcon, UsersIcon } from '
 import { MapPinIcon } from '@heroicons/react/20/solid';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SetBreadcrumb } from '@/app/(site)/_shell/SiteHeader';
 import {
@@ -25,23 +26,25 @@ import {
 import { plural } from '@/components/cards/format';
 import { ErrorState } from '@/components/surfaces/StateCard';
 import { T2Spinner } from '@/components/templates/T2';
-import { Button, buttonClass } from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
+import { SignatureNumber } from '@/components/ui/SignatureNumber';
 import { cn } from '@/components/ui/cn';
 import {
   buildPublicWaterSectionChips,
+  claimedPublicWatersQuery,
   countiesHeading,
   PUBLIC_WATER_SECTION_LABEL,
   PUBLIC_WATER_TYPE_LABEL,
-  publicWaterFacts,
   publicWaterName,
   publicWaterSubtitle,
+  toClaimedPublicWatersMap,
   type PublicWaterDetail,
 } from '@/core/lakes';
 import { communityVenueCatchesInfiniteQuery, communityVenueSectionQuery, hasPartideActivity, type LakeCatchDTO } from '@/core/partide';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { ON_WEB, routes } from '@/lib/routes';
 import { CatchGrid, SpeciesChips } from './catches';
-import { CoordinatesRow, DirectionsDialog, LinkCodeRow, QuickActions, waterDetailFacts, type QuickAction } from './parts';
+import { CoordinatesRow, DirectionsDialog, LinkCodeRow, MoreAboutWater, QuickActions, WaterDetailsBento, waterBentoTiles, waterDetailFacts, waterFigures, type MoreLink, type QuickAction } from './parts';
 import { VenuePartideSection } from './VenuePartideSection';
 import { WaterHero } from './WaterHero';
 import { FocusAfterWaterRetry } from '../retryFocus';
@@ -54,8 +57,9 @@ import { waterTrail } from '../trail';
  * width), then Prezentare, Partide, Capturi, Locație. From 768 it is the Airbnb detail page (owner
  * rule 1, ROADMAP §4b): the title row, then the map as the media band (from 1024 two thirds, the
  * first catch photos beside it); from 1024 two columns — the sections left, a sticky summary card
- * right with the water's type, Direcții and its facts. One map entry per area: the band — from
- * 1024 the Direcții / Hartă tiles and Locație's «Vezi apa pe hartă» leave.
+ * right with the water's type, Direcții and its facts. One map entry per area: the band is the way
+ * in at every width (no «Hartă» tile); below 1024 Locație's «Vezi apa pe hartă» card recaps it at
+ * the end, from 1024 it leaves too.
  *
  * Remounted per water (keyed by the page), so a new water starts at Prezentare with no pagination
  * left over from the previous one (c30); Next scrolls the new page to the top.
@@ -109,11 +113,27 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
   const catches = useInfiniteQuery(communityVenueCatchesInfiniteQuery(t, venue));
   const [directions, setDirections] = useState(false);
 
+  // c4 live, as fish [id].tsx (useClaimedPublicWaters on every mount): the server redirect is decided
+  // when the page is rendered and then cached (up to an hour without the CMS purge), so a water a
+  // lake has claimed since is replaced by the lake's page as soon as the claim map answers here.
+  const router = useRouter();
+  const claims = useQuery({ ...claimedPublicWatersQuery(t), enabled: !!water.linkCode });
+  const claimedBy = water.linkCode && claims.data ? (toClaimedPublicWatersMap(claims.data).get(water.linkCode) ?? null) : null;
+  useEffect(() => {
+    if (claimedBy) router.replace(routes.lake(claimedBy));
+  }, [claimedBy, router]);
+
   const name = publicWaterName(water);
   const shareText = `Intră în Bluvi să vezi ${name}.`;
   const subtitle = publicWaterSubtitle(water);
   const key = water.linkCode ?? water.id;
-  const facts = useMemo(() => waterDetailFacts(publicWaterFacts(water)), [water]);
+  const facts = useMemo(() => waterDetailFacts(water), [water]);
+  // The summary card's signature number: the area (the price's slot on the lake page, rule 1), else
+  // the volume or the altitude; a water with none of them (most rivers) keeps its type.
+  const headlineFigure = useMemo(() => waterFigures(water)[0] ?? null, [water]);
+  // One figure, one place (rule 9): the headline's figure leaves the facts beside it and the bento.
+  const asideFacts = useMemo(() => facts.filter((f) => f.key !== headlineFigure?.key), [facts, headlineFigure]);
+  const bentoTiles = useMemo(() => waterBentoTiles(water, headlineFigure?.key).count, [water, headlineFigure]);
 
   const catchesTotal = catches.data?.pages[0]?.meta.pagination.total ?? 0;
   const catchRows = useMemo(() => catches.data?.pages.flatMap((p) => p.data) ?? [], [catches.data]);
@@ -155,7 +175,14 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
   };
   // The reads' error banner is the one thing Prezentare keeps from 1024; without it the section
   // (and its chip) leaves there — never an empty card.
-  const prezentareBare = !(communityFailed || retrying);
+  // From 1024, a water with no community sections (no partide, no catches — or no link code at all)
+  // would be the map over a lone Locație card: «Detalii» moves from the aside into the left column
+  // as a bento. Decided once the reads answered, so a water with activity never flashes it. A bento
+  // of one tile is the orphan the kit never draws: under two, the fact stays in the aside's list
+  // and the left column starts at Locație.
+  const communitySettled = venue == null || ((community.isFetched || community.isError) && (catches.isFetched || catches.isError));
+  const detailsBento = bentoTiles >= 2 && communitySettled && !communityFailed && !retrying && !showPartide && !showCapturi;
+  const prezentareBare = !(communityFailed || retrying) && !detailsBento;
   const sections = useMemo(() => sectionItems(idsKey, prezentareBare), [idsKey, prezentareBare]);
   // The chip set changes when the community reads land / poll (a section appears or goes): the
   // provider takes the new list in place (no remount of the body).
@@ -171,9 +198,9 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
   const heroCatches = useMemo(() => catchRows.filter((c) => c.photoGridUrl || c.photoUrl || c.photoThumbUrl).slice(0, 2), [catchRows]);
 
   const actions: QuickAction[] = [
-    // From 1024 the summary card has both (its map and Direcții): one map entry per area.
+    // From 1024 the summary card has Direcții. No «Hartă» tile at any width: the map band on top is
+    // the way in (one map entry per area), Locație's card the recap at the end.
     { key: 'directii', label: 'Direcții', icon: <PaperAirplaneIcon aria-hidden />, onClick: () => setDirections(true), belowSummary: true },
-    { key: 'harta', label: 'Hartă', icon: <MapIcon aria-hidden />, href: routes.publicWaterMap(key), belowSummary: true },
     // Partide: while its section is on the page, the section's «Vezi tot» is the one way in (owner:
     // one entry point per page — no tile, no summary-card button repeating it).
     ...(partideVisible
@@ -196,7 +223,9 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
 
   // From 1024 the tiles leave Prezentare: the pages no section links to sit in the summary card as
   // the lake's «Mai multe despre baltă» buttons (Direcții and the map are already there).
-  const more = actions.filter((a) => (a.key === 'partide' || a.key === 'statistici') && a.href);
+  const more: MoreLink[] = actions
+    .filter((a) => (a.key === 'partide' || a.key === 'statistici') && a.href)
+    .map((a) => ({ key: a.key, label: a.label, icon: a.icon, href: a.href!, srSuffix: a.badge && a.badgeLabel ? `, ${a.badgeLabel(a.badge)}` : undefined }));
 
   const alt = altName(water);
   const pin = <MapPinIcon aria-hidden className={cn(PRESENCE_ICON.meta, 'shrink-0 text-accent')} />;
@@ -260,7 +289,19 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
             asideLabel="Pe scurt"
             aside={
               <DetailSummaryCard
-                headline={<span className="t-title2">{PUBLIC_WATER_TYPE_LABEL[water.type]}</span>}
+                headline={
+                  headlineFigure ? (
+                    <SignatureNumber
+                      size="stat"
+                      value={headlineFigure.value}
+                      unit={headlineFigure.unit}
+                      caption={`${headlineFigure.label} · ${PUBLIC_WATER_TYPE_LABEL[water.type]}`}
+                      className="tabular-nums"
+                    />
+                  ) : (
+                    <span className="t-title2">{PUBLIC_WATER_TYPE_LABEL[water.type]}</span>
+                  )
+                }
                 actions={
                   <Button icon={<PaperAirplaneIcon />} onClick={() => setDirections(true)} block>
                     Direcții
@@ -268,20 +309,10 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
                 }
               >
                 <CoordinatesRow lat={water.centerLat} lng={water.centerLng} />
-                {facts.length ? <DetailFacts facts={facts} layout="list" /> : null}
-                {more.length ? (
-                  <ul aria-label="Mai multe despre apă" className="flex flex-wrap gap-2">
-                    {more.map((a) => (
-                      <li key={a.key}>
-                        <Link href={a.href!} className={buttonClass({ variant: 'secondary', size: 'compact', className: '[&>svg]:size-5' })}>
-                          {a.icon}
-                          {a.label}
-                          {a.badge && a.badgeLabel ? <span className="sr-only">{`, ${a.badgeLabel(a.badge)}`}</span> : null}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
+                {/* With the «Detalii» bento in the left column (from 1024) the aside keeps Direcții, the
+                    coordinates and the links; the headline's figure is never listed again under it. */}
+                {asideFacts.length && !detailsBento ? <DetailFacts facts={asideFacts} layout="list" /> : null}
+                <MoreAboutWater links={more} />
               </DetailSummaryCard>
             }
           >
@@ -298,6 +329,7 @@ function Screen({ water, countyNames, attribution }: { routeId: string; water: P
                     <DetailFacts facts={facts} layout="list" />
                   </div>
                 ) : null}
+                {detailsBento ? <WaterDetailsBento water={water} omit={headlineFigure?.key} className="hidden min-[1024px]:flex" /> : null}
                 {communityFailed || retrying ? <CommunityError retrying={retrying} onRetry={retryCommunity} /> : null}
               </div>
             </DetailSection>

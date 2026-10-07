@@ -112,6 +112,10 @@ export function DetailSectionsProvider({
   /** The last section a chip jumped to; cleared when the user scrolls on their own. */
   const picked = useRef<string | null>(null);
   const key = sections.map(s => s.id).join('|');
+  // Which sections are laid out per width: a section that comes back above the active one (a lake's
+  // or a water's Prezentare, once its reads settle) is measured again — at the top of the page it
+  // takes the highlight back instead of leaving it on the next section.
+  const layoutKey = sections.map(s => `${s.hideFromLg ? 'l' : ''}${s.hideFromXl ? 'x' : ''}`).join('|');
 
   useEffect(() => {
     const ids = key ? key.split('|') : [];
@@ -170,7 +174,7 @@ export function DetailSectionsProvider({
       window.clearTimeout(unlockTimer.current);
       if (frame) cancelAnimationFrame(frame);
     };
-  }, [key]);
+  }, [key, layoutKey]);
 
   const go = useCallback((id: string) => {
     const el = document.getElementById(id);

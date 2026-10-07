@@ -86,10 +86,42 @@ export function publicWatersListTitle({
 
 export type PublicWaterFact = { key: string; label: string; value: string };
 
+/**
+ * The ANAR cadastral basin codes (the dataset's `basin` on rivers and reservoirs) by name — checked
+ * against the dataset's own main rivers (RO1-1 Tisa … RO15 Litoral). Natural lakes carry the name
+ * already («Dâmbovița»), so a bare Roman numeral never reaches an angler.
+ */
+export const ANAR_BASIN_NAME: Readonly<Record<string, string>> = {
+  I: 'Tisa',
+  II: 'Someș',
+  III: 'Crișuri',
+  IV: 'Mureș',
+  V: 'Bega–Timiș–Caraș',
+  VI: 'Nera–Cerna',
+  VII: 'Jiu',
+  VIII: 'Olt',
+  IX: 'Vedea',
+  X: 'Argeș',
+  XI: 'Ialomița',
+  XII: 'Siret',
+  XIII: 'Prut',
+  XIV: 'Dunărea',
+  XV: 'Litoral (Marea Neagră)',
+};
+
+/** The basin as a name: a code (I–XV) by its name, an unknown code dropped (rule 4), a name as is. */
+export function publicWaterBasinName(basin: string | null | undefined): string | null {
+  const b = basin?.trim();
+  if (!b) return null;
+  if (/^[IVXL]+$/.test(b)) return ANAR_BASIN_NAME[b] ?? null;
+  return b;
+}
+
 /** fish [id].tsx «Detalii»: each fact only when present; none → the block hides. */
 export function publicWaterFacts(water: Pick<PublicWaterDetail, 'basin' | 'areaKm2' | 'volumeMilM3' | 'elevationM' | 'euCode'>): PublicWaterFact[] {
   const facts: PublicWaterFact[] = [];
-  if (water.basin) facts.push({ key: 'basin', label: 'Bazin hidrografic', value: water.basin });
+  const basin = publicWaterBasinName(water.basin);
+  if (basin) facts.push({ key: 'basin', label: 'Bazin hidrografic', value: basin });
   if (water.areaKm2) facts.push({ key: 'area', label: 'Suprafață', value: `${water.areaKm2.toFixed(2)} km²` });
   if (water.volumeMilM3) facts.push({ key: 'volume', label: 'Volum', value: `${water.volumeMilM3.toFixed(0)} mil. m³` });
   if (water.elevationM) facts.push({ key: 'elevation', label: 'Altitudine', value: `${water.elevationM.toFixed(0)} m` });

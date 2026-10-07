@@ -112,6 +112,12 @@ export type DetailSkeletonProps = {
   phoneGround?: 'page' | 'surface';
   /** Phone: the loaded page's fixed bottom bar (and its spacer). */
   actionBar?: boolean;
+  /**
+   * From 768 the section nav is a tab bar (DetailSectionNav: text tabs on the hairline): how many
+   * tabs the loaded page shows there, drawn as short text bars instead of the phone's pills — so the
+   * bar keeps its shape and count when the page lands. Omitted: the pills at every width.
+   */
+  sectionTabs?: number;
   /** Announced once while loading. */
   label?: string;
   /** The page's <h1> while loading (visually hidden): the kind of page, «Baltă». */
@@ -134,6 +140,7 @@ export function DetailSkeleton({
   trail,
   phoneGround = 'page',
   actionBar = false,
+  sectionTabs,
   label = 'Se încarcă pagina',
   heading = 'Se încarcă pagina',
 }: DetailSkeletonProps) {
@@ -227,8 +234,16 @@ export function DetailSkeleton({
             className={cn('flex h-14.5 items-center gap-2 px-4 md:px-6', summary ? 'xl:px-8' : 'xl:hidden', FULL_BLEED_SURFACE, FULL_BLEED_HAIRLINE)}
           >
             {['w-24', 'w-20', 'w-16', 'w-22'].map(w => (
-              <span key={w} className={cn('h-9 shrink-0 rounded-full', BLOCK, w)} />
+              <span key={w} className={cn('h-9 shrink-0 rounded-full', BLOCK, w, sectionTabs != null && 'md:hidden')} />
             ))}
+            {sectionTabs != null ? (
+              // DetailSectionNav from 768: t-body-strong tabs 24px apart on the band's hairline.
+              <span className="flex gap-6 max-md:hidden">
+                {['w-24', 'w-18', 'w-20', 'w-22', 'w-16'].slice(0, sectionTabs).map(w => (
+                  <Word key={w} className={cn('t-body-strong', w)} />
+                ))}
+              </span>
+            ) : null}
           </div>
         ) : null}
         <div

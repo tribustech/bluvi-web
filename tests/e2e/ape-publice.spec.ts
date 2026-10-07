@@ -107,12 +107,23 @@ test.describe('public-waters.detaliu', () => {
     await page.goto(`/ape-publice/${WATER.snagov.id}`);
     await expect(page.getByRole('heading', { level: 1, name: 'Snagov' })).toBeVisible();
     await expect(page.locator('[data-t3="header"]').getByText('Lac de acumulare · Ilfov')).toBeVisible();
-    // c16: every fact, formatted like fish.
-    const facts = page.getByRole('complementary', { name: 'Pe scurt' });
-    await expect(facts.getByText('Bazin hidrografic')).toBeVisible();
-    await expect(facts.getByText('5.57 km²')).toBeVisible();
-    await expect(facts.getByText('32 mil. m³')).toBeVisible();
-    await expect(facts.getByText('93 m')).toBeVisible();
+    // c16: every fact, rounded like fish, in Romanian notation (the coordinates' comma, never «5.57»).
+    // The summary card leads with the area (its signature slot, rule 1), the type under it.
+    const aside = page.getByRole('complementary', { name: 'Pe scurt' });
+    await expect(aside.locator('[data-number]')).toHaveText('5,57');
+    await expect(aside.locator('[data-unit]')).toHaveText(/^\s*km²$/);
+    await expect(aside.getByText('Suprafață · Lac de acumulare')).toBeVisible();
+    await expect(page.locator('main')).not.toContainText('5.57');
+    await expect(page.getByText(/\b\d+\.\d+ km²/)).toHaveCount(0);
+    // From 1024 «Detalii» is either the aside's list or, without community sections, the left column's
+    // bento — never the headline's area again (one figure, one place). The basin code «XI» by its name.
+    const details = page.locator('[data-testid="water-details-bento"]:visible, [data-t3="summary"] dl');
+    await expect(details.getByText('Bazin hidrografic')).toBeVisible();
+    await expect(details.getByText('Ialomița', { exact: true })).toBeVisible();
+    await expect(details.getByText('Suprafață', { exact: true })).toHaveCount(0);
+    await expect(page.locator('main').getByText(/^5,57$/).filter({ visible: true })).toHaveCount(1);
+    await expect(details.getByText(/^32\s*mil\. m³$/)).toBeVisible();
+    await expect(details.getByText(/^93\s*m$/)).toBeVisible();
     // c29
     await expect(page.getByText(/Date hidrografice: Administrația Națională „Apele Române”/)).toBeVisible();
     // c1: the linkCode (encoded) is the same page; the canonical is the linkCode.
@@ -123,6 +134,108 @@ test.describe('public-waters.detaliu', () => {
     expect(ld).toContain('"Reservoir"');
     await expectNoA11yViolations(page);
     expect(errors).toEqual([]);
+  });
+
+  test('public-waters.detaliu.c16 — from 1024 a water without community sections gets a «Detalii» bento; the aside keeps Direcții, coordinates, links', async ({ page }) => {
+    await page.route(venueUrl(WATER.snagov.code), fulfill({ data: { stats: { activeNow: 0, catchesThisMonth: 0, recordKg: null }, activeSessions: [], monthlyActivity: [], speciesCounts: [] } }));
+    await page.route(catchesUrl(WATER.snagov.code), fulfill(catchesPage(1, 0)));
+    await page.setViewportSize(DESKTOP);
+    await page.goto(`/ape-publice/${WATER.snagov.id}`);
+    const bento = page.getByTestId('water-details-bento');
+    await expect(bento).toBeVisible();
+    await expect(bento.getByRole('heading', { name: 'Detalii' })).toBeVisible();
+    // The area is the summary card's headline: the bento keeps the other figures and the basin.
+    await expect(bento.locator('[data-number]')).toHaveText(['32', '93']);
+    await expect(bento.locator('[data-unit]')).toHaveText([/mil\. m³$/, /\bm$/]);
+    await expect(bento.getByText('Suprafață')).toHaveCount(0);
+    await expect(bento.getByText('Bazin hidrografic')).toBeVisible();
+    await expect(bento.getByText('Ialomița')).toBeVisible();
+    const aside = page.getByRole('complementary', { name: 'Pe scurt' });
+    await expect(aside.locator('dl')).toHaveCount(0);
+    await expect(aside.getByRole('button', { name: 'Direcții' })).toBeVisible();
+    await expect(aside.getByText('Coordonate (centrul apei)')).toBeVisible();
+    // Partide / Statistici: full-width rows under «Mai multe despre apă», each with a chevron.
+    const more = aside.getByRole('navigation', { name: 'Mai multe despre apă' });
+    const code = encodeURIComponent(WATER.snagov.code);
+    await expect(more.getByRole('link')).toHaveText(['Partide', 'Statistici']);
+    await expect(more.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `/ape-publice/${code}/statistici`);
+    const [row, card] = [(await more.getByRole('link').first().boundingBox())!, (await aside.locator('[data-t3="summary"]').boundingBox())!];
+    expect(row.width).toBeGreaterThan(card.width - 60);
+    // The two columns balance: the left column is not a stub under the map.
+    const [left, side] = [(await page.locator('#locatie').boundingBox())!, (await aside.boundingBox())!];
+    expect(left.y + left.height).toBeGreaterThan(side.y + side.height - 200);
+    await expectNoA11yViolations(page);
+    // Phone: the list «Detalii» (no bento), the same Romanian notation.
+    await page.setViewportSize(PHONE);
+    await expect(bento).toBeHidden();
+    const phoneFacts = page.locator('#prezentare dl');
+    await expect(phoneFacts.getByText(/^5,57\s*km²$/)).toBeVisible();
+    await expect(page.getByText(/\d\.\d+\s*km²/)).toHaveCount(0);
+  });
+
+  test('public-waters.detaliu — the summary card headline is a figure, not the type again; a river with none keeps the type', async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await page.goto(`/ape-publice/${WATER.snagov.id}`);
+    const card = page.locator('[data-t3="summary"]');
+    await expect(card.locator('[data-number]').first()).toHaveText('5,57');
+    await expect(card.getByText('Suprafață · Lac de acumulare')).toBeVisible();
+    // Tineretului: the area heads the card and is not listed again under it.
+    await page.route(venueUrl(WATER.tineretului.code), fulfill(section()));
+    await page.route(catchesUrl(WATER.tineretului.code), fulfill(catchesPage(1, 0)));
+    await page.goto(`/ape-publice/${WATER.tineretului.id}`);
+    await expect(card.locator('[data-number]').first()).toHaveText('0,18');
+    await expect(card.locator('dl')).toBeVisible();
+    await expect(card.locator('dl').getByText('Suprafață')).toHaveCount(0);
+    await expect(card.locator('dl').getByText('Altitudine')).toBeVisible();
+    await expect(card.locator('dl').getByText('Dâmbovița')).toBeVisible();
+    // Dunarea: no figure, one fact (the basin) — no one-tile bento; the basin, by name, in the aside's
+    // list; the left column starts at Locație.
+    await page.goto(`/ape-publice/${WATER.dunarea.id}`);
+    await expect(card.locator('.t-title2')).toHaveText('Râu');
+    await expect(card.locator('dl').getByText('Bazin hidrografic')).toBeVisible();
+    await expect(card.locator('dl').getByText('Dunărea', { exact: true })).toBeVisible();
+    await expect(page.locator('main').getByText('XIV', { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId('water-details-bento')).toHaveCount(0);
+    await expect(page.locator('#prezentare')).toBeHidden();
+    await expect(page.locator('#locatie')).toBeVisible();
+  });
+
+  test('public-waters.detaliu.c9 — 1440: the reads settle after the first paint and Prezentare comes back above Locație; at the top it is the active tab', async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    // No community sections, answered late: the first paint has Prezentare hidden from 1024 (only
+    // Locație laid out), then the «Detalii» bento brings it back above.
+    const late = (body: unknown) => async (route: Route) => {
+      await new Promise((r) => setTimeout(r, 800));
+      await fulfill(body)(route);
+    };
+    await page.route(venueUrl(WATER.snagov.code), late({ data: { stats: { activeNow: 0, catchesThisMonth: 0, recordKg: null }, activeSessions: [], monthlyActivity: [], speciesCounts: [] } }));
+    await page.route(catchesUrl(WATER.snagov.code), late(catchesPage(1, 0)));
+    await page.goto(`/ape-publice/${WATER.snagov.id}`);
+    await expect(page.getByTestId('water-details-bento')).toBeVisible();
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    const nav = page.getByRole('navigation', { name: 'Secțiuni' });
+    await expect(nav.getByRole('link')).toHaveText(['Prezentare', 'Locație']);
+    await expect(nav.getByRole('link', { name: 'Prezentare' })).toHaveAttribute('aria-current', 'location');
+    await expect(nav.getByRole('link', { name: 'Locație' })).not.toHaveAttribute('aria-current');
+  });
+
+  test('public-waters.detaliu.c5 — the map band keeps the skeleton shimmer until the map has drawn, then shows the map', async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    // The base map's style held: nothing is drawn, so the band shimmers (never a flat grey slab).
+    let release: () => void = () => {};
+    const held = new Promise<void>((r) => (release = r));
+    await page.route(/openfreemap\.org/, async (route) => {
+      await held;
+      await route.continue().catch(() => {});
+    });
+    await page.goto(`/ape-publice/${WATER.snagov.id}`);
+    const cover = page.getByTestId('water-hero-cover');
+    await expect(cover).toHaveAttribute('data-covered', 'true');
+    await expect(cover).toHaveCSS('opacity', '1');
+    release();
+    await expect(page.locator('[data-t3="photo"] [data-map-status]')).toHaveAttribute('data-map-status', 'ready', { timeout: 15_000 });
+    await expect(cover).not.toHaveAttribute('data-covered', { timeout: 15_000 });
+    await expect(cover).toHaveCSS('opacity', '0');
   });
 
   test('public-waters.detaliu.c3 public-waters.detaliu.s2 — an unknown water is not found, without a retry', async ({ page }) => {
@@ -147,19 +260,21 @@ test.describe('public-waters.detaliu', () => {
     const [heroBox, backBox] = [(await hero.boundingBox())!, (await back.boundingBox())!];
     expect(backBox.y).toBeLessThan(heroBox.y + 40);
     expect(backBox.x).toBeLessThan(heroBox.x + 40);
-    // c13 / c14: the tiles in fish's order: Direcții, Hartă, (Partide,) Statistici, then Capturi.
+    // c13 / c14: the tiles in fish's order: Direcții, (Partide,) Statistici, then Capturi.
     // Owner (one entry point per page): with the Partide section on the page its «Vezi tot» is the
-    // way in — no Partide tile beside it.
+    // way in — no Partide tile beside it; the map band on top is the way to the map — no Hartă tile
+    // (Locație's card recaps it at the end).
     const tiles = page.locator('[data-action]');
     await expect(page.locator('#partide')).toBeVisible();
-    await expect(tiles).toHaveCount(4);
+    await expect(tiles).toHaveCount(3);
     await expect(tiles.nth(0)).toHaveAccessibleName('Direcții');
-    await expect(tiles.nth(1)).toHaveAccessibleName('Hartă');
-    await expect(tiles.nth(2)).toHaveAccessibleName('Statistici');
-    await expect(tiles.nth(3)).toHaveAccessibleName(/^Capturi\s*, 3 capturi cu poză$/);
+    await expect(tiles.nth(1)).toHaveAccessibleName('Statistici');
+    await expect(tiles.nth(2)).toHaveAccessibleName(/^Capturi\s*, 3 capturi cu poză$/);
     await expect(page.getByTestId('quick-actions-later')).toHaveCount(0);
     const code = encodeURIComponent(WATER.tineretului.code);
-    await expect(page.locator('[data-action="harta"]')).toHaveAttribute('href', `/ape-publice/${code}/harta`);
+    await expect(page.locator('[data-action="harta"]')).toHaveCount(0);
+    // Two ways to the map below 1024, never three: the band and the Locație card.
+    await expect(page.locator(`main a[href="/ape-publice/${code}/harta"]`)).toHaveCount(2);
     await expect(page.locator('[data-action="partide"]')).toHaveCount(0);
     await expect(page.locator('#partide').getByRole('link', { name: 'Vezi tot' })).toHaveAttribute('href', `/ape-publice/${code}/partide`);
     await expect(page.locator('[data-action="statistici"]')).toHaveAttribute('href', `/ape-publice/${code}/statistici`);
@@ -210,7 +325,7 @@ test.describe('public-waters.detaliu', () => {
     await page.setViewportSize(DESKTOP);
     // Canalul Piatra Neamț - Buhuși: one of the few rows with an EU water-body code.
     await page.goto('/ape-publice/5250');
-    const facts = page.getByRole('complementary', { name: 'Pe scurt' });
+    const facts = page.locator('[data-testid="water-details-bento"]:visible, [data-t3="summary"] dl');
     await expect(facts.getByText('Cod corp de apă')).toBeVisible();
     await expect(facts.getByText('ROA1', { exact: true })).toBeVisible();
   });
@@ -241,12 +356,19 @@ test.describe('public-waters.detaliu', () => {
   });
 
   test('public-waters.detaliu.c7 s6 — no activity and no species: only Prezentare and Locație', async ({ page }) => {
-    await page.setViewportSize(DESKTOP);
+    await page.setViewportSize(PHONE);
     await page.goto(`/ape-publice/${WATER.dunarea.id}`);
     await expect(page.getByRole('heading', { level: 1, name: 'Dunarea' })).toBeVisible();
     const toc = page.getByRole('navigation', { name: 'Secțiuni' });
-    await expect(toc.getByRole('link')).toHaveText(['Locație']);
+    await expect(toc.getByRole('link')).toHaveText(['Prezentare', 'Locație']);
     await expect(page.getByRole('heading', { name: 'Partide pe această apă' })).toHaveCount(0);
+    await expect(page.locator('#capturi')).toHaveCount(0);
+    // From 1024 Prezentare lives in the summary card: one section left, and a tab bar that could
+    // only point at it is not drawn (T3 DetailSectionNav, fewer than two sections laid out).
+    await page.setViewportSize(DESKTOP);
+    await expect(toc).toBeHidden();
+    await expect(page.locator('#locatie')).toBeVisible();
+    await expect(page.locator('#partide')).toHaveCount(0);
   });
 
   test('public-waters.detaliu.c20 s13 — live partide: rose pill, kg headline, ranked rows', async ({ page }) => {
@@ -517,11 +639,19 @@ test.describe('public-waters.detaliu', () => {
     const loc = page.locator('#locatie');
     await expect(loc.getByRole('heading', { name: 'Județe (12)' })).toBeVisible();
     await expect(loc.getByRole('listitem')).toHaveCount(12);
-    // From 1024 the map is the summary card's; the Locație map card is there below 1024.
+    const mapHref = `/ape-publice/${encodeURIComponent(WATER.dunarea.code)}/harta`;
+    // From 1024 the map band under the title is the one map entry (owner: one entry per area); the
+    // Locație map card is there below 1024.
     await expect(loc.getByRole('link', { name: 'Deschide apa pe hartă' })).toBeHidden();
-    await expect(page.getByRole('complementary', { name: 'Pe scurt' }).getByRole('link', { name: /^Deschide harta pentru/ })).toHaveAttribute('href', /\/harta$/);
+    await expect(page.getByRole('link', { name: 'Deschide harta pentru Dunarea' })).toHaveAttribute('href', mapHref);
     await page.setViewportSize(PHONE);
-    await expect(loc.getByRole('link', { name: 'Deschide apa pe hartă' })).toHaveAttribute('href', /\/harta$/);
+    const card = loc.getByRole('link', { name: 'Deschide apa pe hartă' });
+    await expect(card).toHaveAttribute('href', mapHref);
+    await expect(card).toContainText('Vezi apa pe hartă');
+    await expect(card).toContainText('Deschide geometria completă și zona din jur');
+    await card.click();
+    await expect(page).toHaveURL(new RegExp(`${mapHref.replace(/[.%]/g, '\\$&')}$`));
+    await page.goBack();
     await page.setViewportSize(DESKTOP);
     const copy = loc.getByRole('button', { name: `Copiază codul apei ${WATER.dunarea.code}` });
     await copy.click();
@@ -582,6 +712,26 @@ test.describe('public-waters.detaliu', () => {
     });
   });
 
+  test('public-waters.detaliu.c2 s1 — 1440: the loading band and tab bar already have the landed shape', async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await withFaults(page, WATER.snagov.id, ['slow'], async () => {
+      await page.goto(`/ape-publice/${WATER.snagov.id}`, { waitUntil: 'commit' });
+      await expect(page.getByRole('status').filter({ hasText: 'Se încarcă apa publică' })).toBeAttached();
+      // The band: «Bălți / Ape publice / ▭» (the landed parents), never «Acasă».
+      const crumbs = page.getByRole('navigation', { name: 'Cale de navigare' });
+      await expect(crumbs.getByRole('link')).toHaveText(['Bălți', 'Ape publice']);
+      await expect(crumbs.getByText('Acasă')).toHaveCount(0);
+      // The tab bar: two text bars (Prezentare, Locație), not four pills.
+      const bones = page.locator('[aria-busy="true"] [data-t3="chips"] > span').filter({ visible: true });
+      await expect(bones).toHaveCount(1);
+      await expect(bones.locator('> span')).toHaveCount(2);
+      await expect(page.locator('[aria-busy="true"] [data-t3="chips"] > span.rounded-full').filter({ visible: true })).toHaveCount(0);
+      await expect(page.getByRole('heading', { level: 1, name: 'Snagov' })).toBeVisible();
+      await expect(crumbs.getByRole('link')).toHaveText(['Bălți', 'Ape publice']);
+      await expect(crumbs.locator('[aria-current="page"]')).toHaveText('Snagov');
+    });
+  });
+
   test('public-waters.detaliu.c3 s3 — a dataset failure: «Nu am putut încărca apa publică.» with a retry that is never silent', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     // React dev reports a server error its boundary handled (dev only, never our own log).
@@ -622,6 +772,19 @@ test.describe('public-waters.detaliu', () => {
     });
   });
 
+  test('public-waters.detaliu.c4 — a water claimed after its page was cached is replaced by the lake as soon as the claim map answers in the browser', async ({ page }) => {
+    // The server render (and its cache) still says unclaimed; the browser's own claim read says
+    // Chita has it now (fish reads the map on every mount).
+    await page.route('**/feed/public-waters/claimed*', fulfill({ data: [{ linkCode: WATER.snagov.code, lakeDocumentId: CHITA }] }));
+    await page.goto('/ape-publice');
+    const before = await page.evaluate(() => history.length);
+    await page.evaluate((href) => (window as unknown as { next: { router: { push: (h: string) => void } } }).next.router.push(href), `/ape-publice/${WATER.snagov.id}`);
+    await expect(page).toHaveURL(new RegExp(`/balti/${CHITA}$`));
+    expect(await page.evaluate(() => history.length)).toBeLessThanOrEqual(before + 1);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/ape-publice$/);
+  });
+
   test('public-waters.detaliu.c32 s5 — a water without linkCode: no community sections, no code row, no community request', async ({ page }) => {
     const community: string[] = [];
     page.on('request', (r) => {
@@ -631,7 +794,10 @@ test.describe('public-waters.detaliu', () => {
     await withFaults(page, WATER.tineretului.id, ['nolinkcode'], async () => {
       await page.goto(`/ape-publice/${WATER.tineretului.id}`);
       await expect(page.getByRole('heading', { level: 1, name: 'Tineretului' })).toBeVisible();
-      await expect(page.getByRole('navigation', { name: 'Secțiuni' }).getByRole('link')).toHaveText(['Locație']);
+      // Desktop: no community sections, so «Detalii» is the left column's bento (Prezentare) beside Locație.
+      await expect(page.getByRole('navigation', { name: 'Secțiuni' }).getByRole('link')).toHaveText(['Prezentare', 'Locație']);
+      await expect(page.getByTestId('water-details-bento')).toBeVisible();
+      await expect(page.locator('#locatie')).toBeVisible();
       await expect(page.locator('#partide')).toHaveCount(0);
       await expect(page.locator('#capturi')).toHaveCount(0);
       await expect(page.getByRole('alert').filter({ hasText: 'Activitatea comunității' })).toHaveCount(0);
@@ -678,12 +844,15 @@ test.describe('public-waters.detaliu', () => {
     expect(signedIn).toEqual(signedOut);
   });
 
-  test('public-waters.detaliu.c20 — idle, nothing this month, no record: one muted line, not the navy card', async ({ page }) => {
+  test('public-waters.detaliu.c20 — idle, nothing this month, no record: the navy card with «0 capturi» / «luna aceasta» (fish)', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await page.route(venueUrl(WATER.tineretului.code), fulfill(section({ activeNow: 0, catchesThisMonth: 0, recordKg: null })));
     await page.goto(`/ape-publice/${WATER.tineretului.id}`);
     const card = page.getByTestId('live-partide-card');
-    await expect(card).toHaveText('Nicio captură luna aceasta · ultima activitate: iulie');
+    await expect(card.locator('[data-number]')).toHaveText('0');
+    await expect(card.locator('[data-unit]')).toHaveText(/^\s*capturi$/);
+    await expect(card.getByText('luna aceasta', { exact: true })).toBeVisible();
+    await expect(card.getByText(/record istoric/)).toHaveCount(0);
     await expect(page.locator('#partide').getByText(/luna aceasta/i)).toHaveCount(1);
   });
 
@@ -751,6 +920,188 @@ test.describe('public-waters.detaliu', () => {
     const ld = await page.locator('script[type="application/ld+json"]').allTextContents();
     const list = ld.map((t) => JSON.parse(t)).flat().find((d: { '@type': string }) => d['@type'] === 'BreadcrumbList');
     expect(list.itemListElement.map((i: { name: string }) => i.name)).toEqual(['Bălți', 'Ape publice', 'Snagov']);
+  });
+
+  test('public-waters.detaliu.c6 — header: the name (fallback «Apă publică»), the pin with «type · location», then the second name when it differs', async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto(`/ape-publice/${WATER.dunarea.id}`);
+    const header = page.locator('[data-t3="header"]');
+    const title = header.getByRole('heading', { level: 1 });
+    await expect(title).toHaveText('Dunarea');
+    const meta = header.getByText('Râu · 12 județe', { exact: true });
+    await expect(meta).toBeVisible();
+    // The pin sits in the meta line, before its text.
+    await expect(meta.locator('svg')).toHaveCount(1);
+    // fish: nameEn under the meta when it is not the name (web: labelled «și: …», so it never reads as a place).
+    const alt = header.getByText('și: Brat Alionte');
+    await expect(alt).toBeVisible();
+    const [t, m, a] = [(await title.boundingBox())!, (await meta.boundingBox())!, (await alt.boundingBox())!];
+    expect(m.y).toBeGreaterThan(t.y);
+    expect(a.y + a.height).toBeGreaterThan(m.y);
+    // A nameless ANAR row: «Apă publică», the meta still there, no second name.
+    await withFaults(page, WATER.snagov.id, ['noname'], async () => {
+      await page.goto(`/ape-publice/${WATER.snagov.id}`);
+      await expect(header.getByRole('heading', { level: 1 })).toHaveText('Apă publică');
+      await expect(header.getByText('Lac de acumulare · Ilfov', { exact: true })).toBeVisible();
+      await expect(header.getByText(/^și: /)).toHaveCount(0);
+    });
+  });
+
+  test('public-waters.detaliu.c8 — Partide shows on any activity: live now, catches this month, a record, or one month with partide', async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    const quiet = { monthlyActivity: [{ month: 'MAI', count: 0 }, { month: 'IUN', count: 0 }], speciesCounts: [] };
+    const cases: [string, unknown, boolean][] = [
+      ['nothing', section({}, quiet), false],
+      ['activeNow', section({ activeNow: 1 }, quiet), true],
+      ['catchesThisMonth', section({ catchesThisMonth: 2 }, quiet), true],
+      ['recordKg', section({ recordKg: 3.1 }, quiet), true],
+      ['a monthly count', section({}, { ...quiet, monthlyActivity: [{ month: 'MAI', count: 0 }, { month: 'IUN', count: 1 }] }), true],
+    ];
+    let body: unknown = null;
+    await page.route(venueUrl(WATER.tineretului.code), (route) => fulfill(body)(route));
+    await page.route(catchesUrl(WATER.tineretului.code), fulfill(catchesPage(1, 0)));
+    const nav = page.getByRole('navigation', { name: 'Secțiuni' });
+    for (const [what, b, shown] of cases) {
+      body = b;
+      const read = page.waitForResponse((r) => r.url().endsWith(`/feed/community/waters/${encodeURIComponent(WATER.tineretului.code)}`));
+      await page.goto(`/ape-publice/${WATER.tineretului.id}`);
+      await read;
+      await expect(nav.getByRole('link'), what).toHaveText(shown ? ['Prezentare', 'Partide', 'Locație'] : ['Prezentare', 'Locație']);
+      await expect(page.getByRole('heading', { name: 'Partide pe această apă' }), what).toHaveCount(shown ? 1 : 0);
+    }
+  });
+
+  test('public-waters.detaliu.c10 c11 — phone: the spy marks the last section passed under the pinned nav (+12px); the pinned bar fades in with the name, the meta and the same chips', async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    await page.route(venueUrl(WATER.tineretului.code), fulfill(section({ catchesThisMonth: 2 })));
+    await page.route(catchesUrl(WATER.tineretului.code), fulfill(catchesPage(1, 12)));
+    await page.goto(`/ape-publice/${WATER.tineretului.id}`);
+    await expect(page.getByTestId('catch-grid').getByRole('button')).toHaveCount(12);
+    const nav = page.locator('[data-t3="chips"]');
+    const mini = nav.locator('[data-t3="pinned-mini"]');
+    // c11, before: the header is on screen, the mini row is invisible and inert.
+    await expect(nav).not.toHaveAttribute('data-pinned');
+    await expect(mini).toHaveAttribute('aria-hidden', 'true');
+    await expect(mini).toHaveCSS('opacity', '0');
+
+    /** Scrolls so #capturi's top sits `offset` px below its pinned line (the scroll-margin the spy reads). */
+    const place = async (offset: number) => {
+      for (let i = 0; i < 5; i++) {
+        const d = await page.evaluate((o) => {
+          const el = document.getElementById('capturi')!;
+          const m = parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
+          return el.getBoundingClientRect().top - (m + o);
+        }, offset);
+        if (Math.abs(d) < 1) return;
+        await page.evaluate((dy) => window.scrollBy(0, dy), d);
+        // The phone bar hides / shows on scroll (the pinned line moves with it): let it settle.
+        await page.waitForTimeout(450);
+      }
+    };
+    const current = nav.locator('a[aria-current="location"]');
+
+    // c10: Capturi's heading just under the pinned rows → Capturi.
+    await place(-4);
+    await expect(current).toHaveText('Capturi');
+    // The pinned line is the nav's bottom edge + 12px.
+    const margin = await page.evaluate(() => parseFloat(getComputedStyle(document.getElementById('capturi')!).scrollMarginTop));
+    const navBox = (await nav.boundingBox())!;
+    expect(Math.abs(margin - (navBox.y + navBox.height + 12))).toBeLessThanOrEqual(2);
+    // 30px below the line it has not passed yet: the section above (Partide) is the active one.
+    await place(30);
+    await expect(current).toHaveText('Partide');
+
+    // c11, pinned: the mini row is shown — name, pin + «type · location» — over the same chips.
+    await expect(nav).toHaveAttribute('data-pinned', 'true');
+    await expect(mini).not.toHaveAttribute('aria-hidden', 'true');
+    await expect(mini).toHaveCSS('opacity', '1');
+    await expect(mini.getByText('Tineretului', { exact: true })).toBeVisible();
+    await expect(mini.getByText('Lac natural · București')).toBeVisible();
+    await expect(mini.locator('svg[aria-hidden]').first()).toBeVisible();
+    await expect(nav.getByRole('link')).toHaveText(['Prezentare', 'Partide', 'Capturi', 'Locație']);
+    // The chips follow the spy while pinned.
+    await place(-4);
+    await expect(current).toHaveText('Capturi');
+  });
+
+  test('public-waters.detaliu.c13 — Acțiuni rapide: Direcții, Partide, Statistici, then Capturi only with photo catches (no Hartă tile)', async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    // No partide activity: the Partide tile is the way to the partide page (with activity the
+    // section's «Vezi tot» replaces it — owner, one entry per page; see c7 c8 c18).
+    await page.route(venueUrl(WATER.tineretului.code), fulfill(section({}, { monthlyActivity: [], speciesCounts: [] })));
+    let total = 3;
+    await page.route(catchesUrl(WATER.tineretului.code), (route) => fulfill(catchesPage(1, total))(route));
+    const code = encodeURIComponent(WATER.tineretului.code);
+    const tiles = page.locator('#prezentare [data-action]');
+    for (const n of [3, 0]) {
+      total = n;
+      const read = page.waitForResponse((r) => r.url().includes(`/feed/community/waters/${code}/catches`));
+      await page.goto(`/ape-publice/${WATER.tineretului.id}`);
+      await read;
+      await expect(page.getByRole('heading', { name: 'Acțiuni rapide' })).toBeVisible();
+      if (n > 0) await expect(tiles).toHaveText(['Direcții', 'Partide', 'Statistici', /Capturi/]);
+      else await expect(tiles).toHaveText(['Direcții', 'Partide', 'Statistici']);
+      await expect(page.locator('[data-action="partide"]')).toHaveAttribute('href', `/ape-publice/${code}/partide`);
+    }
+  });
+
+  test('public-waters.detaliu.c28 c29 — the code row copies «<code>» («Copiază codul apei <code>»), reads «Copiat» for 1.5s; the CC-BY line closes Locație', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.clock.install();
+    await page.setViewportSize(PHONE);
+    await page.goto(`/ape-publice/${WATER.snagov.id}`);
+    const loc = page.locator('#locatie');
+    await expect(loc.getByText('Cod apă (pentru asociere)')).toBeVisible();
+    await expect(loc.getByText(WATER.snagov.code, { exact: true })).toBeVisible();
+    const copy = loc.getByRole('button', { name: `Copiază codul apei ${WATER.snagov.code}` });
+    const word = copy.locator('[aria-live]');
+    await expect(word).toHaveText('Copiază');
+    await copy.click();
+    await expect(word).toHaveText('Copiat');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(WATER.snagov.code);
+    await page.clock.runFor(1_300);
+    await expect(word).toHaveText('Copiat');
+    await page.clock.runFor(400);
+    await expect(word).toHaveText('Copiază');
+    // c29: the dataset's attribution, last in Locație.
+    const last = loc.locator('p').last();
+    await expect(last).toContainText('Administrația Națională „Apele Române”');
+    await expect(last).toContainText('CC BY 4.0');
+  });
+
+  test('public-waters.detaliu.c31 — venue data stays fresh 30s (a refocus reads nothing), then refocus / the 60s poll read it; a failed read is not retried', async ({ page }) => {
+    await page.clock.install();
+    await page.setViewportSize(DESKTOP);
+    let calls = 0;
+    let fail = false;
+    await page.route(venueUrl(WATER.tineretului.code), (route) => {
+      calls += 1;
+      return fail ? route.fulfill({ status: 500, body: '{}' }) : fulfill(section({ activeNow: 1 }))(route);
+    });
+    watchConsole(page, [/500/, /Failed to load resource/]);
+    await page.goto(`/ape-publice/${WATER.tineretului.id}`);
+    await expect(page.getByTestId('live-partide-card').getByText('1 ACTIVI ACUM')).toBeVisible();
+    expect(calls).toBe(1);
+    const refocus = () => page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')));
+    // Within staleTime: a refocus asks nothing.
+    await page.clock.runFor(10_000);
+    await refocus();
+    await page.waitForTimeout(500);
+    expect(calls).toBe(1);
+    // Past 30s: the refocus reads it again.
+    await page.clock.runFor(25_000);
+    await refocus();
+    await expect.poll(() => calls).toBe(2);
+    // The next poll (a minute after the last read) fails — and is not retried (no 1s / 2s / 4s backoff reads).
+    fail = true;
+    await page.clock.runFor(50_000);
+    await page.waitForTimeout(300);
+    expect(calls).toBe(2);
+    await page.clock.runFor(11_000);
+    await expect.poll(() => calls).toBe(3);
+    await page.clock.runFor(20_000);
+    await page.waitForTimeout(500);
+    expect(calls).toBe(3);
   });
 });
 
@@ -871,9 +1222,13 @@ test.describe('public-waters.harta-ape', () => {
     await expect(page.getByRole('button', { name: 'Lacuri' })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('button', { name: 'Râuri' })).toHaveAttribute('aria-pressed', 'false');
     await expect(page.getByRole('heading', { name: 'Cele mai mari ape din zonă' })).toBeVisible();
-    const rows = page.locator('[data-t2-id] button');
+    // The row's button holds only the name (the card's stretched link); the meta is in the row.
+    const rows = page.locator('[data-t2-id]');
     await expect(rows.first()).toContainText('Razim');
-    await expect(rows.first()).toContainText('Tulcea · 39.266 ha');
+    // The card: the area as its figure («39.266 ha» + «suprafață»), the county and type under it.
+    await expect(rows.first()).toContainText('39.266');
+    await expect(rows.first()).toContainText('suprafață');
+    await expect(rows.first()).toContainText('Tulcea');
     await expect(page.getByRole('button', { name: /ape — mărește harta aici/ }).first()).toBeVisible();
     // c5: the active type is a no-op; Râuri switches to rivers (badge «Râu», no area).
     await page.getByRole('button', { name: 'Râuri' }).click();
@@ -971,16 +1326,16 @@ test.describe('public-waters.harta-ape', () => {
     await expect(page.getByRole('button', { name: 'Aplică', exact: true })).toBeVisible();
     await page.locator('label').filter({ hasText: /^Tulcea/ }).click();
     await page.getByRole('button', { name: 'Aplică (1)' }).click();
-    await expect(page.getByRole('button', { name: 'Județe · 1' })).toBeVisible();
-    // c34: the list holds Tulcea's waters only.
-    await expect(page.locator('[data-t2-id] button').first()).toContainText('Tulcea');
-    const metas = await page.locator('[data-t2-id] button').allTextContents();
+    await expect(page.getByRole('button', { name: 'Județe (1)' })).toBeVisible();
+    // c34: the list holds Tulcea's waters only (the meta is in the row, not the name button).
+    await expect(page.locator('[data-t2-id]').first()).toContainText('Tulcea');
+    const metas = await page.locator('[data-t2-id]').allTextContents();
     expect(metas.every((t) => t.includes('Tulcea'))).toBe(true);
     // Anulează leaves the applied filter alone.
-    await page.getByRole('button', { name: 'Județe · 1' }).click();
+    await page.getByRole('button', { name: 'Județe (1)' }).click();
     await page.locator('label').filter({ hasText: /^Tulcea/ }).click();
     await page.getByRole('button', { name: 'Anulează' }).click();
-    await expect(page.getByRole('button', { name: 'Județe · 1' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Județe (1)' })).toBeVisible();
   });
 
   test('public-waters.harta-ape.c25 s11 — locate denied shows how to allow it', async ({ page, context }) => {
