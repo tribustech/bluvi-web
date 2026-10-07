@@ -3,8 +3,8 @@ import { ON_WEB } from '@/lib/routes';
 /*
  * Which of the lake page's targets the web already has (fish app/(app)/lakes/[lakeId]/* and the
  * partidă screens). A target the web does not have yet is never a dead link: the T3 «unavailable»
- * treatment instead — a section header action is left out, the booking CTA opens «Rezervă din
- * aplicația Bluvi», a quick tile drops into the «Curând pe web: …» line, the photos / the mini map /
+ * treatment instead — a section header action is left out, a quick tile drops into the «Curând pe
+ * web: …» line, the photos / the mini map /
  * a live partidă row / the operator card / a review's author stop being links. Flip an entry to
  * `true` in the batch that ships its route.
  * The site-wide pages (angler, partidă, start a partidă) read lib/routes.ts ON_WEB, the one switch
@@ -34,8 +34,8 @@ export const LAKE_ON_WEB: Record<
   reviews: true,
   /** /balti/[id]/recenzie — add / edit the viewer's review (lakes.review-form, M3): «Adaugă o recenzie», «Editează». */
   reviewForm: true,
-  /** /balti/[id]/rezerva — the booking flow (a signed-in angler on a booking-enabled lake). */
-  booking: false,
+  /** /balti/[id]/rezerva — the booking flow (a signed-in angler on a booking-enabled lake; M3-B3). */
+  booking: true,
   /** /partide/[id] — a live partidă row (c22: own vs spectator still to resolve there). */
   partida: ON_WEB.partida,
   /** /pescari/[id] — the operator card and a review's author (lakes.detail.c27, c29). */

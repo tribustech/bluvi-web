@@ -10,6 +10,7 @@ import { Dialog } from '@/components/surfaces/Dialog';
 import { Sheet } from '@/components/surfaces/Sheet';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { DetailProse } from '@/components/templates/T3';
+import { T4Spinner } from '@/components/templates/T4';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import {
@@ -40,7 +41,7 @@ import { track } from './analytics';
  * keeps the sheet mounted too).
  */
 
-export type LakeDialog = 'share' | 'directions' | 'reviews-info' | 'description' | 'interest' | 'claim' | 'booking-app';
+export type LakeDialog = 'share' | 'directions' | 'reviews-info' | 'description' | 'interest' | 'claim';
 
 type DialogLake = {
   documentId: string;
@@ -88,13 +89,13 @@ export function LakeDialogs({
           onClose={onClose}
           onOwner={() => {
             // The claim needs an account (lakes.claim.c7): anyone not known to be signed in signs
-            // in first, exactly as the page's own «Ești administratorul acestei bălți?» link.
+            // in first and comes back to this lake with the claim open, exactly as the page's own
+            // «Ești administratorul acestei bălți?» link (ClaimTrigger).
             if (signedIn(session)) onOpen('claim');
-            else router.push(routes.signIn());
+            else router.push(routes.signIn(claimReturnPath(lake.documentId)));
           }}
         />
       ) : null}
-      {mounted.has('booking-app') ? <BookingAppDialog lake={lake} open={is('booking-app')} onClose={onClose} /> : null}
       {mounted.has('claim') ? <ClaimDialog lake={lake} session={session} open={is('claim')} onClose={onClose} /> : null}
     </>
   );
@@ -102,6 +103,11 @@ export function LakeDialogs({
 
 /** Known to be signed in: a pending (undefined) or unknown session is not (lakes.b.signin-gating). */
 const signedIn = (s: ViewerState | undefined) => !!userOf(s);
+
+/** `?dialog=revendica`: back from sign-in, the lake page opens the claim dialog (LakeActions ClaimAfterSignIn). */
+export const CLAIM_PARAM = 'dialog';
+export const CLAIM_VALUE = 'revendica';
+export const claimReturnPath = (lakeId: string) => `${routes.lake(lakeId)}?${CLAIM_PARAM}=${CLAIM_VALUE}`;
 
 /**
  * Fundații §07: a bottom sheet on the phone (fish's sheets), a centred dialog with its «Închide» X
@@ -357,10 +363,11 @@ function InterestDialog({
   const submit = () => {
     if (mutation.isPending || registered) return;
     // Anyone not known to be signed in (a guest, a session not answered yet, an unknown one) signs
-    // in first: an anonymous signal 401s and cannot be told when the lake opens up.
+    // in first: an anonymous signal 401s and cannot be told when the lake opens up. Back to this
+    // lake afterwards (fish's plain push lands back here too).
     if (!signedIn(session)) {
       onClose();
-      router.push(routes.signIn());
+      router.push(routes.signIn(routes.lake(lake.documentId)));
       return;
     }
     mutation.mutate(
@@ -423,8 +430,10 @@ function InterestDialog({
           <Button
             block
             onClick={submit}
+            icon={mutation.isPending ? <T4Spinner /> : undefined}
             aria-busy={mutation.isPending || undefined}
             aria-disabled={mutation.isPending || undefined}
+            className={cn(mutation.isPending && 'cursor-progress')}
           >
             {mutation.isPending ? 'Se trimite…' : 'Aș vrea să pot rezerva aici'}
           </Button>
@@ -434,88 +443,10 @@ function InterestDialog({
   );
 }
 
-/* ------------------------------------------------------------------------------------------------
- * Rezervă din aplicația Bluvi — booking enabled while the web has no booking flow yet (c16)
- * ---------------------------------------------------------------------------------------------- */
-
-// TODO(routes): the same store links as app/(site)/_home/AppPromo.tsx — lift both into lib/ once
-// the shell owner agrees (a page must not import another route's private module).
+// The stores (app/(site)/balti/[id]/partide reads them from here). TODO(routes): the same links as
+// app/(site)/_home/AppPromo.tsx — lift both into lib/ once the shell owner agrees.
 export const APP_STORE = 'https://apps.apple.com/ro/app/bluvi-aplicatia-pescarilor/id6743083184';
 export const PLAY_STORE = 'https://play.google.com/store/apps/details?id=com.tribustech.bluvi';
-
-function BookingAppDialog({ lake, open, onClose }: { lake: DialogLake; open: boolean; onClose: () => void }) {
-  const stores = [
-    { key: 'ios', label: 'App Store', href: APP_STORE },
-    { key: 'android', label: 'Google Play', href: PLAY_STORE },
-  ];
-  return (
-    <Surface open={open} onClose={onClose} title="Rezervă din aplicația Bluvi">
-      <div className="flex flex-col gap-4 pt-1 pb-2">
-        <div className="flex items-center gap-3">
-          <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent-tint-2 text-accent-ink [&>svg]:size-6">
-            <CalendarDaysIcon />
-          </span>
-          <p className="t-body text-ink-2">
-            {lake.name} primește rezervări prin Bluvi. Rezervarea online e în curând pe web; până atunci rezervă din aplicație.
-          </p>
-        </div>
-        <ul className="grid grid-cols-2 gap-3">
-          {stores.map(s => (
-            <li key={s.key}>
-              <a
-                href={s.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 rounded-control px-3 py-3 t-body-strong text-ink shadow-e0 transition-colors hover:bg-soft-fill"
-              >
-                {s.label}
-                <span className="sr-only">(se deschide într-o filă nouă)</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </Surface>
-  );
-}
-
-/**
- * «Adaugă recenzia din aplicația Bluvi» — the reviews page's «Adaugă o recenzie» / «Editează» while
- * the web has no review form yet (availability.ts `reviewForm`, lakes.review-form is M3): the
- * stores, never a dead link.
- */
-export function ReviewInAppDialog({ lakeName, editing, open, onClose }: { lakeName: string; editing: boolean; open: boolean; onClose: () => void }) {
-  const stores = [
-    { key: 'ios', label: 'App Store', href: APP_STORE },
-    { key: 'android', label: 'Google Play', href: PLAY_STORE },
-  ];
-  return (
-    <Surface open={open} onClose={onClose} title={editing ? 'Editează din aplicația Bluvi' : 'Adaugă recenzia din aplicația Bluvi'}>
-      <div className="flex flex-col gap-4 pt-1 pb-2" data-testid="review-in-app">
-        <p className="t-body text-ink-2">
-          {editing
-            ? `Editarea recenziei pentru ${lakeName} vine în curând pe web; până atunci o poți edita din aplicație.`
-            : `Recenziile pentru ${lakeName} se scriu în curând și pe web; până atunci adaugă-ți recenzia din aplicație.`}
-        </p>
-        <ul className="grid grid-cols-2 gap-3">
-          {stores.map(s => (
-            <li key={s.key}>
-              <a
-                href={s.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 rounded-control px-3 py-3 t-body-strong text-ink shadow-e0 transition-colors hover:bg-soft-fill"
-              >
-                {s.label}
-                <span className="sr-only">(se deschide într-o filă nouă)</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </Surface>
-  );
-}
 
 /* ------------------------------------------------------------------------------------------------
  * Ești administratorul acestei bălți? — fish LakeClaimSheet (parity lakes.claim)
@@ -537,22 +468,36 @@ function ClaimDialog({ lake, session, open, onClose }: { lake: DialogLake; sessi
   const [message, setMessage] = useState('');
   const [touched, setTouched] = useState(false);
   const messageId = useId();
+  const errorId = useId();
+  const nameRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
 
   // fish prefills on present, only the fields still empty (the profile may load later).
   const p = profile.data;
   const [prefilled, setPrefilled] = useState(false);
+  // Every presentation prefills again (fish onChange index >= 0), still only the empty fields.
+  if (!open && prefilled) setPrefilled(false);
   if (open && p && !prefilled) {
     setPrefilled(true);
     setName(prev => prev || p.username || '');
     setPhone(prev => prev || p.phone || '');
   }
 
-  const valid = name.trim().length >= 3 && phone.trim().length >= 9;
+  const nameOk = name.trim().length >= 3;
+  const phoneOk = phone.trim().length >= 9;
+  const valid = nameOk && phoneOk;
   const busy = mutation.isPending;
+  /** After a failed attempt: the field is marked invalid and points at the one message (c3). */
+  const invalid = (ok: boolean) => (touched && !ok ? { 'aria-invalid': true as const, 'aria-describedby': errorId, className: INVALID_SHELL } : {});
 
   const submit = () => {
+    if (busy) return;
     setTouched(true);
-    if (!valid || busy) return;
+    if (!valid) {
+      // Keyboard and screen reader users land on the first field to fix.
+      (nameOk ? phoneRef : nameRef).current?.focus();
+      return;
+    }
     mutation.mutate(
       { lakeId: lake.documentId, name: name.trim(), phone: phone.trim(), message: message.trim() || undefined },
       {
@@ -577,14 +522,20 @@ function ClaimDialog({ lake, session, open, onClose }: { lake: DialogLake; sessi
       title="Ești administratorul acestei bălți?"
       tall
       actions={
-        <>
-          <Button variant="ghost" onClick={onClose} aria-disabled={busy || undefined} disabled={busy}>
+        <div className="flex w-full gap-2 md:w-auto">
+          <Button variant="ghost" onClick={onClose} disabled={busy} className="max-md:flex-1">
             Înapoi
           </Button>
-          <Button onClick={submit} aria-busy={busy || undefined} aria-disabled={busy || undefined}>
+          <Button
+            onClick={submit}
+            icon={busy ? <T4Spinner /> : undefined}
+            aria-busy={busy || undefined}
+            aria-disabled={busy || undefined}
+            className={cn('max-md:flex-1', busy && 'cursor-progress')}
+          >
             {busy ? 'Se trimite…' : 'Trimite cererea'}
           </Button>
-        </>
+        </div>
       }
     >
       <form
@@ -598,19 +549,29 @@ function ClaimDialog({ lake, session, open, onClose }: { lake: DialogLake; sessi
         <p className="t-body text-ink-2">
           Spune-ne cine ești și te contactăm ca să preiei administrarea pentru {lake.name} în Bluvi.
         </p>
-        <TextInput label="Nume și prenume" autoComplete="name" value={name} onChange={e => setName(e.target.value)} disabled={busy} />
         <TextInput
+          ref={nameRef}
+          label="Nume și prenume"
+          autoComplete="name"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          readOnly={busy}
+          {...invalid(nameOk)}
+        />
+        <TextInput
+          ref={phoneRef}
           label="Număr de telefon"
           type="tel"
           inputMode="tel"
           autoComplete="tel"
           value={phone}
           onChange={e => setPhone(e.target.value)}
-          disabled={busy}
+          readOnly={busy}
+          {...invalid(phoneOk)}
         />
-        <TextArea id={messageId} label="Mesaj (opțional)" value={message} onChange={setMessage} disabled={busy} />
+        <TextArea id={messageId} label="Mesaj (opțional)" value={message} onChange={setMessage} readOnly={busy} />
         {touched && !valid ? (
-          <p role="alert" className="t-caption text-status-danger-fg">
+          <p id={errorId} role="alert" className="t-caption text-status-danger-fg">
             Numele și un număr de telefon valid sunt obligatorii.
           </p>
         ) : null}
@@ -621,16 +582,19 @@ function ClaimDialog({ lake, session, open, onClose }: { lake: DialogLake; sessi
   );
 }
 
+/** The kit's error shell (controlShell(true)) on a field marked aria-invalid, without a second message under it. */
+const INVALID_SHELL = '[&_div:has(>input[aria-invalid=true])]:border-live [&_div:has(>input[aria-invalid=true])]:bg-status-danger-bg/50';
+
 /** A multi-line field on the kit's field shell. TODO(kit): a TextArea in components/forms. */
-function TextArea({ id, label, value, onChange, disabled }: { id: string; label: string; value: string; onChange: (v: string) => void; disabled?: boolean }): ReactNode {
+function TextArea({ id, label, value, onChange, readOnly }: { id: string; label: string; value: string; onChange: (v: string) => void; readOnly?: boolean }): ReactNode {
   return (
     <Field label={label} htmlFor={id} helperId={`${id}-help`}>
-      <div className={cn(controlShell(false, disabled), 'h-auto py-2.5')}>
+      <div className={cn(controlShell(false, false), 'h-auto py-2.5')}>
         <textarea
           id={id}
           rows={3}
           value={value}
-          disabled={disabled}
+          readOnly={readOnly}
           onChange={e => onChange(e.target.value)}
           className="t-body min-h-18 w-full resize-y bg-transparent text-ink outline-none placeholder:text-muted"
         />

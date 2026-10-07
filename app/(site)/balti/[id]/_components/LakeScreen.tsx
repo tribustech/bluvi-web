@@ -759,9 +759,10 @@ async function PricedPhoneActionBar({ lake, priceFrom }: { lake: LakeDetail; pri
 
 /**
  * Price from, the booking state, the same «Rezervă acum» as the hero and the header (c16) — one
- * treatment per state at every width and session — then the way to reach the lake (call,
- * directions) and its key facts. While the booking flow is not on the web the button leads to
- * «Rezervă din aplicația Bluvi», and the card says so under it.
+ * treatment per state at every width and session (signed in → the booking flow, otherwise sign-in
+ * first) — then the way to reach the lake (call, directions) and its key facts. Under the button,
+ * the web booking path: «Alege standul și intervalul — N standuri rezervabile» when the headline
+ * is a price.
  */
 function SummaryCard({
   lake,
@@ -780,7 +781,6 @@ function SummaryCard({
 }) {
   const state = lakeBookingState(lake);
   const online = state === 'enabled';
-  const appOnly = online && !lakeHref('booking', routes.lakeBooking(lake.documentId));
   const stands = from ? null : bookableStands(lake);
   const phone = lakePhone(lake);
   const control = hasBookingControl({ bookingState: state, phone, website: lake.website });
@@ -806,10 +806,9 @@ function SummaryCard({
       Direcții
     </DialogTrigger>
   ) : null;
-  // One stand count (lakeStandCount): when the headline (no «de la») or the footnote (not app-only)
-  // states the bookable stands, the facts do not repeat it; otherwise (a price headline + the app
-  // footnote) the facts row is where the card says it.
-  const standsStated = online && lake.stands.length > 0 && (!from || !appOnly);
+  // One stand count (lakeStandCount): the headline (no «de la») or the footnote (under a price)
+  // states the bookable stands, so the facts do not repeat it.
+  const standsStated = online && lake.stands.length > 0;
   const facts = [
     ...lakeFacts(lake).filter(f => !(standsStated && f.key === 'seats')),
     ...(lake.fishSpecies.length ? [{ key: 'specii', label: 'Specii', value: formatInt(lake.fishSpecies.length), icon: <FishOutlineIcon /> }] : []),
@@ -872,13 +871,7 @@ function SummaryCard({
           ) : undefined
         )
       }
-      footnote={
-        appOnly
-          ? 'Rezervarea online e în curând pe web; până atunci rezervă din aplicația Bluvi.'
-          : online && lake.stands.length && !stands
-            ? `Alege standul și intervalul — ${bookableLabel(lake.stands.length)}.`
-            : undefined
-      }
+      footnote={online && lake.stands.length && !stands ? `Alege standul și intervalul — ${bookableLabel(lake.stands.length)}.` : undefined}
     >
       {facts.length ? <DetailFacts facts={facts} layout="list" /> : null}
       {more.length ? (

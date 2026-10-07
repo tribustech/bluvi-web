@@ -650,12 +650,12 @@ screens:
       - id: lakes.detail.c16
         text: "Booking affordance (hero CTA and Rezervă tile): bookingEnabled + signed-in → /balti/[id]/rezerva; bookingEnabled + guest → /intra (no redirect back into the grid); acceptsReservations only → scrolls to Contact; neither → opens lakes.booking-interest with source hero_cta or quick_action."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:256"
-        status: todo
-        web_note: "BLOCKED on M3: /balti/[id]/rezerva (area booking) is not on the web, so a booking-enabled lake's «Rezervă acum» / Rezervă tile open «Rezervă din aplicația Bluvi» for every viewer (_components/availability.ts LAKE_ON_WEB.booking); acceptsReservations → Contact and no-booking → lakes.booking-interest already pass (tests/e2e/balta.spec.ts). Flips with LAKE_ON_WEB.booking."
+        status: passing
+        web_note: "M3-B3 (LAKE_ON_WEB.booking on): every booking control of a booking-enabled lake — the phone hero, the 768 header, the ≥1024 «Pe scurt» card, the Rezervă tile, the phone bar — is one next/link (LakeActions useBookingTarget). Known to be signed in → /balti/[id]/rezerva; a guest, a session not answered yet or an unknown one (rule 4) → /intra?next=/balti/[id] (fish pushes /sign-in plainly: Back and the return land on the lake, never in the grid; a direct guest visit to /rezerva is that page's own 307 with next=the grid). The server HTML (static) carries the sign-in href until the session answers. Double activation: the shell NavigationGuard (800 ms) plus a per-link hold while the started navigation is pending (fish navigates instead of pushing for the slow grid) — lakes.b.nav-guard. Every press logs lake_booking_cta_pressed (lake_id, lake_name, source hero_cta / quick_action, booking_state). The card's footnote is the web path («Alege standul și intervalul — N standuri rezervabile.»); BookingAppDialog / ReviewInAppDialog deleted. acceptsReservations → Contact and no booking → lakes.booking-interest unchanged. e2e tests/e2e/balta.spec.ts «signed in: every booking control…» (375 hero + tile + phone bar, 768 header, 1440 card, analytics), «a guest: every booking control goes to sign-in…», «…in the server HTML…», «lakes.b.nav-guard …», «happy path (mocked create)» (lake → grid → extras → confirm → back on the lake with the toast; availability, quote, create and profile PATCH route-mocked)."
       - id: lakes.detail.c17
         text: "„Caracteristici” grid (2 columns) shows only present stats: Suprafață „X ha”, Adâncime „min – max m” („?” for a missing bound), Standuri pescuit „N locuri”, Regim de pescuit, Tip de pescuit, Loc de pescuit; hidden when none."
         fish_ref: "features/lakes/detail/LakeCharacteristics.tsx:18"
-        web_note: "Counts follow the owner plural rule (formatCount): «1 loc», «19 locuri», «20 de locuri»; a lake that books online shows «21 de standuri rezervabile» instead (one stand count). From 1024 the summary card states that count once — headline, footnote, or (a «de la» headline + the app-only footnote) its facts. fish writes «N locuri»."
+        web_note: "Counts follow the owner plural rule (formatCount): «1 loc», «19 locuri», «20 de locuri»; a lake that books online shows «21 de standuri rezervabile» instead (one stand count). From 1024 the summary card states that count once — the headline, else the footnote under a «de la» headline. fish writes «N locuri»."
         status: passing
       - id: lakes.detail.c18
         text: "„Facilități” lists every facility with its icon in two columns."
@@ -821,7 +821,8 @@ screens:
         text: "Signed-out: fish offers the form to guests and the POST needs auth (falls to the generic error); web sends a guest to /intra before showing the form (documented web divergence, see lakes.b.claim-signed-out)."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:612"
     mobile_only: false
-    status: proposed
+    status: passing
+    web_note: "M3-B3 close-out. LakeDialogs ClaimDialog on the T3 Surface (sheet < 768, dialog with X from 768). Invalid: the one fish message (role alert) plus aria-invalid + the kit error shell on the failing field(s), described by the message, focus on the first one. Submitting: «Se trimite…» with the T4 spinner, aria-busy, «Înapoi» disabled, Escape / backdrop ignored, one POST; fields read-only (focus kept). Prefill on every presentation, empty fields only (fish handlePresent). Errors by details.bluCode (fish reads message; the CMS moved the code there). Guest: /intra?next=/balti/[id]?dialog=revendica from the Contact link and from the interest dialog's «Contactează-ne»; ClaimAfterSignIn opens the dialog and drops the parameter. Every write route-mocked (/api/cms/feed/lake-claims). e2e tests/e2e/balta.spec.ts «the claim form…», «invalid fields are marked…», «dialog states (shots + axe)» (8 states × 375/768/1280/1440, axe per state; shots .shots/balta-dialogs/claim-*)."
 
   # ───────────────────────────────────────────── booking interest
   - id: lakes.booking-interest
@@ -864,7 +865,8 @@ screens:
         text: "Analytics lake_booking_interest_sheet_viewed, lake_booking_interest_submitted (already_registered), lake_booking_interest_owner_pressed (lake_id, source)."
         fish_ref: "features/lakes/LakeBookingInterestSheet.tsx:57"
     mobile_only: false
-    status: proposed
+    status: passing
+    web_note: "M3-B3 close-out. InterestDialog: «Aș vrea să pot rezerva aici» busy with the T4 spinner (aria-busy, a second press ignored — one POST); registered row (role status) replaces the button; a guest (or a session not known) closes and goes to /intra?next=/balti/[id]; «Contactează-ne» → the claim (a guest via /intra?next=…?dialog=revendica). Every write route-mocked (/api/cms/feed/lake-booking-interests). e2e tests/e2e/balta.spec.ts «no booking opens…», «signed in: posts the signal…», «while sending one POST…», «dialog states (shots + axe)» (default, submitting, registered new / already, error × 375/768/1280/1440, axe; shots .shots/balta-dialogs/interest-*)."
 
   # ───────────────────────────────────────────── gallery
   - id: lakes.gallery
@@ -1520,6 +1522,8 @@ behaviours:
   - id: lakes.b.signin-gating
     text: "Signed-out gates: booking CTA on a bookable lake → /intra; owner profile link → /intra; booking-interest submit → /intra; add review → sign-in button; everything else on the lakes area (home, map, lake page, subpages, reviews list) is public."
     fish_ref: "app/(app)/lakes/[lakeId].tsx:276"
+    status: passing
+    web_note: "Not known to be signed in (guest, pending, unknown — rule 4) is gated everywhere: booking CTA → /intra?next=/balti/[id]; owner card → /intra?next=/pescari/[id]; interest submit → /intra?next=/balti/[id]; claim → /intra?next=/balti/[id]?dialog=revendica; reviews «Autentifică-te…». e2e tests/e2e/balta.spec.ts «a guest: every booking control…», «…server HTML…», «no booking opens…», «a guest's «Contactează-ne»…», «lakes.detail.c29 …», «lakes.detail.c30 …»."
   - id: lakes.b.claim-signed-out
     text: "FLAG for owner: fish lets a guest open the claim form but POST /feed/lake-claims requires auth (CMS route 19-lake-claims.ts), so a guest only gets the generic error. Web proposal: gate the form behind /intra."
     fish_ref: "features/lakes/LakeClaimSheet.tsx:44"
@@ -1537,6 +1541,8 @@ behaviours:
   - id: lakes.b.nav-guard
     text: "Navigations from cards/tiles are guarded against double activation (fish guardNavigation); web must not push duplicate history entries on double click."
     fish_ref: "app/(app)/(tabs)/lakes/index.tsx:631"
+    status: passing
+    web_note: "Shell NavigationGuard (global.shell.c14): a second click on the same in-app link within 800 ms is dropped. The lake booking link adds a hold while its navigation is pending (the grid outlasts the window), re-armed by Back / the page being shown again. e2e tests/e2e/balta.spec.ts «lakes.b.nav-guard booking.b.double-submit-guard …» (a double click, and a second click 1.2 s later while the grid's RSC is held: one history entry each)."
   - id: lakes.b.expired-nou-badges
     text: "Both launch badges in the area are date-gated and expired („Ape publice” NOU until 2026-09-06, Rezervă NOU until 2026-10-01): the web ships neither."
     fish_ref: "hooks/useNouBadge.ts:101"

@@ -20,8 +20,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
  * a failing section c24) are set through the dev-only fault switch (POST /balti/<id>/e2e-fault,
  * app/(site)/balti/[id]/_components/e2e-faults.ts), always cleared after the test.
  * The Partide polling (c21) is driven in the browser: the client query's request is intercepted.
- * Targets the web does not have yet (rezervă, a partidă, a profile) are asserted as «unavailable»,
- * never as links (availability.ts); the subpages (galerie, concursuri, partide, statistici, hartă,
+ * Targets the web does not have yet (a partidă, a profile) are asserted as «unavailable», never as
+ * links (availability.ts); the booking flow is (M3-B3: its create is always route-mocked here); the subpages (galerie, concursuri, partide, statistici, hartă,
  * recenzii — tests/e2e/balta-subpagini*.spec.ts) are on the web and asserted as links.
  */
 
@@ -110,7 +110,12 @@ async function recordAnalytics(page: Page) {
 
 /** Lets the open dialog finish its entry transition (axe would read the half-faded colours). */
 const settleDialog = (page: Page) =>
-  page.locator('dialog[open]').evaluate(el => Promise.all(el.getAnimations({ subtree: true }).map(a => a.finished)));
+  page
+    .locator('dialog[open]')
+    .evaluate(el =>
+      // A busy spinner spins forever: only the finite (entry) animations are waited for.
+      Promise.all(el.getAnimations({ subtree: true }).filter(a => a.effect?.getComputedTiming().iterations !== Infinity).map(a => a.finished)),
+    );
 const settle = (page: Page) => page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
 async function open(page: Page, id: string, viewport = PHONE) {
   await page.setViewportSize(viewport);
@@ -200,10 +205,11 @@ test('lakes.detail.c4 lakes.detail.c5 lakes.detail.c6 lakes.detail.c7 — hero p
   await expect(taps).toHaveCount(l.images.length);
   // c5: the share chip over the photo.
   await expect(visible(page.getByRole('button', { name: 'Distribuie balta' }))).toBeVisible();
-  // c6: «Rezervă acum» bottom-left on the photo — the kit primary, one colour at every width (a
-  // button while the booking flow is not on the web: it opens «Rezervă din aplicația Bluvi»).
-  const cta = visible(page.getByRole('button', { name: 'Rezervă acum' }));
+  // c6: «Rezervă acum» bottom-left on the photo — the kit primary, one colour at every width; a
+  // guest's goes through sign-in, back to this lake (c16).
+  const cta = visible(page.getByRole('link', { name: 'Rezervă acum' }));
   await expect(cta).toBeVisible();
+  await expect(cta).toHaveAttribute('href', `/intra?next=${encodeURIComponent(`/balti/${ID.chita}`)}`);
   await expect(cta).toHaveClass(/bg-accent/);
   await expect(cta).not.toHaveClass(/status-live/);
   // c7: images + community catches; the pill opens the gallery (/balti/[id]/galerie).
@@ -251,7 +257,7 @@ test('lakes.detail.s4 lakes.detail.c4 lakes.detail.c7 — no photos, no coordina
   await expect(visible(header.getByRole('button', { name: 'Înapoi' }))).toBeVisible();
   await expect(visible(header.getByRole('button', { name: 'Distribuie balta' }))).toBeVisible();
   // The main action right under the title (as from 768), never over a grey block.
-  await expect(visible(page.getByRole('button', { name: 'Rezervă acum' }))).toBeVisible();
+  await expect(visible(page.getByRole('link', { name: 'Rezervă acum' }))).toBeVisible();
   if (catchesTotal > 0) await expect(page.getByRole('link', { name: /^Galerie/ })).toHaveAttribute('href', `/balti/${ID.chita}/galerie`);
   await page.setViewportSize({ width: 1280, height: 800 });
   const showAll = header.getByRole('link', { name: `Vezi fotografiile (${catchesTotal})` });
@@ -428,53 +434,260 @@ test('lakes.detail.c17 lakes.detail.c18 lakes.detail.c19 — characteristics, fa
 /* Booking affordance                                                   */
 /* ------------------------------------------------------------------ */
 
-test('lakes.detail.c16 lakes.detail.c6 lakes.detail.c33 lakes.detail.s6 lakes.detail.s7 — booking enabled, flow not on the web: the same «Rezervă acum» for everyone, leading to the app', async ({ page, context }) => {
+const lakeUrl = (id: string) => new RegExp(`/balti/${id}$`);
+const gridUrl = (id: string) => new RegExp(`/balti/${id}/rezerva$`);
+/** fish pushes /sign-in plainly: the guest comes back to the lake, never into the grid. */
+const signInToLake = (id: string) => `/intra?next=${encodeURIComponent(`/balti/${id}`)}`;
+const summaryCard = (page: Page) => page.getByRole('complementary', { name: 'Pe scurt' });
+
+test('lakes.detail.c16 lakes.detail.c6 lakes.detail.c14 booking.b.entry-points booking.b.analytics — signed in: every booking control leads to /balti/[id]/rezerva (hero 375, header 768, card 1440, tile, phone bar)', async ({ page, context }) => {
+  await signIn(context, jwt, base());
   const events = await recordAnalytics(page);
   const l = lakes.get(ID.chita)!;
-  const dialog = page.getByRole('dialog', { name: 'Rezervă din aplicația Bluvi' });
-  // Signed out, then signed in: the hero, the header, the tile and the ≥1280 card never change with
-  // the session (the page is static; nothing swaps after the probe answers) and none is disabled.
-  for (const signed of [false, true]) {
-    if (signed) await signIn(context, jwt, base());
-    await open(page, ID.chita);
-    await expect(page.locator(`a[href="/balti/${ID.chita}/rezerva"]`)).toHaveCount(0);
-    await expect(page.getByText('Rezervări · în curând pe web')).toHaveCount(0);
-    const hero = visible(page.getByRole('button', { name: 'Rezervă acum' }));
-    await expect(hero).toHaveClass(/bg-accent/);
-    await expect(tiles(page).getByRole('button', { name: 'Rezervă' })).toBeVisible();
-    await hero.click();
-    await expect(dialog).toContainText(`${l.name} primește rezervări prin Bluvi.`);
-    await expect(dialog.getByRole('link', { name: /App Store/ })).toHaveAttribute('href', /apps\.apple\.com/);
-    await expect(dialog.getByRole('link', { name: /Google Play/ })).toHaveAttribute('href', /play\.google\.com/);
-    await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}$`));
-    await settleDialog(page);
-    await expectNoA11yViolations(page, { include: 'dialog[open]' });
-    await page.keyboard.press('Escape');
-    await expect(dialog).toBeHidden();
-    for (const vp of [TABLET, DESKTOP]) {
-      await page.setViewportSize(vp);
-      const button = visible(page.getByRole('button', { name: 'Rezervă acum' }));
-      await expect(button).not.toHaveAttribute('aria-disabled', 'true');
-      await expect(button).toHaveClass(/bg-accent/);
-    }
-    // From 1024 the summary card says why, under the same button.
-    await expect(page.getByRole('complementary', { name: 'Pe scurt' })).toContainText(
-      'Rezervarea online e în curând pe web; până atunci rezervă din aplicația Bluvi.',
-    );
-  }
-  await expect
-    .poll(events)
-    .toContainEqual({ name: 'lake_booking_cta_pressed', params: { lake_id: ID.chita, lake_name: l.name, source: 'hero_cta', booking_state: 'enabled' } });
+  const grid = `/balti/${ID.chita}/rezerva`;
+  const pressed = (source: string) => ({ name: 'lake_booking_cta_pressed', params: { lake_id: ID.chita, lake_name: l.name, source, booking_state: 'enabled' } });
+  // 375: the hero's «Rezervă acum», the Rezervă tile and the phone bar — the same link.
+  await open(page, ID.chita, PHONE);
+  const hero = visible(page.getByRole('link', { name: 'Rezervă acum' }));
+  await expect(hero).toHaveAttribute('href', grid);
+  await expect(hero).toHaveClass(/bg-accent/);
+  await expect(tiles(page).getByRole('link', { name: 'Rezervă', exact: true })).toHaveAttribute('href', grid);
+  await expect(page.getByRole('region', { name: 'Rezervare' }).getByRole('link', { name: 'Rezervă acum' })).toHaveAttribute('href', grid);
+  await expect(page.getByText(/aplicația Bluvi/)).toHaveCount(0);
+  await hero.click();
+  await expect(page).toHaveURL(gridUrl(ID.chita));
+  await expect.poll(events).toContainEqual(pressed('hero_cta'));
+  // Back from the grid returns to the lake.
+  await page.goBack();
+  await expect(page).toHaveURL(lakeUrl(ID.chita));
+  // The tile: the same target, logged as a quick action.
+  await open(page, ID.chita, PHONE);
+  await tiles(page).getByRole('link', { name: 'Rezervă', exact: true }).click();
+  await expect(page).toHaveURL(gridUrl(ID.chita));
+  await expect.poll(events).toContainEqual(pressed('quick_action'));
+  // 768: the header's button.
+  await open(page, ID.chita, TABLET);
+  await expect(visible(page.locator('[data-t3="header"]').getByRole('link', { name: 'Rezervă acum' }))).toHaveAttribute('href', grid);
+  // 1440: the summary card — the web booking path, no app footnote.
+  await open(page, ID.chita, DESKTOP);
+  const card = summaryCard(page);
+  await expect(card).not.toContainText('aplicația Bluvi');
+  await expect(card).not.toContainText('în curând pe web');
+  const book = card.getByRole('link', { name: 'Rezervă acum' });
+  await expect(book).not.toHaveAttribute('aria-disabled', 'true');
+  await book.click();
+  await expect(page).toHaveURL(gridUrl(ID.chita));
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
-test('lakes.detail.c16 lakes.detail.c14 lakes.detail.s6 — the booking controls are in the server HTML, whatever the session (no shift when it answers)', async ({ page, context }) => {
+test('lakes.detail.c16 lakes.b.signin-gating booking.b.sign-in-gate — a guest: every booking control goes to sign-in, back to the lake (never into the grid)', async ({ page }) => {
+  const next = signInToLake(ID.chita);
+  await open(page, ID.chita, PHONE);
+  const hero = visible(page.getByRole('link', { name: 'Rezervă acum' }));
+  await expect(hero).toHaveAttribute('href', next);
+  await expect(tiles(page).getByRole('link', { name: 'Rezervă', exact: true })).toHaveAttribute('href', next);
+  await expect(page.getByRole('region', { name: 'Rezervare' }).getByRole('link', { name: 'Rezervă acum' })).toHaveAttribute('href', next);
+  await hero.click();
+  await expect(page).toHaveURL(new RegExp(`/intra\\?next=%2Fbalti%2F${ID.chita}$`));
+  // Back from sign-in lands on the lake (fish: a plain push).
+  await page.goBack();
+  await expect(page).toHaveURL(lakeUrl(ID.chita));
+  await open(page, ID.chita, DESKTOP);
+  await expect(summaryCard(page).getByRole('link', { name: 'Rezervă acum' })).toHaveAttribute('href', next);
+  // A direct guest visit to the grid is the page's own redirect, back to the grid after sign-in.
+  const res = await page.request.get(`/balti/${ID.chita}/rezerva`, { maxRedirects: 0 });
+  expect(res.status()).toBe(307);
+  const loc = new URL(res.headers().location, BASE);
+  expect(loc.pathname).toBe('/intra');
+  expect(loc.searchParams.get('next')).toBe(`/balti/${ID.chita}/rezerva`);
+});
+
+test('lakes.detail.c16 lakes.detail.c14 lakes.detail.s6 lakes.b.signin-gating — the booking controls are in the server HTML, whatever the session: sign-in until the session is known (rule 4), no shift when it answers', async ({ page, context }) => {
   for (const signed of [false, true]) {
     if (signed) await signIn(context, jwt, base());
     const html = await (await page.request.get(`/balti/${ID.chita}`)).text();
     expect(html).toContain('data-tile="rezerva"');
     expect(html).toContain('Rezervă acum');
+    // The page is static: before the session answers nobody is assumed signed in.
+    expect(html).toContain(`href="${signInToLake(ID.chita).replace(/&/g, '&amp;')}"`);
     expect(html).not.toContain('Rezervări · în curând pe web');
   }
+});
+
+test('lakes.b.nav-guard booking.b.double-submit-guard — «Rezervă acum» pushes one history entry: a double click, and a second click while the grid is still loading', async ({ page, context }) => {
+  await signIn(context, jwt, base());
+  const grid = `/balti/${ID.chita}/rezerva`;
+  const index = () => page.evaluate(() => (window as unknown as { navigation: { currentEntry: { index: number } } }).navigation.currentEntry.index);
+  await open(page, ID.chita, DESKTOP);
+  const book = () => summaryCard(page).getByRole('link', { name: 'Rezervă acum' });
+  await expect(book()).toHaveAttribute('href', grid);
+  const at0 = await index();
+  await book().dblclick();
+  await expect(page).toHaveURL(gridUrl(ID.chita));
+  await expect(page.getByTestId('availability-grid')).toBeVisible({ timeout: 20_000 });
+  expect(await index()).toBe(at0 + 1);
+  await page.goBack();
+  await expect(page).toHaveURL(lakeUrl(ID.chita));
+  // The grid's first render outlasts the shell's 800 ms window (fish navigates for that reason):
+  // hold its RSC payload, click once, wait past the window, click again — still one entry.
+  let held = 0;
+  await page.route(
+    url => url.pathname === grid,
+    async route => {
+      if (!route.request().headers()['rsc']) return route.fallback();
+      held += 1;
+      await new Promise(r => setTimeout(r, 2_500));
+      return route.fallback();
+    },
+  );
+  await open(page, ID.chita, DESKTOP);
+  await expect(book()).toHaveAttribute('href', grid);
+  const at1 = await index();
+  await book().click();
+  await page.waitForTimeout(1_200);
+  await expect(page).toHaveURL(lakeUrl(ID.chita));
+  await book().click();
+  await expect(page).toHaveURL(gridUrl(ID.chita), { timeout: 20_000 });
+  await expect(page.getByTestId('availability-grid')).toBeVisible({ timeout: 20_000 });
+  expect(held).toBeGreaterThan(0);
+  expect(await index()).toBe(at1 + 1);
+  await page.goBack();
+  await expect(page).toHaveURL(lakeUrl(ID.chita));
+});
+
+/*
+ * The whole path from the lake (M3-B3): «Rezervă acum» → the grid → the extras step → the review →
+ * confirmed, back on the lake with the toast. Everything the flow reads or writes for the booking
+ * is route-mocked — the availability (fixture below), the quote, the CREATE and the profile PATCH —
+ * so no booking row is ever written; the flow specs (rezerva-*.spec.ts) own the real create.
+ */
+test.describe('happy path (mocked create)', () => {
+  test.use({ timezoneId: 'Europe/Bucharest', locale: 'ro-RO' });
+  const AVAIL = /\/api\/cms\/feed\/lakes\/[^/]+\/availability/;
+  const QUOTE = /\/api\/cms\/feed\/lakes\/[^/]+\/quote/;
+  const CREATE = /\/api\/cms\/feed\/bookings$/;
+  const PROFILE = /\/api\/cms\/user\/profile$/;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const WD = ['Duminică', 'Luni', 'Marți', 'Miercuri', 'Joi', 'Vineri', 'Sâmbătă'];
+  const MO = ['ian', 'feb', 'mar', 'apr', 'mai', 'iun', 'iul', 'aug', 'sep', 'oct', 'noi', 'dec'];
+  const dayAt = (offset: number, hour = 0) => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + offset);
+    d.setHours(hour);
+    return d;
+  };
+  const iso = (d: Date) => {
+    const off = -d.getTimezoneOffset();
+    const sign = off >= 0 ? '+' : '-';
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00${sign}${pad(Math.floor(Math.abs(off) / 60))}:${pad(Math.abs(off) % 60)}`;
+  };
+  const at = (offset: number, hour: number) => iso(dayAt(offset, hour));
+  const pill = (offset: number) => {
+    const d = dayAt(offset);
+    return `${WD[d.getDay()]} ${d.getDate()} ${MO[d.getMonth()]}`;
+  };
+  const standId = (n: number) => `e2estand${pad(n)}`;
+
+  test.beforeAll(() => {
+    // The fixture's wall clock is the lake's (the grid formats in the browser's zone, set above).
+    process.env.TZ = 'Europe/Bucharest';
+  });
+
+  test('booking.b.entry-points lakes.detail.c16 — lake → grid → extras → confirm (mocked create) → back on the lake with the toast', async ({ page, context }) => {
+    const errors = collectConsoleErrors(page);
+    await signIn(context, jwt, base());
+    await page.route(AVAIL, route => {
+      const url = new URL(route.request().url());
+      const from = url.searchParams.get('from') ?? '';
+      let to = url.searchParams.get('to') ?? '';
+      if (Date.parse(to) < dayAt(12).getTime()) to = iso(dayAt(12));
+      return route.fulfill({
+        json: {
+          data: {
+            lakeId: ID.chita,
+            bookingEnabled: true,
+            incrementHours: 12,
+            checkoutBufferMinutes: 30,
+            slotStartTimes: ['06:00', '18:00'],
+            forbiddenEndTimes: [],
+            minDurationHours: 12,
+            leadHours: 48,
+            timezone: 'Europe/Bucharest',
+            stands: [1, 2, 3, 4].map(n => ({ documentId: standId(n), name: String(n), coordinates: null, extras: n === 2 ? ['cabana'] : [] })),
+            extras: [{ key: 'cabana', label: 'Cabană', price: 150, unit: 'perNight' }],
+            bookings: [],
+            blocks: [],
+            window: { from, to },
+          },
+        },
+      });
+    });
+    const quotes: { extras: string[] }[] = [];
+    await page.route(QUOTE, route => {
+      const body = (route.request().postDataJSON() as { data: { extras: string[] } }).data;
+      quotes.push(body);
+      const extras = body.extras.length ? [{ key: 'cabana', label: 'Cabană', total: 150, quantity: 1, unitPrice: 150, unit: 'perNight' }] : [];
+      const total = 300 + (extras.length ? 150 : 0);
+      return route.fulfill({ json: { data: { total, basis: { durationHours: 12, rowLabel: 'Tur 12h', composedFrom: [12], tourPrice: 300, extras }, refusal: null } } });
+    });
+    const creates: Record<string, unknown>[] = [];
+    await page.route(CREATE, route => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      creates.push((route.request().postDataJSON() as { data: Record<string, unknown> }).data);
+      return route.fulfill({
+        json: {
+          data: {
+            documentId: 'e2elakepath1',
+            code: 'BKLAKE',
+            startDate: at(3, 18),
+            endDate: at(4, 6),
+            bookingStatus: 'pending',
+            priceTotal: 450,
+            depositAmount: 0,
+            paymentStatus: 'unpaid',
+            contactPhone: '0712345678',
+          },
+        },
+      });
+    });
+    const profileWrites: unknown[] = [];
+    await page.route(PROFILE, route => {
+      if (route.request().method() === 'GET') return route.fallback();
+      profileWrites.push(route.request().postDataJSON());
+      return route.fulfill({ status: 204, body: '' });
+    });
+
+    await open(page, ID.chita, DESKTOP);
+    await summaryCard(page).getByRole('link', { name: 'Rezervă acum' }).click();
+    await expect(page).toHaveURL(gridUrl(ID.chita));
+    const grid = page.getByTestId('availability-grid');
+    // A night on the cabin stand: the extras step comes next.
+    await grid.getByRole('button', { name: new RegExp(`^2, ${pill(3)} 18–06(,|$)`) }).click();
+    const panel = page.locator('[data-testid="selection-panel"], [data-testid="selection-card"]').filter({ has: page.getByTestId('selection-start') });
+    await expect(panel.getByTestId('selection-price')).toBeVisible();
+    await panel.getByTestId('selection-continue').click();
+    await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}/rezerva/extra\\?`));
+    await page.locator('label').filter({ has: page.getByRole('checkbox', { name: /Cabană/ }) }).click();
+    await expect(page.getByRole('checkbox', { name: /Cabană/ })).toBeChecked();
+    await expect(page.getByTestId('extras-continue')).not.toHaveAttribute('aria-disabled', 'true');
+    await page.getByTestId('extras-continue').click();
+    await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}/rezerva/confirmare\\?`));
+    await expect(page.getByRole('heading', { level: 1, name: 'Confirmă rezervarea' })).toBeVisible();
+    await expect(page.getByLabel('Nume și prenume')).not.toHaveValue('');
+    await expect(page.getByLabel('Număr telefon')).not.toHaveValue('');
+    await expect(page.getByTestId('booking-submit')).not.toHaveAttribute('aria-disabled', 'true');
+    await page.getByTestId('booking-submit').click();
+    await page.getByTestId('booking-confirm-submit').click();
+    // Confirmed: the flow is left for good, back on the lake, with the toast.
+    await expect(page.getByText('Cererea a fost trimisă! Cod: BKLAKE. Vei fi notificat când este confirmată.')).toBeVisible();
+    await expect(page).toHaveURL(lakeUrl(ID.chita));
+    expect(creates).toHaveLength(1);
+    expect(creates[0]).toMatchObject({ lake: ID.chita, stand: standId(2), startDate: at(3, 18), endDate: at(4, 6), extras: ['cabana'], expectedTotal: 450 });
+    expect(quotes.some(q => q.extras.includes('cabana'))).toBe(true);
+    expect(profileWrites).toEqual([]);
+    expect(errors, errors.join('\n')).toEqual([]);
+  });
 });
 
 test('lakes.detail.c16 lakes.detail.s6 — legacy phone reservations (with a phone) jump to Contact and move focus there (keyboard)', async ({ page }) => {
@@ -491,7 +704,7 @@ test('lakes.detail.c16 lakes.detail.s6 — legacy phone reservations (with a pho
   expect(await page.evaluate(() => !!document.activeElement?.closest('#contact'))).toBe(true);
 });
 
-test('lakes.detail.c16 lakes.detail.s6 lakes.booking-interest.c1 lakes.booking-interest.c3 lakes.booking-interest.c6 lakes.booking-interest.c7 — no booking opens «Rezervări prin Bluvi»; guest submit → /intra', async ({ page }) => {
+test('lakes.detail.c16 lakes.detail.s6 lakes.booking-interest.c1 lakes.booking-interest.c3 lakes.booking-interest.c6 lakes.booking-interest.c7 — no booking opens «Rezervări prin Bluvi»; guest submit → /intra, back to the lake', async ({ page }) => {
   const events = await recordAnalytics(page);
   await open(page, ID.belin);
   const l = lakes.get(ID.belin)!;
@@ -508,7 +721,7 @@ test('lakes.detail.c16 lakes.detail.s6 lakes.booking-interest.c1 lakes.booking-i
   await tiles(page).getByRole('button', { name: 'Vreau online' }).click();
   await expect.poll(events).toContainEqual({ name: 'lake_booking_interest_sheet_viewed', params: { lake_id: ID.belin, source: 'quick_action' } });
   await dialog.getByRole('button', { name: 'Aș vrea să pot rezerva aici' }).click();
-  await expect(page).toHaveURL(/\/intra$/);
+  await expect(page).toHaveURL(new RegExp(`/intra\\?next=%2Fbalti%2F${ID.belin}$`));
 });
 
 test('lakes.detail.c6 lakes.detail.c16 — no online booking: one label for the booking control at every width (never «Rezervă acum» on the phone and «Fără rezervări online» on the desktop)', async ({ page }) => {
@@ -582,7 +795,8 @@ test('lakes.booking-interest.c2 lakes.claim.c7 — a guest\'s «Contactează-ne�
   await visible(page.getByRole('button', { name: 'Vreau să rezerv online' })).click();
   const dialog = page.getByRole('dialog', { name: 'Rezervări prin Bluvi' });
   await dialog.getByRole('button', { name: 'Contactează-ne' }).click();
-  await expect(page).toHaveURL(/\/intra$/);
+  // Back to this lake with the claim open (the same return as the Contact section's link, c30).
+  await expect(page).toHaveURL(`${BASE}/intra?next=${encodeURIComponent(`/balti/${ID.belin}?dialog=revendica`)}`);
   await expect(page.getByRole('dialog', { name: 'Ești administratorul acestei bălți?' })).toHaveCount(0);
 });
 
@@ -960,6 +1174,205 @@ test('lakes.claim.c1 lakes.claim.c2 lakes.claim.c3 lakes.claim.c4 lakes.claim.c5
   await page.locator('#contact').getByRole('button', { name: 'Ești administratorul acestei bălți?' }).click();
   await dialog.getByRole('button', { name: 'Înapoi' }).click();
   await expect(dialog).toBeHidden();
+});
+
+test('lakes.claim.c3 lakes.claim.c4 lakes.claim.c6 — invalid fields are marked and focused; while sending: busy, both buttons held, one POST, no close; «Înapoi» sends nothing', async ({ page, context }) => {
+  await signIn(context, jwt, base());
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>(r => (release = r));
+  let calls = 0;
+  await page.route('**/api/cms/feed/lake-claims', async route => {
+    calls += 1;
+    await gate;
+    return route.fulfill({ json: { data: { documentId: 'c1', claimStatus: 'pending' } } });
+  });
+  await open(page, ID.belin, PHONE);
+  const trigger = page.locator('#contact').getByRole('button', { name: 'Ești administratorul acestei bălți?' });
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: 'Ești administratorul acestei bălți?' });
+  const name = dialog.getByLabel('Nume și prenume');
+  const phone = dialog.getByLabel('Număr de telefon');
+  // c6 first: «Înapoi» closes without sending.
+  await dialog.getByRole('button', { name: 'Înapoi' }).click();
+  await expect(dialog).toBeHidden();
+  expect(calls).toBe(0);
+  await trigger.click();
+  // c3: a short phone — only it is marked, it gets focus, the message is its description.
+  await name.fill('Sim QA');
+  await phone.fill('0712');
+  await dialog.getByRole('button', { name: 'Trimite cererea' }).click();
+  await expect(dialog.getByRole('alert')).toHaveText('Numele și un număr de telefon valid sunt obligatorii.');
+  await expect(phone).toHaveAttribute('aria-invalid', 'true');
+  await expect(name).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(phone).toBeFocused();
+  await expect(phone).toHaveAccessibleDescription('Numele și un număr de telefon valid sunt obligatorii.');
+  expect(calls).toBe(0);
+  // c4: sending — the spinner label, both buttons held, Escape and a second press do nothing.
+  await phone.fill('0712345678');
+  await expect(phone).not.toHaveAttribute('aria-invalid', 'true');
+  await dialog.getByRole('button', { name: 'Trimite cererea' }).click();
+  const busy = dialog.getByRole('button', { name: 'Se trimite…' });
+  await expect(busy).toHaveAttribute('aria-busy', 'true');
+  await expect(dialog.getByRole('button', { name: 'Înapoi' })).toBeDisabled();
+  await busy.click({ force: true });
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
+  expect(calls).toBe(1);
+  release();
+  await expect(page.getByText('Cerere trimisă — te contactăm noi.')).toBeVisible();
+  await expect(dialog).toBeHidden();
+  expect(calls).toBe(1);
+});
+
+test('lakes.booking-interest.c4 lakes.booking-interest.c5 — while sending one POST (a second press is ignored); a new signal toasts «Am notat…» and shows the confirmed row', async ({ page, context }) => {
+  await signIn(context, jwt, base());
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>(r => (release = r));
+  let calls = 0;
+  await page.route('**/api/cms/feed/lake-booking-interests', async route => {
+    calls += 1;
+    await gate;
+    return route.fulfill({ json: { data: { documentId: 'x', alreadyRegistered: false } } });
+  });
+  await open(page, ID.belin, PHONE);
+  await visible(page.getByRole('button', { name: 'Vreau să rezerv online' })).click();
+  const dialog = page.getByRole('dialog', { name: 'Rezervări prin Bluvi' });
+  await dialog.getByRole('button', { name: 'Aș vrea să pot rezerva aici' }).click();
+  const busy = dialog.getByRole('button', { name: 'Se trimite…' });
+  await expect(busy).toHaveAttribute('aria-busy', 'true');
+  await busy.click({ force: true });
+  expect(calls).toBe(1);
+  release();
+  await expect(page.getByText('Am notat. Te anunțăm când balta acceptă rezervări.')).toBeVisible();
+  await expect(dialog.getByRole('status')).toHaveText('Am notat că ai vrea să rezervi aici. Te anunțăm când balta acceptă rezervări.');
+  expect(calls).toBe(1);
+});
+
+/*
+ * Every state of the two dialogs at 375 / 768 / 1280 / 1440, with axe on each (ROADMAP §5): the
+ * shots land in .shots/balta-dialogs (git-ignored) for the review page. Every write is mocked.
+ */
+test.describe('dialog states (shots + axe)', () => {
+  const SHOTS = '.shots/balta-dialogs';
+  const WIDTHS = [375, 768, 1280, 1440];
+  async function shot(page: Page, name: string) {
+    await settleDialog(page).catch(() => undefined);
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: `${SHOTS}/${name}-${page.viewportSize()!.width}.png` });
+  }
+  async function axeDialog(page: Page) {
+    await settleDialog(page);
+    await expectNoA11yViolations(page, { include: 'dialog[open]' });
+  }
+
+  for (const width of WIDTHS) {
+    test(`lakes.claim states at ${width}: empty, prefilled, invalid, submitting, CLAIM_EXISTS, LAKE_HAS_OWNER, generic error; signed out → /intra`, async ({ page, context }) => {
+      const vp = { width, height: width < 768 ? 812 : 900 };
+      // Signed out: the take-over link signs in first (no form), back with ?dialog=revendica.
+      await open(page, ID.belin, vp);
+      await expect(page.locator('#contact').getByRole('link', { name: 'Ești administratorul acestei bălți?' })).toHaveAttribute(
+        'href',
+        `/intra?next=${encodeURIComponent(`/balti/${ID.belin}?dialog=revendica`)}`,
+      );
+      await signIn(context, jwt, base());
+      let release: () => void = () => undefined;
+      const replies: (() => Promise<{ status: number; json: unknown }>)[] = [
+        async () => {
+          await new Promise<void>(r => (release = r));
+          return { status: 400, json: { error: { status: 400, message: 'x', details: { bluCode: 'CLAIM_EXISTS' } } } };
+        },
+        async () => ({ status: 400, json: { error: { status: 400, message: 'x', details: { bluCode: 'LAKE_HAS_OWNER' } } } }),
+        async () => ({ status: 500, json: { error: { status: 500, message: 'x' } } }),
+      ];
+      await page.route('**/api/cms/feed/lake-claims', async route => route.fulfill(await replies.shift()!()));
+      // «empty»: a profile with no username / phone.
+      let blank = true;
+      await page.route(/\/api\/cms\/user\/profile$/, async route => {
+        if (route.request().method() !== 'GET' || !blank) return route.fallback();
+        const res = await route.fetch();
+        const body = await res.json();
+        return route.fulfill({ response: res, json: { ...body, username: '', phone: '' } });
+      });
+      await open(page, ID.belin, vp);
+      const trigger = page.locator('#contact').getByRole('button', { name: 'Ești administratorul acestei bălți?' });
+      await trigger.click();
+      const dialog = page.getByRole('dialog', { name: 'Ești administratorul acestei bălți?' });
+      await expect(dialog.getByLabel('Nume și prenume')).toHaveValue('');
+      await axeDialog(page);
+      await shot(page, 'claim-empty');
+      await dialog.getByRole('button', { name: 'Trimite cererea' }).click();
+      await expect(dialog.getByRole('alert')).toBeVisible();
+      await axeDialog(page);
+      await shot(page, 'claim-invalid');
+      // «prefilled»: the real profile, on a fresh page.
+      blank = false;
+      await open(page, ID.belin, vp);
+      await trigger.click();
+      await expect(dialog.getByLabel('Nume și prenume')).not.toHaveValue('');
+      await axeDialog(page);
+      await shot(page, 'claim-prefilled');
+      await dialog.getByLabel('Număr de telefon').fill('0712345678');
+      await dialog.getByRole('button', { name: 'Trimite cererea' }).click();
+      await expect(dialog.getByRole('button', { name: 'Se trimite…' })).toBeVisible();
+      await axeDialog(page);
+      await shot(page, 'claim-submitting');
+      release();
+      await expect(page.getByText('Ai deja o cerere în așteptare pentru această baltă.')).toBeVisible();
+      await shot(page, 'claim-exists');
+      await dialog.getByRole('button', { name: 'Trimite cererea' }).click();
+      await expect(page.getByText('Balta are deja un administrator în Bluvi.')).toBeVisible();
+      await shot(page, 'claim-has-owner');
+      await dialog.getByRole('button', { name: 'Trimite cererea' }).click();
+      await expect(page.getByText('Cererea nu a putut fi trimisă. Încearcă din nou.')).toBeVisible();
+      await shot(page, 'claim-error');
+      await expect(dialog).toBeVisible();
+    });
+
+    test(`lakes.booking-interest states at ${width}: default, submitting, registered (new, already), error; guest submit → /intra`, async ({ page, context }) => {
+      const vp = { width, height: width < 768 ? 812 : 900 };
+      const openInterest = async () => {
+        await open(page, ID.belin, vp);
+        await visible(page.getByRole('button', { name: 'Vreau să rezerv online' })).click();
+        return page.getByRole('dialog', { name: 'Rezervări prin Bluvi' });
+      };
+      // Guest: the default state, then the submit signs in first.
+      let dialog = await openInterest();
+      await axeDialog(page);
+      await shot(page, 'interest-default');
+      await dialog.getByRole('button', { name: 'Aș vrea să pot rezerva aici' }).click();
+      await expect(page).toHaveURL(new RegExp(`/intra\\?next=%2Fbalti%2F${ID.belin}$`));
+      await signIn(context, jwt, base());
+      let release: () => void = () => undefined;
+      const replies: (() => Promise<{ status: number; json: unknown }>)[] = [
+        async () => ({ status: 500, json: { error: { status: 500, message: 'x' } } }),
+        async () => {
+          await new Promise<void>(r => (release = r));
+          return { status: 200, json: { data: { documentId: 'x', alreadyRegistered: false } } };
+        },
+        async () => ({ status: 200, json: { data: { documentId: 'x', alreadyRegistered: true } } }),
+      ];
+      await page.route('**/api/cms/feed/lake-booking-interests', async route => route.fulfill(await replies.shift()!()));
+      dialog = await openInterest();
+      const submit = dialog.getByRole('button', { name: 'Aș vrea să pot rezerva aici' });
+      await submit.click();
+      await expect(page.getByText('Nu am putut trimite. Încearcă din nou.')).toBeVisible();
+      await shot(page, 'interest-error');
+      await submit.click();
+      await expect(dialog.getByRole('button', { name: 'Se trimite…' })).toBeVisible();
+      await axeDialog(page);
+      await shot(page, 'interest-submitting');
+      release();
+      await expect(page.getByText('Am notat. Te anunțăm când balta acceptă rezervări.')).toBeVisible();
+      await expect(dialog.getByRole('status')).toBeVisible();
+      await axeDialog(page);
+      await shot(page, 'interest-registered');
+      // Already registered: a fresh page (the registered row belongs to that page's dialog).
+      dialog = await openInterest();
+      await dialog.getByRole('button', { name: 'Aș vrea să pot rezerva aici' }).click();
+      await expect(page.getByText('Ne-ai spus deja — te anunțăm când balta acceptă rezervări.')).toBeVisible();
+      await shot(page, 'interest-already');
+    });
+  }
 });
 
 /* ------------------------------------------------------------------ */

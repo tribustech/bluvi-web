@@ -828,9 +828,13 @@ behaviours:
   - id: booking.b.sign-in-gate
     text: "A booking belongs to an account: the lake CTA sends guests to sign-in first; every route of this area requires a session (web: redirect to /intra with return path)."
     fish_ref: app/(app)/lakes/[lakeId].tsx:271-279
+    status: passing
+    web_note: "Lake CTA (M3-B3): not known to be signed in → /intra?next=/balti/[id] (back on the lake, never the grid, as fish); every route of the area is auth-only (requireViewer 307 with the return path: rezerva-grila / -confirmare / rezervari / rezervare specs). e2e tests/e2e/balta.spec.ts «a guest: every booking control goes to sign-in…» (incl. the direct /rezerva 307)."
   - id: booking.b.entry-points
     text: "Entry points: lake page booking CTA (bookingState enabled; legacy_phone scrolls to contact instead; otherwise booking-interest flow), lake availability tab, „Rezervă din nou” on a past booking, Setări „Rezervările mele”, home „Instrumente” Rezervări tile."
     fish_ref: app/(app)/lakes/[lakeId].tsx:262-292; app/(app)/settings.tsx:235-239; components/WidgetsList.tsx:86-91; app/(app)/bookings/[id].tsx:66-71
+    status: passing
+    web_note: "Lake page (M3-B3): hero, 768 header, ≥1024 card, Rezervă tile and phone bar → /balti/[id]/rezerva (legacy_phone → #contact, none → the interest dialog — balta.spec.ts). The lake availability tab is dead code in fish (lakes.b.dead-code). «Rezervă din nou», Setări «Rezervările mele» and the home tile are the M3-B1/B2 specs' (rezervare, rezervari, setari, acasa). e2e tests/e2e/balta.spec.ts «signed in: every booking control…» and «happy path (mocked create)» (lake → grid → extras → confirm → back on the lake with the toast)."
   - id: booking.b.notification-routes
     text: "Angler booking notifications (BOOKING_REQUEST_RECEIVED/CONFIRMED/REJECTED/CANCELLED/REMINDER/NO_SHOW/WALK_IN_ANGLER) open the booking detail; without bookingId nothing opens. Operator booking notifications go to the operator inbox (operator area)."
     fish_ref: helpers/getRedirectLocationForNotification.ts:135-157
@@ -879,6 +883,8 @@ behaviours:
   - id: booking.b.analytics
     text: "Analytics events: lake_booking_cta_pressed / lake_availability_cta_pressed (entry), contact_pressed ('Lake too soon contact', 'Booking lake contact'), rebook_button_pressed."
     fish_ref: app/(app)/lakes/[lakeId].tsx:265-270; features/lakes/booking/LakeAvailabilityTab.tsx:41-44; features/lakes/booking/TooSoonSheet.tsx:41-45; features/bookings/MyBookingRow.tsx:100-104; app/(app)/bookings/[id].tsx:69
+    status: passing
+    web_note: "Track calls only (GA4 consent and wiring are M8), on lib/analytics.ts with fish's names and params. lake_booking_cta_pressed {lake_id, lake_name, source hero_cta | quick_action, booking_state} on every press, guests included (balta.spec.ts «signed in: every booking control…», «no booking opens…»). lake_availability_cta_pressed has no web caller (fish LakeAvailabilityTab is dead code). contact_pressed «Lake too soon contact» / «Booking lake contact» and rebook_button_pressed: tests/e2e/rezerva-grila.spec.ts (TooSoonDialog), tests/e2e/rezervare.spec.ts (ActionsCard, RebookCard)."
   - id: booking.b.legacy-cms-paging
     text: "A CMS without the bucket contract (no meta) degrades to one full page: pendingCount 0, pageSize = max(rows, 20), so the list does not page forever."
     fish_ref: services/api/booking.ts:94-124

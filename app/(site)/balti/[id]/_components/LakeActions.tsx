@@ -1,8 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { createContext, Suspense, use, useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import { createContext, Suspense, use, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { CalendarDaysIcon, GlobeAltIcon, ShareIcon } from '@heroicons/react/24/outline';
 import { headerChipClass, type HeaderChipGround } from '@/components/templates/T3';
 import { buttonClass } from '@/components/ui/Button';
@@ -21,7 +20,7 @@ import { useViewerState, type ViewerState } from '../../../_shell/viewer-context
 import { userOf } from '../../../_shell/viewer-state';
 import { track } from './analytics';
 import { lakeHref } from './availability';
-import { LakeDialogs, type LakeDialog } from './LakeDialogs';
+import { CLAIM_PARAM, CLAIM_VALUE, claimReturnPath, LakeDialogs, type LakeDialog } from './LakeDialogs';
 import { bookingReachable } from './bookingReach';
 import { onSectionJump } from './SectionLink';
 
@@ -34,8 +33,8 @@ import { onSectionJump } from './SectionLink';
  *
  * The session: the shell's tri-state read (viewer-context), probed once behind its own Suspense
  * so nothing on the page waits for it. It never changes what the page renders (the booking controls
- * are the same for everyone); it only decides where a click goes (useBookingTarget, ClaimTrigger,
- * the dialogs' submits).
+ * look the same for everyone); it only decides where a click goes (useBookingTarget's href,
+ * ClaimTrigger, the dialogs' submits).
  */
 
 export type LakeInfo = {
@@ -116,43 +115,79 @@ export function LakeActionsProvider({ lake, children }: { lake: LakeInfo; childr
  * ---------------------------------------------------------------------------------------------- */
 
 /**
- * What «Rezervă acum» / the Rezervă tile do — the same control at every session state and every
+ * What «Rezervă acum» / the Rezervă tile do (fish openBookingAffordance) — the same control at every
  * width, so the page never changes shape when the session probe answers (the page is static; a
  * guest is the common first paint) and works before hydration:
- *  - booking enabled, the booking flow on the web (availability.ts): a link to it; a guest is sent
- *    to /intra on click (plain /intra, no redirect back into the grid, as fish); a pending or
- *    unknown session follows the link (the flow gates on its own);
- *  - booking enabled, the flow not on the web yet: «Rezervă din aplicația Bluvi» (store links) for
- *    everyone — never a sign-in for a feature nobody can use here yet, never a disabled primary;
+ *  - booking enabled: a link. Known to be signed in → the booking flow (routes.lakeBooking). A guest,
+ *    a session not answered yet or an unknown one (rule 4: never assume signed in) → sign-in, back
+ *    to this lake (fish pushes /sign-in plainly: Back and the return land on the lake, never inside
+ *    the grid). A direct guest visit to /rezerva is redirected by that page itself.
  *  - legacy phone reservations: the jump to Contact (only with a phone number — BookingCta shows
  *    the website or nothing otherwise, bookingReachable);
  *  - no booking: the «Rezervări prin Bluvi» dialog.
+ * Every press logs lake_booking_cta_pressed (source, booking_state), as fish.
  */
 export function useBookingTarget(source: LakeBookingInterestSource) {
   const { lake, session, open } = useLake();
-  const router = useRouter();
   const kind = lakeBookingAction(lake.bookingState, true);
-  const href = kind === 'book' ? lakeHref('booking', routes.lakeBooking(lake.documentId)) : undefined;
+  const href =
+    kind === 'book'
+      ? userOf(session) && lakeHref('booking', routes.lakeBooking(lake.documentId))
+        ? routes.lakeBooking(lake.documentId)
+        : routes.signIn(routes.lake(lake.documentId))
+      : undefined;
   const onPress = (e: MouseEvent<HTMLElement>) => {
     track('lake_booking_cta_pressed', { lake_id: lake.documentId, lake_name: lake.name, source, booking_state: lake.bookingState });
     if (kind === 'interest') open('interest', source);
     else if (kind === 'contact') onSectionJump(e, 'contact');
-    else if (!href) open('booking-app', source);
-    else if (session === null && !e.defaultPrevented && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
-      e.preventDefault();
-      router.push(routes.signIn());
-    }
   };
   return { kind, href, onPress };
 }
 
 /**
- * The booking control in a given look: a fragment link (Contact), a link (the booking flow) or a
- * dialog button. A plain fragment link (not next/link) for Contact: the browser moves focus with
- * the jump (c16 keyboard).
+ * fish guardNavigation for the booking link (booking.b.double-submit-guard, lakes.b.nav-guard): the
+ * shell's NavigationGuard drops a second click on the same link within 800 ms; the grid's first
+ * render can outlast that window (fish navigates instead of pushing for the same reason), so a
+ * plain left click that already started the navigation is ignored while this page is still the one
+ * on screen. Back (popstate) and the page being shown again (Activity reveal re-runs the effect)
+ * re-arm it; a new-tab click is never guarded.
+ */
+function useOnceNavigation() {
+  const started = useRef(0);
+  useEffect(() => {
+    started.current = 0;
+    const reset = () => {
+      started.current = 0;
+    };
+    window.addEventListener('popstate', reset);
+    window.addEventListener('pageshow', reset);
+    return () => {
+      window.removeEventListener('popstate', reset);
+      window.removeEventListener('pageshow', reset);
+    };
+  }, []);
+  return (e: MouseEvent<HTMLElement>) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return true;
+    const now = performance.now();
+    if (started.current && now - started.current < NAV_PENDING_MS) {
+      e.preventDefault();
+      return false;
+    }
+    started.current = now;
+    return true;
+  };
+}
+/** How long a started booking navigation keeps the link from starting another one. */
+const NAV_PENDING_MS = 10_000;
+
+/**
+ * The booking control in a given look: a fragment link (Contact), a link (the booking flow or
+ * sign-in) or a dialog button. A plain fragment link (not next/link) for Contact: the browser moves
+ * focus with the jump (c16 keyboard).
  */
 function BookingControl({ source, className, children }: { source: LakeBookingInterestSource; className?: string; children: ReactNode }) {
   const { kind, href, onPress } = useBookingTarget(source);
+  const accept = useOnceNavigation();
   if (kind === 'contact') {
     return (
       <a href="#contact" onClick={onPress} className={className}>
@@ -161,7 +196,13 @@ function BookingControl({ source, className, children }: { source: LakeBookingIn
     );
   }
   return href ? (
-    <Link href={href} onClick={onPress} className={className}>
+    <Link
+      href={href}
+      onClick={e => {
+        if (accept(e)) onPress(e);
+      }}
+      className={className}
+    >
       {children}
     </Link>
   ) : (
@@ -340,8 +381,6 @@ export function PhoneLink({ phone, className, children }: { phone: string; class
   );
 }
 
-const CLAIM_PARAM = 'dialog';
-const CLAIM_VALUE = 'revendica';
 
 /**
  * Back from sign-in with `?dialog=revendica` (ClaimTrigger): opens the claim dialog once the session
@@ -371,7 +410,7 @@ export function ClaimTrigger({ className, children }: { className?: string; chil
   const { lake, session, open } = useLake();
   if (!userOf(session)) {
     return (
-      <Link href={routes.signIn(`${routes.lake(lake.documentId)}?${CLAIM_PARAM}=${CLAIM_VALUE}`)} className={className}>
+      <Link href={routes.signIn(claimReturnPath(lake.documentId))} className={className}>
         {children}
       </Link>
     );

@@ -28,9 +28,8 @@ import { routes } from '@/lib/routes';
 import { useSiteToast } from '../../../_shell/Toast';
 import { useViewerState, type ViewerState } from '../../../_shell/viewer-context';
 import { isUnknownViewer, userOf } from '../../../_shell/viewer-state';
-import { lakeHref } from '../_components/availability';
 import { refreshLakeAfterReview } from '../recenzie/_components/actions';
-import { ReviewInAppDialog, ReviewsInfoDialog } from '../_components/LakeDialogs';
+import { ReviewsInfoDialog } from '../_components/LakeDialogs';
 import { RatingStars } from '../_components/RatingStars';
 import { ReviewCard } from '../_components/ReviewCard';
 import { focusLandingSpot } from '@/components/templates/T3';
@@ -111,7 +110,7 @@ export function ReviewsScreen({ lakeId, lakeName }: { lakeId: string; lakeName: 
       actions={
         empty ? undefined : (
           <Suspense fallback={null}>
-            <AddBar lakeId={lakeId} lakeName={lakeName} placement="header" />
+            <AddBar lakeId={lakeId} placement="header" />
           </Suspense>
         )
       }
@@ -179,7 +178,7 @@ export function ReviewsScreen({ lakeId, lakeName }: { lakeId: string; lakeName: 
       actions={
         empty ? undefined : (
           <Suspense fallback={null}>
-            <AddBar lakeId={lakeId} lakeName={lakeName} placement="sticky" />
+            <AddBar lakeId={lakeId} placement="sticky" />
           </Suspense>
         )
       }
@@ -189,8 +188,8 @@ export function ReviewsScreen({ lakeId, lakeName }: { lakeId: string; lakeName: 
         <>
           {inlineScores ? <div className="xl:hidden">{inlineScores}</div> : null}
           <ReviewsCount count={total} onInfo={() => setInfo(true)} header />
-          <Suspense fallback={<ReviewRows rows={rows} lakeId={lakeId} lakeName={lakeName} me={null} />}>
-            <ReviewRowsForViewer rows={rows} lakeId={lakeId} lakeName={lakeName} />
+          <Suspense fallback={<ReviewRows rows={rows} lakeId={lakeId} me={null} />}>
+            <ReviewRowsForViewer rows={rows} lakeId={lakeId} />
           </Suspense>
           <ListFooter
             hasMore={!!reviews.hasNextPage}
@@ -210,7 +209,7 @@ export function ReviewsScreen({ lakeId, lakeName }: { lakeId: string; lakeName: 
           onInfo={() => setInfo(true)}
           action={
             <Suspense fallback={null}>
-              <AddBar lakeId={lakeId} lakeName={lakeName} placement="inline" />
+              <AddBar lakeId={lakeId} placement="inline" />
             </Suspense>
           }
         />
@@ -368,23 +367,23 @@ function Empty({ onInfo, action }: { onInfo: () => void; action: ReactNode }) {
 
 /* The list — the viewer's own card gets Editează / Șterge (c6). */
 
-function ReviewRowsForViewer({ rows, lakeId, lakeName }: { rows: Review[]; lakeId: string; lakeName: string }) {
+function ReviewRowsForViewer({ rows, lakeId }: { rows: Review[]; lakeId: string }) {
   const viewer = useViewerState();
   const user = userOf(viewer);
   const t = useMemo(() => createBrowserTransport(), []);
   const mine = useQuery(myLakeReviewQuery(t, lakeId, user?.documentId));
   // fish: editable = my review exists and this card's author is its author.
   const me = mine.data?.author?.documentId ?? null;
-  return <ReviewRows rows={rows} lakeId={lakeId} lakeName={lakeName} me={me} />;
+  return <ReviewRows rows={rows} lakeId={lakeId} me={me} />;
 }
 
-function ReviewRows({ rows, lakeId, lakeName, me }: { rows: Review[]; lakeId: string; lakeName: string; me: string | null }) {
+function ReviewRows({ rows, lakeId, me }: { rows: Review[]; lakeId: string; me: string | null }) {
   return (
     <ul aria-label="Recenzii" className={cn(READING, 'flex flex-col', LIST_GUTTER)} data-testid="reviews-list">
       {rows.map(r => (
         <li key={r.documentId}>
           {me && r.author?.documentId === me ? (
-            <ReviewCard review={r} className="bg-surface" actions={<OwnActions review={r} lakeId={lakeId} lakeName={lakeName} />} />
+            <ReviewCard review={r} className="bg-surface" actions={<OwnActions review={r} lakeId={lakeId} />} />
           ) : (
             <ReviewCard review={r} className="bg-surface" />
           )}
@@ -394,12 +393,11 @@ function ReviewRows({ rows, lakeId, lakeName, me }: { rows: Review[]; lakeId: st
   );
 }
 
-function OwnActions({ review, lakeId, lakeName }: { review: Review; lakeId: string; lakeName: string }) {
+function OwnActions({ review, lakeId }: { review: Review; lakeId: string }) {
   const t = useMemo(() => createBrowserTransport(), []);
   const qc = useQueryClient();
   const toast = useSiteToast();
   const [confirm, setConfirm] = useState(false);
-  const [inApp, setInApp] = useState(false);
   const del = useMutation({
     ...deleteReviewMutation(t),
     onSuccess: (_data, { reviewId }) => {
@@ -438,20 +436,13 @@ function OwnActions({ review, lakeId, lakeName }: { review: Review; lakeId: stri
       invalidateReviewQueries(qc, lakeId);
     },
   });
-  const edit = lakeHref('reviewForm', routes.lakeReview(lakeId, { editare: true }));
   return (
     <>
       <span className="mr-auto t-micro-strong text-accent-ink">Recenzia ta</span>
-      {edit ? (
-        <Link href={edit} className={buttonClass({ variant: 'outline', size: 'compact' })} data-testid="review-edit">
-          <PencilSquareIcon aria-hidden className="size-4" />
-          Editează
-        </Link>
-      ) : (
-        <Button variant="outline" size="compact" icon={<PencilSquareIcon />} onClick={() => setInApp(true)} data-testid="review-edit">
-          Editează
-        </Button>
-      )}
+      <Link href={routes.lakeReview(lakeId, { editare: true })} className={buttonClass({ variant: 'outline', size: 'compact' })} data-testid="review-edit">
+        <PencilSquareIcon aria-hidden className="size-4" />
+        Editează
+      </Link>
       {/* aria-disabled, not disabled: the dialog hands focus back here, and a disabled button drops it. */}
       <Button
         variant="danger"
@@ -491,7 +482,6 @@ function OwnActions({ review, lakeId, lakeName }: { review: Review; lakeId: stri
       >
         {null}
       </Dialog>
-      <ReviewInAppDialog lakeName={lakeName} editing open={inApp} onClose={() => setInApp(false)} />
     </>
   );
 }
@@ -500,16 +490,15 @@ function OwnActions({ review, lakeId, lakeName }: { review: Review; lakeId: stri
 
 type AddBarPlacement = 'header' | 'sticky' | 'inline';
 
-function AddBar({ lakeId, lakeName, placement }: { lakeId: string; lakeName: string; placement: AddBarPlacement }) {
+function AddBar({ lakeId, placement }: { lakeId: string; placement: AddBarPlacement }) {
   const viewer = useViewerState();
-  return <AddBarFor viewer={viewer} lakeId={lakeId} lakeName={lakeName} placement={placement} />;
+  return <AddBarFor viewer={viewer} lakeId={lakeId} placement={placement} />;
 }
 
-function AddBarFor({ viewer, lakeId, lakeName, placement }: { viewer: ViewerState; lakeId: string; lakeName: string; placement: AddBarPlacement }) {
+function AddBarFor({ viewer, lakeId, placement }: { viewer: ViewerState; lakeId: string; placement: AddBarPlacement }) {
   const t = useMemo(() => createBrowserTransport(), []);
   const user = userOf(viewer);
   const mine = useQuery(myLakeReviewQuery(t, lakeId, user?.documentId));
-  const [inApp, setInApp] = useState(false);
   if (isUnknownViewer(viewer)) return null;
   // Inside the empty card the long sign-in label may wrap on a phone (the kit Button is one line).
   const inline = placement === 'inline' ? 'max-w-full shrink whitespace-normal! h-auto! min-h-12 py-2.5 text-center xl:min-h-10' : undefined;
@@ -537,22 +526,10 @@ function AddBarFor({ viewer, lakeId, lakeName, placement }: { viewer: ViewerStat
       </Link>,
     );
   }
-  const add = lakeHref('reviewForm', routes.lakeReview(lakeId));
-  return (
-    <>
-      {wrap(
-        add ? (
-          <Link href={add} className={buttonClass({ block: placement === 'sticky' })} data-testid="review-add">
-            Adaugă o recenzie
-          </Link>
-        ) : (
-          <Button block={placement === 'sticky'} onClick={() => setInApp(true)} data-testid="review-add">
-            Adaugă o recenzie
-          </Button>
-        ),
-      )}
-      <ReviewInAppDialog lakeName={lakeName} editing={false} open={inApp} onClose={() => setInApp(false)} />
-    </>
+  return wrap(
+    <Link href={routes.lakeReview(lakeId)} className={buttonClass({ block: placement === 'sticky' })} data-testid="review-add">
+      Adaugă o recenzie
+    </Link>,
   );
 }
 
