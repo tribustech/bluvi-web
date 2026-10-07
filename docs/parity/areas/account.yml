@@ -184,56 +184,98 @@ screens:
       - id: account.edit-profile.c1
         text: "The screen is titled „Editează profilul” and has a back control."
         fish_ref: "app/(app)/edit-profile.tsx:11; components/EditProfileScreen.tsx:294"
+        status: passing
+        note: "e2e «c1 c3 c4 c8 c9» (h1 + «Înapoi»), «c1 back» and «c1 entry point» — back returns to the opener (a client back; when the opener is an earlier page load it is replaced by that URL so the toast survives); without one (or from /intra) to the viewer's own public profile /pescari/<id> (asserted rendered: its h1), since /setari does not exist yet — switch exit.ts editProfileExit back to routes.settings() in the commit that adds Setări. Entry point until then: «Editează profilul» on the own /pescari/<id> header (ProfileHeader, profile.isSelf)."
+        web_note: "Web addition: unsaved edits are never dropped silently — while the user changed a field or the avatar, the back chip and any in-app link ask «Renunți la modificări?» (Renunță / Continuă editarea), closing or reloading the tab asks the browser's beforeunload prompt (profile-form useLeaveGuard, exposed on useProfileForm as guardLeave/leaveDialog so complete-profile and the Home sheet get it). Layout (profile-form/layout.ts, container queries on the form's own width, so a sheet stays one column): from a 672px form (tablet card, ≥1280 main track) two columns — the avatar block in a 240px left column, top-aligned, the fields in a right column capped at 576 — never the phone form stretched; the skeleton (ProfileFormSkeleton) uses the same geometry. ≥1280 the aside is ONE card: «Așa te văd ceilalți» (the /pescari header look on the page ground: 100px avatar, name at title1, bio with #hashtags, live from the form; «Modificări nesalvate» while the user has edits; «Vezi profilul public» as a quiet link in its title row), a hairline, then «Finalizează» full width (T6's docked bar joined to the card, still mounted once). The avatar actions never wrap inside a button: one row from a 328px block, stacked with «sau» on its own line below (320 phones, the left column). e2e «leave guard…», «≥1280 preview…», «≥1280 at 1280/1440/1920: avatar column | fields capped», «avatar actions at 320/375», «<768: the white form reaches the bar»."
       - id: account.edit-profile.c2
         text: "While the profile loads a full loading state is shown; on error an error state with a retry that refetches the profile."
         fish_ref: "components/EditProfileScreen.tsx:171-173"
+        status: passing
+        note: "e2e «c2 loading» (whole-form skeleton, one visible, disabled «Finalizează»), «c2 error» (route mock 500 → T4Gate danger card with fish ErrorScreen's describeError copy «Serverul nu răspunde» / «Lucrăm la asta…», never the raw message; «Încearcă din nou» refetches) and «c2 error 401» («Sesiunea a expirat», no retry, «Deconectează-te»). A dead session (SESSION_DEAD) keeps the skeleton: onSessionDead refreshes and requireViewer redirects to /intra."
       - id: account.edit-profile.c3
         text: "The current avatar is shown as a 150px circle with a camera badge; activating it opens the image picker."
         fish_ref: "components/EditProfileScreen.tsx:296-322"
+        status: passing
+        note: "e2e «c1 c3 c4 c8 c9» (150×150, radius ≥ 75, camera badge) and «c3 c4 avatar» (the circle opens the file chooser; <input type=file accept=image/*>, no capture so the phone offers gallery and camera)."
       - id: account.edit-profile.c4
         text: "Under the avatar: „Regenerează avatar” · „sau” · „Încarcă fotografie”; regenerate sets a new random generated avatar, upload opens the image picker; both mark the avatar changed."
         fish_ref: "components/EditProfileScreen.tsx:160-169,324-336"
+        status: passing
+        note: "e2e «c3 c4 avatar»: regenerate → a new DiceBear personas URL (random seed), «Încarcă fotografie» opens the chooser; both enable «Finalizează»."
       - id: account.edit-profile.c5
         text: "Field „Nume utilizator*” is required, 3–20 characters, with errors „Numele de utilizator trebuie să conțină minim 3 caractere” / „Numele de utilizator poate conține maximum 20 de caractere”."
         fish_ref: "schemas/userProfile.schema.ts:5-8; components/EditProfileScreen.tsx:340-354"
+        status: passing
+        note: "e2e «c5 c6 c7 validation» + unit tests/unit/profile-form.test.ts (fish copy, min 3 / max 20)."
       - id: account.edit-profile.c6
-        text: "Field „Telefon (optional)” accepts empty, otherwise an optional leading + and 7–15 digits, error „Numărul de telefon trebuie să aibă între 7 și 15 cifre”; typed input is sanitised to digits plus one leading + (as the sheet variant does)."
-        fish_ref: "schemas/phone.schema.ts:9-17,23-26; components/EditProfileScreen.tsx:247-249,357-371"
+        text: "Field „Telefon (opțional)” accepts empty, otherwise an optional leading + and 7–15 digits, error „Numărul de telefon trebuie să aibă între 7 și 15 cifre”."
+        fish_ref: "schemas/phone.schema.ts:9-17; components/EditProfileScreen.tsx:357-371"
+        status: passing
+        note: "e2e «c5 c6 c7 validation» (7–15 digits, empty accepted) + unit profile-form.test.ts."
+        web_note: "Deliberate deviation, pending owner sign-off: the web sanitises typed and pasted input to digits plus one leading + (sanitizePhoneInput, schemas/phone.schema.ts:23-26), as fish's SHEET variant does (components/EditProfileScreen.tsx:247-249, complete-profile/Home). fish's full-screen /edit-profile variant does NOT sanitise (keyboardType numeric, raw onChange, :357-371): there a pasted «0722 123 456» shows the 7–15 digits error, on the web it becomes «0722123456». One ProfileForm serves both variants on the web. Label: fish's «optional» is a typo; the web writes «opțional» (owner rule: diacritics)."
       - id: account.edit-profile.c7
         text: "Field „Biografie” is a 3-line textarea limited to 200 characters, error „Biografia poate conține maximum 200 de caractere”."
         fish_ref: "schemas/userProfile.schema.ts:11; components/EditProfileScreen.tsx:374-390"
+        status: passing
+        note: "The cap is the native maxlength (T4TextArea capInput), as fish's TextInput maxLength: the browser refuses input past 200, no onChange slice. e2e «c1 c3 c4 c8 c9» (rows=3, maxlength=200, fill 250 → 200, «n / 200», a keystroke mid-text at 200 is refused — never kept at the cost of the last character), «c7 a stored bio over 200» (Backspace removes exactly one character, typing is refused) and «c5 c6 c7 validation» (a stored bio over 200 is refused with the fish message)."
       - id: account.edit-profile.c8
         text: "Below the fields the text „Autentificat cu: {provider}” is shown, „-” when unknown."
         fish_ref: "components/EditProfileScreen.tsx:393-395"
+        status: passing
+        note: "e2e «c1 c3 c4 c8 c9»: «Autentificat cu {provider}» as a read-only row (icon, hairline above, closing the field column) — Google/Facebook/Apple named as brands, Strapi's `local` as «Email» (never the raw CMS id), other ids raw, «-» without one (profile-form providerLabel)."
       - id: account.edit-profile.c9
         text: "„Finalizează” is disabled until the form is changed and shows loading while the upload or the update is pending."
         fish_ref: "components/EditProfileScreen.tsx:397-408"
+        status: passing
+        note: "e2e «c1 c3 c4 c8 c9» (disabled until dirty; typing the value back disables it again) and «c9 c10 c15» (aria-busy + spinner while uploading, then saving). ProfileForm prop allowPristineSubmit is for complete-profile."
       - id: account.edit-profile.c10
         text: "When the avatar changed, the image is uploaded first (filename profile_id_{id}_{timestamp}.jpg) and then PATCH /user/profile is sent with {avatar: uploadedId, username, phone, bio}."
         fish_ref: "components/EditProfileScreen.tsx:108-139"
+        status: passing
+        note: "e2e «c9 c10 c15» (generated avatar rasterised to JPEG, multipart filename profile_id_{id}_{13-digit ms}.jpg, then PATCH {avatar, username, phone, bio}) and «c10 a picked photo» (JPEG bytes ff d8). Upload and PATCH route-mocked: no media in S3, the QA avatar is untouched."
       - id: account.edit-profile.c11
         text: "When the avatar did not change, PATCH /user/profile is sent with {username, phone, bio} only."
         fish_ref: "components/EditProfileScreen.tsx:141-157"
+        status: passing
+        note: "e2e «c11 c12 c15 c16 real save» against the LOCAL CMS: PATCH {username, phone, bio} only; original values restored in afterEach."
       - id: account.edit-profile.c12
         text: "An empty phone is sent as null and a blank (whitespace-only) bio is sent as null."
         fish_ref: "components/EditProfileScreen.tsx:126-127,145-146"
+        status: passing
+        note: "e2e «c11 c12 c15 c16 real save» (phone «» → null, bio «   » → null) + unit profile-form.test.ts toProfileRequest."
       - id: account.edit-profile.c13
         text: "Server bluCode USERNAME_ALREADY_IN_USE puts the server message on the username field, PHONE_NUMBER_ALREADY_IN_USE on phone, UPDATE_PROFILE:BIO_TOO_LONG on bio."
         fish_ref: "components/EditProfileScreen.tsx:69-85"
+        status: passing
+        note: "e2e «c13 c14 server bluCodes» (route mock 400 with details.bluCode for each code → message on that field, aria-invalid, focused; editing the field clears it)."
       - id: account.edit-profile.c14
         text: "Any update failure also shows an error toast with the server message."
         fish_ref: "components/EditProfileScreen.tsx:133-135,152-154"
+        status: passing
+        note: "e2e «c13 c14» (each bluCode and a 500 without one → danger toast) and «c14 a failed upload» (toast, no PATCH)."
       - id: account.edit-profile.c15
         text: "On success the screen closes and a success toast „Profilul a fost actualizat cu succes” is shown."
         fish_ref: "app/(app)/edit-profile.tsx:12-15"
+        status: passing
+        note: "e2e «c9 c10 c15» and «c11 c12 c15 c16»: success toast «Profilul a fost actualizat cu succes» and the screen closes."
       - id: account.edit-profile.c16
         text: "After the update (success or error) the own profile query and every angler query are invalidated, so the profile page, settings card and top-bar avatar show the new name, bio and avatar."
         fish_ref: "services/mutations/useUpdateProfile.ts:12-17"
+        status: passing
+        note: "core updateProfileMutation invalidates profileKeys.my + anglersKeys.all on settle (unit core/social/mutations.test.ts); e2e «c11 c12 c15 c16» proves the top bar follows (router.refresh re-reads the server Viewer: «Contul meu, <new name>»)."
       - id: account.edit-profile.c17
         text: "Entry points: the profile card on Settings and „Editează profil” in the organizer-request phone alert."
         fish_ref: "app/(app)/settings.tsx:116,174"
+        status: todo
+        note: "Lands with Setări (account.settings, M2-B4): its profile card links routes.editProfile(). Until then the entry point is «Editează profilul» on the own /pescari/<id> header, and the screen's exit without history goes to that profile (not /setari, which 404s)."
+      - id: account.edit-profile.c18
+        text: "Without a saved avatar a random generated one is shown and counts as a change: „Finalizează” is enabled immediately and saving uploads it first (then PATCH /user/profile with {avatar, username, phone, bio})."
+        fish_ref: "components/EditProfileScreen.tsx:92-98,108-139"
+        status: passing
+        note: "useProfileForm: avatarChanged = !profile.avatar (fish setValue(..., { shouldDirty: true })); the leave guard does not count it as the user's edit. e2e «c18 without a saved avatar» (GET /user/profile route-mocked with avatar:null → generated DiceBear avatar, «Finalizează» enabled untouched, upload then PATCH {avatar, username, phone, bio}; upload and PATCH route-mocked)."
     mobile_only: false
-    status: todo
+    e2e: tests/e2e/setari-profil.spec.ts
+    status: proposed
 
   - id: account.own-profile
     title: Profilul meu
@@ -335,7 +377,7 @@ screens:
       - social.domain.noShowLabel
       - "to port: helpers/groupSessionsByMonth (PublicSession), fmtCompetitionRange, dedupeByKey, partide card fmtSpan/fmtRange/venueSubtitle"
     states:
-      - signed-out (redirect to /intra?next=/pescari/[id])
+      - "signed-out (web: the public tabs + a one-line sign-in hint with the follow button; no header, noindex)"
       - header loading (skeleton)
       - tab loading (skeleton per tab)
       - tab empty (per tab)
@@ -355,121 +397,198 @@ screens:
       - reputation panel open
     criteria:
       - id: account.angler-profile.c1
-        text: "Signed out, the route sends the visitor to sign-in (the profile endpoints require auth); on web /intra?next=/pescari/[id]."
+        text: "Signed out, the page shows the angler's public history (Capturi / Sesiuni / Concursuri, the selected tab server-rendered) without the header (no name, counts or stats — the header endpoint requires auth), and in the header's place one quiet row «Intră ca să vezi pescarul» with the follow button in its secondary look (rule 18), which opens sign-in with next=/pescari/[id] (account.b.guest-follow). The page is noindex. History: fish redirects a guest to sign-in (app/(app)/anglers/[documentId]/index.tsx:9-11)."
         fish_ref: "app/(app)/anglers/[documentId]/index.tsx:9-11"
+        status: passing
+        web_note: "Agreed web behaviour (criterion rewritten 2026-10-07; fish's redirect kept above as history): the CMS made the three tab lists public on purpose (auth: false, edge 60s, tag angler-<id>; fir-intins-cms src/api/feed/routes/10-anglers.ts) and fish only redirected because its header spun forever without a JWT. One CTA only (the site header's «Intră» aside): the follow button, which REPLACES the page with /intra?next=… so that after signing in back leaves the profile. Until a public header DTO exists (docs/private/cms-patches/M2-angler-public-profile.md): noindex, no JSON-LD, not in the sitemap, brand OG card. An empty first page tells a guest «Intră în cont ca să vezi profilul», never «Nicio … încă»: an unknown or deleted id also answers [] on the public lists, so the guest page cannot 404 until the public header endpoint exists (patch note: it would answer 404 → notFound()). No tab count badges for guests (rule 4). e2e tests/e2e/pescar.spec.ts «c1», «account.b.guest-follow», «unknown id signed out»."
       - id: account.angler-profile.c2
         text: "The header loads GET /feed/anglers/{id} (authenticated)."
         fish_ref: "services/api/anglers.ts:16-17; services/queries/useAnglerProfile.ts:6-12"
+        status: passing
+        web_note: "GET /feed/anglers/{id} through /api/cms with the session (core anglerProfileQuery, auth required). e2e tests/e2e/pescar.spec.ts «c2 c4–c9…»."
       - id: account.angler-profile.c3
         text: "Until the profile arrives a header skeleton mirrors the layout: 100px avatar circle, name bar, followers bar, four stat columns and (other mode) a follow pill."
         fish_ref: "components/profile/ProfileSkeleton.tsx:14-40"
+        status: passing
+        web_note: "ProfileSkeleton (follow pill in other mode), no padding of its own (the container owns it, so the tab bar does not move when the header lands); ≥1280 shaped like the identity card: the full-width follow pill under the counts, then StatBento's tiles (wide signature, two halves, one wide). e2e tests/e2e/pescar.spec.ts «c3» (header held 1.5s; the tab bar's position is the same before and after)."
       - id: account.angler-profile.c4
         text: "The avatar is a 100px circle (initials avatar when there is no photo); when there is a photo, activating it opens it full screen."
         fish_ref: "components/profile/ProfileHeader.tsx:36-55,123-129"
+        status: passing
+        web_note: "100px (size-25) avatar, initials on the kit tones; a photo opens the kit Lightbox. e2e tests/e2e/pescar.spec.ts «c4 c6 c8 c9 c14» (initials) + real Andrew R (photo)."
       - id: account.angler-profile.c5
         text: "When the angler has operator ratings, a pill on the avatar's lower right shows a star and avgStars with one decimal; activating it opens the reputation panel. With no ratings the pill is absent."
         fish_ref: "components/profile/ProfileHeader.tsx:28-32,56-84,131-144"
+        status: passing
+        web_note: "Pill → ResponsiveSurface «Reputație» (sheet on phone, dialog from 768). ≥1280 also a reputation row in the identity card. e2e tests/e2e/pescar.spec.ts «c5 c36 c37», «c9 c5» (no ratings → no pill)."
       - id: account.angler-profile.c6
         text: "The username is the page title."
         fish_ref: "components/profile/ProfileHeader.tsx:86-88"
+        status: passing
+        web_note: "The name is the page h1; the breadcrumb ends with it. e2e tests/e2e/pescar.spec.ts."
       - id: account.angler-profile.c7
         text: "Under the name: „{followers} urmăritori · {following} urmărește”; each part opens /pescari/[id]/conexiuni on the matching tab (followers / following)."
         fish_ref: "components/profile/ProfileHeader.tsx:90-110; components/profile/AnglerProfileScreen.tsx:165-169,183-184"
+        status: todo
+        web_note: "PARTIAL: «{n} urmăritor/urmăritori/de urmăritori · {n} urmărește» — the followers part through formatCount (1 urmăritor, 25 de urmăritori; fish's fixed «urmăritori» is not copied), rendered and tested (e2e «c7: correct plurals»); the links wait on /pescari/[id]/conexiuni (account.connections, a later M2 batch) — lib/routes ON_WEB.connections + anglerConnectionsHref turn them into links when it ships (plain text until then, never a 404)."
       - id: account.angler-profile.c8
         text: "A trophy row shows 🥇 🥈 🥉 with their counts, only for tiers above zero; the row is absent when all three are zero."
         fish_ref: "components/profile/TrophyRow.tsx:5-26"
+        status: passing
+        web_note: "TrophyRow only for tiers > 0, absent when all zero. e2e tests/e2e/pescar.spec.ts (mocked podium 1/2/0; real profile with none)."
       - id: account.angler-profile.c9
         text: "A four-column stat strip shows Capturi, Partide, Concursuri counts and C.M.M.C as „{kg with one decimal, comma} kg” or „–”; a verified badge follows C.M.M.C when biggestCatch.source is competition."
         fish_ref: "components/profile/StatStrip.tsx:36-52"
+        status: passing
+        web_note: "Phone/tablet: fish 4-column strip; ≥1280: bento tiles (owner rules 9, 10, 19) — the record on the wide navy signature tile, unit as its own muted word. e2e tests/e2e/pescar.spec.ts («30,2 kg», «12,4 kg» + verified, «–»)."
       - id: account.angler-profile.c10
         text: "For another angler a follow button shows „Urmărește” (accent, user-plus icon) or „Urmăresc” (neutral, check icon) and is disabled while the request is pending."
         fish_ref: "components/profile/ProfileHeader.tsx:115-119; components/profile/FollowButton.tsx:28-74"
+        status: passing
+        web_note: "Kit FollowButton look=\"profile\" (accent + user-plus / neutral + check), aria-busy + disabled while pending. e2e tests/e2e/pescar.spec.ts «c10–c12»."
       - id: account.angler-profile.c11
         text: "Follow posts /feed/anglers/{id}/follow, unfollow posts /feed/anglers/{id}/unfollow."
         fish_ref: "services/api/anglers.ts:92-99; services/mutations/useFollowAngler.ts:78-79"
+        status: passing
+        web_note: "Real follow then unfollow against the LOCAL CMS (the QA user → qa_angler2_e2e), undone in-test and re-checked in afterEach. e2e tests/e2e/pescar.spec.ts «c10–c12»."
       - id: account.angler-profile.c12
         text: "Follow is optimistic: isFollowedByMe flips and the followers count moves by ±1 (never below 0) immediately; the same angler's row flips in every loaded connections, search and suggestion list; everything is rolled back on error."
         fish_ref: "services/mutations/useFollowAngler.ts:7-16,81-133"
+        status: passing
+        web_note: "Optimistic flag + count ±1 and rollback in e2e (route-held POST; a mocked 500). The cross-list row flip is core followAnglerMutation, unit-tested (core/social/mutations.test.ts)."
       - id: account.angler-profile.c13
         text: "After follow/unfollow the angler's profile and followers list, the viewer's own profile (exact key) and own following list are refetched, and the Home suggestion pool is marked stale without refetching."
         fish_ref: "services/mutations/useFollowAngler.ts:135-151"
+        status: passing
+        web_note: "core followAnglerMutation invalidations, unit-tested (core/social/mutations.test.ts «patches every angler cache optimistically, then invalidates the right keys»). The viewer's own profile + following are invalidated from the shell session's documentId in components/account/angler/useFollowAngler.ts — core only knows it when GET /user/profile is cached, which no /pescari page loads (fish's tabs layout always does). e2e tests/e2e/pescar.spec.ts «c13: own profile → follow → back shows the new following count»."
       - id: account.angler-profile.c14
         text: "The bio, when present, is shown centred under the header with #hashtags (letters, digits, underscore) in the accent colour; no bio, no block."
         fish_ref: "components/profile/BioText.tsx:4-23; components/profile/ProfileHeader.tsx:121"
+        status: passing
+        web_note: "BioText, hashtags in accent-ink. e2e tests/e2e/pescar.spec.ts «c4 c6 c8 c9 c14»."
       - id: account.angler-profile.c15
         text: "Three tabs „Capturi | Sesiuni | Concursuri”, Capturi selected by default; the selected tab is underlined in the accent colour."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:52-84,90"
+        status: passing
+        web_note: "T1 ListTabs (role=tablist, underline in accent, arrow keys), ?tab= in the URL (Capturi bare). e2e tests/e2e/pescar.spec.ts."
       - id: account.angler-profile.c16
         text: "Only the selected tab's data is requested; switching tabs loads the other list lazily."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:105-110"
+        status: passing
+        web_note: "Only the selected tab's query is enabled; the server prefetches only the ?tab= one. e2e tests/e2e/pescar.spec.ts (request log)."
       - id: account.angler-profile.c17
         text: "Capturi is a three-column square photo grid with a 2px gap using photoGridUrl (fallback photoUrl) and the blurhash placeholder when present."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:32-33,112,196-222"
+        status: passing
+        web_note: "3 columns 2px gap on phone, auto-fill from 768; photoGridUrl → photoUrl; blurhash background. e2e tests/e2e/pescar.spec.ts «c17–c20…» (computed grid)."
       - id: account.angler-profile.c18
         text: "Catches load from GET /feed/anglers/{id}/catches with cursor pagination (pageSize 20, nextCursor null ends the list)."
         fish_ref: "services/queries/useAnglerHistory.ts:25-45; services/api/anglers.ts:48-56"
+        status: passing
+        web_note: "core anglerCatchesInfiniteQuery (cursor, pageSize 20). e2e tests/e2e/pescar.spec.ts."
       - id: account.angler-profile.c19
         text: "Activating a catch opens a lightbox at that catch; the footer shows „{kg} · {species}” (whichever exist), the venue, the competition name for competition catches, and the date as „d MMM yyyy” with Romanian month abbreviations."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:204,342-347; components/profile/CatchDetailFooter.tsx:7-40"
+        status: passing
+        web_note: "Kit Lightbox at the tile, footer «{kg} · {species}», venue, competition, «5 SEP 2025». e2e tests/e2e/pescar.spec.ts."
       - id: account.angler-profile.c20
         text: "Paging to the end of the lightbox loads the next page of catches."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:347"
+        status: passing
+        web_note: "Lightbox onEndReached → next cursor. e2e tests/e2e/pescar.spec.ts (ArrowRight to the last loaded catch)."
       - id: account.angler-profile.c21
         text: "The lightbox has a share action that opens the catch share card (photo with kg, venue, species, and competition name for competition catches)."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:348-370"
+        status: todo
+        web_note: "DEFERRED to M4: the share card is partide's ShareCatchSheet (ported with Partide). No share action until then (owner rule 4); e2e tests/e2e/pescar.spec.ts asserts its absence."
       - id: account.angler-profile.c22
         text: "Sesiuni lists public sessions from GET /feed/anglers/{id}/sessions (pageSize 10) grouped under month headers „{Luna} {an}” (full Romanian month), keeping server order."
         fish_ref: "helpers/groupSessionsByMonth.ts:8-22; components/profile/AnglerProfileScreen.tsx:133-139,224-239; services/queries/useAnglerHistory.ts:12-23"
+        status: passing
+        web_note: "pageSize 10, month headers «{LUNĂ} {an}» (core social groupPublicSessionsByMonth, unit-tested), server order. e2e tests/e2e/pescar.spec.ts (real 285-session angler + mock)."
       - id: account.angler-profile.c23
         text: "A session card shows the venue as title (fallback „Partidă”) with locality · stand subtitle, stats „{n} captură/capturi”, „{total} kg total” („—” when unknown), duration labelled „durată” (or „de pescuit” when live), a photo strip with the total photo count; the angler's name is not repeated."
         fish_ref: "components/profile/SessionHistoryCard.tsx:16-71"
+        status: passing
+        web_note: "Venue fallback «Partidă», locality · stand, formatCount («20» over «de capturi», core figureLabel), «—» kg, durată / de pescuit, photo strip + count. A live card's «de pescuit» is «—» in the server HTML and until hydration (the CMS sends durationMs 0 for a live session; no clock on the server), never «0 min» — unit tests/unit/session-history-card-ssr.test.ts (request.get cannot reach a mocked tab: the server reads it from the CMS). e2e tests/e2e/pescar.spec.ts."
       - id: account.angler-profile.c24
         text: "A live session card has a „Live” ribbon and glow, a footer „Începută acum {span}” that keeps ticking, and the link „Vezi partida”; a finished one shows its date range (omitted when endedAt is missing) and „Vezi rezumatul”."
         fish_ref: "components/profile/SessionHistoryCard.tsx:31-50,52-79"
+        status: todo
+        web_note: "PARTIAL: Live ribbon + glow, ticking «Începută acum {span}» (clock-forwarded in e2e), finished range omitted without endedAt — passing. A range past midnight names the end day too («17 FEB 14:32 – 18 FEB 12:54», core fmtSessionRange, unit-tested; fish's «17 FEB · 14:32 – 12:54» read backwards). «Vezi partida» / «Vezi rezumatul» wait on the partidă page (M4, partidaHref null): no CTA text that promises a link until then."
       - id: account.angler-profile.c25
         text: "Activating a session card opens the community partidă detail (fish /partide/comunitate/{documentId})."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:171-175,240-244"
+        status: todo
+        web_note: "DEFERRED to M4 (/partide/[id], lib/routes ON_WEB.partida): the card is not a link until then; flips with partidaHref."
       - id: account.angler-profile.c26
         text: "Concursuri shows two chip rows: „Toate | Pe podium | Individual | Echipe” and „Oricând | {anul curent} | {anul trecut}”; the rows are independent and selecting one keeps the other."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:38-50,275-280; components/profile/FilterChips.tsx:8-40"
+        status: passing
+        web_note: "Two independent radiogroups. Hidden when the angler has no competitions at all (header counts.competitions 0, or the unfiltered list answered empty) — filters that cannot help are not offered (rule 4). e2e tests/e2e/pescar.spec.ts «c26 c27 c29 c30» + keyboard + «c30: the three empty copies» (no chips)."
       - id: account.angler-profile.c27
         text: "Competitions load from GET /feed/anglers/{id}/competitions (pageSize 20) with filter (podium|individual|team) and year; the previous results stay visible while a new filter loads."
         fish_ref: "services/queries/useAnglerHistory.ts:47-65; components/profile/AnglerProfileScreen.tsx:103-110"
+        status: passing
+        web_note: "filter/year params, keepPreviousData (dimmed, data-placeholder). e2e tests/e2e/pescar.spec.ts."
       - id: account.angler-profile.c28
         text: "A competition card shows the image (lake placeholder when none), a „Locul N” badge (gold for 1, grey for 2–3, accent otherwise; absent when placement is null), the date range (e.g. „5–7 SEP 2025”, „30 SEP – 2 OCT 2025”), the name on up to two lines, the lake with a pin, and a type tag „Echipe” or „Individual”."
         fish_ref: "components/profile/CompetitionHistoryCard.tsx:9-88; helpers/fmtCompetitionRange.ts:3-31"
+        status: passing
+        web_note: "Placement tones gold/grey/accent/absent, fmtCompetitionRange (unit-tested), lake placeholder, type tag. e2e tests/e2e/pescar.spec.ts «c26–c28 c31»."
       - id: account.angler-profile.c29
         text: "Activating a competition card opens /concursuri/{id}."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:246-255"
+        status: passing
+        web_note: "The title is the stretched link to /concursuri/{id}. e2e tests/e2e/pescar.spec.ts."
       - id: account.angler-profile.c30
         text: "Empty tabs read „Nicio captură încă”, „Nicio partidă publică încă” and „Niciun concurs încă”."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:296-307"
+        status: passing
+        web_note: "e2e tests/e2e/pescar.spec.ts «c30: the three empty copies». Web addition (rule 4): a filter that empties Concursuri reads «Niciun concurs pentru filtrele alese» with «Vezi toate concursurile» (resets both rows), never «Niciun concurs încă» — the angler may have others. Signed out the three copies become «Intră în cont ca să vezi profilul» (an empty public list cannot tell an empty profile from an unknown id, rule 4). The Capturi grid lists only catches with a photo: when the header counts more, a caption says «Doar capturile cu fotografie: N din M» (Capturi never badged with counts.catches). e2e «c26 c27 c29 c30», «c26–c28 c31», «c17: the grid lists only catches with a photo»."
       - id: account.angler-profile.c31
         text: "While a tab loads its skeleton shows: four rows of three squares (Capturi), a month header bar plus three cards (Sesiuni), three cards (Concursuri)."
         fish_ref: "components/profile/ProfileSkeleton.tsx:43-93; components/profile/AnglerProfileScreen.tsx:297-298"
+        status: passing
+        web_note: "Per-tab skeletons. e2e tests/e2e/pescar.spec.ts (held responses)."
       - id: account.angler-profile.c32
         text: "Scrolling near the end of the selected tab loads its next page and shows a spinner while it loads."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:283-295"
+        status: passing
+        web_note: "ListFooter: IntersectionObserver near the end + «Încarcă mai multe» button for the keyboard, spinner label while loading. e2e tests/e2e/pescar.spec.ts «c22 c32»."
       - id: account.angler-profile.c33
         text: "Refreshing refetches the profile header and the selected tab together."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:154-163,285-292"
+        status: passing
+        web_note: "T5 DashboardRefresh refetches header + selected tab. e2e tests/e2e/pescar.spec.ts «c33»."
       - id: account.angler-profile.c34
         text: "Items repeated across pages are shown once (first occurrence kept): catches by key, sessions by documentId, competitions by competition documentId."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:114-148; helpers/dedupeByKey.ts:1-15"
+        status: passing
+        web_note: "dedupeByKey (unit-tested), first occurrence kept. e2e tests/e2e/pescar.spec.ts (repeat across catch pages)."
       - id: account.angler-profile.c35
         text: "Another angler's profile has a back control at top left; with no history it goes to home."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:324-326; components/BackButton.tsx:39-50"
+        status: passing
+        web_note: "DetailBackButton (router.back, home when there is no history), the same chip as the refresh beside it below 1280 (soft fill on the white band). From 1280 there is no back/refresh row (rule 1): the breadcrumb is the way back and refresh is a compact icon chip at the end of the tab card. A guest's sign-in REPLACES the profile in history (useFollowAngler), so after signing in back leaves the profile in one press. e2e tests/e2e/pescar.spec.ts asserts the control and «c35: guest → sign in → back leaves the profile»; the no-history fallback is the shared T3 control."
       - id: account.angler-profile.c36
         text: "The reputation panel (ReputationBlock) is titled „Reputație”, shows a spinner while loading, then the average with a star and „{n} evaluare/evaluări” or „Fără evaluări”, plus „{n} neprezentare/neprezentări” in red only when the no-show count is above zero, then the reviews; data from GET /feed/users/{id}/reputation."
         fish_ref: "features/reputation/ReputationBlock.tsx:22-78; services/api/reviews.ts:28-31"
+        status: passing
+        web_note: "ReputationBlock (shared, settings imports it). Counts use formatCount (core ratingCountLabel «25 de evaluări», noShowLabel «20» over «de neprezentări»), unlike fish's two-form plurals. e2e tests/e2e/pescar.spec.ts «c5 c36 c37», «c36: counts from 20 take «de»»."
       - id: account.angler-profile.c37
         text: "Each review shows star rating and value with one decimal (legacy reviews with three sub-scores use their exact mean), „acum {durată}” in Romanian, „{autor} · {baltă}”, tag chips (unknown tag keys dropped) and the comment when present."
         fish_ref: "features/reputation/ReputationBlock.tsx:80-134"
+        status: passing
+        web_note: "Legacy 3-score mean, unknown tag dropped, «autor · baltă». e2e tests/e2e/pescar.spec.ts «c5 c36 c37»."
       - id: account.angler-profile.c38
         text: "Visiting your own documentId here shows your profile without a follow button (isSelf) but with the back control, not the settings control."
         fish_ref: "components/profile/ProfileHeader.tsx:115; components/profile/AnglerProfileScreen.tsx:326-339; app/(app)/anglers/[documentId]/index.tsx:13"
+        status: passing
+        web_note: "e2e tests/e2e/pescar.spec.ts «c38»."
     mobile_only: false
-    status: todo
+    status: proposed
+    web_note: "M2-B1 built (app/(site)/pescari/[id], components/account/angler/*). Open: c7 (connections page, later M2 batch), c21/c24 CTA/c25 (M4 partidă + share card). Critic panel + visual baselines pending (ROADMAP §6, §9)."
 
   - id: account.connections
     title: Conexiuni
@@ -960,9 +1079,12 @@ behaviours:
   - id: account.b.signed-out-gate
     text: "Angler profile, connections, suggested anglers, notifications, settings, notification settings/preferences and edit profile require a session; signed-out visitors are sent to /intra?next=<current path> (fish: Redirect to /sign-in or a skipped query that renders nothing)."
     fish_ref: "app/(app)/anglers/[documentId]/index.tsx:11; app/(app)/anglers/[documentId]/connections.tsx:21; app/(app)/anglers/suggested.tsx:45; app/(app)/(tabs)/profile.tsx:15; services/queries/useNotificationsForLoggedUser.ts:11-13; services/queries/useProfile.ts:15-22"
+    web_note: "Mechanism (M2-B1): lib/server/require-viewer.ts requireViewer(next) awaited inside the page's Suspense boundary, on the shell's three-state session read (getViewerState): redirect only on a definite signed-out (no cookie, or the CMS 401s); an unknown session (CMS down, slow, contract break) throws SessionUnknownError to the route's error.tsx (the screen frame + T4Gate danger «Serverul nu răspunde» + «Încearcă din nou», model app/(site)/setari/profil/error.tsx) — a signed-in user is never sent to /intra by a CMS blip (unit lib/server/require-viewer.test.ts, incl. the CMS-down case), plus proxy.ts answering a request with no session cookie with a real 307 to /intra?next=<path+query> before rendering. e2e tests/e2e/setari-profil.spec.ts «account.b.signed-out-gate» (307 without a cookie; a dead cookie also lands on /intra). Each later page adds its matcher + requireViewer and its own e2e."
   - id: account.b.guest-follow
     text: "The follow button is visible to guests wherever it appears; pressing it while signed out opens sign-in instead of following, and onPressed analytics never fire for that tap."
     fish_ref: "components/profile/FollowButton.tsx:23-56"
+    status: passing
+    web_note: "Guest press → router.replace(routes.signIn(current path + query)) — replace so that after sign-in the page is in history once — no POST, no onPressed. On the guest profile the follow button is the hint's only CTA. e2e tests/e2e/pescar.spec.ts «account.b.guest-follow», «c35: guest → sign in → back leaves the profile»."
   - id: account.b.sign-in-redirect
     text: "Sign-in returns to the page that asked for it only through a safe relative redirect (fish redirectTo, used by polls; web next, which also refuses /intra). Without one it returns to the previous page, else home. Incomplete profiles always go to complete profile first."
     fish_ref: "features/onboarding/useWelcomeSignIn.ts:61-69; app/(app)/polls/current.tsx:103; components/PollCard.tsx:38"
@@ -978,6 +1100,7 @@ behaviours:
   - id: account.b.profile-cache
     text: "The own profile (GET /user/profile) is cached for 24h (staleTime and gcTime) and refetched after profile update, delete, organizer request and notification toggle; signed out it is disabled, not just skipped."
     fish_ref: "services/queries/useProfile.ts:8-27; services/mutations/useUpdateProfile.ts:12-13; services/mutations/useRequestOrganizerRole.ts:17-19; services/mutations/useToggleNotifications.ts:32-34; services/mutations/useDeleteProfile.ts:14-16"
+    web_note: "core social.profileQuery: staleTime + gcTime 24h, enabled only signed in; updateProfileMutation invalidates it (unit core/social/mutations.test.ts). e2e tests/e2e/setari-profil.spec.ts «account.b.profile-cache» (one GET per visit, none on focus). Delete / organizer request / notification toggle invalidations land with their screens (B4)."
   - id: account.b.unread-badge
     text: "The notifications entry (fish: bell on Home; web: top bar) shows an unread dot when GET /notification-users/unread returns count > 0 (signed in only; staleTime Infinity); it is recounted whenever a notification query is invalidated (mark read, mark all read, incoming push)."
     fish_ref: "app/(app)/(tabs)/index.tsx:180-184,392-404; services/queries/notifications.ts:6-15; services/api/notifications.ts:21-30"
@@ -1003,5 +1126,7 @@ behaviours:
     text: "The top bar's avatar opens /profil when signed in (avatar thumb, Bluvi logo fallback); signed out it offers „Intră” (fish: profile tab hidden, Home card „Conectează-te” → sign-in)."
     fish_ref: "app/(app)/(tabs)/_layout.tsx:96-126; app/(app)/(tabs)/index.tsx:270-276,343-345,420-445"
   - id: account.b.deep-link-angler
-    text: "/anglers/{documentId} links (NEW_FOLLOWER) must resolve on web to /pescari/{documentId}; an unknown documentId must render a not-found state, not a blank page."
+    text: "fish's /anglers/* links must resolve on web: /anglers/{documentId} (NEW_FOLLOWER) → /pescari/{documentId}; /anglers/suggested → /pescari/sugerati (never an angler with id «suggested»); /anglers/{documentId}/connections?tab=followers|following → /pescari/{documentId}/conexiuni?tab=urmaritori|urmareste. An unknown documentId must render a not-found state, not a blank page."
     fish_ref: "helpers/getRedirectLocationForNotification.ts:101-103"
+    status: passing
+    web_note: "next.config.ts redirects (308, the specific rules before the generic one): /anglers/suggested → /pescari/sugerati, /anglers/:id/connections (tab followers → urmaritori, following → urmareste, else bare) → /pescari/:id/conexiuni, /anglers/:id → /pescari/:id (the targets of the first two are later M2 batches). Unknown id signed in → ANGLER:NOT_FOUND → not-found card; signed out the public lists answer an empty 200 for any id, so a guest sees the guest state with «Intră în cont ca să vezi profilul» in the list (never blank, never a fake «Nicio captură încă») until the public header DTO lands (docs/private/cms-patches/M2-angler-public-profile.md: it would 404). e2e tests/e2e/pescar.spec.ts «deep links»."

@@ -812,7 +812,7 @@ test('lakes.map.s2 — no stands: the lake\'s pin only, no cards', async ({ page
 /* Recenzii — lakes.reviews                                                                        */
 /* ============================================================================================== */
 
-test('lakes.reviews.c1 lakes.reviews.c2 lakes.reviews.c4 lakes.reviews.s4 lakes.reviews.s7 lakes.reviews.s8 — the scores, the count, the explainer, the cards; signed out: the sign-in bar (blocked: the author opens no profile until M2)', async ({ page }) => {
+test('lakes.reviews.c1 lakes.reviews.c2 lakes.reviews.c4 lakes.reviews.s4 lakes.reviews.s7 lakes.reviews.s8 — the scores, the count, the explainer, the cards; signed out: the sign-in bar; lakes.reviews.c5 the author opens /pescari/[id]', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   const meta = lakes.get(ID.chita)!.reviewsMeta!;
   await go(page, `/balti/${ID.chita}/recenzii`);
@@ -844,8 +844,9 @@ test('lakes.reviews.c1 lakes.reviews.c2 lakes.reviews.c4 lakes.reviews.s4 lakes.
   await expect(card.getByText(/^acum /)).toBeVisible();
   if (r.verified) await expect(card).toContainText('Verificat');
   if (r.comment) await expect(card).toContainText(r.comment.slice(0, 20));
-  // Blocked (M2): the author's profile is not a link yet (never a dead one).
-  await expect(card.getByRole('link')).toHaveCount(0);
+  // c5: the author opens their profile /pescari/[id] (shipped in M2-B1; public for guests too).
+  if (r.author?.documentId) await expect(card.getByRole('link')).toHaveAttribute('href', `/pescari/${r.author.documentId}`);
+  else await expect(card.getByRole('link')).toHaveCount(0);
   // c9 signed out: the outlined sign-in bar → /intra, back to this list afterwards.
   const signIn = page.getByTestId('review-sign-in').locator('visible=true');
   await expect(signIn).toHaveText('Autentifică-te pentru a putea adăuga o recenzie');

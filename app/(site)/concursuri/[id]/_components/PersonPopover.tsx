@@ -37,9 +37,9 @@ import { photo, useBrokenImages } from './brokenImages';
  * profile is not public). A team lists each member with their own face, stats and profile link. A
  * registration typed in by the organizer has no account: no stats, no profile.
  *
- * The profile links are gated on anglerHref (lib/routes ON_WEB.angler): /pescari/[id] is M2 and
- * does not exist yet, so until it ships the popover has no «Vezi profilul» / «Profil» (never a link
- * to a 404). Rule 17 asks for the link: it appears the moment ON_WEB.angler turns true.
+ * The profile links are gated on anglerHref (lib/routes ON_WEB.angler): /pescari/[id] shipped in
+ * M2-B1 (account.angler-profile), so «Vezi profilul» / «Profil» are links (rule 17). The gate stays:
+ * a page switched off again turns them back into plain text, never a link to a 404.
  *
  * Keyboard: focus moves into the popover when it opens and is trapped there (Tab / Shift+Tab cycle),
  * Escape or «Închide» closes it and focus returns to the row that opened it; a press outside

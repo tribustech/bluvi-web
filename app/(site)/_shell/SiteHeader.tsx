@@ -62,6 +62,8 @@ const OWN_BAND_ROUTES: readonly RegExp[] = [
   // BreadcrumbList stays in the page's JSON-LD.
   /^\/balti\/harta\/?$/,
   /^\/dev\/templates\/t2\/?$/,
+  // «Editează profilul» (T6, account.edit-profile): its header's back control owns the way back.
+  /^\/setari\/profil\/?$/,
 ];
 
 export function ownsBreadcrumbBand(pathname: string): boolean {

@@ -708,8 +708,8 @@ screens:
       - id: lakes.detail.c29
         text: "„Administrator” card when the lake has an operator: initial avatar, trimmed name, „Administrează această baltă în Bluvi”; with ownerDocumentId it links to /pescari/[id] for signed-in users and to /intra for guests (label „{nume} — vezi profilul”); without ownerDocumentId it is not interactive."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:386"
-        status: todo
-        web_note: "BLOCKED on M2: /pescari/[id] is not on the web, so the operator card is never a link (ON_WEB.angler); the static card, name and copy pass (tests/e2e/balta.spec.ts)."
+        status: passing
+        web_note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): the operator card links to /pescari/[ownerDocumentId] (a guest through /intra?next=); an operator without a profile id stays the static card. e2e tests/e2e/balta.spec.ts «lakes.detail.c29 … the operator card opens their profile»."
       - id: lakes.detail.c30
         text: "Without an operator: „Această baltă nu are încă un administrator în Bluvi.” and the link „Ești administratorul acestei bălți?” opening lakes.claim."
         fish_ref: "app/(app)/lakes/[lakeId].tsx:595"
@@ -1096,7 +1096,7 @@ screens:
         text: "„Top pescari” with „Clasament ›” → /balti/[id]/clasament?perioada=…; top 3 rows each open /pescari/[uid]."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:182"
         status: todo
-        web_note: "BLOCKED on M2: «Top pescari» and «Clasament ›» pass; the top-3 rows open no profile until /pescari/[id] ships (ON_WEB.angler)."
+        web_note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): «Top pescari» and «Clasament ›» pass; the top-3 rows now link to /pescari/[uid] (StatsScreen lakeHref angler) — an e2e assertion of that link is still to add in tests/e2e/balta-subpagini-3.spec.ts."
       - id: lakes.stats.c9
         text: "Record card for the period; opens the partidă when it has a session id."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:193"
@@ -1154,8 +1154,8 @@ screens:
       - id: lakes.anglers-ranking.c3
         text: "Podium: 2nd left, 1st center (larger), 3rd right; avatar or initials, first name, total kg, numbered step; each opens /pescari/[uid]."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:76"
-        status: todo
-        web_note: "BLOCKED on M2: the podium layout, avatars/initials, names, kg and steps pass (the steps in the fish medal colours, kit MEDAL — the same podium as a public water's); each place opens /pescari/[uid] once that page ships (ON_WEB.angler)."
+        status: passing
+        web_note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): each podium place and row opens /pescari/[uid]. e2e tests/e2e/balta-subpagini.spec.ts «lakes.anglers-ranking (c3 …)» (no longer skipped)."
       - id: lakes.anglers-ranking.c4
         text: "Segments „Pescari” and „Specii” only — „Bălți” is hidden for a lake-scoped ranking."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:238"
@@ -1384,8 +1384,8 @@ screens:
       - id: lakes.reviews.c5
         text: "Activating another author's name/avatar opens /pescari/[id]."
         fish_ref: "features/reviews/components/ReviewCard.tsx:79"
-        status: todo
-        web_note: "BLOCKED on M2: another author's name/avatar is plain text until /pescari/[id] ships (ON_WEB.angler)."
+        status: passing
+        web_note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): another author's name/avatar links to /pescari/[id] (public for guests too). e2e tests/e2e/balta-subpagini-3.spec.ts «lakes.reviews.c1 … lakes.reviews.c5» + tests/e2e/balta.spec.ts (latest review)."
       - id: lakes.reviews.c6
         text: "The viewer's own review shows „Editează” (→ /balti/[id]/recenzie?editare=1) and „Șterge” (red)."
         fish_ref: "features/reviews/components/ReviewCard.tsx:144"

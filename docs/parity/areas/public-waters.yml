@@ -593,7 +593,7 @@ screens:
         text: "A top-angler row opens /pescari/[uid]; the record hero opens its partidă (spectator route) when it carries a sessionDocumentId."
         fish_ref: features/partide/screens/VenueStatsScreen.tsx:87-91
         status: todo
-        note: "BLOCKED: a top-angler row needs /pescari/[uid] (M2, ON_WEB.angler false) and the record hero its partidă (M4, ON_WEB.partida false); both are plain blocks until then."
+        note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): the top-angler rows now link to /pescari/[uid] (venue bits ON_WEB.angler); the record hero still waits on its partidă (M4, ON_WEB.partida false). Link assertion still to add in tests/e2e/ape-publice-subpages.spec.ts."
       - id: public-waters.statistici.c11
         text: "The „Top standuri” card is never shown for a public water (lake venues only)."
         fish_ref: features/partide/screens/VenueStatsScreen.tsx:201
@@ -658,7 +658,7 @@ screens:
         text: "Podium for the top 3 laid out 2 – 1 – 3 (1st larger), each with avatar or initials on a per-uid colour, first name, „N kg” and a gold/silver/bronze step with the rank; tapping opens /pescari/[uid]."
         fish_ref: features/partide/screens/AnglersLeaderboardScreen.tsx:23-88
         status: todo
-        note: "Podium layout, avatars/initials, names, kg and steps pass (e2e); the tap to /pescari/[uid] is BLOCKED on M2 (ON_WEB.angler false). web deviation (2026-10-07): an angler with nothing weighed shows „N capturi” (muted) instead of „— kg”, and anglers tied on kg (the CMS then orders by uid) are ordered by catches, then partide (bits rankAnglers) — on the podium, the rows, the EU pill and Statistici's Top pescari. CMS tie-break proposed in docs/private/cms-patches/M1-community-ranking-ties.md. Review (b) 2026-10-07: a podium place with nothing weighed and no catch shows the partide that placed it („3 partide”), never „0 capturi” on a medal (owner to confirm vs leaving such anglers off the podium); unweighed rows (here and Statistici's Top pescari) say „N partide” only, the catches being the right-hand figure; from 1280 the left column is titled „Opțiuni” (Statistici too), Partide's „Pe această apă”."
+        note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): podium layout, avatars/initials, names, kg and steps pass (e2e); each place now links to /pescari/[uid] — the link assertion is still to add in tests/e2e/ape-publice-subpages.spec.ts."
       - id: public-waters.clasament.c6
         text: "Segment toggle has only „Pescari” and „Specii” for a water (the „Bălți” segment is hidden when scoped to a venue)."
         fish_ref: features/partide/screens/AnglersLeaderboardScreen.tsx:238

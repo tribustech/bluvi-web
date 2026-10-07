@@ -1,4 +1,5 @@
 import type { AnglerReview } from '../schemas';
+import { formatCount } from '../../realtime/chat/format';
 import { reviewTagLabel } from './reviewTags';
 
 /**
@@ -24,12 +25,20 @@ export function anglerReviewSubtitle(review: Pick<AnglerReview, 'authorName' | '
   return [review.authorName, review.lakeName].filter(Boolean).join(' · ');
 }
 
-/** "1 evaluare" / "N evaluări". */
+/** "1 evaluare" / "3 evaluări" / "25 de evaluări" (formatCount: the «de» from 20). */
 export function ratingCountLabel(count: number): string {
-  return `${count} ${count === 1 ? 'evaluare' : 'evaluări'}`;
+  return formatCount(count, 'evaluare', 'evaluări');
 }
 
-/** "neprezentare" / "neprezentări" (the number is rendered separately). */
+/**
+ * The words under a figure drawn on its own line («20» over «de neprezentări»): formatCount's
+ * phrase without the number, so the «de» from 20 stays (owner rule: correct plurals, formatCount).
+ */
+export function figureLabel(count: number, singular: string, plural: string): string {
+  return formatCount(count, singular, plural).slice(String(count).length + 1);
+}
+
+/** "neprezentare" / "neprezentări" / "de neprezentări" (the number is rendered separately). */
 export function noShowLabel(count: number): string {
-  return count === 1 ? 'neprezentare' : 'neprezentări';
+  return figureLabel(count, 'neprezentare', 'neprezentări');
 }

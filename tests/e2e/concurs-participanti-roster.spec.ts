@@ -1,5 +1,4 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { ON_WEB } from '@/lib/routes';
 import { echoes } from '@/app/(site)/concursuri/[id]/_components/names';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { collectConsoleErrors } from './helpers/console';
@@ -69,19 +68,16 @@ async function openPerson(entry: Locator, dialog: Locator) {
 }
 
 /**
- * Rule 17 is PARTIALLY MET: «Vezi profilul» → /pescari/[id] is not built — that page is M2
- * (lib/routes ON_WEB.angler false) and the interim CTA is the owner's call (parity
- * competition-page.participanti.c11). Today's state is asserted as what it is (no profile link,
- * never a link to a 404) and flagged on the report; the rule's own check is the test.fixme below,
- * which fails until the CTA ships — never a conditional pass.
+ * Rule 17's profile CTA: /pescari/[id] shipped in M2-B1 (lib/routes ON_WEB.angler), so every
+ * popover of a person with an account carries «Vezi profilul» → their profile (signed out: through
+ * sign-in, /intra?next=/pescari/[id]).
  */
-async function expectNoProfileLinkYet(link: Locator) {
-  test.info().annotations.push({ type: 'partial', description: 'owner rule 17: «Vezi profilul» missing — /pescari/[id] is M2, interim CTA pending owner decision' });
-  await expect(link).toHaveCount(0);
+async function expectProfileLink(link: Locator) {
+  await expect(link).toHaveCount(1);
+  expect(decodeURIComponent((await link.getAttribute('href')) ?? '')).toMatch(/^(\/intra\?next=)?\/pescari\/[^/?]+$/);
 }
 
 test('owner rule 17 · «Vezi profilul» → /pescari/[id] in every popover (solo, team members, Cântare)', async ({ page, context }) => {
-  test.fixme(!ON_WEB.angler, 'NOT MET: /pescari/[id] is M2; interim CTA pending owner decision (parity competition-page.participanti.c11)');
   await signIn(context, jwt);
   await open(page, participants(ID.guests), DESKTOP);
   const user = regs.get(ID.guests)!.find(r => r.participants.length > 0)!;
@@ -149,7 +145,7 @@ test('owner rule 17 · the popover: anchored to the entry, stats + «Vezi profil
   expect(Math.abs(d!.y - (a!.y + a!.height)) < 16 || Math.abs(d!.y + d!.height - a!.y) < 16).toBeTruthy();
   expect(d!.x < a!.x + a!.width && d!.x + d!.width > a!.x).toBeTruthy();
   for (const label of ['Capturi', 'CMMC', 'Concursuri']) await expect(dialog.getByText(label, { exact: true })).toBeVisible();
-  await expectNoProfileLinkYet(dialog.getByRole('link', { name: 'Vezi profilul' }));
+  await expectProfileLink(dialog.getByRole('link', { name: 'Vezi profilul' }));
   // Focus goes into it.
   expect(await dialog.evaluate(el => el.contains(document.activeElement))).toBeTruthy();
   // Tab cycles inside: «Închide» (and «Vezi profilul»), never out.
@@ -176,7 +172,7 @@ test('owner rule 17 · signed out — the popover has no stats, a sign-in hint, 
   await openPerson(roster(page).getByRole('button', { name: new RegExp(`^${name}`) }), dialog);
   await expect(dialog.getByText('Capturi', { exact: true })).toHaveCount(0);
   await expect(dialog.getByRole('link', { name: 'Intră în cont' })).toBeVisible();
-  await expectNoProfileLinkYet(dialog.getByRole('link', { name: 'Vezi profilul' }));
+  await expectProfileLink(dialog.getByRole('link', { name: 'Vezi profilul' }));
   await page.keyboard.press('Escape');
   const guest = regs.get(ID.guests)!.find(r => r.participants.length === 0)!;
   const g = page.getByRole('dialog', { name: guest.guestName! });
@@ -193,7 +189,7 @@ test('owner rule 17 · a team — each member with their own face, stats and pro
   await openPerson(roster(page).getByRole('button', { name: new RegExp(`^${team.teamName}`) }), dialog);
   const members = dialog.getByRole('list', { name: 'Membrii echipei' }).getByRole('listitem');
   await expect(members).toHaveCount(team.participants.length);
-  for (const p of team.participants) await expectNoProfileLinkYet(dialog.getByRole('link', { name: `Profilul lui ${p.username}` }));
+  for (const p of team.participants) await expectProfileLink(dialog.getByRole('link', { name: `Profilul lui ${p.username}` }));
   await expect(dialog.getByText('Concursuri', { exact: true })).toHaveCount(team.participants.length);
   await expectNoA11yViolations(page);
 });
@@ -215,7 +211,7 @@ test('owner rule 17 · Cântare: the weighing detail’s angler opens the popove
   await expect(page.getByText('Detaliu cântar')).toBeVisible();
   const who = page.locator('aside button[aria-haspopup="dialog"]').filter({ has: page.locator('.underline') });
   await openPerson(who, popover(page));
-  await expectNoProfileLinkYet(popover(page).getByRole('link', { name: 'Vezi profilul' }));
+  await expectProfileLink(popover(page).getByRole('link', { name: 'Vezi profilul' }));
   // Beside the docked panel (to its left), never over its own title or stand label.
   const panel = page.locator('aside').filter({ hasText: 'Detaliu cântar' });
   const [p, title, stand] = [await popover(page).boundingBox(), await panel.getByText('Detaliu cântar').boundingBox(), await panel.locator('p.t-title2').boundingBox()];
@@ -269,7 +265,7 @@ for (const vp of [LAPTOP, WIDE]) {
     await openPerson(list.getByRole('button', { name: new RegExp(`^${name}`) }), dialog);
     await expect(dialog.getByText(/^Sector [A-X] · Stand /)).toBeVisible();
     await expect(dialog.getByText('Capturi', { exact: true })).toBeVisible();
-    await expectNoProfileLinkYet(dialog.getByRole('link', { name: 'Vezi profilul' }));
+    await expectProfileLink(dialog.getByRole('link', { name: 'Vezi profilul' }));
     // Once its fade-in has finished: axe would read the colours mid-fade.
     await dialog.evaluate(el => Promise.allSettled(el.getAnimations({ subtree: true }).map(a => a.finished)));
     await expectNoA11yViolations(page);

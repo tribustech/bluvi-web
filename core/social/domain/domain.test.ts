@@ -6,7 +6,7 @@ import {
   uploadImageTarget,
   UPLOAD_JPEG_QUALITY,
 } from './imageUpload';
-import { anglerReviewOverall, anglerReviewSubtitle, anglerReviewTagLabels, noShowLabel, ratingCountLabel } from './reputation';
+import { anglerReviewOverall, anglerReviewSubtitle, anglerReviewTagLabels, figureLabel, noShowLabel, ratingCountLabel } from './reputation';
 import { groupsForRating, keepValidTags, NEGATIVE_TAGS, POSITIVE_TAGS, REVIEW_TAG_LABELS, reviewTagLabel } from './reviewTags';
 import { dismissSuggestion, formatFollowers, pickTopStats, withoutDismissed } from './suggestedStats';
 
@@ -99,6 +99,10 @@ describe('reputation', () => {
     expect(ratingCountLabel(1)).toBe('1 evaluare');
     expect(ratingCountLabel(3)).toBe('3 evaluări');
     expect([noShowLabel(1), noShowLabel(2)]).toEqual(['neprezentare', 'neprezentări']);
+    expect(ratingCountLabel(25)).toBe('25 de evaluări');
+    expect(ratingCountLabel(101)).toBe('101 evaluări');
+    expect([noShowLabel(20), noShowLabel(119)]).toEqual(['de neprezentări', 'neprezentări']);
+    expect([figureLabel(1, 'captură', 'capturi'), figureLabel(20, 'captură', 'capturi')]).toEqual(['captură', 'de capturi']);
   });
 });
 

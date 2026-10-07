@@ -89,7 +89,7 @@ screens:
         text: "Pressing the followers pill opens the followers list: title „Urmăritori” and „{count} urmăresc”, one row per follower (avatar + username) that opens the angler profile (web /pescari/[id]); spinner while loading; „Nu există urmăritori” when empty."
         fish_ref: components/FollowersPill.tsx:21-61; components/FollowersListSheet.tsx:25-90
         status: todo
-        web_note: "Phone: bottom sheet; from 768 a dialog. The body is the kit FollowersList (components/cards, shared with the competition cards): followers without a photo get the solid indigo initials disc (Avatar tone solid). BLOCKED on M2: /pescari/[id] does not exist yet, so rows are plain (lib/routes.ts anglerHref) instead of linking to a 404; flips with ON_WEB.angler."
+        web_note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): follower rows now link to /pescari/[id] (kit FollowersList via anglerHref). Phone: bottom sheet; from 768 a dialog; followers without a photo get the solid indigo initials disc. The row-link e2e is still to add."
       - id: competition-page.shell.c7
         text: "The follow button reads „Urmărește” (eye icon) or „Urmăresc” (bell icon); it shows „Urmăresc” when competition.isFollowing is true OR the viewer is the competition author."
         fish_ref: components/competition/CompetitionHeader.tsx:38; components/FollowButton.tsx:35-65
@@ -975,7 +975,7 @@ screens:
         text: "Individual with an account: large avatar, name, subtitle „Sector X · Standul Y”, three stats Capturi / C.M.M.C (three decimals, kg) / Competiții separated by thin dividers, and „Vezi profilul” → angler profile (web /pescari/[id])."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:33-46,66-88,109-115,136-150,230-262
         status: todo
-        web_note: "Built and e2e-covered except «Vezi profilul»: the angler profile /pescari/[id] is M2 (lib/routes.ts ON_WEB.angler false), so the block has no profile link until that page ships (anglerHref flips it)."
+        web_note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): «Vezi profilul» now links to /pescari/[id] (AnglerStats anglerHref); the rest is e2e-covered — the link assertion is still to add in tests/e2e/concurs-statistici.spec.ts."
       - id: competition-page.statistici-pescar.c4
         text: "Individual guest: guest avatar, the name (or „Invitat”), and a dashed note „Invitat · statistici indisponibile” / „Pescarul nu are cont Bluvi.”."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:198-212,230-242
@@ -984,7 +984,7 @@ screens:
         text: "Team competition (always the team layout, even for one member): up to 4 stacked avatars, title = team name, else club name, else „Echipă”; one block per member with their stats and „Vezi profilul”, or „Invitat · statistici indisponibile” for a guest member."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:48-50,119-122,265-330
         status: todo
-        web_note: "Built and e2e-covered except «Vezi profilul»: the angler profile /pescari/[id] is M2 (lib/routes.ts ON_WEB.angler false), so the block has no profile link until that page ships (anglerHref flips it)."
+        web_note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): each member's «Vezi profilul» now links to /pescari/[id]; the rest is e2e-covered — the link assertion is still to add in tests/e2e/concurs-statistici.spec.ts."
       - id: competition-page.statistici-pescar.c6
         text: "Team without registered members: team header and the note „Statistici indisponibile” / „Participanții au fost adăugați fără cont Bluvi.”."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:214-228,269-276
@@ -1145,7 +1145,7 @@ screens:
         text: "Pressing the card header of a registration with exactly one real user opens that angler's profile (web /pescari/[id]; signed out → sign-in); any other card toggles its details; the chevron always toggles (label „Arată detaliile” / „Restrânge detaliile”)."
         fish_ref: components/competition/ParticipantCard.tsx:82-103,236-266
         status: todo
-        web_note: "BLOCKED on M2 (/pescari/[id], lib/routes.ts ON_WEB.angler false): every phone card header toggles for now; the profile link (signed out → /intra?next=) is wired and takes over when the flag flips. From 768 there is no disclosure (owner rules 14, 18): the designed roster (ParticipantsRoster) — one surface per sector (its colour stripe), entries of a row share its height, the headline stats inline, signed out one quiet sign-in hint above; from 1280 an entry is at most 384px, sectors side by side (owner rule 16); from 1024 an entry opens the person popover (owner rule 17, no profile CTA until M2). e2e concurs-tabs.spec.ts + concurs-participanti-roster.spec.ts."
+        web_note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): the phone card header of a one-user registration now opens /pescari/[id] (signed out → /intra?next=); the e2e for the header link is still to add in tests/e2e/concurs-tabs.spec.ts. From 768: the designed roster + the person popover (owner rules 14, 17, 18), e2e concurs-participanti-roster.spec.ts."
       - id: competition-page.participanti.c7
         text: "Expanded, signed out or unauthorized: „Trebuie sa fii autentificat pentru a vedea statisticile pescarilor.” + „Intră în cont”."
         fish_ref: components/competition/ParticipantCard.tsx:54,283-296
@@ -1168,8 +1168,8 @@ screens:
       - id: competition-page.participanti.c11
         text: "Owner rule 17 (ROADMAP §4b, 2026-10-06): from 1024 pressing a participant, a ranking row or a weighing's angler opens a popover anchored to it — avatar, name(s), club, sector and stand, key stats, and «Vezi profilul» → /pescari/[id]; a team lists each member with their own avatar and profile link; the phone keeps fish's sheet."
         fish_ref: components/competition/ParticipantCard.tsx:82-103
-        status: todo
-        web_note: "PARTIALLY MET (2026-10-06). Built and e2e-covered (tests/e2e/concurs-participanti-roster.spec.ts): the popover from the Participanți roster, Cântare's stand cards (1024–1279), Cântare's table angler cell and the weighing detail's angler (≥1280; beside the docked panel, never over its title), focus trap / Escape / outside press, stats, sector and stand, team members. NOT MET: «Vezi profilul» / «Profil» — /pescari/[id] is M2 (lib/routes.ts ON_WEB.angler false), so no popover has a profile CTA (solo, team members, Cântare). Escalated to the owner: ship /pescari/[id] (M2) or agree an interim CTA (e.g. «Deschide în aplicație» with the app deep link AuthorNotice uses). The spec asserts the CTA is absent today and carries a test.fixme for the rule's CTA."
+        status: passing
+        web_note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): every popover (solo, Cântare's angler, roster entries) carries «Vezi profilul» → /pescari/[id] (signed out through /intra?next=). e2e tests/e2e/concurs-participanti-roster.spec.ts (the former test.fixme now runs and passes)."
     mobile_only: false
     status: proposed
     e2e: tests/e2e/concurs-tabs.spec.ts

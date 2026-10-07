@@ -7,3 +7,4 @@ export * from './domain/suggestedStats';
 export * from './domain/reputation';
 export * from './domain/reviewTags';
 export * from './domain/imageUpload';
+export * from './domain/profileHistory';

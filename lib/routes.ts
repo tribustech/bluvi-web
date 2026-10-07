@@ -111,7 +111,15 @@ export const routes = {
   news: () => '/stiri',
   newsItem: (documentId: string) => `/stiri/${encodeURIComponent(documentId)}`,
   sponsor: (documentId: string) => `/sponsori/${encodeURIComponent(documentId)}`,
-  angler: (documentId: string) => `/pescari/${encodeURIComponent(documentId)}`,
+  /**
+   * The angler profile (account.angler-profile); `tab`: capturi (default, left out) | sesiuni |
+   * concursuri. Legacy /anglers/<id> links (fish NEW_FOLLOWER) redirect here (next.config.ts, 308).
+   */
+  angler: (documentId: string, tab?: 'capturi' | 'sesiuni' | 'concursuri') =>
+    `/pescari/${encodeURIComponent(documentId)}${tab && tab !== 'capturi' ? `?tab=${tab}` : ''}`,
+  /** An angler's followers / following (account.connections; fish anglers/[id]/connections?tab=followers|following). */
+  anglerConnections: (documentId: string, tab?: 'urmaritori' | 'urmareste') =>
+    `/pescari/${encodeURIComponent(documentId)}/conexiuni${tab ? `?tab=${tab}` : ''}`,
   partida: (documentId: string) => `/partide/${encodeURIComponent(documentId)}`,
   partide: () => '/partide',
   /**
@@ -130,8 +138,16 @@ export const routes = {
   partidaJoin: () => '/partide/intra',
   suggestedAnglers: () => '/pescari/sugerati',
   profile: () => '/profil',
+  /** Edit the own profile (account.edit-profile; fish /edit-profile). */
+  editProfile: () => '/setari/profil',
+  /** Complete the profile after the first sign-in (account.complete-profile; fish /complete-profile). */
+  completeProfile: () => '/profil/completeaza',
   settings: () => '/setari',
   notifications: () => '/notificari',
+  /** Notification settings (account.notification-settings; fish /settings/notifications). */
+  notificationSettings: () => '/setari/notificari',
+  /** Followed competitions' notification preferences (account.notification-preferences). */
+  notificationPreferences: () => '/setari/notificari/concursuri',
   /** The viewer's bookings (booking.yml, fish /bookings). */
   myBookings: () => '/rezervari',
   /** The current poll (fish /polls/current). */
@@ -164,14 +180,19 @@ export const routes = {
  * Pages the web does not have yet, shared by every area (one switch per page, never one per
  * area): until the batch that ships a page flips its entry, its targets render as plain rows /
  * text — never a dead link to the catch-all 404.
- *  - angler → /pescari/[id], the angler profile (M2, docs/parity/areas/account.yml);
+ *  - angler → /pescari/[id], the angler profile (M2, docs/parity/areas/account.yml) — ON since M2-B1;
+ *  - connections → /pescari/[id]/conexiuni, an angler's followers / following (M2, account.connections);
  *  - partida → /partide/[id], with the own-vs-spectator resolution (M4);
  *  - startPartida → the start-partidă flow (M4).
  */
-export const ON_WEB = { angler: false, partida: false, startPartida: false } as const;
+export const ON_WEB = { angler: true, connections: false, partida: false, startPartida: false } as const;
 
 /** The angler's profile, or null while the web has none (render the person without a link). */
 export const anglerHref = (documentId: string): string | null => (ON_WEB.angler ? routes.angler(documentId) : null);
+
+/** An angler's followers / following (the profile's «N urmăritori · N urmărește»), or null while the web has none. */
+export const anglerConnectionsHref = (documentId: string, tab?: 'urmaritori' | 'urmareste'): string | null =>
+  ON_WEB.connections ? routes.anglerConnections(documentId, tab) : null;
 
 /** A partidă's page, or null while the web has none. */
 export const partidaHref = (documentId: string): string | null => (ON_WEB.partida ? routes.partida(documentId) : null);

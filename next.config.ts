@@ -22,6 +22,30 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: pkg.version,
   },
+  async redirects() {
+    return [
+      // fish's /anglers/* paths (NEW_FOLLOWER links, shared links; parity account.b.deep-link-angler)
+      // → the web's Romanian ones. The specific ones first: the generic rule would read «suggested»
+      // as an angler id.
+      { source: '/anglers/suggested', destination: '/pescari/sugerati', permanent: true },
+      // fish connections?tab=followers|following → conexiuni?tab=urmaritori|urmareste (a bare or
+      // unknown tab opens the default tab).
+      {
+        source: '/anglers/:id/connections',
+        has: [{ type: 'query', key: 'tab', value: 'followers' }],
+        destination: '/pescari/:id/conexiuni?tab=urmaritori',
+        permanent: true,
+      },
+      {
+        source: '/anglers/:id/connections',
+        has: [{ type: 'query', key: 'tab', value: 'following' }],
+        destination: '/pescari/:id/conexiuni?tab=urmareste',
+        permanent: true,
+      },
+      { source: '/anglers/:id/connections', destination: '/pescari/:id/conexiuni', permanent: true },
+      { source: '/anglers/:id', destination: '/pescari/:id', permanent: true },
+    ];
+  },
   async headers() {
     return siteIndexable ? [] : [{ source: '/:path*', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] }];
   },

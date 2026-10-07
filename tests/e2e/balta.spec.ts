@@ -829,8 +829,10 @@ test('lakes.detail.c25 lakes.detail.c26 lakes.detail.c27 lakes.detail.s5 — the
   // The verdict is a state: the round StatusPill.
   const verdict = section.getByTestId('lake-review').getByText(/^(Recomandă|Nu recomandă)$/);
   if (await verdict.count()) await expect(verdict.first()).toHaveClass(/rounded-full/);
-  // The author's profile is not on the web yet: not a link.
-  await expect(section.getByTestId('lake-review').getByRole('link')).toHaveCount(0);
+  // The author opens their profile (/pescari/[id], M2-B1) — never any other link inside the card.
+  for (const href of await section.getByTestId('lake-review').getByRole('link').evaluateAll(as => as.map(a => a.getAttribute('href')))) {
+    expect(href).toMatch(/^\/pescari\/[^/?]+$/);
+  }
   // An empty star is visible (text-faint, never the hairline).
   await expect(section.getByTestId('lake-review').locator('svg.text-hairline')).toHaveCount(0);
   // s5: no reviews.
@@ -875,15 +877,17 @@ test('lakes.detail.c28 — mini map (a link to the map page), address, phones (t
   }
 });
 
-test('lakes.detail.c29 lakes.detail.s7 lakes.detail.s8 — the operator card: never a link to a page the web does not have (guest and signed in)', async ({ page, context }) => {
+test('lakes.detail.c29 lakes.detail.s7 lakes.detail.s8 — the operator card opens their profile /pescari/[id] (a guest through sign-in)', async ({ page, context }) => {
   const l = lakes.get(ID.chita)!;
   expect(l.ownerDocumentId, 'Chita has an operator with a profile id').toBeTruthy();
+  const profile = `/pescari/${l.ownerDocumentId}`;
   for (const signed of [false, true]) {
     if (signed) await signIn(context, jwt, base());
     await open(page, ID.chita);
-    await expect(page.getByTestId('lake-owner-static')).toContainText('Administrează această baltă în Bluvi');
-    await expect(page.getByRole('link', { name: `${l.ownerName!.trim()} — vezi profilul` })).toHaveCount(0);
-    await expect(page.locator('a[href^="/pescari/"]')).toHaveCount(0);
+    const link = page.getByRole('link', { name: `${l.ownerName!.trim()} — vezi profilul` });
+    await expect(link).toContainText('Administrează această baltă în Bluvi');
+    await expect(link).toHaveAttribute('href', signed ? profile : `/intra?next=${encodeURIComponent(profile)}`);
+    await expect(page.getByTestId('lake-owner-static')).toHaveCount(0);
   }
 });
 

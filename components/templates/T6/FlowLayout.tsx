@@ -73,7 +73,8 @@ type FlowLayoutProps = {
   narrow?: boolean;
   /**
    * Below 768 the task region grows to fill the screen (a confirmation centred between header
-   * and action bar). From 768 it hugs its content.
+   * and action bar). From 768 it hugs its content. A `card` task then also meets the header band
+   * and the bar (no 16px ground strips): white from the header down to the bar, as fish's ScrollScreen.
    */
   fill?: boolean;
   /** The task region is a loading skeleton (aria-busy): the switch to loaded is not a silent swap. */
@@ -116,6 +117,10 @@ export function FlowLayout({
           // With actions the bar is the last thing on the page below 1280 (edge to edge, no gap
           // under it); from 1280 it is docked in the aside, so the page gets its bottom padding.
           actions ? 'pb-0 xl:pb-8' : 'pb-4 md:pb-8',
+          // fill + card on a phone: white from the header band to the bar (no ground strip above or
+          // below the task; a mobile aside keeps the gap it needs).
+          fill && variant === 'card' && !notice && 'max-md:pt-0',
+          fill && variant === 'card' && (!hasAside || asideMobile === 'hidden') && 'max-md:gap-0',
           hasAside && ASIDE_W,
         )}
       >

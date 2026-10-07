@@ -65,6 +65,22 @@ describe('anglers — public tab lists (auth: false)', () => {
     expect(competitions).toBeGreaterThan(0);
     expect(catches).toBeGreaterThan(0);
   });
+
+  it('as guest: the year filter and the team filter parse; an unknown id answers an EMPTY 200, not a 404 (M2-B1: /pescari/[id] cannot tell it from an empty profile signed out)', async () => {
+    const [id] = await knownAnglers();
+    const year = new Date().getFullYear();
+    await getAnglerCompetitions(guest, id, { page: 1, pageSize: 20, filter: 'team', year });
+    await getAnglerCompetitions(guest, id, { page: 1, pageSize: 20, filter: 'individual', year: year - 1 });
+    const unknown = 'contractunknownangler0001';
+    expect((await getAnglerSessions(guest, unknown, { page: 1, pageSize: 10 })).data).toEqual([]);
+    expect((await getAnglerCompetitions(guest, unknown, { page: 1, pageSize: 20 })).data).toEqual([]);
+    const c = await getAnglerCatches(guest, unknown, { pageSize: 20 });
+    expect(c.data).toEqual([]);
+    expect(c.meta.nextCursor).toBeNull();
+    // Signed in, the header tells: 404 ANGLER:NOT_FOUND (the page's notFound()).
+    const err = await getAnglerProfile(user, unknown).catch(e => e);
+    expect(isApiError(err) && err.status).toBe(404);
+  });
 });
 
 describe('anglers — per-viewer routes', () => {
