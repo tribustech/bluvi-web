@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircleIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { extraScaleStand, extraScaleState, type CompetitionWithMyStatus, type ExtraScale } from '@/core/competitions';
+import { extraScaleStand, extraScaleState, formatCount, type CompetitionWithMyStatus, type ExtraScale } from '@/core/competitions';
 import { extraScalesListQuery } from '@/core/organizer';
 import type { Transport } from '@/core/transport';
 import { ScaleIcon } from '@/components/icons/brand';
@@ -145,8 +145,8 @@ export function ExtraScalesTab({ t, competition }: { t: Transport; competition: 
           title={LIST_TITLE}
           description={
             <>
-              {`${q.data.length === 1 ? '1 cerere' : `${q.data.length} cereri`}` +
-                (open > 0 && status !== 'completed' ? ` · ${open === 1 ? '1 în așteptare' : `${open} în așteptare`}` : '')}
+              {formatCount(q.data.length, 'cerere', 'cereri') +
+                (open > 0 && status !== 'completed' ? ` · ${open} în așteptare` : '')}
               {stale ? (
                 <span role="alert" className="mt-1 flex flex-wrap items-center gap-x-2 text-ink-2">
                   Lista nu s-a putut actualiza.
@@ -180,7 +180,7 @@ export function HowItWorks() {
     <DetailAsideCard title="Cum funcționează">
       <div className="flex flex-col gap-2 t-body text-ink-2">
         <p>În timpul concursului, un participant poate cere un extra cântar din bara de acțiuni a clasamentului.</p>
-        <p>Cererea apare aici până când este finalizată. Apasă pe o cerere pentru a vedea cântarele standului.</p>
+        <p>Cererile rămân în listă și după ce sunt finalizate. Apasă pe o cerere pentru a vedea cântarele standului.</p>
       </div>
     </DetailAsideCard>
   );

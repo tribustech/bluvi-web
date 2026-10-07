@@ -1116,17 +1116,17 @@ screens:
         text: "„Competiția nu a putut fi găsită.” without a competition; skeleton while the competition or the viewer's statute loads."
         fish_ref: components/competition/CompetitionParticipants.tsx:79-88
         status: passing
-        web_note: "Missing competition = the not-found page. The list is server-rendered and never waits for the statute (fish shows the skeleton until the statute loads); the route's loading.tsx shows the tab's bones."
+        web_note: "Missing competition = the not-found page. The list is server-rendered and never waits for the statute (fish shows the skeleton until the statute loads); the route's loading.tsx shows the tab's bones — the phone's cards, from 768 the roster's sector surface where the roster lands (e2e concurs-tabs.spec.ts)."
       - id: competition-page.participanti.c2
         text: "The competition author sees the organizer registrations list instead (competition-page.participanti-organizator)."
         fish_ref: components/competition/CompetitionParticipants.tsx:90-92
         status: todo
-        web_note: "The organizer registrations list is competition-page.participanti-organizator (M6). Until then the author sees this list under a notice «Ești organizatorul acestui concurs» + «Gestionează în aplicație» (the Bluvi app link)."
+        web_note: "The organizer registrations list is competition-page.participanti-organizator (M6). Until then the author sees this list under a notice «Ești organizatorul acestui concurs» + «Gestionează în aplicație» (the Bluvi app link). GAP vs fish (review 2026-10-07): fish's RegistrationsList (pending / rejected / all filters, approve / reject) is absent, so the author cannot see pending or rejected registrations on the web at all — stays todo; the e2e asserts only the notice and the deep link."
       - id: competition-page.participanti.c3
         text: "Everyone else sees only approved registrations, ordered by stand number (unallocated first)."
         fish_ref: components/competition/CompetitionParticipants.tsx:45-57
         status: passing
-        web_note: "Stands compared naturally («A2» before «A10»; fish parseInt gives NaN for sector-named stands and keeps CMS order) — core approvedRegistrationsByStand."
+        web_note: "Stands compared naturally («A2» before «A10»; fish parseInt gives NaN for sector-named stands and keeps CMS order) — core approvedRegistrationsByStand. From 768 the roster groups by sector (by name, as Cântare), by stand inside a sector; the phone keeps fish's flat list. e2e derives the expected order from the same CMS response (no local DB values)."
       - id: competition-page.participanti.c4
         text: "No approved registrations: „Încă nu s-au înregistrat participanți pentru această competiție.”."
         fish_ref: components/competition/CompetitionParticipants.tsx:94-108
@@ -1135,22 +1135,22 @@ screens:
         text: "Card: a corner pill „Stand {name}” (teal) or „Nealocat” (red), the avatar (guest image for a guest; stacked up to 4 for a team), the name (individual: username or guest name; team: team name, else club name, else „–”, with the members' names as a subtitle)."
         fish_ref: components/competition/ParticipantCard.tsx:24-42,76-79,105-157,222-277
         status: passing
-        web_note: "Corner tag on the status tokens (info for «Stand X», danger for «Nealocat»: no teal token); guests get a neutral initials avatar (fish guest.png); teams the kit FaceStack in a fixed slot — up to 3 faces, else 2 + «+N» (fish stacks up to 4), so team names start on one line. A guest team whose member line only echoes its name shows the name once."
+        web_note: "The phone: corner tag on the status tokens (info for «Stand X», danger for «Nealocat»: no teal token); guests get a neutral initials avatar (fish guest.png); teams the kit FaceStack in a fixed slot — up to 3 faces, else 2 + «+N» (fish stacks up to 4), so team names start on one line. From 768 the roster (owner rule 18): the stand as a leading squad number («Nealocat» in the danger pair; NC «A3(12)» as Cântare), the face(s) — a team's always in the pair's fixed slot (two overlapping + «+N»; a one-member or typed-in team too, one 40px face size centred in the slot, so names and stands share a row's tops — fixed 2026-10-07; every entry is top-aligned, so in a mixed individual list an account holder's one-line entry and a guest's «Adăugat manual» start their names on one line — e2e concurs-tabs «a mixed individual list signed out»), the name, members, club. A guest team whose member line only echoes its name shows the name once; a photo that fails falls back to the initials."
       - id: competition-page.participanti.c6
         text: "Pressing the card header of a registration with exactly one real user opens that angler's profile (web /pescari/[id]; signed out → sign-in); any other card toggles its details; the chevron always toggles (label „Arată detaliile” / „Restrânge detaliile”)."
         fish_ref: components/competition/ParticipantCard.tsx:82-103,236-266
         status: todo
-        web_note: "From 768 (owner rule 14) every card shows its stats inline (no disclosure), cards of a row share its height, the list is grouped by sector when the stands spread over several (unallocated first; one grid when a sector holds a single stand on average); signed out the sign-in line is said once above the cards; a guest's card has no stats part (a list of guests only says fish's guest line once above it, a mixed list marks a guest «Adăugat manual»). From 768 the cards give way to a designed roster (ParticipantsRoster, owner rule 18): one surface per sector (its colour stripe), each entry the stand as a squad number, the face(s), the name(s), club and the headline stats inline; from 1280 an entry is at most 384px and a sector's surface is only as wide as its entries (balanced rows), small sectors side by side (owner rule 16). From 1024 an entry opens the person popover (PersonPopover, owner rule 17). From 768 the sectors run by name (as Cântare's table) and a national championship's stands read as on Cântare («A3(12)», the draw position from the allocation); the phone keeps fish's «Stand {name}» tag. The phone keeps fish's flat list and opening cards (e2e concurs-tabs.spec.ts). The angler profile (/pescari/[id]) is M2: every header toggles the card for now (anglerHref null). The profile link (signed out → /intra?next=) is wired and takes over when lib/routes.ts ON_WEB.angler flips."
+        web_note: "BLOCKED on M2 (/pescari/[id], lib/routes.ts ON_WEB.angler false): every phone card header toggles for now; the profile link (signed out → /intra?next=) is wired and takes over when the flag flips. From 768 there is no disclosure (owner rules 14, 18): the designed roster (ParticipantsRoster) — one surface per sector (its colour stripe), entries of a row share its height, the headline stats inline, signed out one quiet sign-in hint above; from 1280 an entry is at most 384px, sectors side by side (owner rule 16); from 1024 an entry opens the person popover (owner rule 17, no profile CTA until M2). e2e concurs-tabs.spec.ts + concurs-participanti-roster.spec.ts."
       - id: competition-page.participanti.c7
         text: "Expanded, signed out or unauthorized: „Trebuie sa fii autentificat pentru a vedea statisticile pescarilor.” + „Intră în cont”."
         fish_ref: components/competition/ParticipantCard.tsx:54,283-296
         status: passing
-        web_note: "Signed out, «Intră în cont» goes to /intra?next=<this tab>."
+        web_note: "Signed out, «Intră în cont» goes to /intra?next=<this tab> (the phone's opened card); from 768 the roster says it once above the entries («Statisticile pescarilor se văd după ce intri în cont.»), never per entry. Signed in with the batch unauthorized (403, or bluCode GET_STATISTICS_BATCH:USER_NOT_LOGGED_IN — core participantStatisticsState) the same prompt, never a retry (e2e concurs-tabs.spec.ts participanti.c7, both cases)."
       - id: competition-page.participanti.c8
         text: "Expanded, one user: three stats Capturi, CMMC („x kg”), Concursuri („–” when null); a guest: „Statisticile nu sunt disponibile pentru utilizatorii adaugati manual”; a team: one block per member (name row opens the profile unless the member is a guest) with their stats or the guest message."
         fish_ref: components/competition/ParticipantCard.tsx:44-55,165-214,297-349
         status: todo
-        web_note: "CMMC as «x,xxx kg» (Romanian decimals); a failed batch says «Statisticile nu au putut fi încărcate.» + «Încearcă din nou» (fish shows zeros). FAILS (adversarial pass 2026-10-06): a team member's name row does not open the angler profile — /pescari/[id] is M2 (lib/routes.ts ON_WEB.angler false), the row is plain. Wired: flips with ON_WEB.angler, as c6."
+        web_note: "CMMC as «x,xxx kg» (Romanian decimals); a failed batch says «Statisticile nu au putut fi încărcate.» + «Încearcă din nou» (fish shows zeros) — in the phone's card, once above the roster from 768, never zeros. From 768 the roster's entry carries «N capturi  CMMC x kg  N conc.» inline; a guest «Adăugat manual» in a mixed list, fish's guest line once above a guests-only list. BLOCKED on M2: a team member's name row does not open the angler profile — /pescari/[id] (lib/routes.ts ON_WEB.angler false), the row is plain. Wired: flips with ON_WEB.angler, as c6."
       - id: competition-page.participanti.c9
         text: "Stats for all approved participants are fetched in one batch request (signed in only)."
         fish_ref: components/competition/CompetitionParticipants.tsx:59-70
@@ -1272,7 +1272,7 @@ screens:
         text: "Pressing a request opens that stand's weighing history (scale area, /scale/[id]/history with sector, stand, standId); without stand data it shows „Nu exista suficiente date pentru a deschide acest stand”."
         fish_ref: components/ScaleItem.tsx:49-60
         status: passing
-        web_note: "The scale area's stand history is M6: until then a request opens the Clasament's Cântare view on that stand (routes.competitionWeighings → /cantare?stand=<id>, the stand expanded and scrolled into view). Missing stand data → danger toast «Nu există suficiente date pentru a deschide acest stand»."
+        web_note: "The scale area's stand history is M6: until then a request opens the Clasament's Cântare view on that stand (routes.competitionWeighings → /cantare?stand=<id>: the phone's stand card expanded and scrolled into view; from 1280 Cântare is a table (owner rule 15) and the stand's row is scrolled into view). Missing stand data → danger toast «Nu există suficiente date pentru a deschide acest stand». e2e derives the done request from the same public list and picks its row by name (stand, author, «finalizat»), never by list position."
       - id: competition-page.extra-cantare.c6
         text: "Refresh invalidates the competition, the extra-scale list, the viewer's statute and allocated participants."
         fish_ref: components/CompetitionExtraScales.tsx:39-48

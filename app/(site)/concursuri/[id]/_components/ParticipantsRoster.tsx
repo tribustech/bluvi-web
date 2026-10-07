@@ -1,7 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { registrationDisplayName, registrationTeamSubtitle, type DetailRegistration } from '@/core/competitions';
+import { formatCount, registrationDisplayName, registrationTeamSubtitle, type DetailRegistration } from '@/core/competitions';
 import { formatWeight } from '@/components/ranking';
 import { sectorFill } from '@/components/ranking/sector';
 import { Avatar, FaceStack } from '@/components/ui/Avatar';
@@ -128,7 +128,7 @@ export function ParticipantsRoster({ groups, ...entry }: { groups: Group[] } & E
                 {group.title}
               </h3>
               <span className="t-caption text-muted tabular-nums">
-                {group.registrations.length === 1 ? '1 înscriere' : `${group.registrations.length} înscrieri`}
+                {formatCount(group.registrations.length, 'înscriere', 'înscrieri')}
               </span>
             </header>
           ) : null}
@@ -190,7 +190,9 @@ function RosterEntry({
       <StandNumber stand={stand} sector={grouped ? null : sector} />
     </>
   );
-  const ROW = 'flex w-full items-center gap-3 rounded-control p-2.5 text-left';
+  // Top-aligned: a one-line entry (an account holder signed out) and a two-line one (a guest's
+  // «Adăugat manual», a club) start their names on one line, beside the face and the stand.
+  const ROW = 'flex w-full items-start gap-3 rounded-control p-2.5 text-left';
   if (!onOpen) return <div className={ROW}>{body}</div>;
   return (
     <button
@@ -234,19 +236,26 @@ function StandNumber({ stand, sector }: { stand: string | null; sector: string |
 }
 
 function Face({ registration: r, team, name, broken }: { registration: DetailRegistration; team: boolean; name: string; broken: ReadonlySet<string> }) {
-  if (r.participants.length === 0) return <Avatar name={r.guestName || name} size={48} tone="neutral" shape={team ? 'square' : 'round'} />;
+  const face = faceOf(r, team, name, broken);
+  // A team list: one face size (40, the pair's) in the pair's fixed slot, centred — a one-member or
+  // typed-in team too — so every entry of a row is the same height and the names start on one line.
+  return team ? <span className="flex w-18 shrink-0 items-center justify-center">{face}</span> : face;
+}
+
+function faceOf(r: DetailRegistration, team: boolean, name: string, broken: ReadonlySet<string>) {
+  const size = team ? 40 : 48;
+  if (r.participants.length === 0) return <Avatar name={r.guestName || name} size={size} tone="neutral" shape={team ? 'square' : 'round'} />;
   if (team && r.participants.length > 1) {
-    // A pair of faces (fish's stack, two shown, «+N» for the rest) in a fixed slot: names start on one line.
+    // A pair of faces (fish's stack, two shown, «+N» for the rest).
     const people = r.participants.map(p => ({ name: p.username, src: photo(p.avatar?.url, broken) }));
-    return (
-      <span className="flex w-18 shrink-0 items-center">
-        <FaceStack size={40} people={people.slice(0, 2)} overflow={Math.max(0, people.length - 2)} />
-      </span>
-    );
+    return <FaceStack size={40} people={people.slice(0, 2)} overflow={Math.max(0, people.length - 2)} />;
   }
   const p = r.participants[0];
-  return <Avatar name={p.username} src={photo(p.avatar?.url, broken)} size={48} />;
+  return <Avatar name={p.username} src={photo(p.avatar?.url, broken)} size={size} />;
 }
+
+/** The noun after a count drawn on its own («de capturi» from 20 up, rule: formatCount). */
+const countNoun = (n: number, singular: string, plural: string) => formatCount(n, singular, plural).slice(String(n).length + 1);
 
 /**
  * «12 capturi  CMMC 8,4 kg  23 conc.» — the numbers in ink, the words and units muted (rule 10).
@@ -264,7 +273,7 @@ function InlineStats({ registration: r, stats, team }: { registration: DetailReg
     // One line, every entry the same height: short labels; past the width the line is cut, never wrapped.
     <span className="flex items-baseline gap-x-2.5 overflow-hidden t-caption whitespace-nowrap text-muted">
       <span className="whitespace-nowrap">
-        <span className="t-label text-ink tabular-nums">{catches}</span> {catches === 1 ? 'captură' : 'capturi'}
+        <span className="t-label text-ink tabular-nums">{catches}</span> {countNoun(catches, 'captură', 'capturi')}
         <span className="sr-only">,</span>
       </span>
       <span className="whitespace-nowrap">
@@ -286,7 +295,7 @@ function InlineStats({ registration: r, stats, team }: { registration: DetailReg
       {competitions == null ? null : (
         <span className="whitespace-nowrap">
           <span className="t-label text-ink tabular-nums">{competitions}</span> <span aria-hidden>conc.</span>
-          <span className="sr-only">{competitions === 1 ? 'concurs' : 'concursuri'}</span>
+          <span className="sr-only">{countNoun(competitions, 'concurs', 'concursuri')}</span>
         </span>
       )}
     </span>
@@ -303,7 +312,7 @@ export function ParticipantsRosterBones() {
       </span>
       <span className={cn(ENTRY_GRID, 'p-2')}>
         {Array.from({ length: 8 }, (_, i) => (
-          <span key={i} className="flex items-center gap-3 p-2.5">
+          <span key={i} className="flex items-start gap-3 p-2.5">
             <Bone className="w-12 t-num-18" />
             <span className="size-12 shrink-0 animate-shimmer rounded-full" />
             <span className="flex min-w-0 flex-1 flex-col">

@@ -7,6 +7,7 @@ import { ArrowTrendingUpIcon, ChevronDownIcon, ChevronRightIcon, InformationCirc
 import {
   approvedParticipantIds,
   approvedRegistrationsByStand,
+  formatCount,
   participantStatisticsBatchQuery,
   participantStatisticsState,
   registrationCounts,
@@ -169,7 +170,7 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
           <DetailSection
             tone="plain"
             title={team ? 'Echipe înscrise' : 'Participanți înscriși'}
-            description={team ? (registrations.length === 1 ? '1 echipă aprobată' : `${registrations.length} echipe aprobate`) : registrations.length === 1 ? '1 participant aprobat' : `${registrations.length} participanți aprobați`}
+            description={team ? formatCount(registrations.length, 'echipă aprobată', 'echipe aprobate') : formatCount(registrations.length, 'participant aprobat', 'participanți aprobați')}
           >
             <div ref={listRef}>
               {showPhone ? (
@@ -285,7 +286,7 @@ function AuthorNotice({ competition, statute, appHref }: { competition: Competit
       description="Aprobarea, respingerea și editarea înscrierilor se fac deocamdată din aplicația Bluvi."
     >
       <div className="flex flex-wrap items-center gap-3">
-        {pending > 0 ? <StatusPill tone="pending">{pending === 1 ? '1 înscriere în așteptare' : `${pending} înscrieri în așteptare`}</StatusPill> : null}
+        {pending > 0 ? <StatusPill tone="pending">{formatCount(pending, 'înscriere în așteptare', 'înscrieri în așteptare')}</StatusPill> : null}
         <ButtonLink href={organizerAppHref(appHref, pending)} variant="secondary" size="compact">
           {pending > 0 ? 'Aprobă-le în aplicație' : 'Gestionează în aplicație'}
         </ButtonLink>
