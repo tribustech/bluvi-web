@@ -7,6 +7,9 @@ import type { KeyValueStorage } from '@/core/realtime';
  * active-session pointer (two ids) and nothing of the session's data. Every access is guarded: a
  * private window, blocked site data or a full quota degrade to «nothing stored», never to a crash.
  */
+/** The account the persisted pointer belongs to (a pointer of another account is ignored). */
+export const POINTER_OWNER_KEY = '@bluvi/partide/activeSessionOwner';
+
 export const localKeyValueStorage: KeyValueStorage = {
   async get(key) {
     try {

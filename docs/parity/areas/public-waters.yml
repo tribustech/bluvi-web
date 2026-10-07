@@ -326,8 +326,8 @@ screens:
       - id: public-waters.detaliu.c21
         text: "Tapping a live session opens it as YOUR partidă when it is the viewer's (active on this device or in the „Ale mele” list), otherwise the spectator view /partide/[documentId]."
         fish_ref: features/partide/community/useOpenPartida.ts:28-44
-        status: todo
-        note: "BLOCKED on M4 (lib/routes.ts ON_WEB.partida false): the web has no partidă page yet, so a live row is a plain row; the viewer's own row is marked «(partida ta)» (e2e). Flip ON_WEB.partida when /partide/[id] ships, then cite this id in e2e."
+        status: passing
+        note: "M4-B3 (ON_WEB.partida on): every live row links /partide/[documentId]; the viewer's own row is marked «(partida ta)» and that page opens it as the member view (OwnOrSpectator: pointer, then the own list). e2e tests/e2e/ape-publice.spec.ts «public-waters.detaliu.c20 public-waters.detaliu.c21 …», «public-waters.detaliu.c21 — signed in …» and tests/e2e/partide-links.spec.ts «public-waters.detaliu.c21 public-waters.partide.c11 …» (own row → member view)."
       - id: public-waters.detaliu.c22
         text: "Capturi section: heading „Capturi pe această apă”, then species chips (server aggregate over all captures, most-caught first, max 6 then „+N”, each „<species> <count>”), then the photo masonry grid."
         fish_ref: features/public-waters/PublicWaterSpeciesChips.tsx:28-64
@@ -507,8 +507,8 @@ screens:
       - id: public-waters.partide.c11
         text: "Tapping a live or history partidă opens it as the viewer's own partidă when it is theirs, otherwise the spectator view."
         fish_ref: features/partide/community/useOpenPartida.ts:28-44
-        status: todo
-        note: "BLOCKED on M4 (ON_WEB.partida false): live rows and history cards open nothing until /partide/[id] ships."
+        status: passing
+        note: "M4-B3: live rows and history cards (title and «Vezi rezumatul») open /partide/[documentId]; own vs spectator is that page's call. e2e tests/e2e/ape-publice-subpages.spec.ts «public-waters.partide.c11 …» + tests/e2e/partide-links.spec.ts (own row → member view)."
       - id: public-waters.partide.c12
         text: "Pull-to-refresh (web: a refresh action) refetches the venue section and the history together."
         fish_ref: features/partide/screens/VenueSessionsScreen.tsx:57-64
@@ -592,8 +592,8 @@ screens:
       - id: public-waters.statistici.c10
         text: "A top-angler row opens /pescari/[uid]; the record hero opens its partidă (spectator route) when it carries a sessionDocumentId."
         fish_ref: features/partide/screens/VenueStatsScreen.tsx:87-91
-        status: todo
-        note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): the top-angler rows now link to /pescari/[uid] (venue bits ON_WEB.angler); the record hero still waits on its partidă (M4, ON_WEB.partida false). Link assertion still to add in tests/e2e/ape-publice-subpages.spec.ts."
+        status: passing
+        note: "Top-angler rows → /pescari/[uid] (ON_WEB.angler, M2-B1); the record hero → /partide/[sessionDocumentId] since M4-B3. e2e tests/e2e/ape-publice-subpages.spec.ts «public-waters.statistici.c8 c10 …» (the record hero's href, the press lands on the partidă page)."
       - id: public-waters.statistici.c11
         text: "The „Top standuri” card is never shown for a public water (lake venues only)."
         fish_ref: features/partide/screens/VenueStatsScreen.tsx:201

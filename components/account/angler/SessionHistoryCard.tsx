@@ -23,9 +23,9 @@ import { partidaHref } from '@/lib/routes';
  *    Finished: the date range «26 IUL · 06:40 – 18:10» («17 FEB 14:32 – 18 FEB 12:54» past
  *    midnight — core fmtSessionRange), omitted when endedAt is missing (a CMS
  *    predating it — never a wrong «Începută acum 2160h»).
- *  - c25: the card opens the community partidă (fish /partide/comunitate/{id}) — the web's partidă
- *    page is M4 (lib/routes.ts partidaHref is null until then), so the card is not a link and shows
- *    no «Vezi partida» / «Vezi rezumatul» that would promise one.
+ *  - c25: the whole card opens the partidă (fish /partide/comunitate/{id} → the web's
+ *    /partide/[documentId], lib/routes partidaHref — the member view when it is the viewer's own),
+ *    with c24's «Vezi partida» (live) / «Vezi rezumatul» (ended) in the footer.
  * Dates are Romania time (the server render and the browser agree).
  */
 

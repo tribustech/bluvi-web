@@ -387,6 +387,27 @@ test.describe('public-waters.partide', () => {
     });
   });
 
+  test('public-waters.partide.c11 — a live row and a history card open /partide/[documentId]', async ({ page }) => {
+    await clientReads(page, async () => {
+      await page.route(venueUrl, fulfill(section([session('p1', 'Ion Pop', 9.5)])));
+      await page.route(historyUrl, fulfill({ data: [historyRow(1)], meta: { pagination: { page: 1, pageSize: 10, pageCount: 1, total: 1 } } }));
+      await page.route(catchesUrl, fulfill(catchesPage(1, 0)));
+      await page.setViewportSize(DESKTOP);
+      await page.goto(`/ape-publice/${TIN.id}/partide`);
+      const live = page.locator('[data-testid="live-row-p1"]:visible');
+      await expect(live).toHaveAttribute('href', '/partide/p1');
+      const card = page.getByTestId('history-card').first();
+      await expect(card).toContainText('Vezi rezumatul');
+      // The title and «Vezi rezumatul» both open the partidă.
+      for (const link of await card.getByRole('link').all()) await expect(link).toHaveAttribute('href', '/partide/h1');
+      await card.getByRole('link', { name: 'Vezi rezumatul' }).click();
+      await expect(page).toHaveURL(/\/partide\/h1$/);
+      // A made-up id: the partidă page's own not-found state (the own row → member view:
+      // tests/e2e/partide-links.spec.ts).
+      await expect(page.getByTestId('partida-not-found')).toBeVisible();
+    });
+  });
+
   test('public-waters.partide.c6 c7 c8 public-waters.partide.s6 — two live sessions: the live card, their catches in the rail', async ({ page }) => {
     await clientReads(page, async () => {
       await page.route(venueUrl, fulfill(section([session('p1', 'Ion Pop', 9.5), session('p2', 'Ana Ene', null)])));
@@ -641,7 +662,7 @@ test.describe('public-waters.statistici', () => {
     await expect(page).toHaveURL(new RegExp(`/ape-publice/${CODE.replace(/[.%]/g, '\\$&')}$`));
   });
 
-  test('public-waters.statistici.c8 c10 — record hero and the activity chart’s scrub', async ({ page }) => {
+  test('public-waters.statistici.c8 c10 — record hero (opens its partidă) and the activity chart’s scrub', async ({ page }) => {
     await clientReads(page, async () => {
       await page.route(statsUrl, fulfill(stats('week')));
       await page.setViewportSize(DESKTOP);
@@ -655,6 +676,11 @@ test.describe('public-waters.statistici', () => {
       await chart.focus();
       await page.keyboard.press('End');
       await expect(page.getByTestId('activity-card')).toContainText('2 capturi ·');
+      // c10: the record hero opens its partidă (spectator route) — sessionDocumentId p9.
+      await expect(hero.getByRole('link')).toHaveAttribute('href', '/partide/p9');
+      await hero.getByRole('link').click();
+      await expect(page).toHaveURL(/\/partide\/p9$/);
+      await expect(page.getByTestId('partida-not-found')).toBeVisible();
     });
   });
 });

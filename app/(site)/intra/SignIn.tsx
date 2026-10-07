@@ -44,8 +44,8 @@ export type { SignInConfig } from './logic';
  * After the session cookie is set (POST /api/auth/{provider}): GET /user/profile decides where to go
  * (c15/c16), then the Firebase bridge runs in the background (c13) — never for a sign-in that
  * failed — and sign_in is logged (c21).
- * fish's active-partidă probe (c14) restores a live session in the background — the web has no
- * live partidă until M4, so there is nothing to restore yet.
+ * Then fish's active-partidă probe (c14) restores a live session in the background
+ * (probeLivePartida).
  */
 
 /** fish welcomeTheme.ts — a fixed palette (the screen is dark in both themes, like fish). */
@@ -87,6 +87,28 @@ async function bridgeFirebase(token: string | null | undefined): Promise<void> {
     await signInToFirebase(getRealtimeContext(), token);
   } catch {
     // Non-fatal by contract.
+  }
+}
+
+/**
+ * c14: fish AuthContext finishSignIn → probeActiveSessionAfterSignIn, once per sign-in, after the
+ * Firebase bridge, fire-and-forget: GET /feed/sessions/active and, when a partidă still runs
+ * server-side, the pointer (two ids) stored in this browser for this account — the Partide live
+ * layer picks it up on its next mount. A pointer write only (localStorage): never Firestore. Never
+ * rejects, never delays the sign-in; loaded lazily so /intra does not carry the partide code.
+ */
+async function probeLivePartida(uid: string): Promise<void> {
+  try {
+    const [{ getActiveSession }, { probeActiveSessionAfterSignIn }, { localKeyValueStorage, POINTER_OWNER_KEY }] = await Promise.all([
+      import('@/core/partide'),
+      import('@/core/realtime/partide/live'),
+      import('../partide/_live/storage'),
+    ]);
+    const t = createBrowserTransport();
+    const pointer = await probeActiveSessionAfterSignIn(() => getActiveSession(t), localKeyValueStorage);
+    if (pointer) await localKeyValueStorage.set(POINTER_OWNER_KEY, uid);
+  } catch {
+    // Non-fatal by contract (the live layer probes again on every /partide page).
   }
 }
 
@@ -184,8 +206,8 @@ export function SignIn({ config }: { config: SignInConfig }) {
         await Promise.all([fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined), signOutFirebaseQuietly()]);
         throw new Error(GENERIC_ERROR);
       }
-      // c13: only now that the sign-in is whole.
-      void bridgeFirebase(auth.firebaseToken);
+      // c13: only now that the sign-in is whole; then c14 (fish: after the bridge).
+      void bridgeFirebase(auth.firebaseToken).then(() => probeLivePartida(profile.documentId));
       // Anything cached while signed out (optional-auth reads) is now wrong; the profile is fresh.
       queryClient.clear();
       queryClient.setQueryData(profileKeys.my, profile);

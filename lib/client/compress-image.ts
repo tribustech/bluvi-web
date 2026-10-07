@@ -6,7 +6,8 @@
  */
 export const MAX_LONG_EDGE_PX = 2048;
 export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // headroom under Vercel's 4.5 MB
-const QUALITY_STEPS = [0.9, 0.8, 0.7, 0.6];
+/** JPEG qualities tried in order until the encoding fits MAX_UPLOAD_BYTES (also used by the catch-photo crop). */
+export const QUALITY_STEPS = [0.9, 0.8, 0.7, 0.6] as const;
 
 /** Scales (w, h) so the long edge is at most `max`; never upscales. */
 export function targetSize(width: number, height: number, max = MAX_LONG_EDGE_PX): { width: number; height: number } {

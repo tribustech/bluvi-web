@@ -20,10 +20,11 @@ import { expect, test, type Page, type Route } from '@playwright/test';
  * review delete is answered by page.route.
  *
  * Blocked criteria are never cited in a title (so /web-drift does not count them as covered):
- * lakes.stats c9 (the record opens its partidă, M4),
- * lakes.partide c4 («Începe o partidă aici» → /partide/incepe, M4), c8 («Vezi rezumatul») and c9 (a
- * card opens its partidă, M4), lakes.reviews c5 (an author opens /pescari/[id], M2). The tests below assert the interim state (no dead link) under a
- * «blocked:» note; flip them with the hrefs in _components/availability.ts.
+ * lakes.partide c4 («Începe o partidă aici» → /partide/incepe, M4), lakes.reviews c5 (an author
+ * opens /pescari/[id], M2). The tests below assert the interim state (no dead link) under a
+ * «blocked:» note; flip them with the hrefs in _components/availability.ts. lakes.stats c9 and
+ * lakes.partide c8 / c9 (the partidă links) are on since M4-B3 (/partide/[id]); the own partidă
+ * landing on the member view is tests/e2e/partide-links.spec.ts.
  */
 
 test.describe.configure({ timeout: 180_000 });
@@ -333,16 +334,27 @@ test('lakes.stats.c4 lakes.stats.s1 lakes.stats.s2 — the skeleton, then the er
   await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
 });
 
-test('lakes.stats — the record of the period (blocked: it opens its partidă once /partide/[id] ships, M4)', async ({ page }) => {
+test('lakes.stats.c9 — the record of the period opens its partidă (/partide/[id])', async ({ page }) => {
   test.skip(!bigYear.record, 'no record this year');
   await go(page, `/balti/${ID.big}/statistici?perioada=year`, DESKTOP);
   const hero = page.getByTestId('record-hero').locator('visible=true');
   await expect(hero).toHaveCount(1);
   await expect(hero).toContainText(`${fmtKg(bigYear.record!.weightKg)}`);
-  await expect(hero.getByRole('link')).toHaveCount(0);
   // next/image (a sized rendition outside dev), loaded lazily: the hidden copy fetches nothing.
   await expect(hero.locator('img')).toHaveAttribute('loading', 'lazy');
   await expect(hero.locator('img')).toHaveAttribute('data-nimg', 'fill');
+  const session = bigYear.record!.sessionDocumentId;
+  if (!session) {
+    // fish: no session id → nothing to open.
+    await expect(hero.getByRole('link')).toHaveCount(0);
+    return;
+  }
+  const link = hero.getByRole('link');
+  await expect(link).toHaveAttribute('href', `/partide/${session}`);
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`/partide/${session}$`));
+  // The partidă page rendered (the spectator view of a public partidă, or its own not-found state).
+  await expect(page.getByTestId('partida-spectator').or(page.getByTestId('partida-not-found'))).toBeVisible({ timeout: 30_000 });
 });
 
 test('lakes.stats — a record photo that fails: the short no-photo card (gradient ground, light tag)', async ({ page }) => {
@@ -382,7 +394,7 @@ test('lakes.stats — from 1280 three columns: the period and the lake\'s pages 
 /* Partide — lakes.partide                                                                         */
 /* ============================================================================================== */
 
-test('lakes.partide.c1 lakes.partide.s5 lakes.partide.s6 — finished partide, 10 a page, more near the end; cards ribboned «Încheiată» (blocked: «Vezi rezumatul» and the card link wait for /partide/[id], M4)', async ({ page }) => {
+test('lakes.partide.c1 lakes.partide.c8 lakes.partide.c9 lakes.partide.s5 lakes.partide.s6 — finished partide, 10 a page, more near the end; cards ribboned «Încheiată» with «Vezi rezumatul», each opening its partidă', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   const lake = lakes.get(ID.big)!;
   await go(page, `/balti/${ID.big}/partide`);
@@ -393,8 +405,10 @@ test('lakes.partide.c1 lakes.partide.s5 lakes.partide.s6 — finished partide, 1
   await expect(cards.first().getByTestId('history-ribbon')).toHaveText('Încheiată');
   // c10: the refresh control is never busy on its own (no spin / aria-busy from a background read).
   await expect(page.getByTestId('partide-refresh')).not.toHaveAttribute('aria-busy', 'true');
-  // Blocked (M4): the card is not a link yet (never a dead one).
-  await expect(cards.first().getByRole('link')).toHaveCount(0);
+  // c8 / c9: «Vezi rezumatul» and the card's one (stretched) link to /partide/[documentId].
+  await expect(cards.first()).toContainText('Vezi rezumatul');
+  await expect(cards.first().getByRole('link')).toHaveCount(1);
+  await expect(cards.first().getByRole('link')).toHaveAttribute('href', /^\/partide\/[a-z0-9]+$/);
   // fish fmtSpan: «73h 24m» / «45 min», never a clock-like «73:24».
   await expect(cards.first().locator('dl')).not.toContainText(/\d:\d\d/);
   await expect(cards.first().locator('dl')).toContainText(/\d+h\s?\d{2}m|\d+min/);
@@ -409,6 +423,13 @@ test('lakes.partide.c1 lakes.partide.s5 lakes.partide.s6 — finished partide, 1
   await expectNoHorizontalScroll(page);
   await expectNoA11yViolations(page);
   expect(errors).toEqual([]);
+  // c9: a press anywhere on the card lands on the partidă page (spectator view: not the viewer's).
+  const href = (await cards.first().getByRole('link').getAttribute('href'))!;
+  await cards.first().scrollIntoViewIfNeeded();
+  const box = (await cards.first().locator('dl').boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page).toHaveURL(new RegExp(`${href}$`));
+  await expect(page.getByTestId('partida-spectator')).toBeVisible({ timeout: 30_000 });
 });
 
 test('lakes.partide.c6 lakes.partide.c7 — the latest catches rail (3 tiles → /capturi?foto=) and the statistics card', async ({ page }) => {

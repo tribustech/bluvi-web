@@ -371,7 +371,7 @@ test.describe('public-waters.detaliu', () => {
     await expect(page.locator('#partide')).toHaveCount(0);
   });
 
-  test('public-waters.detaliu.c20 s13 — live partide: rose pill, kg headline, ranked rows', async ({ page }) => {
+  test('public-waters.detaliu.c20 public-waters.detaliu.c21 s13 — live partide: rose pill, kg headline, ranked rows that open /partide/[id]', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     const sessions = [
       { documentId: 'p1', startedAt: new Date(Date.now() - 3_600_000).toISOString(), members: [{ uid: 'a', name: 'Ion Pop', avatarUrl: null }], catchCount: 3, maxKg: 4.2, totalKg: 9.5, standName: '2' },
@@ -388,14 +388,19 @@ test.describe('public-waters.detaliu', () => {
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(0)).toContainText('Ion Pop');
     await expect(rows.nth(1)).toContainText('— kg');
-    // /partide/<id> is not on the web yet: the rows are plain rows, not dead links.
-    await expect(card.getByRole('link')).toHaveCount(0);
+    // c21: each row opens the partidă page (someone else's here: the spectator side; the own row →
+    // the member view is tests/e2e/partide-links.spec.ts).
+    await expect(card.getByRole('link')).toHaveCount(2);
+    await expect(page.getByTestId('live-row-p1')).toHaveAttribute('href', '/partide/p1');
+    await expect(page.getByTestId('live-row-p2')).toHaveAttribute('href', '/partide/p2');
     await expectNoA11yViolations(page);
+    await page.getByTestId('live-row-p1').click();
+    await expect(page).toHaveURL(/\/partide\/p1$/);
+    // A made-up id: the partidă page's own not-found state (never the catch-all 404).
+    await expect(page.getByTestId('partida-not-found')).toBeVisible();
   });
 
-  // Criterion 21 is only partly met (rows open nothing until the web has a partidă page): this
-  // checks the own-row marker and is deliberately not titled with the criterion id.
-  test('public-waters.detaliu — signed in: your own live partidă is marked as yours (own-row marker)', async ({ page, context, request }) => {
+  test('public-waters.detaliu.c21 — signed in: your own live partidă is marked as yours and opens /partide/[id]', async ({ page, context, request }) => {
     const jwt = await qaJwt(request);
     const me = await (await request.get(`${CMS}/users/me`, { headers: { authorization: `Bearer ${jwt}` } })).json();
     await signIn(context, jwt, BASE_URL);
@@ -410,6 +415,7 @@ test.describe('public-waters.detaliu', () => {
     await expect(mine).toContainText('(partida ta)');
     await expect(mine.locator('span.t-body-strong.text-accent-ink')).toHaveText(/^Eu/);
     await expect(page.getByTestId('live-row-p1')).not.toContainText('(partida ta)');
+    await expect(mine).toHaveAttribute('href', '/partide/p2');
   });
 
   test('public-waters.detaliu.c17 s9 — a failed community read shows the banner; retry is busy, then refetches', async ({ page }) => {

@@ -529,6 +529,23 @@ test.describe('signed in — real data', () => {
  * The mocked angler: the states the local DB lacks
  * ---------------------------------------------------------------------------------------------- */
 
+test.describe('signed in — real data: the partidă link', () => {
+  test.beforeEach(async ({ page }) => asUser(page));
+
+  test('c25 real data: a session card lands on the rendered partidă page (spectator view: not the viewer\'s)', async ({ page, request }) => {
+    const sessions = (await (await request.get(`${CMS}/feed/anglers/${ANDREW_R}/sessions?page=1&pageSize=10`)).json()).data as { documentId: string }[];
+    test.skip(!sessions.length, 'Andrew R has no public session in the local CMS');
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`/pescari/${ANDREW_R}?tab=sesiuni`);
+    const card = page.getByTestId('session-card').first();
+    await expect(card.getByRole('link')).toHaveAttribute('href', `/partide/${sessions[0].documentId}`);
+    await card.getByRole('link').click();
+    await expect(page).toHaveURL(new RegExp(`/partide/${sessions[0].documentId}$`));
+    await expect(page.getByTestId('partida-spectator')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  });
+});
+
 test.describe('signed in — mocked states', () => {
   test.beforeEach(async ({ page }) => asUser(page));
 
@@ -767,9 +784,8 @@ test.describe('signed in — mocked states', () => {
     await expect(page.getByTestId('catch-footer')).toContainText('Balta Mock');
     await expect(page.getByTestId('catch-footer-competition')).toHaveText('Cupa Mock');
     await expect(page.getByTestId('catch-footer')).toContainText('5 SEP 2025');
-    // c21 deferred to M4 (the share card ships with Partide): no share action at all.
-    await expect(box.getByRole('button', { name: /Distribuie|Trimite|Share/i })).toHaveCount(0);
-    await expect(box.getByRole('link', { name: /Distribuie|Trimite|Share/i })).toHaveCount(0);
+    // c21: one share action on the photo (its flow: «c21 …» below).
+    await expect(box.getByRole('button', { name: 'Distribuie captura' })).toHaveCount(1);
 
     // Walk to the last loaded catch with the keyboard: the next page is asked for.
     for (let i = 0; i < 19; i++) await page.keyboard.press('ArrowRight');
@@ -781,7 +797,37 @@ test.describe('signed in — mocked states', () => {
     expect(errors).toEqual([]);
   });
 
-  test('c22–c25 c30 c31: sessions — live card ticking, finished without endedAt, no link until the partidă page exists', async ({ page }) => {
+  test('c21: «Distribuie captura» closes the lightbox and opens the catch share card (photo, kg, venue, species, competition)', async ({ page }) => {
+    await mockAngler(page);
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: width < 768 ? 812 : 900 });
+      await page.goto(`/pescari/${MOCK}?tab=concursuri`);
+      await tab(page, 'Capturi').click();
+      await page.getByTestId('catch-tile').first().click();
+      const box = page.getByTestId('lightbox');
+      await expect(box).toBeVisible();
+      await box.getByRole('button', { name: 'Distribuie captura' }).click();
+      // fish shareHandoff: the lightbox closes, the share card opens (a sheet on the phone, a dialog from 768).
+      await expect(box).toBeHidden();
+      const sheet = page.getByRole('dialog', { name: 'Distribuie captura' });
+      await expect(sheet).toBeVisible();
+      // The exact image that is shared, described: kg, the venue, the species, the competition.
+      const image = sheet.getByRole('img', { name: /^Imaginea care se distribuie/ });
+      await expect(image).toHaveAccessibleName(/12,4/);
+      await expect(image).toHaveAccessibleName(/Balta Mock/);
+      await expect(image).toHaveAccessibleName(/Crap/);
+      await expect(image).toHaveAccessibleName(/Cupa Mock/);
+      await expect(sheet.getByRole('button', { name: 'Distribuie', exact: true })).toBeEnabled();
+      // The surface fades / slides in: let the entrance finish before axe reads colours.
+      await page.waitForTimeout(500);
+      await expectNoA11yViolations(page);
+      await page.screenshot({ path: `.shots/partide-links/pescar-share-${width}.png` });
+      await page.keyboard.press('Escape');
+      await expect(sheet).toBeHidden();
+    }
+  });
+
+  test('c22–c25 c30 c31: sessions — live card ticking with «Vezi partida», finished without endedAt with «Vezi rezumatul», each card opening /partide/[id]', async ({ page }) => {
     await mockAngler(page);
     await page.route(new RegExp(`/feed/anglers/${MOCK}/sessions`), async r => {
       await new Promise(res => setTimeout(res, 700));
@@ -807,8 +853,10 @@ test.describe('signed in — mocked states', () => {
     const first = await footer.innerText();
     await page.clock.fastForward('02:00');
     await expect(footer).not.toHaveText(first);
-    await expect(live.getByRole('link')).toHaveCount(0);
-    await expect(live).not.toContainText('Vezi partida');
+    // c24 / c25: the whole card opens the partidă (one stretched link), «Vezi partida» while live.
+    await expect(live.getByRole('link')).toHaveCount(1);
+    await expect(live.getByRole('link')).toHaveAttribute('href', '/partide/ses-live');
+    await expect(live).toContainText('Vezi partida');
 
     const done = cards.nth(1);
     await expect(done).toContainText('Balta Mock');
@@ -818,11 +866,16 @@ test.describe('signed in — mocked states', () => {
     await expect(done).toContainText('durată');
     await expect(done.getByTestId('session-stats')).toContainText('—');
     await expect(done.getByTestId('session-footer')).toHaveCount(0); // no endedAt → no range
-    await expect(done).not.toContainText('Vezi rezumatul');
-    // c24 CTA / c25 deferred to M4 (no /partide/[id] yet, rule 4): no card is a link, nothing promises one.
-    await expect(cards.getByRole('link')).toHaveCount(0);
-    await expect(cards.filter({ has: page.locator('[href*="/partide/"]') })).toHaveCount(0);
+    await expect(done).toContainText('Vezi rezumatul');
+    await expect(done.getByRole('link')).toHaveAttribute('href', '/partide/ses-done');
     await expect(page.getByTestId('session-month').locator(':scope > h3')).toHaveText([/^[A-ZĂÂÎȘȚ]+ \d{4}$/, 'AUGUST 2025']);
+    // c25: a press anywhere on the card (here its figures) lands on the partidă page — a made-up
+    // id, so that page's own not-found state (the landing on a real one: «c25 real data»).
+    await page.clock.resume();
+    const figures = (await done.getByTestId('session-stats').boundingBox())!;
+    await page.mouse.click(figures.x + figures.width / 2, figures.y + figures.height / 2);
+    await expect(page).toHaveURL(/\/partide\/ses-done$/);
+    await expect(page.getByTestId('partida-not-found')).toBeVisible({ timeout: 30_000 });
   });
 
   test('c26–c28 c31: competition cards — placement tones, ranges, placeholder, type tag; podium filter empty', async ({ page }) => {

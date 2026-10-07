@@ -934,7 +934,7 @@ test('lakes.detail.c21 lakes.detail.c20 lakes.detail.s10 — a lake without acti
   await expect(page.locator('#partide').getByTestId('live-partide-card')).toContainText('1 ACTIV ACUM');
 });
 
-test('lakes.detail.c21 lakes.detail.c22 — polls every 60s, keeps the last good data on a failed refresh; live rows are not links until /partide/[id] lands', async ({ page }) => {
+test('lakes.detail.c21 lakes.detail.c22 — polls every 60s, keeps the last good data on a failed refresh; a live row opens /partide/[id]', async ({ page }) => {
   await page.clock.install();
   let mode: 'pass' | 'fail' | 'live' = 'pass';
   await page.route('**/feed/community/lakes/*', async route => {
@@ -955,8 +955,14 @@ test('lakes.detail.c21 lakes.detail.c22 — polls every 60s, keeps the last good
   await expect(card).toContainText('15,2 kg');
   await expect(card).toContainText('Stand 2');
   await expect(card).toContainText('cea mai mare');
-  await expect(card.getByTestId('live-row-sess-e2e')).not.toHaveAttribute('href', /.*/);
-  await expect(card.getByRole('link')).toHaveCount(0);
+  // c22: the row opens the partidă page (own vs spectator is that page's call — the own row lands
+  // on the member view: tests/e2e/partide-links.spec.ts).
+  await expect(card.getByTestId('live-row-sess-e2e')).toHaveAttribute('href', '/partide/sess-e2e');
+  await expect(card.getByRole('link')).toHaveCount(1);
+  await card.getByTestId('live-row-sess-e2e').click();
+  await expect(page).toHaveURL(/\/partide\/sess-e2e$/);
+  // A made-up id: the partidă page renders its own not-found state (never the catch-all 404).
+  await expect(page.getByTestId('partida-not-found')).toBeVisible();
 });
 
 test('lakes.detail.c10 lakes.detail.c21 — the Partide chip follows the polled section: the server read fails, the browser read brings it', async ({ page }) => {

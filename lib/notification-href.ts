@@ -27,8 +27,12 @@ export const NOTIFICATION_PAGES_ON_WEB = {
   polls: false,
   /** /partide/intra/[code] — join a partidă with a code (M4). */
   partidaJoin: false,
-  /** The own / co-op partidă by its CLIENT id (PARTIDA_FINISHED, AUTO_CLOSE_WARN) — partide area (M4). */
-  ownPartida: false,
+  /**
+   * The own / co-op partidă by its CLIENT id (PARTIDA_FINISHED, AUTO_CLOSE_WARN) →
+   * /partide/sesiune/[clientId], which resolves it to /partide/[documentId] (live pointer, then the
+   * own list) or falls back to Ale mele — ON since M4-B3 (partide.b.notif-finished-autoclose).
+   */
+  ownPartida: true,
   /** /partide/[id]/capturi — a community session's catches (M4). */
   communityCatches: false,
   /** /organizator — the organizer panel (M6). */
@@ -90,9 +94,12 @@ export function notificationHref(route: NotificationRoute): string | null {
       // TODO(M4): routes.partidaJoin(code) (/partide/intra/[code]).
       return null; // NOTIFICATION_PAGES_ON_WEB.partidaJoin is off: no page yet
     case 'partida':
-      // TODO(M4): the partide area resolves a client id to its page.
-      return null; // NOTIFICATION_PAGES_ON_WEB.ownPartida is off: no page yet
+      // fish /(app)/partide/{sessionId}: the CLIENT id; the web's pages take the documentId, so the
+      // resolver page maps it (getRedirectLocationForNotification.ts:107-116).
+      return NOTIFICATION_PAGES_ON_WEB.ownPartida ? routes.partidaSession(route.params.sessionId) : null;
     case 'communitySession':
+      // PARTIDA_CATCH, PARTIDA_FINISHED_FOLLOWED, FOLLOW_PARTIDA_START / _FIRST_CATCH (the
+      // documentId): the partidă page, member or spectator view (partide.b.notif-community).
       return partidaHref(route.params.sessionDocumentId);
     case 'communityCatches':
       // TODO(M4): routes.partidaCatches(id) (/partide/[id]/capturi).

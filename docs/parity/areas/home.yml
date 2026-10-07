@@ -218,7 +218,7 @@ screens:
         text: "„Captură” in the dock opens the free-capture flow; offline it is blocked with the toast „Fără conexiune. Reconectare…”."
         fish_ref: app/(app)/(tabs)/index.tsx:130-137
         status: passing
-        note: "web: «Captură» opens the partidă page (where the capture flow lives); offline it toasts «Fără conexiune. Reconectare…». Verified in code."
+        note: "web (M4-B3): «Captură» opens the capture flow /partide/[id]/captura (app/(site)/_home/ActivePartida.tsx → lib/partide-pages `capture`; the partidă page /partide/[id] while that flow's switch is off — never a dead link); offline it toasts «Fără conexiune. Reconectare…». The dock and the card's partidă link is partideHrefs.partida (on since M4-B3). Verified in code: the dock is a server read of the viewer's real active partidă, which no test may create (a CMS start writes the shared Firestore projection); the same component with the same hrefs is covered on the Partide hub (tests/e2e/partide-comunitate.spec.ts c26)."
       - id: home.acasa.c23
         text: "Competition rail: when live competitions exist (or are loading) the rail is titled „Concursuri live ({total})” and „Vezi toate” opens Competiții with status=started; otherwise, when upcoming ones exist (or load), „Concursuri viitoare ({total})” → status=notStarted; with neither, no rail. The count is omitted when total is 0."
         fish_ref: app/(app)/(tabs)/index.tsx:471-498

@@ -87,12 +87,15 @@ describe('notificationHref — every type with its ids', () => {
     [T.POLL_CLOSED, {}, null],
     [T.POLL_SUGGESTION_APPROVED, {}, null],
     [T.PARTIDA_INVITE, { partidaCode: 'ABC123' }, null],
-    [T.PARTIDA_FINISHED, { sessionId: 'local-1' }, null],
-    [T.PARTIDA_AUTO_CLOSE_WARN, { sessionId: 'local-1' }, null],
-    [T.PARTIDA_CATCH, { sessionDocumentId: 'p1' }, ON_WEB.partida ? '/partide/p1' : null],
-    [T.PARTIDA_FINISHED_FOLLOWED, { sessionDocumentId: 'p1' }, ON_WEB.partida ? '/partide/p1' : null],
-    [T.FOLLOW_PARTIDA_START, { sessionDocumentId: 'p1' }, ON_WEB.partida ? '/partide/p1' : null],
-    [T.FOLLOW_PARTIDA_FIRST_CATCH, { sessionDocumentId: 'p1' }, ON_WEB.partida ? '/partide/p1' : null],
+    // partide.b.notif-finished-autoclose: the CLIENT id → the resolver page (pointer / own list → the
+    // partidă, else Ale mele).
+    [T.PARTIDA_FINISHED, { sessionId: 'local-1' }, '/partide/sesiune/local-1'],
+    [T.PARTIDA_AUTO_CLOSE_WARN, { sessionId: 'local-1' }, '/partide/sesiune/local-1'],
+    // partide.b.notif-community: the documentId → the partidă page (member or spectator view).
+    [T.PARTIDA_CATCH, { sessionDocumentId: 'p1' }, '/partide/p1'],
+    [T.PARTIDA_FINISHED_FOLLOWED, { sessionDocumentId: 'p1' }, '/partide/p1'],
+    [T.FOLLOW_PARTIDA_START, { sessionDocumentId: 'p1' }, '/partide/p1'],
+    [T.FOLLOW_PARTIDA_FIRST_CATCH, { sessionDocumentId: 'p1' }, '/partide/p1'],
     [T.FOLLOW_RECORD_PERSONAL, { sessionDocumentId: 'p1' }, null],
     [T.FOLLOW_RECORD_LAKE, { sessionDocumentId: 'p1' }, null],
     [T.COMPETITION_AUTO_CANCELLED_ORGANIZER, {}, null],
@@ -125,6 +128,13 @@ describe('notificationHref — every type with its ids', () => {
   it('encodes ids', () => {
     expect(href(T.NEWS, { newsId: 'a/b c' })).toBe('/stiri/a%2Fb%20c');
     expect(href(T.BOOKING_CONFIRMED_ANGLER, { bookingId: 'a/b c' })).toBe('/rezervari/a%2Fb%20c');
+    expect(href(T.PARTIDA_FINISHED, { sessionId: 'a/b c' })).toBe('/partide/sesiune/a%2Fb%20c');
+    expect(href(T.PARTIDA_CATCH, { sessionDocumentId: 'a/b c' })).toBe('/partide/a%2Fb%20c');
+  });
+
+  it('partide.b.notif-finished-autoclose: no client id, no link (fish returns null)', () => {
+    expect(href(T.PARTIDA_FINISHED, {})).toBeNull();
+    expect(href(T.PARTIDA_AUTO_CLOSE_WARN, { sessionDocumentId: 'p1' })).toBeNull();
   });
 
   it('booking.b.notification-routes: every angler booking type opens /rezervari/{bookingId}; operator types never do', () => {
@@ -220,10 +230,11 @@ describe('gates follow the pages that exist under app/(site)', () => {
     expect(NOTIFICATION_PAGES_ON_WEB[gate as keyof typeof pages]).toBe(page(rel));
   });
 
-  it('ownPartida stays off until a CLIENT id resolves to its page (not the existence of partide/[id])', () => {
-    // PARTIDA_FINISHED / AUTO_CLOSE_WARN carry the owner's client id, not the documentId that
-    // /partide/[id] (M4-B1 spectator view) takes; the member branch (M4-B2) adds that resolution.
-    expect(NOTIFICATION_PAGES_ON_WEB.ownPartida).toBe(false);
+  it('ownPartida ↔ the client-id resolver page; partidaHref ↔ the partidă page', () => {
+    // PARTIDA_FINISHED / AUTO_CLOSE_WARN carry the owner's client id, which /partide/sesiune/[clientId]
+    // resolves to /partide/[documentId] (M4-B3).
+    expect(NOTIFICATION_PAGES_ON_WEB.ownPartida).toBe(page('partide/sesiune/[clientId]'));
+    expect(ON_WEB.partida).toBe(page('partide/[id]'));
   });
 
   it('organizerPendingFilter ↔ the participants page reads `filtru`', () => {

@@ -135,6 +135,12 @@ export const routes = {
   anglerConnections: (documentId: string, tab?: 'urmaritori' | 'urmareste') =>
     `/pescari/${encodeURIComponent(documentId)}/conexiuni${tab ? `?tab=${tab}` : ''}`,
   partida: (documentId: string) => `/partide/${encodeURIComponent(documentId)}`,
+  /**
+   * A partidă by its CLIENT id (the Firestore session id fish's PARTIDA_FINISHED /
+   * PARTIDA_AUTO_CLOSE_WARN carry): resolves to /partide/[documentId] through the live pointer or
+   * the own list, else Ale mele (partide.b.notif-finished-autoclose).
+   */
+  partidaSession: (clientId: string) => `/partide/sesiune/${encodeURIComponent(clientId)}`,
   partide: () => '/partide',
   /**
    * Start a partidă (M4, ON_WEB.startPartida; parity partide.yml «/partide/incepe»): at a lake
@@ -253,7 +259,9 @@ export const routes = {
  * text — never a dead link to the catch-all 404.
  *  - angler → /pescari/[id], the angler profile (M2, docs/parity/areas/account.yml) — ON since M2-B1;
  *  - connections → /pescari/[id]/conexiuni, an angler's followers / following (M2, account.connections) — ON since M2-B2;
- *  - partida → /partide/[id], with the own-vs-spectator resolution (M4);
+ *  - partida → /partide/[id], with the own-vs-spectator resolution (M4) — ON since M4-B3 (every
+ *    partidă link across the site: lake / public-water live rows, history cards and record heroes,
+ *    the angler profile's session cards, the partidă notifications);
  *  - startPartida → the start-partidă flow (M4);
  *  - settings → /setari, the settings hub (M2, account.settings) — ON since M2-B5 (the own profile's
  *    cog and the account menus' «Setări» rows);
@@ -265,7 +273,7 @@ export const routes = {
 export const ON_WEB = {
   angler: true,
   connections: true,
-  partida: false,
+  partida: true,
   startPartida: false,
   settings: true,
   myBookings: true,

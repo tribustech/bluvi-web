@@ -13,7 +13,7 @@ import { useViewerState } from '../../_shell/viewer-context';
 import { isUnknownViewer, userOf } from '../../_shell/viewer-state';
 import { liveSource } from './source';
 import { liveClock, samplingTransport } from './serverClock';
-import { localKeyValueStorage } from './storage';
+import { localKeyValueStorage, POINTER_OWNER_KEY } from './storage';
 import { useOnline } from './useOnline';
 
 /*
@@ -69,9 +69,6 @@ export function useLivePartide(): LivePartide {
   if (!value) throw new Error('useLivePartide must be used under app/(site)/partide/layout.tsx');
   return value;
 }
-
-/** The account the persisted pointer belongs to (a pointer of another account is ignored). */
-const POINTER_OWNER_KEY = '@bluvi/partide/activeSessionOwner';
 
 export function LivePartideProvider({ children }: { children: ReactNode }) {
   const [uid, setUid] = useState<string | null | undefined>(undefined);

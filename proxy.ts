@@ -36,5 +36,7 @@ export const config = {
     { source: '/rezervari/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     { source: '/balti/:id/rezerva/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     { source: '/balti/:id/recenzie', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    // M4: a partidă by its client id (PARTIDA_FINISHED / AUTO_CLOSE_WARN) — resolved per user.
+    { source: '/partide/sesiune/:clientId', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
   ],
 };

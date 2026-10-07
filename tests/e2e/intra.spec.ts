@@ -418,6 +418,55 @@ test('account.sign-in.c13 — the returned firebaseToken bridges Firebase Auth i
   expect(firestore).toBe(0);
 });
 
+const POINTER_KEY = '@bluvi/partide/activeSessionId';
+const POINTER_OWNER_KEY = '@bluvi/partide/activeSessionOwner';
+const stored = (page: Page, key: string) => page.evaluate((k) => localStorage.getItem(k), key);
+
+test('account.sign-in.c14 — after the sign-in the active-partidă probe runs once (after the Firebase bridge) and restores the live pointer; no Firestore', async ({ page, request }) => {
+  const me = await request.get(`${process.env.E2E_CMS_URL ?? 'http://localhost:1337/api'}/user/profile`, { headers: { authorization: `Bearer ${jwt}` } });
+  const selfId = (await me.json()).documentId as string;
+  let firestore = 0;
+  await page.route(/firestore\.googleapis\.com/, (r) => {
+    firestore += 1;
+    return r.abort();
+  });
+  let probes = 0;
+  await page.route('**/api/cms/feed/sessions/active', (r) => {
+    probes += 1;
+    return r.fulfill({ json: { data: { documentId: 'e2e-probe-doc', clientId: 'e2e-probe-client', firestoreId: 'e2e-probe-client' } } });
+  });
+  await mockLocalAuth(page);
+  await page.goto(`${PATH}?next=%2Fstiri`);
+  expect(await stored(page, POINTER_KEY)).toBeNull();
+  await signInLocal(page);
+  await expect(page).toHaveURL(/\/stiri$/);
+  // fish probeActiveSessionAfterSignIn: the pointer (two ids) for this account, fire-and-forget.
+  await expect.poll(() => stored(page, POINTER_KEY)).toBe(JSON.stringify({ sessionId: 'e2e-probe-client', documentId: 'e2e-probe-doc' }));
+  expect(await stored(page, POINTER_OWNER_KEY)).toBe(selfId);
+  expect(probes).toBe(1);
+  expect(firestore).toBe(0);
+});
+
+test('account.sign-in.c14 — no live partidă stores nothing; a failed probe never fails or delays the sign-in', async ({ page }) => {
+  let answer: 'none' | 'fail' = 'none';
+  await page.route('**/api/cms/feed/sessions/active', (r) =>
+    answer === 'none' ? r.fulfill({ json: { data: null } }) : r.fulfill({ status: 500, json: { data: null, error: { status: 500, message: 'x' } } })
+  );
+  await mockLocalAuth(page);
+  for (const mode of ['none', 'fail'] as const) {
+    answer = mode;
+    await page.context().clearCookies();
+    await page.goto(`${PATH}?next=%2Fstiri`);
+    const probe = page.waitForRequest('**/api/cms/feed/sessions/active');
+    await signInLocal(page);
+    await expect(page).toHaveURL(/\/stiri$/);
+    await probe;
+    await page.waitForTimeout(300);
+    expect(await stored(page, POINTER_KEY)).toBeNull();
+    expect(await stored(page, POINTER_OWNER_KEY)).toBeNull();
+  }
+});
+
 test('account.sign-in.c18 — «Explorează fără cont» goes back when there is history, else home', async ({ page }, testInfo) => {
   if (testInfo.project.name.startsWith('webkit')) await withoutNavigationApi(page);
   await page.goto('/stiri');

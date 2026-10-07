@@ -40,7 +40,7 @@ export const PARTIDE_PAGES_ON_WEB = {
   /** /partide/[id]/galerie — the photos of a partidă. */
   partidaGallery: false,
   /** /partide/[id]/captura — the capture flow (partide.captura). */
-  capture: false,
+  capture: true,
   /** /partide/incepe — start a partidă (lib/routes.ts ON_WEB.startPartida). */
   start: ON_WEB.startPartida,
   /** /partide/intra and /partide/intra/[cod] — join with a code (partide.intra). */

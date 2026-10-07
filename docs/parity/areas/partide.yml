@@ -726,6 +726,8 @@ screens:
       - id: partide.partida-lansete.c8
         text: "A capture in the same rod bucket (or the free bucket) within 30 s of the previous one asks „Sigur adaugi altă captură?” / „Ai adăugat o captură acum {s}s. Ești sigur că vrei să adaugi alta?” with „Da, adaug” / „Anulează”."
         fish_ref: "features/partide/scenes/useCaptureFlow.tsx:38-60"
+        status: passing
+        note: "e2e tests/e2e/partida-captura.spec.ts «partide.partida-lansete.c8 …»: a free capture 12 s after the last one asks «Sigur adaugi altă captură?» / «Ai adăugat o captură acum 12s. …» — «Anulează» goes back, «Da, adaug» opens the form; another rod bucket (only a «lost» there) and an edit are not gated. components/partide/capture: CaptureSpamGuard + useCaptureFlow (button entry points, with an in-memory confirm token so the page does not ask twice) + the page's own gate (link entry points: the dock, deep links). core partideSpam unit-tested."
       - id: partide.partida-lansete.c9
         text: "Rods with a configured timer show a start pill („Pornește cronometrul”); a running rod shows a stop control („Oprește cronometrul”) that asks for confirmation before force-stopping (label „{lane} · {m} m”)."
         fish_ref: "features/partide/scenes/CronometreScene.tsx:125-142"
@@ -1130,7 +1132,7 @@ screens:
       - "core/partide commitCatch, api upsertEvent / uploadSessionPhoto / patchEventPhoto / patchEventTags, invalidateCommunityAfterCatch"
       - "core/partide/domain captureEdits (buildLogCaptureEvent, applyCaptureUpdate), fishCatalog, format (fmtKg, pad2), retryWrite"
       - "core/realtime/partide waitForProjection (eventPresent, eventUpdatedSince, revAdvanced)"
-      - "MISSING ports: castGeometry (anchorCoord, distanceFromAnchor, haversineMeters), derivedLane (laneForRod)"
+      - "core/partide/domain castGeometry (anchorCoord, distanceFromAnchor, haversineMeters, bearingDeg), derivedLane (laneForRod), partideSpam, captureSave (decideCaptureSave, buildCaptureDetails, buildEvent, buildRuntimeMetaPatch, applyTimePick, MAX_WEIGHT_KG), baitTaxonomy, baitHistory — ported M4-B3 with unit tests"
     states:
       - session not found
       - new capture (free / from a rod) vs edit
@@ -1141,41 +1143,68 @@ screens:
       - id: partide.captura.c1
         text: "Unknown session: „Partida nu a fost găsită.” with „Înapoi”."
         fish_ref: "app/(app)/partide/captura.tsx:641-654"
+        status: passing
+        note: "e2e tests/e2e/partida-captura.spec.ts «c1 …» ×2 + «auth-only»: no live pointer for this id (none, another partidă, or an ended one) → «Partida nu a fost găsită.» + «Înapoi» (no in-app history → the partidă page); noindex; a guest → /intra?next=<path with query>. «c1 the pointer names this partidă but no live snapshot…»: a snapshot that never comes (blocked Firestore, rebuild, offline with nothing cached) → after 8 s (at once offline / recovering) «Nu am putut descărca partida» + «Reîncearcă» (reload) / «Înapoi», never an endless skeleton."
       - id: partide.captura.c2
         text: "Indigo hero with back control, title „Captură nouă” or „Editează captura” and the helper „Completează datele pentru o statistică personală cât mai completă.”"
         fish_ref: "app/(app)/partide/captura.tsx:713-725"
+        status: passing
+        note: "e2e tests/e2e/partida-captura.spec.ts «c2 …»: the indigo hero (the accent token) with «Înapoi», «Captură nouă» / «Editează captura» and the helper; «Salvează captura» / «Salvează modificările». An `editare` id that matches no capture is a NEW capture everywhere (title, breadcrumb, spam gate — resolved once in CaptureScreen; «c2 an `editare` id that matches no capture…»). Desktop: a centred T6 column (640 / 720 from 1280), the hero a rounded indigo card; the action bar is docked edge to edge below 1280 and from 1280 a card in the flow under «DETALII» (never floating over the rows)."
       - id: partide.captura.c3
         text: "„CE AI PRINS?” species chips = the partidă's target species (or the catalog defaults), single-select, plus „Mai mult” opening the species picker; species added there become targets of the partidă and the first newly added one is selected; „Altele” is selectable."
         fish_ref: "app/(app)/partide/captura.tsx:170-186,343-373,744-796"
+        status: passing
+        note: "e2e tests/e2e/partida-captura.spec.ts «c3 …» ×2: the targets as aria-pressed chips, single-select; «Mai mult» → components/partide/species/SpeciesPicker (catalog, targets first, checked) → PATCH /feed/sessions/:id {targetSpecies} and the first new one selected (shown at once, before the projection echoes it); «Altele» for this capture only (no PATCH); no targets → the catalog's partidaDefaultRank order. «c3 the selection is never invisible…»: a selected species outside the targets (an edited catch, «Altele») gets its own chip; an emptied target list falls back to the catalog defaults at once (fish's optimistic atom)."
       - id: partide.captura.c4
         text: "„GREUTATE” is optional: prompt „Adaugă greutatea” / „Opțional — captura se salvează și fără”; once set, − / + steppers of 0,1 kg, a keypad (max 3 decimals, max 60 kg, comma decimal) and a „Cântărită” / „Estimată” toggle."
         fish_ref: "app/(app)/partide/captura.tsx:111-113,318-331,805-905"
+        status: passing
+        note: "e2e tests/e2e/partida-captura.spec.ts «c4 …»: «Adaugă greutatea» / «Opțional — captura se salvează și fără»; the keypad opens inside the card (also the physical keyboard): comma decimal, a 4th decimal and >60 kg refused (flashed + announced), ± 0,1 kg (clamped), Cântărită / Estimată (radio), «Fără greutate»; «c4 a ± step while the keypad is open…»: a step re-seeds the typed string (3 → + → «3,1», saved 3.1; then 5 → 3,15). Unit: _form/weight.test.ts."
       - id: partide.captura.c5
         text: "„DETALII” rows: „Lansetă” (rod chooser „Fără lansetă” / the partidă's rods, helper „Aici îți apar lansetele pe care le-ai configurat în cadrul partidei”), „Poziția pe hartă” („{m} m · pe hartă” / „la pinul lansetei · {m} m” / „{lane} · {m} m” / „Alege pe hartă”), „Momeală” („Adaugă” or the rod's bait), „Poză” („Adaugă” or a thumb with remove), „Ora” („acum · HH:MM” or the picked time)."
         fish_ref: "app/(app)/partide/captura.tsx:912-1048,1086-1112"
+        status: passing
+        note: "e2e tests/e2e/partida-captura.spec.ts «c5 …»: Lansetă (chooser with fish's helper, «Fără lansetă» + the rods, colour dots), Poziția pe hartă («Alege pe hartă» → the B2 MapPointPicker → «{m} m · pe hartă»; «{lane} · {m} m»), Momeală (recent baits, name, Tip / Dimensiune (mm) / Aromă composing the name), Poză («Adaugă» / thumb + ✕), Ora («acum · HH:MM»)."
       - id: partide.captura.c6
         text: "Opening from a rod preselects that rod; changing rod resets a custom bait; the position defaults to the rod's cast pin when it has one (not in edit)."
         fish_ref: "app/(app)/partide/captura.tsx:166,251-268,334-338"
+        status: passing
+        note: "e2e tests/e2e/partida-captura.spec.ts «c6 …»: ?lanseta=2 preselects L2, the position «la pinul lansetei · 70 m», its bait; a custom bait is reset by a rod change; an edit never moves to the rod pin (a single map rod has no honest lane → the distance alone, core derivedLane). «c6 a legacy 0/0 anchor…»: no stand to measure from → «la pinul lansetei» / «pe hartă» with no metres (owner rule 4; fish measures from 0,0)."
       - id: partide.captura.c7
         text: "The time picker „Ora capturii” sets hours/minutes on the capture's day and moves it back 24 h if the result would be in the future."
         fish_ref: "app/(app)/partide/captura.tsx:122-128,1480"
+        status: passing
+        note: "e2e tests/e2e/partida-captura.spec.ts «c7 …»: «Ora capturii» (the browser's 24 h time field, «Gata») sets HH:MM on the day; a future time → the saved occurredAt is the previous day (core captureSave applyTimePick, unit-tested)."
       - id: partide.captura.c8
         text: "„Poză” asks „Adaugă o poză” → „Fă o poză” / „Alege din galerie” / „Anulează” (web: file input / camera capture), then opens the photo preview step; failure → „Nu am putut pregăti poza. Încearcă din nou.”"
         fish_ref: "app/(app)/partide/captura.tsx:431-451"
+        status: passing
+        note: "e2e tests/e2e/partida-captura.spec.ts «c8 …» ×3: the file (accept image/*; a camera input with capture=environment) → «Se pregătește poza…» (lib/client/compress-image) → the partide.captura-poza dialog («Cine e în poză?» in a co-op) → «Gata» → the thumb; a touch screen first asks «Adaugă o poză» → «Fă o poză» / «Alege din galerie» / «Anulează»; a broken file → «Nu am putut pregăti poza. Încearcă din nou.»; save writes the catch first, then uploads (POST /feed/sessions/photo) and PATCHes only the photo."
       - id: partide.captura.c9
         text: "„Salvează captura” / „Salvează modificările” saves; offline → inline „Fără conexiune. Reconectare…”; while saving a curtain with rotating messages covers the form for a minimum time; failure → inline „Nu am putut salva captura. Încearcă din nou.” and the button becomes „Reîncearcă” (replays the same event id)."
         fish_ref: "app/(app)/partide/captura.tsx:498-614,1062-1071"
+        status: passing
+        note: "e2e tests/e2e/partida-captura.spec.ts «c9 c10 c12 a free capture…», «c9 failure…», «c9 offline…»: the curtain (fish's rotating lines) for ≥ MIN_CURTAIN_MS; 400 → «Nu am putut salva captura. Încearcă din nou.» + «Reîncearcă», which replays the SAME clientId; offline → «Fără conexiune. Reconectare…», nothing written."
       - id: partide.captura.c10
         text: "A capture from a running/expired rod resolves that rod's timer cycle; otherwise a capture event is logged with rod snapshot, weight, estimated flag, species, bait, photo, photo tags, coordinates, distance and time."
         fish_ref: "app/(app)/partide/captura.tsx:582-613"
+        status: passing
+        note: "e2e tests/e2e/partida-captura.spec.ts «c10 …» ×2: the event body (rod snapshot, weight, estimated, species + id, bait, pin lat/lng, distance, time); an expired rod → POST …/rods/1/stop + the catch (core rodCycle + captureSave buildEvent); a running rod asks «Lanseta cronometrează» — «Continuă» logs, «Oprește» resolves. «c10 the save curtain opens out of the hero…»: from 768 the curtain starts as the hero card's exact rect + radius (clip-path) and opens to the viewport; on the phone a scaleY band from the hero's bottom; hero scrolled away → a plain fade."
       - id: partide.captura.c11
         text: "Edit sends only changed fields (photo only when changed; rod snapshot only when the rod changed) and waits until the projection shows the update."
         fish_ref: "app/(app)/partide/captura.tsx:531-579"
+        status: passing
+        note: "e2e tests/e2e/partida-captura.spec.ts «c11 …» ×2: prefilled from the projection; the re-written catch has no `photo` key when the photo is untouched (no upload / PATCH), `photo: null` when removed, the rod snapshot only when the rod changed; the page leaves only when the projection echoes the stamped clientUpdatedAt."
       - id: partide.captura.c12
         text: "After a successful save the angler galleries and the partidă detail query are invalidated, then the page waits for the realtime projection before going back."
         fish_ref: "app/(app)/partide/captura.tsx:475-521"
+        status: passing
+        note: "e2e tests/e2e/partida-captura.spec.ts «c9 c10 c12 a free capture…» (still on the page 1,2 s after the write until the snapshot with the catch lands, then back < 1,5 s) and «c12 after a save…» (Ale mele → capture → back: the own list refetched); unit tests/unit/capture-after-save.test.ts (anglers galleries + exactly this partidă's detail invalidated)."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/partida-captura.spec.ts
+    visual: tests/visual/partida-captura.visual.spec.ts (12 states × 375 / 1280 / 1440 / 1920; baselines not committed until the owner approves)
+    web_note: "M4-B3. /partide/[id]/captura (app/(site)/partide/[id]/captura; requireViewer with the path + query; client-only past the gate; noindex). The viewer's LIVE partidă only (the _live pointer + projection). Writes through the CMS only (components/partide/capture/captureWrites: logCapture / updateCapture / resolveRodCapture / setTargetSpecies over core commitCatchWithPhoto, rod commands with the patchRods fallback); Firestore is never written. The 30 s spam soft-confirm lives in components/partide/capture (useCaptureFlow for button entry points, the page itself for link entry points such as the dock). lib/partide-pages `capture` flipped on. Web differences: the position picker is the B2 MapPointPicker (no Stand↔Tu origin toggle, so the distance is measured from the stand / start pin); the keypad is inline in the card; the time is the browser's time field."
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.captura-poza
@@ -1192,34 +1221,48 @@ screens:
     milestone: M4
     roles: [angler, organizer, referee, operator]
     core:
-      - "core/partide/domain captureEdits (sameTagSelection)"
-      - "MISSING ports: helpers/cropGeometry + photoCropPipeline (rotate/flip before crop, crop rect on the rotated size)"
+      - "core/partide/domain captureEdits (sameTagSelection — the capture form's PATCH-only-on-change)"
+      - "core/partide/domain cropGeometry (fish cropGeometry + the overlay's pure maths: presets, rotatedSize, coverScale, clampTransform, resizeFreeFrame)"
+      - "core/partide/domain photoCropPipeline (computeCropPlan on the ROTATED size; applyCropPlan runs rotate → flip → crop over platform CropOps)"
     states:
       - solo partidă (no tag picker)
       - co-op partidă (tag picker)
-      - cropping
-      - image read / crop failure
+      - measuring (Decupează disabled)
+      - cropping (ratio presets pan/zoom, «Liber» corner resize, «Original»)
+      - image read failure / crop failure
     criteria:
       - id: partide.captura-poza.c1
         text: "Full-bleed photo with „Renunță” (back; discards and returns) and „Decupează” (disabled until the image is measured or while cropping) at the top and „Gata” at the bottom."
         fish_ref: "app/(app)/partide/photo-preview.tsx:179-217"
+        status: passing
+        note: "e2e tests/e2e/partida-captura-poza.spec.ts (dev harness /dev/partide-poza, members from the fake-live Firestore fake, no network writes). Web: a full-screen dark dialog (kit PhotoDialog — native <dialog>, focus contained, Escape = «Renunță», focus starts on the dialog's name). Phone as fish: the photo full-bleed, round «Renunță» / «Decupează» on a top scrim, picker + «Gata» on a bottom scrim. From 768 the photo is centred at its largest and every control sits in one bottom bar (no chrome floating over the photo). «Renunță» hands nothing back."
       - id: partide.captura-poza.c2
         text: "Crop is non-destructive and repeatable: each crop is measured against the current working image; rotate/flip apply before the crop."
         fish_ref: "app/(app)/partide/photo-preview.tsx:1-21"
+        status: passing
+        note: "e2e tests/e2e/partida-captura-poza.spec.ts (dev harness /dev/partide-poza, members from the fake-live Firestore fake, no network writes). (1:1 then 4:3 → 900×900 then 900×675 of a 1200×900 photo; rotate 90° + Original → 900×1200 with the pixels turned; flip + 1:1 on the rotated image; keyboard pan; freeform corner drag; «Anulează» / Escape leave the image as it was; while a crop is applied «Anulează» is disabled like Escape and a crop closed mid-apply is dropped; the selected preset is a light pill — on-photo-scrim/18, fish rgba(255,255,255,0.18)). Each saved crop is JPEG 0.9 (fish) stepped down through lib/client/compress-image's QUALITY_STEPS until it fits MAX_UPLOAD_BYTES (core encodeWithinLimit; e2e: a 2800² noise photo, «Original» + rotate, comes back ≤ 4 MB). Unit: core cropGeometry + photoCropPipeline tests (fish's, ported). Web input: drag pans, wheel / pinch zooms, arrows and + / − from the keyboard, arrow keys on a focused corner handle."
       - id: partide.captura-poza.c3
         text: "Errors: „Nu am putut citi poza. Încearcă din nou.”, „Poza nu este încă pregătită. Încearcă din nou.”, „Nu am putut aplica decuparea. Încearcă din nou.”"
         fish_ref: "app/(app)/partide/photo-preview.tsx:79-102"
+        status: passing
+        note: "e2e tests/e2e/partida-captura-poza.spec.ts (dev harness /dev/partide-poza, members from the fake-live Firestore fake, no network writes). a file that is not an image → the read error in place of the photo (Decupează and Gata disabled — web never hands an unreadable file to the form; fish lets «Gata» through); a failing encode, or a crop that does not fit the upload cap even at the lowest quality (e2e: 4000² noise), → the crop error as a toast, the crop stays open — a catch is never saved with a photo the upload will refuse. On the real route, a saved photo that cannot be read back for a reopen (CORS / network) → the form's «Nu am putut pregăti poza. Încearcă din nou.» toast, the photo stays attached. «Poza nu este încă pregătită» is fish's guard for a crop saved before the image is measured; as in fish the UI cannot reach it (Decupează is disabled until measured — proven by the e2e with a held decode), so it stays a guard."
       - id: partide.captura-poza.c4
         text: "In a partidă with more than one member, „Cine e în poză?” offers „Toți” (default) and one chip per member; deselecting everyone returns to „Toți”; helper „Poza apare pe profilul tuturor membrilor, dacă partida e publică.” / „Poza apare doar pe profilul celor selectați, dacă partida e publică.” A solo partidă shows no picker."
         fish_ref: "features/partide/components/PhotoTagPicker.tsx:40-96"
+        status: passing
+        note: "e2e tests/e2e/partida-captura-poza.spec.ts (dev harness /dev/partide-poza, members from the fake-live Firestore fake, no network writes). (solo and co-op). Chips are toggle buttons (aria-pressed) with the member's avatar; the row scrolls edge to edge on a phone and wraps from 768."
       - id: partide.captura-poza.c5
         text: "Photo tags decide only whose gallery shows the photo — the catch always counts for every member."
         fish_ref: "app/(app)/partide/photo-preview.tsx:11-13"
+        status: passing
+        note: "e2e tests/e2e/partida-captura-poza.spec.ts (dev harness /dev/partide-poza, members from the fake-live Firestore fake, no network writes). the dialog returns `tags` beside the unchanged blob and touches nothing else; counting the catch for every member is partide.captura's save (tags only go into the photo-tag field)."
       - id: partide.captura-poza.c6
         text: "„Gata” returns the working image and the tag selection to the capture form (preselected tags are restored when re-opening an existing photo)."
         fish_ref: "app/(app)/partide/photo-preview.tsx:104-127"
+        status: passing
+        note: "e2e tests/e2e/partida-captura-poza.spec.ts (dev harness /dev/partide-poza, members from the fake-live Firestore fake, no network writes). onDone({ blob, tags, changed }) — the working image, null («Toți») or the uids, and whether a crop replaced the source (fish hands back the unchanged workingUri); `initialTags` restores the selection; a double activation (two clicks in one task, counted by the harness) hands the result over once (fish F5 latch). On the REAL route (same spec, «on /partide/[id]/captura», fake-live co-op partidă, every CMS write mocked + recorded): a new catch → pick → crop 1:1 → «Gata» → the thumb → save uploads the 900×900 crop then PATCHes `photo`; editing a catch with photo + tags → reopen → its tags restored → «Gata» uncropped → no upload, no `photo` key, nothing patched; only the tags changed → ONLY photoTagUids patched; a crop of the reopened photo → upload + `photo` PATCH (partide.captura.c11)."
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.istoric
@@ -1712,6 +1755,8 @@ behaviours:
   - id: partide.b.deep-link-spectate
     text: "Share link https://bluvi-app.wearetribus.com/partide/comunitate/{documentId} (AASA covers /partide/*) must open the web spectator/member page: /partide/comunitate/[id] redirects (308) to /partide/[id]."
     fish_ref: "features/partide/helpers/deepLinks.ts:19-31"
+    status: passing
+    note: "M4-B3: next.config.ts redirects /partide/comunitate/:id → /partide/:id (permanent, 308; the query kept). e2e tests/e2e/partide-links.spec.ts «partide.b.deep-link-spectate …» (308 + location; a real public partidă lands on its spectator view, signed out)."
   - id: partide.b.deep-link-join
     text: "Invite link https://bluvi-app.wearetribus.com/partide/join/{code} must work on web: /partide/join/[code] redirects to /partide/intra/[cod] (sign-in first when signed out, then back)."
     fish_ref: "features/partide/components/CoopCard.tsx:38-39"
@@ -1721,9 +1766,13 @@ behaviours:
   - id: partide.b.notif-finished-autoclose
     text: "PARTIDA_FINISHED and PARTIDA_AUTO_CLOSE_WARN carry the session CLIENT id (data.sessionId); the web resolves it to the documentId through the own sessions list (or the live pointer) and opens /partide/[documentId]; unresolvable → Partide „Ale mele”."
     fish_ref: "helpers/getRedirectLocationForNotification.ts:107-116"
+    status: passing
+    note: "M4-B3: lib/notification-href maps both types to /partide/sesiune/[clientId] (NOTIFICATION_PAGES_ON_WEB.ownPartida, pinned by tests/unit/notification-href.test.ts, gate ↔ page). app/(site)/partide/sesiune/[clientId]: signed in only (proxy 307 / requireViewer → /intra?next=), noindex; the live pointer, then the own list (core findMineListItem over partideHistoryQuery) → router.replace(/partide/[documentId]); Ale mele ONLY when the probe settled and the list LOADED without a match (rule 4: a failed read is «unknown», never «not mine»); a failed list (after its one retry) keeps the URL and shows the partidă page's «Nu am putut încărca partida.» + «Reîncearcă» (refetches the list); an unknown session (requireViewer throws → the route's error.tsx, same card) or a resolution still pending after 20 s (a probe that never answers) → the same card, «Reîncearcă» reloads; signed out under us → /intra?next=; meanwhile the partidă page's skeleton. e2e tests/e2e/partide-links.spec.ts «partide.b.notif-finished-autoclose …» ×8 (pointer → member view, Back skips the hop; own list → member view; loaded list without it → Ale mele; failed list → error card, URL kept, retry resolves; unreadable session → error card; stalled probe → error card; signed out → 307; a /notificari row → member view)."
   - id: partide.b.notif-community
     text: "PARTIDA_CATCH, PARTIDA_FINISHED_FOLLOWED, FOLLOW_PARTIDA_START and FOLLOW_PARTIDA_FIRST_CATCH (data.sessionDocumentId) open /partide/[documentId]; FOLLOW_RECORD_PERSONAL / FOLLOW_RECORD_LAKE open /partide/[documentId]/capturi."
     fish_ref: "helpers/getRedirectLocationForNotification.ts:117-123,178-185"
+    status: proposed
+    note: "/partide/[id] part passing since M4-B3: PARTIDA_CATCH, PARTIDA_FINISHED_FOLLOWED, FOLLOW_PARTIDA_START, FOLLOW_PARTIDA_FIRST_CATCH → partidaHref (tests/unit/notification-href.test.ts; e2e tests/e2e/partide-links.spec.ts «… partide.b.notif-community …» — the /notificari row links /partide/[documentId]). FOLLOW_RECORD_PERSONAL / FOLLOW_RECORD_LAKE → /partide/[id]/capturi waits on that page (NOTIFICATION_PAGES_ON_WEB.communityCatches)."
   - id: partide.b.signin-gating
     text: "Signed-out: start, join (both), pescari redirect to sign-in; the Ale mele tab shows the sign-in wall; the Pescari quick-nav tile and the follow bell push sign-in; Comunitate, Explorează, statistici, clasament and spectator pages are public."
     fish_ref: "features/partide/scenes/AcasaScene.tsx:119-126"

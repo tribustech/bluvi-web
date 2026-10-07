@@ -677,8 +677,8 @@ screens:
       - id: lakes.detail.c22
         text: "Opening a live session goes to the viewer's own partidă when it is theirs, otherwise to the read-only /partide/[id]."
         fish_ref: "features/partide/community/useOpenPartida.ts:28"
-        status: todo
-        web_note: "BLOCKED on M4: /partide/[id] is not on the web, so live session rows are plain (ON_WEB.partida); the own-vs-spectator resolution lands with that page."
+        status: passing
+        web_note: "M4-B3 (ON_WEB.partida on): a live row is a link to /partide/[documentId]; that page resolves own vs spectator (OwnOrSpectator: the live pointer, then the own list — fish useOpenPartida). e2e tests/e2e/balta.spec.ts «lakes.detail.c21 lakes.detail.c22 …» (the polled row's href, the press lands on the partidă page) and tests/e2e/partide-links.spec.ts «lakes.detail.c22 …» (the viewer's own row, «(partida ta)», → the member view, Firestore faked)."
       - id: lakes.detail.c23
         text: "„Prețuri” rows: header, optional description, price „N RON”."
         fish_ref: "features/lakes/detail/LakePricesSection.tsx:7"
@@ -1020,13 +1020,13 @@ screens:
       - id: lakes.partide.c8
         text: "„Partide încheiate” lists finished partide (deduped, infinite scroll) as cards ribboned „Încheiată” with „Vezi rezumatul”, each opening the partidă."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:188"
-        status: todo
-        web_note: "BLOCKED on M4: the finished cards, the «Încheiată» ribbon, dedupe and infinite scroll pass; «Vezi rezumatul» / the card link wait for /partide/[id] (ON_WEB.partida)."
+        status: passing
+        web_note: "M4-B3: finished cards, the «Încheiată» ribbon, dedupe and infinite scroll, and «Vezi rezumatul» with the card's one stretched link to /partide/[documentId]. e2e tests/e2e/balta-subpagini-3.spec.ts «lakes.partide.c1 lakes.partide.c8 lakes.partide.c9 …»."
       - id: lakes.partide.c9
         text: "Opening a partidă goes to the viewer's own partidă when it is theirs, else /partide/[id]."
         fish_ref: "features/partide/community/useOpenPartida.ts:28"
-        status: todo
-        web_note: "BLOCKED on M4: /partide/[id] (and the own-partidă resolution) is not on the web (ON_WEB.partida)."
+        status: passing
+        web_note: "M4-B3: every card opens /partide/[documentId], which picks the member view for the viewer's own partidă and the spectator view otherwise (OwnOrSpectator). e2e tests/e2e/balta-subpagini-3.spec.ts «lakes.partide.c1 lakes.partide.c8 lakes.partide.c9 …» (a press on the card lands on the spectator view of a real partidă) + tests/e2e/partide-links.spec.ts (own → member view)."
       - id: lakes.partide.c10
         text: "Live data refreshes every 60s; refresh reloads live + history together."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:57"
@@ -1102,8 +1102,8 @@ screens:
       - id: lakes.stats.c9
         text: "Record card for the period; opens the partidă when it has a session id."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:193"
-        status: todo
-        web_note: "BLOCKED on M4: the record card shows; it opens its partidă once /partide/[id] ships (ON_WEB.partida)."
+        status: passing
+        web_note: "M4-B3: the record hero is a link to /partide/[sessionDocumentId] when the record carries one (none → no link, as fish). e2e tests/e2e/balta-subpagini-3.spec.ts «lakes.stats.c9 …» (real data: href, the press lands on the partidă page)."
       - id: lakes.stats.c10
         text: "„Top standuri”: sort chips „Kg total” / „Capturi” / „Record” (default Kg total), top 5 stands with bars relative to the leader, „Clasament ›” → /balti/[id]/standuri?perioada=…&sortare=…; hidden when no stand has data."
         fish_ref: "features/partide/components/stats/TopStandsCard.tsx:10"

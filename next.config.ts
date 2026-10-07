@@ -48,6 +48,10 @@ const nextConfig: NextConfig = {
       // and the booking page (booking.rezervare.c14).
       { source: '/bookings', destination: '/rezervari', permanent: true },
       { source: '/bookings/:id', destination: '/rezervari/:id', permanent: true },
+      // fish's spectator share link https://bluvi-app.wearetribus.com/partide/comunitate/{documentId}
+      // (features/partide/helpers/deepLinks.ts) → the web's partidă page, member or spectator view
+      // on one URL (partide.b.deep-link-spectate).
+      { source: '/partide/comunitate/:id', destination: '/partide/:id', permanent: true },
     ];
   },
   async headers() {
