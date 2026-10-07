@@ -1,9 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import { createContext, Suspense, use, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  createContext,
+  Suspense,
+  use,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import { CalendarDaysIcon, GlobeAltIcon, ShareIcon } from '@heroicons/react/24/outline';
 import { headerChipClass, type HeaderChipGround } from '@/components/templates/T3';
+import { T4Spinner } from '@/components/templates/T4';
 import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import {
@@ -34,7 +49,10 @@ import { onSectionJump } from './SectionLink';
  * The session: the shell's tri-state read (viewer-context), probed once behind its own Suspense
  * so nothing on the page waits for it. It never changes what the page renders (the booking controls
  * look the same for everyone); it only decides where a click goes (useBookingTarget's href,
- * ClaimTrigger, the dialogs' submits).
+ * ClaimTrigger, the dialogs' submits). Only a session KNOWN to be a guest (null) is sent to sign-in
+ * up front: /intra is shown to guests only, and the page is static, so its server HTML (and every
+ * click before the probe answers) must never send a signed-in angler there. A click while the
+ * probe is still out waits for it (`whenSession`) and then routes.
  */
 
 export type LakeInfo = {
@@ -56,8 +74,31 @@ type Session = ViewerState | undefined;
 type Ctx = {
   lake: LakeInfo;
   session: Session;
+  /** The session once the probe answers (undefined if it has not after PROBE_WAIT_MS: treat as unknown). */
+  whenSession: () => Promise<Session>;
   open: (dialog: LakeDialog, source?: LakeBookingInterestSource) => void;
+  nav: NavGuard;
 };
+
+/**
+ * fish guardNavigation for the booking controls (booking.b.double-submit-guard, lakes.b.nav-guard):
+ * ONE gate for the whole page (the hero, the header, the card, the tile and the phone bar share it,
+ * as fish's global hook), so two booking controls clicked in a row start one navigation. `go`
+ * starts a navigation unless one is pending and says whether it did; `pendingId` is the control
+ * that started it (it shows the spinner + aria-busy). Released when the navigation settles (a
+ * failed one included: the transition ends on this page), when the pathname changes (Back
+ * included), when the page is shown again (bfcache) and, at the latest, NAV_HOLD_MS after the
+ * click.
+ */
+type NavGuard = {
+  go: (id: string, target: (s: Session) => string) => boolean;
+  pendingId: string | null;
+};
+
+/** How long a started booking navigation keeps every booking control from starting another one. */
+const NAV_HOLD_MS = 3_000;
+/** How long a click waits for the session probe before routing as «unknown» (the target's own gate decides). */
+const PROBE_WAIT_MS = 5_000;
 
 const LakeContext = createContext<Ctx | null>(null);
 
@@ -75,6 +116,29 @@ function ViewerProbe({ onState }: { onState: (s: ViewerState) => void }) {
 
 export function LakeActionsProvider({ lake, children }: { lake: LakeInfo; children: ReactNode }) {
   const [session, setSession] = useState<Session>(undefined);
+  const sessionRef = useRef<Session>(undefined);
+  const waiters = useRef<((s: Session) => void)[]>([]);
+  const onState = useCallback((s: ViewerState) => {
+    sessionRef.current = s;
+    setSession(s);
+    const ws = waiters.current;
+    waiters.current = [];
+    ws.forEach(w => w(s));
+  }, []);
+  const whenSession = useCallback(
+    (): Promise<Session> =>
+      sessionRef.current !== undefined
+        ? Promise.resolve(sessionRef.current)
+        : new Promise(resolve => {
+            const timer = window.setTimeout(() => resolve(undefined), PROBE_WAIT_MS);
+            waiters.current.push(s => {
+              window.clearTimeout(timer);
+              resolve(s);
+            });
+          }),
+    [],
+  );
+  const nav = useNavGuard(whenSession);
   const [dialog, setDialog] = useState<LakeDialog | null>(null);
   const [source, setSource] = useState<LakeBookingInterestSource>('quick_action');
 
@@ -97,14 +161,22 @@ export function LakeActionsProvider({ lake, children }: { lake: LakeInfo; childr
     }
   }, [lake.documentId]);
 
-  const value = useMemo(() => ({ lake, session, open }), [lake, session, open]);
+  const value = useMemo(() => ({ lake, session, whenSession, open, nav }), [lake, session, whenSession, open, nav]);
   return (
     <LakeContext value={value}>
       {children}
       <Suspense fallback={null}>
-        <ViewerProbe onState={setSession} />
+        <ViewerProbe onState={onState} />
       </Suspense>
-      <LakeDialogs lake={lake} session={session} dialog={dialog} source={source} onOpen={open} onClose={() => setDialog(null)} />
+      <LakeDialogs
+        lake={lake}
+        session={session}
+        whenSession={whenSession}
+        dialog={dialog}
+        source={source}
+        onOpen={open}
+        onClose={() => setDialog(null)}
+      />
       <ClaimAfterSignIn session={session} open={open} />
     </LakeContext>
   );
@@ -114,14 +186,66 @@ export function LakeActionsProvider({ lake, children }: { lake: LakeInfo; childr
  * Booking affordance (fish openBookingAffordance — parity lakes.detail.c16)
  * ---------------------------------------------------------------------------------------------- */
 
+/** A plain left click: the page handles it; a new-tab click (modifiers, middle button) is the browser's. */
+const plainClick = (e: MouseEvent<HTMLElement>) => e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+
+function useNavGuard(whenSession: () => Promise<Session>): NavGuard {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [pending, startTransition] = useTransition();
+  /** The control that started the running navigation, and the page it started on. */
+  const [started, setStarted] = useState<{ id: string; path: string } | null>(null);
+  /** The same, as refs: a double click's second event must see the first before any render. */
+  const hold = useRef<{ at: number; path: string; active: boolean } | null>(null);
+  const pathRef = useRef(pathname);
+  useEffect(() => {
+    pathRef.current = pathname;
+  }, [pathname]);
+  // The navigation settled (it left, or failed and stayed — offline, an RSC error): re-arm at once.
+  useEffect(() => {
+    if (!pending && hold.current) hold.current.active = false;
+  }, [pending]);
+  // The page shown again from the back/forward cache.
+  useEffect(() => {
+    const reset = () => {
+      hold.current = null;
+      setStarted(null);
+    };
+    window.addEventListener('pageshow', reset);
+    return () => window.removeEventListener('pageshow', reset);
+  }, []);
+
+  const go = useCallback(
+    (id: string, target: (s: Session) => string) => {
+      const now = performance.now();
+      const h = hold.current;
+      // Held while a navigation started here is running — never past NAV_HOLD_MS, never once the
+      // pathname moved (the grid, sign-in, Back to this lake).
+      if (h && h.active && h.path === pathRef.current && now - h.at < NAV_HOLD_MS) return false;
+      hold.current = { at: now, path: pathRef.current, active: true };
+      setStarted({ id, path: pathRef.current });
+      startTransition(async () => {
+        const s = await whenSession();
+        startTransition(() => router.push(target(s)));
+      });
+      return true;
+    },
+    [router, whenSession],
+  );
+  const pendingId = pending && started && started.path === pathname ? started.id : null;
+  return useMemo(() => ({ go, pendingId }), [go, pendingId]);
+}
+
 /**
  * What «Rezervă acum» / the Rezervă tile do (fish openBookingAffordance) — the same control at every
- * width, so the page never changes shape when the session probe answers (the page is static; a
- * guest is the common first paint) and works before hydration:
- *  - booking enabled: a link. Known to be signed in → the booking flow (routes.lakeBooking). A guest,
- *    a session not answered yet or an unknown one (rule 4: never assume signed in) → sign-in, back
- *    to this lake (fish pushes /sign-in plainly: Back and the return land on the lake, never inside
- *    the grid). A direct guest visit to /rezerva is redirected by that page itself.
+ * width, so the page never changes shape when the session probe answers (the page is static; its
+ * HTML is the same for everyone) and works before hydration:
+ *  - booking enabled: a link. Known to be a guest (null) → sign-in, back to this lake (fish pushes
+ *    /sign-in plainly: Back and the return land on the lake, never inside the grid). Signed in, not
+ *    answered yet, or unknown → the booking flow (routes.lakeBooking): fish knows the session at
+ *    once, so a signed-in angler never meets sign-in. A click before hydration or a new tab
+ *    follows the href, and the grid's own requireViewer gate sends a guest to sign-in (307); a
+ *    plain click while the probe is out waits for it, then goes to sign-in (guest) or the grid.
  *  - legacy phone reservations: the jump to Contact (only with a phone number — BookingCta shows
  *    the website or nothing otherwise, bookingReachable);
  *  - no booking: the «Rezervări prin Bluvi» dialog.
@@ -130,84 +254,64 @@ export function LakeActionsProvider({ lake, children }: { lake: LakeInfo; childr
 export function useBookingTarget(source: LakeBookingInterestSource) {
   const { lake, session, open } = useLake();
   const kind = lakeBookingAction(lake.bookingState, true);
-  const href =
-    kind === 'book'
-      ? userOf(session) && lakeHref('booking', routes.lakeBooking(lake.documentId))
-        ? routes.lakeBooking(lake.documentId)
-        : routes.signIn(routes.lake(lake.documentId))
-      : undefined;
+  const grid = lakeHref('booking', routes.lakeBooking(lake.documentId));
+  const guest = routes.signIn(routes.lake(lake.documentId));
+  /** Where the link leads for a given session (only a known guest is sent to sign-in). */
+  const target = useCallback((s: Session) => (s === null || !grid ? guest : grid), [grid, guest]);
+  const href = kind === 'book' ? target(session) : undefined;
   const onPress = (e: MouseEvent<HTMLElement>) => {
     track('lake_booking_cta_pressed', { lake_id: lake.documentId, lake_name: lake.name, source, booking_state: lake.bookingState });
     if (kind === 'interest') open('interest', source);
     else if (kind === 'contact') onSectionJump(e, 'contact');
   };
-  return { kind, href, onPress };
+  return { kind, href, target, onPress };
 }
-
-/**
- * fish guardNavigation for the booking link (booking.b.double-submit-guard, lakes.b.nav-guard): the
- * shell's NavigationGuard drops a second click on the same link within 800 ms; the grid's first
- * render can outlast that window (fish navigates instead of pushing for the same reason), so a
- * plain left click that already started the navigation is ignored while this page is still the one
- * on screen. Back (popstate) and the page being shown again (Activity reveal re-runs the effect)
- * re-arm it; a new-tab click is never guarded.
- */
-function useOnceNavigation() {
-  const started = useRef(0);
-  useEffect(() => {
-    started.current = 0;
-    const reset = () => {
-      started.current = 0;
-    };
-    window.addEventListener('popstate', reset);
-    window.addEventListener('pageshow', reset);
-    return () => {
-      window.removeEventListener('popstate', reset);
-      window.removeEventListener('pageshow', reset);
-    };
-  }, []);
-  return (e: MouseEvent<HTMLElement>) => {
-    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return true;
-    const now = performance.now();
-    if (started.current && now - started.current < NAV_PENDING_MS) {
-      e.preventDefault();
-      return false;
-    }
-    started.current = now;
-    return true;
-  };
-}
-/** How long a started booking navigation keeps the link from starting another one. */
-const NAV_PENDING_MS = 10_000;
 
 /**
  * The booking control in a given look: a fragment link (Contact), a link (the booking flow or
  * sign-in) or a dialog button. A plain fragment link (not next/link) for Contact: the browser moves
- * focus with the jump (c16 keyboard).
+ * focus with the jump (c16 keyboard). The link's plain left click goes through the page's one
+ * NavGuard (it awaits a pending session, then pushes); while that navigation runs, the clicked
+ * control shows the spinner and is aria-busy, and every booking control ignores clicks.
+ * `children` gets `pending` to swap its icon for the spinner.
  */
-function BookingControl({ source, className, children }: { source: LakeBookingInterestSource; className?: string; children: ReactNode }) {
-  const { kind, href, onPress } = useBookingTarget(source);
-  const accept = useOnceNavigation();
+function BookingControl({
+  source,
+  className,
+  children,
+}: {
+  source: LakeBookingInterestSource;
+  className?: string;
+  children: (pending: boolean) => ReactNode;
+}) {
+  const { kind, href, target, onPress } = useBookingTarget(source);
+  const { nav } = useLake();
+  const id = useId();
+  const pending = nav.pendingId === id;
   if (kind === 'contact') {
     return (
       <a href="#contact" onClick={onPress} className={className}>
-        {children}
+        {children(false)}
       </a>
     );
   }
   return href ? (
     <Link
       href={href}
+      aria-busy={pending || undefined}
       onClick={e => {
-        if (accept(e)) onPress(e);
+        if (!plainClick(e)) return onPress(e);
+        e.preventDefault();
+        if (nav.go(id, target)) onPress(e);
       }}
-      className={className}
+      className={cn(className, pending && 'cursor-progress')}
     >
-      {children}
+      {children(pending)}
+      {pending ? <span className="sr-only"> — se deschide…</span> : null}
     </Link>
   ) : (
     <button type="button" onClick={onPress} aria-haspopup="dialog" className={className}>
-      {children}
+      {children(false)}
     </button>
   );
 }
@@ -251,8 +355,12 @@ export function BookingCta({
   }
   return (
     <BookingControl source={source} className={buttonClass({ variant, block, className: cn('[&>svg]:size-5', className) })}>
-      <CalendarDaysIcon aria-hidden />
-      {label ?? bookingCtaLabel(lake.bookingState)}
+      {pending => (
+        <>
+          {pending ? <T4Spinner /> : <CalendarDaysIcon aria-hidden />}
+          {label ?? bookingCtaLabel(lake.bookingState)}
+        </>
+      )}
     </BookingControl>
   );
 }
@@ -283,8 +391,8 @@ export function WebsiteCta({ website, block = false, className, children }: { we
   );
 }
 
-/** A quick-action tile's click target for the booking (fish quick action `rezerva`). */
-export function BookingTile({ className, children }: { className?: string; children: ReactNode }) {
+/** A quick-action tile's click target for the booking (fish quick action `rezerva`); `children` gets `pending`. */
+export function BookingTile({ className, children }: { className?: string; children: (pending: boolean) => ReactNode }) {
   return (
     <BookingControl source="quick_action" className={className}>
       {children}
@@ -383,41 +491,67 @@ export function PhoneLink({ phone, className, children }: { phone: string; class
 
 
 /**
- * Back from sign-in with `?dialog=revendica` (ClaimTrigger): opens the claim dialog once the session
- * says signed in, and drops the parameter so a reload or a shared link does not reopen it. Read from
- * `location` (not useSearchParams): the page is static and this is a one-off on mount.
+ * `?dialog=revendica` on arrival (back from sign-in, or a click on ClaimTrigger before the session
+ * answered): opens the claim dialog once the session says signed in, sends a known guest to sign-in
+ * (back here with the parameter), and drops the parameter so a reload or a shared link does not
+ * reopen it. Read from `location` (not useSearchParams): the page is static and this is a one-off.
  */
 function ClaimAfterSignIn({ session, open }: { session: Session; open: (d: LakeDialog) => void }) {
+  const router = useRouter();
   useEffect(() => {
     if (session === undefined) return;
     const url = new URL(window.location.href);
     if (url.searchParams.get(CLAIM_PARAM) !== CLAIM_VALUE) return;
+    if (session === null) {
+      router.replace(routes.signIn(`${url.pathname}${url.search}`));
+      return;
+    }
     url.searchParams.delete(CLAIM_PARAM);
     window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
     if (userOf(session)) open('claim');
-  }, [session, open]);
+  }, [session, open, router]);
   return null;
 }
 
 /**
- * «Ești administratorul acestei bălți?» (lakes.detail.c30): opens the claim dialog. Anyone not known
- * to be signed in (a guest, a session not answered yet, an unknown one) goes to sign-in first — the
- * CMS route needs an account, fish lets the guest fill the form and fail (documented web
- * divergence, lakes.claim.c7 / lakes.b.claim-signed-out) — and comes back to this lake with
- * `?dialog=revendica`, which opens the claim dialog once the session is known (ClaimAfterSignIn).
+ * «Ești administratorul acestei bălți?» (lakes.detail.c30): opens the claim dialog. The CMS route
+ * needs an account (fish lets the guest fill the form and fail — documented web divergence,
+ * lakes.claim.c7 / lakes.b.claim-signed-out):
+ *  - signed in → the dialog;
+ *  - a known guest (null) → sign-in, back to this lake with `?dialog=revendica`;
+ *  - not answered yet / unknown → a link to this lake with `?dialog=revendica` (never /intra, which
+ *    is for guests only): before hydration it reloads the lake and ClaimAfterSignIn decides; a plain
+ *    click after hydration waits for the probe, then opens the dialog or goes to sign-in.
  */
 export function ClaimTrigger({ className, children }: { className?: string; children: ReactNode }) {
-  const { lake, session, open } = useLake();
-  if (!userOf(session)) {
+  const { lake, session, whenSession, open } = useLake();
+  const router = useRouter();
+  const [waiting, setWaiting] = useState(false);
+  if (userOf(session)) {
     return (
-      <Link href={routes.signIn(claimReturnPath(lake.documentId))} className={className}>
+      <button type="button" aria-haspopup="dialog" onClick={() => open('claim')} className={className}>
         {children}
-      </Link>
+      </button>
     );
   }
+  const back = claimReturnPath(lake.documentId);
   return (
-    <button type="button" aria-haspopup="dialog" onClick={() => open('claim')} className={className}>
+    <Link
+      href={session === null ? routes.signIn(back) : back}
+      aria-busy={waiting || undefined}
+      onClick={async e => {
+        if (session === null || !plainClick(e)) return;
+        e.preventDefault();
+        if (waiting) return;
+        setWaiting(true);
+        const s = await whenSession();
+        setWaiting(false);
+        if (userOf(s)) open('claim');
+        else router.push(routes.signIn(back));
+      }}
+      className={cn(className, waiting && 'cursor-progress')}
+    >
       {children}
-    </button>
+    </Link>
   );
 }

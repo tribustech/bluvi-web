@@ -54,6 +54,7 @@ type DialogLake = {
 export function LakeDialogs({
   lake,
   session,
+  whenSession,
   dialog,
   source,
   onOpen,
@@ -61,6 +62,8 @@ export function LakeDialogs({
 }: {
   lake: DialogLake;
   session: ViewerState | undefined;
+  /** The session once the probe answers (LakeActions): a submit while it is out waits for it. */
+  whenSession: () => Promise<ViewerState | undefined>;
   dialog: LakeDialog | null;
   source: LakeBookingInterestSource;
   onOpen: (d: LakeDialog, s?: LakeBookingInterestSource) => void;
@@ -84,14 +87,17 @@ export function LakeDialogs({
         <InterestDialog
           lake={lake}
           session={session}
+          whenSession={whenSession}
           source={source}
           open={is('interest')}
           onClose={onClose}
-          onOwner={() => {
-            // The claim needs an account (lakes.claim.c7): anyone not known to be signed in signs
-            // in first and comes back to this lake with the claim open, exactly as the page's own
-            // «Ești administratorul acestei bălți?» link (ClaimTrigger).
-            if (signedIn(session)) onOpen('claim');
+          onOwner={async () => {
+            // The claim needs an account (lakes.claim.c7): signed in → the claim; otherwise sign in
+            // first and come back to this lake with the claim open, exactly as the page's own
+            // «Ești administratorul acestei bălți?» link (ClaimTrigger). A session not answered yet
+            // is waited for — a signed-in angler never meets sign-in.
+            const s = session !== undefined ? session : await whenSession();
+            if (signedIn(s)) onOpen('claim');
             else router.push(routes.signIn(claimReturnPath(lake.documentId)));
           }}
         />
@@ -101,7 +107,7 @@ export function LakeDialogs({
   );
 }
 
-/** Known to be signed in: a pending (undefined) or unknown session is not (lakes.b.signin-gating). */
+/** Known to be signed in (callers wait for a pending session first; unknown is not signed in — rule 4). */
 const signedIn = (s: ViewerState | undefined) => !!userOf(s);
 
 /** `?dialog=revendica`: back from sign-in, the lake page opens the claim dialog (LakeActions ClaimAfterSignIn). */
@@ -331,6 +337,7 @@ export function ReviewsInfoDialog({ open, onClose }: { open: boolean; onClose: (
 function InterestDialog({
   lake,
   session,
+  whenSession,
   source,
   open,
   onClose,
@@ -338,6 +345,7 @@ function InterestDialog({
 }: {
   lake: DialogLake;
   session: ViewerState | undefined;
+  whenSession: () => Promise<ViewerState | undefined>;
   source: LakeBookingInterestSource;
   open: boolean;
   onClose: () => void;
@@ -348,6 +356,9 @@ function InterestDialog({
   const t = useMemo(() => createBrowserTransport(), []);
   const mutation = useMutation(createLakeBookingInterestMutation(t));
   const [registered, setRegistered] = useState(false);
+  /** The session probe is still out: the submit waits for it (shown as sending). */
+  const [waiting, setWaiting] = useState(false);
+  const busy = mutation.isPending || waiting;
 
   // The registered state belongs to one lake (fish resets it when the lake changes).
   const [forLake, setForLake] = useState(lake.documentId);
@@ -360,12 +371,18 @@ function InterestDialog({
     if (open) track('lake_booking_interest_sheet_viewed', { lake_id: lake.documentId, source });
   }, [open, lake.documentId, source]);
 
-  const submit = () => {
-    if (mutation.isPending || registered) return;
-    // Anyone not known to be signed in (a guest, a session not answered yet, an unknown one) signs
-    // in first: an anonymous signal 401s and cannot be told when the lake opens up. Back to this
-    // lake afterwards (fish's plain push lands back here too).
-    if (!signedIn(session)) {
+  const submit = async () => {
+    if (busy || registered) return;
+    // A session not answered yet is waited for (a signed-in angler never meets sign-in). A guest or
+    // an unknown session (rule 4) signs in first: an anonymous signal 401s and cannot be told when
+    // the lake opens up. Back to this lake afterwards (fish's plain push lands back here too).
+    let s = session;
+    if (s === undefined) {
+      setWaiting(true);
+      s = await whenSession();
+      setWaiting(false);
+    }
+    if (!signedIn(s)) {
       onClose();
       router.push(routes.signIn(routes.lake(lake.documentId)));
       return;
@@ -430,12 +447,12 @@ function InterestDialog({
           <Button
             block
             onClick={submit}
-            icon={mutation.isPending ? <T4Spinner /> : undefined}
-            aria-busy={mutation.isPending || undefined}
-            aria-disabled={mutation.isPending || undefined}
-            className={cn(mutation.isPending && 'cursor-progress')}
+            icon={busy ? <T4Spinner /> : undefined}
+            aria-busy={busy || undefined}
+            aria-disabled={busy || undefined}
+            className={cn(busy && 'cursor-progress')}
           >
-            {mutation.isPending ? 'Se trimite…' : 'Aș vrea să pot rezerva aici'}
+            {busy ? 'Se trimite…' : 'Aș vrea să pot rezerva aici'}
           </Button>
         )}
       </div>

@@ -14,6 +14,7 @@ import {
   UsersIcon,
 } from '@heroicons/react/24/outline';
 import { H3_CLASS } from '@/components/templates/T3';
+import { T4Spinner } from '@/components/templates/T4';
 import { cn } from '@/components/ui/cn';
 import { routes } from '@/lib/routes';
 import { lakeHref } from './availability';
@@ -29,7 +30,7 @@ import { onSectionJump } from './SectionLink';
  *
  * Like the kit, a tile only exists for what the web can do: an action whose page is not on the web
  * yet (availability.ts) is named once in the muted «Curând pe web: …» line, never a dead tile. The
- * Rezervă tile is always there (useBookingTarget decides on click), so the row never changes with
+ * Rezervă tile is always there (useBookingTarget decides where it leads), so the row never changes with
  * the session; its label is the booking state's (owner rule 4, c6): «Rezervă» when the lake books
  * (online or by phone), «Vreau online» when it takes no bookings (the demand signal — never a
  * booking promise the hero and the summary card say is not there). A phone-booking lake with no
@@ -126,15 +127,17 @@ export function QuickActions({
         className="grid grid-cols-[repeat(4,--spacing(16))] justify-between gap-y-4 md:grid-cols-[repeat(auto-fill,--spacing(16))] md:justify-start md:gap-x-6"
       >
         {shown.map(t => {
-          const body = (
+          // The booking tile swaps its icon for the spinner while its navigation runs (LakeActions NavGuard).
+          const tileBody = (pending: boolean) => (
             <>
               <span className="relative flex size-16 items-center justify-center rounded-card bg-accent-tint-2 text-accent-ink transition-[filter] duration-(--duration-fast) ease-fast group-hover:brightness-95 [&>svg]:size-6">
-                {t.icon}
+                {pending ? <T4Spinner className="size-6" /> : t.icon}
                 {t.badge}
               </span>
               <span className="t-label whitespace-nowrap">{t.label}</span>
             </>
           );
+          const body = tileBody(false);
           return (
             <li
               key={t.key}
@@ -144,7 +147,7 @@ export function QuickActions({
               data-tile={t.key}
             >
               {t.kind === 'booking' ? (
-                <BookingTile className={TILE}>{body}</BookingTile>
+                <BookingTile className={TILE}>{tileBody}</BookingTile>
               ) : t.kind === 'website' ? (
                 <WebsiteCta website={t.href as string} className={TILE}>
                   {body}

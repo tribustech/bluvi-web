@@ -502,15 +502,47 @@ test('lakes.detail.c16 lakes.b.signin-gating booking.b.sign-in-gate — a guest:
   expect(loc.searchParams.get('next')).toBe(`/balti/${ID.chita}/rezerva`);
 });
 
-test('lakes.detail.c16 lakes.detail.c14 lakes.detail.s6 lakes.b.signin-gating — the booking controls are in the server HTML, whatever the session: sign-in until the session is known (rule 4), no shift when it answers', async ({ page, context }) => {
+test('lakes.detail.c16 lakes.detail.c14 lakes.detail.s6 lakes.b.signin-gating — the booking controls are in the server HTML, whatever the session: the grid, never sign-in (/intra is for guests only), no shift when it answers', async ({ page, context }) => {
   for (const signed of [false, true]) {
     if (signed) await signIn(context, jwt, base());
     const html = await (await page.request.get(`/balti/${ID.chita}`)).text();
     expect(html).toContain('data-tile="rezerva"');
     expect(html).toContain('Rezervă acum');
-    // The page is static: before the session answers nobody is assumed signed in.
-    expect(html).toContain(`href="${signInToLake(ID.chita).replace(/&/g, '&amp;')}"`);
+    // The page is static: until the session answers, the link is the grid (its own gate turns a
+    // guest away) — a signed-in angler is never sent to /intra.
+    // hero, header, card, tile, phone bar
+    expect(html.split(`href="/balti/${ID.chita}/rezerva"`).length - 1).toBeGreaterThanOrEqual(5);
+    // The only sign-in link is the shell's own «Intră» (data-sign-in), shown to a guest at first paint.
+    const signInLinks = html.match(/<a [^>]*href="\/intra[^"]*"[^>]*>/g) ?? [];
+    expect(signInLinks.filter(a => !a.includes('data-sign-in'))).toEqual([]);
     expect(html).not.toContain('Rezervări · în curând pe web');
+  }
+});
+
+test('lakes.detail.c16 lakes.b.signin-gating booking.b.sign-in-gate — a click before the page hydrates (the session not known yet): a signed-in angler lands on the grid, a guest on sign-in via the grid\'s own gate', async ({ browser }) => {
+  for (const signed of [true, false]) {
+    const ctx = await browser.newContext({ baseURL: BASE, viewport: PHONE });
+    if (signed) await signIn(ctx, jwt, base());
+    const page = await ctx.newPage();
+    // Hold every JavaScript chunk: React never attaches, the session probe never answers.
+    let release!: () => void;
+    const gate = new Promise<void>(r => (release = r));
+    await page.route('**/_next/static/**/*.js', async route => {
+      await gate;
+      await route.fallback();
+    });
+    await page.goto(`/balti/${ID.chita}`, { waitUntil: 'commit' });
+    const hero = visible(page.getByRole('link', { name: 'Rezervă acum' }));
+    await expect(hero).toHaveAttribute('href', `/balti/${ID.chita}/rezerva`, { timeout: 30_000 });
+    await Promise.all([page.waitForURL(url => !url.pathname.endsWith(`/balti/${ID.chita}`), { timeout: 30_000, waitUntil: 'commit' }), hero.click()]);
+    release();
+    if (signed) await expect(page).toHaveURL(gridUrl(ID.chita));
+    else {
+      const url = new URL(page.url());
+      expect(url.pathname).toBe('/intra');
+      expect(url.searchParams.get('next')).toBe(`/balti/${ID.chita}/rezerva`);
+    }
+    await ctx.close();
   }
 });
 
@@ -544,6 +576,8 @@ test('lakes.b.nav-guard booking.b.double-submit-guard — «Rezervă acum» push
   await expect(book()).toHaveAttribute('href', grid);
   const at1 = await index();
   await book().click();
+  // The clicked control says it is working (spinner + aria-busy), never a silent idle button.
+  await expect(book()).toHaveAttribute('aria-busy', 'true');
   await page.waitForTimeout(1_200);
   await expect(page).toHaveURL(lakeUrl(ID.chita));
   await book().click();
@@ -553,6 +587,23 @@ test('lakes.b.nav-guard booking.b.double-submit-guard — «Rezervă acum» push
   expect(await index()).toBe(at1 + 1);
   await page.goBack();
   await expect(page).toHaveURL(lakeUrl(ID.chita));
+  // One gate for the page (fish's global guard): the hero, then the Rezervă tile while the grid is
+  // still loading — still one navigation, one history entry; Back re-arms it.
+  await open(page, ID.chita, PHONE);
+  const hero = visible(page.getByRole('link', { name: 'Rezervă acum' }));
+  const tile = tiles(page).getByRole('link', { name: 'Rezervă', exact: true });
+  const at2 = await index();
+  await hero.click();
+  await expect(hero).toHaveAttribute('aria-busy', 'true');
+  await expect(tile).not.toHaveAttribute('aria-busy', 'true');
+  await page.waitForTimeout(900);
+  await tile.click();
+  await expect(page).toHaveURL(gridUrl(ID.chita), { timeout: 20_000 });
+  await expect(page.getByTestId('availability-grid')).toBeVisible({ timeout: 20_000 });
+  expect(await index()).toBe(at2 + 1);
+  await page.goBack();
+  await expect(page).toHaveURL(lakeUrl(ID.chita));
+  await expect(visible(page.getByRole('link', { name: 'Rezervă acum' }))).not.toHaveAttribute('aria-busy', 'true');
 });
 
 /*
@@ -1120,6 +1171,13 @@ test('lakes.detail.c30 lakes.detail.s8 lakes.claim.c7 — no operator: the take-
   // A guest signs in and comes back to this lake, where the claim dialog opens (c30).
   const back = `/balti/${ID.belin}?dialog=revendica`;
   await expect(section.getByRole('link', { name: 'Ești administratorul acestei bălți?' })).toHaveAttribute('href', `/intra?next=${encodeURIComponent(back)}`);
+  // The server HTML never sends anyone to /intra (guests only): until the session answers the link
+  // is this lake with ?dialog=revendica, which sends a known guest on to sign-in.
+  const html = await (await page.request.get(`/balti/${ID.belin}`)).text();
+  expect(html).not.toContain(`href="/intra?next=${encodeURIComponent(back)}"`);
+  await page.goto(back, { waitUntil: 'domcontentloaded' });
+  await page.waitForURL(url => url.pathname === '/intra', { timeout: 15_000 });
+  expect(new URL(page.url()).searchParams.get('next')).toBe(back);
 });
 
 test('lakes.detail.c30 lakes.claim.c7 — back from sign-in with ?dialog=revendica: the claim dialog opens and the parameter goes', async ({ page, context }) => {
