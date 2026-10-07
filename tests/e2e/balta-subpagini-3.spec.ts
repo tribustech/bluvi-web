@@ -20,7 +20,7 @@ import { expect, test, type Page, type Route } from '@playwright/test';
  * review delete is answered by page.route.
  *
  * Blocked criteria are never cited in a title (so /web-drift does not count them as covered):
- * lakes.stats c8 (a top-3 row opens /pescari/[id], M2) and c9 (the record opens its partidă, M4),
+ * lakes.stats c9 (the record opens its partidă, M4),
  * lakes.partide c4 («Începe o partidă aici» → /partide/incepe, M4), c8 («Vezi rezumatul») and c9 (a
  * card opens its partidă, M4), lakes.reviews c5 (an author opens /pescari/[id], M2), c6 («Editează» →
  * /recenzie?editare=1, M3) and c9 (signed in, «Adaugă o recenzie» → /recenzie, M3). The tests below assert the interim state (no dead link) under a
@@ -124,7 +124,7 @@ const cms = (path: string) => (url: URL) => url.pathname.endsWith(`/api${path}`)
 /* Statistici — lakes.stats                                                                        */
 /* ============================================================================================== */
 
-test('lakes.stats.c1 lakes.stats.c2 lakes.stats.c6 lakes.stats.c7 lakes.stats.c11 lakes.stats.s5 — the year at the big lake (blocked: the top-3 rows open no profile until M2)', async ({ page }) => {
+test('lakes.stats.c1 lakes.stats.c2 lakes.stats.c6 lakes.stats.c7 lakes.stats.c11 lakes.stats.s5 — the year at the big lake', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   const lake = lakes.get(ID.big)!;
   await go(page, `/balti/${ID.big}/statistici?perioada=year`);
@@ -177,6 +177,22 @@ test('lakes.stats.c1 lakes.stats.c2 lakes.stats.c6 lakes.stats.c7 lakes.stats.c1
   await expectNoHorizontalScroll(page);
   await expectNoA11yViolations(page);
   expect(errors).toEqual([]);
+});
+
+test('lakes.stats.c8 — «Top pescari»: each top-3 row opens /pescari/[uid] (public: a guest goes straight to the profile); keyboard too', async ({ page }) => {
+  const top3 = bigYear.topAnglers.slice(0, 3);
+  test.skip(top3.length === 0, 'no angler in the big lake\'s year');
+  await go(page, `/balti/${ID.big}/statistici?perioada=year`);
+  const rows = page.getByTestId('top-anglers').getByTestId('top-angler');
+  await expect(rows).toHaveCount(top3.length);
+  for (const [i, a] of top3.entries()) {
+    const link = rows.nth(i).getByRole('link', { name: `Locul ${i + 1}: ${a.name ?? 'Pescar'}` });
+    await expect(link).toHaveAttribute('href', `/pescari/${a.uid}`);
+  }
+  await rows.first().getByRole('link').focus();
+  await page.keyboard.press('Enter');
+  await page.waitForURL(`**/pescari/${top3[0].uid}`);
+  await expect(page.getByRole('tablist')).toBeVisible({ timeout: 60_000 });
 });
 
 test('lakes.stats.c10 lakes.stats.s5 — «Top standuri»: sort chips, top 5 with bars vs the leader, «Clasament ›» with the period and the sort', async ({ page }) => {

@@ -882,7 +882,7 @@ test(`competition-page.participanti.c4 competition-page.participanti.s4 — no a
   await expectNoA11yViolations(page);
 });
 
-test(`competition-page.participanti.c6 competition-page.participanti.c7 competition-page.participanti.s7 competition-page.participanti.s8 — signed out: the header toggles (no profile on the web yet), stats ask to sign in`, async ({ page }) => {
+test(`competition-page.participanti.c6 competition-page.participanti.c7 competition-page.participanti.s7 competition-page.participanti.s8 — signed out: the chevron toggles, stats ask to sign in`, async ({ page }) => {
   const batch = track(page, /\/user\/statistics\/batch/);
   await open(page, participants(ID.individuals), PHONE);
   await settle(page);
@@ -899,6 +899,47 @@ test(`competition-page.participanti.c6 competition-page.participanti.c7 competit
   await card.getByRole('button', { name: /Restrânge detaliile/ }).focus();
   await page.keyboard.press('Enter');
   await expect(card.getByRole('button', { name: /Arată detaliile/ })).toHaveAttribute('aria-expanded', 'false');
+});
+
+test(`competition-page.participanti.c6 — the phone card header of a one-user registration opens /pescari/[id] (signed out through /intra?next=); the chevron still toggles`, async ({ page, context }) => {
+  const solo = approvedOf(ID.individuals)[0].participants[0];
+  expect(solo, 'ID.individuals lists account holders').toBeTruthy();
+  const profile = `/pescari/${solo.documentId}`;
+  await open(page, participants(ID.individuals), PHONE);
+  await settle(page);
+  let card = cards(page).first();
+  const header = (c: Locator) => c.getByRole('link').filter({ hasText: solo.username }).first();
+  await expect(header(card)).toHaveAttribute('href', `/intra?next=${encodeURIComponent(profile)}`);
+  // The chevron is its own control: it toggles, it does not navigate.
+  await card.getByRole('button', { name: /Arată detaliile/ }).click();
+  await expect(card.getByRole('button', { name: /Restrânge detaliile/ })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page).toHaveURL(new RegExp(`${participants(ID.individuals)}$`));
+  await header(card).click();
+  await page.waitForURL(`**/intra?next=${encodeURIComponent(profile)}`);
+
+  await signIn(context, jwt);
+  await open(page, participants(ID.individuals), PHONE);
+  await settle(page);
+  card = cards(page).first();
+  await expect(header(card)).toHaveAttribute('href', profile);
+  await header(card).focus();
+  await page.keyboard.press('Enter');
+  await page.waitForURL(`**${profile}`);
+  await expect(page.getByTestId('profile-name')).toBeVisible({ timeout: 45_000 });
+});
+
+test(`competition-page.participanti.c8 — an opened team card: each member's name row opens /pescari/[id]`, async ({ page, context }) => {
+  await signIn(context, jwt);
+  await open(page, participants(ID.contacts), PHONE);
+  await settle(page);
+  const team = cards(page).first();
+  await team.getByRole('button', { name: /Arată detaliile/ }).click();
+  const members = approvedOf(ID.contacts)[0].participants;
+  expect(members.length, 'ID.contacts lists a team of several users').toBeGreaterThan(1);
+  for (const m of members) await expect(team.getByRole('link', { name: m.username, exact: true })).toHaveAttribute('href', `/pescari/${m.documentId}`);
+  await team.getByRole('link', { name: members[0].username, exact: true }).click();
+  await page.waitForURL(`**/pescari/${members[0].documentId}`);
+  await expect(page.getByTestId('profile-name')).toBeVisible({ timeout: 45_000 });
 });
 
 test(`competition-page.participanti.c8 competition-page.participanti.c9 competition-page.participanti.s7 — signed in: one batch for every approved participant; Capturi / CMMC / Concursuri`, async ({ page, context }) => {

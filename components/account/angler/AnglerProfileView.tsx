@@ -36,6 +36,7 @@ import { ON_WEB, routes } from '@/lib/routes';
 import { CatchGrid } from './CatchGrid';
 import { CompetitionHistoryCard } from './CompetitionHistoryCard';
 import { FilterChips, type ChipOption } from './FilterChips';
+import { ASIDE, COLUMN, HEADER_ROW, HEADER_ROW_BAND, PANEL, PROFILE_GRID, TAB_BAR, TAB_BAR_END, TAB_ROW } from './frame';
 import { ProfileHeader } from './ProfileHeader';
 import { ProfileHeaderSkeleton, ProfileTabSkeleton } from './ProfileSkeleton';
 import { SessionHistoryCard } from './SessionHistoryCard';
@@ -77,7 +78,7 @@ import { useFollowAngler } from './useFollowAngler';
  * and the list right — a full-width page (ROADMAP §4), the grids auto-fill.
  * The identity card is never height-capped nor scrolled inside itself (a long bio + the podium
  * tile must never slice the bento): it pins under the bar while it fits the viewport; a taller card
- * scrolls with the page until its bottom is 24px above the window's, and pins there (STICKY_CARD_TOP,
+ * scrolls with the page until its bottom is 24px above the window's, and pins there (./frame ASIDE,
  * --aside-h measured by useAsideHeight).
  */
 export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: { documentId: string; mode: 'own' | 'other'; initialTab?: ProfileTab }) {
@@ -137,16 +138,12 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
 
   return (
     <div className="flex min-h-dvh flex-col pb-12" data-testid="angler-profile" data-mode={mode}>
-      {mode === 'other' ? <Crumbs profile={profile} signedIn={signedIn} /> : null}
+      {mode === 'other' ? <Crumbs profile={profile} /> : null}
       {/* Until the header lands (or when it fails) the page still has its h1 — the own one on /profil,
           the same «Profilul meu» OwnProfileFallback streamed, so it never changes during load. */}
       {!profile ? <h1 className="sr-only">{mode === 'own' ? 'Profilul meu' : 'Profil de pescar'}</h1> : null}
-      <div
-        className={cn(
-          'relative flex flex-col xl:grid xl:items-start xl:gap-x-6 xl:px-8',
-          'xl:grid-cols-[--spacing(90)_minmax(0,1fr)] 2xl:grid-cols-[--spacing(100)_minmax(0,1fr)]',
-        )}
-      >
+      {/* The frame's classes live in ./frame, shared with the route fallbacks (c3: nothing moves when the page lands). */}
+      <div className={PROFILE_GRID}>
         {/* Phone / tablet: fish's header row (back · refresh · settings) on the white band. From
             1280 there is no such row (rule 1: the breadcrumb is the way back, the identity card and
             the tabs start right under it); refresh and settings move into the tab bar's end.
@@ -154,10 +151,7 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
             avatar down) — refresh sits in the header band's top-right corner, over the avatar's
             top padding (OwnProfileFallback mirrors it). */}
         <div
-          className={cn(
-            'flex items-center gap-2 xl:hidden',
-            loneRefresh ? 'absolute top-2 right-4 z-above md:right-6' : 'min-h-14 bg-surface px-4 pt-2 md:px-6',
-          )}
+          className={cn(HEADER_ROW, loneRefresh ? 'absolute top-2 right-4 z-above md:right-6' : HEADER_ROW_BAND)}
           data-testid="profile-header-row"
         >
           {mode === 'other' ? <DetailBackButton fallbackHref={routes.home()} /> : null}
@@ -169,32 +163,27 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
         <aside
           ref={asideRef}
           aria-label={mode === 'own' ? 'Despre mine' : profile ? `Despre ${profile.username}` : 'Despre pescar'}
-          className={cn(
-            'bg-surface px-5 pb-5 md:px-6',
-            loneRefresh ? 'pt-4' : 'pt-1',
-            'xl:sticky xl:mt-4 xl:rounded-card xl:p-6 xl:shadow-e0',
-            STICKY_CARD_TOP,
-          )}
+          className={cn(ASIDE, loneRefresh ? 'pt-4' : 'pt-1')}
         >
           {header}
         </aside>
 
-        <div className="flex min-w-0 flex-col xl:mt-4">
+        <div className={COLUMN}>
           {/* Rule 20: the switcher is one container — the white band below 1280 (the header's), a
               white card of its own from 1280 — with the accent underline on the selected tab and the
               counts we know as badges (signed in; a guest gets none, rule 4). Capturi never carries
               counts.catches: the grid lists only the catches with a photo. */}
-          <div className="flex items-end gap-2 bg-surface md:px-6 xl:rounded-card xl:px-5 xl:pt-1.5 xl:shadow-e0">
+          <div className={TAB_BAR}>
             <ListTabs<ProfileTab>
               label="Istoricul pescarului"
               tabs={PROFILE_TABS.map(key => tabSpec(key, profile))}
               active={tab}
               onSelect={select}
               controls={PANEL_ID}
-              className="min-w-0 flex-1 max-md:gap-0 max-md:*:flex-1 max-md:*:justify-center max-md:*:pt-2.5 xl:flex-none xl:border-b-0"
+              className={TAB_ROW}
             />
             <span className="flex-1 max-xl:hidden" />
-            <div className="flex items-center gap-2 self-center pb-1 max-xl:hidden">
+            <div className={TAB_BAR_END}>
               <RefreshChip onRefresh={refresh} />
               {mode === 'own' && ON_WEB.settings ? <SettingsChip compact /> : null}
             </div>
@@ -204,7 +193,7 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
             role="tabpanel"
             aria-labelledby={`${PANEL_ID}-tab-${tab}`}
             aria-busy={activeQ.isPending || activeQ.isFetchingNextPage || undefined}
-            className="flex flex-col md:px-6 md:pt-4 xl:px-0"
+            className={PANEL}
             data-testid={`panel-${tab}`}
           >
             <h2 className="sr-only">{TAB_LABELS[tab]}</h2>
@@ -231,15 +220,7 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
 
 const PANEL_ID = 'profil-istoric';
 
-/**
- * ≥1280 the identity card's sticky top: T3 COLUMN_STICKY_TOP (88px under the bar) while the card
- * fits; a taller card (--aside-h) gets a negative top, so it scrolls with the page until its bottom
- * is 24px above the viewport's and pins there — all of it is always reachable, nothing scrolls inside.
- */
-const STICKY_CARD_TOP =
-  'xl:top-[min(calc(--spacing(22)_+_var(--shell-banner-h,0px)),calc(100dvh_-_var(--aside-h,0px)_-_--spacing(6)))]';
-
-/** Writes the element's height into --aside-h (STICKY_CARD_TOP) and keeps it current. */
+/** Writes the element's height into --aside-h (./frame ASIDE's sticky top) and keeps it current. */
 function useAsideHeight() {
   return useCallback((el: HTMLElement | null) => {
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -339,8 +320,12 @@ function yearChips(): ChipOption<string>[] {
   ];
 }
 
-function Crumbs({ profile, signedIn }: { profile: AnglerProfile | undefined; signedIn: boolean }) {
-  if (signedIn && !profile) return null;
+/**
+ * Always a trail (never the shell's URL-derived «Pescari», a page that does not exist): «Acasă ›
+ * Profil de pescar» until the name lands, when the header fails and for a guest; then the name.
+ * From 1280 this is the only way back (no back chip), so a failed header still offers «Acasă».
+ */
+function Crumbs({ profile }: { profile: AnglerProfile | undefined }) {
   return <SetBreadcrumb trail={[{ label: 'Acasă', href: routes.home() }, { label: profile ? profile.username : 'Profil de pescar' }]} />;
 }
 

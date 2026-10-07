@@ -218,6 +218,50 @@ test.describe('signed in', () => {
     expect(errors).toEqual([]);
   });
 
+  test('route error: a row throws while rendering → «Ceva n-a mers» (not the server copy), the band stays «Acasă / Conexiuni», the retry recovers', async ({ page }) => {
+    test.setTimeout(60_000);
+    // The throw: one mocked row carries a sentinel name and the avatar's `trim` on it is made to
+    // throw (only for that value, only while the flag is up) — a render error inside a row, as a
+    // broken CMS contract or a bug would raise. React logs the caught throw: expected here.
+    const errors = collectConsoleErrors(page, { ignore: [...EXPECTED_CONSOLE, /e2e render throw/, /The above error occurred/, /error boundary/i] });
+    await page.addInitScript(() => {
+      const w = window as unknown as { __e2eThrow: boolean };
+      w.__e2eThrow = true;
+      const original = String.prototype.trim;
+      String.prototype.trim = function (this: string) {
+        if (w.__e2eThrow && String(this) === 'E2E Row Throw') throw new Error('e2e render throw');
+        return original.call(this);
+      };
+    });
+    await mockAngler(page, {
+      followers: r => json(r, { data: [{ ...row(1), username: 'E2E Row Throw' }, row(2)], meta: { pagination: { page: 1, pageSize: 20, pageCount: 1, total: 2 } } }),
+    });
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/pescari/${MOCK}/conexiuni`);
+      const alert = page.getByRole('alert').filter({ hasText: 'Ceva n-a mers' });
+      await expect(alert).toBeVisible({ timeout: 20_000 });
+      await expect(alert).toContainText('A apărut o problemă neașteptată pe acest ecran.');
+      await expect(page.getByText('Serverul nu răspunde')).toHaveCount(0);
+      await expect(alert).not.toContainText('e2e render throw');
+      await expect(page.getByRole('heading', { level: 1, name: 'Conexiuni' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Înapoi' })).toBeVisible();
+      await expectNoA11yViolations(page, { exclude: ['nextjs-portal'] });
+    }
+    // ≥768, past the band's 3s naming deadline: still the skeleton's trail, never «Pescari» (no page).
+    const band = page.getByRole('navigation', { name: 'Cale de navigare' });
+    await page.waitForTimeout(3_500);
+    await expect(band.getByRole('link', { name: 'Acasă' })).toBeVisible();
+    await expect(band.locator('[aria-current="page"]')).toHaveText('Conexiuni');
+    await expect(band).not.toContainText('Pescari');
+    // The retry re-renders the route; with the fault gone the rows list.
+    await page.evaluate(() => ((window as unknown as { __e2eThrow: boolean }).__e2eThrow = false));
+    await page.getByRole('button', { name: 'Încearcă din nou' }).click();
+    await expect(rows(page)).toHaveCount(2, { timeout: 20_000 });
+    await expect(page.getByRole('alert').filter({ hasText: 'Ceva n-a mers' })).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
   test('c9 c10: the next page loads near the end (spinner footer), a repeat across pages is shown once', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     let release!: () => void;

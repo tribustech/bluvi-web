@@ -1,7 +1,6 @@
 'use client';
 
 import { Suspense, useMemo, useState, type FormEvent } from 'react';
-import { PhoneArrowUpRightIcon, EnvelopeIcon, PhoneIcon } from '@heroicons/react/24/outline';
 import { useMutation } from '@tanstack/react-query';
 import { sendFeedbackMutation, type FeedbackCategory } from '@/core/social';
 import { createBrowserTransport } from '@/lib/client/transport';
@@ -213,41 +212,5 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-// fish common/utils/constants.ts
-const SUPPORT_PHONE = '+40 733 017 091';
-const SUPPORT_MAIL = 'toni.radulescu@wearetribus.com';
-
-/** fish components/Contact.tsx (variant «dashboard», signed out only) + ContactSheet.tsx. */
-export function ContactCard() {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
-        className="flex min-h-12 w-full items-center gap-3 rounded-card bg-surface px-4.5 py-3 text-left text-ink shadow-e0 transition-[background-color,opacity] duration-(--duration-fast) ease-fast hover:bg-soft-fill active:opacity-70"
-      >
-        <PhoneArrowUpRightIcon aria-hidden className="size-6 shrink-0" />
-        <span className="t-body-strong">Contactează-ne</span>
-      </button>
-      <ResponsiveSurface open={open} onClose={() => setOpen(false)} intent="decision" title="Contact">
-        <p className="t-body text-muted">Ai nevoie de ajutor sau ai întrebări? Suntem aici pentru tine!</p>
-        <ul className="mt-2 flex flex-col">
-          <li>
-            <a href={`tel:${SUPPORT_PHONE.replace(/\s/g, '')}`} className="-mx-2.5 flex items-center gap-2 rounded-control p-2.5 t-body text-accent-ink hover:bg-soft-fill">
-              <PhoneIcon aria-hidden className="size-6 shrink-0 text-ink" />
-              {SUPPORT_PHONE}
-            </a>
-          </li>
-          <li>
-            <a href={`mailto:${SUPPORT_MAIL}`} className="-mx-2.5 flex items-center gap-2 rounded-control p-2.5 t-body text-accent-ink hover:bg-soft-fill">
-              <EnvelopeIcon aria-hidden className="size-6 shrink-0 text-ink" />
-              {SUPPORT_MAIL}
-            </a>
-          </li>
-        </ul>
-      </ResponsiveSurface>
-    </>
-  );
-}
+/** fish components/Contact.tsx (variant «dashboard», signed out only): the shared card (Setări uses it too). */
+export { ContactCard } from '@/components/account/ContactSurface';

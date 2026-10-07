@@ -62,10 +62,12 @@ const OWN_BAND_ROUTES: readonly RegExp[] = [
   // BreadcrumbList stays in the page's JSON-LD.
   /^\/balti\/harta\/?$/,
   /^\/dev\/templates\/t2\/?$/,
+  // «Setări» (account.settings.c2): its header's back control owns the way back.
+  /^\/setari\/?$/,
   // «Editează profilul» (T6, account.edit-profile): its header's back control owns the way back.
   /^\/setari\/profil\/?$/,
   // «Notificări» settings (account.notification-settings.c1): its header's back control owns the way
-  // back (the «Setări» parent crumb would link a hub that is not on the web yet: ON_WEB.settings).
+  // back (fish's header: back + title, no crumb).
   /^\/setari\/notificari\/?$/,
   // «Concursuri urmărite» (T1, account.notification-preferences.c1): the same — its back control.
   /^\/setari\/notificari\/concursuri\/?$/,

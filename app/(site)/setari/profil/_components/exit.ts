@@ -6,13 +6,11 @@ import { routes } from '@/lib/routes';
 
 /**
  * Where «Înapoi» and a successful save go without usable history (fish router.dismiss() back to
- * Settings, its entry point — account.edit-profile.c17). Setări (/setari) is not on the web yet, so
- * until account.settings ships the exit is the viewer's own public profile (/pescari/<id>, live
- * since ON_WEB.angler), or Acasă while the viewer is not known (the skeleton's back control).
- * TODO(account.settings): return routes.settings() here in the commit that adds /setari.
+ * Settings, its only entry point — account.edit-profile.c17): Setări (/setari), or Acasă while the
+ * viewer is not known (the skeleton's back control).
  */
 export function editProfileExit(viewerId?: string): string {
-  return viewerId ? routes.angler(viewerId) : routes.home();
+  return viewerId ? routes.settings() : routes.home();
 }
 
 type Exit = { kind: 'pop' } | { kind: 'replace'; href: string };

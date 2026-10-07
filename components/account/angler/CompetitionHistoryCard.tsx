@@ -16,10 +16,12 @@ import { routes } from '@/lib/routes';
  * opens /concursuri/{id} (the title is the stretched link).
  */
 
+// The badge sits on the photo: each tint is laid over an opaque surface (fish's solid #FEF9C3 /
+// #F2F2F2), never the translucent token alone, which lets the picture through and drowns the text.
 const PLACEMENT: Record<'gold' | 'grey' | 'accent', string> = {
-  gold: 'bg-badge-yellow-bg text-badge-yellow-fg',
-  grey: 'bg-status-neutral-bg text-status-neutral-fg',
-  accent: 'bg-accent-tint text-accent-ink',
+  gold: 'bg-surface bg-linear-to-r from-badge-yellow-bg to-badge-yellow-bg text-badge-yellow-fg',
+  grey: 'bg-surface bg-linear-to-r from-status-neutral-bg to-status-neutral-bg text-status-neutral-fg',
+  accent: 'bg-surface bg-linear-to-r from-accent-tint to-accent-tint text-accent-ink',
 };
 
 export function placementTone(placement: number): keyof typeof PLACEMENT {

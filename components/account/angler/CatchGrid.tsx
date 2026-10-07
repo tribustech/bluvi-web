@@ -6,6 +6,7 @@ import { cn } from '@/components/ui/cn';
 import { fmtCatchDate, fmtProfileKg, type AnglerCatch } from '@/core/social';
 import { blurDataUrl } from '@/lib/blurhash';
 import { CatchLightboxFooter } from './CatchLightboxFooter';
+import { CATCH_GRID } from './frame';
 
 /*
  * Capturi — fish AnglerProfileScreen's photo grid (parity account.angler-profile c17–c20).
@@ -19,8 +20,6 @@ import { CatchLightboxFooter } from './CatchLightboxFooter';
  *    no share action until then (owner rule 4).
  */
 
-/** The grid's columns, shared with the tab skeleton so the bones sit where the tiles land. */
-export const CATCH_GRID = 'grid grid-cols-3 gap-0.5 md:grid-cols-[repeat(auto-fill,minmax(--spacing(40),1fr))] md:gap-1.5';
 
 const gridSrc = (c: AnglerCatch) => c.photoGridUrl || c.photoUrl;
 

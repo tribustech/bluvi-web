@@ -185,8 +185,20 @@ test.describe('signed in', () => {
       }
       return;
     }
+    // Both account menus offer «Setări» → /setari (the avatar menu ≥768, the ☰ panel below).
+    for (const width of [375, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const menu = width < 768 ? page.getByRole('banner').getByRole('button', { name: 'Meniu', exact: true }).filter({ visible: true }) : account(page);
+      await menu.click();
+      const row = page.getByRole('menuitem', { name: 'Setări', exact: true }).or(page.getByRole('link', { name: 'Setări', exact: true })).filter({ visible: true }).first();
+      await expect(row).toBeVisible();
+      await expect(row).toHaveAttribute('href', '/setari');
+      await page.keyboard.press('Escape');
+    }
+    await page.setViewportSize({ width: 375, height: 900 });
     await cog(page).click();
     await expect(page).toHaveURL(/\/setari$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Setări' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 1, name: 'Pagina nu există' })).toHaveCount(0);
   });
 
@@ -201,8 +213,10 @@ test.describe('signed in', () => {
     await loaded(page);
     await expect(tab(page, 'Capturi')).toHaveAttribute('aria-selected', 'true');
     await page.waitForLoadState('networkidle');
-    // Capturi's first page came with the HTML (server prefetch): the browser reads no list yet.
-    expect(lists).toEqual([]);
+    // Capturi's first page came with the HTML (server prefetch); the browser reads no OTHER list. A
+    // hydration stamp older than the query's staleTime costs one Capturi refetch (lib/client/
+    // hydration.tsx hydrationTime) — allowed, as in pescar.spec c2.
+    expect(lists.filter(l => l !== 'catches'), 'only the selected tab is read').toEqual([]);
 
     await tab(page, 'Concursuri').click();
     await expect(page).toHaveURL(/\/profil\?tab=concursuri$/);

@@ -1095,8 +1095,8 @@ screens:
       - id: lakes.stats.c8
         text: "„Top pescari” with „Clasament ›” → /balti/[id]/clasament?perioada=…; top 3 rows each open /pescari/[uid]."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:182"
-        status: todo
-        web_note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): «Top pescari» and «Clasament ›» pass; the top-3 rows now link to /pescari/[uid] (StatsScreen lakeHref angler) — an e2e assertion of that link is still to add in tests/e2e/balta-subpagini-3.spec.ts."
+        status: passing
+        web_note: "«Top pescari» and «Clasament ›»; the top-3 rows link to /pescari/[uid] (StatsScreen lakeHref angler; M2-B1), public — a guest goes straight to the profile. e2e tests/e2e/balta-subpagini-3.spec.ts «lakes.stats.c8 — «Top pescari»: each top-3 row opens /pescari/[uid]» (every href, Enter opens the profile)."
       - id: lakes.stats.c9
         text: "Record card for the period; opens the partidă when it has a session id."
         fish_ref: "features/partide/screens/VenueStatsScreen.tsx:193"

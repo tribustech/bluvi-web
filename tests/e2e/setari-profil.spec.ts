@@ -117,13 +117,18 @@ const LEAVE = 'Renunți la modificări?';
 /** c8: the provider as the row names it (profile-form providerLabel). */
 const PROVIDER_NAMES: Record<string, string> = { google: 'Google', facebook: 'Facebook', apple: 'Apple', local: 'Email' };
 const providerName = (p: string | null) => (p ? (PROVIDER_NAMES[p] ?? p) : '-');
-/** The exit without usable history until Setări ships: the viewer's own public profile. */
+/** The viewer's own public profile (the «Editează profilul» entry point; a history pop returns there). */
 const ownProfile = () => `/pescari/${original.documentId}`;
 const ownProfileUrl = () => new RegExp(`/pescari/${original.documentId}$`);
 async function onOwnProfile(page: Page) {
   await expect(page).toHaveURL(ownProfileUrl());
   // The page renders (never a 404): the profile header names the QA angler.
   await expect(page.getByTestId('profile-name')).toHaveText(original.username);
+}
+/** c17: the exit without usable history is Setări (fish dismisses edit profile back to Settings). */
+async function onSettings(page: Page) {
+  await expect(page).toHaveURL(/\/setari$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Setări' })).toBeVisible();
 }
 
 async function loaded(page: Page) {
@@ -203,7 +208,7 @@ test.describe('account.edit-profile', () => {
     expect(errors).toEqual([]);
   });
 
-  test('c1 back: returns to the page that opened it, else the own public profile (Setări not on the web yet)', async ({ page }) => {
+  test('c1 back: returns to the page that opened it, else Setări (c17)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await signIn(page.context(), jwt);
     await mockDicebear(page);
@@ -213,15 +218,15 @@ test.describe('account.edit-profile', () => {
     await page.getByRole('button', { name: 'Înapoi' }).click();
     await expect(page).toHaveURL(/\/$/);
 
-    // Opened directly (no same-origin history): the own profile, which renders.
+    // Opened directly (no same-origin history): Setări, fish's entry point.
     const fresh = await page.context().newPage();
     await mockDicebear(fresh);
     await fresh.goto(PATH);
     await expect(username(fresh)).toHaveValue(/.+/);
     await fresh.getByRole('button', { name: 'Înapoi' }).click();
-    await onOwnProfile(fresh);
+    await onSettings(fresh);
 
-    // c15 the same way: a save without history lands there too, toast over the profile.
+    // c15 the same way: a save without history lands there too, toast over Setări.
     const third = await page.context().newPage();
     await mockDicebear(third);
     const patches = await mockPatch(third);
@@ -230,7 +235,7 @@ test.describe('account.edit-profile', () => {
     await bio(third).fill(`${original.bio ?? ''} e2e`.slice(0, 200));
     await submit(third).click();
     await expect(third.getByRole('status').filter({ hasText: SAVED_TOAST })).toBeVisible();
-    await onOwnProfile(third);
+    await onSettings(third);
     expect(patches).toHaveLength(1);
   });
 

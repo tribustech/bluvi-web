@@ -974,8 +974,8 @@ screens:
       - id: competition-page.statistici-pescar.c3
         text: "Individual with an account: large avatar, name, subtitle „Sector X · Standul Y”, three stats Capturi / C.M.M.C (three decimals, kg) / Competiții separated by thin dividers, and „Vezi profilul” → angler profile (web /pescari/[id])."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:33-46,66-88,109-115,136-150,230-262
-        status: todo
-        web_note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): «Vezi profilul» now links to /pescari/[id] (AnglerStats anglerHref); the rest is e2e-covered — the link assertion is still to add in tests/e2e/concurs-statistici.spec.ts."
+        status: passing
+        web_note: "«Vezi profilul» links to /pescari/[id] (AnglerStats anglerHref; /pescari/[id] shipped in M2-B1). e2e tests/e2e/concurs-statistici.spec.ts «competition-page.statistici-pescar.c3 — «Vezi profilul» opens the angler profile» (href = the participant's documentId, Enter opens the profile) + the c1/c3 test for the stats."
       - id: competition-page.statistici-pescar.c4
         text: "Individual guest: guest avatar, the name (or „Invitat”), and a dashed note „Invitat · statistici indisponibile” / „Pescarul nu are cont Bluvi.”."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:198-212,230-242
@@ -983,8 +983,8 @@ screens:
       - id: competition-page.statistici-pescar.c5
         text: "Team competition (always the team layout, even for one member): up to 4 stacked avatars, title = team name, else club name, else „Echipă”; one block per member with their stats and „Vezi profilul”, or „Invitat · statistici indisponibile” for a guest member."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:48-50,119-122,265-330
-        status: todo
-        web_note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): each member's «Vezi profilul» now links to /pescari/[id]; the rest is e2e-covered — the link assertion is still to add in tests/e2e/concurs-statistici.spec.ts."
+        status: passing
+        web_note: "Each member with an account has its own «Vezi profilul» → /pescari/[id] (M2-B1). e2e tests/e2e/concurs-statistici.spec.ts «competition-page.statistici-pescar.c5 — a team: each member…» (one link per member, hrefs = the crew's documentIds, a press opens the profile; local fixture E2E_STATS_TEAM / E2E_STATS_TEAM_CREW) + «c5 c6» for a crew without accounts."
       - id: competition-page.statistici-pescar.c6
         text: "Team without registered members: team header and the note „Statistici indisponibile” / „Participanții au fost adăugați fără cont Bluvi.”."
         fish_ref: components/competition/angler-stats/AnglerStatsSheet.tsx:214-228,269-276
@@ -1144,8 +1144,8 @@ screens:
       - id: competition-page.participanti.c6
         text: "Pressing the card header of a registration with exactly one real user opens that angler's profile (web /pescari/[id]; signed out → sign-in); any other card toggles its details; the chevron always toggles (label „Arată detaliile” / „Restrânge detaliile”)."
         fish_ref: components/competition/ParticipantCard.tsx:82-103,236-266
-        status: todo
-        web_note: "UNBLOCKED 2026-10-07 by M2-B1 (/pescari/[id] shipped, lib/routes ON_WEB.angler true): the phone card header of a one-user registration now opens /pescari/[id] (signed out → /intra?next=); the e2e for the header link is still to add in tests/e2e/concurs-tabs.spec.ts. From 768: the designed roster + the person popover (owner rules 14, 17, 18), e2e concurs-participanti-roster.spec.ts."
+        status: passing
+        web_note: "The phone card header of a one-user registration opens /pescari/[id] (signed out → /intra?next=/pescari/[id]); the chevron stays its own toggle. e2e tests/e2e/concurs-tabs.spec.ts «competition-page.participanti.c6 — the phone card header…» (both hrefs, the chevron does not navigate, Enter opens the profile). From 768: the designed roster + the person popover (owner rules 14, 17, 18), e2e concurs-participanti-roster.spec.ts."
       - id: competition-page.participanti.c7
         text: "Expanded, signed out or unauthorized: „Trebuie sa fii autentificat pentru a vedea statisticile pescarilor.” + „Intră în cont”."
         fish_ref: components/competition/ParticipantCard.tsx:54,283-296
@@ -1154,8 +1154,8 @@ screens:
       - id: competition-page.participanti.c8
         text: "Expanded, one user: three stats Capturi, CMMC („x kg”), Concursuri („–” when null); a guest: „Statisticile nu sunt disponibile pentru utilizatorii adaugati manual”; a team: one block per member (name row opens the profile unless the member is a guest) with their stats or the guest message."
         fish_ref: components/competition/ParticipantCard.tsx:44-55,165-214,297-349
-        status: todo
-        web_note: "CMMC as «x,xxx kg» (Romanian decimals); a failed batch says «Statisticile nu au putut fi încărcate.» + «Încearcă din nou» (fish shows zeros) — in the phone's card, once above the roster from 768, never zeros. From 768 the roster's entry carries «N capturi  CMMC x kg  N conc.» inline; a guest «Adăugat manual» in a mixed list, fish's guest line once above a guests-only list. BLOCKED on M2: a team member's name row does not open the angler profile — /pescari/[id] (lib/routes.ts ON_WEB.angler false), the row is plain. Wired: flips with ON_WEB.angler, as c6."
+        status: passing
+        web_note: "CMMC as «x,xxx kg» (Romanian decimals); a failed batch says «Statisticile nu au putut fi încărcate.» + «Încearcă din nou» (fish shows zeros) — in the phone's card, once above the roster from 768, never zeros. From 768 the roster's entry carries «N capturi  CMMC x kg  N conc.» inline; a guest «Adăugat manual» in a mixed list, fish's guest line once above a guests-only list. A team member's name row opens /pescari/[id] (M2-B1; a guest member's row stays plain) — e2e tests/e2e/concurs-tabs.spec.ts «competition-page.participanti.c8 — an opened team card: each member's name row opens /pescari/[id]»."
       - id: competition-page.participanti.c9
         text: "Stats for all approved participants are fetched in one batch request (signed in only)."
         fish_ref: components/competition/CompetitionParticipants.tsx:59-70

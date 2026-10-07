@@ -28,6 +28,9 @@ const ID = {
   openWeighing: process.env.E2E_STATS_OPEN ?? '0dab75714142e797e26304aa',
   openWeighingId: process.env.E2E_STATS_OPEN_WEIGHING ?? 'f0f9de2bbe2b58acd8038a58',
   openStand: process.env.E2E_STATS_OPEN_STAND ?? '5d8e24df4ec6b06a5a002082',
+  /** completed team with one crew of two Bluvi accounts (statistici-pescar c5's «Vezi profilul» per member). */
+  teamMembers: process.env.E2E_STATS_TEAM ?? 'g5l98otx5ypg6wttowra9yww',
+  teamMembersCrew: process.env.E2E_STATS_TEAM_CREW ?? 's2mx0gunmo63zr9fiv2o8ocw',
   /** completed feeder team: crews entered without Bluvi accounts. */
   feederTeam: process.env.E2E_STATS_FEEDER ?? 'rg340d4r4gnwf2mbyhxvasnr',
   /** notStarted, the QA user's own. */
@@ -214,7 +217,7 @@ type CoreRegistration = {
   teamName?: string | null;
   guestName?: string | null;
   stand?: CoreStand | null;
-  participants: { username?: string | null }[];
+  participants: { documentId?: string; username?: string | null }[];
 };
 type Core = { sectors: { name: string; stands: CoreStand[] }[]; registrations: CoreRegistration[] };
 
@@ -1404,6 +1407,38 @@ test('competition-page.statistici-pescar.c1 c3 c4 c7 competition-page.statistici
   await settle(page);
   await expectNoA11yViolations(page);
   expect(errors).toEqual([]);
+});
+
+test('competition-page.statistici-pescar.c3 — «Vezi profilul» opens the angler profile /pescari/[id] (pointer and keyboard)', async ({ page }) => {
+  await signedIn(page);
+  const core = await cmsCore(page, ID.rich);
+  const angler = core.registrations.find(r => r.documentId === ID.richAngler)!;
+  const person = angler.participants[0].documentId!;
+  await open(page, `/concursuri/${ID.rich}?pescar=${ID.richAngler}`);
+  const panel = page.getByRole('dialog', { name: 'Statistici pescar' });
+  const link = panel.getByRole('link', { name: 'Vezi profilul' });
+  await expect(link).toHaveCount(1, { timeout: 45_000 });
+  await expect(link).toHaveAttribute('href', `/pescari/${person}`);
+  await link.focus();
+  await page.keyboard.press('Enter');
+  await page.waitForURL(`**/pescari/${person}`);
+  await expect(page.getByTestId('profile-name')).toBeVisible({ timeout: 45_000 });
+});
+
+test('competition-page.statistici-pescar.c5 — a team: each member with an account has its own «Vezi profilul» → /pescari/[id]', async ({ page }) => {
+  await signedIn(page);
+  const core = await cmsCore(page, ID.teamMembers);
+  const crew = core.registrations.find(r => r.documentId === ID.teamMembersCrew);
+  test.skip(!crew || crew.participants.length < 2, `ID.teamMembersCrew is no longer a crew of two accounts in ${ID.teamMembers}`);
+  await open(page, `/concursuri/${ID.teamMembers}?pescar=${ID.teamMembersCrew}`);
+  const panel = page.getByRole('dialog', { name: 'Statistici pescar' });
+  const links = panel.getByRole('link', { name: 'Vezi profilul' });
+  await expect(links).toHaveCount(crew!.participants.length, { timeout: 45_000 });
+  const hrefs = await links.evaluateAll(els => els.map(e => e.getAttribute('href')));
+  expect(hrefs.sort()).toEqual(crew!.participants.map(p => `/pescari/${p.documentId}`).sort());
+  await links.first().click();
+  await page.waitForURL(/\/pescari\/[^/?]+$/);
+  await expect(page.getByTestId('profile-name')).toBeVisible({ timeout: 45_000 });
 });
 
 test('competition-page.statistici-pescar.c3 c7 — a failed stats batch says so, with a retry (never «–» passed off as data)', async ({ page }) => {

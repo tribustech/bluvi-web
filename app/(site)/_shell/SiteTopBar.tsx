@@ -11,9 +11,9 @@ import { MobileMenu, type MenuSession } from '@/components/nav/MobileMenu';
 import { BREAKPOINT_MD } from '@/components/surfaces/rule';
 import { CONCEAL_TOP_PX, useBarConcealedFlag } from '@/components/nav/stickyStack';
 import { TopBar, type TopBarViewer } from '@/components/nav/TopBar';
+import { useSignOut } from '@/lib/client/sign-out';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { signInHref, useIsNotFound } from './SiteHeader';
-import { useSiteToast } from './Toast';
 import { isUnknownViewer, useShellViewer, useViewerState, type ShellViewer } from './viewer-context';
 
 /** The unread dot: refreshed every 2 min, on focus, and whenever /notificari is opened. */
@@ -87,7 +87,6 @@ export function SiteTopBar() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [known, setKnown] = useState<Known>({});
   const [search, setSearch] = useState('');
-  const toast = useSiteToast();
   const router = useRouter();
 
   // Administrare's «Reîncearcă» (the viewer's lakes could not be read): router.refresh() re-reads
@@ -98,36 +97,14 @@ export function SiteTopBar() {
   // After a confirmed sign-out, focus lands on «Intră» once the bar shows it (not on <body>).
   const focusSignInRef = useRef(false);
 
-  // «Ieși din cont»: one run at a time, busy from the press until the signed-out bar commits (the
-  // POST, then router.refresh() in the same transition). Only a confirmed sign-out clears the user's
-  // data; a failed one leaves everything as it was. The unread query is off while it runs
-  // (`signingOut`), so qc.clear() never rebuilds it without a cookie.
-  const qc = useQueryClient();
-  const [signingOut, startSignOut] = useTransition();
-  const signOutBusy = useRef(false);
-  useEffect(() => {
-    if (!signingOut) signOutBusy.current = false;
-  }, [signingOut]);
-  const signOut = useCallback(() => {
-    if (signOutBusy.current) return;
-    signOutBusy.current = true;
-    startSignOut(async () => {
-      let ok = false;
-      try {
-        ok = (await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })).ok;
-      } catch {
-        ok = false;
-      }
-      if (!ok) {
-        toast('Nu am putut închide sesiunea. Încearcă din nou.', 'danger');
-        return;
-      }
-      qc.clear();
-      focusSignInRef.current = true;
-      // After an await the update is no longer in the transition: wrap it again.
-      startSignOut(() => router.refresh());
-    });
-  }, [qc, router, toast]);
+  // «Ieși din cont»: the site's one sign-out (lib/client/sign-out, account.b.sign-out — also Setări's
+  // «Deconectare»), busy from the press until the signed-out bar commits. The unread query is off
+  // while ANY sign-out runs (`signingOut` is page-wide), so qc.clear() never rebuilds it without a
+  // cookie.
+  const armSignInFocus = useCallback(() => {
+    focusSignInRef.current = true;
+  }, []);
+  const { signOut, signingOut } = useSignOut({ onDone: armSignInFocus });
 
   // ⌘K / Ctrl+K opens the palette from anywhere (toggles when it is already open).
   useEffect(() => {

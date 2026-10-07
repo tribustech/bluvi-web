@@ -189,10 +189,19 @@ export const routes = {
  *  - connections → /pescari/[id]/conexiuni, an angler's followers / following (M2, account.connections) — ON since M2-B2;
  *  - partida → /partide/[id], with the own-vs-spectator resolution (M4);
  *  - startPartida → the start-partidă flow (M4);
- *  - settings → /setari, the settings hub (M2, account.settings): until then the own profile's cog
- *    and the account menus' «Setări» rows are not shown (/setari/profil, edit profile, exists).
+ *  - settings → /setari, the settings hub (M2, account.settings) — ON since M2-B5 (the own profile's
+ *    cog and the account menus' «Setări» rows);
+ *  - myBookings → /rezervari, the viewer's bookings (M3, booking.yml): until then Setări hides its
+ *    «Rezervările mele» row.
  */
-export const ON_WEB = { angler: true, connections: true, partida: false, startPartida: false, settings: false } as const;
+export const ON_WEB = {
+  angler: true,
+  connections: true,
+  partida: false,
+  startPartida: false,
+  settings: true,
+  myBookings: false,
+} as const;
 
 /** The angler's profile, or null while the web has none (render the person without a link). */
 export const anglerHref = (documentId: string): string | null => (ON_WEB.angler ? routes.angler(documentId) : null);

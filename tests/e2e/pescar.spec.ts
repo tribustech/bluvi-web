@@ -374,6 +374,8 @@ test.describe('signed in — real data', () => {
     await page.waitForLoadState('networkidle');
     expect(lists.filter(l => l !== 'catches'), 'only the selected tab is read').toEqual([]);
 
+    // c15: the second tab is «Partide» (the web's name for fish's «Sesiuni»); the URL keeps ?tab=sesiuni.
+    await expect(page.getByRole('tab', { name: /^Sesiuni/ })).toHaveCount(0);
     await tab(page, 'Partide').click();
     await expect(page).toHaveURL(new RegExp(`/pescari/${ANDREW_R}\\?tab=sesiuni$`));
     await expect(page.getByTestId('session-month').first()).toBeVisible();
@@ -544,6 +546,94 @@ test.describe('signed in — mocked states', () => {
     expect(Math.abs(after - before), 'tab bar shift (px)').toBeLessThanOrEqual(4);
   });
 
+  test('c3 c31: the streamed route fallback (JS off) — the Capturi bones have a size (12 / 16), no client-reference stub in the HTML', async ({ browser }) => {
+    const ctx = await browser.newContext({ javaScriptEnabled: false });
+    try {
+      const page = await ctx.newPage();
+      for (const [width, bones] of [[375, 12], [1440, 16]] as const) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(`/pescari/${MOCK}`);
+        // loading.tsx and the page's Suspense both stream one; the visible one is the screen.
+        const fallback = page.locator('[data-testid=profile-fallback]:visible').first();
+        await expect(fallback).toBeVisible();
+        const grid = fallback.getByTestId('tab-skeleton-capturi');
+        expect(await grid.getAttribute('class')).toMatch(/^grid grid-cols-3 /);
+        expect((await grid.boundingBox())!.height).toBeGreaterThan(50);
+        const sized = await grid.locator(':scope > span').evaluateAll(els =>
+          els.filter(e => {
+            const r = e.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+          }).length,
+        );
+        expect(sized, `sized bones at ${width}`).toBe(bones);
+        expect(await page.content()).not.toContain('Attempted to call');
+      }
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test('c3 ≥1280: the route fallback and the landed page put the identity card and the tab bar on the same lines', async ({ browser, page }) => {
+    await mockAngler(page, { profile: header({ bio: null, podium: { first: 0, second: 0, third: 0 } }) });
+    const ctx = await browser.newContext({ javaScriptEnabled: false });
+    try {
+      const streamed = await ctx.newPage();
+      for (const width of [1280, 1440, 1920]) {
+        await streamed.setViewportSize({ width, height: 900 });
+        await streamed.goto(`/pescari/${MOCK}`);
+        const fallback = streamed.locator('[data-testid=profile-fallback]:visible').first();
+        await expect(fallback).toBeVisible();
+        await expect(fallback.getByTestId('profile-header-row')).toBeHidden(); // no chip row from 1280
+        const fAside = (await fallback.locator('div:has(> [data-testid=profile-header-skeleton])').boundingBox())!;
+        const fBar = (await fallback.getByTestId('tab-bar-skeleton').boundingBox())!;
+        const fTabs = (await fallback.getByTestId('tab-bar-skeleton').locator(':scope > div').first().boundingBox())!;
+        expect(await fallback.getByTestId('tab-bar-skeleton').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(255, 255, 255)');
+
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(`/pescari/${MOCK}`);
+        await expect(page.getByTestId('profile-header')).toBeVisible();
+        const aside = (await page.getByRole('complementary').boundingBox())!;
+        const bar = (await page.getByRole('tablist').locator('..').boundingBox())!;
+        const tabs = (await page.getByRole('tablist').boundingBox())!;
+        expect(Math.abs(aside.y - fAside.y), `aside y at ${width}`).toBeLessThanOrEqual(2);
+        expect(Math.abs(aside.x - fAside.x), `aside x at ${width}`).toBeLessThanOrEqual(2);
+        expect(Math.abs(bar.y - fBar.y), `tab bar y at ${width}`).toBeLessThanOrEqual(2);
+        expect(Math.abs(bar.height - fBar.height), `tab bar height at ${width}`).toBeLessThanOrEqual(2);
+        expect(Math.abs(tabs.y - fTabs.y), `tablist y at ${width}`).toBeLessThanOrEqual(2);
+      }
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test('c35 c6: the breadcrumb is «Acasă / Profil de pescar» while the header is held and after it fails — never the URL-derived «Pescari»', async ({ page }) => {
+    test.setTimeout(60_000);
+    const errors = collectConsoleErrors(page, { ignore: EXPECTED_CONSOLE });
+    await mockAngler(page, { delayHeaderMs: 4_500 });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/pescari/${MOCK}?tab=concursuri`);
+    const band = page.getByRole('navigation', { name: 'Cale de navigare' });
+    await expect(page.getByTestId('profile-header-skeleton').first()).toBeVisible();
+    await expect(band.getByRole('link', { name: 'Acasă' })).toBeVisible();
+    await expect(band.locator('[aria-current="page"]')).toHaveText('Profil de pescar');
+    await page.waitForTimeout(3_500); // past the shell's naming deadline, header still held
+    await expect(band).not.toContainText('Pescari');
+    await expect(page.getByTestId('profile-header')).toBeVisible();
+    await expect(band.locator('[aria-current="page"]')).toHaveText('Pescar Mock');
+
+    // A failed header at 1440 (no back chip from 1280): the Acasă crumb is still the way back.
+    await page.unroute(new RegExp(`/feed/anglers/${MOCK}(\\?.*)?$`));
+    await page.route(new RegExp(`/feed/anglers/${MOCK}(\\?.*)?$`), r => json(r, { error: { status: 500, message: 'boom' } }, 500));
+    await page.goto(`/pescari/${MOCK}?tab=concursuri`);
+    await expect(page.getByText('Nu am putut încărca profilul.')).toBeVisible({ timeout: 30_000 });
+    await expect(band.getByRole('link', { name: 'Acasă' })).toBeVisible();
+    await expect(band.locator('[aria-current="page"]')).toHaveText('Profil de pescar');
+    await expect(band).not.toContainText('Pescari');
+    await band.getByRole('link', { name: 'Acasă' }).click();
+    await expect(page).toHaveURL(/\/$/);
+    expect(errors).toEqual([]);
+  });
+
   test('c7: the followers count takes the right plural (1 urmăritor, 25 de urmăritori)', async ({ page }) => {
     await mockAngler(page, { profile: header({ counts: { followers: 1, following: 25, catches: 25, sessions: 2, competitions: 4 } }) });
     await page.goto(`/pescari/${MOCK}?tab=concursuri`);
@@ -553,6 +643,34 @@ test.describe('signed in — mocked states', () => {
     await page.route(new RegExp(`/feed/anglers/${MOCK}(\\?.*)?$`), r => json(r, { data: header({ counts: { followers: 25, following: 2, catches: 25, sessions: 2, competitions: 4 } }) }));
     await page.reload();
     await expect(page.getByTestId('followers-count')).toHaveText('25 de urmăritori');
+  });
+
+  test('c7: «N urmăritori» opens the connections on Urmăritori, «N urmărește» on Urmărește (pointer and keyboard)', async ({ page }) => {
+    await mockAngler(page, { profile: header({ counts: { followers: 3, following: 2, catches: 25, sessions: 2, competitions: 4 } }) });
+    const empty = { data: [], meta: { pagination: { page: 1, pageSize: 20, pageCount: 0, total: 0 } } };
+    await page.route(new RegExp(`/feed/anglers/${MOCK}/(followers|following)`), r => json(r, empty));
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/pescari/${MOCK}?tab=concursuri`);
+      const followers = page.getByTestId('followers-count').locator('visible=true');
+      await expect(followers).toHaveText('3 urmăritori');
+      // Both counts are real links (rule 17), each to its own tab.
+      await expect(followers).toHaveAttribute('href', `/pescari/${MOCK}/conexiuni?tab=urmaritori`);
+      await expect(page.getByTestId('following-count').locator('visible=true')).toHaveAttribute('href', `/pescari/${MOCK}/conexiuni?tab=urmareste`);
+      await followers.click();
+      await page.waitForURL(new RegExp(`/pescari/${MOCK}/conexiuni(\\?tab=urmaritori)?$`));
+      await expect(page.getByRole('tab', { name: /^Urmăritori/ })).toHaveAttribute('aria-selected', 'true');
+    }
+    // Keyboard: Tab reaches «2 urmărește», Enter opens Urmărește.
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(`/pescari/${MOCK}?tab=concursuri`);
+    const following = page.getByTestId('following-count');
+    await expect(following).toHaveText('2 urmărește');
+    await following.focus();
+    await expect(following).toBeFocused();
+    await page.keyboard.press('Enter');
+    await page.waitForURL(`**/pescari/${MOCK}/conexiuni?tab=urmareste`);
+    await expect(page.getByRole('tab', { name: /^Urmărește/ })).toHaveAttribute('aria-selected', 'true');
   });
 
   test('c4 c6 c8 c9 c14: initials, podium tiers above zero, «–» record, verified badge, hashtags', async ({ page }) => {
@@ -649,7 +767,9 @@ test.describe('signed in — mocked states', () => {
     await expect(page.getByTestId('catch-footer')).toContainText('Balta Mock');
     await expect(page.getByTestId('catch-footer-competition')).toHaveText('Cupa Mock');
     await expect(page.getByTestId('catch-footer')).toContainText('5 SEP 2025');
-    await expect(box.getByRole('button', { name: /Distribuie/i })).toHaveCount(0); // c21: M4
+    // c21 deferred to M4 (the share card ships with Partide): no share action at all.
+    await expect(box.getByRole('button', { name: /Distribuie|Trimite|Share/i })).toHaveCount(0);
+    await expect(box.getByRole('link', { name: /Distribuie|Trimite|Share/i })).toHaveCount(0);
 
     // Walk to the last loaded catch with the keyboard: the next page is asked for.
     for (let i = 0; i < 19; i++) await page.keyboard.press('ArrowRight');
@@ -699,6 +819,9 @@ test.describe('signed in — mocked states', () => {
     await expect(done.getByTestId('session-stats')).toContainText('—');
     await expect(done.getByTestId('session-footer')).toHaveCount(0); // no endedAt → no range
     await expect(done).not.toContainText('Vezi rezumatul');
+    // c24 CTA / c25 deferred to M4 (no /partide/[id] yet, rule 4): no card is a link, nothing promises one.
+    await expect(cards.getByRole('link')).toHaveCount(0);
+    await expect(cards.filter({ has: page.locator('[href*="/partide/"]') })).toHaveCount(0);
     await expect(page.getByTestId('session-month').locator(':scope > h3')).toHaveText([/^[A-ZĂÂÎȘȚ]+ \d{4}$/, 'AUGUST 2025']);
   });
 

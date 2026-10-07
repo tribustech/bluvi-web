@@ -1,5 +1,5 @@
 import { cn } from '@/components/ui/cn';
-import { CATCH_GRID } from './CatchGrid';
+import { CATCH_GRID } from './frame';
 
 /*
  * fish components/profile/ProfileSkeleton.tsx — the header and each tab in grey, shaped like what
