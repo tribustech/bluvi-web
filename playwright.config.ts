@@ -21,5 +21,12 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     // Owner rule 3 (the phone header stack never floats) where it used to fail: iOS Safari's engine.
     { name: 'webkit-iphone', use: { ...devices['iPhone 13'] }, testMatch: /detail-airbnb\.spec\.ts$/, grep: /owner rule 3/ },
+    // account.sign-in «back» (c17/c18) where the Navigation API is missing: Safari's engine.
+    {
+      name: 'webkit-intra',
+      use: { ...devices['Desktop Safari'] },
+      testMatch: /intra\.spec\.ts$/,
+      grep: /account\.sign-in\.c18|unsafe next is ignored/,
+    },
   ],
 });

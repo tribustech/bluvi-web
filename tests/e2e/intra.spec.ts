@@ -87,6 +87,87 @@ async function sessionCookie(page: Page) {
   return (await page.context().cookies()).find((c) => c.name === 'bluvi_session');
 }
 
+/*
+ * Firebase Auth as the web persists it (IndexedDB, firebase/auth's default for getAuth). A persisted
+ * user is seeded the way the SDK writes one, so a sign-out has someone to sign out; the reload the
+ * SDK does on restore is aborted (a network failure keeps the user, as offline would). Nothing
+ * reaches Firebase: Identity Toolkit and the token service are aborted, Firestore already is.
+ */
+const FIREBASE_USER_KEY = `firebase:authUser:${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}:[DEFAULT]`;
+
+async function seedFirebaseUser(page: Page) {
+  await page.route(/identitytoolkit\.googleapis\.com|securetoken\.googleapis\.com/, (r) => r.abort());
+  await page.evaluate(
+    ({ key, apiKey }) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open('firebaseLocalStorageDb', 1);
+        open.onupgradeneeded = () => open.result.createObjectStore('firebaseLocalStorage', { keyPath: 'fbase_key' });
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const tx = open.result.transaction('firebaseLocalStorage', 'readwrite');
+          tx.objectStore('firebaseLocalStorage').put({
+            fbase_key: key,
+            value: {
+              uid: 'e2e-previous-angler',
+              emailVerified: false,
+              isAnonymous: false,
+              providerData: [],
+              stsTokenManager: { refreshToken: 'e2e-refresh', accessToken: 'e2e-access', expirationTime: Date.now() + 3_600_000 },
+              createdAt: String(Date.now()),
+              lastLoginAt: String(Date.now()),
+              apiKey,
+              appName: '[DEFAULT]',
+            },
+          });
+          tx.oncomplete = () => {
+            open.result.close();
+            resolve();
+          };
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+    { key: FIREBASE_USER_KEY, apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY }
+  );
+}
+
+/** The Firebase users this browser still holds (keys of the SDK's IndexedDB store). */
+async function firebaseUsers(page: Page): Promise<string[]> {
+  return page.evaluate(
+    () =>
+      new Promise<string[]>((resolve) => {
+        const open = indexedDB.open('firebaseLocalStorageDb');
+        open.onerror = () => resolve([]);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains('firebaseLocalStorage')) {
+            db.close();
+            return resolve([]);
+          }
+          const req = db.transaction('firebaseLocalStorage').objectStore('firebaseLocalStorage').getAllKeys();
+          req.onsuccess = () => {
+            db.close();
+            resolve((req.result as string[]).filter((k) => k.startsWith('firebase:authUser:')));
+          };
+          req.onerror = () => resolve([]);
+        };
+      })
+  );
+}
+
+/**
+ * Older Safari and Firefox have no Navigation API: «back» then rests on the in-app history the
+ * root providers keep (lib/client/in-app-history.ts). The WebKit run takes that path on purpose.
+ */
+async function withoutNavigationApi(page: Page) {
+  await page.addInitScript(() => {
+    try {
+      Object.defineProperty(window, 'navigation', { value: undefined, configurable: true });
+    } catch {
+      // Not configurable here: the API stays (the assertions still hold through it).
+    }
+  });
+}
+
 async function backdropStates(page: Page) {
   return page.locator('[data-backdrop]').evaluate((el) => el.getAnimations().map((a) => a.playState));
 }
@@ -176,9 +257,10 @@ test('account.sign-in.c4 c5 c8 c9 c22 — pending: one spinner, everything disab
   await google.click();
   await expect(google).toHaveAttribute('aria-busy', 'true');
   await expect(alertSlot(page)).toHaveText('');
+  // The second request must be held by the route before it is released (aria-busy comes first).
+  await expect.poll(() => calls).toBe(2);
   release();
   await expect(alertSlot(page)).toHaveText(GENERIC);
-  expect(calls).toBe(2);
   expect(errors).toEqual([]);
 });
 
@@ -236,12 +318,20 @@ test('account.sign-in.c7 c11 — Facebook without email: CMS bluCode AUTH:EMAIL_
   expect(errors).toEqual([]);
 });
 
-test('account.sign-in.c15 — the profile read fails after sign-in: generic error, the half-made session is dropped', async ({ page }) => {
-  const errors = collectConsoleErrors(page, { ignore: EXPECTED_CONSOLE });
-  await mockLocalAuth(page);
+test('account.sign-in.c15 — the profile read fails after sign-in: generic error, the half-made session is dropped (cookie and Firebase)', async ({ page }) => {
+  // The seeded user's restore reload is aborted on purpose (seedFirebaseUser).
+  const errors = collectConsoleErrors(page, { ignore: [...EXPECTED_CONSOLE, /net::ERR_FAILED/] });
+  await mockLocalAuth(page, { firebaseToken: 'e2e-custom-token' });
   await page.route('**/api/cms/user/profile', (r) => r.fulfill({ status: 500, json: { error: { status: 500, message: 'boom' } } }));
+  const exchanges: string[] = [];
+  page.on('request', (r) => {
+    if (/signInWithCustomToken/.test(r.url())) exchanges.push(r.url());
+  });
   const logout = page.waitForRequest((r) => r.url().endsWith('/api/auth/logout') && r.method() === 'POST');
   await page.goto(`${PATH}?next=%2Fstiri`);
+  // Someone signed in to Firebase on this browser before (fish signs Firebase out with the cookie).
+  await seedFirebaseUser(page);
+  expect(await firebaseUsers(page)).toEqual([FIREBASE_USER_KEY]);
   await signInLocal(page);
   await logout;
   await expect(alertSlot(page)).toHaveText(GENERIC);
@@ -249,6 +339,9 @@ test('account.sign-in.c15 — the profile read fails after sign-in: generic erro
   expect(await sessionCookie(page)).toBeUndefined();
   await expect(providerButton(page, 'Google')).toBeEnabled();
   expect((await page.evaluate(() => (window as unknown as { __events: { name: string }[] }).__events)).map((e) => e.name)).not.toContain('sign_in');
+  // A failed sign-in never bridges Firebase, and leaves no Firebase user behind.
+  await expect.poll(() => firebaseUsers(page)).toEqual([]);
+  expect(exchanges).toEqual([]);
   expect(errors).toEqual([]);
 });
 
@@ -285,7 +378,8 @@ test('account.sign-in.c17 c21 account.b.sign-in-redirect — real local sign-in 
   expect(errors).toEqual([]);
 });
 
-test('account.sign-in.c17 account.b.sign-in-redirect — unsafe next is ignored: back to the previous page, else home', async ({ page }) => {
+test('account.sign-in.c17 account.b.sign-in-redirect — unsafe next is ignored: back to the previous page, else home', async ({ page }, testInfo) => {
+  if (testInfo.project.name.startsWith('webkit')) await withoutNavigationApi(page);
   await mockLocalAuth(page);
   for (const unsafe of ['//evil.example/x', '/\\evil.example', 'https://evil.example', '/stiri x', '/intra']) {
     await page.goto('/stiri');
@@ -324,16 +418,42 @@ test('account.sign-in.c13 — the returned firebaseToken bridges Firebase Auth i
   expect(firestore).toBe(0);
 });
 
-test('account.sign-in.c18 — «Explorează fără cont» goes back when there is history, else home', async ({ page }) => {
+test('account.sign-in.c18 — «Explorează fără cont» goes back when there is history, else home', async ({ page }, testInfo) => {
+  if (testInfo.project.name.startsWith('webkit')) await withoutNavigationApi(page);
   await page.goto('/stiri');
   await page.goto(PATH);
   await screen(page).getByRole('button', { name: 'Explorează fără cont' }).click();
   await expect(page).toHaveURL(/\/stiri$/);
+  // Hydrated (the in-app history tracker stamped this entry) before leaving for another site.
+  await expect.poll(() => page.evaluate(() => Boolean((history.state as { __bluviNav?: unknown } | null)?.__bluviNav))).toBe(true);
 
   await page.goto('about:blank');
   await page.goto(PATH);
   await screen(page).getByRole('button', { name: 'Explorează fără cont' }).click();
   await expect(page).toHaveURL(`${BASE_URL}/`);
+});
+
+test('account.sign-in.c18 c17 — without the Navigation API: landed from a search engine, soft-navigated to /intra, «back» stays in the app', async ({ page }) => {
+  await withoutNavigationApi(page);
+  await mockLocalAuth(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const intra = () => page.getByRole('banner').getByRole('link', { name: 'Intră', exact: true });
+
+  // c18: the referrer is Google's (set once, at the hard load); the history before /intra is ours.
+  await page.goto('/stiri', { referer: 'https://www.google.com/' });
+  await intra().click();
+  await expect(page).toHaveURL(/\/intra\?next=%2Fstiri$/);
+  expect(await page.evaluate(() => document.referrer)).toBe('https://www.google.com/');
+  await screen(page).getByRole('button', { name: 'Explorează fără cont' }).click();
+  await expect(page).toHaveURL(/\/stiri$/);
+
+  // c17: a sign-in without a usable next goes back the same way.
+  await page.goto('/stiri', { referer: 'https://www.facebook.com/' });
+  await intra().click();
+  await expect(page).toHaveURL(/\/intra\?next=%2Fstiri$/);
+  await page.evaluate(() => history.replaceState(history.state, '', '/intra?next=%2F%2Fevil.example'));
+  await signInLocal(page);
+  await expect(page).toHaveURL(/\/stiri$/);
 });
 
 test('account.sign-in.c20 — a legal link the browser refuses to open shows the link error in the alert slot', async ({ page }) => {
@@ -539,8 +659,12 @@ async function killSessionOn(page: Page, path: string, burst = 2) {
   return seen;
 }
 
-test('global.b.session-expired account.b.session-expired — a burst of dead-session 401s: one logout, one toast, one redirect', async ({ page }) => {
+test('global.b.session-expired account.b.session-expired — a burst of dead-session 401s: one logout, one toast, one redirect, Firebase signed out', async ({ page }) => {
   collectConsoleErrors(page, { ignore: [/status of 401/] });
+  // The dead angler's Firebase session, persisted on this browser (fish signs it out with the cookie).
+  await page.goto(PATH);
+  await seedFirebaseUser(page);
+  expect(await firebaseUsers(page)).toEqual([FIREBASE_USER_KEY]);
   // Notificări reads the list and the unread count from the browser: the burst.
   const seen = await killSessionOn(page, '/notificari');
   await expect(page).toHaveURL(/\/intra\?next=%2Fnotificari$/);
@@ -553,6 +677,8 @@ test('global.b.session-expired account.b.session-expired — a burst of dead-ses
   expect(await sessionCookie(page)).toBeUndefined();
   // The shared top bar re-rendered signed out (no notifications bell).
   await expect(page.getByRole('banner').getByRole('link', { name: /^Notificări/ })).toHaveCount(0);
+  // The next person on this browser is not Firestore-authenticated as the dead angler.
+  await expect.poll(() => firebaseUsers(page)).toEqual([]);
 });
 
 test('global.b.session-expired — from a public page the redirect carries the page as next', async ({ page }) => {
@@ -596,5 +722,8 @@ test('account.sign-in keyboard path — Tab reaches every control in order; Ente
   await providerButton(page, 'Google').focus();
   await page.keyboard.press('Enter');
   await expect(alertSlot(page)).toHaveText(GENERIC);
-  expect(calls).toBe(1);
+  // Focus never left the pressed button: the next Enter retries from where the user was.
+  await expect(providerButton(page, 'Google')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => calls).toBe(2);
 });

@@ -26,7 +26,8 @@ import {
   type SignInConfig,
   type SocialProvider,
 } from './logic';
-import { rearmSessionGuard } from '@/lib/client/session-expired';
+import { canGoBackInApp } from '@/lib/client/in-app-history';
+import { rearmSessionGuard, signOutFirebaseQuietly } from '@/lib/client/session-expired';
 import { appleCredential, askFacebookEmailAgain, facebookCredential, googleCredential, preload, SignInError } from './sdk';
 
 export type { SignInConfig } from './logic';
@@ -40,8 +41,9 @@ export type { SignInConfig } from './logic';
  * 768–1279 the same screen as a bento card; ≥1280 a full-width bento split like Facebook's sign-in —
  * the photo with the intro on the left, the providers on a 480px column on the right.
  *
- * After the session cookie is set (POST /api/auth/{provider}): the Firebase bridge runs in the
- * background (c13), GET /user/profile decides where to go (c15/c16), sign_in is logged (c21).
+ * After the session cookie is set (POST /api/auth/{provider}): GET /user/profile decides where to go
+ * (c15/c16), then the Firebase bridge runs in the background (c13) — never for a sign-in that
+ * failed — and sign_in is logged (c21).
  * fish's active-partidă probe (c14) restores a live session in the background — the web has no
  * live partidă until M4, so there is nothing to restore yet.
  */
@@ -86,13 +88,6 @@ async function bridgeFirebase(token: string | null | undefined): Promise<void> {
   } catch {
     // Non-fatal by contract.
   }
-}
-
-/** fish router.canGoBack(): only this tab's own history counts (Navigation API), never another site. */
-function canGoBackInApp(): boolean {
-  const nav = (window as unknown as { navigation?: { canGoBack?: boolean } }).navigation;
-  if (nav && typeof nav.canGoBack === 'boolean') return nav.canGoBack;
-  return window.history.length > 1 && document.referrer.startsWith(window.location.origin);
 }
 
 function subscribeReducedMotion(onChange: () => void) {
@@ -170,11 +165,11 @@ export function SignIn({ config }: { config: SignInConfig }) {
     let navigating = false;
     try {
       const auth = await post(provider, await credential());
-      void bridgeFirebase(auth.firebaseToken);
       rearmSessionGuard();
       if (!mounted.current) {
         // Signed in from a page the user already left: keep the session, re-render where they
         // are now, never navigate (account.sign-in.c23).
+        void bridgeFirebase(auth.firebaseToken);
         queryClient.clear();
         router.refresh();
         return;
@@ -184,10 +179,13 @@ export function SignIn({ config }: { config: SignInConfig }) {
         profile = await getProfile(createBrowserTransport());
       } catch {
         // c15: no profile → nothing stays stored (fish throws before navigating; the JWT it kept
-        // would make a half signed-in app — the web drops the cookie instead).
-        await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+        // would make a half signed-in app — the web drops the cookie instead, and any Firebase
+        // user this browser still holds, as fish's sign-out does).
+        await Promise.all([fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined), signOutFirebaseQuietly()]);
         throw new Error(GENERIC_ERROR);
       }
+      // c13: only now that the sign-in is whole.
+      void bridgeFirebase(auth.firebaseToken);
       // Anything cached while signed out (optional-auth reads) is now wrong; the profile is fresh.
       queryClient.clear();
       queryClient.setQueryData(profileKeys.my, profile);
@@ -433,7 +431,11 @@ function ProviderButton({
       onClick={onClick}
       onPointerEnter={onWarm}
       onFocus={onWarm}
-      disabled={disabled}
+      // The pressed button stays focusable while pending (aria-disabled; run() ignores a second
+      // press): a native `disabled` would drop focus to <body>, and a keyboard or screen-reader
+      // user would start again from the top bar after an error or a cancel.
+      disabled={disabled && !pending}
+      aria-disabled={disabled || undefined}
       aria-busy={pending || undefined}
       data-provider={provider}
       className={cn(
@@ -515,7 +517,8 @@ function LocalForm({
       </label>
       <button
         type="submit"
-        disabled={disabled}
+        disabled={disabled && !pending}
+        aria-disabled={disabled || undefined}
         aria-busy={pending || undefined}
         className={cn(
           't-body-strong flex h-12 items-center justify-center gap-2 rounded-2xl bg-welcome-accent px-4 text-on-welcome',

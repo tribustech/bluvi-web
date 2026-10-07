@@ -43,3 +43,23 @@ export function onSessionExpired(show: (text: string) => void): () => void {
     if (listener === show) listener = null;
   };
 }
+
+/**
+ * fish AuthContext signOut → signOutOfFirebase: every way out of a session also signs Firebase Auth
+ * out, or the next person on this browser keeps Firestore auth as the previous angler (the web
+ * persists it in IndexedDB). Lazy (Firebase loads only here), waits for the persisted user to be
+ * restored first (before that `currentUser` is null and the sign-out would be skipped), never throws.
+ */
+export async function signOutFirebaseQuietly(): Promise<void> {
+  try {
+    const [{ getRealtimeContext }, { signOutOfFirebase, waitForAuthReady }] = await Promise.all([
+      import('@/lib/client/firebase'),
+      import('@/core/realtime'),
+    ]);
+    const ctx = getRealtimeContext();
+    await waitForAuthReady(ctx.auth);
+    await signOutOfFirebase(ctx);
+  } catch {
+    // Non-fatal by contract (fish bundles it into the sign-out teardown).
+  }
+}
