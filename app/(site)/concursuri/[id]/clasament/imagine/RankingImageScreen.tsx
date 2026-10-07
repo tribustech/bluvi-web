@@ -353,6 +353,8 @@ export function RankingImageScreen({
 
 /** Phone (window narrower than 768, the frame's own breakpoint): the image opens at this scale of its pixels — table text ≈ 9 css px — not at the 19% fit. */
 const PHONE_SCALE = 0.45;
+/** On the phone the sheet opens with the table's left edge this far in from the stage's (Stand and Participant first). */
+const PHONE_INSET = 8;
 const PHONE_MAX = 768;
 /** Room kept under the phone's toolbar so it never touches the window's edge. */
 const BOTTOM_GUTTER = 16;
@@ -473,7 +475,8 @@ const pct = (n: number, of: number) => `${(n / of) * 100}%`;
  * Generating: the planned sheet's blocks — the logo, the name / organizer / dates lines and the
  * badge, the title band, the table (its width, centred, one bone per row) and the totals — on a
  * sheet of paper at the size and place the image opens at (from 768 the frame itself; on the phone
- * PHONE_SCALE, centred, just under the sheet's top margin, as ZoomStage's opening view). The status
+ * PHONE_SCALE, the table's left edge at the stage's, just under the sheet's top margin, as ZoomStage's
+ * opening view). The status
  * sits in a pill over the table.
  */
 function ImageSkeleton({ sheet, slow = false }: { sheet: SheetGeometry; slow?: boolean }) {
@@ -487,12 +490,13 @@ function ImageSkeleton({ sheet, slow = false }: { sheet: SheetGeometry; slow?: b
     '--paper-w': `${Math.round(W * PHONE_SCALE)}px`,
     '--paper-h': `${Math.round(H * PHONE_SCALE)}px`,
     '--paper-top': `${-Math.round(sheet.top * PHONE_SCALE) + 8}px`,
+    '--paper-left': `${Math.min(0, -Math.round(sheet.table.x * PHONE_SCALE) + PHONE_INSET)}px`,
   } as CSSProperties;
   return (
     <div aria-hidden className="absolute inset-0">
       <div
         style={paper}
-        className="absolute top-(--paper-top) left-1/2 h-(--paper-h) w-(--paper-w) -translate-x-1/2 bg-surface md:inset-0 md:h-full md:w-full md:translate-x-0"
+        className="absolute top-(--paper-top) left-(--paper-left) h-(--paper-h) w-(--paper-w) bg-surface md:inset-0 md:h-full md:w-full"
       >
         {/* Header: logo + tagline, the three centred lines, the badge and the export date. */}
         <span className={bone} style={box(24, hx.y + hx.h * 0.28, 390, hx.h * 0.3)} />
@@ -632,9 +636,10 @@ function edgeMask(more: { top: boolean; bottom: boolean; left: boolean; right: b
 
 /**
  * The image in the frame. From 768 fitted to the width (the page scrolls it); on the phone at a
- * readable PHONE_SCALE, centred across the sheet and just under its top margin, so the name, the
- * title and the table's middle are the first view (fish fits the whole sheet instead; at 375 that
- * is 19% — unreadable). Then zoomed with the buttons, Ctrl / ⌘ + wheel, a pinch or a double click,
+ * readable PHONE_SCALE, the table's left edge PHONE_INSET in from the stage's and just under the
+ * sheet's top margin, so the title and the table's Stand and Participant columns are the first view
+ * and the drag hint invites panning right to the numbers (fish fits the whole sheet instead; at 375
+ * that is 19% — unreadable). Then zoomed with the buttons, Ctrl / ⌘ + wheel, a pinch or a double click,
  * and panned by dragging, the wheel or the arrow keys (+ / − / 0 zoom from the keyboard too). Never
  * smaller than the whole image in the stage, never more than MAX_SCALE. The wheel pans the image
  * only while it can move; at its edge it scrolls the page. Edge fades say where more of it is, and
@@ -720,7 +725,7 @@ function ZoomStage({
 
   const openingScale = phone ? Math.max(fitWidth, PHONE_SCALE) : fitWidth;
   const opening: View = phone
-    ? { scale: openingScale, x: box ? (box.w - image.width * openingScale) / 2 : 0, y: -(sheet.top * openingScale) + 8 }
+    ? { scale: openingScale, x: -(sheet.table.x * openingScale) + PHONE_INSET, y: -(sheet.top * openingScale) + 8 }
     : { scale: openingScale, x: 0, y: 0 };
   const view: View | null = box ? clamp(wanted ?? opening) : null;
   const setView = (next: (v: View | null) => View | null) => setWanted(next(view));
@@ -852,6 +857,7 @@ function ZoomStage({
         data-testid="ranking-image-stage"
         data-scale={view?.scale}
         data-fit={box ? fitWidth : undefined}
+        data-table-x={sheet.table.x}
         data-more={Object.entries(more)
           .filter(([, v]) => v)
           .map(([k]) => k)

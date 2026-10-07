@@ -111,7 +111,8 @@ export function filteredCategoryDefs(catalogs: { fishOptions: LakeFilterValue[];
     out.push({
       key: s.key,
       label: s.name,
-      icon: hasFishGlyph(s.name) ? <FishGlyph name={s.name} size={24} /> : <FishOutlineIcon />,
+      // Monochrome line art (currentColor): the category bar's icons are one ink, pressed or not.
+      icon: hasFishGlyph(s.name) ? <FishGlyph name={s.name} size={24} mono /> : <FishOutlineIcon />,
       title: `Bălți cu ${s.name.toLowerCase()}`,
       filters: { ...EMPTY_LAKE_FILTERS, selectedFish: fish },
     });

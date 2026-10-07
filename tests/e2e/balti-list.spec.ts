@@ -122,6 +122,16 @@ async function openHome(page: Page, viewport = PHONE, geo: Geo = 'prompt') {
  */
 const SERVER_PREFETCH = 'the server prefetch answers /lakes/home (Public grant): the browser stub never runs';
 
+/**
+ * Whether this server's HTML already lists the lakes (its prefetch of /lakes/home worked). The
+ * client-side states (skeleton, error, every row empty) are reached only when it did not: run them
+ * against a dev server whose server-side CMS_URL is unreachable (the browser still reads
+ * NEXT_PUBLIC_CMS_URL), e.g. `CMS_URL=http://127.0.0.1:9/api next dev -p 3124`.
+ */
+async function serverPrefetches(request: import('@playwright/test').APIRequestContext) {
+  return /href="\/balti\/[a-z0-9]{20,}"/.test(await (await request.get('/balti')).text());
+}
+
 async function openMap(page: Page, query = '', viewport = PHONE, geo: Geo = 'prompt', routes?: () => Promise<unknown>) {
   await page.setViewportSize(viewport);
   await setGeo(page.context(), page, geo);
@@ -311,6 +321,10 @@ test.describe('lakes.home', () => {
     const radius = near.getByRole('link', { name: 'Vezi pe hartă bălțile pe o rază de 50 km' });
     await expect(radius).toHaveText(/50 km/);
     await expect(radius).toHaveAttribute('href', '/balti/harta?aproape=1');
+    // c10: the grid ends on the same nearby map.
+    const end = near.locator('ul > li[data-grid-end]').getByRole('link');
+    await expect(end).toHaveText('Vezi pe hartă toate bălțile pe o rază de 50 km');
+    await expect(end).toHaveAttribute('href', '/balti/harta?aproape=1');
     // c13 + nearest first: every card has its distance, in ascending order.
     const km = await near.locator('ul > li article').evaluateAll((as) =>
       as.map((a) => {
@@ -498,7 +512,7 @@ test.describe('lakes.home', () => {
   });
 
   test('lakes.home.c24 c25 lakes.home.s1 s2 · skeleton while loading, error screen with retry', async ({ page, request }) => {
-    test.skip(await publicGrant(request), SERVER_PREFETCH);
+    test.skip(await serverPrefetches(request), SERVER_PREFETCH);
     let fail = true;
     await page.setViewportSize(PHONE);
     await page.route(/localhost:1337\/api\/lakes\/home/, async (route) => {
@@ -526,7 +540,7 @@ test.describe('lakes.home', () => {
   });
 
   test('lakes.home.c25 lakes.home.s2 · a 4xx: no «check your connection», a failed retry is said again', async ({ page, request }) => {
-    test.skip(await publicGrant(request), SERVER_PREFETCH);
+    test.skip(await serverPrefetches(request), SERVER_PREFETCH);
     await page.setViewportSize(DESKTOP);
     await page.route(/localhost:1337\/api\/lakes\/home/, (route) =>
       route.fulfill({ status: 403, contentType: 'application/json', body: '{"error":{"status":403,"message":"Forbidden"}}' }),
@@ -574,7 +588,7 @@ test.describe('lakes.home', () => {
   });
 
   test('lakes.home.c25 lakes.home.s2 s8 · /lakes/home fails with recents: the recent row stays, the failure is said inline with a retry', async ({ page, request }) => {
-    test.skip(await publicGrant(request), SERVER_PREFETCH);
+    test.skip(await serverPrefetches(request), SERVER_PREFETCH);
     await page.addInitScript((id) => window.localStorage.setItem('recentViewedLakeIds', JSON.stringify([id])), CHITA);
     await page.setViewportSize(DESKTOP);
     await patchGrants(page);
@@ -596,7 +610,7 @@ test.describe('lakes.home', () => {
   });
 
   test('lakes.home.c23 lakes.home.s10 · every row empty: no rows, no map button', async ({ page, request }) => {
-    test.skip(await publicGrant(request), SERVER_PREFETCH);
+    test.skip(await serverPrefetches(request), SERVER_PREFETCH);
     await page.setViewportSize(PHONE);
     await patchGrants(page);
     await page.route(/localhost:1337\/api\/lakes\/home/, (r) =>
@@ -642,6 +656,46 @@ test.describe('lakes.home', () => {
     await second.click();
     const click = (await events()).find((e) => e.name === 'lake_home_section_click');
     expect(click?.params).toEqual({ section_key: 'all_lakes', section_position: 2, item_position: 2, lake_id: id });
+  });
+
+  test('lakes.home.c10 c28 · 1440px: the grid ends on the map tile; one impression per shown grid, clicks with its 1-based position', async ({ page }) => {
+    const events = await recordAnalytics(page);
+    await openHome(page, DESKTOP);
+    const grid = page.locator('[data-balti-grid="all"]');
+    // c10 / owner rule 6: the grid's last slot is the map entry, on the cards' 4:3 box (no orphan row
+    // left to end the page).
+    const last = grid.locator('ul > li').last();
+    await expect(last).toHaveAttribute('data-grid-end', '');
+    const tile = last.getByRole('link');
+    await expect(tile).toHaveAttribute('href', '/balti/harta');
+    await expect(tile).toHaveText('Vezi toate bălțile pe hartă');
+    const tileBox = (await tile.boundingBox())!;
+    const photo = (await grid.locator('li[data-lake-id] article > div').first().boundingBox())!;
+    expect(Math.abs(tileBox.width - photo.width)).toBeLessThan(2);
+    expect(Math.abs(tileBox.height - photo.height)).toBeLessThan(2);
+    // c28 from 768: the grid is the section — one impression, its place in the bar (1-based).
+    const labels = (await page.getByRole('group', { name: 'Categorii' }).getByRole('button').allTextContents()).map((l) => l.trim());
+    const lakes = await grid.locator('li[data-lake-id]').count();
+    await expect
+      .poll(async () => (await events()).filter((e) => e.name === 'lake_home_section_impression').map((e) => e.params))
+      .toEqual([{ section_key: 'all_lakes', section_position: 1, lakes_count: lakes }]);
+    // A picked category: its own impression and grid end, clicks carry its position.
+    await page.getByRole('group', { name: 'Categorii' }).getByRole('button', { name: 'Crap', exact: true }).click();
+    const crap = page.locator('[data-balti-grid="fish:crap"]');
+    await expect(crap.locator('li[data-lake-id]').first()).toBeVisible({ timeout: 15_000 });
+    const position = labels.indexOf('Crap') + 1;
+    await expect
+      .poll(async () => (await events()).filter((e) => e.name === 'lake_home_section_impression' && e.params.section_key === 'fish:crap').map((e) => e.params))
+      .toEqual([{ section_key: 'fish:crap', section_position: position, lakes_count: await crap.locator('li[data-lake-id]').count() }]);
+    const crapEnd = crap.locator('ul > li').last().getByRole('link');
+    await expect(crapEnd).toHaveText(/^Vezi (toate cele [\d.]+ (de )?bălți|balta) pe hartă$/);
+    await expect(crapEnd).toHaveAttribute('href', /^\/balti\/harta\?pesti=/);
+    const first = crap.locator('li[data-lake-id]').first();
+    const id = await first.getAttribute('data-lake-id');
+    await page.evaluate(() => window.addEventListener('click', (e) => e.preventDefault(), { capture: true, once: true }));
+    await first.locator('h3 a').click();
+    const click = (await events()).find((e) => e.name === 'lake_home_section_click');
+    expect(click?.params).toEqual({ section_key: 'fish:crap', section_position: position, item_position: 1, lake_id: id });
   });
 
   test('lakes.home.c24 · no patch: the server HTML lists the lakes (needs the Public grant)', async ({ request }) => {
@@ -935,9 +989,9 @@ test.describe('lakes.filters', () => {
     await expect(grid.getByRole('heading', { level: 2 })).toHaveText('Rezervă direct din aplicație');
     await expect(grid.getByRole('link', { name: 'Vezi pe hartă: Rezervă direct din aplicație' })).toHaveAttribute('href', '/balti/harta?rezervari=1');
     // Only the bookable lakes: every card says so.
-    const n = await grid.locator('ul > li').count();
+    const n = await grid.locator('ul > li[data-lake-id]').count();
     expect(n).toBeGreaterThan(0);
-    await expect(grid.locator('ul > li').filter({ hasText: 'Rezervare online' })).toHaveCount(n);
+    await expect(grid.locator('ul > li[data-lake-id]').filter({ hasText: 'Rezervare online' })).toHaveCount(n);
     await toate.click();
     await expect(page.locator('[data-balti-grid="bookable"]')).toHaveCount(0);
     await expect(page).toHaveURL(/\/balti$/);
@@ -1293,7 +1347,8 @@ test.describe('lakes.search', () => {
     await page.getByRole('button', { name: 'Deschide căutarea pentru bălți' }).click();
     await page.getByRole('dialog', { name: 'Caută în Bălți' }).getByRole('option', { name: /^În jurul meu/ }).click();
     await expect(page).toHaveURL(/\/balti\/harta\?aproape=1$/);
-    await expect(visible(page.getByRole('button', { name: /Acum: În jurul meu · 50km/ }))).toBeVisible();
+    // Owner rule 10: the unit spaced («50 km», never fish's «50km»).
+    await expect(visible(page.getByRole('button', { name: /Acum: În jurul meu · 50 km/ }))).toBeVisible();
     await expect(listHeading(page)).toHaveText(/în această zonă/, { timeout: 25_000 });
     // c23: list cards carry the distance.
     await expect(page.getByRole('region', { name: 'Rezultate' }).locator('article').first()).toContainText(/La \d+([.,]\d)? km/);
@@ -1330,6 +1385,29 @@ test.describe('lakes.search', () => {
     calls = await page.evaluate(() => (window as unknown as { __geoCalls: number }).__geoCalls);
     expect(calls).toBe(1);
     await expect(page).toHaveURL(/\/balti\/harta\?aproape=1$/, { timeout: 15_000 });
+  });
+
+  for (const state of ['prompt', 'denied'] as const)
+  test(`lakes.results-map.s11 · a nearby link (?aproape=1) with location ${state}: never asks without a tap, never claims «În jurul meu» — the all-lakes map, filters kept`, async ({ page }) => {
+    await page.addInitScript((mode) => {
+      const w = window as unknown as { __geoCalls: number };
+      w.__geoCalls = 0;
+      const status = { state: mode, addEventListener() {}, removeEventListener() {} };
+      Object.defineProperty(navigator, 'permissions', { value: { query: () => Promise.resolve(status) }, configurable: true });
+      Object.defineProperty(navigator, 'geolocation', {
+        value: {
+          getCurrentPosition: (_ok: unknown, err: (e: { code: number; PERMISSION_DENIED: number }) => void) => {
+            w.__geoCalls += 1;
+            setTimeout(() => err({ code: 1, PERMISSION_DENIED: 1 }), 50);
+          },
+        },
+        configurable: true,
+      });
+    }, state);
+    await openMap(page, 'aproape=1&rezervari=1', DESKTOP);
+    await expect(page).toHaveURL(/\/balti\/harta\?rezervari=1$/, { timeout: 15_000 });
+    expect(await page.evaluate(() => (window as unknown as { __geoCalls: number }).__geoCalls)).toBe(0);
+    await expect(page.getByRole('button', { name: /În jurul meu/ })).toHaveCount(0);
   });
 
   test('lakes.search.c11 lakes.search.s8 · «În jurul meu» denied → the permission dialog', async ({ page }) => {
@@ -1724,9 +1802,9 @@ test.describe('lakes.results-map', () => {
       await expect(region.locator('article').first()).toBeVisible();
       expect(await region.locator('article').count()).toBeLessThanOrEqual(7);
       await expect(region.locator('article h3 a').first()).toHaveAttribute('href', /^\/balti\/[a-z0-9]+$/);
-      // c16: fish LakeRating large — «★ 4,80 (N)».
+      // c16: one rating format with the /balti grid (RatingInline) — «★ 4,8 (N)».
       for (const text of await region.locator('article').allTextContents()) {
-        if (text.includes('Rating')) expect(text).toMatch(/Rating \d,\d{2} \(\d+ recenzii\)/);
+        if (text.includes('Rating')) expect(text).toMatch(/Rating \d,\d \(\d+ (de )?recenzi[ei]\)/);
       }
       await expectNoA11yViolations(page, { exclude: ['.maplibregl-canvas-container'] });
       expect(errors).toEqual([]);
@@ -2120,7 +2198,12 @@ test.describe('lakes.results-map', () => {
     for (const k of ['switcher', 'filtre', 'toggle'] as const) {
       expect(Math.abs(map[k].x - list[k].x)).toBeLessThanOrEqual(2);
       expect(Math.abs(map[k].width - list[k].width)).toBeLessThanOrEqual(2);
+      // …and the same y: list ↔ map never moves the search row (no crumb strip on the map only).
+      expect(Math.abs(map[k].y - list[k].y), k).toBeLessThanOrEqual(2);
     }
+    await expect(page.getByRole('navigation', { name: 'Cale de navigare' })).toHaveCount(0);
+    // The BreadcrumbList stays in the page's JSON-LD.
+    expect((await page.locator('script[type="application/ld+json"]').allTextContents()).join('')).toContain('BreadcrumbList');
     // The toolbar's edges are the top bar's (shell column), the map below stays full-bleed.
     // (SHELL_MAX 1744 = 1680 + 2 × 32: past it the column is centred.)
     const edge = Math.max(vp.width >= 1280 ? 32 : 24, (vp.width - 1744) / 2 + 32);
@@ -2131,6 +2214,11 @@ test.describe('lakes.results-map', () => {
     // The list's cards end on the shell column too (under «Arată lista»), not on the window's edge.
     const card = (await page.locator('[data-lake-row-card]').first().boundingBox())!;
     expect(Math.abs(card.x + card.width - (vp.width - edge))).toBeLessThanOrEqual(2);
+    // From 1600 the list column is capped (dense cards, LAKES_MAP_SPLIT); the map takes the rest.
+    if (vp.width >= 1600) {
+      expect(card.width).toBeLessThanOrEqual(722);
+      expect(canvas.width).toBeGreaterThan(vp.width / 2);
+    }
     await visible(page.getByRole('link', { name: 'Arată lista', exact: true })).click();
     await expect(page).toHaveURL(/\/balti$/);
   });
@@ -2153,5 +2241,352 @@ test.describe('lakes.results-map', () => {
     await layer.getByRole('listbox', { name: 'Sugestii' }).getByRole('option', { name: /^Giurgiu/ }).click();
     await expect(page).toHaveURL(new RegExp(`q=Giurgiu&judet=${GIURGIU}$`));
     await expect.poll(async () => Number((await listHeading(page).textContent())!.match(/\d+/)![0]), { timeout: 15_000 }).toBe(county);
+  });
+});
+
+/* ======================================================================== M1 close-out (B1) */
+
+/**
+ * A located /lakes/home answer built from the CMS's own lakes (copied under made-up ids, so the
+ * checks hold whatever the local data is): the nearby row with known distances, a bookable row of
+ * 11, a fixed row whose only lake is already nearby, one that shares lakes with earlier rows, and
+ * «Toate bălțile» of 11. Only the browser's located read (lat=…) is answered with it.
+ */
+async function stubLocatedHome(page: Page) {
+  await page.route(/localhost:1337\/api\/lakes\/home\?.*lat=/, async (route) => {
+    const res = await route.fetch({ headers: { ...route.request().headers(), authorization: `Bearer ${jwt}` } });
+    const body = await res.json();
+    const base = (body.data.sections as { key: string; lakes: Record<string, unknown>[] }[]).flatMap((s) => s.lakes);
+    const make = (i: number, extra: Record<string, unknown> = {}) => ({
+      ...base[i % base.length],
+      id: 900_000 + i,
+      documentId: `e2elake${i}`,
+      name: `Baltă de test ${i}`,
+      ...extra,
+    });
+    const range = (from: number, n: number) => Array.from({ length: n }, (_, k) => from + k);
+    const km = [7.44, 23.4, 12.6, 3.06, 31, 44.9, 18, 26, 9.2, 40, 48];
+    const sections = [
+      { key: 'nearby', title: 'Bălți din zona ta', lakes: range(0, 11).map((i) => make(i, { distanceKm: km[i] })) },
+      { key: 'bookable', title: 'Rezervă direct din aplicație', lakes: range(11, 11).map((i) => make(i)) },
+      // Every lake of it is already in the nearby row: the row is not rendered (c8).
+      { key: 'top_rated', title: 'Cu review-uri foarte bune', lakes: [make(0)] },
+      // One lake nearby, one in «Rezervă direct», one new: only the new one stays (c8).
+      { key: 'with_retention', title: 'Cu reținere', lakes: [make(1), make(12), make(22)] },
+      { key: 'all_lakes', title: 'Toate bălțile', lakes: range(30, 11).map((i) => make(i)) },
+    ];
+    await route.fulfill({ response: res, json: { ...body, data: { ...body.data, sections } } });
+  });
+}
+
+test.describe('lakes.home (B1 close-out)', () => {
+  test('lakes.home.c7 c8 c11 c13 c16 lakes.home.s6 s9 · located rows: dedupe, empty fixed row hidden, «Vezi toate» targets, distance format', async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    await setGeo(page.context(), page, 'granted');
+    await patchGrants(page);
+    await stubLocatedHome(page);
+    await page.goto('/balti', { waitUntil: 'domcontentloaded' });
+    const nearby = visible(page.getByRole('region', { name: 'Bălți din zona ta' }));
+    await expect(nearby).toBeVisible({ timeout: 20_000 });
+    // c7: nearby, all lakes, then the fixed rows in server order; c8: «Cu review-uri foarte bune»
+    // lost its only lake to the nearby row → not rendered.
+    await expect.poll(() => sectionTitles(page)).toEqual(['Bălți din zona ta', 'Toate bălțile', 'Rezervă direct din aplicație', 'Cu reținere']);
+    await expect(page.getByRole('region', { name: 'Cu review-uri foarte bune' })).toHaveCount(0);
+    // c8: «Cu reținere» keeps only the lake no earlier row showed.
+    const retention = visible(page.getByRole('region', { name: 'Cu reținere' }));
+    expect(await retention.locator('article h3 a').locator('visible=true').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual([
+      '/balti/e2elake22',
+    ]);
+    // c13: one decimal under 10 km, rounded above (the Romanian decimal comma).
+    const pills = await nearby.locator('article').locator('visible=true').evaluateAll((as) => as.map((a) => a.textContent ?? ''));
+    expect(pills[0]).toContain('La 7,4 km');
+    expect(pills[1]).toContain('La 23 km');
+    expect(pills[2]).toContain('La 13 km');
+    expect(pills[3]).toContain('La 3,1 km');
+    // c11: bookable → only Rezervări; nearby (position known) → the nearby map at the radius; any
+    // other row → the all-lakes map.
+    const bookable = visible(page.getByRole('region', { name: 'Rezervă direct din aplicație' }));
+    const bookableSeeAll = bookable.getByRole('link', { name: /^Vezi toate/ });
+    await expect(bookableSeeAll).toHaveCount(2);
+    for (const l of await bookableSeeAll.all()) await expect(l).toHaveAttribute('href', '/balti/harta?rezervari=1');
+    await expect(nearby.getByRole('link', { name: /^Vezi toate/ })).toHaveAttribute('href', '/balti/harta?aproape=1');
+    const all = visible(page.getByRole('region', { name: 'Toate bălțile' }));
+    for (const l of await all.getByRole('link', { name: /^Vezi toate/ }).all()) await expect(l).toHaveAttribute('href', '/balti/harta');
+    // c11 end to end: the bookable «Vezi toate» opens the map with only «Rezervări» on.
+    await bookable.getByRole('link', { name: /^Vezi toate/ }).last().click();
+    await expect(page).toHaveURL(/\/balti\/harta\?rezervari=1$/);
+    await expect(visible(page.getByRole('button', { name: 'Rezervări' }))).toHaveAttribute('aria-pressed', 'true', { timeout: 20_000 });
+    await expect(visible(page.getByRole('button', { name: /^Filtre/ }))).toHaveAccessibleName(/1/);
+  });
+
+  test('lakes.home.c16 · a card opens its lake page (desktop grid)', async ({ page }) => {
+    await openHome(page, DESKTOP);
+    const link = page.locator('[data-balti-grid="all"] article h3 a').first();
+    const href = (await link.getAttribute('href'))!;
+    expect(href).toMatch(/^\/balti\/[a-z0-9]+$/);
+    await link.click();
+    await expect(page).toHaveURL(new RegExp(`${href}$`));
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20_000 });
+  });
+
+  test('lakes.home.c22 lakes.home.s8 · recently viewed: at most 10 ids (the newest), read by /feed/lakes/by-ids', async ({ page }) => {
+    const ids = Array.from({ length: 12 }, (_, i) => `e2erecent${i}`);
+    await page.addInitScript((list) => window.localStorage.setItem('recentViewedLakeIds', JSON.stringify(list)), ids);
+    const asked: string[][] = [];
+    await page.route(/localhost:1337\/api\/feed\/lakes\/by-ids/, (route) => {
+      asked.push((new URL(route.request().url()).searchParams.get('ids') ?? '').split(','));
+      return route.fallback();
+    });
+    await openHome(page, PHONE);
+    await expect.poll(() => asked.length, { timeout: 20_000 }).toBeGreaterThan(0);
+    // fish keeps the newest 10 (stored newest LAST): the two oldest are dropped.
+    expect(new Set(asked[0])).toEqual(new Set(ids.slice(2)));
+  });
+
+  test('lakes.home.c26 · refresh (the browser reload) re-reads the recent ids, the rows and the recently viewed lakes', async ({ page }) => {
+    await page.addInitScript((id) => {
+      if (!window.sessionStorage.getItem('e2e-seeded')) {
+        window.localStorage.setItem('recentViewedLakeIds', JSON.stringify([id]));
+        window.sessionStorage.setItem('e2e-seeded', '1');
+      }
+    }, CHITA);
+    const byIds: string[] = [];
+    page.on('request', (r) => {
+      if (r.url().includes('/api/feed/lakes/by-ids')) byIds.push(new URL(r.url()).searchParams.get('ids') ?? '');
+    });
+    await openHome(page, PHONE);
+    const recent = visible(page.getByRole('region', { name: 'Vizualizate recent' }));
+    await expect(recent.locator('article h3 a').locator('visible=true')).toHaveAttribute('href', `/balti/${CHITA}`);
+    // Another lake was viewed meanwhile (another tab): the reload shows it.
+    await page.evaluate(() => window.localStorage.setItem('recentViewedLakeIds', JSON.stringify(['mvjlgripabbi23rb2pa6n6uy'])));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(visible(page.getByRole('region', { name: ALL_LAKES }))).toBeVisible({ timeout: 20_000 });
+    await expect(visible(page.getByRole('region', { name: 'Vizualizate recent' })).locator('article h3 a').locator('visible=true')).toHaveAttribute(
+      'href',
+      '/balti/mvjlgripabbi23rb2pa6n6uy',
+      { timeout: 15_000 },
+    );
+    expect(byIds[0]).toBe(CHITA);
+    expect(byIds.at(-1)).toBe('mvjlgripabbi23rb2pa6n6uy');
+  });
+});
+
+test.describe('lakes.results-map (B1 close-out)', () => {
+  /** The bbox of each /lakes/in-bbox read (the list's viewport). */
+  function recordListBboxes(page: Page) {
+    const out: { north: number; south: number; east: number; west: number }[] = [];
+    page.on('request', (r) => {
+      if (!r.url().includes('/api/lakes/in-bbox')) return;
+      const q = new URL(r.url()).searchParams;
+      out.push({ north: Number(q.get('north')), south: Number(q.get('south')), east: Number(q.get('east')), west: Number(q.get('west')) });
+    });
+    return out;
+  }
+  const isRomania = (b: { north: number; south: number; east: number; west: number }) =>
+    b.north >= 48 && b.south <= 43.7 && b.west <= 20.3 && b.east >= 29.6 && b.north - b.south < 7;
+
+  test('lakes.results-map.c5 · no anchor → the Romania overview; nearby → the radius around the user', async ({ page, context }) => {
+    const boxes = recordListBboxes(page);
+    await openMap(page, '', DESKTOP);
+    expect(isRomania(boxes[0]!), JSON.stringify(boxes[0])).toBe(true);
+    // Nearby: the first read waits for the position, then frames 50 km around it.
+    const page2 = await context.newPage();
+    const near = recordListBboxes(page2);
+    await openMap(page2, 'aproape=1', DESKTOP, 'granted');
+    const b = near[0]!;
+    expect(Math.abs((b.north + b.south) / 2 - BUCHAREST.latitude)).toBeLessThan(0.1);
+    expect(Math.abs((b.east + b.west) / 2 - BUCHAREST.longitude)).toBeLessThan(0.1);
+    // 2 × 50 km ≈ 0.9° of latitude (with the framing margin).
+    expect(b.north - b.south).toBeGreaterThan(0.8);
+    expect(b.north - b.south).toBeLessThan(1.6);
+    await page2.close();
+  });
+
+  test('lakes.results-map.c4 c20 · a chip other than Rezervări opens its section; «Șterge filtre» from a county goes back to all lakes and the overview', async ({ page }) => {
+    const boxes = recordListBboxes(page);
+    await openMap(page, `q=Giurgiu&judet=${GIURGIU}&rezervari=1`, DESKTOP);
+    expect(isRomania(boxes[0]!)).toBe(false);
+    // c4: «Facilități» opens the filter panel on that one section (no in-place toggle).
+    await visible(page.getByRole('group', { name: 'Filtre' }).getByRole('button', { name: 'Facilități' })).click();
+    const panel = page.getByRole('dialog', { name: 'Facilități' });
+    await expect(panel).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden();
+    await expect(page).toHaveURL(/rezervari=1/);
+    // c20: «Resetează» (the bar's «Șterge filtre») → no search, no filter, the country overview.
+    const next = page.waitForRequest((r) => r.url().includes('/api/lakes/in-bbox'));
+    await visible(page.getByRole('group', { name: 'Filtre' }).getByRole('button', { name: 'Resetează' })).click();
+    await expect(page).toHaveURL(/\/balti\/harta$/);
+    const q = new URL((await next).url()).searchParams;
+    expect(isRomania({ north: Number(q.get('north')), south: Number(q.get('south')), east: Number(q.get('east')), west: Number(q.get('west')) })).toBe(true);
+    await expect(visible(page.getByRole('button', { name: 'Rezervări' }))).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('lakes.results-map.c20 · phone: the floating «Șterge filtre» pill resets the same way', async ({ page }) => {
+    await openMap(page, `q=Giurgiu&judet=${GIURGIU}`, PHONE);
+    await visible(page.getByRole('button', { name: 'Șterge filtre' })).click();
+    await expect(page).toHaveURL(/\/balti\/harta$/);
+    await expect(page.getByRole('button', { name: 'Șterge filtre' }).locator('visible=true')).toHaveCount(0);
+  });
+
+  test('lakes.results-map.c12 c14 c23 lakes.results-map.s5 s9 · location known: list and pin card carry the distance; the pin card; back from the lake shows the list', async ({ page }) => {
+    await openMap(page, `q=Giurgiu&judet=${GIURGIU}`, PHONE, 'granted');
+    // c23: the list cards carry the distance from the user.
+    await expect(page.getByRole('region', { name: 'Rezultate' }).locator('article').first()).toContainText(/La \d+(,\d)? km/);
+    const name = await clickVisiblePin(page);
+    const card = page.getByRole('article', { name });
+    await expect(card).toBeVisible();
+    // c12: at most 3 photos (or the grey block), the distance, close, «Direcții», the name, the place,
+    // the rating with two decimals and the count only with reviews.
+    expect(await card.locator('img').count()).toBeLessThanOrEqual(3);
+    await expect(card).toContainText(/La \d+(,\d)? km/);
+    await expect(card.getByRole('button', { name: 'Închide' })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Direcții' })).toBeVisible();
+    await expect(card).toContainText('Giurgiu');
+    const text = (await card.textContent()) ?? '';
+    if (text.includes('Rating')) expect(text).toMatch(/Rating \d,\d{2} \(\d+ recenzii\)/);
+    // c12: the card opens the lake; c14: coming back shows the list, not the card.
+    const link = card.getByRole('link', { name });
+    const href = (await link.getAttribute('href'))!;
+    await link.click();
+    await expect(page).toHaveURL(new RegExp(`${href}$`));
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20_000 });
+    await page.goBack();
+    await expect(page).toHaveURL(/\/balti\/harta\?/);
+    await expect(listHeading(page)).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByRole('article', { name })).toHaveCount(0);
+  });
+
+  test('lakes.results-map.c24 · desktop: the filter panel is a modal over the list, the list is back as it was after', async ({ page }) => {
+    await openMap(page, '', LAPTOP);
+    const before = await listHeading(page).textContent();
+    await visible(page.getByRole('button', { name: /^Filtre/ })).click();
+    const panel = page.getByRole('dialog', { name: 'Filtre' });
+    await expect(panel).toBeVisible();
+    // From 768 the panel is the kit's modal dialog: the list stays where it was, out of reach
+    // behind it (fish's phone sheet hides the list instead — the phone test above).
+    expect(await panel.evaluate((el) => el.closest('dialog')?.matches(':modal') ?? el.getAttribute('aria-modal') === 'true')).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden();
+    await expect(listHeading(page)).toHaveText(before!);
+  });
+});
+
+test.describe('lakes M1 close-out (header, cards, map list)', () => {
+  test('lakes.home.c4 · 768px: the search pill takes most of the row (owner rule 6) — «Arată harta» is its icon until 1024, a 3-column grid', async ({ page }) => {
+    await openHome(page, TABLET);
+    const pill = (await visible(page.getByRole('button', { name: 'Deschide căutarea pentru bălți' })).locator('..').boundingBox())!;
+    const switcher = (await visible(page.getByRole('navigation', { name: 'Tip de apă' })).boundingBox())!;
+    const filtre = (await visible(page.getByRole('button', { name: 'Filtre' })).boundingBox())!;
+    const map = visible(page.getByRole('link', { name: 'Arată harta', exact: true }));
+    const mapBox = (await map.boundingBox())!;
+    // One row; the pill is its widest control (≥ 18rem), the map button a square icon.
+    for (const b of [switcher, filtre, mapBox]) expect(Math.abs(b.y + b.height / 2 - (pill.y + pill.height / 2))).toBeLessThanOrEqual(2);
+    expect(pill.width).toBeGreaterThanOrEqual(288);
+    expect(pill.width).toBeGreaterThan(switcher.width);
+    expect(mapBox.width).toBeLessThanOrEqual(mapBox.height + 1);
+    await expect(map).toHaveAttribute('title', 'Arată harta');
+    // The placeholder is not cut.
+    const span = page.getByRole('button', { name: 'Deschide căutarea pentru bălți' }).locator('span').filter({ hasText: 'Caută bălți' });
+    expect(await span.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    // Owner rule 5 at 768: a dense grid, 3 columns.
+    const grid = page.locator('[data-balti-grid="all"]');
+    await expect(grid).toBeVisible();
+    const cols = await grid.locator('li[data-lake-id]').evaluateAll((lis) => new Set(lis.map((li) => Math.round(li.getBoundingClientRect().left))).size);
+    expect(cols).toBe(3);
+  });
+
+  test('lakes.home.c4 · 1280px: «Arată harta» has its label again', async ({ page }) => {
+    await openHome(page, LAPTOP);
+    const map = (await visible(page.getByRole('link', { name: 'Arată harta', exact: true })).boundingBox())!;
+    expect(map.width).toBeGreaterThanOrEqual(158);
+  });
+
+  test('lakes.home.c27 · phone: only the search row sticks — the switch scrolls away, a fade under the stuck edge', async ({ page }) => {
+    await openHome(page, PHONE);
+    const switcher = page.getByRole('navigation', { name: 'Tip de apă' });
+    await expect(switcher).toBeInViewport();
+    await page.mouse.wheel(0, 1200);
+    const header = page.locator('[data-stuck]');
+    await expect(header).toHaveCount(1);
+    await expect(switcher).not.toBeInViewport();
+    await expect(page.getByRole('button', { name: 'Deschide căutarea pentru bălți' })).toBeInViewport();
+    const box = (await header.boundingBox())!;
+    expect(box.height).toBeLessThanOrEqual(72); // one control high (was ≈ 120 with the switch)
+    // The fade: a bg-page gradient right under the stuck edge.
+    const fade = await header.evaluate((el) => {
+      const s = getComputedStyle(el, '::after');
+      return { image: s.backgroundImage, opacity: s.opacity, height: parseFloat(s.height) };
+    });
+    expect(fade.image).toContain('gradient');
+    expect(fade.opacity).toBe('1');
+    expect(fade.height).toBeGreaterThan(4);
+  });
+
+  test('lakes.home.c14 · grid card: «Rezervare online» on its own line, never cut', async ({ page }) => {
+    await openHome(page, DESKTOP);
+    const cards = page.locator('[data-balti-grid="all"] article');
+    await expect(cards.first()).toBeVisible();
+    // Every facts line fits its card; the booking signal is never truncated.
+    const cut = await page.locator('[data-balti-grid] article span', { hasText: /^Rezervare online$/ }).evaluateAll((els) =>
+      els.filter((e) => e.scrollWidth > e.clientWidth + 1 || e.getBoundingClientRect().right > e.closest('article')!.getBoundingClientRect().right + 1).length,
+    );
+    expect(cut).toBe(0);
+    // The facility glyphs sit on their own line (no text squeezed beside them).
+    for (const ul of await cards.locator('ul[aria-label="Facilități"]').all()) {
+      expect(await ul.evaluate((el) => el.parentElement!.querySelectorAll(':scope > ul').length)).toBe(1);
+      expect(await ul.evaluate((el) => (el.nextElementSibling?.tagName ?? 'P') === 'P')).toBe(true);
+    }
+  });
+
+  for (const vp of [PHONE, DESKTOP])
+  test(`lakes.results-map.c16 · ${vp.width}px: the row card's tags and facility glyphs share one wrapping line`, async ({ page }) => {
+    await openMap(page, '', vp);
+    const cards = page.getByRole('region', { name: 'Rezultate' }).locator('[data-lake-row-card]');
+    await expect(cards.first()).toBeVisible();
+    // No facility row of its own inside the info column.
+    expect(await page.locator('[data-row-info] ul[aria-label="Facilități"]').count()).toBe(0);
+    for (const card of (await cards.all()).slice(0, 4)) {
+      const band = card.locator('[data-row-tags]');
+      if (!(await band.count())) continue;
+      const tags = await band.locator('li').evaluateAll((lis) => lis.map((li) => li.getBoundingClientRect()));
+      // Side by side: the band is at most two lines of 24px chips.
+      const rows = new Set(tags.map((r) => Math.round(r.top))).size;
+      expect(rows).toBeLessThanOrEqual(2);
+    }
+  });
+
+  test('lakes.results-map.c15 lakes.results-map.s12 · zoomed out past west 10: the list still counts the lakes in view (the read stays in the lakes\' box)', async ({ page }) => {
+    const reads: URL[] = [];
+    page.on('request', (r) => {
+      if (r.url().includes('/api/lakes/in-bbox')) reads.push(new URL(r.url()));
+    });
+    await openMap(page, '', DESKTOP);
+    const count = async () => Number((await listHeading(page).textContent())!.match(/\d+/)![0]);
+    const before = await count();
+    expect(before).toBeGreaterThan(0);
+    const canvas = (await page.locator('.maplibregl-canvas').boundingBox())!;
+    await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+    const n = reads.length;
+    for (let i = 0; i < 6; i++) {
+      await page.mouse.wheel(0, 600);
+      await page.waitForTimeout(150);
+    }
+    await expect.poll(() => reads.length, { timeout: 15_000 }).toBeGreaterThan(n);
+    await settled(page);
+    // The viewport now reaches far west of 10°: the read is clamped to the lakes' box (19°).
+    const last = reads[reads.length - 1];
+    expect(Number(last.searchParams.get('west'))).toBe(19);
+    expect(await count()).toBeGreaterThanOrEqual(before);
+  });
+
+  test('lakes.results-map.c20 lakes.results-map.s13 · phone: «Șterge filtre» steps the sheet down (fish: peek) — «Vezi lista (N)» brings it back', async ({ page }) => {
+    await openMap(page, 'rezervari=1', PHONE);
+    await page.getByRole('button', { name: 'Șterge filtre' }).click();
+    await expect(page).toHaveURL(/\/balti\/harta$/);
+    const showList = page.getByRole('button', { name: /^Vezi lista \(\d+\)$/ });
+    await expect(showList).toBeVisible({ timeout: 20_000 });
+    await showList.click();
+    await expect(listHeading(page)).toBeInViewport();
   });
 });

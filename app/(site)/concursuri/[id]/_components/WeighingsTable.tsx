@@ -5,6 +5,7 @@ import { useQueries, useQueryClient, type UseQueryResult } from '@tanstack/react
 import type { CompetitionWithMyStatus, DetailRegistration } from '@/core/competitions';
 import { weighingsQuery, type AllocatedParticipantsResponse, type WeighingByStand } from '@/core/organizer';
 import type { Transport } from '@/core/transport';
+import { plural } from '@/components/cards/format';
 import { sectorFill } from '@/components/ranking/sector';
 import { RANKING_HEAD } from '@/components/ranking/tableHead';
 import { Avatar, FaceStack } from '@/components/ui/Avatar';
@@ -207,7 +208,7 @@ export function WeighingsTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order]);
 
-  const count = pending ? 'Se încarcă cântarele…' : loaded.length === 1 ? '1 cântar' : `${loaded.length} cântare`;
+  const count = pending ? 'Se încarcă cântarele…' : plural(loaded.length, 'cântar', 'cântare');
   const groups = grouped
     ? sectors.map(({ sector, stands: sectorStands }) => ({ key: sector.documentId, sector: sector.name, stands: sectorStands }))
     : [{ key: 'toate', sector: null, stands }];
@@ -217,7 +218,7 @@ export function WeighingsTable({
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <p className="t-caption text-muted" aria-live="polite">
           {leg ? `Manșa ${leg.current} · ` : null}
-          {count} · {stands.length === 1 ? '1 stand' : `${stands.length} standuri`}
+          {count} · {plural(stands.length, 'stand', 'standuri')}
         </p>
         <div className="flex flex-wrap items-center gap-3">
           {leg && leg.count > 1 ? (
@@ -285,7 +286,7 @@ export function WeighingsTable({
                         <span className="flex items-center gap-2 t-label text-ink">
                           <SectorDot name={group.sector} />
                           Sector {group.sector}
-                          <span className="font-normal text-muted">· {group.stands.length === 1 ? '1 stand' : `${group.stands.length} standuri`}</span>
+                          <span className="font-normal text-muted">· {plural(group.stands.length, 'stand', 'standuri')}</span>
                         </span>
                       </th>
                     </tr>

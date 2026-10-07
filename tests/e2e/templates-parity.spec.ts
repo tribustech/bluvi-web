@@ -61,7 +61,17 @@ test('T2 demo = /balti/harta: the same switch, filter chips and horizontal list 
   const demo = await landmarks(page);
   expect(await page.getByRole('navigation', { name: 'Tip de apă' }).getByRole('link').allTextContents()).toEqual(prodSwitch);
   expect(demo.chips).toEqual(prod.chips);
-  expect(prod.chips.slice(0, 1)).toEqual(['Filtre']);
+  // The approved header (31fb291, owner rules 6–7): from 1024 the search pill holds «Specie» and
+  // «Regim», «Filtre» sits after it, and the bar under it keeps the other quick chips.
+  expect(prod.chips).toEqual(['Facilități', 'Rating', 'Rezervări']);
+  for (const path of ['/dev/templates/t2', '/balti/harta']) {
+    if (path === '/balti/harta') await page.goto(path);
+    const main = page.locator('main');
+    await expect(main.getByRole('button', { name: 'Specie' }), path).toBeVisible({ timeout: 30_000 });
+    await expect(main.getByRole('button', { name: 'Regim' }), path).toBeVisible();
+    await expect(main.getByRole('button', { name: /^Filtre/ }).filter({ visible: true }), path).toHaveCount(1);
+    await expect(main.getByRole('link', { name: 'Arată lista' }), path).toBeVisible();
+  }
   // Map left, list right, one horizontal card per row — in both.
   for (const path of ['/balti/harta', '/dev/templates/t2']) {
     await page.goto(path);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_LAKES_COMMITTED_SEARCH, EMPTY_LAKE_FILTERS, getRegimeOptions } from '@/core/lakes';
-import { countLakeFilters, lakesMapQuery, parseLakesMapParams, withCatalogNames } from './url';
+import { countLakeFilters, lakesMapQuery, lakesSearchSummary, parseLakesMapParams, withCatalogNames } from './url';
 
 const parse = (q: string) => parseLakesMapParams(new URLSearchParams(q));
 
@@ -29,6 +29,10 @@ describe('lakes map URL state', () => {
     expect(s.search).toMatchObject({ mode: 'nearby', radiusKm: 30, latitude: null, longitude: null, query: 'În jurul meu' });
     expect(lakesMapQuery({ search: { ...s.search, latitude: 44, longitude: 26 } })).toBe('aproape=1&raza=30');
     expect(parse('aproape=1&raza=junk').search.radiusKm).toBe(50);
+    // The CMS takes radiusKm 5..250 (explore/count 400s outside): the URL is clamped into it.
+    expect(parse('aproape=1&raza=300').search.radiusKm).toBe(250);
+    expect(parse('aproape=1&raza=2').search.radiusKm).toBe(5);
+    expect(parse('aproape=1&raza=250').search.radiusKm).toBe(250);
     expect(lakesMapQuery({ search: parse('aproape=1').search })).toBe('aproape=1');
   });
 
@@ -50,5 +54,14 @@ describe('lakes map URL state', () => {
       { id: 'f1', name: 'Pontoane', documentId: 'f1' },
     ]);
     expect(named.map((v) => v.name)).toEqual(['Pontoane', 'zz']);
+  });
+
+  it('the pill summary: the unit spaced, and no «În jurul meu» without a position', () => {
+    const nearby = parse('aproape=1').search;
+    expect(lakesSearchSummary(nearby, true)).toBe('În jurul meu · 50 km');
+    expect(lakesSearchSummary(parse('aproape=1&raza=20').search, true)).toBe('În jurul meu · 20 km');
+    expect(lakesSearchSummary(nearby, false)).toBeNull();
+    expect(lakesSearchSummary(parse('q=Giurgiu&judet=x').search, false)).toBe('Giurgiu');
+    expect(lakesSearchSummary(DEFAULT_LAKES_COMMITTED_SEARCH, false)).toBeNull();
   });
 });

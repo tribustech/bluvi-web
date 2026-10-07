@@ -27,11 +27,17 @@ import { WaterKindSwitch } from './WaterKindSwitch';
  *
  * Sticky under the top bar (c27), on the shell's under-bar offset (UNDER_BAR_TOP, on the bar's own
  * timing: up to the edge when the phone's top bar slides away). Once stuck it gets its edge — a
- * hairline — and a fade into the rows that scroll under it. Without handlers (the first paint) the
- * controls are inert.
+ * hairline — and a fade into the rows that scroll under it. On a phone only the search + «Filtre»
+ * row sticks: the Bălți / Ape publice switch sits above it and scrolls away with the page (the
+ * stuck block stays one control high, ≈ 64px of an 812px screen). Without handlers (the first
+ * paint) the controls are inert.
  */
-/** The view toggle: one width for «Arată harta» and «Arată lista», so list ↔ map moves nothing. */
-const TOGGLE = 'min-w-40 gap-2 max-md:hidden';
+/**
+ * The view toggle: one width for «Arată harta» and «Arată lista», so list ↔ map moves nothing. From
+ * 768 to 1023 it is the icon alone (its name stays for screen readers and in the tooltip): the
+ * search pill keeps most of that row (rule 6 — never the row's smallest control).
+ */
+const TOGGLE = 'gap-2 max-md:hidden max-lg:aspect-square max-lg:px-0 lg:min-w-40';
 
 /** A segment of the search pill: a flat button inside the shell, soft-fill on hover. */
 const SEGMENT = cn(
@@ -61,6 +67,7 @@ export function LakesSearchRow({
   filterCount = 0,
   showToggle = false,
   switcherHrefs,
+  phoneSwitch = true,
 }: {
   /** Handlers attached: until then the controls are inert (the server paint). */
   ready: boolean;
@@ -84,6 +91,8 @@ export function LakesSearchRow({
   /** The view toggle (from 768). The list hides «Arată harta» while it has no lakes (c23). */
   showToggle?: boolean;
   switcherHrefs?: Partial<Record<'balti' | 'ape', string>>;
+  /** The switch in the row on a phone too; off when the page shows it above the sticky row (HomeHeader). */
+  phoneSwitch?: boolean;
 }) {
   const select = (key: 'fish' | 'regime', label: string, icon: ReactNode) => {
     const value = sectionValues?.[key] ?? null;
@@ -109,7 +118,7 @@ export function LakesSearchRow({
   };
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center">
-      <div className="flex justify-center md:justify-start">
+      <div className={cn('flex justify-center md:justify-start', !phoneSwitch && 'max-md:hidden')}>
         <WaterKindSwitch current="balti" hrefs={switcherHrefs} />
       </div>
       <div inert={!ready} className="flex min-w-0 items-center gap-3 md:flex-1">
@@ -120,7 +129,7 @@ export function LakesSearchRow({
         <div
           className={cn(
             CONTROL_H,
-            'flex min-w-0 flex-1 items-stretch rounded-control bg-surface p-0.75 shadow-e1 outline-1 -outline-offset-1 outline-hairline',
+            'flex min-w-0 flex-1 items-stretch rounded-control md:min-w-72 bg-surface p-0.75 shadow-e1 outline-1 -outline-offset-1 outline-hairline',
           )}
         >
           <button
@@ -151,16 +160,16 @@ export function LakesSearchRow({
         {showToggle ? (
           view === 'list' ? (
             // The map is the row's primary action (rule 6): filled accent, icon and label.
-            <Link href={routes.lakesMap()} className={buttonClass({ variant: 'primary', className: TOGGLE })}>
+            <Link href={routes.lakesMap()} title="Arată harta" className={buttonClass({ variant: 'primary', className: TOGGLE })}>
               <MapIcon aria-hidden className="size-5 stroke-2" />
-              Arată harta
+              <span className="max-lg:sr-only">Arată harta</span>
             </Link>
           ) : (
             // The way back to the grid, in the same slot (secondary: the map is the destination
             // the list promotes, the list is the way home). Drops the map's query (c2).
-            <Link href={routes.lakes()} className={buttonClass({ variant: 'secondary', className: TOGGLE })}>
+            <Link href={routes.lakes()} title="Arată lista" className={buttonClass({ variant: 'secondary', className: TOGGLE })}>
               <ListBulletIcon aria-hidden className="size-5 stroke-2" />
-              Arată lista
+              <span className="max-lg:sr-only">Arată lista</span>
             </Link>
           )
         ) : null}
@@ -226,6 +235,11 @@ export function HomeHeader({
 
   return (
     <>
+      <h1 className="sr-only">Bălți de pescuit</h1>
+      {/* Phone: the switch scrolls away; the sticky block below holds the search row only. */}
+      <div className="flex justify-center pt-3 md:hidden">
+        <WaterKindSwitch current="balti" />
+      </div>
       <div ref={sentinel} aria-hidden />
       <div
         ref={bar}
@@ -238,8 +252,8 @@ export function HomeHeader({
           "after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-5 after:bg-linear-to-b after:from-page after:to-transparent after:opacity-0 after:content-[''] data-stuck:after:opacity-100 md:after:h-8",
         )}
       >
-        <h1 className="sr-only">Bălți de pescuit</h1>
         <LakesSearchRow
+          phoneSwitch={false}
           ready={ready}
           view="list"
           searchRef={searchRef}

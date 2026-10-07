@@ -21,6 +21,7 @@ import { ErrorState } from '@/components/surfaces/StateCard';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import {
   ChoiceChips,
+  FilterBar,
   FilterButton,
   FilterSection,
   FilterSwitch,
@@ -70,9 +71,9 @@ import {
   type T2MapFocus,
   type T2SheetSnap,
 } from '@/components/templates/T2';
-import { LakeRowCard } from '../../../(site)/balti/_list/LakeRowCard';
+import { LAKES_MAP_SPLIT, LakeRowCard } from '../../../(site)/balti/_list/LakeRowCard';
 import { DirectionsDialog } from '../../../(site)/balti/_list/ResultCards';
-import { WaterKindSwitch } from '../../../(site)/balti/_list/WaterKindSwitch';
+import { LakesSearchRow } from '../../../(site)/balti/_list/HomeHeader';
 import type { DemoLake } from './data';
 import type { DemoState } from './states';
 
@@ -334,6 +335,9 @@ export function LakesMapDemo({
     setQuery('');
     setNearbyKm(null);
     setSelectedId(null);
+    // As /balti/harta (fish drops the sheet to its peek): the phone sheet steps out of the
+    // country the zoom reveals; «Vezi lista (N)» brings it back.
+    if (!split) setSheetSnap('hidden');
     setFocus({ key: `clear-${Date.now()}`, bounds: ROMANIA_BOUNDS });
     setListFocusKey(Date.now());
   };
@@ -558,6 +562,9 @@ export function LakesMapDemo({
             if (panelOpen) setDraft((d) => ({ ...d, bookableOnly: !d.bookableOnly }));
             else setFilters((f) => ({ ...f, bookableOnly: !f.bookableOnly }));
           }}
+          // As /balti/harta: from 1024 the search row's pill holds «Pești» and «Regim», so the bar
+          // under it (`data-pill-row`) drops those two — no control twice in one header.
+          className={chip.key === 'regime' || chip.key === 'fish' ? 'lg:[[data-pill-row]_&]:hidden' : undefined}
         />
       ))}
     </>
@@ -572,7 +579,6 @@ export function LakesMapDemo({
       title="Hartă bălți"
       disabled={noData}
       leading={<T2BackLink href={routes.lakes()} label="Înapoi la Bălți" />}
-      switcher={<WaterKindSwitch current="balti" hrefs={{ balti: routes.lakesMap() }} />}
       search={
         // /balti/harta's search: the pill at every width (flat in the band from 768), opening the search.
         <div className="contents md:[&>button]:shadow-none!">
@@ -599,13 +605,37 @@ export function LakesMapDemo({
         />
       }
       filters={chips}
-      // The T1 FilterBar's anatomy, as /balti/harta: «Filtre» leading (from 768), «Resetează» at the
-      // end — stepping aside while the panel edits a draft.
-      onOpenFilters={() => openPanel('all')}
       filterCount={countFilters(railValues)}
-      filtersExpanded={panel === 'all'}
       onReset={clearAll}
       canReset={hasAnyFilter && !panelOpen}
+      desktop={
+        // From 768 the production header (/balti/harta, owner rules 6–7): the Bălți list's search
+        // row (switch, pill with «Specie» / «Regim», «Filtre», «Arată lista»), then the quick chips
+        // the pill does not hold and «Resetează».
+        <div data-pill-row="" className="flex flex-col gap-3 pt-2">
+          <LakesSearchRow
+            ready={!noData}
+            view="map"
+            onSearch={() => {
+              setSearchDraft(query);
+              setSearchOpen(true);
+            }}
+            searchLabel={summary ? `Caută bălți, lacuri. Acum: ${summary}` : 'Caută bălți, lacuri'}
+            summary={summary || null}
+            onSection={openPanel}
+            sectionExpanded={panel === 'fish' || panel === 'regime' ? panel : null}
+            sectionValues={{ fish: chipValue('fish', railValues), regime: chipValue('regime', railValues) }}
+            onFilters={() => openPanel('all')}
+            filtersExpanded={panel === 'all'}
+            filterCount={countFilters(railValues)}
+            showToggle
+            switcherHrefs={{ balti: routes.lakesMap() }}
+          />
+          <FilterBar label="Filtre" onReset={clearAll} canReset={hasAnyFilter && !panelOpen}>
+            {chips}
+          </FilterBar>
+        </div>
+      }
     />
   );
 
@@ -749,6 +779,8 @@ export function LakesMapDemo({
         />
       ) : null}
       <T2Layout
+        // As /balti/harta: from 1600 the list column is capped, the map takes the rest.
+        className={LAKES_MAP_SPLIT}
         toolbar={toolbar}
         listLabel="Rezultate"
         listHeader={

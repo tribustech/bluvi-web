@@ -1,7 +1,10 @@
 import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
-import { qaJwt, signIn } from './helpers/session';
+import { CMS, qaJwt, signIn } from './helpers/session';
 import { expect, test, type Page } from '@playwright/test';
+import { SESSIONS_COLLAPSED_MAX } from '@/core/competitions/domain/weighingSessions';
+import { COMPETITION_CATCHES_PAGE_SIZE } from '@/core/competitions/queries';
+import type { WeighingStatisticsItem } from '@/core/competitions/schemas';
 
 /*
  * Concurs · the Clasament views and their surfaces — parity docs/parity/areas/competition-page.yml:
@@ -27,8 +30,6 @@ const ID = {
   openStand: process.env.E2E_STATS_OPEN_STAND ?? '5d8e24df4ec6b06a5a002082',
   /** completed feeder team: crews entered without Bluvi accounts. */
   feederTeam: process.env.E2E_STATS_FEEDER ?? 'rg340d4r4gnwf2mbyhxvasnr',
-  /** completed, one angler, not one catch and not one weighing. */
-  noCatch: process.env.E2E_STATS_NO_CATCH ?? 'cij4qvadptzehubw4jwa2e8g',
   /** notStarted, the QA user's own. */
   upcoming: process.env.E2E_STATS_UPCOMING ?? 'a6xjl65ooe9eadrtvvqj9hn1',
 };
@@ -36,6 +37,8 @@ const ID = {
 const PHONE = { width: 375, height: 812 };
 /** Below 1280 Cântare keeps the stand cards (the table is the ≥1280 layout, owner rule 14). */
 const TABLET = { width: 1279, height: 900 };
+/** Below the person popover (1024): a ranking row opens the angler stats. */
+const TABLET_768 = { width: 768, height: 1024 };
 const DESKTOP = { width: 1440, height: 900 };
 /** The narrowest table: with the detail docked beside it. */
 const LAPTOP = { width: 1280, height: 900 };
@@ -103,8 +106,162 @@ async function expectRomanianCounts(scope: ReturnType<Page['locator']>) {
   }
 }
 
+/** A box once it has stopped moving (a panel that slides in). */
+async function steadyBox(page: Page, locator: ReturnType<Page['locator']>) {
+  let box = (await locator.boundingBox())!;
+  await expect
+    .poll(async () => {
+      const prev = box;
+      await page.waitForTimeout(150);
+      box = (await locator.boundingBox())!;
+      return Math.abs(box.x - prev.x) + Math.abs(box.y - prev.y);
+    })
+    .toBe(0);
+  return box;
+}
+
 /** The panel / sheet slides in: let it settle before axe reads the colours. */
 const settle = (page: Page) => page.waitForTimeout(800);
+
+/*
+ * The numbers a test expects come from the same CMS reads the page makes (never pinned to today's
+ * local data): the public weighing statistics, the timeline snapshot (the QA user's token).
+ */
+async function cmsJson<T>(page: Page, path: string): Promise<T> {
+  const res = await page.request.get(`${CMS}${path}`, { headers: { Authorization: `Bearer ${await qaJwt(page.request)}` } });
+  expect(res.ok(), `CMS ${path}`).toBeTruthy();
+  return (await res.json()) as T;
+}
+
+/** A read the CMS wraps in `{ data }` (weighing statistics, timeline snapshot). */
+async function cmsData<T>(page: Page, path: string): Promise<T> {
+  return (await cmsJson<{ data: T }>(page, path)).data;
+}
+
+type RankingRow = { sectorName?: string; catchCount?: number; penalties?: { action: string; value: number | null }[] };
+
+/** The ranking (GET /competitions/:id/ranking, unwrapped): its rows and metadata. */
+const cmsRanking = (page: Page, id: string) =>
+  cmsJson<{ rankings: RankingRow[]; metadata: { totalCatchesCount?: number } }>(page, `/competitions/${id}/ranking`);
+
+/** The weight penalties the ranking rows carry (kg): the donut says «după penalizările de greutate» exactly when > 0. */
+async function deductedKg(page: Page, id: string) {
+  const { rankings } = await cmsRanking(page, id);
+  return rankings.flatMap(r => r.penalties ?? []).reduce((kg, p) => kg + (p.action === 'DEDUCT_TOTAL_WEIGHT' && typeof p.value === 'number' ? p.value : 0), 0);
+}
+
+/**
+ * «Not one catch, not one weighing» on any completed competition, whatever the local data holds:
+ * the browser's ranking read keeps its rows (the anglers) with every catch zeroed, the weighing
+ * statistics read is empty. The server's prefetch is real, so the state shows once the browser
+ * re-reads (the Statistici chip invalidates both — noCatchView). Unroute with `{ behavior: 'wait' }`.
+ */
+async function routeNoCatch(page: Page, id: string) {
+  await page.route(`**/competitions/${id}/ranking`, async route => {
+    const res = await route.fetch();
+    const body = await res.json();
+    body.rankings = (body.rankings as Record<string, unknown>[]).map(r => ({ ...r, biggestFish: 0, quantity: 0, catchCount: 0, penalties: [] }));
+    body.metadata = { ...body.metadata, totalQuantity: 0, totalCatchesCount: 0, biggestCatch: null, biggestFish: 0 };
+    await route.fulfill({ response: res, json: body });
+  });
+  await page.route(`**/competitions/${id}/weighing-statistics`, route => route.fulfill({ json: { data: [] } }));
+}
+
+/** Opens a completed competition with routeNoCatch and the Statistici chip pressed (the browser re-reads). */
+async function noCatchView(page: Page, viewport = DESKTOP) {
+  await routeNoCatch(page, ID.rich);
+  await open(page, `/concursuri/${ID.rich}`, viewport);
+  await press(page, page.getByRole('tab', { name: /Statistici/ }), () =>
+    expect(page.getByText('Nu există statistici pentru acest concurs')).toBeVisible({ timeout: 8000 }),
+  );
+}
+
+/** Any catch-threshold count above 0 (the «Capturi» table is drawn exactly then, parity statistici.c13). */
+async function anyThreshold(page: Page, id: string) {
+  const t = await cmsJson<{ bySector: Record<string, unknown>[]; general: Record<string, unknown> }>(page, `/competitions/${id}/catch-threshold-counts`);
+  return [t.general, ...t.bySector].some(row => Object.entries(row).some(([k, v]) => k.startsWith('count') && typeof v === 'number' && v > 0));
+}
+
+/** Every catch the competition's weighings hold (GET /competitions/:id/weighing-statistics). */
+async function weighedCatches(page: Page, id: string) {
+  const rows = await cmsData<{ catchCount: number }[]>(page, `/competitions/${id}/weighing-statistics`);
+  return rows.reduce((sum, r) => sum + r.catchCount, 0);
+}
+
+/** The stands the timeline snapshot draws (GET /competitions/:id/timeline-snapshot). */
+async function snapshotStands(page: Page, id: string) {
+  const snapshot = await cmsData<{ stands: unknown[] } | null>(page, `/competitions/${id}/timeline-snapshot`);
+  return snapshot?.stands.length ?? 0;
+}
+
+/** Toți peștii's page (core COMPETITION_CATCHES_PAGE_SIZE, fish's 20): only the constant, never the rows. */
+const CATCHES_PAGE = COMPETITION_CATCHES_PAGE_SIZE;
+
+/** «N capturi» / «N de capturi» as Romanian writes it (N ≥ 20 or a round hundred take «de»), «1.234» grouped. */
+const roCount = (n: number, word: string) =>
+  `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} ${n !== 0 && (n % 100 === 0 || n % 100 >= 20) ? 'de ' : ''}${word}`;
+
+/** «2.961,000» as the page prints a weight at `decimals` (Romanian grouping and comma). */
+const roKg = (n: number, decimals: number) => {
+  const [int, frac] = n.toFixed(decimals).split('.');
+  return `${int.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}${frac ? `,${frac}` : ''}`;
+};
+
+type CoreStand = { documentId: string; name: string };
+type CoreRegistration = {
+  documentId: string;
+  registrationStatus: string;
+  teamName?: string | null;
+  guestName?: string | null;
+  stand?: CoreStand | null;
+  participants: { username?: string | null }[];
+};
+type Core = { sectors: { name: string; stands: CoreStand[] }[]; registrations: CoreRegistration[] };
+
+/** The public competition core (GET /feed/competitions/:id, the page's own read). */
+const cmsCore = async (page: Page, id: string) => (await (await page.request.get(`${CMS}/feed/competitions/${id}`)).json()).data as Core;
+
+/** A registration's name as every surface prints it (getCompetitorDisplayName: team, the people, the guest). */
+const entrantName = (r: CoreRegistration) =>
+  r.teamName?.trim() || r.participants.map(p => p.username?.trim()).filter(Boolean).join(', ') || r.guestName?.trim() || '';
+
+/** The stand's sector and the stand label the page uses («A1»: the sector, then the stand's name). */
+function standOf(core: Core, standId: string) {
+  const sector = core.sectors.find(x => x.stands.some(st => st.documentId === standId))!;
+  return { sector: sector.name, label: `${sector.name}${sector.stands.find(st => st.documentId === standId)!.name}` };
+}
+
+/**
+ * ID.ncWeighing on ID.ncStand, read from the CMS (never today's literals): the stand label, a second
+ * registered stand of its sector, the angler, the stand's summary total and its weighing's catches
+ * (NC weights print three decimals). The tests that need the stand's one weighing with one revision
+ * skip with a reason when the local data no longer has that shape (override E2E_STATS_NC_*).
+ */
+async function ncFacts(page: Page) {
+  const [core, summary, detail] = await Promise.all([
+    cmsCore(page, ID.nc),
+    cmsData<{ standId: string; totalKg: number; regularCount: number; extraCount: number }[]>(page, `/competitions/${ID.nc}/weighings-summary`),
+    cmsJson<{ numberOfRevisions?: number; catches: { weight: number; fishType?: { Name?: string } | null }[] }>(page, `/feed/weighings/${ID.ncWeighing}`),
+  ]);
+  const { sector, label } = standOf(core, ID.ncStand);
+  const registered = core.registrations.filter(r => r.registrationStatus === 'registered' && r.stand);
+  const own = registered.find(r => r.stand!.documentId === ID.ncStand)!;
+  const other = registered.map(r => standOf(core, r.stand!.documentId)).find(x => x.sector === sector && x.label !== label)!;
+  const row = summary.find(x => x.standId === ID.ncStand)!;
+  const weighed = detail.catches.reduce((kg, c) => kg + c.weight, 0);
+  return {
+    stand: label,
+    other: other.label,
+    angler: entrantName(own),
+    standKg: roKg(row.totalKg, 3),
+    weighingKg: roKg(weighed, 3),
+    species: [...new Set(detail.catches.map(c => c.fishType?.Name).filter(Boolean))] as string[],
+    weighings: row.regularCount + row.extraCount,
+    revisions: detail.numberOfRevisions ?? 0,
+  };
+}
+
+const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 async function signedIn(page: Page) {
   await signIn(page.context(), await qaJwt(page.request));
@@ -116,21 +273,24 @@ async function signedIn(page: Page) {
 
 test('competition-page.cantare.c1 c3 c4 c5 c6 competition-page.cantare.s1 s2 s5 — below 1280: NC stand cards, one open at a time, its weighings', async ({ page }) => {
   await signedIn(page);
+  const nc = await ncFacts(page);
+  test.skip(nc.weighings !== 1, `ID.ncStand now has ${nc.weighings} weighings: point E2E_STATS_NC_* at a stand with one`);
   await open(page, `/concursuri/${ID.nc}/cantare`, TABLET);
   // c1: one section per sector, one card per stand; c3: «Stand A1» (NC draw label without a draw).
   await expect(page.getByRole('heading', { name: 'Sector A', level: 2 })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Sector C', level: 2 })).toBeVisible();
-  const stand = page.getByRole('button', { name: /^Stand A1 / });
-  await expect(stand).toContainText('Cici');
+  const stand = page.getByRole('button', { name: new RegExp(`^Stand ${nc.stand} `) });
+  // The angler is the card's own control beside the toggle (owner rule 17: it opens the person).
+  await expect(page.getByRole('listitem').filter({ has: stand }).getByRole('button', { name: nc.angler, exact: true })).toBeVisible();
   // c4: the closed card's total and counts from the summary, at the competition's precision (the
   // national championship prints three decimals, as its summary tiles).
-  await expect(stand).toContainText('34,700 kg');
+  await expect(stand).toContainText(`${nc.standKg} kg`);
   await expect(page.getByText('Cântare:').first()).toBeVisible();
   await expect(page.getByText('Extra-cântare:').first()).toBeVisible();
   // c5: open one stand, then another: only one open at a time.
   await stand.click();
   await expect(stand).toHaveAttribute('aria-expanded', 'true');
-  const a4 = page.getByRole('button', { name: /^Stand A4 / });
+  const a4 = page.getByRole('button', { name: new RegExp(`^Stand ${nc.other} `) });
   await a4.click();
   await expect(stand).toHaveAttribute('aria-expanded', 'false');
   await stand.click();
@@ -147,6 +307,11 @@ test('competition-page.cantare.c1 c3 c4 c5 c6 competition-page.cantare.s1 s2 s5 
 
 test('competition-page.cantare.c1 c3 c4 c7 competition-page.cantar-detaliu.c1 c2 c3 c4 c7 c8 c9 c10 competition-page.cantar-detaliu.s2 s3 s5 — from 1280: every weighing in one table (owner rule 14), a row opens the docked detail, its history', async ({ page }) => {
   await signedIn(page);
+  const nc = await ncFacts(page);
+  test.skip(
+    nc.weighings !== 1 || nc.revisions !== 1,
+    `ID.ncWeighing / ID.ncStand now have ${nc.weighings} weighings, ${nc.revisions} revisions: point E2E_STATS_NC_* at a stand with one weighing reopened once`,
+  );
   const errors = await open(page, `/concursuri/${ID.nc}/cantare`);
   const table = page.getByRole('table', { name: /Cântarele concursului/ });
   // Every column visible, on the coloured header row.
@@ -158,9 +323,9 @@ test('competition-page.cantare.c1 c3 c4 c7 competition-page.cantar-detaliu.c1 c2
   await expect(table.getByRole('columnheader', { name: /^Sector C/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Stand A1 / })).toHaveCount(0);
   // c3 / c4: the stand, its angler and kg («kg» apart from the number; one weighing: no «Total stand» line), the weighing's cells.
-  const row = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: /Stand A1$/ }) });
-  await expect(row).toContainText('Cici');
-  await expect(row).toContainText(/34,700\s*kg/);
+  const row = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: new RegExp(`Stand ${nc.stand}$`) }) });
+  await expect(row).toContainText(nc.angler);
+  await expect(row).toContainText(new RegExp(`${escapeRe(nc.standKg)}\\s*kg`));
   await expect(row).not.toContainText('Total');
   await expect(row).toContainText('Terminat');
   // c7 / cantar-detaliu.c1: the row's «Cântar 1» opens the detail docked beside the table.
@@ -171,14 +336,14 @@ test('competition-page.cantare.c1 c3 c4 c7 competition-page.cantar-detaliu.c1 c2
   await expect(item).toHaveAttribute('aria-current', 'true');
   await expect(page).toHaveURL(new RegExp(`cantar=${ID.ncWeighing}&stand=${ID.ncStand}`));
   // c2: the stand label, its participant.
-  await expect(panel.getByText('Stand A1', { exact: true })).toBeVisible();
-  await expect(panel.getByRole('listitem').filter({ hasText: 'Cici' })).toBeVisible();
+  await expect(panel.getByText(`Stand ${nc.stand}`, { exact: true })).toBeVisible();
+  await expect(panel.getByRole('button', { name: nc.angler, exact: true })).toBeVisible();
   // c3: a single weighing.
-  await expect(panel.getByText('Cântar 1 / 1')).toBeVisible();
-  // c4 / c7: total, state, the catches «N. specie: kg».
-  await expect(panel.getByText(/Total: 34,700 kg/)).toBeVisible();
+  await expect(panel.getByText(`Cântar 1 / ${nc.weighings}`)).toBeVisible();
+  // c4 / c7: total (its catches' sum), state, the catches «N. specie: kg».
+  await expect(panel.getByText(new RegExp(`Total: ${escapeRe(nc.weighingKg)} kg`))).toBeVisible();
   await expect(panel.getByText('Terminat')).toBeVisible();
-  await expect(panel.getByRole('listitem').filter({ hasText: /^1\.\s*Caras: / })).toBeVisible();
+  await expect(panel.getByRole('listitem').filter({ hasText: new RegExp(`^1\\.\\s*(${nc.species.map(escapeRe).join('|')}): `) })).toBeVisible();
   // c8: the revision line and «Vezi istoric» (finished).
   await expect(panel.getByRole('button', { name: 'Acest cântar a avut o modificare.' })).toBeVisible();
   await settle(page);
@@ -191,7 +356,7 @@ test('competition-page.cantare.c1 c3 c4 c7 competition-page.cantar-detaliu.c1 c2
   await expect(panel.getByText(/Modificarea 1 \[de /)).toBeVisible();
   await expect(panel.getByText(/Redeschis la/)).toBeVisible();
   await panel.getByRole('button', { name: 'Înapoi la cântar' }).click();
-  await expect(panel.getByText('Cântar 1 / 1')).toBeVisible();
+  await expect(panel.getByText(`Cântar 1 / ${nc.weighings}`)).toBeVisible();
   // Back from the history, focus returns to the control that opened it (never <body>).
   await expect(panel.getByRole('button', { name: 'Vezi istoric' })).toBeFocused();
   // c10: closing removes the params.
@@ -210,8 +375,10 @@ test('competition-page.cantare.c2 c5 — from 1280, signed in: only the stands t
   await open(page, `/concursuri/${ID.live}/cantare`);
   const table = page.getByRole('table', { name: /Cântarele concursului/ });
   await expect(table.getByText('Niciun cântar încă').first()).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/· 24 standuri$/)).toBeVisible();
-  expect(byStand.length).toBeLessThan(24);
+  const stands = await snapshotStands(page, ID.live);
+  expect(stands, 'the live competition has a timeline snapshot').toBeGreaterThan(4);
+  await expect(page.getByText(new RegExp(`· ${roCount(stands, 'standuri')}$`))).toBeVisible();
+  expect(byStand.length).toBeLessThan(stands);
   // The timeline: the starts read newest first.
   await page.getByRole('button', { name: 'Cronologic' }).click();
   await expect(page.getByRole('button', { name: 'Cronologic' })).toHaveAttribute('aria-pressed', 'true');
@@ -221,16 +388,19 @@ test('competition-page.cantare.c2 c5 — from 1280, signed in: only the stands t
   // A timeline row is named by its place in the competition («#114» the newest), not «Cântar 1» of its stand.
   await expect(rich.getByRole('button', { name: /^Cântarul #\d+$/ }).first()).toBeVisible({ timeout: 30_000 });
   await expect(rich.getByRole('button', { name: /^Cântar \d+$/ })).toHaveCount(0);
-  await expect(page.getByText(/^114 cântare/)).toBeVisible({ timeout: 30_000 });
+  const weighings = (await cmsData<unknown[]>(page, `/competitions/${ID.rich}/weighing-statistics`)).length;
+  expect(weighings, 'the rich competition has a timeline worth sorting').toBeGreaterThan(20);
+  await expect(page.getByText(new RegExp(`^${roCount(weighings, 'cântare')}`))).toBeVisible({ timeout: 30_000 });
   const starts = await rich.locator('tbody tr td:nth-child(4)').allInnerTexts();
   const key = (t: string) => {
-    const m = t.match(/^(\d\d)\.(\d\d), (\d\d):(\d\d)/);
+    // «10.05, 16:55 – …» on one line or the day over the hours («10.05\n16:55 – …»).
+    const m = t.match(/^(\d\d)\.(\d\d)[,\s]+(\d\d):(\d\d)/);
     return m ? `${m[2]}${m[1]}${m[3]}${m[4]}` : '';
   };
   const keys = starts.map(key).filter(Boolean);
-  expect(keys.length).toBeGreaterThan(100);
+  expect(keys.length).toBe(weighings);
   expect([...keys].sort().reverse()).toEqual(keys);
-  await expect(rich.getByRole('button', { name: 'Cântarul #114' })).toBeVisible();
+  await expect(rich.getByRole('button', { name: `Cântarul #${weighings}` })).toBeVisible();
 });
 
 test('competition-page.cantare.c1 c7 — 1280 with the detail docked: every column stays in the table’s box (no sideways scroll); the open row is marked on every cell', async ({ page }) => {
@@ -268,7 +438,8 @@ test('competition-page.cantare.c1 c7 — 1440 at rest: the side column is there 
   await expect(rest.getByRole('button', { name: /Stand A\d/ }).first()).toBeVisible();
   // The kg apart from its number (owner rule 10).
   await expect(rest.getByText('kg', { exact: true }).first()).toBeVisible();
-  const restBox = (await rest.boundingBox())!;
+  // Both columns slide in: measure each once it has stopped moving.
+  const restBox = await steadyBox(page, rest);
   const table = page.getByRole('table', { name: /Cântarele concursului/ });
   const tableWidth = (await table.boundingBox())!.width;
   // Pressing the latest weighing opens its detail in the same column: the table does not move.
@@ -276,7 +447,7 @@ test('competition-page.cantare.c1 c7 — 1440 at rest: the side column is there 
   const panel = page.getByRole('complementary', { name: 'Detaliu cântar' });
   await expect(panel).toBeVisible();
   await expect(rest).toBeHidden();
-  const panelBox = (await panel.boundingBox())!;
+  const panelBox = await steadyBox(page, panel);
   expect(Math.abs(panelBox.x - restBox.x)).toBeLessThan(2);
   expect(Math.abs((await table.boundingBox())!.width - tableWidth)).toBeLessThan(2);
   await settle(page);
@@ -299,10 +470,17 @@ test('competition-page.cantare.c1 — 1920 with the detail docked: the interval 
   const interval = row.locator('td').nth(2);
   // One line: no day / hours blocks, and the text's boxes all on one line.
   await expect(interval.locator('> span.block')).toHaveCount(0);
+  // The visible text only: the screen reader's «până la» sits in a 1px box where every word wraps.
   const lines = await interval.evaluate(el => {
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    return new Set([...range.getClientRects()].filter(r => r.width > 1 && r.height > 1).map(r => Math.round(r.bottom))).size;
+    const bottoms = new Set<number>();
+    const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+      if (node.parentElement?.closest('.sr-only') || !node.textContent?.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      for (const r of range.getClientRects()) if (r.width > 1 && r.height > 1) bottoms.add(Math.round(r.bottom));
+    }
+    return bottoms.size;
   });
   expect(lines).toBe(1);
   const pescar = (await table.getByRole('columnheader', { name: 'Pescar', exact: true }).boundingBox())!;
@@ -326,12 +504,13 @@ test('competition-page.cantare.c1 c2 — a sector per stand (24 × 1): one table
   page.on('requestfailed', r => done(r.url()));
   await open(page, `/concursuri/${ID.live}/cantare`);
   const table = page.getByRole('table', { name: /Cântarele concursului/ });
-  await expect(page.getByText(/^\d+ cântare? · 24 standuri$/)).toBeVisible({ timeout: 45_000 });
+  const stands = await snapshotStands(page, ID.live);
+  await expect(page.getByText(new RegExp(`^\\d+ (de )?cântare? · ${roCount(stands, 'standuri')}$`))).toBeVisible({ timeout: 45_000 });
   await expect(table.getByRole('columnheader', { name: /^Sector / })).toHaveCount(0);
   const empty = table.getByRole('list', { name: /fără cântar/ });
   await expect(empty).toHaveCount(1);
   const weighed = await table.getByRole('rowheader').count();
-  await expect(empty.getByRole('listitem')).toHaveCount(24 - weighed);
+  await expect(empty.getByRole('listitem')).toHaveCount(stands - weighed);
   expect(peak).toBeLessThanOrEqual(4);
   await expectNoA11yViolations(page);
 });
@@ -340,7 +519,7 @@ test('competition-page.cantare.c1 c5 — feeder from 1280: the caption names the
   await signedIn(page);
   await open(page, `/concursuri/${ID.feederTeam}/cantare`);
   const table = page.getByRole('table', { name: /Cântarele concursului/ });
-  await expect(page.getByText(/^Manșa 2 · \d+ cântare · 20 standuri$/)).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByText(/^Manșa 2 · [\d.]+ (de )?cântare · [\d.]+ (de )?standuri$/)).toBeVisible({ timeout: 45_000 });
   // «Florin Varjan si Petrisor M» / «Florin Varjan si Petrisor Muraru»: the crew once.
   const crew = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: /Stand 1$/ }) });
   await expect(crew.getByText(/Florin Varjan/)).toHaveCount(1);
@@ -353,7 +532,7 @@ test('competition-page.cantare.c1 c5 — feeder from 1280: the caption names the
   const stands = (await table.getByRole('rowheader').allInnerTexts()).map(t => Number(t.match(/\d+/)?.[0]));
   expect(stands).toEqual([...stands].sort((a, b) => a - b));
   await page.getByRole('group', { name: 'Manșa cântarelor' }).getByRole('button', { name: 'Manșa 1' }).click();
-  await expect(page.getByText(/^Manșa 1 · \d+ cântare · 20 standuri$/)).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByText(/^Manșa 1 · [\d.]+ (de )?cântare · [\d.]+ (de )?standuri$/)).toBeVisible({ timeout: 45_000 });
   // Open the last stand's weighing, then switch to the timeline: the row stays on screen.
   const last = table.getByRole('button', { name: /^Cântar \d+$/ }).last();
   await last.scrollIntoViewIfNeeded();
@@ -523,7 +702,8 @@ test('competition-page.statistici.c2 c3 c5 c6 c7 c8 c10 c11 c12 c13 c16 competit
     if (/best-n|catch-threshold|weighing-statistics/.test(r.url())) reads.push(r.url());
   });
   const errors = await open(page, `/concursuri/${ID.rich}`, PHONE);
-  // c2: nothing statistics-only before the view (the weighing statistics are the phone's? no: from 768 only).
+  // c2: nothing Statistici-only before the view (Best N, the thresholds; the weighing statistics are
+  // prefetched with the page for the strip from 768).
   expect(reads.filter(u => /best-n|catch-threshold/.test(u))).toEqual([]);
   // c16: the bar's Statistici tile.
   await press(page, page.getByRole('region', { name: 'Bara de acțiuni' }).getByRole('button', { name: 'Statistici' }), () =>
@@ -542,21 +722,51 @@ test('competition-page.statistici.c2 c3 c5 c6 c7 c8 c10 c11 c12 c13 c16 competit
   await expect(summary.getByRole('listitem').nth(1)).toContainText(/\d,\d\s+kg/);
   const tiles = await summary.getByRole('listitem').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().width)));
   expect(new Set(tiles).size).toBeGreaterThan(1);
-  // c5–c8: sessions.
+  // c5–c8: sessions. The oracle is the CMS's weighings read here, never the builder the page draws
+  // with (core buildWeighingSessions): competitions weigh in day halves, so the normal sessions are
+  // the distinct (day, morning / evening) of the normal weighings' starts on the reader's clock,
+  // numbered in order; extras sit between them as «Extra-cântar» rows.
+  const weighings = await cmsData<WeighingStatisticsItem[]>(page, `/competitions/${ID.rich}/weighing-statistics`);
+  const halves = [
+    ...new Set(
+      weighings
+        .filter(w => w.weighingType !== 'extra')
+        .map(w => new Date(w.startDate))
+        .sort((a, b) => a.getTime() - b.getTime())
+        .map(d => `${d.toDateString()}|${d.getHours() < 14 ? 'Dimineață' : 'Seară'}`),
+    ),
+  ];
+  const expectedNormal = halves.map((key, i) => `Cântar ${i + 1} – ${key.split('|')[1]}`);
+  const extraWeighings = weighings.filter(w => w.weighingType === 'extra').length;
   const sessions = page.getByRole('region', { name: 'Sesiuni de cântărire' });
   await expect(sessions.getByText('Cronologia cântăririlor și cantitatea totală per sesiune.')).toBeVisible();
-  await expect(sessions.getByText(/^Cântar 1 – (Dimineață|Seară)$/)).toBeVisible();
-  await expect(sessions.getByText('Extra-cântar').first()).toBeVisible();
-  await expect(sessions.getByRole('listitem')).toHaveCount(4);
-  const more = sessions.getByRole('button', { name: /Vezi toate cântarele \(\d+ ascunse\)/ });
+  const rows = sessions.getByRole('listitem');
+  const label = (text: string) => /Cântar \d+ – (Dimineață|Seară)|Extra-cântar/.exec(text)?.[0] ?? text;
+  // Collapsed: the first SESSIONS_COLLAPSED_MAX rows, a «Vezi toate» for the rest.
+  await expect(rows).toHaveCount(Math.min(SESSIONS_COLLAPSED_MAX, expectedNormal.length + extraWeighings));
+  const more = sessions.getByRole('button', { name: /^Vezi toate cântarele \((\d+) ascunse\)$/ });
+  await expect(more, 'the rich competition has more sessions than the collapsed card shows').toBeVisible();
+  const hidden = Number(/\((\d+) ascunse\)/.exec((await more.innerText()) ?? '')![1]);
   // Rule 19: the state every visitor lands on — collapsed, the peeked last row — is AA too (only
   // its rail dot and bar fade, never its text).
   await expectNoA11yViolations(page, { include: '#sesiuni' });
   await more.click();
   await expect(sessions.getByRole('button', { name: 'Restrânge' })).toBeVisible();
-  expect(await sessions.getByRole('listitem').count()).toBeGreaterThan(4);
+  await expect(rows).toHaveCount(SESSIONS_COLLAPSED_MAX + hidden);
+  const labels = (await rows.allInnerTexts()).map(label);
+  // Every row is a numbered day half or an extra; the normal ones are exactly the CMS's day halves, in order.
+  for (const l of labels) expect(l).toMatch(/^(Cântar \d+ – (Dimineață|Seară)|Extra-cântar)$/);
+  expect(labels.filter(l => l !== 'Extra-cântar')).toEqual(expectedNormal);
+  // Extras: a row exactly when the CMS has extra weighings, never more rows than extra weighings, never two in a row.
+  const extras = labels.filter(l => l === 'Extra-cântar').length;
+  expect(extras > 0).toBe(extraWeighings > 0);
+  expect(extras).toBeLessThanOrEqual(extraWeighings);
+  labels.forEach((l, i) => i > 0 && l === 'Extra-cântar' && expect(labels[i - 1], `row ${i + 1}`).not.toBe('Extra-cântar'));
+  // Every weighed catch is in exactly one row.
+  const rowCatches = (await rows.allInnerTexts()).map(t => Number((/([\d.]+) (de )?captur(i|ă)/.exec(t)?.[1] ?? '0').replace(/\./g, '')));
+  expect(rowCatches.reduce((a, b) => a + b, 0)).toBe(weighings.reduce((sum, w) => sum + w.catchCount, 0));
   // Romanian plural (components/cards/format plural): «389 de capturi», as the facts tile says.
-  await expect(sessions.getByText('Total: 389 de capturi')).toBeVisible();
+  await expect(sessions.getByText(`Total: ${roCount(await weighedCatches(page, ID.rich), 'capturi')}`)).toBeVisible();
   await expectRomanianCounts(sessions);
   // Weights: the Romanian grouping («2.961,0 kg», never «2961,0»), at the competition's precision.
   await expect(sessions.getByText(/^\d{1,3}(\.\d{3})*,\d+\s+kg$/).last()).toBeVisible();
@@ -567,16 +777,34 @@ test('competition-page.statistici.c2 c3 c5 c6 c7 c8 c10 c11 c12 c13 c16 competit
   const best = page.getByRole('dialog', { name: 'Best 3 - Clasament' });
   await expect(best.getByRole('columnheader')).toHaveText(['Stand', 'Participant(e) / Echipă', 'Primele capturi (kg)', 'Medie']);
   await page.keyboard.press('Escape');
-  // c12: the sector donut + legend; c13: the thresholds table.
+  // c12: the sector donut + legend (its first slice: the ranking's sectors in order); c13: the thresholds table.
+  const { rankings } = await cmsRanking(page, ID.rich);
+  const sector = [...new Set(rankings.map(r => r.sectorName!))].sort((a, b) => a.localeCompare(b))[0];
   const donut = page.getByRole('region', { name: 'Cantitate pe sector (kg)' });
-  await expect(donut.getByRole('img')).toHaveAttribute('aria-label', /Sector A [\d.]+,\d+\s+kg/);
-  await expect(donut.getByText(/^Sector A · [\d.]+,\d+\s+kg$/)).toBeVisible();
+  await expect(donut.getByRole('img')).toHaveAttribute('aria-label', new RegExp(`Sector ${sector} [\\d.]+,\\d+\\s+kg`));
+  await expect(donut.getByText(new RegExp(`^Sector ${sector} · [\\d.]+,\\d+\\s+kg$`))).toBeVisible();
+  expect(await anyThreshold(page, ID.rich), 'the rich competition has catches over 10 kg').toBe(true);
   const thresholds = page.getByRole('region', { name: 'Capturi', exact: true });
   await expect(thresholds.getByRole('columnheader')).toHaveText(['Sector', '10+', '15+', '20+', '25+', '30+']);
   await expect(thresholds.getByRole('rowheader', { name: 'General' })).toBeVisible();
   expect(reads.some(u => u.includes('best-n'))).toBe(true);
   await expectNoA11yViolations(page);
   expect(errors).toEqual([]);
+});
+
+test('competition-page.statistici.c2 — 1440 on Clasament: the strip reads the weighing statistics, Best N and the thresholds wait for the Statistici view', async ({ page }) => {
+  await signedIn(page);
+  const reads: string[] = [];
+  page.on('request', r => {
+    if (/best-n|catch-threshold/.test(r.url())) reads.push(r.url());
+  });
+  await open(page, `/concursuri/${ID.rich}`);
+  await expect(page.getByRole('group', { name: 'Concursul pe scurt' }).getByText('Ultimul cântar')).toBeVisible({ timeout: 30_000 });
+  // Hydrated and settled on Clasament: anything the view would read has had its chance.
+  await page.waitForTimeout(2000);
+  expect(reads).toEqual([]);
+  await press(page, page.getByRole('tab', { name: /Statistici/ }), () => expect(page).toHaveURL(/\/statistici$/, { timeout: 3000 }));
+  await expect.poll(() => reads.some(u => u.includes('best-n')) && reads.some(u => u.includes('catch-threshold'))).toBe(true);
 });
 
 test('competition-page.statistici.c4 competition-page.statistici.s2 — a weighing-statistics re-read that fails keeps the sessions and offers «Reîncearcă»', async ({ page }) => {
@@ -639,15 +867,20 @@ test('competition-page.statistici.c14 c15 competition-page.statistici.s6 s8 — 
   await ask.getByRole('button', { name: 'Revocă' }).click();
   await reread;
   expect(deleted).toContain('/penalties/pen4');
+  // The re-read runs through the route above: let its `route.fetch()` finish here, never inside the next test.
+  await page.unrouteAll({ behavior: 'wait' });
 });
 
-test('competition-page.statistici.c9 competition-page.cronologie.c3 c6 competition-page.cronologie.s4 — the stand timeline card: top 6, «Vezi toate (24 standuri)», expand to the page', async ({ page }) => {
+test('competition-page.statistici.c9 competition-page.cronologie.c3 c6 competition-page.cronologie.s4 — the stand timeline card: top 6, «Vezi toate (N standuri)», expand to the page', async ({ page }) => {
   await signedIn(page);
   await open(page, `/concursuri/${ID.live}/statistici`);
+  const stands = await snapshotStands(page, ID.live);
+  expect(stands, 'the live competition has a timeline snapshot').toBeGreaterThan(0);
   const card = page.getByRole('region', { name: 'Cronologia standurilor' });
   await expect(card.getByText('Trage timpul de mai jos pentru a vedea evoluția scorurilor.')).toBeVisible();
-  await expect(card.getByRole('list').last().getByRole('button')).toHaveCount(6);
-  await expect(card.getByRole('link', { name: 'Vezi toate (24 standuri) →' })).toHaveAttribute('href', `/concursuri/${ID.live}/statistici/cronologie`);
+  // StandTimeline CARD_MAX_STANDS: the card's top 6, fewer when the snapshot has fewer.
+  await expect(card.getByRole('list').last().getByRole('button')).toHaveCount(Math.min(6, stands));
+  await expect(card.getByRole('link', { name: `Vezi toate (${roCount(stands, 'standuri')}) →` })).toHaveAttribute('href', `/concursuri/${ID.live}/statistici/cronologie`);
   await card.getByRole('link', { name: 'Deschide cronologia standurilor pe toată pagina' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Cronologia standurilor' })).toBeVisible();
 });
@@ -743,8 +976,10 @@ test('competition-page.statistici.c3 — live at 1440: the weighing tile stays i
   await expect(sessions.getByText(/^Total: (1 captură|[\d.]+ (de )?capturi)$/)).toBeVisible();
   await expectRomanianCounts(sessions);
   const donut = page.getByRole('region', { name: 'Cantitate pe sector (kg)' });
-  // The sector rows carry the quantity after the weight penalties: the card says so.
-  await expect(donut.getByText(/după penalizările de greutate/)).toBeVisible();
+  // The sector rows carry the quantity after the weight penalties: the card says so exactly when
+  // the ranking holds a DEDUCT_TOTAL_WEIGHT penalty (the CMS decides, not today's data).
+  if ((await deductedKg(page, ID.live)) > 0) await expect(donut.getByText(/după penalizările de greutate/)).toBeVisible();
+  else await expect(donut.getByText('Cantitatea totală de pește cântărită pe fiecare sector al competiției.')).toBeVisible();
   const legendUnit = donut.getByRole('listitem').first().locator('span').last();
   await expect(legendUnit).toHaveText(/^\s*kg$/);
 });
@@ -761,9 +996,9 @@ for (const [kind, id, label] of [
     const tile = strip.locator('> *').filter({ hasText: 'Ultimul cântar' });
     await expect(tile).toBeVisible({ timeout: 30_000 });
     const caption = tile.locator('p').last();
-    // «<name> · <stand> · N capturi»: a name before the stand, never the stand alone (the facts are
-    // flex items: innerText breaks lines between them).
-    await expect(caption).toHaveText(/^[^·\s][^·]*·[^·]+·\s*\d+ captur(ă|i)$/);
+    // «<name> · <stand> · N capturi» («21 de capturi» from 20): a name before the stand, never the
+    // stand alone (the facts are flex items: innerText breaks lines between them).
+    await expect(caption).toHaveText(/^[^·\s][^·]*·[^·]+·\s*[\d.]+ (de )?captur(ă|i)$/);
     // A wrap never leaves a line ending or starting with «·» (Facts: the separator that opens a
     // line is clipped): every visible «·» has a fact on its left on the same line.
     const dangling = await caption.evaluate(p => {
@@ -780,12 +1015,15 @@ for (const [kind, id, label] of [
 
 test('competition-page.statistici.c3 c10 c12 — 1440, not one catch nor weighing: the summary line and one empty state, no Top capturi of «-», no ring of 0', async ({ page }) => {
   await signedIn(page);
-  await open(page, `/concursuri/${ID.noCatch}/statistici`);
-  await expect(page.getByText('Nu există statistici pentru acest concurs')).toBeVisible({ timeout: 30_000 });
+  await noCatchView(page);
   await expect(page.getByText(/Nicio captură înregistrată/).first()).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Sesiuni de cântărire' })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Top capturi (Best 3 / 5 / 7)' })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Cantitate pe sector (kg)' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Capturi', exact: true })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Cronologia standurilor' })).toHaveCount(0);
+  await expect(page.locator('main')).not.toContainText(/capot/i);
+  await page.unrouteAll({ behavior: 'wait' });
 });
 
 /**
@@ -846,15 +1084,26 @@ test('competition-page.statistici.c10 — 1440: text on a chart card\'s white in
   expect(best).not.toBe(tint);
 });
 
-test('competition-page.statistici.c3 — CLS: a ranking with no catch keeps the stat row\'s height (156 from 1280, two rows on a tablet), so nothing under it moves when the bones or the first catch swap in', async ({ page }) => {
+test('competition-page.statistici.c3 — CLS: a ranking with no catch keeps the stat row\'s height (one row from 1280, two on a tablet), so nothing under it moves when the bones or the first catch swap in', async ({ page }) => {
   await signedIn(page);
-  await open(page, `/concursuri/${ID.noCatch}`);
+  await noCatchView(page);
   const strip = page.locator('[data-summary-strip]').locator('visible=true');
   await expect(strip).toBeVisible({ timeout: 30_000 });
-  expect(Math.round((await strip.boundingBox())!.height)).toBe(156);
+  // The strip is the same over every view (Statistici here, where the routed re-read lands).
+  // The bones are server-rendered (the ranking is prefetched), so the browser never sees them swap:
+  // what holds is that the strip is exactly its reserved slot (the bones' row, StatRowBones), not its
+  // one line of text — no pixel literal, so a token change moves both together.
+  const slot = () =>
+    strip.evaluate(p => ({ height: Math.round(p.getBoundingClientRect().height), reserved: Math.round(parseFloat(getComputedStyle(p).minHeight)) }));
+  const wide = await slot();
+  expect(wide.reserved).toBeGreaterThan(0);
+  expect(wide.height).toBe(wide.reserved);
   await page.setViewportSize({ width: 1024, height: 900 });
-  // Two 156 rows and their 12px gap: the bones' (and the tiles') tablet row.
-  await expect.poll(async () => Math.round((await strip.boundingBox())!.height)).toBe(324);
+  // The tablet's two rows of tiles: a slot sized for one row would hide the jump.
+  await expect.poll(async () => (await slot()).reserved).toBeGreaterThan(wide.reserved * 1.5);
+  const tablet = await slot();
+  expect(tablet.height).toBe(tablet.reserved);
+  await page.unrouteAll({ behavior: 'wait' });
 });
 
 for (const width of [320, 375]) {
@@ -871,13 +1120,14 @@ for (const width of [320, 375]) {
   });
 }
 
-test('competition-page.statistici.c6 c13 — live, 24 sectors: no table of zeros, the donut legend in columns keeps its card short, the last odd card takes the row', async ({ page }) => {
+test('competition-page.statistici.c6 c13 — live, many sectors: no table of zeros, the donut legend in columns keeps its card short, the last odd card takes the row', async ({ page }) => {
   await signedIn(page);
   await open(page, `/concursuri/${ID.live}/statistici`);
   const donut = page.getByRole('region', { name: 'Cantitate pe sector (kg)' });
   await expect(donut).toBeVisible({ timeout: 30_000 });
-  // c13: every threshold count is 0 → no «Capturi» table.
-  await expect(page.getByRole('region', { name: 'Capturi', exact: true })).toHaveCount(0);
+  // c13: the «Capturi» table only when a count is above 0 — every count 0 (a live competition's
+  // usual state) draws no table of zeros.
+  await expect(page.getByRole('region', { name: 'Capturi', exact: true })).toHaveCount((await anyThreshold(page, ID.live)) ? 1 : 0);
   expect((await donut.boundingBox())!.height).toBeLessThan(420);
 });
 
@@ -955,7 +1205,7 @@ test('competition-page.cronologie.c1 c4 c5 c7 c8 c9 competition-page.cronologie.
   // From 768 the breadcrumb is the way back (the back chip is the phone's).
   await expect(page.getByRole('button', { name: 'Înapoi la statistici' })).toBeHidden();
   const rows = page.getByRole('list', { name: /Standurile după/ }).getByRole('button');
-  await expect(rows).toHaveCount(24);
+  await expect(rows).toHaveCount(await snapshotStands(page, ID.live));
   // c4: sector chips (Toate first) and metric chips, the default metric checked.
   const sectors = page.getByRole('radiogroup', { name: 'Sector' });
   await expect(sectors.getByRole('radio', { name: 'Toate' })).toBeChecked();
@@ -964,7 +1214,6 @@ test('competition-page.cronologie.c1 c4 c5 c7 c8 c9 competition-page.cronologie.
   // decimals; the ro-RO grouping), or «—» (named «fără valoare»).
   await expect(rows.first()).toHaveAccessibleName(/^Locul \d+: Sector A, standul A1, (\d{1,3}(\.\d{3})*,\d{3} kg|fără valoare)$/);
   // c5: a stand with no value yet reads «—» (fish formatMetricValue).
-  // (23 of the 24 stands have no catch yet.)
   await expect(page.getByRole('button', { name: /fără valoare$/ }).first()).toContainText('—');
   await expect(rows.first()).toContainText(/^A1/);
   await expect(rows.first()).not.toContainText('A/A1');
@@ -1030,22 +1279,24 @@ test('competition-page.toti-pestii.c1 c2 c3 c4 c5 c7 competition-page.toti-pesti
   page.on('request', r => {
     if (r.url().includes('/catches')) reads.push(r.url());
   });
+  const { pagination } = await cmsJson<{ pagination: { total: number } }>(page, `/competitions/${ID.rich}/catches?sort=weight_desc&page=1&pageSize=${CATCHES_PAGE}`);
+  expect(pagination.total, 'the rich competition has more than one page of catches').toBeGreaterThan(CATCHES_PAGE);
   const errors = await open(page, `/concursuri/${ID.rich}/capturi`, PHONE);
   const sorts = page.getByRole('radiogroup', { name: 'Sortare capturi' });
   await expect(sorts.locator('label')).toHaveText(['Cei mai mari', 'Cei mai mici', 'Pe stand', 'Pe sector']);
   await expect(sorts.getByRole('radio', { name: 'Cei mai mari' })).toBeChecked();
   const list = page.locator('ul').filter({ hasText: / kg/ }).first();
-  await expect(list.getByRole('listitem')).toHaveCount(20, { timeout: 30_000 });
+  await expect(list.getByRole('listitem')).toHaveCount(Math.min(CATCHES_PAGE, pagination.total), { timeout: 30_000 });
   // c5: the stand badge, weight + species, the competitor.
   await expect(list.getByRole('listitem').first()).toContainText(/Stand [A-Z]\d+/);
   await expect(list.getByRole('listitem').first()).toContainText(' kg');
   // c3: the next page loads near the end (and «Încarcă mai mult» stays as the explicit way).
   await expect(page.getByRole('button', { name: 'Încarcă mai mult' })).toBeVisible();
   await page.getByRole('button', { name: 'Încarcă mai mult' }).scrollIntoViewIfNeeded();
-  await expect.poll(() => list.getByRole('listitem').count()).toBeGreaterThan(20);
+  await expect.poll(() => list.getByRole('listitem').count()).toBeGreaterThan(CATCHES_PAGE);
   // c4: no duplicates across pages.
   const ids = await list.getByRole('listitem').allInnerTexts();
-  expect(ids.length).toBeGreaterThan(20);
+  expect(ids.length).toBe(Math.min(2 * CATCHES_PAGE, pagination.total));
   // c2: Pe sector → sector chips, the first picked, filtered on the server.
   await sorts.getByText('Pe sector').click();
   const filter = page.getByRole('radiogroup', { name: 'Sector' });
@@ -1077,12 +1328,14 @@ test('competition-page.toti-pestii.c2 c4 competition-page.toti-pestii.s5 s6 — 
     if (url.includes('sort=weight_desc') && url.includes('page=2&') && first) body.data = [first, ...body.data];
     await route.fulfill({ response: res, json: body });
   });
+  const { pagination } = await cmsJson<{ pagination: { total: number } }>(page, `/competitions/${ID.live}/catches?sort=weight_desc&page=1&pageSize=${CATCHES_PAGE}`);
+  expect(pagination.total, 'the live competition has more than one page of catches').toBeGreaterThan(CATCHES_PAGE);
   await open(page, `/concursuri/${ID.live}/capturi`, PHONE);
   const list = page.locator('ul').filter({ hasText: / kg/ }).first();
-  await expect(list.getByRole('listitem')).toHaveCount(20, { timeout: 30_000 });
+  await expect(list.getByRole('listitem')).toHaveCount(CATCHES_PAGE, { timeout: 30_000 });
   await page.getByRole('button', { name: 'Încarcă mai mult' }).scrollIntoViewIfNeeded();
   await expect.poll(() => reads.some(u => u.includes('page=2&'))).toBe(true);
-  await expect.poll(() => list.getByRole('listitem').count()).toBeGreaterThan(20);
+  await expect.poll(() => list.getByRole('listitem').count()).toBeGreaterThan(CATCHES_PAGE);
   const texts = await list.getByRole('listitem').allInnerTexts();
   const head = texts[0];
   expect(texts.filter(t => t === head)).toHaveLength(1);
@@ -1112,19 +1365,24 @@ test('competition-page.toti-pestii.c6 competition-page.toti-pestii.s2 — a fail
 /* Statistici pescar                                                   */
 /* ------------------------------------------------------------------ */
 
-test('competition-page.statistici-pescar.c1 c3 c4 c7 competition-page.statistici-pescar.s2 s3 s6 — a row pressed opens the angler; an account: three stats; a guest: the note', async ({ page }) => {
+test('competition-page.statistici-pescar.c1 c3 c4 c7 competition-page.statistici-pescar.s2 s3 s6 — below 1024 a row pressed opens the angler (from 1024 it is the person popover, owner rule 17); an account: three stats; a guest: the note', async ({ page }) => {
   await signedIn(page);
   const batches: string[] = [];
   page.on('request', r => {
     if (r.url().includes('statistics') && r.method() === 'POST') batches.push(r.url());
   });
-  const errors = await open(page, `/concursuri/${ID.rich}`);
-  // c1: the desktop table row (keyboard: Enter).
-  const row = page.locator('tbody tr').filter({ hasText: 'Lala' }).first();
+  const core = await cmsCore(page, ID.rich);
+  const guest = core.registrations.find(r => r.documentId === ID.richGuest)!;
+  const angler = core.registrations.find(r => r.documentId === ID.richAngler)!;
+  expect(guest.participants, 'ID.richGuest is a guest registration (no Bluvi account)').toHaveLength(0);
+  expect(angler.participants.length, 'ID.richAngler has a Bluvi account').toBeGreaterThan(0);
+  const errors = await open(page, `/concursuri/${ID.rich}`, TABLET_768);
+  // c1: the table row (keyboard: Enter); 768–1279 the angler is a dialog over the page.
+  const row = page.locator('tbody tr').locator('visible=true').filter({ hasText: entrantName(guest) }).first();
   await expect(row).toHaveAttribute('data-pressable', '', { timeout: 30_000 });
   await row.focus();
   await page.keyboard.press('Enter');
-  const panel = page.getByRole('complementary', { name: 'Statistici pescar' });
+  const panel = page.getByRole('dialog', { name: 'Statistici pescar' });
   await expect(panel).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`pescar=${ID.richGuest}`));
   // c4: a guest.
@@ -1134,9 +1392,11 @@ test('competition-page.statistici-pescar.c1 c3 c4 c7 competition-page.statistici
   await expect(page).not.toHaveURL(/pescar=/);
   // c3 / c7: a link to an angler with an account: name, «Sector A · Standul 1», the three stats. A
   // link opens after the first paint: from 1280 over the page, so the ranking never narrows.
+  await page.setViewportSize(DESKTOP);
   await page.goto(`/concursuri/${ID.rich}?pescar=${ID.richAngler}`);
   const linked = page.getByRole('dialog', { name: 'Statistici pescar' });
-  await expect(linked.getByText(/^Sector A · Standul 1$/)).toBeVisible({ timeout: 45_000 });
+  const at = standOf(core, angler.stand!.documentId);
+  await expect(linked.getByText(`Sector ${at.sector} · Standul ${at.label.slice(at.sector.length)}`, { exact: true })).toBeVisible({ timeout: 45_000 });
   await expect(linked.getByText('Capturi', { exact: true })).toBeVisible();
   await expect(linked.getByText('C.M.M.C', { exact: true })).toBeVisible();
   await expect(linked.getByText('Competiții', { exact: true })).toBeVisible();
@@ -1160,7 +1420,8 @@ test('competition-page.statistici-pescar.c3 c7 — a failed stats batch says so,
 
 test('competition-page.statistici-pescar.c2 competition-page.statistici-pescar.s1 — signed out: the sign-in prompt, «Continuă ca vizitator» closes', async ({ page }) => {
   await open(page, `/concursuri/${ID.rich}`, PHONE);
-  const first = page.getByRole('list', { name: 'Clasament' }).getByRole('listitem').first();
+  // The phone ranking is a compact table (owner rule 16); its rows are the pressable ones.
+  const first = page.locator('tbody tr[data-stand-id]').locator('visible=true').first();
   await expect(first).toHaveAttribute('data-pressable', '', { timeout: 30_000 });
   await first.click();
   const sheet = page.getByRole('dialog', { name: 'Statistici pescar' });
@@ -1173,10 +1434,12 @@ test('competition-page.statistici-pescar.c2 competition-page.statistici-pescar.s
 
 test('competition-page.statistici-pescar.c5 c6 competition-page.statistici-pescar.s5 — a team entered without accounts: the team header and «Statistici indisponibile»', async ({ page }) => {
   await signedIn(page);
-  await open(page, `/concursuri/${ID.feederTeam}`);
-  await expect(page.locator('tr[data-registration]').first()).toHaveAttribute('data-pressable', '', { timeout: 30_000 });
-  await page.locator('tr[data-registration]').first().click();
-  const panel = page.getByRole('complementary', { name: 'Statistici pescar' });
+  // Below 1024 (from 1024 a row is the person popover, owner rule 17).
+  await open(page, `/concursuri/${ID.feederTeam}`, TABLET_768);
+  const crew = page.locator('tr[data-registration]').locator('visible=true').first();
+  await expect(crew).toHaveAttribute('data-pressable', '', { timeout: 30_000 });
+  await crew.click();
+  const panel = page.getByRole('dialog', { name: 'Statistici pescar' });
   await expect(panel.getByText('Statistici indisponibile', { exact: true })).toBeVisible();
   await expect(panel.getByText('Participanții au fost adăugați fără cont Bluvi.')).toBeVisible();
 });

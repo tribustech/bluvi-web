@@ -6,7 +6,6 @@ import { formatDecimal, formatInt } from '@/components/cards';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SetBreadcrumb } from '@/app/(site)/_shell/SiteHeader';
 import { plural } from '@/components/cards/format';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { FilterBar, FilterButton, ListEmpty, ListError, ListFooter } from '@/components/templates/T1';
@@ -36,10 +35,10 @@ import { cn } from '@/components/ui/cn';
 import {
   bboxToMapRegion,
   COUNTRY_OVERVIEW_REGION,
+  DEFAULT_LAKES_COMMITTED_SEARCH,
   getDistanceKm,
   getFocusSignature,
   getLakeFilterChips,
-  getLakesSearchSummary,
   isRegionCenteredOn,
   lakeMapClustersQuery,
   lakeQuery,
@@ -73,11 +72,12 @@ import { imageSrc, lakePhotos } from './lakeImage';
 import { track } from './analytics';
 import { requestUserPosition, useLakesLocation, useLocationDialog, watchAutoDialog, type UserPosition } from './location';
 import { LocationDialog } from './LocationDialog';
+import { LAKES_MAP_SPLIT } from './LakeRowCard';
 import { PinLakeCard, ResultCardsSkeleton, ResultLakeCard } from './ResultCards';
 import { KitSheetCloseButton } from './PhoneSheet';
 import { SearchLayer } from './SearchLayer';
 import { LakesSearchRow } from './HomeHeader';
-import { countLakeFilters, lakesMapQuery, parseLakesMapParams, withCatalogNames } from './url';
+import { countLakeFilters, lakesMapQuery, lakesSearchSummary, parseLakesMapParams, withCatalogNames } from './url';
 
 /*
  * lakes.results-map — fish features/lakes/components/LakesResultsWithMap.tsx (Bălți mode) on the T2
@@ -100,7 +100,10 @@ const REGION_DEBOUNCE_MS = 250;
  * the CMS compares the bbox with the lakes' coordinates stored as TEXT (lake.coordinates lat/long),
  * so the comparison is lexicographic and a bound with another digit count («-180», «5») drops
  * every lake — two-digit bounds on both sides keep it right for Romania.
- * TODO(cms): cast the coordinates (or store numbers) in buildMapLakeFilters / in-bbox.
+ * The list's /lakes/in-bbox reads go through the same box (listBboxFor): a zoomed-out or west-panned
+ * map has a west bound under 10 or below 0, which drops every lake, so the list would say «0 bălți»
+ * under pins that are plainly there. TODO(cms): cast the coordinates (or store numbers) in
+ * buildMapLakeFilters (in-bbox and map-clusters) — the proposal is in the private CMS patch notes.
  */
 const ALL_LAKES_BBOX: Bbox = { north: 49, south: 43, east: 31, west: 19 };
 const ALL_LAKES_ZOOM = 22;
@@ -123,6 +126,19 @@ const bboxContains = (outer: Bbox, inner: Bbox) => {
   const e = 1e-6;
   return outer.north >= inner.north - e && outer.south <= inner.south + e && outer.east >= inner.east - e && outer.west <= inner.west + e;
 };
+
+/**
+ * The viewport as the list asks /lakes/in-bbox for it: its part inside ALL_LAKES_BBOX (two-digit
+ * bounds, which the CMS's text comparison gets right). null when the map shows no part of it — the
+ * list is empty without a read.
+ */
+function listBboxFor(b: Bbox): Bbox | null {
+  const north = Math.min(b.north, ALL_LAKES_BBOX.north);
+  const south = Math.max(b.south, ALL_LAKES_BBOX.south);
+  const east = Math.min(b.east, ALL_LAKES_BBOX.east);
+  const west = Math.max(b.west, ALL_LAKES_BBOX.west);
+  return north > south && east > west ? { north, south, east, west } : null;
+}
 
 const toBounds = (b: Bbox): T2Bounds => [b.west, b.south, b.east, b.north];
 const toBbox = ([west, south, east, north]: T2Bounds): Bbox => ({
@@ -190,11 +206,16 @@ export function LakesMap() {
   // The location dialog, and the search's «În jurul meu» hand-off into it (shared with the home).
   const locationDialog = useLocationDialog({ closeSearch: () => setSearchOpen(false), commit: (next) => commitSearch(next) });
   const openDialog = locationDialog.open;
-  // Nearby opened from a link or a reload: read the position (the permission was given before).
+  // Nearby opened from a link or a reload. fish reaches nearby mode only with a position in hand
+  // (suggestionToCommittedSearch nearbyCommittedSearch): with the permission granted, read it; else
+  // (never asked, denied, services off) the page never asks without a gesture and never claims «În
+  // jurul meu» — it drops to the all-lakes search, filters kept (lakes.results-map, state «nearby
+  // URL without a position»). «În jurul meu» in the search asks, from a tap.
   useEffect(() => {
     if (urlState.search.mode !== 'nearby' || !location.known || location.locating || user) return;
-    if (location.state === 'granted' || location.state === 'never_asked') void requestUserPosition();
-  }, [urlState.search.mode, location.known, location.locating, location.state, user]);
+    if (location.state === 'granted') void requestUserPosition();
+    else replaceState({ search: DEFAULT_LAKES_COMMITTED_SEARCH });
+  }, [urlState.search.mode, location.known, location.locating, location.state, user, replaceState]);
   // fish: the permission dialog opens by itself once per session when the map opens while location
   // is denied (c20; the flag lives in ./location.ts, so home → map → lake → map does not re-open it).
   useEffect(() => watchAutoDialog('denied', () => openDialog('permission')), [openDialog]);
@@ -353,29 +374,33 @@ export function LakesMap() {
       ),
     [clusters.data],
   );
+  const listBbox = useMemo(() => (viewport ? listBboxFor(viewport.bbox) : null), [viewport]);
+  /** The map shows no part of the lakes' box: «0 bălți» without a read (no stale page kept). */
+  const outside = viewport !== null && listBbox === null;
   const list = useInfiniteQuery(
     lakesInBboxInfiniteQuery(t, {
-      bbox: viewport?.bbox ?? null,
+      bbox: listBbox,
       filters,
       committedSearch: search,
-      enabled: focusReady && viewport !== null,
+      enabled: focusReady && listBbox !== null,
     }),
   );
-  const listLakes = useMemo(() => list.data?.pages.flatMap((p) => p.data) ?? [], [list.data]);
-  const total = list.data?.pages[0]?.meta.total ?? 0;
+  const listData = outside ? undefined : list.data;
+  const listLakes = useMemo(() => listData?.pages.flatMap((p) => p.data) ?? [], [listData]);
+  const total = listData?.pages[0]?.meta.total ?? 0;
   // A failure stays said until a page lands: a new viewport key after a failed read starts its own
   // retries with no error yet, and must not bring the skeleton back over the error card.
   const [listFailed, setListFailed] = useState(false);
   if (list.isError && !listFailed) setListFailed(true);
   if (list.data && listFailed) setListFailed(false);
-  const listError = list.isError || (listFailed && !list.data);
-  const firstLoad = list.data === undefined && !listError;
+  const listError = !outside && (list.isError || (listFailed && !list.data));
+  const firstLoad = listData === undefined && !listError && !outside;
   const armRetryFocus = useFocusAfterRetry(Boolean(list.data), () =>
     [...document.querySelectorAll<HTMLElement>('h2')].find(
       (h) => h.textContent?.includes('în această zonă') && h.getClientRects().length > 0,
     ) ?? null,
   );
-  const refreshing = (list.isFetching && !list.isFetchingNextPage && !firstLoad) || (clusters.isFetching && !!clusters.data);
+  const refreshing = (list.isFetching && !list.isFetchingNextPage && !firstLoad && !outside) || (clusters.isFetching && !!clusters.data);
 
   /* ------------------------------------------------------------------ selection + sheet */
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -394,6 +419,10 @@ export function LakesMap() {
     : [];
   // A selection that leaves the results (filters changed) has no node any more: no card, no pin.
   const shownSelectedId = selectedNode ? selectedId : null;
+  // fish c14: coming back to the map from a lake shows the list, not the pin card. The page is kept
+  // alive across navigations (cacheComponents keeps the route in an <Activity>): its effects are
+  // torn down when it is hidden, so the card is dropped then.
+  useEffect(() => () => setSelectedId(null), []);
 
   /* ------------------------------------------------------------------ filters panel */
   const [panel, setPanel] = useState<LakeFilterSection | null>(null);
@@ -420,11 +449,15 @@ export function LakesMap() {
   /* ------------------------------------------------------------------ actions */
   const [listFocusKey, setListFocusKey] = useState<number | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
-  /** fish handleClearAll (c20): all lakes, no filters, back to the country overview. */
+  /**
+   * fish handleClearAll (c20): all lakes, no filters, back to the country overview. On a phone the
+   * sheet steps down (fish drops it to its peek — a 40%-open sheet would hide half the country the
+   * zoom reveals): the kit's sheet has no peek, so it hides and «Vezi lista (N)» brings it back.
+   */
   const clearAll = () => {
     track('lakes_map_clear_filters');
     setSelectedId(null);
-    setSheetSnap('half');
+    setSheetSnap(phone ? 'hidden' : 'half');
     setNonce((n) => n + 1);
     setListFocusKey(Date.now());
     router.replace(pathname, { scroll: false });
@@ -565,8 +598,10 @@ export function LakesMap() {
 
   /* ------------------------------------------------------------------ toolbar */
   const railFilters = panel !== null ? draft : filters;
-  const summary = getLakesSearchSummary(search);
-  const searchPlaceholder = !search.mode;
+  const summaryText = lakesSearchSummary(search, Boolean(user));
+  const summary = summaryText ?? 'Caută bălți, lacuri...';
+  // Nearby without a position (still reading it) is the placeholder too: never «În jurul meu» unbacked.
+  const searchPlaceholder = !search.mode || summaryText == null;
   const clearLabel = 'Șterge filtre';
   /**
    * The quick chips, in fish's order (c3). From 1024 the desktop search row's pill holds «Pești»
@@ -791,8 +826,8 @@ export function LakesMap() {
 
   return (
     <>
-      <SetBreadcrumb trail={[{ label: 'Bălți', href: routes.lakes() }, { label: 'Hartă' }]} />
       <T2Layout
+        className={LAKES_MAP_SPLIT}
         toolbar={toolbar}
         listLabel="Rezultate"
         listHeader={listError && !listLakes.length ? null : <T2ListHeader title={countTitle} loading={firstLoad} stale={refreshing} />}
@@ -806,7 +841,7 @@ export function LakesMap() {
         sheetSnap={sheetSnap}
         onSheetSnapChange={setSheetSnap}
         // The count only once known: «(0)» while the first page loads or after a failure reads «no lakes».
-        showListLabel={list.data ? `Vezi lista (${total})` : 'Vezi lista'}
+        showListLabel={listData || outside ? `Vezi lista (${total})` : 'Vezi lista'}
         panel={{
           open: panel !== null,
           onClose: closePanel,

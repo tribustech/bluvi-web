@@ -283,9 +283,12 @@ export function NearbyPlaceholder({
   busy?: boolean;
 }) {
   const copy = PLACEHOLDER_COPY[mode];
-  useSectionImpression('nearby', position, 0);
+  // Seen only where it renders: from 768 the phone's placeholder row is not drawn (the «Aproape de
+  // tine» category asks there), so it sends no impression under the desktop grid.
+  const ref = useRef<HTMLElement>(null);
+  useSectionImpression('nearby', position, 0, ref);
   return (
-    <section aria-labelledby="balti-nearby-title">
+    <section ref={ref} aria-labelledby="balti-nearby-title">
       <button
         type="button"
         onClick={onActivate}

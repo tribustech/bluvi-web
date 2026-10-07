@@ -32,7 +32,7 @@ import {
 } from '@/core/competitions';
 import type { Transport } from '@/core/transport';
 import { IconButton, iconButtonClass } from '@/components/nav/IconButton';
-import { formatDecimal } from '@/components/cards/format';
+import { formatDecimal, plural } from '@/components/cards/format';
 import { sectorColor } from '@/components/ranking/sector';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { ErrorState } from '@/components/surfaces/StateCard';
@@ -419,7 +419,7 @@ function Chart({
 
           {hiddenCount > 0 ? (
             <Link href={href} className="self-end rounded-control t-label text-accent-ink hover:underline">
-              Vezi toate ({visible.length} standuri) →
+              Vezi toate ({plural(visible.length, 'stand', 'standuri')}) →
             </Link>
           ) : null}
 

@@ -1,7 +1,6 @@
 'use client';
 
 import { ArrowsUpDownIcon, ChevronLeftIcon, ChevronRightIcon, MapPinIcon, PhoneIcon, PhotoIcon, Squares2X2Icon, UserGroupIcon } from '@heroicons/react/24/outline';
-import { StarIcon } from '@heroicons/react/20/solid';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
@@ -14,6 +13,7 @@ import type { LakeImageSrc } from './lakeImage';
 import { SplitIcon } from './icons';
 import { FacilityIcons } from './LakeTile';
 import { PriceFrom } from './PriceFrom';
+import { RatingInline } from './RatingInline';
 
 /** The facilities row of the card: more room than the grid tile's 4. */
 const MAX_ROW_FACILITIES = 6;
@@ -21,7 +21,7 @@ const MAX_ROW_FACILITIES = 6;
 /*
  * The map view's list card (owner rule 7, ROADMAP §4b, refinement 2026-10-06 — imobiliare.ro): one
  * card per row, horizontal, in four bands:
- * - the title row: the name and «★ 4,83 (2)», over a hairline;
+ * - the title row: the name and «★ 4,8 (2)» (RatingInline, as the /balti grid card), over a hairline;
  * - the photo on the left, flush with the card's edges (4:3), with gallery arrows and «1 / N»;
  * - on the right: the signature number «de la 45 RON / Permis 24h» (PriceFrom, the detail page's
  *   treatment; only when the price is known, and the unit only from the price's own note, else «RON»
@@ -33,6 +33,17 @@ const MAX_ROW_FACILITIES = 6;
  * under the photo row in a narrow card, beside the photo from a 512px-wide card). The whole card is one
  * link (the name's stretched link); the arrows and actions sit above it.
  */
+
+/**
+ * The /balti/harta split from 1600 (T2Layout `className`, its default sizing kept): the list column
+ * is capped so its row cards stay dense (≈720px — the facts, tags and actions together, no
+ * stretched empty right half at 1920) and the map, flush left, takes the rest. The column is the
+ * card + T2's list gutters: 32px on the left, the shell column's right gutter on the right (the
+ * kit's ALIGN_RIGHT), so the cards still end under the header's last control. Below 1600 the
+ * kit's half / half split (at 1600 the two meet: 784px ≈ 50%).
+ */
+export const LAKES_MAP_SPLIT =
+  'min-h-0 flex-1 min-[1600px]:grid-cols-[minmax(0,1fr)_calc(var(--spacing)*188_+_max(var(--spacing)*8,calc((100vw_-_var(--spacing)*436)/2_+_var(--spacing)*8)))]';
 
 export type LakeRowCardProps = {
   href: string;
@@ -153,8 +164,11 @@ export function LakeRowCard({
           // their height (no 4:3 floor there): it is never taller than the info + actions, so the
           // buttons sit right under the tags with no blank strip (imobiliare.ro). Its width grows
           // with the card (about a third) and a min height keeps a short card's photo a photo.
-          'grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] @lg:grid-cols-[minmax(0,clamp(11rem,34%,18rem))_minmax(0,1fr)] @lg:grid-rows-[auto_auto_1fr]',
-          "[grid-template-areas:'title_title'_'photo_info'_'actions_actions'] @lg:[grid-template-areas:'title_title'_'photo_info'_'photo_actions']",
+          // The tags band (tags + facility glyphs, one wrapping line): under the photo and the info
+          // on a narrow card (the info column is too narrow there for two tags side by side), in the
+          // right column under the facts from 512px.
+          'grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] @lg:grid-cols-[minmax(0,clamp(11rem,34%,18rem))_minmax(0,1fr)] @lg:grid-rows-[auto_auto_auto_1fr]',
+          "[grid-template-areas:'title_title'_'photo_info'_'tags_tags'_'actions_actions'] @lg:[grid-template-areas:'title_title'_'photo_info'_'photo_tags'_'photo_actions']",
         )}
       >
       {/* The title row. */}
@@ -162,23 +176,12 @@ export function LakeRowCard({
         <CardTitle href={href} className="line-clamp-2 min-w-0 flex-1 t-heading text-ink">
           {name}
         </CardTitle>
-        {rating && rating.count > 0 ? (
-          <p className="flex shrink-0 items-center gap-0.5 pt-0.5 t-label text-ink">
-            <StarIcon aria-hidden className="size-4 text-rating" />
-            <span className="sr-only">Rating </span>
-            {formatDecimal(rating.overall, 2, 2)}
-            <span className="text-muted">
-              {' '}
-              ({rating.count}
-              <span className="sr-only"> recenzii</span>)
-            </span>
-          </p>
-        ) : null}
+        {rating && rating.count > 0 ? <RatingInline overall={rating.overall} count={rating.count} className="pt-0.5 t-label" /> : null}
       </div>
 
       <Gallery photos={photos} name={name} className="[grid-area:photo]" />
 
-      {/* The right: the price, the place, the facts, the tags. */}
+      {/* The right: the price, the place, the facts. */}
       <div data-row-info="" className="flex min-w-0 flex-col gap-1.5 p-3 [grid-area:info] md:gap-2 md:px-4">
         {from != null ? (
           <PriceFrom price={from} note={priceNote} />
@@ -214,19 +217,26 @@ export function LakeRowCard({
             ))}
           </ul>
         ) : null}
-        {facilities.length ? (
-          <FacilityIcons shown={facilities.slice(0, MAX_ROW_FACILITIES)} more={Math.max(0, facilities.length - MAX_ROW_FACILITIES)} />
-        ) : null}
-        {tags.length ? (
-          <ul aria-label="Etichete" className="flex flex-wrap gap-1.5">
-            {tags.map((t) => (
-              <li key={t} className="inline-flex h-6 items-center rounded-full bg-accent-tint px-2 t-micro-strong text-accent-ink">
-                {t}
-              </li>
-            ))}
-          </ul>
-        ) : null}
       </div>
+
+      {/* The tags, then the facility glyphs at the end of the same wrapping line (no lone row of
+          two icons between the facts and the tags: every card one band shorter, even heights). */}
+      {tags.length || facilities.length ? (
+        <div data-row-tags="" className="flex min-w-0 flex-wrap items-center gap-1.5 px-3 pt-2.5 pb-3 [grid-area:tags] md:px-4 @lg:-mt-1 @lg:pt-0">
+          {tags.length ? (
+            <ul aria-label="Etichete" className="contents">
+              {tags.map((t) => (
+                <li key={t} className="inline-flex h-6 items-center rounded-full bg-accent-tint px-2 t-micro-strong whitespace-nowrap text-accent-ink">
+                  {t}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {facilities.length ? (
+            <FacilityIcons shown={facilities.slice(0, MAX_ROW_FACILITIES)} more={Math.max(0, facilities.length - MAX_ROW_FACILITIES)} />
+          ) : null}
+        </div>
+      ) : null}
 
       {/* The actions row, above the stretched link (z-above) so each one is its own target. */}
       {hasActions ? (

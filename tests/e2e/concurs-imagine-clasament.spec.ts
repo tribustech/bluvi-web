@@ -51,7 +51,18 @@ async function open(page: Page, url: string, viewport = DESKTOP) {
 
 const events = (page: Page) => page.evaluate(() => (window as unknown as { __events: { name: string; params: Record<string, string> }[] }).__events);
 const stage = (page: Page) => page.getByTestId('ranking-image-stage');
-const ready = (page: Page) => expect(stage(page).locator('img')).toBeVisible({ timeout: 60_000 });
+/**
+ * The image is on screen. A shared `next dev` that is rewriting a route manifest while the PNG is
+ * asked for answers that one request with a 500 (SyntaxError in loadManifest — the environment, not
+ * the page); the page then shows its own «Încearcă din nou», pressed here once before failing.
+ */
+async function ready(page: Page) {
+  const img = stage(page).locator('img');
+  const retry = page.getByRole('alert').filter({ hasText: 'Am întâmpinat o eroare!' }).getByRole('button', { name: 'Încearcă din nou' });
+  await expect(img.or(retry).first()).toBeVisible({ timeout: 60_000 });
+  if (!(await img.isVisible())) await retry.click();
+  await expect(img).toBeVisible({ timeout: 60_000 });
+}
 const hydrated = (page: Page) =>
   expect
     .poll(() => page.getByRole('button', { name: 'Mărește' }).evaluate(el => Object.keys(el).some(k => k.startsWith('__reactProps'))), { timeout: 60_000 })
@@ -180,16 +191,20 @@ test('competition-page.imagine-clasament.c8 — the image zooms (buttons, keyboa
   await ready(page);
   await hydrated(page);
   const scale = async () => Number(await stage(page).getAttribute('data-scale'));
+  // The stage measures itself once the image has decoded: read the fit and the opening scale then.
+  await expect.poll(async () => Number(await stage(page).getAttribute('data-fit'))).toBeGreaterThan(0);
   const fitWidth = Number(await stage(page).getAttribute('data-fit'));
-  // The phone opens at a readable scale (not the ~19% fit), anchored at the sheet's top-left corner.
+  // The phone opens at a readable scale (not the ~19% fit), anchored at the table's left edge (the next test).
+  await expect.poll(scale).toBeGreaterThan(fitWidth * 1.5);
   const fitted = await scale();
-  expect(fitted).toBeGreaterThan(fitWidth * 1.5);
   await page.getByRole('button', { name: 'Mărește' }).click();
   await expect.poll(scale).toBeGreaterThan(fitted);
+  const once = await scale();
   await stage(page).focus();
   await page.keyboard.press('+');
-  const zoomed = await scale();
-  expect(zoomed).toBeGreaterThan(fitted * 1.4);
+  // Each step is its own render: wait for the second one before reading it.
+  await expect.poll(scale).toBeGreaterThan(once);
+  expect(await scale()).toBeGreaterThan(fitted * 1.4);
   const img = stage(page).locator('img');
   const before = await img.evaluate(el => getComputedStyle(el).transform);
   const box = (await stage(page).boundingBox())!;
@@ -200,6 +215,10 @@ test('competition-page.imagine-clasament.c8 — the image zooms (buttons, keyboa
   await expect.poll(() => img.evaluate(el => getComputedStyle(el).transform)).not.toBe(before);
   await page.getByRole('button', { name: 'Potrivește pe lățime' }).click();
   await expect.poll(scale).toBeCloseTo(fitWidth, 3);
+  // Fitted, nothing is left to the right: the phone's drag hint fades out. Axe reads the colours once
+  // the fade has ended (its easing dips to 0 and back before it settles; mid-fade the text is the page's colour).
+  const hint = stage(page).getByText('Trage pentru a vedea tot clasamentul').locator('..');
+  await expect.poll(() => hint.evaluate(el => el.getAnimations().length === 0 && getComputedStyle(el).opacity === '0')).toBe(true);
   await expectNoA11yViolations(page);
 });
 
@@ -470,17 +489,26 @@ test('competition-page.imagine-clasament.c8 competition-page.imagine-clasament.c
   await expectNoA11yViolations(page);
 });
 
-test('competition-page.imagine-clasament.c8 — the phone opens centred on the sheet, under its top margin, with the edges that continue faded and a one-time drag hint', async ({ page }) => {
+test('competition-page.imagine-clasament.c8 — the phone opens on the table\'s first columns (Stand, Participant), under the sheet\'s top margin, with the edges that continue faded and a one-time drag hint', async ({ page }) => {
   await open(page, page$(ID.feeder), PHONE);
   await ready(page);
   await hydrated(page);
   const img = stage(page).locator('img');
-  const { x, y, w, boxW } = await img.evaluate(el => {
+  await expect.poll(async () => Number(await stage(page).getAttribute('data-fit'))).toBeGreaterThan(0);
+  const tableX = Number(await stage(page).getAttribute('data-table-x'));
+  expect(tableX, 'the table is centred on a sheet wider than it (its left edge is not the sheet\'s)').toBeGreaterThan(0);
+  const { x, y, scale, boxW } = await img.evaluate(el => {
     const m = /translate\((-?[\d.]+)px, (-?[\d.]+)px\) scale\(([\d.]+)\)/.exec(el.style.transform)!;
-    return { x: Number(m[1]), y: Number(m[2]), w: (el as HTMLImageElement).naturalWidth * Number(m[3]), boxW: el.parentElement!.clientWidth };
+    return { x: Number(m[1]), y: Number(m[2]), scale: Number(m[3]), boxW: el.parentElement!.clientWidth };
   });
-  // Centred across (the name, the title and the table's middle are the first view), the top margin skipped.
-  expect(Math.abs(x - (boxW - w) / 2)).toBeLessThan(2);
+  // The table's left edge (its Stand column, then Participant) is in view, a few px in from the
+  // stage's: the first view names who is ranked, the drag hint invites panning right to the numbers.
+  const tableLeft = x + tableX * scale;
+  expect(tableLeft).toBeGreaterThanOrEqual(0);
+  expect(tableLeft).toBeLessThan(16);
+  // The participant column starts well inside the stage (stand 80–180 sheet px, ×1.5 ×scale).
+  expect(tableLeft + 180 * 1.5 * scale).toBeLessThan(boxW / 2);
+  // The top margin skipped.
   expect(y).toBeLessThan(0);
   await expect(stage(page)).toHaveAttribute('data-more', /right/);
   await expect(stage(page)).toHaveAttribute('data-more', /left/);

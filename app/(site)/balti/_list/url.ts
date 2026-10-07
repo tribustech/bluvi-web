@@ -44,7 +44,13 @@ const RATING_SLUG: Record<LakeRatingTier, string> = {
   acceptable: 'acceptabil',
 };
 
-const MAX_RADIUS_KM = 500;
+/**
+ * The radius the CMS accepts (radiusKm 5..250 on /lakes/explore/count and the suggestions; out of
+ * it the read is a 400, so the filter panel's «Aplică · N bălți» would never resolve). fish only
+ * ever sends 50 (DEFAULT_NEARBY_RADIUS_KM); a hand-edited ?raza is clamped into the range.
+ */
+const MIN_RADIUS_KM = 5;
+const MAX_RADIUS_KM = 250;
 
 export type LakesMapState = { search: LakesCommittedSearch; filters: LakeFilterValues };
 
@@ -68,7 +74,7 @@ export function parseLakesMapParams(params: ParamsLike): LakesMapState {
   const cityId = params.get(PARAM.city)?.trim() || null;
   const nearby = params.get(PARAM.nearby) === '1';
   const radiusRaw = Number(params.get(PARAM.radius));
-  const radiusKm = Number.isFinite(radiusRaw) && radiusRaw > 0 ? Math.min(Math.round(radiusRaw), MAX_RADIUS_KM) : DEFAULT_NEARBY_RADIUS_KM;
+  const radiusKm = Number.isFinite(radiusRaw) && radiusRaw > 0 ? Math.min(Math.max(Math.round(radiusRaw), MIN_RADIUS_KM), MAX_RADIUS_KM) : DEFAULT_NEARBY_RADIUS_KM;
 
   let search: LakesCommittedSearch = DEFAULT_LAKES_COMMITTED_SEARCH;
   if (nearby) {
@@ -130,4 +136,14 @@ export function countLakeFilters(values: LakeFilterValues): number {
     (values.ratingTier ? 1 : 0) +
     (values.bookableOnly ? 1 : 0)
   );
+}
+
+/**
+ * The search pill's summary on the web: «Giurgiu», «În jurul meu · 50 km» (owner rule 10 — the unit
+ * spaced; core's getLakesSearchSummary stays fish's «50km»). Nearby without a position in hand says
+ * nothing (rule 4: «În jurul meu» is a claim only a position backs): null → the placeholder.
+ */
+export function lakesSearchSummary(search: LakesCommittedSearch, hasPosition: boolean): string | null {
+  if (search.mode === 'nearby') return hasPosition ? `În jurul meu · ${search.radiusKm || DEFAULT_NEARBY_RADIUS_KM} km` : null;
+  return search.query.trim() || null;
 }

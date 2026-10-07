@@ -52,6 +52,11 @@ const OWN_BAND_ROUTES: readonly RegExp[] = [
   /^\/stiri\/[^/]+\/?$/,
   /^\/sponsori\/[^/]+\/?$/,
   /^\/dev\/templates\/t[1346]\/?$/,
+  // Hartă bălți (and its T2 demo): the search header owns the way back («Arată lista», the Bălți
+  // switch) and sits at the same y as /balti's — no crumb strip that moves it on list ↔ map. The
+  // BreadcrumbList stays in the page's JSON-LD.
+  /^\/balti\/harta\/?$/,
+  /^\/dev\/templates\/t2\/?$/,
 ];
 
 export function ownsBreadcrumbBand(pathname: string): boolean {

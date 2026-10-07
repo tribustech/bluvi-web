@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronRightIcon, MapIcon } from '@heroicons/react/24/outline';
+import { ArrowRightIcon, ChevronRightIcon, MapIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
@@ -109,13 +109,19 @@ export function CategoryBar({
 
 /* -------------------------------------------------------------------------------- the grid */
 
+/** The grid's section_key: fish's key for the CMS rows, the category key for the web's own. */
+const sectionKey = (key: string) => (key === 'all' ? 'all_lakes' : key);
+
 export function HomeGrid({
   category,
+  position,
   distanceOf,
   radiusAction,
   className,
 }: {
   category: HomeCategory;
+  /** The category's place in the bar, 1-based: the grid's section_position (lakes.home.c28). */
+  position: number;
   /** «7.4 km» for a lake in the nearby set. */
   distanceOf: (lake: LakeHomeSectionLake) => string | null;
   /** «Aproape de tine»: «50 km ›» to the nearby map instead of «Vezi pe hartă» (lakes.home.c12). */
@@ -123,19 +129,45 @@ export function HomeGrid({
   className?: string;
 }) {
   const id = `balti-grid-${category.key.replace(/[^a-z0-9-]/gi, '-')}`;
+  const ref = useRef<HTMLElement>(null);
+  const lakesCount = category.lakes.length;
+  // c28 from 768 (the phone rails are not rendered there): one lake_home_section_impression per
+  // grid shown with content — the picked category is the section. A grid hidden at this width (the
+  // phone, «Recomandate», where fish's rails send their own) is not seen.
+  const seen = useRef(false);
+  useEffect(() => {
+    if (seen.current || !lakesCount || !ref.current?.getClientRects().length) return;
+    seen.current = true;
+    track('lake_home_section_impression', { section_key: sectionKey(category.key), section_position: position, lakes_count: lakesCount });
+  }, [category.key, position, lakesCount]);
   const onClick = (e: MouseEvent<HTMLElement>) => {
     const a = (e.target as Element).closest('a[href]');
     const item = a?.closest<HTMLElement>('[data-lake-id]');
     if (!a || !item) return;
     track('lake_home_section_click', {
-      section_key: category.key === 'all' ? 'all_lakes' : category.key,
-      section_position: 0,
+      section_key: sectionKey(category.key),
+      section_position: position,
       item_position: Number(item.dataset.itemPosition),
       lake_id: item.dataset.lakeId,
     });
   };
+  // The grid's end (lakes.home.c10's «Vezi toate» card, owner rule 6's map entry): the last slot
+  // opens the whole set on the map — it fills the last row and gives the page its next step.
+  const end = radiusAction
+    ? { href: radiusAction.href, label: `Vezi pe hartă toate bălțile pe o rază de ${radiusAction.label}` }
+    : {
+        href: category.mapHref,
+        label:
+          category.total == null
+            ? category.key === 'all'
+              ? 'Vezi toate bălțile pe hartă'
+              : 'Vezi bălțile pe hartă'
+            : category.total === 1
+              ? 'Vezi balta pe hartă'
+              : `Vezi toate cele ${plural(category.total, 'baltă', 'bălți')} pe hartă`,
+      };
   return (
-    <section aria-labelledby={id} data-balti-grid={category.key} className={className}>
+    <section ref={ref} aria-labelledby={id} data-balti-grid={category.key} className={className}>
       <div className="flex flex-wrap items-end gap-x-3 gap-y-1 pb-4">
         <h2 id={id} tabIndex={-1} className="t-title2 text-ink outline-none">
           {category.title}
@@ -168,6 +200,22 @@ export function HomeGrid({
             <LakeGridCard lake={lake} distanceLabel={distanceOf(lake)} priority={i < 4} />
           </li>
         ))}
+        <li data-grid-end="" className="min-w-0">
+          <Link
+            href={end.href}
+            className={cn(
+              'group flex aspect-4/3 flex-col items-center justify-center gap-3 rounded-card bg-accent-tint p-4 text-center',
+              'transition-colors duration-(--duration-fast) ease-fast hover:bg-accent-tint/70',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+            )}
+          >
+            <span aria-hidden className="flex size-12 items-center justify-center rounded-full bg-surface text-accent-ink shadow-e0">
+              <MapIcon className="size-6 stroke-[1.5]" />
+            </span>
+            <span className="max-w-[16rem] text-balance t-body-strong text-accent-ink">{end.label}</span>
+            <ArrowRightIcon aria-hidden className="size-5 text-accent-ink transition-transform duration-(--duration-fast) group-hover:translate-x-0.5" />
+          </Link>
+        </li>
       </ul>
     </section>
   );

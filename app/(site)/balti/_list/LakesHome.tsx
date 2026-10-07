@@ -335,7 +335,7 @@ export function LakesHome() {
         // a list page stays dense — never a banner over an empty page). The nearby grid replaces
         // both once the row is in.
         const all = categories.find((c) => c.key === 'all');
-        if (all) blocks.push(<HomeGrid key="grid-all" category={all} distanceOf={distanceOf} />);
+        if (all) blocks.push(<HomeGrid key="grid-all" category={all} position={categories.indexOf(all) + 1} distanceOf={distanceOf} />);
       } else if (picked.state === 'pending') {
         blocks.push(<HomeGridSkeleton key={`grid-${picked.key}-skeleton`} />);
       } else {
@@ -343,6 +343,7 @@ export function LakesHome() {
           <HomeGrid
             key={`grid-${picked.key}`}
             category={picked}
+            position={categories.indexOf(picked) + 1}
             distanceOf={distanceOf}
             // lakes.home.c12: the nearby set's header link is the radius, to the nearby map.
             radiusAction={picked.key === 'nearby' && position ? { label: `${Math.round(nearbyRadiusKm)} km`, href: nearbyHref } : null}
@@ -382,7 +383,11 @@ export function LakesHome() {
         }
       });
       placeNearby();
-      if (category) blocks.push(<HomeGrid key="grid-all" category={category} distanceOf={distanceOf} className="max-md:hidden" />);
+      if (category) {
+        blocks.push(
+          <HomeGrid key="grid-all" category={category} position={categories.indexOf(category) + 1} distanceOf={distanceOf} className="max-md:hidden" />,
+        );
+      }
     }
     body = (
       // `@container`: the rails size their tracks from this column (HorizontalRail RAIL_GRID, 100cqw).

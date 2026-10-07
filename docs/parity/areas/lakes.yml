@@ -49,89 +49,127 @@ screens:
       - id: lakes.home.c1
         text: "A two-option toggle „Bălți” / „Ape publice” sits above the search; „Bălți” is selected on arrival."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:715"
+        status: passing
       - id: lakes.home.c2
         text: "The red „NOU” badge on „Ape publice” is date-gated to before 2026-09-06 and must NOT render any more."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:97"
+        status: passing
       - id: lakes.home.c3
         text: "Choosing „Ape publice” clears every lake filter and the committed search and opens the public-waters map (area public-waters, /ape-publice)."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:564"
+        status: passing
       - id: lakes.home.c4
         text: "The search field shows a magnifier and the placeholder „Caută bălți, lacuri...”, has the accessible name „Deschide căutarea pentru bălți”, and opens the lakes search (lakes.search)."
         fish_ref: "features/lakes/components/LakesSearchBubble.tsx:40"
+        status: passing
       - id: lakes.home.c5
         text: "A round „Filtre” button next to the search opens the filter panel with all sections (lakes.filters, mode all)."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:762"
+        status: passing
       - id: lakes.home.c6
         text: "Applying filters from the home panel goes to the results map: filtered results when at least one filter is set, the all-lakes map when none is set (never stays on the home)."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:887"
+        status: passing
       - id: lakes.home.c7
         text: "Sections render in this order: „Vizualizate recent” (only when present, newest first), the nearby section (or its location placeholder), the all-lakes section, then the fixed sections from /feed/lakes/home in server order."
         fish_ref: "features/lakes/helpers/lakesHomeSections.ts:34"
+        status: passing
       - id: lakes.home.c8
         text: "A lake already shown in the nearby section or an earlier fixed section is removed from later fixed sections; a fixed section left empty is not rendered."
         fish_ref: "features/lakes/helpers/lakesHomeSections.ts:78"
+        status: passing
+        web_note: "e2e: a located /lakes/home answer built from the CMS's lakes under test ids (data-independent): a fixed row whose only lake is nearby is not rendered, a later row keeps only the lake no earlier row showed."
       - id: lakes.home.c9
         text: "Each section header shows a colored icon badge for its key (recent=clock, nearby=compass, all_lakes=waves, bookable=ticket, top_rated=star, with_retention=fish, with_cabins=home, competition_lakes=trophy, other=telescope) and the section title."
         fish_ref: "features/lakes/components/LakesHomeSectionRow.tsx:63"
+        status: passing
       - id: lakes.home.c10
         text: "A section shows at most 10 lakes; when it has more, the header shows „Vezi toate ›” and the row ends with a „Vezi toate” card; /feed/lakes/home is requested with limit 11."
         fish_ref: "features/lakes/components/LakesHomeSectionRow.tsx:162"
+        status: passing
+        web_note: "From 768 (and every picked category): the grid's last slot is the «Vezi toate» card as a map tile on the cards' 4:3 box — «Vezi toate bălțile pe hartă», «Vezi toate cele N bălți pe hartă» with the CMS count of a filtered category, the radius on «Aproape de tine» (owner rule 6, the prominent map entry; it also fills the grid's last row). e2e."
       - id: lakes.home.c11
         text: "„Vezi toate” on the bookable section opens the results map with only the Rezervări filter active; on the nearby section (location known) it opens a nearby search with the current radius; on any other section it opens the all-lakes map with filters cleared."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:592"
+        status: passing
       - id: lakes.home.c12
         text: "The nearby section header shows the radius („50 km ›”, default 50) instead of „Vezi toate”; activating it opens the nearby results map (or triggers the location flow when no position is known)."
         fish_ref: "features/lakes/components/LakesHomeSectionRow.tsx:214"
+        status: passing
       - id: lakes.home.c13
         text: "Nearby cards show a dark distance pill: one decimal under 10 km („7.4 km”), rounded above („23 km”)."
         fish_ref: "features/lakes/components/LakesHomeSectionRow.tsx:286"
+        status: passing
       - id: lakes.home.c14
         text: "A lake card shows the first image (blurhash placeholder), a white rating pill „★ 4.5” on the image only when the lake has reviews, the name, the county/city subtitle, up to 4 facility icons plus „+N”, and the fishing regime."
         fish_ref: "features/lakes/helpers/lakesHomeCardPresentation.ts:18"
+        status: passing
       - id: lakes.home.c15
         text: "Cards in „Vizualizate recent” are the compact variant: narrower, no facilities and no regime."
         fish_ref: "features/lakes/helpers/lakesHomeCardPresentation.ts:33"
+        status: passing
       - id: lakes.home.c16
         text: "Activating a card opens /balti/[id]."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:623"
+        status: passing
       - id: lakes.home.c17
         text: "When location is not granted, the nearby slot is a placeholder card. never_asked: „Descoperă bălți aproape de tine” / „Permite locația și îți arătăm instant locurile din apropiere.” / „Permite locația”; denied: „Activează locația din setări” / „Permisiunea e blocată acum, dar o poți reactiva rapid.” / „Deschide setările”; services_off: „Activează locația dispozitivului” / „Permisiunea e dată, dar locația telefonului este oprită.” / „Deschide setările”."
         fish_ref: "features/lakes/components/LakesNearbyPermissionPlaceholder.tsx:13"
+        status: passing
       - id: lakes.home.c18
         text: "Activating the placeholder: never_asked → asks for geolocation and, when granted, loads the position and the nearby section; denied → opens the permission dialog; services_off → opens the services dialog."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:178"
+        status: passing
       - id: lakes.home.c19
         text: "Permission dialog copy: „Găsește bălți aproape de tine” / „Activează localizarea ca să îți arătăm bălțile din apropiere.” (+ how-to line) / button „Mergi la Setări”; services dialog: „Activează serviciile de locație” / „Locația dispozitivului este oprită. Activeaz-o ca să găsim bălți aproape de tine.” On web the button explains how to allow location in the browser instead of opening OS settings."
         fish_ref: "features/lakes/components/LakesLocationPermissionSheet.tsx:20"
+        status: passing
+        web_note: "Web: the permission dialog explains how to allow location in the browser (the icon next to the page address) and closes with «Am înțeles» — a page cannot open the OS settings. e2e: copy of both dialogs."
       - id: lakes.home.c20
         text: "The services-off dialog opens by itself once when the location state becomes services_off; the permission dialog opens by itself once when the results map opens while location is denied."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:266"
+        status: passing
       - id: lakes.home.c21
         text: "/feed/lakes/home is called with the user's latitude/longitude (when granted), radiusKm (default 50) and limit 11, and cached 1h."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:343"
+        status: passing
+        web_note: "e2e: the located read carries lat/lng, radiusKm=50, limit=11; the 1h cache is the CMS's CDN-Cache-Control, honoured by lib/server/public-get.ts (verified in code)."
       - id: lakes.home.c22
         text: "Recently viewed lakes are read from local storage (max 10) every time the page gains focus and fetched by ids from /feed/lakes/by-ids (cached 24h, previous data kept while refetching)."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:350"
+        status: passing
       - id: lakes.home.c23
         text: "A floating „Vezi bălțile pe hartă” button (map icon) shows when the sections contain at least one lake; it opens the all-lakes results map with filters cleared."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:825"
+        status: passing
       - id: lakes.home.c24
         text: "While home sections or recently viewed lakes are loading, the home skeleton is shown instead of the sections."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:663"
+        status: passing
+        web_note: "Web: with the CMS Public grant the server prefetches the rows into the HTML (no skeleton at all; e2e «no patch: the server HTML lists the lakes»). The client skeleton / error / all-empty tests run against a dev server whose server-side CMS_URL is unreachable (they skip themselves when the HTML already lists the lakes) — run 2026-10-07: pass."
       - id: lakes.home.c25
         text: "When /feed/lakes/home fails and there are no sections, an error screen with „Încearcă din nou” (refetch) replaces the page. fish bug: the never-asked location placeholder counts as a section, so a failed read leaves that card alone with no word of the failure; the web shows the error whenever the failed read leaves no lake row (the placeholder is dropped)."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:659"
+        status: passing
+        web_note: "See c24 for how the client-side error states are reached in e2e."
       - id: lakes.home.c26
         text: "Refresh (pull-to-refresh in fish) reloads the recent ids, the home sections and the recently viewed lakes."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:480"
+        status: passing
+        web_note: "Web: no pull-to-refresh on a page; the browser reload is the refresh — it re-reads the recent ids from storage, /lakes/home and /feed/lakes/by-ids. e2e: a reload shows a lake viewed in another tab."
       - id: lakes.home.c27
         text: "The search row stays fixed while sections scroll under it, faded into the page background."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:817"
+        status: passing
+        web_note: "Phone: only the search + «Filtre» row sticks; the Bălți / Ape publice switch sits above it and scrolls away (the stuck block stays one control high). Once stuck: a hairline and a bg-page fade under the edge. e2e at 375."
       - id: lakes.home.c28
         text: "Analytics: one lake_home_section_impression per section with content (section_key, section_position, lakes_count) and lake_home_section_click (section_key, section_position, item_position, lake_id)."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:623"
+        status: passing
+        web_note: "From 768 the rows are one grid filtered by the category bar (owner rule 5): the grid shown is the section — one impression per category grid shown with content (section_key all_lakes for «Recomandate», else the category key: bookable, top_rated, nearby, fish:crap, night…; section_position = the category's 1-based place in the bar) and clicks carry that position. The phone keeps fish's rails and positions. e2e at 375 and 1440."
     mobile_only: false
     status: proposed
+    e2e: tests/e2e/balti-list.spec.ts
 
   # ───────────────────────────────────────────── search overlay
   - id: lakes.search
@@ -166,44 +204,58 @@ screens:
       - id: lakes.search.c1
         text: "Opens as a full-screen layer titled „Caută în Bălți” with a close button named „Închide”; the input gets focus after opening."
         fish_ref: "features/lakes/components/LakesSearchScreen.tsx:158"
+        status: passing
       - id: lakes.search.c2
         text: "The input placeholder is „Caută o baltă, județ sau localitate” and shows a loading indicator while suggestions load."
         fish_ref: "features/lakes/components/LakesSearchScreen.tsx:167"
+        status: passing
       - id: lakes.search.c3
         text: "With an empty term the first row is always „În jurul meu” / „Bălți în apropiere” (location icon), followed by the default suggestions."
         fish_ref: "features/lakes/components/LakesSearchScreen.tsx:108"
+        status: passing
       - id: lakes.search.c4
         text: "With an empty term and saved recents, a „Căutări recente” block lists them above the suggestions with a „Șterge tot” action that clears them; recents keep max 5, newest first, deduped by id, only county/city/lake picks (never „În jurul meu” nor free text)."
         fish_ref: "features/lakes/helpers/recentLakeSearches.ts:5"
+        status: passing
       - id: lakes.search.c5
         text: "Typing queries /feed/lakes/explore/suggestions in text mode (debounced); each row shows an icon by type (location, county pin, city building, lake waves) on its colored circle, the title (1 line) and the subtitle (2 lines)."
         fish_ref: "features/lakes/components/LakesSearchSuggestionsList.tsx:13"
+        status: passing
       - id: lakes.search.c6
         text: "While the term is debouncing or the first page is in flight with nothing to show, a skeleton is shown and the empty message never flashes."
         fish_ref: "features/lakes/components/LakesSearchScreen.tsx:94"
+        status: passing
       - id: lakes.search.c7
         text: "A non-empty term with no results shows „Nu am găsit rezultate pentru căutarea ta.” fish bug: the CMS answers every term with its „În jurul meu” row, so fish's empty-list message never shows; the web judges „no results” on the county/city/lake rows and shows the message above the nearby row."
         fish_ref: "features/lakes/components/LakesSearchScreen.tsx:213"
+        status: passing
       - id: lakes.search.c8
         text: "Suggestions page 20 at a time; reaching the end loads the next page with a spinner footer."
         fish_ref: "features/lakes/components/LakesSearchScreen.tsx:188"
+        status: passing
       - id: lakes.search.c9
         text: "Picking a lake suggestion saves it to recents and navigates straight to /balti/[id] (the search layer closes)."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:842"
+        status: passing
       - id: lakes.search.c10
         text: "Picking a county or city saves it to recents and opens the results map scoped to it, with the title as the search summary."
         fish_ref: "features/lakes/helpers/suggestionToCommittedSearch.ts:23"
+        status: passing
       - id: lakes.search.c11
-        text: "Picking „În jurul meu” requests geolocation: denied → permission dialog; position unavailable → services dialog; success → results map in nearby mode with radius 50 km and summary „În jurul meu · 50km”."
+        text: "Picking „În jurul meu” requests geolocation: denied → permission dialog; position unavailable → services dialog; success → results map in nearby mode with radius 50 km and summary „În jurul meu · 50 km” (unit spaced, owner rule 10; fish prints „50km”)."
         fish_ref: "features/lakes/components/LakesSearchScreen.tsx:116"
+        status: passing
       - id: lakes.search.c12
         text: "While the location request runs, a spinner shows in the input and a second tap on „În jurul meu” is ignored."
         fish_ref: "features/lakes/components/LakesSearchScreen.tsx:118"
+        status: passing
       - id: lakes.search.c13
         text: "Closing the layer resets the typed term."
         fish_ref: "features/lakes/components/LakesSearchScreen.tsx:71"
+        status: passing
     mobile_only: false
     status: passing
+    e2e: tests/e2e/balti-list.spec.ts
 
   # ───────────────────────────────────────────── filter panel
   - id: lakes.filters
@@ -237,44 +289,58 @@ screens:
       - id: lakes.filters.c1
         text: "Opened from „Filtre” the panel is titled „Filtre” and stacks Regim, Facilități, Rating, Rezervări, Pești in that order; opened from a chip it shows only that section, titled with its name."
         fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:533"
+        status: passing
       - id: lakes.filters.c2
         text: "Regim offers „C&R”, „Retinere”, „C&R + Retinere” (multi-select)."
         fish_ref: "features/lakes/helpers/lakeFilterOptions.ts:25"
+        status: passing
       - id: lakes.filters.c3
         text: "Facilități options come from /facilities and Pești options from /fishes (both cached 3h); each pill shows the facility glyph / species glyph (generic fish fallback)."
         fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:273"
+        status: passing
       - id: lakes.filters.c4
         text: "Multi-select section headers show the uppercase title, „· N” selected count, and a „Selectează tot” / „Deselectează tot” action that flips the whole section."
         fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:148"
+        status: passing
       - id: lakes.filters.c5
         text: "Facilități and Pești are clipped to 4 rows with an expand pill „Vezi toate facilitățile (N)” / „Vezi toți peștii (N)” that toggles to „Vezi mai puțin”; clipped options are not reachable by keyboard or screen reader."
         fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:206"
+        status: passing
       - id: lakes.filters.c6
         text: "Options already committed before opening are listed first, and order does not change while the user toggles."
         fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:320"
+        status: passing
       - id: lakes.filters.c7
         text: "Rating is single-select: „Orice” (no minimum) plus „Excelent”, „Foarte bun”, „Bun”, „Acceptabil” (CMS thresholds 4,5+ / 4,0+ / 3,5+ / 3,0+)."
         fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:394"
+        status: passing
       - id: lakes.filters.c8
         text: "Rezervări is a single on/off pill „Acceptă rezervări online” (bookableOnly)."
         fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:423"
+        status: passing
       - id: lakes.filters.c9
         text: "Selections are a draft until „Aplică”; closing (X „Închide” or backdrop) discards the draft; reopening starts from the committed filters."
         fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:296"
+        status: passing
       - id: lakes.filters.c10
         text: "The apply button shows the live result count for the draft and the current search: „Aplică · N bălți” (or „1 baltă”), plain „Aplică” while counting (/feed/lakes/explore/count)."
         fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:565"
+        status: passing
       - id: lakes.filters.c11
         text: "„Șterge” clears the shown section (all sections in all-mode) and is disabled when the draft has nothing selected there."
         fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:470"
+        status: passing
       - id: lakes.filters.c12
         text: "Option pills expose their selected state to assistive tech (role button + pressed/selected)."
         fish_ref: "features/lakes/components/LakeFilterPickerSheet.tsx:92"
+        status: passing
       - id: lakes.filters.c13
         text: "Committed filters are app-session state shared by home and results map (not persisted across reloads). Web: the shared state is /balti/harta's query string (web_route above): the home writes it when it opens the map, the map edits it in place, «Înapoi» to /balti drops it; a reload of the map keeps it (a link to a filtered map works) — owner to confirm."
         fish_ref: "atoms.ts:8"
+        status: passing
     mobile_only: false
     status: passing
+    e2e: tests/e2e/balti-list.spec.ts
 
   # ───────────────────────────────────────────── legacy full-screen filters (unreachable)
   - id: lakes.choose-filters
@@ -295,11 +361,15 @@ screens:
       - id: lakes.choose-filters.c1
         text: "The route is registered but no fish code navigates to it; the web builds no separate page and treats it as covered by lakes.filters (verify no inbound link exists before closing)."
         fish_ref: "app/(app)/_layout.tsx:65"
+        status: passing
+        web_note: "Verified 2026-10-07: «choose-lake-filters» appears in fish only as the Stack.Screen registration (grep over app, features, components, services, helpers); no page on the web."
       - id: lakes.choose-filters.c2
         text: "Its content (Facilități / Tipuri de pesti / Regim pills, „Șterge filtre”, „Aplică”) is a subset of lakes.filters; nothing here may be missing from lakes.filters."
         fish_ref: "app/(app)/lakes/choose-lake-filters.tsx:63"
+        status: passing
     mobile_only: false
     status: passing
+    e2e: tests/e2e/balti-list.spec.ts
 
   # ───────────────────────────────────────────── results map + list
   - id: lakes.results-map
@@ -327,7 +397,7 @@ screens:
     core:
       - "core/lakes: lakeMapClustersQuery, lakesInBboxInfiniteQuery, lakesFocusBboxQuery, lakeQuery, bboxBucketKey, makeLakesInBboxSignature"
       - "core/lakes: getLakeFilterChips, getLakesSearchSummary, getDistanceKm, formatNearbyDistanceKm, getLakeLocationSubtitle"
-      - "missing in core: getMapFocusRegion + COUNTRY_OVERVIEW_REGION + isGeographicSearchMode (fish features/lakes/helpers/getMapFocusRegion.ts), computeClusterTargetRegion (clusterTargetRegion.ts)"
+      - "core/lakes (domain/mapFocus.ts): getMapFocusRegion, resolveMapFocusRegion, COUNTRY_OVERVIEW_REGION, isGeographicSearchMode, computeClusterTargetRegion, nextLocateRadiusKm"
     states:
       - "first load (full skeleton until the first list page)"
       - "fetching after a pan/zoom („Se încarcă…” pill)"
@@ -339,85 +409,122 @@ screens:
       - "county/city bbox still resolving / bbox request failed (falls back to country)"
       - "location never_asked / denied / unavailable / granted (locate button)"
       - "nearby mode"
+      - "nearby URL without a position (a shared link / reload while location is never asked, denied or off: the all-lakes map, filters kept, no prompt)"
+      - "map zoomed out / panned west past the lakes' box (viewport west < 10 or < 0): the list still counts the lakes in view"
+      - "after «Șterge filtre» on a phone: the sheet stepped down (fish: its peek), the Romania overview in full view"
     criteria:
       - id: lakes.results-map.c1
-        text: "Map chrome: back control, a search pill showing the summary („În jurul meu · 50km”, the picked county/city name, or „Caută bălți, lacuri...”) that opens lakes.search, and a Filtre icon inside the pill that opens lakes.filters with all sections."
+        text: "Map chrome: back control, a search pill showing the summary („În jurul meu · 50 km”, the picked county/city name, or „Caută bălți, lacuri...”) that opens lakes.search, and a Filtre icon inside the pill that opens lakes.filters with all sections."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1345"
+        status: passing
+        web_note: "Owner rule 10 overrides fish's «50km»: the web summary (lakesSearchSummary, _list/url.ts) spaces the unit; core's getLakesSearchSummary stays the fish port. Nearby mode needs a position in hand (fish nearbyCommittedSearch): a ?aproape=1 URL reads it only when the permission is granted, else it drops to the all-lakes search without asking (state s11, e2e) — the pill never says «În jurul meu» unbacked."
       - id: lakes.results-map.c2
         text: "Back clears the search and every filter and returns to the Bălți home sections."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:554"
+        status: passing
       - id: lakes.results-map.c3
         text: "Filter chip rail in order Regim, Facilități, Rating, Rezervări, Pești; a chip is active when its filter is set; multi-select chips show the selected count; the Rating chip label becomes the tier name when set."
         fish_ref: "features/lakes/helpers/lakeFilterChips.ts:17"
+        status: passing
       - id: lakes.results-map.c4
         text: "The Rezervări chip toggles bookableOnly directly (no panel); every other chip opens lakes.filters for that one section."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1249"
+        status: passing
       - id: lakes.results-map.c5
         text: "Initial focus: county/city → padded bbox from /feed/lakes/focus-bbox; picked lake → its point; nearby → circle of the chosen radius around the user; no geographic anchor (all lakes / text / filters only) → Romania overview (45.94, 24.97; 6°×10°)."
         fish_ref: "features/lakes/helpers/getMapFocusRegion.ts:62"
+        status: passing
+        web_note: "Web: the no-anchor framing is Romania edge to edge in the map's free band (ROMANIA_FIT), not fish's phone-sized 6°×10° box; a picked lake opens its page (lakes.search.c9), so the lake-point branch has no web caller. e2e: the first list read is Romania (no anchor), 50 km around the user (nearby), the county box (c8 test)."
       - id: lakes.results-map.c6
-        text: "If the county/city bbox request fails, the map falls back to the Romania overview instead of staying on the skeleton; results stay scoped by the search."
+        text: "If the county/city bbox request fails, the map falls back to the Romania overview instead of staying on the skeleton. A county/city search only frames the map: pins and list are scoped by the viewport and the filters (/lakes/map-clusters and /lakes/in-bbox take no county/city), so after a pan the list shows any county's lakes in view."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:393"
+        status: passing
+        web_note: "Rewritten 2026-10-07 to the real behaviour (fish and web alike): the CMS map schemas strip countyId / cityId. Known mismatch on the same screen: the filter panel's «Aplică · N bălți» (/lakes/explore/count) IS scoped by the county/city, the list's «N bălți în această zonă» is scoped by the viewport. Real scoping would need countyId / cityId on in-bbox and map-clusters (owner decision; proposal in the private CMS patch notes, M1-lakes-search-scope)."
       - id: lakes.results-map.c7
         text: "Re-applying the same search re-centers the map (focus nonce) even though the search did not change."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:504"
+        status: passing
       - id: lakes.results-map.c8
         text: "For geographic searches, cluster and list requests wait until the focus region is applied, so the first fetch is for the focused viewport."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:763"
+        status: passing
       - id: lakes.results-map.c9
         text: "Markers come from /feed/lakes/map-clusters for the visible bbox, zoom, filters and search, refetched 250 ms after the map stops moving (cached 60s). Web: T2Map clusters in the browser (supercluster, the CMS's algorithm) and cannot draw server clusters, so the page reads /lakes/map-clusters once per filter set at a zoom where every lake is its own node (cached 60s) and lets T2Map cluster them; the list stays per viewport, 250 ms after the map stops. Kit gap: T2Map server-cluster nodes."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:784"
+        status: passing
       - id: lakes.results-map.c10
         text: "Cluster markers show the count; clusters over 10 use the large red style, others blue; activating a cluster zooms to its bbox padded ×1.4, never more than 2 zoom levels in at once."
         fish_ref: "features/lakes/helpers/clusterTargetRegion.ts:1"
+        status: passing
         web_note: "Web-specific (kit T2MapCluster, Fundații): fish's red/blue are not Fundații tokens (rose is reserved for live competitions), so > 10 clusters use the large style by size (64 vs 56 px) in the one accent family; count, zoom-to-bbox ×1.4 and the 2-level cap match fish."
       - id: lakes.results-map.c11
         text: "Activating a lake pin selects it: the list closes and a pin card appears."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1103"
+        status: passing
       - id: lakes.results-map.c12
         text: "Pin card: up to 3 photos (grey block when none; images fetched from the lake detail when the pin carries none), distance pill when location is known, close button, „Direcții” button, name, rating „★ 4.50 (N)” (hidden without reviews), location subtitle; activating the card opens /balti/[id]."
         fish_ref: "features/lakes/components/LakeMapPinCard.tsx:83"
+        status: passing
       - id: lakes.results-map.c13
         text: "„Direcții” offers navigation via Google Maps, Waze and Apple Maps to the lake coordinates."
         fish_ref: "components/NavigationSheet.tsx:83"
+        status: passing
       - id: lakes.results-map.c14
         text: "Closing the pin card returns to the list; coming back to this page from a lake also resets the pin card to the list."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1564"
+        status: passing
+        web_note: "Web: the route stays alive behind <Activity> (cacheComponents); the map drops the pin card when it is hidden, so Back from a lake shows the list (fixed 2026-10-07, e2e)."
       - id: lakes.results-map.c15
         text: "The list shows lakes inside the visible bbox (/feed/lakes/in-bbox, 7 per page, infinite scroll, spinner footer), headed „N bălți în această zonă” („1 baltă …”)."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1477"
+        status: passing
+        web_note: "Web: the list bbox is the viewport's intersection with the lakes' box (49 / 43 / 31 / 19): the CMS compares the stored coordinates as text, so a west bound under 10 or negative returns 0 lakes (local CMS: west=8 → 0, west=19 → 130). An empty intersection is the empty state without a read. e2e: a map zoomed out past west 10 still counts the lakes. CMS fix proposed privately (M1-lakes-bbox-numeric)."
       - id: lakes.results-map.c16
         text: "A list card shows a carousel of up to 3 photos, a distance pill when location is known, name, rating, location subtitle, facilities, fish species and regime; activating it opens /balti/[id]."
         fish_ref: "components/NewLakeCardWithCarouselHeader.tsx:20"
+        status: passing
+        web_note: "Web: one rating format for the lake list cards of /balti and /balti/harta (RatingInline): one decimal like fish MiniatureLakeCard plus the review count, «★ 4,8 (2)» — the same lake never reads 4,8 on one page and 4,83 on the other. The pin card keeps fish's two decimals (c12). e2e."
       - id: lakes.results-map.c17
         text: "No lakes in the viewport: „0 bălți în această zonă” + „Mărește harta sau modifică filtrele pentru a vedea bălțile.”"
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1509"
+        status: passing
       - id: lakes.results-map.c18
         text: "Until the first list page arrives a full results skeleton covers the map; later fetches show a floating „Se încarcă…” pill and a placeholder bar in place of the count."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1339"
+        status: passing
       - id: lakes.results-map.c19
         text: "Panning the map hides the list (phone); a floating „Vezi lista (N)” button brings it back. On desktop the list stays beside the map."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1372"
+        status: passing
       - id: lakes.results-map.c20
         text: "A „Șterge filtre” pill shows while any filter or search is active; it resets to all lakes with no filters and zooms back to the Romania overview."
         fish_ref: "app/(app)/(tabs)/lakes/index.tsx:578"
+        status: passing
+        web_note: "Web: from 768 «Resetează» at the end of the filter bar (T1 FilterBar); on a phone the floating «Șterge filtre» pill. e2e: both reset to /balti/harta, the next list read is the Romania overview. fish also drops the phone sheet to its PEEK snap (only the «N bălți în această zonă» header) so the country the zoom reveals is not half covered (LakesResultsWithMap.tsx:1573). Deviation: the T2 kit sheet has no peek snap (hidden · half · full), so the web hides the sheet and «Vezi lista (N)» brings it back (e2e at 375)."
       - id: lakes.results-map.c21
         text: "Locate button: services_off → services dialog; denied → permission dialog; never_asked → asks; then centers on the user at min(radius, 20) km; repeated presses while centered zoom in 5 km at a time down to 5 km."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1042"
+        status: passing
       - id: lakes.results-map.c22
         text: "The user's position is drawn on the map when location is granted."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1272"
+        status: passing
       - id: lakes.results-map.c23
         text: "List cards show the distance from the user when the location is known."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1517"
+        status: passing
       - id: lakes.results-map.c24
         text: "While the filter panel is open the list is hidden and restored to its previous state after."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:1128"
+        status: passing
+        web_note: "Phone: the sheet hides and comes back at its snap (e2e). From 768 the panel is the kit's modal dialog over the list, which stays as it was (e2e)."
       - id: lakes.results-map.c25
         text: "Analytics: lakes_map_results_view (once, bbox+zoom+search_mode), lakes_map_results_focus_applied, lakes_map_results_cluster_tap, lakes_map_results_pin_tap, lakes_map_results_locate_me, lakes_map_clear_filters, lakes_map_results_pin_card_view_page / _dismiss, lakes_pin_card_open_maps."
         fish_ref: "features/lakes/components/LakesResultsWithMap.tsx:771"
+        status: passing
     mobile_only: false
     status: proposed
+    e2e: tests/e2e/balti-list.spec.ts tests/e2e/templates-parity.spec.ts
 
   # ───────────────────────────────────────────── lake detail
   - id: lakes.detail

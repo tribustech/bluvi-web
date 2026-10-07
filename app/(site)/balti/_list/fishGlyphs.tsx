@@ -225,15 +225,35 @@ export function fishGlyphKey(name: string): string {
     .replace(/[̀-ͯ]/g, '');
 }
 
-/** The species glyph for `name`, or null (the caller draws the generic fish). */
-export function FishGlyph({ name, size = 18 }: { name: string; size?: number }) {
+/**
+ * The species glyph for `name`, or null (the caller draws the generic fish). `mono`: the same
+ * silhouette as line art in currentColor at 1.5 (no fill, no coloured fins or spots) — for a row of
+ * monochrome UI icons (the /balti category bar), where the coloured artwork would read as a
+ * selected state. The coloured artwork stays for species chips and cards.
+ */
+export function FishGlyph({ name, size = 18, mono = false }: { name: string; size?: number; mono?: boolean }) {
   const key = fishGlyphKey(name);
   const spec = SPECIES[key];
   if (!spec) return null;
   const Body = ARCHETYPES[spec.archetype];
+  const drawn: SpeciesSpec = mono
+    ? {
+        archetype: spec.archetype,
+        fill: 'none',
+        stroke: 'currentColor',
+        stripes: spec.stripes,
+        spikyDorsal: spec.spikyDorsal,
+        longWhiskers: spec.longWhiskers,
+      }
+    : spec;
   return (
-    <span data-fish-glyph={key} className="inline-flex shrink-0">
-      <Body size={size} spec={spec} />
+    <span
+      data-fish-glyph={key}
+      data-mono={mono ? '' : undefined}
+      // CSS beats the paths' strokeWidth attributes: one 1.5 line, as the outline icons beside it.
+      className={mono ? 'inline-flex shrink-0 [&_path]:[stroke-width:1.5]' : 'inline-flex shrink-0'}
+    >
+      <Body size={size} spec={drawn} />
     </span>
   );
 }
