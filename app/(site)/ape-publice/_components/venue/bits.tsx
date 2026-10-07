@@ -220,7 +220,7 @@ export function SwitchingBar({ on }: { on: boolean }) {
 export const SWITCHING_DIM = '[&_img]:opacity-50';
 
 /** One angler as a link to /pescari/<uid> once the web has that page (fish openAngler), else a block. */
-export function AnglerLink({ uid, label, className, children }: { uid: string; label: string; className?: string; children: ReactNode }) {
+export function AnglerLink({ uid, label, className, children }: { uid: string; label?: string; className?: string; children: ReactNode }) {
   if (!ON_WEB.angler) return <div className={className}>{children}</div>;
   return (
     <Link
@@ -237,7 +237,7 @@ export function AnglerLink({ uid, label, className, children }: { uid: string; l
  * Whether a photo failed to load. `onError` alone misses a photo that failed before hydration (the
  * server HTML's <img> errors before React listens), so the ref also reads a finished, empty image.
  */
-function usePhotoFailed(src: string | null | undefined) {
+export function usePhotoFailed(src: string | null | undefined) {
   const [failed, setFailed] = useState<string | null>(null);
   const check = useCallback(
     (img: HTMLImageElement | null) => {

@@ -129,20 +129,30 @@ function KpiTile({ label, value, unit, tone, art, testId }: { label: string; val
   );
 }
 
-/** c5 + c11–c13 from 1280: one bento — four figures, the chart (double tile), the two facts. */
-export function JournalBento({ stats, monthly }: { stats: JournalStats; monthly: MonthlyStats }) {
+/**
+ * The four figures as bento tiles, two by two (navy «Partide», indigo «Capturi», lavender
+ * «Cantitate», amber «Record»): the bento's figure block, and Istoric's summary column from 1280.
+ */
+export function JournalKpiGrid({ stats, label = 'Jurnalul tău în cifre', className }: { stats: JournalStats; label?: string; className?: string }) {
   const total = fmtKgStat(stats.totalKg);
   const record = fmtKgStat(stats.recordKg ?? 0);
+  return (
+    <div role="group" className={cn('grid grid-cols-2 gap-4', className)} aria-label={label}>
+      <KpiTile label="Partide" value={String(stats.partide)} tone="signature" art={<FishingRodIcon />} testId="bento-partide" />
+      <KpiTile label="Capturi" value={String(stats.capturi)} tone="indigo" art={<CatchIcon />} testId="bento-capturi" />
+      <KpiTile label="Cantitate" value={total.value} unit={total.unit} tone="lavender" art={<ScaleIcon />} testId="bento-cantitate" />
+      <KpiTile label="Record" value={record.value} unit={record.unit} tone="amber" art={<TrophyIcon />} testId="bento-record" />
+    </div>
+  );
+}
+
+/** c5 + c11–c13 from 1280: one bento — four figures, the chart (double tile), the two facts. */
+export function JournalBento({ stats, monthly }: { stats: JournalStats; monthly: MonthlyStats }) {
   const best = bestCatchView(monthly.bestCatch);
   const hours = hoursView(monthly);
   return (
     <div className="grid grid-cols-4 gap-4" data-testid="journal-bento">
-      <div role="group" className="col-span-2 grid grid-cols-2 gap-4" aria-label="Jurnalul tău în cifre">
-          <KpiTile label="Partide" value={String(stats.partide)} tone="signature" art={<FishingRodIcon />} testId="bento-partide" />
-          <KpiTile label="Capturi" value={String(stats.capturi)} tone="indigo" art={<CatchIcon />} testId="bento-capturi" />
-          <KpiTile label="Cantitate" value={total.value} unit={total.unit} tone="lavender" art={<ScaleIcon />} testId="bento-cantitate" />
-          <KpiTile label="Record" value={record.value} unit={record.unit} tone="amber" art={<TrophyIcon />} testId="bento-record" />
-      </div>
+      <JournalKpiGrid stats={stats} className="col-span-2" />
       <section aria-labelledby="ale-mele-chart" className="col-span-2 flex flex-col justify-between gap-4 rounded-bento bg-surface p-4.5 shadow-e0">
         <div className="flex items-baseline justify-between gap-3">
           <h3 id="ale-mele-chart" className="t-heading text-ink">

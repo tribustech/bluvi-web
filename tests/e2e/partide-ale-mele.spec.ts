@@ -360,7 +360,7 @@ test('c14 c16 — «În desfășurare»: the open partide as own cards with «Co
   const href = partideHrefs.partida(OPEN.documentId);
   if (href) {
     await expect(card.getByRole('link', { name: 'Continuă partida: Balta Moara Vlăsiei' })).toHaveAttribute('href', href);
-    await expect(card.getByRole('link', { name: 'Balta Moara Vlăsiei' })).toHaveAttribute('href', href);
+    await expect(card.getByRole('link', { name: 'Balta Moara Vlăsiei', exact: true })).toHaveAttribute('href', href);
   } else {
     await expect(card.getByRole('link')).toHaveCount(0);
   }

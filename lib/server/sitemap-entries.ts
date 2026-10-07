@@ -83,6 +83,8 @@ export function staticEntries(): Entry[] {
     { url: absoluteUrl(routes.partide()), changeFrequency: 'hourly', priority: 0.7 },
     // Partide · Explorează (partide.exploreaza), once its page is on the web.
     ...(partideHrefs.explore() ? [{ url: absoluteUrl(routes.partideExplore()), changeFrequency: 'hourly' as const, priority: 0.6 }] : []),
+    // Clasamente (partide.clasament): the bare page, the default period's ranking.
+    ...(partideHrefs.ranking() ? [{ url: absoluteUrl(routes.partideRanking()), changeFrequency: 'daily' as const, priority: 0.5 }] : []),
   ];
 }
 

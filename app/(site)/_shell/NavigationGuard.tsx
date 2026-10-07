@@ -23,6 +23,9 @@ export function NavigationGuard() {
       const a = (e.target as Element | null)?.closest?.('a[href]');
       if (!(a instanceof HTMLAnchorElement)) return;
       if ((a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+      // A link that opens a popover instead of navigating (owner rule 17, from 1024: aria-haspopup)
+      // is not a navigation: it neither counts nor blocks the popover's own link to the same page.
+      if (a.hasAttribute('aria-haspopup')) return;
       const url = new URL(a.href, location.href);
       if (url.origin !== location.origin) return;
       // An in-page anchor moves the scroll only: nothing to guard.

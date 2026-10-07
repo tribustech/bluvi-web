@@ -16,11 +16,11 @@ export const PARTIDE_PAGES_ON_WEB = {
   /** /partide/ale-mele — the hub's «Ale mele» tab (partide.ale-mele). */
   mine: true,
   /** /partide/istoric — the viewer's history (partide.istoric). */
-  history: false,
+  history: true,
   /** /partide/statistici — «Statistici comunitate» (partide.statistici). */
-  stats: false,
+  stats: true,
   /** /partide/clasament — «Clasamente» (partide.clasament). */
-  ranking: false,
+  ranking: true,
   /** /partide/capturile-mele — the viewer's catches (partide.capturile-mele). */
   myCatches: false,
   /** /partide/[id] — the partidă page, member or spectator view (lib/routes.ts ON_WEB.partida). */

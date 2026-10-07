@@ -163,14 +163,15 @@ export const routes = {
   /** The hub's «Ale mele» tab (partide.ale-mele; fish sub-tab `alemele`). */
   partideMine: () => '/partide/ale-mele',
   /**
-   * The viewer's history (fish partide/istoric): `perioada` week | month | year | all, `balta` a
-   * venue key («lake:<id>» / «water:<code>»), `rezultat` cu-capturi | fara-capturi. Defaults left out.
+   * The viewer's history (fish partide/istoric; parity partide.istoric): `sortare=greutate` (fish
+   * «Greutate»), one `balti` per venue name picked (fish's venue filter matches names), `cu-capturi=1`.
+   * Defaults left out.
    */
-  partideHistory: (filters: { perioada?: string; balta?: string; rezultat?: string } = {}) => {
+  partideHistory: (filters: { byWeight?: boolean; venues?: readonly string[]; withCaptures?: boolean } = {}) => {
     const q = new URLSearchParams();
-    if (filters.perioada) q.set('perioada', filters.perioada);
-    if (filters.balta) q.set('balta', filters.balta);
-    if (filters.rezultat) q.set('rezultat', filters.rezultat);
+    if (filters.byWeight) q.set('sortare', 'greutate');
+    for (const v of filters.venues ?? []) q.append('balti', v);
+    if (filters.withCaptures) q.set('cu-capturi', '1');
     const s = q.toString();
     return `/partide/istoric${s ? `?${s}` : ''}`;
   },

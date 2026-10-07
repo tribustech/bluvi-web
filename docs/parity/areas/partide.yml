@@ -1290,29 +1290,46 @@ screens:
       - id: partide.istoric.c1
         text: "Title „Istoric partide” with back; chips „Greutate” (sort toggle), venue chip („Baltă” / the venue name / „{n} bălți”) and „Cu capturi”."
         fish_ref: "app/(app)/partide/istoric.tsx:59-63,226-289"
+        status: passing
+        note: "e2e tests/e2e/partide-istoric.spec.ts (+ signed-out → /intra?next= with the filters, noindex, axe at 375 and 1440). Web: the chips are the T1 horizontal FilterBar (owner rule 2) plus T1 «Resetează» once any is on; back = in-app history, else Ale mele; the header carries the refresh (c8)."
       - id: partide.istoric.c2
         text: "Only finished partide are listed; default view groups them by month (newest month first, sticky month headers), newest first inside each month."
         fish_ref: "features/partide/helpers/historyView.ts:114-141"
+        status: passing
+        note: "e2e tests/e2e/partide-istoric.spec.ts + unit _history/view.test.ts. Month labels are sticky under the bar on UNDER_BAR_TOP (at 0 once the phone bar slides away), full bleed on the page ground, flagging the sticky stack (components/nav/stickyStack) so bar + label read as one header (owner rule 3; asserted at 375 and 1440). Each month is an auto-fill card grid from 768 (owner rule 5). Months follow the browser's local calendar (fish: the device's). From 1440 a summary column «În cifre» (Ale mele's four bento tiles via JournalKpiGrid: Partide · Capturi · Cantitate · Record over what the list shows, «Toate partidele încheiate» / «Pentru filtrele selectate») uses the width (owner rule 1); not at 1280, where a docked column would squeeze the cards under their width (asideFrom 2xl)."
       - id: partide.istoric.c3
         text: "„Greutate” switches to a flat list sorted by each partidă's record kg descending."
         fish_ref: "features/partide/helpers/historyView.ts:121-130"
+        status: passing
+        note: "e2e tests/e2e/partide-istoric.spec.ts + unit. ?sortare=greutate."
       - id: partide.istoric.c4
         text: "The venue filter dialog „Filtrează după baltă” is multi-select over the venues of the finished partide (alphabetical, ro collation) with helper = locality or „{n} partidă/partide”; applying filters by venue name."
         fish_ref: "app/(app)/partide/istoric.tsx:111-136,294-301"
+        status: passing
+        note: "e2e tests/e2e/partide-istoric.spec.ts + unit. A sheet below 768, a dialog from 768 (ResponsiveSurface); the draft is seeded per opening, «Aplică (n)» commits, X / Escape discard; local diacritic-insensitive search; «n selectate» via formatCount. Venue pictures: fish reads a capture photo, which the summary-only list never has, so the fish glyph shows, as in fish. One ?balti= per venue name. Web guard (the URL is a web addition): once the list has answered, a ?balti= none of the finished partide carries (old/shared link, renamed lake, last partidă there deleted) is dropped and the URL replaced, so the chip never names a venue the picker cannot uncheck (e2e ?balti=Inexistent)."
       - id: partide.istoric.c5
         text: "„Cu capturi” keeps only partide with at least one capture."
         fish_ref: "features/partide/helpers/historyView.ts:108-112"
+        status: passing
+        note: "e2e tests/e2e/partide-istoric.spec.ts + unit. ?cu-capturi=1."
       - id: partide.istoric.c6
         text: "Rows are own partidă cards, rendered 10 at a time as the list scrolls; changing any filter resets the window."
         fish_ref: "app/(app)/partide/istoric.tsx:57,168-197"
+        status: passing
+        note: "e2e tests/e2e/partide-istoric.spec.ts (25 rows → 10 → 20 → 25; «Cu capturi» and «Greutate» reset to 10; going BACK to an earlier, already grown combination also starts at 10 — the window is re-keyed on every change, as fish's reset effect) + unit windowSections. An IntersectionObserver sentinel 600px below the viewport (fish onEndReached + drawDistance); a wide screen fills its first viewport by loading the next windows."
       - id: partide.istoric.c7
         text: "Empty after filtering: „Nicio partidă pentru filtrele selectate.”; while the list is still loading: skeleton."
         fish_ref: "app/(app)/partide/istoric.tsx:303-314"
+        status: passing
+        note: "e2e tests/e2e/partide-istoric.spec.ts (skeleton under a delayed read; filtered-empty; a failed first read → «Istoricul nu s-a putut încărca.» + retry, owner rule 4). Web: with no filter on and no finished partidă at all the copy is Ale mele's «Nicio partidă încheiată încă.» (fish says «pentru filtrele selectate» with no filter on)."
       - id: partide.istoric.c8
         text: "Filter state is shared in memory with the session (not persisted) and refresh refetches the own-sessions list."
         fish_ref: "features/partide/domain/viewAtoms.ts:10-14"
+        status: passing
+        note: "e2e tests/e2e/partide-istoric.spec.ts. Filters live in the URL (replaceState: reload, back from a partidă and a shared link keep them; nothing else persists them). The header's «Reîmprospătează» refetches /feed/sessions/mine (fish pull-to-refresh)."
     mobile_only: false
-    status: todo
+    status: passing
+    visual: "tests/visual/partide-istoric.visual.spec.ts — months, none-finished, error, many (window), weight, venues + captures, filtered-empty (mocked /api/cms reads, Firestore faked) at 375/768/1280/1440/1920; baselines not committed until the owner approves"
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.statistici
@@ -1345,32 +1362,51 @@ screens:
       - id: partide.statistici.c1
         text: "Title „Statistici comunitate” with back; period chips „Săptămâna”, „Luna” (default), „Anul curent”."
         fish_ref: "features/partide/components/stats/PeriodChips.tsx:8-10"
+        status: passing
+        note: "e2e tests/e2e/partide-statistici.spec.ts. Web: back = history back inside the site, else /partide; the period in ?perioada= (replaced, Luna left out, an invalid value reads as Luna); the chips sit above the bento at every width."
       - id: partide.statistici.c2
         text: "Switching period keeps the previous numbers dimmed (40%) and non-interactive until the new period arrives."
         fish_ref: "app/(app)/partide/statistici.tsx:101,127"
+        status: passing
+        note: "e2e tests/e2e/partide-statistici.spec.ts (3s delayed week: opacity 0.4, inert, the previous figures and record tag kept, then the new period). Labels naming the period follow the figures (bits useShownPeriod)."
       - id: partide.statistici.c3
         text: "Error (no data or only placeholder): „Nu am putut încărca statisticile.” / „Verifică conexiunea și trage în jos pentru a reîncerca.”; empty: „Nicio partidă în comunitate pentru perioada selectată.”"
         fish_ref: "app/(app)/partide/statistici.tsx:104-142"
+        status: passing
+        note: "e2e tests/e2e/partide-statistici.spec.ts. Web: «trage în jos» becomes the T1 error card «Verifică conexiunea și încearcă din nou.» with «Încearcă din nou»; a failed switch shows the error (never the previous figures), the chips stay. Empty adds the wider-period action («Vezi luna» / «Vezi anul curent»)."
       - id: partide.statistici.c4
         text: "Totals strip: partide, pescari, capturi."
         fish_ref: "features/partide/components/stats/StatStrip.tsx:15-17"
+        status: passing
+        note: "e2e tests/e2e/partide-statistici.spec.ts. Bento (rules 9, 19): Partide the indigo headline tile, Pescari (lavender) and Capturi (sky) fact tiles; no kg (fish D1)."
       - id: partide.statistici.c5
         text: "Activity chart (when the series is non-empty) with scrubbing that shows „{n} captură/capturi · {label}”."
         fish_ref: "features/partide/components/stats/ActivityCard.tsx:20-31"
+        status: passing
+        note: "e2e tests/e2e/partide-statistici.spec.ts (keyboard Home/End and pointer hover name the bucket with seriesDetailLabels). The venue pages' ActivityChart, imported as is."
       - id: partide.statistici.c6
         text: "„Top pescari” (top 3: avatar, name or „Pescar”, „{n} partidă/partide · {n} captură/capturi”) links to the angler profile; the header link „Clasament ›” opens /partide/clasament."
         fish_ref: "app/(app)/partide/statistici.tsx:151-160"
+        status: passing
+        note: "e2e tests/e2e/partide-statistici.spec.ts (incl. tied kilos pinned to the server order). Counts with formatCount; unweighed kg «—»; the top 3 are the server order (kg, ties by uid), exactly fish slice(0, 3), no client re-sort. The row link is named by its content (place, name, counts, kg). «Clasament ›» through lib/partide-pages ranking(period), left out while off. Open: /partide/clasament still re-sorts ties (rankAnglers), so on tied kilos its podium can differ from this top 3 until one ordering is chosen."
       - id: partide.statistici.c7
         text: "Record hero (when present): photo or indigo gradient, the period tag, weight kg · species and meta; opens the record's partidă when it has a sessionDocumentId."
         fish_ref: "features/partide/components/stats/RecordHero.tsx:10-70"
+        status: passing
+        note: "e2e tests/e2e/partide-statistici.spec.ts (incl. a photo that 404s → the navy fallback). The navy signature tile (rule 19): photo under a scrim, else (no photo or it failed) navy with the trophy art; kg as a signature number with its own unit (rule 10); link through partidaHref."
       - id: partide.statistici.c8
         text: "„Top bălți” (top 5: image, name, „{localitate} · {n} partide”, rose „{n} LIVE” badge or „{n} capturi”) — rows with a lakeId open the lake page."
         fish_ref: "app/(app)/partide/statistici.tsx:28-58,164-173"
+        status: passing
+        note: "e2e tests/e2e/partide-statistici.spec.ts. Pill «{n} LIVE» (live tone); counts with formatCount («6 partide», «1 captură»)."
       - id: partide.statistici.c9
         text: "„Specii prinse”: one bar per species with its percentage."
         fish_ref: "app/(app)/partide/statistici.tsx:175-180"
+        status: passing
+        note: "e2e tests/e2e/partide-statistici.spec.ts. Bar = share of the track (fish), «64,5%» with the Romanian comma."
     mobile_only: false
-    status: todo
+    status: passing
+    note: "Web: app/(site)/partide/statistici (T5 bento). Static shell; the period's figures are the cached public read (/feed/community/stats, tag community-stats, lib/server/public-get) behind the ?perioada= Suspense, hydrated; JSON-LD BreadcrumbList + CollectionPage (totals, top 3), brand OG card «Statistici comunitate». Links to the page flip on via lib/partide-pages stats. Visual: tests/visual/partide-statistici.visual.spec.ts (baselines pending approval)."
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.clasament
@@ -1400,29 +1436,46 @@ screens:
       - id: partide.clasament.c1
         text: "Title „Clasamente”; period chips „Săptămâna” / „Luna” / „Anul curent”; the period is read from and written to the URL (invalid → luna)."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:229-250"
+        status: passing
+        note: "e2e tests/e2e/partide-clasament.spec.ts «c1 c2 c3 c4», «c1 c3 — an invalid period…». Web: the chips are the page's horizontal filter bar (owner rule 2) at every width; ?perioada= (luna left out) is replaced, never pushed (fish setParams); an invalid value reads as luna and the URL is cleaned. The default period is prerendered (cached public read, tag community-stats); another period is read in the browser. A deep link to another place (?perioada=week|year, ?tab=balti|specii) never paints the prerendered default place first: an inline script marks <head> while the HTML parses and the fallback paints the skeleton instead (e2e «c1 c8 — a deep link never paints the default place first», without the noprefetch cookie)."
       - id: partide.clasament.c2
         text: "A podium of the top 3 anglers (2nd · 1st (bigger) · 3rd): avatar or initials, first name, total kg, step coloured gold / silver / bronze; each opens the angler profile."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:23-87"
+        status: passing
+        note: "e2e tests/e2e/partide-clasament.spec.ts «c1 c2 c3 c4» (order 2·1·3, first name, kg with the unit apart, links to /pescari/[id]). Web: the kit MEDAL tokens (navy digit, AA); two equal first names get the last initial; nothing weighed shows the catches (podiumScoreText), never «0 kg»; from 1024 a place opens the person popover (rule 17). Avatars: initials on the solid tone, the same disc as the rows (RankingFace) and the popover, so an angler looks the same across the screen. Deliberate deviation (order): fish keeps the CMS order (kg desc, then uid); within a kg tie (nothing weighed is common) the web orders by catches, then partide — the venue family's order, also «Top pescari» on /partide/statistici — so the figure beside each place explains it (_ranking/place.ts rankingOrder; proposed server-side in docs/private/cms-patches/M1-community-ranking-ties.md). The podium, the rows, the «EU» pill and the JSON-LD ItemList read that one list (e2e «c2 c4 c7 — kg ties…»)."
       - id: partide.clasament.c3
         text: "Segmented control „Pescari” / „Bălți” / „Specii”."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:90-96"
+        status: passing
+        note: "e2e tests/e2e/partide-clasament.spec.ts «c3 keyboard». Web: the kit ListTabs as an ARIA tablist (← → Home End, roving focus) with counts as badges (owner rule 20); the tab is in ?tab= (pescari left out; invalid → pescari)."
       - id: partide.clasament.c4
         text: "„Pescari” lists ranks 4+ (rank badge, avatar, name, „{n} partide · {n} capturi”, total kg); with only the podium: „Doar podiumul are date pentru perioada asta.”"
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:328-339"
+        status: passing
+        note: "e2e tests/e2e/partide-clasament.spec.ts «c1 c2 c3 c4», «c4 — with only the podium». Web: a compact table (owner rules 12, 16: coloured header band, hairlines, content-sized figure columns, the centre capped at 800px); phone: the name over «n partide · n capturi» (formatCount), the kg on the right; from 768 Partide / Capturi columns and the avatar (rule 13); the viewer's row tinted with «Tu». Ranks 4+ follow the tie order of c2 (deliberate deviation, see c2)."
       - id: partide.clasament.c5
         text: "„Bălți” lists ranked venues (image, name, locality · partide, „{n} capturi”; lakes link to the lake page) or „Nicio baltă cu partide în această perioadă.”"
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:343-355"
+        status: passing
+        note: "e2e tests/e2e/partide-clasament.spec.ts «c5 c6», «c5 c6 phone», «c5 c6 — empty…». Web: same table look; a public water / pin is a plain row (fish onOpen undefined); the image falls back to the placeholder lake; phone: the catches bold with the noun apart and formatCount's «de» from 20 («40 de capturi», asserted in «c5 c6 phone»)."
       - id: partide.clasament.c6
         text: "„Specii” lists ranked species („{n} captură/capturi”, percentage) or „Nicio specie înregistrată în această perioadă.”"
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:357-366"
+        status: passing
+        note: "e2e tests/e2e/partide-clasament.spec.ts «c5 c6», «c5 c6 phone», «c5 c6 — empty…». Web: from 768 the share carries a bar; the % is its own smaller unit (rule 10)."
       - id: partide.clasament.c7
         text: "On „Pescari”, a signed-in viewer present in the ranking sees an „EU” pill: „Ești pe locul {rank} din {total} {perioadă} — {kg} kg”."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:188-210,266-270,369-371"
+        status: passing
+        note: "e2e tests/e2e/partide-clasament.spec.ts «c7 — a ranked viewer…», «c7 — a signed-in viewer outside… and a guest». Web: computed in the browser from the shell session (rule 4: nothing while unknown / signed out / not ranked); after the table below 1280 (fish order), in the right column from 1280; «din N pescari» with formatCount; fish «anul asta» written «anul ăsta»; no weight clause when nothing was weighed. The place is read from the tie-ordered list of c2 (deliberate deviation, see c2)."
       - id: partide.clasament.c8
         text: "Error: „Nu am putut încărca statisticile.” / „Verifică conexiunea și trage în jos pentru a reîncerca.”; empty: „Niciun clasament pentru perioada selectată încă.”; period switch dims the previous data."
         fish_ref: "features/partide/screens/AnglersLeaderboardScreen.tsx:272-318"
+        status: passing
+        note: "e2e tests/e2e/partide-clasament.spec.ts «c8 — error…», «c8 — empty period…», «c8 — a period switch…», «c8 — first load…». Web deviation: the error description says «Verifică conexiunea și încearcă din nou.» with the T1 retry button (no pull-to-refresh on the web); the empty period offers the wider period (the venue family's WiderPeriodAction); the switch keeps the old figures under the SwitchingBar, inert and aria-busy (the kit never dims text)."
     mobile_only: false
-    status: todo
+    status: passing
+    note: "Built in M4-B4. T1 on three columns from 1280: «Comunitate» pages (navigation) left, the ranking centre, the viewer's place and the period in numbers right. Rule 17 popover from 1024 (e2e «rule 17»). JSON-LD CollectionPage + ItemList of the prerendered default period; OG brand card partideRanking; sitemap entry. Visual baselines tests/visual/partide-clasament.visual.spec.ts (375/1280/1440/1920)."
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.pescari
