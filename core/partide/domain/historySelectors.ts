@@ -28,6 +28,11 @@ export function findMineListItem(mine: MySessionsData | undefined, clientId: str
   return mine?.data.find(d => d.clientId === clientId) ?? null;
 }
 
+/** The web's routes carry the documentId: the viewer's own list row for it, or null (not theirs). */
+export function findMineDocument(mine: MySessionsData | undefined, documentId: string): SessionListItemDTO | null {
+  return mine?.data.find(d => d.documentId === documentId) ?? null;
+}
+
 /**
  * fish `useOpenPartida`'s resolution: which of MY partide (by clientId) a community documentId
  * is — the live pointer first, then the cached `mine` list. `null` → open the spectator view.

@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { collectConsoleErrors } from './helpers/console';
+import { installFakeLive, type FakeLiveHandle } from './helpers/fake-live';
 import { CMS, qaJwt, signIn } from './helpers/session';
 
 /*
@@ -515,8 +516,15 @@ test('partide.spectator.c8 signed out: members with names («Pescar» without on
 });
 
 test.describe('signed in', () => {
-  test.beforeEach(async ({ context }) => {
+  // Signed in, /partide/* runs the live layer: the shared Firestore fake, so nothing can reach the
+  // shared Firebase project (helpers/fake-live.ts); a test fails if a Firebase request was tried.
+  let fake: FakeLiveHandle;
+  test.beforeEach(async ({ context, page }) => {
     await signIn(context, jwt);
+    fake = await installFakeLive(page);
+  });
+  test.afterEach(() => {
+    expect(fake.attempts, 'no request may reach Firebase').toEqual([]);
   });
 
   test('partide.spectator.c4 c5 first follow: intro dialog → follow + toast; again → unfollow «Notificări dezactivate.»', async ({ page }) => {
@@ -599,22 +607,28 @@ test.describe('signed in', () => {
     await expect(rows.nth(2)).toContainText('(tu)');
   });
 
-  test('partide.spectator.c1 the viewer\'s active partidă is checked (the spectator view stays meanwhile); their own is marked for the member view', async ({ page }) => {
+  test('partide.spectator.c1 the viewer\'s active partidă is checked (the spectator view stays meanwhile); their own opens the member view', async ({ page }) => {
+    // The pointer names this partidă; its live projection (the fake) is the member view's data.
+    await fake.seed({ docs: { c: { startedAt: new Date(NOW.getTime() - 3_600_000).toISOString(), status: 'active', lakeName: 'Balta Mock', hostUid: selfId, members: [], rods: [], catches: [] } } });
     const calls = await mockCms(page, { active: { documentId: LIVE }, activeDelayMs: 1500 });
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`/partide/${LIVE}`);
+    // Meanwhile: the public page (never a skeleton).
     await expect(page.getByRole('heading', { level: 1, name: 'Balta Mock' })).toBeVisible();
-    await expect(page.locator('[data-own]')).toHaveCount(0);
-    await expect(page.locator('[data-own]')).toHaveCount(1);
-    await expect(page.getByTestId('partida-skeleton')).toHaveCount(0);
+    await expect(page.getByTestId('partida-spectator')).toBeVisible();
+    // Then the member view (partide.partida, M4-B2).
+    await expect(page.getByTestId('partida-member-view')).toBeVisible();
+    await expect(page.getByTestId('partida-spectator')).toHaveCount(0);
     expect(calls.active).toBeGreaterThanOrEqual(1);
+    expect(await fake.subscribed()).toEqual(['c']);
   });
 
   test('partide.spectator.c1 someone else\'s partidă (or a failed check) renders the spectator view', async ({ page }) => {
     await mockCms(page, { active: { documentId: 'other' } });
     await open(page, ENDED);
     await expect(page.getByRole('heading', { level: 1, name: 'Balta Mock' })).toBeVisible();
-    await expect(page.locator('[data-own]')).toHaveCount(0);
+    await expect(page.getByTestId('partida-spectator')).toBeVisible();
+    await expect(page.getByTestId('partida-member-view')).toHaveCount(0);
   });
 });
 

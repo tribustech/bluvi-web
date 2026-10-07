@@ -12,9 +12,9 @@ import { ON_WEB, routes } from './routes';
  */
 export const PARTIDE_PAGES_ON_WEB = {
   /** /partide/exploreaza — the hub's «Explorează» tab (partide.exploreaza). */
-  explore: false,
+  explore: true,
   /** /partide/ale-mele — the hub's «Ale mele» tab (partide.ale-mele). */
-  mine: false,
+  mine: true,
   /** /partide/istoric — the viewer's history (partide.istoric). */
   history: false,
   /** /partide/statistici — «Statistici comunitate» (partide.statistici). */
@@ -25,6 +25,16 @@ export const PARTIDE_PAGES_ON_WEB = {
   myCatches: false,
   /** /partide/[id] — the partidă page, member or spectator view (lib/routes.ts ON_WEB.partida). */
   partida: ON_WEB.partida,
+  /** /partide/[id]?tab=lansete — the member view's «Lansete» tab (partide.partida-lansete). */
+  partidaLansete: false,
+  /** /partide/[id]?tab=jurnal — the member view's «Jurnal» tab (partide.partida-jurnal). */
+  partidaJurnal: false,
+  /** /partide/[id]?tab=galerie — the member view's «Galerie» tab (partide.partida-galerie). */
+  partidaGalerie: false,
+  /** /partide/[id]?tab=statistici — the member view's «Statistici» tab (partide.partida-statistici). */
+  partidaStatistici: false,
+  /** /partide/[id]?tab=setari — the member view's «Setări» tab (partide.partida-setari). */
+  partidaSetari: false,
   /** /partide/[id]/capturi — every catch of a partidă. */
   partidaCatches: false,
   /** /partide/[id]/galerie — the photos of a partidă. */

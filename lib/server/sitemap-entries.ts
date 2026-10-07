@@ -5,6 +5,7 @@ import { getClaimedPublicWaters, getLake, getLakesIndex, parseLakeCoordinates, t
 import { getNews } from '@/core/news';
 import { getCommunityHistory, getCommunityStats, getCommunityVenueCatches, VENUE_CATCHES_PAGE_SIZE, communityVenueKey, type CommunityStatsDTO, type CommunityVenueRef } from '@/core/partide';
 import type { Transport } from '@/core/transport';
+import { partideHrefs } from '@/lib/partide-pages';
 import { absoluteUrl, routes, type CompetitionTabStatus } from '@/lib/routes';
 
 /*
@@ -80,6 +81,8 @@ export function staticEntries(): Entry[] {
     { url: absoluteUrl(routes.competitions('completed')), changeFrequency: 'daily', priority: 0.6 },
     { url: absoluteUrl(routes.news()), changeFrequency: 'daily', priority: 0.6 },
     { url: absoluteUrl(routes.partide()), changeFrequency: 'hourly', priority: 0.7 },
+    // Partide · Explorează (partide.exploreaza), once its page is on the web.
+    ...(partideHrefs.explore() ? [{ url: absoluteUrl(routes.partideExplore()), changeFrequency: 'hourly' as const, priority: 0.6 }] : []),
   ];
 }
 

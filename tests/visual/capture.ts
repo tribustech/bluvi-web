@@ -23,6 +23,8 @@ export interface VisualState {
   /** File-name safe: becomes part of the PNG name. */
   name: string;
   signedIn?: boolean;
+  /** Runs before navigation: route mocks (page.route), a frozen clock (page.clock)… */
+  prepare?: (page: Page) => Promise<void>;
   /** Runs after navigation, before the capture (open a tab, scroll to a section…). */
   setup?: (page: Page) => Promise<void>;
   /** Extra selectors to mask for this state. */
@@ -68,9 +70,12 @@ export async function stabilize(page: Page) {
   await page.evaluate(async () => {
     await Promise.all(
       // Only rendered images: a lazy <img> inside a display:none subtree (e.g. a ≥1280-only aside)
-      // never loads, so its decode() would never settle.
+      // never loads, so its decode() would never settle. Neither does one scrolled out of a
+      // horizontal rail (the page scroll never reaches it): each decode waits 5 s at most.
       Array.from(document.images).map((img) =>
-        img.complete || img.getClientRects().length === 0 ? null : img.decode().catch(() => null),
+        img.complete || img.getClientRects().length === 0
+          ? null
+          : Promise.race([img.decode().catch(() => null), new Promise((r) => setTimeout(r, 5000))]),
       ),
     );
   });
@@ -87,6 +92,7 @@ export function captureRoute({ name, path, states, widths = VISUAL_WIDTHS, mask 
         test(`${state.name} · ${width}px`, async ({ page, context, request, baseURL }) => {
           await page.setViewportSize({ width, height: HEIGHT[width] ?? 900 });
           await applyState(context, state, request, baseURL);
+          if (state.prepare) await state.prepare(page);
           const res = await page.goto(path, { waitUntil: 'domcontentloaded' });
           expect(res?.status(), `${path} answers 200`).toBe(200);
           await stabilize(page);

@@ -165,7 +165,7 @@ export function HorizontalRail({
 type Edges = { prev: boolean; next: boolean };
 
 /** Whether the scroller has cards hidden before / after its viewport. */
-function useRailEdges(scroller: RefObject<HTMLElement | null>): Edges {
+export function useRailEdges(scroller: RefObject<HTMLElement | null>): Edges {
   const [edges, setEdges] = useState<Edges>({ prev: false, next: false });
   useEffect(() => {
     const el = scroller.current;

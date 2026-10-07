@@ -29,3 +29,6 @@ export * from './liveCompare';
 export * from './standSort';
 export * from './activitySeries';
 export * from './venueRail';
+export * from './partidaTabs';
+export * from './deepLinks';
+export * from './feedbackNudge';

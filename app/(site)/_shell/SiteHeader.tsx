@@ -76,6 +76,9 @@ const OWN_BAND_ROUTES: readonly RegExp[] = [
   // The booking flow (T4, booking.rezerva-*): its header's back control owns the way back, and the
   // grid step is a viewport-tall frame with no room for a band above it.
   /^\/balti\/[^/]+\/rezerva(\/(extra|confirmare))?\/?$/,
+  // Partide · Explorează (partide.exploreaza): a tab of the Partide hub, a section page like
+  // /partide — no band, so switching tabs never moves the header.
+  /^\/partide\/exploreaza\/?$/,
 ];
 
 export function ownsBreadcrumbBand(pathname: string): boolean {

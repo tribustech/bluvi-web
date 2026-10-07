@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SessionDetailDTO, SessionListItemDTO } from '../../schemas';
-import { findMineListItem, historyDetailView, resolveOwnPartidaClientId, selectPartideHistory } from '../historySelectors';
+import { findMineDocument, findMineListItem, historyDetailView, resolveOwnPartidaClientId, selectPartideHistory } from '../historySelectors';
 
 const item = (clientId: string, startedAt: string): SessionListItemDTO => ({
   documentId: `doc-${clientId}`,
@@ -47,6 +47,10 @@ describe('historySelectors', () => {
     expect(resolveOwnPartidaClientId('doc-b', null, mine)).toBe('b');
     expect(resolveOwnPartidaClientId('live', { documentId: 'live', sessionId: 'x' }, mine)).toBe('x');
     expect(resolveOwnPartidaClientId('other', null, mine)).toBeNull();
+    // The web's routes carry the documentId.
+    expect(findMineDocument(mine, 'doc-b')?.clientId).toBe('b');
+    expect(findMineDocument(mine, 'other')).toBeNull();
+    expect(findMineDocument(undefined, 'doc-b')).toBeNull();
   });
 
   it('falls back to the summary row until the detail loads, then maps events with the roster', () => {
