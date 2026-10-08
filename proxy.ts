@@ -46,5 +46,14 @@ export const config = {
     { source: '/partide/capturile-mele', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // M4: a partidă by its client id (PARTIDA_FINISHED / AUTO_CLOSE_WARN) — resolved per user.
     { source: '/partide/sesiune/:clientId', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    // M6 organizer (organizer.b.signed-out-gate): the panel and the create wizard, the edit wizard of
+    // a published competition, and the competition's management pages (sectors, allocation, scale,
+    // penalties). The role / author check is the page's (lib/server/require-organizer.ts).
+    { source: '/organizator/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    { source: '/concursuri/:id/editeaza/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    { source: '/concursuri/:id/sectoare', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    { source: '/concursuri/:id/alocare', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    { source: '/concursuri/:id/cantar/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    { source: '/concursuri/:id/penalizari/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
   ],
 };

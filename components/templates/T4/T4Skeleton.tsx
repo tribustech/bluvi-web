@@ -98,6 +98,8 @@ type Props = {
   /** The real back control (the flow's entry is known from the URL), so the title does not shift. */
   back?: T4Back;
   steps?: number;
+  /** The step the URL is on (1-based), when known: «Pasul 3 din 6» rather than 1. */
+  current?: number;
   offset?: T4Offset;
   /** Right column skeleton from 1280 (default true). */
   aside?: boolean;
@@ -125,6 +127,7 @@ export function T4Skeleton({
   title = 'Se încarcă…',
   back,
   steps = 3,
+  current = 1,
   offset = 'shell',
   aside = true,
   primaryLabel = 'Continuă',
@@ -174,7 +177,7 @@ export function T4Skeleton({
             title={title}
             eyebrow={eyebrow}
             back={back}
-            step={1}
+            step={current}
             total={steps}
             progress={<T4ProgressPlaceholder steps={steps} shimmer />}
             offset={offset}

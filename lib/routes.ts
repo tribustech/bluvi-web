@@ -5,6 +5,54 @@
  */
 export type CompetitionTabStatus = 'notStarted' | 'started' | 'completed';
 
+/** The organizer's registration filter on /concursuri/[id]/participanti (`filtru`). */
+export type ParticipantsFilter = 'in-asteptare' | 'aprobati' | 'respinsi';
+
+/**
+ * The create / edit competition wizard's steps, in order (fish step-basics, step-config,
+ * step-ranking, step-lake-sectors, step-stand-allocation, step-review).
+ */
+export const WIZARD_STEPS = ['detalii', 'configurare', 'clasament', 'lac-si-sectoare', 'standuri', 'revizuire'] as const;
+export type WizardStep = (typeof WIZARD_STEPS)[number];
+
+export type WizardOptions = {
+  /** Where the wizard returns to (fish returnTo). Only a same-origin relative path is kept (safeReturnPath). */
+  inapoi?: string;
+  /** The rich text field open over step 1 (organizer.rich-text-editor). */
+  editor?: 'descriere' | 'premii' | 'regulament';
+  /** The ranking type whose explanation is open over step 3 (organizer.ranking-explanation). */
+  explicatie?: string;
+};
+
+/**
+ * `raw` when it is a same-origin relative path («/organizator», «/concursuri/abc?tab=x»), else null:
+ * no scheme, no protocol-relative «//host», no backslash (browsers read «/\host» as «//host»), no
+ * control characters. Use it on every return target read from a URL (`inapoi`) before navigating.
+ */
+export function safeReturnPath(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string' || !raw.startsWith('/') || raw.startsWith('//')) return null;
+  if (raw.includes('\\') || /[\u0000-\u001f\u007f]/.test(raw)) return null;
+  try {
+    const base = 'https://bluvi.invalid';
+    const url = new URL(raw, base);
+    if (url.origin !== base) return null;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
+function wizardQuery(opts: WizardOptions & { ciorna?: string }): string {
+  const q = new URLSearchParams();
+  if (opts.ciorna) q.set('ciorna', opts.ciorna);
+  const back = safeReturnPath(opts.inapoi);
+  if (back) q.set('inapoi', back);
+  if (opts.editor) q.set('editor', opts.editor);
+  if (opts.explicatie) q.set('explicatie', opts.explicatie);
+  const s = q.toString();
+  return s ? `?${s}` : '';
+}
+
 /** The Concursuri tabs' own path segments (/concursuri/viitoare · /live · /rezultate). */
 export const COMPETITION_TAB_SLUG = { notStarted: 'viitoare', started: 'live', completed: 'rezultate' } as const satisfies Record<
   CompetitionTabStatus,
@@ -86,10 +134,11 @@ export const routes = {
   competitionRanking: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/clasament`,
   competitionInfo: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/informatii`,
   /**
-   * `filtru`: in-asteptare — the pending registrations (fish participantsFilter=pending, the
-   * NEW_REGISTRATION_ORGANIZER notification); read by the organizer's list (M6), ignored before.
+   * `filtru` (the organizer's registration filter, M6 organizer.participants): in-asteptare — the
+   * pending registrations (fish participantsFilter=pending, the NEW_REGISTRATION_ORGANIZER
+   * notification) · aprobati · respinsi. Ignored by the public list.
    */
-  competitionParticipants: (documentId: string, filtru?: 'in-asteptare') =>
+  competitionParticipants: (documentId: string, filtru?: ParticipantsFilter) =>
     `/concursuri/${encodeURIComponent(documentId)}/participanti${filtru ? `?filtru=${filtru}` : ''}`,
   /**
    * The registration form (participant.register; fish /register/[competitionId]). Organizer mode
@@ -235,6 +284,46 @@ export const routes = {
   /** Past polls (participant.polls-past; fish /polls/past). */
   pollsPast: () => '/sondaje/anterioare',
   organizer: () => '/organizator',
+  // ── M6 Organizer (docs/parity/areas/organizer.yml). Every page below is signed in only (proxy.ts)
+  // and gated server-side (lib/server/require-organizer.ts); the CMS stays the authority. ──
+  /**
+   * The create-competition wizard (organizer.wizard; fish create-competition/step-*). `ciorna`: a
+   * saved draft's documentId (fish draftId); `inapoi`: where «Închide» / publish-cancel returns
+   * (fish returnTo — a same-origin relative path, else left out); `editor`: the rich text field open
+   * over step 1 (organizer.rich-text-editor); `explicatie`: the ranking type whose explanation is
+   * open over step 3 (organizer.ranking-explanation).
+   */
+  organizerCompetitionNew: (pas: WizardStep, opts: WizardOptions & { ciorna?: string } = {}) =>
+    `/organizator/concursuri/nou/${pas}${wizardQuery(opts)}`,
+  /** The same wizard over a published, not-started competition (fish params.competitionId + returnTo). */
+  competitionEdit: (documentId: string, pas: WizardStep, opts: WizardOptions = {}) =>
+    `/concursuri/${encodeURIComponent(documentId)}/editeaza/${pas}${wizardQuery(opts)}`,
+  /** «Alocă standuri pe sectoare» (organizer.sectors; fish sector-stands/[competitionId]). */
+  competitionSectors: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/sectoare`,
+  /**
+   * «Alocă participanții pe standuri» (organizer.participants; fish allocate-participants). `mansa`:
+   * the feeder leg being seated (N > 1; leg 1 and every other type leave it out).
+   */
+  competitionAllocation: (documentId: string, mansa?: number) =>
+    `/concursuri/${encodeURIComponent(documentId)}/alocare${mansa && mansa > 1 ? `?mansa=${mansa}` : ''}`,
+  /** The scale's stand picker «Alege standul» (organizer.scale; fish scale/[competitionId]). */
+  competitionScale: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/cantar`,
+  /** One stand's weighings (organizer.scale-history; fish scale/[competitionId]/history). */
+  competitionScaleStand: (documentId: string, standId: string) =>
+    `/concursuri/${encodeURIComponent(documentId)}/cantar/${encodeURIComponent(standId)}`,
+  /** One weighing: add catches, sign, close (organizer.scale-weighing; fish scale/[competitionId]/[weighingId]). */
+  competitionScaleWeighing: (documentId: string, standId: string, weighingId: string) =>
+    `/concursuri/${encodeURIComponent(documentId)}/cantar/${encodeURIComponent(standId)}/${encodeURIComponent(weighingId)}`,
+  /** A weighing's change log (organizer.scale-revisions; fish weighing-revisions/[weighingId]). */
+  competitionScaleRevisions: (documentId: string, standId: string, weighingId: string) =>
+    `/concursuri/${encodeURIComponent(documentId)}/cantar/${encodeURIComponent(standId)}/${encodeURIComponent(weighingId)}/modificari`,
+  /** The penalties hub (organizer.penalties; fish penalties/[competitionId]); PENALTY notifications land here. */
+  competitionPenalties: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/penalizari`,
+  /** Pick the stand to penalise (organizer.penalties-select-stand). */
+  competitionPenaltiesStand: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/penalizari/stand`,
+  /** Apply a penalty to one registration (organizer.penalties-apply; fish penalties/[competitionId]/apply). */
+  competitionPenaltiesApply: (documentId: string, inscriere: string) =>
+    `/concursuri/${encodeURIComponent(documentId)}/penalizari/aplica?inscriere=${encodeURIComponent(inscriere)}`,
   /** The operator panel: one lake's, or the lake picker without one (operator.yml). */
   operator: (lakeId?: string) => (lakeId ? `/operator/${encodeURIComponent(lakeId)}` : '/operator'),
   operatorCalendar: (lakeId: string) => `/operator/${encodeURIComponent(lakeId)}/calendar`,

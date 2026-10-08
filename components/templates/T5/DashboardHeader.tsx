@@ -12,7 +12,7 @@ export interface DashboardHeaderProps {
    * history back, or `href` when the page was opened directly. From 768 the shell's breadcrumb band
    * takes over, so it is not rendered there.
    */
-  back?: { href: string; label?: string };
+  back?: { href: string; label?: string; inApp?: boolean };
   /** Trailing controls (refresh, a primary action). Icon-sized on a phone, labelled from 768. */
   actions?: ReactNode;
   className?: string;
@@ -41,7 +41,7 @@ export function DashboardHeader({ title, caption, back, actions, className }: Da
         // A 48px slot (the icon button's size below 1280), so the back chip and a trailing icon
         // button balance and the title stays optically centred.
         <span className="flex w-12 shrink-0 md:hidden">
-          <DetailBackButton fallbackHref={back.href} label={back.label} />
+          <DetailBackButton fallbackHref={back.href} label={back.label} inApp={back.inApp} />
         </span>
       ) : null}
       <div className={cn('flex min-w-0 flex-1 flex-col gap-0.5 md:text-left', back ? 'text-center' : 'text-left')}>

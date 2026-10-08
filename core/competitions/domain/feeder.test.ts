@@ -11,6 +11,9 @@ import {
   feederTabCount,
   feederWeight,
   futureLegMessage,
+  feederRoundActions,
+  previousLegSeats,
+  type FeederRoundState,
 } from './feeder';
 
 /* Ported from fish features/competitions/feeder-rounds/__tests__ (the model and the tab helpers). */
@@ -280,5 +283,56 @@ describe('currentLegOf (fish feederRoundActions.ts)', () => {
     expect(currentLegOf({ rankingType: 'feederRounds', currentRound: null })).toBeUndefined();
     expect(currentLegOf({ rankingType: 'quantity', currentRound: 2 })).toBeUndefined();
     expect(currentLegOf(null)).toBeUndefined();
+  });
+});
+
+/* Ported from fish feeder-rounds/__tests__/feederRoundActions.test.ts and feederRoundsTable.test.ts. */
+
+const comp = (o: Partial<FeederRoundState> = {}): FeederRoundState => ({
+  rankingType: 'feederRounds',
+  competitionStatus: 'started',
+  roundsCount: 2,
+  currentRound: 1,
+  roundStatus: 'running',
+  ...o,
+});
+const kinds = (c: FeederRoundState) => feederRoundActions(c)?.map(a => `${a.kind}:${a.round ?? ''}`);
+
+describe('feederRoundActions', () => {
+  it('is null for other ranking types and for competitions not started', () => {
+    expect(feederRoundActions(comp({ rankingType: 'quantity' }))).toBeNull();
+    expect(feederRoundActions(comp({ competitionStatus: 'notStarted' }))).toBeNull();
+    expect(feederRoundActions(comp({ competitionStatus: 'completed' }))).toBeNull();
+    expect(feederRoundActions(null)).toBeNull();
+  });
+  it('offers closing a running leg that is not the last', () => {
+    expect(kinds(comp())).toEqual(['closeRound:1']);
+  });
+  it('offers re-seating and starting the next leg once a leg is closed', () => {
+    expect(kinds(comp({ roundStatus: 'closed' }))).toEqual(['allocateNext:2', 'startNext:2']);
+  });
+  it('offers ending the competition from the last leg', () => {
+    expect(kinds(comp({ currentRound: 2 }))).toEqual(['end:']);
+    expect(kinds(comp({ roundsCount: 3, currentRound: 2 }))).toEqual(['closeRound:2']);
+  });
+  it('a single-leg competition goes straight to ending', () => {
+    expect(kinds(comp({ roundsCount: 1, currentRound: 1 }))).toEqual(['end:']);
+  });
+  it('labels and confirmations carry the leg', () => {
+    expect(feederRoundActions(comp({ roundStatus: 'closed' }))?.map(a => a.label)).toEqual(['Reașază pentru manșa 2', 'Pornește manșa 2']);
+    expect(feederRoundActions(comp())?.[0]).toMatchObject({
+      label: 'Închide manșa 1',
+      confirmation: 'Închizi manșa 1? Cântarele ei nu mai pot fi redeschise.',
+    });
+    expect(feederRoundActions(comp({ roundStatus: 'closed' }))?.[1].confirmation).toBe('Pornești manșa 2? Standurile trase sunt salvate?');
+  });
+});
+
+describe('previousLegSeats', () => {
+  it('maps each entrant to where they fished in the leg before', () => {
+    const ion = row({ registrationId: 'r1', rounds: [cell(1, { sectorName: 'A', standName: '7' })] });
+    const absent = row({ registrationId: 'r2', rounds: [cell(1, { sectorName: null, standName: null, points: null })] });
+    expect(previousLegSeats([ion, absent], 2)).toEqual({ r1: 'M1: A/7' });
+    expect(previousLegSeats([ion], 1)).toEqual({});
   });
 });

@@ -209,3 +209,79 @@ export function currentLegOf(
 ): number | undefined {
   return c?.rankingType === 'feederRounds' && c.currentRound != null ? c.currentRound : undefined;
 }
+
+/* ------------------------------------------------------------------ */
+/* Leg actions — fish features/competitions/feeder-rounds/feederRoundActions.ts */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The leg state the CMS exposes on the competition detail. Mirrors fir-intins-cms
+ * src/api/competition/services/feeder-rounds-lifecycle.ts — the server re-checks every action.
+ */
+export type FeederRoundState = {
+  rankingType?: string | null;
+  competitionStatus?: string | null;
+  roundsCount?: number | null;
+  currentRound?: number | null;
+  roundStatus?: string | null;
+};
+
+export type FeederRoundAction = {
+  kind: 'closeRound' | 'allocateNext' | 'startNext' | 'end';
+  label: string;
+  round?: number;
+  confirmation?: string;
+};
+
+/**
+ * fish `feederRoundActions`: the organizer actions of a feeder-on-legs competition («manșe»).
+ *
+ *   leg n running, not last → Închide manșa n
+ *   leg n closed            → Reașază pentru manșa n+1, Pornește manșa n+1
+ *   last leg running        → Încheie concursul (the existing end endpoint)
+ *
+ * Before the start, the existing «Start concurs» starts leg 1. Null for every other competition.
+ */
+export function feederRoundActions(c: FeederRoundState | null | undefined): FeederRoundAction[] | null {
+  if (!c || c.rankingType !== 'feederRounds' || c.competitionStatus !== 'started') return null;
+  const current = c.currentRound ?? 1;
+  const isLast = current >= (c.roundsCount ?? 0);
+
+  if (c.roundStatus === 'closed') {
+    const next = current + 1;
+    return [
+      { kind: 'allocateNext', round: next, label: `Reașază pentru manșa ${next}` },
+      {
+        kind: 'startNext',
+        round: next,
+        label: `Pornește manșa ${next}`,
+        confirmation: `Pornești manșa ${next}? Standurile trase sunt salvate?`,
+      },
+    ];
+  }
+  if (isLast) {
+    return [{ kind: 'end', label: 'Încheie concurs', confirmation: 'Ești sigur că vrei să închei competiția?' }];
+  }
+  return [
+    {
+      kind: 'closeRound',
+      round: current,
+      label: `Închide manșa ${current}`,
+      confirmation: `Închizi manșa ${current}? Cântarele ei nu mai pot fi redeschise.`,
+    },
+  ];
+}
+
+/**
+ * fish feederRoundsTable.ts#previousLegSeats: registration documentId → «M{n-1}: sector/stand», the
+ * seat each entrant had in the previous leg (shown while the organizer re-seats for leg `round`).
+ */
+export function previousLegSeats(rankings: readonly FeederRoundsRanking[], round: number): Record<string, string> {
+  const prev = round - 1;
+  const out: Record<string, string> = {};
+  for (const r of rankings) {
+    const c = r.rounds?.find(x => x.round === prev);
+    if (c?.sectorName && c.standName) out[r.registrationId] = `M${prev}: ${c.sectorName}/${c.standName}`;
+  }
+  return out;
+}

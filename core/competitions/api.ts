@@ -400,6 +400,49 @@ export async function getCompetitionTimelineSnapshot(t: Transport, competitionId
 }
 
 /* ------------------------------------------------------------------ */
+/* Feeder on legs («manșe») — fish services/api/competitions.ts:160-185 */
+/* ------------------------------------------------------------------ */
+
+// Leg actions, author or referee only (fir-intins-cms src/api/feed/routes/25-feeder-rounds.ts,
+// controllers/feeder-rounds.ts). Errors carry the server's Romanian message. fish ignores the
+// bodies; they are parsed here so a contract break shows up.
+const feederLegStateSchema = z.object({
+  data: z.object({ currentRound: z.number(), roundStatus: z.enum(['running', 'closed']) }),
+});
+const feederAllocationResultSchema = z.object({ data: z.object({ round: z.number(), allocated: z.number() }) });
+
+/** fish `services/api/competitions.ts#closeFeederRound` */
+export function closeFeederRound(t: Transport, competitionId: string) {
+  return call(t, { method: 'POST', path: `/feed/competitions/${enc(competitionId)}/rounds/close`, auth: 'required' }, feederLegStateSchema);
+}
+
+export type AllocateFeederRoundParams = {
+  competitionId: string;
+  round: number;
+  /** registration documentId → stand documentId */
+  allocations: Record<string, string>;
+};
+
+/** fish `services/api/competitions.ts#allocateFeederRound` */
+export function allocateFeederRound(t: Transport, { competitionId, round, allocations }: AllocateFeederRoundParams) {
+  return call(
+    t,
+    {
+      method: 'PUT',
+      path: `/feed/competitions/${enc(competitionId)}/rounds/${enc(String(round))}/allocation`,
+      body: { allocations },
+      auth: 'required',
+    },
+    feederAllocationResultSchema
+  );
+}
+
+/** fish `services/api/competitions.ts#startNextFeederRound` */
+export function startNextFeederRound(t: Transport, competitionId: string) {
+  return call(t, { method: 'POST', path: `/feed/competitions/${enc(competitionId)}/rounds/start`, auth: 'required' }, feederLegStateSchema);
+}
+
+/* ------------------------------------------------------------------ */
 /* fish services/api/registrations.ts                                 */
 /* ------------------------------------------------------------------ */
 

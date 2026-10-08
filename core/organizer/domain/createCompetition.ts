@@ -45,6 +45,8 @@ export const createCompetitionSchema = z.object({
     'Numărul de pești trebuie să fie între 1 și 100.'
   ),
   bestOfTierSizes: z.array(z.number().int().positive()).optional(),
+  // Feeder on legs ("manșe"): '2' or '3'.
+  roundsCount: z.string().optional(),
   numberOfWinners: optionalIntString(
     n => Number.isInteger(n) && n >= 1,
     'Numărul de câștigători trebuie să fie cel puțin 1.'
@@ -85,6 +87,7 @@ export type EditableCompetition = {
   gridRule?: string | null;
   bestOfFishCount?: number | null;
   bestOfTierSizes?: number[] | null;
+  roundsCount?: number | null;
   numberOfWinners?: number | null;
   lake?: { documentId?: string | null } | null;
   fishType?: { documentId: string }[] | null;
@@ -124,6 +127,7 @@ export function mapCompetitionToFormData(competition: EditableCompetition | null
     gridRule: competition?.gridRule || undefined,
     bestOfFishCount: competition?.bestOfFishCount?.toString() || undefined,
     bestOfTierSizes: competition?.bestOfTierSizes ?? undefined,
+    roundsCount: competition?.roundsCount?.toString() || undefined,
     numberOfWinners: competition?.numberOfWinners?.toString() || undefined,
     lake: competition?.lake?.documentId || undefined,
     fishSpeciesIds: (competition?.fishType || []).map(fish => fish.documentId),
@@ -154,6 +158,7 @@ export function mapDraftToFormData(draft: DraftCompetition): CreateCompetitionFo
     gridRule: draft.gridRule || undefined,
     bestOfFishCount: draft.bestOfFishCount?.toString() || undefined,
     bestOfTierSizes: draft.bestOfTierSizes ?? undefined,
+    roundsCount: draft.roundsCount?.toString() || undefined,
     numberOfWinners: draft.numberOfWinners?.toString() || undefined,
     lake: draft.lake?.documentId || undefined,
     fishSpeciesIds: meta?.fishSpeciesIds || [],
@@ -165,7 +170,30 @@ export function mapDraftToFormData(draft: DraftCompetition): CreateCompetitionFo
 
 // Postgres rejects "" for biginteger/integer columns — drop empty numeric fields
 // so the backend applies schema defaults instead of choking on the cast.
-const NUMERIC_FIELDS = ['registerFee', 'participantsLimit', 'teamParticipants', 'numberOfWinners', 'bestOfFishCount'] as const;
+const NUMERIC_FIELDS = [
+  'registerFee',
+  'participantsLimit',
+  'teamParticipants',
+  'numberOfWinners',
+  'bestOfFishCount',
+  'roundsCount',
+] as const;
+
+/**
+ * fish provider `buildPayload` draftMeta.completedSteps (c23) — which wizard steps hold enough to
+ * count as done (the panel's «Pas N/5»): 1 named, 2 type + a limit ≥ 1, 3 a ranking type, 4 a lake
+ * and ≥ 1 sector, 5 any stand allocated. Step 6 (review) is never stored.
+ */
+export function getCompletedSteps(values: CreateCompetitionFormData): number[] {
+  const steps: number[] = [];
+  if (values.name) steps.push(1);
+  const limitNum = values.participantsLimit ? Number(values.participantsLimit) : NaN;
+  if (values.competitionType && Number.isInteger(limitNum) && limitNum >= 1) steps.push(2);
+  if (values.rankingType) steps.push(3);
+  if (values.lake && (values.sectors?.length || 0) > 0) steps.push(4);
+  if (Object.values(values.standAllocations || {}).some(ids => ids.length > 0)) steps.push(5);
+  return steps;
+}
 
 /**
  * fish provider `buildPayload` — form values → the draft / organizer-edit request body.
@@ -201,19 +229,8 @@ export function buildCompetitionPayload(values: CreateCompetitionFormData): Reco
     ),
     sponsorIds: sponsorIds || [],
     fishSpeciesIds: fishSpeciesIds || [],
-    completedSteps: [],
+    completedSteps: getCompletedSteps(values),
   };
-
-  if (values.name) draftMeta.completedSteps.push(1);
-  {
-    const limitNum = values.participantsLimit ? Number(values.participantsLimit) : NaN;
-    if (values.competitionType && Number.isInteger(limitNum) && limitNum >= 1) {
-      draftMeta.completedSteps.push(2);
-    }
-  }
-  if (values.rankingType) draftMeta.completedSteps.push(3);
-  if (values.lake && (sectors?.length || 0) > 0) draftMeta.completedSteps.push(4);
-  if (Object.values(standAllocations || {}).some(ids => ids.length > 0)) draftMeta.completedSteps.push(5);
 
   const payload: Record<string, unknown> = { ...fields, draftMeta };
   const derivedRegistrationDeadline = getRegistrationDeadlineFromStartDate(values.startDate);

@@ -94,6 +94,8 @@ export const organizerCompetitionSchema = z.object({
   teamParticipants: z.number().nullish(),
   bestOfFishCount: z.number().nullish(),
   bestOfTierSizes: z.array(z.number()).nullish(),
+  // Feeder on legs (manșe): 1–3; null for every other ranking type.
+  roundsCount: z.number().nullish(),
   numberOfWinners: z.number().nullish(),
   minFishWeight: z.union([z.number(), z.string()]).nullish(),
   excludeBiggestCatch: z.boolean().nullish(),

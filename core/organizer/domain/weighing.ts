@@ -1,4 +1,5 @@
 import type { CatchData, WeighingByStand, WeighingDetail, WeighingRevision } from '../schemas';
+import { formatNationalStand } from '../../competitions/domain/nationalChampionship';
 
 /** fish `api/weighing.ts#getWeightingsTotal` body: sum of every catch of every weighing, 3 decimals. */
 export function sumWeighingsTotal(weighings: Pick<WeighingByStand, 'catches'>[]): string {
@@ -89,4 +90,21 @@ export function applyReopenToWeighings(
       weighing.documentId === weighingId ? { ...weighing, weighingStatus: 'started' as const } : weighing
     ) || []
   );
+}
+
+/**
+ * fish `helpers/formatStandLabel.ts`: «Stand A1(10)» for NC competitions (the national stand format
+ * with the draw position), otherwise «Sector A, Stand 10». Pure formatter — no queries.
+ */
+export function formatStandLabel(
+  isNc: boolean,
+  sectorName: string,
+  sectorDrawPosition: number | null | undefined,
+  standName: string | number | null | undefined
+): string {
+  const stand = standName == null ? '' : String(standName);
+  if (isNc) {
+    return `Stand ${formatNationalStand(sectorName, sectorDrawPosition ?? null, stand)}`;
+  }
+  return `Sector ${sectorName}, Stand ${stand}`;
 }

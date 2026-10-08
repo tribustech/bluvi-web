@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { ChevronLeftIcon } from '@heroicons/react/24/outline';
+import { useBack } from '@/components/nav/useBack';
 import { headerChipClass, type HeaderChipGround } from './DetailHeader';
 
 /**
@@ -16,9 +17,16 @@ export function DetailBackButton({
   ground,
   label = 'Înapoi',
   size,
+  inApp = false,
   className,
 }: {
   fallbackHref: string;
+  /**
+   * Back only when the previous page is this site's own (components/nav/useBack: the Navigation
+   * API's canGoBack), else `fallbackHref` — a page opened from a shared link or a new tab never sends
+   * the visitor off the site. Off: any history entry counts (the original behaviour).
+   */
+  inApp?: boolean;
   onPhoto?: boolean;
   ground?: HeaderChipGround;
   label?: string;
@@ -27,11 +35,12 @@ export function DetailBackButton({
   className?: string;
 }) {
   const router = useRouter();
+  const inAppBack = useBack(fallbackHref);
   return (
     <button
       type="button"
       aria-label={label}
-      onClick={() => (window.history.length > 1 ? router.back() : router.push(fallbackHref))}
+      onClick={() => (inApp ? inAppBack() : window.history.length > 1 ? router.back() : router.push(fallbackHref))}
       className={headerChipClass({ ground, onPhoto, size, className })}
     >
       <ChevronLeftIcon aria-hidden />

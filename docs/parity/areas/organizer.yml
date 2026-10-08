@@ -72,89 +72,146 @@ screens:
       - id: organizer.panel.c1
         text: "The page title is „Panou organizator”, with a back control that returns to the previous page, or to Acasă when there is no history."
         fish_ref: app/(app)/organizer/index.tsx:255-261
+        status: passing
+        web_note: "DashboardHeader «Panou organizator»; phone back chip = DetailBackButton inApp (components/nav/useBack: the previous page when it is the site's, else Acasă); from 768 the breadcrumb band «Acasă / Administrare / Panou organizator». e2e «c1 title + back …»."
       - id: organizer.panel.c2
         text: "A decorative organizer animation sits in the header corner; it plays once at 0.55× speed, holds the last frame 5 s and replays, and is hidden from assistive tech."
         fish_ref: app/(app)/organizer/index.tsx:616-630
+        status: passing
+        web_note: "_panel/OrganizerArt: aria-hidden SVG in the token colours (no Lottie), Web Animations API, one ~2.6 s pass, the end frame held 5 s (ART_HOLD_MS), then again; reduced motion: still. e2e «c2 the header art …»."
       - id: organizer.panel.c3
         text: "Four stat cards are shown in a 2×2 grid, in order: „Participanți în așteptare” (pendingRegistrations, amber), „Locuri libere” (emptySpots, indigo), „Rată de ocupare” (fillRate followed by %, green), „Total organizate” (totalOrganized, slate), each with its icon."
         fish_ref: app/(app)/organizer/index.tsx:64-75
+        status: passing
+        web_note: "_panel/stats StatTiles: bento buttons on their own surfaces (owner rule 19) — amber tint, indigo, mint, signature navy (fish's slate) — corner icons clock / users / chart-bar / trophy; «87 %» with the unit apart (rule 10); 2×2 on a phone, one row of four from 768. e2e «c3 …» against the real dashboard."
       - id: organizer.panel.c4
         text: "The pending-registrations value pulses (opacity loop) only while pendingRegistrations > 0; with reduced motion it must stay static."
         fish_ref: app/(app)/organizer/index.tsx:537
+        status: passing
+        web_note: "usePulse: WAAPI opacity 1↔0.6, 750 ms alternate, only when pendingRegistrations > 0 and not reduced motion. e2e «c4 …» (getAnimations: 1 / 0 reduced / none at 0)."
       - id: organizer.panel.c5
         text: "While the dashboard stats are loading and none are cached, a stats skeleton occupies the card area."
         fish_ref: app/(app)/organizer/index.tsx:521-525
+        status: passing
+        web_note: "StatTilesSkeleton while the dashboard has no data (also the route's PanelSkeleton). e2e «c5 / c16 loading …»."
       - id: organizer.panel.c6
         text: "Activating any stat card (or its compact chip) opens the stat detail panel for that key (pending, empty, fill, total)."
         fish_ref: app/(app)/organizer/index.tsx:241-244
+        status: passing
+        web_note: "Each tile and each compact chip is a button opening StatDetailPanel for its key. e2e «c6 c8 c9 c10 c11 …», «c7 …» (chip → Rată de ocupare)."
       - id: organizer.panel.c7
         text: "On scroll the cards collapse into a horizontal row of compact chips with short labels „În așteptare”, „Locuri libere”, „Ocupare”, „Organizate” and the same values."
         fish_ref: app/(app)/organizer/index.tsx:567-594
+        status: passing
+        web_note: "Once the tabs band pins under the top bar (usePinned) the tiles collapse into StatChips (short labels, same values and tones) inside the band; the heading above swaps out at the same height so the list never jumps; the band is attached to the top (owner rule 3). e2e «c7 …» (band top = bar bottom, first card's page offset unchanged)."
       - id: organizer.panel.c8
         text: "The stat detail panel has a colored dot and the title „Participanți în așteptare” / „Locuri libere” / „Rată de ocupare” / „Total organizate”."
         fish_ref: components/StatDetailSheet.tsx:32-58
+        status: passing
+        web_note: "ResponsiveSurface intent context: sheet <768, dialog 768–1279, docked SidePanel ≥1280 (Followers' dock); title per key, the coloured dot in the subtitle with the count. e2e «c6 c8 …»."
       - id: organizer.panel.c9
         text: "Stat detail rows are fetched 5 per page (infinite) and show: competition name (1 line), date range uppercased, a status badge (Ciornă gray, În viitor indigo, Live green, Încheiat gray, Anulat red), „X/Y participanți”, and a colored value pill: „N în așteptare”, „N locuri libere”, „N% ocupare” or „X/Y participanți”."
         fish_ref: components/StatDetailSheet.tsx:15-21
+        status: passing
+        web_note: "organizerStatDetailsInfiniteQuery pageSize 5; row: name (1 line), getDisplayedDate uppercased, status Tag (Ciornă/În viitor/Live/Încheiat/Anulat), «X/Y participanți», value pill in the stat's colour with plurals (formatCount: «1 loc liber»). e2e «c6 c8 c9 …», unit _panel/model.test.ts."
       - id: organizer.panel.c10
         text: "Stat detail panel shows a 5-row skeleton while loading, a spinner while the next page loads, and per-key empty messages: „Niciun participant în așteptare.”, „Nicio competiție cu locuri libere.”, „Nicio competiție activă.”, „Nu ai organizat nicio competiție încă.”."
         fish_ref: components/StatDetailSheet.tsx:179-207
+        status: passing
+        web_note: "5 row bones while loading, ListFooter spinner while the next page loads, per-key empty copy. e2e «c6 …» (skeleton, page 2, empty «Locuri libere»)."
       - id: organizer.panel.c11
         text: "Activating a stat detail row closes the panel and opens that competition's page (/concursuri/[id])."
         fish_ref: app/(app)/organizer/index.tsx:246-249
+        status: passing
+        web_note: "Rows are links to routes.competition(id) that close the panel. e2e «c6 …» (≥1280, real rows)."
       - id: organizer.panel.c12
         text: "Filter tabs are, in order, „Ciorne” (draft), „Viitoare” (notStarted), „Live” (started), „Încheiate” (completed), „Anulate” (cancelled); Ciorne is selected on first open."
         fish_ref: app/(app)/organizer/index.tsx:127-141
+        status: passing
+        web_note: "StatusTabs (the tab-bar look, owner rule 20): Ciorne · Viitoare · Live · Încheiate · Anulate, Ciorne first, ← → Home End. e2e «c3 …», «c12 c14 c15 …»."
       - id: organizer.panel.c13
         text: "Each tab shows a count badge only when its count > 0: draftsCount for Ciorne, byStatus.<status> for the others."
         fish_ref: app/(app)/organizer/index.tsx:218-227
+        status: passing
+        web_note: "Badges from the dashboard: draftsCount / byStatus.<status>, only > 0 (accessible name «Viitoare, 2»). e2e «c3 …» (real counts), «c17 …» (Ciorne, 2)."
       - id: organizer.panel.c14
         text: "Selecting a tab loads that status (10 per page) and scrolls back to the top; the tabs stay reachable (sticky) once scrolled past."
         fish_ref: app/(app)/organizer/index.tsx:447-450
+        status: passing
+        web_note: "A tab switch loads that status (10 a page) and scrolls to the top; the tabs live in the pinned band. e2e «c12 c14 c15 …»."
       - id: organizer.panel.c15
         text: "The list is a two-column grid; reaching the end loads the next page while there is one, with a spinner footer while fetching."
         fish_ref: app/(app)/organizer/index.tsx:634-655
+        status: passing
+        web_note: "Two columns on a phone, auto-fill ~224px columns from 768 (owner rule 5); ListFooter auto-loads the next page with a spinner. e2e «c12 c14 c15 …» (13 cards over 2 pages)."
       - id: organizer.panel.c16
         text: "While the first page loads the list shows a 3-row grid skeleton; when empty it shows „Nu ai ciorne. Creează o competiție nouă!” on Ciorne and „Nu ai competiții în această categorie.” elsewhere."
         fish_ref: app/(app)/organizer/index.tsx:656-667
+        status: passing
+        web_note: "6 card bones (3 rows of two) while the first page loads; empty copies per tab. e2e «c5 / c16 …», «c16 empty copies …»."
       - id: organizer.panel.c17
         text: "A draft card shows the banner (small → thumbnail → original) or, without banner, an indigo gradient placeholder with a pencil and „Ciornă”; below: name (2 lines), lake name with pin, start date „d MMM yyyy” with calendar, and „Pas N/5” where N is draftMeta.completedSteps length."
         fish_ref: components/MiniatureDraftCard.tsx:31-159
+        status: passing
+        web_note: "_panel/cards DraftCard: banner small → thumbnail → original, else the indigo gradient + pencil + «Ciornă»; name (2 lines), lake, «24 oct. 2026» (Romanian, Bucharest time), «Pas N/5». e2e «c17 c18 …»."
       - id: organizer.panel.c18
         text: "Activating a draft card opens the wizard at step 1 for that draft (?ciorna=[draftId]) with return target the panel."
         fish_ref: app/(app)/organizer/index.tsx:391-399
+        status: passing
+        web_note: "The card is one link to routes.organizerCompetitionNew('detalii', {ciorna, inapoi: '/organizator'}). e2e «c17 c18 …»."
       - id: organizer.panel.c19
         text: "A draft card's delete button asks „Ștergi această ciornă?” / „Ciorna va fi ștearsă definitiv și nu o vei mai putea recupera.” with „Renunță” and destructive „Șterge”."
         fish_ref: app/(app)/organizer/index.tsx:289-316
+        status: passing
+        web_note: "DeleteDraftDialog (decision surface): copy as fish, «Renunță» writes nothing. e2e «c19 c20 …»."
       - id: organizer.panel.c20
         text: "Confirming the draft delete shows a spinner on that card, deletes the draft, refetches dashboard stats and all organizer lists, then toasts „Ciorna a fost ștearsă.”; on failure toasts the server message or „A apărut o eroare la ștergerea ciornei.”."
         fish_ref: app/(app)/organizer/index.tsx:298-313
+        status: passing
+        web_note: "core deleteDraftMutation (awaits the invalidation of dashboard + every organizer list) — DELETE route-MOCKED in e2e (never a real write); spinner on the card's button; toasts «Ciorna a fost ștearsă.» / the bluCode message else «A apărut o eroare la ștergerea ciornei.». e2e «c19 c20 …»."
       - id: organizer.panel.c21
         text: "Non-draft tabs show compact competition cards; activating one opens /concursuri/[id]."
         fish_ref: app/(app)/organizer/index.tsx:406-409
+        status: passing
+        web_note: "_panel/cards CompetitionTile (fish compact CompetitionCard: photo, date, name, lake, X/Y pescari|echipe, «N în așteptare» while notStarted, type + ranking badges), one link to /concursuri/[id]. e2e «c21 c22 …»."
       - id: organizer.panel.c22
         text: "Only competitions with status notStarted show a red trash (cancel) button on their card; it is disabled with a spinner while that competition's cancel is pending."
         fish_ref: app/(app)/organizer/index.tsx:379-440
+        status: passing
+        web_note: "The red trash only on notStarted cards, aria-busy with a spinner while that cancel runs. e2e «c21 c22 …», «c23 c24 c25 …»."
       - id: organizer.panel.c23
         text: "The cancel dialog shows „Anulezi această competiție?”, the competition name, „Toți participanții vor primi o notificare și înscrierile lor vor fi anulate. Această acțiune nu poate fi anulată.”, and an optional „Motiv (opțional)” multiline field (placeholder „ex. Vreme nefavorabilă”, max 280, live counter „n / 280”)."
         fish_ref: components/CancelCompetitionSheet.tsx:63-95
+        status: passing
+        web_note: "CancelCompetitionDialog: title, name, consequence copy, «Motiv (opțional)» textarea (placeholder, maxlength 280, «n / 280»). e2e «c23 c24 c25 …»."
       - id: organizer.panel.c24
         text: "Cancel is confirmed only by a 1.5 s press-and-hold button „Ține apăsat pentru a șterge” (web: hold with pointer or keyboard, with an accessible alternative); „Renunță” closes; closing clears the reason."
         fish_ref: components/CancelCompetitionSheet.tsx:37-107
+        status: passing
+        web_note: "components/ui/HoldToConfirmButton: 1.5 s pointer hold or Space/Enter hold; assistive tech: a synthetic activation arms («Apasă din nou pentru a confirma»), a second confirms; a click or a short hold never confirms; «Renunță» closes and the reason is cleared. e2e «c23 c24 c25 …»."
       - id: organizer.panel.c25
         text: "Confirming sends the trimmed reason (omitted when blank), refetches dashboard, all organizer lists (incl. notStarted and cancelled) and the competition detail, then toasts „Competiția a fost anulată.” or, when result.failedNotifications > 0, „Competiția a fost anulată. Unii participanți ar putea să nu primească notificarea.”; errors toast the server message or „A apărut o eroare la anularea competiției.”."
         fish_ref: app/(app)/organizer/index.tsx:336-374
+        status: passing
+        web_note: "core cancelOrganizerCompetitionMutation (PUT /competitions/organizer/:id/cancel, body {reason} trimmed, {} when blank; invalidates dashboard, every organizer list, the competition) — route-MOCKED in e2e; toasts incl. the failedNotifications variant; errors keep the dialog open. e2e «c23 c24 c25 …», «c25 cancel failure …»."
       - id: organizer.panel.c26
         text: "Pull-to-refresh (web: a refresh action) refetches dashboard stats and every organizer competitions list."
         fish_ref: app/(app)/organizer/index.tsx:269-281
+        status: passing
+        web_note: "DashboardRefresh «Reîmprospătează»: refetch the dashboard + invalidate organizerKeys.competitionsRoot. e2e «c26 …»."
       - id: organizer.panel.c27
         text: "A primary „Creează competiție” button with a plus icon is always visible (fixed at the bottom on phone) and opens the wizard at step 1 with return target the panel."
         fish_ref: app/(app)/organizer/index.tsx:693-750
+        status: passing
+        web_note: "Phone: StickyActions fixed at the bottom; from 768 the header's primary button; → organizerCompetitionNew('detalii', {inapoi: '/organizator'}). e2e «c27 …»."
       - id: organizer.panel.c28
         text: "Dashboard, list and stat-detail requests are made only when the profile role is Organizer."
         fish_ref: services/queries/useOrganizerDashboard.ts:8-12
+        status: passing
+        web_note: "The page renders the panel only when requireOrganizer allows it (role Organizer); every query passes isOrganizer: true. A signed-in angler gets the gate and no /competitions/organizer request. e2e «c28 role-gate …»."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "/organizator — app/(site)/organizator (page, loading, error, _panel/*), T5. Per user through /api/cms (never cached, noindex). Gates: proxy.ts (signed out) + lib/server/require-organizer.ts (role). e2e tests/e2e/organizator-panou.spec.ts (22 tests, axe at 375/1280/1920, screenshots of every state at 375/1280/1440/1920 in .shots/organizator), unit _panel/model.test.ts. Writes are route-mocked only (tests/e2e/helpers/fake-organizer guardCmsWrites)."
 
   - id: organizer.wizard
     title: Asistent creare / editare competiție (cadru)
@@ -179,7 +236,7 @@ screens:
       - services/api/media.ts
       - models/organizer.type.ts
       - models/competition-edit-risk.type.ts
-    web_route: /organizator/concursuri/nou/[pas]
+    web_route: "/organizator/concursuri/nou/[pas] — edit: /concursuri/[id]/editeaza/[pas]"
     template: T4
     milestone: M6
     roles: [organizer]
@@ -205,7 +262,12 @@ screens:
       - core/lakes/queries.ts#lakeQuery
       - core/social/api.ts#uploadMedia
       - core/social/api.ts#uploadMediaAndAttachToEntity
-      - "(missing) publish/timeout copy + timeout recovery (fish helpers/createCompetitionPublishFeedback.ts, createCompetitionTimeoutRecovery.ts)"
+      - core/organizer/domain/createCompetition.ts#getCompletedSteps
+      - core/organizer/domain/publishFeedback.ts#buildTimeoutRecovery
+      - core/organizer/domain/publishFeedback.ts#getCreateCompetitionPublishStatus
+      - core/organizer/domain/publishFeedback.ts#getCreateCompetitionPublishJoke
+      - core/organizer/domain/rankingConfig.ts
+      - core/organizer/domain/rankingExplanations.ts
     states:
       - "new competition (no draft yet)"
       - "editing a saved draft (?ciorna=): hydrating skeleton, then the draft's values; delete action visible"
@@ -224,83 +286,136 @@ screens:
       - id: organizer.wizard.c1
         text: "The wizard has 6 steps with these titles: „Detalii de bază”, „Configurare competiție”, „Tip clasament”, „Lac și sectoare”, „Alocă standuri”, „Revizuire”; the header shows the current title and „Pasul N din 6”."
         fish_ref: app/(app)/create-competition/_layout.tsx:27-34
+        status: passing
+        web_note: "WIZARD_STEP_DEFS (_wizard/stepDefs.ts); T4Header h1 = the step title, «Pasul N din 6» on every width (phone too, as fish), the rail lists the six steps from 1280. e2e «c1 c3 c26», «c3 — phone». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c2
         text: "Next to „Pasul N din 6” an auto-save status appears: spinner + „Se salvează...”, cloud + „Salvat la HH:mm”, or warning (amber) + „Nu s-a putut salva automat”; nothing while idle."
         fish_ref: helpers/createCompetitionAutoSave.ts:14-25
+        status: passing
+        web_note: "AutoSaveStatus (WizardScreen.tsx): one role=status — T4Spinner «Se salvează...», CloudIcon «Salvat la HH:mm», amber ExclamationTriangle «Nu s-a putut salva automat», empty while idle (core formatAutoSaveLabel). Below 1280 after «Pasul N din 6 ·» in the sticky header (fish); from 1280 the header band scrolls away, so it lives in the sticky rail under the step list (useBreakpoint: one copy), with a caption true to the state: «Adaugă un nume ca să salvăm ciorna.» before a valid name, offline pause, «Încercăm din nou la următoarea modificare.» after a failure; edit mode «Modificările se aplică abia când le salvezi.». e2e «c2 c21 c23 c24» (rail caption, status in view after scroll), «c21 — a failed auto-save…». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c3
         text: "A 6-segment progress bar fills every segment up to and including the current step; activating any segment jumps to that step after flushing pending auto-save."
         fish_ref: app/(app)/create-competition/_layout.tsx:78-105
+        status: passing
+        web_note: "Phone–1279: T4Progress, 6 segments filled by position (wizardSegments); from 1280: T4StepList filled by the same rule (wizardSteps: every step before the current one done), the draft's completedSteps said apart under each title («Completat» / «De completat») — the layout never changes meaning at 1280. Every segment / step is a button; goTo flushes the auto-save first and changes the URL with the History API (state stays mounted). e2e «c1 c3 c26», «c3 — phone», «c3 — 1280», «c2 c21 c23 c24» (no write when nothing changed). Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c4
         text: "Back on steps 2–6 goes to the previous step (not browser history) after flushing auto-save; back on step 1 exits immediately when the form is clean, else opens „Salvezi progresul înainte de a ieși?” with the save action label and „Ies fără să salvez”."
         fish_ref: app/(app)/create-competition/_layout.tsx:202-229
+        status: passing
+        web_note: "Header back: «Pasul anterior» (goBack, flush) on 2–6; «Ieși din asistent» on 1: clean → exit, dirty → ExitDialog with the save label + «Ies fără să salvez». Web addition: useWizardLeaveGuard holds top-bar links and browser Back out of the wizard with the same dialog (steps never held), beforeunload on tab close. e2e «c1 c3 c26», «c4 c6», «c4 c5», «c4 (web)». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c5
         text: "The save action label is „Salvează modificările” when editing a draft or a competition, and „Salvează și ieși” for a new competition."
         fish_ref: contexts/CreateCompetitionContext.tsx:1294
+        status: passing
+        web_note: "core getSaveActionLabel(mode !== 'new'): a draft becomes «Salvează modificările» after its first auto-save too (fish isEditMode = draftId || competitionId). e2e «c4 c5», «c2 c21 c23 c24», «c10 c25», «edit mode c5 c11 c21». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c6
         text: "Exiting without saving goes to the return target if one was given, else to the competition page when editing a competition, else to /organizator."
         fish_ref: app/(app)/create-competition/_layout.tsx:195-200
+        status: passing
+        web_note: "model.exitTarget: ?inapoi= (same-site only, lib/routes safeReturnPath) → competition page in edit → /organizator. Leaving rewinds the step entries the wizard pushed, then replaces its first one (fish dismissTo). e2e «c4 c6» (return target, unsafe target ignored), «edit mode c11 c6». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c7
         text: "A red trash action appears in the header only for a saved draft (never when editing a published competition); it opens „Ștergi această ciornă?” / „Ciorna va fi ștearsă definitiv și nu o vei mai putea recupera.” with „Șterge ciorna” and „Renunță”."
         fish_ref: app/(app)/create-competition/_layout.tsx:334-394
+        status: passing
+        web_note: "IconButton «Șterge ciorna» (TrashIcon, danger) only for mode 'draft'; DeleteDraftDialog copy verbatim («Șterge ciorna» danger, «Renunță»). e2e «c7 c8», «c7 — no trash…» (new, edit). Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c8
         text: "Deleting the draft shows the progress dialog („Ștergere în curs...”, „Te rugăm să aștepți până finalizăm ștergerea ciornei.”), refetches dashboard + draft list, toasts „Ciorna a fost ștearsă.” and goes to /organizator; failure toasts the message or „A apărut o eroare la ștergerea ciornei.”."
         fish_ref: contexts/CreateCompetitionContext.tsx:1208-1252
+        status: passing
+        web_note: "deleteDraft: progress «Ștergere în curs...» + caption, DELETE (mocked), invalidates dashboard, drafts list and organizer lists (core deleteDraftMutation + fish keys), toast «Ciorna a fost ștearsă.», exit; a failure toasts the CMS message or the fallback. e2e «c7 c8». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c9
         text: "Saving with a name shorter than 3 characters opens „Adaugă un nume” / „Pentru a putea salva ciorna, competiția are nevoie de un nume (minim 3 caractere).” with „Completează numele”, which returns to step 1."
         fish_ref: app/(app)/create-competition/_layout.tsx:397-431
+        status: passing
+        web_note: "NameRequiredDialog («Completează numele» → step 1, focus on fieldIds.name once the step renders it). e2e «c9». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c10
         text: "Save-and-exit of a draft creates or updates it, uploads a newly picked banner and attaches it, refetches the dashboard and the draft list, then goes to /organizator (progress dialog: „Salvare în curs...”, 25 → 60 → 100%)."
         fish_ref: contexts/CreateCompetitionContext.tsx:932-964
+        status: passing
+        web_note: "saveAndExit (draft): progress 25 → 60 (banner) → 100, create/update, uploadMediaAndAttachToEntity (ref api::competition.competition, refId, field banner) for a picked banner, invalidates dashboard + drafts, exits (return target, else /organizator). e2e «c10 c25» (PUT then POST /upload with refId / field asserted, panel reached, Back does not reopen the wizard). Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c11
         text: "Saving an edited competition uploads a new banner first (bannerMediaId), toasts „Alocările pe standuri au fost resetate și trebuie refăcute.” when meta.allocationsReset, else „Modificările au fost salvate cu succes.”, refetches competition, dashboard, organizer lists, registrations, allocated participants, stand-per-sector allocations and rankings, and returns to the return target or the competition page."
         fish_ref: contexts/CreateCompetitionContext.tsx:671-721
+        status: passing
+        web_note: "persistCompetitionEdit: uploadMedia first → bannerMediaId / bannerMediaDocumentId, PUT confirmRiskChanges false, toast by meta.allocationsReset, invalidates competition, dashboard, organizer lists, registrations, allocated participants, stand-per-sector allocations, rankings (fish list), exits to the return target or the competition. e2e «edit mode c5 c11 c21» (upload → PUT order and body, reset toast, return target), «c11 c6» (success toast, competition page). Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c12
         text: "If the edit is refused with ORGANIZER:EDIT_RISK_CONFIRMATION_REQUIRED a dialog „Atenție: modificări cu impact” lists each risk message (lake changed, limit below registered, limit below allocated, stands invalid for new lake, sectors changed; fallback text otherwise), the counts „Participanți înscriși”, „Înscrieri în așteptare”, „Alocări pe standuri afectate”, and a checkbox „Confirm că înțeleg impactul și vreau să continui.”."
         fish_ref: app/(app)/create-competition/_layout.tsx:434-531
+        status: passing
+        web_note: "RiskDialog: messages via core getCompetitionEditRiskMessage (fallback for unknown codes), the three counts, the checkbox. e2e «c12 c13» (409 with risks / impact). Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c13
         text: "„Salvează oricum” is disabled until the impact checkbox is ticked; it resubmits with confirmRiskChanges and exits on success; „Renunță” closes and resets the checkbox."
         fish_ref: app/(app)/create-competition/_layout.tsx:262-268
+        status: passing
+        web_note: "«Salvează oricum» disabled until checked, resubmits with confirmRiskChanges true and exits; «Renunță» closes and resets the checkbox. e2e «c12 c13» (bodies false, false, true). Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c14
         text: "Edit errors with codes PARTICIPANTS_LIMIT_EXCEEDS_LAKE_STANDS, SECTORS_REQUIRED_FOR_UPDATE, INVALID_SECTOR_PAYLOAD, DUPLICATE_SECTOR_NAMES, STAND_ALLOCATIONS_INVALID_*, DUPLICATE_STAND_ALLOCATION, INVALID_PARTICIPANTS_LIMIT open „Modificări necesare” with the server message (fallback „Datele introduse nu sunt valide pentru salvare.”) and „Modifică și încearcă din nou”; other errors toast."
         fish_ref: contexts/CreateCompetitionContext.tsx:733-754
+        status: passing
+        web_note: "model.triageEditError + core EDIT_BLOCKING_VALIDATION_CODES → BlockingValidationDialog with the CMS message (fallback «Datele introduse nu sunt valide pentru salvare.»); anything else toasts. e2e «c14». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c15
         text: "While any save/publish/delete runs, a non-dismissable progress dialog shows the animation, a status line, a progress bar with the rounded percentage, and a caption; the page behind is inert and back is disabled."
         fish_ref: app/(app)/create-competition/_layout.tsx:571-647
+        status: passing
+        web_note: "ProgressDialog: kit Dialog as a modal <dialog> (page inert, alert, no close, Escape / backdrop ignored), FishingFloat (SVG SMIL float + ripples, still under reduced motion; no Lottie), status, role=progressbar + rounded %, caption; header back aria-disabled while busy. e2e «c10 c25», «c15–c18», «c7 c8». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c16
         text: "Publishing shows the stages „Pregătim competiția...”, „Încărcăm banner-ul competiției...” (only with a new banner), „Publicăm competiția...” and rotates a caption every 3.5 s through the 4 fishing jokes."
         fish_ref: helpers/createCompetitionPublishFeedback.ts:7-18
+        status: passing
+        web_note: "Stages and jokes from core publishFeedback (getCreateCompetitionPublishStatus, CREATE_COMPETITION_PUBLISH_JOKES, PUBLISH_JOKE_INTERVAL_MS 3.5 s); the banner stage only with a picked banner. e2e «c15–c18» (80%, joke 1 then joke 2). Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c17
         text: "Publishing without a banner first asks „Publicare fără fotografie” / „Nu ai adăugat o fotografie pentru competiție. În lista de competiții se va folosi imaginea lacului.” with „Înapoi” and „Continuă”."
         fish_ref: contexts/CreateCompetitionContext.tsx:1084-1098
+        status: passing
+        web_note: "NoBannerDialog before any write; «Înapoi» cancels, «Continuă» goes on. e2e «c15–c18». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c18
         text: "Publish creates or updates the draft, attaches a new banner, publishes it, refetches dashboard and organizer lists (incl. notStarted) and lands on /concursuri/[id]?fromPublish=1."
         fish_ref: contexts/CreateCompetitionContext.tsx:1114-1161
+        status: passing
+        web_note: "publish: create / update the draft, attach a picked banner, PUT …/publish, invalidates dashboard + organizer lists (incl. notStarted), exit to /concursuri/[id]?fromPublish=1 (PublishConfetti). e2e «c15–c18», «b.publish-landing». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c19
         text: "A publish failure opens „Publicarea a eșuat” with the message (fallback „A apărut o eroare la publicarea competiției.”), „Reîncearcă” (publishes again) and „Închide”."
         fish_ref: app/(app)/create-competition/_layout.tsx:649-685
+        status: passing
+        web_note: "PublishFailedDialog with the CMS message (fallback core PUBLISH_FAILED_FALLBACK_MESSAGE), «Reîncearcă» publishes again, «Închide». e2e «c19». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c20
         text: "After 60 s without an answer the progress dialog becomes a timeout notice with mode-specific copy (publish: „Publicarea durează mai mult decât estimăm”; delete: „Nu putem confirma ștergerea”; save: „Nu putem confirma salvarea”), „Rămâi aici” and „Verifică lista” / „Verifică competiția” which goes to /organizator or the competition."
         fish_ref: helpers/createCompetitionTimeoutRecovery.ts:16-52
+        status: passing
+        web_note: "core OPERATION_TIMEOUT_MS + buildTimeoutRecovery (destination tagged: organizer / competition); the dialog becomes the notice with «Rămâi aici» and «Verifică lista» / «Verifică competiția». e2e «c20 — 60 s…» (publish, page.clock), «edit mode c20» (save). Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c21
         text: "Auto-save runs only when online, not editing a published competition, not already in flight, the form is dirty and the name has ≥ 3 characters; it is debounced 500 ms, retried once after 5 s on failure, and creates the draft on first save."
         fish_ref: contexts/CreateCompetitionContext.tsx:767-855
+        status: passing
+        web_note: "autoSaveDraft: core shouldAttemptAutoSave (online, not edit, not in flight, dirty, name ≥ 3), _wizard/autosave.ts scheduler 500 ms (unit), one retry after 5 s and then the error state with NO reschedule (as fish: the next edit or blur tries again), first save POSTs and the draft id goes into the URL (?ciorna=, web: a reload reopens it); edits typed during a successful save get their own save. Save-and-exit / publish / delete stand auto-save down before awaiting the in-flight one (operationRunningRef: no retry, no timer beside the operation). e2e «c2 c21 c23 c24», «c21 — a failed auto-save…» (no write in the 7 s after the amber state), «c21 c10 — «Salvează și ieși» during the auto-save retry» (one draft created), «c21 c22 — offline», «edit mode c5 c11 c21». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c22
         text: "Save, publish and delete while offline toast „Nu ai conexiune la internet. Conectează-te și încearcă din nou.” and do nothing."
         fish_ref: contexts/CreateCompetitionContext.tsx:881-885
+        status: passing
+        web_note: "core OFFLINE_ACTION_MESSAGE toast (danger) on save, publish and delete while navigator is offline; nothing is sent. e2e «c21 c22 — offline». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c23
         text: "The saved draftMeta.completedSteps contains 1 when named, 2 when type + limit ≥ 1, 3 when a ranking type is set, 4 when a lake and ≥ 1 sector, 5 when any stand is allocated (drives „Pas N/5” on the panel)."
         fish_ref: contexts/CreateCompetitionContext.tsx:528-552
+        status: passing
+        web_note: "core getCompletedSteps (unit) in buildCompetitionPayload draftMeta. e2e «c2 c21 c23 c24» ([1] then [1,2,3,4,5]). Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c24
         text: "Every payload sets registrationDeadline = startDate, drops empty numeric fields (fee, limit, team size, winners, best-of count, legs) and sends description/reward/regulation as Strapi blocks."
         fish_ref: contexts/CreateCompetitionContext.tsx:513-566
+        status: passing
+        web_note: "core buildCompetitionPayload (unit): registrationDeadline = startDate, registerFee / participantsLimit / teamParticipants / numberOfWinners / bestOfFishCount / roundsCount dropped when empty, blocks via htmlToStrapiBlocks. e2e «c2 c21 c23 c24», «edit mode c5 c11 c21». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c25
         text: "Opening a draft or competition shows a form skeleton until it is loaded and its lake (with stands) is fetched; a load failure shows „Eroare” / „Nu am putut încărca datele competiției. Te rugăm să încerci din nou.” then goes back (or home)."
         fish_ref: contexts/CreateCompetitionContext.tsx:413-496
+        status: passing
+        web_note: "WizardSkeleton (T4Skeleton, fish DraftLoadingSkeleton sections) until the draft / competition and its lake (lakeQuery) are in; a failed read → HydrationErrorDialog «Eroare» → back in app, else home. e2e «c10 c25» (held read), «c25 — a draft that cannot be loaded». Spec tests/e2e/organizator-asistent.spec.ts."
       - id: organizer.wizard.c26
         text: "„Următorul pas” on each step flushes auto-save before moving to the next step."
         fish_ref: components/create-competition/NextStepButton.tsx:11-18
+        status: passing
+        web_note: "«Următorul pas» (frame action bar, steps 1–5) = goNext, which flushes the auto-save first. e2e «c1 c3 c26», «c2 c21 c23 c24» (the PUT lands on «Următorul pas»). Spec tests/e2e/organizator-asistent.spec.ts."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "Frame only (M6-B1): the six step bodies, the rich text editor and the ranking explanation panel are stubs with their final signatures (_wizard/context.tsx header = the contract for M6-B2…B4); the e2e drives values through the dev-only seam window.__bluviWizard until the steps exist. Spec tests/e2e/organizator-asistent.spec.ts (27 tests, every write route-mocked)."
 
   - id: organizer.step-basics
     title: Detalii de bază
@@ -884,7 +999,9 @@ screens:
     core:
       - core/competitions/queries.ts#competitionQuery
       - core/organizer/queries.ts#allocatedParticipantsQuery
-      - "(missing) formatNationalStand"
+      - core/competitions/domain/nationalChampionship.ts#formatNationalStand
+      - core/competitions/queries.ts#userStatuteForCompetitionQuery
+      - core/organizer/domain/weighing.ts#formatStandLabel
     states:
       - "loading"
       - "error (retry)"
@@ -895,20 +1012,31 @@ screens:
       - id: organizer.scale.c1
         text: "The title is „Alege standul”; loading and error (retry refetches competition and allocations) states are shown."
         fish_ref: app/(app)/scale/[competitionId]/index.tsx:47-57
+        status: passing
+        web_note: "ManagementFrame (app/(site)/concursuri/[id]/_organizer, T6): h1 «Alege standul», the competition as eyebrow, back «Înapoi la concurs». Loading = the header with the real title + FlowSkeleton (busy, «Se încarcă standurile…»). Error without data = T4Gate danger (fish ErrorScreen copy via describeError) with «Încearcă din nou», which refetches the competition, the statute and the allocations; unknown id = «Nu am găsit datele». Signed in only (proxy 307 → /intra?next=, requireViewer), noindex. Web addition: header refresh action (pull-to-refresh). e2e tests/e2e/concurs-cantar.spec.ts «c1 — …loading…», «c1 — an error offers…», «c1 — an unknown competition…», «signed out → sign-in…»."
       - id: organizer.scale.c2
         text: "Stands are grouped under „Sector X” headings in the competition's sector order."
         fish_ref: app/(app)/scale/[competitionId]/index.tsx:58-61
+        status: passing
+        web_note: "StandOccupantList: «Sector X» h2 per sector in competition.sectors order (not sorted), sector colour dot + 4px tile edge (fish getColorsBySector → sector tokens), «N standuri · M nealocate». ≥768 the sectors share the tiles' column grid (1–2-stand sectors pack side by side; rule 14); ≥1280 an aside with the allocated count and a sector jump list. e2e «c2 — … own sector order» (reversed sectors served, headings + jump list follow; ≥3 columns; single-stand sectors share a row)."
       - id: organizer.scale.c3
         text: "Each row shows „Stand N” (national championship: the national stand format with the draw position) and the occupant: „Echipă: participanți” for teams, the participants list, the guest name, or „-”."
         fish_ref: app/(app)/scale/[competitionId]/index.tsx:62-113
+        status: passing
+        web_note: "occupant.ts (unit): «Stand N» / NC «Stand A2(7)»; team «<echipă>:» bold (fallback «Echipă») then members «, »; participants joined; guest name (not repeated when it equals the team); «-» (+ sr «nealocat») when free. Tone: accent for author/referee on a started competition, else neutral, with a role hint only once the statute is known (rule 4). e2e «c3 — individual…» (author), «c3 — a participant…», «c3 — team…», «c3 — guests…»."
       - id: organizer.scale.c4
         text: "For national championship rows the club name is shown under the stand label."
         fish_ref: app/(app)/scale/[competitionId]/index.tsx:91-95
+        status: passing
+        web_note: "NC (rankingType nationalChampionship, as fish) only: the club as an accent label line under the stand label. e2e «c4 — national championship…» (local CN Test; draw position served as 2 → «Stand A2(…)»)."
       - id: organizer.scale.c5
         text: "Unallocated stands are dimmed and not activatable; an allocated stand opens its weighing history."
         fish_ref: app/(app)/scale/[competitionId]/index.tsx:76-85
+        status: partial
+        web_note: "Unallocated: a dashed, dimmed, non-focusable div (aria-disabled), no link. Allocated: a Link to /concursuri/[id]/cantar/[standId] (routes.competitionScaleStand; the stand page is organizer.scale-history, next batch) with TileChevron's pending spinner; a repeat activation within 800 ms is ignored (useNavigationGuard, organizer.b.navigation-guard). PARTIAL until organizer.scale-history ships: the stand page /concursuri/[id]/cantar/[standId] does not exist yet, so the link 404s. e2e «c5 — … links to its weighings» (3 free stands inert; href) passes; «c5 — … opens its weighing history, once» (double click → one history entry AND the «Istoric cântăriri» h1, not a not-found page) is test.fixme until that page exists."
     mobile_only: false
-    status: todo
+    status: proposed
+    web_note: "Partial: c5's target (organizer.scale-history) is not built. Reads only (competition, statute, /allocated-participants); every state screenshotted at 375/1280/1440/1920 by the e2e (.shots/cantar-*). Web additions: find-as-you-type (stand, seat, angler, team, club; the ≥1280 jump list follows it — «Căutare: N găsite», matches per sector, sectors without matches dimmed and inert), refresh action, ≥1280 aside. A closed feeder leg is not weighable (canWeighCompetition): neutral tiles and «Manșa N este încheiată: cântarul se redeschide la pornirea manșei N+1.». The skeleton uses StandOccupantList's grid (standGrid.ts), so nothing moves when the data lands."
 
   - id: organizer.scale-history
     title: Istoric cântăriri (stand)
@@ -1285,12 +1413,18 @@ behaviours:
   - id: organizer.b.signed-out-gate
     text: "Every organizer route (/organizator, the wizard, /concursuri/[id]/sectoare|alocare|cantar…|penalizari…) requires a session; signed-out visitors are sent to /intra?next=<current path>. fish has no route guard (commented out) and relies on the screens only being reachable from signed-in UI."
     fish_ref: app/(app)/_layout.tsx:44-47
+    status: passing
+    web_note: "proxy.ts matchers (cookie-less → 307 /intra?next=<path+query>): /organizator/:path*, /concursuri/:id/editeaza/:path*, /sectoare, /alocare, /cantar/:path*, /penalizari/:path*; a dead cookie → requireViewer (via requireOrganizer). Unit tests/unit/proxy-matcher.test.ts, lib/server/require-organizer.test.ts; e2e organizator-panou.spec.ts «signed out: every M6 organizer route …»."
   - id: organizer.b.role-gate
     text: "Organizer data (dashboard, lists, stat details, recent lakes) is requested only when profile.role.name === 'Organizer'; the wizard, sectors and participants pages are only offered to the competition's author (userRole author). Web: non-organizers get no /organizator (redirect or 403 page) and non-authors no management pages; the CMS remains the authority."
     fish_ref: services/queries/useOrganizerDashboard.ts:8-12
+    status: proposed
+    web_note: "/organizator: lib/server/require-organizer.ts (role Organizer) → else components/organizer/OrganizerRoleGate «Panoul organizator este disponibil doar organizatorilor.» + «Acasă», no organizer read — unit require-organizer.test.ts, e2e organizator-panou.spec.ts «c28 role-gate …» (a real local angler, e2e-angler@bluvi.test). The author check of the wizard / management pages is theirs (M6 wizard, scale, penalties agents)."
   - id: organizer.b.home-banner
     text: "On Acasă, signed-in users whose organizer dashboard returns data see an indigo „Panou organizator” card („Deschide”) with Viitoare (byStatus.notStarted), În așteptare (pendingRegistrations) and Locuri libere (emptySpots); it opens /organizator. On web the top bar's Administrare menu also links it."
     fish_ref: components/OrganizerBanner.tsx:40-120
+    status: passing
+    web_note: "Unchanged: Acasă OrganizerBanner (homeLinks.organizer) and the top bar's Administrare «Concursurile mele» link /organizator. e2e organizator-panou.spec.ts «b.home-banner …»."
   - id: organizer.b.competition-menu
     text: "On a competition page the author's menu offers, for notStarted: „Modifica competiția” (wizard in edit mode, return to the competition), „Alocă standuri pe sectoare” (sectors), „Alocă participanții pe standuri” (only when stand allocations exist), „Adaugă participanți fără cont” (until the limit), „Start concurs” (confirm); for started: „Adaugă cântar” (allocations exist and some participants allocated, not on a closed feeder leg), „Adaugă arbitru”, „Șterge arbitru”, „Penalizări” (ranking supports penalties), feeder leg actions; nothing when completed."
     fish_ref: components/competition/CompetitionRanking.tsx:545-660
@@ -1300,9 +1434,13 @@ behaviours:
   - id: organizer.b.card-edit-entry
     text: "Organizer-owned compact competition cards show „Modifică” for notStarted (opens the wizard in edit mode returning to the current page) and started (cannot-edit notice)."
     fish_ref: components/CompactCompetitionCard.tsx:73-90
+    status: passing
+    web_note: "The panel's compact cards (_panel/cards CompetitionTile): «Modifică» on notStarted → routes.competitionEdit(id, 'detalii', {inapoi: '/organizator'}); on started → components/organizer/CannotEditDialog («Nu poți modifica competiția», «Apelează» tel:+40733017091); none for completed / cancelled. fish's CompactCompetitionCard itself is used nowhere. e2e organizator-panou.spec.ts «c21 c22 b.card-edit-entry …»."
   - id: organizer.b.publish-landing
     text: "A successful publish replaces the wizard with /concursuri/[id]?fromPublish=1 (no way back into the wizard)."
     fish_ref: contexts/CreateCompetitionContext.tsx:1161
+    status: passing
+    web_note: "WizardProvider.exit: the wizard rewinds the step entries it pushed and router.replace()s its first one with /concursuri/[id]?fromPublish=1 — Back from the competition never reopens a step. e2e tests/e2e/organizator-asistent.spec.ts «b.publish-landing», «c15–c18»."
   - id: organizer.b.feeder-allocate-next
     text: "For feeder competitions the leg action „allocateNext” opens participant allocation for the next leg (/concursuri/[id]/alocare?mansa=N); „closeRound” / „startNext” toast „Manșa N a fost închisă” / „Manșa N a început”."
     fish_ref: components/competition/CompetitionRanking.tsx:522-542
@@ -1321,12 +1459,18 @@ behaviours:
   - id: organizer.b.no-polling
     text: "None of the organizer screens poll; freshness comes from explicit refetch actions (pull-to-refresh) and the invalidations listed in each criterion. Rankings are cached 5 min, weighing revisions are always refetched, user statute 1 h."
     fish_ref: services/queries/useRankings.ts:14-24
+    status: proposed
+    web_note: "/organizator: no refetchInterval; one dashboard + one list read in 6 s idle, the refresh action refetches (e2e organizator-panou.spec.ts «c26 … b.no-polling»). The other organizer screens prove their own."
   - id: organizer.b.navigation-guard
     text: "Forward navigations from these screens are de-duplicated within 800 ms so a double tap never opens a page twice (web: ignore repeated activation while a navigation is pending)."
     fish_ref: hooks/useNavigationGuard.ts:5
+    status: proposed
+    web_note: "/organizator: cards are links (one navigation per activation; a double click pushes one history entry) — e2e organizator-panou.spec.ts «b.navigation-guard …». The wizard / scale screens prove their own."
   - id: organizer.b.wizard-analytics
     text: "The wizard logs create-competition started {is_editing_draft}, draft saved {is_first_save, step}, publish attempted / succeeded {competition_id, ranking_type} / failed {reason: api_error|timeout}, and tags errors with feature_area=create_competition."
     fish_ref: app/(app)/create-competition/_layout.tsx:750-757
+    status: passing
+    web_note: "_wizard/analytics.ts through lib/analytics track (fish names and params): create_competition_started {is_editing_draft}, _draft_saved {is_first_save, step}, _publish_attempted {draft_id|'none'}, _publish_succeeded {competition_id, ranking_type}, _publish_failed {reason api_error|timeout}. Sentry tags (feature_area=create_competition) are logged with the same tags until M8 brings Sentry. e2e tests/e2e/organizator-asistent.spec.ts «c10 c25», «c15–c18», «c19», «c20», «edit mode c5 c11 c21»."
   - id: organizer.b.ranking-explanation-orphan
     text: "fish has a standalone ranking-explanation screen that nothing navigates to; step-ranking shows explanations in an in-page panel. Web keeps one explanation panel, deep-linkable via ?explicatie=."
     fish_ref: app/(app)/create-competition/ranking-explanation.tsx:8-33

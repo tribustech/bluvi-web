@@ -105,7 +105,8 @@ describe('notificationHref — every type with its ids', () => {
     // partide.b.notif-community (capturi): a record → the partidă's catches.
     [T.FOLLOW_RECORD_PERSONAL, { sessionDocumentId: 'p1' }, '/partide/p1/capturi'],
     [T.FOLLOW_RECORD_LAKE, { sessionDocumentId: 'p1' }, '/partide/p1/capturi'],
-    [T.COMPETITION_AUTO_CANCELLED_ORGANIZER, {}, null],
+    // organizer.panel (M6-B1): the auto-cancel notice to the organizer → the organizer panel.
+    [T.COMPETITION_AUTO_CANCELLED_ORGANIZER, {}, '/organizator'],
     [T.BOOKING_REQUEST_RECEIVED_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
     [T.BOOKING_CONFIRMED_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
     [T.BOOKING_REJECTED_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],

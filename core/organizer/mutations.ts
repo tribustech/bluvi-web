@@ -27,7 +27,7 @@ import {
   type CreatePenaltyParams,
 } from './api';
 import { applyOptimisticCatches, applyReopenToWeighings } from './domain/weighing';
-import { organizerKeys, weighingKeys } from './queries';
+import { competitionManagementKeys, organizerKeys, weighingKeys } from './queries';
 import type {
   AllocateStandsToSectorsRequest,
   AllocateStandToRegistrationRequest,
@@ -39,8 +39,12 @@ import type {
 } from './schemas';
 import {
   acceptRegistration,
+  allocateFeederRound,
+  closeFeederRound,
   moveRegistrationToWaitingList,
   rejectRegistration,
+  startNextFeederRound,
+  type AllocateFeederRoundParams,
 } from '../competitions/api';
 import { competitionCardsKeys, competitionKeys, competitionsKeys, rankingsKeys } from '../competitions/queries';
 import type { Registration } from '../competitions/schemas';
@@ -447,4 +451,42 @@ export function rejectRegistrationMutation(t: Transport, qc: QueryClient, compet
 /** fish `useRegistrationListMutations#moveRegistrationToWaitingListMutation` */
 export function moveRegistrationToWaitingListMutation(t: Transport, qc: QueryClient, competitionId: string) {
   return registrationListMutation(qc, competitionId, id => moveRegistrationToWaitingList(t, id), 'pending');
+}
+
+/* ------------------------------------------------------------------ */
+/* Feeder on legs («manșe») — fish mutations/useFeederRounds.ts        */
+/* ------------------------------------------------------------------ */
+
+/** fish `invalidateLegState`: every leg action changes the competition's leg state, its seating and its ranking. */
+export function invalidateLegState(qc: QueryClient, competitionId: string) {
+  void qc.invalidateQueries({ queryKey: competitionsKeys.byId(competitionId) });
+  void qc.invalidateQueries({ queryKey: competitionManagementKeys.allocatedParticipants(competitionId) });
+  void qc.invalidateQueries({ queryKey: rankingsKeys.byCompetitionId(competitionId) });
+  // Scale screens and the Cântare summary are scoped to the current leg (prefix covers stand + summary keys).
+  void qc.invalidateQueries({ queryKey: weighingKeys.byCompetitionId(competitionId) });
+  void qc.invalidateQueries({ queryKey: competitionManagementKeys.activeWeighingById(competitionId) });
+}
+
+/** fish `useCloseFeederRound` (the «Manșa N a fost închisă» toast is the UI's). */
+export function closeFeederRoundMutation(t: Transport, qc: QueryClient) {
+  return mutationOptions({
+    mutationFn: (competitionId: string) => closeFeederRound(t, competitionId),
+    onSettled: (_data, _error, competitionId) => invalidateLegState(qc, competitionId),
+  });
+}
+
+/** fish `useAllocateFeederRound` */
+export function allocateFeederRoundMutation(t: Transport, qc: QueryClient) {
+  return mutationOptions({
+    mutationFn: (params: AllocateFeederRoundParams) => allocateFeederRound(t, params),
+    onSettled: (_data, _error, { competitionId }) => invalidateLegState(qc, competitionId),
+  });
+}
+
+/** fish `useStartNextFeederRound` (the «Manșa N a început» toast is the UI's). */
+export function startNextFeederRoundMutation(t: Transport, qc: QueryClient) {
+  return mutationOptions({
+    mutationFn: (competitionId: string) => startNextFeederRound(t, competitionId),
+    onSettled: (_data, _error, competitionId) => invalidateLegState(qc, competitionId),
+  });
 }

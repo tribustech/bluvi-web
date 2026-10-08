@@ -42,8 +42,8 @@ export const NOTIFICATION_PAGES_ON_WEB = {
    * documentId) — ON since M4-B8 (partide.b.notif-community).
    */
   communityCatches: true,
-  /** /organizator — the organizer panel (M6). */
-  organizer: false,
+  /** /organizator — the organizer panel (M6) — ON since M6-B1 (COMPETITION_AUTO_CANCELLED_ORGANIZER). */
+  organizer: true,
   /** /rezervari/[id] — the angler's booking detail (M3) — ON since M3-B2. */
   booking: true,
   /** /operator/[lakeId]/rezervari?status= — the operator's bookings (M7). */
