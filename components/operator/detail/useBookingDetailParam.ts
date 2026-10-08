@@ -14,6 +14,13 @@ export function bookingDetailUrl(current: string, bookingId: string | null): str
   return `${u.pathname}${u.search}${u.hash}`;
 }
 
+/** The page's own fields of a history state (Next's `__NA` / `__PRIVATE…` / `_N` dropped), or null. */
+export function ownHistoryState(state: unknown): Record<string, unknown> | null {
+  if (!state || typeof state !== 'object') return null;
+  const own = Object.entries(state as Record<string, unknown>).filter(([k]) => !k.startsWith('_'));
+  return own.length ? Object.fromEntries(own) : null;
+}
+
 /**
  * The open operator booking detail lives in the URL (?rezervare=[bookingId], operator.detaliu-rezervare)
  * so it survives a reload and a shared link opens it. Opening and closing REPLACE the entry, never push:
@@ -30,9 +37,10 @@ export function useBookingDetailParam() {
   const write = useCallback((id: string | null) => {
     const { pathname, search, hash } = window.location;
     const next = bookingDetailUrl(`${pathname}${search}${hash}`, id);
-    // `null` state: Next copies its own entry state in; passing the current state (it carries __NA)
-    // would make Next treat the call as its own and skip syncing useSearchParams.
-    window.history.replaceState(null, '', next);
+    // Never the current state as is: it carries Next's __NA, and Next would treat the call as its own
+    // and skip syncing useSearchParams (Next copies its own fields in). The page's own marks stay
+    // (the booking grid's selection mark, operator.calendar): only `_`-prefixed router fields drop.
+    window.history.replaceState(ownHistoryState(window.history.state), '', next);
   }, []);
 
   const open = useCallback((id: string) => write(id), [write]);

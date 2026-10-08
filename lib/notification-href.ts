@@ -46,8 +46,12 @@ export const NOTIFICATION_PAGES_ON_WEB = {
   organizer: true,
   /** /rezervari/[id] — the angler's booking detail (M3) — ON since M3-B2. */
   booking: true,
-  /** /operator/[lakeId]/rezervari?status= — the operator's bookings (M7). */
-  operatorBookings: false,
+  /**
+   * /operator/[lakeId]/rezervari?status=pending|rejected|cancelled — the operator's bookings inbox
+   * (BOOKING_NEW_REQUEST / PENDING_NUDGE / AUTO_REJECTED / CANCELLED_OPERATOR) — ON since M7-B2
+   * (operator.b.notification-routes).
+   */
+  operatorBookings: true,
   /**
    * /concursuri/[id]/participanti?filtru=in-asteptare — the organizer's pending registrations (fish
    * participantsFilter=pending, COMPETITION_NEW_REGISTRATION_ORGANIZER) — ON since M6-B7: the author's
@@ -121,8 +125,10 @@ export function notificationHref(route: NotificationRoute): string | null {
       // walk-in) → the booking page; signed out, /intra returns there (booking.rezervare.c14).
       return routes.booking(route.params.bookingId);
     case 'operatorBookings':
-      // TODO(M7): routes.operatorBookings(lakeId, status) — its status union needs «rejected».
-      return null; // NOTIFICATION_PAGES_ON_WEB.operatorBookings is off: no page yet
+      // fish getRedirectLocationForNotification.ts:146-157: new request / nudge → «De aprobat»,
+      // auto-rejected → Nefinalizate · Cereri neacceptate, cancelled → Nefinalizate · Anulate (the
+      // inbox's ?status= vocabulary, operator.b.status-param). Core answers null without a lakeId.
+      return NOTIFICATION_PAGES_ON_WEB.operatorBookings ? routes.operatorBookings(route.params.lakeId, route.params.status) : null;
     case 'lakeReviews':
       return routes.lakeReviews(route.params.lakeId);
     default:

@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import { routes } from '@/lib/routes';
 import { BookingFrame } from './BookingFrame';
-import { GridSkeleton } from './GridSkeleton';
+import { GridSkeleton, SelectionCardSkeleton } from './GridSkeleton';
 import { Legend } from './Legend';
 
 /**
@@ -14,7 +14,7 @@ import { Legend } from './Legend';
 export function BookingGridFallback() {
   const { id } = useParams<{ id: string }>();
   return (
-    <BookingFrame title="Rezervare" back={{ href: id ? routes.lake(id) : routes.lakes(), label: 'Înapoi' }} busy legend={<Legend />}>
+    <BookingFrame title="Rezervare" back={{ href: id ? routes.lake(id) : routes.lakes(), label: 'Înapoi' }} busy legend={<Legend />} aside={<SelectionCardSkeleton />}>
       <GridSkeleton />
     </BookingFrame>
   );

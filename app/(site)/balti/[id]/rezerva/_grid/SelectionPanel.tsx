@@ -44,6 +44,8 @@ type Props = {
   onContinue: () => void;
   continueRef?: Ref<HTMLButtonElement>;
   headingId?: string;
+  /** Continuă is held for a reason of the mount (FlowConfig.continueHeld), said under the buttons. */
+  continueHeld?: string | null;
 };
 
 
@@ -61,6 +63,7 @@ export function SelectionPanel({
   onContinue,
   continueRef,
   headingId,
+  continueHeld = null,
 }: Props) {
   const { quote, quoting, failed, onRetry } = price;
   const refusal = quote?.refusal ?? null;
@@ -68,7 +71,8 @@ export function SelectionPanel({
   const start = new Date(startISO);
   const hours = Math.max(1, Math.round((new Date(endISO).getTime() - start.getTime()) / 3_600_000));
   const rowLabel = quote?.basis?.rowLabel ?? null;
-  const held = !!refusal || total == null || quoting;
+  const held = !!refusal || total == null || quoting || !!continueHeld;
+  const heldNoteId = headingId ? `${headingId}-held` : undefined;
   const card = variant === 'card';
   const note = selectionNote({ offeredCount, paymentMode, depositPercent, total });
   /** A deposit read off the previous price is as stale as that price while a newer one loads. */
@@ -180,6 +184,7 @@ export function SelectionPanel({
           type="button"
           data-testid="selection-continue"
           aria-disabled={held || undefined}
+          aria-describedby={continueHeld ? heldNoteId : undefined}
           onClick={held ? undefined : onContinue}
           className={buttonClass({ disabled: held, className: card ? 'w-full' : 'flex-[2]' })}
         >
@@ -189,6 +194,74 @@ export function SelectionPanel({
           Continuă
         </button>
       </div>
+      {continueHeld ? (
+        <p id={heldNoteId} data-testid="selection-continue-held" className="t-caption text-muted">
+          {continueHeld}
+        </p>
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * The selection, compact, over the docked booking detail (operator.calendar from 1280): the detail
+ * takes the right column, but a selection the operator made before opening a booking to compare is
+ * still there — its stand, interval, price, «Anulează» and «Continuă» stay in view instead of
+ * vanishing behind the detail while the grid's pill says it exists.
+ */
+export function SelectionSummary({
+  standName,
+  startISO,
+  endISO,
+  checkoutBufferMinutes,
+  price,
+  onCancel,
+  onContinue,
+  continueHeld = null,
+}: Pick<Props, 'standName' | 'startISO' | 'endISO' | 'checkoutBufferMinutes' | 'price' | 'onCancel' | 'onContinue' | 'continueHeld'>) {
+  const { quote, quoting } = price;
+  const total = quote?.total ?? null;
+  const held = !!quote?.refusal || total == null || quoting || !!continueHeld;
+  return (
+    <section
+      aria-labelledby="selection-summary-heading"
+      data-testid="selection-summary"
+      className="flex shrink-0 flex-col gap-3 rounded-card bg-surface p-4 shadow-[var(--shadow-e1),var(--shadow-e0)]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="t-eyebrow text-muted uppercase">Selecția ta</p>
+          <h2 id="selection-summary-heading" className="t-body-strong text-ink">{`Stand ${standName}`}</h2>
+          <p className="t-caption text-muted">
+            <span className="whitespace-nowrap">{formatBookingPoint(startISO)}</span>
+            {' – '}
+            <span className="whitespace-nowrap">{formatBookingPoint(endISO, checkoutBufferMinutes)}</span>
+          </p>
+        </div>
+        <p role="status" aria-live="polite" className={cn('t-body-strong shrink-0 text-accent-ink tabular-nums', quoting && 'opacity-45')}>
+          {total != null ? `${lei(total)} lei` : quoting ? <T4Spinner className="text-accent-ink" /> : '—'}
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={onCancel} className="flex-1">
+          Anulează
+        </Button>
+        <button
+          type="button"
+          data-testid="selection-summary-continue"
+          aria-disabled={held || undefined}
+          aria-describedby={continueHeld ? 'selection-summary-held' : undefined}
+          onClick={held ? undefined : onContinue}
+          className={buttonClass({ disabled: held, className: "flex-[2]" })}
+        >
+          Continuă
+        </button>
+      </div>
+      {continueHeld ? (
+        <p id="selection-summary-held" className="t-caption text-muted">
+          {continueHeld}
+        </p>
+      ) : null}
+    </section>
   );
 }

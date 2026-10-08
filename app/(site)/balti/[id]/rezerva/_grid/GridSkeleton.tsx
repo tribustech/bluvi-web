@@ -64,3 +64,23 @@ export function GridSkeleton() {
     </div>
   );
 }
+
+/**
+ * The right column's summary card, empty (from 1024; BookingFrame `aside`): the loading frame has the
+ * loaded grid's column split from the first paint, so the grid never jumps narrower when the data
+ * lands. The same card shape as the «Selecția ta» empty state.
+ */
+export function SelectionCardSkeleton() {
+  return (
+    <div
+      aria-hidden
+      data-testid="selection-card-skeleton"
+      className="flex flex-col gap-3 rounded-card bg-surface p-5 shadow-[var(--shadow-e1),var(--shadow-e0)] xl:p-6"
+    >
+      <span className="h-3 w-24 rounded-full bg-soft-fill" />
+      <span className="h-6 w-48 rounded-full bg-soft-fill" />
+      <span className="h-4 w-full rounded-full bg-soft-fill" />
+      <span className="h-4 w-4/5 rounded-full bg-soft-fill" />
+    </div>
+  );
+}

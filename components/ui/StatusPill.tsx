@@ -11,6 +11,7 @@ export type StatusTone =
   | "success"
   | "warning"
   | "info"
+  | "danger"
   | "neutral"
   | "cancelled"
   | "no-catch"
@@ -21,6 +22,8 @@ const TONE: Record<StatusTone, string> = {
   success: "bg-status-success-bg text-status-success-fg",
   warning: "bg-status-warning-bg text-status-warning-fg",
   info: "bg-status-info-bg text-status-info-fg",
+  // An attendance failure (fish operator panel «N-a venit»): the status-danger pair, never the LIVE red.
+  danger: "bg-status-danger-bg text-status-danger-fg",
   neutral: "bg-status-neutral-bg text-status-neutral-fg",
   cancelled: "bg-status-neutral-bg text-status-neutral-fg line-through",
   // «Fără capturi» (never «capot», ROADMAP §4b.11): present but empty, hence the dashed outline.

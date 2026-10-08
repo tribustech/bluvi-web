@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { ExclamationTriangleIcon, NoSymbolIcon, PhoneIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
 import {
   selectDaySelection,
@@ -16,16 +16,17 @@ import { T4Gate, T4Spinner } from '@/components/templates/T4';
 import { ButtonLink, buttonClass } from '@/components/ui/Button';
 import { routes } from '@/lib/routes';
 import { useSiteToast } from '../../../../_shell/Toast';
+import { anglerFlow, type FlowConfig } from '../_flow/config';
 import { nextStepFromGrid, offeredForSelection, seedSelection, selectionStand } from '../_flow/guards';
 import { useFlowQuote, useLiveAvailability } from '../_flow/hooks';
-import { flowQuery, readFlowParams, stepHref, type FlowSelection } from '../_flow/params';
-import { AvailabilityGrid, type GridHandle } from './AvailabilityGrid';
+import { readFlowParams, stepHref, withFlowQuery, type FlowSelection } from '../_flow/params';
+import { AvailabilityGrid, type GridHandle, type GridMark } from './AvailabilityGrid';
 import { BlockDialog } from './BlockDialog';
 import { BookingFrame } from './BookingFrame';
-import { GridSkeleton } from './GridSkeleton';
+import { GridSkeleton, SelectionCardSkeleton } from './GridSkeleton';
 import { Legend, TodayButton } from './Legend';
 import { buildGridModel, dayIndexOf, dayRefusal, runAction, selectionFree, selectionLabelOf, zoneHint, type GridRun } from './model';
-import { SelectionPanel } from './SelectionPanel';
+import { SelectionPanel, SelectionSummary } from './SelectionPanel';
 import { TooSoonDialog } from './TooSoonDialog';
 
 /*
@@ -39,6 +40,16 @@ import { TooSoonDialog } from './TooSoonDialog';
  * selection and only the next Back leaves the flow (fish usePreventRemove → clearSelection, c37).
  * The pushed entry carries a mark in its history state (SEL_MARK), so a later mount on it — Back from
  * the extras / review step, a reload — still knows the bare grid lies under it and steps back onto it.
+ *
+ * Shared with the operator's walk-in grid (/operator/[lakeId]/calendar, operator.b.walk-in-shared-flow):
+ * `config` (_flow/config.ts) carries every difference — paths, title fallback, lead time, in-progress
+ * slots, blocks that open nothing, the walk-in quote — and defaults to the angler's flow. The walk-in
+ * adds `onBookedCell` (a booked band opens that booking), `detail` (the docked booking detail, in place
+ * of the summary card — a live selection stays above it, compact), `mark` (the band being looked up /
+ * whose booking is open) and `children` (its dialogs).
+ *
+ * The URL is shared: the grid owns stand / start / end / extra and keeps every other parameter (the
+ * walk-in's ?rezervare=) when it writes them (withFlowQuery).
  */
 
 /** History-state mark of the entry the first selection pushed (Next's pushState patch adds its own fields). */
@@ -69,12 +80,52 @@ function useMedia(query: string) {
 
 /** How far ahead a seeded selection may make the grid read (months), looking for its slots. */
 const SEED_MONTHS_MAX = 12;
+/** The grid always quotes the bare tour (one constant: no new array per render). */
+const NO_EXTRAS: string[] = [];
 
-export function BookingGridScreen({ lake }: { lake: GridLake }) {
+/**
+ * The slot a booked band was activated on (its first cell): the walk-in looks the booking up by it.
+ * `bookingStartISO` / `bookingEndISO`: the bounds of the booked interval the availability holds on that
+ * slot (merged.bookings, the earliest when several touch it; widened by the turnaround, so at or before
+ * the booking's own start) — what bounds the walk-in's search through the latest-first bookings list,
+ * however long the stay (null when the availability has none, which a booked band never lacks).
+ */
+export type BookedCell = {
+  standDocumentId: string;
+  standName: string;
+  startISO: string;
+  endISO: string;
+  bookingStartISO: string | null;
+  bookingEndISO: string | null;
+};
+
+type Props = {
+  lake: GridLake;
+  /** The flow this grid is step 1 of (the angler's by default). Pass a stable object. */
+  config?: FlowConfig;
+  /** Operator only: a booked band answers with the slot it stands on (fish onBookingPress). */
+  onBookedCell?: (cell: BookedCell) => void;
+  /** From 1024: shown in the right column instead of the summary card (the walk-in's booking detail). */
+  detail?: ReactNode;
+  /** Operator only: the booked band being looked up (busy) / whose booking is open (AvailabilityGrid). */
+  mark?: GridMark | null;
+  /** Rendered after the frame (dialogs). */
+  children?: ReactNode;
+};
+
+export function BookingGridScreen({ lake, config: configProp, onBookedCell, detail, mark = null, children }: Props) {
   const lakeId = lake.documentId;
+  const config = useMemo(() => configProp ?? anglerFlow(lakeId), [configProp, lakeId]);
   const router = useRouter();
   const toast = useSiteToast();
-  const leave = useBack(routes.lake(lakeId));
+  const leave = useBack(config.paths.exit);
+  // Read on activation only (never a dependency of the band handler, so the grid does not re-render
+  // when the caller's lookup changes — e.g. when the lake's bookings list lands).
+  const bookedRef = useRef(onBookedCell);
+  useEffect(() => {
+    bookedRef.current = onBookedCell;
+  });
+  const bookedOpens = !!onBookedCell;
   /** From 1024 the panel is the right summary card and the header stays (owner rule 1). */
   const desktop = useMedia('(min-width: 1024px)');
   /** From 768 the time axis is drawn 1.5× wider (model.ts scaleGeometry). */
@@ -87,7 +138,11 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
   // overnight re-judges past (c14) and lead-time (c15) cells against the time the slots were read.
   const [mountMs] = useState(() => Date.now());
   const nowMs = Math.max(mountMs, query.dataUpdatedAt);
-  const model = useMemo(() => (merged ? buildGridModel(merged, nowMs, wide ? 1.5 : 1) : null), [merged, nowMs, wide]);
+  const { enforceLeadTime, allowInProgress, blockedCellOpens } = config;
+  const model = useMemo(
+    () => (merged ? buildGridModel(merged, nowMs, wide ? 1.5 : 1, { enforceLeadTime, allowInProgress }) : null),
+    [merged, nowMs, wide, enforceLeadTime, allowInProgress]
+  );
 
   // ── The selection (the URL's, then the grid's) ─────────────────────────────────────────────
   const [sel, setSel] = useState<FlowSelection | null>(initial.selection);
@@ -98,7 +153,8 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
 
   const write = useCallback((next: FlowSelection | null, mode: 'push' | 'replace') => {
     setSel(next);
-    const q = flowQuery(next);
+    // Parameters the flow does not own (?rezervare=) stay: a selection never closes an open booking.
+    const q = withFlowQuery(window.location.search, next);
     const url = `${window.location.pathname}${q ? `?${q}` : ''}`;
     if (url === `${window.location.pathname}${window.location.search}`) return;
     if (mode === 'push') {
@@ -161,9 +217,9 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
   useEffect(() => {
     if (verdict === 'pending') return;
     if (verdict === 'kept' && !initial.extras.length) return;
-    const q = flowQuery(verdict === 'kept' ? initial.selection : null);
-    const mark = verdict === 'kept' && onPushedEntry() ? { [SEL_MARK]: 1 } : null;
-    window.history.replaceState(mark, '', `${window.location.pathname}${q ? `?${q}` : ''}`);
+    const q = withFlowQuery(window.location.search, verdict === 'kept' ? initial.selection : null);
+    const state = verdict === 'kept' && onPushedEntry() ? { [SEL_MARK]: 1 } : null;
+    window.history.replaceState(state, '', `${window.location.pathname}${q ? `?${q}` : ''}`);
   }, [verdict, initial]);
 
   // Every fresh read re-judges the selection on the grid (the seed verdict's check): taken by someone
@@ -192,7 +248,7 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
   const onBandPress = useCallback(
     (standId: string, run: GridRun) => {
       if (!model) return;
-      switch (runAction(run)) {
+      switch (runAction(run, { blockOpens: blockedCellOpens, bookedOpens })) {
         case 'toggle': {
           const next = toggleSelectionCell(state, standId, run.cellIndex, model.isAvailable);
           if (next !== state) applyState(next);
@@ -209,11 +265,36 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
           setBlock(run.block);
           setBlockOpen(true);
           return;
+        case 'booked': {
+          // The run's first cell: fish hands the band's own slot (one cell), the booking may span more.
+          const slot = model.slots[run.firstCell];
+          if (!slot || !merged) return;
+          const name = merged.stands.find(s => s.documentId === standId)?.name ?? '';
+          // The booked intervals the availability draws on this slot (one scan, on a tap). The CMS widens
+          // them by the lake's turnaround, so their earliest start is at or before the booking's own:
+          // a safe lower bound for the walk-in's search.
+          const s0 = Date.parse(slot.start);
+          const e0 = Date.parse(slot.end);
+          let held: { start: string; end: string } | null = null;
+          for (const b of merged.bookings) {
+            if (b.standDocumentId !== standId || !(Date.parse(b.start) < e0 && Date.parse(b.end) > s0)) continue;
+            if (!held || Date.parse(b.start) < Date.parse(held.start)) held = b;
+          }
+          bookedRef.current?.({
+            standDocumentId: standId,
+            standName: name,
+            startISO: slot.start,
+            endISO: slot.end,
+            bookingStartISO: held?.start ?? null,
+            bookingEndISO: held?.end ?? null,
+          });
+          return;
+        }
         default:
         // Booked / a plain block: someone else's slot has nothing to say (c18).
       }
     },
-    [model, state, applyState, toast]
+    [model, merged, state, applyState, toast, blockedCellOpens, bookedOpens]
   );
 
   const onDayPress = useCallback(
@@ -235,21 +316,23 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // ── The panel's quote and its way on ───────────────────────────────────────────────────────
-  const quoteQ = useFlowQuote(lakeId, live);
+  const quoteQ = useFlowQuote(lakeId, live, NO_EXTRAS, config.walkIn);
   const stand = selectionStand(merged, live);
   const offered = useMemo(() => offeredForSelection(merged, live), [merged, live]);
   const onContinue = useCallback(() => {
     if (!live) return;
     // Extras always start empty (the panel quoted the bare tour, c35).
-    router.push(stepHref(lakeId, nextStepFromGrid(merged, live), { selection: live, extras: [] }));
-  }, [live, merged, router, lakeId]);
+    router.push(stepHref(lakeId, nextStepFromGrid(merged, live), { selection: live, extras: [] }, config));
+  }, [live, merged, router, lakeId, config]);
 
   const gridRef = useRef<GridHandle>(null);
   const back = {
     label: live ? 'Anulează selecția' : 'Înapoi',
     onClick: () => (live ? clearSelection() : leave()),
   };
-  const title = lake.name || 'Rezervare';
+  const title = lake.name || config.titleFallback;
+  const { eyebrow, continueHeld } = config;
+  const walkIn = config.mode === 'walkIn';
   const buffer = checkoutBufferMinutes ?? lake.checkoutBufferMinutes ?? 0;
 
   // ── States ────────────────────────────────────────────────────────────────────────────────
@@ -257,7 +340,7 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
     if (query.isError) {
       // No availability to fall back on AND the read failed (c27): a retry, never a spinner forever.
       return (
-        <BookingFrame title={title} back={back}>
+        <BookingFrame title={title} eyebrow={eyebrow} back={back}>
           <T4Gate
             tone="danger"
             role="alert"
@@ -280,7 +363,14 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
       );
     }
     return (
-      <BookingFrame title={title} back={back} busy legend={<Legend />}>
+      <BookingFrame
+        title={title}
+        eyebrow={eyebrow}
+        back={back}
+        busy
+        legend={<Legend showTooSoon={enforceLeadTime} />}
+        aside={desktop && detail ? detail : <SelectionCardSkeleton />}
+      >
         <GridSkeleton />
       </BookingFrame>
     );
@@ -288,22 +378,26 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
 
   if (!merged.bookingEnabled) {
     return (
-      <BookingFrame title={title} back={back}>
+      <BookingFrame title={title} eyebrow={eyebrow} back={back}>
         <T4Gate
           icon={<NoSymbolIcon />}
           title="Rezervările nu sunt disponibile"
           description="Acest lac nu acceptă deocamdată rezervări online."
           actions={
-            <>
-              {lake.phone ? (
-                <ButtonLink href={`tel:${lake.phone}`} icon={<PhoneIcon />}>
-                  Sună la baltă
+            walkIn ? (
+              <ButtonLink href={config.paths.exit}>Înapoi la panou</ButtonLink>
+            ) : (
+              <>
+                {lake.phone ? (
+                  <ButtonLink href={`tel:${lake.phone}`} icon={<PhoneIcon />}>
+                    Sună la baltă
+                  </ButtonLink>
+                ) : null}
+                <ButtonLink href={routes.lake(lakeId)} variant={lake.phone ? 'secondary' : 'primary'}>
+                  Înapoi la baltă
                 </ButtonLink>
-              ) : null}
-              <ButtonLink href={routes.lake(lakeId)} variant={lake.phone ? 'secondary' : 'primary'}>
-                Înapoi la baltă
-              </ButtonLink>
-            </>
+              </>
+            )
           }
         />
       </BookingFrame>
@@ -312,12 +406,12 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
 
   if (!merged.stands.length || !model.geometry.days.length || !model.geometry.bands.length) {
     return (
-      <BookingFrame title={title} back={back}>
+      <BookingFrame title={title} eyebrow={eyebrow} back={back}>
         <T4Gate
           icon={<CalendarDaysIcon />}
           title="Nicio disponibilitate"
           description="Nu există standuri sau intervale disponibile pentru această perioadă."
-          actions={<ButtonLink href={routes.lake(lakeId)}>Înapoi la baltă</ButtonLink>}
+          actions={<ButtonLink href={config.paths.exit}>{walkIn ? 'Înapoi la panou' : 'Înapoi la baltă'}</ButtonLink>}
         />
       </BookingFrame>
     );
@@ -345,6 +439,7 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
         }}
         onCancel={clearSelection}
         onContinue={onContinue}
+        continueHeld={continueHeld}
       />
     ) : null;
 
@@ -352,12 +447,13 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
     <>
       <BookingFrame
         title={title}
+        eyebrow={eyebrow}
         back={back}
         collapsed={!!live && !desktop}
         trailing={<TodayButton onClick={() => gridRef.current?.scrollToToday()} />}
         legend={
           <>
-            <Legend />
+            <Legend showTooSoon={enforceLeadTime} />
             {hint ? (
               <p data-testid="zone-hint" className="t-caption mt-1.5 text-muted">
                 {hint}
@@ -366,7 +462,25 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
           </>
         }
         aside={
-          desktop ? (
+          desktop && detail ? (
+            // The docked detail, and over it the live selection, compact: comparing a booking never
+            // hides a selection the grid's pill still shows.
+            <div className="flex min-h-0 flex-1 flex-col gap-3">
+              {live && stand ? (
+                <SelectionSummary
+                  standName={stand.name}
+                  startISO={live.start}
+                  endISO={live.end}
+                  checkoutBufferMinutes={buffer}
+                  price={{ quote: quoteQ.data ?? null, quoting: quoteQ.isFetching, failed: quoteQ.isError, onRetry: () => void quoteQ.refetch() }}
+                  onCancel={clearSelection}
+                  onContinue={onContinue}
+                  continueHeld={continueHeld}
+                />
+              ) : null}
+              <div className="flex min-h-0 flex-1 flex-col">{detail}</div>
+            </div>
+          ) : desktop ? (
             <section
               aria-label="Selecția ta"
               data-testid="selection-card"
@@ -409,8 +523,10 @@ export function BookingGridScreen({ lake }: { lake: GridLake }) {
           onReachEnd={onReachEnd}
           onBandPress={onBandPress}
           onDayPress={onDayPress}
+          mark={mark}
         />
       </BookingFrame>
+      {children}
       <TooSoonDialog
         open={tooSoon}
         onClose={() => setTooSoon(false)}

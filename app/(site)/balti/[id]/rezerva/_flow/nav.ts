@@ -1,8 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback } from 'react';
-import { routes } from '@/lib/routes';
+import { useCallback, useMemo } from 'react';
+import { anglerFlow, pathOf, type FlowConfig } from './config';
 import { stepHref, type FlowParams, type FlowStep } from './params';
 
 /*
@@ -34,16 +34,18 @@ import { stepHref, type FlowParams, type FlowStep } from './params';
 
 type Entry = { url: string | null };
 
-/** The lake's booking flow: /balti/[id]/rezerva and its steps. */
-export function isFlowUrl(url: URL, lakeId: string): boolean {
-  const base = routes.lakeBooking(lakeId);
+/** The lake's booking flow: /balti/[id]/rezerva and its steps (or the walk-in's, per `config`). */
+export function isFlowUrl(url: URL, lakeId: string, config: FlowConfig = anglerFlow(lakeId)): boolean {
+  const base = config.paths.grid;
   return url.pathname === base || url.pathname.startsWith(`${base}/`);
 }
 
 /** The pathname a step lives at. */
-export function stepPath(lakeId: string, step: FlowStep): string {
-  const base = routes.lakeBooking(lakeId);
-  return step === 'grid' ? base : step === 'extras' ? `${base}/extra` : `${base}/confirmare`;
+export function stepPath(lakeId: string, step: FlowStep, config: FlowConfig = anglerFlow(lakeId)): string {
+  if (step === 'grid') return config.paths.grid;
+  // Any selection: only the pathname is kept.
+  const sel = { stand: '-', start: '-', end: '-' };
+  return pathOf(step === 'extras' ? config.paths.extras(sel) : config.paths.review(sel));
 }
 
 /**
@@ -75,15 +77,15 @@ export function historyDelta(
 const isSignIn = (url: URL) => url.pathname === '/intra' || url.pathname.startsWith('/intra/');
 
 /** Where the flow goes on a way out (pure, for the hook and the tests). */
-export function flowTargets(lakeId: string) {
-  const inFlow = (u: URL) => isFlowUrl(u, lakeId);
+export function flowTargets(lakeId: string, config: FlowConfig = anglerFlow(lakeId)) {
+  const inFlow = (u: URL) => isFlowUrl(u, lakeId, config);
   return {
     step: (step: FlowStep) => ({
-      target: (u: URL) => u.pathname === stepPath(lakeId, step),
+      target: (u: URL) => u.pathname === stepPath(lakeId, step, config),
       through: inFlow,
     }),
     bareGrid: {
-      target: (u: URL) => u.pathname === stepPath(lakeId, 'grid') && !u.searchParams.has('stand'),
+      target: (u: URL) => u.pathname === stepPath(lakeId, 'grid', config) && !u.searchParams.has('stand'),
       through: inFlow,
     },
     exit: {
@@ -123,34 +125,36 @@ function find(target: (u: URL) => boolean, through: (u: URL) => boolean): { delt
  */
 export const SEALED_STATE = { _N: true, bluviFlowSealed: true } as const;
 
-export function useFlowNav(lakeId: string) {
+export function useFlowNav(lakeId: string, config?: FlowConfig) {
   const router = useRouter();
+  // Pass a stable config (built once per mount): a new object every render re-creates the callbacks.
+  const cfg = useMemo(() => config ?? anglerFlow(lakeId), [config, lakeId]);
   const travel = useCallback(
     (to: { target: (u: URL) => boolean; through: (u: URL) => boolean }, fallback: string, seal = false) => {
       const found = find(to.target, to.through);
       // A traversal into another document (the entry was a full page load) would reload the app and
       // drop the toast that announces the outcome: open that page in place instead.
       if (found?.sameDocument) {
-        if (seal) window.history.replaceState({ ...SEALED_STATE }, '', stepPath(lakeId, 'grid'));
+        if (seal) window.history.replaceState({ ...SEALED_STATE }, '', stepPath(lakeId, 'grid', cfg));
         window.history.go(found.delta);
       } else router.replace(found?.href ?? fallback);
     },
-    [router, lakeId]
+    [router, lakeId, cfg]
   );
   return {
     /** Back one step (fish goBack): the extras step when this tour has one, else the grid, keeping the selection. */
     stepBack: useCallback(
       (previous: Exclude<FlowStep, 'review'>, params: FlowParams) =>
         // The grid never carries extras (params.ts stepHref).
-        travel(flowTargets(lakeId).step(previous), stepHref(lakeId, previous, params)),
-      [travel, lakeId]
+        travel(flowTargets(lakeId, cfg).step(previous), stepHref(lakeId, previous, params, cfg)),
+      [travel, lakeId, cfg]
     ),
     /** Back to the grid without a selection (fish backToGrid + clearSelection). */
     backToGrid: useCallback(
-      () => travel(flowTargets(lakeId).bareGrid, stepHref(lakeId, 'grid', { selection: null, extras: [] }), true),
-      [travel, lakeId]
+      () => travel(flowTargets(lakeId, cfg).bareGrid, stepHref(lakeId, 'grid', { selection: null, extras: [] }, cfg), true),
+      [travel, lakeId, cfg]
     ),
     /** Leave the whole flow (fish exitFlow): where it was entered, else the lake page. */
-    exitFlow: useCallback(() => travel(flowTargets(lakeId).exit, routes.lake(lakeId), true), [travel, lakeId]),
+    exitFlow: useCallback(() => travel(flowTargets(lakeId, cfg).exit, cfg.paths.exit, true), [travel, lakeId, cfg]),
   };
 }

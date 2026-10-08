@@ -13,8 +13,8 @@ import { T4ProgressPlaceholder } from './T4Steps';
 export type T4Back = { label: string } & ({ href: string; onClick?: never } | { onClick: () => void; href?: never });
 
 type Props = {
-  /** The current step's title (h1): «Alege standul și intervalul». */
-  title: string;
+  /** The current step's title (h1): «Alege standul și intervalul» — or a skeleton node while it is unknown (rule 4). */
+  title: ReactNode;
   /** Context over the title, caps: «Chita Lake · Rezervare» (a skeleton may hold a grey bar in it). */
   eyebrow?: ReactNode;
   /** id of the h1, so a screen can move focus to it (a dismissed notice, a reset). */

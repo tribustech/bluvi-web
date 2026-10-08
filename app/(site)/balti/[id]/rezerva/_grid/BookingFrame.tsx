@@ -25,7 +25,10 @@ export const FRAME_H =
 export const BOOKING_TITLE_ID = 'rezerva-title';
 
 type Props = {
-  title: string;
+  /** The lake's name; undefined while it is unknown — a title skeleton, never a placeholder name that then swaps (rule 4). */
+  title: string | undefined;
+  /** Over the title (the flow's FlowConfig.eyebrow). */
+  eyebrow?: string;
   back: T4Back;
   /** «Azi» (only with a grid). */
   trailing?: ReactNode;
@@ -41,7 +44,7 @@ type Props = {
   children: ReactNode;
 };
 
-export function BookingFrame({ title, back, trailing, legend, collapsed = false, aside, dock, busy = false, children }: Props) {
+export function BookingFrame({ title, eyebrow = 'Rezervă un stand', back, trailing, legend, collapsed = false, aside, dock, busy = false, children }: Props) {
   return (
     <div className={cn('flex flex-col bg-page', FRAME_H)}>
       <div
@@ -54,7 +57,7 @@ export function BookingFrame({ title, back, trailing, legend, collapsed = false,
         )}
       >
         <div className="min-h-0 overflow-y-clip">
-          <T4Header title={title} titleId={BOOKING_TITLE_ID} eyebrow="Rezervă un stand" back={back} trailing={trailing} />
+          <T4Header title={title ?? <TitleSkeleton />} titleId={BOOKING_TITLE_ID} eyebrow={eyebrow} back={back} trailing={trailing} />
           {legend ? <div className={cn('mx-auto w-full pt-3', SHELL_MAX, SHELL_GUTTERS)}>{legend}</div> : null}
         </div>
       </div>
@@ -66,5 +69,14 @@ export function BookingFrame({ title, back, trailing, legend, collapsed = false,
       </div>
       {dock}
     </div>
+  );
+}
+
+function TitleSkeleton() {
+  return (
+    <>
+      <span className="sr-only">Se încarcă…</span>
+      <span aria-hidden data-testid="booking-title-skeleton" className="inline-block h-6 w-48 max-w-full animate-shimmer rounded-full align-middle" />
+    </>
   );
 }

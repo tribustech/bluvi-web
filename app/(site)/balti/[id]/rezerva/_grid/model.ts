@@ -29,12 +29,15 @@ import {
   zoneOffsetMinutes,
 } from '@/core/booking';
 import { formatCount } from '@/core/realtime/chat/format';
+import { ANGLER_RULES, type GridRules } from '../_flow/config';
 
 /*
  * The grid's model — fish AvailabilityGrid's memos, outside React so they read as one pipeline:
  * merged pages → slots from yesterday (c8) → proportional geometry → per-stand runs with their
  * status (c12) → selection label (c21). The angler flow always enforces the lead time (fish
- * `enforceLeadTime` on BookingGridStep) and never sells a running slot (`allowInProgress` off).
+ * `enforceLeadTime` on BookingGridStep) and never sells a running slot (`allowInProgress` off); the
+ * operator's walk-in grid does the opposite (GridRules, _flow/config.ts — operator.calendar.c3/c4).
+ * The rules are read once per resolved band (two booleans), never a closure per cell.
  */
 
 /** Frozen «Stand» column, one stand row, the two header rows (fish PINNED_WIDTH, CELL_HEIGHT…). */
@@ -55,6 +58,8 @@ export type GridModel = {
   todayDayIndex: number;
   nowMs: number;
   leadHours: number;
+  /** Lead time / in-progress rules of this flow (the angler's by default). */
+  rules: GridRules;
   /** «Sâmbătă 15 aug» per day, in `geometry.days` order. */
   dayLabels: string[];
   isAvailable: IsAvailable;
@@ -80,7 +85,7 @@ function scaleGeometry(g: GridGeometry, k: number): GridGeometry {
   };
 }
 
-export function buildGridModel(merged: MergedAvailability, nowMs: number, scale = 1): GridModel {
+export function buildGridModel(merged: MergedAvailability, nowMs: number, scale = 1, rules: GridRules = ANGLER_RULES): GridModel {
   // The grid starts at YESTERDAY, not at the loaded range's month boundary: deeper history is dead
   // weight (unselectable), so it is clipped out of the geometry (c8).
   const yesterday = startOfDay(addDays(new Date(nowMs), -1));
@@ -96,11 +101,13 @@ export function buildGridModel(merged: MergedAvailability, nowMs: number, scale 
   const geometry = scaleGeometry(buildGridGeometryFromSlots(slots), scale);
   const idx = indexExceptions(merged.bookings, merged.blocks);
   const leadHours = merged.leadHours;
+  const { enforceLeadTime, allowInProgress } = rules;
   const isAvailable: IsAvailable = (standId, cellIndex) => {
     const slot = slots[cellIndex];
     if (!slot) return false;
     const r = resolveSlotStatus(standId, slot, idx, nowMs, leadHours);
-    return r.status === 'available' && !r.isPast && !r.tooSoon;
+    // fish AvailabilityGrid isAvailable: spent = allowInProgress ? isOver : isPast.
+    return r.status === 'available' && !(allowInProgress ? r.isOver : r.isPast) && !(enforceLeadTime && r.tooSoon);
   };
   return {
     slots,
@@ -110,6 +117,7 @@ export function buildGridModel(merged: MergedAvailability, nowMs: number, scale 
     todayDayIndex: Math.max(0, differenceInCalendarDays(startOfDay(new Date(nowMs)), startOfDay(new Date(gridFrom)))),
     nowMs,
     leadHours,
+    rules,
     dayLabels: geometry.days.map(dayPillLabel),
     isAvailable,
   };
@@ -158,6 +166,7 @@ export function standRuns(
   selectionLabel: string | null
 ): GridRun[] {
   const { slots, idx, nowMs, leadHours, geometry } = model;
+  const { enforceLeadTime, allowInProgress } = model.rules;
   const inputs: (RowBandInput & { band: Band })[] = geometry.bands.map(b => {
     const slot = slots[b.cellIndex];
     const r = resolveSlotStatus(stand.documentId, slot, idx, nowMs, leadHours);
@@ -171,8 +180,10 @@ export function standRuns(
       status: r.status,
       block: r.block,
       selected,
-      isPast: r.isPast,
-      tooSoon: r.tooSoon,
+      // fish StandRow: a running slot is past only once it is over on the operator's grid, and the
+      // operator has no lead time (no yellow band).
+      isPast: allowInProgress ? r.isOver : r.isPast,
+      tooSoon: enforceLeadTime ? r.tooSoon : false,
     };
   });
   const runs = mergeRowBands(inputs, selectionLabel);
@@ -223,13 +234,21 @@ export function blockTitle(block: BlockInfo): string {
 // core BLOCK_REASON_LABELS, read as a plain record (the CMS also sends reasons it does not list).
 const REASON_LABEL = BLOCK_REASON_LABELS as Record<string, string | undefined>;
 
-/** What a tap on a run does (fish GridBand handlePress precedence, c14–c19). */
-export type RunAction = 'toggle' | 'too-soon' | 'past' | 'block' | 'none';
-export function runAction(run: RowRun): RunAction {
+/**
+ * What a tap on a run does (fish GridBand handlePress precedence, c14–c19). `blockOpens`: a labelled
+ * block / a competition explains itself (the angler's grid; the operator's opens nothing,
+ * operator.calendar.c5). `bookedOpens`: a booked run opens the booking it stands for (fish
+ * `onBookedPress`, the operator's grid only — operator.calendar.c6).
+ */
+export type RunAction = 'toggle' | 'too-soon' | 'past' | 'block' | 'booked' | 'none';
+export function runAction(run: RowRun, opts: { blockOpens?: boolean; bookedOpens?: boolean } = {}): RunAction {
+  const { blockOpens = true, bookedOpens = false } = opts;
   const pressable = run.status === 'available' && !run.isPast;
   if (pressable) return run.tooSoon ? 'too-soon' : 'toggle';
+  // fish GridBand: select > open the booking (a past one too) > past > block.
+  if (bookedOpens && run.status === 'booked') return 'booked';
   if (run.isPast) return 'past';
-  if (run.status === 'blocked' && run.block && (run.block.competitionId || run.block.label)) return 'block';
+  if (blockOpens && run.status === 'blocked' && run.block && (run.block.competitionId || run.block.label)) return 'block';
   return 'none';
 }
 

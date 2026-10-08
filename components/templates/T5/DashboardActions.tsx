@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { createContext, use, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, use, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { UNDER_BAR_TOP } from '@/components/nav/shell';
 import { cn } from '@/components/ui/cn';
 import { StatusPill } from '@/components/ui/StatusPill';
-import { CountBadge, countLabel } from './CountBadge';
+import { CountBadge, countLabel, type CountBadgeTone } from './CountBadge';
 import { ACTION_TILE, BAR_CELL, ICON_TILE, type ActionTone } from './tones';
 
 /**
@@ -48,6 +48,13 @@ export interface DashboardActionsProps {
   title?: ReactNode;
   /** List layout: one line of fact under the title («21 de standuri · 6 ocupate acum»). */
   caption?: ReactNode;
+  /**
+   * Bar layout: once pinned, the row turns into a compact bar (fish operator panel: the labels fade
+   * out once stuck) — icon tiles only on a phone (the labels stay as the links' names), less padding,
+   * ~56px instead of ~90, so the pinned bar does not cover a fifth of a phone. The page below does
+   * not move: the height it gives up is kept as margin under the bar.
+   */
+  compactWhenStuck?: boolean;
   children: ReactNode;
   className?: string;
 }
@@ -56,12 +63,16 @@ export interface DashboardActionsProps {
  * T5 sticky actions. Children are <DashboardAction>s. On a phone the shell's top bar hides on
  * scroll down; the pinned row then moves up to the top edge with it (shell UNDER_BAR_TOP).
  */
-export function DashboardActions({ label, layout = 'bar', title, caption, children, className }: DashboardActionsProps) {
+export function DashboardActions({ label, layout = 'bar', title, caption, compactWhenStuck = false, children, className }: DashboardActionsProps) {
   if (layout === 'list') return <ActionList label={label} title={title} caption={caption} className={className}>{children}</ActionList>;
-  return <StickyBar label={label} className={className}>{children}</StickyBar>;
+  return (
+    <StickyBar label={label} compact={compactWhenStuck} className={className}>
+      {children}
+    </StickyBar>
+  );
 }
 
-function ActionList({ label, title, caption, className, children }: Omit<DashboardActionsProps, 'layout'>) {
+function ActionList({ label, title, caption, className, children }: Omit<DashboardActionsProps, 'layout' | 'compactWhenStuck'>) {
   return (
     // A plain card: the column is already a landmark (DashboardLayout's aside); the shortcuts
     // inside are the one navigation, named by `label`.
@@ -84,9 +95,24 @@ function ActionList({ label, title, caption, className, children }: Omit<Dashboa
   );
 }
 
-function StickyBar({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
+function StickyBar({ label, compact, className, children }: { label: string; compact: boolean; className?: string; children: ReactNode }) {
   const ref = useRef<HTMLElement>(null);
   const [stuck, setStuck] = useState(false);
+  const restHeight = useRef(0);
+  const shrunk = compact && stuck;
+
+  // compactWhenStuck: the in-flow height stays the rest height (the difference as margin under the
+  // bar), so nothing below jumps when the bar pins or unpins. Before paint, on the same commit.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !compact) return;
+    if (!shrunk) {
+      el.style.marginBottom = '';
+      restHeight.current = el.offsetHeight;
+      return;
+    }
+    el.style.marginBottom = `${Math.max(0, restHeight.current - el.offsetHeight)}px`;
+  }, [compact, shrunk]);
 
   useEffect(() => {
     const el = ref.current;
@@ -124,6 +150,7 @@ function StickyBar({ label, className, children }: { label: string; className?: 
       ref={ref}
       aria-label={label}
       data-stuck={stuck || undefined}
+      data-compact={shrunk || undefined}
       className={cn(
         // Under the 56 / 64px top bar; at the top edge while the phone bar is hidden. Only `top`
         // moves (on the bar's own timing); the bleed is not animated — the row's padding takes it
@@ -144,6 +171,7 @@ function StickyBar({ label, className, children }: { label: string; className?: 
           'flex border-b border-transparent bg-surface px-2 py-2.5 md:gap-2',
           'transition-[border-radius,box-shadow,border-color] duration-(--duration-fast) ease-fast',
           'rounded-card shadow-e0 group-data-stuck/bar:rounded-none group-data-stuck/bar:border-hairline group-data-stuck/bar:shadow-none',
+          'group-data-compact/bar:py-1.5',
           BLEED_PAD,
         )}
       >
@@ -166,10 +194,15 @@ export interface DashboardActionProps {
   badge?: number;
   /** What the badge counts, read after the label («în așteptare»). */
   badgeLabel?: string;
+  /**
+   * The badge's colour: `pending` (default) the «în așteptare» pair; `alert` the kit's solid red
+   * notification count with white digits — a corner badge on the bar, a solid pill in the list.
+   */
+  badgeTone?: CountBadgeTone;
 }
 
 /** A jump link to one of the context's areas (never the page itself, never a drill-in). */
-export function DashboardAction({ href, label, icon, tone = 'accent', badge, badgeLabel = 'în așteptare' }: DashboardActionProps) {
+export function DashboardAction({ href, label, icon, tone = 'accent', badge, badgeLabel = 'în așteptare', badgeTone = 'pending' }: DashboardActionProps) {
   const layout = use(LayoutContext);
   const count = countLabel(badge);
   const srCount = count ? <span className="sr-only">, {count} {badgeLabel}</span> : null;
@@ -183,9 +216,13 @@ export function DashboardAction({ href, label, icon, tone = 'accent', badge, bad
           </span>
           <span className="min-w-0 flex-1 truncate t-body-strong text-ink">{label}</span>
           {count ? (
-            <StatusPill tone="pending" className="tabular-nums">
-              <span aria-hidden>{count}</span>
-            </StatusPill>
+            badgeTone === 'alert' ? (
+              <CountBadge count={badge} tone="alert" className="mr-1" />
+            ) : (
+              <StatusPill tone="pending" className="tabular-nums">
+                <span aria-hidden>{count}</span>
+              </StatusPill>
+            )
           ) : null}
           {srCount}
         </Link>
@@ -193,7 +230,7 @@ export function DashboardAction({ href, label, icon, tone = 'accent', badge, bad
     );
   }
 
-  const badgeEl = count ? <CountBadge count={badge} /> : null;
+  const badgeEl = count ? <CountBadge count={badge} tone={badgeTone} /> : null;
   return (
     <li className="flex flex-1">
       <Link href={href} className={cn(BAR_CELL, 'rounded-control hover:bg-soft-fill', PRESSED)}>
@@ -203,7 +240,8 @@ export function DashboardAction({ href, label, icon, tone = 'accent', badge, bad
           </span>
           {badgeEl ? <span className="absolute -top-1.5 -right-2">{badgeEl}</span> : null}
         </span>
-        <span className="t-label whitespace-nowrap text-ink">{label}</span>
+        {/* compactWhenStuck: icon only on a phone once pinned; the label stays the link's name. */}
+        <span className="t-label whitespace-nowrap text-ink max-md:group-data-compact/bar:sr-only">{label}</span>
         {srCount}
       </Link>
     </li>

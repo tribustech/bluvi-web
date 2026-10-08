@@ -20,13 +20,23 @@ export function countLabel(n: number | null | undefined): string | null {
  * status-live — a second spec for the same meaning), T1 FilterButton's count and the TopBar dot.
  * This task may only touch T5; no page outside the T5 demo uses it until then.
  */
-export function CountBadge({ count, className }: { count: number | null | undefined; className?: string }) {
+export type CountBadgeTone = 'pending' | 'alert';
+
+const BADGE_TONE: Record<CountBadgeTone, string> = {
+  pending: 'h-4.5 min-w-4.5 bg-status-pending-bg text-status-pending-fg',
+  // The kit's solid notification count (T3 DetailQuickActions, the lake page's quick actions; fish
+  // OperatorQuickAction $red6 + white): a count that is the screen's one unread signal.
+  alert: 'h-5 min-w-5 bg-status-live-bg text-status-live-fg',
+};
+
+export function CountBadge({ count, tone = 'pending', className }: { count: number | null | undefined; tone?: CountBadgeTone; className?: string }) {
   const label = countLabel(count);
   if (!label) return null;
   return (
     <span
       aria-hidden
-      className={cn('flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-status-pending-bg px-1.25 t-micro-strong text-status-pending-fg tabular-nums ring-2 ring-surface', className)}
+      data-tone={tone}
+      className={cn('flex items-center justify-center rounded-full px-1.25 t-micro-strong tabular-nums ring-2 ring-surface', BADGE_TONE[tone], className)}
     >
       {label}
     </span>

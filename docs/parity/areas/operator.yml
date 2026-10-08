@@ -134,101 +134,167 @@ screens:
       - id: operator.panou.c1
         text: "Header: back button, title = the lake's name from the owned-lakes list (fallback „Balta”), caption „Azi, {weekday d MMM}” in Romanian (e.g. „Azi, sâmbătă 4 oct.”); title centred."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:459-460,494-516
+        status: passing
+        web_note: "e2e «c1 c2 c22 c25 real» (REAL owned-lakes name + device-local «Azi, vineri 9 oct»), «c4 non-owner» («Balta» for a lake not in the list). Web: the area's header (OperatorFrame: back square, h1, caption) — the title sits left of the back square at every width like every operator page, not centred; while the owned-lakes read is out the title is a skeleton (rule 4, no «Balta» flash)."
       - id: operator.panou.c2
         text: "Data is GET /feed/lakes/{lakeId}/operator-stats?window={week|month|year}; the window starts at „week” and is the only parameter — every figure above the trend card is anchored to now/today."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:449-452,462-464; services/api/operatorStats.ts:15-22
+        status: passing
+        web_note: "e2e «c1 c2 c22 c25 real»: the REAL GET /api/cms/feed/lakes/{chita}/operator-stats with `window` as its only parameter, «week» first; «c25 c26 …» (Luna → window=month only)."
       - id: operator.panou.c3
         text: "First load: header plus a centred spinner; quick actions are not shown until data exists."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:545-558
+        status: passing
+        web_note: "e2e «c3: first load …» (delayed mock: header + spinner, no «Scurtături bălții» until data)."
       - id: operator.panou.c4
         text: "Error with no cached data: the header stays and the shared error screen (retry) replaces the body. A failed refetch with data keeps the data on screen."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:519-529
+        status: passing
+        web_note: "e2e «c4: error with no data …» (500 → error state under the header, retry refetches), «c4 non-owner …» (403 → «Nu ai acces»), «c4: a failed refetch keeps the figures …» (toast «Nu s-a putut actualiza…», rows and tiles kept). A window that fails to load keeps the previous figures and says so in the trend card (unit model.test.ts panelView)."
       - id: operator.panou.c5
         text: "Refresh (pull-to-refresh in fish; web: a refresh control) refetches the stats for the current window."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:466-470,538
+        status: passing
+        web_note: "e2e «c5 b.refresh …»: «Reîmprospătează» (DashboardRefresh, header) refetches window=week, then the chart's own window (month) once it is picked."
       - id: operator.panou.c6
         text: "Quick actions row, three tiles in this order: „Calendar” (blue, calendar icon) → /operator/[lakeId]/calendar; „Rezervări” (indigo, ticket icon, red badge = pending count, „99+” above 99, no badge at 0) → /operator/[lakeId]/rezervari?status=pending when pending > 0, else /operator/[lakeId]/rezervari; „Blocaje” (red, no-symbol icon) → /operator/[lakeId]/blocaje."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:171-201; features/operator/OperatorQuickAction.tsx:72-89
+        status: passing
+        web_note: "e2e «c6 c8 c9: quick actions in order …» (Calendar → /calendar, Rezervări → ?status=pending with «3 cereri în așteptare», Blocaje → /blocaje) and «… one request …; none → no badge …; 120 → «99+»». T5 tones (accent / accent / danger), not fish's blue / indigo / red. The Rezervări badge is fish's solid red pill with white digits (T5 CountBadge `alert`: status-live pair, 20px, 2px surface ring; asserted rgb(225, 29, 72) / white, ≥ 18px) in the bar and the list alike — the bar's one unread signal; the amber «în așteptare» tone stays the alert card's."
       - id: operator.panou.c7
         text: "The quick actions row sticks to the top once the header scrolls away (fish: floating card at rest, full-bleed bar when pinned with labels fading out). Web: the row stays reachable while scrolling without covering content."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:122-204,472-487,540
+        status: passing
+        web_note: "e2e «c7 …» (375: the row pins full-bleed right under the top bar — or the top edge while the phone bar hides — no gap, still tappable; pinned it turns compact like fish's crossfade (pinProgress / labelOpacity): data-compact, icon tiles only with the labels kept as the links' names, the badge kept, ≤ 60px instead of ~90 (asserted), the height it gives up kept as margin so the page does not jump; T5 DashboardActions `compactWhenStuck`). Below 1280 the T5 DashboardActions sticky bar (owner rule 3: attached, never floating); from 1280 the shortcuts are a card in the sticky left column."
       - id: operator.panou.c8
         text: "Pending-requests alert (amber, clock icon) shown only when pending > 0: title „1 cerere așteaptă răspuns” / „{n} cereri așteaptă răspuns”; action „Răspunde” → /operator/[lakeId]/rezervari?status=pending."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:630-653
+        status: passing
+        web_note: "e2e «c6 c8 c9 …» («3 cereri așteaptă răspuns», «Răspunde» → ?status=pending), «… one request (singular) …» («1 cerere…»), «120 de cereri…» (formatCount: web plural with «de» from 20); no alert at 0."
       - id: operator.panou.c9
         text: "Alert subtitle = oldest pending request: „{anglerName|Pescar} · standul {standName} · de {age}” (parts omitted when missing); age reads „de {m} min” under 60 min, „de {h} oră|ore” under 24 h, else „de {d} zi|zile”. Without oldestPending (older CMS) the subtitle is „Nu sunt confirmate până le răspunzi”."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:63-71,637-647
+        status: passing
+        web_note: "e2e «c6 c8 c9 …» («Mihai Popescu · standul 7 · de 2 ore») and «… no oldestPending …» («Nu sunt confirmate până le răspunzi»); unit model.test.ts waitedLabel (min / oră / ore / «de 23 de ore» / zi / zile)."
       - id: operator.panou.c10
         text: "„Azi la baltă” card: heading, then a caption band of what today holds — „{n} vine|vin · {n} stă|stau · {n} pleacă”, empty segments dropped, pending requests excluded; no caption when the band is empty."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:605,662-671; features/operator/todayCounts.ts:99-103,159-167
+        status: passing
+        web_note: "e2e «c10 c11 c12 …» («5 vin · 1 stă · 1 pleacă», pending excluded) and «c14 …» (no band on an empty day)."
       - id: operator.panou.c11
         text: "When a competition runs today (todayCompetition), an indigo row with a trophy shows its name and „Concurs · {period}”; activating it opens /concursuri/[id]."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:673-696
+        status: passing
+        web_note: "e2e «c10 c11 …» (indigo row «Cupa Toamnei», «Concurs · Vineri, 9 oct 07:00 – Duminică, 11 oct 15:00», → /concursuri/comp-toamna) and «c14 …» (same-day period «Vineri, 9 oct · 07:00–15:00»)."
       - id: operator.panou.c12
         text: "Today's rows come from data.today (not upcoming, so a stay that began at 06:00 is still listed), pending excluded, grouped by stand in natural order (9 before 10), bookings inside a stand by start time."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:599-601,655-657; features/operator/todayCounts.ts:92-103,171-183
+        status: passing
+        web_note: "e2e «c10 c11 c12 …»: rows from data.today (a stay begun yesterday still listed), stands 1, 2, 3, 9, 10 in natural order, the pending request absent."
       - id: operator.panou.c13
         text: "At most 5 stands are listed; with more, a footer link „Vezi toate ({n} standuri)” opens /operator/[lakeId]/rezervari (default bucket Confirmate · Azi)."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:206-207,601,719-732
+        status: passing
+        web_note: "e2e «c10 c11 c12 c13 …»: six stands → five listed + «Vezi toate (6 standuri)» → /operator/{id}/rezervari (followed)."
       - id: operator.panou.c14
         text: "Empty today: „Nicio rezervare azi.”, or „Nicio rezervare în afara concursului.” when a competition is shown."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:734-740
+        status: passing
+        web_note: "e2e «c14 …» («Nicio rezervare azi.», then «Nicio rezervare în afara concursului.» with a competition)."
       - id: operator.panou.c15
         text: "Single-booking stand row: angler avatar (initials fallback), name (fallback „Pescar”), caption „Standul {stand}” (bold indigo) · „{Wd HH:mm} → {Wd HH:mm}” (2-letter Romanian weekday at both ends); the money column on the right."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:275-333
+        status: passing
+        web_note: "e2e «c10 … c15 …» (initials avatar, «Andrei Ionescu», «Standul 1» bold indigo, «Vi 06:00 → Sâ 06:00», money right). The «·» between the parts is clipped when the caption wraps (no line starts with «·»)."
       - id: operator.panou.c16
         text: "A live stay (confirmed, now inside its window, not no-show) shows a progress bar with „{elapsed}h din {total}h”; a finished or no-show row is dimmed."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:256-268,287-288,304,329; features/operator/todayCounts.ts:18-26,109-121
+        status: passing
+        web_note: "e2e «c10 … c16 …» (live «8h din 24h» progress bar; done and no-show rows data-dimmed: neutral initials / faded photo, muted name — colour, not opacity on text, for AA) and «c18 moment labels» (live bars in turnover stands)."
       - id: operator.panou.c17
         text: "Money column: „{total} lei” when priceTotal > 0; under it „N-a venit” (red) for a no-show, else „Numerar” when balanceDue > 0 or „Plătit” otherwise; nothing when the price is 0."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:211-254
+        status: passing
+        web_note: "e2e «c10 … c17 …» («300 lei» + «Numerar», «150 lei» + «Plătit», «120 lei» + «N-a venit» in the StatusPill `danger` tone, nothing for a free stay); unit model.test.ts moneyColumn. Colours are fish's chips (chipModel.ts): «Numerar» green (payment; StatusPill `success`, #15803D asserted), «Plătit» indigo (stand; StatusPill `info` = #F0F3FD / #4338CA asserted). From 1280 the name column is capped (448), so the sum sits beside the name, not ~600px away."
       - id: operator.panou.c18
         text: "Turnover stand (2+ bookings on one stand today): one block, anglers in time order joined by a thread; each avatar carries a green in-badge (arrives) or red out-badge (leaves/stays); the caption is the moment label — „vine HH:mm · {h}h”, „a venit HH:mm · pleacă HH:mm”, „a venit HH:mm · a plecat HH:mm”, „a venit HH:mm → Wd HH:mm”, „pleacă HH:mm”, „a plecat HH:mm” or „Wd HH:mm → Wd HH:mm”."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:343-439; features/operator/todayCounts.ts:131-156
+        status: passing
+        web_note: "e2e «c10 … c18 …» (one block for stand 3, time order, out / in marks, «a plecat 12:00», «vine 16:00 · 24h», indigo thread) and «c18 moment labels» (a venit … pleacă / a venit … a plecat / a venit → Sâ / pleacă)."
       - id: operator.panou.c19
         text: "Activating a today row (one with a documentId) opens the booking detail dialog on that booking (operator.detaliu-rezervare); rows without documentId are not interactive."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:454-455,373-374,715,574
+        status: passing
+        web_note: "e2e «c19 …»: the row's name is a button over the whole row («Andrei Ionescu, standul 1») → ?rezervare={id} opens operator.detaliu-rezervare on a REAL Chita booking (axe on the dialog), Esc closes and drops the param; keyboard Enter on another row; a row without documentId has no button."
       - id: operator.panou.c20
         text: "Drop-outs line, shown when cancelledLast24h > 0: red x icon, „1 rezervare anulată de un pescar” / „{n} rezervări anulate de pescari”, caption „în ultimele 24 de ore · standurile sunt din nou libere”, text link „Vezi” → /operator/[lakeId]/rezervari?status=cancelled."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:747-778
+        status: passing
+        web_note: "e2e «c20 c21 …» («1 rezervare anulată de un pescar» / «3 rezervări anulate de pescari», caption, «Vezi» → ?status=cancelled)."
       - id: operator.panou.c21
         text: "Review-queue line, shown when pendingFeedback > 0 (below the drop-outs, hairline between): star icon, „1 partidă de evaluat” / „{n} partide de evaluat”, caption „încheiate fără notă”, link „Vezi” → /operator/[lakeId]/rezervari?status=toreview. The card is hidden when both counts are 0."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:780-820
+        status: passing
+        web_note: "e2e «c20 c21 …» («1 partidă de evaluat» / «4 partide de evaluat», «încheiate fără notă», «Vezi» → ?status=toreview) and «c14 …» (no card when both are 0)."
       - id: operator.panou.c22
         text: "Occupancy tile: value occupancyNow.booked „/{total}” labelled „standuri ocupate acum”; when the CMS sends no occupancyNow, the last entry of occupancyByDay labelled „standuri ocupate azi”; 0/0 when neither."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:614-623,825-831
+        status: passing
+        web_note: "e2e «c1 … c22 … real» (the REAL occupancyNow) and «c22 c23 c24 …» («Standuri ocupate acum» 4/21; no occupancyNow → «Standuri ocupate azi» from occupancyByDay's last day; neither → 0/0). Navy signature bento tile (owner rule 19), «/21» tight on the number."
       - id: operator.panou.c23
         text: "Cash tile: deIncasatAzi (fallback: client sum of today's ARRIVALS that are confirmed/completed and not no-show) as „{n} lei”, label „de încasat azi, la sosire”."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:606-610,832-837; features/operator/todayCounts.ts:80-90
+        status: passing
+        web_note: "e2e «c22 c23 c24 …»: deIncasatAzi «550» with «lei» as its own spaced element (owner rule 10); without it the client sum of today's confirmed arrivals not marked no-show (700). Label «De încasat azi, la sosire». Mint bento tile."
       - id: operator.panou.c24
         text: "Cash tile sub-line: „Următoarele 7 zile: {deIncasat7z} lei (azi inclus)” when deIncasat7z > 0; else „Nicio sosire azi” when today is empty; else „Totul e achitat” when today's cash is 0; else nothing."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:842-852
+        status: passing
+        web_note: "e2e «c22 c23 c24 …» («Următoarele 7 zile: 1.250 lei (azi inclus)», «Totul e achitat», nothing) and «c14 …» («Nicio sosire azi»)."
       - id: operator.panou.c25
         text: "Trend card „Cum merge balta” shown only when data.days is non-empty: window chips „Săptămâna”, „Luna”, „Anul” (active filled indigo) and a metric switch „Ocupare” / „Încasări” (default Ocupare)."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:859-868; features/operator/dashboard/LakeTrendCard.tsx:10-14,43-67,101,126-151
+        status: passing
+        web_note: "e2e «c25 c26 c28 c30 …» (tabs Săptămâna · Luna · Anul and Ocupare · Încasări, week + Ocupare selected) and «c25: no points …» (no card). Owner rule 20: the switches are ARIA tablists drawn as tabs (bordered track, filled accent-ink selected, ← → keys)."
       - id: operator.panou.c26
         text: "Changing the window refetches only with the new window and keeps the previous data on screen (chart dimmed to half opacity while fetching); no number above the chart changes or blanks."
         fish_ref: services/queries/useLakeOperatorStats.ts:6-15; features/operator/dashboard/LakeTrendCard.tsx:153
+        status: passing
+        web_note: "e2e «c25 c26 …»: Luna → only window=month requested; the chart is data-busy at opacity .5 with the week's labels kept; rows and tiles unchanged; then the month."
       - id: operator.panou.c27
         text: "Chart: one series at a time (booked stands or cash); occupancy y-axis scaled to the lake's stand total, not the busiest day; y labels rounded to whole numbers; points drawn when ≤ 12."
         fish_ref: features/operator/dashboard/LakeTrendCard.tsx:105-120,155-169
+        status: passing
+        web_note: "e2e «c27 …» (occupancy y 0 · 8 · 16 · 24 for 21 stands — fish yAxisScale on the stands, never the busiest day; cash 0 · 500 · 1.000 · 1.500; 7 dots) and «c25 c26 …» (31 points → no dots, 12 → 12)."
       - id: operator.panou.c28
         text: "X labels: week → day initials D L M M J V S; month → day number every 5th bucket plus the last; year → month short names (ian … dec). Date keys are parsed without timezone shift."
         fish_ref: features/operator/dashboard/trendLabels.ts:18-42
+        status: passing
+        web_note: "e2e «c25 c26 c28 …» (L M M J V S D; 1 6 11 16 21 26 31; ian … dec) and «another time zone › c28 b.local-day» (America/Los_Angeles: «2026-10-05» is still L, «luni 5 oct»)."
       - id: operator.panou.c29
         text: "Scrubbing (pointer/keyboard on web) a point shows in the header „{day label} · {occupancy} · {cash} lei”; day label „{weekday} d mmm” for week, „d mmm” for month, full month name for year; occupancy „booked/total”, or „{n} rezervare|rezervări” for year buckets. Scrubbing must not scroll the page."
         fish_ref: features/operator/dashboard/LakeTrendCard.tsx:122-137,164-168; features/operator/dashboard/trendLabels.ts:44-60; app/(app)/operator/[lakeId]/index.tsx:456-457,537
+        status: passing
+        web_note: "e2e «c29 …»: the chart is a slider — → from today «vineri 9 oct · 4/21 · 550 lei», Home / End, the pointer picks the bucket under it; window.scrollY never moves; year «Decembrie · 33 de rezervări · 11.000 lei»; touch: the scrub lives only while the finger is down — a pointercancel (vertical pan) or a lift returns the caption to «Săptămâna asta» (synthetic touch pointers + a CDP touch swipe). Web: the scrub line is the card's caption (at rest the window, «Săptămâna asta»), not a header-right label, so a 343px card keeps its title on one line."
       - id: operator.panou.c30
         text: "Summary under the chart: „{Săptămâna asta|Luna asta|Anul acesta} · {avg}% ocupare medie · {cash} lei · {n} rezervare|rezervări”; just the window title when windowTotals is missing."
         fish_ref: features/operator/dashboard/trendLabels.ts:62-82; features/operator/dashboard/LakeTrendCard.tsx:173-177
+        status: passing
+        web_note: "e2e «c25 c26 c28 c30 …» («Săptămâna asta · 20% ocupare medie · 4.350 lei · 29 de rezervări», «… 1 rezervare», «… 150 de rezervări»); unit model.test.ts (no windowTotals → the window title). Web plural: formatCount («29 de rezervări»)."
       - id: operator.panou.c31
         text: "Section order: quick actions, pending alert, Azi la baltă, drop-outs/review card, two stat tiles side by side, trend card."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:625-869
+        status: passing
+        web_note: "e2e «c31 …» (375 and 1024: quick actions, alert, Azi la baltă, drop-outs, tiles, trend top to bottom). From 1280 (ROADMAP §4) «≥1280 three columns …» at 1280 / 1440 / 1920: left — shortcuts + the pending alert, centre — Azi la baltă + drop-outs + trend (from a ~900px centre, 1920: Azi la baltă beside drop-outs + trend), right — the two bento tiles one above the other, their labels on one line (asserted; axe 0 at each)."
       - id: operator.panou.c32
         text: "Back from the panel returns to the previous page (picker, Acasă or wherever the operator came from)."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:503
+        status: passing
+        web_note: "e2e «c32 + b.single-lake …»: a cold panel's Back goes to Acasă (QA user owns one lake: _shared/back.ts panelBack), from /concursuri it goes back there."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/operator-panou.spec.ts
+    web_note: "M7-B2: app/(site)/operator/[lakeId] (page, loading, error, _panel/{PanelScreen,PanelFallback,PanelSpinner,QuickActions,PendingAlert,TodayCard,TodayStandRow,TurnoverBlock,AttentionCard,StatTiles,LakeTrendCard,model + model.test.ts}) on B1's frame (OperatorGate, OperatorFrame, OperatorErrorState, useOwnedLakeName, panelBack) and the shared detail (BookingDetailDialog + useOperatorBookingActions, ?rezervare=). T5: DashboardLayout `stacked` in fish order below 1280, three columns from 1280 (left shortcuts + alert, centre today + drop-outs + trend, two columns of its own from 1920; right the bento tiles stacked). Per owner, never cached: operator-stats through /api/cms in the browser (lakeOperatorStatsQuery, previous data as placeholder, refetchOnWindowFocus «always»), noindex. Day logic device-local on a client-only clock (no server «Azi»; it ticks every 30 s). Kit: StatusPill `danger` tone (additive). Screenshots of every state at 375/1280/1440/1920 in .shots/operator-panou; axe 0 (busy, empty, error, refused, trend, dialog)."
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: operator.rezervari
@@ -280,86 +346,142 @@ screens:
       - id: operator.rezervari.c1
         text: "Header: back, title „Administrare rezervări”, trailing round calendar button (accessible name „Calendarul bălții”) → /operator/[lakeId]/calendar."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:344-368
+        status: passing
+        web_note: "«Administrare rezervări» over the lake's name, Back (panel fallback), «Reîmprospătează», round «Calendarul bălții» link → /calendar. e2e «c1 c2 c27 …»."
       - id: operator.rezervari.c2
         text: "Tabs in order „De aprobat” (clock), „Confirmate” (calendar), „Nefinalizate” (x-circle), „Toate” (list), each with its icon."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:30-36,176-187; features/operator/bookingBuckets.ts:17-26
+        status: passing
+        web_note: "BucketTabs: kit ListTabs (underline, accent selected, rule 20) with clock / calendar / x-circle / list icons, ARIA tablist (← → Home End). e2e «c1 c2 c27 …»."
       - id: operator.rezervari.c3
         text: "„De aprobat” carries a count = meta.pendingCount of the FIRST page of the current list; the count is omitted at 0 (and during first load)."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:143-145,181-184; services/api/booking.ts:166-172
+        status: passing
+        web_note: "model.pendingBadge(first page meta.pendingCount): badge «De aprobat, N», none at 0 or while the tab loads. e2e «accept a real request…» (real meta), «c9 c3 …», «c12 …»."
       - id: operator.rezervari.c4
         text: "Sub-filters appear only for Confirmate (Toate, Azi, Viitoare, Trecute, De evaluat) and Nefinalizate (Toate, Cereri neacceptate, Anulate, Neprezentări); „Toate” is the bucket's unfiltered view. Default sub: Confirmate → Azi, others → Toate."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:189-195,199-200; features/operator/bookingBuckets.ts:28-52
+        status: passing
+        web_note: "SubFilterRow chips (owner rule 2) only for Confirmate / Nefinalizate, led by «Toate»; default Azi / Toate. e2e «c4 c5 c7 c8 c12 …» (real reads of every sub)."
       - id: operator.rezervari.c5
         text: "Each tab remembers the sub-filter last chosen in it while the page is open."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:74-78,168-174
+        status: passing
+        web_note: "subByBucket state (model.subOf). e2e «c4 c5 c7 c8 c12 …»."
       - id: operator.rezervari.c6
         text: "Initial tab from ?status: pending → De aprobat; cancelled → Nefinalizate · Anulate; rejected → Nefinalizate · Cereri neacceptate; toreview → Confirmate · De evaluat; all → Toate; anything else/absent → Confirmate · Azi."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:66-73; features/operator/bookingBuckets.ts:63-75
+        status: passing
+        web_note: "model.parseInboxPlace (fish bucketFromLegacyStatus + web-only ?status=confirmed|unfinished&filtru=); URL mirrored with history.replaceState (useListUrlState). e2e «c6 b.status-param …» ×7 incl. junk/none."
       - id: operator.rezervari.c7
         text: "Changing tab or sub-filter scrolls the list back to the top and brings the header back."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:156-174
+        status: passing
+        web_note: "window.scrollTo(0) on tab / sub change. e2e «c4 c5 c7 c8 c12 …»."
       - id: operator.rezervari.c8
         text: "One infinite list per (bucket, sub): GET /feed/bookings/lake/{lakeId}?bucket&sub&page&pageSize=20; a page shorter than pageSize is the last; next page loads near the end of the list (web: on scroll near bottom or a „Mai multe” control)."
         fish_ref: services/queries/useLakeBookings.ts:16-25; services/api/booking.ts:152-176; app/(app)/operator/[lakeId]/bookings.tsx:287-290
+        status: passing
+        web_note: "core lakeBookingsInfiniteQuery (staleTime 0); ListFooter auto-loads near the bottom + «Mai multe». e2e real page 2 of Anulate, «c11 c8 …»."
       - id: operator.rezervari.c9
         text: "An uncached tab shows a list skeleton (the previous tab's rows are not kept); a cached tab paints at once and revalidates."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:234-240; services/queries/useLakeBookings.ts:11-15
+        status: passing
+        web_note: "isPending → InboxSkeleton (no keepPreviousData); cached tab paints at once and revalidates. e2e «c9 c3 …»."
       - id: operator.rezervari.c10
         text: "First-page failure: inline error „Nu am putut încărca rezervările.” / „Verifică conexiunea și încearcă din nou.” + „Încearcă din nou”; no back button duplicate, no sign-out."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:241-250; features/bookings/ui/InlineErrorState.tsx:13-33
+        status: passing
+        web_note: "ListError with fish copy + «Încearcă din nou», no sign-out; a 403 → OperatorErrorState «Nu ai acces». e2e «c10 …»."
       - id: operator.rezervari.c11
         text: "Next-page failure keeps loaded rows and shows a footer „Nu am putut încărca mai multe.” + „Încearcă din nou” that refetches the next page; while loading the next page a footer spinner shows."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:291-316
+        status: passing
+        web_note: "ListFooter: rows kept, «Nu am putut încărca mai multe.» + «Încearcă din nou», spinner while loading. e2e «c11 c8 …»."
       - id: operator.rezervari.c12
         text: "Empty copy: De aprobat „Nimic de aprobat.”; Confirmate „Nicio rezervare confirmată.”, · Azi „Nicio rezervare azi.”, · Viitoare „Nicio rezervare viitoare.”, · Trecute „Nicio rezervare încheiată.”, · De evaluat „Nimic de evaluat.”; Nefinalizate „Nimic nefinalizat.”, · Cereri neacceptate „Nicio cerere neacceptată.”, · Anulate „Nicio anulare.”, · Neprezentări „Nicio neprezentare.”; Toate „Nicio rezervare.”"
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:325-331; features/operator/bookingBuckets.ts:77-95
+        status: passing
+        web_note: "core emptyCopy per bucket/sub in ListEmpty. e2e «c12: the empty copy of every bucket / sub»."
       - id: operator.rezervari.c13
         text: "Refresh (pull-to-refresh; web: refresh control) refetches the current list."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:148-154,317-324
+        status: passing
+        web_note: "«Reîmprospătează» refetches; staleTime 0 → refetch on window focus (operator.b.refresh). e2e «c13 b.refresh …»."
       - id: operator.rezervari.c14
         text: "Confirmate · Azi only: rows grouped by stand (natural order); a stand with 2+ stays today becomes one turnover card — rows without their own card, in/out badge on the avatar, the moment label instead of the period, thread between rows. Other lists keep server start-time order."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:90-110,207-217; features/operator/OperatorBookingRow.tsx:127-147,183,279-324
+        status: passing
+        web_note: "model.inboxItems + TurnoverCard (bare rows, in/out badge, todayMoment label, thread). e2e «c14 …»."
       - id: operator.rezervari.c15
         text: "Card header: avatar (initials fallback) with a star rating pill „★ {avg 1 decimal}” when the angler has ratings; name = angler username, else contact name, else „Pescar”; a red „{n} neprezentare|neprezentări” pill when the angler has no-shows."
         fish_ref: features/operator/OperatorBookingRow.tsx:117-154; features/operator/AnglerRatingBadge.tsx:12-40; features/operator/BookingDetailSheet.tsx:46,81-99
+        status: passing
+        web_note: "Avatar + AnglerRatingBadge, bookingName fallbacks, NoShowPill (B1). e2e «c15 c17 … the card says everything fish does»."
       - id: operator.rezervari.c16
         text: "Pending request age next to the name: „acum câteva secunde”, „acum {m} min”, „acum {h} h[ {m} min]”, „acum o zi”, „acum {d} zile”; shown in red once the request waited ≥ 5 h."
         fish_ref: features/operator/OperatorBookingRow.tsx:77-78,155-159; features/operator/bookingAge.ts:7-42
+        status: passing
+        web_note: "BookingAgeLabel (core bookingAgeLabel / isRequestStale, red ≥5 h). e2e «c15 …» (6 h stale, 40 min fresh) + real fresh request."
       - id: operator.rezervari.c17
         text: "Second line: „Standul {name}” bold indigo plus a green chip per booked extra (label)."
         fish_ref: features/operator/OperatorBookingRow.tsx:161-180
+        status: passing
+        web_note: "«Standul …» accent-ink extrabold + green extras chips. e2e «c15 …»."
       - id: operator.rezervari.c18
         text: "Third line: „{Wd d mmm HH:mm} → {Wd d mmm HH:mm} · {h}h” (duration from basis.durationHours, else rounded hours, min 1); while the stay runs the duration is dropped and a progress bar „{elapsed}h din {h}h” is shown."
         fish_ref: features/operator/OperatorBookingRow.tsx:69-74,181-198; features/operator/BookingDetailSheet.tsx:43-52
+        status: passing
+        web_note: "period · {h}h; live: bare period + progress «{e}h din {h}h». e2e «c15 …»."
       - id: operator.rezervari.c19
         text: "Right column: „{priceTotal} lei”; under it the status pill (operator wording) for any status other than confirmed or for a no-show, else the money pill: Numerar / Avans / Plătit / Rambursat from paymentStatus."
         fish_ref: features/operator/OperatorBookingRow.tsx:63-68,89-91,200-224; features/operator/BookingDetailSheet.tsx:34-39
+        status: passing
+        web_note: "«{n} lei» (unit apart, rule 10); BookingStatusPill operator wording, else the money pill. e2e «c15 …»."
       - id: operator.rezervari.c20
         text: "Cancelled, rejected, finished-quiet and no-show bookings render as a quiet (muted) card."
         fish_ref: features/operator/OperatorBookingRow.tsx:76,115,274-277
+        status: passing
+        web_note: "data-quiet rows (shadow-e0, muted name/price). e2e «c15 …», real rejected row."
       - id: operator.rezervari.c21
         text: "The angler's note shows one line in „…” quotes with the appended „[Anulare operator] …” / „[Refuz operator] …” part stripped; hidden when empty."
         fish_ref: features/operator/OperatorBookingRow.tsx:80,227-231; features/operator/cancelNotes.ts:10-15
+        status: passing
+        web_note: "stripAppendedCancelReason, one line in „…”. e2e «c15 …»."
       - id: operator.rezervari.c22
         text: "Reason line: „Motiv anulare: …” (cancelled) / „Motiv refuz: …” (rejected) from cancelReason; otherwise „Neprezentare: …” for a no-show whose note is not the default „Pescarul nu s-a prezentat.”; clamped to 2 lines with a „vezi mai mult / vezi mai puțin” toggle when longer than 90 characters."
         fish_ref: features/operator/OperatorBookingRow.tsx:81-87,233-247; features/operator/cancelNotes.ts:23-29
+        status: passing
+        web_note: "ReasonLine: line-clamp-2 + «vezi mai mult / mai puțin» past 90 chars (above the open control). e2e «c15 …», real «Motiv refuz»."
       - id: operator.rezervari.c23
         text: "Action buttons on the card only in De aprobat and Confirmate · De evaluat: pending → [Sună] „Refuză” + „Acceptă”; rateable → [Sună] „Evaluează pescarul”. All other lists keep actions in the detail dialog only."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:224; features/operator/OperatorBookingRow.tsx:249-252
+        status: passing
+        web_note: "model.listHasCardActions: Sună + Refuză + Acceptă / Evaluează pescarul only in De aprobat and De evaluat (Actions column ≥1024 of list). e2e «accept a real request…», «reject a real request…», «desktop table …»."
       - id: operator.rezervari.c24
         text: "Activating a card opens the booking detail dialog for that booking (operator.detaliu-rezervare) with the same actions, stretched; Acceptă / Evaluează close the detail first."
         fish_ref: features/operator/OperatorBookingRow.tsx:93-114,267
+        status: passing
+        web_note: "The name is a stretched button opening BookingDetailDialog with the row as seed (intent context: docked SidePanel ≥1280, sheet / dialog below). e2e «accept a real request…» (docked, list in view), «reject …» (phone sheet), «desktop table …» (Acceptă from the panel)."
       - id: operator.rezervari.c25
         text: "While an action runs on a booking its buttons are disabled (actingId)."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:146,223; features/operator/useOperatorBookingActions.tsx:23-33
+        status: passing
+        web_note: "actingId === row → Refuză / Acceptă disabled. e2e «accept a real request…» (held PATCH)."
       - id: operator.rezervari.c26
         text: "?focus={bookingId}: once that booking is in the loaded rows the list scrolls it under the header, once only (not again on refetch); at index 0 it only reveals the header."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:68-71,112-142,267-286
+        status: passing
+        web_note: "focusIndex + scroll under the pinned chrome once; index 0 only shows the header. e2e «c26 …» ×2."
       - id: operator.rezervari.c27
         text: "The title row collapses on scroll while the tabs/sub-filters stay pinned at the top; the tab row runs edge to edge so an off-screen tab is visibly cut (web: horizontally scrollable tab row with focusable tabs)."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:43-64,335-387
+        status: passing
+        web_note: "InboxChrome sticky with UNDER_BAR_TOP (follows the phone bar, never floats), tab row scrolls sideways with edge fades. e2e «c1 c2 c27 …» (pinned at 64), «c27 phone …»."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/operator-rezervari.spec.ts
+    web_note: "M7-B2: app/(site)/operator/[lakeId]/rezervari (page, loading, error, _list/{InboxScreen, BucketTabs (+InboxChrome), SubFilterRow, OperatorBookingRow, TurnoverCard, BookingAgeLabel, ReasonLine, ListFooter, frame, layout, model + model.test.ts}). Per owner via /api/cms, never cached, noindex. One list laid out by its own width (container queries): fish cards below 576 / two per row to 768, a dense table (Pescar · Stand · Perioadă · Sumă · Stare · Acțiuni) from 768 of list width, full width; the detail docks as a side panel ≥1280 beside it. Web differences: refresh control + focus refetch instead of pull-to-refresh; a 403 reads «Nu ai acces»; web-only ?status=confirmed|unfinished&filtru= keeps places the shared vocabulary cannot name. Screenshots .shots/operator-rezervari (cards, turnover, empty, skeleton, error, next-page-error, pending, toreview, detail-open at 375/1280/1440/1920); axe 0 at 375/1280/1440."
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: operator.detaliu-rezervare
@@ -781,38 +903,61 @@ screens:
       - id: operator.calendar.c1
         text: "Same grid, legend, selection, paging and selection panel as booking.rezerva-grila (all its grid criteria apply), except the deltas below; title = the lake's name (fallback „Balta”), not a verb — it is both the lake's calendar and the walk-in step."
         fish_ref: app/(app)/operator/[lakeId]/walk-in/index.tsx:14-18,79-94
+        status: passing
+        web_note: "BookingGridScreen with walkInFlow (_walkin/flowConfig.ts): the angler's grid, legend, selection, paging and panel; h1 = the lake's name from the cached public lake (the gate's owned-lakes name when the public endpoint does not know it), «Balta» without one (FlowConfig.titleFallback); eyebrow «Calendar · adaugă la poartă». The booking.rezerva-grila suite runs unchanged (60/60 with extra + confirmare). e2e tests/e2e/operator-calendar.spec.ts «c1 c4 …»; unit _walkin/flowConfig.test.ts."
       - id: operator.calendar.c2
         text: "Reached from the panel's „Calendar”, the inbox header calendar button and Acasă („Calendar”, „Vezi grila”)."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:175-181; app/(app)/operator/[lakeId]/bookings.tsx:353-364; components/OwnedLakesCard.tsx:168,259-264
+        status: proposed
+        web_note: "Acasă «Bălțile mele» «Calendar» (and «Vezi grila») link to routes.operatorCalendar — e2e tests/e2e/operator-calendar.spec.ts «c2 c11 …» clicks it. The panel's «Calendar» and the inbox header button ship with operator.panou / operator.rezervari (same batch, their files): passing once their specs click through."
       - id: operator.calendar.c3
         text: "In-progress slots stay selectable until they end (allowInProgress): only slots whose end has passed count as past."
         fish_ref: app/(app)/operator/[lakeId]/walk-in/index.tsx:83-86; features/lakes/booking/AvailabilityGrid.tsx:298-310
+        status: passing
+        web_note: "GridRules.allowInProgress: a slot is spent only once over (core resolveSlotStatus isOver) in model.isAvailable and standRuns — fish AvailabilityGrid. e2e tests/e2e/operator-calendar.spec.ts «c3 c7» selects the REAL running Chita slot (06–18 / 18–06) and gets a real price; unit flowConfig.test.ts «c3»."
       - id: operator.calendar.c4
         text: "No lead-time rule for the operator: no too-soon (yellow) state, no too-soon panel, legend without the too-soon entry."
         fish_ref: app/(app)/operator/[lakeId]/walk-in/index.tsx:79-94; features/lakes/booking/BookingGridStep.tsx:102,120
+        status: passing
+        web_note: "GridRules.enforceLeadTime false: no run is tooSoon (no yellow band, no TooSoonDialog), Legend showTooSoon={false} (grid, skeleton, fallback). e2e tests/e2e/operator-calendar.spec.ts «c1 c4 …» (real Chita, lead 24h: no data-status=too-soon, legend without «Doar telefonic»), «c8 c10» (skeleton legend)."
       - id: operator.calendar.c5
         text: "Blocked cells open nothing (no block/competition panel on the operator grid)."
         fish_ref: app/(app)/operator/[lakeId]/walk-in/index.tsx:79-94
+        status: passing
+        web_note: "FlowConfig.blockedCellOpens false → runAction(…, {blockOpens:false}) = none. e2e tests/e2e/operator-calendar.spec.ts «c1 c4 …; c5»: a REAL labelled block (createBlock in beforeAll, deleted in afterAll) is tapped — no dialog, no selection."
       - id: operator.calendar.c6
         text: "Activating a booked cell opens the operator booking detail dialog: the booking is found in the lake's own bookings (bucket all, loaded pages) by same stand and time overlap with the tapped slot; ignored while that list is still loading; nothing opens when no loaded booking matches."
         fish_ref: app/(app)/operator/[lakeId]/walk-in/index.tsx:34-71,99; features/lakes/booking/AvailabilityGrid.tsx:856-871
+        status: passing
+        web_note: "onBookedCell (read through a ref: the grid never re-renders when the list lands) → findBookingForCell over the bucket-all pages: same stand + overlap, a live booking before a cancelled one (a cancelled hit keeps reading while more pages may hold the live one). Opens components/operator BookingDetailDialog seeded with the row (?rezervare=), intent context: docked in the right column from 1280, dialog 768–1279, sheet below. Web fixes over fish: (1) the list is latest-first (CMS startDate desc, no maximum stay), so the activation reads further pages until the list passes the booked interval's own start — BookedCell carries it from the availability (merged.bookings, turnaround-widened, so at or before the booking's start; mayBeOnLaterPage, guard 20 pages) — a stay of any length is found, no guessed look-back; (2) a tap before the list's first page is never read as «not found» but is not lost either: it joins the in-flight read (ensureInfiniteQueryData) and answers when it lands; (3) while a lookup runs the band shows a spinner + aria-busy, a definitive miss toasts «Nu am găsit rezervarea — deschide Rezervări.»; (4) the band whose booking is open carries a ring + aria-current while ?rezervare= is that booking (seed, a loaded row or the detail's own cached read after a reload); (5) from 1280 a live selection stays over the docked detail as a compact card (stand, interval, price, Anulează, Continuă). The URL is shared: the grid writes only stand/start/end/extra (withFlowQuery) and the detail keeps the selection's history mark (useBookingDetailParam ownHistoryState), so neither closes nor breaks the other (booking.rezerva-grila c37 holds on this mount). e2e tests/e2e/operator-calendar.spec.ts «c6 …» ×5 (REAL walk-in via core createWalkInBooking, operator-cancelled in afterAll; held list = busy then opens; held detail GET = seed paints; reload by id = marked; mocked page 1 of later bookings + held page 2 = busy then opens; empty list = toast) and «c6 + c37» (select, open, select again, reload, Anulează selecția steps back, Forward, Back); unit findBookingForCell.test.ts (a 6-night stay tapped on its 5th day)."
       - id: operator.calendar.c7
         text: "The quote for a selection is requested with walkIn true (the server skips the end-time rule for a walk-in, so the panel must not refuse what the submit accepts)."
         fish_ref: features/lakes/booking/useBookingGridFlow.ts:156-170; services/queries/useBookingQuote.ts:30-43; app/(app)/operator/[lakeId]/walk-in/_layout.tsx:6-15
+        status: passing
+        web_note: "useFlowQuote(…, walkIn = FlowConfig.walkIn) → POST /feed/lakes/:id/quote {walkIn:true} (core bookingQuoteQuery, its own key). e2e tests/e2e/operator-calendar.spec.ts «c3 c7» asserts every quote body walkIn true on the real CMS and no refusal for the running slot."
       - id: operator.calendar.c8
         text: "Each time the grid comes back into view (returning from extras/review or a dialog) availability is refetched."
         fish_ref: app/(app)/operator/[lakeId]/walk-in/index.tsx:23-32
+        status: passing
+        web_note: "useLiveAvailability (shared): refetchOnMount / refetchOnWindowFocus 'always'; a return from extras / review is a mount; the detail's writes invalidate ['bookings'] (availability included). e2e tests/e2e/operator-calendar.spec.ts «c8 c10»."
       - id: operator.calendar.c9
         text: "Continuă from the selection panel goes to /operator/[lakeId]/calendar/extra when the stand offers extras for this tour, otherwise straight to /operator/[lakeId]/calendar/confirmare."
         fish_ref: features/lakes/booking/useBookingGridFlow.ts:280-302
+        status: failing
+        web_note: "FAILING until operator.calendar-extra / -confirmare are built: there are no /calendar/extra or /calendar/confirmare pages yet, so «Continuă» would lead into a 404. Until then walkInFlow sets FlowConfig.continueHeld: Continuă is held (aria-disabled, described by the note) with «Adăugarea la poartă se finalizează deocamdată din aplicația Bluvi.» under it (owner rule 4), in the panel and in the compact card over the docked detail. The routing itself is ready (stepHref(…, config) → routes.operatorCalendarExtras when offeredForSelection is non-empty, else routes.operatorCalendarReview; unit flowConfig.test.ts). e2e tests/e2e/operator-calendar.spec.ts «c9 (held)» proves the hold; «c9: Continuă → …» is test.fixme and asserts the destination's h1 («Confirmă rezervarea» / «Extra»), not only the URL — re-enable it and drop continueHeld when the steps ship."
       - id: operator.calendar.c10
         text: "Availability error with no cached data: „A apărut o eroare la încărcarea disponibilității.” + „Încearcă din nou”; loading shows the grid skeleton; next month pages load at the end of the grid."
         fish_ref: features/lakes/booking/BookingGridStep.tsx:123-139; app/(app)/operator/[lakeId]/walk-in/index.tsx:87-93
+        status: passing
+        web_note: "Shared states: «A apărut o eroare la încărcarea disponibilității.» + «Încearcă din nou», GridSkeleton (loading.tsx and the gate fallback are WalkInGridFallback), next month near the end. e2e tests/e2e/operator-calendar.spec.ts «c8 c10» (mocked 500 / held read, real paging)."
       - id: operator.calendar.c11
         text: "Back leaves the flow (blocked while a walk-in submit is in flight)."
         fish_ref: features/lakes/booking/BookingGridStep.tsx:96; features/lakes/booking/useBookingGridFlow.ts:304-308
+        status: passing
+        web_note: "Header back: «Anulează selecția» first (clears), then «Înapoi» = useBack(FlowConfig.paths.exit): history back, else /operator/[lakeId]. A walk-in submit only runs on the review page (operator.calendar-confirmare), so the grid is never on screen while one is in flight; that page blocks its own Back. e2e tests/e2e/operator-calendar.spec.ts «c2 c11 …» (from Acasă back to Acasă; a fresh tab → the panel URL)."
+    web_note: "Built in M7-B2: app/(site)/operator/[lakeId]/calendar (page / loading / error, _walkin: WalkInGridScreen, flowConfig, findBookingForCell). The angler flow's _grid / _flow take a FlowConfig (_flow/config.ts, angler = default, unchanged); grid hot path measured on Chita (dev build, 4× CPU throttle, 2268 bands): availability → first band 418 ms before, 398–501 ms after (angler) and 417 ms (calendar); tap → selected pill ≈600 ms before and after (noise on the shared machine). Non-owner: the bucket-all list's 403 / 401 → OperatorErrorState («Nu ai acces»), e2e «operator.b.role-gating». Screenshots .shots/operator-calendar at 375 / 1024 / 1280 / 1440 / 1920. Loading states (loading.tsx, the gate fallback, the grid's own skeleton) render the right column's card placeholder from 1024 (SelectionCardSkeleton, shared with the angler mount), so the column split never shifts when the data lands; the title is a skeleton while the owned-lakes name is unknown (BookingFrame title undefined), never «Balta» swapped for the name. Status proposed until c2's panel / inbox entry points are proven and c9's steps ship."
     mobile_only: false
-    status: todo
+    status: proposed
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: operator.calendar-extra
@@ -1024,12 +1169,18 @@ behaviours:
   - id: operator.b.notification-routes
     text: "Notifications: BOOKING_NEW_REQUEST_OPERATOR and BOOKING_PENDING_NUDGE_OPERATOR → /operator/{lakeId}/rezervari?status=pending; BOOKING_AUTO_REJECTED_OPERATOR → ?status=rejected; BOOKING_CANCELLED_OPERATOR → ?status=cancelled; no route without lakeId."
     fish_ref: helpers/getRedirectLocationForNotification.ts:146-157
+    status: passing
+    web_note: "lib/notification-href.ts operatorBookings ON: routes.operatorBookings(lakeId, status) for pending / rejected / cancelled, null without lakeId (core). Unit tests/unit/notification-href.test.ts; the landing tabs are e2e operator-rezervari.spec.ts «c6 b.status-param …»."
   - id: operator.b.status-param
     text: "The inbox's ?status= is the single deep-link vocabulary (pending, cancelled, rejected, toreview, all) used by the panel, Acasă and notifications; it maps to bucket + sub-filter via bucketFromLegacyStatus and must keep working for links shipped by older apps."
     fish_ref: features/operator/bookingBuckets.ts:54-75
+    status: passing
+    web_note: "model.parseInboxPlace = fish bucketFromLegacyStatus for the vocabulary (+ web-only bucket names with ?filtru=); inboxUrlValues writes the vocabulary back whenever it names the place. Unit model.test.ts (round trip); e2e operator-rezervari.spec.ts «c6 b.status-param …» ×7."
   - id: operator.b.focus-param
     text: "?focus={bookingId} on the inbox brings one booking into view once it is loaded (no fish caller passes it today; pair it with status=all, the only bucket guaranteed to hold it)."
     fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:66-72,112-142; features/operator/bookingBuckets.ts:71-73
+    status: passing
+    web_note: "?focus scrolls that booking (or its turnover card) under the pinned chrome once it is loaded, once only; kept in the URL. e2e operator-rezervari.spec.ts «c26 b.focus-param …», «c26: ?focus on the first booking …»."
   - id: operator.b.write-invalidation
     text: "Every booking write (accept, reject, operator cancel, no-show, block create/delete) invalidates both ['bookings'] and ['operator-stats'] roots; walk-in also invalidates the owned-lakes stats and per-lake stats; an angler review invalidates reputation, bookings and operator-stats. These endpoints are private (no CDN), so client cache is the only stale copy."
     fish_ref: services/mutations/invalidateOperatorSurfaces.ts:4-21; services/mutations/useCreateWalkInBooking.ts:10-16; services/mutations/useCreateAnglerReview.ts:9-20
@@ -1037,6 +1188,7 @@ behaviours:
   - id: operator.b.refresh
     text: "No polling anywhere in the area (no refetchInterval): freshness comes from manual refresh, write invalidation and the calendar refetching availability whenever it regains focus. Web: offer an explicit refresh control and refetch on window focus."
     fish_ref: app/(app)/operator/[lakeId]/index.tsx:466-470; app/(app)/operator/[lakeId]/bookings.tsx:150-154; app/(app)/operator/[lakeId]/walk-in/index.tsx:23-32
+    web_note: "Panel (M7-B2, operator.panou): no refetchInterval; «Reîmprospătează» refetches the current window and the stats query refetches on every return to the foreground (refetchOnWindowFocus «always») — e2e tests/e2e/operator-panou.spec.ts «c5 b.refresh …» (no request in 3 s idle, refresh → week then month, visibilitychange → refetch). Status stays todo until the inbox and the calendar prove their part."
   - id: operator.b.single-lake
     text: "An operator with exactly one lake never sees the picker: /operator replaces itself with /operator/{lakeId}, and Acasă links straight to that lake."
     fish_ref: app/(app)/operator/index.tsx:20-26; components/OwnedLakesCard.tsx:77-79
@@ -1062,3 +1214,5 @@ behaviours:
   - id: operator.b.walk-in-shared-flow
     text: "The walk-in flow is the angler booking flow (grid → extras → review) mounted under /operator/{lakeId}/walk-in with walkIn mode: quote and submit skip the end-time rule, in-progress slots are sellable, no lead time, auto-confirmed and paid cash at the gate."
     fish_ref: app/(app)/operator/[lakeId]/walk-in/_layout.tsx:6-17; features/lakes/booking/BookingFlowProvider.tsx:44-63
+    status: proposed
+    web_note: "M7-B2: one flow, two mounts — app/(site)/balti/[id]/rezerva/_flow/config.ts FlowConfig {mode, paths (grid / extras / review / exit), eyebrow, titleFallback, enforceLeadTime, allowInProgress, walkIn, blockedCellOpens}, threaded as an optional last argument (angler default) through stepHref, isFlowUrl / stepPath / flowTargets / useFlowNav, guardStep / selectionTaken, buildGridModel (GridRules), runAction, useFlowQuote (walkIn), BookingGridScreen (config, onBookedCell, detail, children), BookingFrame (eyebrow), Legend (showTooSoon). The walk-in config is app/(site)/operator/[lakeId]/calendar/_walkin/flowConfig.ts (/operator/[lakeId]/calendar, …/extra, …/confirmare, exit /operator/[lakeId]). Grid step proven (operator.calendar, tests/e2e/operator-calendar.spec.ts; unit _walkin/flowConfig.test.ts) with the angler suites unchanged (rezerva-grila / -extra / -confirmare 60/60). Passing once the extras / review steps (operator.calendar-extra / -confirmare: auto-confirmed, cash at the gate, submit walkIn) mount the same modules with this config. Grid step generalised further (M7-B2 fixes): FlowConfig.continueHeld (the walk-in holds Continuă with a note while its steps are missing; angler null), withFlowQuery (the grid writes only its own query keys, so the walk-in's ?rezervare= survives every selection write), BookingGridScreen `mark` → AvailabilityGrid → GridBand (busy / open marks on booked bands, only the marked row re-renders), the compact SelectionSummary over a docked detail, SelectionCardSkeleton in every loading frame from 1024 (both mounts), BookingFrame title undefined = skeleton."

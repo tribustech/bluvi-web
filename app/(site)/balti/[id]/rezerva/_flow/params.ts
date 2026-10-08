@@ -1,4 +1,4 @@
-import { routes } from '@/lib/routes';
+import { anglerFlow, type FlowConfig } from './config';
 
 /*
  * The booking flow's state, in the URL — fish BookingFlowProvider + useBookingGridFlow
@@ -59,18 +59,36 @@ export function flowQuery(selection: FlowSelection | null, extras: string[] = []
   return q.toString();
 }
 
+/** The query keys the flow owns; every other parameter of a URL belongs to someone else. */
+const FLOW_KEYS = ['stand', 'start', 'end', 'extra'] as const;
+
 /**
- * Where a step lives for a flow state. The grid never carries extras: the sheet always quotes the
+ * `search` (a location.search, «?» optional) with the flow's keys replaced by `selection` (+ extras)
+ * and every other parameter kept, in place — the operator's ?rezervare= rides on the same grid URL
+ * (operator.calendar), and a selection written by the grid must never close the open booking.
+ * Without foreign params it is exactly flowQuery(selection, extras). '' when nothing is left.
+ */
+export function withFlowQuery(search: string, selection: FlowSelection | null, extras: string[] = []): string {
+  const foreign = new URLSearchParams(search);
+  for (const k of FLOW_KEYS) foreign.delete(k);
+  const own = flowQuery(selection, extras);
+  const rest = foreign.toString();
+  return own && rest ? `${own}&${rest}` : own || rest;
+}
+
+/**
+ * Where a step lives for a flow state (`config`: the angler's flow, or the operator's walk-in).
+ * The grid never carries extras: the sheet always quotes the
  * bare tour, and returning to the grid resets the chosen extras (fish useBookingGridFlow, c36).
  */
-export function stepHref(lakeId: string, step: FlowStep, params: FlowParams): string {
+export function stepHref(lakeId: string, step: FlowStep, params: FlowParams, config: FlowConfig = anglerFlow(lakeId)): string {
   const sel = params.selection;
   if (step === 'grid' || !sel) {
     const q = flowQuery(sel);
-    return `${routes.lakeBooking(lakeId)}${q ? `?${q}` : ''}`;
+    return `${config.paths.grid}${q ? `?${q}` : ''}`;
   }
   const s = { stand: sel.stand, start: sel.start, end: sel.end, extras: params.extras };
-  return step === 'extras' ? routes.lakeBookingExtras(lakeId, s) : routes.lakeBookingReview(lakeId, s);
+  return step === 'extras' ? config.paths.extras(s) : config.paths.review(s);
 }
 
 /** Same selection (stand + bounds). */

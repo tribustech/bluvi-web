@@ -3,7 +3,7 @@ import type { LakeAvailability } from '@/core/booking';
 import { mergePages } from '@/core/booking';
 import { guardStep, nextStepFromGrid, offeredForSelection, previousStep, seedSelection, selectionTaken } from './guards';
 import { flowTargets, historyDelta, isFlowUrl, stepPath } from './nav';
-import { flowQuery, readFlowParams, sameSelection, stepHref } from './params';
+import { flowQuery, readFlowParams, sameSelection, stepHref, withFlowQuery } from './params';
 
 process.env.TZ = 'Europe/Bucharest';
 
@@ -229,5 +229,17 @@ describe('leaving a step (nav.ts: fish goBack / backToGrid / exitFlow)', () => {
     expect(previousStep(merged, SEL)).toBe('extras');
     expect(previousStep(merged, { ...SEL, stand: 's1' })).toBe('grid');
     expect(previousStep(null, SEL)).toBe('grid');
+  });
+});
+
+describe('withFlowQuery: the grid writes its keys and keeps everyone else\'s (operator ?rezervare=)', () => {
+  it('without foreign params it is flowQuery', () => {
+    expect(withFlowQuery('', SEL)).toBe(flowQuery(SEL));
+    expect(withFlowQuery('?stand=x&start=a&end=b&extra=c', null)).toBe('');
+  });
+  it('replaces the selection, keeps ?rezervare=, drops a later step\'s extras', () => {
+    const q = withFlowQuery('?stand=old&start=a&end=b&extra=cab&rezervare=bk1', SEL);
+    expect(q).toBe(`${flowQuery(SEL)}&rezervare=bk1`);
+    expect(withFlowQuery('?rezervare=bk1&stand=old', null)).toBe('rezervare=bk1');
   });
 });

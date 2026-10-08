@@ -4,7 +4,9 @@ import { cn } from '@/components/ui/cn';
 /*
  * fish AvailabilityGrid Legend + TodayButton (c3, c4): «Liber» (white), «Indisponibil» (red tint),
  * «Doar telefonic» (yellow — the angler flow enforces the lead time) and the cabin glyph «Cabană»
- * (the mark a stand with extras carries in the frozen column).
+ * (the mark a stand with extras carries in the frozen column). The operator's grid has no lead time,
+ * so its legend has no «Doar telefonic» (fish `<Legend showTooSoon={!!enforceLeadTime} />`,
+ * operator.calendar.c4).
  */
 
 function Swatch({ className, label }: { className: string; label: string }) {
@@ -16,12 +18,12 @@ function Swatch({ className, label }: { className: string; label: string }) {
   );
 }
 
-export function Legend({ className }: { className?: string }) {
+export function Legend({ className, showTooSoon = true }: { className?: string; showTooSoon?: boolean }) {
   return (
     <ul aria-label="Legendă" className={cn('flex flex-wrap items-center gap-x-4 gap-y-1.5', className)}>
       <Swatch className="border-faint bg-surface" label="Liber" />
       <Swatch className="border-status-danger-line bg-status-danger-bg" label="Indisponibil" />
-      <Swatch className="border-yellow-5 bg-status-warning-bg" label="Doar telefonic" />
+      {showTooSoon ? <Swatch className="border-yellow-5 bg-status-warning-bg" label="Doar telefonic" /> : null}
       <li className="flex items-center gap-1.5">
         <HomeModernIcon aria-hidden className="size-4 shrink-0 text-status-success-fg" />
         <span className="t-caption text-ink-2">Cabană</span>

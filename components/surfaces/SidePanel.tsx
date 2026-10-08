@@ -48,7 +48,15 @@ export function SidePanel({ title, subtitle, onClose, children, footer, classNam
           <XMarkIcon className="size-5" aria-hidden />
         </button>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">{children}</div>
+      {/* Focusable: a body taller than the panel scrolls from the keyboard too (axe scrollable-region-focusable). */}
+      <div
+        tabIndex={0}
+        aria-labelledby={titleId}
+        role="group"
+        className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+      >
+        {children}
+      </div>
       {footer ? <div className="border-t border-hairline px-5 py-4">{footer}</div> : null}
     </aside>
   );

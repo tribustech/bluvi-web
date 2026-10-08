@@ -64,11 +64,13 @@ export function useLiveAvailability(lakeId: string) {
 }
 
 /**
- * What the selected tour costs, according to the server (POST /feed/lakes/:id/quote, walkIn false).
- * The grid quotes the bare tour (`extras` []); the extras step re-quotes with its choice. The
- * previous answer stays as placeholder while a newer one is in flight (c29).
+ * What the selected tour costs, according to the server (POST /feed/lakes/:id/quote). The grid
+ * quotes the bare tour (`extras` []); the extras step re-quotes with its choice. The previous answer
+ * stays as placeholder while a newer one is in flight (c29). `walkIn` (the operator's flow,
+ * FlowConfig.walkIn): the server skips the end-time rule for a walk-in, so the quote must too, or
+ * the panel would refuse what the submit accepts (operator.calendar.c7).
  */
-export function useFlowQuote(lakeId: string, selection: FlowSelection | null, extras: string[] = []) {
+export function useFlowQuote(lakeId: string, selection: FlowSelection | null, extras: string[] = [], walkIn = false) {
   const t = useFlowTransport();
   return useQuery(
     bookingQuoteQuery(t, {
@@ -77,7 +79,7 @@ export function useFlowQuote(lakeId: string, selection: FlowSelection | null, ex
       startISO: selection?.start,
       endISO: selection?.end,
       extras,
-      walkIn: false,
+      walkIn,
     })
   );
 }

@@ -2,6 +2,7 @@
 
 import { memo } from 'react';
 import { TrophyIcon } from '@heroicons/react/16/solid';
+import { T4Spinner } from '@/components/templates/T4';
 import { cn } from '@/components/ui/cn';
 import { CELL_H, HEADER_H, PINNED_W, type GridRun } from './model';
 
@@ -26,15 +27,23 @@ function look(run: GridRun): string {
   return 'border border-status-danger-line bg-status-danger-bg text-status-danger-fg';
 }
 
+/**
+ * A booked band the operator's grid is acting on (operator.calendar): `open` — its booking is the
+ * one in the detail (a ring, aria-current); `busy` — its booking is being looked up (a spinner,
+ * aria-busy). Undefined on every other band, so marking one never re-renders the rest (memo).
+ */
+export type BandMark = 'open' | 'busy';
+
 type Props = {
   run: GridRun;
+  mark?: BandMark;
   standId: string;
   /** Roving tab stop: the one band of the grid that is in the tab order. */
   tabbable: boolean;
   onPress: (standId: string, run: GridRun) => void;
 };
 
-export const GridBand = memo(function GridBand({ run, standId, tabbable, onPress }: Props) {
+export const GridBand = memo(function GridBand({ run, standId, tabbable, onPress, mark }: Props) {
   const competition = run.block?.reason === 'competition' && !run.label;
   return (
     <button
@@ -46,6 +55,9 @@ export const GridBand = memo(function GridBand({ run, standId, tabbable, onPress
       data-status={run.isPast ? 'past' : run.selected ? 'selected' : run.status === 'available' && run.tooSoon ? 'too-soon' : run.status}
       aria-label={run.ariaLabel}
       aria-pressed={run.selected}
+      aria-current={mark === 'open' ? 'true' : undefined}
+      aria-busy={mark === 'busy' ? 'true' : undefined}
+      data-active={mark === 'open' ? '' : undefined}
       tabIndex={tabbable ? 0 : -1}
       onClick={() => onPress(standId, run)}
       style={{
@@ -62,10 +74,12 @@ export const GridBand = memo(function GridBand({ run, standId, tabbable, onPress
         'transition-[background-color,border-color,filter] duration-(--duration-fast) ease-fast',
         'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent active:opacity-80',
         look(run),
+        mark === 'open' && 'z-above ring-2 ring-accent-ink ring-offset-1 ring-offset-surface',
       )}
     >
+      {mark === 'busy' ? <T4Spinner className="size-3.5 shrink-0" /> : null}
       {competition ? <TrophyIcon aria-hidden className={cn('size-3.5 shrink-0', run.isPast ? 'text-faint' : 'text-status-danger-fg')} /> : null}
-      {run.label ? <span className="t-micro-strong line-clamp-2 min-w-0">{run.label}</span> : null}
+      {run.label && mark !== 'busy' ? <span className="t-micro-strong line-clamp-2 min-w-0">{run.label}</span> : null}
     </button>
   );
 });

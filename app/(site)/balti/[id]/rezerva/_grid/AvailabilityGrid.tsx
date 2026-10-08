@@ -16,7 +16,7 @@ import { ChevronRightIcon, HomeModernIcon } from '@heroicons/react/24/outline';
 import type { AvailabilityStand, DayHeader as Day, GridSelectionState } from '@/core/booking';
 import { cn } from '@/components/ui/cn';
 import { DayHeader } from './DayHeader';
-import { GridBand } from './GridBand';
+import { GridBand, type BandMark } from './GridBand';
 import { CELL_H, HEADER_H, PINNED_W, selectionRightPx, standRuns, type GridModel, type GridRun } from './model';
 
 /*
@@ -40,6 +40,10 @@ import { CELL_H, HEADER_H, PINNED_W, selectionRightPx, standRuns, type GridModel
 
 export type GridHandle = { scrollToToday: () => void };
 
+/** The booked band(s) of one stand overlapping [startISO, endISO) carry `kind` (GridBand BandMark). */
+export type GridMark = { stand: string; startISO: string; endISO: string; kind: BandMark };
+type MarkRange = { from: number; to: number; kind: BandMark };
+
 type Props = {
   model: GridModel;
   stands: AvailabilityStand[];
@@ -52,6 +56,8 @@ type Props = {
   onBandPress: (standId: string, run: GridRun) => void;
   onDayPress: (day: Day) => void;
   handle?: Ref<GridHandle>;
+  /** Operator only: the booked band being looked up / whose booking is open. */
+  mark?: GridMark | null;
 };
 
 export function AvailabilityGrid({
@@ -65,8 +71,24 @@ export function AvailabilityGrid({
   onBandPress,
   onDayPress,
   handle,
+  mark = null,
 }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
+  // The mark as a cell range, resolved once per mark (never per band): only its stand's row gets it.
+  const markRange = useMemo<MarkRange | null>(() => {
+    if (!mark) return null;
+    const s = Date.parse(mark.startISO);
+    const e = Date.parse(mark.endISO);
+    let from = -1;
+    let to = -1;
+    model.slots.forEach((slot, i) => {
+      if (Date.parse(slot.start) < e && Date.parse(slot.end) > s) {
+        if (from < 0) from = i;
+        to = i;
+      }
+    });
+    return from < 0 ? null : { from, to, kind: mark.kind };
+  }, [mark, model.slots]);
   const { dayWidthPx, bodyWidthPx, days, headerSlots } = model.geometry;
   const width = PINNED_W + bodyWidthPx + (fetchingNext ? dayWidthPx : 0);
 
@@ -254,6 +276,7 @@ export function AvailabilityGrid({
                 bodyWidthPx={bodyWidthPx}
                 tabRun={tabStop?.stand === stand.documentId ? tabStop.run : null}
                 onPress={press}
+                mark={mark?.stand === stand.documentId ? markRange : null}
               />
             ))}
           </div>
@@ -298,12 +321,14 @@ const StandRow = memo(function StandRow({
   bodyWidthPx,
   tabRun,
   onPress,
+  mark,
 }: {
   stand: AvailabilityStand;
   runs: GridRun[];
   bodyWidthPx: number;
   tabRun: GridRun | null;
   onPress: (standId: string, run: GridRun) => void;
+  mark: MarkRange | null;
 }) {
   const hasExtras = stand.extras.length > 0;
   return (
@@ -318,7 +343,14 @@ const StandRow = memo(function StandRow({
       </div>
       <div className="relative shrink-0 border-b border-hairline" style={{ width: bodyWidthPx }}>
         {runs.map(run => (
-          <GridBand key={`${run.key}-${run.leftPx}`} run={run} standId={stand.documentId} tabbable={tabRun === run} onPress={onPress} />
+          <GridBand
+            key={`${run.key}-${run.leftPx}`}
+            run={run}
+            standId={stand.documentId}
+            tabbable={tabRun === run}
+            onPress={onPress}
+            mark={mark && run.status === 'booked' && run.firstCell <= mark.to && run.lastCell >= mark.from ? mark.kind : undefined}
+          />
         ))}
       </div>
     </div>

@@ -8,6 +8,7 @@ import {
   type SelectionSlot,
 } from '@/core/booking';
 import { buildGridModel, selectionFree } from '../_grid/model';
+import { ANGLER_RULES, anglerFlow, type FlowConfig, type GridRules } from './config';
 import { stepHref, type FlowParams, type FlowSelection, type FlowStep } from './params';
 
 /*
@@ -65,9 +66,9 @@ export const SELECTION_TAKEN_MESSAGE = 'Intervalul ales nu mai e liber.';
  * started, inside the lead time, or not a run of slots: the grid's own check (_grid/model.ts
  * selectionFree). null = the loaded months do not reach its end yet: it cannot be judged.
  */
-export function selectionTaken(merged: MergedAvailability, sel: FlowSelection, nowMs: number): boolean | null {
+export function selectionTaken(merged: MergedAvailability, sel: FlowSelection, nowMs: number, rules: GridRules = ANGLER_RULES): boolean | null {
   if (!(Date.parse(sel.end) <= Date.parse(merged.loadedRange.to))) return null;
-  const model = buildGridModel(merged, nowMs);
+  const model = buildGridModel(merged, nowMs, 1, rules);
   return !selectionFree(model, seedSelection(sel, model.slots));
 }
 
@@ -84,16 +85,17 @@ export function guardStep(
   step: Exclude<FlowStep, 'grid'>,
   params: FlowParams,
   merged: MergedAvailability | null,
-  nowMs?: number
+  nowMs?: number,
+  config: FlowConfig = anglerFlow(lakeId)
 ): string | null {
   const sel = params.selection;
-  const grid = stepHref(lakeId, 'grid', { selection: null, extras: [] });
+  const grid = stepHref(lakeId, 'grid', { selection: null, extras: [] }, config);
   if (!sel) return grid;
   if (!merged) return null;
   if (!merged.bookingEnabled || !selectionStand(merged, sel)) return grid;
-  if (step === 'review' && nowMs !== undefined && selectionTaken(merged, sel, nowMs) === true) return grid;
+  if (step === 'review' && nowMs !== undefined && selectionTaken(merged, sel, nowMs, config) === true) return grid;
   if (step === 'extras' && offeredForSelection(merged, sel).length === 0) {
-    return stepHref(lakeId, 'review', { selection: sel, extras: [] });
+    return stepHref(lakeId, 'review', { selection: sel, extras: [] }, config);
   }
   return null;
 }

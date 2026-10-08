@@ -1010,8 +1010,19 @@ test.describe('signed in', () => {
       await expect.poll(() => created).not.toBeNull();
       // b.write-invalidation, from the client cache: the list is well inside its 60s staleTime, so it
       // is read again on the remount only because the create invalidated ['bookings'] — and the read
-      // shows the new booking.
-      await expect.poll(() => mine.some(m => m.afterCreate && m.body.includes(created!)), { timeout: 15_000 }).toBe(true);
+      // shows the new booking: in its rows, or — when the local CMS holds a full first page of later
+      // stays (other specs' cancelled / rejected requests sort above it) — in the page's pending count.
+      const pendingOf = (body: string) => {
+        try {
+          return (JSON.parse(body) as { meta?: { pendingCount?: number } }).meta?.pendingCount ?? 0;
+        } catch {
+          return 0;
+        }
+      };
+      const before = Math.max(0, ...mine.filter(m => !m.afterCreate).map(m => pendingOf(m.body)));
+      await expect
+        .poll(() => mine.some(m => m.afterCreate && (m.body.includes(created!) || pendingOf(m.body) > before)), { timeout: 15_000 })
+        .toBe(true);
       // And the slot is now taken in the live availability (the CMS side).
       const after = await availability(request, s!.start);
       expect(after.bookings.some(b => b.standDocumentId === s!.stand && Date.parse(b.start) === Date.parse(s!.start))).toBe(true);

@@ -114,10 +114,11 @@ describe('notificationHref — every type with its ids', () => {
     [T.BOOKING_REMINDER_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
     [T.BOOKING_NO_SHOW_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
     [T.BOOKING_WALK_IN_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
-    [T.BOOKING_NEW_REQUEST_OPERATOR, { lakeId: 'l1' }, null],
-    [T.BOOKING_PENDING_NUDGE_OPERATOR, { lakeId: 'l1' }, null],
-    [T.BOOKING_AUTO_REJECTED_OPERATOR, { lakeId: 'l1' }, null],
-    [T.BOOKING_CANCELLED_OPERATOR, { lakeId: 'l1' }, null],
+    // → the operator's inbox, on the tab the push is about (operator.b.notification-routes)
+    [T.BOOKING_NEW_REQUEST_OPERATOR, { lakeId: 'l1' }, '/operator/l1/rezervari?status=pending'],
+    [T.BOOKING_PENDING_NUDGE_OPERATOR, { lakeId: 'l1' }, '/operator/l1/rezervari?status=pending'],
+    [T.BOOKING_AUTO_REJECTED_OPERATOR, { lakeId: 'l1' }, '/operator/l1/rezervari?status=rejected'],
+    [T.BOOKING_CANCELLED_OPERATOR, { lakeId: 'l1' }, '/operator/l1/rezervari?status=cancelled'],
     // → never a route (fish)
     [T.SCHEDULED_NOTIFICATION, C, null],
     [T.COMPETITION_CANCELLED_USER, C, null],
