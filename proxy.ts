@@ -55,5 +55,8 @@ export const config = {
     { source: '/concursuri/:id/alocare', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     { source: '/concursuri/:id/cantar/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     { source: '/concursuri/:id/penalizari/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    // M7 lake operator (operator.b.role-gating): the picker /operator and everything under it (panel,
+    // inbox, blocks, walk-in, rate angler). Per owner; the CMS owner-gates every read.
+    { source: '/operator/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
   ],
 };

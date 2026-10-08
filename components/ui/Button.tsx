@@ -12,7 +12,7 @@ import { cn } from "./cn";
  * dark, where white on #818CF8 fails AA).
  */
 export type ButtonVariant =
-  "primary" | "secondary" | "outline" | "danger" | "ghost" | "success";
+  "primary" | "secondary" | "outline" | "danger" | "dangerOutline" | "ghost" | "success";
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary: "bg-accent text-on-accent shadow-button hover:brightness-95",
@@ -20,6 +20,10 @@ const VARIANT: Record<ButtonVariant, string> = {
   outline:
     "border-2 border-accent bg-surface text-accent-ink hover:bg-soft-fill",
   danger: "bg-status-danger-bg text-status-danger-fg hover:brightness-95",
+  // A destructive confirm (fish ActionButton danger): white with a rose edge and label — clearly
+  // active and clearly destructive, where the pale `danger` tint reads as disabled.
+  dangerOutline:
+    "border-2 border-live bg-surface text-status-danger-fg hover:bg-status-danger-bg",
   ghost: "text-ink-2 hover:bg-soft-fill",
   // The partidă «Captură» (fish ActivePartidaDock): green, filled like primary.
   success: "bg-success text-on-accent shadow-button hover:brightness-95",
@@ -31,6 +35,7 @@ const DISABLED: Record<ButtonVariant, string> = {
   outline:
     "border-2 border-accent bg-surface text-accent-ink opacity-50",
   danger: "bg-status-danger-bg text-status-danger-fg opacity-50",
+  dangerOutline: "border-2 border-live bg-surface text-status-danger-fg opacity-50",
   ghost: "text-ink-2 opacity-50",
   success: "bg-success text-on-accent opacity-50",
 };
@@ -48,8 +53,8 @@ const SIZE: Record<ButtonSize, string> = {
 
 /** Side padding; the outline's 2px border is taken out of it so every variant is the same width. */
 const PAD: Record<ButtonSize, Record<ButtonVariant, string>> = {
-  default: { primary: "px-5", secondary: "px-5", outline: "px-4.5", danger: "px-5", ghost: "px-3", success: "px-5" },
-  compact: { primary: "px-3", secondary: "px-3", outline: "px-2.5", danger: "px-3", ghost: "px-3", success: "px-3" },
+  default: { primary: "px-5", secondary: "px-5", outline: "px-4.5", danger: "px-5", dangerOutline: "px-4.5", ghost: "px-3", success: "px-5" },
+  compact: { primary: "px-3", secondary: "px-3", outline: "px-2.5", danger: "px-3", dangerOutline: "px-2.5", ghost: "px-3", success: "px-3" },
 };
 
 interface ButtonStyleOptions {

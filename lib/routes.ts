@@ -24,6 +24,40 @@ export type WizardOptions = {
   explicatie?: string;
 };
 
+/** A booking flow selection in the URL (?stand&start&end[&extra…]): angler flow and operator walk-in. */
+export type BookingSelection = { stand: string; start: string; end: string; extras?: string[] };
+
+const bookingSelectionQuery = (sel: BookingSelection) =>
+  new URLSearchParams([['stand', sel.stand], ['start', sel.start], ['end', sel.end], ...(sel.extras ?? []).map((e) => ['extra', e])]);
+
+/** The operator inbox's ?status= deep-link vocabulary (operator.b.status-param; fish bucketFromLegacyStatus). */
+export type OperatorBookingsStatus = 'pending' | 'cancelled' | 'rejected' | 'toreview' | 'all';
+
+/** Header facts of «Evaluează pescarul» carried in its URL (fish rate-angler params). */
+export type OperatorRateAnglerParams = {
+  anglerName?: string;
+  anglerId?: string;
+  anglerAvatar?: string;
+  standName?: string;
+  startDate?: string;
+  endDate?: string;
+};
+
+/**
+ * `href` with the operator booking detail dialog open on `bookingId` (?rezervare=; operator.detaliu-rezervare):
+ * keeps the page's own query and hash, replaces an earlier `rezervare`.
+ */
+export function withBookingDetail(href: string, bookingId: string): string {
+  const hashAt = href.indexOf('#');
+  const hash = hashAt >= 0 ? href.slice(hashAt) : '';
+  const noHash = hashAt >= 0 ? href.slice(0, hashAt) : href;
+  const qAt = noHash.indexOf('?');
+  const path = qAt >= 0 ? noHash.slice(0, qAt) : noHash;
+  const q = new URLSearchParams(qAt >= 0 ? noHash.slice(qAt + 1) : '');
+  q.set('rezervare', bookingId);
+  return `${path}?${q}${hash}`;
+}
+
 /**
  * `raw` when it is a same-origin relative path («/organizator», «/concursuri/abc?tab=x»), else null:
  * no scheme, no protocol-relative «//host», no backslash (browsers read «/\host» as «//host»), no
@@ -106,10 +140,10 @@ export const routes = {
    * the query (?stand&start&end[&extra…]) so a reload or Back re-seeds it — the codec is
    * app/(site)/balti/[id]/rezerva/_flow/params.ts (readFlowParams); keep the two in step.
    */
-  lakeBookingExtras: (documentId: string, sel: { stand: string; start: string; end: string; extras?: string[] }) =>
-    `/balti/${encodeURIComponent(documentId)}/rezerva/extra?${new URLSearchParams([['stand', sel.stand], ['start', sel.start], ['end', sel.end], ...(sel.extras ?? []).map(e => ['extra', e])])}`,
-  lakeBookingReview: (documentId: string, sel: { stand: string; start: string; end: string; extras?: string[] }) =>
-    `/balti/${encodeURIComponent(documentId)}/rezerva/confirmare?${new URLSearchParams([['stand', sel.stand], ['start', sel.start], ['end', sel.end], ...(sel.extras ?? []).map(e => ['extra', e])])}`,
+  lakeBookingExtras: (documentId: string, sel: BookingSelection) =>
+    `/balti/${encodeURIComponent(documentId)}/rezerva/extra?${bookingSelectionQuery(sel)}`,
+  lakeBookingReview: (documentId: string, sel: BookingSelection) =>
+    `/balti/${encodeURIComponent(documentId)}/rezerva/confirmare?${bookingSelectionQuery(sel)}`,
   /** Sign in, returning to `next` (a path with its query; /intra validates it). Home and /intra itself: plain /intra. */
   signIn: (next?: string) => (!next || next === '/' || next === '/intra' ? '/intra' : `/intra?next=${encodeURIComponent(next)}`),
   /**
@@ -324,11 +358,52 @@ export const routes = {
   /** Apply a penalty to one registration (organizer.penalties-apply; fish penalties/[competitionId]/apply). */
   competitionPenaltiesApply: (documentId: string, inscriere: string) =>
     `/concursuri/${encodeURIComponent(documentId)}/penalizari/aplica?inscriere=${encodeURIComponent(inscriere)}`,
-  /** The operator panel: one lake's, or the lake picker without one (operator.yml). */
+  /**
+   * M7 lake operator (docs/parity/areas/operator.yml). The panel of one lake (operator.panou), or the
+   * lake picker «Administrare lacuri» without one (operator.alege-balta).
+   */
   operator: (lakeId?: string) => (lakeId ? `/operator/${encodeURIComponent(lakeId)}` : '/operator'),
+  /** The walk-in / availability grid, step 1 (operator.calendar; fish operator/[lakeId]/walk-in). */
   operatorCalendar: (lakeId: string) => `/operator/${encodeURIComponent(lakeId)}/calendar`,
-  operatorBookings: (lakeId: string, status?: 'pending' | 'cancelled' | 'toreview') =>
-    `/operator/${encodeURIComponent(lakeId)}/rezervari${status ? `?status=${status}` : ''}`,
+  /**
+   * The bookings inbox (operator.rezervari; fish operator/[lakeId]/bookings). `status` is the shared
+   * deep-link vocabulary of the panel, Acasă and the notifications (operator.b.status-param); `focus`
+   * brings one booking into view (operator.b.focus-param — pair it with status «all»).
+   */
+  operatorBookings: (lakeId: string, status?: OperatorBookingsStatus, focus?: string) => {
+    const q = new URLSearchParams();
+    if (status) q.set('status', status);
+    if (focus) q.set('focus', focus);
+    const s = q.toString();
+    return `/operator/${encodeURIComponent(lakeId)}/rezervari${s ? `?${s}` : ''}`;
+  },
+  /** The stand blocks calendar (operator.blocaje; fish operator/[lakeId]/blocks). */
+  operatorBlocks: (lakeId: string) => `/operator/${encodeURIComponent(lakeId)}/blocaje`,
+  /** Create a stand block (operator.blocaj-nou; fish operator/[lakeId]/blocks/new). */
+  operatorBlockNew: (lakeId: string) => `/operator/${encodeURIComponent(lakeId)}/blocaje/nou`,
+  /**
+   * The walk-in flow's steps 2 and 3 (extras / review). Same ?stand&start&end[&extra…] codec as
+   * lakeBookingExtras / lakeBookingReview (app/(site)/balti/[id]/rezerva/_flow/params.ts readFlowParams).
+   */
+  operatorCalendarExtras: (lakeId: string, sel: BookingSelection) =>
+    `/operator/${encodeURIComponent(lakeId)}/calendar/extra?${bookingSelectionQuery(sel)}`,
+  operatorCalendarReview: (lakeId: string, sel: BookingSelection) =>
+    `/operator/${encodeURIComponent(lakeId)}/calendar/confirmare?${bookingSelectionQuery(sel)}`,
+  /**
+   * Rate the angler of a finished booking (operator.evalueaza; fish operator/rate-angler/[bookingId]).
+   * The header facts ride in the query, as fish's params do (no extra read to paint the header).
+   */
+  operatorRateAngler: (bookingId: string, p: OperatorRateAnglerParams = {}) => {
+    const q = new URLSearchParams();
+    if (p.anglerName) q.set('anglerName', p.anglerName);
+    if (p.anglerId) q.set('anglerId', p.anglerId);
+    if (p.anglerAvatar) q.set('anglerAvatar', p.anglerAvatar);
+    if (p.standName) q.set('standName', p.standName);
+    if (p.startDate) q.set('startDate', p.startDate);
+    if (p.endDate) q.set('endDate', p.endDate);
+    const s = q.toString();
+    return `/operator/evalueaza/${encodeURIComponent(bookingId)}${s ? `?${s}` : ''}`;
+  },
   // Public waters (ANAR): `id` is the bundled numeric row id or the stable linkCode («R:RO11_01.018_R1»),
   // which carries «:» and «.» — always encoded (parity public-waters.b.route-param).
   publicWater: (idOrCode: string | number) => `/ape-publice/${encodeURIComponent(String(idOrCode))}`,

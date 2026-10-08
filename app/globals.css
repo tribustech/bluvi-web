@@ -312,6 +312,9 @@
   --color-photo-scrim: var(--bluvi-photo-scrim);
   --color-on-photo-scrim: var(--bluvi-on-photo-scrim);
   --color-photo-chip: var(--bluvi-photo-chip);
+  /* Status dots on a photo under the scrim (fish OwnedLakeCard GlassStat: amber pending = rating,
+     teal «Active» teal-300). Theme-invariant: they always sit on the dark photo scrim. */
+  --color-photo-dot-active: #5eead4;
   --color-welcome: var(--bluvi-welcome);
   --color-on-welcome: var(--bluvi-on-welcome);
   --color-welcome-2: var(--bluvi-welcome-2);

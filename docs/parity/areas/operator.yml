@@ -37,32 +37,52 @@ screens:
       - id: operator.alege-balta.c1
         text: "Header: back button + title „Administrare lacuri”. Back goes to the previous page when there is one, otherwise to Acasă (/)."
         fish_ref: app/(app)/operator/index.tsx:40-45
+        status: passing
+        web_note: "e2e tests/e2e/operator-alege-balta.spec.ts «c1 c2 c6 c7 c8 c9 …» (header) and «c1: Back goes to the previous page, else to Acasă»."
       - id: operator.alege-balta.c2
         text: "The list is the signed-in user's owned lakes from GET /feed/owned-lakes; while it loads a full-area loader is shown."
         fish_ref: app/(app)/operator/index.tsx:18,47-48; services/api/booking.ts:231-237
+        status: passing
+        web_note: "e2e tests/e2e/operator-alege-balta.spec.ts «c1 c2 c6 c7 c8 c9 …» (a delayed mock: the loader, then the cards)."
       - id: operator.alege-balta.c3
         text: "A failed load shows the shared error screen with „Încearcă din nou” (refetch); a dead session additionally offers „Deconectează-te”."
         fish_ref: app/(app)/operator/index.tsx:49-50; components/ErrorScreen.tsx:42-57
+        status: passing
+        web_note: "e2e tests/e2e/operator-alege-balta.spec.ts «c3: a failed read …» (500 → retry refetches) and «c3: a refused session (401) …» (Deconectează-te only)."
       - id: operator.alege-balta.c4
         text: "When the user owns exactly one lake the picker is skipped: the route is REPLACED (not pushed) by /operator/[lakeId], so Back does not bounce through the picker."
         fish_ref: app/(app)/operator/index.tsx:20-26
+        status: passing
+        web_note: "e2e tests/e2e/operator-alege-balta.spec.ts «c4 operator.b.single-lake …» against the REAL local CMS (QA user owns only Chita): replace, no card ever painted, Back leaves /operator."
       - id: operator.alege-balta.c5
         text: "With no owned lake the list shows the centred empty text „Nu administrezi niciun lac.”"
         fish_ref: app/(app)/operator/index.tsx:58-64
+        status: passing
+        web_note: "e2e tests/e2e/operator-alege-balta.spec.ts «c5: no owned lake …»."
       - id: operator.alege-balta.c6
         text: "One card per lake, in server order; activating a card opens that lake's panel /operator/[lakeId] (push)."
         fish_ref: app/(app)/operator/index.tsx:28-33,52-57
+        status: passing
+        web_note: "e2e tests/e2e/operator-alege-balta.spec.ts «c1 c2 c6 …» (server order, push: Back returns to the picker)."
       - id: operator.alege-balta.c7
         text: "Card: lake cover photo as background (bundled lake photo when coverImageUrl is missing) under a dark scrim, the lake name (one line, truncated) and a right chevron."
         fish_ref: components/OwnedLakeCard.tsx:31,46-62
+        status: passing
+        web_note: "e2e tests/e2e/operator-alege-balta.spec.ts «c1 c2 c6 c7 …» (cover / bundled fallback, one truncated line) and «c7: a cover that fails to load …»."
       - id: operator.alege-balta.c8
         text: "Card stats row, three tiles: amber dot + pending count „În așteptare”; teal dot + active count „Active”; cashToCollect formatted ro-RO „De încasat azi (lei)”. Missing values read 0."
         fish_ref: components/OwnedLakeCard.tsx:65-72
+        status: passing
+        web_note: "e2e tests/e2e/operator-alege-balta.spec.ts «c1 c2 c6 c7 c8 …» (3 / 12 / 12.500 lei, 450,5, missing → 0, amber + teal dots)."
       - id: operator.alege-balta.c9
         text: "The whole card is one control (keyboard-focusable on web, named by the lake)."
         fish_ref: components/OwnedLakeCard.tsx:34-45
+        status: passing
+        web_note: "e2e tests/e2e/operator-alege-balta.spec.ts «c1 … c9» (one link per card named by the lake, the tiles hit the card) and «c9 keyboard …»."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/operator-alege-balta.spec.ts
+    web_note: "M7-B1: app/(site)/operator (page, loading, error, _picker/{PickerScreen,PickerFallback,OwnedLakeCard,model + model.test.ts}), on the area's shared frame app/(site)/operator/_shared (OperatorGate/operatorMetadata, OperatorFrame/OperatorHeader, OperatorErrorState/OperatorRouteError, useOperatorTransport, useOwnedLakeName). T1 frame: back + h1, cards in ListGrid min lg (one column on a phone, auto-fill from 768). Per owner: proxy.ts /operator/:path* + requireViewer, GET /feed/owned-lakes through /api/cms (never cached, noindex). Web differences: the loader is the cards' skeleton; the cash tile shows «12.500 lei» (unit its own smaller element, owner rule 10) over «De încasat azi» instead of fish's «De încasat azi (lei)»; the empty state adds one caption line; a 403 reads «Nu ai acces». Screenshots of every state at 375/1280/1440/1920 in .shots/operator-alege-balta; axe 0 at 375/1280/1920 (list, empty, error)."
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: operator.panou
@@ -370,46 +390,86 @@ screens:
       - with note / cancel reason / reject reason / meaningful no-show note
       - angler with account (profile link) / walk-in without account
       - pending / cancellable / rateable / none (action row variants)
+      - not found / not this lake's (4xx, or a booking of another lake or the viewer's own angler booking) → «Rezervarea nu mai există sau nu e a acestei bălți.» + «Închide»
+      - read failed (5xx / network) → inline error «Nu am putut încărca rezervarea.» + «Încearcă din nou»
+      - nothing owed (cancelled, rejected, no-show, Plătit, Rambursat) → no «Rest de plată»
     criteria:
       - id: operator.detaliu-rezervare.c1
         text: "Opened from the panel or calendar on an id, the dialog fetches GET /feed/bookings/{id} and shows a skeleton (avatar, two lines, two blocks) until it arrives; a booking fetched for a previous id is never displayed."
         fish_ref: features/operator/OperatorBookingSheet.tsx:18-35; features/operator/BookingDetailSheet.tsx:213-228,260
+        status: passing
+        web_note: "components/operator/detail/BookingDetailDialog.tsx: bookingQuery (proxy, never the CDN) keyed per id; the body renders only data.documentId === the open id, else BookingDetailSkeleton (avatar, two lines, two blocks). e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c1 real GET by id behind the skeleton…» (real Chita booking, read held) and «c1 stale id…» (A cached, B delayed: skeleton, never A)."
       - id: operator.detaliu-rezervare.c2
         text: "Opened from the list or the calendar grid, the dialog shows the row's booking immediately (fish seeds the detail cache) and revalidates in the background."
         fish_ref: features/operator/OperatorBookingRow.tsx:267; app/(app)/operator/[lakeId]/walk-in/index.tsx:65-68
+        status: passing
+        web_note: "seed prop: setQueryData(bookingKeys.detail(id), seed, {updatedAt: 0}) before the query subscribes → painted at once, stale → revalidated on mount. e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c2 opened from a row…» (no skeleton, 120 lei at once, then the revalidated 140 lei / Confirmată)."
       - id: operator.detaliu-rezervare.c3
         text: "Header as the card: avatar (48) with rating pill, name, no-show pill, „Standul …” + extras chips, „{period} · {h}h”, price and the status pill (always shown here)."
         fish_ref: features/operator/BookingDetailSheet.tsx:295-363
+        status: passing
+        web_note: "BookingDetailBody header: Avatar 48 + AnglerRatingBadge, name + NoShowPill, «Standul …» + green extras chips, «{period} · {h}h», price («230 lei»), BookingStatusPill viewer operator always. e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c3 + b.reputation…», «c1 real…» (real header)."
       - id: operator.detaliu-rezervare.c4
         text: "When the booking has an angler account, avatar and name (indigo) open /pescari/[anglerId] and close the dialog; walk-in bookings without account have no link."
         fish_ref: features/operator/BookingDetailSheet.tsx:279-285,298,309-318
+        status: passing
+        web_note: "account → name (indigo) and avatar link to anglerHref; a click closes (history.replaceState drops ?rezervare) then router.push, so Back returns to the page without the dialog; walk-in: plain text. e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c4 the angler opens /pescari/[id]…», «c1 real…» (real walk-in, no link)."
       - id: operator.detaliu-rezervare.c5
         text: "„Cum s-a calculat” block when basis exists: tour line (rowLabel, else „Tur {h}h”) with its price, one line per extra („{label} × {qty}” when qty > 1) with its total, divider, bold „Total {priceTotal} lei”."
         fish_ref: features/operator/BookingDetailSheet.tsx:365-378
+        status: passing
+        web_note: "model.ts bookingDetailModel basis lines (rowLabel || «Tur {h}h», «{label} × {qty}»), hairline, bold Total; no block without basis. Unit components/operator/detail/model.test.ts; e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c5 c6 c7 c8 blocks…»."
       - id: operator.detaliu-rezervare.c6
         text: "„Plată” block: „Stare” = money label; „Încasat {amountPaid} lei” when > 0; bold „Rest de plată {total − paid} lei” when paid < total."
         fish_ref: features/operator/BookingDetailSheet.tsx:380-386
+        status: passing
+        web_note: "Stare (PAYMENT label, unknown → Numerar), Încasat when > 0, bold Rest de plată when paid < total AND the stay can still be paid (model.ts owesRest: pending/confirmed/completed, not a no-show, not paidInFull/refunded). DELIBERATE IMPROVEMENT ON FISH (BookingDetailSheet.tsx:383 shows «Rest de plată {total} lei» on a cancelled, rejected, no-show or refunded stay and on paidInFull without amountPaid): owner rule 4, never ask the operator to collect money that is not due. Unit model.test.ts «c6 no Rest de plată when nothing can be owed»; e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c5 c6 c7 c8 blocks…» (unpaid / Avans partly / Plătit fully)."
       - id: operator.detaliu-rezervare.c7
         text: "„Rezervare” block: „Cod” = booking code; „Cerută” = createdAt as „Wd d mmm, HH:mm”; „Telefon” = contactPhone when present."
         fish_ref: features/operator/BookingDetailSheet.tsx:388-408
+        status: passing
+        web_note: "Cod, Cerută «Wd d mmm, HH:mm» (requestedAtLabel), Telefon when contactPhone. Unit model.test.ts; e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c5 c6 c7 c8 blocks…»."
       - id: operator.detaliu-rezervare.c8
         text: "Optional blocks: „Mesaj de la pescar” (note in „…”, appended operator reason stripped); „Motiv refuz” / „Motiv anulare” from cancelReason; „Neprezentare” with a meaningful no-show note."
         fish_ref: features/operator/BookingDetailSheet.tsx:410-433
+        status: passing
+        web_note: "Mesaj de la pescar (stripAppendedCancelReason, in „…”), Motiv refuz / Motiv anulare, Neprezentare only for a non-default note. Unit model.test.ts; e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c5 c6 c7 c8 blocks…»."
       - id: operator.detaliu-rezervare.c9
         text: "Action row at the bottom (stretched buttons): pending → „Refuză” (danger) + „Acceptă” (solid); confirmed, not ended, not no-show → „Anulează rezervarea”; confirmed/completed, ended, not no-show, not reviewedByOperator → „Evaluează pescarul”; a „Sună” icon button precedes them whenever contactPhone exists; nothing else otherwise."
         fish_ref: features/operator/BookingDetailSheet.tsx:54-62,107-183,434
+        status: passing
+        web_note: "BookingDetailActions from bookingActionGates (actionVariant): pending → Refuză (danger) + Acceptă; cancel → Anulează rezervarea; rate → Evaluează pescarul; «Sună» first when contactPhone; no footer at all with neither. Buttons disabled while actions.actingId is this booking. Unit model.test.ts; e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c9 every action-row variant»."
       - id: operator.detaliu-rezervare.c10
         text: "„Sună” opens tel:{contactPhone} (web: tel: link) and logs analytics contact_pressed {contact_type: 'Operator guest contact', lake_id, lake_name}."
         fish_ref: features/operator/BookingDetailSheet.tsx:124-138
+        status: passing
+        web_note: "«Sună» is a tel: link; onClick track(contact_pressed, {contact_type: Operator guest contact, lake_id, lake_name}). e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c10 + b.analytics…»."
       - id: operator.detaliu-rezervare.c11
         text: "„Acceptă” closes the detail and opens the accept confirmation; „Refuză” opens the reject reason dialog; „Anulează rezervarea” opens the cancel reason dialog (operator.actiuni-rezervare)."
         fish_ref: features/operator/OperatorBookingSheet.tsx:45-59; features/operator/OperatorBookingRow.tsx:95-111
+        status: passing
+        web_note: "Acceptă closes the detail then actions.accept(b) (useOperatorBookingActions, operator.actiuni-rezervare); Refuză / Anulează open actions.reject / actions.cancel over the detail. e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c11 Acceptă closes the detail…»."
       - id: operator.detaliu-rezervare.c12
         text: "„Evaluează pescarul” closes the detail and opens /operator/evalueaza/[bookingId] carrying angler name, id, avatar, stand and period."
         fish_ref: features/operator/BookingDetailSheet.tsx:64-78; features/operator/OperatorBookingSheet.tsx:55-58
+        status: passing
+        web_note: "closes, then router.push(routes.operatorRateAngler(id, {anglerName, anglerId, anglerAvatar, standName, startDate, endDate})) (model.ts rateAnglerHref). e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c12 «Evaluează pescarul»…» (URL params, Back without the dialog)."
       - id: operator.detaliu-rezervare.c13
         text: "Closing (Esc, backdrop, close button on web) clears the open id; it can be reopened on another booking immediately."
         fish_ref: features/operator/OperatorBookingSheet.tsx:25-31; app/(app)/operator/[lakeId]/index.tsx:574
+        status: passing
+        web_note: "useBookingDetailParam: ?rezervare= written with the Next-synced history.replaceState (replace, no server round trip); Esc / backdrop / X call close (param removed), reopen on another id at once; the modal <dialog> keeps keyboard focus inside. e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c13 backdrop, the X and Esc close…», axe at 375/1280/1440/1920 «every state renders at …»."
+      - id: operator.detaliu-rezervare.c14
+        text: "Web only (the id lives in a shareable, reloadable URL; fish only opens the sheet from a row it fetched): the dialog never waits forever. A 4xx, or a booking that is not this page's lake (GET /feed/bookings/:id also answers the angler and any other owned lake), settles on «Rezervarea nu mai există sau nu e a acestei bălți.» + «Închide», without operator actions; a 5xx / network failure on the inline error with «Încearcă din nou»."
+        fish_ref: features/operator/OperatorBookingSheet.tsx:18-35
+        status: passing
+        web_note: "BookingDetailDialog: isError/error from useQuery (4xx not retried, 5xx retried twice by lib/client/query-client.ts, then the error); model.ts isBookingOfLake (documentId === open id && (no lake ref || lake === lakeId)) — anything else is the not-found state. Unit model.test.ts «isBookingOfLake»; e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c14 a 404 settles… a 500…» and «c14 a booking of another lake…»."
+      - id: operator.detaliu-rezervare.c15
+        text: "Mounted on the real routes: opened from a real row on /operator/[lakeId] (panel), /operator/[lakeId]/rezervari and /operator/[lakeId]/calendar; a reload keeps ?rezervare= and reopens it; the signed-out redirect keeps the return path including ?rezervare=; coexists with each page's own params (e.g. ?status=pending); <Suspense> around useSearchParams on the prerendered auth routes. Desktop ≥1280 on /rezervari and /calendar: intent «context» (docked SidePanel next to the list / grid, the page renders the panel column; the grid's hot path must not re-render when it opens — memory project_availability_grid_perf); the panel keeps «info»."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx:574; app/(app)/operator/[lakeId]/bookings.tsx:267
+        status: todo
+        web_note: "Owned by the operator.panou / operator.rezervari / operator.calendar batches (they mount the dialog). The dialog is ready: props `intent` ('info' default | 'context') and `panelClassName` pass through to ResponsiveSurface; useBookingDetailParam only touches ?rezervare=, other params and the hash are kept (bookingDetailUrl)."
+    web_note: "HARNESS-ONLY until operator.panou / operator.rezervari / operator.calendar mount it: c1–c14 are proven at the component level on app/dev/operator (dev harness), no app/(site)/operator route renders BookingDetailDialog yet — c15 tracks the real mounts."
     mobile_only: false
     status: todo
 
@@ -447,44 +507,76 @@ screens:
       - id: operator.actiuni-rezervare.c1
         text: "Accept never acts directly: it opens a confirmation „Accepți rezervarea?” with „Pescarul primește notificare, iar standul se blochează pentru acest interval.”"
         fish_ref: features/operator/AcceptBookingSheet.tsx:23-63
+        status: passing
+        web_note: "«Acceptă» calls useOperatorBookingActions().accept(b), which only opens AcceptBookingDialog (ResponsiveSurface «decision»: sheet <768, alert dialog ≥768, no X — Escape answers «Renunță»). e2e tests/e2e/operator-actiuni-rezervare.spec.ts «c1 c2 c3 c13 … accept a real request» (no PATCH until «Confirmă»)."
       - id: operator.actiuni-rezervare.c2
         text: "Accept confirmation body: stand badge (when stand), angler name, period; rows „Stand” and „Extra” (comma-joined labels, only when present); total „Încasezi” / „la fața locului” / „{amount} lei”."
         fish_ref: features/operator/AcceptBookingSheet.tsx:65-83
+        status: passing
+        web_note: "Body from model.acceptSummary: accent pill stand badge, angler (bookingName), period (bookingPeriod), T4Rows «Stand» / «Extra» (comma-joined, only when present), T4TotalLine «Încasezi» · «la fața locului» · figure with «lei» apart (rule 10). e2e tests/e2e/operator-actiuni-rezervare.spec.ts «accept a real request» (real Chita request, no extras) and «c2: extras joined, no stand…» (mocked)."
       - id: operator.actiuni-rezervare.c3
         text: "Buttons „Renunță” (closes) and „Confirmă” (check icon, disabled while submitting); Confirmă closes the dialog and PATCHes /accept; success toast „Rezervare confirmată”."
         fish_ref: features/operator/AcceptBookingSheet.tsx:85-95; features/operator/useOperatorBookingActions.tsx:25-35; features/operator/OperatorBookingRow.tsx:262-265
+        status: passing
+        web_note: "«Renunță» closes with no write; «Confirmă» (check icon, disabled while that booking acts) closes the dialog and PATCHes /feed/bookings/:id/accept (core acceptBookingMutation); toast «Rezervare confirmată». e2e tests/e2e/operator-actiuni-rezervare.spec.ts «accept a real request» (REAL write on local Chita, operator-cancelled in afterEach)."
       - id: operator.actiuni-rezervare.c4
         text: "Reject opens a reason dialog „Respinge rezervarea”, text „Această acțiune este definitivă. Spune-ne motivul — îl trimitem celeilalte părți.”, free-text placeholder „Motivul refuzului...”, buttons „Înapoi” / „Da, respinge”."
         fish_ref: features/operator/useOperatorBookingActions.tsx:140-146; features/bookings/CancelBookingSheet.tsx:108-115,151-190
+        status: passing
+        web_note: "RejectBookingDialog (ReasonField ReasonDialog): title, lead, field «Motivul refuzului» with placeholder «Motivul refuzului...», «Înapoi» / «Da, respinge». e2e tests/e2e/operator-actiuni-rezervare.spec.ts «c4 c5 c6 c12 c13: reject a real request…»."
       - id: operator.actiuni-rezervare.c5
         text: "Reason is mandatory, ≥ 5 characters after trim; on an invalid confirm the field turns red and shows „Motivul este obligatoriu (minim 5 caractere).”"
         fish_ref: features/bookings/CancelBookingSheet.tsx:14,64-80,159-176
+        status: passing
+        web_note: "model.reasonError: trimmed ≥ MIN_CANCEL_REASON_LEN; after a confirm the field turns red (aria-invalid) with «Motivul este obligatoriu (minim 5 caractere).» and takes focus. e2e tests/e2e/operator-actiuni-rezervare.spec.ts «reject a real request» (empty, «   abcd   »); unit model.test.ts."
       - id: operator.actiuni-rezervare.c6
         text: "Reject success: toast „Rezervare respinsă” and the dialog closes; the request leaves De aprobat (lists and counts refetch)."
         fish_ref: features/operator/useOperatorBookingActions.tsx:46-64; services/mutations/useRejectBooking.ts:8-12
+        status: passing
+        web_note: "Success → toast «Rezervare respinsă», dialog closes, the booking reads «rejected» and operator-stats refetch. e2e tests/e2e/operator-actiuni-rezervare.spec.ts «reject a real request» (REAL PATCH /reject on local Chita; body {reason} trimmed)."
       - id: operator.actiuni-rezervare.c7
         text: "Cancel opens „Anulează rezervarea” with a required radio list: „Pescarul nu s-a prezentat”, „Pescarul a anunțat telefonic”, „Condiții meteo”, „Lucrări sau închidere”, „Standul nu e disponibil”, „Alt motiv”; picking one prefills the editable text (Alt motiv leaves it empty)."
         fish_ref: features/operator/cancelReasons.ts:12-33; features/bookings/CancelBookingSheet.tsx:69-74,117-149
+        status: passing
+        web_note: "OperatorCancelDialog: required native radio group «Alege motivul» with OPERATOR_CANCEL_REASONS (six, fish order); a pick prefills the editable «Mesajul pentru pescar», «Alt motiv» leaves it empty; arrows move the pick. e2e tests/e2e/operator-actiuni-rezervare.spec.ts «c7 c8 c10 c12 c13 …»; unit model.test.ts."
       - id: operator.actiuni-rezervare.c8
         text: "Confirming without a picked reason shows „Alege un motiv din listă.”; the confirm label is „Da, anulează”, or „Da, marchează” while „Pescarul nu s-a prezentat” is picked."
         fish_ref: features/bookings/CancelBookingSheet.tsx:67,172-174,181-188; features/operator/cancelReasons.ts:14-19
+        status: passing
+        web_note: "No pick → «Alege un motiv din listă.» under the list (focus to the first radio); confirm «Da, anulează», «Da, marchează» while the no-show is picked (model.confirmLabelFor). e2e tests/e2e/operator-actiuni-rezervare.spec.ts «c7 c8 c10 …»."
       - id: operator.actiuni-rezervare.c9
         text: "„Pescarul nu s-a prezentat” is not a cancellation: it POSTs /no-show with the text as comment (booking stays confirmed, counts against reputation, no review afterwards); toast „Neprezentare înregistrată”."
         fish_ref: features/operator/useOperatorBookingActions.tsx:81-99; features/operator/cancelReasons.ts:3-11
+        status: passing
+        web_note: "model.cancelWrite('noShow') → core markNoShowMutation: POST /feed/bookings/:id/no-show {data:{comment}}, no /operator-cancel; the booking stays confirmed with noShow (read back from the CMS) and loses its actions; toast «Neprezentare înregistrată». e2e tests/e2e/operator-actiuni-rezervare.spec.ts «c9 c13 …» (REAL no-show on a guest walk-in — no account, no reputation touched — then operator-cancelled in afterEach to free the stand)."
       - id: operator.actiuni-rezervare.c10
         text: "Any other reason PATCHes /operator-cancel with the text; toast „Rezervare anulată”; the dialog closes."
         fish_ref: features/operator/useOperatorBookingActions.tsx:101-111
+        status: passing
+        web_note: "Any other reason → PATCH /operator-cancel {reason} (the edited text); toast «Rezervare anulată»; dialog closes; the booking reads «cancelled». e2e tests/e2e/operator-actiuni-rezervare.spec.ts «c7 c8 c10 …» (REAL walk-in on local Chita)."
       - id: operator.actiuni-rezervare.c11
         text: "Errors are toasted by bluCode: STAND_TAKEN „Standul are deja o rezervare confirmată pe acel interval.”; INVALID_STATUS „Rezervarea nu mai poate fi modificată.”; REJECT_/CANCEL_REASON_REQUIRED „Motivul este obligatoriu (minim 5 caractere).”; else the server message, else „Acțiunea nu a putut fi finalizată. Încearcă din nou.”"
         fish_ref: features/operator/cancelReasons.ts:44-58
+        status: passing
+        web_note: "friendlyActionError on the ApiError: STAND_TAKEN / INVALID_STATUS / REJECT_ and CANCEL_REASON_REQUIRED mapped; an unmapped bluCode shows the server sentence; a reply without bluCode shows the transport's generic «A apărut o eroare necunoscută…» (fish's axios interceptor does the same, so the last fallback only fires on an empty message). Accept: a site toast (its dialog is already closed). Reject / cancel / no-show: the reason dialog stays open with its text and the refusal is an inline role=alert line under the message, above the actions, until the next edit or submit — not the site toast, which would paint under the modal's ::backdrop (dimmed, its «Închide» inert). e2e tests/e2e/operator-actiuni-rezervare.spec.ts «c11: refusals…» (route mocks; inline text, toBeInViewport and elementFromPoint on top, at 375 and 1280); unit model.test.ts."
       - id: operator.actiuni-rezervare.c12
         text: "While a request runs the confirm button shows loading and both buttons are disabled; the reason dialogs reset (text, pick, error) when closed."
         fish_ref: features/bookings/CancelBookingSheet.tsx:97-101,179-190; features/operator/useOperatorBookingActions.tsx:121
+        status: passing
+        web_note: "While any write runs (fish `isPending: !!actingId`) every dialog's confirm shows a spinner (aria-busy) and is disabled — also another booking's, so it is never a dead button; while this booking's write runs «Înapoi», the radios and the text are locked and Escape / backdrop do not close; the reason surfaces mount only while open, so a close resets text, pick and error. e2e tests/e2e/operator-actiuni-rezervare.spec.ts «reject a real request» (held PATCH), «c7 c8 c10 c12 …» and the two «b.double-submit across bookings» tests (A's accept held, B's accept / reject / cancel confirms busy, B acts once A settles)."
       - id: operator.actiuni-rezervare.c13
         text: "Every success invalidates all bookings queries and all operator-stats queries (panel, home card, inbox, availability); no-show also invalidates reputation."
         fish_ref: services/mutations/invalidateOperatorSurfaces.ts:18-21; services/mutations/useMarkNoShow.ts:10-15
+        status: passing
+        web_note: "Core mutations invalidate ['bookings'] + ['operator-stats'] (no-show also ['reputation']); e2e proves the refetch: the booking detail re-reads its new status, GET /feed/lakes/:id/operator-stats is re-requested after each write, and the mounted reputation read is re-requested after the no-show. e2e tests/e2e/operator-actiuni-rezervare.spec.ts (all four real-write tests)."
+      - id: operator.actiuni-rezervare.c14
+        text: "Mounted on the real routes: `dialogs` rendered once by /operator/[lakeId] (panel) and /operator/[lakeId]/rezervari (inbox), reached by the detail (operator.detaliu-rezervare); an e2e runs one action through the real inbox."
+        fish_ref: app/(app)/operator/[lakeId]/index.tsx; app/(app)/operator/[lakeId]/bookings.tsx
+        status: todo
+        web_note: "Owned by the operator.panou / operator.rezervari batches (they mount `dialogs`). Today `dialogs` is mounted only by the dev harnesses app/dev/operator/actions/Harness.tsx and app/dev/operator/OperatorHarness.tsx; BookingDetailDialog only consumes the actions."
     mobile_only: false
     status: todo
+    web_note: "HARNESS-ONLY until operator.rezervari / operator.panou mount `dialogs`: c1–c13 are proven on the dev harness /dev/operator/actions, no app/(site)/operator route renders the dialogs yet — c14 tracks the real mounts. components/operator/actions (useOperatorBookingActions({ lakeId, lakeName }) → { actingId, accept, reject, cancel, dialogs }; AcceptBookingDialog, RejectBookingDialog, OperatorCancelDialog, ReasonField, model.ts + model.test.ts). The inbox / panel must mount `dialogs` once and disable a booking's buttons while actingId === its id. Dev harness /dev/operator/actions?ids=… (e2e only). Focus returns to the opening control after close (after an accept, once the write settles). Screenshots .shots/operator-actiuni-rezervare (accept, reject empty / too short / valid / submitting, cancel not picked / pick required / no-show / edited / submitting at 375 / 1280 / 1440 / 1920). axe + keyboard at 375 and 1280."
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: operator.blocaje
@@ -922,9 +1014,13 @@ behaviours:
   - id: operator.b.role-gating
     text: "Being an operator = the owned-lakes list (GET /feed/owned-lakes) is non-empty; there is no client role check on /operator/[lakeId]/* — the CMS owner-gates every operator endpoint and a refusal lands in the page's error state. Web: all /operator routes require sign-in (redirect to /intra and back); a non-owner sees an error/403 state; the top bar's „Administrare” menu shows the operator entry only when owned lakes exist (ROADMAP §4)."
     fish_ref: components/OwnedLakesCard.tsx:58-64; app/(app)/operator/[lakeId]/index.tsx:519-529
+    status: partial
+    web_note: "proxy.ts { source: '/operator/:path*' } (cookie-less → 307 /intra?next=<path+query>; unit lib/routes-operator.test.ts) + _shared/gate.tsx OperatorGate (requireViewer: a dead cookie → /intra, session unknown → the route's error.tsx). No client role check: the picker's 403 reads «Nu ai acces» (OperatorErrorState). e2e operator-alege-balta.spec.ts «operator.b.role-gating …» (signed out, 403). Left: the /operator/[lakeId]/* screens' own non-owner states (their batches)."
   - id: operator.b.entry-points
     text: "Entry points into the area: Acasă operator card (whole card → panel; „Vezi” pending → rezervari?status=pending; „Vezi ziua” → panel or „Vezi grila” → calendar; drop-outs „Vezi” → ?status=cancelled; reviews „Vezi” → ?status=toreview; quick actions Panou / Calendar / Rezervări with pending badge). With one lake each link targets /operator/[lakeId]{suffix}, with several they all open the picker /operator."
     fish_ref: components/OwnedLakesCard.tsx:77-79,88,132,168,204,239,250-276
+    status: partial
+    web_note: "Hrefs verified against the real local CMS (QA user, one lake): Acasă «Balta mea» card and the top bar's Administrare item → /operator/{chita}; /operator (the several-lakes target) is a real page now (200, not the catch-all). lib/routes.ts carries every M7 target (operator, operatorCalendar, operatorBookings with status pending|cancelled|rejected|toreview|all + focus, operatorBlocks, operatorBlockNew, operatorCalendarExtras/Review, operatorRateAngler, withBookingDetail). e2e operator-alege-balta.spec.ts «operator.b.entry-points …». Left: /operator/[lakeId], /calendar, /rezervari land on real pages once their M7 batches ship."
   - id: operator.b.notification-routes
     text: "Notifications: BOOKING_NEW_REQUEST_OPERATOR and BOOKING_PENDING_NUDGE_OPERATOR → /operator/{lakeId}/rezervari?status=pending; BOOKING_AUTO_REJECTED_OPERATOR → ?status=rejected; BOOKING_CANCELLED_OPERATOR → ?status=cancelled; no route without lakeId."
     fish_ref: helpers/getRedirectLocationForNotification.ts:146-157
@@ -937,24 +1033,32 @@ behaviours:
   - id: operator.b.write-invalidation
     text: "Every booking write (accept, reject, operator cancel, no-show, block create/delete) invalidates both ['bookings'] and ['operator-stats'] roots; walk-in also invalidates the owned-lakes stats and per-lake stats; an angler review invalidates reputation, bookings and operator-stats. These endpoints are private (no CDN), so client cache is the only stale copy."
     fish_ref: services/mutations/invalidateOperatorSurfaces.ts:4-21; services/mutations/useCreateWalkInBooking.ts:10-16; services/mutations/useCreateAnglerReview.ts:9-20
+    web_note: "M7-B1 (operator.actiuni-rezervare): accept, reject, operator cancel and no-show proven in e2e — the booking re-reads, operator-stats is re-requested, no-show re-requests reputation (tests/e2e/operator-actiuni-rezervare.spec.ts). Block create/delete, walk-in and the angler review are proven by their own screens' specs; status stays todo until they are."
   - id: operator.b.refresh
     text: "No polling anywhere in the area (no refetchInterval): freshness comes from manual refresh, write invalidation and the calendar refetching availability whenever it regains focus. Web: offer an explicit refresh control and refetch on window focus."
     fish_ref: app/(app)/operator/[lakeId]/index.tsx:466-470; app/(app)/operator/[lakeId]/bookings.tsx:150-154; app/(app)/operator/[lakeId]/walk-in/index.tsx:23-32
   - id: operator.b.single-lake
     text: "An operator with exactly one lake never sees the picker: /operator replaces itself with /operator/{lakeId}, and Acasă links straight to that lake."
     fish_ref: app/(app)/operator/index.tsx:20-26; components/OwnedLakesCard.tsx:77-79
+    status: passing
+    web_note: "/operator redirects (replace) to /operator/{id} on the SERVER when the gate's Viewer.ownedLakes holds one lake (page.tsx: no picker header, no loader, no second read); when that server read failed, the picker's client read router.replace()s instead, the loader up meanwhile (no list flash). Panel Back fallback is Acasă unless the viewer owns 2+ lakes (_shared/back.ts panelBack), so a cold panel never bounces through /operator. Acasă (_home/links.ts operatorHref) and the top bar link the lake directly. e2e operator-alege-balta.spec.ts «c4 operator.b.single-lake …» ×2 (hard load + in-app navigation: picker never paints; real local CMS), «c4 fallback …» (server read failed via the test-only bluvi_e2e_fault label) and «operator.b.entry-points …»; unit model.test.ts panelBack. TODO when operator.panou ships: e2e «cold panel, Back → Acasă»."
   - id: operator.b.reputation
     text: "Angler reputation (GET /feed/users/:id/reputation) is fetched per angler for the rating pill, no-show pill and reputation line; nothing renders until it loads and a missing rating shows no pill (never an empty/zero rating)."
     fish_ref: features/operator/AnglerRatingBadge.tsx:7-15; features/operator/BookingDetailSheet.tsx:80-99; features/lakes/booking/AnglerReputationLine.tsx:7-19
+    status: passing
+    web_note: "components/operator/AnglerRatingBadge.tsx + NoShowPill.tsx: userReputationQuery (public, edge-cached) per angler; nothing until it loads, no pill for a null rating or 0 no-shows («★ 4,6», formatCount «20 de neprezentări»). Unit model.test.ts ratingText / noShowText; e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c3 + b.reputation…» (delayed reputation) and «b.reputation real…» (local CMS)."
   - id: operator.b.local-day
     text: "„Today” on the panel (arrivals, cash, moments) and the block calendar's day keys are device-local calendar days, never UTC (toISOString would file a Friday-00:00 block under Thursday); trend bucket keys are server lake-local and parsed without timezone shift."
     fish_ref: features/operator/todayCounts.ts:55-60; features/operator/blockCalendarLogic.ts:26-32; features/operator/dashboard/trendLabels.ts:11-21
   - id: operator.b.analytics
     text: "Calling a guest from the operator action row logs analytics event contact_pressed {contact_type: 'Operator guest contact', lake_id, lake_name} (GA4 via the web consent layer, M8)."
     fish_ref: features/operator/BookingDetailSheet.tsx:126-133
+    status: passing
+    web_note: "Booking detail «Sună»: lib/analytics track contact_pressed (GA4 behind consent in M8). e2e tests/e2e/operator-detaliu-rezervare.spec.ts «c10 + b.analytics…». Other operator call sites (inbox cards) belong to their screens."
   - id: operator.b.double-submit
     text: "Double submits are guarded: actions disable while a booking is acting (actingId), the walk-in flow blocks Back and the button while creating, block saves disable all three buttons, rating disables submit while sending."
     fish_ref: features/operator/useOperatorBookingActions.tsx:23,121; features/lakes/booking/useBookingGridFlow.ts:304-308; features/operator/CreateBlockForm.tsx:309-324; app/(app)/operator/rate-angler/[bookingId].tsx:165-166
+    web_note: "M7-B1 (operator.actiuni-rezervare): actingId disables the acting booking's Acceptă / Refuză (e2e holds the PATCH and asserts both disabled); while any write runs every dialog's confirm is busy (spinner + disabled, fish isPending: !!actingId — e2e «b.double-submit across bookings» holds A's accept and opens B's accept / reject / cancel); the acting booking's reason dialog also locks «Înapoi», the radios and the text and refuses to close (tests/e2e/operator-actiuni-rezervare.spec.ts). The walk-in Back/button, block save and rating parts are their screens'; status stays todo until they are."
   - id: operator.b.walk-in-shared-flow
     text: "The walk-in flow is the angler booking flow (grid → extras → review) mounted under /operator/{lakeId}/walk-in with walkIn mode: quote and submit skip the end-time rule, in-progress slots are sellable, no lead time, auto-confirmed and paid cash at the gate."
     fish_ref: app/(app)/operator/[lakeId]/walk-in/_layout.tsx:6-17; features/lakes/booking/BookingFlowProvider.tsx:44-63

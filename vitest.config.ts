@@ -16,7 +16,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['core/**/*.test.ts', 'lib/**/*.test.ts', 'app/**/*.test.ts', 'tests/unit/**/*.test.ts'],
+          include: ['core/**/*.test.ts', 'lib/**/*.test.ts', 'app/**/*.test.ts', 'components/**/*.test.ts', 'tests/unit/**/*.test.ts'],
         },
       },
       {
