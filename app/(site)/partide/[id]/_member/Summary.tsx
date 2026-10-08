@@ -44,6 +44,11 @@ export type SummaryProps = {
   onAdjust: () => void;
   onReport: () => void;
   onDelete: () => void;
+  /**
+   * The numbers only: the Setări tab is open and already carries the roster, the code and every
+   * action (an action is never shown twice on one screen).
+   */
+  statsOnly?: boolean;
 };
 
 const CARD = 'bg-surface px-4 py-5 md:rounded-card md:px-5 md:shadow-e0 xl:p-6';
@@ -66,87 +71,91 @@ export function Summary(p: SummaryProps) {
         <Figure label="Cea mai mare" value={maxKg != null && maxKg > 0 ? fmtKg(maxKg) : '—'} unit={maxKg != null && maxKg > 0 ? 'kg' : undefined} />
       </section>
 
-      {members.length ? (
-        <section aria-labelledby="partida-pescari" data-testid="partida-roster" className={CARD}>
-          <h2 id="partida-pescari" className="mb-2 t-title2">
-            Pescari <span className="text-muted">{members.length}</span>
-          </h2>
-          <ul className="divide-y divide-hairline">
-            {members.map(m => {
-              const name = m.name ?? 'Pescar';
-              const host = m.uid === session.hostUid;
-              const self = m.uid === p.viewerUid;
-              return (
-                <li key={m.uid} data-testid="partida-roster-member" className="flex min-h-14 items-center gap-3 py-2">
-                  <Avatar name={name} src={m.avatar} size={40} />
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate t-body-strong">
-                      {name}
-                      {self ? <span className="text-muted"> (tu)</span> : null}
-                    </span>
-                    {host ? <span className="t-caption text-muted">Gazdă</span> : null}
-                  </span>
-                  {manageMembers && !host ? (
-                    <Button size="compact" variant="ghost" aria-label={`Elimină pe ${name}`} onClick={() => p.onKick(m)}>
-                      Elimină
-                    </Button>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : null}
-
-      {session.joinCode ? (
-        <section aria-labelledby="partida-cod" data-testid="partida-join-code" className={cn(CARD, 'flex items-center gap-3')}>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <h2 id="partida-cod" className="t-caption text-muted">
-              Cod de acces
-            </h2>
-            <p className="t-stat tracking-widest text-ink tabular-nums">
-              {session.joinCode}
-            </p>
-          </div>
-          {!isEnded && canMutateMembership && isOwner ? (
-            <Button size="compact" variant="secondary" onClick={p.onRotate}>
-              Schimbă codul
-            </Button>
+      {p.statsOnly ? null : (
+        <>
+          {members.length ? (
+            <section aria-labelledby="partida-pescari" data-testid="partida-roster" className={CARD}>
+              <h2 id="partida-pescari" className="mb-2 t-title2">
+                Pescari <span className="text-muted">{members.length}</span>
+              </h2>
+              <ul className="divide-y divide-hairline">
+                {members.map(m => {
+                  const name = m.name ?? 'Pescar';
+                  const host = m.uid === session.hostUid;
+                  const self = m.uid === p.viewerUid;
+                  return (
+                    <li key={m.uid} data-testid="partida-roster-member" className="flex min-h-14 items-center gap-3 py-2">
+                      <Avatar name={name} src={m.avatar} size={40} />
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate t-body-strong">
+                          {name}
+                          {self ? <span className="text-muted"> (tu)</span> : null}
+                        </span>
+                        {host ? <span className="t-caption text-muted">Gazdă</span> : null}
+                      </span>
+                      {manageMembers && !host ? (
+                        <Button size="compact" variant="ghost" aria-label={`Elimină pe ${name}`} onClick={() => p.onKick(m)}>
+                          Elimină
+                        </Button>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           ) : null}
-        </section>
-      ) : null}
 
-      <section aria-label="Acțiuni" data-testid="partida-actions" className={cn(CARD, 'flex flex-col gap-1 py-3 xl:py-4')}>
-        <ul className="flex flex-col">
-          {p.onShare ? <Row icon={<ShareIcon />} label="Distribuie partida" onClick={p.onShare} className="max-xl:hidden" /> : null}
-          {isLive && !isEnded ? <Row icon={<MapPinIcon />} label="Ajustează poziția" hint={`${session.anchorLat.toFixed(5)}, ${session.anchorLng.toFixed(5)}`} onClick={p.onAdjust} /> : null}
-          <Row icon={<ChatBubbleLeftEllipsisIcon />} label="Raportează o problemă" hint="Ceva nu merge sau ai o idee? Scrie-ne direct din partidă." onClick={p.onReport} />
-        </ul>
-        {p.onFinish || leaveAction ? (
-          <div className={cn('flex flex-col gap-2 pt-2', !leaveAction && 'max-xl:hidden')}>
-            {p.onFinish ? (
-              <Button variant="danger" block onClick={p.onFinish} className="max-xl:hidden">
-                Termină partida
-              </Button>
+          {session.joinCode ? (
+            <section aria-labelledby="partida-cod" data-testid="partida-join-code" className={cn(CARD, 'flex items-center gap-3')}>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <h2 id="partida-cod" className="t-caption text-muted">
+                  Cod de acces
+                </h2>
+                <p className="t-stat tracking-widest text-ink tabular-nums">
+                  {session.joinCode}
+                </p>
+              </div>
+              {!isEnded && canMutateMembership && isOwner ? (
+                <Button size="compact" variant="secondary" onClick={p.onRotate}>
+                  Schimbă codul
+                </Button>
+              ) : null}
+            </section>
+          ) : null}
+
+          <section aria-label="Acțiuni" data-testid="partida-actions" className={cn(CARD, 'flex flex-col gap-1 py-3 xl:py-4')}>
+            <ul className="flex flex-col">
+              {p.onShare ? <Row icon={<ShareIcon />} label="Distribuie partida" onClick={p.onShare} className="max-xl:hidden" /> : null}
+              {isLive && !isEnded ? <Row icon={<MapPinIcon />} label="Ajustează poziția" hint={`${session.anchorLat.toFixed(5)}, ${session.anchorLng.toFixed(5)}`} onClick={p.onAdjust} /> : null}
+              <Row icon={<ChatBubbleLeftEllipsisIcon />} label="Raportează o problemă" hint="Ceva nu merge sau ai o idee? Scrie-ne direct din partidă." onClick={p.onReport} />
+            </ul>
+            {p.onFinish || leaveAction ? (
+              <div className={cn('flex flex-col gap-2 pt-2', !leaveAction && 'max-xl:hidden')}>
+                {p.onFinish ? (
+                  <Button variant="danger" block onClick={p.onFinish} className="max-xl:hidden">
+                    Termină partida
+                  </Button>
+                ) : null}
+                {leaveAction ? (
+                  <Button variant="danger" block onClick={p.onLeave}>
+                    Părăsește partida
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
-            {leaveAction ? (
-              <Button variant="danger" block onClick={p.onLeave}>
-                Părăsește partida
-              </Button>
+            {canDelete ? (
+              <button
+                type="button"
+                onClick={p.onDelete}
+                className="mt-1 inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-control t-body-strong text-status-danger-fg hover:bg-status-danger-bg focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                <TrashIcon aria-hidden className="size-4.5" />
+                Șterge partida
+              </button>
             ) : null}
-          </div>
-        ) : null}
-        {canDelete ? (
-          <button
-            type="button"
-            onClick={p.onDelete}
-            className="mt-1 inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-control t-body-strong text-status-danger-fg hover:bg-status-danger-bg focus-visible:outline-2 focus-visible:outline-accent"
-          >
-            <TrashIcon aria-hidden className="size-4.5" />
-            Șterge partida
-          </button>
-        ) : null}
-      </section>
+          </section>
+        </>
+      )}
     </>
   );
 }

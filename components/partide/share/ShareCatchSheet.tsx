@@ -1,6 +1,7 @@
 'use client';
 
-import { CheckIcon, ShareIcon } from '@heroicons/react/24/outline';
+import { CheckIcon, PencilSquareIcon, ShareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSiteToast } from '@/app/(site)/_shell/Toast';
 import { LogoHorizontal } from '@/components/nav/brand';
@@ -53,6 +54,21 @@ function logoImage(svg: SVGSVGElement | null): Promise<HTMLImageElement | null> 
   return loadImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(copy))}`);
 }
 
+/**
+ * A Jurnal row that is not a capture (fish ShareCatchSheet's second shape, `OutcomeRecord`): a
+ * «Scăpat» or a «Fără trăsătură» is a note to yourself — no image, nothing to publish, just where
+ * the rod was, what was on the hook and when. Delete is its only action.
+ */
+export type ShareCatchRecord = {
+  outcome: 'lost' | 'blank';
+  rodIndex: number | null;
+  rodColor: string | null;
+  /** fish eventMeta: «Centru · 50 m · Boilies», '' for none. */
+  meta: string;
+  /** «14:05». */
+  time: string;
+};
+
 type Assets = { photo: HTMLImageElement | null; logo: HTMLImageElement | null; family: string };
 
 /**
@@ -71,6 +87,9 @@ export function ShareCatchSheet({
   target,
   lakeName,
   competitionName = null,
+  record = null,
+  onEdit,
+  onDelete,
   onClose,
 }: {
   target: ShareCatchTarget | null;
@@ -78,17 +97,35 @@ export function ShareCatchSheet({
   lakeName: string;
   /** fish `competitionName`: set for a competition catch — the «Competiție» switch and line. */
   competitionName?: string | null;
+  /** Set for a scăpat / fără trăsătură (the Jurnal): the record shape instead of the card. */
+  record?: ShareCatchRecord | null;
+  /** fish `onEdit` (a capture of a live partidă): «Editează captura» beside «Distribuie». */
+  onEdit?: () => void;
+  /** fish `onDelete` (a live partidă): «Șterge captura» / «Șterge»; the caller owns the confirmation. */
+  onDelete?: () => void;
   onClose: () => void;
 }) {
   const phone = useBreakpoint() === 'mobile';
   const open = target != null;
   // The last catch stays drawn while the surface animates out.
-  const [shown, setShown] = useState<{ target: ShareCatchTarget; lakeName: string; competitionName: string | null } | null>(
-    target ? { target, lakeName, competitionName } : null,
+  const [shown, setShown] = useState<{
+    target: ShareCatchTarget;
+    lakeName: string;
+    competitionName: string | null;
+    record: ShareCatchRecord | null;
+    onEdit?: () => void;
+    onDelete?: () => void;
+  } | null>(target ? { target, lakeName, competitionName, record, onEdit, onDelete } : null);
+  if (target && (target !== shown?.target || record !== shown.record || onEdit !== shown.onEdit || onDelete !== shown.onDelete)) {
+    setShown({ target, lakeName, competitionName, record, onEdit, onDelete });
+  }
+  const iconActions = shown ? <IconActions onEdit={shown.onEdit} onDelete={shown.onDelete} /> : null;
+  const body = !shown ? null : shown.record ? (
+    <RecordBody record={shown.record} waterName={shown.lakeName} onDelete={shown.onDelete} />
+  ) : (
+    <ShareBody key={shown.target.key} c={shown.target} waterName={shown.lakeName} competitionName={shown.competitionName} actions={iconActions} />
   );
-  if (target && target !== shown?.target) setShown({ target, lakeName, competitionName });
-  const body = shown ? <ShareBody key={shown.target.key} c={shown.target} waterName={shown.lakeName} competitionName={shown.competitionName} /> : null;
-  const title = 'Distribuie captura';
+  const title = !shown?.record ? 'Distribuie captura' : shown.record.outcome === 'lost' ? 'Scăpat' : 'Fără trăsătură';
   return phone ? (
     <Sheet open={open} onClose={onClose} title={title} initialSnap={0.9}>
       {body}
@@ -100,7 +137,62 @@ export function ShareCatchSheet({
   );
 }
 
-function ShareBody({ c, waterName, competitionName }: { c: ShareCatchTarget; waterName: string; competitionName: string | null }) {
+/** fish IconAction: the secondary actions reduced to their glyph, level with «Distribuie». */
+function IconActions({ onEdit, onDelete }: { onEdit?: () => void; onDelete?: () => void }) {
+  if (!onEdit && !onDelete) return null;
+  const base =
+    'flex h-12 w-13 shrink-0 cursor-pointer items-center justify-center rounded-control transition-[filter] duration-(--duration-fast) ease-fast hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent xl:h-10';
+  return (
+    <>
+      {onEdit ? (
+        <button type="button" aria-label="Editează captura" title="Editează captura" onClick={onEdit} className={cn(base, 'bg-soft-fill text-accent-ink')}>
+          <PencilSquareIcon aria-hidden className="size-5" />
+        </button>
+      ) : null}
+      {onDelete ? (
+        <button type="button" aria-label="Șterge captura" title="Șterge captura" onClick={onDelete} className={cn(base, 'bg-status-danger-bg text-status-danger-fg')}>
+          <TrashIcon aria-hidden className="size-5" />
+        </button>
+      ) : null}
+    </>
+  );
+}
+
+/** fish OutcomeRecord: a plain block (the rod-card button that wrote it collected nothing). */
+function RecordBody({ record, waterName, onDelete }: { record: ShareCatchRecord; waterName: string; onDelete?: () => void }) {
+  const lost = record.outcome === 'lost';
+  return (
+    <div className="flex flex-col gap-4 pt-2" data-testid="share-catch-record">
+      <div
+        className={cn(
+          'flex flex-col gap-2.5 rounded-card border-l-3 px-3.5 py-3.5',
+          lost ? 'border-yellow-5 bg-status-warning-bg/50' : 'border-muted bg-page',
+        )}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {record.rodIndex !== null ? (
+              <span className="inline-flex items-center gap-1.25 rounded-full bg-soft-fill px-2 py-1 t-micro-strong text-ink-2">
+                <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: record.rodColor ?? 'var(--color-indigo-5)' }} />L{record.rodIndex}
+              </span>
+            ) : null}
+            <span className="t-body-strong text-ink">{lost ? 'Scăpat' : 'Fără trăsătură'}</span>
+          </div>
+          <span className="t-label text-muted tabular-nums">{record.time}</span>
+        </div>
+        {record.meta ? <p className="t-caption text-muted">{record.meta}</p> : null}
+        {waterName ? <p className="t-caption text-muted">{waterName}</p> : null}
+      </div>
+      {onDelete ? (
+        <Button variant="danger" block onClick={onDelete} icon={<TrashIcon aria-hidden />}>
+          Șterge
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function ShareBody({ c, waterName, competitionName, actions }: { c: ShareCatchTarget; waterName: string; competitionName: string | null; actions?: ReactNode }) {
   const toast = useSiteToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const logoRef = useRef<SVGSVGElement>(null);
@@ -196,9 +288,12 @@ function ShareBody({ c, waterName, competitionName }: { c: ShareCatchTarget; wat
           </div>
         </fieldset>
       ) : null}
-      <Button variant="success" block onClick={() => void share()} disabled={sharing || !assets} icon={<ShareIcon aria-hidden />}>
-        {sharing || !assets ? 'Se pregătește…' : 'Distribuie'}
-      </Button>
+      <div className="flex items-stretch gap-2.5">
+        <Button variant="success" className="min-w-0 flex-1 shrink!" onClick={() => void share()} disabled={sharing || !assets} icon={<ShareIcon aria-hidden />}>
+          {sharing || !assets ? 'Se pregătește…' : 'Distribuie'}
+        </Button>
+        {actions}
+      </div>
     </div>
   );
 }

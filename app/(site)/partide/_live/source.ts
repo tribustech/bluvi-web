@@ -6,9 +6,9 @@ import type * as partide from './partideCore';
  * Where the live partidă comes from: Firestore (the CMS-rebuilt projection, `(default)` database,
  * core/realtime/partide subscribeSession), or — in development and tests only — an in-memory fake.
  *
- * The web only READS Firestore here. Every write goes through the CMS /feed/sessions/* (the
- * PartideControlPlane in ./controlPlane.ts); fish writes only the `markers` subcollection to
- * Firestore, which is the Jurnal batch's concern, not this layer's.
+ * The web READS Firestore here. Every write goes through the CMS /feed/sessions/* (the
+ * PartideControlPlane in ./controlPlane.ts) except the one fish makes straight to Firestore: the
+ * `markers` subcollection (writeMarker / deleteMarker, the Jurnal map) — recorded by the fake.
  *
  * E2E SEAM (hard rule: no test may touch the shared Firebase project). tests/e2e/helpers/fake-live.ts
  * sets `window.__BLUVI_FAKE_LIVE__` before the page loads; when NODE_ENV !== 'production' this module
@@ -37,6 +37,12 @@ export type FakeLive = {
   allTabs?: boolean;
   /** Written by the provider: the session ids subscribed so far, in order. */
   subscribed?: string[];
+  /**
+   * Written by the source: every marker write the page made (the Jurnal map), in order — the one
+   * Firestore write fish makes (sessions/{id}/markers). The fake never reflects them into a doc:
+   * the CMS projection carries no markers (fish parks them), so a test pushes markers itself.
+   */
+  markerWrites?: { op: 'set' | 'delete'; sessionId: string; clientId: string; data?: Record<string, unknown> }[];
   /** Installed by the provider: push a new projection to the listeners of `sessionId`. */
   push?: (sessionId: string, doc: FakeLiveDoc, fromCache?: boolean) => void;
   /** Installed by the provider: fail the listeners of `sessionId` with `code`. */
@@ -62,6 +68,10 @@ export type LiveSource = {
     onError: (err: Error) => void,
     serverNow: () => number,
   ): Promise<() => void>;
+  /** fish sessionRepo writeMarker: upsert `sessions/{sessionId}/markers/{clientId}` (signed in as `uid`). */
+  writeMarker(sessionId: string, uid: string, marker: partide.LocalMarker): Promise<void>;
+  /** fish sessionRepo deleteMarker. */
+  deleteMarker(sessionId: string, uid: string, clientId: string): Promise<void>;
 };
 
 /** The fake, when this is not a production build and a test installed it. */
@@ -105,6 +115,13 @@ function fakeSource(fake: FakeLive): LiveSource {
         set.delete(entry);
       };
     },
+    async writeMarker(sessionId, _uid, marker) {
+      const { localMarkerToFirestore } = await import('@/core/realtime/partide/mappers');
+      (fake.markerWrites ??= []).push({ op: 'set', sessionId, clientId: marker.clientId, data: { ...localMarkerToFirestore(marker), clientUpdatedAt: new Date().toISOString() } });
+    },
+    async deleteMarker(sessionId, _uid, clientId) {
+      (fake.markerWrites ??= []).push({ op: 'delete', sessionId, clientId });
+    },
   };
 }
 
@@ -121,6 +138,20 @@ const firestoreSource: LiveSource = {
     // fatal: the listener then fails with permission-denied, which the provider confirms over REST.
     await ensureSignedIn(ctx, uid, getCustomToken).catch(() => false);
     return partide.subscribeSession(ctx, sessionId, onData, onError, serverNow);
+  },
+  // The Jurnal map's markers: the only Firestore write fish makes (domain doc §6, markers parked
+  // outside the CMS projection) — same doc path and body as fish, signed in like the listener.
+  async writeMarker(sessionId, uid, marker) {
+    const [{ getRealtimeContext, getCustomToken }, { ensureSignedIn, partide }] = await Promise.all([import('@/lib/client/firebase'), import('@/core/realtime')]);
+    const ctx = getRealtimeContext();
+    await ensureSignedIn(ctx, uid, getCustomToken).catch(() => false);
+    await partide.writeMarker(ctx, sessionId, marker);
+  },
+  async deleteMarker(sessionId, uid, clientId) {
+    const [{ getRealtimeContext, getCustomToken }, { ensureSignedIn, partide }] = await Promise.all([import('@/lib/client/firebase'), import('@/core/realtime')]);
+    const ctx = getRealtimeContext();
+    await ensureSignedIn(ctx, uid, getCustomToken).catch(() => false);
+    await partide.deleteMarker(ctx, sessionId, clientId);
   },
 };
 

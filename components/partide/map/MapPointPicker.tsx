@@ -29,7 +29,7 @@ export type Coord = { lat: number; lng: number };
 export type PickerMapType = 'standard' | 'satellite';
 
 const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services';
-const SATELLITE_STYLE: StyleSpecification = {
+export const SATELLITE_STYLE: StyleSpecification = {
   version: 8,
   sources: {
     imagery: {
@@ -46,7 +46,7 @@ const SATELLITE_STYLE: StyleSpecification = {
   ],
 };
 
-const CREDITS: Record<PickerMapType, string> = {
+export const CREDITS: Record<PickerMapType, string> = {
   standard: 'OpenFreeMap © OpenMapTiles © OpenStreetMap',
   satellite: 'Imagini © Esri, Maxar, Earthstar Geographics',
 };

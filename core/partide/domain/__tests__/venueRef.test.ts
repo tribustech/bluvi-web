@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sessionSubtitle, sessionVenueRef, VENUE_KIND_LABEL } from '../venueRef';
+import { sameVenue, sessionSubtitle, sessionVenueRef, VENUE_KIND_LABEL } from '../venueRef';
 import type { LocalSession } from '../types';
 
 const session = (over: Partial<LocalSession>): LocalSession => ({
@@ -71,5 +71,19 @@ describe('sessionSubtitle', () => {
     expect(sessionSubtitle(session({ standName: null, locality: null, venueType: 'pin' }))).toBe(
       VENUE_KIND_LABEL.pin
     );
+  });
+});
+
+describe('sameVenue (fish hooks.ts useMapMarkers)', () => {
+  it('lakes by id, public waters by code, never across kinds', () => {
+    expect(sameVenue({ venueType: 'lake', lakeId: 'a' }, { venueType: 'lake', lakeId: 'a' })).toBe(true);
+    expect(sameVenue({ venueType: 'lake', lakeId: 'a' }, { venueType: 'lake', lakeId: 'b' })).toBe(false);
+    expect(sameVenue({ venueType: 'publicWater', publicWaterCode: 'X' }, { venueType: 'publicWater', publicWaterCode: 'X' })).toBe(true);
+    expect(sameVenue({ venueType: 'lake', lakeId: 'a' }, { venueType: 'publicWater', publicWaterCode: 'a' })).toBe(false);
+  });
+  it('two pins within 40 m are the same spot', () => {
+    const pin = (lat: number, lng: number) => ({ venueType: 'pin' as const, anchor: { lat, lng } });
+    expect(sameVenue(pin(44.4321, 26.1234), pin(44.4323, 26.1236))).toBe(true); // ≈ 27 m
+    expect(sameVenue(pin(44.4321, 26.1234), pin(44.4331, 26.1234))).toBe(false); // ≈ 111 m
   });
 });

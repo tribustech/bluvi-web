@@ -26,15 +26,15 @@ export const PARTIDE_PAGES_ON_WEB = {
   /** /partide/[id] — the partidă page, member or spectator view (lib/routes.ts ON_WEB.partida). */
   partida: ON_WEB.partida,
   /** /partide/[id]?tab=lansete — the member view's «Lansete» tab (partide.partida-lansete). */
-  partidaLansete: false,
+  partidaLansete: true,
   /** /partide/[id]?tab=jurnal — the member view's «Jurnal» tab (partide.partida-jurnal). */
-  partidaJurnal: false,
+  partidaJurnal: true,
   /** /partide/[id]?tab=galerie — the member view's «Galerie» tab (partide.partida-galerie). */
   partidaGalerie: false,
   /** /partide/[id]?tab=statistici — the member view's «Statistici» tab (partide.partida-statistici). */
   partidaStatistici: false,
   /** /partide/[id]?tab=setari — the member view's «Setări» tab (partide.partida-setari). */
-  partidaSetari: false,
+  partidaSetari: true,
   /** /partide/[id]/capturi — every catch of a partidă. */
   partidaCatches: false,
   /** /partide/[id]/galerie — the photos of a partidă. */

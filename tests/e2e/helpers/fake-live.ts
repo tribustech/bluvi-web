@@ -92,6 +92,8 @@ export type FakeLiveHandle = {
   fail(sessionId: string, code?: string): Promise<void>;
   /** The session ids the page subscribed to, in order. */
   subscribed(): Promise<string[]>;
+  /** Every marker write the page made (the Jurnal map's only Firestore write, recorded by the fake). */
+  markerWrites(): Promise<{ op: 'set' | 'delete'; sessionId: string; clientId: string; data?: Record<string, unknown> }[]>;
 };
 
 export async function installFakeLive(page: Page): Promise<FakeLiveHandle> {
@@ -130,6 +132,12 @@ export async function installFakeLive(page: Page): Promise<FakeLiveHandle> {
       await page.evaluate(([id, c]) => (window as unknown as { __BLUVI_FAKE_LIVE__: { fail: (a: string, b: string) => void } }).__BLUVI_FAKE_LIVE__.fail(id, c), [sessionId, code] as const);
     },
     subscribed: () => page.evaluate(() => (window as unknown as { __BLUVI_FAKE_LIVE__?: { subscribed?: string[] } }).__BLUVI_FAKE_LIVE__?.subscribed ?? []),
+    markerWrites: () =>
+      page.evaluate(
+        () =>
+          (window as unknown as { __BLUVI_FAKE_LIVE__?: { markerWrites?: { op: 'set' | 'delete'; sessionId: string; clientId: string; data?: Record<string, unknown> }[] } }).__BLUVI_FAKE_LIVE__
+            ?.markerWrites ?? [],
+      ),
   };
 }
 

@@ -367,10 +367,22 @@ function Loaded({ documentId, session, events, isLive, membershipDocumentId, vie
   };
 
   /* ── anchor (c19) ──────────────────────────────────────────────────── */
-  const [adjustOpen, setAdjustOpen] = useState(false);
-  const hasAnchor = session.anchorLat !== 0 || session.anchorLng !== 0;
+  // The map's opening view is taken once, when it opens: a projection landing while it is open
+  // (the stand PATCH that opened it, a teammate's move) must not re-centre it under the user's drag.
+  // `center` — a point the caller already knows (the stand just chosen), ahead of the projection.
+  const [adjust, setAdjust] = useState<{ center: { lat: number; lng: number }; anchored: boolean } | null>(null);
+  const openAdjust = (center?: { lat: number; lng: number }) => {
+    const hasAnchor = session.anchorLat !== 0 || session.anchorLng !== 0;
+    setAdjust(
+      center
+        ? { center, anchored: true }
+        : hasAnchor
+          ? { center: { lat: session.anchorLat, lng: session.anchorLng }, anchored: true }
+          : { center: ROMANIA_CENTER, anchored: false },
+    );
+  };
   const onAnchor = (coord: { lat: number; lng: number }) => {
-    setAdjustOpen(false);
+    setAdjust(null);
     // fish useSetSessionAnchor: fire and report — the projection brings the new anchor back.
     void live
       .repo()
@@ -407,7 +419,7 @@ function Loaded({ documentId, session, events, isLive, membershipDocumentId, vie
       setRotateError(null);
       setRotateOpen(true);
     },
-    onAdjustPosition: () => setAdjustOpen(true),
+    onAdjustPosition: openAdjust,
     onDeleteSession: () => {
       if (!canDelete) return;
       setDeleteError(null);
@@ -435,9 +447,10 @@ function Loaded({ documentId, session, events, isLive, membershipDocumentId, vie
       onLeave={tabProps.onLeaveSession}
       onKick={tabProps.onKickMember}
       onRotate={tabProps.onRotateJoinCode}
-      onAdjust={tabProps.onAdjustPosition}
+      onAdjust={() => openAdjust()}
       onReport={tabProps.onReportProblem}
       onDelete={tabProps.onDeleteSession}
+      statsOnly={current === 'info'}
     />
   );
 
@@ -473,7 +486,8 @@ function Loaded({ documentId, session, events, isLive, membershipDocumentId, vie
         <div className="md:px-6 md:pt-4 xl:px-8">
           <FeedbackBar visible={nudge.visible} onOpen={() => setFeedback('nudge')} onDismiss={nudge.answer} />
         </div>
-        <DetailBody aside={summary} asideLabel="Pe scurt" asideSticky={tabKeys.length ? 'below-tabs' : true} className="md:pt-4 xl:pt-4">
+        {/* Setări below the two-column width: no «Pe scurt» under it — «Șterge partida» stays the last thing (fish InfoScene). */}
+        <DetailBody aside={summary} asideLabel="Pe scurt" asideBelowXl={current === 'info' ? 'hidden' : 'end'} asideSticky={tabKeys.length ? 'below-tabs' : true} className="md:pt-4 xl:pt-4">
           {Body && current ? (
             <div role="tabpanel" id={panelId(current)} aria-labelledby={tabId(current)} tabIndex={0} data-testid={`partida-panel-${current}`} className="flex flex-col gap-2 outline-none md:gap-4">
               <Body {...tabProps} />
@@ -511,12 +525,12 @@ function Loaded({ documentId, session, events, isLive, membershipDocumentId, vie
       />
       <RotateJoinCodeDialog open={rotateOpen} pending={rotate.isPending} error={rotateError} onConfirm={() => void onRotateConfirm()} onClose={() => setRotateOpen(false)} />
       <MapPointPicker
-        open={adjustOpen}
+        open={adjust != null}
         title="Ajustează poziția"
-        center={hasAnchor ? { lat: session.anchorLat, lng: session.anchorLng } : ROMANIA_CENTER}
-        initialZoom={hasAnchor ? ANCHOR_ZOOM : COUNTRY_ZOOM}
-        initialMapType={hasAnchor ? 'satellite' : 'standard'}
-        onCancel={() => setAdjustOpen(false)}
+        center={adjust?.center ?? ROMANIA_CENTER}
+        initialZoom={adjust?.anchored ? ANCHOR_ZOOM : COUNTRY_ZOOM}
+        initialMapType={adjust?.anchored ? 'satellite' : 'standard'}
+        onCancel={() => setAdjust(null)}
         onConfirm={onAnchor}
       />
       {recap.lightbox}

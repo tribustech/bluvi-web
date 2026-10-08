@@ -25,3 +25,13 @@ export const shareVisible = (session: { visibleOnProfile?: boolean | null } | nu
 
 /** fish `[id].tsx` onShare: the message the share sheet carries. */
 export const partidaShareMessage = (documentId: string): string => `Vezi partida mea pe Bluvi 🎣 ${partidaSpectateDeepLink(documentId)}`;
+
+/**
+ * fish `components/CoopCard.tsx#partidaJoinDeepLink` — the universal link that opens the auto-join
+ * screen for a co-op code (the web answers it at /partide/join/[cod] → /partide/intra/[cod]).
+ */
+export const partidaJoinDeepLink = (joinCode: string): string => `https://bluvi-app.wearetribus.com/partide/join/${joinCode}`;
+
+/** fish CoopCard onInvite: the message the «Invită» share sheet carries. */
+export const partidaInviteMessage = (joinCode: string): string =>
+  `Hai în partida mea pe Bluvi! Folosește codul ${joinCode} sau deschide linkul: ${partidaJoinDeepLink(joinCode)}`;

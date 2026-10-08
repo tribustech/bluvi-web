@@ -24,7 +24,8 @@ export type MemberTabProps = {
   onLeaveSession: () => void;
   onKickMember: (member: SessionMember) => void;
   onRotateJoinCode: () => void;
-  onAdjustPosition: () => void;
+  /** Opens the adjust map — on `center` when given (a stand just chosen), else on the anchor. */
+  onAdjustPosition: (center?: { lat: number; lng: number }) => void;
   onDeleteSession: () => void;
   onReportProblem: () => void;
 };

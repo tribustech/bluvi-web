@@ -693,11 +693,13 @@ screens:
       - "core/realtime/partide (rod docs + runtimes)"
       - "core/partide api castRod, stopRod, upsertEvent (lost / blank outcomes), createRodCommandAvailability"
       - "core/partide/domain stats (computeRodStats), rodPhase (effectivePhase), rodCycle, serverClock"
-      - "MISSING pure ports: helpers/partideSpam (lastOutcomeAgeMs, lastCaptureAgeMs, cooldownMessage, COOLDOWN_MS, CONFIRM_MS), helpers/derivedLane (laneForRod), helpers/castGeometry (anchorCoord)"
+      - "core/partide/domain partideSpam (lastOutcomeAgeMs, cooldownMessage, COOLDOWN_MS), derivedLane (laneForRod), castGeometry (anchorCoord), captureSave (buildEvent, buildRuntimeMetaPatch)"
+      - "components/partide/capture (useCaptureFlow, rodCommandMemo)"
     states:
       - no rods → empty state
       - rods idle / timer counting down / expired (firing) / provisional („Se sincronizează”)
-      - max 4 rods reached (no add tile)
+      - max 4 rods reached (no add tile — on the web the tile is hidden until the owner decides, c11)
+      - open but not followed live here (rods without controls)
       - offline (writes blocked)
       - outcome cooldown hit
       - ended partidă (tab hidden)
@@ -705,24 +707,38 @@ screens:
       - id: partide.partida-lansete.c1
         text: "No rods: illustration, „Nicio lansetă încă”, „Adaugă o lansetă ca să-ți notezi momeala și capturile. Cronometrul e opțional.” and „Adaugă lansetă”."
         fish_ref: "features/partide/scenes/CronometreScene.tsx:252-266"
+        status: todo
+        note: "Blocked: owner decision on rod-config (partide.rod-config web_replacement), like c11 / c13 — the «Adaugă lansetă» button is part of this criterion and the web does not offer it. What passes: e2e tests/e2e/partida-lansete.spec.ts «c1 no rods» (375/1280/1440/1920): the illustration, «Nicio lansetă încă», fish's text; the button is replaced by one quiet line «Lansetele se adaugă din aplicația Bluvi.» — no dead action (rule 4)."
       - id: partide.partida-lansete.c2
         text: "Each rod card has a left border in the rod colour, a badge „L{index}” (indigo ring + clock bubble when a timer is configured), the lane + distance title („Stânga/Centru/Dreapta · {m} m”), and, when the rod has bites, captures count, best kg and „{n} trăsătură/trăsături”."
         fish_ref: "features/partide/components/PartidaRodCard.tsx:170-258"
+        status: passing
+        note: "e2e tests/e2e/partida-lansete.spec.ts «c2 c3 c4 the board at 375/1280/1440/1920»: the left border in the rod colour (computed style), «L1» on the rod colour (ink chosen for AA), the indigo ring + clock bubble only on timer rods, «Stânga · 60 m» / «45 m» (a lone map cast has no honest lane), «2» · «8,69 kg» (unit apart) · «3 trăsături» (formatCount); no bites → no stats."
       - id: partide.partida-lansete.c3
         text: "Idle rods show the bait line (or „Momeală necunoscută”); a running rod shows „Timp rămas” with a live countdown, an expired one „Expirat” in red, a provisional one „Se sincronizează” in grey."
         fish_ref: "features/partide/components/PartidaRodCard.tsx:329-339,643"
+        status: passing
+        note: "e2e tests/e2e/partida-lansete.spec.ts «c2 c3 c4 the board…» (bait / «Momeală necunoscută», «Timp rămas 00:12:30», «Expirat -00:02:13» red), «c3 no server clock sample yet» and «c3 the projection from the offline cache» («Se sincronizează», muted, never a red «Expirat»). Open but not followed live here (runtimes from a one-shot CMS read): provisional too, under the caption «Partida nu e urmărită în timp real aici: vezi lansetele, fără cronometre și fără butoane.» and with no controls — e2e «open but not followed live here» (375, axe) + visual not-live-375. Pure model tabs/Lansete/countdown.ts + unit tests."
       - id: partide.partida-lansete.c4
         text: "Every rod card has three outcome buttons: „Fără trăsătură”, „Scăpat”, „Captură” (green, emphasised); Captură opens the capture flow for that rod."
         fish_ref: "features/partide/components/PartidaRodCard.tsx:385-401"
+        status: passing
+        note: "e2e tests/e2e/partida-lansete.spec.ts «c2 c3 c4 the board…» (the three outcomes on every card) and «c4 «Captură» opens the capture flow for that rod» (/partide/:id/captura?lanseta=2)."
       - id: partide.partida-lansete.c5
         text: "„Scăpat” / „Fără trăsătură” on the same rod within 60 s of the previous identical outcome is refused with „Ai marcat deja «scăpat» pe lanseta asta acum {s}s. Un pește nu scapă de două ori într-un minut 🎣” / „Ai marcat deja «fără trăsătură» acum {s}s. Stai un pic până la următoarea aruncare 🎣”."
         fish_ref: "features/partide/helpers/partideSpam.ts:8-55"
+        status: passing
+        note: "e2e tests/e2e/partida-lansete.spec.ts «c5 the same outcome on the same rod within 60 s…»: both of fish's refusal toasts with the seconds, no POST; a blank 61 s old, and a lost after a blank, go through (per-outcome, per-rod windows; core partideSpam). fish's Sentry spam signal is dropped (no Sentry on the web until M8)."
       - id: partide.partida-lansete.c6
         text: "A recorded lost/blank outcome briefly covers the card with a takeover („Scăpat” / „Fără trăsătură” + a random joke such as „Peștele: 1 — Tu: 0”) and blocks re-taps while it plays."
         fish_ref: "features/partide/components/PartidaRodCard.tsx:404-452"
+        status: passing
+        note: "e2e tests/e2e/partida-lansete.spec.ts «c6 a recorded outcome covers the card…» (the scene, «Fără trăsătură» / «Scăpat» + a joke from fish's pools, a click and Enter while it plays do nothing, gone after 2.6 s) and «c6 prefers-reduced-motion» (no running animation, still covering). Web Animations API, run once per takeover."
       - id: partide.partida-lansete.c7
         text: "An outcome on a running/expired rod resolves the timer cycle; on an idle rod it only logs the event."
         fish_ref: "features/partide/scenes/CronometreScene.tsx:147-157"
+        status: passing
+        note: "e2e tests/e2e/partida-lansete.spec.ts «c7 on an idle rod…» (POST …/events only) and «c7 on a running and on an expired rod…» (POST …/rods/:n/stop with expectEndsAt = the deadline + the event; the card back to idle). A write that fails for good (after retryWrite) shows the danger toast «Nu am putut salva. Mai încearcă.» even after the takeover played — «c7 an outcome whose event write fails for good…» (fish only sent these to Sentry; the web has none until M8)."
       - id: partide.partida-lansete.c8
         text: "A capture in the same rod bucket (or the free bucket) within 30 s of the previous one asks „Sigur adaugi altă captură?” / „Ai adăugat o captură acum {s}s. Ești sigur că vrei să adaugi alta?” with „Da, adaug” / „Anulează”."
         fish_ref: "features/partide/scenes/useCaptureFlow.tsx:38-60"
@@ -731,20 +747,32 @@ screens:
       - id: partide.partida-lansete.c9
         text: "Rods with a configured timer show a start pill („Pornește cronometrul”); a running rod shows a stop control („Oprește cronometrul”) that asks for confirmation before force-stopping (label „{lane} · {m} m”)."
         fish_ref: "features/partide/scenes/CronometreScene.tsx:125-142"
+        status: passing
+        note: "e2e tests/e2e/partida-lansete.spec.ts «c9 «Pornește cronometrul»…» (POST …/rods/1/cast, expectEndsAt null; counts at once, adopts the server deadline, the echo takes over; no pill on a timer-free rod), «c9 an expired rod restarts from the same pill…» (CAS on its deadline; a failed cast rolls back and says «Nu am putut salva. Mai încearcă.»; a CAS miss adopts the server's rod with no toast — «c9 a CAS miss is no failure») and «c9 the stop control asks…» («Oprești cronometrul?», «Centru · 70 m», «Nu» / «Da, oprește» → POST …/stop, nothing logged)."
       - id: partide.partida-lansete.c10
         text: "Countdowns tick every second on the server-corrected clock; when a rod's deadline passes the rod moves to the fired state."
         fish_ref: "features/partide/scenes/CronometreScene.tsx:66-99"
+        status: passing
+        note: "e2e tests/e2e/partida-lansete.spec.ts «c10 countdowns tick every second…» (page clock: 00:00:04 → «Expirat» -00:00:0x, still ticking, no write) and «c10 the server clock, not the device clock» (Date header one hour ahead → expired). The tick runs only while a rod is running (tabs/Lansete/useRodBoard.ts)."
       - id: partide.partida-lansete.c11
         text: "Below the cards a dashed „Adaugă lansetă” tile is shown while fewer than 4 rods exist."
         fish_ref: "features/partide/scenes/CronometreScene.tsx:37,101-104,232-250"
+        status: todo
+        note: "Blocked: owner decision pending on a web rod editor (partide.rod-config web_replacement). Until then the web hides «Adaugă lansetă» (tile and empty-state button) and every configure entry (card tap, «Adaugă cronometru», the pencil, the gear) — e2e tests/e2e/partida-lansete.spec.ts «c2 c3 c4 the board…» and «c1 no rods» assert they are absent."
       - id: partide.partida-lansete.c12
         text: "Offline, outcome, capture, add and configure actions are refused with „Fără conexiune. Reconectare…”."
         fish_ref: "features/partide/scenes/CronometreScene.tsx:49-60,164-169"
+        status: passing
+        note: "e2e tests/e2e/partida-lansete.spec.ts «c12 offline…»: outcome (click and Enter), Captură, Pornește and the stop control answer «Fără conexiune. Reconectare…», nothing is sent, the controls dim (aria-disabled) and come back online. Web: cast / stop are refused too — fish kept them live offline because its runtimes were device-local; here they are CMS writes."
       - id: partide.partida-lansete.c13
         text: "Web: rod configuration (add rod, edit rod, timer duration/alarm sound, cast pin) is the mobile-only rod-config screen — the web offers no alarm; „Adaugă lansetă” / configure entries need a web replacement decided by the owner (see partide.rod-config)."
         fish_ref: "features/partide/scenes/CronometreScene.tsx:186-198"
+        status: todo
+        note: "Blocked: owner decision pending on a web rod editor (partide.rod-config web_replacement). Until then the web hides «Adaugă lansetă» (tile and empty-state button) and every configure entry (card tap, «Adaugă cronometru», the pencil, the gear) — e2e tests/e2e/partida-lansete.spec.ts «c2 c3 c4 the board…» and «c1 no rods» assert they are absent."
+    web_note: "M4-B5. app/(site)/partide/[id]/_member/tabs/Lansete: index.tsx (the board), RodCard, OutcomeButtons, OutcomeTakeover, StopRodDialog, countdown.ts (pure, unit-tested), useRodBoard.ts (the 1 s tick only while a rod runs, on liveClock; the optimistic runtime overlay over the read-only projection — dropped on the echo, on failure, or 8 s after the write), rodWrites.ts (cast / stop with the CAS token and the patchRods fallback, resolve / logOutcome events — all CMS, nothing to Firestore, no alarm). Phone: one column; from 768 an auto-filling grid of ≥340 px cards (2 beside the summary at 1280/1440, 3 at 1920), outcome rows aligned at the card foot. Shipped behind lib/partide-pages partidaLansete (flipped in this batch). Visual: tests/visual/partida-lansete.visual.spec.ts (7 states × 375/1280/1440/1920, plus not-live at 375)."
     mobile_only: false
-    status: todo
+    status: proposed
+    note: "Every criterion except c1 (its «Adaugă lansetă» button) / c11 / c13 passes in e2e; those wait for the owner's rod-config decision, so the entry stays proposed."
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.partida-jurnal
@@ -758,15 +786,18 @@ screens:
       - features/partide/components/PartidaMap.tsx
       - features/partide/helpers/eventView.ts
       - features/partide/domain/awaitProjection.ts
+      - features/partide/domain/hooks.ts
+      - features/partide/domain/firestore/sessionRepo.ts
       - features/partide/types.ts
     web_route: "/partide/[id]?tab=jurnal"
     template: T3
     milestone: M4
     roles: [angler, organizer, referee, operator]
     core:
-      - "core/partide/domain eventView (jurnalRowModel, filterEvents, EMPTY_JURNAL_FILTER, eventPhotoUri)"
-      - "core/partide api deleteEventByClientId, getMarkers, upsertMarker, deleteMarker"
-      - "core/realtime/partide waitForProjection, eventGone"
+      - "core/partide/domain eventView (jurnalRowModel, filterEvents, EMPTY_JURNAL_FILTER, eventPhotoUri, eventMeta), venueRef (sessionVenueRef, sameVenue), types (MAP_MARKER_LABEL, MARKER_SCOPE), retryWrite"
+      - "core/partide api deleteEventByClientId (through the live repo's deleteCatch), invalidateCommunityAfterCatch"
+      - "core/realtime/partide waitForProjection, eventGone; sessionRepo writeMarker / deleteMarker (the markers subcollection — the one Firestore write fish makes)"
+      - "core/partide api getMarkers / upsertMarker / deleteMarker: NOT used — fish's Jurnal never calls them (markers go to Firestore)"
     states:
       - no events → empty state
       - events but filtered to zero
@@ -778,35 +809,55 @@ screens:
       - id: partide.partida-jurnal.c1
         text: "Filter chips: „Capturi”, „Scăpate”, „Fără trăsătură” (multi-select) and one „L{n}” chip per rod coloured with the rod colour; filters combine; changing a filter resets paging."
         fish_ref: "features/partide/scenes/JurnalScene.tsx:37-41,306-365"
+        status: passing
+        note: "e2e tests/e2e/partida-jurnal.spec.ts «c1 chips…» (toggles are aria-pressed, outcome ∧ rod — a rod-less event drops out once a rod is chosen; the «on» L2 chip is filled rgb(249,115,22)) and «c1 c2 30 rows at a time…» (a chip after paging → data-count 38, back to 30 rows). One horizontal row (rule 2), scrolling sideways on the phone."
       - id: partide.partida-jurnal.c2
         text: "Rows are newest first and loaded 30 at a time as the list scrolls."
         fish_ref: "features/partide/scenes/JurnalScene.tsx:35,81-95"
+        status: passing
+        note: "e2e «c2 c3 at 375/1280/1440/1920» (order ev-6…ev-1) and «c1 c2 30 rows at a time»: 75 events → 30; the end of the list in view (IntersectionObserver sentinel) → 60; «Arată mai multe» (the keyboard path) → 75 and the button goes."
       - id: partide.partida-jurnal.c3
         text: "A row shows a lead column (weight in kg + „ESTIMAT” badge when estimated, or „SCĂPAT”, or „FĂRĂ TRĂSĂTURĂ”, or a fish glyph), the rod pill „L{n}”, species, a meta line, a 38px photo thumb when present and the time."
         fish_ref: "features/partide/components/JurnalRow.tsx:83-160"
+        status: passing
+        note: "e2e «c2 c3 at 375/1280/1440/1920 — axe clean»: «2,4 kg» (unit apart, rule 10), «Estimat», «Scăpat», «Fără trăsătură», the glyph on a weightless capture, «L1», species, «Centru · 60 m · Boilies» / the note, the thumb only with a photo, «12:20» (Bucharest). Below 1280 fish's row (fixed 74px lead, 3px rod-colour accent, amber / grey grounds); from 1280 a timeline with every column (rule 14): Ora · Lansetă · Rezultat · Specie · Greutate · Poză, on a tinted header row. Never «capot»."
       - id: partide.partida-jurnal.c4
         text: "Activating a row opens the share dialog for that event (title „Distribuie captura” / „Scăpat” / „Fără trăsătură”); for a live partidă the dialog also offers „Editează captura” (→ capture edit) and „Șterge captura”."
         fish_ref: "features/partide/scenes/JurnalScene.tsx:278-290"
+        status: passing
+        note: "e2e «c4 c5 a capture opens…» (Editează captura → /partide/{id}/captura?editare=ev-1), «c4 a scăpat / fără trăsătură opens its record» (fish's OutcomeRecord: meta + venue, «Șterge» only, no card, no edit) and «c4 c6 c8 an ended partidă» (no edit / delete). Web gate: actions need the live, subscribed partidă (fish reads the event from the live store — on a partidă not followed here its delete silently did nothing)."
       - id: partide.partida-jurnal.c5
         text: "The share card lets the user toggle the fields „Baltă”, „Specie”, „Data”, „Competiție” and shares a PNG of the composed card („Distribuie”, „Se pregătește…” while rendering)."
         fish_ref: "features/partide/components/ShareCatchSheet.tsx:17-108"
+        status: passing
+        note: "e2e «c4 c5…»: Greutate / Baltă / Specie / Data switches (aria-pressed; «Baltă» off removes the venue from the card's label), «Distribuie» → no file share in the browser → the PNG is downloaded + «Imaginea a fost salvată.». «Competiție» never shows here: fish's JurnalScene passes no competitionName (the switch exists for competition catches, components/partide/share)."
       - id: partide.partida-jurnal.c6
         text: "Deleting (live partidă only, long-press or dialog action) asks „Ștergi această înregistrare?” (Închide / Șterge); while pending the row dims with „Ștergem captura…”; failure → „Nu am putut șterge captura. Încearcă din nou.”; offline → „Fără conexiune. Reconectare…”."
         fish_ref: "features/partide/scenes/JurnalScene.tsx:102-136,398-407"
+        status: passing
+        note: "e2e «c6 delete from the dialog…» (Închide keeps it; right-click = the long-press; DELETE …/events/by-client/ev-6; the row stays dimmed with «Ștergem captura…» after the 200 until the pushed projection drops it — fish waitForProjection + eventGone), «c6 a failed delete…» (400 → toast, row restored; Delete on a focused row asks too) and «c6 c8 c10 offline…» (refused at once, no request). Writes mirror fish useRodActions.removeEvent: the live repo's deleteCatch (CMS), retried, then the community refresh."
       - id: partide.partida-jurnal.c7
         text: "No events: illustration, „Liniște pe baltă… deocamdată” and „Tot ce se întâmplă la partidă se strânge aici — capturi, scăpate și trăsături, în ordinea în care le trăiești.”; events filtered to zero: „Niciun rezultat pentru filtrele alese”."
         fish_ref: "features/partide/scenes/JurnalScene.tsx:370-395"
+        status: passing
+        note: "e2e «c7 at 375/1280/1440/1920 — axe clean». The illustration is a still drawing (rod, calm water, float) in place of fish's Lottie."
       - id: partide.partida-jurnal.c8
         text: "A floating „Captură” button (live only, dimmed offline) opens the free-capture flow; a white „Hartă” button is always shown."
         fish_ref: "features/partide/scenes/JurnalScene.tsx:224-275"
+        status: passing
+        note: "e2e «c8 phone: floating…» (dark «Captură» + white «Hartă» at the screen's bottom edge — sticky to the register, so they never cover the summary that follows the tab; «Captură» → /partide/{id}/captura), «c6 c8 c10 offline» (aria-disabled, dimmed, toast) and «an ended partidă» (no «Captură», «Hartă» kept). From 768 both sit in the toolbar beside the chips."
       - id: partide.partida-jurnal.c9
         text: "„Hartă” opens a full map centred on the anchor showing the filtered non-blank events with coordinates and the venue's markers."
         fish_ref: "features/partide/scenes/JurnalScene.tsx:95,292-300"
+        status: passing
+        note: "e2e «c9 phone «Hartă»…» (full-screen dialog; 3 located non-blank catches as rod-colour pins, 2 venue markers + legend; Pini / Heatmap; the map follows the filters) and «c9 from 1280 the map is a side panel…» (sticky beside the timeline, «Hartă» toggles it, aria-expanded; it opens by itself only from 1440 and only with something to plot — at 1280 it would squeeze the timeline, and an empty map is rule 4; c7 asserts no panel when empty). The register keeps fish-compact columns (rule 16: no fr track, Specie ≤ 280px, the meta line wraps to two lines instead of «Po…»); spare width goes to the map. MapLibre, satellite first (fish hybrid) + Hartă / Satelit. Not ported: fish's outline of the public water under the anchor (its offline ANAR index has no web equivalent). Markers come from the live projection like fish's useMapMarkers — which the CMS builds with `markers: []` (fish parks them), so in practice none show (fish behaves the same)."
       - id: partide.partida-jurnal.c10
         text: "Long-pressing the map adds a marker after asking „Adaugă un reper” / „Ce ai găsit aici?” with „Zonă tare”, „Pat nadă”, „Agățătură”, „Anulează”; pressing a marker asks „Ștergi reperul?”. Adding is blocked offline."
         fish_ref: "features/partide/scenes/JurnalScene.tsx:140-166"
+        status: passing
+        note: "e2e «c10 add a marker…» (right-click — touch: long-press — → the four choices; «Zonă tare» → a `set` of sessions/{id}/markers/{clientId} with scope anchor; keyboard «Adaugă reper» at the centre cross → «Pat nadă», scope session), «c10 a marker asks «Ștergi reperul?»…» (`delete` recorded) and «offline» (refused, nothing written). Write path = fish's exactly: sessionRepo writeMarker / deleteMarker straight to Firestore (the live session's markers subcollection) through _live/source.ts — in e2e the fake records them and the fixture fails on any Firebase request. Read-only on an ended / not-followed partidă (fish would have written to whatever partidă was live). ADDING IS OFF IN THE APP until the CMS projection carries markers (it is built with `markers: []`, so a new reper never shows and retries orphan docs in the shared Firestore — rule 4); the Jurnal's markersProjected() switch is turned on only by the e2e fake, so the flow above stays tested, plus «c10 adding is off…» (1440: no sheet / button / hint) and the 375 touch tests (CDP finger hold on the map → the sheet above the map dialog survives the lift → «Agățătură» written; hold without the switch → nothing; row hold → «Ștergi această înregistrare?» survives the lift → DELETE). A long-press now swallows the lift's ghost click (it used to dismiss the sheet at once). Proposal + grants in the private cms-patches note M4-markers."
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.partida-galerie
@@ -917,32 +968,51 @@ screens:
       - id: partide.partida-setari.c1
         text: "When the partidă has a join code, a „Partidă în echipă” card shows „Cod de acces” with the code large and spaced, an „Invită” button (live only) that shares „Hai în partida mea pe Bluvi! Folosește codul {cod} sau deschide linkul: https://bluvi-app.wearetribus.com/partide/join/{cod}”."
         fish_ref: "features/partide/components/CoopCard.tsx:38-105"
+        status: passing
+        note: "e2e tests/e2e/partida-setari.spec.ts (every width; «Invită» Web Share + copy fallback). Web: the Web Share API with fish's message (core partidaInviteMessage / partidaJoinDeepLink), else the message is copied and the toast «Invitația a fost copiată.» says so. An ended partidă keeps the code read-only, no «Invită»; no join code → no card."
       - id: partide.partida-setari.c2
         text: "The co-op card offers „Schimbă codul” (owner, live) and lists members („1 membru” / „{n} membri”) with avatar, name (fallback „Pescar”), „Organizator” under the host and, for the owner on a live partidă, an „Elimină {name}” action on every non-host member."
         fish_ref: "features/partide/components/CoopCard.tsx:107-170"
+        status: passing
+        note: "e2e tests/e2e/partida-setari.spec.ts (owner: rotate + kick through the frame's confirmations; member: no Schimbă / Elimină; ended: read-only roster). Counts with formatCount («1 membru», «2 membri», «20 de membri»); «(tu)» after the viewer's name; avatar tone keyed by uid."
       - id: partide.partida-setari.c3
         text: "A row „Raportează o problemă” / „Ceva nu merge sau ai o idee? Scrie-ne direct din partidă.” is always shown and opens the feedback dialog."
         fish_ref: "features/partide/scenes/InfoScene.tsx:179-198"
+        status: passing
+        note: "e2e tests/e2e/partida-setari.spec.ts. Opens the frame's PartidaFeedbackDialog (entryPoint info). Below 1024 second, after the co-op card (fish order); from 1024 above the actions in the right column."
       - id: partide.partida-setari.c4
         text: "„Detalii” lists „Baltă” (name + subtitle), „Început”, then for ended „Sfârșit” + „Durată”, for live „Sfârșit estimat” + „Durată estimată”, „Reper” when set, and for ended also „Poziție” (5 decimals), „Specii vizate”, „Stand”."
         fish_ref: "features/partide/scenes/InfoScene.tsx:106-124,200-238"
+        status: passing
+        note: "e2e tests/e2e/partida-setari.spec.ts (live rows and ended rows, exact values in Europe/Bucharest). Pure model Setari/model.ts detailRows (unit tested). Web: a partidă still open but not followed live here (another device) is shown read-only like an ended one — its settings listed under Detalii — since the meta setters work on the live partidă only (fish no-ops them)."
       - id: partide.partida-setari.c5
         text: "„Editează” (live only) offers „Poziție” (→ adjust map), „Specii vizate” (→ species picker, saves targetSpecies) and, when the lake has stands, „Stand” („Alege standul” when none)."
         fish_ref: "features/partide/scenes/InfoScene.tsx:127-148,240-264"
+        status: passing
+        note: "e2e tests/e2e/partida-setari.spec.ts (Poziție → adjust map on the anchor; Specii → SpeciesPicker → PATCH targetSpecies; Stand row only with stands; none for a lake without stands or a public water — no lake read then). The stands are GET /feed/lakes/:id (core lakeQuery)."
       - id: partide.partida-setari.c6
         text: "Choosing a stand sets anchor to the stand coordinates (when present), standId and standName, then opens the position adjust map once the picker closes."
         fish_ref: "features/partide/scenes/InfoScene.tsx:88-103"
+        status: passing
+        note: "e2e tests/e2e/partida-setari.spec.ts (stand with coordinates moves the anchor; without coordinates keeps it; «Fără stand» clears standId / standName and opens no map). PATCH body {anchorLat, anchorLong, standId, standName}; the adjust map opens once the list has closed. components/partide/stand/StandPicker.tsx (shared with Începe)."
       - id: partide.partida-setari.c7
         text: "A „Sincronizare” row shows „Sincronizat” (green) online or „Offline” (amber)."
         fish_ref: "features/partide/scenes/InfoScene.tsx:152,266-281"
+        status: passing
+        note: "e2e tests/e2e/partida-setari.spec.ts (context offline → «Offline», back → «Sincronizat»). The browser's online flag (useLivePartide().online), a green / amber pill."
       - id: partide.partida-setari.c8
         text: "„Partidă publică” with „Vizibilă în comunitate și pe profil — ceilalți văd doar capturile, nu locul exact sau alte detalii.” is a switch on a live partidă and read-only „Publică” / „Privată” once ended."
         fish_ref: "features/partide/scenes/InfoScene.tsx:283-314"
+        status: passing
+        note: "e2e tests/e2e/partida-setari.spec.ts (pending «Se salvează…» + aria-busy while the CMS purges, single-flight; failure (502) reverts with «Nu am putut schimba vizibilitatea partidei. Încearcă din nou.»; private → public; ended / member read-only). Web-specific: the switch is the owner's only — the CMS rejects a member's visibleOnProfile (PARTIDA:OWNER_ONLY); fish shows a member a switch whose write fails silently and has no error copy, so the toast copy is the web's."
       - id: partide.partida-setari.c9
         text: "Live: a non-owner member sees „Părăsește partida”, the owner sees „Termină partida”; a quiet red „Șterge partida” link is shown whenever the viewer can delete (owner with documentId)."
         fish_ref: "features/partide/scenes/InfoScene.tsx:316-336"
+        status: passing
+        note: "e2e tests/e2e/partida-setari.spec.ts (owner live: Termină → finish confirmation, Șterge → delete confirmation; member: Părăsește → leave confirmation, no Șterge; ended owner: only Șterge). Below 1280 the compact header also carries «Termină» (fish PartidaCompactHeader + InfoScene both do)."
     mobile_only: false
-    status: todo
+    status: passing
+    note: "Built in M4-B5: app/(site)/partide/[id]/_member/tabs/Setari (CoopCard, DetailsList, EditRows, SyncRow, PublicSwitch, MemberActions; pure model.ts). Grouped Revolut-clean rows; phone one column in fish's order, from 1024 two columns (Detalii + Editează left, co-op + switches + actions right, card tops aligned). While Setări is open the summary aside keeps only its numbers (Summary statsOnly) — the roster, code and actions are not shown twice — and only as the ≥1280 right column: below it the aside is hidden so «Șterge partida» stays last (fish InfoScene). «Raportează o problemă» sits right under the co-op card at every width (fish: buried lower, nobody found it). Species / stand saves show the chosen value at once and revert with an error toast on failure; a chosen stand opens the adjust map on the stand's coordinates, and the map's opening view is frozen while open (a projection landing does not re-centre or remount it). Writes: PATCH /feed/sessions/:id via the live repo (targetSpecies, anchor + stand, visibleOnProfile awaited); rotate / kick / finish / leave / delete / feedback are the frame's. Shipped behind lib/partide-pages partidaSetari (flipped at commit). Visual: tests/visual/partida-setari.visual.spec.ts (5 states × 375/1280/1440/1920, baselines pending approval)."
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.incepe

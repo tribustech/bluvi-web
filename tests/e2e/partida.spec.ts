@@ -345,8 +345,9 @@ test.describe('own vs spectator', () => {
     await expect(memberView(page)).toBeVisible();
     // Neither the static shell nor the client's first renders ever showed «not found».
     expect(await seenTestIds(page)).toEqual([]);
-    // The recap (no tab shipped) shows the private partidă's catches to its member.
-    await expect(page.getByTestId('partida-catches').getByRole('listitem')).toHaveCount(2);
+    // The Jurnal (the ended partidă's landing tab) shows the private partidă's catches to its member.
+    await expect(page.getByRole('tab', { name: 'Jurnal' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('jurnal-row')).toHaveCount(2);
     // partide.b.private-partida (member side): no share link.
     await expect(page.getByRole('button', { name: /Distribuie/ })).toHaveCount(0);
   });
@@ -474,29 +475,24 @@ test('partide.partida.c5 ended while on «Statistici»: Statistici stays', async
 });
 
 for (const width of [375, 1280, 1440, 1920] as const) {
-  test(`partide.partida.c4 rule 4 at ${width}: no tab shipped → no tab strip, no «curând»; the recap (photos, total, chart, biggest, catches) fills the page; each action once`, async ({ page, fakeLive }) => {
+  test(`partide.partida.c4 rule 4 at ${width}: only the shipped tabs (Lansete, Jurnal, Setări), never a «curând» one; each action once`, async ({ page, fakeLive }) => {
     await fakeLive.seed({
       docs: { [LIVE.clientId]: liveDoc({ catches: [{ ...catchDoc(1, 2.4, 'Crap', 100), photoUrl: 'https://e2e-photos.invalid/a.png' }, catchDoc(2, 8.69, 'Somn', 60), catchDoc(3, null, 'Caras', 40), catchDoc(4, null, null, 20, 'lost')] }) },
     });
     await mockCms(page, { active: LIVE });
     await open(page, LIVE.documentId, { width });
     await expect(memberView(page)).toBeVisible();
-    await expect(page.getByRole('tablist')).toHaveCount(0);
+    // Galerie / Statistici have not shipped: left out, not shown as «curând» (lib/partide-pages).
+    await expect(page.getByRole('tab')).toHaveText(['Lansete', /^Jurnal/, 'Setări']);
     await expect(page.getByText(/curând/)).toHaveCount(0);
     await expect(page.getByTestId('partida-summary-stats')).toBeVisible();
-    // The spectator page's content over the member's data: never less than a stranger sees.
-    await expect(page.getByTestId('partida-recap')).toBeVisible();
-    await expect(page.getByTestId('partida-total')).toContainText('11,09');
-    await expect(page.getByTestId('partida-catches').getByRole('listitem')).toHaveCount(3);
-    await expect(page.getByTestId('partida-catches')).toContainText('Capturile echipei');
-    await expect(page.getByTestId('partida-photo-count')).toHaveText('1');
     // Each action once on the screen: «Termină» / «Distribuie» in the header below 1280, in the
     // summary from 1280 — never both.
     await expect(page.getByRole('button', { name: 'Termină partida' }).filter({ visible: true })).toHaveCount(1);
     await expect(page.getByRole('button', { name: 'Distribuie partida' }).filter({ visible: true })).toHaveCount(1);
     await expect(page.getByRole('button', { name: 'Șterge partida' }).filter({ visible: true })).toHaveCount(1);
     await expectNoA11yViolations(page);
-    await page.screenshot({ path: `${SHOTS}/no-tabs-owner-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `${SHOTS}/shipped-tabs-owner-${width}.png`, fullPage: true });
   });
 }
 

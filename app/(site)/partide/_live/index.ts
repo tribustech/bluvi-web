@@ -2,5 +2,5 @@ export { LivePartideProvider, useLivePartide, type LivePartide } from './LivePar
 export { useActivePartida, useLiveSession } from './hooks';
 export { useOnline } from './useOnline';
 export { liveClock, samplingTransport, useClockSampled, useServerNow } from './serverClock';
-export { fakeLive, type FakeLive, type FakeLiveDoc } from './source';
+export { fakeLive, liveSource, type FakeLive, type FakeLiveDoc } from './source';
 export { OFFLINE_WRITE_MESSAGE, useWriteGuard } from './useWriteGuard';

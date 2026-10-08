@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { partidaShareMessage, partidaSpectateDeepLink, shareVisible } from '../deepLinks';
+import { partidaInviteMessage, partidaJoinDeepLink, partidaShareMessage, partidaSpectateDeepLink, shareVisible } from '../deepLinks';
 
 describe('partidaSpectateDeepLink (fish helpers/deepLinks.ts)', () => {
   it('is the universal link on the app domain, keyed by documentId', () => {
@@ -22,5 +22,16 @@ describe('shareVisible', () => {
     expect(shareVisible({ visibleOnProfile: true })).toBe(true);
     expect(shareVisible({ visibleOnProfile: null })).toBe(true);
     expect(shareVisible({})).toBe(true);
+  });
+});
+
+describe('partidaJoinDeepLink / partidaInviteMessage (fish components/CoopCard.tsx)', () => {
+  it('is the join universal link keyed by the code', () => {
+    expect(partidaJoinDeepLink('K7M2QX')).toBe('https://bluvi-app.wearetribus.com/partide/join/K7M2QX');
+  });
+  it('the invite message is fish’s', () => {
+    expect(partidaInviteMessage('K7M2QX')).toBe(
+      'Hai în partida mea pe Bluvi! Folosește codul K7M2QX sau deschide linkul: https://bluvi-app.wearetribus.com/partide/join/K7M2QX',
+    );
   });
 });
