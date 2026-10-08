@@ -321,6 +321,16 @@ async function patchCore(page: Page, id: string, patch: Record<string, unknown>)
   await page.route(new RegExp(`/api/cms/feed/competitions/${id}(\\?|$)`), route => route.fulfill({ json: { data, meta: {} } }));
 }
 
+/**
+ * ID.own as another organizer's competition: its author sees the organizer's registrations list
+ * (competition-page.participanti-organizator, concurs-participanti-organizator.spec.ts), so the
+ * public roster's tests on its guest crews read it with another author.
+ */
+async function asVisitor(page: Page, id: string, patch: Record<string, unknown> = {}) {
+  const author = core.get(id)!.author;
+  await patchCore(page, id, { author: author ? { ...author, documentId: 'e2e-another-organizer', username: 'Alt organizator' } : author, ...patch });
+}
+
 const TABS = [
   ['informatii', 'Informații'],
   ['participanti', 'Participanți'],
@@ -836,6 +846,7 @@ test(`competition-page.participanti.c5 c8 competition-page.participanti.s5 s7 �
 test(`competition-page.participanti.c8 competition-page.participanti.s7 — only guests (the author's guest crews): the guest line once above the list, no stats part on any card or entry`, async ({ page, context }) => {
   await signIn(context, jwt);
   expect(approvedOf(ID.own).every(r => r.participants.length === 0), 'ID.own lists guests only').toBe(true);
+  await asVisitor(page, ID.own);
   for (const vp of [CARDS, DESKTOP]) {
     await open(page, participants(ID.own), vp);
     await settle(page);
@@ -849,6 +860,7 @@ test(`competition-page.participanti.c8 competition-page.participanti.s7 — only
 test(`competition-page.participanti.c3 c5 competition-page.participanti.s5 — from 1280 (owner rules 16, 18): several entries per line, the sectors by name (as Cântare)`, async ({ page, context }) => {
   await signIn(context, jwt);
   // ID.own: guest crews; the CMS lists its sectors out of order (C, A, B, D).
+  await asVisitor(page, ID.own);
   await open(page, participants(ID.own), DESKTOP);
   await settle(page);
   const approved = approvedOf(ID.own);
@@ -982,6 +994,7 @@ test(`competition-page.participanti.c8 competition-page.participanti.c9 competit
 
 test(`competition-page.participanti.c8 competition-page.participanti.s5 competition-page.participanti.s7 — a guest: «Statisticile nu sunt disponibile…»; a team: one block per member`, async ({ page, context }) => {
   await signIn(context, jwt);
+  await asVisitor(page, ID.own);
   await open(page, participants(ID.own), PHONE);
   await settle(page);
   const guest = cards(page).first();
@@ -1052,7 +1065,7 @@ test('competition-page.participanti.c5 competition-page.participanti.s5 — a gu
   const regs = c.registrations.filter(r => r.registrationStatus === 'registered');
   const echo = { ...regs[0], teamName: ECHO_NAME, guestName: ECHO_SUB, participants: [] };
   const other = { ...regs[1], teamName: OTHER_NAME, guestName: OTHER_SUB, participants: [] };
-  await patchCore(page, ID.own, { registrations: [echo, other, ...c.registrations.filter(r => r !== regs[0] && r !== regs[1])] });
+  await asVisitor(page, ID.own, { registrations: [echo, other, ...c.registrations.filter(r => r !== regs[0] && r !== regs[1])] });
   await open(page, participants(ID.own), PHONE);
   const echoCard = page.getByRole('article', { name: ECHO_NAME });
   await expect(echoCard).toBeVisible();
@@ -1090,38 +1103,18 @@ for (const [label, key] of [
   ['upcoming', 'own'],
   ['completed, prerendered', 'ownDone'],
 ] as const) {
-  test(`competition-page.participanti.c2 competition-page.participanti.s3 — the author (${label}): the organizer notice over the list, revealed with it (no shift); the app’s Participanți deep link`, async ({ page, context }) => {
+  test(`competition-page.participanti.c2 — the author (${label}): the organizer's registrations list instead of the roster (no notice, no app hand-over)`, async ({ page, context }) => {
     const id = ID[key];
     await signIn(context, jwt);
-    const cls = await probeShifts(page);
     await open(page, participants(id), LAPTOP);
-    const notice = page.getByRole('region', { name: 'Ești organizatorul acestui concurs' });
-    await expect(notice).toBeVisible();
-    // The kit section (title step t-title2), not a one-off surface.
-    await expect(notice.getByRole('heading', { level: 2 })).toHaveClass(/t-title2/);
-    await settle(page);
-    // The notice and the list share one Suspense boundary: they land together.
-    expect(await cls()).toBeLessThan(0.01);
-    const link = notice.getByRole('link', { name: /(Gestionează|Aprobă-le) în aplicație/ });
-    await expect(link).toHaveAttribute('href', new RegExp(`^https://bluvi-app\\.wearetribus\\.com/competitions/${id}\\?activeTabId=participanti`));
-    // Under it the roster, one entry per approved registration.
-    await expect(entries(page)).toHaveCount(approvedOf(id).length);
+    // The list itself: concurs-participanti-organizator.spec.ts.
+    await expect(page.getByRole('radiogroup', { name: 'Filtrează înscrierile' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('region', { name: 'Înscrieri' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Ești organizatorul acestui concurs' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /în aplicație/ })).toHaveCount(0);
+    await expect(entries(page)).toHaveCount(0);
   });
 }
-
-test(`competition-page.participanti.c2 competition-page.participanti.s3 — the author with pending registrations: «N înscrieri în așteptare» + «Aprobă-le în aplicație» on fish’s pending filter`, async ({ page, context }) => {
-  await signIn(context, jwt);
-  const c = core.get(ID.own)!;
-  const pending = { ...c.registrations[0], documentId: 'p1', registrationStatus: 'pending' };
-  await patchCore(page, ID.own, { registrations: [...c.registrations, pending, { ...pending, documentId: 'p2' }] });
-  await open(page, participants(ID.own), PHONE);
-  const notice = page.getByRole('region', { name: 'Ești organizatorul acestui concurs' });
-  await expect(notice.getByText(/^2 (de )?înscrieri în așteptare$/)).toBeVisible();
-  await expect(notice.getByRole('link', { name: 'Aprobă-le în aplicație' })).toHaveAttribute(
-    'href',
-    `https://bluvi-app.wearetribus.com/competitions/${ID.own}?activeTabId=participanti&participantsFilter=pending`,
-  );
-});
 
 test(`competition-page.participanti.c5 competition-page.participanti.s5 — a photo that fails to load falls back to the initials (no broken-image glyph)`, async ({ page, context }) => {
   await signIn(context, jwt);

@@ -1142,7 +1142,8 @@ screens:
       - core/competitions/queries.ts#rankingsQuery
       - core/organizer/queries.ts#allocatedParticipantsQuery
       - core/organizer/mutations.ts#allocateStandToRegistrationMutation
-      - "(missing) feeder legs: allocateFeederRound + previousLegSeats (fish services/mutations/useFeederRounds.ts, features/competitions/feeder-rounds/feederRoundsTable.ts)"
+      - core/organizer/mutations.ts#allocateFeederRoundMutation
+      - core/competitions/domain/feeder.ts#previousLegSeats
     states:
       - "loading (competition + allocations)"
       - "error (retry)"
@@ -1150,36 +1151,57 @@ screens:
       - "leg seating (?mansa=N, N > 1, feeder): empty form, previous-leg seat hints, save gated on all seated"
       - "stand empty / filled; registration picker open (search active / no results)"
       - "saving"
+      - "nothing changed (normal allocation): save off, «Nicio modificare de salvat.»"
+      - "gate: competition started / ended (normal allocation), or ?mansa=N not offered by the leg actions"
     criteria:
       - id: organizer.participants.c1
         text: "Loading shows a loading state until both the competition and current allocations are loaded; an error shows the error screen whose retry refetches competition, allocations and registrations."
         fish_ref: app/(app)/configure/participants/[competitionId].tsx:213-240
+        status: passing
+        web_note: "ManagementFrame (requires author) with reads=[allocations]: the header with the real title (from ?mansa, also in loading.tsx / the page fallback via useSearchParams; a grey bar while unknown) + AllocationBodySkeleton (the loaded columns and rows in grey, «Se încarcă standurile…») until the competition AND /allocated-participants are in. Error without data = T4Gate danger (describeError) whose «Încearcă din nou» refetches the competition (frame), the allocations and the registrations list (onRefresh = fish handleRefetch). Signed in only (proxy 307 → /intra?next=, requireViewer keeps ?mansa), noindex; not the author → the neutral «Doar pentru organizatorul concursului» gate. e2e tests/e2e/concurs-alocare.spec.ts «c1 — loading until…» (allocations held while the competition is in), «c1 — an error offers…» (counts the three reads), «signed out…», «not the author…»."
       - id: organizer.participants.c2
         text: "The title is „Alocare participanți”, or „Standuri manșa N” when seating feeder leg N > 1 (web: ?mansa=N)."
         fish_ref: app/(app)/configure/participants/[competitionId].tsx:39-43
+        status: passing
+        web_note: "h1 «Alocare participanți», or «Standuri manșa N» for ?mansa=N (whole N > 1, model legRoundOf; anything else = the normal allocation) — also the breadcrumb, the error page and the loading frame. Route lib/routes.ts competitionAllocation(id, mansa). e2e «c2 c4 c5 — …», «c2 c3 c5 c7 c9 …?mansa=2…»."
       - id: organizer.participants.c3
         text: "In leg seating an intro reads „Introdu rezultatul tragerii la sorți pentru manșa N: alege participantul de pe fiecare stand. Sub fiecare nume vezi unde a pescuit în manșa anterioară.”."
         fish_ref: app/(app)/configure/participants/[competitionId].tsx:261-266
+        status: passing
+        web_note: "Leg seating only: the intro paragraph with fish's exact copy above the sectors (alloc-leg-intro). e2e «…?mansa=2…» (exact text); absent outside leg seating («c2 c4 c5»)."
       - id: organizer.participants.c4
         text: "For each sector („Sector X”) every stand row shows „Stand N” and its occupant — club name, then „Echipă: participanți” for teams or the participant/guest name — or „-”; filled rows are green."
         fish_ref: app/(app)/configure/participants/[competitionId].tsx:267-326
+        status: passing
+        web_note: "Per sector an h2 «Sector X» with the sector colour (dot on phone, the card's top edge ≥768) and «ocupate/standuri»; StandRow: «Stand N», the club, then «<echipă>:» bold + the participants (or the guest; a guest team's name is not repeated), or «-». Filled rows status-success-bg (fish $green2), empty ones accent-tint (fish $indigo1) with a dashed disc. Rule 14: each row carries the occupant's avatar (team square); ≥768 sectors are side-by-side cards (flex-wrap, basis 18rem; a sector alone on the last line spans the width with its stands in 2–3 columns; from 768 the occupant wraps in full instead of clamping, and the row's title carries the full name), ≥1280 an aside: seated/registered, per-sector counts, «Fără stand (n)» chips. e2e «c2 c4 c5 — …» (club + «Rechinii: » bold, every allocated team, green background, «-», side-by-side at 1440, aside, title). DELIBERATE IMPROVEMENT OVER FISH: sectors and their stands in natural «ro» order by name (model orderedSectors over _components/standOrder sortedSectors — the competition page's order; fish shows the CMS order, locally «C, A, B, D» / stands «14, 15, 11…»); used by the rows, the aside, sectorStands and seatOf; colours unchanged (sectorColorMap is keyed by name). e2e «c2 c4 c5» asserts both orders."
       - id: organizer.participants.c5
         text: "Outside leg seating the rows are prefilled from the current allocations; in leg seating they start empty."
         fish_ref: app/(app)/configure/participants/[competitionId].tsx:81-95
+        status: passing
+        web_note: "model initialSeats: outside leg seating each sector stand = its /allocated-participants registrationId (null → «-»); leg seating starts empty. The organizer's changes are a diff over that (SeatEdits), so a refetch while dirty keeps them. e2e «c2 c4 c5» (prefilled), «…?mansa=2…» (no filled row)."
       - id: organizer.participants.c6
         text: "Activating a stand (or its edit icon) opens a searchable picker of registrations with status registered; filled rows show a trash icon that empties the stand."
         fish_ref: app/(app)/configure/participants/[competitionId].tsx:284-318
+        status: passing
+        web_note: "The row's main button (aria-haspopup dialog) opens RegistrationPicker (kit SearchSelectDialog: phone sheet, dialog ≥768, title «Sector X · Stand N»); the trailing icon is the pencil (opens it) or the red trash (empties the stand). Only registrationStatus=registered entrants are offered. All inert while saving. e2e «c6 c7 — the picker…» (a pending registration is not offered; trash → «-»; pencil opens; choose seats and closes)."
       - id: organizer.participants.c7
         text: "Picker options read „Club - user” or „user” (individual) / „Club - Echipă”, „Club” or team name (team), with team members and, in leg seating, „M{n-1}: sector/stand” as helper; already seated registrations are disabled and listed last; search matches the label and the username+id or „Fără cont #id”."
         fish_ref: app/(app)/configure/participants/[competitionId].tsx:120-145
+        status: passing
+        web_note: "model registrationOptions: fish getOptionLabel («Club - user» / user or guest; «Club - Echipă» / «Club» / team / «Echipa -»), helper = members and «M{n-1}: sector/stand» (core previousLegSeats over the feeder ranking, read only in leg seating) joined « · »; seated = disabled with «Stand <sector><stand>» as the reason tag, listed last; the stand's own occupant marked selected. Search (local, diacritics-insensitive) over label + helper + the invisible keywords username+id / «Fără cont #id» (additive `keywords` on the kit's SearchSelectOption). Unit model.test.ts; e2e «c6 c7» (team labels, members, disabled+reason, search, no results), «c7 — individual labels…» (ionpescar55, Fără cont #id), «…?mansa=2…» (M1 seat under each option)."
       - id: organizer.participants.c8
         text: "„Finalizează alocarea” sends { allocations: { registrationId: standId } } for filled stands, toasts „Alocarea participanților a fost realizată cu succes” and goes back; errors toast the message; either way competition, allocations and registrations are refetched."
         fish_ref: app/(app)/configure/participants/[competitionId].tsx:161-211
+        status: passing
+        web_note: "«Finalizează alocarea» POSTs /competitions/:id/allocate-stand-to-registration { allocations: { registrationId: standId } } for filled stands (core allocateStandToRegistrationMutation); spinner + busy, rows inert; success → toast «Alocarea participanților a fost realizată cu succes» and router.replace to the competition (no history entry, as fish router.back()); error → toast of the server message (bluCode), edits kept; onSettled invalidates competition, allocations and registrations either way. Web additions: unsaved edits ask «Renunți la modificări?» on leave; with nothing changed the button is off with «Nicio modificare de salvat.» (aria-describedby) and onSave sends nothing — the CMS, with every entrant seated, pushes COMPETITION_PARTICIPANTS_ALLOCATION to every participant, referee and follower and posts a chat message on every call, changes or not (fish sends it again); a started / ended competition reached by URL shows a neutral gate (STARTED_REASON, «Înapoi la concurs») instead of the editor, as the CMS refuses it (model allocationBlock). e2e (POST route-mocked, exact body; every other non-GET to /api/cms/** and the CMS origin is aborted by a catch-all route and fails onlyWrites) «c8 — … POSTs…», «c8 — an error toasts…», «c8 — nothing changed…» (disabled, forced click, edit→on, undo→off, zero POSTs), «a started / ended competition…», «leaving with unsaved changes…»."
       - id: organizer.participants.c9
         text: "In leg seating the button reads „Salvează standurile (x/y)” (seated / registered), is disabled until every registered entrant is seated, saves the leg's seats and toasts „Standurile pentru manșa N au fost salvate”."
         fish_ref: app/(app)/configure/participants/[competitionId].tsx:177-192
+        status: passing
+        web_note: "Leg seating: «Salvează standurile (x/y)» (seated stands / registered entrants), disabled until x = y, hint «Fără stand: N înscrieri.»; saving PUTs /feed/competitions/:id/rounds/N/allocation { allocations } (core allocateFeederRoundMutation, which also invalidates the leg state) → toast «Standurile pentru manșa N au fost salvate» and back to the competition. e2e «…?mansa=2…» (0/6 disabled, each step stays disabled, 6/6 enabled, PUT route-mocked with the exact body)."
     mobile_only: false
-    status: todo
+    status: proposed
+    web_note: "All 9 criteria proven by tests/e2e/concurs-alocare.spec.ts (reads on the local CMS; both writes — POST allocate-stand-to-registration and PUT rounds/:round/allocation — route-mocked with exact bodies, any other write fails the test). Every state screenshotted at 375/1280/1440/1920 (.shots/alocare-*: loading, error, loaded, picker, picker-individual, saving, leg-empty, leg-picker). Code: app/(site)/concursuri/[id]/alocare/{page,loading,error}.tsx + _allocation/** (model.ts + model.test.ts, StandRow, RegistrationPicker, AllocationScreen, skeletons)."
 
   - id: organizer.scale
     title: Cântar — Alege standul
@@ -1747,9 +1769,13 @@ behaviours:
   - id: organizer.b.competition-menu
     text: "On a competition page the author's menu offers, for notStarted: „Modifica competiția” (wizard in edit mode, return to the competition), „Alocă standuri pe sectoare” (sectors), „Alocă participanții pe standuri” (only when stand allocations exist), „Adaugă participanți fără cont” (until the limit), „Start concurs” (confirm); for started: „Adaugă cântar” (allocations exist and some participants allocated, not on a closed feeder leg), „Adaugă arbitru”, „Șterge arbitru”, „Penalizări” (ranking supports penalties), feeder leg actions; nothing when completed."
     fish_ref: components/competition/CompetitionRanking.tsx:545-660
+    status: passing
+    web_note: "competition-page.organizare c1–c7 (organizer/model.ts organizerMenuOptions; phone submenu, desktop MenuButton). The phone submenu's labels are never cut (three lines in an 80px tile, fish labelMaxWidth 104) and a tile always shows cut at the edge so the row reads as scrollable; only shown once the statute answered. e2e tests/e2e/concurs-organizare.spec.ts."
   - id: organizer.b.cannot-edit-started
     text: "„Modifica competiția” on a started competition does not open the wizard; it shows „Nu poți modifica competiția” / „Competiția a început deja. Pentru modificări, contactează echipa Bluvi.”."
     fish_ref: components/CannotEditCompetitionSheet.tsx:38-46
+    status: passing
+    web_note: "The competition page's «Modifică competiția» once started opens components/organizer/CannotEditDialog (shared with the panel's cards; «Apelează» logs contact_pressed). e2e concurs-organizare.spec.ts «c4 c5 organizer.b.cannot-edit-started …»."
   - id: organizer.b.card-edit-entry
     text: "Organizer-owned compact competition cards show „Modifică” for notStarted (opens the wizard in edit mode returning to the current page) and started (cannot-edit notice)."
     fish_ref: components/CompactCompetitionCard.tsx:73-90
@@ -1763,12 +1789,18 @@ behaviours:
   - id: organizer.b.feeder-allocate-next
     text: "For feeder competitions the leg action „allocateNext” opens participant allocation for the next leg (/concursuri/[id]/alocare?mansa=N); „closeRound” / „startNext” toast „Manșa N a fost închisă” / „Manșa N a început”."
     fish_ref: components/competition/CompetitionRanking.tsx:522-542
+    status: partial
+    web_note: "Target side done: /concursuri/[id]/alocare?mansa=N is the leg seating (routes.competitionAllocation(id, N); proven by concurs-alocare.spec.ts «…?mansa=2…»). The editor opens only when core feederRoundActions offers {kind:'allocateNext', round:N} (feeder, started, leg N-1 closed — the CMS validateRoundAllocation / withLegState); any other N (beyond the legs, a running leg, previous leg not closed, not feeder) is the neutral gate «Standurile pentru manșa N nu se pot stabili acum» with «Înapoi la concurs» (e2e «b.feeder-allocate-next — ?mansa=N only for…»: ?mansa=9, running leg 2, leg 1 running, a non-feeder competition). The trigger — the competition page's leg actions (core feederRoundActions: «Reașază pentru manșa N» linking there, «Închide manșa N» / «Pornește manșa N» with their toasts) — belongs to competition-page.organizare and is not on the web page yet."
   - id: organizer.b.scale-entries
     text: "Organizer and referee menus show „Adaugă cântar” (started) or „Vezi cântarele din concurs”, disabled with „Competiția încă nu a început” or „Te rugăm să aloci mai întâi participanții pe standuri”; regular users see „Vezi cântarele din concurs” once the competition is not notStarted; all open /concursuri/[id]/cantar."
     fish_ref: components/AddCantarSheetItem.tsx:30-56
+    status: passing
+    web_note: "organizer/model.ts addScaleItem in the organizer / referee «Acțiuni» sheets (reasons as fish); the referee's bar tile / header button; an angler's «Vezi cântarele din concurs» → /cantar. Unit model.test.ts; e2e concurs-organizare.spec.ts «c11», «c12 c13», «c13 organizer.b.scale-entries», «bara-actiuni.c13»."
   - id: organizer.b.active-weighing-banner
-    text: "While a weighing is open, the competition page shows an active-weighing banner; activating it opens that weighing (/concursuri/[id]/cantar/[standId]/[weighingId])."
-    fish_ref: components/ActiveWeighingBanner.tsx:32-44
+    text: "While a weighing is open, the competition page shows an active-weighing banner; activating it opens that weighing's read-only detail, for everyone (the author and the referees too)."
+    fish_ref: app/(app)/competitions/[competitionId].tsx:186-201,537
+    status: partial
+    web_note: "WEB DEVIATION — awaiting the owner's decision. fish's competition page always passes onPressWeighing (the read-only WeighingDetailSheet); the scale branch of components/ActiveWeighingBanner.tsx:38-43 never runs from it. The web sends the author / a referee of a running competition to the scale instead: the phone banner (one weighing, or each entry of its «several» list) opens /concursuri/[id]/cantar/[stand]/[weighing] (organizer/ActiveWeighingBanner scaleHrefOf); from 768 the Clasament bento's «Cântar în curs» tile says «Deschide în cântar» (in place of «Toate cântarele»), and a compact line «Cântar în curs pe standul A7 · Deschide în cântar» under the tabs only where no bento says it (the route tabs, a ranking with no catch yet). Everyone else keeps the read-only detail (shell.c25). To follow fish: the banner opens the detail for everyone and the detail gains «Deschide în cântar» for managers. e2e concurs-organizare.spec.ts «organizer.b.active-weighing-banner …»."
   - id: organizer.b.penalty-notification
     text: "A PENALTY push notification (with competitionId) routes to the penalties hub /concursuri/[id]/penalizari; the route must exist for every recipient (participants, read-only)."
     fish_ref: helpers/getRedirectLocationForNotification.ts:89-91

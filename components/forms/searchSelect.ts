@@ -16,6 +16,8 @@ export type SearchSelectOption = {
   disabledReason?: string;
   /** The current value: a check mark (a selected option may also be disabled, i.e. fixed). */
   selected?: boolean;
+  /** Extra text the local search matches but the row does not show (fish filterBy 'id': «ion12», «Fără cont #7»). */
+  keywords?: string;
 };
 
 /** Lowercase, no diacritics: «Ștefan» matches «stefan». */
@@ -24,11 +26,11 @@ export const foldText = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '')
 const helperLines = (helper: SearchSelectOption['helper']): string[] =>
   helper == null ? [] : typeof helper === 'string' ? [helper] : [...helper];
 
-/** Local find-as-you-type over the label and the helper lines; every option for a blank query. */
+/** Local find-as-you-type over the label, the helper lines and the keywords; every option for a blank query. */
 export function filterOptions<T extends SearchSelectOption>(options: readonly T[], query: string): T[] {
   const q = foldText(query.trim());
   if (!q) return [...options];
-  return options.filter((o) => foldText([o.label, ...helperLines(o.helper)].join(' ')).includes(q));
+  return options.filter((o) => foldText([o.label, ...helperLines(o.helper), o.keywords ?? ''].join(' ')).includes(q));
 }
 
 /** Choosable options first, disabled ones last; the order inside each group is kept (stable). */

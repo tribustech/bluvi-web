@@ -50,11 +50,10 @@ export const NOTIFICATION_PAGES_ON_WEB = {
   operatorBookings: false,
   /**
    * /concursuri/[id]/participanti?filtru=in-asteptare — the organizer's pending registrations (fish
-   * participantsFilter=pending, COMPETITION_NEW_REGISTRATION_ORGANIZER) — M6, organizer.yml. Off: the
-   * participants page has no pending filter yet, so the row opens the unfiltered list (a deliberate
-   * gap, never a `filtru` the page ignores); the unit test turns this on when the page reads `filtru`.
+   * participantsFilter=pending, COMPETITION_NEW_REGISTRATION_ORGANIZER) — ON since M6-B7: the author's
+   * registrations list reads `filtru` (competition-page.participanti-organizator).
    */
-  organizerPendingFilter: false,
+  organizerPendingFilter: true,
 } as const;
 
 export function notificationHref(route: NotificationRoute): string | null {

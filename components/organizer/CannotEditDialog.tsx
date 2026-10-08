@@ -3,6 +3,7 @@
 import { ExclamationTriangleIcon, PhoneIcon } from '@heroicons/react/24/outline';
 import { ResponsiveSurface } from '@/components/surfaces/ResponsiveSurface';
 import { buttonClass } from '@/components/ui/Button';
+import { track } from '@/lib/analytics';
 
 /** Bluvi's phone (fish CannotEditCompetitionSheet BLUVI_PHONE). */
 export const BLUVI_PHONE = '+40733017091';
@@ -22,7 +23,14 @@ export function CannotEditDialog({ open, onClose }: { open: boolean; onClose: ()
       titleHidden
       sheetSnap="fit"
       actions={
-        <a href={`tel:${BLUVI_PHONE}`} onClick={onClose} className={buttonClass({ variant: 'primary', block: true })}>
+        <a
+          href={`tel:${BLUVI_PHONE}`}
+          onClick={() => {
+            // fish: contact_pressed {contact_type: 'Bluvi cannot edit contact'} before the call.
+            track('contact_pressed', { contact_type: 'Bluvi cannot edit contact' });
+            onClose();
+          }}
+          className={buttonClass({ variant: 'primary', block: true })}>
           <PhoneIcon aria-hidden className="size-5" />
           Apelează
         </a>

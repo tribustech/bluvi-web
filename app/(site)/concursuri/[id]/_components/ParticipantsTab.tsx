@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useId, useMemo, useState, useSyncExternalStore, type ComponentType, type SVGProps } from 'react';
+import { Suspense, useId, useMemo, useState, useSyncExternalStore, type ComponentType, type ReactNode, type SVGProps } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowTrendingUpIcon, ChevronDownIcon, ChevronRightIcon, InformationCircleIcon, TrophyIcon, UserGroupIcon } from '@heroicons/react/24/outline';
@@ -10,7 +10,6 @@ import {
   formatCount,
   participantStatisticsBatchQuery,
   participantStatisticsState,
-  registrationCounts,
   registrationDisplayName,
   registrationTeamSubtitle,
   soloParticipant,
@@ -26,8 +25,6 @@ import { FishIcon } from '@/components/icons/brand';
 import { listGridClass } from '@/components/templates/T1';
 import { DetailBody, DetailSection, DetailSectionState } from '@/components/templates/T3';
 import { Avatar, FaceStack } from '@/components/ui/Avatar';
-import { ButtonLink } from '@/components/ui/Button';
-import { StatusPill } from '@/components/ui/StatusPill';
 import { cn } from '@/components/ui/cn';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { isUnknownViewer, useViewerState } from '../../../_shell/viewer-context';
@@ -42,6 +39,7 @@ import { isNationalType, nationalStandLabel } from './stand';
 import { sortedSectors } from './standOrder';
 import { Bone } from './tabParts';
 import { photo, useBrokenImages } from './brokenImages';
+import { RegistrationsList } from './registrations/RegistrationsList';
 
 /*
  * Concurs · Participanți — fish components/competition/CompetitionParticipants.tsx +
@@ -54,12 +52,10 @@ import { photo, useBrokenImages } from './brokenImages';
  * screen grows, never wider cards; the one 16px gutter), aligned to their top so one opened card
  * does not stretch its row. On the phone they run edge to edge, 8px apart (the T3 phone blocks).
  *
- * The competition's author: fish shows the organizer's registrations list instead
- * (competition-page.participanti-organizator, M6). Until it ships the author sees this list under a
- * notice — the pending count (fish's main organizer signal) and the app's deep link to its pending
- * registrations. The notice is decided from the core's author and the session the server streams
- * with the page; the notice and the list sit in one Suspense boundary, so they are revealed together
- * (never a notice inserted over a painted list).
+ * The competition's author sees the organizer's registrations list instead, as in fish
+ * (competition-page.participanti-organizator: registrations/RegistrationsList.tsx). Decided from the
+ * core's author and the session the server streams with the page (ByViewer), inside the list's
+ * Suspense boundary, so the right list is revealed at once (never one list swapped for the other).
  *
  * Profiles: fish opens a one-user card's angler profile from its header. The profile (/pescari) is
  * M2 on the web (anglerHref is null until then): every header toggles the card, as a multi-member
@@ -92,11 +88,11 @@ type Props = {
   viewer: PageViewer;
   statute: UserStatuteForCompetition | undefined;
   signIn: string;
-  /** Where the organizer manages the registrations today (the competition in the Bluvi app). */
+  /** The competition in the Bluvi app (unused here since the organizer's list is on the web). */
   appHref: string;
 };
 
-export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHref }: Props) {
+export function ParticipantsTab({ t, competition, viewer, statute, signIn }: Props) {
   const id = competition.documentId;
   const isAuthenticated = !!viewer;
   const registrations = useMemo(() => approvedRegistrationsByStand(competition.registrations), [competition.registrations]);
@@ -156,7 +152,7 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
       {/* The notice and the list are revealed together, once the session the server streams has
           answered (the list's bones until then): the notice never pushes painted cards down. */}
       <Suspense fallback={<ParticipantsBones />}>
-        <AuthorNotice competition={competition} statute={statute} appHref={appHref} />
+        <ByViewer competition={competition} statute={statute} organizer={<RegistrationsList t={t} competition={competition} />}>
         {registrations.length === 0 ? (
           <DetailSectionState
             icon={
@@ -222,6 +218,7 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn, appHr
             </div>
           </DetailSection>
         )}
+        </ByViewer>
       </Suspense>
     </DetailBody>
   );
@@ -257,42 +254,20 @@ export function ParticipantsBones() {
 }
 
 /**
- * fish's deep link to the organizer's registrations (helpers/getRedirectLocationForNotification.ts:
- * COMPETITION_NEW_REGISTRATION_ORGANIZER): the Participanți tab, on its pending filter when some wait.
+ * Who sees what (fish CompetitionParticipants.tsx:90-92): the competition's author gets the
+ * organizer's registrations list (competition-page.participanti-organizator), everyone else the
+ * approved list. Decided from data present at the first paint — the core's author and the session
+ * read the server streams (useViewerState); the statute only for a core without its author. An
+ * unknown session, or an author-less core whose statute has not answered, shows the bones (owner
+ * rule 4: never a guess).
  */
-export function organizerAppHref(appHref: string, pending: number): string {
-  return `${appHref}?activeTabId=participanti${pending > 0 ? '&participantsFilter=pending' : ''}`;
-}
-
-/**
- * The organizer notice, decided from data present at the first paint — the core's author and the
- * session read the server streams (useViewerState) — never from the statute read after the list
- * has painted. The statute stays the fallback for a core without its author. An unknown session
- * shows nothing (never a guess). Until competition-page.participanti-organizator ships, it carries
- * fish's organizer signal: how many registrations wait for approval.
- */
-function AuthorNotice({ competition, statute, appHref }: { competition: CompetitionWithMyStatus; statute: UserStatuteForCompetition | undefined; appHref: string }) {
+function ByViewer({ competition, statute, organizer, children }: { competition: CompetitionWithMyStatus; statute: UserStatuteForCompetition | undefined; organizer: ReactNode; children: ReactNode }) {
   const state = useViewerState();
-  const user = isUnknownViewer(state) ? null : state;
-  const isAuthor = user ? (competition.author ? competition.author.documentId === user.documentId : statute?.userRole === 'author') : false;
-  if (!isAuthor) return null;
-  const { pending } = registrationCounts(competition.registrations);
-  return (
-    // A compact banner as wide as its words (owner rule 16: never a stretched card), not a band.
-    <DetailSection
-      id="organizator"
-      className="md:w-fit md:max-w-3xl"
-      title="Ești organizatorul acestui concurs"
-      description="Aprobarea, respingerea și editarea înscrierilor se fac deocamdată din aplicația Bluvi."
-    >
-      <div className="flex flex-wrap items-center gap-3">
-        {pending > 0 ? <StatusPill tone="pending">{formatCount(pending, 'înscriere în așteptare', 'înscrieri în așteptare')}</StatusPill> : null}
-        <ButtonLink href={organizerAppHref(appHref, pending)} variant="secondary" size="compact">
-          {pending > 0 ? 'Aprobă-le în aplicație' : 'Gestionează în aplicație'}
-        </ButtonLink>
-      </div>
-    </DetailSection>
-  );
+  if (isUnknownViewer(state)) return <ParticipantsBones />;
+  if (!state) return children;
+  if (competition.author) return competition.author.documentId === state.documentId ? organizer : children;
+  if (statute === undefined) return <ParticipantsBones />;
+  return statute.userRole === 'author' ? organizer : children;
 }
 
 // pr-18: the right 72px are the chevron's column and the corner tag's width («Stand 12»,

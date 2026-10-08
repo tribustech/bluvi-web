@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Cog6ToothIcon, LockClosedIcon, PlusCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { ExclamationTriangleIcon, LockClosedIcon, PlusCircleIcon, ScaleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import {
   competitionKeys,
   competitionMyStatusQuery,
@@ -58,7 +58,7 @@ import { routes } from '@/lib/routes';
 import type { Viewer } from '@/lib/server/viewer';
 import { signInHref } from '../../../_shell/SiteHeader';
 import { isUnknownViewer, useViewerState } from '../../../_shell/viewer-context';
-import { ActionsSheet, OrganizerMenu } from './ActionsSheet';
+import { ActionsSheet } from './ActionsSheet';
 import { ActiveWeighingBanner, MobileActionBar, SORT_OPTION, type BarConfirm } from './ActionBar';
 import { FeederHelp, FeederLegTabs, FeederRankingTable, feederLegEmpty, type FeederData } from './FeederRanking';
 import { NcRankingTable, NcSectorPills, NcSortControl, ncSortFor, type NcSort, type NcView } from './NcRanking';
@@ -97,6 +97,10 @@ import { TABS_MARK, useCompetitionAnalytics } from './analytics';
 import { PublishConfetti } from './PublishConfetti';
 import { TabBody } from './TabBody';
 import { isNationalType } from './stand';
+import { ManagerWeighingNotice, scaleHrefOf } from './organizer/ActiveWeighingBanner';
+import { ORGANIZER_MENU_OPEN, OrganizerMenu } from './organizer/OrganizerMenu';
+import { canWeigh, organizerSheetItems, penaltiesTile, refereeScaleTile, refereeSheetItems, roleOf } from './organizer/model';
+import { useOrganizer } from './organizer/useOrganizer';
 
 /*
  * Concurs · Clasament on T3 «Detail with tabs» (components/templates/T3, demo /dev/templates/t3):
@@ -339,10 +343,19 @@ function Screen({
     }, LIVE_POLL_MS);
     return () => clearInterval(tick);
   }, [live, unsupported, onClasament, id, qc]);
+  // The author / a referee: their menu and «Acțiuni» rows depend on who is seated (fish
+  // areSomeParticipantsAllocated), on every tab.
+  const role = isAuthenticated ? roleOf(statute?.userRole) : null;
+  // Owner rule 4: the role is unknown until the statute has answered (signed out: known, nobody).
+  // Nothing that depends on it (the organizer slot, a referee's scale, everyone else's «Penalizări»)
+  // is drawn on a guess: pending → a bone in the header's organizer slot; failed → its recheck.
+  const roleKnown = viewer === null || (isAuthenticated && statute !== undefined);
+  const roleFailed = isAuthenticated && statuteQ.isError && !statute;
+  const rolePending = isAuthenticated && !roleKnown && !roleFailed;
   const allocatedQ = useQuery({
     ...allocatedParticipantsQuery(t, id),
     ...PAGE_RETRY,
-    enabled: !unsupported && onClasament && (view === 'cantare' || (isDesktop && !!activeWeighing?.length)),
+    enabled: (!unsupported && onClasament && (view === 'cantare' || (isDesktop && !!activeWeighing?.length))) || role !== null,
   });
 
   // fish builds the table from the stand order (default) or the place order (Sortare).
@@ -514,7 +527,8 @@ function Screen({
   const [extraAsk, setExtraAsk] = useState(false);
   const extraLoading = requestExtra.isPending ? 'Se înregistrează cererea...' : deleteExtra.isPending ? 'Se șterge cererea...' : null;
   const [actionsOpen, setActionsOpen] = useState(false);
-  const [organizerOpen, setOrganizerOpen] = useState(false);
+  // competition-page.organizare: the author's menu, its questions, writes and dialogs (organizer/).
+  const org = useOrganizer({ t, competition, role, allocated: allocatedQ.data });
   /** `fromSheet`: the «Acțiuni» sheet's item (fish ExtraScaleRequestSheetItem) — no question, closes the sheet on success. */
   const runExtra = (fromSheet = false) => {
     setExtraAsk(false);
@@ -689,8 +703,34 @@ function Screen({
   // ranking the web can show, Chat when signed in. Share is always the header's chip.
   // The other route tabs once it has started: fish's «Acțiuni» (a guest's sheet offers sign-in).
   const actionsTile = !onClasament && (status === 'started' || status === 'completed');
-  // fish RankingActionBar «Organizare»: the author, before the start and while it runs.
-  const organizer = isAuthenticated && statute?.userRole === 'author' && (status === 'notStarted' || status === 'started');
+  // fish RankingActionBar «Organizare»: the author, before the start and while it runs (organizare c1).
+  const organizerMenu = org.menu.length > 0 ? { options: org.menu, onChoose: (o: (typeof org.menu)[number]) => org.choose(o, 'bar') } : undefined;
+  // A referee's «Adaugă cântar» (organizare c11) and everyone else's «Penalizări» (bara-actiuni c10).
+  const refereeScaleHref = roleKnown && refereeScaleTile(role, status) ? routes.competitionScale(id) : undefined;
+  const penaltiesHref = roleKnown && penaltiesTile(role, competition.rankingType, status) ? routes.competitionPenalties(id) : undefined;
+  // The «Acțiuni» rows of the author / a referee wait for the seating (fish isLoading).
+  const seatingKnown = allocatedQ.data !== undefined || allocatedQ.isError;
+  const managerItems =
+    role === null || !seatingKnown
+      ? null
+      : role === 'author'
+        ? organizerSheetItems({ competition, allocated: allocatedQ.data, registrationHref, now: new Date() })
+        : refereeSheetItems(competition, allocatedQ.data);
+  // organizer.b.active-weighing-banner (a web deviation from fish, awaiting the owner — see
+  // organizer/ActiveWeighingBanner.tsx): the author / a referee of a running competition opens the
+  // weighing on the scale; everyone else its read-only detail (shell.c25).
+  const managesWeighings = canWeigh(role, status);
+  // From 768 the Clasament bento's «Cântar în curs» tile carries the manager's «Deschide în cântar»
+  // (DesktopStats draws it once the ranking has a catch); elsewhere the compact notice says it.
+  const bentoShowsWeighing = onClasament && rankingVisible && !unsupported && (rankingsQ.data?.metadata?.totalCatchesCount ?? 0) > 0;
+  // The organizer slot could hold something (the menu, a referee's scale, «Penalizări»).
+  const organizerSlotPossible = status === 'notStarted' || status === 'started' || status === 'completed';
+  const followable = status === 'started' || status === 'notStarted';
+  const onBannerWeighing = (w: CompetitionActiveWeighing) => {
+    const href = managesWeighings ? scaleHrefOf(id, w) : null;
+    if (href) router.push(href);
+    else openActiveWeighing(w);
+  };
   const barHasActions =
     status === 'notStarted' ||
     actionsTile ||
@@ -702,7 +742,7 @@ function Screen({
     <DetailPage phoneGround={rankingVisible && onClasament ? 'surface' : 'page'}>
       {/* The header band, then the route tabs in a band of their own: they stick under the top bar
           (parity shell.c19), so a reader at row 20 changes tab without scrolling up. */}
-      <DetailBand hairline={false}>
+      <DetailBand hairline={false} className={ORGANIZER_MENU_OPEN}>
         <CompetitionHeader
           competition={competition}
           viewer={viewer}
@@ -741,10 +781,29 @@ function Screen({
           // the header holds its place while the session resolves (CompetitionHeader `chat`).
           chat={() => <ChatHeaderButton competitionId={id} badge={chatBadge} />}
           organizerAction={
-            organizer ? (
-              <Button variant="secondary" icon={<Cog6ToothIcon />} aria-haspopup="dialog" onClick={() => setOrganizerOpen(true)}>
-                Organizare
-              </Button>
+            // From 768: the author's «Organizare» menu, a referee's «Adaugă cântar», the others'
+            // «Penalizări» (the phone has them in the bar).
+            rolePending && organizerSlotPossible ? (
+              // The role is not known yet: the slot's shape, never a guessed button (owner rule 4).
+              <span aria-hidden data-testid="organizer-slot-bone" className="block h-12 w-40 shrink-0 animate-shimmer rounded-control xl:h-10" />
+            ) : roleFailed && organizerSlotPossible && !followable ? (
+              // The statute could not be read: its recheck (the follow button offers it when shown).
+              <QueryRetry fetching={statuteQ.isFetching} failed={statuteQ.isError} onRetry={() => void statuteQ.refetch()} label="Verifică din nou" />
+            ) : org.menu.length > 0 || refereeScaleHref || penaltiesHref ? (
+              <>
+                {org.menu.length > 0 ? <OrganizerMenu options={org.menu} onChoose={o => org.choose(o, 'menu')} /> : null}
+                {refereeScaleHref ? (
+                  <ButtonLink variant="secondary" icon={<ScaleIcon />} href={refereeScaleHref}>
+                    Adaugă cântar
+                  </ButtonLink>
+                ) : null}
+                {penaltiesHref ? (
+                  // The visible «Penalizări» is the name (WCAG 2.5.3 Label in Name).
+                  <ButtonLink variant="secondary" icon={<ExclamationTriangleIcon />} href={penaltiesHref}>
+                    Penalizări
+                  </ButtonLink>
+                ) : null}
+              </>
             ) : null
           }
         />
@@ -764,6 +823,11 @@ function Screen({
           />
         </div>
       </CompetitionStickyTabs>
+      {/* From 768 the author / a referee of a running competition: the weighings in progress, each
+          opening on the scale (the phone has the banner over the bar). */}
+      {managesWeighings && !bentoShowsWeighing ? (
+        <ManagerWeighingNotice competitionId={id} weighings={activeWeighing} isNc={isNationalType(competition.rankingType)} />
+      ) : null}
 
       {tab !== 'clasament' ? (
         <TabBody
@@ -814,6 +878,7 @@ function Screen({
                   onRetryWeighings={() => void weighingStatsQ.refetch()}
                   allocated={allocatedQ.data}
                   onAllWeighings={() => selectView('cantare')}
+                  scaleHrefOf={managesWeighings ? w => scaleHrefOf(id, w) : undefined}
                 />
               </div>
               <DetailSection tone="plain" className="flex flex-col gap-4 max-md:pt-2">
@@ -946,6 +1011,7 @@ function Screen({
                           // (its note) nor draws cards without their counts line.
                           session={viewer ? 'in' : viewer === null || sessionUnknown ? 'out' : 'pending'}
                           decimals={decimals}
+                          scaleStandHref={managesWeighings ? standId => routes.competitionScaleStand(id, standId) : undefined}
                         />
                       )}
                       {view === 'allFish' && <AllFishView t={t} competition={competition} decimals={decimals} />}
@@ -980,7 +1046,7 @@ function Screen({
               <ActiveWeighingBanner
                 weighings={activeWeighing}
                 isNc={isNationalType(competition.rankingType)}
-                onPress={openActiveWeighing}
+                onPress={onBannerWeighing}
               />
             ) : undefined
           }
@@ -1004,7 +1070,7 @@ function Screen({
                   }
                 : null
             }
-            confirm={barConfirm}
+            confirm={barConfirm ?? org.barConfirm}
             loadingLabel={extraLoading}
             chat={isAuthenticated ? { href: chatHref, onOpen: () => markChatFromCompetition(id) } : undefined}
             chatBadge={chatBadge}
@@ -1012,18 +1078,17 @@ function Screen({
             barMessage={barMessage}
             onBarMessageDismiss={() => setBarMessage(null)}
             onActions={actionsTile ? () => setActionsOpen(true) : undefined}
-            onOrganizer={organizer ? () => setOrganizerOpen(true) : undefined}
+            organizer={organizerMenu}
+            refereeScaleHref={onClasament ? refereeScaleHref : undefined}
+            penaltiesHref={onClasament ? penaltiesHref : undefined}
           />
         </DetailActionBar>
       ) : null}
-      {organizer ? (
-        <OrganizerMenu open={organizerOpen} onClose={() => setOrganizerOpen(false)} competitionId={id} competitionStatus={status ?? ''} />
-      ) : null}
+      {org.dialogs}
       {actionsTile ? (
         <ActionsSheet
           open={actionsOpen}
           onClose={() => setActionsOpen(false)}
-          competitionId={id}
           viewer={viewer}
           statute={statute}
           statutePending={isAuthenticated && ((statuteQ.isPending && statuteQ.fetchStatus !== 'paused') || overlayPending)}
@@ -1031,7 +1096,9 @@ function Screen({
           registration={registration}
           registrationHref={registrationHref}
           signIn={signIn}
-          weighingsHref={routes.competitionWeighings(id)}
+          weighingsHref={routes.competitionScale(id)}
+          managerItems={managerItems}
+          onManagerAction={item => org.choose(item, 'sheet')}
           extraScale={
             extraAllowed
               ? {

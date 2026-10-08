@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import type { CompetitionWithMyStatus, RankingMetadata, WeighingStatisticsItem } from '@/core/competitions';
 import type { AllocatedParticipantsResponse, CompetitionActiveWeighing } from '@/core/organizer';
 import { getCompetitorDisplayName, type FeederRoundsRanking, type NationalChampionshipStandRanking } from '@/core/competitions';
@@ -60,6 +61,7 @@ export function DesktopStats({
   onRetryWeighings,
   allocated,
   onAllWeighings,
+  scaleHrefOf,
   reserveWeighing,
   decimals,
   rankingPending = false,
@@ -95,6 +97,11 @@ export function DesktopStats({
   onRetryWeighings: () => void;
   allocated: AllocatedParticipantsResponse | undefined;
   onAllWeighings: () => void;
+  /**
+   * The author / a referee of a running competition (organizer.b.active-weighing-banner): a weighing
+   * in progress opens on the scale — the tile's link is «Deschide în cântar» (null: no stand sector).
+   */
+  scaleHrefOf?: (w: CompetitionActiveWeighing) => string | null;
 }) {
   const hasWeighing = reserveWeighing || weighingsLoading || weighingsError || !!activeWeighing?.length || !!weighings?.length;
   if (!metadata) {
@@ -163,6 +170,7 @@ export function DesktopStats({
           onRetry={onRetryWeighings}
           allocated={allocated}
           onAllWeighings={onAllWeighings}
+          scaleHrefOf={scaleHrefOf}
           decimals={decimals}
         />
       ) : null}
@@ -511,6 +519,7 @@ interface WeighingTileProps {
   onRetry: () => void;
   allocated: AllocatedParticipantsResponse | undefined;
   onAllWeighings: () => void;
+  scaleHrefOf?: (w: CompetitionActiveWeighing) => string | null;
   decimals: number;
 }
 
@@ -525,6 +534,7 @@ function WeighingTile({
   onRetry,
   allocated,
   onAllWeighings,
+  scaleHrefOf,
   decimals,
   className,
 }: WeighingTileProps) {
@@ -601,18 +611,29 @@ function WeighingTile({
   if (many) {
     number = (
       <ul aria-label="Standuri în cântare" className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 self-baseline">
-        {many.map((w, i) => (
-          <li key={w.stand.documentId ?? i}>
-            <button
-              type="button"
-              onClick={onAllWeighings}
-              aria-label={`Vezi ${w.weighingType === 'normal' ? 'cântarul live' : 'extra-cântarul live'} pe standul ${activeLabel(w)}`}
-              className="cursor-pointer rounded-control t-num-26 whitespace-nowrap text-ink hover:text-accent-ink hover:underline"
-            >
-              {activeLabel(w)}
-            </button>
-          </li>
-        ))}
+        {many.map((w, i) => {
+          const scale = scaleHrefOf?.(w) ?? null;
+          const cls = 'cursor-pointer rounded-control t-num-26 whitespace-nowrap text-ink hover:text-accent-ink hover:underline';
+          return (
+            <li key={w.stand.documentId ?? i}>
+              {scale ? (
+                // A manager: each stand in progress opens on the scale.
+                <Link href={scale} aria-label={`Deschide în cântar standul ${activeLabel(w)}`} className={cls}>
+                  {activeLabel(w)}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onAllWeighings}
+                  aria-label={`Vezi ${w.weighingType === 'normal' ? 'cântarul live' : 'extra-cântarul live'} pe standul ${activeLabel(w)}`}
+                  className={cls}
+                >
+                  {activeLabel(w)}
+                </button>
+              )}
+            </li>
+          );
+        })}
       </ul>
     );
     caption = <p className={cn('truncate t-caption', BENTO_ART_CLEAR)}>{`${plural(many.length, 'stand', 'standuri')} în cântare acum`}</p>;
@@ -664,6 +685,7 @@ function WeighingTile({
   }
 
   const link = 'shrink-0 cursor-pointer rounded-control t-label text-accent-ink underline-offset-2 hover:underline';
+  const currentScale = !many && active && scaleHrefOf ? scaleHrefOf(active) : null;
   // Owner rule 19: a weighing in progress is the rose tint (its live label in the tint's AA red),
   // the last weighing the violet one; the scale is the corner art (weighingTileTone).
   const tone: BentoTone = weighingTileTone(activeWeighing, weighings, competition.competitionStatus);
@@ -698,6 +720,11 @@ function WeighingTile({
           <button type="button" onClick={onRetry} className={link}>
             Încearcă din nou
           </button>
+        ) : currentScale ? (
+          // A manager: the weighing in progress on the scale, in place of «Toate cântarele».
+          <Link href={currentScale} className={link}>
+            Deschide în cântar
+          </Link>
         ) : (
           <button type="button" onClick={onAllWeighings} className={link}>
             Toate cântarele

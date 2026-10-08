@@ -100,12 +100,17 @@ type Props = {
   signedIn: boolean | undefined;
   target: PersonTarget | null;
   onClose: () => void;
+  /**
+   * The accounts whose stats to read; default the approved ones (the Participanți roster's batch).
+   * The organizer's list passes every account, pending and rejected too.
+   */
+  statsIds?: string[];
 };
 
-export function PersonPopover({ t, competition, signedIn, target, onClose }: Props) {
+export function PersonPopover({ t, competition, signedIn, target, onClose, statsIds }: Props) {
   const registration = useMemo(() => (target ? (competition.registrations.find(r => r.documentId === target.registrationId) ?? null) : null), [competition.registrations, target]);
   if (!target || !registration) return null;
-  return <Popover key={`${target.registrationId}`} t={t} competition={competition} signedIn={signedIn} target={target} registration={registration} onClose={onClose} />;
+  return <Popover key={`${target.registrationId}`} t={t} competition={competition} signedIn={signedIn} target={target} registration={registration} onClose={onClose} statsIds={statsIds} />;
 }
 
 const GAP = 8;
@@ -163,6 +168,7 @@ function Popover({
   target,
   registration: r,
   onClose,
+  statsIds,
 }: Omit<Props, 'target'> & {
   target: PersonTarget;
   registration: DetailRegistration;
@@ -279,7 +285,7 @@ function Popover({
   };
 
   // Stats: the batch the Participanți list reads (same key → one cache entry).
-  const ids = useMemo(() => approvedParticipantIds(competition.registrations), [competition.registrations]);
+  const ids = useMemo(() => statsIds ?? approvedParticipantIds(competition.registrations), [statsIds, competition.registrations]);
   const isAuthenticated = signedIn === true;
   const statsQ = useQuery({
     ...participantStatisticsBatchQuery(t, competition.documentId, ids, {
@@ -457,14 +463,16 @@ function PersonStatsRow({ stats, documentId, compact }: { stats: PersonStats; do
     );
   }
   const s = stats.map[documentId];
+  // Not in the batch (an account the batch did not ask for): unknown, so nothing — never zeros.
+  if (!s) return null;
   const items: { label: string; value: string; unit?: string }[] = [
-    { label: 'Capturi', value: String(s?.catches ?? 0) },
+    { label: 'Capturi', value: String(s.catches) },
     {
       label: 'CMMC',
-      value: s?.biggestCatchKg == null ? '–' : formatWeight(s.biggestCatchKg),
-      unit: s?.biggestCatchKg == null ? undefined : 'kg',
+      value: s.biggestCatchKg == null ? '–' : formatWeight(s.biggestCatchKg),
+      unit: s.biggestCatchKg == null ? undefined : 'kg',
     },
-    { label: 'Concursuri', value: String(s?.competitions ?? 0) },
+    { label: 'Concursuri', value: String(s.competitions) },
   ];
   return (
     <dl className="grid grid-cols-3 gap-1.5">

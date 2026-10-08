@@ -125,14 +125,14 @@ async function shoot(page: Page, name: string) {
  */
 async function viaOrganizerMenu(page: Page) {
   const phone = (page.viewportSize()?.width ?? 0) < 768;
-  const trigger = phone
-    ? page.getByRole('button', { name: 'Acțiuni organizator' })
-    : page.getByRole('button', { name: 'Organizare', exact: true });
+  // Phone: the bar's «Organizare» tile; from 768: the header's «Organizare» (its visible label is its name).
+  const trigger = page.getByRole('button', { name: 'Organizare', exact: true });
   await expect(trigger).toBeVisible({ timeout: 30_000 });
   await trigger.click();
-  const menu = page.getByRole('dialog', { name: 'Organizare' });
-  await expect(menu).toBeVisible();
-  const link = menu.getByRole('link', { name: 'Alocă standuri pe sectoare' });
+  // Phone: the bar's «Organizare» submenu; from 768: the header's menu (competition-page.organizare).
+  const link = phone
+    ? page.getByRole('navigation', { name: 'Acțiuni organizator' }).getByRole('link', { name: 'Alocă standuri pe sectoare' })
+    : page.getByRole('menu', { name: 'Organizare' }).getByRole('menuitem', { name: 'Alocă standuri pe sectoare' });
   await expect(link).toHaveAttribute('href', `/concursuri/${ID}/sectoare`);
   await link.click();
   await expect(page).toHaveURL(new RegExp(`/concursuri/${ID}/sectoare$`));

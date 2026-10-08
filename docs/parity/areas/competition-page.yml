@@ -1125,8 +1125,8 @@ screens:
       - id: competition-page.participanti.c2
         text: "The competition author sees the organizer registrations list instead (competition-page.participanti-organizator)."
         fish_ref: components/competition/CompetitionParticipants.tsx:90-92
-        status: todo
-        web_note: "The organizer registrations list is competition-page.participanti-organizator (M6). Until then the author sees this list under a notice «Ești organizatorul acestui concurs» + «Gestionează în aplicație» (the Bluvi app link). GAP vs fish (review 2026-10-07): fish's RegistrationsList (pending / rejected / all filters, approve / reject) is absent, so the author cannot see pending or rejected registrations on the web at all — stays todo; the e2e asserts only the notice and the deep link."
+        status: passing
+        web_note: "M6-B7: the author (the core's author vs the session the server streams; the statute only for a core without its author; an unknown session or an unanswered statute → the bones, rule 4) sees the organizer's registrations list (competition-page.participanti-organizator) instead of the approved roster; the notice «Ești organizatorul acestui concurs» / «Gestionează în aplicație» is gone. e2e tests/e2e/concurs-participanti-organizator.spec.ts «competition-page.participanti.c2 …», concurs-tabs.spec.ts «competition-page.participanti.c2 — the author (upcoming / completed, prerendered) …»; the public-roster tests on the author's competition read it with another author (asVisitor)."
       - id: competition-page.participanti.c3
         text: "Everyone else sees only approved registrations, ordered by stand number (unallocated first)."
         fish_ref: components/competition/CompetitionParticipants.tsx:45-57
@@ -1203,35 +1203,57 @@ screens:
       - id: competition-page.participanti-organizator.c1
         text: "Loads every registration of the competition (skeleton while loading)."
         fish_ref: components/competition/RegistrationsList.tsx:67-69,110
+        status: passing
+        web_note: "«Se încarcă înscrierile…» + six row bones while GET /competitions/:id/registrations loads (per-user, /api/cms with the session); every registration whatever its status. A failed read: «Înscrierile nu au putut fi încărcate.» + «Încearcă din nou». e2e tests/e2e/concurs-participanti-organizator.spec.ts «c1»."
       - id: competition-page.participanti-organizator.c2
         text: "Filter chips Toți, În așteptare, Aprobați, Respinși, each with its count (the pending count is always coloured); the initial filter comes from participantsFilter (all, registered, pending, rejected), default Toți."
         fish_ref: components/competition/RegistrationsList.tsx:17-64,149-201
+        status: passing
+        web_note: "A segmented control (owner rule 20): one radiogroup «Filtrează înscrierile», native radios (arrow keys), the selected segment filled in fish's colour per filter (accent · pending · success · danger strong ink), counts as badges, the pending count always in its colour. Initial filter from ?filtru= (in-asteptare | aprobati | respinsi; unknown → Toți), kept in the URL with replaceState (no navigation; read on the client so the page stays prerendered). e2e tests/e2e/concurs-participanti-organizator.spec.ts «c2»."
       - id: competition-page.participanti-organizator.c3
         text: "Rows are ordered by stand number; unallocated rejected registrations sort last."
         fish_ref: components/competition/RegistrationsList.tsx:71-79
+        status: passing
+        web_note: "model.ts sortRegistrations (unit): unallocated non-rejected first, then by stand compared naturally («A2» before «A10»; fish parseInt), unallocated rejected last; ties keep CMS order. e2e tests/e2e/concurs-participanti-organizator.spec.ts «c3 c5»."
       - id: competition-page.participanti-organizator.c4
         text: "„Nu există înregistrări pentru această competiție.” with no registrations; „Nu există înregistrări cu acest status.” when the filter matches none."
         fish_ref: components/competition/RegistrationsList.tsx:103-128
+        status: passing
+        web_note: "Both copies as fish (the empty list in the kit DetailSectionState). e2e tests/e2e/concurs-participanti-organizator.spec.ts «c4»."
       - id: competition-page.participanti-organizator.c5
         text: "Row: avatar(s), name (individual username, guest name or „Utilizator sters”; team „Echipa: {team}” + members, or the members list), stand name or „Nealocat”, and a status icon: clock (pending), X (rejected), check (approved)."
         fish_ref: components/ExpandableRegistration.tsx:20-161
+        status: passing
+        web_note: "Phone: faces (a team's stacked up to 3, else 2 + «+N»; a guest's neutral initials), the name, the members line, «Stand N» / «Nealocat», fish's status icon (clock · X · check) with its words as the accessible name. fish «Utilizator sters» → «Cont șters» (as Extra Cântare). From 1024 a roster table (owner rules 14, 18): stand as a number (or «Nealocat» pill), faces + name(s) + club, the status in words. e2e tests/e2e/concurs-participanti-organizator.spec.ts «c3 c5», «c5 — a team»."
       - id: competition-page.participanti-organizator.c6
         text: "Pressing a row expands its actions; „Editează” (not for rejected, not once cancelled/completed) opens the guest edit form (guest registrations, with guestName/teamName) or the registration form in organizer mode."
         fish_ref: components/CollapsableActions.tsx:38-79,161-168
+        status: passing
+        web_note: "«Editează» (not rejected, not cancelled / completed): a guest registration → routes.competitionRegisterGuests(id, {inscriere}), an account registration → routes.competitionRegister(id, {organizator, inscriere}). Phone: the row opens on fish's action tiles; from 1024 every action is inline (no expand). e2e tests/e2e/concurs-participanti-organizator.spec.ts «c6 …» ×2."
       - id: competition-page.participanti-organizator.c7
         text: "„Apelează” calls the registration author's phone (tel:, analytics contact_pressed) or shows „Număr de telefon invalid”."
         fish_ref: components/CollapsableActions.tsx:81-98,170-171
+        status: passing
+        web_note: "tel: link of the registration author's phone + track('contact_pressed', {contact_type: 'Organizer registrant contact', competition_id, competition_name}); no author / no phone → the danger toast «Număr de telefon invalid». From 1024 (a desktop has no dialer) «Apelează» opens a small popover with the number, «Copiază» and «Sună» (tel:); contact_pressed on copy or call, not on opening. e2e tests/e2e/concurs-participanti-organizator.spec.ts «c7» ×2 (phone tel:, desktop popover)."
       - id: competition-page.participanti-organizator.c8
         text: "Before the start only: „Mută în așteptare” (not pending; confirm „Mută în lista de așteptare” / „Ești sigur că vrei să muți participantul înapoi în lista de așteptare?” → Mută), „Elimină” for approved / „Respinge” for pending (not rejected; confirm with the matching question), „Aprobă” (not approved; confirm „Acceptă înregistrarea” / „Ești sigur că vrei să aprobi cererea de participare la concurs?” → Acceptă)."
         fish_ref: components/CollapsableActions.tsx:100-156,173-201
+        status: passing
+        web_note: "model.ts rowActions / confirmOf (unit) + StatusConfirmDialog (alert dialog, fish's title / question, «Închide» + the action). e2e tests/e2e/concurs-participanti-organizator.spec.ts «c8»."
       - id: competition-page.participanti-organizator.c9
         text: "Each status change collapses the row and invalidates the registrations list and the competition (exact key)."
         fish_ref: services/mutations/useRegistrationsList.tsx:48,87,126; components/CollapsableActions.tsx:112-152
+        status: passing
+        web_note: "core accept/reject/moveRegistrationToWaitingListMutation (optimistic flip, rollback, list marked stale without a refetch, competition invalidated exact). The row collapses at once; the toasts are hook-level (fish useRegistrationsList onSuccess/onError), so two changes in flight both report and a change still reports after leaving the tab. A failure rolls back and says why: model.ts statusErrorMessage (unit) maps the CMS refusals (PARTICIPANTS_LIMIT_EXCEEDED → «Numărul maxim de participanți a fost atins.» / the crew-size variant, COMPETITION_STATUS_NOT_STARTED → «Concursul a început; înscrierile nu mai pot fi schimbate.», CANNOT_REJECT_WHEN_CANCELLED_BY_USER, CANNOT_ACCEPT_REGISTERED_USER, COMPETITION_NOT_FOUND), another 4xx shows the CMS message, 5xx / network «Nu s-a putut actualiza înscrierea. Încearcă din nou.». After a confirmed change focus goes to what still exists: the row (phone toggle / table name cell), else the next row's first action, else the filter. The PATCHes are route-mocked in e2e (they e-mail / push real users) with method, path and empty body asserted. e2e tests/e2e/concurs-participanti-organizator.spec.ts «c9» ×4 (success, 500, 400 + bluCode, in flight + after leaving the tab), «after a confirmed change focus stays in the list»."
       - id: competition-page.participanti-organizator.c10
         text: "Refresh invalidates the registrations list, the competition, the viewer's statute and allocated participants."
         fish_ref: components/competition/RegistrationsList.tsx:91-101
+        status: passing
+        web_note: "«Actualizează» (fish pull-to-refresh) invalidates model.ts refreshKeys (unit): the list, the competition, the statute, the allocations (the last refetches only where observed); the tab coming back after 30 s re-reads the list (CompetitionScreen re-reads the rest). e2e tests/e2e/concurs-participanti-organizator.spec.ts «c10»."
     mobile_only: false
-    status: todo
+    status: proposed
+    e2e: tests/e2e/concurs-participanti-organizator.spec.ts
+    web_note: "M6-B7 built (app/(site)/concursuri/[id]/_components/registrations/: RegistrationsList, RegistrationRow, RowActions, StatusConfirmDialog, model.ts + model.test.ts). Below 1024 fish's cards opening on the action tiles; from 1024 a roster table with inline actions in fixed slots (edit · call · «Mută în așteptare» · reject/remove · approve: each keeps its x down the table, e2e «desktop actions keep their column») and the person popover (→ /pescari/[id]) on a row with an account; its stats batch asks for every account in the list whatever the status, and an account missing from the batch shows no stats (never made-up zeros; e2e «the person popover of a pending account holder», «an account missing from the stats batch»). Every write route-mocked in e2e. Screenshots .shots/participanti-org-* at 375/1280/1440/1920 (loading, team, pending, mixed (+1024), empty, filter-empty, expanded, confirm, popover, call). Awaiting the critic panel."
 
   # ---------------------------------------------------------------------------------------------
   - id: competition-page.extra-cantare
@@ -1413,13 +1435,13 @@ screens:
       - id: competition-page.bara-actiuni.c10
         text: "Penalizări opens the competition's penalties page."
         fish_ref: components/competition/CompetitionRanking.tsx:1984-1985
-        status: todo
-        web_note: "The penalties page is M6; the tile is not offered until it exists."
+        status: passing
+        web_note: "Everyone but the author (who has it in the «Organizare» menu), on quantity / quantityQuality, once the ranking shows: «Penalizări» tile right after Statistici (its visible label is its name, WCAG 2.5.3) → /concursuri/[id]/penalizari (signed in only: a guest goes through sign-in), and from 768 a header «Penalizări» button. Only once the role is known (the statute answered; signed out: known): never on a guess while it loads, so the author never sees it first (owner rule 4). None on NC. e2e concurs-organizare.spec.ts «bara-actiuni.c10 …», concurs-previzualizare.spec.ts «bara-actiuni.c2 … c10»."
       - id: competition-page.bara-actiuni.c11
         text: "The „Acțiuni” sheet (other tabs) for a guest offers only „Autentifică-te pentru a putea participa la competiție” → sign-in; a skeleton while competition/statute/allocations load."
         fish_ref: components/CompetitionActionSheet.tsx:216-276
         status: passing
-        web_note: "The «Acțiuni» tile (phone bar, route tabs other than Clasament, once started/completed) opens the kit Sheet «Acțiuni»: a guest gets only «Autentifică-te pentru a putea participa la competiție» → /intra?next=<this tab>; skeleton rows while the session / statute load. The author / a referee: their sheets are competition-page.organizare (M6); until then «Vezi cântarele din concurs». e2e concurs-antet.spec.ts."
+        web_note: "The «Acțiuni» tile (phone bar, route tabs other than Clasament, once started/completed) opens the kit Sheet «Acțiuni»: a guest gets only «Autentifică-te pentru a putea participa la competiție» → /intra?next=<this tab>; skeleton rows while the session / statute (and, for the author / a referee, the seating) load. The author / a referee get their fish sheets (competition-page.organizare c12 c13); a running write confirms with the danger button as fish's Alert style 'destructive'. e2e concurs-antet.spec.ts, concurs-organizare.spec.ts."
       - id: competition-page.bara-actiuni.c12
         text: "For a signed-in non-organizer non-referee the sheet shows Înscrie-te / „Modifică înscrierea” (same disabled rules) with the reason under it: „Cererea ta de a te înscrie în această competiție a fost respinsă.”, „Nu poți face modificări. Contactează organizatorul.” (registered, team), „Nu se mai pot face modificări” (registered, individual), „Numărul maxim de participanți a fost atins”, „Nu poți face modificări pentru că nu ești autorul înscrierii.”, otherwise „Termenul pentru înscriere a expirat”."
         fish_ref: components/NormalUserSheetItems.tsx:63-127
@@ -1429,7 +1451,7 @@ screens:
         text: "After the start the sheet adds „Vezi cântarele din concurs” (weighings page of the scale area)."
         fish_ref: components/NormalUserSheetItems.tsx:129-140
         status: passing
-        web_note: "«Vezi cântarele din concurs» opens the Clasament's Cântare view (the scale area's weighings page is M6). e2e concurs-antet.spec.ts."
+        web_note: "«Vezi cântarele din concurs» opens the scale area's weighings (/concursuri/[id]/cantar, fish /scale/[id]; read-only for an angler). The bar's «Cântare» tile stays the Cântare view (fish onCantarePress). The author / a referee have the same entry as «Adaugă cântar» (organizare c13). e2e concurs-organizare.spec.ts «bara-actiuni.c13 …», concurs-antet.spec.ts «c12 c13 …»."
       - id: competition-page.bara-actiuni.c14
         text: "A registered participant of a started competition gets „Solicită extra cântar”, or „Șterge solicitarea de extra cântar” when a new request of theirs exists (from the live competition); pending states disable it with „Se înregistrează cererea...” / „Se șterge cererea...”; success toasts and closes the sheet; the extra-scale list is invalidated."
         fish_ref: components/ExtraScaleRequestSheetItem.tsx:13-97
@@ -1481,47 +1503,77 @@ screens:
       - id: competition-page.organizare.c1
         text: "Only the author (statute author) sees „Organizare”, and only while the competition is not completed; it opens a submenu with „Înapoi”."
         fish_ref: components/competition/CompetitionRanking.tsx:343-345,544-547; components/competition/RankingActionBar.tsx:926-937,966-977
+        status: passing
+        web_note: "Author statute only, notStarted / started (organizer/model.ts organizerMenuOptions; nothing once completed or for anyone else). Phone: the bar's «Organizare» tile (named by its visible label, WCAG 2.5.3) swaps the row for its submenu («Acțiuni organizator»), «Înapoi» first (and Escape), focus moved in and back to the tile; a submenu wider than the bar scrolls sideways (fish ScrollView): 80px tiles, about 4.5 at 375 so a tile is always cut at the edge, labels up to three lines (fish labelMaxWidth 104) — none truncated, the last tile reachable (e2e). A write closes the submenu and asks in the bar; focus returns to «Organizare» once answered; a dialog keeps the submenu behind it and returns focus to its tile (fish handleOptionSelect). While the statute loads the header's organizer slot is a bone (nothing guessed), a failed statute offers «Verifică din nou». From 768: the header's «Organizare» menu button (kit MenuButton: arrows, Home / End, Escape; the header band is lifted while it is open so it paints over the sticky tabs). e2e «c1 c2 …» (phone + desktop), «c1 — no «Organizare» for …» (participant, guest, completed author)."
       - id: competition-page.organizare.c2
         text: "Before the start the menu is, in order: „Modifica competiția” (edit wizard, basics step, returning to this page), „Alocă standuri pe sectoare”, „Alocă participanții pe standuri” (only when some sector has stands), „Adaugă participanți fără cont” (unless the participants limit is reached), „Start concurs”, „Adaugă arbitru”, „Șterge arbitru”."
         fish_ref: components/competition/CompetitionRanking.tsx:550-612,704-723
+        status: passing
+        web_note: "Order and targets as fish (with diacritics: «Modifică competiția»): edit → routes.competitionEdit(id, 'detalii', {inapoi: this page}); /sectoare; /alocare only when a sector has stands; /inscriere/fara-cont unless the approved count equals the limit; «Start concurs»; the referee pickers. e2e (phone + desktop; limit reached; no stands)."
       - id: competition-page.organizare.c3
         text: "„Start concurs” asks „Ești sigur că vrei să dai start competiției?” (Anulează / Confirmă); success toasts „Competiția a fost începută cu succes”, error toasts the message; the competition and the ranking are invalidated."
         fish_ref: components/competition/CompetitionRanking.tsx:496-506,604-612
+        status: passing
+        web_note: "Phone: the question in the bar (fish pendingConfirm) with Anulează / Confirmă; from 768 an alert dialog with the same buttons (not dismissed by a backdrop click; Escape = Anulează). Start, end and closing a leg confirm with the danger button (fish Alert style 'destructive', CompetitionActionSheet.tsx:160,190). Confirmă → PUT /competitions/:id/start (core startCompetitionMutation; never twice while one is in flight) → «Competiția a fost începută cu succes»; an error toasts the CMS message. The competition and the ranking are re-read, and again after CDN_PURGE_SETTLE_MS (edge cache). e2e route-mocked (method + path asserted; Anulează writes nothing; a 400 with its message)."
       - id: competition-page.organizare.c4
         text: "Started, the menu is: „Modifica competiția”, „Adaugă cântar” (only when stands exist, some participant is allocated and the feeder leg is not closed), „Adaugă arbitru”, „Șterge arbitru”, „Penalizări” (ranking types that support penalties), then the feeder leg actions or „Încheie concurs”."
         fish_ref: components/competition/CompetitionRanking.tsx:613-688
+        status: passing
+        web_note: "Started: Modifică competiția, Adaugă cântar (stands + someone seated per the allocated read — hidden while it is unknown — and not on a closed feeder leg) → /cantar, the referees, Penalizări (quantity / quantityQuality) → /penalizari, then the leg actions or «Încheie concurs». e2e (seated / nobody seated)."
       - id: competition-page.organizare.c5
         text: "„Modifica competiția” after the start opens „Nu poți modifica competiția” / „Competiția a început deja. Pentru modificări, contactează echipa Bluvi.” with „Apelează” (tel:+40733017091, analytics contact_pressed)."
         fish_ref: components/competition/CompetitionRanking.tsx:563-565; components/CannotEditCompetitionSheet.tsx:13-60
+        status: passing
+        web_note: "components/organizer/CannotEditDialog (shared with the panel's cards): «Nu poți modifica competiția», fish's line, «Apelează» tel:+40733017091, logging contact_pressed {contact_type: 'Bluvi cannot edit contact'} (added to the shared dialog, so the panel's cards log it too, as fish's one sheet). e2e (the event collected)."
       - id: competition-page.organizare.c6
         text: "„Încheie concurs” asks „Ești sigur că vrei să închei competiția?”; success toasts „Competiția a fost încheiată cu succes”; the competition is invalidated."
         fish_ref: components/competition/CompetitionRanking.tsx:508-517,677-686
+        status: passing
+        web_note: "Asks «Ești sigur că vrei să închei competiția?» → PUT /competitions/:id/end → «Competiția a fost încheiată cu succes»; the competition re-read. e2e route-mocked (the desktop menu, and the «Acțiuni» sheet in c12)."
       - id: competition-page.organizare.c7
         text: "Feeder legs replace „Încheie concurs”: a running non-last leg → „Închide manșa N” (confirm „Închizi manșa N? Cântarele ei nu mai pot fi redeschise.”); a closed leg → „Reașază pentru manșa N+1” (participants allocation for that round) and „Pornește manșa N+1” (confirm „Pornești manșa N+1? Standurile trase sunt salvate?”); the last leg running → „Încheie concurs”. Toasts „Manșa N a fost închisă” / „Manșa N a început”; competition, ranking and active weighing are invalidated."
         fish_ref: features/competitions/feeder-rounds/feederRoundActions.ts:1-55; components/competition/CompetitionRanking.tsx:519-542,653-676; services/mutations/useFeederRounds.ts:7-12
+        status: passing
+        web_note: "core feederRoundActions: a running leg «Închide manșa N» (fish's question, POST /feed/competitions/:id/rounds/close); a closed leg «Reașază pentru manșa N+1» → routes.competitionAllocation(id, N+1) (/alocare?mansa=N+1) and «Pornește manșa N+1» (fish's question, POST …/rounds/start); the last leg «Încheie concurs». Toasts «Manșa N a fost închisă» / «Manșa N a început»; core invalidateLegState re-reads competition, seating, ranking, weighings, active weighing. e2e route-mocked for the three leg states (served on the local feeder competition)."
       - id: competition-page.organizare.c8
         text: "The organizer-menu „Cere extra cântar” entry requires both registered and not registered, so fish never shows it — do not port it."
         fish_ref: components/competition/CompetitionRanking.tsx:688-701
+        status: n/a
+        web_note: "Not ported by design: fish's entry needs the author registered and not registered at once, so fish never shows it."
       - id: competition-page.organizare.c9
         text: "„Adaugă arbitru” opens „Alegeți un arbitru”: search „Caută...”, paginated users (more on scroll end), one selectable, „Adaugă”; success toasts „Arbitrul a fost adăugat cu succes”, errors toast; the competition is invalidated and the selection cleared."
         fish_ref: components/competition/CompetitionRefereesManagement.tsx:11-49; components/CompetitionActionSheet.tsx:108-127,280-299
+        status: passing
+        web_note: "RefereeAddDialog (sheet < 768, dialog from 768): «Alegeți un arbitru», «Caută...» (debounced), GET /user/all 20 a page (core paginatedUsersInfiniteQuery), the next page when the list's end comes into view, one radio chosen, «Adaugă» → PATCH /competitions/:id/referee {documentId} → «Arbitrul a fost adăugat cu succes» (error: its message), closed, the search and the choice cleared on every close (fish onSettled), a choice the list no longer shows is no choice («Adaugă» stays closed), the competition re-read. e2e: the users read route-mocked (pages 1–2, search), the PATCH route-mocked with its body asserted."
       - id: competition-page.organizare.c10
         text: "„Șterge arbitru” opens „Șterge arbitru” listing the competition's referees filtered by the search text, „Șterge”; success toasts „Arbitrul a fost șters cu succes”; „Nu există opțiuni” when none."
         fish_ref: components/competition/CompetitionRefereesManagement.tsx:51-90; components/CompetitionActionSheet.tsx:129-148; components/UsersSelectSheet.tsx:95-125
+        status: passing
+        web_note: "RefereeRemoveDialog: the competition's referees filtered by the search (any case), «Nu există opțiuni», «Șterge» → DELETE /competitions/:id/referee/:refereeId → «Arbitrul a fost șters cu succes». Every close (the write answered too) clears the search and the choice (fish onSettled); a chosen referee hidden by the search or already removed is no choice, «Șterge» stays closed. e2e route-mocked (reopened after a removal: nothing chosen, «Șterge» closed)."
       - id: competition-page.organizare.c11
         text: "A referee (started/completed) gets an „Adaugă cântar” tile in the bar that opens the scale page."
         fish_ref: components/competition/RankingActionBar.tsx:999-1010; components/competition/CompetitionRanking.tsx:743-745
+        status: passing
+        web_note: "A referee once started / completed: the «Adaugă cântar» tile right after Cântare (phone) and a header «Adaugă cântar» button from 768 → /cantar. e2e."
       - id: competition-page.organizare.c12
         text: "Organizer „Acțiuni” sheet: completed → only „Vezi cântarele din concurs”; otherwise Înscrie-te, „Start concurs” / „Încheie concurs” (confirm dialog Închide / Start|Încheie), Adaugă arbitru, Șterge arbitru, „Adaugă participanți fără cont” (disabled after the start: „Competiția a început deja, nu se mai pot face modificări”, or „Numărul maxim de participanți a fost atins”), „Alocă standuri pe sectoare” (disabled after the start), „Alocă participanții pe standuri” (disabled after the start or without stands: „Te rugăm să aloci mai întâi standurile pe fiecare sector”), the add-weighing item and the extra-scale item."
         fish_ref: components/OrganizerSheetItems.tsx:79-214; components/CompetitionActionSheet.tsx:151-214
+        status: passing
+        web_note: "ActionsSheet with organizer/model.ts organizerSheetItems: completed → only «Vezi cântarele din concurs» (/cantar); otherwise Înscrie-te (fish's organizer rule and reasons), Start / Încheie concurs (alert «Închide» / «Start» | «Încheie»), Adaugă / Șterge arbitru, the guests, both allocations (closed rows say why), the add-weighing item, and the extra-scale item for a registered author. Web: on a running feeder competition the leg actions stand where «Încheie concurs» is (fish's sheet would end it mid-leg). Skeleton rows until the seating is read. e2e (started rows + reasons + the end write; completed)."
       - id: competition-page.organizare.c13
         text: "The add-weighing item (organizer and referee sheets) reads „Adaugă cântar” while started, „Vezi cântarele din concurs” otherwise; it is disabled before the start („Competiția încă nu a început”) or until stands and participants are allocated („Te rugăm să aloci mai întâi participanții pe standuri”); pressing opens the scale page."
         fish_ref: components/AddCantarSheetItem.tsx:24-53; components/RefereeSheetItems.tsx:13-40
+        status: passing
+        web_note: "organizer/model.ts addScaleItem: «Adaugă cântar» while started, «Vezi cântarele din concurs» otherwise; closed before the start («Competiția încă nu a început») or until someone is seated («Te rugăm să aloci mai întâi participanții pe standuri»); → /cantar. Unit model.test.ts + e2e (the referee's sheet, open and closed)."
       - id: competition-page.organizare.c14
         text: "In the Cântare view weighing actions are allowed only to the author or a referee while the competition is started."
         fish_ref: components/competition/CompetitionRanking.tsx:1897-1898; components/competition/StandCantarCard.tsx:114
+        status: passing
+        web_note: "WeighingsView `scaleStandHref` (model canWeigh: the author / a referee while started): «Deschide în cântar» in an open stand's panel → /cantar/[stand] (phone, tablet) and, from 1280, a band over the table → /cantar (the stand picker). An angler gets none. e2e."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "M6-B7. T3 header / DetailActionBar: phone — the bar's «Organizare» submenu, the «Acțiuni» sheet's organizer / referee rows, the active-weighing banner; from 768 — the header's «Organizare» menu (kit MenuButton), a referee's «Adaugă cântar», the others' «Penalizări» (all only once the statute answered), and for the author / a referee «Deschide în cântar» in the Clasament bento's «Cântar în curs» tile (a compact line under the tabs only where no bento says it). The banner's manager target is a web deviation awaiting the owner (organizer.b.active-weighing-banner, partial). Code: app/(site)/concursuri/[id]/_components/organizer/* (model.ts + unit test, useOrganizer, OrganizerMenu, ConfirmActionDialog, Referee*Dialog, UsersSelect, ActiveWeighingBanner), ActionBar, ActionsSheet, CompetitionScreen, WeighingsView. Every write in the e2e is route-mocked (fake-organizer guard) with method / path / body asserted: start / end push to every participant and follower. Screenshots .shots/organizare-* at 375 / 1280 / 1440 / 1920."
+    e2e: tests/e2e/concurs-organizare.spec.ts
 
   # ---------------------------------------------------------------------------------------------
   - id: competition-page.imagine-clasament
@@ -1676,6 +1728,8 @@ behaviours:
   - id: competition-page.b.notif-participants
     text: "COMPETITION_PARTICIPANTS_ALLOCATION, COMPETITION_ROUND_START, COMPETITION_NEW_CANCELLATION_ORGANIZER, COMPETITION_REGISTRATION_MODIFIED_ORGANIZER, FOLLOW_COMPETITION_REGISTERED and FOLLOW_COMPETITION_DIGEST open Participanți (/concursuri/[id]/participanti); COMPETITION_NEW_REGISTRATION_ORGANIZER opens it filtered on pending (/concursuri/[id]/participanti?status=pending)."
     fish_ref: helpers/getRedirectLocationForNotification.ts:49-58,166-170
+    web_note: "Web: COMPETITION_NEW_REGISTRATION_ORGANIZER → /concursuri/[id]/participanti?filtru=in-asteptare (lib/notification-href NOTIFICATION_PAGES_ON_WEB.organizerPendingFilter ON since M6-B7: the author's list reads `filtru`; unit tests/unit/notification-href.test.ts). The others → the unfiltered tab."
+
   - id: competition-page.b.notif-weighing
     text: "COMPETITION_WEIGHING_MODIFIED and COMPETITION_WEIGHING_END open the competition page with the weighing detail for (weighingId, standId, standName, sectorName); if any of these is missing the notification routes nowhere."
     fish_ref: helpers/getRedirectLocationForNotification.ts:60-77; app/(app)/competitions/[competitionId].tsx:258-302

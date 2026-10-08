@@ -407,20 +407,22 @@ test('competition-page.bara-actiuni.c5 competition-page.bara-actiuni.c12 competi
   await expect(button).toHaveAccessibleDescription('Termenul pentru înscriere a expirat');
 });
 
-test('competition-page.bara-actiuni.c2 competition-page.bara-actiuni.c3 competition-page.bara-actiuni.s1 — started, signed in: Tot ecranul, Chat (second), Cântare, Sortare, Statistici', async ({ page, context }) => {
+test('competition-page.bara-actiuni.c2 competition-page.bara-actiuni.c3 competition-page.bara-actiuni.s1 competition-page.bara-actiuni.c10 — started, signed in: Tot ecranul, Chat (second), Cântare, Sortare, Statistici, Penalizări', async ({ page, context }) => {
   await signIn(context, jwt);
   await mockMyStatus(context, ID.live, null);
   await open(page, ID.live);
   await settle(page);
   // The tiles are buttons, except Chat: a link to the chat page (participant.b.chat-entry).
   const tiles = page.getByRole('navigation', { name: 'Acțiuni concurs' }).locator('[data-tile]');
-  await expect(tiles).toHaveCount(5);
+  await expect(tiles).toHaveCount(6);
   await expect(tiles.nth(0)).toHaveAccessibleName('Vezi clasamentul pe tot ecranul');
   await expect(tiles.nth(1)).toHaveAccessibleName(/^Chat competiție/);
   await expect(tiles.nth(1)).toHaveAttribute('href', new RegExp(`^/concursuri/${ID.live}/chat(\\?tab=(general|participanti))?$`));
   await expect(tiles.nth(2)).toHaveAccessibleName('Vezi cântarele din concurs');
   await expect(tiles.nth(3)).toHaveAccessibleName('Sortare clasament');
   await expect(tiles.nth(4)).toHaveAccessibleName('Statistici');
+  // A quantity ranking: «Penalizări» for everyone but the author (competition-page.organizare, M6).
+  await expect(tiles.nth(5)).toHaveAccessibleName('Penalizări'); // its visible label is its name (WCAG 2.5.3)
 });
 
 test('competition-page.bara-actiuni.c7 competition-page.bara-actiuni.s5 competition-page.bara-actiuni.s6 — Sortare: a submenu with «Înapoi»; a choice shows the Clasament view and confirms, the message goes on press', async ({ page }) => {

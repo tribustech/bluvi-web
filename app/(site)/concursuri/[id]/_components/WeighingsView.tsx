@@ -2,7 +2,8 @@
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
-import { ChevronDownIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
+import { ArrowRightIcon, ChevronDownIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import { currentLegOf, type CompetitionWithMyStatus } from '@/core/competitions';
 import {
   weighingsQuery,
@@ -30,12 +31,16 @@ import { echoes } from './names';
 import { formatKg } from './ranking';
 import { isNationalType, nationalStandLabel } from './stand';
 import { PAGE_RETRY } from './retry-policy';
+import { routes } from '@/lib/routes';
 
 /*
  * fish CompetitionRanking `rankingView === 'cantare'`: every sector, every stand as a
  * StandCantarCard (who is on it, total kg, Cântare / Extra-Cântare counts), tap to open the
  * stand's weighings (CantarItem), press one for its detail (WeighingDetail, parity
- * competition-page.cantar-detaliu). Scale actions (referee/author) are app-only. Feeder legs: a
+ * competition-page.cantar-detaliu). The author or a referee of a running competition (fish
+ * actionsAllowed && competitionStarted, organizare c14) gets «Deschide în cântar»: per stand in its
+ * open panel (the stand's scale page), and from 1280 over the table (the scale's stand picker) —
+ * the weighing actions live there (organizer.scale*). Feeder legs: a
  * stand's weighings are the current leg's (fish currentLegOf); from 1280 the table's «Manșa N»
  * switch shows any leg (tableLeg), and the detail opens on the leg shown.
  *
@@ -68,6 +73,7 @@ export function WeighingsView({
   allocated,
   session,
   decimals,
+  scaleStandHref,
 }: {
   t: Transport;
   competition: CompetitionWithMyStatus;
@@ -76,6 +82,8 @@ export function WeighingsView({
   session: 'in' | 'out' | 'pending';
   /** The competition's weight precision (weightDecimals): the same as the summary tiles above. */
   decimals: number;
+  /** The author / a referee while it runs: a stand's scale page (organizare c14). */
+  scaleStandHref?: (standId: string) => string;
 }) {
   const id = competition.documentId;
   const isAuthenticated = session === 'in';
@@ -241,7 +249,10 @@ export function WeighingsView({
             rest is the side column's (summary / detail) or margin. Under 1024 the box decides. The
             leftover width is the gap before the side column (mr-auto), which keeps to the content's
             right edge like the header and the bento above, never a dead strip after it. */}
-        <div className="mr-auto max-w-256 min-w-0 flex-1">
+        <div className="mr-auto flex max-w-256 min-w-0 flex-1 flex-col gap-3">
+          {scaleStandHref ? (
+            <ScaleLink href={routes.competitionScale(id)} label="Deschide în cântar" description="Alege standul pe care cântărești." />
+          ) : null}
           {allocationLoading ? (
             <TableBones />
           ) : (
@@ -365,6 +376,7 @@ export function WeighingsView({
                       decimals={decimals}
                       summaryLoading={summaryLoading}
                       onWeighing={weighingId => openWeighing(stand.documentId, weighingId)}
+                      scaleHref={scaleStandHref?.(stand.documentId)}
                     />
                   )}
                 />
@@ -384,6 +396,35 @@ export function WeighingsView({
       </div>
       {detailPanel}
       {personPopover}
+    </div>
+  );
+}
+
+/**
+ * «Deschide în cântar» (organizare c14): a quiet accent link-button — the scale is a page of its own.
+ * With a `description`, a band over the table (from 1280).
+ */
+function ScaleLink({ href, label, ariaLabel, description }: { href: string; label: string; ariaLabel?: string; description?: string }) {
+  const link = (
+    <Link
+      href={href}
+      aria-label={ariaLabel}
+      data-testid="scale-link"
+      className={cn(
+        'inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-control bg-accent-tint-2 px-3 t-body-strong text-accent-ink hover:brightness-95',
+        FOCUS,
+        'focus-visible:outline-offset-2',
+      )}
+    >
+      {label}
+      <ArrowRightIcon aria-hidden className="size-4" />
+    </Link>
+  );
+  if (!description) return link;
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-card bg-accent-tint px-4 py-2.5">
+      <p className="t-body text-ink">{description}</p>
+      {link}
     </div>
   );
 }
@@ -617,7 +658,10 @@ function StandWeighings({
   decimals,
   summaryLoading,
   onWeighing,
+  scaleHref,
 }: {
+  /** organizare c14: the stand's scale page, for the author / a referee while it runs. */
+  scaleHref?: string;
   t: Transport;
   competitionId: string;
   standId: string;
@@ -640,9 +684,12 @@ function StandWeighings({
   const headingId = `cantare-${standId}-titlu`;
   return (
     <div ref={panel} id={`cantare-${standId}`} role="region" aria-labelledby={headingId} className={cn(STAND_CARD, 'scroll-mb-28 flex flex-col gap-3')}>
-      <h3 id={headingId} className="t-label text-ink-2">
-        Cântarele standului {standLabel.replace(/^Stand /, '')}
-      </h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 id={headingId} className="t-label text-ink-2">
+          Cântarele standului {standLabel.replace(/^Stand /, '')}
+        </h3>
+        {scaleHref ? <ScaleLink href={scaleHref} label="Deschide în cântar" ariaLabel={`Deschide în cântar ${standLabel}`} /> : null}
+      </div>
       {isOfflineEmpty(weighingsQ) ? (
         <OfflineState fetching={weighingsQ.isFetching} onRetry={() => void weighingsQ.refetch()} />
       ) : weighingsQ.isPending ? (

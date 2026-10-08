@@ -329,8 +329,8 @@ screens:
       - id: participant.register-guests.c15
         text: "Reached by the organizer only: from the organizer menu „Adaugă participanți fără cont” (hidden once the participants limit is reached), or from „Editează” on a guest registration in the participants list (passes registrationId, guestName and, for teams, teamName)."
         fish_ref: "components/competition/CompetitionRanking.tsx:593-603; components/CollapsableActions.tsx:38-64"
-        status: todo
-        web_note: "Deferred to M6 (organizer area): the organizer menu entry and the participants list «Editează» belong to competition-page organizer screens. In M5 the page is reachable by URL only (routes.competitionRegisterGuests)."
+        status: partial
+        web_note: "Menu half done (M6-B7): the organizer's «Organizare» menu (phone submenu, desktop header menu) offers «Adaugă participanți fără cont» → routes.competitionRegisterGuests(id) before the start, hidden once the approved count reaches the limit; on the phone its tile reads the whole label (no ellipsis, «Adaugă participanți fără cont» vs «Alocă participanții pe standuri»); the «Acțiuni» sheet shows it closed with fish's reason after the start / at the limit — e2e concurs-organizare.spec.ts «c1 c2 participant.register-guests.c15 …», «participant.register-guests.c15 — … limit …». The «Editează» half is the organizer participants list (competition-page.participanti-organizator, participant.b.organizer-edit-registration), built by another batch."
     mobile_only: false
     status: proposed
     web_note: "M5-B2 built (app/(site)/concursuri/[id]/inscriere/fara-cont, T4 one step; form fluid with a sticky summary from 1024, owner 2026-10-04). c1–c14 passing (e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts, route-mocked fixtures, writes intercepted — no real guest entries). Stays proposed only for c15 (entry points, M6). Web additions (rule 4): non-author → competition page; add after the start / with the competition full, edit after completion / cancellation → a gate with the reason instead of a form the CMS refuses."
@@ -1389,8 +1389,8 @@ behaviours:
   - id: participant.b.organizer-edit-registration
     text: "Organizer „Editează” on a participant row (hidden for rejected rows and cancelled/completed competitions): guest registrations open the guests form with registrationId/guestName/teamName; account registrations open the registration page in organizer mode (asOrganizer=1, registrationId)."
     fish_ref: "components/CollapsableActions.tsx:38-80,160-167"
-    status: todo
-    web_note: "Targets exist (M5): guest rows → routes.competitionRegisterGuests(id, {inscriere}) (the form reads guestName/teamName from the registration itself), account rows → routes.competitionRegister(id, {organizator, inscriere}) (also when a link carries doarEchipa: the guests form never edits an account entry). The «Editează» control on the organizer's participants list is M6."
+    status: passing
+    web_note: "M6-B7: the organizer's registrations list (competition-page.participanti-organizator) shows «Editează» except on rejected rows and cancelled / completed competitions: guest rows → routes.competitionRegisterGuests(id, {inscriere}) (the form reads guestName/teamName from the registration itself), account rows → routes.competitionRegister(id, {organizator, inscriere}). e2e tests/e2e/concurs-participanti-organizator.spec.ts «c6 participant.b.organizer-edit-registration …» (both hrefs on phone and desktop, none on a rejected row or a completed competition, the link opens the form); unit model.test.ts «links»."
   - id: participant.b.chat-entry
     text: "The chat entry on the competition page exists only for signed-in users; it opens the last room used in that competition (if any) and passes the competition name so the header is titled immediately."
     fish_ref: "components/competition/CompetitionRanking.tsx:352-365,1234,1961; features/chat/domain/lastTab.ts:7-10"

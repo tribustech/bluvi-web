@@ -14,6 +14,7 @@ import {
   ChevronLeftIcon,
   ClipboardDocumentListIcon,
   Cog6ToothIcon,
+  ExclamationTriangleIcon,
   EllipsisHorizontalCircleIcon,
   MapPinIcon,
   TrophyIcon,
@@ -31,6 +32,8 @@ import { nationalStandLabel, standLabel } from './stand';
 import { DisabledRegisterButton, registerState, SessionRecheck, ViewerSlot, type RegisterState, type SlotViewer } from './viewerSlot';
 import { VIEWS, type RankingViewKey } from './views';
 import { LiveDot } from '@/components/templates/LiveDot';
+import { ORGANIZER_ICON, optionTone } from './organizer/icons';
+import type { OrganizerOption } from './organizer/model';
 
 /*
  * fish components/competition/RankingActionBar.tsx (getRankingActionBarItems, BarMessageView) and
@@ -50,9 +53,12 @@ import { LiveDot } from '@/components/templates/LiveDot';
  * Extra-Cântar (a registered participant while the competition runs) asks in the bar, as fish:
  * the question with Anulează / Confirmă, then the bar says it is sending, then the result.
  *
- * «Organizare» (the author, before the start and while it runs, as fish) opens the organizer menu
- * with the items the web has a screen for (ActionsSheet OrganizerMenu). Not on the web yet (no web
- * flow behind them): Adaugă cântar (referee), Penalizări (the penalties page, M6). «Înscrie-te» follows fish's rules (core registrationAction);
+ * «Organizare» (the author, before the start and while it runs, as fish — parity
+ * competition-page.organizare c1) swaps the row for its submenu: «Înapoi» first, then fish's
+ * organizerMenuOptions (organizer/model.ts), a row that scrolls sideways when it holds more tiles
+ * than fit (fish's ScrollView); a write asks in the bar (Anulează / Confirmă) like Extra-Cântar. A
+ * referee gets «Adaugă cântar» (the scale page, organizare c11); everyone but the author
+ * «Penalizări» on a ranking type that supports penalties (bara-actiuni c10), once the role is known. «Înscrie-te» follows fish's rules (core registrationAction);
  * when it is offered it opens the registration form (or the team disclaimer first, for a new team
  * registration — competition-page.bara-actiuni.c4).
  */
@@ -69,6 +75,8 @@ type Tile = {
   accessibilityLabel?: string;
   /** Held for a tile that waits on the session (Chat): its shape, nothing pressable. */
   bone?: boolean;
+  /** fish's red squares (end the competition, remove a referee): the danger tint. */
+  tone?: 'accent' | 'danger';
 };
 
 export type SortOption = { value: string; label: string; Icon: Icon };
@@ -81,7 +89,7 @@ export const SORT_OPTION: Record<'stand' | 'position' | 'club', SortOption> = {
 };
 
 /** fish RankingActionBar's in-bar confirmation (Extra-Cântar). */
-export type BarConfirm = { question: string; onConfirm: () => void; onCancel: () => void };
+export type BarConfirm = { question: string; onConfirm: () => void; onCancel: () => void; /** «Confirmă» as the danger button (an irreversible organizer write). */ tone?: 'danger' | 'primary' };
 
 type Props = {
   competition: CompetitionWithMyStatus;
@@ -113,21 +121,25 @@ type Props = {
   loadingLabel: string | null;
   /** The route tabs other than Clasament: fish's «Acțiuni» button, opening the actions sheet (ActionsSheet). */
   onActions?: () => void;
-  /** The author, not completed: fish's «Organizare» tile, opening the organizer menu (ActionsSheet OrganizerMenu). */
-  onOrganizer?: () => void;
+  /** The author, not completed: fish's «Organizare» tile and its submenu (organizer/model.ts organizerMenuOptions). */
+  organizer?: { options: OrganizerOption[]; onChoose: (o: OrganizerOption) => void };
+  /** A referee once the ranking shows: «Adaugă cântar» → the scale page (organizare c11). */
+  refereeScaleHref?: string;
+  /** Not the author, a ranking type with penalties, after the start: «Penalizări» → the penalties page (bara-actiuni c10). */
+  penaltiesHref?: string;
 };
 
+// No aria-label: the visible «Organizare» is the name (WCAG 2.5.3 Label in Name — «click Organizare»).
 const organizerTile = (onPress: () => void): Tile => ({
   id: 'organizare',
   label: 'Organizare',
   Icon: Cog6ToothIcon,
   onPress,
-  accessibilityLabel: 'Acțiuni organizator',
 });
 
 export function MobileActionBar(props: Props) {
   const { competition, viewer, signIn, onSort, onView, onFullView, fullViewDisabled, chat: chatEntry, chatBadge, barMessage, confirm, loadingLabel } = props;
-  const [menu, setMenu] = useState<'sortare' | null>(null);
+  const [menu, setMenu] = useState<'sortare' | 'organizare' | null>(null);
   const status = competition.competitionStatus;
   const barRef = useRef<HTMLDivElement>(null);
   // After a sort is picked the row under focus unmounts twice (the Sortare menu, then the message):
@@ -147,17 +159,30 @@ export function MobileActionBar(props: Props) {
   }, [barMessage, menu]);
   // Opening the submenu unmounts the «Sortare» tile, closing it unmounts «Înapoi»: focus moves to
   // the first submenu button, and back to «Sortare» when it closes without a choice.
-  const [menuFocus, setMenuFocus] = useState<{ to: 'open' | 'closed'; n: number } | null>(null);
+  // The submenu's tile is remembered with it: focus goes back to that tile when it closes.
+  const [menuFocus, setMenuFocus] = useState<{ to: 'open' | 'closed'; which: 'sortare' | 'organizare'; n: number } | null>(null);
   useEffect(() => {
     if (!menuFocus) return;
-    barRef.current?.querySelector<HTMLElement>(menuFocus.to === 'open' ? '[data-tile="back"]' : '[data-tile="sortare"]')?.focus();
+    barRef.current?.querySelector<HTMLElement>(menuFocus.to === 'open' ? '[data-tile="back"]' : `[data-tile="${menuFocus.which}"]`)?.focus();
   }, [menuFocus]);
-  const openMenu = () => {
-    setMenuFocus(f => ({ to: 'open', n: (f?.n ?? 0) + 1 }));
-    setMenu('sortare');
+  // The bar's question (an organizer write) replaced the row: once it is answered, focus goes back to
+  // the tile that asked it («Organizare»), if it is still in the bar or was dropped on <body>.
+  const focusAfterConfirm = useRef<string | null>(null);
+  const asking = !!confirm;
+  useEffect(() => {
+    if (asking || !focusAfterConfirm.current) return;
+    const which = focusAfterConfirm.current;
+    focusAfterConfirm.current = null;
+    const active = document.activeElement;
+    if (active && active !== document.body && !barRef.current?.contains(active)) return;
+    barRef.current?.querySelector<HTMLElement>(`[data-tile="${which}"]`)?.focus();
+  }, [asking]);
+  const openMenu = (which: 'sortare' | 'organizare') => {
+    setMenuFocus(f => ({ to: 'open', which, n: (f?.n ?? 0) + 1 }));
+    setMenu(which);
   };
   const closeMenu = () => {
-    setMenuFocus(f => ({ to: 'closed', n: (f?.n ?? 0) + 1 }));
+    setMenuFocus(f => ({ to: 'closed', which: f?.which ?? 'sortare', n: (f?.n ?? 0) + 1 }));
     setMenu(null);
   };
 
@@ -168,6 +193,40 @@ export function MobileActionBar(props: Props) {
     content = <BarConfirmRow {...confirm} />;
   } else if (barMessage) {
     content = <BarMessage message={barMessage} onDismiss={props.onBarMessageDismiss} />;
+  } else if (menu === 'organizare' && props.organizer) {
+    const { options, onChoose } = props.organizer;
+    content = (
+      <Bar
+        label="Acțiuni organizator"
+        onEscape={() => closeMenu()}
+        tiles={[
+          { id: 'back', label: 'Înapoi', Icon: ChevronLeftIcon, onPress: () => closeMenu() },
+          ...options.map(
+            (o): Tile =>
+              o.action.type === 'link'
+                ? { id: `org-${o.key}`, label: o.label, Icon: ORGANIZER_ICON[o.icon], href: o.action.href }
+                // A link keeps the submenu until the page changes: unmounting it on click cancelled the navigation.
+                : {
+                    id: `org-${o.key}`,
+                    label: o.label,
+                    Icon: ORGANIZER_ICON[o.icon],
+                    tone: optionTone(o),
+                    onPress: () => {
+                      // fish handleOptionSelect: a write that asks closes the submenu (the question
+                      // takes the bar) and focus comes back to «Organizare» once it is answered; a
+                      // dialog keeps the submenu behind it, so the dialog returns focus to this tile.
+                      if (o.action.type === 'confirm') {
+                        focusAfterConfirm.current = 'organizare';
+                        setMenuFocus(f => ({ to: 'closed', which: 'organizare', n: (f?.n ?? 0) + 1 }));
+                        setMenu(null);
+                      }
+                      onChoose(o);
+                    },
+                  },
+          ),
+        ]}
+      />
+    );
   } else if (menu === 'sortare') {
     const pick = (by: string) => {
       focusAfterSort.current = true;
@@ -195,7 +254,7 @@ export function MobileActionBar(props: Props) {
         signIn={signIn}
         href={props.registrationHref}
         chat={v === undefined ? 'bone' : v && v !== 'unknown' && chatEntry ? chatTile(chatEntry, chatBadge) : null}
-        organizer={v && v !== 'unknown' && props.onOrganizer ? organizerTile(props.onOrganizer) : null}
+        organizer={v && v !== 'unknown' && props.organizer?.options.length ? organizerTile(() => openMenu('organizare')) : null}
       />
     );
     content = (
@@ -206,7 +265,7 @@ export function MobileActionBar(props: Props) {
   } else {
     const tiles: Tile[] = [];
     // fish: «Organizare» first, for the author while it is not completed.
-    if (props.onOrganizer && status === 'started') tiles.push(organizerTile(props.onOrganizer));
+    if (props.organizer?.options.length && status === 'started') tiles.push(organizerTile(() => openMenu('organizare')));
     if ((status === 'started' || status === 'completed') && props.rankingAvailable !== false) {
       tiles.push(
         {
@@ -219,6 +278,10 @@ export function MobileActionBar(props: Props) {
         },
         { id: 'cantare', label: 'Cântare', Icon: viewIcon('cantare'), onPress: () => onView('cantare'), accessibilityLabel: 'Vezi cântarele din concurs' },
       );
+      // fish: a referee's «Adaugă cântar» (the scale page), after Cântare.
+      if (props.refereeScaleHref) {
+        tiles.push({ id: 'adauga-cantar', label: 'Adaugă cântar', Icon: ORGANIZER_ICON.scale, href: props.refereeScaleHref });
+      }
       // fish: Extra-Cântar / «Anulează extra» for a registered participant while it runs.
       if (props.extraScale) {
         tiles.push({
@@ -231,9 +294,14 @@ export function MobileActionBar(props: Props) {
       }
       // fish: no Sortare on a feeder ranking (fixed order).
       if (props.sortOptions) {
-        tiles.push({ id: 'sortare', label: 'Sortare', Icon: ArrowsUpDownIcon, onPress: () => openMenu(), accessibilityLabel: 'Sortare clasament' });
+        tiles.push({ id: 'sortare', label: 'Sortare', Icon: ArrowsUpDownIcon, onPress: () => openMenu('sortare'), accessibilityLabel: 'Sortare clasament' });
       }
       tiles.push({ id: 'statistici', label: 'Statistici', Icon: viewIcon('statistici'), onPress: () => onView('statistici') });
+    }
+    // fish: «Penalizări» for everyone but the author (who has it in the menu), after Statistici.
+    if (props.penaltiesHref) {
+      // Its visible label is its name (WCAG 2.5.3).
+      tiles.push({ id: 'penalizari', label: 'Penalizări', Icon: ExclamationTriangleIcon, href: props.penaltiesHref });
     }
     // fish ActionButton (every tab but Clasament): «Acțiuni» opens the actions sheet.
     if (props.onActions) {
@@ -256,7 +324,9 @@ export function MobileActionBar(props: Props) {
   }
 
   return (
-    <div ref={barRef} className="min-w-0 flex-1">
+    // w-0: the bar's min-content contribution is 0, so a scrolling row (the submenu) scrolls inside
+    // the bar instead of widening the DetailActionBar row past the screen (where it was clipped).
+    <div ref={barRef} className="w-0 min-w-0 flex-1">
       {/* Always mounted, so the sort confirmation is announced (a live region born with its text is not). */}
       <p role="status" className="sr-only">
         {loadingLabel ?? barMessage ?? ''}
@@ -343,7 +413,7 @@ function BarLoading({ label }: { label: string }) {
 }
 
 /** fish's in-bar confirmation: the question, then Anulează / Confirmă. */
-function BarConfirmRow({ question, onConfirm, onCancel }: BarConfirm) {
+function BarConfirmRow({ question, onConfirm, onCancel, tone }: BarConfirm) {
   const ref = useRef<HTMLDivElement>(null);
   // The question takes the tile's place: focus moves to it (and Escape answers «Anulează»).
   useEffect(() => ref.current?.querySelector<HTMLElement>('button')?.focus(), []);
@@ -362,7 +432,7 @@ function BarConfirmRow({ question, onConfirm, onCancel }: BarConfirm) {
         <Button variant="secondary" size="compact" onClick={onCancel}>
           Anulează
         </Button>
-        <Button size="compact" onClick={onConfirm}>
+        <Button size="compact" variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm}>
           Confirmă
         </Button>
       </div>
@@ -385,8 +455,18 @@ function chatTile(entry: { href: string; onOpen: () => void }, chatBadge: chat.C
 /** A view's icon, the one its chip and desktop tab use. */
 const viewIcon = (key: RankingViewKey): Icon => VIEWS.find(v => v.key === key)?.Icon ?? TrophyIcon;
 
-/** Up to five tiles share the width evenly; a long label wraps to two lines inside its tile. */
+/**
+ * Up to six tiles share the width evenly (≥ 59px each at 375); a long label wraps to two lines inside
+ * its tile. More than six (the author's submenu, a referee's full row): each tile keeps 80px (fish
+ * gives these labels labelMaxWidth 104, CompetitionRanking.tsx:580-601) and its label up to three
+ * lines, so «Alocă participanții pe standuri» / «Adaugă participanți fără cont» are never cut; the
+ * row scrolls sideways (fish's ScrollView). At 375 about 4.5 tiles fit, so a tile is always cut at
+ * the edge and the row reads as «more»; the edge fades until the end of the row is reached.
+ */
+const EVEN_MAX = 6;
 function Bar({ label, tiles, onEscape }: { label: string; tiles: Tile[]; onEscape?: () => void }) {
+  const scroll = tiles.length > EVEN_MAX;
+  const [atEnd, setAtEnd] = useState(false);
   return (
     // Inside the T3 DetailActionBar row (its 16px gutters): the tiles run edge to edge.
     <nav
@@ -403,10 +483,24 @@ function Bar({ label, tiles, onEscape }: { label: string; tiles: Tile[]; onEscap
           : undefined
       }
     >
-      <ul className="flex px-2">
+      <ul
+        onScroll={
+          scroll
+            ? e => {
+                const el = e.currentTarget;
+                setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
+              }
+            : undefined
+        }
+        className={cn(
+          'flex px-2',
+          scroll && 'snap-x overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+          scroll && !atEnd && '[mask-image:linear-gradient(to_left,transparent,black_--spacing(8))]',
+        )}
+      >
         {tiles.map(tile => (
-          <li key={tile.id} className="min-w-0 flex-1">
-            <TileControl tile={tile} />
+          <li key={tile.id} className={scroll ? 'w-20 shrink-0 snap-start' : 'min-w-0 flex-1'}>
+            <TileControl tile={tile} lines={scroll ? 3 : 2} />
           </li>
         ))}
       </ul>
@@ -426,7 +520,7 @@ function useHydrated(): boolean {
   return useSyncExternalStore(noSubscribe, () => true, () => false);
 }
 
-function TileControl({ tile }: { tile: Tile }) {
+function TileControl({ tile, lines = 2 }: { tile: Tile; lines?: 2 | 3 }) {
   const hydrated = useHydrated();
   if (tile.bone) {
     return (
@@ -438,11 +532,18 @@ function TileControl({ tile }: { tile: Tile }) {
   }
   const body = (
     <>
-      <span className="relative flex size-8 items-center justify-center rounded-control bg-accent-tint text-accent-ink">
+      <span
+        className={cn(
+          'relative flex size-8 items-center justify-center rounded-control',
+          tile.tone === 'danger' ? 'bg-status-danger-bg text-status-danger-fg' : 'bg-accent-tint text-accent-ink',
+        )}
+      >
         <tile.Icon aria-hidden className="size-6" />
         <ChatCountBadge badge={tile.badge ?? null} className="absolute -top-2 left-5" />
       </span>
-      <span className="line-clamp-2 max-w-17 text-center t-micro text-ink">{tile.label}</span>
+      <span data-tile-label className={cn('text-center t-micro text-ink', lines === 3 ? 'line-clamp-3 max-w-19' : 'line-clamp-2 max-w-17')}>
+        {tile.label}
+      </span>
     </>
   );
   const cls =

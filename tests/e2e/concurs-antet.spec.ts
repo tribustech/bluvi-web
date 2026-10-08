@@ -241,7 +241,7 @@ test('competition-page.shell.c28 — on Clasament there is no «Acțiuni» tile 
   await expect(actionsTile(page)).toHaveCount(0);
 });
 
-test('competition-page.bara-actiuni.c12 competition-page.bara-actiuni.c13 — signed in on Regulament after the end: «Înscrie-te» closed with fish\'s reason, «Vezi cântarele din concurs» opens the Cântare view', async ({
+test('competition-page.bara-actiuni.c12 competition-page.bara-actiuni.c13 — signed in on Regulament after the end: «Înscrie-te» closed with fish\'s reason, «Vezi cântarele din concurs» opens the scale area', async ({
   page,
   context,
 }) => {
@@ -259,9 +259,8 @@ test('competition-page.bara-actiuni.c12 competition-page.bara-actiuni.c13 — si
   await expect(register).toContainText(/Termenul pentru înscriere a expirat|Numărul maxim de participanți a fost atins/);
   await page.waitForTimeout(800);
   await expectNoA11yViolations(page);
-  await s.getByRole('link', { name: 'Vezi cântarele din concurs' }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.rich}/cantare$`), { timeout: 30_000 });
-  await expect(page.getByRole('heading', { name: /^Sector / }).first()).toBeVisible({ timeout: 30_000 });
+  // M6 (competition-page.organizare): the scale area's weighings (/cantar, fish /scale/[id]), read-only for an angler.
+  await expect(s.getByRole('link', { name: 'Vezi cântarele din concurs' })).toHaveAttribute('href', `/concursuri/${ID.rich}/cantar`);
   expect(errors).toEqual([]);
 });
 
@@ -322,14 +321,14 @@ test('competition-page.bara-actiuni.c14 — a registered participant while it ru
   expect(errors).toEqual([]);
 });
 
-test('competition-page.bara-actiuni.c11 web — a referee: the organiser sheets are M6; the web offers «Vezi cântarele din concurs»', async ({ page, context }) => {
+test('competition-page.bara-actiuni.c11 competition-page.organizare.c13 — a referee: fish RefereeSheetItems, the add-weighing item → the scale', async ({ page, context }) => {
   await signIn(context, jwt);
   await mockStatute(context, 'referee');
   await open(page, `/concursuri/${ID.live}/informatii`);
   await settle(page);
   await actionsTile(page).click();
   const s = sheet(page);
-  await expect(s.getByRole('link', { name: 'Vezi cântarele din concurs' })).toBeVisible();
+  await expect(s.getByRole('link', { name: 'Adaugă cântar' })).toHaveAttribute('href', `/concursuri/${ID.live}/cantar`, { timeout: 30_000 });
   await expect(s.getByRole('button', { name: /Înscrie-te|Solicită/ })).toHaveCount(0);
 });
 
