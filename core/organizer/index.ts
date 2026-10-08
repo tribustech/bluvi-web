@@ -8,5 +8,6 @@ export * from './domain/rankingConfig';
 export * from './domain/rankingExplanations';
 export * from './domain/publishFeedback';
 export * from './domain/richText';
+export * from './domain/richTextSummary';
 export * from './domain/weighing';
 export * from './domain/penalties';

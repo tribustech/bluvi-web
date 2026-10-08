@@ -426,14 +426,14 @@ screens:
       - helpers/competitionDateConstraints.ts
       - helpers/createCompetitionRichTextSummary.ts
       - helpers/dateTimePicker.ts
-    web_route: /organizator/concursuri/nou/detalii
+    web_route: "/organizator/concursuri/nou/detalii — edit: /concursuri/[id]/editeaza/detalii"
     template: T4
     milestone: M6
     roles: [organizer]
     core:
       - core/organizer/domain/createCompetition.ts#createCompetitionSchema
       - core/organizer/domain/createCompetition.ts#getDateConstraintUpdates
-      - "(missing) rich text preview summary (fish helpers/createCompetitionRichTextSummary.ts)"
+      - core/organizer/domain/richTextSummary.ts#buildRichTextSummary
     states:
       - "empty new form"
       - "hydrated draft / competition"
@@ -446,38 +446,62 @@ screens:
       - id: organizer.step-basics.c1
         text: "Section „Identitate competiție” („Configurează numele și imaginea principală afișată în listă.”) holds „Numele competiției *” with helper „Alege un nume scurt și ușor de reținut.” and placeholder „ex. Cupa Primăverii 2026”."
         fish_ref: app/(app)/create-competition/step-basics.tsx:279-306
+        status: passing
+        web_note: "T4Section «Identitate competiție» (fish copy); kit TextInput id concurs-nume (the frame focuses it), helper under the field. e2e «c1 c4 c7 c10 c11 …»."
       - id: organizer.step-basics.c2
         text: "A name under 3 characters shows „Numele trebuie să aibă cel puțin 3 caractere”; leaving the name field triggers an auto-save."
         fish_ref: contexts/CreateCompetitionContext.tsx:52
+        status: passing
+        web_note: "The schema's message once the field was left (touched), cleared as a valid name is typed; blur = touch → flush auto-save; a name < 3 is never saved (shouldAttemptAutoSave). e2e «c2 …» (no write on «Cu», POST on a valid name)."
       - id: organizer.step-basics.c3
         text: "„Banner” („Imaginea principală afișată pe pagina competiției.”) has „Alege o fotografie”; the picked image (cropped, compressed) previews as a thumbnail and schedules an auto-save."
         fish_ref: app/(app)/create-competition/step-basics.tsx:309-341
+        status: passing
+        web_note: "BannerPicker: file input → the shared photo crop (components/photo-crop via the chat's PhotoCropDialog, 4:3 default, canvasPipeline JPEG under the upload cap) → pickBanner (object URL + debounced auto-save) → 4:3 thumbnail. The upload is the wizard's (draft PUT then POST /upload ref/refId/field=banner, mocked). e2e «c3 …»."
       - id: organizer.step-basics.c4
         text: "Section „Conținut competiție” („Pregătește informațiile afișate participanților înainte de înscriere.”) has three rich text cards: „Descriere *” („Prezintă competiția pe scurt — locație, format, condiții.”), „Premii” („Descrie premiile oferite câștigătorilor.”), „Regulament” („Regulile oficiale ale competiției.”)."
         fish_ref: app/(app)/create-competition/step-basics.tsx:345-371
+        status: passing
+        web_note: "Three RichTextCards; side by side (subgrid, previews aligned) only from a ~896 px form column (@container @4xl: 1920), stacked at 1280 / 1440 where three ~210 px columns showed a few words per line. The preview button is named «<label>: editează conținutul | adaugă conținut», described by the helper + a ≤ 80-character excerpt (never the full text). e2e «c1 c4 …», «c5 c6 …»."
       - id: organizer.step-basics.c5
         text: "Each rich text card shows a plain-text preview of up to 3 lines (list items as bullets), or „Adaugă conținut” when empty, and „Vezi mai mult” when the text exceeds 140 characters."
         fish_ref: app/(app)/create-competition/step-basics.tsx:27-92
+        status: passing
+        web_note: "core/organizer/domain/richTextSummary.ts (+ test): ≤ 3 lines (line-clamp), «• » bullets, «Vezi mai mult» past 140. e2e «c5 c6 …» (short / long / empty on a hydrated draft). `excerpt` (≤ 80 chars, cut at a word) is the preview card's accessible description."
       - id: organizer.step-basics.c6
         text: "Activating the card or its „Editează” link opens the rich text editor for that field (descriere / premii / regulament) with its title."
         fish_ref: app/(app)/create-competition/step-basics.tsx:144-156
+        status: passing
+        web_note: "The card and «Editează» set ?editor=descriere|premii|regulament (the frame renders RichTextEditor, B4). e2e «c5 c6 …»."
       - id: organizer.step-basics.c7
         text: "Section „Calendar și taxă” („Stabilește perioada desfășurării și taxa de înscriere.”) has „Datele competiției *” / „Setează perioada competiției.” and two rows „Data începerii” and „Data încheierii” showing „Selectează data” or the value as „d MMM yyyy, HH:mm” in Romanian."
         fish_ref: app/(app)/create-competition/step-basics.tsx:374-417
+        status: passing
+        web_note: "Two-line rows (label, value) so they fit side by side in the 1280 form column; «Selectează data» or «d MMM yyyy, HH:mm» with date-fns ro month abbreviations (noi, oct…), local time. e2e «c1 …», «c5 c6 …» (hydrated), «c7 c8 c9 …»."
       - id: organizer.step-basics.c8
         text: "Picking a date asks for the date and then the time (24 h); confirming applies it and schedules an auto-save, cancelling leaves the value unchanged."
         fish_ref: app/(app)/create-competition/step-basics.tsx:197-261
+        status: passing
+        web_note: "DateTimeDialog (kit Dialog): month calendar → 24 h time (hour 00–23, minute in 5-minute steps), fish's «Ora / Data» switch row, «Confirmă» → setValue + debounced auto-save; «Anulează» / Escape / X keep the value. fish Android bounds: an empty end opens on the start (an empty start on the end); the end's calendar disables the days before the start, the start's the days after the end (earlier / later months still browsable). scrollBody + «Anulează | Confirmă» side by side in a row pinned to the dialog's bottom (the «Ora» step is ~640 px; reachable at 375×600). e2e «c7 c8 c9 …» (PUT startDate + registrationDeadline; 375×600 shot), «c8 — an empty end opens on the start …»."
       - id: organizer.step-basics.c9
         text: "A start later than the end moves the end to the start; an end earlier than the start moves the start to the end."
         fish_ref: helpers/competitionDateConstraints.ts:33-41
+        status: passing
+        web_note: "getDateConstraintUpdates on confirm, both directions (with the calendar bounds only a same-day earlier / later hour reaches it); one debounced save. e2e «c7 c8 c9 …»."
       - id: organizer.step-basics.c10
         text: "„Taxă de înscriere (RON)” („Suma percepută fiecărui participant la înscriere. Lasă gol sau 0 pentru competiție gratuită.”, placeholder „ex. 150”) validates as you type: outside 0–50.000 shows „Taxa de înscriere trebuie să fie între 0 și 50.000 RON.”; blur auto-saves."
         fish_ref: app/(app)/create-competition/step-basics.tsx:421-453
+        status: passing
+        web_note: "FeeField (kit TextInput, «RON» suffix): digits only (fish number-pad), schema error while typing, blur = touch → auto-save. e2e «c10 …» (60000 → error, «-1,5o0» → 150, PUT registerFee '150')."
       - id: organizer.step-basics.c11
         text: "The footer has „Următorul pas” (→ configurare) and a secondary save button with the wizard's save label."
         fish_ref: app/(app)/create-competition/step-basics.tsx:269-276
+        status: passing
+        web_note: "The frame's T4ActionBar: «Următorul pas» → /configurare, the secondary «Salvează și ieși» / «Salvează modificările». e2e «c11 …» (POST on blur, then PUT, lands on /organizator)."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/organizator-pas-detalii.spec.ts
+    web_note: "M6-B2: app/(site)/organizator/_wizard/steps/detalii (index, BannerPicker, RichTextCard, DateTimeDialog, FeeField, format + format.test.ts). Three T4 cards; inside them the fields go side by side by the form column's width (@container: name | banner, the three previews, start | end). Edit route: same step, no auto-save (e2e). Reads: drafts are fixtures, the edited competition a real local one; every write MOCKED (harness guard). Screenshots at 375/1280/1440/1920 (empty, hydrated) and 375 (name error, fee error, banner / none, picker date / time / bounds) + 375×600 (picker time) in .shots/organizator-pas-detalii; axe 0."
 
   - id: organizer.step-config
     title: Configurare competiție
@@ -502,29 +526,47 @@ screens:
       - id: organizer.step-config.c1
         text: "Section „Format participanți” („Alege formatul competiției și structura echipei.”) asks „Tipul competiției *” („Alege dacă participanții concurează individual sau în echipă.”) with two exclusive options „Individual” and „Echipă”; Individual is preselected for a new competition."
         fish_ref: app/(app)/create-competition/step-config.tsx:84-129
+        status: passing
+        web_note: "Two T4ChoiceCard radios in a radiogroup «Tipul competiției *» with its caption; Individual checked by default (createCompetitionDefaultValues). e2e «c1 c4 c5 c8 …» + «c1 c2 c3 c4 c7 …»."
       - id: organizer.step-config.c2
         text: "Choosing a type schedules an auto-save."
         fish_ref: app/(app)/create-competition/step-config.tsx:114-118
+        status: passing
+        web_note: "setValue('competitionType', …, { autoSave: 'debounced' }) (fish scheduleAutoSave). e2e: choose Echipă → PUT competitionType 'team'; back to Individual → PUT 'single'."
       - id: organizer.step-config.c3
         text: "Only for Echipă, „Participanți per echipă *” („Câți membri are fiecare echipă.”) accepts digits only and shows „Participanți per echipă trebuie să fie între 1 și 10.” outside 1–10."
         fish_ref: app/(app)/create-competition/step-config.tsx:131-164
+        status: passing
+        web_note: "Count field (inputMode numeric), only for Echipă; caption between label and input like fish, kept visible with the error under the input; digits only («1a2» → 12); the schema error while typing (fish trigger), aria-invalid. Switching back to Individual drops an invalid hidden size (fish configErrors check it only for team), so it neither blocks publish nor rides in the PUT. e2e: 12 / 0 / 11 → error, 4 → none; Echipă → 11 → Individual → revizuire primary enabled."
       - id: organizer.step-config.c4
         text: "Section „Capacitate competiție” („Definește limita maximă de participanți sau echipe.”) has „Total participanți *” („Numărul maxim de participanți acceptați.”, placeholder „ex. 50”) or, for teams, „Total echipe *” („Numărul maxim de echipe acceptate.”, placeholder „ex. 20”); digits only; below 1 shows „Capacitatea trebuie să fie cel puțin 1.”."
         fish_ref: app/(app)/create-competition/step-config.tsx:167-210
+        status: passing
+        web_note: "Same card copy and placeholders switch with the type; digits only («x1 6» → 16); «0» → «Capacitatea trebuie să fie cel puțin 1.». e2e asserts both variants."
       - id: organizer.step-config.c5
         text: "Section „Specii eligibile *” („Selectează speciile de pește care intră în competiție.”) is shown only when species exist; chips are ordered by competitionPriority (those with a priority first), then by Romanian name."
         fish_ref: app/(app)/create-competition/step-config.tsx:29-48
+        status: passing
+        web_note: "steps/configurare/model.ts sortCompetitionSpecies (unit test with ș/ț names); the card renders only when the sorted list is non-empty — loading, empty and failed reads hide it (rule 4). e2e: real local catalog order + fixture order, loading/empty/500 hidden."
       - id: organizer.step-config.c6
         text: "Each species chip toggles selection (indigo when selected) and schedules an auto-save; the chip row scrolls horizontally with edge fades when it overflows (web may wrap instead)."
         fish_ref: app/(app)/create-competition/step-config.tsx:242-310
+        status: passing
+        web_note: "Toggle pills (button aria-pressed, accent tint + accent ink + 2px ring = fish indigo, check glyph) that WRAP on the web (c6 allows it; no horizontal overflow at 375, asserted); debounced auto-save with draftMeta.fishSpeciesIds; a «N selectate» count in the card header (formatCount). e2e «c5 c6 …»."
       - id: organizer.step-config.c7
         text: "Blur on team size or limit triggers an auto-save."
         fish_ref: app/(app)/create-competition/step-config.tsx:149-152
+        status: passing
+        web_note: "onBlur → useWizard().touch(field) → auto-save now. e2e: blur team size → PUT teamParticipants '4'; blur limit → PUT participantsLimit '16'."
       - id: organizer.step-config.c8
         text: "The footer has „Următorul pas” (→ clasament) and the secondary save button."
         fish_ref: app/(app)/create-competition/step-config.tsx:75-82
+        status: passing
+        web_note: "The frame's T4ActionBar: «Următorul pas» → /clasament (keeps ?ciorna=), «Salvează și ieși» / «Salvează modificările». e2e asserts both and the navigation."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/organizator-pas-configurare.spec.ts
+    web_note: "M6-B2: app/(site)/organizator/_wizard/steps/configurare (index, model + model.test.ts). Three T4 cards (Format participanți, Capacitate competiție, Specii eligibile); choice cards and count fields share one md:max-w-xl right edge (counts half of it from 640; asserted). Edit route: same step, no auto-save (e2e). Reads: the species catalog from the local CMS (one spec) or fixtures; drafts are fixtures; every write MOCKED (harness guard). Screenshots of every state at 375/1280/1440/1920 in .shots/organizator-pas-configurare; axe 0."
 
   - id: organizer.step-ranking
     title: Tip clasament
@@ -613,11 +655,11 @@ screens:
       - core/lakes/queries.ts#lakeQuery
       - core/organizer/queries.ts#organizerRecentLakesQuery
       - components/ranking/sector.ts (sector colors)
-      - "(missing) requiresMinFishNumber (fish helpers/rankingConfig.ts)"
+      - core/organizer/domain/rankingConfig.ts#requiresMinFishNumber + getMaxSectors + isThreeSectorRankingType
     states:
       - "no lake selected („Alege un lac”)"
       - "lake picker open: loading / results / no results / loading more / search active"
-      - "lake selected (card), stands still loading (count from the card DTO = 0 until detail arrives)"
+      - "lake selected (card), stands still loading (web: a neutral bar instead of fish's «0 standuri», §4b rule 4)"
       - "limit exceeds lake stands: red warning"
       - "no sectors („Niciun sector adăugat…”)"
       - "sectors with min-fish steppers (quality-type rankings) vs plain chips"
@@ -627,50 +669,82 @@ screens:
       - id: organizer.step-lake-sectors.c1
         text: "Section „Selectare lac” („Alege lacul pe care vrei să configurezi competiția.”) has a picker showing the lake name or „Alege un lac”."
         fish_ref: app/(app)/create-competition/step-lake-sectors.tsx:144-165
+        status: passing
+        web_note: "T4Section «Selectare lac» + LakePicker (fish's indigo field: «Alege un lac» or the lake's name). e2e «c1 c2 c3 c4 …»."
       - id: organizer.step-lake-sectors.c2
         text: "The lake picker is searchable (placeholder „Introdu numele”), loads 20 lakes per page with infinite loading, and shows „Nu s-au găsit rezultate” when empty."
         fish_ref: app/(app)/create-competition/step-lake-sectors.tsx:43-49
+        status: passing
+        web_note: "Kit SearchSelectDialog (a sheet on a phone, a dialog from 768): server search after 250 ms, placeholder «Introdu numele», lakesInfiniteQuery pageSize 20 under its own cache key (the home rail / ⌘K share ['lakes'] with other page sizes), the end sentinel loads page 2 (40 rows), «Nu s-au găsit rezultate». e2e «c1 c2 c3 c4 …» against the local CMS's 130 lakes."
       - id: organizer.step-lake-sectors.c3
         text: "Without a search term the organizer's recent lakes come first (in recency order), then the rest alphabetically (Romanian, case-insensitive)."
         fish_ref: app/(app)/create-competition/step-lake-sectors.tsx:63-86
+        status: passing
+        web_note: "model.orderLakes (unit-tested): recent (organizerRecentLakesQuery) in recency order, then localeCompare('ro', base) over the loaded rows, as fish. e2e compares with the CMS's first page (recent lakes fixture)."
       - id: organizer.step-lake-sectors.c4
         text: "Each lake option shows its first photo as avatar, the name and „oraș, județ”; the currently selected lake is disabled."
         fish_ref: app/(app)/create-competition/step-lake-sectors.tsx:88-98
+        status: passing
+        web_note: "lakeOption: square photo avatar (smallUrl), «oraș, județ» (cityRef, countyRef ?? county), the current lake selected + disabled, read «…, selectat» once (no extra tag); SearchSelectDialog keepOrder so it keeps its recency place like fish (first, disabled). e2e «c1 …» (Balta Belin: «Belin, Covasna»), «c3 c4 — with a current lake …», «c5 c6 …»."
       - id: organizer.step-lake-sectors.c5
         text: "Choosing a lake shows it immediately, clears stand allocations when it differs from the previous lake, saves the lake, schedules an auto-save, closes the picker and fetches the lake detail (with stands)."
         fish_ref: app/(app)/create-competition/step-lake-sectors.tsx:170-188
+        status: passing
+        web_note: "The picked row shows at once (local state) while the detail loads (context lakeQuery); a different lake clears standAllocations; setValue('lake', { autoSave: 'debounced' }); the picker closes and forgets the search. e2e «c5 c6 …» (detail GET held: name at once, POST draft body has lake — MOCKED) and «c5 — another lake clears …»."
       - id: organizer.step-lake-sectors.c6
         text: "A selected lake card shows „Lac selectat”, the lake name, „N standuri disponibile” and the lake photo."
         fish_ref: app/(app)/create-competition/step-lake-sectors.tsx:199-229
+        status: passing
+        web_note: "SelectedLakeCard: «Lac selectat», name, formatCount → «21 de standuri disponibile» (correct plural), the photo; the count is a neutral bar until the detail lands (never «0 standuri», rule 4); a failed detail hides the count line (no endless shimmer) under the notice «Nu am putut încărca lacul.» / «Nu am putut încărca standurile lacului.» + «Încearcă din nou»; a saved lake whose detail failed reads «Lac salvat» in the field (never «Alege un lac»). e2e «c5 c6 …», «c5 c6 — the saved lake whose detail fails …», «c6 — a picked lake whose detail fails …» (detail GET routed to 500)."
       - id: organizer.step-lake-sectors.c7
         text: "When the participants limit exceeds the lake's stands a red warning reads „Lacul are doar N standuri, dar competiția are M participanți/echipe.” with „Modifică limita”, which flushes auto-save and returns to the configurare step."
         fish_ref: app/(app)/create-competition/step-lake-sectors.tsx:231-252
+        status: passing
+        web_note: "Red box with «Modifică limita» (outline) → goTo('configurare') (the frame flushes the auto-save). Plurals via formatCount («21 de standuri», «30 de participanți», «25 de echipe»). e2e «c7 …»."
       - id: organizer.step-lake-sectors.c8
         text: "Section „Configurare sectoare” reads „Împarte lacul în sectoare și setează numărul minim de pești pentru fiecare.” for quality-based types (Calitate, Cantitate/Calitate, Calitate/Cantitate, Calitate/Calitate, Calitate/Cantitate/CMMC), else „Împarte lacul în sectoare pentru alocarea standurilor.”."
         fish_ref: app/(app)/create-competition/step-lake-sectors.tsx:255-265
+        status: passing
+        web_note: "Description switches on requiresMinFishNumber (the five quality types). e2e «c8 c9 c13 …», «c8 c10 c13 …»."
       - id: organizer.step-lake-sectors.c9
         text: "The sector builder shows „Sectoare (n)” and „Adaugă sector” until the maximum (24, or 3 for national/FIPSed); sectors are named A, B, C… in order with a color badge per letter."
         fish_ref: components/SectorBuilder.tsx:25-92
+        status: passing
+        web_note: "SectorBuilder: «Sectoare (n)», «Adaugă sector» until getMaxSectors (24 / 3), A..X; the badge is the sector's ranking token (bg-sector-x) with its AA ink (sectorInk solid) — the web's sector palette, not fish's pale builder chips. e2e «c8 c9 c13 …» (24 → X, button gone), «c9 c14 …»."
       - id: organizer.step-lake-sectors.c10
         text: "For quality-based types each sector row shows „Sector X”, „Nr. minim pești” and a − / input / + stepper (default 1, never below 0, digits only)."
         fish_ref: components/SectorBuilder.tsx:94-195
+        status: passing
+        web_note: "Stepper row: − / text input (inputMode numeric, digits only, 0 = empty) / +, default 1, − disabled at 0; narrow rows wrap the stepper under the name. e2e «c8 c10 c13 …» incl. the keyboard path."
       - id: organizer.step-lake-sectors.c11
         text: "Removing a sector is possible only when there is more than one; remaining sectors are renamed A, B, C… in order; when the removed sector's min fish was changed from 1 the user confirms „Ștergi sectorul?” first."
         fish_ref: components/SectorBuilder.tsx:33-58
+        status: passing
+        web_note: "Trash only with > 1 sector; removeSector renames in order; a changed minimum (quality types) asks «Ștergi sectorul?» (alert Dialog, «Anulează» / «Șterge»). e2e «c11 c12 …»."
       - id: organizer.step-lake-sectors.c12
         text: "Changing sectors drops stand allocations of sectors that no longer exist."
         fish_ref: app/(app)/create-competition/step-lake-sectors.tsx:116-126
+        status: passing
+        web_note: "keepAllocations drops the allocations of names that no longer exist (fish: by name, after the rename). e2e «c11 c12 …»."
       - id: organizer.step-lake-sectors.c13
         text: "With no sectors the builder shows „Niciun sector adăugat. Adaugă cel puțin un sector.”; a min fish below 1 shows „Nr. minim pești trebuie să fie cel puțin 1 pentru fiecare sector.”."
         fish_ref: components/SectorBuilder.tsx:252-258
+        status: passing
+        web_note: "Empty message in a soft-fill box; the min-fish error under the builder (role alert, the card's danger ring). e2e «c8 c9 c13 …», «c8 c10 c13 …»."
       - id: organizer.step-lake-sectors.c14
         text: "For national/FIPSed types with a sector count other than 3: „Campionatul Național și FIPSed necesită exact 3 sectoare.”."
         fish_ref: app/(app)/create-competition/step-lake-sectors.tsx:279-283
+        status: passing
+        web_note: "e2e «c9 c14 …» (national 2 → error, 3 → none; fipsed 1 → error)."
       - id: organizer.step-lake-sectors.c15
         text: "The footer has „Următorul pas” (→ standuri); the save button only when editing a published competition."
         fish_ref: app/(app)/create-competition/step-lake-sectors.tsx:133-142
+        status: passing
+        web_note: "The frame's T4ActionBar (WizardScreen): «Următorul pas» → /standuri; the web frame also shows the save button outside edit mode (organizer.wizard decision). e2e «c15 …»."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/organizator-pas-lac.spec.ts
+    web_note: "M6-B2: app/(site)/organizator/_wizard/steps/lac-si-sectoare (index, LakePicker on the kit SearchSelectDialog, SelectedLakeCard, SectorBuilder, model + model.test.ts). Two cards stacked; side by side once the form column is ~672 px (@container, 1440+). Reads: lakes list + Chita Lake detail from the local CMS, recent lakes a fixture; the draft auto-save MOCKED (harness guard). Screenshots of every state at 375/1280/1440/1920 in .shots/organizator-pas-lac; axe 0 at 375/1280."
 
   - id: organizer.step-stand-allocation
     title: Alocă standuri

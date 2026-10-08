@@ -34,7 +34,8 @@ export type { SearchSelectOption } from './searchSelect';
  *   - local: leave `onQueryChange` out — the options are filtered here (label + helper lines,
  *     diacritics-insensitive).
  * - Each row: the avatar (photo, else initials; `square` for teams and lakes), the label and helper
- *   lines. Disabled options are listed last, dimmed and not choosable, with their reason as a tag;
+ *   lines. Disabled options are listed last (`keepOrder` keeps the caller's order), dimmed and not
+ *   choosable, with their reason as a tag;
  *   the selected one has a check mark (selected + disabled = fixed, e.g. the anchor of a team).
  * - Infinite loading: `hasMore` + `onLoadMore` — called when the list's end scrolls into view
  *   (only once the first page is on screen: not while `loading`, on `error` or with no rows);
@@ -71,6 +72,8 @@ type Props<T extends SearchSelectOption> = {
   /** The list's accessible name («Bălți», «Înscrieri», «Arbitri»). */
   listLabel: string;
   testId?: string;
+  /** Keep the caller's order (disabled options stay in place) instead of listing disabled ones last. */
+  keepOrder?: boolean;
 };
 
 export function SearchSelectDialog<T extends SearchSelectOption>({ open, onClose, title, ...body }: Props<T>) {
@@ -97,6 +100,7 @@ function PickerBody<T extends SearchSelectOption>({
   emptyLabel = 'Nu s-au găsit rezultate',
   listLabel,
   testId = 'search-select',
+  keepOrder = false,
 }: Omit<Props<T>, 'open' | 'onClose' | 'title'>) {
   const [input, setInput] = useState('');
 
@@ -116,10 +120,10 @@ function PickerBody<T extends SearchSelectOption>({
     return () => window.clearTimeout(id);
   }, [input]);
 
-  const rows = useMemo(
-    () => orderOptions(onQueryChange ? options : filterOptions(options, input)),
-    [options, input, onQueryChange],
-  );
+  const rows = useMemo(() => {
+    const shown = onQueryChange ? options : filterOptions(options, input);
+    return keepOrder ? [...shown] : orderOptions(shown);
+  }, [options, input, onQueryChange, keepOrder]);
 
   // The next page when the end of the list comes into view — one at a time, never retried by itself.
   const [pager, setPager] = useState(pagerIdle);
@@ -222,7 +226,10 @@ function PickerBody<T extends SearchSelectOption>({
 
 function OptionRow({ option, onSelect }: { option: SearchSelectOption; onSelect: () => void }) {
   const lines = optionHelperLines(option.helper);
-  const name = [option.label, option.disabledReason, option.selected ? 'selectat' : null].filter(Boolean).join(', ');
+  // «selectat» once, even when it is also the disabled reason.
+  const name = [option.label, option.disabledReason, option.selected && option.disabledReason !== 'selectat' ? 'selectat' : null]
+    .filter(Boolean)
+    .join(', ');
   return (
     <button
       type="button"

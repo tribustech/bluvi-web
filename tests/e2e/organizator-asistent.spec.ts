@@ -260,7 +260,7 @@ test('organizer.wizard.c1 c3 c26 — six titled steps, «Pasul N din 6», segmen
   await expect(items).toHaveCount(6);
   for (let i = 0; i < 6; i++) await expect(items.nth(i)).toContainText(TITLES[i]);
   await expect(items.nth(0)).toHaveAttribute('aria-current', 'step');
-  await expect(page.getByTestId('wizard-step-stub')).toHaveText('În lucru');
+  await expect(page.getByTestId('step-detalii')).toBeVisible();
 
   // c26: «Următorul pas» → step 2, the URL follows, the heading takes focus.
   await nextBtn(page).click();
