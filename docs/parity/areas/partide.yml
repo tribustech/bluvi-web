@@ -883,17 +883,27 @@ screens:
       - id: partide.partida-galerie.c1
         text: "The gallery shows only capture events that have a photo, newest first, in a masonry grid with captions „{specie} · {kg} kg”."
         fish_ref: "features/partide/scenes/GalerieScene.tsx:46-65"
+        status: passing
+        note: "e2e tests/e2e/partida-galerie.spec.ts «c1 c4 at 375/1280/1440/1920 — axe clean»: 8 events → 5 tiles in the order g-5…g-1 (a lost event with a photo and captures without one left out), named «Deschide poza: Plătică · 1,25 kg» … «Crap · 2,4 kg» (fish caption, unit spaced); the lake gallery's MasonryGrid + CatchTile caption (kg chip, species), 2 columns at 375, 3–5 from 1280. «c1 a capture arriving live» (the fake pushes one → on top) and «c1 an ended partidă» (the CMS detail's photos). Never «capot»."
       - id: partide.partida-galerie.c2
         text: "No photo: „Nicio captură cu poză încă” / „Pozele capturilor din această partidă apar aici.”"
         fish_ref: "features/partide/scenes/GalerieScene.tsx:129-137"
+        status: passing
+        note: "e2e «c2 at 375/1280/1440/1920 — axe clean»: captures without a photo → the heading „Nicio captură cu poză încă” and „Pozele capturilor din această partidă apar aici.”, no «Exportă GIF»."
       - id: partide.partida-galerie.c3
         text: "Activating a photo opens the lightbox at that index with a footer (weight, species, time); its share action closes the lightbox and opens the share card for that catch."
         fish_ref: "features/partide/scenes/GalerieScene.tsx:189-204"
+        status: passing
+        note: "e2e «c3 at 375/1280»: Enter on the 2nd tile → the kit Lightbox «Captura 2 din 5», footer «12,345» + «kg» apart and the time «14:00» (fish CatchLightboxFooter: kg, specie · ora, Bucharest); → «Caras · 13:00»; «Distribuie captura» closes the lightbox and opens ShareCatchSheet on that catch (card «8,69 kg», «Balta Mock»); Escape returns focus to the tile. Axe clean with the lightbox open. Web: the kit Lightbox + ShareCatchSheet composed in the tab (components/partide/CatchLightbox is typed on AnglerCatch and its footer shows the date, not fish's time)."
       - id: partide.partida-galerie.c4
         text: "With ≥2 photo catches a floating „Exportă GIF” action builds an animated GIF (venue · stand, kg, species, date per frame) showing „{done}/{total}” progress and shares it; failure → „Eroare la generarea GIF-ului”."
         fish_ref: "features/partide/scenes/GalerieScene.tsx:83-125,149-180"
+        status: passing
+        note: "e2e «c4 phone»: «Exportă GIF» → «0/5…4/5» (aria-busy) → navigator.share gets one file bluvi-galerie-<ts>.gif, image/gif, header GIF89a, >10 kB, title «Distribuie GIF-ul»; «c4 desktop»: no file share → a download (GIF89a) and «GIF-ul a fost salvat.»; «c4 a failed export» (getImageData throws, a tainted canvas) → «Eroare la generarea GIF-ului», the action is back; «c4 one photo» → no action. Frames per fish gifExport (720×900, cover photo, scrim, venue · stand, kg + unit, species chip, date) on a 2D canvas, encoded with gifenc; CMS photos same-origin through the ape-publice foto proxy (shareablePhotoSrc). Phone: fish's floating pill (sticky bottom-right); from 768 in the gallery's toolbar."
     mobile_only: false
-    status: todo
+    e2e: tests/e2e/partida-galerie.spec.ts
+    visual: tests/visual/partida-galerie.visual.spec.ts
+    status: passing
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.partida-statistici

@@ -3,6 +3,7 @@ import type { Page, Route } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { expect, test, type FakeLiveDoc } from './helpers/fake-live';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { PARTIDE_PAGES_ON_WEB } from '@/lib/partide-pages';
 
 /*
  * partide.partida — the member view of /partide/[id] (T3 with tabs; fish app/(app)/partide/[id].tsx)
@@ -475,15 +476,22 @@ test('partide.partida.c5 ended while on «Statistici»: Statistici stays', async
 });
 
 for (const width of [375, 1280, 1440, 1920] as const) {
-  test(`partide.partida.c4 rule 4 at ${width}: only the shipped tabs (Lansete, Jurnal, Setări), never a «curând» one; each action once`, async ({ page, fakeLive }) => {
+  test(`partide.partida.c4 rule 4 at ${width}: only the shipped tabs, never a «curând» one; each action once`, async ({ page, fakeLive }) => {
     await fakeLive.seed({
       docs: { [LIVE.clientId]: liveDoc({ catches: [{ ...catchDoc(1, 2.4, 'Crap', 100), photoUrl: 'https://e2e-photos.invalid/a.png' }, catchDoc(2, 8.69, 'Somn', 60), catchDoc(3, null, 'Caras', 40), catchDoc(4, null, null, 20, 'lost')] }) },
     });
     await mockCms(page, { active: LIVE });
     await open(page, LIVE.documentId, { width });
     await expect(memberView(page)).toBeVisible();
-    // Galerie / Statistici have not shipped: left out, not shown as «curând» (lib/partide-pages).
-    await expect(page.getByRole('tab')).toHaveText(['Lansete', /^Jurnal/, 'Setări']);
+    // A tab whose batch has not shipped is left out, not shown as «curând» (lib/partide-pages).
+    const shipped: [string | RegExp, boolean][] = [
+      ['Lansete', PARTIDE_PAGES_ON_WEB.partidaLansete],
+      [/^Jurnal/, PARTIDE_PAGES_ON_WEB.partidaJurnal],
+      ['Galerie', PARTIDE_PAGES_ON_WEB.partidaGalerie],
+      ['Statistici', PARTIDE_PAGES_ON_WEB.partidaStatistici],
+      ['Setări', PARTIDE_PAGES_ON_WEB.partidaSetari],
+    ];
+    await expect(page.getByRole('tab')).toHaveText(shipped.filter(([, on]) => on).map(([t]) => t));
     await expect(page.getByText(/curând/)).toHaveCount(0);
     await expect(page.getByTestId('partida-summary-stats')).toBeVisible();
     // Each action once on the screen: «Termină» / «Distribuie» in the header below 1280, in the
