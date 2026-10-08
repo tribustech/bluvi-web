@@ -108,6 +108,16 @@ const NotFoundContext = createContext<string | null>(null);
  * <BreadcrumbBand jsonLd> itself on the server and be listed in OWN_BAND_ROUTES.
  */
 export function SetBreadcrumb({ trail }: { trail: Crumb[] }) {
+  // usePathname is request data on a dynamic route: under cacheComponents a prerender must not
+  // block on it. The component renders nothing, so an empty fallback is exact.
+  return (
+    <Suspense fallback={null}>
+      <SetBreadcrumbEffect trail={trail} />
+    </Suspense>
+  );
+}
+
+function SetBreadcrumbEffect({ trail }: { trail: Crumb[] }) {
   const set = use(BreadcrumbContext);
   const pathname = usePathname() ?? '/';
   const owner = useId();
@@ -127,6 +137,14 @@ export function SetBreadcrumb({ trail }: { trail: Crumb[] }) {
  * highlights no section and no breadcrumb band is shown. Bound to the pathname like SetBreadcrumb.
  */
 export function MarkNotFound() {
+  return (
+    <Suspense fallback={null}>
+      <MarkNotFoundEffect />
+    </Suspense>
+  );
+}
+
+function MarkNotFoundEffect() {
   const set = use(NotFoundSetContext);
   const pathname = usePathname() ?? '/';
   useEffect(() => {
