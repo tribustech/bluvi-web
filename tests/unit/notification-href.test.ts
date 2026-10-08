@@ -89,8 +89,8 @@ describe('notificationHref — every type with its ids', () => {
     [T.CHAT_MESSAGE, { ...C, chatRoom: 'participants' }, '/concursuri/c1/chat?tab=participanti'],
     [T.CHAT_MESSAGE, { ...C, tab: 'general', name: 'Cupa' }, '/concursuri/c1/chat?tab=general'],
     [T.CHAT_MESSAGE, C, '/concursuri/c1/chat?tab=general'],
-    // → pages not on the web yet: no link (each gate in NOTIFICATION_PAGES_ON_WEB / ON_WEB)
-    [T.PENALTY, C, null],
+    // → the penalties hub (organizer.b.penalty-notification, M6-B6)
+    [T.PENALTY, C, '/concursuri/c1/penalizari'],
     // partide.b.notif-invite: joining is app-only on web (owner 2026-10-08) — no link.
     [T.PARTIDA_INVITE, { partidaCode: 'ABC123' }, null],
     // partide.b.notif-finished-autoclose: the CLIENT id → the resolver page (pointer / own list → the

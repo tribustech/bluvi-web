@@ -153,7 +153,7 @@ describe('pill (c35), rooms (c36), links (c37)', () => {
     expect(messagesForRoom(list, 'participants').map(m => m.id)).toEqual(['a', 'c']);
     expect(messagesForRoom(list, 'general').map(m => m.id)).toEqual(['a', 's', 'c']);
   });
-  it('ranking / participants / weighing; penalties and broken links lead nowhere (yet)', () => {
+  it('ranking / participants / penalties / weighing; broken links lead nowhere', () => {
     expect(systemTarget({ kind: 'ranking' }, 'c1')).toEqual({ kind: 'href', href: '/concursuri/c1/clasament' });
     expect(systemTarget({ kind: 'allocation' }, 'c1')).toEqual({ kind: 'href', href: '/concursuri/c1/participanti' });
     expect(systemTarget({ kind: 'registrations' }, 'c1')).toEqual({ kind: 'href', href: '/concursuri/c1/participanti' });
@@ -165,7 +165,7 @@ describe('pill (c35), rooms (c36), links (c37)', () => {
       sectorName: 'A',
     });
     expect(systemTarget({ kind: 'weighing', id: 'w1', params: { standId: 's1' } }, 'c1')).toBeNull();
-    expect(systemTarget({ kind: 'penalties' }, 'c1')).toBeNull();
+    expect(systemTarget({ kind: 'penalties' }, 'c1')).toEqual({ kind: 'href', href: '/concursuri/c1/penalizari' });
     expect(systemTarget({ kind: 'nope' }, 'c1')).toBeNull();
     expect(systemTarget(undefined, 'c1')).toBeNull();
   });

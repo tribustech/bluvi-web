@@ -66,6 +66,16 @@ describe('standOccupantGroups (fish scale/index.tsx)', () => {
     expect(groups[1].stands[1]).toMatchObject({ team: 'Crapii', people: 'Mihai și Dan' });
   });
 
+  it('team, teamFallback false (penalties): an empty teamName prints no team, only the members', () => {
+    const [b] = standOccupantGroups(
+      competition({ competitionType: 'team' }),
+      { s3: alloc({ teamName: '', participants: [{ id: 1, documentId: 'a', name: 'Ion' }, { id: 2, documentId: 'b', name: 'Vasile' }] }), s4: alloc({ teamName: 'Crapii' }) },
+      { teamFallback: false },
+    );
+    expect(b.stands[0]).toMatchObject({ team: null, people: 'Ion, Vasile' });
+    expect(b.stands[1]).toMatchObject({ team: 'Crapii', people: 'Ion Pop' });
+  });
+
   it('national championship: the national stand label with the draw position, and the club', () => {
     const [b] = standOccupantGroups(competition({ rankingType: 'nationalChampionship' }), {
       s3: alloc({ sectorDrawPosition: 2, clubName: 'Ardealul' }),

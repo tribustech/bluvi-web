@@ -214,8 +214,8 @@ export type OpenWeighingTarget = Extract<SystemTarget, { kind: 'weighing' }>;
 
 /**
  * Where a linked event leads on the web: ranking → Clasament; allocation / registrations →
- * Participanți; a weighing (id + standId + standName) → its detail over the chat. Penalties have no
- * web page yet (M6): no link, no chevron, until it exists.
+ * Participanți; penalties → the penalties hub (fish systemMessages.ts:96-97, since M6-B6); a weighing
+ * (id + standId + standName) → its detail over the chat.
  */
 export function systemTarget(link: chat.ChatSystemLink | undefined, competitionId: string): SystemTarget {
   if (!link || !hasSystemLink(link)) return null;
@@ -225,6 +225,8 @@ export function systemTarget(link: chat.ChatSystemLink | undefined, competitionI
     case 'allocation':
     case 'registrations':
       return { kind: 'href', href: routes.competitionParticipants(competitionId) };
+    case 'penalties':
+      return { kind: 'href', href: routes.competitionPenalties(competitionId) };
     case 'weighing': {
       const { standId, standName, sectorName } = link.params ?? {};
       return { kind: 'weighing', weighingId: link.id as string, standId: standId as string, standName: standName as string, sectorName: sectorName ?? '' };

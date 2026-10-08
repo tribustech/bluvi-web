@@ -13,7 +13,7 @@ import { paletteLetter, sectorColorMap } from '@/components/ranking/sector';
  * - The occupant: team competitions «<echipă>: <participanți>» (fish `${teamName || 'Echipa'}: `
  *   bold — «Echipă» with its diacritic here), the participants joined «, », or the guest's name. A
  *   guest entry on a team competition usually repeats the team as its name: the same name is not
- *   printed twice.
+ *   printed twice. `teamFallback: false` (penalties) drops the prefix when teamName is empty.
  * - The club (national championship: the organizer navigates weigh-ins by club).
  * - Unallocated stands (null in /allocated-participants): no occupant, inert in the list.
  */
@@ -57,9 +57,19 @@ export const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toL
 
 export const isNationalChampionship = (c: Pick<CompetitionDetail, 'rankingType'>) => c.rankingType === NC;
 
+export type StandOccupantOptions = {
+  /**
+   * Team competitions, an allocation with an empty teamName: true (default) prints «Echipă» as the
+   * team (fish scale/index.tsx:102 `teamName || 'Echipa'`); false prints no team at all (fish
+   * penalties select-stand.tsx:84 `isTeam && allocation?.teamName`).
+   */
+  teamFallback?: boolean;
+};
+
 export function standOccupantGroups(
   competition: CompetitionShape,
   allocations: AllocatedParticipantsResponse | null | undefined,
+  { teamFallback = true }: StandOccupantOptions = {},
 ): StandSectorGroup[] {
   const isNc = isNationalChampionship(competition);
   const isTeam = competition.competitionType === 'team';
@@ -71,7 +81,7 @@ export function standOccupantGroups(
         ? `Stand ${formatNationalStand(sector.name, alloc?.sectorDrawPosition ?? null, stand.name)}`
         : `Stand ${stand.name}`;
       const club = isNc && alloc?.clubName ? alloc.clubName : null;
-      const team = alloc && isTeam ? alloc.teamName || 'Echipă' : null;
+      const team = alloc && isTeam ? alloc.teamName || (teamFallback ? 'Echipă' : null) : null;
       const names = alloc ? (alloc.guestName ? alloc.guestName : alloc.participants.map((p) => p.name).join(', ')) : '';
       const people = names && !(team && fold(names.trim()) === fold(team.trim())) ? names : null;
       return {

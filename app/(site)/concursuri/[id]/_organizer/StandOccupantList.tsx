@@ -26,6 +26,7 @@ import { useNavigationGuard } from './useNavigationGuard';
  *     emptyLabel="-" | "Nealocat"                                   // the unallocated stand's line
  *     showClub                                                      // national championship
  *     tone="accent" | "neutral"                                     // neutral: read-only target
+ *     caption={(s) => …}                                            // a muted line under the occupant
  *   />
  *
  * - «Sector X» headings (h2) in the competition's order, the sector colour as the dot and each tile's
@@ -51,6 +52,8 @@ type Props = {
   tone?: 'accent' | 'neutral';
   /** A trailing slot per tile (a weighed total, a penalty count). */
   trailing?: (stand: StandOccupant) => ReactNode;
+  /** A line under the occupant (why a stand is inert, e.g. «Înscriere indisponibilă»). */
+  caption?: (stand: StandOccupant) => ReactNode;
   /** Prefix of the sector headings' ids (unique per page). */
   idPrefix?: string;
 };
@@ -67,6 +70,7 @@ export function StandOccupantList({
   showClub = false,
   tone = 'accent',
   trailing,
+  caption,
   idPrefix = 'sector',
 }: Props) {
   const guard = useNavigationGuard();
@@ -117,6 +121,7 @@ export function StandOccupantList({
                       showClub={showClub}
                       tone={tone}
                       trailing={trailing?.(stand)}
+                      caption={caption?.(stand)}
                     />
                   </li>
                 );
@@ -152,6 +157,7 @@ function StandTile({
   showClub,
   tone,
   trailing,
+  caption,
 }: {
   stand: StandOccupant;
   fill: { className: string; style?: { background: string } };
@@ -163,6 +169,7 @@ function StandTile({
   showClub: boolean;
   tone: 'accent' | 'neutral';
   trailing?: ReactNode;
+  caption?: ReactNode;
 }) {
   const body = (
     <>
@@ -173,6 +180,7 @@ function StandTile({
         <span className={cn('t-caption line-clamp-2', disabled ? 'text-muted' : 'text-ink-2')}>
           {stand.allocated ? <Occupant stand={stand} /> : emptyLabel === '-' ? <><span aria-hidden>-</span><span className="sr-only">nealocat</span></> : emptyLabel}
         </span>
+        {caption ? <span className="t-caption text-muted">{caption}</span> : null}
       </span>
       {trailing ? <span className="flex shrink-0 flex-col items-end gap-0.5 text-right">{trailing}</span> : null}
     </>

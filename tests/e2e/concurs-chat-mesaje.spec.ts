@@ -803,8 +803,8 @@ test('participant.chat.c36 participant.chat.c37 participant.chat.c38 participant
   await expect(pen).toContainText('B1');
   await expect(pen).toContainText('Ana Crap');
   await expect(pen).toContainText('Avertisment · zgomot');
-  // c37: penalties have no web page yet — no link.
-  await expect(pen.getByRole('link')).toHaveCount(0);
+  // c37: penalties → the penalties hub (organizer.b.chat-penalties-link, M6-B6).
+  await expect(pen.getByRole('link', { name: /Vezi penalizările/ })).toHaveAttribute('href', `/concursuri/${ID}/penalizari`);
   await expect(row(page, 'e-alloc').getByRole('link', { name: /Vezi alocarea/ })).toHaveAttribute('href', `/concursuri/${ID}/participanti`);
   await expect(row(page, 'e-reg').getByRole('link', { name: /Vezi participanții/ })).toHaveAttribute('href', `/concursuri/${ID}/participanti`);
 

@@ -21,8 +21,8 @@ import { anglerHref, partidaHref, routes } from '@/lib/routes';
 export const NOTIFICATION_PAGES_ON_WEB = {
   /** /concursuri/[id]/chat?tab= — competition chat — ON since M5-B3 (participant.b.chat-notification-route). */
   competitionChat: true,
-  /** /concursuri/[id]/penalizari — penalties (M6, organizer.yml). */
-  penalties: false,
+  /** /concursuri/[id]/penalizari — penalties (PENALTY) — ON since M6-B6 (organizer.b.penalty-notification). */
+  penalties: true,
   /** /sondaje — the current poll (POLL_OPENED / POLL_CLOSED / POLL_SUGGESTION_APPROVED) — ON since M5-B1
    * (participant.b.poll-notification-route). */
   polls: true,
@@ -88,8 +88,8 @@ export function notificationHref(route: NotificationRoute): string | null {
       if (!NOTIFICATION_PAGES_ON_WEB.competitionChat) return null;
       return routes.competitionChat(route.params.competitionId, route.params.tab === 'participants' ? 'participanti' : 'general');
     case 'penalties':
-      // TODO(M6): routes.competitionPenalties(id).
-      return null; // NOTIFICATION_PAGES_ON_WEB.penalties is off: no page yet
+      // PENALTY → the penalties hub (fish /(app)/penalties/{competitionId}); signed out, /intra returns there.
+      return NOTIFICATION_PAGES_ON_WEB.penalties ? routes.competitionPenalties(route.params.competitionId) : null;
     case 'currentPoll':
       return NOTIFICATION_PAGES_ON_WEB.polls ? routes.polls() : null;
     case 'news':

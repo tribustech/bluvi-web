@@ -15,8 +15,8 @@ import { SystemEventIcon } from './SystemEventIcon';
  * the tinted family icon, who it is about (stand chip + name in bold), what happened under it, the
  * time; the CMS copy's leading emoji is dropped (core systemPartsFor / systemBodyFor). A linked event
  * carries a chevron and opens: the ranking → Clasament, the allocation / registrations →
- * Participanți, a weighing → its detail over the chat (`onWeighing`). Penalties have no web page yet
- * (M6): no link until it exists. No menu, no reactions.
+ * Participanți, penalties → the penalties hub, a weighing → its detail over the chat (`onWeighing`).
+ * No menu, no reactions.
  */
 
 export type OpenWeighing = (target: OpenWeighingTarget) => void;

@@ -507,7 +507,9 @@ export const penaltySchema = z.object({
   value: z.number().nullable(),
   reason: z.string(),
   createdAt: z.string(),
-  author: z.object({ id: z.number(), username: z.string().optional() }).optional(),
+  // A unidirectional oneToOne to users-permissions: Strapi 5 sends `null` once the author's account
+  // is gone. Rejecting it would fail the whole ranking (fish reads `p.author?.username ?? 'Organizator'`).
+  author: z.object({ id: z.number(), username: z.string().optional() }).nullish(),
 });
 export type Penalty = z.infer<typeof penaltySchema>;
 

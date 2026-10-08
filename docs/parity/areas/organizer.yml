@@ -1577,23 +1577,36 @@ screens:
       - id: organizer.penalties.c1
         text: "The title is „Penalizări”; loading and error (retry refetches competition and rankings) states are shown."
         fish_ref: app/(app)/penalties/[competitionId]/index.tsx:112-120
+        status: passing
+        web_note: "Title «Penalizări» (h1, ManagementFrame `signedIn`). Loading: the header with the real title, the list heading and three cards in grey (≥1280 the aside too), announced once («Se încarcă penalizările…»). Error on the competition or the ranking: the frame's gate; «Încearcă din nou» refetches both (e2e counts the reads). e2e «c1 — «Penalizări», loading…», «c1 — a failed ranking read…»."
       - id: organizer.penalties.c2
         text: "Penalties are gathered from every ranking row (and team inside a row), labelled „Stand N · echipă/invitat/utilizator”, and sorted newest first."
         fish_ref: app/(app)/penalties/[competitionId]/index.tsx:78-92
+        status: passing
+        web_note: "core organizer gatherPenalties / penaltyTeamLabel (unit core/organizer/domain/penalties.test.ts on tests/fixtures/rankings quantity + quantityQuality, and nested NC/FIPSed teams). Divergence: fish chains the names with `??`, so the CMS's empty teamName \"\" of an individual row gave «Stand 9 · »; a blank name falls through to the guest / user. Not started: the ranking is never read (enabled only once the status is known and not notStarted) → empty. e2e «c2 c4 — every row’s penalties…» (order + labels), «c3 — not started…» (0 ranking reads)."
       - id: organizer.penalties.c3
         text: "With none, a centered state reads „Nu există penalizări aplicate” and „Penalizările nu se aplică pentru acest tip de clasament.” / „Aplică o penalizare pentru a o vedea aici.” / „Organizatorul nu a aplicat încă nicio penalizare în această competiție.”, with „Aplică penalizare” when the user can apply."
         fish_ref: app/(app)/penalties/[competitionId]/index.tsx:126-150
+        status: passing
+        web_note: "One centered block in the task card: «Nu există penalizări aplicate» (h2) + the line (core emptyPenaltiesLine) + «Aplică penalizare» (→ /penalizari/stand) only when allowed; the CTA is not repeated in the action bar. e2e three «c3 — none, …» tests (author / participant / ranking type without penalties)."
       - id: organizer.penalties.c4
         text: "With penalties, the heading is „Penalizări aplicate · n” and each card shows a red (Eliminare) or yellow marker, the action („Avertisment”, „Penalizare greutate · X kg”, „Eliminare”), the team label, the reason and „autor · dd.mm.yyyy, hh:mm” (author fallback „Organizator”)."
         fish_ref: app/(app)/penalties/[competitionId]/index.tsx:164-211
+        status: passing
+        web_note: "PenaltyCard: marker red (status-danger) for Eliminare, yellow (badge-yellow) otherwise; «Penalizare greutate · 1,5 kg» with the unit its own muted word (rule 10, formatDecimal); «Stand N · nume»; the reason; «autor · dd.mm.yyyy, hh:mm» in Europe/Bucharest (core formatPenaltyTimestamp), «Organizator» without an author. Cards auto-fill ≥320px columns from 768. ≥1280 the aside adds «Pe scurt» (count per kind, kg deducted) and «Tipuri de penalizări» (fish apply.tsx copy). e2e «c2 c4 — the real local penalty…» (local CMS: «Penalizare greutate · 2 kg», «Stand A1 · Andrei Popescu», «Andrew · 10.09.2026, 10:58») and «c2 c4 — every row’s penalties…»."
       - id: organizer.penalties.c5
         text: "Applying is allowed for author or referee on a started competition whose ranking type is Cantitate or Cantitate/Calitate; then a footer „Aplică penalizare” opens the stand selection."
         fish_ref: app/(app)/penalties/[competitionId]/index.tsx:71-76
+        status: passing
+        web_note: "core penaltyPermissions; the action bar «Aplică penalizare» (FlowActions; docked under the aside from 1280) → routes.competitionPenaltiesStand, navigation guarded (800 ms). e2e «c5 — author or referee…» and the four «c5 c6 — …» role / status / ranking type cases."
       - id: organizer.penalties.c6
         text: "Author or referee on a started competition sees „Revocă” on each card; it asks „Revocă penalizarea?” / „Acțiunea va elimina penalizarea din clasament.” („Anulează” / „Revocă”) and deletes it, refetching rankings and best-N ranking."
         fish_ref: app/(app)/penalties/[competitionId]/index.tsx:94-106
+        status: passing
+        web_note: "«Revocă» (author/referee + started) → RevokeDialog alertdialog with fish's copy; «Anulează» closes with no request; «Revocă» stays busy until the answer → core deletePenaltyMutation (DELETE /penalties/:id; invalidates rankings + Best-N — the ranking is re-read, Best-N is refetched where observed) → toast «Penalizarea a fost revocată.», focus to the list heading; a refusal stays in the dialog. DELETE route-mocked (method/path asserted); every other write aborted. e2e «c6 — «Revocă» → …», «c6 — a refused DELETE…»."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "app/(site)/concursuri/[id]/penalizari (T6, ManagementFrame `signedIn`: every signed-in viewer reads, the statute gates apply / revoke). Reads only from the local CMS; the DELETE is route-mocked. Every state screenshotted at 375/1280/1440/1920 by tests/e2e/concurs-penalizari.spec.ts (.shots/penalizari-*). PENALTY notifications and the chat's penalties event link here (organizer.b.penalty-notification, organizer.b.chat-penalties-link)."
 
   - id: organizer.penalties-select-stand
     title: Penalizare — Alege standul
@@ -1615,23 +1628,36 @@ screens:
       - id: organizer.penalties-select-stand.c1
         text: "The title is „Alege standul” with the hint „Alege standul echipei pe care vrei să o sancționezi.”; loading and error (retry) states are shown."
         fish_ref: app/(app)/penalties/[competitionId]/select-stand.tsx:33-51
+        status: passing
+        web_note: "ManagementFrame (requires authorOrReferee): h1 «Alege standul», the competition as eyebrow, hint «Alege standul echipei pe care vrei să o sancționezi.» (only once the competition is known and pickable), back «Înapoi la penalizări». Loading = header with the real title + a skeleton on StandOccupantList's grid (busy, «Se încarcă standurile…»); error = T4Gate danger with «Încearcă din nou». Signed in only (proxy 307 → /intra?next=, requireViewer), noindex. e2e tests/e2e/concurs-penalizari-stand.spec.ts «c1/c4 — …», «c4 — the … read failing…», «signed out → sign-in…»."
       - id: organizer.penalties-select-stand.c2
         text: "Stands are grouped by „Sector X”; each shows „Stand N” and the occupant („Echipă: participanți” for teams, participants or guest) or „Nealocat”."
         fish_ref: app/(app)/penalties/[competitionId]/select-stand.tsx:52-101
+        status: passing
+        web_note: "StandOccupantList (B1, emptyLabel «Nealocat») over occupant.ts: «Sector X» h2 per sector, «Stand N», the occupant or «Nealocat». ≥768 a multi-column tile grid by sector (1–2-stand sectors pack side by side). e2e «c2/c5 — «Sector X» in the competition’s order…» (≥3 columns), «c2/c5 — individual…», «c2/c5 — team…»."
       - id: organizer.penalties-select-stand.c3
         text: "Unallocated stands are dimmed and inert; an allocated stand opens the apply form for its registration."
         fish_ref: app/(app)/penalties/[competitionId]/select-stand.tsx:63-76
+        status: passing
+        web_note: "Unallocated: dashed, dimmed, non-focusable div (aria-disabled), a click does nothing; allocated without a registration id: the same inert style (disabledWhen !penaltyTarget) but its occupant kept, with the muted caption «Înscriere indisponibilă» (StandOccupantList `caption`, additive); allocated: a Link to the apply form. e2e «c3/c6 — «Nealocat» is dimmed and inert…»."
       - id: organizer.penalties-select-stand.c4
         text: "The page needs both the competition and its stand allocations: while either loads a full-page loader shows; if either fails (or the competition is missing) the error state's retry refetches both."
         fish_ref: "app/(app)/penalties/[competitionId]/select-stand.tsx:18-43"
+        status: passing
+        web_note: "Both reads join the frame (reads=[allocations]): the loader stays until the allocations land even with the competition in; either failing → the error gate whose retry refetches the competition, the statute and the allocations; a missing competition → «Nu am găsit datele». e2e «c1/c4 — …loader holds…», «c4 — the competition read failing…», «c4 — the allocations read failing…», «c4 — a missing competition…»."
       - id: organizer.penalties-select-stand.c5
         text: "Sectors and stands appear in the competition's own order; a stand's occupant line is the guest name when the allocation is a guest, else the participants' names joined by „, ”; the team name in bold prefixes it only for team competitions."
         fish_ref: "app/(app)/penalties/[competitionId]/select-stand.tsx:52-98"
+        status: passing
+        web_note: "Served reversed sectors and a reordered sector: headings and stands follow the competition. Occupant: guest name, else participants joined «, »; the team bold prefix «<echipă>:» only on team competitions and only when the allocation has a teamName (fish :84; standOccupantGroups `teamFallback: false` — no «Echipă» invented; an individual allocation's teamName is ignored). e2e «c2/c5 — …order…», «c2/c5 — individual: … a guest by name, no bold team», «c2/c5 — team…», «c5 — team allocation with an empty teamName…»."
       - id: organizer.penalties-select-stand.c6
         text: "Activating an allocated stand opens /concursuri/[id]/penalizari/aplica?inscriere=[registrationId] once (repeated activation does not open it twice); an allocation without a registration id does nothing."
         fish_ref: "app/(app)/penalties/[competitionId]/select-stand.tsx:71-76"
+        status: passing
+        web_note: "hrefFor → routes.competitionPenaltiesApply(id, registrationId) (/penalizari/aplica?inscriere=); useNavigationGuard ignores a repeat within 800 ms; an allocation with an empty registration id is an inert tile (aria-disabled, «Înscriere indisponibilă»). Web: a competition where no penalty can be applied (ranking type without penalties, or not started) router.replace → the hub (consistent with apply c2). e2e «c3/c6 — …» (double click → one pushState AND the real «Aplică penalizare» h1; empty registration id → no navigation), «… → back to the penalties hub (replace)» ×3."
     mobile_only: false
-    status: todo
+    status: proposed
+    web_note: "Reads only (competition, statute, /allocated-participants); thin wrapper app/(site)/concursuri/[id]/penalizari/stand/_select over _organizer/StandOccupantList (additive `caption` prop) and occupant.ts (additive `teamFallback` option). Web additions: find-as-you-type (stand, angler, team), header refresh action, «Doar pentru organizator și arbitri» gate for other roles, a no-stands note (fish renders nothing): author «Concursul nu are încă standuri. Adaugă sectoarele și standurile din pagina sectoarelor.» + «Alocă standuri pe sectoare» (/sectoare, author only), referee «… Cere organizatorului să adauge sectoarele și standurile.» (e2e «no stands on any sector → …» ×2). Every state screenshotted at 375/1280/1440/1920 by the e2e (.shots/penalizari-stand-*)."
 
   - id: organizer.penalties-apply
     title: Aplică penalizare
@@ -1656,8 +1682,8 @@ screens:
     states:
       - "loading"
       - "error (retry)"
-      - "registration not found → back to hub"
-      - "ranking type without penalties → hub"
+      - "registration not found, without a stand or on a stand outside every sector → back to the stand picker"
+      - "ranking type without penalties, or competition not started / completed → hub"
       - "action = Avertisment (default) / Penalizare greutate (value field) / Eliminare"
       - "validation errors (value, reason)"
       - "already eliminated (inline error on action)"
@@ -1666,26 +1692,41 @@ screens:
       - id: organizer.penalties-apply.c1
         text: "The title is „Aplică penalizare”; a header card shows „Sector X, Stand N”, „Echipa <nume>” (teams) or the guest/participant name, and team members as bullets."
         fish_ref: app/(app)/penalties/[competitionId]/apply.tsx:229-257
+        status: passing
+        web_note: "«Aplică penalizare» h1 (ManagementFrame, authorOrReferee); FlowSubjectCard «Sector X, Stand N» / «Echipa …» or the guest / angler / team members as bullets (_apply/model.subjectOf; only reached for a registration on a sector's stand, see c2); below 1280 on top of the form, from 1280 in the sticky aside. e2e «c1 c3 team …», «individual …»."
       - id: organizer.penalties-apply.c2
         text: "A missing or unknown registration returns to the previous page; a ranking type without penalties returns to the penalties hub."
         fish_ref: app/(app)/penalties/[competitionId]/apply.tsx:126-151
+        status: passing
+        web_note: "_apply/model.resolveApplyTarget → router.replace: no or unknown ?inscriere, or a registration without a stand / on a stand outside every sector (fish never shows the form for it) → /penalizari/stand (the picker the form is opened from; replace, so Back never bounces); ranking type not quantity/quantityQuality, or competitionStatus ≠ started (stand/_select canPickPenaltyStand; the CMS refuses PENALTY:INVALID_COMPETITION_STATUS) → /penalizari. e2e «c2 …» (5 tests; feeder / completed / notStarted / no stand served by editing the real reads)."
       - id: organizer.penalties-apply.c3
         text: "„Tip penalizare” offers three single-choice cards: „Avertisment” („Doar pentru istoric. Nu modifică clasamentul.”, yellow), „Penalizare greutate” („Scade o cantitate (kg) din greutatea totală a echipei. Capturile rămân intacte.”, yellow), „Eliminare” („Echipa este forțată pe ultimul loc în clasament.”, red); Avertisment is preselected."
         fish_ref: app/(app)/penalties/[competitionId]/apply.tsx:28-52
+        status: passing
+        web_note: "_apply/ActionCards: three T4ChoiceCard radios (the kit's RankingTypeCard twin: native radio, arrows move the choice, one tab stop) led by fish's 18×26 yellow / red card; fish copy; Avertisment preselected. e2e «c1 c3 team …» (copy, tones, checked, ArrowDown)."
       - id: organizer.penalties-apply.c4
         text: "Penalizare greutate reveals „Greutate de penalizat” (kg, decimal with comma or dot, placeholder „0.000”); a missing or ≤ 0 value shows „Valoare obligatorie (kg) — trebuie să fie un număr mai mare ca 0”."
         fish_ref: app/(app)/penalties/[competitionId]/apply.tsx:279-316
+        status: passing
+        web_note: "«Penalizare greutate» expands «Greutate de penalizat» inside its ring: TextInput inputMode decimal, placeholder 0.000, «kg» suffix; penaltyFormSchema message for missing / ≤ 0 / not a number, shown once edited or after a submit (fish onChange), focus moves to it. e2e «c4 c5 validation …»."
       - id: organizer.penalties-apply.c5
         text: "„Motiv” is a multiline field (placeholder „Descrie motivul (5-255 caractere)”, max 255) with „Motivul trebuie să aibă cel puțin 5 caractere” / „Motivul nu poate depăși 255 caractere”."
         fish_ref: app/(app)/penalties/[competitionId]/apply.tsx:325-350
+        status: passing
+        web_note: "«Motiv» T4TextArea, placeholder «Descrie motivul (5-255 caractere)», native maxlength 255 + «n / 255» counter, min-5 message measured on the trimmed reason (the one sent; fish measures untrimmed and lets «   abcd» hit the CMS 400), max message unit-tested (the cap makes it unreachable, as fish). e2e «c4 c5 …», «a short reason …» (focus), «a reason padded with spaces …»."
       - id: organizer.penalties-apply.c6
         text: "„Aplică” (loading while pending) creates the penalty with the trimmed reason and the value only for weight penalties, toasts „Penalizarea a fost aplicată”, returns to the hub and refetches rankings and best-N ranking."
         fish_ref: app/(app)/penalties/[competitionId]/apply.tsx:177-195
+        status: passing
+        web_note: "«Aplică» (submit of #penalty-form, docked under the aside from 1280): aria-busy + spinner + «Se aplică…», no second POST; createPenaltyMutation(toCreatePenaltyParams) → body {action, reason: trimmed[, value only for DEDUCT_TOTAL_WEIGHT]} → toast «Penalizarea a fost aplicată» → router.replace hub; the mutation invalidates rankings + best-N (core). e2e «c6 …» Avertisment / Eliminare / Penalizare greutate «1,5» → 1.5, POSTs route-mocked."
       - id: organizer.penalties-apply.c7
         text: "PENALTY:ALREADY_ELIMINATED shows under „Tip penalizare”: „Această echipă este deja eliminată. Revocă eliminarea pentru a aplica o nouă penalizare.” (cleared when the action changes); other errors toast the message or „Penalizarea nu a putut fi aplicată. Te rugăm să reîncerci.”."
         fish_ref: app/(app)/penalties/[competitionId]/apply.tsx:196-204
+        status: passing
+        web_note: "_apply/model.applyErrorOutcome: PENALTY:ALREADY_ELIMINATED → alert under the «Tip penalizare» legend, cleared on an action change; another bluCode → its CMS message toast; anything else → «Penalizarea nu a putut fi aplicată. Te rugăm să reîncerci.» (the transport turns non-bluCode errors into a generic message, so the screen's fallback replaces it). e2e «c7 …» (409, 400, 500 mocked)."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "/concursuri/[id]/penalizari/aplica?inscriere=[registrationId] — app/(site)/concursuri/[id]/penalizari/aplica (page, loading, error, _apply/*), T6 via ManagementFrame requires authorOrReferee (the registrations read waits for the statute, so a participant meets the role gate, never a 403). Reads through /api/cms: competition, statute, GET /competitions/:id/registrations. Desktop: form (two columns from 1440: Tip penalizare | Motiv) + sticky aside (subject card, live «Rezumat»), «Aplică» docked under it. Leave guard (useLeaveGuard) while dirty. e2e tests/e2e/concurs-penalizari-aplica.spec.ts (17 tests: every criterion, role gate, read error + retry, loading, signed-out 307; axe at 375 + after errors; screenshots .shots/penalizari-aplica-* at 375/1280/1440/1920). Every POST route-mocked (fake-organizer guard) — a real penalty pushes to participants, referees and followers and posts in the chat. Unit _apply/model.test.ts."
 
 behaviours:
   - id: organizer.b.signed-out-gate
@@ -1731,9 +1772,13 @@ behaviours:
   - id: organizer.b.penalty-notification
     text: "A PENALTY push notification (with competitionId) routes to the penalties hub /concursuri/[id]/penalizari; the route must exist for every recipient (participants, read-only)."
     fish_ref: helpers/getRedirectLocationForNotification.ts:89-91
+    status: passing
+    web_note: "lib/notification-href.ts NOTIFICATION_PAGES_ON_WEB.penalties = true → routes.competitionPenalties(id); the page is `signedIn` (any participant reads). Unit tests/unit/notification-href.test.ts (PENALTY → /concursuri/c1/penalizari; the gate ↔ the page exists)."
   - id: organizer.b.chat-penalties-link
     text: "A competition chat system message of kind „penalties” links to the penalties hub; „allocation” and „registrations” link to the competition's Participanți tab."
     fish_ref: features/chat/domain/systemMessages.ts:96-101
+    status: passing
+    web_note: "chat list model systemTarget: penalties → /concursuri/[id]/penalizari («Vezi penalizările»); allocation / registrations → Participanți. Unit chat/_chat/list/model.test.ts; e2e concurs-chat-mesaje.spec.ts «c36 c37 c38 c39» (the penalty event's href)."
   - id: organizer.b.no-polling
     text: "None of the organizer screens poll; freshness comes from explicit refetch actions (pull-to-refresh) and the invalidations listed in each criterion. Rankings are cached 5 min, weighing revisions are always refetched, user statute 1 h."
     fish_ref: services/queries/useRankings.ts:14-24
