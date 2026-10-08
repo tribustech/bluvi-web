@@ -17,7 +17,8 @@ import { VenueGlyph } from './parts';
 /*
  * Step 2 — the details (fish app/(app)/partide/start.tsx, the `detail` step; parity partide.incepe
  * c7–c12): the venue card with «Schimbă», the stand (lakes with stands) and the position, «Durată
- * estimată», «Ce pescuiești?», «Partidă publică». Each block a T4 card on the page ground. Below
+ * estimată», «Ce pescuiești?», «Partidă publică». Each block a T4 card on the page ground; from
+ * 1280 StartFlow lays them out as a two-column bento (venue across, then two cards a row). Below
  * 1280 the position preview sits in its card; from 1280 the frame's right column shows it large
  * (StartFlow), so here it is `xl:hidden`.
  */
@@ -31,9 +32,9 @@ const chip = (active: boolean) =>
     active ? 'bg-accent text-on-accent hover:brightness-95' : 'bg-soft-fill text-ink-2 hover:text-ink',
   );
 
-export function VenueCard({ sel, locality, onChange }: { sel: VenueSelection; locality: string | null; onChange: () => void }) {
+export function VenueCard({ sel, locality, onChange, className }: { sel: VenueSelection; locality: string | null; onChange: () => void; className?: string }) {
   return (
-    <section aria-label="Locul partidei" data-testid="start-venue-card" className="flex items-center gap-3 rounded-card bg-surface p-3 shadow-e0 md:p-4">
+    <section aria-label="Locul partidei" data-testid="start-venue-card" className={cn('flex items-center gap-3 rounded-card bg-surface p-3 shadow-e0 md:p-4', className)}>
       {sel.kind === 'lake' ? (
         <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-control bg-accent-tint text-accent-ink">
           <MapPinIcon className="size-5" />

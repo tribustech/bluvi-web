@@ -809,6 +809,34 @@ test('partide.incepe.c15 ?balta preselects once and opens step 2; «Schimbă» t
   await expect(page.getByTestId('venue-search')).toBeVisible();
 });
 
+test('partide.incepe.c2 on step 2 the header back leaves the flow (fish goBackOrHome); «Schimbă» / «Locul» are the way to step 1', async ({ page, context }) => {
+  await geo(page, context, 'granted');
+  await mock(page);
+  // Came from a page of the site (a lake / water page's «Începe o partidă aici»): back returns there.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/ape-publice');
+  await page.goto(`/partide/incepe?balta=${LAKE}`);
+  await expect(page.getByTestId('start-venue-name')).toHaveText('Balta cu Standuri');
+  // One back control on step 2 — no footer «Înapoi», no «Înapoi la alegerea locului».
+  await expect(page.getByRole('button', { name: /^Înapoi/ }).filter({ visible: true })).toHaveCount(1);
+  await page.getByRole('button', { name: 'Înapoi', exact: true }).filter({ visible: true }).click();
+  await expect(page).toHaveURL(/\/ape-publice$/);
+  // A shared link in a new tab (no page of ours before it): the fallback is the Partide hub, never the picker.
+  const tab = await context.newPage();
+  await mock(tab);
+  await open(tab, `/partide/incepe?balta=${LAKE}`, 375);
+  await expect(tab.getByTestId('start-venue-name')).toHaveText('Balta cu Standuri');
+  await expect(tab.getByRole('button', { name: /^Înapoi/ }).filter({ visible: true })).toHaveCount(1);
+  await tab.getByRole('button', { name: 'Înapoi', exact: true }).filter({ visible: true }).click();
+  await expect(tab).toHaveURL(/\/partide$/);
+  await tab.close();
+  // The «Locul» segment still goes back to step 1.
+  await open(page, `/partide/incepe?balta=${LAKE}`, 1440);
+  await expect(page.getByTestId('start-venue-name')).toHaveText('Balta cu Standuri');
+  await page.getByRole('navigation', { name: 'Pașii partidei' }).filter({ visible: true }).getByRole('button', { name: /Locul/ }).click();
+  await expect(page.getByTestId('venue-search')).toBeVisible();
+});
+
 test('partide.incepe.c15 ?apa preselects the public water by its linkCode', async ({ page, context }) => {
   await geo(page, context, 'granted');
   await mock(page);

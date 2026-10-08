@@ -86,7 +86,8 @@ describe('notificationHref — every type with its ids', () => {
     [T.POLL_OPENED, {}, null],
     [T.POLL_CLOSED, {}, null],
     [T.POLL_SUGGESTION_APPROVED, {}, null],
-    [T.PARTIDA_INVITE, { partidaCode: 'ABC123' }, null],
+    // partide.b.notif-invite: the invite code → the join confirmation (sign-in first when signed out).
+    [T.PARTIDA_INVITE, { partidaCode: 'ABC123' }, '/partide/intra/ABC123'],
     // partide.b.notif-finished-autoclose: the CLIENT id → the resolver page (pointer / own list → the
     // partidă, else Ale mele).
     [T.PARTIDA_FINISHED, { sessionId: 'local-1' }, '/partide/sesiune/local-1'],
@@ -130,6 +131,14 @@ describe('notificationHref — every type with its ids', () => {
     expect(href(T.BOOKING_CONFIRMED_ANGLER, { bookingId: 'a/b c' })).toBe('/rezervari/a%2Fb%20c');
     expect(href(T.PARTIDA_FINISHED, { sessionId: 'a/b c' })).toBe('/partide/sesiune/a%2Fb%20c');
     expect(href(T.PARTIDA_CATCH, { sessionDocumentId: 'a/b c' })).toBe('/partide/a%2Fb%20c');
+    expect(href(T.PARTIDA_INVITE, { partidaCode: 'a/b c' })).toBe('/partide/intra/a%2Fb%20c');
+  });
+
+  it('partide.b.notif-invite: PARTIDA_INVITE without a code (missing, empty or not a string) → no link', () => {
+    expect(href(T.PARTIDA_INVITE, {})).toBeNull();
+    expect(href(T.PARTIDA_INVITE, { partidaCode: '' })).toBeNull();
+    expect(href(T.PARTIDA_INVITE, { partidaCode: 42 })).toBeNull();
+    expect(href(T.PARTIDA_INVITE, { sessionDocumentId: 'p1' })).toBeNull();
   });
 
   it('partide.b.notif-finished-autoclose: no client id, no link (fish returns null)', () => {
@@ -219,7 +228,7 @@ describe('gates follow the pages that exist under app/(site)', () => {
     competitionChat: 'concursuri/[id]/chat',
     penalties: 'concursuri/[id]/penalizari',
     polls: 'sondaje',
-    partidaJoin: 'partide/intra/[code]',
+    partidaJoin: 'partide/intra/[cod]',
     communityCatches: 'partide/[id]/capturi',
     organizer: 'organizator',
     booking: 'rezervari/[id]',

@@ -52,6 +52,10 @@ const nextConfig: NextConfig = {
       // (features/partide/helpers/deepLinks.ts) → the web's partidă page, member or spectator view
       // on one URL (partide.b.deep-link-spectate).
       { source: '/partide/comunitate/:id', destination: '/partide/:id', permanent: true },
+      // fish's invite link https://bluvi-app.wearetribus.com/partide/join/{code} (core
+      // partidaJoinDeepLink, fish CoopCard) → the web's join-with-code page, which asks first and
+      // sends a signed-out visitor to sign-in and back (partide.b.deep-link-join).
+      { source: '/partide/join/:code', destination: '/partide/intra/:code', permanent: true },
     ];
   },
   async headers() {

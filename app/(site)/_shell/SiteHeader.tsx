@@ -79,6 +79,10 @@ const OWN_BAND_ROUTES: readonly RegExp[] = [
   // Partide · Explorează (partide.exploreaza): a tab of the Partide hub, a section page like
   // /partide — no band, so switching tabs never moves the header.
   /^\/partide\/exploreaza\/?$/,
+  // «Alătură-te unei partide» (T6, partide.intra): its header's back control owns the way back.
+  /^\/partide\/intra\/?$/,
+  // The same page with an invite's code (T6, partide.intra-cod): one way back, the header's chip.
+  /^\/partide\/intra\/[^/]+\/?$/,
 ];
 
 export function ownsBreadcrumbBand(pathname: string): boolean {

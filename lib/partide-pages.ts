@@ -43,8 +43,10 @@ export const PARTIDE_PAGES_ON_WEB = {
   capture: true,
   /** /partide/incepe — start a partidă (lib/routes.ts ON_WEB.startPartida). */
   start: ON_WEB.startPartida,
-  /** /partide/intra and /partide/intra/[cod] — join with a code (partide.intra). */
-  join: false,
+  /** /partide/intra — join by typing a code (partide.intra). */
+  join: true,
+  /** /partide/intra/[cod] — join from an invite link, the code filled (partide.intra-cod). */
+  joinCode: true,
   /** /pescari — «Caută pescari» (partide.pescari). */
   anglersSearch: false,
 } as const;
@@ -73,7 +75,7 @@ export const partideHrefs = {
     partidePageHref('capture', routes.partidaCapture(documentId, opts)),
   start: (at?: Parameters<typeof routes.startPartida>[0]) => partidePageHref('start', routes.startPartida(at)),
   join: () => partidePageHref('join', routes.partidaJoin()),
-  joinCode: (cod: string) => partidePageHref('join', routes.partidaJoinCode(cod)),
+  joinCode: (cod: string) => partidePageHref('joinCode', routes.partidaJoinCode(cod)),
   anglersSearch: () => partidePageHref('anglersSearch', routes.anglersSearch()),
 } as const;
 

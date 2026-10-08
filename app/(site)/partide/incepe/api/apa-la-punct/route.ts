@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { findWaterAtPoint, projectGeometry, publicWaterListItemSchema, type PublicWaterListItem } from '@/core/lakes';
 import { WATER_HIT_TOLERANCE_DEG } from '@/core/partide';
-import { sqlitePublicWatersSource as src } from '../../../../ape-publice/_server/source';
+import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import { PUBLIC_WATERS_DB_VERSION, sqlitePublicWatersSource as src } from '../../../../ape-publice/_server/source';
+import { nearestCountyTo } from './nearestCounty';
 
 /*
  * GET /partide/incepe/api/apa-la-punct?lat&lng[&tol] — the public water under a dropped pin and the
@@ -10,7 +13,8 @@ import { sqlitePublicWatersSource as src } from '../../../../ape-publice/_server
  *  - getWaterAtPoint(lat, lng, tol): the waters whose bbox holds the point ± tol, smallest bbox
  *    first, 80 at most, hit-tested on their geometry (polygon containment wins, else the nearest
  *    line / edge within tol) — core/lakes findWaterAtPoint, the same test fish runs;
- *  - nearestCountyTo(lat, lng): the county of the nearest water centre (the pin's «Jud. {county}»).
+ *  - nearestCountyTo(lat, lng): the county of the nearest water centre with a county, over the whole
+ *    table (the pin's «Jud. {county}») — ./nearestCounty, fish's SQL verbatim.
  * Read-only over the same bundled dataset as /ape-publice/api (app/(site)/ape-publice/_server/
  * source.ts). Public, no session; the answer is per position, so the CDN does not share it.
  *
@@ -46,9 +50,15 @@ async function waterAt(lat: number, lng: number, tol: number): Promise<PublicWat
   return publicWaterListItemSchema.parse(row);
 }
 
-async function countyAt(lat: number, lng: number): Promise<string | null> {
-  const nearest = await src.nearestWatersTo(lat, lng, 5);
-  return nearest.find(w => w.county)?.county ?? null;
+// Its own read-only handle on the same file (source.ts keeps its handle private and is not edited
+// from here), opened once per server process.
+let countyDb: DatabaseSync | null = null;
+function countyAt(lat: number, lng: number): string | null {
+  countyDb ??= new DatabaseSync(
+    process.env.PUBLIC_WATERS_DB ?? path.join(process.cwd(), 'data', 'public-waters', `public-waters.v${PUBLIC_WATERS_DB_VERSION}.sqlite3`),
+    { readOnly: true },
+  );
+  return nearestCountyTo(countyDb, lat, lng);
 }
 
 export async function GET(request: NextRequest) {
@@ -59,7 +69,7 @@ export async function GET(request: NextRequest) {
   }
   const tol = Math.min(MAX_TOLERANCE_DEG, Math.max(0, num(request, 'tol') ?? WATER_HIT_TOLERANCE_DEG));
   try {
-    const [water, county] = await Promise.all([waterAt(lat, lng, tol), countyAt(lat, lng)]);
+    const [water, county] = await Promise.all([waterAt(lat, lng, tol), Promise.resolve().then(() => countyAt(lat, lng))]);
     return NextResponse.json({ water, county }, { headers: { 'cache-control': 'private, max-age=300' } });
   } catch (e) {
     console.error('[partide/incepe/apa-la-punct]', e);

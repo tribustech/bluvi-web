@@ -48,6 +48,9 @@ import { VenueStep } from './VenueStep';
  * locally, the CMS's one-live-partidă guard remotely: both → «Ai deja o partidă activă» + that
  * partidă (c14).
  *
+ * Back: the header control always leaves (fish goBackOrHome); «Schimbă» on the venue card and the
+ * «Locul» segment are the only ways back to step 1 (no footer «Înapoi»: three back affordances).
+ *
  * Layout: T4 — the header (back · «Începe o partidă» · «Pasul n din 2») with the segment bar; from
  * 1280 the same segments at the top of the step (no rail: two steps need no column) and, on step 2,
  * the position preview large in the right column with «Începe partida» docked under it.
@@ -268,7 +271,10 @@ export function StartFlow({ balta, apa }: { balta: string | null; apa: string | 
       eyebrow="Partide"
       step={step === 'venue' ? 1 : 2}
       total={2}
-      back={step === 'detail' && sel ? { label: 'Înapoi la alegerea locului', onClick: changeVenue } : { label: 'Înapoi', onClick: leave }}
+      // fish start.tsx: the header back always leaves the flow (goBackOrHome) — to the lake / water
+      // page a «Începe o partidă aici» came from, like the browser's Back. Step 1 is reached only
+      // through «Schimbă» on the venue card or the «Locul» segment.
+      back={{ label: 'Înapoi', onClick: leave }}
       busy={starting}
       progress={<T4Progress steps={steps} onSelect={onStep} label="Pașii partidei" />}
       focusKey={step}
@@ -287,11 +293,6 @@ export function StartFlow({ balta, apa }: { balta: string | null; apa: string | 
             onClick={() => void handleStart()}
           >
             {starting ? 'Se pornește…' : 'Începe partida'}
-          </Button>
-        }
-        back={
-          <Button variant="ghost" onClick={changeVenue} disabled={starting}>
-            Înapoi
           </Button>
         }
         meta={
@@ -325,8 +326,11 @@ export function StartFlow({ balta, apa }: { balta: string | null; apa: string | 
         ) : !sel ? (
           <DetailSkeleton />
         ) : (
-          <div data-testid="start-detail" className="flex flex-col gap-4 md:gap-5">
-            <VenueCard sel={sel} locality={locality} onChange={changeVenue} />
+          // From 1280 a two-column bento (owner rule: full-width, Apple-style bento — not a phone form
+          // stretched to 1300px): the venue across, then Poziție | Durată, Ce pescuiești | Partidă
+          // publică. DOM order = reading order (row by row), so focus order is unchanged.
+          <div data-testid="start-detail" className="flex flex-col gap-4 md:gap-5 xl:grid xl:grid-cols-2">
+            <VenueCard sel={sel} locality={locality} onChange={changeVenue} className="xl:col-span-2" />
             <PositionSection
               sel={sel}
               stands={stands}

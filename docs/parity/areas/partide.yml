@@ -1064,7 +1064,7 @@ screens:
         text: "Title „Începe o partidă” with a back control; step 1 is the venue picker, step 2 the details."
         fish_ref: "app/(app)/partide/start.tsx:313-338"
         status: passing
-        note: "e2e tests/e2e/partide-incepe.spec.ts. Web: T4 — the header (back · eyebrow «Partide» · «Începe o partidă» · «Pasul n din 2») with the segment bar (from 1280 the same segments at the top of the step: two steps need no rail). The back control leaves the flow on step 1 (fish goBackOrHome, components/nav/useBack) and returns to the picker on step 2."
+        note: "e2e tests/e2e/partide-incepe.spec.ts. Web: T4 — the header (back · eyebrow «Partide» · «Începe o partidă» · «Pasul n din 2») with the segment bar (from 1280 the same segments at the top of the step: two steps need no rail). The header back always leaves the flow, on both steps (fish start.tsx goBackOrHome, components/nav/useBack: back to the lake / water page an «Începe o partidă aici» came from, else /partide) — like the browser's Back; step 1 is reached only through «Schimbă» on the venue card or the «Locul» segment (no footer «Înapoi»)."
       - id: partide.incepe.c3
         text: "The venue picker has a search field „Caută o baltă sau o apă publică...” (results from 2 characters, lakes and public waters merged, „Niciun rezultat pentru „{term}”.” when none) and a dashed card „Pune un pin pe hartă” / „Pentru un loc care nu e în listă”."
         fish_ref: "features/partide/components/VenuePicker.tsx:247-293,374-409"
@@ -1079,7 +1079,7 @@ screens:
         text: "A dropped pin is resolved before continuing („Verificăm locul...”): a catalog lake within 400 m wins, else a public water at the point (claimed by a lake → that lake), else the water itself, else a plain pin; the pin coordinate stays the anchor."
         fish_ref: "features/partide/helpers/pinVenue.ts:1-90"
         status: passing
-        note: "e2e tests/e2e/partide-incepe.spec.ts + core/partide/domain/__tests__/pinVenue.test.ts. Web: the water + county at the point come from the flow's read-only route /partide/incepe/api/apa-la-punct (fish getWaterAtPoint / nearestCountyTo over the same ANAR dataset). The pin picker is titled «Alege locul» (fish reuses the catch picker's «Alege locul capturii»)."
+        note: "e2e tests/e2e/partide-incepe.spec.ts + core/partide/domain/__tests__/pinVenue.test.ts. Web: the water + county at the point come from the flow's read-only route /partide/incepe/api/apa-la-punct (fish getWaterAtPoint / nearestCountyTo over the same ANAR dataset; the county is fish's SQL verbatim — nearest water WITH a county over the whole table, unweighted — ./nearestCounty + its unit test). The pin picker is titled «Alege locul» (fish reuses the catch picker's «Alege locul capturii»)."
       - id: partide.incepe.c6
         text: "An unresolved pin asks for „Nume loc” (placeholder „ex. Cot Dunăre”, default „Loc nou”) under „Loc nou pe hartă” with the coordinates (4 decimals) and „Înapoi” / „Continuă”."
         fish_ref: "features/partide/components/VenuePicker.tsx:170-245"
@@ -1094,7 +1094,7 @@ screens:
         text: "Lake with stands: „Stand” selector („Alege standul”, clearable with „Șterge standul”); the position preview is dimmed and routes to the stand picker until a stand is chosen, with „Alege standul, apoi poți ajusta poziția pe hartă.”; choosing a stand moves the anchor to its coordinates and opens the adjust map."
         fish_ref: "app/(app)/partide/start.tsx:117-137,383-435"
         status: passing
-        note: "e2e tests/e2e/partide-incepe.spec.ts. Web: from 1280 the preview is large in the right column, «Începe partida» docked under it. The preview is a static satellite mosaic (Esri tiles, zoom 17) with fish's green dot — no map engine for a picture."
+        note: "e2e tests/e2e/partide-incepe.spec.ts. Web: from 1280 the preview is large in the right column, «Începe partida» docked under it; the detail cards form a two-column bento (venue across, then Poziție | Durată, Ce pescuiești | Partidă publică). The preview is a static satellite mosaic (Esri tiles, zoom 17) with fish's green dot — no map engine for a picture."
       - id: partide.incepe.c9
         text: "Venue without stands: „Poziție” preview (opens the adjust map) and an optional name field „Nume standul / locul (opțional)”."
         fish_ref: "app/(app)/partide/start.tsx:436-463"
@@ -1155,20 +1155,32 @@ screens:
       - id: partide.intra.c1
         text: "Signed out, the route redirects to sign-in."
         fish_ref: "app/(app)/partide/join/index.tsx:23-27"
+        status: passing
+        note: "e2e tests/e2e/partide-intra.spec.ts. Web: no cookie → proxy.ts answers a real 307 to /intra?next=/partide/intra; a dead cookie → requireViewer (lib/server/require-viewer) inside the Suspense boundary; an unreadable session → the route's error.tsx («Serverul nu răspunde» + «Încearcă din nou», owner rule 4). A 401 on the join itself → sign-in, back here."
       - id: partide.intra.c2
         text: "Title „Alătură-te unei partide”, helper „Introdu codul de acces primit de la organizatorul partidei.”, an autofocused centred code field (placeholder „COD”) and a green „Alătură-te” button."
         fish_ref: "app/(app)/partide/join/index.tsx:62-112"
+        status: passing
+        note: "e2e tests/e2e/partide-intra.spec.ts (+ axe, no console errors). Web: T6 FlowLayout — the header band, no breadcrumb band; its back chip (_join/JoinBack) is fish goBackOrHome: history back when the page before is ours (Acasă → «Intră cu cod» → back lands on Acasă, e2e), else a REPLACE to /partide; a real link to /partide for no-JS and middle click; the task a flush white section on a phone, from 768 a card centred at 720 with the form at 448. The field is one input (sr-only label «Codul de acces», described by the helper), 800-weight capitals spaced 0.3em, autocapitalize=characters, inputmode=text, autocomplete off, autofocused; the button is the kit's green success variant. noindex."
       - id: partide.intra.c3
         text: "Input is uppercased, stripped to A–Z0–9 and capped at 6 characters; the button is enabled only at exactly 6 characters; Enter submits."
         fish_ref: "app/(app)/partide/join/index.tsx:16,38-47"
+        status: passing
+        note: "e2e tests/e2e/partide-intra.spec.ts. Web: typing is cleaned as fish (uppercase, A–Z0–9, max 6) — except during IME composition (Android Gboard word mode): the raw text is shown and cleaned once on compositionend, so «k7» never becomes «KK7» (e2e via CDP imeSetComposition; a real Gboard check on an Android device is still pending); a paste is read whole, so a pasted invite message (core partidaInviteMessage) or join link gives its code; a real form — Enter submits, and with fewer than 6 characters sends nothing."
       - id: partide.intra.c4
         text: "Joining sets the active pointer and replaces the page with the partidă."
         fish_ref: "app/(app)/partide/join/index.tsx:49-60"
+        status: passing
+        note: "e2e tests/e2e/partide-intra.spec.ts (Firestore faked). Web: POST /feed/sessions/join (core joinPartidaMutation, uppercased), then the live layer's setActive (pointer persisted with both ids and followed), then router.replace(/partide/[documentId]) — back from the partidă skips the spent form. Single flight (a ref): Enter, Enter and a click while in flight send one request; the form stays busy (spinner) until replaced."
       - id: partide.intra.c5
         text: "Failures map to „Cod invalid”, „Partida s-a încheiat”, „Partida este plină”, „Ai deja o partidă în desfășurare. Încheie-o înainte să intri în alta.”, else „Ceva n-a mers. Încearcă din nou.”"
         fish_ref: "features/partide/helpers/partidaJoinError.ts:1-30"
+        status: passing
+        note: "e2e tests/e2e/partide-intra.spec.ts (every bluCode, an unknown one, a 500). Web: core partidaJoinErrorMessage; from 768 an inline status under the field (role=status, rendered — never display:none — before the message lands so it is announced, e2e; the field aria-invalid, cleared when the code changes; focus back on the field, the code kept), on a phone the danger toast (fish showErrorToast). A retry after an error can succeed."
     mobile_only: false
-    status: todo
+    status: passing
+    note: "Web: app/(site)/partide/intra (T6; page, loading, error, _join/{JoinScreen,JoinBack,JoinForm,CodeField,code}). Links: lib/partide-pages `join` on (the hub hero «Intră cu cod», a guest through sign-in; Acasă's hero already pointed here); /partide/intra/[cod] has its own switch `joinCode` (partide.intra-cod). Unit: _join/code.test.ts."
+    visual: "tests/visual/partide-intra.visual.spec.ts — empty, complete, error (inline from 768; the phone toast masked), joining (mocked /api/cms, nothing written) at 375/768/1280/1440/1920; baselines not committed until the owner approves"
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.intra-cod
@@ -1191,20 +1203,31 @@ screens:
       - id: partide.intra-cod.c1
         text: "Signed out, the route redirects to sign-in."
         fish_ref: "app/(app)/partide/join/[code].tsx:28-32"
+        status: passing
+        note: "e2e tests/e2e/partide-intra-cod.spec.ts «c1» ×2 (307 → /intra?next=%2Fpartide%2Fintra%2FABC123; the round trip from /partide/join/ABC123 through the sign-in form back to the confirmation, nothing joined). Web: proxy.ts matcher /partide/intra/:cod (no cookie → a real 307), requireViewer(routes.partidaJoinCode(cod)) inside the Suspense boundary for a dead cookie; an unreadable session → the route's error.tsx (T4Gate danger «Serverul nu răspunde» + «Încearcă din nou», owner rule 4)."
       - id: partide.intra-cod.c2
         text: "Confirmation step: „Intri în partida cu codul {cod}?” / „Vei apărea ca participant, iar capturile pe care le adaugi intră în această partidă.” with „Alătură-te” and „Nu acum”."
         fish_ref: "app/(app)/partide/join/[code].tsx:104-118"
+        status: passing
+        note: "e2e tests/e2e/partide-intra-cod.spec.ts «c2» (h1 «Alătură-te unei partide», h2 «Intri în partida cu codul ABC123?», fish's line, both buttons; no request on open; noindex; axe; shots 375/1280/1440/1920). Web: T6 FlowLayout narrow + fill; the code a monospace chip inside the question, shown uppercased (the CMS receives it uppercased anyway); below 768 the answers are T6's bottom bar (CTA on top), from 768 they sit in the centred card under the copy, CTA right. The segment is user-controlled: a long code (40+ chars, own 375 e2e) wraps inside its chip (break-all), no sideways scroll. No crumb band (SiteHeader OWN_BAND_ROUTES, like /partide/intra): the header's back chip is the one way back, as in fish."
       - id: partide.intra-cod.c3
         text: "While joining: spinner and „Te conectăm la partidă…”; repeated activation is ignored; success replaces the page with the partidă."
         fish_ref: "app/(app)/partide/join/[code].tsx:57-69,97-103"
+        status: passing
+        note: "e2e tests/e2e/partide-intra-cod.spec.ts «c3» (two clicks in one task → one POST {data:{code:'ABC123'}} from /partide/intra/abc123; role=status «Te conectăm la partidă…» with the spinner in the disc's slot; replace → /partide/[documentId], the member view (Firestore faked), Back returns to the page before; the pointer {sessionId: firestoreId, documentId} in storage). Web: core joinPartidaMutation over the live layer's transport, then useLivePartide().setActive (fish activeSessionAtom), then router.replace — only while the page is still mounted: leaving mid-request keeps the join (the server accepted it) but no longer pulls the angler onto the partidă (own e2e «c3 — leaving while the join is in flight»; fish has the same race)."
       - id: partide.intra-cod.c4
         text: "Error (mapped message, or „Cod invalid” for an empty code) shows the message, „Verifică codul și încearcă din nou.” and „Înapoi”; a retry is possible after an error."
         fish_ref: "app/(app)/partide/join/[code].tsx:53-55,85-96"
+        status: passing
+        note: "e2e tests/e2e/partide-intra-cod.spec.ts «c4» ×6 (CODE_INVALID, ENDED, FULL → message + «Înapoi» only; ALREADY_ACTIVE (409) → also «Reîncearcă»; a 500 → «Ceva n-a mers. Încearcă din nou.» then «Reîncearcă» joins and lands; an empty code (/partide/intra/%20%20) → «Cod invalid» without a request and without «Reîncearcă»). Web: core partidaJoinErrorMessage; a T4Gate danger (title = the message, role=alert with «Verifică codul și încearcă din nou.», focus on the title after a press), «Înapoi», and «Reîncearcă» only for the fallback (network / 5xx / unknown) and ALREADY_ACTIVE (once the other partidă ends) — fish shows only «Înapoi» and resets its single-flight guard; a final refusal (invalid / ended / full) would answer the same press the same way, so the web does not offer it. The segment is percent-decoded before trimming."
       - id: partide.intra-cod.c5
         text: "„Înapoi” / „Nu acum” go back, or to the Partide tab when there is no history."
         fish_ref: "app/(app)/partide/join/[code].tsx:46-49"
+        status: passing
+        note: "e2e tests/e2e/partide-intra-cod.spec.ts «c5» («Nu acum» and the error's «Înapoi» with history → the page before; opened in a fresh tab, «Nu acum» and the header's back chip → /partide). components/nav/useBack(routes.partide())."
     mobile_only: false
-    status: todo
+    status: passing
+    note: "Built in M4-B6: app/(site)/partide/intra/[cod] (T6; page — requireViewer, noindex, generateStaticParams placeholder; error.tsx; _confirm/{JoinFrame,JoinScreen,JoinLoading}). States: signed-out → sign-in (proxy 307 / requireViewer), loading (the confirm step's boxes in grey), confirm, joining, error (mapped / empty code), session unknown (error.tsx). Writes: only POST /feed/sessions/join (CMS); the pointer is device storage; Firestore is never written. Links in: next.config.ts 308 /partide/join/:code → here (fish's invite link), PARTIDA_INVITE (lib/notification-href). lib/partide-pages joinCode (partideHrefs.joinCode) on."
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.captura
@@ -1915,9 +1938,13 @@ behaviours:
   - id: partide.b.deep-link-join
     text: "Invite link https://bluvi-app.wearetribus.com/partide/join/{code} must work on web: /partide/join/[code] redirects to /partide/intra/[cod] (sign-in first when signed out, then back)."
     fish_ref: "features/partide/components/CoopCard.tsx:38-39"
+    status: passing
+    note: "next.config.ts redirects /partide/join/:code → /partide/intra/:code (308, permanent like the other fish paths); signed out, proxy.ts then sends a 307 to /intra?next=/partide/intra/{cod} and sign-in returns to the confirmation. e2e tests/e2e/partide-intra-cod.spec.ts «partide.b.deep-link-join …» (308 location; the full round trip through the local sign-in form). The universal-link coordination (AASA on bluvi-app.wearetribus.com) stays M8."
   - id: partide.b.notif-invite
     text: "Notification PARTIDA_INVITE (data.partidaCode) routes to /partide/intra/[cod]; missing code → no navigation."
     fish_ref: "helpers/getRedirectLocationForNotification.ts:104-106"
+    status: passing
+    note: "lib/notification-href: NOTIFICATION_PAGES_ON_WEB.partidaJoin on, 'partidaJoin' → routes.partidaJoinCode(code); core getRouteForNotificationItem already answers null without data.partidaCode. Unit tests/unit/notification-href.test.ts (ABC123 → /partide/intra/ABC123, encoding, missing / empty / non-string code → null, gate ↔ app/(site)/partide/intra/[cod]); e2e tests/e2e/partide-intra-cod.spec.ts «partide.b.notif-invite» (the /notificari row links /partide/intra/ABC123 and opens the confirmation; a row without a code is plain text)."
   - id: partide.b.notif-finished-autoclose
     text: "PARTIDA_FINISHED and PARTIDA_AUTO_CLOSE_WARN carry the session CLIENT id (data.sessionId); the web resolves it to the documentId through the own sessions list (or the live pointer) and opens /partide/[documentId]; unresolvable → Partide „Ale mele”."
     fish_ref: "helpers/getRedirectLocationForNotification.ts:107-116"
