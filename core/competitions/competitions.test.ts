@@ -417,7 +417,7 @@ describe('competitions api — requests', () => {
     expect(calls.map(c => `${c.method} ${c.path} ${c.auth}`)).toEqual([
       'GET /lakes/l/statistics none',
       'GET /polls/current optional',
-      'GET /polls/past required',
+      'GET /polls/past optional',
       'PUT /polls/p/vote required',
       'POST /polls/p/suggest required',
       'GET /feed/sponsors/dashboard none',

@@ -258,50 +258,81 @@ screens:
       - id: participant.register-guests.c1
         text: "Loading shows the loading state; a missing competition or a fetch error shows the error state with a retry that refetches the competition."
         fish_ref: "app/(app)/register/register-guests.tsx:142-148"
+        status: passing
+        web_note: "GuestSkeleton (Suspense fallback, loading.tsx, and while the competition / statute read): header, field card, disabled CTA, the summary column's shape, one sr-only status. A failed read → T4Gate «A apărut o eroare…» + «Încearcă din nou» refetching what failed; 404 → «Concursul nu a fost găsit». Signed out → proxy 307 /intra?next=<path+query>; a dead cookie → the same sign-in redirect from page.tsx; session unknown → ../error.tsx. e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts «c1 — loading skeleton…», «c1 — a missing competition…», «signed out». Web addition (organizer only, rule 4): a statute other than author → router.replace to the competition page (e2e «organizer only…»)."
       - id: participant.register-guests.c2
         text: "Title „Adaugă participanți fără cont” (edit mode, i.e. with registrationId: „Editează participanți”); submit button „Finalizează” (edit: „Salvează”) with a loading state while saving."
         fish_ref: "app/(app)/register/register-guests.tsx:150-160"
+        status: passing
+        web_note: "«Adaugă participanți fără cont» / «Editează participanți» (T4Header h1); «Finalizează» / «Salvează» in the phone action bar and under the summary card from 1024, spinner + aria-busy while saving. e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts «c2 c3 c4», «c2 c8 c12»."
       - id: participant.register-guests.c3
         text: "Add mode only: a notice „⚠️ Observații importante” with 1. „{Echipa adăugată|Pescarul adăugat} aici va fi înregistrat{ă} automat cu statusul „Aprobat” în lista de participanți.” and 2. „Dacă {un membru al echipei|pescarul} dorește să participe folosind contul personal Bluvi®, poți folosi butonul „Elimină” din pagina de participanți pentru a elimina {echipa|participantul} adăugat{ă} manual înainte să înceapă concursul.”"
         fish_ref: "app/(app)/register/register-guests.tsx:162-188"
+        status: passing
+        web_note: "Add mode only: fish's DisclaimerItem as the team disclaimer's rules card (2px accent outline), h2 «⚠️ Observații importante» (emoji aria-hidden), an ordered list with the single / team variants, «Aprobat» in status-success, «Elimină» in status-danger. e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts «c2 c3 c4» (single), «c3 c5 c7» (team), absent in edit."
       - id: participant.register-guests.c4
         text: "Single competition: one field „Pescar” (placeholder „Introdu numele pescarului”, helper „Poți scrie numele pescarului așa cum vrei să apară în clasament”)."
         fish_ref: "app/(app)/register/register-guests.tsx:257-283"
+        status: passing
+        web_note: "T4Section «Participant», TextInput «Pescar» with fish's placeholder and helper. e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts «c2 c3 c4» at 375/768/1280/1440 + axe."
       - id: participant.register-guests.c5
         text: "Team competition: one field per member labelled „Participant {n}”; a remove control appears only while there is more than one field; „Adaugă participant” is shown while fields < teamParticipants; caption „Maxim {N} participanți/echipă” when teamParticipants is set."
         fish_ref: "app/(app)/register/register-guests.tsx:190-256"
+        status: passing
+        web_note: "T4Section «Participanți» (caption teamMaxCaption: «Maxim N participanți/echipă», formatCount plurals), «Participant {n}» fields (two per row from 768), «Elimină participantul n» (44px, only while >1; focus moves to the row that takes its place), «Adaugă participant» while < teamParticipants (?? 1, model canAddName; focus goes to the new field). e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts «c3 c5 c7» (keyboard add, remove, limit)."
       - id: participant.register-guests.c6
         text: "Each name is required („Acest câmp este obligatoriu”) and may contain only letters (Romanian diacritics included), digits, spaces and hyphens („Numele poate conține doar litere, cifre și cratime”); typing strips leading spaces and collapses repeated spaces."
         fish_ref: "app/(app)/register/register-guests.tsx:20-21,195-217,268-279"
+        status: passing
+        web_note: "model.ts sanitizeName / NAME_PATTERN / validate (zod, first message per field; unit). Errors after the first submit, live afterwards; T4ErrorSummary links focus each field. e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts «c6 c11» (required, pattern, typing «   Ștefan    Țăran-2 »), «c6 — the error summary…»."
       - id: participant.register-guests.c7
         text: "Team only: optional „Numele echipei” (helper „Numele echipei este opțional”), max 30 („Numele echipei poate conține maximum 30 de caractere.”), same character rule („Numele echipei poate conține doar litere, cifre și cratime”)."
         fish_ref: "app/(app)/register/register-guests.tsx:285-314"
+        status: passing
+        web_note: "«Numele echipei» (helper «Numele echipei este opțional»): optional, ≤30, same charset (unit). e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts «c3 c5 c7»."
       - id: participant.register-guests.c8
         text: "Edit mode prefills the members by splitting guestName on „, ” and the team name from the teamName parameter."
         fish_ref: "app/(app)/register/register-guests.tsx:60-77"
+        status: passing
+        web_note: "Edit mode reads the registration ?inscriere=<documentId> from the competition (findGuestRegistration, unit) instead of fish's URL params: guestName split on «, », teamName — same values, survives a reload. A single competition keeps the whole guestName in its field. Entry gone → «Înscrierea nu a fost găsită»; an entry with accounts → «Înscrierea are participanți cu cont» + link to /inscriere?organizator=1 (fish routes those there too). e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts «c2 c8 c12» (incl. reload), «c8 c12», «edit: an entry that is gone…»."
       - id: participant.register-guests.c9
         text: "With membersOnly=true the name fields are hidden and only the team name is saved (guestName is not sent)."
         fish_ref: "app/(app)/register/register-guests.tsx:47,100,109,190"
+        status: passing
+        web_note: "?doarEchipa=1 (fish membersOnly=true): only the «Echipa» card (the members named in its caption); PUT body {data:{teamName}} without guestName (buildPayload, unit). Rule 4: no fish caller passes membersOnly, so the web keeps it narrow — on a single competition it falls back to the normal edit (effectiveMembersOnly, unit), and an account entry goes to the registration page as without it (findGuestRegistration, unit). e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts «c9 — doarEchipa…» (team), «c9 — doarEchipa on a single competition…», «edit: … (doarEchipa too)»."
       - id: participant.register-guests.c10
         text: "On submit names are trimmed, empty ones dropped and joined with „, ”; with no name left (not membersOnly) a toast says „Trebuie să adaugi cel puțin un participant” and nothing is sent."
         fish_ref: "app/(app)/register/register-guests.tsx:94-103"
+        status: passing
+        web_note: "buildPayload: trimmed, empty dropped, joined «, »; nothing left → danger toast «Trebuie să adaugi cel puțin un participant», no write (unit model.test.ts «c10»). As in fish the required rule normally catches it first, so the e2e asserts the trim/join on the wire («c6 c11», «c3 c5 c7»)."
       - id: participant.register-guests.c11
         text: "Add sends POST /registrations/guests {data:{competitionId, guestName, teamName}}; success toast „Înregistrarea a fost adăugată cu succes!” and back to the previous page; error toast with the message."
         fish_ref: "app/(app)/register/register-guests.tsx:122-139; services/api/registrations.ts:59-73"
+        status: passing
+        web_note: "POST /registrations/guests {data:{competitionId, guestName, teamName}} (teamName «» on a single competition, as fish); success toast + router.back() when the Navigation API says there is a same-site entry, else router.replace to the participants page. Error toast: the CMS message, its English refusals mapped to Romanian (writeErrorMessage, unit). e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts «c6 c11» (body, back), «c11 — opened straight from a link» (toast, fallback), «c11 — a refused write» (400), «c11 — a refused write (500 with a bluCode)» (REGISTER_GUESTS_ERROR → accented line; the CMS's 500s keep their undiacritised message because they carry a bluCode)."
       - id: participant.register-guests.c12
         text: "Edit sends PUT /registrations/guests/{registrationId} {data:{guestName?, teamName}}; success toast „Înregistrarea a fost actualizată cu succes!” and back; error toast with the message."
         fish_ref: "app/(app)/register/register-guests.tsx:105-121; services/api/registrations.ts:75-92"
+        status: passing
+        web_note: "PUT /registrations/guests/{id} {data:{guestName?, teamName}}; toast «Înregistrarea a fost actualizată cu succes!» + back; error toast with the CMS message (UPDATE_GUEST_ERROR → an accented Romanian line, unit + e2e), the form kept. e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts «c2 c8 c12», «c8 c12»."
       - id: participant.register-guests.c13
         text: "Add and edit both invalidate competitions.all and competitions.my."
         fish_ref: "services/mutations/useRegistrationGuest.ts:10-13; services/mutations/useUpdateRegistrationGuest.ts:10-13"
+        status: passing
+        web_note: "core registrationGuestMutation / updateRegistrationGuestMutation invalidate competitions.all + competitions.my on settle (unit in fara-cont/_form/model.test.ts «the writes»); the page also re-reads the competition after CDN_PURGE_SETTLE_MS (edge purge), as /inscriere."
       - id: participant.register-guests.c14
-        text: "Leaving with unsaved changes asks „Ești sigur că vrei să renunți la modificările făcute?” / „Toate schimbările făcute vor fi pierdute.” („Închide” / „Renunță”)."
+        text: "Leaving with unsaved changes asks for confirmation before the changes are lost, with a way to stay and a destructive „Renunță” (fish: an Alert „Ești sigur că vrei să renunți la modificările făcute?” / „Toate schimbările făcute vor fi pierdute.” „Închide” / „Renunță”; web: the site-wide leave dialog, the same decision as participant.register c20 — one leave copy across the site, owner rule on the shared profile-form dialog)."
         fish_ref: "app/(app)/register/register-guests.tsx:88-92,153"
+        status: passing
+        web_note: "Criterion reworded 2026-10-08 (review): the web shows the site-wide dialog «Renunți la modificări?» / «Modificările pe care nu le-ai salvat se pierd.» / «Continuă editarea» / «Renunță», not fish's Alert copy — the convention already recorded for participant.register c20. useLeaveGuard (site dialog «Renunți la modificări?» / «Continuă editarea» / «Renunță», as participant.register c20) on the back control, in-app links, browser back; beforeunload on close/reload; off after a successful write. e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts «c14» ×2."
       - id: participant.register-guests.c15
         text: "Reached by the organizer only: from the organizer menu „Adaugă participanți fără cont” (hidden once the participants limit is reached), or from „Editează” on a guest registration in the participants list (passes registrationId, guestName and, for teams, teamName)."
         fish_ref: "components/competition/CompetitionRanking.tsx:593-603; components/CollapsableActions.tsx:38-64"
+        status: todo
+        web_note: "Deferred to M6 (organizer area): the organizer menu entry and the participants list «Editează» belong to competition-page organizer screens. In M5 the page is reachable by URL only (routes.competitionRegisterGuests)."
     mobile_only: false
-    status: todo
+    status: proposed
+    web_note: "M5-B2 built (app/(site)/concursuri/[id]/inscriere/fara-cont, T4 one step; form fluid with a sticky summary from 1024, owner 2026-10-04). c1–c14 passing (e2e tests/e2e/concurs-inscriere-fara-cont.spec.ts, route-mocked fixtures, writes intercepted — no real guest entries). Stays proposed only for c15 (entry points, M6). Web additions (rule 4): non-author → competition page; add after the start / with the competition full, edit after completion / cancellation → a gate with the reason instead of a form the CMS refuses."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.chat
@@ -646,8 +677,8 @@ screens:
       - id: participant.poll-current.c3
         text: "Without an active poll: „Niciun sondaj activ”, „Revino mai târziu pentru următorul sondaj al comunității.” and a link „Vezi sondajele anterioare”."
         fish_ref: "app/(app)/polls/current.tsx:79-98"
-        status: todo
-        note: "e2e tests/e2e/sondaj.spec.ts. Web: T4Gate in the narrow FlowLayout; «Vezi sondajele anterioare» is an outline button link. TODO: the button is hidden (rule 4) until participant.polls-past ships /sondaje/anterioare (POLLS_PAST_ON_WEB)."
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts. Web: T4Gate in the narrow FlowLayout; «Vezi sondajele anterioare» is an outline button link to /sondaje/anterioare (POLLS_PAST_ON_WEB true since participant.polls-past shipped)."
       - id: participant.poll-current.c4
         text: "The poll title is the page heading, followed by its description when present."
         fish_ref: "app/(app)/polls/current.tsx:132-141"
@@ -738,29 +769,46 @@ screens:
       - id: participant.polls-past.c1
         text: "Header: back (home when nothing is behind) and title „Sondaje anterioare”."
         fish_ref: "app/(app)/polls/past.tsx:93-99"
+        status: passing
+        note: "e2e tests/e2e/sondaje-anterioare.spec.ts. Web: T1 ListHeader — back (components/nav/useBack: history back when the page before is ours, else Acasă) + h1; the page owns its band (SiteHeader OWN_BAND_ROUTES, no breadcrumb strip). e2e: direct open → back lands on /, from /sondaje → back returns there."
       - id: participant.polls-past.c2
         text: "While loading, a centred spinner."
         fish_ref: "app/(app)/polls/past.tsx:101-104"
+        status: passing
+        note: "e2e tests/e2e/sondaje-anterioare.spec.ts. Web: a centred spinner (role=status «Se încarcă sondajele…») in the list's slot under the header; loading.tsx renders the same header + spinner."
       - id: participant.polls-past.c3
         text: "Empty: „Niciun sondaj încheiat” and „Pe măsură ce sondajele se închid, vor apărea aici cu rezultatele finale.”."
         fish_ref: "app/(app)/polls/past.tsx:105-113"
+        status: passing
+        note: "e2e tests/e2e/sondaje-anterioare.spec.ts. Web: T1 ListEmpty with fish's title and body (mocked empty page)."
       - id: participant.polls-past.c4
         text: "Each poll is a card: title, „Închis · {d lună yyyy}” (ro-RO long month, from closedAt else closesAt; empty if neither) and „· {n} vot/voturi”, the description when present, then every option read-only with percentage, vote count and my vote highlighted (order as returned)."
         fish_ref: "app/(app)/polls/past.tsx:14-19,43-90"
+        status: passing
+        note: "e2e tests/e2e/sondaje-anterioare.spec.ts. Web: _components/PastPollCard (article named by its h2) + the shared PollOptionRow readOnly (no control, no aria-pressed, my vote: indigo border + bar + «, votul tău»). Facts line from _components/format.ts (unit format.test.ts): ro-RO long month in Romania time, closedAt else closesAt; with neither the date slot is dropped («Închis · 1 vot»), not printed empty. Votes via formatCount. Card: [overflow-wrap:anywhere] (inherited by PollOptionRow), so a 60-character word in the title, description or option breaks inside the card (e2e: no element overflows at 375/1440, the option text stays clear of «1 vot»). Layout: a masonry grid, chosen over CSS columns (they rebalance when page 2 lands, moving cards already read) and over capped options (results must stay complete): 1px rows, each card spans its measured height + 16 (layout effect + ResizeObserver), so DOM order = CMS order, each card lands at the top of the shortest column, a new page only adds below (e2e: 16px gaps in every column at 768–1920, page-1 cards do not move). Tracks from the data: 1 column below 768; 1 or 2 polls → that many centred tracks ≤560 (e2e 1-poll / 2-poll cases); more → auto-fill ≥320 capped at 3 (2 at 768–1279, 3 from 1280), cards ≤560."
       - id: participant.polls-past.c5
         text: "GET /polls/past?page&pageSize=10, next page loaded near the end of the list with a spinner footer."
         fish_ref: "services/queries/usePollsPast.ts:5-17; app/(app)/polls/past.tsx:39-41,115-130; services/api/polls.ts:9-17"
+        status: passing
+        note: "e2e tests/e2e/sondaje-anterioare.spec.ts. Web: core pastPollsInfiniteQuery (PAST_POLLS_PAGE_SIZE 10) through /api/cms; T1 ListFooter: IntersectionObserver near the end + spinner, «Încarcă mai multe» as the keyboard path, «10 din 12 sondaje» progress, a failed page says so with «Reîncearcă»; auto-load armed by the reader's first scroll (armOnScroll: the masonry is short on wide screens). Real local CMS read as guest and signed in; pages 1–2 mocked."
       - id: participant.polls-past.c6
         text: "A manual refresh reloads the list."
         fish_ref: "app/(app)/polls/past.tsx:120"
+        status: passing
+        note: "e2e tests/e2e/sondaje-anterioare.spec.ts. Web: «Reîncarcă» in the header (fish pull-to-refresh): refetches every loaded page, aria-busy + turning icon + busy region over the old cards, «Sondajele au fost reîncărcate.» announced (sr status). A failed refresh keeps the cards and says so visibly: the site danger toast «Nu am putut reîncărca sondajele. Încearcă din nou.» (role=alert, so not announced twice; e2e: refresh → 500 → toast visible, cards remain)."
       - id: participant.polls-past.c7
         text: "Analytics poll_past_view once per visit."
         fish_ref: "app/(app)/polls/past.tsx:35-37"
+        status: passing
+        note: "e2e tests/e2e/sondaje-anterioare.spec.ts. Web: track('poll_past_view') once per mount (ref guard; refresh and next page never resend)."
       - id: participant.polls-past.c8
         text: "Guests can open it (fish has no sign-in gate; the CMS grants /polls/past to Public and Authenticated, guests get myVoteOptionId null). The web core currently declares getPastPolls auth 'required' — it must be 'optional'."
         fish_ref: "app/(app)/polls/current.tsx:37-39,90; services/api/polls.ts:9-17"
+        status: passing
+        note: "e2e tests/e2e/sondaje-anterioare.spec.ts + tests/contract/competitions.contract.test.ts (guest reads /polls/past, myVoteOptionId null). core getPastPolls auth 'optional' (core/competitions/competitions.test.ts). Personalised when signed in, proven on the real local CMS: the e2e seeds a vote of the QA user's on the closed local poll (admin API token E2E_CMS_ADMIN_TOKEN from .env.local, poll-vote rows have no lifecycle/notification), asserts «, votul tău» + the indigo border on that option through /api/cms, then the guest read of the same poll shows the vote counted but nobody's, and deletes the vote. Public static page (no gate, indexable, canonical, BreadcrumbList JSON-LD, brand OG card pollsPast, sitemap)."
     mobile_only: false
-    status: todo
+    status: passing
+    note: "Web: app/(site)/sondaje/anterioare (T1; page, loading, opengraph/twitter image, _components/{PastPollsList,PastPollCard,format}). Static public shell, the polls read client-side via /api/cms (personalised when signed in). POLLS_PAST_ON_WEB flipped to true (entry points on /sondaje + permanent /polls/past redirect). Shots .shots/sondaje-anterioare (375/768/1280/1440/1920: list, empty, loading, error; next page 375/1280)."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.raffle-intro
@@ -810,50 +858,81 @@ screens:
       - id: participant.raffle-intro.c1
         text: "Redirects: already joined → home; no active session → home; ended with winners → winners page; ended without winners → home."
         fish_ref: "app/(app)/raffle/index.tsx:116-125"
+        status: passing
+        web_note: "IntroScreen: after the session + participation + profile load, core-free introRedirect (unit raffle.test.ts) → router.replace: joined → /, no session → /, ended+winners → /tombola/castigatori, ended without → /; the skeleton meanwhile (no flash of the form). A failed read is a retry gate, never the form (rule 4). e2e tests/e2e/tombola.spec.ts «c1», «a failed read…»."
       - id: participant.raffle-intro.c2
         text: "Page title „Tragere la sorți” and a hero lake image."
         fish_ref: "app/(app)/raffle/index.tsx:128-136; constants/raffleCopy.ts:66-67"
+        status: passing
+        web_note: "FlowHeader h1 «Tragere la sorți» + a lake hero (next/image, priority; a 941px lake photo instead of fish's 320px one so it is sharp at 720). e2e «c2–c8»."
       - id: participant.raffle-intro.c3
         text: "Intro card with a gift icon: „Participă la tragerea la sorți pentru șansa de a câștiga echipamente de pescuit și premii speciale” and „Alătură-te competiției noastre și ai șansa să câștigi echipamente premium de pescuit și alte premii exclusive de la Bluvi Expo.”."
         fish_ref: "app/(app)/raffle/index.tsx:138-159; constants/raffleCopy.ts:69-71"
+        status: passing
+        web_note: "Intro card with the gift disc, fish's two lines. e2e «c2–c8»."
       - id: participant.raffle-intro.c4
         text: "When the session has types: a card „Alege tipul premiilor” / „Selectează secțiunea în care vrei să intri: Crap, Feeder sau Răpitor. Poți schimba tipul mai târziu, până aproape de încheierea tombolei.” with one toggle per type (its label), the selected one filled; choosing clears the error."
         fish_ref: "app/(app)/raffle/index.tsx:161-196"
+        status: passing
+        web_note: "TypePicker: a fieldset «Alege tipul premiilor» + fish's text, ChoiceGrid compact of ChoiceTile `radio` (native radios: arrows/Space; selected = filled accent); the tile also shows the type's registrations through registrationsLabel (formatCount: «1 înscris» / «4 înscriși» / «20 de înscriși»; fish writes «1 înscriși»). Picking clears the error. e2e «c2–c8», «c12», «keyboard»."
       - id: participant.raffle-intro.c5
         text: "„Premii” lists the session prizes, falling back to the static prizes when the session has none; every prize starts expanded."
         fish_ref: "app/(app)/raffle/index.tsx:42-43,53-58,198-256; constants/raffleCopy.ts:14-42"
+        status: passing
+        web_note: "prizesToShow: session prizes else STATIC_PRIZES (copy.ts, fish rafflePrizes); every prize starts expanded. Type badge = the session type's label, else prizeTypeLabel maps the static keys (crap/feeder/rapitor → Crap/Feeder/Răpitor; fish shows the raw key). FLAG for the owner (ROADMAP §4b rule 4): the static fallback shows invented prizes («500 LEI × 2» …) as if real — kept as a fish-parity exception for now; the alternative is an empty «Premiile vor fi anunțate» state. e2e «c2–c8» (data-source=session), «c5 — static prizes» ×2."
       - id: participant.raffle-intro.c6
         text: "A prize row shows its image (or a tinted placeholder), title, a subtitle „{description} · {price} LEI × {count}” (or „{count} ×” before the title when there is no price), „{n} înscriși” for its type and a type badge in the type's badgeColor; prizes with items get a „1 produs/{n} produse” toggle listing each item's image, label and description."
         fish_ref: "components/raffle/ExpandablePrizeRow.tsx:67-228; constants/raffleCopy.ts:178-182"
+        status: passing
+        web_note: "_shared/PrizeRow (controlled/uncontrolled): image or tinted gift placeholder, «{count} ×» without a price, prizeSubtitle, registrationsLabel (correct plural), type badge in the CMS badgeColor with black/white text by contrast (badge.ts: always ≥4.5:1; white on #FFC107 would be 1.6:1); «1 produs/{n} produse» is a button with aria-expanded; legacy subItems accepted (core). e2e «c2–c8» (colours asserted), unit raffle.test.ts."
       - id: participant.raffle-intro.c7
         text: "„Cum funcționează” lists 3 numbered steps: „Înscrie-te în tragerea la sorți prin aplicație”, „Primești automat 1 șansă de câștig”, „Cumpără de minim 150 lei de la PescarMania, înscrie bonul fiscal și primești 2 șanse în plus la tragerea la sorți.”."
         fish_ref: "app/(app)/raffle/index.tsx:258-283; constants/raffleCopy.ts:10-11,72-77"
+        status: passing
+        web_note: "Three numbered steps (ol). e2e «c2–c8»."
       - id: participant.raffle-intro.c8
         text: "A green box „Bonus pentru clienți” with the PescarMania receipt text."
         fish_ref: "app/(app)/raffle/index.tsx:285-307; constants/raffleCopy.ts:78-79"
+        status: passing
+        web_note: "Bonus box on the status-success tokens. e2e «c2–c8»."
       - id: participant.raffle-intro.c9
         text: "„Adaugă bon fiscal PescarMania” + hint, with „Fotografiază” and „Din galerie” (web: one file picker accepting images, camera capture on phones); once chosen the receipt is previewed with „Elimină imaginea”."
         fish_ref: "app/(app)/raffle/index.tsx:60-68,309-355; constants/raffleCopy.ts:85-86"
+        status: passing
+        web_note: "ReceiptPicker: «Din galerie» (input accept=image/*) everywhere, «Fotografiază» (capture=environment) only on a coarse pointer; preview + «Elimină imaginea». e2e «c9» ×2 (desktop / touch context)."
       - id: participant.raffle-intro.c10
         text: "Disclaimer „Dacă câștigi, vom verifica bonul fiscal. Dacă bonul nu este corect sau este duplicat, vei fi descalificat.”."
         fish_ref: "app/(app)/raffle/index.tsx:357-361; constants/raffleCopy.ts:87-88"
+        status: passing
+        web_note: "Disclaimer on status-danger-bg. e2e «c2–c8»."
       - id: participant.raffle-intro.c11
         text: "A checkbox „Am citit regulamentul tombolei” (the label toggles it too) and a link „Vezi regulament” opening a dialog with the CMS regulationTitle (only when set), each section's title and body, and „Închide”."
         fish_ref: "app/(app)/raffle/index.tsx:388-415; components/raffle/RaffleRegulationSheet.tsx:15-61; hooks/useRaffle.ts:104-114"
+        status: passing
+        web_note: "Native checkbox in its label (the label toggles) + «Vezi regulament» → ResponsiveSurface info (sheet <768, dialog ≥768): regulationTitle as the title only when set (else a hidden «Regulament»), sections, «Închide». e2e «c11» ×2, axe with the dialog open."
       - id: participant.raffle-intro.c12
         text: "„Intră în tragerea la sorți” checks in order: regulation not ticked → „Te rugăm să accepți regulamentul tombolei (bifează că ai citit regulamentul).”; registration closed → „Înscrierile pentru tombolă nu mai sunt deschise.”; no type → „Te rugăm să alegi tipul premiilor (Crap, Feeder sau Răpitor).” (so a session without types can never be joined); errors appear in a card titled „Erori”."
         fish_ref: "app/(app)/raffle/index.tsx:70-87,161,363-386"
+        status: passing
+        web_note: "joinBlocker (copy.ts, unit): regulation → closed → type, into the «Erori» card (T4ErrorSummary look, focused on every refused press); a no-types session can never be joined (fish parity) — the web also says «Înscrierile nu sunt încă disponibile.» above the CTA so the «alege tipul» error is not a dead end; FLAG for the owner: alternatively disable the CTA for a no-types session. ≥1024 the card sits above «Înscrierea ta» in the sticky column; below 1024 the focused card AND the end of the summary column (checkbox + CTA) are scrolled into view together (fish has the card right above them). e2e «c12» ×4."
       - id: participant.raffle-intro.c13
         text: "Without a phone on the profile the phone dialog opens instead: „Completează numărul de telefon”, „Avem nevoie de numărul tău de telefon pentru a te contacta dacă câștigi.”, field „Număr de telefon” (placeholder 07xxxxxxxx, required „Introdu numărul de telefon”, min 7 „Minim 7 caractere”), „Închide” / „Salvează” → updates the profile phone, toast „Număr salvat.”, refreshes the profile and closes (error toast: message or „Eroare la salvare.”); the user then joins again."
         fish_ref: "app/(app)/raffle/index.tsx:88-91; components/raffle/RafflePhoneRequiredSheet.tsx:29-120; contexts/RaffleContext.tsx:35-54"
+        status: passing
+        web_note: "PhonePromptDialog (decision surface): zod required → min 7, PATCH /user/profile {phone} (core updateProfileMutation), toast «Număr salvat.», refetch profile, close; no join until pressed again. Failure: toast with the coded server message else «Eroare la salvare.» (uncoded server text is never shown, transport rule). e2e «c13» ×2 (PATCH body asserted)."
       - id: participant.raffle-intro.c14
         text: "Joining sends POST /raffle-sessions/{session}/join {typeKey}, then, when a receipt was chosen, POST /raffle-sessions/{session}/receipt (multipart files), then opens the confirmation; the button is busy meanwhile; any failure shows „Nu am putut finaliza înscrierea. Te rugăm să încerci din nou.”."
         fish_ref: "app/(app)/raffle/index.tsx:92-104,417-419; hooks/useRaffle.ts:205-225; services/api/raffle.ts:185-233"
+        status: passing
+        web_note: "POST /raffle-sessions/{id}/join {typeKey} then multipart receipt (`files`, compressed JPEG) then router.push(/tombola/confirmare); button aria-busy «Se înscrie…»; join failure → «Erori» card with fish's message. Web change: a failed RECEIPT after a successful join toasts «Ești înscris, dar bonul nu a putut fi încărcat. Îl poți adăuga de aici.» and still opens the confirmation (the viewer is joined, the confirmation offers the upload; fish shows its «try again» join message, then its Redirect dumps them on Acasă). e2e «c14 c15», «c14» ×2 — all writes route-mocked (helpers/fake-raffle.ts), never a real join."
       - id: participant.raffle-intro.c15
         text: "Join and upload invalidate raffle active, raffle participation and competitions.all."
         fish_ref: "services/mutations/useJoinRaffleSession.ts:12-16; services/mutations/useUploadRaffleReceipt.ts:23-27"
+        status: passing
+        web_note: "core joinRaffleSessionMutation / uploadRaffleReceiptMutation onSettled invalidate raffle active, participation, competitions.all; e2e «c14 c15» asserts the active + participation refetches."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "M5-B2 built: app/(site)/tombola (page/loading/error + _intro/**), shared raffle blocks in tombola/_shared (copy.ts port of fish raffleCopy + static prizes, useRaffle, PrizeRow, ReceiptUploadDialog, badge.ts, raffle.test.ts). T6 FlowLayout bare: phone = fish single column (the summary card with the regulation + CTA last); ≥1024 content (full shell width; from 1440 a two-column bento: hero | intro, types across, prizes | how it works over the bonus, receipt + disclaimer across) left + sticky 384 «Înscrierea ta» (type, 1 șansă / +2 șanse cu bon, regulation, CTA) right, attached to its column. Auth-only: proxy 307 + requireViewer; noindex. Not shipped: critic panel + visual baselines pending."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.raffle-upload-receipt
@@ -1120,6 +1199,8 @@ behaviours:
   - id: participant.b.organizer-edit-registration
     text: "Organizer „Editează” on a participant row (hidden for rejected rows and cancelled/completed competitions): guest registrations open the guests form with registrationId/guestName/teamName; account registrations open the registration page in organizer mode (asOrganizer=1, registrationId)."
     fish_ref: "components/CollapsableActions.tsx:38-80,160-167"
+    status: todo
+    web_note: "Targets exist (M5): guest rows → routes.competitionRegisterGuests(id, {inscriere}) (the form reads guestName/teamName from the registration itself), account rows → routes.competitionRegister(id, {organizator, inscriere}) (also when a link carries doarEchipa: the guests form never edits an account entry). The «Editează» control on the organizer's participants list is M6."
   - id: participant.b.chat-entry
     text: "The chat entry on the competition page exists only for signed-in users; it opens the last room used in that competition (if any) and passes the competition name so the header is titled immediately."
     fish_ref: "components/competition/CompetitionRanking.tsx:352-365,1234,1961; features/chat/domain/lastTab.ts:7-10"
@@ -1159,9 +1240,14 @@ behaviours:
   - id: participant.b.raffle-entry
     text: "Acasă raffle card: ended → winners page if it has winners, else nothing; signed out → sign-in; joined → confirmation; otherwise → raffle intro."
     fish_ref: "components/raffle/RaffleDashboardCard.tsx:247-261"
+    status: passing
+    web_note: "Acasă RaffleCard (unchanged otherwise): ended+winners → /tombola/castigatori, ended without → nothing, guest → /intra?next=%2Ftombola (homeLinks.raffleSignIn; fish dismissTo(/sign-in) has no way back), joined → /tombola/confirmare, else → /tombola. e2e tests/e2e/tombola.spec.ts «participant.b.raffle-entry», acasa.spec.ts «c36 c37 c38». The intro itself re-applies the rule (participant.raffle-intro.c1)."
   - id: participant.b.raffle-data
     text: "Active session GET /raffle-sessions/active (public; 404 → no session) and participation GET /raffle-sessions/participation (only signed in with an active session; 401 → none), both stale after 2 minutes; relative media URLs are made absolute; prizes accept items or subItems."
     fish_ref: "services/queries/useRaffleActive.ts:9-15; services/queries/useRaffleParticipation.ts:11-22; services/api/raffle.ts:5-183"
+    status: passing
+    web_note: "tombola/_shared/useRaffle: core raffleActiveQuery (404 → null) + raffleParticipationQuery (enabled signed in + active session; 401 → null), staleTime 2 min (core), mediaOrigin = NEXT_PUBLIC_CMS_URL origin, deriveRaffleState; both via /api/cms (direct:false) so specs stub one origin. Prizes items/subItems: core normalizeSessionPrizes. e2e tombola.spec.ts «c2–c8 … b.raffle-data» (legacy subItems rendered), core unit tests."
   - id: participant.b.raffle-orphans
     text: "fish declares raffle/upload-receipt, raffle/receipt-submitted and raffle/status but nothing navigates to them (the upload became a dialog, „my chances” became the confirmation page). Port them for parity but flag to the owner whether to keep them."
     fish_ref: "app/(app)/raffle/_layout.tsx:12-17; components/raffle/RaffleDashboardCard.tsx:259"
+    web_note: "FLAG TO OWNER (open): fish declares raffle/upload-receipt, receipt-submitted and status but nothing navigates to them. The web reserves /tombola/bon[?mod=adauga|inlocuieste], /tombola/bon-trimis and /tombola/sansele-mele (lib/routes raffleReceipt / raffleReceiptSubmitted / raffleStatus, auth-only in proxy.ts) and ships ReceiptUploadDialog for them; decide whether to keep these pages or drop them (the confirmation + upload dialog cover the flow)."

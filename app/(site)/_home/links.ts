@@ -29,6 +29,8 @@ export const homeLinks = {
     `${routes.competition(competitionId)}/cantar?${new URLSearchParams({ sector: s.sectorName, stand: s.standName, standId: s.standId })}`,
   /** fish /raffle (join) */
   raffle: routes.raffle(),
+  /** fish RaffleDashboardCard guest tap `dismissTo('/sign-in')` — web keeps the way back to the raffle (participant.b.raffle-entry) */
+  raffleSignIn: routes.signIn(routes.raffle()),
   /** fish /raffle/confirmation (joined) */
   raffleConfirmation: routes.raffleConfirmation(),
   /** fish /raffle/winners (ended, with winners) */

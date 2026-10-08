@@ -7,11 +7,28 @@ import { TileChevron } from './TileChevron';
  * The grid of big choices (stands, prizes, penalties…): one column on a phone, auto-filled
  * columns of at least 280px from 768 — more columns as the screen grows, never wider tiles.
  */
-export function ChoiceGrid({ children, label, className }: { children: ReactNode; label?: string; className?: string }) {
+export function ChoiceGrid({
+  children,
+  label,
+  className,
+  compact = false,
+}: {
+  children: ReactNode;
+  label?: string;
+  className?: string;
+  /** Short one-word choices (the raffle's prize types): side by side from 96px (144 from 768), filling the row. */
+  compact?: boolean;
+}) {
   return (
     <ul
       aria-label={label}
-      className={cn('grid grid-cols-1 gap-2 md:grid-cols-[repeat(auto-fill,minmax(--spacing(70),1fr))] md:gap-3', className)}
+      className={cn(
+        'grid gap-2 md:gap-3',
+        compact
+          ? 'grid-cols-[repeat(auto-fit,minmax(--spacing(24),1fr))] md:grid-cols-[repeat(auto-fit,minmax(--spacing(36),1fr))]'
+          : 'grid-cols-1 md:grid-cols-[repeat(auto-fill,minmax(--spacing(70),1fr))]',
+        className,
+      )}
     >
       {children}
     </ul>
@@ -47,6 +64,12 @@ type ChoiceTileProps = {
    * in-card resting fill instead — a card never sits inside a card.
    */
   ground?: boolean;
+  /**
+   * A one-of choice made in place (the raffle's prize type): the tile is a label around a visually
+   * hidden native radio, so arrow keys move within `name` and Space picks. Selected = filled accent
+   * (on-accent text). Wrap the grid in a fieldset/legend (or give ChoiceGrid a label) for its name.
+   */
+  radio?: { name: string; value: string; checked: boolean; onChange: () => void };
 };
 
 /**
@@ -68,17 +91,19 @@ export function ChoiceTile({
   badge,
   tone = 'accent',
   ground = false,
+  radio,
 }: ChoiceTileProps) {
+  const filled = Boolean(radio?.checked);
   const body = (
     <>
       {stripeClassName ? (
         <span aria-hidden className={cn('absolute inset-y-0 left-0 w-1 rounded-l-card', stripeClassName)} />
       ) : null}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className={cn('t-body-strong', disabled ? 'text-ink-2' : 'text-ink')}>{title}</span>
-        {kicker ? <span className="t-label truncate text-accent-ink">{kicker}</span> : null}
+        <span className={cn('t-body-strong', filled ? 'text-on-accent' : disabled ? 'text-ink-2' : 'text-ink')}>{title}</span>
+        {kicker ? <span className={cn('t-label truncate', filled ? 'text-on-accent' : 'text-accent-ink')}>{kicker}</span> : null}
         {/* ink-2, not muted: muted on the indigo-1 tile is 4.48:1, just under AA. */}
-        {description ? <span className="t-caption line-clamp-2 text-ink-2">{description}</span> : null}
+        {description ? <span className={cn('t-caption line-clamp-2', filled ? 'text-on-accent' : 'text-ink-2')}>{description}</span> : null}
       </span>
       {value || valueCaption || badge ? (
         <span className="flex shrink-0 flex-col items-end gap-0.5 text-right">
@@ -101,6 +126,23 @@ export function ChoiceTile({
   // soft-fill on the surface card.
   const neutralRest = ground ? 'bg-surface shadow-e0' : 'bg-soft-fill';
   const neutralHover = ground ? 'hover:bg-soft-fill' : 'hover:bg-shimmer';
+  if (radio && !disabled) {
+    return (
+      <li className="flex">
+        <label
+          className={cn(
+            shape,
+            'w-full cursor-pointer transition-[background-color,opacity] duration-(--duration-fast) ease-fast active:opacity-70',
+            'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent',
+            filled ? 'bg-accent shadow-button' : tone === 'accent' ? 'bg-accent-tint hover:bg-accent-tint-2' : cn(neutralRest, neutralHover),
+          )}
+        >
+          <input type="radio" name={radio.name} value={radio.value} checked={radio.checked} onChange={radio.onChange} className="sr-only" />
+          {body}
+        </label>
+      </li>
+    );
+  }
   return (
     <li className="flex">
       {href && !disabled ? (

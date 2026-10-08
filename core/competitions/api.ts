@@ -486,7 +486,7 @@ export async function getCurrentPoll(t: Transport) {
 
 /** fish `services/api/polls.ts#getPastPolls` */
 export function getPastPolls(t: Transport, { page = 1, pageSize = 10 }: PaginationParams = {}) {
-  return call(t, { method: 'GET', path: '/polls/past', query: { page, pageSize }, auth: 'required' }, pastPollsPageSchema);
+  return call(t, { method: 'GET', path: '/polls/past', query: { page, pageSize }, auth: 'optional' }, pastPollsPageSchema);
 }
 
 /** fish `services/api/polls.ts#castPollVote` */

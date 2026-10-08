@@ -254,9 +254,17 @@ export const routes = {
   polls: () => '/sondaje',
   /** Past polls (participant.polls-past; fish /polls/past). */
   pollsPast: () => '/sondaje/anterioare',
+  /** The raffle intro + join (participant.raffle-intro; fish /raffle). Signed in only. */
   raffle: () => '/tombola',
   raffleConfirmation: () => '/tombola/confirmare',
+  /** Public: the winners of an ended session (fish /raffle/winners). */
   raffleWinners: () => '/tombola/castigatori',
+  /** «Șansele mele» (participant.raffle-status; fish /raffle/status, an orphan there). */
+  raffleStatus: () => '/tombola/sansele-mele',
+  /** The receipt upload page (participant.raffle-upload-receipt; fish /raffle/upload-receipt?mode=add|replace). */
+  raffleReceipt: (mod?: 'adauga' | 'inlocuieste') => (mod ? `/tombola/bon?mod=${mod}` : '/tombola/bon'),
+  /** «Bon încărcat» (participant.raffle-receipt-submitted; fish /raffle/receipt-submitted). */
+  raffleReceiptSubmitted: () => '/tombola/bon-trimis',
   organizer: () => '/organizator',
   /** The operator panel: one lake's, or the lake picker without one (operator.yml). */
   operator: (lakeId?: string) => (lakeId ? `/operator/${encodeURIComponent(lakeId)}` : '/operator'),

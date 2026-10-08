@@ -85,6 +85,8 @@ const OWN_BAND_ROUTES: readonly RegExp[] = [
   /^\/partide\/intra\/[^/]+\/?$/,
   // «Sondaj» (T6, participant.poll-current.c1): its header's back control owns the way back.
   /^\/sondaje\/?$/,
+  // «Sondaje anterioare» (T1, participant.polls-past.c1): the same — its header's back control.
+  /^\/sondaje\/anterioare\/?$/,
 ];
 
 export function ownsBreadcrumbBand(pathname: string): boolean {

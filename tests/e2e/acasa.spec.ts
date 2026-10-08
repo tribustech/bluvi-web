@@ -736,7 +736,8 @@ test('home.acasa.c36 c37 c38 — raffle card (when a session runs)', async ({ pa
   // Each prize row renders its registrations twice (narrow / wide card layouts), one displayed.
   await expect(visible(raffle.getByText(/^\d+ înscriși$/))).toBeVisible();
   const cta = raffle.getByRole('link', { name: 'Intră ca să participi' });
-  if (await cta.count()) await expect(cta).toHaveAttribute('href', '/intra');
+  // participant.b.raffle-entry: the guest comes back to the raffle after sign-in.
+  if (await cta.count()) await expect(cta).toHaveAttribute('href', '/intra?next=%2Ftombola');
 });
 
 /* ---------- suggested anglers (signed in) ---------- */

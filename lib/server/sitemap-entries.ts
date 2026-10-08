@@ -83,6 +83,8 @@ export function staticEntries(): Entry[] {
     { url: absoluteUrl(routes.partide()), changeFrequency: 'hourly', priority: 0.7 },
     // The community's current poll (participant.poll-current): a public page, its body read in the browser.
     { url: absoluteUrl(routes.polls()), changeFrequency: 'daily', priority: 0.4 },
+    // The closed polls with their final results (participant.polls-past): public, read in the browser.
+    { url: absoluteUrl(routes.pollsPast()), changeFrequency: 'weekly', priority: 0.3 },
     // Partide · Explorează (partide.exploreaza), once its page is on the web.
     ...(partideHrefs.explore() ? [{ url: absoluteUrl(routes.partideExplore()), changeFrequency: 'hourly' as const, priority: 0.6 }] : []),
     // Clasamente (partide.clasament): the bare page, the default period's ranking.

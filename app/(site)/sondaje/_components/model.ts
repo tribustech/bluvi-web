@@ -12,13 +12,11 @@ export const SUGGEST_MIN = 3;
 export const SUGGEST_MAX = 200;
 
 /**
- * Whether /sondaje/anterioare (participant.polls-past) is live. Until it ships, every «Sondaje anterioare»
- * entry point (header chip, aside card, the empty state's button) is hidden (rule 4: never link what
- * we cannot open) and fish's /polls/past redirects TEMPORARILY to /sondaje (next.config.ts). The
- * polls-past screen flips this to true, which also turns the redirect into the permanent
- * /polls/past → /sondaje/anterioare.
+ * Whether /sondaje/anterioare (participant.polls-past) is live — it is: every «Sondaje anterioare»
+ * entry point (header chip, aside card, the empty state's button) shows, and fish's /polls/past
+ * redirects permanently to /sondaje/anterioare (next.config.ts). Before it shipped, false hid them (rule 4).
  */
-export const POLLS_PAST_ON_WEB = false;
+export const POLLS_PAST_ON_WEB = true;
 
 /** The web's `?focus=` value that focuses the suggestion field (fish `?focus=suggest`). */
 export const FOCUS_SUGGEST = 'sugestie';

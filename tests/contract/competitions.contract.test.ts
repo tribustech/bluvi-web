@@ -265,7 +265,13 @@ describe('competitions — stands, polls, sponsors', () => {
     const past = await getPastPolls(user, { page: 1, pageSize: 10 });
     expect(past.meta.pagination.page).toBe(1);
     await expectDenied(getCurrentPoll(guest));
-    await expectDenied(getPastPolls(guest));
+  });
+
+  it('reads past polls as a guest, with no vote of their own (participant.polls-past.c8)', async () => {
+    // GET /polls/past is granted to Public and Authenticated; a guest gets myVoteOptionId null.
+    const past = await getPastPolls(guest, { page: 1, pageSize: 10 });
+    expect(past.meta.pagination.page).toBe(1);
+    for (const poll of past.data) expect(poll.myVoteOptionId).toBeNull();
   });
 
   it('reads the sponsor dashboard and every sponsor as guest and user', async () => {

@@ -7,6 +7,7 @@ import { Tag, type TagTone } from '@/components/cards';
 import { ICON_TILE, TONE_SQUARE } from '@/components/templates/T5';
 import { ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
+import { formatCount } from '@/core/realtime/chat/format';
 import { ON_DARK_FOCUS } from './PartidaCta';
 import { RaffleCountdown } from './RaffleCountdown';
 import { homeLinks } from './links';
@@ -64,7 +65,7 @@ function typeBadgeColor(cmsColor: string | null, typeKey: string | null | undefi
  *
  * fish makes the whole card one Pressable; here the status pill is the link (the prize rows expand,
  * and interactive content cannot nest inside a link). Destinations as fish `handlePress`: ended with
- * winners → câștigători (public); ended without → nothing; guest → sign-in (fish `dismissTo(/sign-in)`, no return path); joined → confirmare;
+ * winners → câștigători (public); ended without → nothing; guest → sign-in and back to /tombola (fish `dismissTo(/sign-in)` has no return path); joined → confirmare;
  * else → înscriere. The decorative motion (snake border, pulses) is left out.
  */
 export function RaffleCard({
@@ -93,7 +94,7 @@ export function RaffleCard({
       ? { href: homeLinks.raffleWinners, label: COPY.ctaSeeWinners }
       : null
     : !signedIn
-      ? { href: homeLinks.signIn, label: 'Intră ca să participi' }
+      ? { href: homeLinks.raffleSignIn, label: 'Intră ca să participi' }
       : joined
         ? null
         : { href: homeLinks.raffle, label: COPY.statusAvailable };
@@ -232,7 +233,7 @@ function PrizeRow({
       ? `${prize.description ? `${prize.description} · ` : ''}${prize.priceLei} LEI × ${prize.count}`
       : (prize.description ?? null);
   const items = prize.items ?? [];
-  const registered = <span className="t-caption">{registrations} înscriși</span>;
+  const registered = <span className="t-caption">{formatCount(registrations, 'înscris', 'înscriși')}</span>;
   // The Tag pairs are tints made for a light ground: a surface box under it (radius 2, the
   // badge's own) keeps its contrast on the indigo row, and lets each layout place it.
   const badge = typeLabel ? (
