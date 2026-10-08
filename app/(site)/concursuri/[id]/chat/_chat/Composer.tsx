@@ -14,6 +14,7 @@ import { cn } from "@/components/ui/cn";
 import { useChat } from "./ChatController";
 import { ActionSlot } from "./composer/ActionSlot";
 import { AttachmentTray } from "./composer/AttachmentTray";
+import { PhotoCropDialog } from "./composer/PhotoCropDialog";
 import { EditBanner } from "./composer/EditBanner";
 import { ReplyPreview } from "./composer/ReplyPreview";
 import { useAttachments } from "./composer/useAttachments";
@@ -43,8 +44,6 @@ import {
  * switch clears them (c6). The closed chat replaces this component with ClosedNotice (ChatFrame).
  */
 
-type Croppable = { openCrop?: (attachmentId: string) => void };
-
 export function Composer({ className }: { className?: string }) {
   const c = useChat();
   const {
@@ -57,6 +56,10 @@ export function Composer({ className }: { className?: string }) {
     remove,
     isFull,
     isCoarse,
+    cropTarget,
+    openCrop,
+    closeCrop,
+    saveCrop,
   } = useAttachments();
   const typing = useTypingWriter();
   const fieldRef = useRef<HTMLTextAreaElement>(null);
@@ -163,8 +166,6 @@ export function Composer({ className }: { className?: string }) {
   };
 
   const disabled = !c.canWrite;
-  // «Decupează poza» exists only once participant.chat-photo puts openCrop on the controller.
-  const openCrop = (c as Croppable).openCrop;
 
   // e2e only (the fake chat exists only outside production, see _live/source.ts): the composer's
   // half of «Răspunde» / «Editează» driven without the list's menu (slice 2 proves its own half).
@@ -210,8 +211,13 @@ export function Composer({ className }: { className?: string }) {
         {isEditing ? <EditBanner onCancel={cancelEdit} /> : null}
         <AttachmentTray
           items={attachments}
-          onEdit={openCrop ? (id) => openCrop(id) : undefined}
+          onEdit={disabled ? undefined : openCrop}
           onRemove={remove}
+        />
+        <PhotoCropDialog
+          target={cropTarget}
+          onCancel={closeCrop}
+          onSave={saveCrop}
         />
 
         <div className="flex items-end gap-2 px-2.5 py-2 xl:px-3">

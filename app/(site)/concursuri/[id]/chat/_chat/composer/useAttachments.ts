@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useSiteToast } from "@/app/(site)/_shell/Toast";
 import type { ComposerAttachment } from "../../_live/hooks";
 import { useChat } from "../ChatController";
+import { applyChatPhotoEdit, type ChatPhotoEdit } from "./cropResult";
+import type { CropTarget } from "./PhotoCropDialog";
 import {
   PHOTO_COPY,
   isImageFile,
@@ -24,7 +26,9 @@ import {
  * exposes it (Permissions API «camera» = denied) — then fish's toast instead of a picker that would
  * open on nothing. Front-camera un-mirroring does not apply (the browser's capture returns the
  * photo as others see it, with no EXIF hint to act on). Compression happens at send (enqueueMessage,
- * c30). Fish's picker always yields a JPEG; the web takes JPEG / PNG / WebP / HEIC and probes the
+ * c30). «Decupează poza» (participant.chat-photo): `openCrop(id)` snapshots that attachment for
+ * PhotoCropDialog; `saveCrop` swaps the cropped file in (cropResult, fish `update`), a no-op when the
+ * photo was removed meanwhile (c7). Fish's picker always yields a JPEG; the web takes JPEG / PNG / WebP / HEIC and probes the
  * decode on the way in, so a photo the browser cannot read (HEIC outside Safari, SVG, a broken file)
  * is refused with a toast instead of being uploaded as an original other viewers cannot show.
  */
@@ -181,8 +185,52 @@ export function useAttachments() {
     [setAttachments],
   );
 
+  // participant.chat-photo: the photo being cropped — a snapshot, so a removal meanwhile (a room
+  // switch, a failed send's restore) does not yank the dialog; its result is then ignored (c7).
+  const [cropTarget, setCropTarget] = useState<CropTarget | null>(null);
+  const openCrop = useCallback(
+    (id: string) => {
+      if (disabled) return;
+      const a = latest.current.find((x) => x.id === id);
+      if (a) setCropTarget({ id: a.id, file: a.file });
+    },
+    [disabled],
+  );
+  const closeCrop = useCallback(() => setCropTarget(null), []);
+  const saveCrop = useCallback(
+    (edit: ChatPhotoEdit) => {
+      setCropTarget(null);
+      const out = applyChatPhotoEdit(latest.current, edit, (b) =>
+        URL.createObjectURL(b),
+      );
+      if (!out) return;
+      latest.current = out.items;
+      setAttachments(out.items);
+      URL.revokeObjectURL(out.previous.previewUrl);
+    },
+    [setAttachments],
+  );
+
+  // e2e only (the fake chat exists only outside production, see _live/source.ts): a removal while
+  // the crop dialog is open (c7) — the tray is under the modal, so no click can reach it.
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const fake = (
+      window as unknown as { __BLUVI_FAKE_CHAT__?: Record<string, unknown> }
+    ).__BLUVI_FAKE_CHAT__;
+    if (!fake) return;
+    fake.attachments = { remove, ids: () => latest.current.map((a) => a.id) };
+    return () => {
+      delete fake.attachments;
+    };
+  }, [remove]);
+
   return {
     attachments,
+    cropTarget,
+    openCrop,
+    closeCrop,
+    saveCrop,
     galleryRef,
     cameraRef,
     onPicked,

@@ -263,7 +263,7 @@ test.describe('touch screen', () => {
 /* c29 / c30 — photos                                                  */
 /* ------------------------------------------------------------------ */
 
-test('participant.chat.c29 — photos into the tray up to 10 (the rest refused with a toast), «Elimină poza» removes, the + is off when full; no «Decupează poza» until the crop page exists', async ({ page, context, fakeChat }) => {
+test('participant.chat.c29 — photos into the tray up to 10 (the rest refused with a toast), «Elimină poza» removes, the + is off when full; each thumbnail is «Decupează poza {i}»', async ({ page, context, fakeChat }) => {
   await openChat(page, context);
   await pick(page, 3);
   await expect(tray(page)).toHaveAttribute('aria-label', 'Poze atașate: 3 din 10');
@@ -277,10 +277,9 @@ test('participant.chat.c29 — photos into the tray up to 10 (the rest refused w
   await expect(page.getByText('Poți trimite cel mult 10 poze într-un mesaj.')).toBeVisible();
   await expect(addPhotos(page)).toBeDisabled();
   await shot(page, 'tray-full');
-  // The crop page is participant.chat-photo's: until it wires controller.openCrop a thumbnail is a
-  // plain picture, never a button that does nothing (rule 4).
-  for (let i = 1; i <= 10; i++) await expect(tray(page).getByRole('img', { name: `Poza ${i}`, exact: true })).toBeVisible();
-  await expect(tray(page).getByRole('button', { name: /^Decupează poza/ })).toHaveCount(0);
+  // Each thumbnail is «Decupează poza {i}» (the crop dialog is participant.chat-photo's, proven in
+  // concurs-chat-foto.spec.ts).
+  for (let i = 1; i <= 10; i++) await expect(tray(page).getByRole('button', { name: `Decupează poza ${i}`, exact: true })).toBeVisible();
   // Remove two.
   await tray(page).getByRole('button', { name: 'Elimină poza 10' }).click();
   await tray(page).getByRole('button', { name: 'Elimină poza 1', exact: true }).click();
@@ -535,9 +534,15 @@ test('participant.chat.c28 — keyboard: «Adaugă poze» → «Mesaj» → «Tr
   await field(page).fill('');
   await pick(page, 2);
   await expectNoA11yViolations(page);
-  await tray(page).getByRole('button', { name: 'Elimină poza 1', exact: true }).focus();
+  // Per photo: «Decupează poza {i}» then «Elimină poza {i}».
+  await tray(page).getByRole('button', { name: 'Decupează poza 1', exact: true }).focus();
+  await page.keyboard.press('Tab');
+  await expect(tray(page).getByRole('button', { name: 'Elimină poza 1', exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(tray(page).getByRole('button', { name: 'Decupează poza 2', exact: true })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(tray(page).getByRole('button', { name: 'Elimină poza 2', exact: true })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
   await page.keyboard.press('Shift+Tab');
   await expect(tray(page).getByRole('button', { name: 'Elimină poza 1', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');

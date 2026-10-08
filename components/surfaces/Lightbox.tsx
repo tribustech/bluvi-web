@@ -257,6 +257,7 @@ export function PhotoDialog({
   labelledBy,
   children,
   className,
+  backdrop = true,
   ...rest
 }: {
   open: boolean;
@@ -264,10 +265,12 @@ export function PhotoDialog({
   labelledBy: string;
   children: ReactNode;
   className?: string;
+  /** false: a click outside a centred dialog does nothing (an editor that would lose work); Escape still closes. */
+  backdrop?: boolean;
   onKeyDown?: KeyboardEventHandler<HTMLDialogElement>;
   'data-testid'?: string;
 }) {
-  const dialog = useModalDialog(open, onClose);
+  const dialog = useModalDialog(open, onClose, { backdrop });
   return (
     <dialog
       {...dialog}

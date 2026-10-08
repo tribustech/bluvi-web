@@ -28,5 +28,12 @@ export default defineConfig({
       testMatch: /intra\.spec\.ts$/,
       grep: /account\.sign-in\.c18|unsafe next is ignored/,
     },
+    // participant.chat-photo: crop / rotate / encode of a real-size phone photo in Safari's engine.
+    {
+      name: 'webkit-chat-foto',
+      use: { ...devices['Desktop Safari'] },
+      testMatch: /concurs-chat-foto\.spec\.ts$/,
+      grep: /participant\.chat-photo\.c3|6000 × 4000/,
+    },
   ],
 });

@@ -597,7 +597,7 @@ screens:
         text: "Up to 10 photos per message from the gallery (multi-select up to the remaining slots) or the camera; refused permissions toast „Nu ai acordat permisiuni pentru galerie.” / „Nu ai acordat permisiuni pentru cameră.”; front-camera shots are un-mirrored; the tray shows thumbnails — click „Decupează poza” opens the crop page, X „Elimină poza” removes."
         fish_ref: "features/chat/hooks/useChatAttachments.ts:8-93; features/chat/components/composer/AttachmentTray.tsx:7-57"
         status: partial
-        web_note: "useAttachments: «Adaugă poze» = multi-select picker cut to the remaining slots (the web picker cannot cap the selection like fish's selectionLimit, so the overflow is refused with «Poți trimite cel mult 10 poze într-un mesaj.»); «Fă o poză» = an input with capture=environment (back camera on a phone; a desktop opens the file picker); only JPEG / PNG / WebP / HEIC(F) the browser can decode enter the tray (accept narrowed; each pick probed with createImageBitmap — an SVG, a GIF or a HEIC outside Safari is refused with «Formatul pozei nu este suportat.», never uploaded as an unreadable original; fish's picker always yields a JPEG); + off when 10. Permissions: a file picker needs none; «Nu ai acordat permisiuni pentru cameră.» is shown when the browser reports the camera denied (Permissions API, touch screens) — the gallery denial has no web equivalent (no browser reports it). Front-camera un-mirroring does not apply on the web (the browser's capture returns the photo as others see it). Tray: 64 px thumbnails and «Elimină poza {i}», «n/10». PARTIAL: «Decupează poza» → crop page is participant.chat-photo's; until it puts openCrop on the controller the thumbnail is a plain picture («Poza {i}»), not a dead button (rule 4) — AttachmentTray renders the button as soon as onEdit exists. e2e tests/e2e/concurs-chat-compunere.spec.ts «c29 …» ×3 (tray incl. no dead «Decupează poza» and SVG/HEIC refused, camera picker, camera denied on touch)."
+        web_note: "useAttachments: «Adaugă poze» = multi-select picker cut to the remaining slots (the web picker cannot cap the selection like fish's selectionLimit, so the overflow is refused with «Poți trimite cel mult 10 poze într-un mesaj.»); «Fă o poză» = an input with capture=environment (back camera on a phone; a desktop opens the file picker); only JPEG / PNG / WebP / HEIC(F) the browser can decode enter the tray (accept narrowed; each pick probed with createImageBitmap — an SVG, a GIF or a HEIC outside Safari is refused with «Formatul pozei nu este suportat.», never uploaded as an unreadable original; fish's picker always yields a JPEG); + off when 10. Permissions: a file picker needs none; «Nu ai acordat permisiuni pentru cameră.» is shown when the browser reports the camera denied (Permissions API, touch screens) — the gallery denial has no web equivalent (no browser reports it). Front-camera un-mirroring does not apply on the web (the browser's capture returns the photo as others see it). Tray: 64 px thumbnails and «Elimină poza {i}», «n/10». «Decupează poza {i}» on each thumbnail opens the crop dialog (participant.chat-photo). e2e tests/e2e/concurs-chat-compunere.spec.ts «c29 …» ×3 (tray incl. «Decupează poza {i}» per thumbnail and SVG/HEIC refused, camera picker, camera denied on touch)."
       - id: participant.chat.c30
         text: "Sending shows my bubble at once (pending, 60% opacity) from the outbox; photos are compressed (long edge ≤ 1280 px, JPEG 0.8, original kept when smaller), uploaded to /upload, then the message doc {senderId, senderName, senderAvatar, text, attachments, replyTo, senderRole, createdAt, type:'text'} is written; if preparing fails, the photos and reply are restored and the toast „Mesajul nu a putut fi pregătit pentru trimitere.” is shown."
         fish_ref: "features/chat/hooks/useChatSend.ts:82-120; features/chat/media/compressChatPhoto.ts:11-24; features/chat/outbox/worker.ts:169-229; features/chat/outbox/uploader.ts:33-63"
@@ -677,11 +677,11 @@ screens:
       - "features/chat/domain/chatPhotoEditResult.ts"
       - "features/chat/hooks/useChatAttachments.ts"
       - "features/chat/screens/ChatScreen.tsx"
-    web_route: "/concursuri/[id]/chat/foto (or an in-page dialog over the chat)"
+    web_route: "/concursuri/[id]/chat (in-page dialog over the chat; no URL — the pending File lives only in memory)"
     template: T6
     milestone: M5
     roles: [angler, organizer, referee]
-    core: [partide.domain (crop geometry, if ported) ]
+    core: [partide.domain (cropGeometry, photoCropPipeline)]
     states:
       - measuring the image
       - editing (preset, rotation, flip, zoom/pan)
@@ -692,26 +692,41 @@ screens:
       - id: participant.chat-photo.c1
         text: "Opened by clicking a pending photo in the composer tray; shows that photo on black with the crop frame once its real size is measured."
         fish_ref: "features/chat/screens/ChatScreen.tsx:263-272; app/(app)/competitions/[competitionId]/chat/photo.tsx:19-43,61-65"
+        status: passing
+        web_note: "«Decupează poza {i}» on a tray thumbnail (AttachmentTray onEdit → useAttachments openCrop, a snapshot of that attachment) opens composer/PhotoCropDialog (kit PhotoDialog: native modal <dialog>, black, focus contained, Escape, focus back to the thumbnail). The photo is re-measured from the File (canvasPipeline measurePhoto, EXIF applied) before the overlay shows; meanwhile a neutral skeleton + «Se pregătește poza…» status. When the overlay replaces the skeleton (whose «Anulează» held showModal's initial focus), focus moves to the crop stage (role application, aria-describedby crop-help) so the editor is announced, never left on <body>. Phone full-screen; from 768 a centred modal ≤ 960 × 720. e2e tests/e2e/concurs-chat-foto.spec.ts «c1 c5 …» (slowed decode → skeleton, then the stage focused inside the dialog, black stage, 375 full-screen, axe), «shots …» (375/768/1280/1440/1920, ≤ 960 × 720 from 768, no overflow, Tab never reaches the chat)."
       - id: participant.chat-photo.c2
         text: "Ratio presets „Original”, „Liber”, „4:3”, „1:1”, „3:4”, „16:9”; the free frame can be resized from its edges down to 60 px."
         fish_ref: "features/partide/components/PhotoCropOverlay.tsx:49-74,205-225"
+        status: passing
+        web_note: "components/photo-crop/CropOverlay (the M4 partide overlay, restored unchanged after the 2026-10-08 partide cut) + core cropGeometry: radiogroup «Format decupare» Original / Liber / 4:3 / 1:1 / 3:4 / 16:9 (opens on 4:3); «Liber» has four corner handles (pointer drag, arrow keys) clamped at MIN_FREE_FRAME 60 px. e2e tests/e2e/concurs-chat-foto.spec.ts «c2 …» (each preset's frame ratio, handles only in Liber, keyboard to 60 × 60, mouse grow, 16:9 and free saves)."
       - id: participant.chat-photo.c3
         text: "Top bar: rotate 90° clockwise, flip horizontally, and „Reset” (rotation 0, unflipped, initial preset)."
         fish_ref: "features/partide/components/PhotoCropOverlay.tsx:360-364,405-422"
+        status: passing
+        web_note: "Top bar «Rotește» (90° clockwise), «Oglindește» (aria-pressed), «Reset» (0°, unflipped, 4:3); rotate/flip applied before the crop (core photoCropPipeline). e2e tests/e2e/concurs-chat-foto.spec.ts «c3 …» (img transform per step, Reset, a quarter-turned Original saves 240 × 320 from 320 × 240)."
       - id: participant.chat-photo.c4
         text: "In ratio mode the photo can be zoomed and panned inside the frame without leaving gaps (fish pinch/pan; web: wheel/drag and keyboard)."
         fish_ref: "features/partide/components/PhotoCropOverlay.tsx:255-346"
+        status: passing
+        web_note: "Ratio presets: the frame is fixed and the photo pans/zooms beneath it, clamped so it always covers the frame (core clampTransform, max ×MAX_ZOOM_MULTIPLIER); web input: drag, wheel, two-pointer pinch, and on the focused stage (role application) arrows + «+»/«−». e2e tests/e2e/concurs-chat-foto.spec.ts «c4 …» (+/− and arrows pushed past the edges, wheel, drag — the photo's box always contains the frame; the zoomed 1:1 saves a square < 240 px). Pinch shares the drag/zoom path and is not driven by the e2e (Playwright has no multi-touch on desktop Chromium)."
       - id: participant.chat-photo.c5
         text: "„Anulează” returns to the chat leaving the photo unchanged; „Salvează” applies the crop and replaces that pending photo (uri, width, height) in the composer; a second quick „Salvează” is ignored."
         fish_ref: "app/(app)/competitions/[competitionId]/chat/photo.tsx:24-58; features/chat/screens/ChatScreen.tsx:253-262; features/partide/components/PhotoCropOverlay.tsx:348-358,489-499"
+        status: passing
+        web_note: "«Anulează» / Escape close with the attachment untouched; a click on the backdrop around the ≥ 768 modal does nothing (PhotoDialog backdrop={false}) — fish's crop is a full-screen route with only Anulează / Salvează, so a stray click never throws the rotation / preset / zoom away. «Salvează» → canvasPipeline renderCropPlan (JPEG under the upload cap) → useAttachments saveCrop → composer/cropResult applyChatPhotoEdit (pure, unit-tested): that attachment's file, preview, width, height, mime image/jpeg, name .jpg replaced in place. A latch + the disabled «Se aplică…» button ignore a second click; Escape is ignored while applying. e2e tests/e2e/concurs-chat-foto.spec.ts «c1 c5 …» (cancel/Escape unchanged, focus back), «c5 …» (backdrop clicks keep the dialog and its 1:1; held encode + double click → one encode, 240 × 240, the other photo untouched, then sent: one message doc with both attachments, upload route-mocked)."
       - id: participant.chat-photo.c6
         text: "An unreadable photo toasts „Nu am putut citi poza. Încearcă din nou.” and returns; a failed crop toasts „Nu am putut aplica decuparea. Încearcă din nou.” and stays."
         fish_ref: "app/(app)/competitions/[competitionId]/chat/photo.tsx:34-38,53-56"
+        status: passing
+        web_note: "Unreadable (measure fails) → the site toast «Nu am putut citi poza. Încearcă din nou.» and the dialog closes; a failed crop → «Nu am putut aplica decuparea. Încearcă din nou.» as a role=alert notice inside the dialog (the page's toast host sits under the modal's top layer) and the dialog stays with its preset; «Salvează» works again. e2e tests/e2e/concurs-chat-foto.spec.ts «c6 …» (decode forced to fail; canvas encode forced to fail, then succeeds)."
       - id: participant.chat-photo.c7
         text: "If the photo was removed from the tray meanwhile, the saved crop is ignored."
         fish_ref: "features/chat/hooks/useChatAttachments.ts:80-85"
+        status: passing
+        web_note: "composer/cropResult applyChatPhotoEdit returns null for an id no longer in the tray (no object URL minted); the dialog keeps its snapshot so a removal meanwhile (room switch, a send's restore) does not yank it. Unit cropResult.test.ts; e2e tests/e2e/concurs-chat-foto.spec.ts «c7 …» (removed while the encode is held, and removed before «Salvează» — via the fake chat's e2e-only attachments seam, the tray being under the modal)."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "M5-B5: composer/PhotoCropDialog over the chat (no URL), composer/cropResult (pure + unit), wiring in useAttachments / AttachmentTray / Composer. Reuses the M4 crop stack, restored verbatim after the partide cut (e50c32f deleted it with the capture flow): components/photo-crop/{CropOverlay,canvasPipeline,icons} (was partide/[id]/captura/_photo) and core/partide/domain/{cropGeometry,photoCropPipeline} + their unit tests. Real-size photos: iOS Safari caps a canvas at ~16.7 MP and phone photos are 24–200 MP, so the crop is planned and drawn on canvasPipeline workingSize (≤ 2560 px long edge; the sent photo is ≤ 1280 px anyway): createImageBitmap decodes straight to that size (EXIF applied), core applyCropPlan composes rotate → flip → crop as one matrix, and a single drawImage fills one canvas of the crop's size. e2e tests/e2e/concurs-chat-foto.spec.ts (fake chat, zero Firebase, upload route-mocked), incl. «a 6000 × 4000 phone photo …» under an emulated 16.7 MP cap (largest canvas ≤ 2560², the turned photo's pixels checked), also run in WebKit (playwright project webkit-chat-foto, with c3); shots .shots/chat-foto at 375 / 768 / 1280 / 1440 / 1920."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.poll-current
@@ -1039,30 +1054,46 @@ screens:
       - uploading
       - "upload failed (fish: silent)"
       - orphan (no fish navigation reaches it)
+      - "draw over → «Șansele mele» (fish: receipt block hidden)"
     criteria:
       - id: participant.raffle-upload-receipt.c1
         text: "No fish screen navigates here (the confirmation uses the upload dialog instead); the route takes mode=add|replace, anything else = first. Web may keep it as the deep-linkable form of the same upload dialog."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:14-18; app/(app)/raffle/confirmation.tsx:211-224"
+        status: passing
+        note: "e2e tests/e2e/tombola-bon.spec.ts. Web keeps the orphan as the deep-linkable page form of _shared/ReceiptUploadDialog (owner decides on links, b.raffle-orphans): `mod=adauga` → add, `mod=inlocuieste` → replace, anything else → first (_components/mode.ts, unit mode.test.ts). Auth-only (proxy 307 to /intra?next= with the mode kept), noindex; not joined / no session → /tombola; the draw over (isEnded) → /tombola/sansele-mele, as fish hides the receipt block once ended (status.tsx:298-299) and the CMS would still accept the upload. e2e: ended-winners → «Șansele mele», no upload card, no POST; no link to it on home, the confirmation or «Șansele mele»."
       - id: participant.raffle-upload-receipt.c2
         text: "Title per mode: „Încarcă bonul fiscal” (first), „Adaugă bon fiscal” (add), „Înlocuiește bonul fiscal” (replace)."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:24-29; constants/raffleCopy.ts:110-112"
+        status: passing
+        note: "e2e tests/e2e/tombola-bon.spec.ts: h1 and document title for no mod, an unknown mod, adauga, inlocuieste (generateMetadata per mode)."
       - id: participant.raffle-upload-receipt.c3
         text: "Replace mode with a receipt already uploaded: a card „Bonul tău încărcat” with the image and „Înlocuiește cu o nouă fotografie mai jos.”."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:22,59-78"
+        status: passing
+        note: "e2e tests/e2e/tombola-bon.spec.ts: replace with a receipt shows the card, the image (unoptimized: private, browser-fetched) and the hint; replace without a receipt and add mode show none. ≥1024 the preview is a compact row (160px thumbnail left, title + hint right) atop the right column, the drop zone alone on the left (asserted at 1280 and 1920)."
       - id: participant.raffle-upload-receipt.c4
         text: "Instructions box „Instrucţiuni” / „Fă o fotografie bonului tău fiscal. Cumpără de minim 150 lei de la PescarMania, …” with the red disqualification disclaimer."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:80-109; constants/raffleCopy.ts:113-116"
+        status: passing
+        note: "e2e tests/e2e/tombola-bon.spec.ts: «Instrucțiuni» box with the full text and the disclaimer in status-danger (red asserted by computed colour); phone order instructions → upload → tips; ≥1024 instructions + tips in the right column. DOM order = phone order (preview, instructions, upload, tips; computed `order` 0 everywhere, WCAG 1.3.2): ≥1024 is explicit grid placement, no display:contents/order."
       - id: participant.raffle-upload-receipt.c5
         text: "Upload card: camera icon, „Încarcă bonul fiscal”, „Alege o metodă de încărcare”, „Fotografiază acum” and „Încarcă din galerie”, both busy and disabled while uploading."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:111-138; constants/raffleCopy.ts:117-120"
+        status: passing
+        note: "e2e tests/e2e/tombola-bon.spec.ts: pointer → «Încarcă din galerie» only (primary) + a web-only drop hint (≥1024 the card is a drop zone); touch (hasTouch) → «Fotografiază acum» (capture=environment) above «Încarcă din galerie»; both disabled + aria-busy with «Se încarcă bonul…» while the POST is held. Pointer: window-level dragover/drop (preventDefault) so a near-miss drop (tips, instructions, header) never opens the file in the tab; it goes to the same upload; a drop on the zone uploads once."
       - id: participant.raffle-upload-receipt.c6
         text: "Tips card „Sfaturi pentru o fotografie bună” with „Asigură-te că bonul este complet vizibil”, „Verifică ca data și numele magazinului să fie lizibile”, „Folosește lumină naturală pentru claritate”."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:140-168; constants/raffleCopy.ts:121-126"
+        status: passing
+        note: "e2e tests/e2e/tombola-bon.spec.ts: «Sfaturi pentru o fotografie bună» heading and the three tips as list items."
       - id: participant.raffle-upload-receipt.c7
         text: "A chosen file is uploaded (replace uses the same POST receipt endpoint) and the page is replaced by „Bon încărcat”; a failed upload shows nothing in fish (no catch) — web must show an error and keep the page."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:31-54; hooks/useRaffle.ts:216-227"
+        status: passing
+        note: "e2e tests/e2e/tombola-bon.spec.ts: a chosen file → one multipart POST /api/cms/raffle-sessions/{id}/receipt (`files` part, filename) in add and replace mode, then router.replace to /tombola/bon-trimis; a 500 → role=alert «Nu am putut încărca bonul…», the page stays, buttons re-enabled and described by the error (fish swallows it)."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "M5-B5 built: app/(site)/tombola/bon (page/loading + _components: UploadReceiptScreen, mode + unit test). T6 FlowLayout bare: phone = fish stack (preview, instructions, upload card, tips), same DOM order; ≥1024 grid placement: upload drop zone left spanning all rows | compact preview row, instructions, tips right. Ended draw → «Șansele mele». Window-level drop guard on pointer devices. Same copy and core uploadRaffleReceiptMutation as _shared/ReceiptUploadDialog (no edit to _shared). Own breadcrumb band (SiteHeader OWN_BAND_ROUTES, back control). Every e2e route-mocked (fake-raffle + a participation/receipt layer): no real upload. Shots .shots/tombola-bon (first, replace-preview, failed × 375/768/1280/1440/1920; uploading 375/1280; touch 375). axe clean. No visual baselines yet."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.raffle-confirmation
@@ -1179,17 +1210,25 @@ screens:
       - id: participant.raffle-receipt-submitted.c1
         text: "Reached only from the upload-receipt page (itself not linked in fish)."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:40"
+        status: passing
+        web_note: "Orphan: /tombola/bon-trimis is linked from nothing (home, confirmation, «Șansele mele» checked); /tombola/bon sends the viewer here after a successful upload (participant.raffle-upload-receipt). Auth-only (proxy 307 → /intra?next=, dead cookie → requireViewer), noindex; not in the raffle → handed to the intro (/tombola). e2e tests/e2e/tombola-bon-trimis.spec.ts «c1 — an orphan …», «signed out → sign-in …», «not in the raffle …»."
       - id: participant.raffle-receipt-submitted.c2
         text: "Title „Bon încărcat”, a green check and „Bonul a fost aprobat! Ai primit 2 șanse bonus.” when receiptUploaded, else „Bonul tău este în curs de verificare.”."
         fish_ref: "app/(app)/raffle/receipt-submitted.tsx:19-30; constants/raffleCopy.ts:128-131"
+        status: passing
+        web_note: "T6 FlowLayout card + fill + narrow (phone: flush white section from the header to the action bar; from 768 a centred card ≤ 720), FlowConfirmation and «Detalii șanse» one group in the upper third (1 : 2 spacers around the group, so the tiles sit right under the message; the skeleton uses the same frame — e2e «layout 375 …» checks disc and tiles at the same y, loading vs loaded): h1 «Bon încărcat», the status-success check disc, «Bonul a fost aprobat! Ai primit 2 șanse bonus.» when receiptUploaded else «Bonul tău este în curs de verificare.» (breakdown.ts, unit). Neutral skeleton while the participation loads, retry gate on failure (rule 4). e2e «c2 c3 — under verification …», «c2 c3 — approved …» (axe), «rule 4 — loading …», «rule 4 — the participation fails …»."
       - id: participant.raffle-receipt-submitted.c3
         text: "„Detalii șanse”: „Înainte” 1; „Bonus (în așteptare)” while under verification else „Bonus”, value 2 when uploaded or under verification else 0; „Total” 3 while under verification else the entries count."
         fish_ref: "app/(app)/raffle/receipt-submitted.tsx:14-63; constants/raffleCopy.ts:132-136"
+        status: passing
+        web_note: "«Detalii șanse» as bento FactTiles (2 + total across on a phone, 3 in a row from 768): «Înainte» 1, «Bonus (în așteptare)» / «Bonus» 2|0, «Total» 3 while under verification else entriesCount — fish's exact precedence, pure receiptBreakdown (breakdown.test.ts). Units spaced and agreeing via formatCount («1 șansă», «3 șanse»), one spoken phrase per tile. e2e «c2 c3 …» (1/2/3 verifying, 1/2/5 approved), «c3 — no receipt …» (0, entries)."
       - id: participant.raffle-receipt-submitted.c4
         text: "„Vezi șansele mele” goes back, or home when there is nothing behind."
         fish_ref: "app/(app)/raffle/receipt-submitted.tsx:66-68; helpers/navigationHelpers.ts:7-14"
+        status: passing
+        web_note: "«Vezi șansele mele» in T6's action bar (FlowLayout `actions`: thumb-zone bar below 1280, docked card from 1280) = fish goToDashboardSafely: router.back() when canGoBackInApp (lib/client/in-app-history), else router.replace(home); a real link to / for modified clicks. The header chevron («Înapoi») does the same (fish BackButton: canGoBack ? back : replace('/')), href / as the no-JS fallback. e2e «c4 — … goes back when there is a page of ours behind (keyboard)», «c4 — the real way in (sansele-mele → bon → replace) …» (client push to /tombola/bon, stubbed upload, router.replace; Back skips the replaced entry, history.length unchanged), «header back — the real way in …», «header back — with nothing behind …», «c4 — with nothing behind … goes home, replacing this page», «keyboard order …»."
     mobile_only: false
-    status: todo
+    status: passing
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.raffle-status
