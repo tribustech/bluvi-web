@@ -1277,7 +1277,7 @@ screens:
         text: "Pressing a request opens that stand's weighing history (scale area, /scale/[id]/history with sector, stand, standId); without stand data it shows „Nu exista suficiente date pentru a deschide acest stand”."
         fish_ref: components/ScaleItem.tsx:49-60
         status: passing
-        web_note: "The scale area's stand history is M6: until then a request opens the Clasament's Cântare view on that stand (routes.competitionWeighings → /cantare?stand=<id>: the phone's stand card expanded and scrolled into view; from 1280 Cântare is a table (owner rule 15) and the stand's row is scrolled into view). Missing stand data → danger toast «Nu există suficiente date pentru a deschide acest stand». e2e derives the done request from the same public list and picks its row by name (stand, author, «finalizat»), never by list position."
+        web_note: "A request opens the stand's weighing history in the scale area, as fish does: /concursuri/[id]/cantar/[standId] (routes.competitionScaleStand, organizer.scale-history). That page is signed in only: a signed-out viewer goes through /intra?next=… and lands on it. Missing stand data → danger toast «Nu există suficiente date pentru a deschide acest stand». e2e (concurs-tabs) derives the done request from the same public list, picks its row by name, checks the href, the sign-in hop and «Istoric cântăriri» once signed in."
       - id: competition-page.extra-cantare.c6
         text: "Refresh invalidates the competition, the extra-scale list, the viewer's statute and allocated participants."
         fish_ref: components/CompetitionExtraScales.tsx:39-48

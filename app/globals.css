@@ -93,6 +93,9 @@
   --bluvi-welcome-button-hover: #eef2f5;
   --bluvi-welcome-ink: #172c38;
   --bluvi-welcome-accent: #4f46e5;
+  /* Signature paper (cântar): a signature is a black stroke — fish's on a TRANSPARENT background — so
+   * the pad and «Vezi semnături» sit on literal white in dark mode too (never redefined there). */
+  --bluvi-signature-paper: #ffffff;
   /* LIVE pill: rose-600 + white. */
   --bluvi-status-live-bg: #e11d48;
   --bluvi-status-live-fg: #ffffff;
@@ -318,6 +321,7 @@
   --color-welcome-button-hover: var(--bluvi-welcome-button-hover);
   --color-welcome-ink: var(--bluvi-welcome-ink);
   --color-welcome-accent: var(--bluvi-welcome-accent);
+  --color-signature-paper: var(--bluvi-signature-paper);
   --color-status-live-bg: var(--bluvi-status-live-bg);
   --color-status-live-fg: var(--bluvi-status-live-fg);
   --color-status-success-bg: var(--bluvi-status-success-bg);

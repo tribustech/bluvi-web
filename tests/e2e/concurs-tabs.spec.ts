@@ -1352,16 +1352,15 @@ test(`competition-page.extra-cantare.c4 competition-page.extra-cantare.c5 compet
   expect(await title.evaluate(el => getComputedStyle(el).color)).toBe(await heading.evaluate(el => getComputedStyle(el).color));
   // The scale icon, the check by «Finalizat la», the chevron.
   await expect(first.locator('svg')).toHaveCount(3);
-  const href = `/concursuri/${ID.guests}/cantare?stand=${stand}`;
+  // The stand's weighing history in the scale area (organizer.scale-history, as fish ScaleItem).
+  const href = `/concursuri/${ID.guests}/cantar/${stand}`;
   await expect(first).toHaveAttribute('href', href);
   await first.click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.guests}/cantare\\?stand=${stand}$`));
-  // The Cântare view opens on that stand: from 1280 its table brings the stand's row into view
-  // (owner rule 15: a table, nothing to unfold)…
-  await expect(visible(page.locator(`#stand-${stand}`))).toBeInViewport({ timeout: 30_000 });
-  // …and the phone's stand cards open it.
-  await open(page, href, PHONE);
-  await expect(visible(page.locator(`#stand-${stand}`).getByRole('button', { expanded: true }))).toBeVisible({ timeout: 30_000 });
+  // Signed out: sign in first, then back to the stand.
+  await expect(page).toHaveURL(new RegExp(`/intra\\?next=${encodeURIComponent(href).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+  await signIn(page.context(), jwt);
+  await page.goto(href);
+  await expect(page.getByRole('heading', { level: 1, name: 'Istoric cântăriri' })).toBeVisible({ timeout: 30_000 });
 });
 
 test(`competition-page.extra-cantare.c4 competition-page.extra-cantare.c5 competition-page.extra-cantare.s5 competition-page.extra-cantare.s6 — a new request while running: «acum …» + chevron; «Sector B Stand 12»; no stand data → toast`, async ({ page }) => {

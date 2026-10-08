@@ -41,9 +41,9 @@ import { Bone } from './tabParts';
  * list its counts; the list's title is the plain header the Clasament tab uses. Below 1280 the
  * column is not shown (the count is the title's description).
  *
- * A request opens the stand's weighings. fish goes to the scale area's stand history
- * (/scale/[id]/history, M6 on the web); until then the web opens the Clasament's Cântare view on
- * that stand (routes.competitionWeighings), which lists the same weighings.
+ * A request opens the stand's weighing history in the scale area, as fish does (/scale/[id]/history →
+ * routes.competitionScaleStand, organizer.scale-history): signed in only, so a signed-out viewer is
+ * sent to sign in and comes back there.
  *
  * The stand label: «Sector B Stand 12», or — national championship only (fish passes isNc for
  * `rankingType === 'nationalChampionship'`, not fipsed) — fish formatNationalStand's bare «B3(12)».
@@ -302,7 +302,7 @@ function RequestItem({
           {content}
         </button>
       ) : (
-        <Link href={routes.competitionWeighings(competitionId, stand.standId)} aria-label={`${name}: vezi cântarele standului`} className={className}>
+        <Link href={routes.competitionScaleStand(competitionId, stand.standId)} aria-label={`${name}: vezi cântarele standului`} className={className}>
           {content}
         </Link>
       )}

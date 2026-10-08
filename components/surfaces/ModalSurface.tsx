@@ -28,6 +28,7 @@ export function ModalSurface({
   footer,
   children,
   bodyClassName,
+  backdropDismiss = true,
 }: {
   open: boolean;
   onClose: () => void;
@@ -38,8 +39,10 @@ export function ModalSurface({
   footer?: ReactNode;
   children: ReactNode;
   bodyClassName?: string;
+  /** false: a click on the backdrop does nothing (a signature pad must not close on a stray tap). */
+  backdropDismiss?: boolean;
 }) {
-  const dialog = useModalDialog(open, onClose);
+  const dialog = useModalDialog(open, onClose, { backdrop: backdropDismiss });
   const titleId = useId();
   return (
     <dialog

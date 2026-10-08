@@ -1262,7 +1262,9 @@ screens:
       - core/competitions/queries.ts#competitionQuery
       - core/organizer/mutations.ts#startCantarMutation
       - core/organizer/mutations.ts#deleteCantarMutation
-      - "(missing) feeder currentLegOf + round-scoped weighings; formatStandLabel"
+      - core/competitions/domain/feeder.ts#currentLegOf
+      - core/organizer/domain/weighing.ts#formatStandLabel
+      - core/organizer/queries.ts#weighingByIdQuery
     states:
       - "loading"
       - "error (retry)"
@@ -1276,38 +1278,62 @@ screens:
       - id: organizer.scale-history.c1
         text: "The title is „Istoric cântariri”; loading and error (retry refetches weighings, allocations, statute, competition) states are shown."
         fish_ref: app/(app)/scale/[competitionId]/history.tsx:137-178
+        status: passing
+        web_note: "Title «Istoric cântăriri» (fish's «cântariri» typo fixed). Loading: the header with the real title, the dashed stand card and cards / table rows in grey, announced once. Error (any of weighings, allocations, statute, competition): the frame's gate; «Încearcă din nou» refetches all four (e2e counts the reads)."
       - id: organizer.scale-history.c2
         text: "A header card shows „Sector X, Stand N (T kg)” (national: national stand label), the club for national championship, „Echipa <nume>” when a team, and the participants or guest as bullets."
         fish_ref: app/(app)/scale/[competitionId]/history.tsx:193-231
+        status: passing
+        web_note: "The sector and stand names come from the competition's sectors (fish reads them from the route query); a stand outside the competition says «Standul nu face parte din acest concurs.» with «Alege alt stand». Total «(37,350 kg)»: comma decimals, the unit a separate smaller word (rule 10). NC: «Stand A3(12)» + the club; team: «Echipa <nume>»; guest or participants as bullets."
       - id: organizer.scale-history.c3
         text: "For feeder competitions the list and total cover only the current leg."
         fish_ref: app/(app)/scale/[competitionId]/history.tsx:70-80
+        status: passing
+        web_note: "currentLegOf(competition) scopes /feed/weighings/by-stand?round= for the list and the total (the leg in the query keys); the header's meta says «Manșa N este în desfășurare». e2e edits the competition to feederRounds leg 2 and asserts every stand read carries round=2."
       - id: organizer.scale-history.c4
         text: "Each weighing card shows „Cântar N” (+ „(Extra)”), a „Terminat” / „In curs” badge, „Total: x.xxx kg”, „Capturi: n”, and start → end as „dd.MM, HH:mm” (end „În curs” while open)."
         fish_ref: components/scale/CantarItem.tsx:17-78
+        status: passing
+        web_note: "«În curs» with its diacritic (fish «In curs»). Below 1280 fish's cards (2 per row from 768); from 1280 (owner rule 14) a table — Cântar, Început, Sfârșit, Capturi, Kg, Stare — with the RANKING_HEAD header, plus a side panel: «Pe acest stand» (total kg, cântare with extra, capturi) and the selected weighing (kg, interval, its catches from /feed/weighings/:id, «Deschide cântarul»). From 1280 the panel lists the first 5 catches then «+N capturi» (the full list is «Deschide cântarul»); the selected row is accent-tint-2 + the left bar, so the indigo «Terminat» chip stays visible on it; the stand card and the table span the task card (no capped half-empty card at 1440/1920), the columns in proportion."
       - id: organizer.scale-history.c5
         text: "Activating a weighing card opens that weighing."
         fish_ref: app/(app)/scale/[competitionId]/history.tsx:239-245
+        status: passing
+        web_note: "Card / table link / panel button → /concursuri/[id]/cantar/[standId]/[weighingId] (routes.competitionScaleWeighing), guarded against a repeat within 800 ms."
       - id: organizer.scale-history.c6
         text: "Actions are allowed only when the competition is started and the user's role is author or referee."
         fish_ref: app/(app)/scale/[competitionId]/history.tsx:58-68
+        status: passing
+        web_note: "canWeighCompetition: started + author/referee (isReferee included), and not on a closed feeder leg. e2e: angler, author before start, author after end → no actions; referee and author while running → «Start cântar nou» and the ✕."
       - id: organizer.scale-history.c7
         text: "A weighing with no catches, not finished, shows a red ✕ when actions are allowed; it asks „Ești sigur că vrei să ștergi acest cântar?” („Renunță” / „Șterge”), deletes it, toasts „Cântarul a fost șters cu succes.” (or the error) and refetches weighings and the active weighing."
         fish_ref: app/(app)/scale/[competitionId]/history.tsx:109-135
+        status: passing
+        web_note: "Red ✕ at the card corner (table: last cell; panel: «Șterge cântarul»). Alert dialog «Ești sigur că vrei să ștergi acest cântar?» Renunță / Șterge → DELETE /weighings/:id (route-mocked in e2e, never reaching the CMS) → success toast, or the CMS's message for a bluCode error (else the generic one) → weighings (stand + total) and the active weighing invalidated."
       - id: organizer.scale-history.c8
         text: "When there are no weighings: „Nu s-a efectuat nicio cântărire.”."
         fish_ref: app/(app)/scale/[competitionId]/history.tsx:188-192
+        status: passing
+        web_note: "Shown inside the task card under the stand card; ≥1280 the aside keeps the stand summary (0 cântare)."
       - id: organizer.scale-history.c9
         text: "With actions allowed a „Start cântar nou” button opens a confirmation: „Ești sigur că vrei să începi un nou cântar?”, „Sector: X, standul: Y”, a checkbox „Marchează ca extra cântar”, „Anulează” and „Începe cântarul”."
         fish_ref: components/StartCantarSheet.tsx:97-139
+        status: passing
+        web_note: "A centred dialog (fish's detached sheet). «Anulează» closes without a request."
       - id: organizer.scale-history.c10
         text: "Starting shows a spinner, creates the weighing (type extra or normal), opens it on success, and refetches weighings, live competitions, extra-scale lists and the active weighing; a failure shows the error with „Închide”."
         fish_ref: components/StartCantarSheet.tsx:47-74
+        status: passing
+        web_note: "POST /weighings/start route-mocked in e2e (body {data:{stand, competition, weighingType}} asserted); spinner + «Se pornește cântarul…», no second start; success → router.push to the new weighing; error → the message (bluCode errors keep the CMS text) with «Închide». onSettled invalidates the stand's weighings, live competitions (+ extra-scale-new), the extra-scale list and the active weighing. On success the dialog closes (and the mutation resets) BEFORE router.push, as fish (onDismiss then push): with cacheComponents the page stays under <Activity>, and a layout-effect cleanup also closes the start and delete dialogs when it is hidden; e2e starts (mocked), goes Back, asserts no dialog and «Start cântar nou» opens a fresh confirmation. From 1280 the CTA card sits under «Pe acest stand», above the weighing panel (docked at the column's foot it fell below the fold on 1280×800); e2e asserts it is fully in the viewport with a 12-catch weighing selected."
       - id: organizer.scale-history.c11
         text: "Pull-to-refresh (web: refresh action) refetches weighings, allocations, statute and competition."
         fish_ref: app/(app)/scale/[competitionId]/history.tsx:145-152
+        status: passing
+        web_note: "The header's refresh chip (ManagementFrame) refetches competition + statute, and the page's weighings, allocations and total; e2e counts all four reads."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/concurs-cantar-istoric.spec.ts
+    web_note: "Signed in only (proxy 307 → /intra?next=…, noindex). Reads hit the local CMS; start and delete are route-mocked in e2e (they push to real devices) and a catch-all aborts any other CMS write. Every state screenshotted at 375/1280/1440/1920 (.shots/cantar-istoric-*). The extra-scale requests (competition-page.extra-cantare.c5) now open this page."
 
   - id: organizer.scale-weighing
     title: Cântar (capturi, semnături, redeschidere)
@@ -1365,68 +1391,111 @@ screens:
       - id: organizer.scale-weighing.c1
         text: "The title is „Cântar N” with „Total: x.xxx kg” (sum of catches, 3 decimals) underneath."
         fish_ref: app/(app)/scale/[competitionId]/add.tsx:255-267
+        status: passing
+        web_note: "WeighingScreen (ManagementFrame, T6): h1 «Cântar N» = the weighing's place in /feed/weighings/by-stand (fish CantarItem index+1; fish's add screen got no number), «(Extra)» for extra weighings; header meta «Total: x,xxx kg» (formatDecimal 3 decimals, comma) + «În curs»/«Finalizat» pill; ≥1280 also a «Total cântar» SignatureNumber tile in the aside. Loading skeleton (busy, «Se încarcă cântarul…»), error gate with «Încearcă din nou» (refetch). The stand list only numbers the title: it is not a gating read (fish gates on the weighing and the allocations), so a failed /by-stand keeps the page with a plain «Cântar». e2e tests/e2e/concurs-cantar-cantarire.spec.ts «c1/c2/c4 — loading…», «c1 — an error…», «c1 — a failed stand list…»."
       - id: organizer.scale-weighing.c2
         text: "A header card shows the stand label (national format for national championship), the club (national), „Echipa <nume>” and the participants or guest as bullets."
         fish_ref: app/(app)/scale/[competitionId]/add.tsx:283-317
+        status: passing
+        web_note: "StandCard (FlowSubjectCard, fish's dashed card): «Sector A, Stand N» / NC «Stand A2(N)» (formatStandLabel with the weighing's or the allocation's draw position), club (NC), «Echipa <nume>», guest or participants as bullets (a guest repeating the team not printed twice). Below 1280 above the table; ≥1280 in the sticky aside. e2e «c1/c2/c4», «c2 — national championship…» (draw position served 2, club; guest + team served)."
       - id: organizer.scale-weighing.c3
         text: "When the weighing has revisions a warning line reads „Acest cântar a avut o modificare.” / „Acest cântar a avut N modificări.” and links to the revisions page."
         fish_ref: app/(app)/scale/[competitionId]/add.tsx:318-336
+        status: passing
+        web_note: "A link line with the warning icon «Acest cântar a avut o modificare.» / «… N modificări.» (formatCount: «20 de modificări») → routes.competitionScaleRevisions (/…/modificari, organizer.scale-revisions). e2e «c3/c18 — revisions…»."
       - id: organizer.scale-weighing.c4
         text: "Catches are listed newest first as „n. Specie: x.xxx kg”; empty list reads „Acest cântar nu conține nicio captură.”."
         fish_ref: app/(app)/scale/[competitionId]/add.tsx:269-348
+        status: passing
+        web_note: "CatchList: one table at every width (rule 12: tinted header row, separators; rule 16 compact, ≤680 from 1280): #, Specie, Greutate «x,xxx kg» (unit separate), media count column ≥768 when any; CMS order (newest first). Empty: «Acest cântar nu conține nicio captură.». e2e «c1/c2/c4», «c4 — no catches»."
       - id: organizer.scale-weighing.c5
         text: "Actions (add, delete, finalize) are allowed only for author or referee while the weighing is not finished; optimistic (unconfirmed) rows have no delete."
         fish_ref: app/(app)/scale/[competitionId]/add.tsx:83-91
+        status: passing
+        web_note: "model.weighingPermissions: add / delete / «Finalizează cântarul» only for author or referee (statute userRole or the CMS isReferee flag) on a non-finished weighing; unknown statute → nothing offered (rule 4). Optimistic rows (isOptimisticCatchId) show «Se confirmă…» and no delete. e2e «c5 — actions only…» (participant / referee / author), «c12/c13/c14» (optimistic row without a button)."
       - id: organizer.scale-weighing.c6
         text: "Deleting a catch asks „Ești sigur că vrei să sțergi captura?” / „Această captura va fi eliminată și nu va mai putea fi recuperată.” („Închide” / „Șterge”), toasts „Captură ștearsă cu succes!” (or the error) and refetches the weighing and the stand's weighings (fix the „sțergi” typo on web)."
         fish_ref: app/(app)/scale/[competitionId]/add.tsx:132-165
+        status: passing
+        web_note: "Delete: alertdialog «Ești sigur că vrei să ștergi captura?» (typo fixed) / «Această captură va fi eliminată și nu va mai putea fi recuperată.» with «Închide» / «Șterge»; DELETE /catches/:documentId; toast «Captură ștearsă cu succes!» or the server message; onSettled invalidates the weighing and weighings by competition (the stand list refetches). e2e «c6 — delete asks first…» (DELETE mocked, path asserted; error case)."
       - id: organizer.scale-weighing.c7
         text: "„Adaugă captură” opens the add-catch dialog titled „Adaugă captură” with a close button."
         fish_ref: components/AddCatchSheet.tsx:250-260
+        status: passing
+        web_note: "AddCatchDialog (ModalSurface: bottom sheet <768, dialog ≥768) titled «Adaugă captură» with an «Închide» X; weight focused on open; Escape closes. e2e «c7–c10 — the add-catch dialog…» (keyboard open/close)."
       - id: organizer.scale-weighing.c8
         text: "Weight (kg, comma or dot) is required („Acest câmp este obligatoriu”), must be > 0 („Greutatea trebuie să fie mai mare decât 0”) and ≤ 60 („Ai introdus o valoare prea mare sa fie adevarat! Mai verifica odata te rog.”)."
         fish_ref: components/AddCatchSheet.tsx:266-334
+        status: passing
+        web_note: "BigNumberInput «Greutate» kg, comma or dot (sanitized): «Acest câmp este obligatoriu», «Greutatea trebuie să fie mai mare decât 0», «Ai introdus o valoare prea mare ca să fie adevărată! Mai verifică o dată, te rog.» (fish's copy with diacritics restored). model.validateCatch unit-tested. e2e «c7–c10»."
       - id: organizer.scale-weighing.c9
         text: "Quantity (buc, default 1) is required, ≥ 1 („Cantitatea trebuie să fie mai mare ca 1”) and ≤ 20 („Max 20”); above 1 a „Pești” row previews the weight split into that many parts in 0.025 kg steps."
         fish_ref: components/AddCatchSheet.tsx:76-87
+        status: passing
+        web_note: "QuantityStepper «Cantitate» buc, default 1: «Acest câmp este obligatoriu», «Cantitatea trebuie să fie mai mare ca 1», «Max 20»; above 1 «Pești» lists splitWeightWithScaleConstraint parts (0.025 kg steps). DELIBERATE DEVIATION from fish (to confirm with the owner): a split with any part ≤ 0 kg is refused («Greutatea este prea mică pentru 20 de pești»; fish posts zero-weight catches, the CMS accepts weight ≥ 0), and when the 25 g steps change the total the row says so («Pe pești, în pași de 0,025 kg: total 4,250 kg.» for 4,26 kg in 2; fish silently drops the 10 g). model.validateCatch / splitDrift unit-tested. e2e «c7–c10» (sum = weight, every part a multiple of 25 g, drift line, zero-part error), «c12 — Adaugă și continuă» (split POST body)."
       - id: organizer.scale-weighing.c10
         text: "Species chips come from the competition's fish types; one is required; the last used species is restored when the dialog opens."
         fish_ref: components/AddCatchSheet.tsx:89-113
+        status: passing
+        web_note: "ChoiceChips «Specia» from fishTypesQuery (/feed/competitions/:id/fish-species); required; last used id stored in localStorage «bluvi:lastFishSpeciesId» (try/catch) on submit and restored on open when the competition still has it. e2e «c7–c10» (restore; unknown id ignored), «c12 — Adaugă și continuă» (stored)."
       - id: organizer.scale-weighing.c11
         text: "„Adaugă media” adds a photo (camera on phone; web: camera or file), up to 3 („Fișiere media (max. 3)”), each removable; the button is disabled at 3."
         fish_ref: components/AddCatchSheet.tsx:456-504
+        status: passing
+        web_note: "«Adaugă media»: hidden file input accept=image/* without capture (a phone offers camera or files), up to 3 thumbnails («Fișiere media (max. 3)»), each with «Elimină fotografia N»; the button is disabled at 3. Photos are JPEG-compressed (lib/client/compress-image) before upload. e2e «c11 — Adaugă media…»."
       - id: organizer.scale-weighing.c12
         text: "„Finalizează” adds the catch(es) and closes; „Adaugă și continuă” adds and resets weight, quantity and photos but keeps the species; while submitting the dialog shows „Se adaugă captura...”."
         fish_ref: components/AddCatchSheet.tsx:212-221
+        status: passing
+        web_note: "«Finalizează» adds and closes on success; «Adaugă și continuă» adds and resets weight, quantity and photos at once, keeping the species; one submit is one chain (compress the photos → POST the catch → POST the photos) under a local `submitting` flag, so «Se adaugă captura...» shows for the whole chain and the form (and a second POST) can never come back mid-way (the dialog may be closed meanwhile; the chain goes on). e2e «c12/c13/c14», «c12 — Adaugă și continuă…», «c12/c14 — slow photo compression…» (createImageBitmap held: one POST, form never shown again)."
       - id: organizer.scale-weighing.c13
         text: "Submitted catches appear immediately as optimistic rows and are rolled back on failure (error toast); photos are uploaded to the first created catch; success toasts „Captură adăugată cu succes!”, a failed photo upload toasts „Captură adăugată, dar nu s-a putut adăuga media”."
         fish_ref: services/mutations/useAddCatchToWeighing.ts:28-52
+        status: passing
+        web_note: "core addCatchToWeighingMutation (addCatchMutationKey, optimistic rows, rollback on error); photos POST /upload to the first created catch (ref api::catch.catch, field media, CatchID_<id>_<name>); toasts «Captură adăugată cu succes!», «Captură adăugată, dar nu s-a putut adăuga media», or the error. e2e «c12/c13/c14» (POST body + multipart asserted), «c13 — a failed add rolls back…»."
       - id: organizer.scale-weighing.c14
         text: "„Finalizează cântarul” shows loading and refuses with „Așteaptă confirmarea capturilor înainte de a finaliza cântarul.” while any catch is still unconfirmed."
         fish_ref: app/(app)/scale/[competitionId]/add.tsx:360-371
+        status: passing
+        web_note: "«Finalizează cântarul» is busy (spinner, aria-busy, hint «Se confirmă capturile…») while useIsMutating(addCatchMutationKey) > 0 or the add-catch chain runs (its photos compressing before the POST, uploading after it), and a click toasts «Așteaptă confirmarea capturilor înainte de a finaliza cântarul.» without opening the signatures; also busy while finishing. e2e «c12/c13/c14»."
       - id: organizer.scale-weighing.c15
         text: "Finalizing asks for „Semnătură arbitru ✍🏻” then „Semnătură martor ✍🏻” on a drawing pad; „Mai departe” is disabled until something is drawn."
         fish_ref: components/SignatureSheet.tsx:16-49
+        status: passing
+        web_note: "SignatureFlow (ModalSurface: full screen <768 with a 400px pad, as fish's full-width 400px sheet; a dialog ≥768; backdrop clicks ignored): «Semnătură arbitru ✍🏻» (Pasul 1 din 2) then «Semnătură martor ✍🏻» on SignaturePad (canvas, pointer events, touch-action none, fish's quadratic smoothing, «Resetează semnătura»); «Mai departe» disabled until drawn and while the drawing encodes (a double click hands over one pair: one close); a visible note says the pad is pointer-only (keyboard users). The PNG is always 700×700, the pad contained and centred on white (fish shows signatures 200×200 with expo-image `cover`). e2e «c15/c16 — referee then witness…» (mouse drawing, reset), «c15/c16 — a double click…» (2 uploads, 1 /end), «c15 — the signature PNG is a 700×700 square…», «c15 — phone…»."
       - id: organizer.scale-weighing.c16
         text: "After both signatures both images are uploaded and the weighing is closed: toast „Cântarul a fost finalizat cu succes!”, return to the history, and refetch competition, rankings, live competitions, extra-scale lists and weighings; errors toast the message."
         fish_ref: app/(app)/scale/[competitionId]/add.tsx:167-212
+        status: passing
+        web_note: "Both PNGs POST /upload (ref api::weighing.weighing, refId = weighing id, fields refereeSignature / witnessSignature, fish's file names), then POST /weighings/:id/end; success → toast «Cântarul a fost finalizat cu succes!», router.replace to the stand's history; settles invalidate competition, rankings, live, extra-scales list, live-with-new-extra-scales and weighings by competition; errors toast the message. Deviation: the close waits for both uploads (fish fires all three together). e2e «c15/c16» (failed end then success; all multipart bodies asserted)."
       - id: organizer.scale-weighing.c17
         text: "A finished weighing shows „Vezi semnături” to anyone with a role in the competition, opening „Semnătură arbitru” and „Semnătură martor” images with „Închide”."
         fish_ref: app/(app)/scale/[competitionId]/add.tsx:93-98
+        status: passing
+        web_note: "«Vezi semnături» (finished + any role: author, referee, participant) opens «Semnătură arbitru» / «Semnătură martor» images and «Închide». The images sit on a literal white plate (token signature-paper, #fff in both themes): fish uploads SVGs with a black stroke on a transparent background. No role → no button. e2e «c17 — Vezi semnături…» (fish-like transparent SVG fixture, dark-mode plate asserted + screenshot), «c17 — no role…»."
       - id: organizer.scale-weighing.c18
         text: "A finished weighing with revisions shows „Vezi istoric”, opening the revisions page."
         fish_ref: app/(app)/scale/[competitionId]/add.tsx:381-391
+        status: passing
+        web_note: "Finished with numberOfRevisions > 0: «Vezi istoric» (outline link) → the revisions page; not on an open weighing. e2e «c3/c18»."
       - id: organizer.scale-weighing.c19
         text: "Only the author sees „Redeschide cântarul” on a finished weighing; it asks „Ești sigur că vrei să redeschizi cântarul?”, explains the change is visible to all participants, and requires a reason (≤ 100 chars, placeholder „Introduceti motivul...”) before „Redeschide cântarul”."
         fish_ref: components/ReopenWeighingSheet.tsx:87-153
+        status: passing
+        web_note: "Author only (a referee does not get it): «Redeschide cântarul» (danger) opens an alertdialog «Ești sigur că vrei să redeschizi cântarul?», «Modificările vor fi vizibile în istoricul concursului pentru toți participanții.», «Te rugăm să indici motivul redeschiderii:» (placeholder «Introduceți motivul…», focused, counter), required ≤ 100 with fish's messages, «Anulează» / «Redeschide cântarul». DELIBERATE DEVIATION from fish (add.tsx:101-105 always offers it): the button shows only when reopenCantar can accept it — competition `started`, the running leg not `closed`, no other `started` weighing on the stand, the stand list known (model.reopenAllowed, unit-tested; docs/domain/competitions.md weighing step 4, invariants 15 and 40); otherwise pressing it could only end in the CMS's error. e2e «c19/c20 — the author reopens…», «c20 — a failed reopen…» (referee check), «c19 — Redeschide cântarul only when the CMS can accept it» (completed / other open weighing / closed leg), «c1 — a failed stand list…» (unknown → hidden)."
       - id: organizer.scale-weighing.c20
         text: "Reopening marks the weighing „started” in the stand's lists immediately (rolled back on error), toasts „Cântarul a fost redeschis cu succes”, refetches the weighing; an error shows the message (fallback „Eroare la redeschiderea cântarului”) with „Închide”."
         fish_ref: services/mutations/useReopenCantar.ts:18-46
+        status: passing
+        web_note: "core reopenCantarMutation (optimistic «started» on the stand list, rollback; unit-tested in core/organizer/organizer.test.ts); pending «Se redeschide cântarul…»; success toast «Cântarul a fost redeschis cu succes», the weighing refetched (open again, actions back); error: message (fallback «Eroare la redeschiderea cântarului») with «Închide». e2e «c19/c20» (POST body asserted), «c20 — a failed reopen…»."
       - id: organizer.scale-weighing.c21
         text: "Pull-to-refresh (web: refresh action) refetches the weighing, allocations and statute."
         fish_ref: app/(app)/scale/[competitionId]/add.tsx:233-239
+        status: passing
+        web_note: "The header refresh (ManagementFrame) refetches the competition, the statute, the weighing, the allocations and the stand list. e2e «c21 — the refresh action…»."
     mobile_only: false
-    status: todo
+    status: proposed
+    web_note: "All 21 criteria proven by tests/e2e/concurs-cantar-cantarire.spec.ts (25 tests, reads on the local CMS, every write route-mocked with method/path/body asserted). States screenshotted at 375/1280/1440/1920 (.shots/cantarire-*). Web additions: state pill and «Total cântar» tile, «Se confirmă…» on optimistic rows, media count column, signature step counter, reason counter. The close waits for both signature uploads (fish does not). Deliberate deviations to confirm with the owner: c9 (zero-weight split parts refused, drift shown) and c19 (reopen hidden when the CMS would refuse)."
 
   - id: organizer.scale-revisions
     title: Istoric modificări cântar
@@ -1451,20 +1520,32 @@ screens:
       - id: organizer.scale-revisions.c1
         text: "The title is „Istoric modificări”; loading and error (retry) states are shown; data is always refetched on open (staleTime 0)."
         fish_ref: app/(app)/scale/[competitionId]/revisions.tsx:48-67
+        status: passing
+        web_note: "ManagementFrame (T6, requires signedIn — fish lets any viewer open it): h1 «Istoric modificări», the competition as eyebrow, the stand («Sector A, Stand A1»; NC national format once the allocations are known) as meta — only once weighingByIdQuery confirms weighing.stand is the URL's stand (a mismatched link shows no stand, rule 4), back «Înapoi la cântar» (routes.competitionScaleWeighing). Loading = real title + RevisionsBodySkeleton (dashed cards, busy, «Se încarcă modificările…»). Error = T4Gate danger with «Încearcă din nou» refetching the log. core weighingRevisionsQuery staleTime 0: a client navigation away and back reads /weighing-logs again — fresh from the CMS; edge TTL 30 s on staging/prod (shared with fish; CMS proposal in the private M6 note). Signed in only (proxy 307 → /intra?next=, requireViewer), noindex. e2e «signed out…», «c1 — … loading…», «c1 — an error…», «c1 — … refetched every time the page opens», «a link whose stand is not the weighing's shows no stand»."
       - id: organizer.scale-revisions.c2
         text: "Revisions are grouped by session, one card per session titled „Modificarea {sesiune} [de {utilizator}]”."
         fish_ref: components/scale/RevisionCard.tsx:27-29
+        status: passing
+        web_note: "model.ts revisionSessions (unit): groupRevisionsBySession → one RevisionCard per session in numeric order, h2 «Modificarea {sesiune} [de {utilizator}]»; a log without author drops «[de …]» (rule 4). e2e «c2–c4 — the local weighing» (real CMS log) and «c2–c4 — two rounds» (served)."
       - id: organizer.scale-revisions.c3
         text: "A reopen entry shows „Motiv: …” and „Redeschis la {dată și oră}”; a close entry shows „Închis la {dată și oră}”."
         fish_ref: components/scale/RevisionCard.tsx:32-38
+        status: passing
+        web_note: "Reopen: «Motiv: …» (only when a reason exists) then «Redeschis la dd.MM.yyyy, HH:mm»; close: «Închis la …» — Bucharest time (fish toLocaleString), as a two-disc timeline per round. e2e asserts the exact times for both fixtures."
       - id: organizer.scale-revisions.c4
-        text: "A close entry lists „Adăugat:” catches in green and „Șters:” catches in red as „• specie Xkg”."
+        text: "A close entry lists „Adăugat:” catches in green and „Șters:” catches in red as „• specie X kg” (unit spaced, owner rule 10)."
         fish_ref: components/scale/RevisionCard.tsx:40-66
+        status: passing
+        web_note: "«Adăugat:» panel status-success (green) and «Șters:» panel status-danger (red), side by side from 640, items «• specie x,xxx kg» (the weighing screen's kg(): 3 fixed decimals, comma, spaced unit — «• Crap 9,900 kg», matching the catch list); unmodified catches not listed. e2e checks texts and the computed colours against the tokens; ≥1280 «Rezumat» adds up rounds / added / removed."
       - id: organizer.scale-revisions.c5
         text: "Without revisions: „Nu există modificări pentru acest cântar.”; pull-to-refresh refetches."
         fish_ref: app/(app)/scale/[competitionId]/revisions.tsx:69-82
+        status: passing
+        web_note: "Empty: «Nu există modificări pentru acest cântar.» (no «Rezumat» of zeros); the header's «Reîmprospătează» (fish pull-to-refresh) refetches the log, the weighing and the allocations — fresh from the CMS; edge TTL 30 s on staging/prod (shared with fish). e2e «c5 — no log…» (served empty, then a round appears after refresh)."
     mobile_only: false
-    status: todo
+    e2e: tests/e2e/concurs-cantar-modificari.spec.ts
+    status: passing
+    web_note: "Read-only; reads /weighing-logs (+ competition, statute, allocations for the stand card) through /api/cms; no writes (the e2e fails on any non-GET). ≥1280 (rule 14): rounds as a timeline in the centre column, aside = the stand subject card (stand, team, anglers) + «Rezumat». Every state screenshotted at 375/1280/1440/1920 (.shots/cantar-modificari-*). The back link targets organizer.scale-weighing (built in parallel, same batch)."
 
   - id: organizer.penalties
     title: Penalizări
