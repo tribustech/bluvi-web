@@ -11,6 +11,7 @@ import { AsideSection, COLUMN_CARD, FilterColumn, FilterColumnSkeleton, FOCUS_RI
 import { buttonClass } from '@/components/ui/Button';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { cn } from '@/components/ui/cn';
+import { OpenInApp } from '@/components/partide/OpenInApp';
 import {
   caughtLabel,
   communityHistoryInfiniteQuery,
@@ -28,6 +29,7 @@ import {
   type CommunityVenueRef,
   type LakeCatchDTO,
 } from '@/core/partide';
+import { appLinks } from '@/lib/app-links';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { lakeHref } from '../_components/availability';
@@ -48,7 +50,7 @@ import { formatCount } from '@/core/realtime/chat/format';
  *    partidele.» + «Încearcă din nou» (refetches both) — never the empty copy; a feed that failed
  *    beside the other's content shows its own inline error in its block's place;
  *  - c4 nothing ever recorded: «Nicio partidă înregistrată la această baltă încă.» + «Începe o
- *    partidă aici» (→ /partide/incepe?balta= once the web has the start flow; until then the app);
+ *    partidă aici» → the app's start flow (app-only on web, owner 2026-10-08);
  *  - c5 the live card (the lake page's, same cache entry) leads when sessions are live;
  *  - c6 the latest catches rail → /capturi?foto=; c7 the statistics card → /statistici;
  *  - c8 «Partide încheiate», 10 a page, de-duplicated, the next page near the end, each card
@@ -539,24 +541,16 @@ const EMPTY_ICON = (
 );
 
 /**
- * fish's green «Începe o partidă aici» → /partide/start?lakeId= — the web's start flow,
- * /partide/incepe?balta= (parity partide.incepe c15: the lake preselected, step 2 open). A guest goes
- * through sign-in and comes back to it (proxy.ts). Without the flow (availability.ts `startPartida`
- * off) the empty copy stands alone — never a dead link.
+ * fish's green «Începe o partidă aici» → /partide/start?lakeId=. Starting a partidă is app-only on
+ * web (owner 2026-10-08, ROADMAP §4b rule 21): the app's start flow with this lake preselected
+ * (universal link below 1280, the store links from 1280 — OpenInApp).
  */
 function StartHere({ lakeId }: { lakeId: string }) {
-  const start = lakeHref('startPartida', routes.startPartida({ balta: lakeId }));
   return (
     <ListEmpty
       title={EMPTY_TITLE}
       icon={EMPTY_ICON}
-      action={
-        start ? (
-          <Link href={start} className={buttonClass({ variant: 'success' })} data-testid="start-here">
-            Începe o partidă aici
-          </Link>
-        ) : undefined
-      }
+      action={<OpenInApp href={appLinks.startPartida({ lakeId })} label="Începe aici, în aplicația Bluvi" className="justify-center" testId="start-here" />}
     />
   );
 }

@@ -2,6 +2,7 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { PARTIDE_PAGES_ON_WEB, partideHrefs } from '@/lib/partide-pages';
 import { routes } from '@/lib/routes';
 import { expectNoA11yViolations } from './helpers/a11y';
+import { APP_ORIGIN, expectOpenInApp, expectPartidaHero } from './helpers/app-cta';
 import { collectConsoleErrors } from './helpers/console';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import {
@@ -70,10 +71,11 @@ test('c1 c2 c3 c4 c6 c12 — chrome, tabs, hero and quick nav for a guest', asyn
   await open(page, { overview: OVERVIEW_EMPTY, history: [] });
   await expect(page.getByRole('heading', { level: 1, name: 'Partide' })).toBeVisible();
 
-  // c1 — «Începe» only with the start flow on the web (a guest through sign-in).
-  const start = partideHrefs.start();
-  if (start) await expect(page.getByTestId('start-pill')).toHaveAttribute('href', routes.signIn(start));
-  else await expect(page.getByTestId('start-pill')).toHaveCount(0);
+  // c1 — «Începe»: starting is app-only on web (owner 2026-10-08) — the universal link into the
+  // app's start flow, below 1280 only (a desktop gets the hero's store links).
+  const pill = page.getByTestId('start-pill').filter({ visible: true });
+  if ((page.viewportSize()?.width ?? 0) < 1280) await expect(pill).toHaveAttribute('href', `${APP_ORIGIN}/partide/start`);
+  else await expect(pill).toHaveCount(0);
 
   // c2/c3 — the tab bar, Comunitate open on a fresh /partide. A tab whose page is off is left out
   // (never inert), and with «Comunitate» alone there is no bar at all.
@@ -92,21 +94,9 @@ test('c1 c2 c3 c4 c6 c12 — chrome, tabs, hero and quick nav for a guest', asyn
     await expect(tabs).toHaveCount(0);
   }
 
-  // c4 — the hero for a guest, only with something to offer (start or join on the web).
-  const hero = page.getByRole('region', { name: 'Ești la pescuit?' }).locator('visible=true');
-  const join = partideHrefs.join();
-  if (start || join) {
-    await expect(hero).toBeVisible();
-    await expect(hero).toContainText('Capturi, lansete și cronometre — totul notat într-o singură partidă.');
-    const startLink = hero.getByRole('link', { name: 'Începe o partidă' });
-    const joinLink = hero.getByRole('link', { name: 'Intră cu cod' });
-    if (start) await expect(startLink).toHaveAttribute('href', routes.signIn(start));
-    else await expect(startLink).toHaveCount(0);
-    if (join) await expect(joinLink).toHaveAttribute('href', routes.signIn(join));
-    else await expect(joinLink).toHaveCount(0);
-  } else {
-    await expect(page.getByRole('region', { name: 'Ești la pescuit?' })).toHaveCount(0);
-  }
+  // c4 — the hero for a guest: it hands over to the app (owner 2026-10-08).
+  const hero = await expectPartidaHero(page);
+  await expect(hero).toContainText('Partidele se încep și se țin în aplicația Bluvi');
 
   // c6 — Statistici, Clasamente, Pescari (a guest's Pescari through sign-in); a tile whose page is
   // off is left out, and with none on there is no row.
@@ -241,7 +231,8 @@ test('c9 c13 c14 c15 c16 c7 c8 c18 c19 c20 c21 — live overview: catches rail, 
   await expect(month).not.toHaveAttribute('href', /.*/);
   const week = records.getByTestId('record-invite-week');
   await expect(week).toContainText('Recordul săptămânii te așteaptă');
-  if (partideHrefs.start()) await expect(week).toHaveAttribute('href', partideHrefs.start() as string);
+  // Starting is app-only on web (owner 2026-10-08): the invitation opens the app's start flow.
+  await expect(week).toHaveAttribute('href', `${APP_ORIGIN}/partide/start`);
   const stats = records.getByTestId('record-stats');
   await expect(stats).toContainText('Statistici comunitate');
   if (partideHrefs.stats()) await expect(stats).toHaveAttribute('href', partideHrefs.stats() as string);
@@ -383,8 +374,8 @@ test('c5 c26 c27 c28 b.active-dock-global — a live partidă: no hero, no «În
   // c5/c1 — no hero, no start pill.
   await expect(page.getByRole('region', { name: 'Ești la pescuit?' })).toHaveCount(0);
   await expect(page.getByTestId('start-pill')).toHaveCount(0);
-  // c26 — ACTIVĂ, the venue, the stats line, «Captură», the rod chips; the bar opens the partidă
-  // only once that page is on the web (lib/partide-pages) — else the venue is plain text.
+  // c26 — ACTIVĂ, the venue, the stats line, the app hand-over, the rod chips; the bar opens the
+  // (read-only) partidă only once that page is on the web (lib/partide-pages).
   await expect(dock).toContainText('ACTIVĂ');
   const partida = partideHrefs.partida(ACTIVE_ID);
   await expect(dock).toContainText('Balta Mea');
@@ -397,20 +388,10 @@ test('c5 c26 c27 c28 b.active-dock-global — a live partidă: no hero, no «În
   await expect(chips.nth(0)).not.toContainText('sincronizare');
   await expect(chips.nth(0)).toContainText(/\d/);
   await expect(chips.nth(1)).toContainText('expirat');
-  // c28 — «Captură» → the capture flow once on the web, else the partidă (when that is on), else
-  // left out; offline → the toast.
-  const captureHref = partideHrefs.capture(ACTIVE_ID) ?? partida;
-  const capture = dock.getByRole('link', { name: 'Captură' });
-  if (captureHref) {
-    await expect(capture).toHaveAttribute('href', captureHref);
-    await context.setOffline(true);
-    await capture.click();
-    await expect(page.getByRole('alert').filter({ hasText: 'Fără conexiune. Reconectare…' })).toBeVisible();
-    await expect(page).toHaveURL(/\/partide$/);
-    await context.setOffline(false);
-  } else {
-    await expect(capture).toHaveCount(0);
-  }
+  // c28 — fish's «Captură» is app-only on web (owner 2026-10-08): «Deschide aplicația», the
+  // universal link into the app on this partidă.
+  await expect(dock.getByRole('link', { name: 'Captură' })).toHaveCount(0);
+  await expectOpenInApp(page, dock, `${APP_ORIGIN}/partide/comunitate/${ACTIVE_ID}`);
   // Nothing in the dock points at a page that is off.
   if (!partida) await expect(dock.locator(`a[href="${routes.partida(ACTIVE_ID)}"]`)).toHaveCount(0);
 
@@ -419,28 +400,18 @@ test('c5 c26 c27 c28 b.active-dock-global — a live partidă: no hero, no «În
   const card = page.getByTestId('partida-activa-card');
   await expect(card).toBeVisible();
   await expect(page.getByTestId('partida-activa-dock')).toBeHidden();
-  if (partida) await expect(card.getByRole('link', { name: 'Deschide partida' })).toHaveAttribute('href', partida);
-  else await expect(card.getByRole('link', { name: 'Deschide partida' })).toHaveCount(0);
-  if (captureHref) await expect(card.getByRole('link', { name: 'Captură' })).toHaveAttribute('href', captureHref);
-  else await expect(card.getByRole('link', { name: 'Captură' })).toHaveCount(0);
+  if (partida) await expect(card.getByRole('link', { name: 'Vezi partida' })).toHaveAttribute('href', partida);
+  else await expect(card.getByRole('link', { name: 'Vezi partida' })).toHaveCount(0);
+  await expect(card.getByRole('link', { name: 'Captură' })).toHaveCount(0);
+  await expectOpenInApp(page, card, `${APP_ORIGIN}/partide/comunitate/${ACTIVE_ID}`);
   await expectNoA11yViolations(page);
 });
 
-test('c4 — signed in without a live partidă: the hero (no sign-in detour)', async ({ page, context }) => {
+test('c4 — signed in without a live partidă: the hero, handing over to the app', async ({ page, context }) => {
   await signedIn(context, page);
   await mockActivePartida(page, null);
   await open(page, { overview: OVERVIEW_EMPTY, history: [] });
-  const hero = page.getByRole('region', { name: 'Ești la pescuit?' }).locator('visible=true');
-  const start = partideHrefs.start();
-  const join = partideHrefs.join();
-  if (start || join) {
-    await expect(hero).toBeVisible();
-    if (start) await expect(hero.getByRole('link', { name: 'Începe o partidă' })).toHaveAttribute('href', start);
-    if (join) await expect(hero.getByRole('link', { name: 'Intră cu cod' })).toHaveAttribute('href', join);
-  } else {
-    await expect(page.getByRole('heading', { name: 'Ultimele capturi' }).or(page.getByTestId('empty-section')).first()).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Ești la pescuit?' })).toHaveCount(0);
-  }
+  await expectPartidaHero(page);
   const anglers = partideHrefs.anglersSearch();
   const tile = page.getByTestId('quick-Pescari').locator('visible=true');
   if (anglers) await expect(tile).toHaveAttribute('href', anglers);

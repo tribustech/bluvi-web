@@ -7,6 +7,7 @@ import { CalendarDaysIcon, ChartBarIcon, SunIcon } from '@heroicons/react/24/out
 import { buildRecordSlots, fmtKg, gridSource, type CommunityRecordDTO, type RecordSlot } from '@/core/partide';
 import { BentoArt, bentoSurface, type BentoTone } from '@/components/ui/BentoTile';
 import { cn } from '@/components/ui/cn';
+import { appLinks } from '@/lib/app-links';
 import { partideHrefs } from '@/lib/partide-pages';
 import { AnglerAvatars, FOCUS, Photo } from './parts';
 
@@ -95,16 +96,20 @@ function RecordTile({ record }: { record: CommunityRecordDTO }) {
   );
 }
 
+/**
+ * An empty window's invitation. Starting a partidă is app-only on web (owner 2026-10-08, ROADMAP §4b
+ * rule 21): the tile is the universal link into the app's start flow (it opens the app on a phone,
+ * the store listing elsewhere — bluvi-redirect-stores).
+ */
 function InviteTile({ window: w }: { window: Window }) {
-  const href = partideHrefs.start();
   const inv = INVITE[w];
   return (
-    <TileFrame href={href} label={inv.copy} className={cn(TILE, bentoSurface(inv.tone), 'justify-between gap-2 p-3.5')} testId={`record-invite-${w}`}>
+    <a href={appLinks.startPartida()} aria-label={`${inv.copy} Începe o partidă în aplicația Bluvi`} className={cn(TILE, bentoSurface(inv.tone), 'justify-between gap-2 p-3.5', FOCUS)} data-testid={`record-invite-${w}`}>
       <BentoArt>{inv.art}</BentoArt>
       <WindowBadge window={w} onSurface />
       <span className="t-body-strong">{inv.copy}</span>
-      {href ? <TileAction>Începe o partidă</TileAction> : <span aria-hidden className="h-4" />}
-    </TileFrame>
+      <TileAction>Începe în aplicație</TileAction>
+    </a>
   );
 }
 

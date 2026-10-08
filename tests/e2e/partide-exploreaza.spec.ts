@@ -2,6 +2,7 @@ import { expect, test, type BrowserContext, type Page, type Route } from '@playw
 import { partideHrefs } from '@/lib/partide-pages';
 import { routes } from '@/lib/routes';
 import { expectNoA11yViolations } from './helpers/a11y';
+import { expectPartidaHero } from './helpers/app-cta';
 import { collectConsoleErrors } from './helpers/console';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import {
@@ -286,11 +287,8 @@ test('c12 c13 c15 c16 — empty, live-only empty, history error + retry, skeleto
   await expect(page.getByTestId('explore-skeleton')).toBeVisible();
   // c12 — nothing anywhere.
   await expect(page.getByTestId('explore-empty')).toContainText('Nicio partidă publică activă acum.');
-  const start = partideHrefs.start();
-  const join = partideHrefs.join();
-  const hero = page.getByRole('region', { name: 'Ești la pescuit?' });
-  if (start || join) await expect(hero).toBeVisible();
-  else await expect(hero).toHaveCount(0);
+  // The «Ești la pescuit?» hero hands over to the app (owner 2026-10-08).
+  await expectPartidaHero(page);
   m.state.delayMs = 0;
 
   // c13 — live-only empty: «Nicio partidă live acum.» + «Șterge filtrele».

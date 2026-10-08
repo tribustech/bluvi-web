@@ -241,7 +241,7 @@ describe('Acasă owner rule 4 — failed reads hide the block', () => {
     data.loadActivePartida.mockResolvedValue('failed');
     expect(await rsc(PartidaCtaSlot({ layout: 'mobile' }))).toBeNull();
     data.loadActivePartida.mockResolvedValue(null);
-    expect(await rsc(PartidaCtaSlot({ layout: 'mobile' }))).toContain('Începe o partidă');
+    expect(await rsc(PartidaCtaSlot({ layout: 'mobile' }))).toContain('Deschide în aplicația Bluvi');
   });
 
   it('operator slot, owned-lakes read failed: nothing (not even the skeleton)', async () => {

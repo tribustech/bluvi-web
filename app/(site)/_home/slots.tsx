@@ -111,7 +111,7 @@ export async function PartidaCtaSlot({ layout, className }: { layout: 'mobile' |
   // (ROADMAP §4b): someone fishing right now must not be offered a new partidă instead of their dock.
   const active = session ? await loadActivePartida() : null;
   if (active !== null) return null;
-  return <PartidaCta signedIn={!!session} layout={layout} className={className} />;
+  return <PartidaCta layout={layout} className={className} />;
 }
 
 export async function BookingsBadgeSlot() {

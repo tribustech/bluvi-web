@@ -186,18 +186,6 @@ export const sessionPhotoUploadSchema = z.object({
 export const patchRodsResultSchema = z.object({ rods: z.array(z.unknown()), serverNow: z.string() });
 export type PatchRodsResult = z.infer<typeof patchRodsResultSchema>;
 
-/**
- * A rod-runtime command's reply: the ONE rod addressed, the server clock, and whether the
- * compare-and-swap applied. `applied: false` is a SUCCESS — a teammate moved that rod first
- * and `rod` carries the state that won, which the caller adopts rather than overwriting.
- */
-export const rodCommandResultSchema = z.object({
-  rod: z.record(z.string(), z.unknown()).nullable(),
-  serverNow: z.string(),
-  applied: z.boolean(),
-});
-export type RodCommandResult = z.infer<typeof rodCommandResultSchema>;
-
 /** fish `models/angler.type.ts#AnglerCatchDTO` (core/social `anglerCatchSchema`) — `/feed/sessions/mine/catches`
  *  serves the same DTO and cursor as the profile grid. */
 export type MyCatchDTO = AnglerCatch;

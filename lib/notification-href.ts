@@ -27,10 +27,10 @@ export const NOTIFICATION_PAGES_ON_WEB = {
    * (participant.b.poll-notification-route). */
   polls: true,
   /**
-   * /partide/intra/[cod] — join a partidă with a code (PARTIDA_INVITE) — ON since M4-B6
-   * (partide.b.notif-invite).
+   * Join a partidă with a code (PARTIDA_INVITE, partide.b.notif-invite) — app-only on web (owner
+   * 2026-10-08, ROADMAP §4b rule 21): no web page, so no link; the push itself opens the app.
    */
-  partidaJoin: true,
+  partidaJoin: false,
   /**
    * The own / co-op partidă by its CLIENT id (PARTIDA_FINISHED, AUTO_CLOSE_WARN) →
    * /partide/sesiune/[clientId], which resolves it to /partide/[documentId] (live pointer, then the
@@ -101,9 +101,8 @@ export function notificationHref(route: NotificationRoute): string | null {
     case 'angler':
       return anglerHref(route.params.documentId);
     case 'partidaJoin':
-      // PARTIDA_INVITE (data.partidaCode) → the join confirmation; core already answers null
-      // without a code (partide.b.notif-invite).
-      return NOTIFICATION_PAGES_ON_WEB.partidaJoin ? routes.partidaJoinCode(route.params.code) : null;
+      // PARTIDA_INVITE (data.partidaCode): joining is app-only on web (owner 2026-10-08) — no link.
+      return null;
     case 'partida':
       // fish /(app)/partide/{sessionId}: the CLIENT id; the web's pages take the documentId, so the
       // resolver page maps it (getRedirectLocationForNotification.ts:107-116).

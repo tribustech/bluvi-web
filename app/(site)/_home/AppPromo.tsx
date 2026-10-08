@@ -5,12 +5,10 @@ import { FishLogo } from '@/components/nav/brand';
 import { DashboardSection } from '@/components/templates/T5';
 import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
+import { APP_STORE, PLAY_STORE } from '@/lib/app-links';
 import { ON_DARK_FOCUS } from './PartidaCta';
 import { AppleGlyph, GooglePlayGlyph } from './StoreGlyphs';
 
-// bluvi-redirect-stores: the store listings the app's universal links fall back to.
-const APP_STORE = 'https://apps.apple.com/ro/app/bluvi-aplicatia-pescarilor/id6743083184';
-const PLAY_STORE = 'https://play.google.com/store/apps/details?id=com.tribustech.bluvi';
 
 /**
  * From 1280, the main column's last block, beside the feedback card — «Ia Bluvi pe baltă» (design only — the app has no equivalent): what the

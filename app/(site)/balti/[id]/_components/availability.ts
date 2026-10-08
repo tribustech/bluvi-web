@@ -7,11 +7,11 @@ import { ON_WEB } from '@/lib/routes';
  * web: …» line, the photos / the mini map /
  * a live partidă row / the operator card / a review's author stop being links. Flip an entry to
  * `true` in the batch that ships its route.
- * The site-wide pages (angler, partidă, start a partidă) read lib/routes.ts ON_WEB, the one switch
+ * The site-wide pages (angler, partidă) read lib/routes.ts ON_WEB, the one switch
  * for every area.
  */
 export const LAKE_ON_WEB: Record<
-  'gallery' | 'catches' | 'ranking' | 'stands' | 'partide' | 'stats' | 'competitions' | 'map' | 'reviews' | 'reviewForm' | 'booking' | 'partida' | 'angler' | 'startPartida',
+  'gallery' | 'catches' | 'ranking' | 'stands' | 'partide' | 'stats' | 'competitions' | 'map' | 'reviews' | 'reviewForm' | 'booking' | 'partida' | 'angler',
   boolean
 > = {
   /** /balti/[id]/galerie — the hero photos and the photo pill. */
@@ -40,8 +40,6 @@ export const LAKE_ON_WEB: Record<
   partida: ON_WEB.partida,
   /** /pescari/[id] — the operator card and a review's author (lakes.detail.c27, c29). */
   angler: ON_WEB.angler,
-  /** /partide/incepe?balta= — start a partidă here (M4): the Partide page's empty state. */
-  startPartida: ON_WEB.startPartida,
 };
 
 export type LakeTarget = keyof typeof LAKE_ON_WEB;

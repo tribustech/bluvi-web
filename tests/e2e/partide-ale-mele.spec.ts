@@ -2,6 +2,7 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { partideHrefs } from '@/lib/partide-pages';
 import { routes } from '@/lib/routes';
 import { expectNoA11yViolations } from './helpers/a11y';
+import { expectPartidaHero } from './helpers/app-cta';
 import { collectConsoleErrors } from './helpers/console';
 import { qaJwt, signIn } from './helpers/session';
 import { aleMeleRows, catchesPage, LONG_LAKE, mockMine } from './partide-ale-mele.fixtures';
@@ -66,22 +67,13 @@ test('c1 — a guest gets the journal wall, «Autentifică-te» back to this tab
   expect(errors).toEqual([]);
 });
 
-/** The guest's «Ești la pescuit?»: visible with start or join on the web, absent otherwise. */
+/** The guest's «Ești la pescuit?»: it hands over to the app (owner 2026-10-08), above the wall. */
 async function expectGuestHero(page: Page) {
-  const start = partideHrefs.start();
-  const join = partideHrefs.join();
-  const hero = page.getByRole('region', { name: 'Ești la pescuit?' }).locator('visible=true');
-  if (!start && !join) {
-    await expect(page.getByRole('region', { name: 'Ești la pescuit?' })).toHaveCount(0);
-    return;
-  }
-  await expect(hero).toBeVisible();
+  const hero = await expectPartidaHero(page);
   // Above the wall below 1280 (the left column from 1280 is above it in reading order too).
   const heroBox = await hero.boundingBox();
   const wallBox = await page.getByTestId('ale-mele-wall').boundingBox();
   if ((page.viewportSize()?.width ?? 0) < 1280) expect(heroBox!.y).toBeLessThan(wallBox!.y);
-  if (start) await expect(hero.getByRole('link', { name: 'Începe o partidă' })).toHaveAttribute('href', routes.signIn(start));
-  if (join) await expect(hero.getByRole('link', { name: 'Intră cu cod' })).toHaveAttribute('href', routes.signIn(join));
 }
 
 test('c2 c3 — the list is read only on this tab (skeleton first, never zeros); cached when coming back', async ({ page, context }) => {
@@ -174,18 +166,8 @@ test('c6 c7 — nothing at all: the empty journal and no section; the hero only 
   await expect(page.getByTestId('stat-Partide')).toHaveText('Partide0');
   for (const title of ['Capturile mele', 'Statistici', 'Istoric partide']) await expect(page.getByRole('heading', { name: title })).toHaveCount(0);
   await expect(page.getByTestId('open-section')).toHaveCount(0);
-  // c7 — no live partidă: fish's hero, while start or join is on the web (owner rule 4: never an
-  // actionless hero).
-  const start = partideHrefs.start();
-  const join = partideHrefs.join();
-  const hero = page.getByRole('region', { name: 'Ești la pescuit?' }).locator('visible=true');
-  if (start || join) {
-    await expect(hero).toBeVisible();
-    if (start) await expect(hero.getByRole('link', { name: 'Începe o partidă' })).toHaveAttribute('href', start);
-    if (join) await expect(hero.getByRole('link', { name: 'Intră cu cod' })).toHaveAttribute('href', join);
-  } else {
-    await expect(page.getByRole('region', { name: 'Ești la pescuit?' })).toHaveCount(0);
-  }
+  // c7 — no live partidă: fish's hero, handing over to the app (owner 2026-10-08).
+  await expectPartidaHero(page);
   await expectNoA11yViolations(page);
   await page.setViewportSize(DESKTOP);
   await expect(empty).toBeVisible();

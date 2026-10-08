@@ -86,26 +86,15 @@ export function ComunitateScreen() {
         contextLabel="Partida mea și scurtături"
         asideLabel="Recorduri și locuri populare"
         context={
-          CONTEXT_ON ? (
-            <>
-              <Suspense fallback={<HeroSkeleton layout="desktop" />}>
-                <HeroOrActive layout="desktop" />
-              </Suspense>
-              <QuickNav layout="list" />
-            </>
-          ) : undefined
+          <>
+            <Suspense fallback={<HeroSkeleton layout="desktop" />}>
+              <HeroOrActive layout="desktop" />
+            </Suspense>
+            <QuickNav layout="list" />
+          </>
         }
         main={
           <>
-            {/* No hero and no quick nav on the web: no left column (an empty one would only push the
-                page right); from 1280 the live partidă's card, when there is one, opens the centre. */}
-            {CONTEXT_ON ? null : (
-              <div className="contents max-xl:hidden">
-                <Suspense fallback={null}>
-                  <HeroOrActive layout="desktop" />
-                </Suspense>
-              </div>
-            )}
             {/* Below 1280 the left column's blocks open the single column, in fish's order. */}
             <div className="contents xl:hidden">
               <Suspense fallback={<HeroSkeleton layout="mobile" />}>
@@ -211,42 +200,30 @@ function HeroOrActive({ layout }: { layout: 'mobile' | 'desktop' }) {
           session={viewer.active}
           clock={partideServerClock}
           href={partideHrefs.partida(id)}
-          captureHref={partideHrefs.capture(id)}
           headingId="partide-partida-activa"
         />
       ) : null;
     }
   }
-  const signedIn = viewer.kind === 'viewer';
-  return <NoActiveCta layout={layout} start={signedInHref(partideHrefs.start(), signedIn)} join={signedInHref(partideHrefs.join(), signedIn)} />;
+  return <NoActiveCta layout={layout} />;
 }
-
-/**
- * c4 — whether the hero has anything to offer: «Începe o partidă» or «Intră cu cod» on the web. With
- * neither, no hero and no skeleton for it (owner rule 4; fish's hero always carries both). The flags
- * are static, so a guest and a viewer agree.
- */
-const HERO_ON = partideHrefs.start() != null || partideHrefs.join() != null;
 
 /** c6 — the quick nav's targets as the flags stand (the guest sign-in detour keeps a non-null target non-null). */
 const QUICK_NAV_BASE: QuickNavTargets = { stats: partideHrefs.stats(), ranking: partideHrefs.ranking(), anglers: partideHrefs.anglersSearch() };
 
-/** The left column (from 1280) has something static to carry: the hero or the quick nav. */
-const CONTEXT_ON = HERO_ON || hasQuickNav(QUICK_NAV_BASE);
-
-/** The hero's box while the viewer is read — nothing when the hero itself would not render. */
+/** The hero's box while the viewer is read. */
 function HeroSkeleton({ layout }: { layout: 'mobile' | 'desktop' }) {
-  return HERO_ON ? <NoActiveCtaSkeleton layout={layout} hasActions /> : null;
+  return <NoActiveCtaSkeleton layout={layout} />;
 }
 
 /** c26 — the live-partidă dock pinned at the bottom (below 1280; the left column's card from 1280). */
 function Dock() {
   const viewer = usePartideViewer();
   if (viewer.kind !== 'viewer' || !viewer.active || viewer.active === 'pending' || viewer.active === 'failed') return null;
-  // c26/c28 — the bar opens the partidă and «Captură» the capture flow, each only once its page is
-  // on the web (lib/partide-pages); until then the venue is plain text and «Captură» is left out.
+  // c26/c28 — the bar opens the partidă page (read-only); fish's «Captură» is app-only on web
+  // (owner 2026-10-08): the dock hands over to the app.
   const id = viewer.active.documentId;
-  return <ActivePartidaDock session={viewer.active} clock={partideServerClock} href={partideHrefs.partida(id)} captureHref={partideHrefs.capture(id)} />;
+  return <ActivePartidaDock session={viewer.active} clock={partideServerClock} href={partideHrefs.partida(id)} />;
 }
 
 /** c6 — the quick nav; «Pescari» goes through sign-in for a guest (fish D6). */

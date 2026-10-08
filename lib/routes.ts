@@ -171,22 +171,10 @@ export const routes = {
    */
   partidaSession: (clientId: string) => `/partide/sesiune/${encodeURIComponent(clientId)}`,
   partide: () => '/partide',
-  /**
-   * Start a partidă (M4, ON_WEB.startPartida; parity partide.yml «/partide/incepe»): at a lake
-   * (`balta` = its documentId) or a public water (`apa` = its linkCode) — fish partide/start
-   * ?lakeId= / ?waterCode=.
-   */
-  startPartida: (at: { balta?: string; apa?: string } = {}) => {
-    const q = new URLSearchParams();
-    if (at.balta) q.set('balta', at.balta);
-    if (at.apa) q.set('apa', at.apa);
-    const s = q.toString();
-    return `/partide/incepe${s ? `?${s}` : ''}`;
-  },
-  /** Join a partidă with a code (M4; fish partide/join). */
-  partidaJoin: () => '/partide/intra',
   // ── M4 Partide (docs/parity/areas/partide.yml). Pages that are not on the web yet are reached
-  // only through lib/partide-pages.ts, whose helpers answer null until the page ships. ──
+  // only through lib/partide-pages.ts, whose helpers answer null until the page ships. Starting,
+  // joining and running a partidă (start, join, capture, rods, member actions) are app-only on web
+  // (owner 2026-10-08, ROADMAP §4b rule 21): lib/app-links.ts opens the app instead. ──
   /** The hub's «Explorează» tab (partide.exploreaza; fish (tabs)/partide sub-tab `partide`). */
   partideExplore: () => '/partide/exploreaza',
   /** The hub's «Ale mele» tab (partide.ale-mele; fish sub-tab `alemele`). */
@@ -221,21 +209,6 @@ export const routes = {
   partidaCatches: (documentId: string) => `/partide/${encodeURIComponent(documentId)}/capturi`,
   /** The photo gallery of one partidă. */
   partidaGallery: (documentId: string) => `/partide/${encodeURIComponent(documentId)}/galerie`,
-  /** One tab of the partidă page (`tab` left out for the default one). */
-  partidaTab: (documentId: string, tab?: string) => `/partide/${encodeURIComponent(documentId)}${tab ? `?tab=${encodeURIComponent(tab)}` : ''}`,
-  /**
-   * The capture flow of a live partidă (fish partide/captura): a free capture, or one off a rod
-   * (`lanseta` = the rod index); `editare` = the catch's clientId to edit.
-   */
-  partidaCapture: (documentId: string, opts: { lanseta?: number; editare?: string } = {}) => {
-    const q = new URLSearchParams();
-    if (opts.lanseta != null) q.set('lanseta', String(opts.lanseta));
-    if (opts.editare) q.set('editare', opts.editare);
-    const s = q.toString();
-    return `/partide/${encodeURIComponent(documentId)}/captura${s ? `?${s}` : ''}`;
-  },
-  /** Join a partidă with its code already filled (invite link / PARTIDA_INVITE; fish partide/join?code=). */
-  partidaJoinCode: (cod: string) => `/partide/intra/${encodeURIComponent(cod)}`,
   suggestedAnglers: () => '/pescari/sugerati',
   /**
    * Angler search (partide.pescari; fish /partide/pescari): «Urmăriți de prietenii tăi» + «Activi
@@ -302,9 +275,6 @@ export const routes = {
  *  - partida → /partide/[id], with the own-vs-spectator resolution (M4) — ON since M4-B3 (every
  *    partidă link across the site: lake / public-water live rows, history cards and record heroes,
  *    the angler profile's session cards, the partidă notifications);
- *  - startPartida → /partide/incepe, the start-partidă flow (M4, partide.incepe) — ON since M4-B6 (the
- *    Partide hub's «Începe» pill, heroes and record invitations, Acasă's hero, the lake / public-water
- *    «Începe o partidă aici»);
  *  - settings → /setari, the settings hub (M2, account.settings) — ON since M2-B5 (the own profile's
  *    cog and the account menus' «Setări» rows);
  *  - myBookings → /rezervari, the viewer's bookings (M3, booking.rezervarile-mele) — ON since M3-B1
@@ -316,7 +286,6 @@ export const ON_WEB = {
   angler: true,
   connections: true,
   partida: true,
-  startPartida: true,
   settings: true,
   myBookings: true,
   bookingDetail: true,

@@ -6,8 +6,9 @@ import { ON_WEB, routes } from './routes';
  * link to it goes through the helpers below, which answer null: the caller hides the link or renders
  * its target as plain text — never a dead link to the catch-all 404.
  *
- * The two partidă pages lib/routes.ts already switches (the partidă page, the start flow) are read
- * from ON_WEB, so each page keeps exactly one switch. Flip an entry in the commit step of the screen
+ * The partidă page, which lib/routes.ts already switches, is read from ON_WEB, so it keeps exactly
+ * one switch. Starting, joining and running a partidă are app-only on web (owner 2026-10-08,
+ * ROADMAP §4b rule 21): no page here — lib/app-links.ts opens the app. Flip an entry in the commit step of the screen
  * that ships it (one-line edit, serialised by the orchestrator).
  */
 export const PARTIDE_PAGES_ON_WEB = {
@@ -23,30 +24,12 @@ export const PARTIDE_PAGES_ON_WEB = {
   ranking: true,
   /** /partide/capturile-mele — the viewer's catches (partide.capturile-mele). */
   myCatches: true,
-  /** /partide/[id] — the partidă page, member or spectator view (lib/routes.ts ON_WEB.partida). */
+  /** /partide/[id] — the partidă page, own (read-only) or spectator view (lib/routes.ts ON_WEB.partida). */
   partida: ON_WEB.partida,
-  /** /partide/[id]?tab=lansete — the member view's «Lansete» tab (partide.partida-lansete). */
-  partidaLansete: true,
-  /** /partide/[id]?tab=jurnal — the member view's «Jurnal» tab (partide.partida-jurnal). */
-  partidaJurnal: true,
-  /** /partide/[id]?tab=galerie — the member view's «Galerie» tab (partide.partida-galerie). */
-  partidaGalerie: true,
-  /** /partide/[id]?tab=statistici — the member view's «Statistici» tab (partide.partida-statistici). */
-  partidaStatistici: true,
-  /** /partide/[id]?tab=setari — the member view's «Setări» tab (partide.partida-setari). */
-  partidaSetari: true,
   /** /partide/[id]/capturi — every catch of a partidă (partide.spectator-capturi). */
   partidaCatches: true,
   /** /partide/[id]/galerie — the photos of a partidă (partide.spectator-galerie). */
   partidaGallery: true,
-  /** /partide/[id]/captura — the capture flow (partide.captura). */
-  capture: true,
-  /** /partide/incepe — start a partidă (lib/routes.ts ON_WEB.startPartida). */
-  start: ON_WEB.startPartida,
-  /** /partide/intra — join by typing a code (partide.intra). */
-  join: true,
-  /** /partide/intra/[cod] — join from an invite link, the code filled (partide.intra-cod). */
-  joinCode: true,
   /** /pescari — «Caută pescari» (partide.pescari). */
   anglersSearch: false,
 } as const;
@@ -68,19 +51,13 @@ export const partideHrefs = {
   ranking: (perioada?: 'week' | 'month' | 'year', tab?: string) => partidePageHref('ranking', routes.partideRanking(perioada, tab)),
   myCatches: () => partidePageHref('myCatches', routes.myCatches()),
   partida: (documentId: string) => partidePageHref('partida', routes.partida(documentId)),
-  partidaTab: (documentId: string, tab?: string) => partidePageHref('partida', routes.partidaTab(documentId, tab)),
   partidaCatches: (documentId: string) => partidePageHref('partidaCatches', routes.partidaCatches(documentId)),
   partidaGallery: (documentId: string) => partidePageHref('partidaGallery', routes.partidaGallery(documentId)),
-  capture: (documentId: string, opts?: Parameters<typeof routes.partidaCapture>[1]) =>
-    partidePageHref('capture', routes.partidaCapture(documentId, opts)),
-  start: (at?: Parameters<typeof routes.startPartida>[0]) => partidePageHref('start', routes.startPartida(at)),
-  join: () => partidePageHref('join', routes.partidaJoin()),
-  joinCode: (cod: string) => partidePageHref('joinCode', routes.partidaJoinCode(cod)),
   anglersSearch: () => partidePageHref('anglersSearch', routes.anglersSearch()),
 } as const;
 
 /**
- * A page that needs a signed-in viewer (start, join, «Caută pescari»; parity partide.b.signin-gating):
+ * A page that needs a signed-in viewer («Caută pescari»; parity partide.b.signin-gating):
  * the page itself for a viewer, sign-in returning to it for a guest — null while the page is off.
  */
 export function signedInHref(href: string | null, signedIn: boolean): string | null {

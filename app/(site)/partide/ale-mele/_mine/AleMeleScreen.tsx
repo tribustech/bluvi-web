@@ -20,7 +20,7 @@ import { cn } from '@/components/ui/cn';
 import { myCatchesInfiniteQuery, partideHistoryQuery, type SessionDetailDTO } from '@/core/partide';
 import type { AnglerCatch } from '@/core/social';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { partideHrefs, signedInHref } from '@/lib/partide-pages';
+import { partideHrefs } from '@/lib/partide-pages';
 import { routes } from '@/lib/routes';
 import { partideServerClock, usePartideViewer } from '../../_hub/activePartida';
 import { AleMeleSkeleton } from './AleMeleSkeleton';
@@ -49,9 +49,6 @@ import { aleMeleView } from './view';
  * card and «Statistici» become one bento leading the centre (owner rules 9, 19).
  */
 
-/** The hero has something to offer only with start or join on the web (fish's hero always has both). */
-const HERO_ON = partideHrefs.start() != null || partideHrefs.join() != null;
-
 const EMPTY_ROWS: never[] = [];
 
 export function AleMeleScreen() {
@@ -64,7 +61,7 @@ export function AleMeleScreen() {
 /**
  * c1 — fish AleMeleSignInWall: the journal's own words, «Autentifică-te» back to this tab. c7 — fish
  * renders the hero above the wall with no auth check (partide.tsx `showTopSlot && !activeSession`):
- * a guest gets it too, each action through sign-in (as on Comunitate), in the same places as a
+ * a guest gets it too (it hands over to the app, owner 2026-10-08), in the same places as a
  * viewer's (above the wall below 1280, the left column from 1280).
  */
 function SignInWall() {
@@ -79,10 +76,7 @@ function SignInWall() {
       />
     </div>
   );
-  if (!HERO_ON) return wall;
-  const guestHero = (layout: 'mobile' | 'desktop') => (
-    <NoActiveCta layout={layout} start={signedInHref(partideHrefs.start(), false)} join={signedInHref(partideHrefs.join(), false)} />
-  );
+  const guestHero = (layout: 'mobile' | 'desktop') => <NoActiveCta layout={layout} />;
   return (
     <DashboardLayout
       sidesBelowXl="hidden"
@@ -132,16 +126,13 @@ function Journal({ active }: { active: SessionDetailDTO | null | 'failed' | 'pen
   if (history.isError && !history.data) return <HistoryError onRetry={() => void history.refetch()} />;
 
   const refetching = history.isFetching && !history.isPending;
-  const hero = !live && active !== 'failed' && HERO_ON;
-  const heroFor = (layout: 'mobile' | 'desktop') => (
-    <NoActiveCta layout={layout} start={partideHrefs.start()} join={partideHrefs.join()} />
-  );
+  const hero = !live && active !== 'failed';
+  const heroFor = (layout: 'mobile' | 'desktop') => <NoActiveCta layout={layout} />;
   const liveCard = live ? (
     <ActivePartidaCard
       session={live}
       clock={partideServerClock}
       href={partideHrefs.partida(live.documentId)}
-      captureHref={partideHrefs.capture(live.documentId)}
       headingId="ale-mele-partida-activa"
     />
   ) : null;
@@ -259,7 +250,7 @@ function Journal({ active }: { active: SessionDetailDTO | null | 'failed' | 'pen
         onRetryMore={() => void catchesQ.fetchNextPage()}
       />
       {live ? (
-        <ActivePartidaDock session={live} clock={partideServerClock} href={partideHrefs.partida(live.documentId)} captureHref={partideHrefs.capture(live.documentId)} />
+        <ActivePartidaDock session={live} clock={partideServerClock} href={partideHrefs.partida(live.documentId)} />
       ) : null}
     </>
   );

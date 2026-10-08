@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { fmtDurationCompact, fmtKg, type SessionDetailDTO } from '@/core/partide';
 import { Pill } from '@/components/cards';
-import { FishIcon } from '@/components/icons/brand';
 import { ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
-import { useSiteToast } from '@/app/(site)/_shell/Toast';
+import { appLinks } from '@/lib/app-links';
+import { OpenInApp } from './OpenInApp';
 
 const pluralCapturi = (n: number) => (n === 1 ? 'captură' : 'capturi');
 
@@ -105,17 +105,11 @@ function ActivePill() {
 export interface ActivePartidaProps {
   session: SessionDetailDTO;
   /**
-   * The partidă page — the caller passes the gated href (lib/partide-pages `partideHrefs.partida`,
-   * lib/routes `partidaHref`): null while that page is not on the web. Then the venue is plain text
-   * (no stretched link), «Deschide partida» is left out, and so is «Captură» unless `captureHref`
-   * has its own target — never a dead link.
+   * The partidă page (read-only on web) — the caller passes the gated href (lib/partide-pages
+   * `partideHrefs.partida`, lib/routes `partidaHref`): null while that page is not on the web. Then
+   * the venue is plain text (no stretched link) and «Vezi partida» is left out — never a dead link.
    */
   href: string | null;
-  /**
-   * Where «Captură» goes: the capture flow for a free (no-rod) capture once the web has it
-   * (lib/partide-pages `capture`), else the partidă page (`href`).
-   */
-  captureHref?: string | null;
   /** The countdowns' clock (DockClock); the device clock by default. */
   clock?: DockClock;
 }
@@ -127,17 +121,16 @@ export type ActivePartidaCardProps = ActivePartidaProps & {
 
 /**
  * fish features/partide/components/ActivePartidaDock.tsx — the live-partidă bar fused with the tab
- * bar (mobile/tablet): ACTIVĂ, venue + stats, «Captură», per-rod timers. The bar opens the partidă.
- * fish's «Captură» opens the capture flow in place; on the web it opens `captureHref` (offline it
- * is blocked with fish's toast — a capture is a write). Used by Acasă and the Partide hub
- * (parity partide.b.active-dock-global).
+ * bar (mobile/tablet): ACTIVĂ, venue + stats, per-rod timers. The bar opens the partidă page
+ * (read-only on web). fish's «Captură» is app-only on web (owner 2026-10-08, ROADMAP §4b rule 21):
+ * its place is «Deschide aplicația» — the universal link into the app on that partidă (OpenInApp).
+ * Used by Acasă and the Partide hub (parity partide.b.active-dock-global).
  */
-export function ActivePartidaDock({ session, href, captureHref, clock = DEVICE_CLOCK }: ActivePartidaProps) {
+export function ActivePartidaDock({ session, href, clock = DEVICE_CLOCK }: ActivePartidaProps) {
   const { label } = statsLabel(session);
-  const capture = captureHref ?? href;
   return (
     <section
-      aria-label="Partida activă"
+      aria-label="Partida ta e live"
       data-testid="partida-activa-dock"
       className="sticky bottom-0 z-sticky -mx-4 -mb-8 flex flex-col gap-2 rounded-t-bento md:-mx-6 md:-mb-10 border-t border-accent/20 bg-surface px-3.5 pt-2.5 pb-[max(--spacing(2.5),env(safe-area-inset-bottom))] shadow-tabbar xl:hidden"
     >
@@ -156,17 +149,20 @@ export function ActivePartidaDock({ session, href, captureHref, clock = DEVICE_C
           )}
           <p className="truncate t-micro text-muted">{label}</p>
         </div>
-        {capture ? <CaptureLink href={capture} className="relative z-above" /> : null}
+        <OpenInApp href={appLinks.partida(session.documentId)} label="Deschide aplicația" size="compact" className="relative z-above shrink-0" testId="partida-activa-app" />
       </div>
       <RodChips session={session} size="dock" clock={clock} />
     </section>
   );
 }
 
-/** The partidă as the first card of the desktop right column (design). */
-export function ActivePartidaCard({ session, href, captureHref, clock = DEVICE_CLOCK, headingId = 'acasa-partida-activa' }: ActivePartidaCardProps) {
+/**
+ * The partidă as the first card of the desktop right column (design): «Vezi partida» (the read-only
+ * page) and the app hand-over — from 1280 the store links (OpenInApp), since captures, rods and the
+ * finish are app-only on web (owner 2026-10-08).
+ */
+export function ActivePartidaCard({ session, href, clock = DEVICE_CLOCK, headingId = 'acasa-partida-activa' }: ActivePartidaCardProps) {
   const { label, captures } = statsLabel(session, false);
-  const capture = captureHref ?? href;
   return (
     <section aria-labelledby={headingId} data-testid="partida-activa-card" className="flex flex-col gap-3 rounded-card border border-accent-tint-2 bg-surface p-4.5">
       <div className="flex items-center gap-2.5">
@@ -185,38 +181,14 @@ export function ActivePartidaCard({ session, href, captureHref, clock = DEVICE_C
         </p>
       </div>
       <RodChips session={session} size="card" clock={clock} />
-      {/* Side by side when both labels fit, stacked in a narrow aside (labels never truncate). */}
-      {capture || href ? (
-        <div className="flex flex-wrap gap-2">
-          {capture ? <CaptureLink href={capture} className="grow" /> : null}
-          {href ? (
-            <ButtonLink href={href} variant="secondary" className="grow">
-              Deschide partida
-            </ButtonLink>
-          ) : null}
-        </div>
+      {href ? (
+        <ButtonLink href={href} variant="secondary">
+          Vezi partida
+        </ButtonLink>
       ) : null}
+      <p className="t-caption text-muted">Capturile, lansetele și încheierea partidei se fac din aplicația Bluvi.</p>
+      <OpenInApp href={appLinks.partida(session.documentId)} size="compact" testId="partida-activa-app" />
     </section>
-  );
-}
-
-/** fish onPartidaCapture: offline → «Fără conexiune. Reconectare…», nothing opens. */
-function CaptureLink({ href, className }: { href: string; className?: string }) {
-  const toast = useSiteToast();
-  return (
-    <ButtonLink
-      href={href}
-      variant="success"
-      className={className}
-      icon={<FishIcon size={20} />}
-      onClick={(e) => {
-        if (navigator.onLine) return;
-        e.preventDefault();
-        toast('Fără conexiune. Reconectare…', 'danger');
-      }}
-    >
-      Captură
-    </ButtonLink>
   );
 }
 

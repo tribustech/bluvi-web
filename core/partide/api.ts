@@ -1,6 +1,6 @@
 import * as z from 'zod';
 import { getAnglerFollowing } from '../social/api';
-import { call, callVoid, isApiError, type Transport } from '../transport';
+import { call, callVoid, type Transport } from '../transport';
 import type { EventUpsertBody, SessionUpsertBody } from './domain/upsertBodies';
 import { communityVenueKey, communityVenuePath, venueParamsSerializer, type CommunityVenueRef } from './domain/venueKeys';
 import {
@@ -22,12 +22,10 @@ import {
   mySessionFollowsSchema,
   mySessionsPageSchema,
   patchRodsResultSchema,
-  rodCommandResultSchema,
   sessionCatchesPageSchema,
   sessionCreateJoinDTOSchema,
   sessionDetailDTOSchema,
   sessionPhotoUploadSchema,
-  type RodCommandResult,
   type SessionListItemDTO,
   type StatsPeriod,
 } from './schemas';
@@ -221,76 +219,6 @@ export async function patchRods(t: Transport, sessionDocumentId: string, rods: R
     z.object({ data: patchRodsResultSchema })
   );
   return res.data;
-}
-
-/**
- * Sessions whose CMS has no rod-command routes, or whose role has not been granted them yet.
- * fish keeps this memo as module state; here it is a value the caller owns (one per browser
- * session), so a server process never shares it across users. Not persisted: a fresh load
- * re-probes, so a grant applied mid-session is picked up.
- */
-export type RodCommandAvailability = Set<string>;
-
-export function createRodCommandAvailability(): RodCommandAvailability {
-  return new Set<string>();
-}
-
-/** fish `services/api/partide.ts#rodCommandsUnavailable` */
-export function rodCommandsUnavailable(memo: RodCommandAvailability, sessionDocumentId: string): boolean {
-  return memo.has(sessionDocumentId);
-}
-
-/** A status that means "this server/role does not offer the command", not "the command failed". */
-const isUnsupported = (status?: number): boolean => status === 403 || status === 404 || status === 405;
-
-async function rodCommand(
-  t: Transport,
-  memo: RodCommandAvailability,
-  sessionDocumentId: string,
-  index: number,
-  verb: 'cast' | 'stop',
-  body: Record<string, unknown>
-): Promise<RodCommandResult | null> {
-  if (memo.has(sessionDocumentId)) return null;
-  try {
-    const res = await call(
-      t,
-      { method: 'POST', path: `/feed/sessions/${seg(sessionDocumentId)}/rods/${index}/${verb}`, body: { data: body }, auth: 'required' },
-      z.object({ data: rodCommandResultSchema })
-    );
-    return res.data;
-  } catch (error) {
-    if (!isApiError(error) || !isUnsupported(error.status)) throw error;
-    memo.add(sessionDocumentId);
-    return null;
-  }
-}
-
-/**
- * fish `services/api/partide.ts#castRod` — start ONE rod's countdown.
- * `expectEndsAt` is a compare-and-swap on the deadline this client believed was current; mint it
- * ONCE per user tap so every retry carries the same value. Returns null when the server does not
- * offer the route (old CMS, missing grant) so the caller can fall back to `patchRods`.
- */
-export function castRod(
-  t: Transport,
-  memo: RodCommandAvailability,
-  sessionDocumentId: string,
-  index: number,
-  body: { expectEndsAt: string | null; rod?: Record<string, unknown> }
-) {
-  return rodCommand(t, memo, sessionDocumentId, index, 'cast', body);
-}
-
-/** fish `services/api/partide.ts#stopRod` — clear ONE rod's countdown. */
-export function stopRod(
-  t: Transport,
-  memo: RodCommandAvailability,
-  sessionDocumentId: string,
-  index: number,
-  body: { expectEndsAt?: string | null } = {}
-) {
-  return rodCommand(t, memo, sessionDocumentId, index, 'stop', body);
 }
 
 /** fish `services/api/partide.ts#patchSession` — session meta corrections (notes, venue, endedAt, …). */

@@ -91,8 +91,8 @@ describe('notificationHref — every type with its ids', () => {
     [T.CHAT_MESSAGE, C, '/concursuri/c1/chat?tab=general'],
     // → pages not on the web yet: no link (each gate in NOTIFICATION_PAGES_ON_WEB / ON_WEB)
     [T.PENALTY, C, null],
-    // partide.b.notif-invite: the invite code → the join confirmation (sign-in first when signed out).
-    [T.PARTIDA_INVITE, { partidaCode: 'ABC123' }, '/partide/intra/ABC123'],
+    // partide.b.notif-invite: joining is app-only on web (owner 2026-10-08) — no link.
+    [T.PARTIDA_INVITE, { partidaCode: 'ABC123' }, null],
     // partide.b.notif-finished-autoclose: the CLIENT id → the resolver page (pointer / own list → the
     // partidă, else Ale mele).
     [T.PARTIDA_FINISHED, { sessionId: 'local-1' }, '/partide/sesiune/local-1'],
@@ -137,7 +137,6 @@ describe('notificationHref — every type with its ids', () => {
     expect(href(T.BOOKING_CONFIRMED_ANGLER, { bookingId: 'a/b c' })).toBe('/rezervari/a%2Fb%20c');
     expect(href(T.PARTIDA_FINISHED, { sessionId: 'a/b c' })).toBe('/partide/sesiune/a%2Fb%20c');
     expect(href(T.PARTIDA_CATCH, { sessionDocumentId: 'a/b c' })).toBe('/partide/a%2Fb%20c');
-    expect(href(T.PARTIDA_INVITE, { partidaCode: 'a/b c' })).toBe('/partide/intra/a%2Fb%20c');
     expect(href(T.FOLLOW_RECORD_LAKE, { sessionDocumentId: 'a/b c' })).toBe('/partide/a%2Fb%20c/capturi');
   });
 

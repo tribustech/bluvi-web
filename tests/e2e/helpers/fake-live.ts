@@ -16,7 +16,7 @@ import { test as base, expect, type Page } from '@playwright/test';
  *
  *   import { test, expect } from './helpers/fake-live';
  *   test('…', async ({ page, fakeLive }) => {
- *     await fakeLive.seed({ docs: { 'client-1': liveDoc() }, allTabs: true });
+ *     await fakeLive.seed({ docs: { 'client-1': liveDoc() } });
  *     await page.goto('/partide/doc-1');
  *     await fakeLive.push('client-1', { ...liveDoc(), warnedAt: '…' });   // a new snapshot
  *     await fakeLive.fail('client-1');                                    // permission-denied
@@ -75,8 +75,6 @@ export type FakeLiveInit = {
   /** Session ids whose listener fails at once with this code (`permission-denied`). */
   errors?: Record<string, string>;
   fromCache?: boolean;
-  /** Render every member-view tab, shipped or not (the frame's own tests). */
-  allTabs?: boolean;
 };
 
 const FIREBASE_HOSTS = /^https:\/\/([a-z0-9-]+\.)*(firestore\.googleapis\.com|identitytoolkit\.googleapis\.com|securetoken\.googleapis\.com|firebaseinstallations\.googleapis\.com|firebase\.googleapis\.com|firebaselogging-pa\.googleapis\.com)\//;
@@ -92,8 +90,6 @@ export type FakeLiveHandle = {
   fail(sessionId: string, code?: string): Promise<void>;
   /** The session ids the page subscribed to, in order. */
   subscribed(): Promise<string[]>;
-  /** Every marker write the page made (the Jurnal map's only Firestore write, recorded by the fake). */
-  markerWrites(): Promise<{ op: 'set' | 'delete'; sessionId: string; clientId: string; data?: Record<string, unknown> }[]>;
 };
 
 export async function installFakeLive(page: Page): Promise<FakeLiveHandle> {
@@ -117,7 +113,6 @@ export async function installFakeLive(page: Page): Promise<FakeLiveHandle> {
         Object.assign(fake.docs, i.docs ?? {});
         Object.assign(fake.errors, i.errors ?? {});
         if (i.fromCache !== undefined) fake.fromCache = i.fromCache;
-        if (i.allTabs !== undefined) fake.allTabs = i.allTabs;
       }, init);
     },
     async push(sessionId, doc, fromCache = false) {
@@ -132,12 +127,6 @@ export async function installFakeLive(page: Page): Promise<FakeLiveHandle> {
       await page.evaluate(([id, c]) => (window as unknown as { __BLUVI_FAKE_LIVE__: { fail: (a: string, b: string) => void } }).__BLUVI_FAKE_LIVE__.fail(id, c), [sessionId, code] as const);
     },
     subscribed: () => page.evaluate(() => (window as unknown as { __BLUVI_FAKE_LIVE__?: { subscribed?: string[] } }).__BLUVI_FAKE_LIVE__?.subscribed ?? []),
-    markerWrites: () =>
-      page.evaluate(
-        () =>
-          (window as unknown as { __BLUVI_FAKE_LIVE__?: { markerWrites?: { op: 'set' | 'delete'; sessionId: string; clientId: string; data?: Record<string, unknown> }[] } }).__BLUVI_FAKE_LIVE__
-            ?.markerWrites ?? [],
-      ),
   };
 }
 

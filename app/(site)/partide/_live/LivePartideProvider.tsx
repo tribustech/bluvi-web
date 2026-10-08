@@ -37,7 +37,8 @@ import { useOnline } from './useOnline';
  *    answer of an old subscription from touching a newer one.
  *  - Sign-out (the viewer turns null): unsubscribe, clear the pointer (resetPartidePersistence)
  *    and the live state.
- * The web only READS Firestore; writes go through the CMS (./controlPlane.ts).
+ * The web only READS: starting, joining and running a partidă are app-only on web (owner
+ * 2026-10-08, ROADMAP §4b rule 21).
  */
 
 export type LivePartide = {
@@ -49,16 +50,6 @@ export type LivePartide = {
   online: boolean;
   /** The CMS transport that samples the server clock. */
   transport: Transport;
-  /** The write repo (core createPartideSessionRepo over the CMS), loaded on the first write. */
-  repo: () => Promise<partide.PartideSessionRepo>;
-  pendingRuntimeWrites: ReturnType<typeof partide.createPendingRuntimeWrites>;
-  /** A create / join claimed the pointer: persist it and follow that session. */
-  setActive: (pointer: partide.ActiveSession) => Promise<void>;
-  /** The live partidă is over for this device (finished, left, deleted): pointer + state cleared. */
-  clearLive: () => Promise<void>;
-  /** For waitForProjection: the current state and a change subscription. */
-  read: () => partide.LivePartideState;
-  subscribeState: (onChange: () => void) => () => void;
 };
 
 const LiveContext = createContext<LivePartide | null>(null);
@@ -92,10 +83,6 @@ function ViewerBridge({ onViewer }: { onViewer: (uid: string | null | undefined)
 
 function LiveMount({ uid, children }: { uid: string | null | undefined; children: ReactNode }) {
   const transport = useMemo(() => samplingTransport(createBrowserTransport()), []);
-  const repo = useMemo(() => {
-    let loaded: Promise<partide.PartideSessionRepo> | null = null;
-    return () => (loaded ??= import('./controlPlane').then(m => m.createLiveRepo(transport)));
-  }, [transport]);
   const pendingRuntimeWrites = useMemo(() => partide.createPendingRuntimeWrites(), []);
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -104,13 +91,11 @@ function LiveMount({ uid, children }: { uid: string | null | undefined; children
 
   const [state, setStateRaw] = useState<partide.LivePartideState>(partide.emptyLivePartideState);
   const stateRef = useRef(state);
-  const stateListeners = useRef(new Set<() => void>());
   const setState = useCallback((next: (prev: partide.LivePartideState) => partide.LivePartideState) => {
     const value = next(stateRef.current);
     if (value === stateRef.current) return;
     stateRef.current = value;
     setStateRaw(value);
-    for (const l of stateListeners.current) l();
   }, []);
   /** The account whose pointer resolution is over. */
   const [readyFor, setReadyFor] = useState<string | null>(null);
@@ -315,35 +300,10 @@ function LiveMount({ uid, children }: { uid: string | null | undefined; children
     };
   }, [uid, sessionId, documentId, attempt, transport, toast, setState, primeClock, scheduleValidRecovery, setReconnecting, cleanupRevoked, pendingRuntimeWrites]);
 
-  /* ── the API the pages use ─────────────────────────────────────────────── */
-  const setActive = useCallback(
-    async (pointer: partide.ActiveSession) => {
-      claimedRef.current = true;
-      await partide.setActiveSession(localKeyValueStorage, pointer);
-      if (uid) await localKeyValueStorage.set(POINTER_OWNER_KEY, uid);
-      setState(s => ({ ...s, active: pointer }));
-    },
-    [setState, uid],
-  );
-
-  const clearLive = useCallback(async () => {
-    claimedRef.current = false;
-    await partide.clearActiveSession(localKeyValueStorage);
-    pendingRuntimeWrites.clear();
-    setState(s => partide.clearLivePartideState(s));
-  }, [pendingRuntimeWrites, setState]);
-
-  const read = useCallback(() => stateRef.current, []);
-  const subscribeState = useCallback((onChange: () => void) => {
-    stateListeners.current.add(onChange);
-    return () => {
-      stateListeners.current.delete(onChange);
-    };
-  }, []);
-
+  /* ── the API the pages use (read-only: running a partidă is app-only on web, owner 2026-10-08) ── */
   const value = useMemo<LivePartide>(
-    () => ({ uid, ready: uid === null || (uid !== undefined && readyFor === uid), state, online, transport, repo, pendingRuntimeWrites, setActive, clearLive, read, subscribeState }),
-    [uid, readyFor, state, online, transport, repo, pendingRuntimeWrites, setActive, clearLive, read, subscribeState],
+    () => ({ uid, ready: uid === null || (uid !== undefined && readyFor === uid), state, online, transport }),
+    [uid, readyFor, state, online, transport],
   );
   return <LiveContext value={value}>{children}</LiveContext>;
 }

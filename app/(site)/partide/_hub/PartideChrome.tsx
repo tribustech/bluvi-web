@@ -6,7 +6,8 @@ import { PlusIcon } from '@heroicons/react/20/solid';
 import { DashboardHeader } from '@/components/templates/T5';
 import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
-import { partideHrefs, signedInHref } from '@/lib/partide-pages';
+import { appLinks } from '@/lib/app-links';
+import { partideHrefs } from '@/lib/partide-pages';
 import { routes } from '@/lib/routes';
 import { usePartideViewer } from './activePartida';
 
@@ -14,7 +15,7 @@ import { usePartideViewer } from './activePartida';
  * fish features/partide/components/PartideChrome.tsx — the Partide hub's chrome, shared by its three
  * tabs (Comunitate here; Explorează and Ale mele in later batches read it as is):
  *  - the T5 header: the title «Partide» (h1), the indigo «Începe» pill (plus) — only when the viewer
- *    has NO live partidă (c1; a guest goes through sign-in) — and the page's refresh control;
+ *    has NO live partidă (c1), and into the app (owner 2026-10-08) — and the page's refresh control;
  *  - under it the underline tabs (c2): Comunitate · Explorează · Ale mele, each its own URL, so the
  *    choice is never persisted (c3: /partide always opens on Comunitate). Owner rule 20: one bar on
  *    a hairline, the active tab in the accent ink on a 2.5px underline, hover and focus states.
@@ -49,19 +50,25 @@ export function PartideHeader({ actions }: { actions?: ReactNode }) {
   );
 }
 
-/** c1 — «Începe»: no live partidă confirmed (or a guest, through sign-in), and the start page on the web. */
+/**
+ * c1 — «Începe»: no live partidă confirmed (or a guest). Starting a partidă is app-only on web (owner
+ * 2026-10-08, ROADMAP §4b rule 21): the pill is the universal link into the app's start flow, below
+ * 1280 only — a desktop gets the hero's store links instead (a universal link would land back here).
+ */
 function StartPill() {
   const viewer = usePartideViewer();
-  const start = partideHrefs.start();
-  if (!start || viewer.kind === 'pending') return null;
+  if (viewer.kind === 'pending') return null;
   if (viewer.kind === 'viewer' && viewer.active !== null) return null;
-  const href = signedInHref(start, viewer.kind === 'viewer');
-  if (!href) return null;
   return (
-    <Link href={href} className={buttonClass({ variant: 'primary', size: 'compact', className: 'shadow-glow' })} data-testid="start-pill">
+    <a
+      href={appLinks.startPartida()}
+      aria-label="Începe o partidă în aplicația Bluvi"
+      className={buttonClass({ variant: 'primary', size: 'compact', className: 'shadow-glow xl:hidden' })}
+      data-testid="start-pill"
+    >
       <PlusIcon aria-hidden className="size-4" />
       Începe
-    </Link>
+    </a>
   );
 }
 

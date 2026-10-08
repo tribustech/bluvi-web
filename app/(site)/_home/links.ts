@@ -12,10 +12,6 @@ export const homeLinks = {
   profile: PATHS.profile,
   /** fish /bookings */
   myBookings: routes.myBookings(),
-  /** fish /(app)/partide/start */
-  partidaStart: routes.startPartida(),
-  /** fish /(app)/partide/join */
-  partidaJoin: routes.partidaJoin(),
   /** fish /(app)/organizer */
   organizer: PATHS.organizer,
   /** fish /polls/current */

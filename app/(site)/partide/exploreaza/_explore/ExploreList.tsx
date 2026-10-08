@@ -22,7 +22,6 @@ import { DeadFishIcon } from '@/components/icons/brand';
 import { ListEmpty, ListError, ListFooter, TextAction } from '@/components/templates/T1';
 import { Button } from '@/components/ui/Button';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { partideHrefs, signedInHref } from '@/lib/partide-pages';
 import { isUnknownViewer, userOf, useViewerState } from '../../../_shell/viewer-context';
 import { ExploreGrid, ExploreListSkeleton, ExploreSection } from './parts';
 import { EMPTY_FETCH_LIMIT, type ExplorePlace } from './place';
@@ -85,9 +84,6 @@ function SignedInList(props: ExploreData & { uid: string }) {
   const anglers = useQuery(followedAnglerUidsQuery(t, props.uid));
   return <ListBody {...props} viewer={{ kind: 'viewer', uid: props.uid, sessions: followSet(follows), anglers: followSet(anglers) }} />;
 }
-
-/** fish NoActiveCta's targets, as the flags stand: with neither page on the web there is no hero. */
-const HERO_ON = partideHrefs.start() != null || partideHrefs.join() != null;
 
 function ListBody({
   place,
@@ -290,21 +286,18 @@ function InlineError({ text, onRetry }: { text: string; onRetry: () => void }) {
 
 /** c12 — nothing public at all: the caption and the «Ești la pescuit?» hero (fish NoActiveCta). */
 function OverallEmpty({ viewer }: { viewer: ExploreViewer }) {
-  const signedIn = viewer.kind === 'viewer';
   return (
     <div className="mx-auto flex w-full max-w-180 flex-col items-center gap-4 pt-6 text-center" data-testid="explore-empty">
       <p className="t-body-strong text-muted">Nicio partidă publică activă acum.</p>
-      {HERO_ON ? (
-        viewer.kind === 'pending' ? (
-          <div className="w-full">
-            <NoActiveCtaSkeleton layout="mobile" hasActions />
-          </div>
-        ) : (
-          <div className="w-full text-left">
-            <NoActiveCta layout="mobile" start={signedInHref(partideHrefs.start(), signedIn)} join={signedInHref(partideHrefs.join(), signedIn)} />
-          </div>
-        )
-      ) : null}
+      {viewer.kind === 'pending' ? (
+        <div className="w-full">
+          <NoActiveCtaSkeleton layout="mobile" />
+        </div>
+      ) : (
+        <div className="w-full text-left">
+          <NoActiveCta layout="mobile" />
+        </div>
+      )}
     </div>
   );
 }

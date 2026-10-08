@@ -54,9 +54,13 @@ const nextConfig: NextConfig = {
       // on one URL (partide.b.deep-link-spectate).
       { source: '/partide/comunitate/:id', destination: '/partide/:id', permanent: true },
       // fish's invite link https://bluvi-app.wearetribus.com/partide/join/{code} (core
-      // partidaJoinDeepLink, fish CoopCard) → the web's join-with-code page, which asks first and
-      // sends a signed-out visitor to sign-in and back (partide.b.deep-link-join).
-      { source: '/partide/join/:code', destination: '/partide/intra/:code', permanent: true },
+      // partidaJoinDeepLink, fish CoopCard) and the start / join links (lib/app-links.ts): joining
+      // and starting a partidă are app-only on web (owner 2026-10-08, ROADMAP §4b rule 21), so where
+      // the link lands on the web (no app) it opens the Partide hub, whose hero hands over to the
+      // app (partide.b.deep-link-join). Temporary: the universal-link plan is M8's.
+      { source: '/partide/join/:code', destination: '/partide', permanent: false },
+      { source: '/partide/join', destination: '/partide', permanent: false },
+      { source: '/partide/start', destination: '/partide', permanent: false },
       // fish's poll links https://bluvi-app.wearetribus.com/polls/current (helpers/sharePoll.ts) and
       // /polls/past (universal links cover /polls/*) → the web's poll pages (participant.b.poll-deeplink).
       // Until /sondaje/anterioare ships (POLLS_PAST_ON_WEB), /polls/past goes to the current poll with

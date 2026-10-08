@@ -2,6 +2,7 @@ import { collectConsoleErrors } from './helpers/console';
 import { BASE_URL } from './helpers/base-url';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
+import { APP_ORIGIN, expectOpenInApp } from './helpers/app-cta';
 import { CMS, qaJwt, signIn } from './helpers/session';
 
 /*
@@ -309,11 +310,9 @@ test.describe('public-waters.partide', () => {
       await page.goto(`/ape-publice/${TIN.id}/partide`);
       const empty = page.getByTestId('partide-empty');
       await expect(empty).toContainText('Nicio partidă înregistrată pe această apă încă.');
-      // fish's green «Începe o partidă aici»: the web's start flow pre-set to this water
-      // (waterCode = linkCode; partide.incepe c15).
-      const start = empty.getByRole('link', { name: 'Începe o partidă aici' });
-      await expect(start).toHaveAttribute('href', `/partide/incepe?apa=${encodeURIComponent(TIN.code)}`);
-      await expect(start).toHaveClass(/bg-success/);
+      // fish's «Începe o partidă aici»: starting is app-only on web (owner 2026-10-08) — the app's
+      // start flow pre-set to this water (waterCode = linkCode).
+      await expectOpenInApp(page, empty.getByTestId('start-here'), `${APP_ORIGIN}/partide/start?waterCode=${encodeURIComponent(TIN.code)}`);
       await expectNoA11yViolations(page);
     });
   });

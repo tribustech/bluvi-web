@@ -1,5 +1,6 @@
 import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
+import { expectPartidaHero } from './helpers/app-cta';
 import { BASE_URL } from './helpers/base-url';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import { expect, test, type Locator, type Page } from '@playwright/test';
@@ -186,7 +187,7 @@ test('owner rule 4 — «CONCURSUL MEU» shows only when the CMS says the user i
   for (const vp of [PHONE, DESKTOP]) {
     await open(page, vp, true);
     const block = page.locator('section[aria-labelledby^="acasa-concursul-meu"]').locator('visible=true');
-    const partidaBlock = page.locator('section[aria-label="Partida activă"], section[aria-labelledby="acasa-partida-activa"]').locator('visible=true');
+    const partidaBlock = page.locator('section[aria-label="Partida ta e live"], section[aria-labelledby="acasa-partida-activa"]').locator('visible=true');
     if (!name && !partida) {
       // Never shown without a confirmed live competition — a timeout can only hide it.
       await expect(block).toHaveCount(0);
@@ -250,7 +251,7 @@ for (const vp of [PHONE, { width: 1280, height: 800 }]) {
   });
 }
 
-test('owner rule 4 — partidă probe with no answer: no «Începe o partidă» hero', async ({ page }) => {
+test('owner rule 4 — partidă probe with no answer: no «Ești la pescuit?» hero', async ({ page }) => {
   // Loads Acasă (two widths for some) and waits out the browser takeover's retries.
   test.slow();
   await signIn(page.context(), jwt);
@@ -258,7 +259,6 @@ test('owner rule 4 — partidă probe with no answer: no «Începe o partidă» 
   await expectSignedIn(page);
   await expect(h2(page, /^Bălți/)).toBeVisible();
   await expect(h2(page, 'Ești la pescuit?')).toHaveCount(0);
-  await expect(visible(page.getByRole('link', { name: 'Începe o partidă' }))).toHaveCount(0);
   await expect(page.getByRole('main')).not.toContainText(UNKNOWN_COPY);
 });
 
@@ -644,13 +644,13 @@ test.fixme('home.acasa.c18 — phone sheet: focus starts on the CTA and the fitt
 });
 
 for (const signedIn of [false, true]) {
-  test(`home.acasa.c19 — partidă hero (${signedIn ? 'signed in' : 'guest → sign-in'})`, async ({ page }) => {
-    await open(page, PHONE, signedIn);
-    const hero = section(page, 'Ești la pescuit?');
-    await expect(hero.getByText('Capturi, lansete și cronometre — totul notat într-o singură partidă.')).toBeVisible();
-    await expect(hero.getByRole('link', { name: 'Începe o partidă' })).toHaveAttribute('href', signedIn ? '/partide/incepe' : '/intra');
-    await expect(hero.getByRole('link', { name: 'Intră cu cod' })).toHaveAttribute('href', signedIn ? '/partide/intra' : '/intra');
-  });
+  for (const vp of [PHONE, DESKTOP]) {
+    test(`home.acasa.c19 — partidă hero hands over to the app (owner 2026-10-08) · ${signedIn ? 'signed in' : 'guest'} · ${vp.width}px`, async ({ page }) => {
+      await open(page, vp, signedIn);
+      const hero = await expectPartidaHero(page);
+      await expect(hero.getByText('Partidele se încep și se țin în aplicația Bluvi: capturi, lansete și cronometre, chiar și fără semnal.')).toBeVisible();
+    });
+  }
 }
 
 /* ---------- competition rail ---------- */

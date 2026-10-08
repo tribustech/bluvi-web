@@ -7,10 +7,8 @@ import { DEFAULT_MASKS, stabilize, VISUAL_WIDTHS } from './capture';
  * Partidă · member view (partide.partida): every whole-page state at 375 / 768 / 1280 / 1440. The
  * member view is per-user and live, so — unlike captureRoute's real-data routes — the data is the
  * e2e's: the shared Firestore fake (no request may reach Firebase) and route-mocked CMS reads, a
- * fixed clock, the real QA session (its documentId is the owner). Every member-view tab is shown
- * (`allTabs`) so the frame is captured as it will look once the tabs ship; their bodies are stubs
- * until then. The states `live-no-tabs` / `ended-no-tabs` capture what ships today (rule 4: no tab
- * shipped → no tab strip; the recap fills the main column) at 375 / 1280 / 1440 / 1920.
+ * fixed clock, the real QA session (its documentId is the owner). Read-only (owner 2026-10-08):
+ * the recap, the summary and the app hand-over — no tab strip.
  * Baselines are committed only once the owner approves them (README.md).
  */
 
@@ -81,9 +79,9 @@ const json = (route: Route, body: unknown, status = 200) => route.fulfill({ stat
 
 type State = 'live' | 'ended' | 'preparing' | 'download-failed' | 'not-found';
 
-async function setup(page: Page, state: State, allTabs = true) {
+async function setup(page: Page, state: State) {
   const fake = await installFakeLive(page);
-  await fake.seed({ docs: state === 'live' ? { [LIVE.clientId]: liveDoc() } : {}, allTabs });
+  await fake.seed({ docs: state === 'live' ? { [LIVE.clientId]: liveDoc() } : {} });
   await page.route(/\/feed\/community\/sessions\/e2e-/, r => json(r, { error: { status: 404 } }, 404));
   await page.route('**/api/cms/feed/sessions/active', r => json(r, { data: state === 'live' || state === 'preparing' ? { ...LIVE, firestoreId: LIVE.clientId } : null }));
   await page.route(/\/api\/cms\/feed\/sessions\/mine/, r => json(r, { data: state === 'live' || state === 'preparing' ? [] : [item], meta: { page: 1, pageSize: 100, total: 1 } }));
@@ -112,26 +110,6 @@ for (const state of STATES) {
       await expect(page.getByTestId(marker)).toBeVisible();
       await stabilize(page);
       await expect(page).toHaveScreenshot(`partida-member-${state}-${width}.png`, { fullPage: true, mask: DEFAULT_MASKS.map(s => page.locator(s)) });
-      expect(fake.attempts).toEqual([]);
-    });
-  }
-}
-
-// What ships today: no member tab has shipped (lib/partide-pages), so no tab strip and the recap.
-const NO_TABS_WIDTHS = [375, 1280, 1440, 1920] as const;
-const NO_TABS_HEIGHT: Record<number, number> = { 375: 812, 1280: 800, 1440: 900, 1920: 1080 };
-for (const state of ['live', 'ended'] as const) {
-  for (const width of NO_TABS_WIDTHS) {
-    test(`partida-member · ${state}-no-tabs · ${width}px`, async ({ page, context }) => {
-      await signIn(context, jwt);
-      const fake = await setup(page, state, false);
-      await page.setViewportSize({ width, height: NO_TABS_HEIGHT[width] });
-      await page.clock.install({ time: NOW });
-      await page.goto(`/partide/${state === 'live' ? LIVE.documentId : ENDED.documentId}`);
-      await expect(page.getByTestId('partida-recap')).toBeVisible();
-      await expect(page.getByRole('tablist')).toHaveCount(0);
-      await stabilize(page);
-      await expect(page).toHaveScreenshot(`partida-member-${state}-no-tabs-${width}.png`, { fullPage: true, mask: DEFAULT_MASKS.map(s => page.locator(s)) });
       expect(fake.attempts).toEqual([]);
     });
   }

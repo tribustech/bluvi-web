@@ -1,6 +1,7 @@
 import { collectConsoleErrors as watchConsole } from './helpers/console';
 import { BASE_URL as BASE } from './helpers/base-url';
 import { expectNoA11yViolations } from './helpers/a11y';
+import { APP_ORIGIN, expectOpenInApp } from './helpers/app-cta';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import { formatCount } from '../../core/realtime/chat/format';
 import { expect, test, type Page, type Route } from '@playwright/test';
@@ -20,7 +21,7 @@ import { expect, test, type Page, type Route } from '@playwright/test';
  * review delete is answered by page.route.
  *
  * Blocked criteria are never cited in a title (so /web-drift does not count them as covered):
- * lakes.partide c4 («Începe o partidă aici» → /partide/incepe, M4), lakes.reviews c5 (an author
+ * lakes.partide c4 («Începe o partidă aici» → the app's start flow; app-only on web, owner 2026-10-08), lakes.reviews c5 (an author
  * opens /pescari/[id], M2). The tests below assert the interim state (no dead link) under a
  * «blocked:» note; flip them with the hrefs in _components/availability.ts. lakes.stats c9 and
  * lakes.partide c8 / c9 (the partidă links) are on since M4-B3 (/partide/[id]); the own partidă
@@ -454,15 +455,12 @@ test('lakes.partide.c6 lakes.partide.c7 — the latest catches rail (3 tiles →
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(lakes.get(ID.big)!.name);
 });
 
-test('lakes.partide.c4 lakes.partide.s3 — never had a partidă: the empty copy and «Începe o partidă aici» → /partide/incepe?balta=', async ({ page }) => {
+test('lakes.partide.c4 lakes.partide.s3 — never had a partidă: the empty copy and the app\'s start flow, this lake preselected', async ({ page }) => {
   await go(page, `/balti/${ID.belin}/partide`);
   const empty = page.getByTestId('partide-empty');
   await expect(empty).toContainText('Nicio partidă înregistrată la această baltă încă.');
-  await expect(empty.getByTestId('start-here')).toHaveText('Începe o partidă aici');
-  // fish Button preset="green": the kit success variant.
-  await expect(empty.getByTestId('start-here')).toHaveClass(/bg-success/);
-  // c4 (M4-B6): the web's start flow, this lake preselected (partide.incepe c15).
-  await expect(empty.getByTestId('start-here')).toHaveAttribute('href', `/partide/incepe?balta=${ID.belin}`);
+  // Starting is app-only on web (owner 2026-10-08): fish /partide/start?lakeId= in the app.
+  await expectOpenInApp(page, empty.getByTestId('start-here'), `${APP_ORIGIN}/partide/start?lakeId=${ID.belin}`);
   await expectNoA11yViolations(page);
 });
 

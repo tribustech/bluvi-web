@@ -1,8 +1,6 @@
-import Link from 'next/link';
-import { FishingRodIcon } from '@/components/icons/brand';
-import { ButtonLink } from '@/components/ui/Button';
+import { OpenInApp } from '@/components/partide/OpenInApp';
 import { cn } from '@/components/ui/cn';
-import { homeLinks } from './links';
+import { appLinks } from '@/lib/app-links';
 
 /**
  * The coloured banners of Acasă (this, LakeRequestBanner, the raffle) share one spec: the hero step
@@ -28,76 +26,37 @@ export const ON_DARK_FOCUS = 'focus-visible:outline-on-accent';
 
 /**
  * fish features/partide/components/community/NoActiveCta.tsx — «Ești la pescuit?» hero: indigo
- * ground, wave strokes bottom-right, «Începe o partidă» and a quiet text link «Intră cu cod».
- * Signed out, both routes go to sign-in (fish). The page's one glowing card (Fundații §04).
+ * ground, wave strokes top-right. fish's actions («Începe o partidă», «Intră cu cod») are app-only
+ * on web (owner 2026-10-08, ROADMAP §4b rule 21): the hero hands over to the app instead —
+ * «Deschide în aplicația Bluvi» below 1280, the two store links from 1280 (OpenInApp), the same for
+ * a guest and a viewer (the app signs in itself). The page's one glowing card (Fundații §04).
  */
-export function PartidaCta({
-  signedIn,
-  layout,
-  className,
-  links,
-}: {
-  signedIn: boolean;
-  layout: 'mobile' | 'desktop';
-  className?: string;
-  /**
-   * The two targets, when the caller decides them (the Partide hub, lib/partide-pages: null while
-   * that page is not on the web — the action is left out). Acasă's defaults otherwise.
-   */
-  links?: { start: string | null; join: string | null };
-}) {
-  const start = links ? links.start : signedIn ? homeLinks.partidaStart : homeLinks.signIn;
-  const join = links ? links.join : signedIn ? homeLinks.partidaJoin : homeLinks.signIn;
+export function PartidaCta({ layout, className }: { layout: 'mobile' | 'desktop'; className?: string }) {
   return (
-    <section aria-labelledby={`acasa-partida-cta-${layout}`} className={cn(BANNER, BANNER_ROW, 'bg-accent-ink text-on-accent shadow-glow', className)}>
+    <section aria-labelledby={`acasa-partida-cta-${layout}`} data-testid="partida-cta" className={cn(BANNER, BANNER_ROW, 'bg-accent-ink text-on-accent shadow-glow', className)}>
       <Waves />
       <Copy layout={layout} />
-      {start || join ? (
-        <div className={cn(BANNER_ACTIONS, 'flex flex-wrap items-center gap-x-4 gap-y-2')}>
-          {start ? (
-            <ButtonLink href={start} variant="outline" icon={<FishingRodIcon size={20} />} className={ON_DARK_FOCUS}>
-              Începe o partidă
-            </ButtonLink>
-          ) : null}
-          {join ? (
-            <Link
-              href={join}
-              // In the row layout the waves sit behind the right-aligned actions: the link carries the
-              // banner's own fill there, so its underlined text never lies on the strokes.
-              className={cn(
-                'inline-flex min-h-11 items-center rounded-control t-body-strong underline underline-offset-2 @2xl:bg-accent-ink @2xl:px-2',
-                ON_DARK_FOCUS,
-              )}
-            >
-              Intră cu cod
-            </Link>
-          ) : null}
-        </div>
-      ) : null}
+      <OpenInApp href={appLinks.partide()} onDark className={BANNER_ACTIONS} testId="partida-cta-app" />
     </section>
   );
 }
 
 /**
- * The hero's box while the session is read: same spec, no live links (a guest link clicked by a
- * signed-in viewer would send them to sign-in). `actions` false: the loaded card will have no
- * action row (the caller's `links` are both null), so neither does its skeleton — no shift.
+ * The hero's box while the viewer is read (a live partidă replaces it with the dock / card): same
+ * spec, the action row's box without its links — no shift.
  */
-export function PartidaCtaSkeleton({ layout, className, actions = true }: { layout: 'mobile' | 'desktop'; className?: string; actions?: boolean }) {
+export function PartidaCtaSkeleton({ layout, className }: { layout: 'mobile' | 'desktop'; className?: string }) {
   return (
     <section aria-labelledby={`acasa-partida-cta-${layout}`} aria-busy className={cn(BANNER, BANNER_ROW, 'bg-accent-ink text-on-accent shadow-glow', className)}>
       <Waves />
       <Copy layout={layout} />
       {/* The loaded action row's own box (flex-wrap, the same gaps, the link's 44px line), so the
           row is as tall as the real one wherever it wraps. */}
-      {actions ? (
-        <div aria-hidden className={cn(BANNER_ACTIONS, 'flex flex-wrap items-center gap-x-4 gap-y-2')}>
-          <span className="h-12 w-48 rounded-control bg-on-accent/20 xl:h-10" />
-          <span className="flex min-h-11 items-center @2xl:px-2">
-            <span className="h-5 w-24 rounded-full bg-on-accent/20" />
-          </span>
-        </div>
-      ) : null}
+      <div aria-hidden className={cn(BANNER_ACTIONS, 'flex flex-wrap items-center gap-2')}>
+        <span className="h-12 w-64 rounded-control bg-on-accent/20 xl:hidden" />
+        <span className="h-10 w-36 rounded-control bg-on-accent/20 max-xl:hidden" />
+        <span className="h-10 w-36 rounded-control bg-on-accent/20 max-xl:hidden" />
+      </div>
     </section>
   );
 }
@@ -109,7 +68,7 @@ function Copy({ layout }: { layout: 'mobile' | 'desktop' }) {
         Ești la pescuit?
       </h2>
       <p className={BANNER_COPY}>
-        Capturi, lansete și cronometre — totul notat într-o singură partidă.
+        Partidele se încep și se țin în aplicația Bluvi: capturi, lansete și cronometre, chiar și fără semnal.
       </p>
     </div>
   );
@@ -118,7 +77,7 @@ function Copy({ layout }: { layout: 'mobile' | 'desktop' }) {
 /**
  * The wave strokes, top-right at every width: in the stacked layout beside the title, where the
  * full-width action row never passes; in the row layout behind the right-aligned actions, which
- * cover them with their own fill (the button's, and the «Intră cu cod» link's banner-coloured box).
+ * cover them with their own fill (the buttons' surface).
  */
 function Waves() {
   return (

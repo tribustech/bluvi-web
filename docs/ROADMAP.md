@@ -221,6 +221,17 @@ Add each new piece of feedback here, dated.
     - hover and focus states;
     - counts as badges.
     Never loose text blocks where the owner "nici nu vezi că sunt taburi".
+21. **Running a partidă is app-only on web; CTA to the app (owner 2026-10-08).** «Fără partide pe web,
+    trimitem la mobile — mă refer să poți începe o partidă etc. Restul ecranelor de partide stau.»
+    - No start, join (by code or invite link), capture or photo upload, rods / timers, finish,
+      edit / delete, or member actions (leave, kick, code rotation, anchor, feedback) on the web.
+    - Every such entry point is «Deschide în aplicația Bluvi» (`components/partide/OpenInApp`,
+      `lib/app-links`): the universal link into the app below 1280, the App Store / Google Play
+      links from 1280.
+    - The read-only Partide screens stay: Comunitate, Explorează, Ale mele, history, statistics,
+      rankings, the spectator page with its catches and gallery, venue community, angler search,
+      profile sections. The viewer's own partidă is the read-only, spectator-style page plus the app
+      hand-over; the live dock is read-only («Partida ta e live» → the page / the app).
 
 
 

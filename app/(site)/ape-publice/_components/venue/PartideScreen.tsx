@@ -8,6 +8,7 @@ import { CalendarDaysIcon } from '@heroicons/react/24/outline';
 import { AsideSkeleton, FilterColumn, FilterColumnSkeleton, ListEmpty, ListError, ListFooter, ListPage, listGridClass } from '@/components/templates/T1';
 import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
+import { OpenInApp } from '@/components/partide/OpenInApp';
 import {
   caughtLabel,
   communityHistoryInfiniteQuery,
@@ -25,6 +26,7 @@ import {
   type CommunityVenueRef,
   type LakeCatchDTO,
 } from '@/core/partide';
+import { appLinks } from '@/lib/app-links';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { ON_WEB, partidaHref, routes } from '@/lib/routes';
 import { LiveCard, LiveCardForViewer, useNow } from '../detail/VenuePartideSection';
@@ -40,8 +42,8 @@ import { formatCount, pluralNoun } from '@/core/realtime/chat/format';
  *    pending; c4 a failed feed never reads as «never had a partidă» (s4): the empty state needs
  *    BOTH feeds answered; one feed failed and the other empty is the page's error (the retry
  *    refetches both); one failed beside content is an inline error in that block's place;
- *    c5 nothing ever recorded — until the web's start flow ships, «Începe o partidă aici» opens the
- *    app's store listing (parity deviation note);
+ *    c5 nothing ever recorded — «Începe o partidă aici» opens the app's start flow (app-only on
+ *    web, owner 2026-10-08);
  *  - c6 the live card (the detail page's, same cache entry) when sessions are live;
  *  - c7/c8 the latest catches rail → /capturi?foto=; c9 the statistics card;
  *  - c10 «Partide încheiate», 10 per page, de-duplicated, the next page near the end;
@@ -434,23 +436,16 @@ const EMPTY_ICON = (
 );
 
 /**
- * fish's green «Începe o partidă aici» (VenueSessionsScreen:155-170) → the web's start flow pre-set
- * to this water, /partide/incepe?apa=<linkCode> (parity public-waters.partide.c5, partide.incepe
- * c15). A guest goes through sign-in and comes back to it (proxy.ts). Without the flow
- * (ON_WEB.startPartida off) the empty copy stands alone — never a dead link.
+ * fish's green «Începe o partidă aici» (VenueSessionsScreen:155-170) → /partide/start?waterCode=.
+ * Starting a partidă is app-only on web (owner 2026-10-08, ROADMAP §4b rule 21): the app's start
+ * flow pre-set to this water (universal link below 1280, the store links from 1280 — OpenInApp).
  */
 function StartHere({ code }: { code: string }) {
   return (
     <ListEmpty
       title={EMPTY_TITLE}
       icon={EMPTY_ICON}
-      action={
-        ON_WEB.startPartida ? (
-          <Link href={routes.startPartida({ apa: code })} className={buttonClass({ variant: 'success' })} data-testid="start-here">
-            Începe o partidă aici
-          </Link>
-        ) : undefined
-      }
+      action={<OpenInApp href={appLinks.startPartida({ waterCode: code })} label="Începe aici, în aplicația Bluvi" className="justify-center" testId="start-here" />}
     />
   );
 }

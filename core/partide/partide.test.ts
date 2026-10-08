@@ -1,23 +1,8 @@
 import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeTransport } from '@/tests/transport';
-import { ApiError, type TransportRequest } from '../transport';
 import * as api from './api';
-import {
-  applySessionFollow,
-  COMMUNITY_PURGE_GRACE_MS,
-  deletePartidaMutation,
-  finishPartidaMutation,
-  followSessionMutation,
-  invalidateCommunityAfterCatch,
-  invalidateMembershipCaches,
-  joinPartidaMutation,
-  kickPartidaMemberMutation,
-  leavePartidaMutation,
-  refetchCommunitySessionOnFocus,
-  rollbackSessionFollows,
-  rotatePartidaJoinCodeMutation,
-} from './mutations';
+import { applySessionFollow, followSessionMutation, refetchCommunitySessionOnFocus, rollbackSessionFollows } from './mutations';
 import {
   communityActiveInfiniteQuery,
   communityHistoryInfiniteQuery,
@@ -349,27 +334,6 @@ describe('partide api — sessions', () => {
     expect(calls[1].body).toEqual({ data: { photoTagUids: ['u1'] } });
   });
 
-  it('rod commands fall back (null) on 403/404/405 and remember it per session', async () => {
-    const memo = api.createRodCommandAvailability();
-    const reply = { rod: { index: 1, runtimeEndsAt: '2026-09-27T00:30:00Z' }, serverNow: '2026-09-27T00:00:00Z', applied: true };
-    const calls: TransportRequest[] = [];
-    const transport = {
-      request: async (req: TransportRequest) => {
-        calls.push(req);
-        if (req.path.startsWith('/feed/sessions/old/')) throw new ApiError({ message: 'x', status: 403, code: 'HTTP' });
-        if (req.path.startsWith('/feed/sessions/boom/')) throw new ApiError({ message: 'x', status: 500, code: 'HTTP' });
-        return { data: { data: reply }, status: 200, headers: new Headers() } as never;
-      },
-    };
-    await expect(api.castRod(transport, memo, 's1', 1, { expectEndsAt: null })).resolves.toEqual(reply);
-    expect(calls[0]).toMatchObject({ method: 'POST', path: '/feed/sessions/s1/rods/1/cast', body: { data: { expectEndsAt: null } } });
-    await expect(api.stopRod(transport, memo, 'old', 1)).resolves.toBeNull();
-    expect(api.rodCommandsUnavailable(memo, 'old')).toBe(true);
-    await expect(api.castRod(transport, memo, 'old', 1, { expectEndsAt: null })).resolves.toBeNull();
-    expect(calls).toHaveLength(2); // memo short-circuits the second probe
-    await expect(api.stopRod(transport, memo, 'boom', 1)).rejects.toMatchObject({ status: 500 });
-  });
-
   it('reads my catches (cursor) and my session follows', async () => {
     const page = {
       data: [{ key: 'k', source: 'partida', photoUrl: 'u', weightKg: null, species: null, venueName: null, date: 'd', competitionName: null, competitionDocumentId: null }],
@@ -548,11 +512,6 @@ describe('partide queries', () => {
 
 // ── mutations ───────────────────────────────────────────────────────────────
 
-const runMutation = async <TVars, TData>(
-  options: { mutationFn?: (vars: TVars, ctx: never) => Promise<TData> },
-  vars: TVars
-) => options.mutationFn!(vars, {} as never);
-
 describe('partide mutations', () => {
   // fish community/__tests__/rollbackSessionFollows.test.ts
   describe('rollbackSessionFollows', () => {
@@ -600,117 +559,5 @@ describe('partide mutations', () => {
     expect(spy).not.toHaveBeenCalled();
     refetchCommunitySessionOnFocus(qc, 'd');
     expect(spy).toHaveBeenCalledWith({ queryKey: ['community', 'session', 'd'] });
-  });
-
-  it('refreshes my list now and the community only after the purge grace', () => {
-    const qc = new QueryClient();
-    const spy = vi.spyOn(qc, 'invalidateQueries');
-    const scheduled: [() => void, number][] = [];
-    invalidateCommunityAfterCatch(qc, (fn, ms) => scheduled.push([fn, ms]));
-    expect(spy).toHaveBeenCalledWith({ queryKey: ['partide', 'mine'] });
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(scheduled[0][1]).toBe(COMMUNITY_PURGE_GRACE_MS);
-    scheduled[0][0]();
-    expect(spy).toHaveBeenLastCalledWith({ queryKey: ['community'] });
-  });
-
-  it('invalidates membership caches for the current and affected users', async () => {
-    const qc = new QueryClient();
-    const spy = vi.spyOn(qc, 'invalidateQueries');
-    await invalidateMembershipCaches(qc, 'd', 'me', 'them');
-    const keys = spy.mock.calls.map(c => c[0]!.queryKey);
-    expect(keys).toEqual(
-      expect.arrayContaining([
-        ['partide', 'mine'],
-        ['partide', 'detail', 'd'],
-        ['profile-statistics'],
-        ['community'],
-        ['community', 'session-follows'],
-        ['anglers', 'me'],
-        ['anglers', 'them', 'sessions'],
-        ['anglers', 'them', 'catches'],
-      ])
-    );
-  });
-
-  describe('leavePartidaMutation', () => {
-    const vars = { documentId: 'd', currentUserDocumentId: 'me' };
-
-    it('leaves and runs the cache cleanup', async () => {
-      const qc = new QueryClient();
-      qc.setQueryData(partideKeys.detail('d'), { x: 1 });
-      const { transport, calls } = createFakeTransport([{ data: { removed: true } }]);
-      await expect(runMutation(leavePartidaMutation(transport, qc), vars)).resolves.toEqual({ outcome: 'left' });
-      expect(calls[0].path).toBe('/feed/sessions/d/leave');
-      expect(qc.getQueryData(partideKeys.detail('d'))).toBeUndefined();
-    });
-
-    it('reconciles a lost response once REST confirms the access is gone', async () => {
-      const qc = new QueryClient();
-      const transport = {
-        request: async (req: TransportRequest) => {
-          if (req.path.endsWith('/leave')) throw new ApiError({ message: 'x', status: 0, code: 'NETWORK' });
-          throw new ApiError({ message: 'x', status: 404, code: 'HTTP', bluCode: 'PARTIDA:NOT_FOUND' });
-        },
-      };
-      await expect(runMutation(leavePartidaMutation(transport, qc), vars)).resolves.toEqual({ outcome: 'left' });
-    });
-
-    it('rethrows a retryable error when access is still valid', async () => {
-      const qc = new QueryClient();
-      const transport = {
-        request: async (req: TransportRequest) => {
-          if (req.path.endsWith('/leave')) throw new ApiError({ message: 'x', status: 502, code: 'HTTP' });
-          return { data: { data: { ...sessionDTO, events: [] } }, status: 200, headers: new Headers() } as never;
-        },
-      };
-      await expect(runMutation(leavePartidaMutation(transport, qc), vars)).rejects.toMatchObject({ retryable: true, accessConfirmation: 'valid' });
-    });
-
-    it('propagates a definite 4xx without probing', async () => {
-      const qc = new QueryClient();
-      const calls: string[] = [];
-      const transport = {
-        request: async (req: TransportRequest) => {
-          calls.push(req.path);
-          throw new ApiError({ message: 'x', status: 403, code: 'HTTP' });
-        },
-      };
-      await expect(runMutation(leavePartidaMutation(transport, qc), vars)).rejects.toMatchObject({ status: 403 });
-      expect(calls).toEqual(['/feed/sessions/d/leave']);
-    });
-  });
-
-  it('deletes, kicks, rotates, joins and finishes', async () => {
-    const qc = new QueryClient();
-    qc.setQueryData(partideKeys.detail('d'), { x: 1 });
-    const membership = { removed: true, joinCode: 'J', members: [member], hostUid: 'u1', projectionRev: 1 };
-    const { transport, calls } = createFakeTransport([
-      null,
-      { data: membership },
-      { data: { joinCode: 'R', projectionRev: 2 } },
-      { data: { ...sessionDTO, firestoreId: 'c1' } },
-      { data: { ...sessionDTO, events: [] } },
-    ]);
-    await runMutation(deletePartidaMutation(transport, qc), { documentId: 'd', currentUserDocumentId: 'me', wasActive: false });
-    expect(qc.getQueryData(partideKeys.detail('d'))).toBeUndefined();
-    await expect(runMutation(kickPartidaMemberMutation(transport, qc), { documentId: 'd', currentUserDocumentId: 'me', targetDocumentId: 't' })).resolves.toEqual(membership);
-    await runMutation(rotatePartidaJoinCodeMutation(transport, qc), { documentId: 'd', currentUserDocumentId: null });
-    await runMutation(joinPartidaMutation(transport), '  abc123 ');
-    const scheduled: number[] = [];
-    const finish = finishPartidaMutation(transport, qc, (_fn, ms) => scheduled.push(ms));
-    const spy = vi.spyOn(qc, 'invalidateQueries');
-    await runMutation(finish, 'd');
-    finish.onSuccess!(undefined as never, 'd', undefined, {} as never);
-    expect(spy).toHaveBeenCalledWith({ queryKey: ['partide', 'mine'] });
-    expect(scheduled).toEqual([COMMUNITY_PURGE_GRACE_MS]);
-    expect(calls.map(c => [c.method, c.path])).toEqual([
-      ['DELETE', '/feed/sessions/d'],
-      ['DELETE', '/feed/sessions/d/members/t'],
-      ['POST', '/feed/sessions/d/join-code/rotate'],
-      ['POST', '/feed/sessions/join'],
-      ['POST', '/feed/sessions/d/finish'],
-    ]);
-    expect(calls[3].body).toEqual({ data: { code: 'ABC123' } });
   });
 });

@@ -3,11 +3,11 @@ import type { Page, Route } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { expect, test, type FakeLiveDoc } from './helpers/fake-live';
 import { CMS, qaJwt, signIn } from './helpers/session';
-import { PARTIDE_PAGES_ON_WEB } from '@/lib/partide-pages';
 
 /*
- * partide.partida — the member view of /partide/[id] (T3 with tabs; fish app/(app)/partide/[id].tsx)
- * + partide.spectator.c1, partide.b.own-vs-spectator, b.live-subscription, b.server-clock.
+ * partide.partida — the viewer's own partidă on /partide/[id], read-only (owner 2026-10-08, ROADMAP
+ * §4b rule 21: running a partidă is app-only on web; fish app/(app)/partide/[id].tsx) + the app
+ * hand-over, partide.spectator.c1, partide.b.own-vs-spectator, b.live-subscription, b.server-clock.
  *
  * Data, all in the browser — NOTHING reaches Firestore or writes to any CMS:
  *  - the live partidă comes from the shared Firestore fake (helpers/fake-live.ts: projection docs,
@@ -29,7 +29,6 @@ mkdirSync(SHOTS, { recursive: true });
 
 const LIVE = { documentId: 'e2e-m-live', clientId: 'e2e-c-live' };
 const ENDED = { documentId: 'e2e-m-ended', clientId: 'e2e-c-ended' };
-const OPEN_ELSEWHERE = { documentId: 'e2e-m-open', clientId: 'e2e-c-open' };
 const OTHER = 'e2e-m-other';
 
 let selfId = '';
@@ -284,8 +283,6 @@ async function open(page: Page, documentId: string, { width = 1280, tab }: { wid
 const memberView = (page: Page) => page.getByTestId('partida-member-view');
 const visibleButton = (page: Page, name: string | RegExp) => page.getByRole('button', { name }).filter({ visible: true }).first();
 const toast = (page: Page, text: string) => page.getByText(text, { exact: true }).filter({ visible: true });
-/** Surfaces fade / scale in: let the entrance finish before axe reads colours. */
-const settle = (page: Page) => page.waitForTimeout(450);
 /**
  * Records, from the first byte of HTML on, every `data-testid` of `ids` that was ever attached
  * (a MutationObserver installed before any page script) — «never X first» is then provable, not
@@ -346,9 +343,8 @@ test.describe('own vs spectator', () => {
     await expect(memberView(page)).toBeVisible();
     // Neither the static shell nor the client's first renders ever showed «not found».
     expect(await seenTestIds(page)).toEqual([]);
-    // The Jurnal (the ended partidă's landing tab) shows the private partidă's catches to its member.
-    await expect(page.getByRole('tab', { name: 'Jurnal' })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByTestId('jurnal-row')).toHaveCount(2);
+    // The recap shows the private partidă's catches to its member.
+    await expect(page.getByTestId('partida-catch')).toHaveCount(2);
     // partide.b.private-partida (member side): no share link.
     await expect(page.getByRole('button', { name: /Distribuie/ })).toHaveCount(0);
   });
@@ -373,22 +369,26 @@ test.describe('own vs spectator', () => {
 });
 
 /* ------------------------------------------------------------------------------------------------
- * The page — c1 c3 c4 c5 at every width
+ * The page — read-only (owner 2026-10-08, ROADMAP §4b rule 21): c1 c3 c4, the app hand-over
  * ---------------------------------------------------------------------------------------------- */
 
+const APP_PARTIDA = (documentId: string) => `https://bluvi-app.wearetribus.com/partide/comunitate/${documentId}`;
+
 for (const width of [375, 1280, 1440, 1920] as const) {
-  test(`partide.partida.c1 c4 live partidă at ${width}: header, 5 tabs (Lansete first), Jurnal count, summary — axe clean`, async ({ page, fakeLive }) => {
-    await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() }, allTabs: true });
+  test(`partide.partida.c1 c4 live partidă at ${width}: header, recap, summary, the app hand-over — no tab, no run control — axe clean`, async ({ page, fakeLive }) => {
+    await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
     await mockCms(page, { active: LIVE });
     await open(page, LIVE.documentId, { width });
     await expect(page.getByRole('heading', { level: 1, name: 'Balta Mock' })).toBeVisible();
     await expect(page.getByTestId('partida-subtitle')).toHaveText('Stand 7 · 2 lansete');
     await expect(visibleButton(page, 'Înapoi')).toBeVisible();
-    const tabs = page.getByRole('tab');
-    await expect(tabs).toHaveText(['Lansete', 'Jurnal4', 'Galerie', 'Statistici', 'Setări']);
-    await expect(page.getByRole('tab', { name: 'Lansete' })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByTestId('partida-tab-count-jurnal')).toHaveText('4');
-    await expect(page.getByRole('tabpanel')).toBeVisible();
+    // Read-only: no tab strip, none of fish's member controls.
+    await expect(page.getByRole('tab')).toHaveCount(0);
+    for (const name of [/Termină/, /Părăsește/, /Șterge partida/, /Elimină/, /Schimbă codul/, /Ajustează poziția/, /Raportează/, /^Captură$/]) {
+      await expect(page.getByRole('button', { name })).toHaveCount(0);
+    }
+    await expect(page.getByTestId('partida-recap')).toBeVisible();
+    await expect(page.getByTestId('partida-catch')).toHaveCount(3);
     // The summary: Durată from the clock, 3 captures, the biggest «8,69 kg» (unit apart).
     const stats = page.getByTestId('partida-summary-stats');
     await expect(stats).toContainText('2h 14m');
@@ -396,6 +396,21 @@ for (const width of [375, 1280, 1440, 1920] as const) {
     await expect(stats).toContainText('8,69kg');
     await expect(page.getByTestId('partida-roster-member')).toHaveCount(2);
     await expect(page.getByTestId('partida-join-code')).toContainText('K7M2QX');
+    // The hand-over: the universal link below 1280, the store links from 1280.
+    const cta = page.getByTestId('partida-app-cta');
+    await expect(cta).toContainText('Partida ta e live');
+    const link = cta.getByTestId('partida-open-in-app-link');
+    const stores = cta.getByTestId('open-in-app-store');
+    if (width < 1280) {
+      await expect(link).toBeVisible();
+      await expect(link).toHaveAttribute('href', APP_PARTIDA(LIVE.documentId));
+      await expect(stores.filter({ visible: true })).toHaveCount(0);
+    } else {
+      await expect(link).toBeHidden();
+      await expect(stores.filter({ visible: true })).toHaveCount(2);
+    }
+    // Share once on the screen: the header chip below 1280, the summary row from 1280.
+    await expect(page.getByRole('button', { name: 'Distribuie partida' }).filter({ visible: true })).toHaveCount(1);
     await expectNoA11yViolations(page);
     await page.screenshot({ path: `${SHOTS}/live-owner-${width}.png`, fullPage: true });
   });
@@ -417,16 +432,16 @@ test('partide.partida.c1 the venue name falls back lake → public water → man
   await expect(title).toHaveText('Partidă');
 });
 
-test('partide.partida.c1 c4 c5 an ended partidă: «{date} · {duration}», 4 tabs (no Lansete), Jurnal first, Termină gone', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ allTabs: true });
+test('partide.partida.c1 an ended partidă: «{date} · {duration}», ÎNCHEIATĂ, the recap, the app hand-over for edits — no join code', async ({ page }) => {
   const item = listItem(ENDED);
   await mockCms(page, { mine: [item], details: { [ENDED.documentId]: [detailOf(item)] } });
   await open(page, ENDED.documentId);
   await expect(page.getByTestId('partida-subtitle')).toHaveText(/^\d{1,2} \S+ · 6h$/);
-  await expect(page.getByRole('tab')).toHaveText(['Jurnal2', 'Galerie', 'Statistici', 'Setări']);
-  await expect(page.getByRole('tab', { name: /Jurnal/ })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('button', { name: /Termină/ })).toHaveCount(0);
   await expect(page.getByText('ÎNCHEIATĂ').filter({ visible: true })).toBeVisible();
+  await expect(page.getByRole('tab')).toHaveCount(0);
+  await expect(page.getByTestId('partida-catch')).toHaveCount(2);
+  await expect(page.getByTestId('partida-app-cta')).toContainText('Partida se editează în aplicația Bluvi');
+  await expect(page.getByTestId('partida-join-code')).toHaveCount(0);
   await expectNoA11yViolations(page);
   for (const width of [375, 1280, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
@@ -434,75 +449,18 @@ test('partide.partida.c1 c4 c5 an ended partidă: «{date} · {duration}», 4 ta
   }
 });
 
-test('partide.partida.c5 initial tab: live without a rod → Jurnal; ?tab= opens that tab; a click and ←/→ switch it and keep the URL', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc({ rods: [] }) }, allTabs: true });
+test('partide.partida.c4 the partidă ends while open (a teammate finished): the page follows, the persisted pointer is released', async ({ page, fakeLive }) => {
+  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
   await mockCms(page, { active: LIVE });
   await open(page, LIVE.documentId);
-  await expect(page.getByRole('tab', { name: /Jurnal/ })).toHaveAttribute('aria-selected', 'true');
-  await page.getByRole('tab', { name: 'Statistici' }).click();
-  await expect(page).toHaveURL(/\?tab=statistici$/);
-  await expect(page.getByRole('tabpanel')).toHaveAttribute('id', 'partida-panel-stats');
-  await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('tab', { name: 'Setări' })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('tab', { name: 'Setări' })).toBeFocused();
-  await expect(page).toHaveURL(/\?tab=setari$/);
-  await page.goto(`/partide/${LIVE.documentId}?tab=galerie`);
-  await expect(page.getByRole('tab', { name: 'Galerie' })).toHaveAttribute('aria-selected', 'true');
-});
-
-test('partide.partida.c5 the partidă ends while open: a kept tab stays, Lansete falls back to Jurnal (a teammate finished)', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() }, allTabs: true });
-  await mockCms(page, { active: LIVE });
-  await open(page, LIVE.documentId);
-  await expect(page.getByRole('tab', { name: 'Lansete' })).toHaveAttribute('aria-selected', 'true');
+  await expect(memberView(page)).toHaveAttribute('data-live', 'true');
   await fakeLive.push(LIVE.clientId, liveDoc({ endedAt: at(1), status: 'finished' }));
-  await expect(page.getByRole('tab')).toHaveCount(4);
-  await expect(page.getByRole('tab', { name: /Jurnal/ })).toHaveAttribute('aria-selected', 'true');
   // b.live-subscription: a teammate's finish releases the PERSISTED pointer, the recap stays.
   await expect.poll(() => pointerStored(page)).toBeNull();
   await expect(memberView(page)).toHaveAttribute('data-ended', 'true');
-  // And a tab that still exists is kept.
-  await page.goto(`/partide/${LIVE.documentId}`);
+  await expect(page.getByTestId('partida-recap')).toBeVisible();
 });
 
-test('partide.partida.c5 ended while on «Statistici»: Statistici stays', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() }, allTabs: true });
-  await mockCms(page, { active: LIVE });
-  await open(page, LIVE.documentId, { tab: 'statistici' });
-  await expect(page.getByRole('tab', { name: 'Statistici' })).toHaveAttribute('aria-selected', 'true');
-  await fakeLive.push(LIVE.clientId, liveDoc({ endedAt: at(1), status: 'finished' }));
-  await expect(page.getByRole('tab')).toHaveCount(4);
-  await expect(page.getByRole('tab', { name: 'Statistici' })).toHaveAttribute('aria-selected', 'true');
-});
-
-for (const width of [375, 1280, 1440, 1920] as const) {
-  test(`partide.partida.c4 rule 4 at ${width}: only the shipped tabs, never a «curând» one; each action once`, async ({ page, fakeLive }) => {
-    await fakeLive.seed({
-      docs: { [LIVE.clientId]: liveDoc({ catches: [{ ...catchDoc(1, 2.4, 'Crap', 100), photoUrl: 'https://e2e-photos.invalid/a.png' }, catchDoc(2, 8.69, 'Somn', 60), catchDoc(3, null, 'Caras', 40), catchDoc(4, null, null, 20, 'lost')] }) },
-    });
-    await mockCms(page, { active: LIVE });
-    await open(page, LIVE.documentId, { width });
-    await expect(memberView(page)).toBeVisible();
-    // A tab whose batch has not shipped is left out, not shown as «curând» (lib/partide-pages).
-    const shipped: [string | RegExp, boolean][] = [
-      ['Lansete', PARTIDE_PAGES_ON_WEB.partidaLansete],
-      [/^Jurnal/, PARTIDE_PAGES_ON_WEB.partidaJurnal],
-      ['Galerie', PARTIDE_PAGES_ON_WEB.partidaGalerie],
-      ['Statistici', PARTIDE_PAGES_ON_WEB.partidaStatistici],
-      ['Setări', PARTIDE_PAGES_ON_WEB.partidaSetari],
-    ];
-    await expect(page.getByRole('tab')).toHaveText(shipped.filter(([, on]) => on).map(([t]) => t));
-    await expect(page.getByText(/curând/)).toHaveCount(0);
-    await expect(page.getByTestId('partida-summary-stats')).toBeVisible();
-    // Each action once on the screen: «Termină» / «Distribuie» in the header below 1280, in the
-    // summary from 1280 — never both.
-    await expect(page.getByRole('button', { name: 'Termină partida' }).filter({ visible: true })).toHaveCount(1);
-    await expect(page.getByRole('button', { name: 'Distribuie partida' }).filter({ visible: true })).toHaveCount(1);
-    await expect(page.getByRole('button', { name: 'Șterge partida' }).filter({ visible: true })).toHaveCount(1);
-    await expectNoA11yViolations(page);
-    await page.screenshot({ path: `${SHOTS}/shipped-tabs-owner-${width}.png`, fullPage: true });
-  });
-}
 
 /* ------------------------------------------------------------------------------------------------
  * States — c6 c7 c8 c9
@@ -583,33 +541,9 @@ test('partide.partida.c9 a live partidă offline shows «Reconectare…» under 
 });
 
 /* ------------------------------------------------------------------------------------------------
- * Roles — c2 c3 c12
+ * Share — c3
  * ---------------------------------------------------------------------------------------------- */
 
-test('partide.partida.c2 c12 owner vs member vs not synced: «Termină» only for the owner of a live synced partidă; «Părăsește» for a member', async ({ page, fakeLive }) => {
-  // Owner.
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
-  await mockCms(page, { active: LIVE });
-  await open(page, LIVE.documentId, { width: 375 });
-  await expect(page.getByTestId('partida-finish')).toBeVisible();
-  // Below 1280 the header's chips only: the summary leaves «Termină» / «Distribuie» out.
-  await expect(page.getByRole('button', { name: 'Termină partida' }).filter({ visible: true })).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Distribuie partida' }).filter({ visible: true })).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Părăsește partida' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Șterge partida' })).toBeVisible();
-  // Member (someone else hosts).
-  await fakeLive.push(LIVE.clientId, liveDoc({ hostUid: 'e2e-angler-2' }));
-  await expect(page.getByTestId('partida-finish')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Termină partida' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Părăsește partida' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Șterge partida' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /^Elimină/ })).toHaveCount(0);
-  await page.screenshot({ path: `${SHOTS}/live-member-375.png`, fullPage: true });
-  // Not synced (no host identity yet): no membership action at all.
-  await fakeLive.push(LIVE.clientId, liveDoc({ hostUid: null }));
-  await expect(page.getByRole('button', { name: /Termină|Părăsește/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Schimbă codul' })).toHaveCount(0);
-});
 
 test('partide.partida.c3 share: «Distribuie partida» shares fish\'s message with the universal link; a private partidă has no share', async ({ page, fakeLive }) => {
   await page.addInitScript(() => {
@@ -629,327 +563,6 @@ test('partide.partida.c3 share: «Distribuie partida» shares fish\'s message wi
     .toBe(`Vezi partida mea pe Bluvi 🎣 https://bluvi-app.wearetribus.com/partide/comunitate/${LIVE.documentId}`);
   await fakeLive.push(LIVE.clientId, liveDoc({ visibleOnProfile: false }));
   await expect(page.getByRole('button', { name: /Distribuie/ })).toHaveCount(0);
-});
-
-/* ------------------------------------------------------------------------------------------------
- * Finish — c10 c11 c12, b.community-purge-grace
- * ---------------------------------------------------------------------------------------------- */
-
-test('partide.partida.c10 c11 finish the live partidă: the recap, POST finish, the pointer cleared, back to Partide', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
-  const calls = await mockCms(page, { active: LIVE });
-  await open(page, LIVE.documentId, { width: 375 });
-  await page.getByTestId('partida-finish').click();
-  const dialog = page.getByTestId('finish-dialog');
-  await expect(page.getByRole('heading', { name: 'Termină partida?' })).toBeVisible();
-  await expect(dialog).toContainText('Balta Mock · 7');
-  await expect(dialog).toContainText('2h 14m');
-  await expect(dialog).toContainText('Durată');
-  await expect(dialog).toContainText('3Capturi');
-  await expect(dialog).toContainText('8,69kgCea mai mare');
-  await expect(dialog).toContainText('Partida va fi arhivată în partidele tale. Cronometrele active se vor opri.');
-  await settle(page);
-  await expectNoA11yViolations(page);
-  await page.screenshot({ path: `${SHOTS}/finish-dialog-375.png` });
-  // «Continuă» closes without finishing.
-  await page.getByRole('button', { name: 'Continuă' }).click();
-  await expect(page.getByRole('heading', { name: 'Termină partida?' })).toHaveCount(0);
-  expect(calls.finish).toEqual([]);
-  await page.getByTestId('partida-finish').click();
-  await page.getByTestId('finish-dialog-confirm').click();
-  await expect(page).toHaveURL(/\/partide$/);
-  await expect.poll(() => calls.finish).toEqual([LIVE.documentId]);
-  await expect.poll(() => pointerStored(page)).toBeNull();
-});
-
-test('partide.partida.c11 a failed live finish says so and keeps the pointer', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
-  await mockCms(page, { active: LIVE, writes: { finish: 500 } });
-  await open(page, LIVE.documentId);
-  await visibleButton(page, 'Termină partida').click();
-  await page.getByTestId('finish-dialog-confirm').click();
-  await expect(toast(page, 'Nu am putut încheia partida. Mai încearcă o dată.')).toBeVisible();
-  expect(await pointerStored(page)).not.toBeNull();
-});
-
-test('partide.partida.c11 c12 a partidă left open on another device (not followed live here): finish over REST; failure → «Ceva n-a mers. Încearcă din nou.»', async ({ page }) => {
-  const item = listItem(OPEN_ELSEWHERE, { endedAt: null, status: 'active' });
-  const calls = await mockCms(page, { mine: [item], details: { [OPEN_ELSEWHERE.documentId]: [detailOf(item)] }, writes: { finish: 500 } });
-  await open(page, OPEN_ELSEWHERE.documentId);
-  await expect(memberView(page)).not.toHaveAttribute('data-live', 'true');
-  await visibleButton(page, 'Termină partida').click();
-  await page.getByTestId('finish-dialog-confirm').click();
-  await expect(toast(page, 'Ceva n-a mers. Încearcă din nou.')).toBeVisible();
-  expect(calls.finish).toEqual([OPEN_ELSEWHERE.documentId]);
-  await page.unroute(/\/api\/cms\/feed\/sessions\/(e2e-[^/?]+)(\/[^?]*)?(\?.*)?$/);
-  let finished = 0;
-  await page.route(/\/api\/cms\/feed\/sessions\/e2e-m-open\/finish$/, route => {
-    finished += 1;
-    return json(route, { data: detailOf(item, { status: 'finished', endedAt: at(0) }) });
-  });
-  await page.getByTestId('finish-dialog-confirm').click();
-  await expect(page).toHaveURL(/\/partide$/);
-  expect(finished).toBe(1);
-});
-
-/* ------------------------------------------------------------------------------------------------
- * Auto-close — c13
- * ---------------------------------------------------------------------------------------------- */
-
-test('partide.partida.c13 warnedAt on the owner\'s live partidă: «Încă pescuiești?», «Da, continui» extends (failure says so), the snapshot closes it', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
-  const calls = await mockCms(page, { active: LIVE, writes: { extend: 500 } });
-  await open(page, LIVE.documentId, { width: 375 });
-  await expect(memberView(page)).toBeVisible();
-  await fakeLive.push(LIVE.clientId, liveDoc({ warnedAt: at(5), autoCloseAt: new Date(NOW.getTime() + 42 * 60_000 + 30_000).toISOString() }));
-  await expect(page.getByRole('heading', { name: 'Încă pescuiești?' })).toBeVisible();
-  await expect(page.getByTestId('autoclose-dialog')).toHaveText(/Se închide automat în 4[12]m/);
-  // Not dismissable: Escape keeps it.
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('heading', { name: 'Încă pescuiești?' })).toBeVisible();
-  await settle(page);
-  await expectNoA11yViolations(page);
-  await page.screenshot({ path: `${SHOTS}/autoclose-375.png` });
-  await page.getByRole('button', { name: 'Da, continui' }).click();
-  await expect(toast(page, 'Nu am putut prelungi partida. Încearcă din nou.')).toBeVisible();
-  expect(calls.extend).toEqual([LIVE.documentId]);
-  // The CMS clears warnedAt; the snapshot closes the dialog.
-  await fakeLive.push(LIVE.clientId, liveDoc());
-  await expect(page.getByRole('heading', { name: 'Încă pescuiești?' })).toHaveCount(0);
-});
-
-test('partide.partida.c13 «Nu, închid partida» runs the very same finish', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc({ warnedAt: at(5), autoCloseAt: new Date(NOW.getTime() + 3 * 3_600_000).toISOString() }) } });
-  const calls = await mockCms(page, { active: LIVE });
-  await open(page, LIVE.documentId);
-  await expect(page.getByTestId('autoclose-dialog')).toHaveText(/^Se închide automat în (3h 00m|2h 59m)$/);
-  await page.getByRole('button', { name: 'Nu, închid partida' }).click();
-  await expect(page).toHaveURL(/\/partide$/);
-  await expect.poll(() => calls.finish).toEqual([LIVE.documentId]);
-});
-
-test('partide.partida.c13 a guest (not the owner) never sees the auto-close dialog', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc({ hostUid: 'e2e-angler-2', warnedAt: at(5), autoCloseAt: at(-30) }) } });
-  await mockCms(page, { active: LIVE });
-  await open(page, LIVE.documentId);
-  await expect(memberView(page)).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Încă pescuiești?' })).toHaveCount(0);
-});
-
-/* ------------------------------------------------------------------------------------------------
- * Delete, leave, kick, rotate — c14 c15 c16 c17 c18
- * ---------------------------------------------------------------------------------------------- */
-
-test('partide.partida.c14 delete: what is lost, a click does nothing, a hold deletes; failure inline, success toast + Partide', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
-  const calls = await mockCms(page, { active: LIVE, writes: { remove: 500 } });
-  await open(page, LIVE.documentId);
-  await page.getByRole('button', { name: 'Șterge partida' }).click();
-  await expect(page.getByRole('heading', { name: 'Ștergi această partidă?' })).toBeVisible();
-  const dialog = page.getByTestId('delete-dialog');
-  await expect(dialog).toContainText('Balta Mock');
-  await expect(dialog).toContainText(
-    'Se șterg definitiv 3 capturi, împreună cu tot jurnalul partidei. Coechipierul tău pierde și el accesul și capturile lui. Acțiunea nu poate fi anulată.',
-  );
-  await settle(page);
-  await expectNoA11yViolations(page);
-  await page.screenshot({ path: `${SHOTS}/delete-dialog-1280.png` });
-  const hold = page.getByTestId('delete-dialog-hold');
-  await expect(hold).toHaveText('Ține apăsat pentru a șterge');
-  await hold.click();
-  await page.waitForTimeout(300);
-  expect(calls.remove).toEqual([]);
-  const box = (await hold.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(1500);
-  await page.mouse.up();
-  await expect(dialog.getByText('Nu am putut șterge partida. Încearcă din nou.')).toBeVisible();
-  expect(calls.remove).toEqual([LIVE.documentId]);
-  // Keyboard: hold Space.
-  await page.unroute(/\/api\/cms\/feed\/sessions\/(e2e-[^/?]+)(\/[^?]*)?(\?.*)?$/);
-  await page.route(/\/api\/cms\/feed\/sessions\/e2e-m-live$/, route => {
-    if (route.request().method() === 'DELETE') calls.remove.push(LIVE.documentId);
-    return json(route, { data: { ok: true } });
-  });
-  await hold.focus();
-  await page.keyboard.down(' ');
-  await page.waitForTimeout(1500);
-  await page.keyboard.up(' ');
-  await expect(page).toHaveURL(/\/partide$/);
-  await expect(toast(page, 'Partida a fost ștearsă.')).toBeVisible();
-  expect(calls.remove).toEqual([LIVE.documentId, LIVE.documentId]);
-  expect(await pointerStored(page)).toBeNull();
-});
-
-test('partide.partida.c14 delete an ENDED partidă: the page stays on the member view until it has gone to Partide — never the spectator page nor «not found»', async ({ page }) => {
-  const item = listItem(ENDED);
-  // The public read answers (a public partidă): a fallback to the spectator view would show it.
-  const calls = await mockCms(page, {
-    mine: [item],
-    details: { [ENDED.documentId]: [detailOf(item)] },
-    community: { [ENDED.documentId]: { documentId: ENDED.documentId } },
-  });
-  let deleted = false;
-  await page.route(/\/api\/cms\/feed\/sessions\/mine(\?.*)?$/, route => json(route, { data: deleted ? [] : [item], meta: { page: 1, pageSize: 100, total: deleted ? 0 : 1 } }));
-  await page.route(/\/api\/cms\/feed\/sessions\/e2e-m-ended$/, async route => {
-    if (route.request().method() === 'DELETE') {
-      calls.remove.push(ENDED.documentId);
-      deleted = true;
-      return json(route, { data: { ok: true } });
-    }
-    return deleted ? fail(route, 404, 'PARTIDA:NOT_FOUND') : json(route, { data: detailOf(item) });
-  });
-  await open(page, ENDED.documentId);
-  await expect(memberView(page)).toBeVisible();
-  // From here on (the page is the member view): record whether the spectator / not-found views
-  // ever attach while the delete runs.
-  await page.evaluate(() => {
-    const seen = new Set<string>();
-    (window as unknown as { __seenTestIds: Set<string> }).__seenTestIds = seen;
-    new MutationObserver(() => {
-      for (const id of ['partida-spectator', 'partida-not-found', 'partida-member-not-found']) if (document.querySelector(`[data-testid="${id}"]`)) seen.add(id);
-    }).observe(document.body, { childList: true, subtree: true });
-  });
-  await page.getByRole('button', { name: 'Șterge partida' }).click();
-  const hold = page.getByTestId('delete-dialog-hold');
-  await hold.focus();
-  await page.keyboard.down(' ');
-  await page.waitForTimeout(1500);
-  await page.keyboard.up(' ');
-  await expect(page).toHaveURL(/\/partide$/);
-  await expect(toast(page, 'Partida a fost ștearsă.')).toBeVisible();
-  expect(calls.remove).toEqual([ENDED.documentId]);
-  expect(await seenTestIds(page)).toEqual([]);
-});
-
-test('partide.partida.c11 c18 the live finish is single-flight: two activations of «Termină» → one POST /finish, one step back', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
-  const calls = await mockCms(page, { active: LIVE, writes: { finish: { status: 200, delayMs: 600 } } });
-  await page.setViewportSize({ width: 375, height: 900 });
-  await page.clock.install({ time: NOW });
-  // History: Partide → the partidă. Two «back» would leave Partide too.
-  await page.goto('/partide');
-  await page.goto(`/partide/${LIVE.documentId}`);
-  await expect(memberView(page)).toBeVisible();
-  await page.getByTestId('partida-finish').click();
-  const confirm = page.getByTestId('finish-dialog-confirm');
-  await expect(confirm).toBeVisible();
-  // Two activations: a second click while the sheet animates out (the button is still attached).
-  await confirm.evaluate((el: HTMLElement) => {
-    el.click();
-    setTimeout(() => {
-      sessionStorage.setItem('e2e-second-attached', String(el.isConnected));
-      el.click();
-    }, 40);
-  });
-  await page.waitForTimeout(300);
-  // One step back: still on Partide (two would have left it).
-  await expect(page).toHaveURL(/\/partide$/);
-  expect(await page.evaluate(() => sessionStorage.getItem('e2e-second-attached')), 'the second activation reached the confirm').toBe('true');
-  await expect(page).toHaveURL(/\/partide$/);
-  await expect.poll(() => calls.finish).toEqual([LIVE.documentId]);
-  await page.waitForTimeout(800);
-  expect(calls.finish).toEqual([LIVE.documentId]);
-  await expect(page).toHaveURL(/\/partide$/);
-});
-
-test('partide.partida.c15 c18 leave: the explanation, single-flight while pending, failure inline, then success → toast + Partide', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc({ hostUid: 'e2e-angler-2' }) } });
-  const calls = await mockCms(page, { active: LIVE, writes: { leave: { status: 403, bluCode: 'PARTIDA:FORBIDDEN', delayMs: 800 } }, details: { [LIVE.documentId]: [200] } });
-  await open(page, LIVE.documentId);
-  await page.getByRole('button', { name: 'Părăsește partida' }).click();
-  await expect(page.getByRole('heading', { name: 'Părăsești partida?' })).toBeVisible();
-  await expect(page.getByTestId('leave-dialog')).toContainText('Vei pierde accesul la partidă.');
-  const confirm = page.getByTestId('leave-dialog-confirm');
-  await confirm.click();
-  await expect(confirm).toHaveAttribute('aria-busy', 'true');
-  await confirm.click({ force: true });
-  await confirm.click({ force: true });
-  await expect(page.getByTestId('leave-dialog').getByText('Nu am putut părăsi partida. Încearcă din nou.')).toBeVisible();
-  expect(calls.leave).toEqual([LIVE.documentId]);
-  await page.unroute(/\/api\/cms\/feed\/sessions\/(e2e-[^/?]+)(\/[^?]*)?(\?.*)?$/);
-  await page.route(/\/api\/cms\/feed\/sessions\/e2e-m-live\/leave$/, route => {
-    calls.leave.push(LIVE.documentId);
-    return json(route, { data: { removed: true } });
-  });
-  await confirm.click();
-  await expect(page).toHaveURL(/\/partide$/);
-  await expect(toast(page, 'Ai părăsit partida.')).toBeVisible();
-  expect(calls.leave).toHaveLength(2);
-  expect(await pointerStored(page)).toBeNull();
-});
-
-test('partide.partida.c16 c18 kick: the owner removes a member (never the host); the code rotates; failure inline', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
-  const calls = await mockCms(page, { active: LIVE, writes: { kick: { status: 500, delayMs: 600 } } });
-  await open(page, LIVE.documentId);
-  const roster = page.getByTestId('partida-roster-member');
-  await expect(roster.nth(0).getByRole('button')).toHaveCount(0); // the host (the viewer)
-  await roster.nth(1).getByRole('button', { name: 'Elimină pe Ana Crap' }).click();
-  await expect(page.getByRole('heading', { name: 'Elimini participantul?' })).toBeVisible();
-  const dialog = page.getByTestId('kick-dialog');
-  await expect(dialog).toContainText('Ana Crap va pierde accesul la partidă.');
-  await expect(dialog).toContainText('Codul de acces va fi schimbat automat.');
-  const confirm = page.getByTestId('kick-dialog-confirm');
-  await confirm.dblclick();
-  await expect(dialog.getByText('Nu am putut elimina participantul. Încearcă din nou.')).toBeVisible();
-  expect(calls.kick).toEqual(['e2e-angler-2']);
-  await page.unroute(/\/api\/cms\/feed\/sessions\/(e2e-[^/?]+)(\/[^?]*)?(\?.*)?$/);
-  await page.route(/\/api\/cms\/feed\/sessions\/e2e-m-live\/members\/[^/]+$/, route => {
-    calls.kick.push('again');
-    return json(route, { data: { removed: true, joinCode: 'NEW123', members: [member(selfId, 'Eu Pescar')], hostUid: selfId, projectionRev: 4 } });
-  });
-  await confirm.click();
-  await expect(toast(page, 'Participant eliminat. Codul a fost schimbat.')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Elimini participantul?' })).toHaveCount(0);
-});
-
-test('partide.partida.c17 c18 rotate the join code: copy, single-flight, failure inline, success toast', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
-  const calls = await mockCms(page, { active: LIVE, writes: { rotate: { status: 500, delayMs: 600 } } });
-  await open(page, LIVE.documentId, { width: 375 });
-  await page.getByRole('button', { name: 'Schimbă codul' }).click();
-  await expect(page.getByRole('heading', { name: 'Schimbi codul de acces?' })).toBeVisible();
-  await expect(page.getByTestId('rotate-dialog')).toContainText('Codul și linkurile trimise anterior nu vor mai funcționa.');
-  await page.screenshot({ path: `${SHOTS}/rotate-sheet-375.png` });
-  const confirm = page.getByTestId('rotate-dialog-confirm');
-  await confirm.click();
-  await confirm.click({ force: true });
-  await expect(page.getByTestId('rotate-dialog').getByText('Codul nu a putut fi schimbat. Încearcă din nou.')).toBeVisible();
-  expect(calls.rotate).toEqual([LIVE.documentId]);
-  await page.unroute(/\/api\/cms\/feed\/sessions\/(e2e-[^/?]+)(\/[^?]*)?(\?.*)?$/);
-  await page.route(/\/api\/cms\/feed\/sessions\/e2e-m-live\/join-code\/rotate$/, route => json(route, { data: { joinCode: 'NEW123', projectionRev: 4 } }));
-  await confirm.click();
-  await expect(toast(page, 'Codul de acces a fost schimbat.')).toBeVisible();
-});
-
-/* ------------------------------------------------------------------------------------------------
- * Anchor — c19
- * ---------------------------------------------------------------------------------------------- */
-
-test('partide.partida.c19 «Ajustează poziția»: the picker on the anchor (satellite, close), the map moved, «Confirmă locul» patches anchorLat / anchorLong', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
-  const calls = await mockCms(page, { active: LIVE });
-  await open(page, LIVE.documentId);
-  await page.getByRole('button', { name: /Ajustează poziția/ }).click();
-  const picker = page.getByTestId('map-point-picker-body');
-  await expect(page.getByRole('heading', { name: 'Ajustează poziția' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Satelit' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText('Trage harta ca să muți pinul')).toBeVisible();
-  await expect(picker).toHaveAttribute('data-lat', '44.432100');
-  await expect(picker).toHaveAttribute('data-state', 'ready', { timeout: 20_000 });
-  await page.screenshot({ path: `${SHOTS}/picker-1280.png` });
-  // Keyboard: the canvas pans with the arrows.
-  await page.locator('.maplibregl-canvas').focus();
-  await page.keyboard.press('ArrowRight');
-  await expect.poll(async () => Number(await picker.getAttribute('data-lng'))).toBeGreaterThan(26.1234);
-  await page.getByTestId('map-point-picker-confirm').click();
-  await expect(page.getByRole('heading', { name: 'Ajustează poziția' })).toHaveCount(0);
-  await expect.poll(() => calls.patch.length).toBe(1);
-  const body = calls.patch[0] as { data: { anchorLat: number; anchorLong: number } };
-  expect(body.data.anchorLat).toBeCloseTo(44.4321, 3);
-  expect(body.data.anchorLong).toBeGreaterThan(26.1234);
 });
 
 /* ------------------------------------------------------------------------------------------------
@@ -1015,97 +628,4 @@ test('b.server-clock durations read the CMS clock (Date header), not the device 
   await mockCms(page, { active: LIVE, activeDate: new Date(NOW.getTime() + 3_600_000).toUTCString() });
   await open(page, LIVE.documentId);
   await expect(page.getByTestId('partida-summary-stats')).toContainText('3h 14m');
-});
-
-/* ------------------------------------------------------------------------------------------------
- * Feedback — c21 c22
- * ---------------------------------------------------------------------------------------------- */
-
-test('partide.partida.c21 the nudge: ≥3 captures on a live partidă; X records it, the hint shows 3.5 s, a reload does not ask again', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
-  await mockCms(page, { active: LIVE });
-  await open(page, LIVE.documentId, { width: 375 });
-  const nudge = page.getByTestId('partida-feedback-nudge');
-  await expect(nudge).toBeVisible();
-  await expect(nudge).toContainText('Ceva de îmbunătățit?');
-  await expect(nudge).toContainText('Spune-ne ce nu merge sau ce ți-ar plăcea să existe.');
-  await expectNoA11yViolations(page);
-  await page.screenshot({ path: `${SHOTS}/nudge-375.png` });
-  await nudge.getByRole('button', { name: 'Ascunde' }).click();
-  const hint = page.getByTestId('partida-feedback-hint');
-  await expect(hint).toBeVisible();
-  await expect(hint).toHaveText('Bine. O găsești oricând în Info › Raportează o problemă.');
-  await expect(nudge).toBeHidden();
-  await page.clock.runFor(3_600);
-  await expect(hint).toBeHidden();
-  expect(await page.evaluate(() => localStorage.getItem('bluvi.partide.feedbackNudgeSessions.v1'))).toBe(JSON.stringify([LIVE.clientId]));
-  await page.reload();
-  await expect(memberView(page)).toBeVisible();
-  await page.waitForTimeout(500);
-  await expect(nudge).toBeHidden();
-});
-
-test('partide.partida.c21 under the threshold (2 captures, 2 h) or ended: no nudge', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc({ catches: [catchDoc(1, 2, 'Crap', 30), catchDoc(2, 3, 'Crap', 20)] }) } });
-  await mockCms(page, { active: LIVE });
-  await open(page, LIVE.documentId);
-  await expect(memberView(page)).toBeVisible();
-  await page.waitForTimeout(400);
-  await expect(page.getByTestId('partida-feedback-nudge')).toBeHidden();
-  // ≥ 4 h elapsed is enough on its own.
-  await fakeLive.push(LIVE.clientId, liveDoc({ startedAt: at(4 * 60 + 1), catches: [] }));
-  await expect(page.getByTestId('partida-feedback-nudge')).toBeVisible();
-});
-
-test('partide.partida.c22 the feedback dialog: empty → the prompt; «Idee nouă» + text → POST /feedbacks with the partidă; the nudge is answered', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
-  const calls = await mockCms(page, { active: LIVE, writes: { feedback: 500 } });
-  await open(page, LIVE.documentId, { width: 375 });
-  await page.getByTestId('partida-feedback-nudge').getByRole('button', { name: 'Trimite feedback despre partidă' }).click();
-  await expect(page.getByRole('heading', { name: 'Spune-ne ce nu merge' })).toBeVisible();
-  const form = page.getByTestId('feedback-dialog');
-  await expect(form.getByText('Problemă tehnică')).toBeVisible();
-  await expect(form.getByText('Altceva')).toBeVisible();
-  await page.getByRole('button', { name: 'Trimite', exact: true }).click();
-  await expect(form.getByText('Scrie câteva cuvinte despre ce s-a întâmplat.')).toBeVisible();
-  expect(calls.feedback).toEqual([]);
-  await settle(page);
-  await expectNoA11yViolations(page);
-  await page.screenshot({ path: `${SHOTS}/feedback-375.png` });
-  await form.getByText('Idee nouă').click();
-  await form.getByLabel('Detalii').fill('Aș vrea o hartă a lansetelor.');
-  await expect(form.getByLabel('Detalii')).toHaveAttribute('maxlength', '1000');
-  await page.getByRole('button', { name: 'Trimite', exact: true }).click();
-  await expect(toast(page, 'N-am putut trimite mesajul. Mai încearcă o dată.')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Spune-ne ce nu merge' })).toBeVisible();
-  await page.unroute('**/api/cms/feedbacks');
-  await page.route('**/api/cms/feedbacks', route => {
-    calls.feedback.push(route.request().postDataJSON());
-    return json(route, { data: { documentId: 'fb-1' } });
-  });
-  await page.getByRole('button', { name: 'Trimite', exact: true }).click();
-  await expect(toast(page, 'Mulțumim! Mesajul a ajuns la echipă.')).toBeVisible();
-  const sent = calls.feedback.at(-1) as { data: { rating: number; category: string; feedback: string; metadata: Record<string, unknown> } };
-  expect(sent.data).toMatchObject({ rating: 5, category: 'feature', feedback: 'Aș vrea o hartă a lansetelor.' });
-  expect(sent.data.metadata).toMatchObject({
-    source: 'partida',
-    ratingAsked: false,
-    entryPoint: 'nudge',
-    sessionClientId: LIVE.clientId,
-    sessionDocumentId: LIVE.documentId,
-    captures: 3,
-  });
-  expect(sent.data.metadata.elapsedMs).toBeGreaterThan(2 * 3_600_000);
-  await expect(page.getByTestId('partida-feedback-nudge')).toBeHidden();
-});
-
-test('partide.partida.c22 «Raportează o problemă» opens the same dialog from the summary (entry point «info»)', async ({ page, fakeLive }) => {
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
-  const calls = await mockCms(page, { active: LIVE });
-  await open(page, LIVE.documentId);
-  await page.getByRole('button', { name: /Raportează o problemă/ }).click();
-  await page.getByTestId('feedback-dialog').getByLabel('Detalii').fill('Cronometrul sare.');
-  await page.getByRole('button', { name: 'Trimite', exact: true }).click();
-  await expect(toast(page, 'Mulțumim! Mesajul a ajuns la echipă.')).toBeVisible();
-  expect((calls.feedback[0] as { data: { category: string; metadata: { entryPoint: string } } }).data).toMatchObject({ category: 'technical', metadata: { entryPoint: 'info' } });
 });
