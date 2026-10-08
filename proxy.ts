@@ -38,6 +38,8 @@ export const config = {
     { source: '/balti/:id/recenzie', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // M4: the viewer's own history (partide.istoric) — /feed/sessions/mine, signed in only.
     { source: '/partide/istoric', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    // M4: the viewer's own catch gallery (partide.capturile-mele) — /feed/sessions/mine/catches.
+    { source: '/partide/capturile-mele', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // M4: a partidă by its client id (PARTIDA_FINISHED / AUTO_CLOSE_WARN) — resolved per user.
     { source: '/partide/sesiune/:clientId', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // M4: start a partidă (partide.incepe) — a per-user write, signed in only (?balta / ?apa kept).

@@ -184,14 +184,22 @@ const json = (route: Route, body: unknown, status = 200) => route.fulfill({ stat
 
 type Calls = { mine: number; details: string[]; other: string[] };
 
+type Row = ReturnType<typeof listItem>;
+
 /**
  * The CMS as the tab sees it: the pointer (this partidă is live), the own list, and each detail —
  * `detailAnswers` queues status codes per id (the last one repeats; default 200), `delayMs` holds
- * every detail. Any other `/feed/*` read of a statistic is recorded in `other` (c7: none).
+ * every detail. `mineAfter` is the list from the second read on (a partidă deleted meanwhile).
+ * Any other `/feed/*` read of a statistic is recorded in `other` (c7: none).
  */
 async function mockCms(
   page: Page,
-  { mine = [LIVE_ROW, A, B, X], detailAnswers = {}, delayMs = 0 }: { mine?: unknown[]; detailAnswers?: Record<string, number[]>; delayMs?: number } = {},
+  {
+    mine = [LIVE_ROW, A, B, X],
+    mineAfter,
+    detailAnswers = {},
+    delayMs = 0,
+  }: { mine?: Row[]; mineAfter?: Row[]; detailAnswers?: Record<string, number[]>; delayMs?: number } = {},
 ): Promise<Calls> {
   const calls: Calls = { mine: 0, details: [], other: [] };
   await page.route(/tiles\.openfreemap\.org|arcgisonline\.com/, r => r.abort());
@@ -205,7 +213,8 @@ async function mockCms(
   await page.route('**/api/cms/feed/sessions/active', r => json(r, { data: { ...LIVE, firestoreId: LIVE.clientId } }));
   await page.route(/\/api\/cms\/feed\/sessions\/mine(\?.*)?$/, r => {
     calls.mine += 1;
-    return json(r, { data: mine, meta: { page: 1, pageSize: 100, total: mine.length } });
+    const rows = calls.mine > 1 && mineAfter ? mineAfter : mine;
+    return json(r, { data: rows, meta: { page: 1, pageSize: 100, total: rows.length } });
   });
   await page.route(/\/api\/cms\/feed\/sessions\/(e2e-s-[a-z]+)$/, async route => {
     if (route.request().method() !== 'GET') return route.fallback();
@@ -217,8 +226,8 @@ async function mockCms(
     const queue = detailAnswers[id] ?? [200];
     const status = queue.length > 1 ? queue.shift()! : queue[0];
     if (status !== 200) return json(route, { error: { status, name: 'Error', message: 'mock' } }, status);
-    const row = [A, B, X].find(s => s.documentId === id)!;
-    return json(route, { data: { ...row, joinCode: null, rods: [], members: [member('someone', 'Alt Pescar')], events: DETAIL_EVENTS[id] } });
+    const row = mine.find(s => s.documentId === id)!;
+    return json(route, { data: { ...row, joinCode: null, rods: [], members: [member('someone', 'Alt Pescar')], events: DETAIL_EVENTS[id] ?? [] } });
   });
   return calls;
 }
@@ -453,6 +462,44 @@ test('partide.partida-statistici.c7 a failed read is an error with a retry — n
   await error.getByRole('button', { name: 'Încearcă din nou' }).click();
   await expect(tileValue(page, 'partide')).toHaveText('3');
   await expect(tileValue(page, 'momeala')).toHaveText('Pop-up');
-  // Only the failed read was repeated.
+  // Only the failed read was repeated — and the list read again (a stale list may be the cause).
   expect(calls.details.filter(id => id === 'e2e-s-b')).toHaveLength(1);
+  expect(calls.mine).toBe(2);
+});
+
+test('partide.partida-statistici.c7 a sibling gone meanwhile (its detail 404s) leaves the scope instead of failing it; the list is read again', async ({ page, fakeLive }) => {
+  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
+  // A was deleted after the list was read: its detail 404s, the next list no longer holds it.
+  const calls = await mockCms(page, { detailAnswers: { 'e2e-s-a': [404] }, mineAfter: [LIVE_ROW, B, X] });
+  await open(page, { width: 375 });
+  await toVenue(page);
+  await expect(tileValue(page, 'partide')).toHaveText('2');
+  await expect(page.getByTestId('stats-error')).toHaveCount(0);
+  // This partidă + B: Porumb leads, A's Pop-up is not counted, 5 + 2 bites on the heatmap.
+  expect(await baitLabels(page)).toEqual(['Porumb', 'Boilies', 'Necunoscută']);
+  expect((await hourCounts(page)).reduce((a, b) => a + b, 0)).toBe(7);
+  await expect.poll(() => calls.mine).toBe(2);
+  // A 404 is not retried; A is never asked for again once the list has dropped it.
+  expect(calls.details.filter(id => id === 'e2e-s-a')).toHaveLength(1);
+  await expect(page.getByTestId('stats-capped')).toHaveCount(0);
+});
+
+test('partide.partida-statistici.c3 more same-lake partide than the cap: the caption says the patterns come from the most recent 20 de partide', async ({ page, fakeLive }) => {
+  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc() } });
+  // 22 earlier partide at this lake (ids e2e-s-caa … e2e-s-cav), one a day.
+  const many = Array.from({ length: 22 }, (_, i) => {
+    const day = new Date(Date.UTC(2026, 8, 30 - i, 2));
+    const id = `e2e-s-ca${String.fromCharCode(97 + i)}`;
+    return listItem(id, `sc-${id}`, LAKE, day.toISOString(), new Date(day.getTime() + 6 * 3600_000).toISOString());
+  });
+  const calls = await mockCms(page, { mine: [LIVE_ROW, ...many, X] });
+  await open(page, { width: 375 });
+  await toVenue(page);
+  await expect(tileValue(page, 'partide')).toHaveText('23');
+  await expect(tile(page, 'partide')).toContainText('ale tale la această baltă');
+  await expect(page.getByTestId('stats-capped')).toHaveText('tiparele din ultimele 20 de partide');
+  // Only the 19 most recent siblings were read (+ this partidă = 20).
+  expect(calls.details).toHaveLength(19);
+  expect(calls.details).not.toContain('e2e-s-cat');
+  await page.screenshot({ path: `${SHOTS}/balta-capped-375.png`, fullPage: true });
 });

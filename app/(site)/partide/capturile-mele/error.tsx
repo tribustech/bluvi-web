@@ -1,0 +1,31 @@
+'use client';
+
+import { useEffect, useTransition } from 'react';
+import { useBack } from '@/components/nav/useBack';
+import { ListError, ListHeader, ListPage } from '@/components/templates/T1';
+import { routes } from '@/lib/routes';
+
+/**
+ * The gate could not read the session (requireViewer → SessionUnknownError) — or anything else under
+ * it failed. Never a sign-in form for a user who may well be signed in (owner rule 4): the page's
+ * header, the T1 error card and «Încearcă din nou», which re-renders the gate.
+ */
+export default function CapturileMeleError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
+  const [retrying, startRetry] = useTransition();
+  const back = useBack(routes.partideMine());
+  useEffect(() => {
+    console.warn('[partide/capturile-mele]', error);
+  }, [error]);
+
+  return (
+    <ListPage header={<ListHeader title="Capturile mele" back={{ label: 'Închide capturile', onClick: back }} />}>
+      <ListError
+        title="Serverul nu răspunde"
+        description="Lucrăm la asta. Încearcă din nou în câteva minute."
+        onRetry={() => startRetry(() => retry())}
+        retrying={retrying}
+        focusOnMount
+      />
+    </ListPage>
+  );
+}

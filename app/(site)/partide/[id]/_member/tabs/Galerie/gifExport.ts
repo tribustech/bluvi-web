@@ -1,5 +1,5 @@
 import { applyPalette, GIFEncoder, quantize } from 'gifenc';
-import { loadImage, shareablePhotoSrc } from '@/components/partide/share/shareCard';
+import { shareablePhotoSrc } from '@/components/partide/share/shareCard';
 import { coverRect, type GifItem } from './model';
 
 /*
@@ -12,13 +12,21 @@ import { coverRect, type GifItem } from './model';
  * The photos come same-origin (shareablePhotoSrc: the ape-publice foto proxy for a CMS URL, as the
  * share card), so the canvas stays readable; a tainted canvas throws — the caller's failure toast.
  * A photo that does not load leaves its frame on the dark ground with the lines (fish: an
- * undecodable photo draws nothing under the captions). The paint is fish's, fixed: an exported image
+ * undecodable photo draws nothing under the captions) — but a GIF needs at least two real photos:
+ * fewer (a host the proxy refuses, a 4xx/502, a revoked blob:) throws, the caller's failure toast,
+ * never a «saved» GIF of blank frames. Each photo has a deadline (PHOTO_TIMEOUT_MS: a request that
+ * never answers is a failed photo, not a frozen «0/N»), and the export stops on `signal` (the
+ * caller's cancel: a second tap) with an AbortError. The paint is fish's, fixed: an exported image
  * is not themed UI.
  */
 
 const WIDTH = 720;
 const HEIGHT = 900; // 4:5
 const FRAME_DELAY_MS = 2000;
+/** A photo that has not loaded by then is a failed one. */
+export const PHOTO_TIMEOUT_MS = 15_000;
+/** Below this many loaded photos the export fails (a GIF of blank frames is no GIF). */
+const MIN_LOADED = 2;
 
 const VENUE_PX = 30;
 const KG_PX = 66;
@@ -42,8 +50,42 @@ const PAINT = {
 
 export type GifProgress = (done: number, total: number) => void;
 
-/** Renders `items` into an animated GIF (a Blob, image/gif). Throws when a frame cannot be read. */
-export async function exportGalleryGif(items: GifItem[], { onProgress, family = 'sans-serif' }: { onProgress?: GifProgress; family?: string } = {}): Promise<Blob> {
+const aborted = () => new DOMException('The GIF export was cancelled.', 'AbortError');
+
+/**
+ * `src` as a decoded image, or null when it fails or has not loaded within `timeoutMs` (the request
+ * is dropped). Rejects with an AbortError on `signal`.
+ */
+export function loadPhoto(src: string, { timeoutMs = PHOTO_TIMEOUT_MS, signal }: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<HTMLImageElement | null> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(aborted());
+    const img = new Image();
+    img.decoding = 'async';
+    const done = (photo: HTMLImageElement | null, error?: DOMException) => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      img.onload = img.onerror = null;
+      if (!photo) img.removeAttribute('src'); // drop the pending request
+      if (error) reject(error);
+      else resolve(photo);
+    };
+    const onAbort = () => done(null, aborted());
+    const timer = setTimeout(() => done(null), timeoutMs);
+    signal?.addEventListener('abort', onAbort, { once: true });
+    img.onload = () => done(img.naturalWidth > 0 ? img : null);
+    img.onerror = () => done(null);
+    img.src = src;
+  });
+}
+
+/**
+ * Renders `items` into an animated GIF (a Blob, image/gif). Throws when a frame cannot be read or
+ * fewer than two photos load; rejects with an AbortError on `signal`.
+ */
+export async function exportGalleryGif(
+  items: GifItem[],
+  { onProgress, family = 'sans-serif', signal, timeoutMs }: { onProgress?: GifProgress; family?: string; signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<Blob> {
   if (!items.length) throw new Error('exportGalleryGif: no items');
   const canvas = document.createElement('canvas');
   canvas.width = WIDTH;
@@ -52,10 +94,14 @@ export async function exportGalleryGif(items: GifItem[], { onProgress, family = 
   if (!ctx) throw new Error('exportGalleryGif: no 2d context');
   const gif = GIFEncoder();
   const origin = window.location.origin;
+  let loaded = 0;
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    const photo = await loadImage(shareablePhotoSrc(item.photoUri, origin));
+    const photo = await loadPhoto(shareablePhotoSrc(item.photoUri, origin), { signal, timeoutMs });
+    if (photo) loaded++;
+    // Not enough photos left to reach two: stop now, not after the rest.
+    if (loaded + (items.length - i - 1) < Math.min(MIN_LOADED, items.length)) throw new Error(`exportGalleryGif: only ${loaded} of ${items.length} photos loaded`);
     drawFrame(ctx, item, photo, family);
     const { data } = ctx.getImageData(0, 0, WIDTH, HEIGHT);
     const palette = quantize(data, 256);
@@ -63,6 +109,7 @@ export async function exportGalleryGif(items: GifItem[], { onProgress, family = 
     gif.writeFrame(index, WIDTH, HEIGHT, { palette, delay: FRAME_DELAY_MS, repeat: 0, first: i === 0 });
     onProgress?.(i + 1, items.length);
     await new Promise<void>(resolve => setTimeout(resolve, 0));
+    if (signal?.aborted) throw aborted();
   }
 
   gif.finish();

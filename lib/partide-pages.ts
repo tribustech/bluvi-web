@@ -22,7 +22,7 @@ export const PARTIDE_PAGES_ON_WEB = {
   /** /partide/clasament — «Clasamente» (partide.clasament). */
   ranking: true,
   /** /partide/capturile-mele — the viewer's catches (partide.capturile-mele). */
-  myCatches: false,
+  myCatches: true,
   /** /partide/[id] — the partidă page, member or spectator view (lib/routes.ts ON_WEB.partida). */
   partida: ON_WEB.partida,
   /** /partide/[id]?tab=lansete — the member view's «Lansete» tab (partide.partida-lansete). */

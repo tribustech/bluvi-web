@@ -7,9 +7,11 @@ import { DEFAULT_MASKS, stabilize } from './capture';
  * Partidă · «Galerie» tab (partide.partida-galerie): every state at 375 / 768 / 1280 / 1440 / 1920.
  * Per-user and live, so — like partida-jurnal.visual.spec.ts — the data is the e2e's: the shared
  * Firestore fake (no request may reach Firebase), route-mocked CMS reads, same-origin SVG photos
- * served by the test (a thumb for the grid, the original for the lightbox and the GIF), a fixed clock and time zone, the real QA session. The GIF progress state is
- * held by photos that never answer. Baselines are committed only once the owner approves them
- * (README.md).
+ * served by the test (a thumb for the grid, the original for the lightbox and the GIF), a fixed
+ * clock and time zone, the real QA session. The GIF progress state is a SLOW export (the originals
+ * answer after 10 s, inside the export's 15 s photo deadline — a photo that never answers is a
+ * failed photo, not a frozen «0/N»: e2e «c4 a photo that never answers»). Baselines are committed
+ * only once the owner approves them (README.md).
  */
 
 test.use({ timezoneId: 'Europe/Bucharest' });
@@ -77,14 +79,16 @@ async function setup(page: Page, state: State) {
     const p = PHOTOS[name];
     if (!p) return route.fulfill({ status: 404 });
     // gif-progress: once the export starts, its loads of the originals (the grid shows the thumbs)
-    // never answer — the progress holds.
-    if (hold && !thumb) return;
-    return route.fulfill({
-      status: 200,
-      contentType: 'image/svg+xml',
-      headers: { 'cache-control': 'no-store' },
-      body: `<svg xmlns="http://www.w3.org/2000/svg" width="${p.w}" height="${p.h}"><rect width="100%" height="100%" fill="${p.fill}"/><circle cx="${p.w / 2}" cy="${p.h / 2}" r="${Math.min(p.w, p.h) / 4}" fill="#F2C94C"/></svg>`,
-    });
+    // answer slowly — the progress shows «0/5» for the shot.
+    if (hold && !thumb) await new Promise(r => setTimeout(r, 10_000));
+    return route
+      .fulfill({
+        status: 200,
+        contentType: 'image/svg+xml',
+        headers: { 'cache-control': 'no-store' },
+        body: `<svg xmlns="http://www.w3.org/2000/svg" width="${p.w}" height="${p.h}"><rect width="100%" height="100%" fill="${p.fill}"/><circle cx="${p.w / 2}" cy="${p.h / 2}" r="${Math.min(p.w, p.h) / 4}" fill="#F2C94C"/></svg>`,
+      })
+      .catch(() => undefined); // the page may be gone once the shot is taken
   });
   await page.route(/\/feed\/community\/sessions\/e2e-/, r => json(r, { error: { status: 404 } }, 404));
   await page.route('**/api/cms/feed/session-follows/mine', r => json(r, { data: { sessionDocumentIds: [] } }));

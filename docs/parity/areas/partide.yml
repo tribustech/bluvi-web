@@ -884,7 +884,7 @@ screens:
         text: "The gallery shows only capture events that have a photo, newest first, in a masonry grid with captions „{specie} · {kg} kg”."
         fish_ref: "features/partide/scenes/GalerieScene.tsx:46-65"
         status: passing
-        note: "e2e tests/e2e/partida-galerie.spec.ts «c1 c4 at 375/1280/1440/1920 — axe clean»: 8 events → 5 tiles in the order g-5…g-1 (a lost event with a photo and captures without one left out), named «Deschide poza: Plătică · 1,25 kg» … «Crap · 2,4 kg» (fish caption, unit spaced); the lake gallery's MasonryGrid + CatchTile caption (kg chip, species), 2 columns at 375, 3–5 from 1280. «c1 a capture arriving live» (the fake pushes one → on top) and «c1 an ended partidă» (the CMS detail's photos). Never «capot»."
+        note: "e2e tests/e2e/partida-galerie.spec.ts «c1 c4 at 375/1280/1440/1920 — axe clean»: 8 events → 5 tiles in the order g-5…g-1 (a lost event with a photo and captures without one left out), each tile NAMED «Deschide poza: Plătică · 1,25 kg» … «Crap · 2,4 kg» (fish's caption text, unit spaced), 2 columns at 375, 3–5 from 1280. Web deviation by design (fish visual language, the CatchCard signature): the VISIBLE caption is the lake gallery's CatchTile caption — the navy kg chip first, then the species — not fish's single white bodyStrong «{specie} · {kg} kg» line on a 0.6 gradient (MasonryGallery.tsx:98-110); the «{specie} · {kg} kg» text is the accessible name only. No layout shift (e2e «c1 at 375/1280: no layout shift»: every visible tile's rect, sampled each frame with 500 ms photos, never changes; the portrait is placed taller than the landscape): a skeleton until the photos' ratios are known (≤1.5 s, then 4:3), a ratio once fixed never revised. «c1 a capture arriving live» (the fake pushes one → on top) and «c1 an ended partidă» (the CMS detail's photos). Never «capot»."
       - id: partide.partida-galerie.c2
         text: "No photo: „Nicio captură cu poză încă” / „Pozele capturilor din această partidă apar aici.”"
         fish_ref: "features/partide/scenes/GalerieScene.tsx:129-137"
@@ -899,7 +899,7 @@ screens:
         text: "With ≥2 photo catches a floating „Exportă GIF” action builds an animated GIF (venue · stand, kg, species, date per frame) showing „{done}/{total}” progress and shares it; failure → „Eroare la generarea GIF-ului”."
         fish_ref: "features/partide/scenes/GalerieScene.tsx:83-125,149-180"
         status: passing
-        note: "e2e «c4 phone»: «Exportă GIF» → «0/5…4/5» (aria-busy) → navigator.share gets one file bluvi-galerie-<ts>.gif, image/gif, header GIF89a, >10 kB, title «Distribuie GIF-ul»; «c4 desktop»: no file share → a download (GIF89a) and «GIF-ul a fost salvat.»; «c4 a failed export» (getImageData throws, a tainted canvas) → «Eroare la generarea GIF-ului», the action is back; «c4 one photo» → no action. Frames per fish gifExport (720×900, cover photo, scrim, venue · stand, kg + unit, species chip, date) on a 2D canvas, encoded with gifenc; CMS photos same-origin through the ape-publice foto proxy (shareablePhotoSrc). Phone: fish's floating pill (sticky bottom-right); from 768 in the gallery's toolbar."
+        note: "Share vs download by DEVICE, not capability (desktop Chrome/Edge/Safari answer canShare({files}) true): a fine pointer from 768 downloads, a touch screen shares. The e2e share stub behaves like a browser — canShare true everywhere, share() → NotAllowedError when no trusted gesture happened in the last second (iOS Safari's short transient activation), AbortError when dismissed. e2e «c4 phone»: «Exportă GIF» → «0/5…4/5» (aria-busy) → the build outlives the activation, the share is refused → the GIF is kept and the action reads «Distribuie GIF-ul» (status «GIF-ul e gata.») → that fresh tap hands navigator.share one file bluvi-galerie-<ts>.gif, image/gif, header GIF89a, >10 kB, title «Distribuie GIF-ul»; «refused twice» → a download + «GIF-ul a fost salvat.»; «AbortError» → nothing else, no toast; «c4 desktop (fine pointer, canShare true)» → a download (GIF89a), «GIF-ul a fost salvat.», share never called; «c4 a failed export» (getImageData throws, a tainted canvas) → «Eroare la generarea GIF-ului», the action is back; «no photo loads» (every photo 404s) → «Eroare la generarea GIF-ului», no GIF (fewer than two photos loaded fails the export); «a photo that never answers» → its 15 s deadline passes (clock fast-forward), the GIF completes with the rest; «a second tap cancels» a stuck export → the action is back, no toast; «c4 one photo» → no action. Frames per fish gifExport (720×900, cover photo, scrim, venue · stand, kg + unit, species chip, date) on a 2D canvas, encoded with gifenc; CMS photos same-origin through the ape-publice foto proxy (shareablePhotoSrc). Phone: fish's floating pill (sticky bottom-right); from 768 in the gallery's toolbar."
     mobile_only: false
     e2e: tests/e2e/partida-galerie.spec.ts
     visual: tests/visual/partida-galerie.visual.spec.ts
@@ -1690,25 +1690,37 @@ screens:
     core:
       - "core/partide myCatchesInfiniteQuery"
     states:
+      - "signed-out → /intra?next=/partide/capturile-mele (no cookie: proxy.ts 307; a dead cookie: requireViewer, both e2e)"
+      - session unknown → error.tsx «Serverul nu răspunde», retry focused, never a sign-in form (e2e, unreadable cookie)
       - loading → masonry skeleton
       - empty
+      - error (first read failed → error card with retry)
       - photos + infinite scroll
       - lightbox → share card
+    visual: "tests/visual/partide-capturile-mele.visual.spec.ts — photos (staggered ratios), few, one, empty, error, lightbox, share (mocked /api/cms reads, Firestore faked) at 375/768/1280/1440/1920; beginner (4 photos) at 1920"
     criteria:
       - id: partide.capturile-mele.c1
         text: "Header „Capturile mele” with subtitle „{total} captură/capturi” (when any) and a close control."
         fish_ref: "features/partide/screens/MyCatchesGalleryScreen.tsx:60-70"
+        status: passing
+        note: "e2e tests/e2e/partide-capturile-mele.spec.ts + unit _gallery/view.test.ts. T1 ListHeader; the subtitle through formatCount («1 captură», «7 capturi», «25 de capturi»), never over the empty state; the close control «Închide capturile» is useBack (this tab's previous page, else /partide/ale-mele — fish router.back()). Breadcrumb Partide › Ale mele › Capturile mele from 768. Signed in only, noindex."
       - id: partide.capturile-mele.c2
         text: "Masonry grid of every own catch photo (deduplicated by key), loading more at the end."
         fish_ref: "features/partide/screens/MyCatchesGalleryScreen.tsx:34-58"
+        status: passing
+        note: "e2e tests/e2e/partide-capturile-mele.spec.ts (a row repeated across the cursor boundary shows once; only /feed/sessions/mine/catches, never the public profile feed). The lake gallery's masonry (balti _sub/Masonry, read-only): two columns on a phone (fish), ~220px auto-fill tracks on desktop (5+ at 1440, 7+ at 1920, owner rule 5), few photos capped at ~360px a column — OPEN (owner rule 5): with ≤4 photos at ≥1280 the capped grid sits left (1920: ~600px of empty band on the right). The fix is in the shared Masonry (capOf/WIDE_PX: span the band or centre the capped grid), owned by the lake gallery — raised there; e2e «few photos at 1920» is test.fixme until it lands, visual beginner-1920 re-taken then. Each tile the CatchTile caption (navy kg chip + species = fish photoCaption). The next page via ListFooter (auto, spinner, retry on a failed page)."
       - id: partide.capturile-mele.c3
         text: "Empty: „Nicio captură cu fotografie încă.”"
         fish_ref: "features/partide/screens/MyCatchesGalleryScreen.tsx:95"
+        status: passing
+        note: "e2e tests/e2e/partide-capturile-mele.spec.ts. Loading: the masonry skeleton (route loading.tsx and the first read). Web addition (owner rule 4): a failed first read is an error card with «Încearcă din nou», never the empty copy."
       - id: partide.capturile-mele.c4
         text: "A photo opens the lightbox with CatchDetailFooter; share opens the composed share card (lake, competition name when the catch comes from a competition)."
         fish_ref: "features/partide/screens/MyCatchesGalleryScreen.tsx:52-56,100-122"
+        status: passing
+        note: "e2e tests/e2e/partide-capturile-mele.spec.ts (lightbox at the tile's index, footer kg/venue/competition/day, the next page at the end, «Distribuie captura» → ShareCatchSheet with «Cupa Toamnei» and the «Competiție» switch for a competition catch, none for a partidă catch; keyboard Tab/Enter/Escape). components/partide/CatchLightbox, unchanged. Ale mele's «Vezi tot» rail card now links here (lib/partide-pages myCatches)."
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.spectator

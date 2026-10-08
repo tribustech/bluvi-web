@@ -14,7 +14,9 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  * (helpers/fake-live.ts — the fixture fails the test on any request to a Firebase host), the CMS
  * reads are route-mocked, the tab makes no write. The photos are same-origin SVGs served by the
  * test (route-fulfilled), so the GIF canvas can read them. The system share sheet is stubbed
- * (navigator.canShare / share) or absent (the download path). The tab ships for real (lib/
+ * (navigator.canShare / share) the way a real browser behaves: canShare({files}) is true on a
+ * desktop too, and share() rejects with NotAllowedError once the click's transient activation is
+ * gone (stubShare `activationMs`: iOS Safari is the strict one). The tab ships for real (lib/
  * partide-pages partidaGalerie): no `allTabs`.
  */
 
@@ -69,6 +71,12 @@ const FIVE: FakeCatchDoc[] = [
   { clientId: 'g-5', outcome: 'capture', occurredAt: at(20), rodIndex: 2, weightKg: 1.25, species: 'Plătică', photoUrl: photo('p5') },
 ];
 const NO_PHOTO: FakeCatchDoc[] = FIVE.filter(c => !c.clientId.startsWith('g-'));
+/**
+ * FIVE with the CMS's grid thumbs («p1-t»): the grid shows the thumbs and the export loads the
+ * originals over the network — as in production. (Without thumbs the export's `new Image()` of a
+ * URL the grid already shows comes from the document's image cache, no-store or not.)
+ */
+const FIVE_THUMBS: FakeCatchDoc[] = FIVE.map(c => (c.photoUrl ? { ...c, photoThumbUrl: c.photoUrl.replace('.svg', '-t.svg') } : c));
 const ONE: FakeCatchDoc[] = [...NO_PHOTO, FIVE[0]];
 
 const member = (uid: string, name: string) => ({ uid, name, avatar: null, joinedAt: at(170) });
@@ -98,12 +106,18 @@ function liveDoc(catches: FakeCatchDoc[]): FakeLiveDoc {
 
 const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
-/** The test's photos: same-origin SVGs (`delayMs` slows each, so the GIF progress is observable). */
-async function photoRoutes(page: Page, { delayMs = 0 }: { delayMs?: number } = {}) {
+/**
+ * The test's photos: same-origin SVGs (`delayMs` slows each, so the GIF progress is observable).
+ * A «-t» name is that photo's thumb. `fail`: every photo 404s. The returned `hang(names)` makes
+ * those (originals) never answer from then on.
+ */
+async function photoRoutes(page: Page, { delayMs = 0, fail = false }: { delayMs?: number; fail?: boolean } = {}) {
+  const hanging = new Set<string>();
   await page.route('**/__e2e-galerie/*.svg', async route => {
     const name = /\/([^/]+)\.svg/.exec(route.request().url())![1];
-    const p = PHOTOS[name];
-    if (!p) return route.fulfill({ status: 404 });
+    const p = PHOTOS[name.replace(/-t$/, '')];
+    if (!p || fail) return route.fulfill({ status: 404 });
+    if (hanging.has(name)) return; // never answers
     if (delayMs) await new Promise(r => setTimeout(r, delayMs));
     return route.fulfill({
       status: 200,
@@ -112,6 +126,7 @@ async function photoRoutes(page: Page, { delayMs = 0 }: { delayMs?: number } = {
       body: `<svg xmlns="http://www.w3.org/2000/svg" width="${p.w}" height="${p.h}" viewBox="0 0 ${p.w} ${p.h}"><rect width="100%" height="100%" fill="${p.fill}"/><circle cx="${p.w / 2}" cy="${p.h / 2}" r="${Math.min(p.w, p.h) / 4}" fill="#F2C94C"/></svg>`,
     });
   });
+  return { hang: (...names: string[]) => names.forEach(n => hanging.add(n)) };
 }
 
 /** The CMS as the tab sees it: the pointer (live) or the own list + detail (ended). */
@@ -204,23 +219,39 @@ const gifButton = (page: Page) => page.getByTestId('galerie-gif').filter({ visib
 const toast = (page: Page, text: string) => page.getByText(text, { exact: true }).filter({ visible: true });
 const settle = (page: Page) => page.waitForTimeout(450);
 
-/** Records what the page hands navigator.share (canShare true) — the GIF's name, type, size, header. */
-async function stubShare(page: Page, canShare: boolean) {
-  await page.addInitScript(can => {
-    const w = window as unknown as { __shared__: unknown[] };
-    w.__shared__ = [];
-    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => can });
-    Object.defineProperty(navigator, 'share', {
-      configurable: true,
-      value: async (data: { files?: File[]; title?: string }) => {
-        const f = data.files?.[0];
-        const head = f ? new TextDecoder().decode(new Uint8Array(await f.slice(0, 6).arrayBuffer())) : '';
-        w.__shared__.push({ title: data.title, name: f?.name, type: f?.type, size: f?.size ?? 0, head });
-      },
-    });
-  }, canShare);
+/**
+ * navigator.canShare / share as a real browser: canShare({files}) true (desktops too). share()
+ * rejects with NotAllowedError when no trusted click/tap/key happened in the last `activationMs`
+ * (the transient activation: iOS Safari's is short), with AbortError when `dismiss` (the user closed
+ * the sheet); otherwise it records what it was handed — the GIF's name, type, size, header.
+ * `__shareCalls__` counts every call.
+ */
+async function stubShare(page: Page, { activationMs = 1000, dismiss = false }: { activationMs?: number; dismiss?: boolean } = {}) {
+  await page.addInitScript(
+    ({ activationMs, dismiss }) => {
+      const w = window as unknown as { __shared__: unknown[]; __shareCalls__: number };
+      w.__shared__ = [];
+      w.__shareCalls__ = 0;
+      let gesture = -Infinity;
+      for (const type of ['pointerdown', 'click', 'keydown']) window.addEventListener(type, e => e.isTrusted && (gesture = Date.now()), { capture: true });
+      Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true });
+      Object.defineProperty(navigator, 'share', {
+        configurable: true,
+        value: async (data: { files?: File[]; title?: string }) => {
+          w.__shareCalls__++;
+          if (Date.now() - gesture > activationMs) throw new DOMException('Must be handling a user gesture to perform a share request.', 'NotAllowedError');
+          if (dismiss) throw new DOMException('Share canceled', 'AbortError');
+          const f = data.files?.[0];
+          const head = f ? new TextDecoder().decode(new Uint8Array(await f.slice(0, 6).arrayBuffer())) : '';
+          w.__shared__.push({ title: data.title, name: f?.name, type: f?.type, size: f?.size ?? 0, head });
+        },
+      });
+    },
+    { activationMs, dismiss },
+  );
 }
 const shared = (page: Page) => page.evaluate(() => (window as unknown as { __shared__: { title: string; name: string; type: string; size: number; head: string }[] }).__shared__);
+const shareCalls = (page: Page) => page.evaluate(() => (window as unknown as { __shareCalls__: number }).__shareCalls__);
 
 /* ------------------------------------------------------------------------------------------------
  * c1 — the masonry
@@ -279,6 +310,41 @@ test('partide.partida-galerie.c1 an ended partidă: the photos of the CMS detail
   await expect(gifButton(page)).toHaveCount(1);
   await page.screenshot({ path: `${SHOTS}/ended-375.png`, fullPage: true });
 });
+
+for (const width of [375, 1280] as const) {
+  test(`partide.partida-galerie.c1 at ${width}: no layout shift — a visible tile never moves once its photo loads`, async ({ page, fakeLive }) => {
+    // Every frame, the rect of each VISIBLE tile (the masonry's pre-placement grid is invisible).
+    await page.addInitScript(() => {
+      const seen: Record<string, string[]> = {};
+      (window as unknown as { __tileRects__: typeof seen }).__tileRects__ = seen;
+      const tick = () => {
+        for (const el of document.querySelectorAll<HTMLElement>('[data-testid="galerie-grid"] button')) {
+          const r = el.getBoundingClientRect();
+          if (getComputedStyle(el).visibility !== 'visible' || r.width === 0) continue;
+          const rect = [r.left, r.top + window.scrollY, r.width, r.height].map(n => Math.round(n)).join(',');
+          const list = (seen[el.getAttribute('aria-label') ?? '?'] ??= []);
+          if (list.at(-1) !== rect) list.push(rect);
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc(FIVE) } });
+    await mockCms(page);
+    // Slow photos (live events carry no dimensions): the old grid placed every tile at 4:3, then moved them.
+    await photoRoutes(page, { delayMs: 500 });
+    await open(page, { width });
+    await expect(tiles(page)).toHaveCount(5);
+    await expect.poll(() => tiles(page).locator('img').evaluateAll(imgs => imgs.every(i => (i as HTMLImageElement).complete && (i as HTMLImageElement).naturalWidth > 0)), { timeout: 15_000 }).toBe(true);
+    await settle(page);
+    const rects = await page.evaluate(() => (window as unknown as { __tileRects__: Record<string, string[]> }).__tileRects__);
+    expect(Object.keys(rects)).toHaveLength(5);
+    for (const [label, seen] of Object.entries(rects)) expect(seen, label).toHaveLength(1);
+    // Placed at the photos' real ratios: the 900×1200 portrait is taller than the 1600×900 landscape.
+    const h = (label: string) => Number(rects[label][0].split(',')[3]);
+    expect(h('Deschide poza: Somn · 8,69 kg')).toBeGreaterThan(h('Deschide poza: 12,345 kg'));
+  });
+}
 
 /* ------------------------------------------------------------------------------------------------
  * c2 — empty, and one photo
@@ -366,11 +432,12 @@ for (const width of [375, 1280] as const) {
  * c4 — the GIF export
  * ---------------------------------------------------------------------------------------------- */
 
-test('partide.partida-galerie.c4 phone: «Exportă GIF» shows «{done}/{total}», then hands a GIF to the system share sheet', async ({ page, fakeLive }) => {
-  await stubShare(page, true);
-  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc(FIVE) } });
+test('partide.partida-galerie.c4 phone: «Exportă GIF» shows «{done}/{total}»; the build outlives the tap\'s activation → share refused → «Distribuie GIF-ul», a fresh tap shares', async ({ page, fakeLive }) => {
+  await stubShare(page, { activationMs: 1000 }); // iOS Safari-strict
+  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc(FIVE_THUMBS) } });
   await mockCms(page);
-  // Every photo answers slowly (no-store: the export reloads them), so the progress is observable.
+  // Every photo answers slowly (no-store: the export reloads them), so the progress is observable
+  // and the build (5 × 350 ms + encoding) outlives the click's activation.
   await photoRoutes(page, { delayMs: 350 });
   await open(page, { width: 375 });
   await expect(tiles(page)).toHaveCount(5);
@@ -378,7 +445,13 @@ test('partide.partida-galerie.c4 phone: «Exportă GIF» shows «{done}/{total}�
   await expect(gifButton(page)).toHaveText(/^[0-4]\/5$/);
   await expect(gifButton(page)).toHaveAttribute('aria-busy', 'true');
   await page.screenshot({ path: `${SHOTS}/gif-progress-375.png` });
-  await expect(gifButton(page)).toHaveText('Exportă GIF', { timeout: 30_000 });
+  // The automatic share was refused (NotAllowedError): the GIF is kept, the action asks for a tap.
+  await expect(gifButton(page)).toHaveText('Distribuie GIF-ul', { timeout: 30_000 });
+  expect(await shareCalls(page)).toBe(1);
+  expect(await shared(page)).toEqual([]);
+  await expect(page.getByRole('status').filter({ hasText: 'GIF-ul e gata.' })).toHaveCount(1);
+  await page.screenshot({ path: `${SHOTS}/gif-ready-375.png` });
+  await gifButton(page).click();
   await expect.poll(() => shared(page).then(s => s.length)).toBe(1);
   const [gif] = await shared(page);
   expect(gif.title).toBe('Distribuie GIF-ul');
@@ -386,14 +459,47 @@ test('partide.partida-galerie.c4 phone: «Exportă GIF» shows «{done}/{total}�
   expect(gif.name).toMatch(/^bluvi-galerie-\d+\.gif$/);
   expect(gif.head).toBe('GIF89a');
   expect(gif.size).toBeGreaterThan(10_000);
+  await expect(gifButton(page)).toHaveText('Exportă GIF');
 });
 
-test('partide.partida-galerie.c4 desktop: no file share → the GIF is downloaded, «GIF-ul a fost salvat.»', async ({ page, fakeLive }) => {
-  await stubShare(page, false);
+test('partide.partida-galerie.c4 phone: refused twice → the GIF is downloaded, «GIF-ul a fost salvat.»', async ({ page, fakeLive }) => {
+  await stubShare(page, { activationMs: -1 }); // every share refused
+  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc(FIVE) } });
+  await mockCms(page);
+  await photoRoutes(page);
+  await open(page, { width: 375 });
+  await gifButton(page).click();
+  await expect(gifButton(page)).toHaveText('Distribuie GIF-ul', { timeout: 30_000 });
+  const download = page.waitForEvent('download');
+  await gifButton(page).click();
+  const bytes = readFileSync(await (await download).path());
+  expect(bytes.subarray(0, 6).toString()).toBe('GIF89a');
+  await expect(toast(page, 'GIF-ul a fost salvat.')).toBeVisible();
+  expect(await shareCalls(page)).toBe(2);
+  await expect(gifButton(page)).toHaveText('Exportă GIF');
+});
+
+test('partide.partida-galerie.c4 phone: the user closes the share sheet (AbortError) → nothing else, no toast', async ({ page, fakeLive }) => {
+  await stubShare(page, { activationMs: 600_000, dismiss: true });
+  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc(FIVE) } });
+  await mockCms(page);
+  await photoRoutes(page);
+  await open(page, { width: 375 });
+  await gifButton(page).click();
+  await expect.poll(() => shareCalls(page), { timeout: 30_000 }).toBe(1);
+  await expect(gifButton(page)).toHaveText('Exportă GIF');
+  await settle(page);
+  await expect(page.getByText(/GIF-ul a fost salvat|Eroare la generarea/)).toHaveCount(0);
+  expect(await shared(page)).toEqual([]);
+});
+
+test('partide.partida-galerie.c4 desktop (fine pointer, canShare true as real desktop browsers): the GIF is downloaded, «GIF-ul a fost salvat.»', async ({ page, fakeLive }) => {
+  await stubShare(page, { activationMs: 600_000 });
   await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc(FIVE) } });
   await mockCms(page);
   await photoRoutes(page);
   await open(page, { width: 1440 });
+  expect(await page.evaluate(() => matchMedia('(pointer: fine)').matches)).toBe(true);
   const download = page.waitForEvent('download', { timeout: 30_000 });
   await gifButton(page).click();
   const file = await download;
@@ -401,12 +507,12 @@ test('partide.partida-galerie.c4 desktop: no file share → the GIF is downloade
   const bytes = readFileSync(await file.path());
   expect(bytes.subarray(0, 6).toString()).toBe('GIF89a');
   await expect(toast(page, 'GIF-ul a fost salvat.')).toBeVisible();
-  expect(await shared(page)).toEqual([]);
+  expect(await shareCalls(page)).toBe(0);
   await expect(gifButton(page)).toHaveText('Exportă GIF');
 });
 
 test('partide.partida-galerie.c4 a failed export → «Eroare la generarea GIF-ului», the action is back', async ({ page, fakeLive }) => {
-  await stubShare(page, true);
+  await stubShare(page, { activationMs: 600_000 });
   await page.addInitScript(() => {
     CanvasRenderingContext2D.prototype.getImageData = () => {
       throw new DOMException('The canvas has been tainted by cross-origin data.', 'SecurityError');
@@ -420,4 +526,56 @@ test('partide.partida-galerie.c4 a failed export → «Eroare la generarea GIF-u
   await expect(toast(page, 'Eroare la generarea GIF-ului')).toBeVisible();
   await expect(gifButton(page)).toHaveText('Exportă GIF');
   expect(await shared(page)).toEqual([]);
+});
+
+test('partide.partida-galerie.c4 no photo loads (every photo 404s) → «Eroare la generarea GIF-ului», never a GIF of blank frames', async ({ page, fakeLive }) => {
+  await stubShare(page, { activationMs: 600_000 });
+  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc(FIVE) } });
+  await mockCms(page);
+  await photoRoutes(page, { fail: true });
+  await open(page, { width: 375 });
+  await expect(tiles(page)).toHaveCount(5);
+  let downloaded = false;
+  page.on('download', () => (downloaded = true));
+  await gifButton(page).click();
+  await expect(toast(page, 'Eroare la generarea GIF-ului')).toBeVisible();
+  await expect(gifButton(page)).toHaveText('Exportă GIF');
+  expect(await shareCalls(page)).toBe(0);
+  expect(downloaded).toBe(false);
+  await expect(page.getByText('GIF-ul a fost salvat.')).toHaveCount(0);
+});
+
+test('partide.partida-galerie.c4 a photo that never answers: its deadline passes, the GIF completes with the rest', async ({ page, fakeLive }) => {
+  await stubShare(page, { activationMs: 600_000 });
+  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc(FIVE_THUMBS) } });
+  await mockCms(page);
+  const photos = await photoRoutes(page);
+  await open(page, { width: 375 });
+  await expect(tiles(page)).toHaveCount(5);
+  photos.hang('p3'); // the third frame (newest first: p5, p4, p3 …)
+  await gifButton(page).click();
+  await expect(gifButton(page)).toHaveText('2/5');
+  await page.clock.fastForward(16_000); // past the 15 s photo deadline
+  await expect.poll(() => shared(page).then(s => s.length), { timeout: 30_000 }).toBe(1);
+  expect((await shared(page))[0].head).toBe('GIF89a');
+  await expect(gifButton(page)).toHaveText('Exportă GIF');
+});
+
+test('partide.partida-galerie.c4 a second tap cancels a stuck export: the action is back, nothing shared, no toast', async ({ page, fakeLive }) => {
+  await stubShare(page, { activationMs: 600_000 });
+  await fakeLive.seed({ docs: { [LIVE.clientId]: liveDoc(FIVE_THUMBS) } });
+  await mockCms(page);
+  const photos = await photoRoutes(page);
+  await open(page, { width: 1280 });
+  await expect(tiles(page)).toHaveCount(5);
+  photos.hang('p3');
+  await gifButton(page).click();
+  await expect(gifButton(page)).toHaveText('2/5');
+  await expect(gifButton(page)).toHaveAccessibleName('Anulează GIF-ul: 2 din 5 gata');
+  await gifButton(page).click();
+  await expect(gifButton(page)).toHaveText('Exportă GIF');
+  await expect(gifButton(page)).not.toHaveAttribute('aria-busy');
+  await settle(page);
+  await expect(page.getByText(/GIF-ul a fost salvat|Eroare la generarea/)).toHaveCount(0);
+  expect(await shareCalls(page)).toBe(0);
 });
