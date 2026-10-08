@@ -1,7 +1,8 @@
 import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
-import { expect, test, type Locator, type Page, type Request } from '@playwright/test';
+import { type Locator, type Page, type Request } from '@playwright/test';
+import { expect, test } from './helpers/fake-chat';
 import { ON_WEB } from '@/lib/routes';
 
 /*

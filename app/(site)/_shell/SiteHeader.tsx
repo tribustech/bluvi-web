@@ -53,6 +53,8 @@ export function crumbsForPath(pathname: string): Crumb[] {
 const OWN_BAND_ROUTES: readonly RegExp[] = [
   /^\/concursuri\/[^/]+(?:\/(?:clasament|cantare|statistici|capturi|informatii|participanti|extra-cantare|regulament))?\/?$/,
   /^\/concursuri\/[^/]+\/cantar(?:\/.*)?$/,
+  // The competition chat (participant.chat): a viewport-tall surface whose header owns the way back.
+  /^\/concursuri\/[^/]+\/chat\/?$/,
   // Știre and Sponsor (page, loading.tsx and error.tsx render the band; Noutăți / Acasă first).
   /^\/stiri\/[^/]+\/?$/,
   /^\/sponsori\/[^/]+\/?$/,
@@ -87,6 +89,10 @@ const OWN_BAND_ROUTES: readonly RegExp[] = [
   /^\/sondaje\/?$/,
   // «Sondaje anterioare» (T1, participant.polls-past.c1): the same — its header's back control.
   /^\/sondaje\/anterioare\/?$/,
+  // «Câștigători» (T6, participant.raffle-winners): its header's back control owns the way back.
+  /^\/tombola\/castigatori\/?$/,
+  // «Șansele mele» (T6, participant.raffle-status): the same — its header's back control.
+  /^\/tombola\/sansele-mele\/?$/,
 ];
 
 export function ownsBreadcrumbBand(pathname: string): boolean {

@@ -126,7 +126,19 @@ export function ChoiceTile({
   // soft-fill on the surface card.
   const neutralRest = ground ? 'bg-surface shadow-e0' : 'bg-soft-fill';
   const neutralHover = ground ? 'hover:bg-soft-fill' : 'hover:bg-shimmer';
-  if (radio && !disabled) {
+  if (radio && disabled && !filled) {
+    // A radio that cannot be picked (the raffle's other types after the deadline): still one of the
+    // group for a screen reader (a disabled native radio), drawn as the disabled tile.
+    return (
+      <li className="flex">
+        <label aria-disabled className={cn(shape, 'w-full cursor-not-allowed bg-transparent outline-1 -outline-offset-1 outline-faint outline-dashed')}>
+          <input type="radio" name={radio.name} value={radio.value} checked={false} disabled onChange={radio.onChange} className="sr-only" />
+          {body}
+        </label>
+      </li>
+    );
+  }
+  if (radio) {
     return (
       <li className="flex">
         <label
@@ -134,7 +146,9 @@ export function ChoiceTile({
             shape,
             'w-full cursor-pointer transition-[background-color,opacity] duration-(--duration-fast) ease-fast active:opacity-70',
             'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent',
-            filled ? 'bg-accent shadow-button' : tone === 'accent' ? 'bg-accent-tint hover:bg-accent-tint-2' : cn(neutralRest, neutralHover),
+            // Inside a disabled fieldset (a change in flight) the tiles hold still: no hover, no press.
+            'has-disabled:cursor-progress has-disabled:active:opacity-100',
+            filled ? 'bg-accent shadow-button' : tone === 'accent' ? 'bg-accent-tint hover:bg-accent-tint-2 has-disabled:hover:bg-accent-tint' : cn(neutralRest, neutralHover),
           )}
         >
           <input type="radio" name={radio.name} value={radio.value} checked={radio.checked} onChange={radio.onChange} className="sr-only" />

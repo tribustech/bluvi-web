@@ -26,7 +26,7 @@ import { RoomTabs } from './RoomTabs';
  *  - 768–1279: the same column, header + tabs over the conversation, on a surface panel.
  *  - ≥1280, three columns: left 280 — the competition card (banner, status, dates, lake, links to
  *    Clasament and Participanți) and the rooms as a vertical tab list; centre — the header, the
- *    conversation (bubbles ≤ 640) and the composer at the column's bottom; right 320 — «Poze din
+ *    conversation (bubbles ≤ min(82%, 560 px)) and the composer at the column's bottom; right 320 — «Poze din
  *    cameră» (the room's photos, buildRoomGallery) and quick facts.
  */
 

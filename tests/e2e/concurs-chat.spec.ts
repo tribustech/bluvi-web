@@ -653,7 +653,7 @@ for (const size of [TABLET, { width: 1280, height: 800 }, DESKTOP, { width: 1920
       await expect(page.getByRole('link', { name: 'Clasament' })).toHaveAttribute('href', `/concursuri/${ID}/clasament`);
       await expect(page.getByRole('link', { name: 'Participanți' })).toHaveAttribute('href', `/concursuri/${ID}/participanti`);
       await expect(page.getByRole('heading', { name: 'Poze din cameră' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Imagine 1 din 1' })).toBeVisible();
+      await expect(page.getByRole('complementary', { name: 'Despre cameră' }).getByRole('button', { name: 'Imagine 1 din 1' })).toBeVisible();
       await expect(visibleTablist(page)).toHaveAttribute('aria-orientation', 'vertical');
     } else {
       await expect(page.getByRole('complementary', { name: 'Concursul' })).toBeHidden();

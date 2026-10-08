@@ -376,6 +376,8 @@
   --color-indigo-4: #a5b4fc;
   --color-indigo-5: #6265f1;
   --color-indigo-7: #4338ca;
+  /* Chat «citit» ✓✓ on my indigo bubble (fish #60A5FA, 2.0:1 there): cyan-200, 3.9:1 on accent. */
+  --color-receipt-read: #a5f3fc;
 
   /* ---- Partidă «Trăsături pe ore» heat ramp (fish HourHeatmap RAMP, levels 1–4; level 0 is
    * soft-fill). #6366F1 → indigo-5 and the peak #0891B2 → #0E7490 one cyan step down, so the
@@ -713,6 +715,30 @@
 }
 @utility animate-live {
   animation: bluvi-live 1.4s ease-in-out infinite;
+}
+
+/* The chat's empty-room greeting (fish ChatEmptyRoom WavingHand: 18° / -12° / 14° / 0, then a rest). */
+@keyframes bluvi-wave {
+  0%,
+  45%,
+  100% {
+    rotate: 0deg;
+  }
+  11% {
+    rotate: 18deg;
+  }
+  22% {
+    rotate: -12deg;
+  }
+  33% {
+    rotate: 14deg;
+  }
+}
+@utility animate-wave {
+  animation: bluvi-wave 2.4s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
 
 /* Skeleton shimmer (Fundații §07 LoadingRow): 1.4s linear loop; reduced motion stops it below. */
