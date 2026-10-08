@@ -84,8 +84,12 @@ describe('notificationHref — every type with its ids', () => {
     [T.FOLLOW_LAKE_REVIEW, { lakeId: 'l3' }, '/balti/l3/recenzii'],
     // → the angler's booking page (booking.b.notification-routes, booking.rezervare.c14)
     // (the BOOKING_*_ANGLER rows below)
+    // → the competition chat, the room the push names (participant.b.chat-notification-route)
+    [T.CHAT_MESSAGE, { ...C, tab: 'participants' }, '/concursuri/c1/chat?tab=participanti'],
+    [T.CHAT_MESSAGE, { ...C, chatRoom: 'participants' }, '/concursuri/c1/chat?tab=participanti'],
+    [T.CHAT_MESSAGE, { ...C, tab: 'general', name: 'Cupa' }, '/concursuri/c1/chat?tab=general'],
+    [T.CHAT_MESSAGE, C, '/concursuri/c1/chat?tab=general'],
     // → pages not on the web yet: no link (each gate in NOTIFICATION_PAGES_ON_WEB / ON_WEB)
-    [T.CHAT_MESSAGE, { ...C, tab: 'participants' }, null],
     [T.PENALTY, C, null],
     // partide.b.notif-invite: the invite code → the join confirmation (sign-in first when signed out).
     [T.PARTIDA_INVITE, { partidaCode: 'ABC123' }, '/partide/intra/ABC123'],

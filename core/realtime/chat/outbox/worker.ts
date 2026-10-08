@@ -7,7 +7,7 @@
  * with `failed` (the bubble offers Reîncearcă / Șterge). `run()` from anywhere is a cheap kick; a
  * run in progress just loops once more.
  */
-import { doc, getDoc, serverTimestamp, setDoc, type DocumentReference } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import {
   isFirestoreAuthError,
   signInToFirebase,
@@ -32,6 +32,35 @@ export const OFFLINE_RECHECK_LIMIT = 36; // 3 minutes; the next online/foregroun
 
 class FatalOutboxError extends Error {}
 
+/**
+ * The three Firestore operations the worker makes, by document path. Omitted = the real SDK on
+ * `ctx.chatDb` (`firestoreOutboxIo`). Web e2e tests inject an in-page fake here (the Firebase
+ * project is shared by every environment: no test may write to it) so the REAL retry / backoff /
+ * role-chip ladder below runs against recorded writes. Errors keep the SDK's shape (`code`).
+ */
+export type OutboxIo = {
+  /** The meta doc's `closesAt` in ms, or null (no doc / no field). Rejects on a read failure. */
+  readClosesAtMs(competitionId: string): Promise<number | null>;
+  /** Whether the message doc exists. Rejects on a read failure. */
+  exists(path: string): Promise<boolean>;
+  /** `setDoc(doc(path), payload)`. */
+  write(path: string, payload: Record<string, unknown>): Promise<void>;
+};
+
+export function firestoreOutboxIo(ctx: RealtimeContext): OutboxIo {
+  return {
+    async readClosesAtMs(competitionId) {
+      const snap = await getDoc(doc(ctx.chatDb, chatMetaPath(competitionId)));
+      const closesAt = (snap.data() as { closesAt?: { toMillis: () => number } } | undefined)?.closesAt;
+      return closesAt ? closesAt.toMillis() : null;
+    },
+    async exists(path) {
+      return (await getDoc(doc(ctx.chatDb, path))).exists();
+    },
+    write: (path, payload) => setDoc(doc(ctx.chatDb, path), payload),
+  };
+}
+
 export type OutboxWorkerDeps = {
   ctx: RealtimeContext;
   storage: OutboxStorage;
@@ -52,6 +81,8 @@ export type OutboxWorkerDeps = {
    * so the app can free what it holds for it (web: revoke object URLs). `null` = every row.
    */
   releaseFiles?: (messageId: string | null) => void;
+  /** The Firestore reads/writes (see `OutboxIo`); omitted = the SDK on `ctx.chatDb`. */
+  io?: OutboxIo;
 };
 
 export type OutboxWorker = ReturnType<typeof createOutboxWorker>;
@@ -59,6 +90,7 @@ export type OutboxWorker = ReturnType<typeof createOutboxWorker>;
 export function createOutboxWorker(deps: OutboxWorkerDeps) {
   const { ctx, uploader, getCustomToken, apiBase = '', report, releaseFiles } = deps;
   const now = deps.now ?? Date.now;
+  const io = deps.io ?? firestoreOutboxIo(ctx);
   const repo = createOutboxRepo(deps.storage);
   const listeners = new Set<() => void>();
   let running = false;
@@ -134,9 +166,9 @@ export function createOutboxWorker(deps: OutboxWorkerDeps) {
     if (wake !== null) wakeTimer = setTimeout(runInternal, wake + 50);
   }
 
-  async function docAlreadyDelivered(ref: DocumentReference): Promise<boolean> {
+  async function docAlreadyDelivered(path: string): Promise<boolean> {
     try {
-      return (await getDoc(ref)).exists();
+      return await io.exists(path);
     } catch {
       return false;
     }
@@ -164,9 +196,8 @@ export function createOutboxWorker(deps: OutboxWorkerDeps) {
    * and that rejection follows the normal retry/backoff ladder instead of being misreported here. */
   async function isChatClosed(competitionId: string): Promise<boolean> {
     try {
-      const snap = await getDoc(doc(ctx.chatDb, chatMetaPath(competitionId)));
-      const closesAt = (snap.data() as { closesAt?: { toMillis: () => number } } | undefined)?.closesAt;
-      return !!closesAt && closesAt.toMillis() <= now();
+      const closesAtMs = await io.readClosesAtMs(competitionId);
+      return closesAtMs !== null && closesAtMs <= now();
     } catch {
       return false;
     }
@@ -205,7 +236,7 @@ export function createOutboxWorker(deps: OutboxWorkerDeps) {
 
       await repo.updateMessage(message.id, { status: 'writing' });
       notify();
-      const ref = doc(ctx.chatDb, chatMessagePath(message.competitionId, message.roomId, message.id));
+      const ref = chatMessagePath(message.competitionId, message.roomId, message.id);
       // Resuming a row that was already `writing`: the previous attempt may have been killed AFTER
       // the server acked the write but BEFORE the row could be deleted. `setDoc` would replace the
       // doc — a fresh `createdAt`, and any edit/delete/reaction recorded since silently discarded
@@ -264,9 +295,9 @@ export function createOutboxWorker(deps: OutboxWorkerDeps) {
    * the payload means the membership mirror hasn't caught up yet); anything else left over after
    * the retry is a fatal auth failure — retrying again with backoff would not help.
    */
-  async function writeWithFallbacks(ref: DocumentReference, payload: ChatMessageWrite, senderId: string): Promise<void> {
+  async function writeWithFallbacks(ref: string, payload: ChatMessageWrite, senderId: string): Promise<void> {
     try {
-      await setDoc(ref, payload);
+      await io.write(ref, payload);
       return;
     } catch (error) {
       // `shouldRetryWithoutRole` only ever returns true for a permission-denied code, which
@@ -277,10 +308,10 @@ export function createOutboxWorker(deps: OutboxWorkerDeps) {
       const uid = ctx.auth.currentUser?.uid;
       if (uid !== senderId) throw error;
       try {
-        await setDoc(ref, payload);
+        await io.write(ref, payload);
       } catch (again) {
         if (shouldRetryWithoutRole(again, payload)) {
-          await setDoc(ref, withoutSenderRole(payload));
+          await io.write(ref, withoutSenderRole(payload));
           return;
         }
         if (isFirestoreAuthError(again)) throw new FatalOutboxError('Nu ai voie să scrii în acest chat.');

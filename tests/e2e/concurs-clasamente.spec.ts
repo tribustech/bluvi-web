@@ -1,7 +1,8 @@
 import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { qaJwt, signIn } from './helpers/session';
-import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { expect, test } from './helpers/fake-chat';
 
 /*
  * Concurs · the rankings with their own tables — parity docs/parity/areas/competition-page.yml:

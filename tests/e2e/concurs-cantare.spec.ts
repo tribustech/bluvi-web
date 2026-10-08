@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { expect, test } from './helpers/fake-chat';
 import { nationalStandLabel } from '@/app/(site)/concursuri/[id]/_components/stand';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { collectConsoleErrors } from './helpers/console';

@@ -2,7 +2,8 @@ import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { findCompetition, registrationOpen, startOf } from './helpers/fixtures';
 import { CMS, qaJwt, signIn } from './helpers/session';
-import { expect, test, type BrowserContext, type Locator, type Page, type Route } from '@playwright/test';
+import { type BrowserContext, type Locator, type Page, type Route } from '@playwright/test';
+import { expect, test } from './helpers/fake-chat';
 
 /*
  * Concurs before the start (competition-page.previzualizare) and the action bar for a guest, an
@@ -411,10 +412,12 @@ test('competition-page.bara-actiuni.c2 competition-page.bara-actiuni.c3 competit
   await mockMyStatus(context, ID.live, null);
   await open(page, ID.live);
   await settle(page);
-  const tiles = page.getByRole('navigation', { name: 'Acțiuni concurs' }).getByRole('button');
+  // The tiles are buttons, except Chat: a link to the chat page (participant.b.chat-entry).
+  const tiles = page.getByRole('navigation', { name: 'Acțiuni concurs' }).locator('[data-tile]');
   await expect(tiles).toHaveCount(5);
   await expect(tiles.nth(0)).toHaveAccessibleName('Vezi clasamentul pe tot ecranul');
   await expect(tiles.nth(1)).toHaveAccessibleName(/^Chat competiție/);
+  await expect(tiles.nth(1)).toHaveAttribute('href', new RegExp(`^/concursuri/${ID.live}/chat(\\?tab=(general|participanti))?$`));
   await expect(tiles.nth(2)).toHaveAccessibleName('Vezi cântarele din concurs');
   await expect(tiles.nth(3)).toHaveAccessibleName('Sortare clasament');
   await expect(tiles.nth(4)).toHaveAccessibleName('Statistici');

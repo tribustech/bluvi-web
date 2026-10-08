@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
+import { expect, test } from './helpers/fake-chat';
 import { qaJwt, signIn } from './helpers/session';
 import { hydrateRanking, type RankingFixture } from '../fixtures/rankings/hydrate';
 

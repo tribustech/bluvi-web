@@ -64,7 +64,7 @@ import { FeederHelp, FeederLegTabs, FeederRankingTable, feederLegEmpty, type Fee
 import { NcRankingTable, NcSectorPills, NcSortControl, ncSortFor, type NcSort, type NcView } from './NcRanking';
 import { useSiteToast } from '../../../_shell/Toast';
 import { AllFishView } from './AllFishView';
-import { ChatDock, ChatHeaderButton, MobileChatSheet, useChatBadge } from './ChatPanel';
+import { ChatHeaderButton, markChatFromCompetition, useChatBadge, useChatHref } from './ChatPanel';
 import { CompetitionSkeleton } from './CompetitionSkeleton';
 import { isOfflineEmpty, OFFLINE_TITLE } from './offline';
 import { cn } from '@/components/ui/cn';
@@ -278,6 +278,7 @@ function Screen({
     ((unsupported ? myStatusQ.isError && !myStatusQ.data : overlayRead === 'failed') || (statuteQ.isError && !statuteQ.data));
   const statute = statuteQ.data;
   const chatBadge = useChatBadge(id, viewer ?? null, statute);
+  const chatHref = useChatHref(id);
   // parity shell.c18 / c21: competition_page_tab_pressed and share_competition (analytics.ts).
   useCompetitionAnalytics(id, competition?.name, tab);
 
@@ -304,8 +305,6 @@ function Screen({
   const [sortNonce, setSortNonce] = useState(0);
   const [barMessage, setBarMessage] = useState<string | null>(null);
   const [fullOpen, setFullOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [dockOpen, setDockOpen] = useState(false);
 
   const live = status === 'started';
   const poll = { refetchInterval: live ? LIVE_POLL_MS : false } as const;
@@ -735,9 +734,9 @@ function Screen({
               </>
             ) : null
           }
-          // From 768, signed in: the chat is a header action (nothing floats over the table); the
-          // header holds its place while the session resolves (CompetitionHeader `chat`).
-          chat={() => <ChatHeaderButton badge={chatBadge} open={dockOpen} onToggle={() => setDockOpen(o => !o)} />}
+          // From 768, signed in: the chat is a header link to the chat page (participant.b.chat-entry);
+          // the header holds its place while the session resolves (CompetitionHeader `chat`).
+          chat={() => <ChatHeaderButton competitionId={id} badge={chatBadge} />}
         />
       </DetailBand>
       {/* parity shell.c19: the route tabs pin (phone: with the T3 mini title row, following the bar). */}
@@ -997,7 +996,7 @@ function Screen({
             }
             confirm={barConfirm}
             loadingLabel={extraLoading}
-            onChat={isAuthenticated ? () => setChatOpen(true) : undefined}
+            chat={isAuthenticated ? { href: chatHref, onOpen: () => markChatFromCompetition(id) } : undefined}
             chatBadge={chatBadge}
             rankingAvailable={!unsupported && onClasament}
             barMessage={barMessage}
@@ -1088,26 +1087,6 @@ function Screen({
           }
         />
       ) : null}
-      {/* From 768, signed in only: signed out it could only lead to «Intră în cont» (the phone bar has no Chat tile either). */}
-      {viewer ? (
-        <ChatDock
-          open={dockOpen}
-          onClose={() => setDockOpen(false)}
-          competition={competition}
-          viewer={viewer}
-          statute={statute}
-          signIn={signIn}
-          badge={chatBadge}
-        />
-      ) : null}
-      <MobileChatSheet
-        open={chatOpen}
-        onClose={() => setChatOpen(false)}
-        competition={competition}
-        viewer={viewer ?? null}
-        statute={statute}
-        signIn={signIn}
-      />
     </DetailPage>
   );
 }

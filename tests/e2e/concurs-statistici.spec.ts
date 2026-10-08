@@ -1,7 +1,8 @@
 import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
-import { expect, test, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { expect, test } from './helpers/fake-chat';
 import { SESSIONS_COLLAPSED_MAX } from '@/core/competitions/domain/weighingSessions';
 import { COMPETITION_CATCHES_PAGE_SIZE } from '@/core/competitions/queries';
 import type { WeighingStatisticsItem } from '@/core/competitions/schemas';

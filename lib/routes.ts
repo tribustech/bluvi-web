@@ -113,6 +113,13 @@ export const routes = {
     const qs = q.toString();
     return `/concursuri/${encodeURIComponent(documentId)}/inscriere/fara-cont${qs ? `?${qs}` : ''}`;
   },
+  /**
+   * The competition chat (participant.chat; fish /competitions/[id]/chat?tab=). `tab`: the room —
+   * `participanti` (fish `participants`) or `general`; left out, the page picks it (the room last
+   * used here, else Participanți for a member once the statute is known, else General).
+   */
+  competitionChat: (documentId: string, tab?: 'general' | 'participanti') =>
+    `/concursuri/${encodeURIComponent(documentId)}/chat${tab ? `?tab=${tab}` : ''}`,
   competitionExtraScales: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/extra-cantare`,
   competitionRules: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/regulament`,
   /**

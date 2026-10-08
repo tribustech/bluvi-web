@@ -1,4 +1,5 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { type Page, type Route } from '@playwright/test';
+import { expect, test } from './helpers/fake-chat';
 import { getCompetition, type CompetitionDetail } from '../../core/competitions';
 import { createTestTransport } from '../transport';
 import { expectNoA11yViolations as scan } from './helpers/a11y';

@@ -1,4 +1,5 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { type Page, type Route } from '@playwright/test';
+import { expect, test } from './helpers/fake-chat';
 import { getCompetition, removeRegistration, type CompetitionDetail } from '../../core/competitions';
 import { getProfile, type Profile } from '../../core/social';
 import { createTestTransport } from '../transport';

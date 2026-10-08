@@ -271,3 +271,17 @@ describe('parseUploadResponse', () => {
     expect(() => parseUploadResponse(401, '{}')).toThrow('Sesiunea a expirat');
   });
 });
+
+test('an injected io carries the reads and the write (the web e2e fake), the retry ladder unchanged', async () => {
+  const write = vi.fn().mockRejectedValueOnce(Object.assign(new Error('x'), { code: 'permission-denied' })).mockRejectedValueOnce(Object.assign(new Error('x'), { code: 'permission-denied' })).mockResolvedValue(undefined);
+  const io = { readClosesAtMs: vi.fn().mockResolvedValue(null), exists: vi.fn().mockResolvedValue(false), write };
+  worker.dispose();
+  worker = createOutboxWorker({ ctx, storage, uploader: uploader as never, getCustomToken: async () => null, io });
+  await seed({ message: baseMessage({ senderRole: 'participant' }), attachments: [] });
+  await drain();
+  expect(fs.setDoc).not.toHaveBeenCalled();
+  expect(io.readClosesAtMs).toHaveBeenCalledWith('c1');
+  expect(write.mock.calls.map(c => c[0])).toEqual(Array(3).fill('competitions/c1/chats/general/messages/m1'));
+  expect(write.mock.calls.map(c => 'senderRole' in (c[1] as object))).toEqual([true, true, false]);
+  expect(await rows()).toHaveLength(0);
+});

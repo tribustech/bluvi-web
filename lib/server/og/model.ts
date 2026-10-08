@@ -107,6 +107,7 @@ export const BRAND_CARDS = {
   partideRanking: { title: 'Clasamente partide', tagline: 'Pescarii, bălțile și speciile săptămânii, lunii și anului în comunitatea Bluvi.' },
   polls: { title: 'Sondajul comunității', tagline: 'Votează și propune opțiuni în sondajul pescarilor Bluvi.' },
   pollsPast: { title: 'Sondaje anterioare', tagline: 'Rezultatele finale ale sondajelor comunității Bluvi.' },
+  raffleWinners: { title: 'Câștigătorii tombolei', tagline: 'Câștigătorii tragerii la sorți Bluvi & PescarMania, pe categorii.' },
 } as const satisfies Record<string, { title: string; tagline: string }>;
 
 export type BrandKey = keyof typeof BRAND_CARDS;
@@ -345,6 +346,7 @@ export const OG_ALT = {
   partideRanking: 'Bluvi — clasamentele partidelor de pescuit',
   polls: 'Bluvi — sondajul comunității de pescari',
   pollsPast: 'Bluvi — rezultatele sondajelor anterioare ale comunității',
+  raffleWinners: 'Bluvi — câștigătorii tragerii la sorți',
 } as const satisfies Record<BrandKey | 'home', string>;
 
 export type EntityKind = keyof typeof FALLBACK;

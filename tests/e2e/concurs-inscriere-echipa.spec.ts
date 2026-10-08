@@ -1,4 +1,5 @@
-import { expect, test, type BrowserContext, type Page, type Route } from '@playwright/test';
+import { type BrowserContext, type Page, type Route } from '@playwright/test';
+import { expect, test } from './helpers/fake-chat';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL as BASE } from './helpers/base-url';
 import { collectConsoleErrors as watchConsole } from './helpers/console';

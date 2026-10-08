@@ -1,7 +1,8 @@
 import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
-import { expect, test, type Locator, type Page, type Request } from '@playwright/test';
+import { type Locator, type Page, type Request } from '@playwright/test';
+import { expect, test } from './helpers/fake-chat';
 import { approvedRegistrationsByStand, extraScaleStand, registrationDisplayName } from '@/core/competitions/domain/competitionTabs';
 import { formatCount } from '@/core/realtime/chat/format';
 
@@ -1248,7 +1249,8 @@ test(`competition-page.informatii.c1 competition-page.participanti.c1 competitio
   await release();
   await expect(page.getByRole('region', { name: /^Durata concursului/ })).toBeVisible();
   await settle(page);
-  await expect(bar.getByRole('button', { name: /Chat/ })).toBeVisible();
+  // participant.b.chat-entry: the Chat tile is a link to the chat page.
+  await expect(bar.getByRole('link', { name: /Chat/ })).toBeVisible();
   const loadedBar = (await bar.boundingBox())!;
   expect(Math.abs(loadedBar.y - boneBar.y)).toBeLessThan(1);
   expect(Math.abs(loadedBar.height - boneBar.height)).toBeLessThan(1);

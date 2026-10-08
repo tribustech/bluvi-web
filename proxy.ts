@@ -38,6 +38,8 @@ export const config = {
     { source: '/balti/:id/recenzie', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // M5: registration (participant.register, team disclaimer, guests) — per user, signed in only.
     { source: '/concursuri/:id/inscriere/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    // M5: the competition chat (participant.chat, participant.b.chat-signed-out) — signed in only.
+    { source: '/concursuri/:id/chat/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // M4: the viewer's own history (partide.istoric) — /feed/sessions/mine, signed in only.
     { source: '/partide/istoric', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // M4: the viewer's own catch gallery (partide.capturile-mele) — /feed/sessions/mine/catches.

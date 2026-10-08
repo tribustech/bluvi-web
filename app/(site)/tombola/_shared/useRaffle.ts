@@ -54,6 +54,12 @@ export function useRaffle({ signedIn = true }: { signedIn?: boolean } = {}) {
       : active.isPending || (needsParticipation && participation.isPending)
         ? 'pending'
         : 'ready';
+  /**
+   * Everything the page decides on has loaded at least once. With it, an 'error' status is a failed
+   * background refetch over data already known (TanStack v5 keeps `data` and sets status 'error'):
+   * keep showing it and say the refresh failed, instead of trading it for the retry gate.
+   */
+  const hasData = active.data !== undefined && (!needsParticipation || participation.data !== undefined);
 
   const retry = () => {
     if (active.isError) void active.refetch();
@@ -64,6 +70,7 @@ export function useRaffle({ signedIn = true }: { signedIn?: boolean } = {}) {
     transport: t,
     state,
     status,
+    hasData,
     error: active.error ?? participation.error,
     retrying: active.isFetching || participation.isFetching,
     retry,

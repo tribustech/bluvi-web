@@ -24,7 +24,7 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { Sheet } from '@/components/surfaces/Sheet';
 import type { chat } from '@/core/realtime';
-import { ChatCountBadge } from './ChatPanel';
+import { ChatCountBadge, chatEntryLabel } from './ChatPanel';
 import type { PageViewer } from './Follow';
 import { nationalStandLabel, standLabel } from './stand';
 import { DisabledRegisterButton, registerState, SessionRecheck, ViewerSlot, type RegisterState, type SlotViewer } from './viewerSlot';
@@ -92,7 +92,8 @@ type Props = {
   onView: (view: RankingViewKey) => void;
   onFullView: () => void;
   fullViewDisabled: boolean;
-  onChat?: () => void;
+  /** Signed in: the Chat tile, a link to the chat page (participant.b.chat-entry); `onOpen` marks the launch (c41). */
+  chat?: { href: string; onOpen: () => void };
   chatBadge: chat.ChatBadge;
   barMessage: string | null;
   onBarMessageDismiss: () => void;
@@ -113,7 +114,7 @@ type Props = {
 };
 
 export function MobileActionBar(props: Props) {
-  const { competition, viewer, signIn, onSort, onView, onFullView, fullViewDisabled, onChat, chatBadge, barMessage, confirm, loadingLabel } = props;
+  const { competition, viewer, signIn, onSort, onView, onFullView, fullViewDisabled, chat: chatEntry, chatBadge, barMessage, confirm, loadingLabel } = props;
   const [menu, setMenu] = useState<'sortare' | null>(null);
   const status = competition.competitionStatus;
   const barRef = useRef<HTMLDivElement>(null);
@@ -181,7 +182,7 @@ export function MobileActionBar(props: Props) {
         state={registerState(v, props.registration, fallbackLabel)}
         signIn={signIn}
         href={props.registrationHref}
-        chat={v === undefined ? 'bone' : v && v !== 'unknown' && onChat ? chatTile(onChat, chatBadge) : null}
+        chat={v === undefined ? 'bone' : v && v !== 'unknown' && chatEntry ? chatTile(chatEntry, chatBadge) : null}
       />
     );
     content = (
@@ -228,7 +229,7 @@ export function MobileActionBar(props: Props) {
     const withChat = (v: SlotViewer) => {
       const row = [...tiles];
       const chat: Tile | null =
-        v === undefined ? { id: 'chat', label: 'Chat', Icon: ChatBubbleOvalLeftIcon, bone: true } : v && v !== 'unknown' && onChat ? chatTile(onChat, chatBadge) : null;
+        v === undefined ? { id: 'chat', label: 'Chat', Icon: ChatBubbleOvalLeftIcon, bone: true } : v && v !== 'unknown' && chatEntry ? chatTile(chatEntry, chatBadge) : null;
       if (chat) row.splice(Math.min(1, row.length), 0, chat);
       return <Bar label="Acțiuni concurs" tiles={row} />;
     };
@@ -337,18 +338,15 @@ function BarConfirmRow({ question, onConfirm, onCancel }: BarConfirm) {
   );
 }
 
-function chatTile(onChat: () => void, chatBadge: chat.ChatBadge): Tile {
+function chatTile(entry: { href: string; onOpen: () => void }, chatBadge: chat.ChatBadge): Tile {
   return {
     id: 'chat',
     label: 'Chat',
     Icon: ChatBubbleOvalLeftIcon,
-    onPress: onChat,
+    href: entry.href,
+    onPress: entry.onOpen,
     badge: chatBadge,
-    accessibilityLabel: chatBadge
-      ? chatBadge.text === 'Nou'
-        ? 'Chat competiție, mesaje noi'
-        : `Chat competiție, ${chatBadge.text} mesaje necitite`
-      : 'Chat competiție',
+    accessibilityLabel: chatEntryLabel(chatBadge, 'Chat competiție'),
   };
 }
 
@@ -420,7 +418,7 @@ function TileControl({ tile }: { tile: Tile }) {
     'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent';
   if (tile.href) {
     return (
-      <Link href={tile.href} aria-label={tile.accessibilityLabel} data-tile={tile.id} className={cls}>
+      <Link href={tile.href} onClick={tile.onPress} aria-label={tile.accessibilityLabel} data-tile={tile.id} className={cls}>
         {body}
       </Link>
     );

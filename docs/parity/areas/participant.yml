@@ -456,36 +456,58 @@ screens:
       - id: participant.chat.c1
         text: "Header: back control; round competition banner (thumbnail → small → original) or, without a banner, the name's initials on an indigo disc; title = competition name, else the name handed over by the link/push, else „Chat”; while nothing names the room yet, grey placeholder bars instead of title and subtitle."
         fish_ref: "features/chat/screens/ChatScreen.tsx:723-740; features/chat/components/ChatHeader.tsx:62-117"
+        status: passing
+        web_note: "ChatHeader: «Înapoi la concurs», the round banner (small → original; a button «Poza concursului») or the name's initials on the accent disc, the name as h1. The server reads the competition (load.ts → lib/server/public-get, `competition-<id>` tag) so the first paint is titled; an unknown id is the competition's not-found card (page.tsx notFound(), no Firestore listener); grey bars only while the browser's read runs after a failed server read, then «Chat» (fish). fish's handed-over `name` is not carried in links: the server read makes it moot. e2e tests/e2e/concurs-chat.spec.ts «c1 c2 c4 …» (the server HTML has the name), «participant.chat states» (skeleton; unknown id → not-found)."
       - id: participant.chat.c2
         text: "Header subtitle: the typing label when someone types; otherwise in General „{n} urmăritor/urmăritori” (competition.viewers) and in Participanți „{n} participant/participanți” (registrations with status registered)."
         fish_ref: "features/chat/screens/ChatScreen.tsx:626-635"
+        status: passing
+        web_note: "subtitle = typing label (core typingLabel), else formatCount(viewers, urmăritor/urmăritori) in General, formatCount(registered, participant/participanți) in Participanți. e2e tests/e2e/concurs-chat.spec.ts «c1 c2 c4 …», «c4 c5 c6 c2 …», «c3 …» (Ana scrie... / Ana și Ion scriu...)."
       - id: participant.chat.c3
         text: "Clicking the banner (when there is one) opens it full-screen in the media viewer (large format); clicking the subtitle in General (not while it shows typing) opens the competition followers list."
         fish_ref: "features/chat/screens/ChatScreen.tsx:637-716,738-739,838-844; features/chat/components/ChatHeader.tsx:66-72,104-114"
+        status: passing
+        web_note: "The banner (header disc, and the ≥1280 card) opens the kit Lightbox (large rendition; Escape / ✕ close) — slice 2 may swap it for fish's MediaViewer; the General subtitle (not while typing) is a button «N urmăritori, vezi lista» opening the followers list (sheet < 768, dialog from 768; components/cards/FollowersList, rows link /pescari/{id}). e2e tests/e2e/concurs-chat.spec.ts «c3 …»."
       - id: participant.chat.c4
         text: "Rooms: the author, referees and registered participants (including a referee who is also on a team, via statute.isParticipant) see a switcher „Participanți” | „General” in that order; everyone else has only General and no switcher."
         fish_ref: "features/chat/screens/ChatScreen.tsx:141-152; features/chat/domain/membership.ts:23-33; features/chat/components/ChatTabs.tsx:42"
+        status: passing
+        web_note: "chatMembershipOf(statute): author, referee, participant or statute.isParticipant → «Participanți» | «General» (RoomTabs); everyone else General only, no switcher, Participanți never subscribed. e2e tests/e2e/concurs-chat.spec.ts «c1 c2 c4 …» (spectator), «c4 c5 c6 c2 …» (member), «c4 — a referee who is also on a team…»."
       - id: participant.chat.c5
         text: "Initial room: the link's tab (participants|general); else, for a member who did not choose, Participanți once the statute arrives; a non-member asking for Participanți falls back to General; a new link into the same chat (tab, or a push nonce) re-selects the room; opening another competition resets it."
         fish_ref: "features/chat/screens/ChatScreen.tsx:111,155-185"
+        status: passing
+        web_note: "ChatController: the link's ?tab= (participanti|participants|general); none → Participanți for a member once the statute answers, else General; a non-member asking Participanți gets General; a new ?tab= in the open chat (a notification) re-selects; a room switch writes ?tab= back (history.replaceState, no echo), so a reload / Back / shared link reopens the room on screen and a link to the room just left always differs from the URL (fish's push nonce tabAt); keyed by competition (another competition starts clean). e2e tests/e2e/concurs-chat.spec.ts «c4 c5 c6 c2 …», «c4 — … falls back to General», «c5 b.chat-notification-route …» ×2 (incl. switch, reload, then the same link the chat opened with)."
       - id: participant.chat.c6
         text: "Switching room dismisses the keyboard, clears edit/reply/attachments, and remembers the room per competition (key chat:lastTab:{competitionId}; web: localStorage) — only when the room is readable."
         fish_ref: "features/chat/screens/ChatScreen.tsx:214-216,274-279,604-613; features/chat/domain/lastTab.ts:4-14"
+        status: passing
+        web_note: "A switch clears reply / edit / attachments and blurs the focused field; `chat:lastTab:{id}` in localStorage once the room is readable (statute known, not locked). e2e tests/e2e/concurs-chat.spec.ts «c4 c5 c6 c2 …» (arrow keys, localStorage)."
       - id: participant.chat.c7
         text: "The room not on screen shows a red unread pill (messages newer than my receipt, capped „99+”, counted only when its newest message is newer than my receipt and not mine); a muted room shows a red crossed bell; each tab is a tab with an accessible name like „General, notificări oprite, 3 mesaje noi”."
         fish_ref: "features/chat/components/ChatTabs.tsx:66-115; features/chat/hooks/useRoomUnreadBadge.ts:19-107; features/chat/screens/ChatScreen.tsx:199-212"
+        status: passing
+        web_note: "The room not on screen: T5 CountBadge (the «în așteptare» pair, owner: the live red only means LIVE; «99+»), a red crossed bell on a muted room; role=tab with fish's accessible name. Owner rule 20: one track with an edge, the selected tab filled accent-ink; ≥1280 the same tabs as a vertical list in the left column. e2e tests/e2e/concurs-chat.spec.ts «c7 …»."
       - id: participant.chat.c8
         text: "A non-follower who is not the author sees, in General, a card „Nu urmărești concursul” / „Urmărește-l ca să primești mesajele și evenimentele.” with „Urmărește”: it follows the competition (busy while pending), on isFollowing opens the follow-notifications panel, on error toasts „Nu am putut urmări concursul.”, refreshes the followers list, and the card disappears once the competition reports isFollowing."
         fish_ref: "features/chat/screens/ChatScreen.tsx:144-147,430-450,749-751,845-852; features/chat/components/ChatFollowPrompt.tsx:14-61"
+        status: passing
+        web_note: "FollowPrompt (General, isFollowing false — from the detail read, or /my-status when the strict read fails on an unknown rankingType — not the author, statute known): core followCompetitionMutation (optimistic: the card goes at once), then the celebrate PreferencesPanel; failure toast «Nu am putut urmări concursul.»; the followers query invalidated on settle. e2e tests/e2e/concurs-chat.spec.ts «c8 …» (route-mocked follow, no CMS write), «c8 c9 — a ranking type core does not parse …»."
       - id: participant.chat.c9
         text: "A bell is shown for General when the viewer follows or is the author, and for Participanți when a member; it is disabled while preferences load or save; it opens a confirm with title „Oprește notificările”/„Pornește notificările”, a chip „Chat general”/„Chat participanți”, body „Ceilalți nu văd asta. Primești în continuare notificări pentru {cealaltă cameră}.” (no other room: „Ceilalți nu văd asta.”; when muted: „Vei primi din nou notificări pentru mesajele noi din {cameră}.”) and a button „Oprește”/„Pornește”. Accessible name „Oprește notificările” / „Activează notificările”."
         fish_ref: "features/chat/components/ChatHeader.tsx:118-128; features/chat/components/MuteSheet.tsx:11-79; features/chat/screens/ChatScreen.tsx:593-602,733-736,864-871"
+        status: passing
+        web_note: "The bell for General when following / author, for Participanți when a member; disabled while the preferences load or save; MuteDialog (sheet < 768, dialog from 768) with fish's title, chip, body and «Oprește» / «Pornește»; names «Oprește notificările» / «Activează notificările». e2e tests/e2e/concurs-chat.spec.ts «c9 c10 …» ×2."
       - id: participant.chat.c10
         text: "Confirming toggles the room key chat:message:general|chat:message:participants in the competition notification preferences (PUT mutedTypes); toast „Notificările pentru {Chat general|Chat participanți} au fost oprite.” / „… au fost pornite.”; failure „Nu am putut salva preferința de notificări.”."
         fish_ref: "features/chat/hooks/useChatPrefs.ts:8-49"
+        status: passing
+        web_note: "useChatPrefs: toggleType on chat:message:general|participants, PUT mutedTypes (core updateCompetitionNotificationPreferencesMutation), success / failure toasts. e2e tests/e2e/concurs-chat.spec.ts «c9 c10 …» (PUT bodies asserted, route-mocked)."
       - id: participant.chat.c11
         text: "The first chat an account ever opens (no consent doc in Firestore) shows a blocking dialog „Reguli de bun-simț”, „Chat-ul e al tuturor celor din concurs. Câteva reguli simple:”, four rules („Fără injurii, jigniri sau limbaj vulgar.”, „Fără spam, reclame sau mesaje repetate.”, „Fără hărțuire; respect față de participanți și organizatori.”, „Discuții despre concurs și pescuit — nimic ilegal sau ofensator.”), the warning „Încălcarea regulilor duce la blocarea accesului la chat și, la nevoie, la aplicație.”, „Am înțeles” (records acceptedAt and closes; failure toast „Nu am putut salva confirmarea. Te rugăm să încerci din nou.”) and „Nu accept” (leaves the chat, records nothing). An unreadable consent doc shows no dialog."
         fish_ref: "features/chat/components/ChatRulesSheet.tsx:10-76; features/chat/hooks/useChatRulesConsent.ts:14-62; features/chat/screens/ChatScreen.tsx:281-299"
+        status: passing
+        web_note: "RulesDialog (alert, no backdrop / Escape / X): fish's copy and four rules; «Am înțeles» writes users/{uid}/chatConsent/rules {acceptedAt} (recorded by the fake), failure toast and stays; «Nu accept» goes back (home when the chat is the first page), nothing written; an unreadable doc asks nothing. e2e tests/e2e/concurs-chat.spec.ts «c11 …» ×2."
       - id: participant.chat.c12
         text: "Each room subscribes live to its newest 50 messages and loads older pages of 50 as the reader nears the top (≈1.5 screens early); once the whole history is loaded the top shows „Acesta este începutul conversației.” plus „Mesajele se văd de către urmăritorii concursului.” (General) or „Mesajele se văd de către participanți și organizatori.” (Participanți)."
         fish_ref: "features/chat/hooks/useChatRoom.ts:27,199; features/chat/components/MessageList.tsx:696-747,811-827; features/chat/domain/conversationStart.ts:9-21"
@@ -543,9 +565,13 @@ screens:
       - id: participant.chat.c30
         text: "Sending shows my bubble at once (pending, 60% opacity) from the outbox; photos are compressed (long edge ≤ 1280 px, JPEG 0.8, original kept when smaller), uploaded to /upload, then the message doc {senderId, senderName, senderAvatar, text, attachments, replyTo, senderRole, createdAt, type:'text'} is written; if preparing fails, the photos and reply are restored and the toast „Mesajul nu a putut fi pregătit pentru trimitere.” is shown."
         fish_ref: "features/chat/hooks/useChatSend.ts:82-120; features/chat/media/compressChatPhoto.ts:11-24; features/chat/outbox/worker.ts:169-229; features/chat/outbox/uploader.ts:33-63"
+        status: passing
+        web_note: "enqueueMessage: the compression hook (compressChatPhoto: long edge ≤ 1280, JPEG 0.8, original kept when not smaller), the core outbox row (bubble at once), the core worker writes {senderId, senderName, senderAvatar, text, attachments?, replyTo?, senderRole, createdAt, type:'text'}; a row that cannot be stored restores photos + reply and toasts «Mesajul nu a putut fi pregătit pentru trimitere.». The worker's Firestore I/O is injectable (core OutboxIo) so the e2e runs the REAL worker against the fake. e2e tests/e2e/concurs-chat.spec.ts «c30 b.chat-realtime …» (payload); the photo upload path is slice 3's."
       - id: participant.chat.c31
         text: "A send that fails is retried after 2 s, 8 s and 30 s (4 attempts); being offline does not spend attempts; closed chat („Chat-ul s-a închis.”), upload 401/403/413 or another account's row fail at once; a failed row shows „Nu s-a trimis · apasă lung” under my bubble; a permission-denied write with a role chip is retried once without the chip."
         fish_ref: "features/chat/outbox/state.ts:7-33; features/chat/outbox/worker.ts:23,149-150,231-283; features/chat/components/MessageBubble.tsx:271-275; features/chat/domain/sendFallback.ts:5-14"
+        status: passing
+        web_note: "The core worker (RETRY_DELAYS_MS 2/8/30 s, 4 attempts; offline no attempt; permission-denied with the role chip → once without; fatal closed / 401 / 403 / 413 / other account). The stub list shows «Nu s-a trimis» + Reîncearcă / Șterge (slice 2 draws fish's bubble). e2e tests/e2e/concurs-chat.spec.ts «c31 — … 2 s, 8 s and 30 s …» (page clock), «c31 — … role chip …», «c31 b.chat-outbox — offline spends no attempt …»; core outbox unit tests. Another account's rows (left on a shared computer) are discarded before the first drain (usePageOutbox); _live/outboxStorage clearChatOutbox() is the sign-out hook — not yet called from lib/client/sign-out.ts (shared file)."
       - id: participant.chat.c32
         text: "Typing: typing text marks me typing (written at most every 2.5 s, cleared after 5 s idle, on send, blur and leaving); others typing in the last 8 s (max 3 names) show in the header as „{A} scrie...”, „{A} și {B} scriu...” or „{A} și încă {n} scriu...”, held at least 1.5 s."
         fish_ref: "features/chat/hooks/useChatTyping.ts:15-163; features/chat/components/ChatComposer.tsx:138-147"
@@ -573,14 +599,21 @@ screens:
       - id: participant.chat.c40
         text: "Closing: the Firestore meta doc's closesAt decides; without one a cancelled competition is closed and a completed one closes 24 h after endDate; the page flips live at closesAt. Closed: the composer is replaced by „Chat-ul s-a închis astăzi.” / „… ieri.” / „… pe {zi}.” (or „Chat-ul s-a închis.”); history and reactions stay visible, no new messages, reactions, replies or actions."
         fish_ref: "features/chat/domain/chatClosing.ts:1-34; features/chat/hooks/useChatStatus.ts:10-106; features/chat/components/ChatClosedNotice.tsx:7-29; features/chat/screens/ChatScreen.tsx:197,382-388,781-783,799-802"
+        status: passing
+        web_note: "useChatStatus: core resolveChatClosing + closingTimerDelayMs (one timer, live flip); closed → ClosedNotice replaces the composer («… astăzi.» / «… ieri.» / «… pe {zi}.» — the month's abbreviation dot ends the sentence, fish printed «oct..»), history stays, reactions read-only, no sends. e2e tests/e2e/concurs-chat.spec.ts «c40 …» ×2 (fake meta + page clock); cancelled / completed+24 h in core unit tests."
       - id: participant.chat.c41
         text: "Back returns to the competition: a plain back when the competition is underneath, otherwise the competition page replaces the chat (opened from a link or a notification)."
         fish_ref: "features/chat/screens/ChatScreen.tsx:461-508"
+        status: passing
+        web_note: "Back: the Navigation API's previous entry is the competition (any of its pages but the chat) → router.back(); without the API, the launch marker (sessionStorage `chat:from`, set by the competition page's chat links) + lib/client/in-app-history; else router.replace(competition). e2e tests/e2e/concurs-chat.spec.ts «c41 b.chat-entry …» (plain back, no new entry), «c41 — opened from a link …» (replace)."
       - id: participant.chat.c42
         text: "Chat auth uses the Firebase custom token (uid = profile documentId); one re-mint and retry on permission-denied/unauthenticated; failures toast „Nu am putut autentifica chat-ul. Te rugăm să încerci din nou.” or „Nu am putut încărca chat-ul. Te rugăm să încerci din nou.”."
         fish_ref: "features/chat/hooks/useChatAuth.ts:7-53; features/chat/hooks/useChatRoom.ts:179-246"
+        status: passing
+        web_note: "ChatSource.ensure (core createChatAuth: custom token from /api/firebase-token, one re-mint on permission-denied); toasts «Nu am putut autentifica chat-ul…» (auth) / «Nu am putut încărca chat-ul…» (listener) — and the latter when the chat's chunk cannot load (retried when back online). e2e tests/e2e/concurs-chat.spec.ts «c42 …»."
     mobile_only: false
-    status: todo
+    status: proposed
+    web_note: "Slice 1/3 «frame + data» built (M5-B3): app/(site)/concursuri/[id]/chat (page.tsx: auth-only — proxy 307, dead cookie → the sign-in gate, session unknown → error.tsx; noindex; the competition's public read for the header), _live (source.ts — the ChatSource seam: firestoreSource over core/realtime/chat + lib/client/firebase, fakeSource from window.__BLUVI_FAKE_CHAT__ outside production; hooks.ts; outboxStorage.ts — IndexedDB, localStorage fallback; lastTab.ts; activeRoom.ts), _chat (ChatController context, ChatHeader, RoomTabs, FollowPrompt, MuteDialog, RulesDialog, ClosedNotice, ChatFrame — phone full-screen, 768–1279 header + tabs over the conversation, ≥1280 three columns 280 / conversation / 320 «Poze din cameră» + «Despre cameră», each scrolling on its own, the page never scrolls). MessageList.tsx and Composer.tsx are STUBS that slices 2 («list», c12–c25, c32–c39) and 3 («composer», c25–c29) replace. e2e tests/e2e/concurs-chat.spec.ts (Firestore fake only — zero Firebase requests — and route-mocked CMS writes), shots at 375 / 768 / 1280 / 1440 / 1920 in .shots/chat. The ROADMAP's global.b.notification-routes-web text says ?camera=; the web uses ?tab= (the brief, fish's own param name)."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.chat-photo
@@ -1006,47 +1039,72 @@ screens:
       - joined, no receipt
       - joined, receipt uploaded (with / without image URL)
       - after the change deadline (receipt locked)
+      - after the change deadline, no receipt yet (first upload allowed, marked final)
       - ended with winners
       - ended without winners
-      - not joined (fish renders zero chances, no redirect)
+      - not joined, or no session (fish renders zero chances, no redirect; web → /tombola, OWNER DECISION pending)
+      - background refresh failed over loaded data (content kept, inline alert + retry)
       - upload dialog (first / replace), uploading
       - deleting receipt
     criteria:
       - id: participant.raffle-confirmation.c1
         text: "Title „Confirmare participare”; back and „Închide” both return to home."
         fish_ref: "app/(app)/raffle/confirmation.tsx:60-63,314-316; constants/raffleCopy.ts:91,104"
+        status: passing
+        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: FlowHeader h1 + back link «Înapoi acasă» → /; «Închide» an outline ButtonLink → / (fish dismissTo('/')). Metadata title from copy.ts, robots noindex (e2e: both hrefs, Închide lands on /, meta robots)."
       - id: participant.raffle-confirmation.c2
         text: "A celebration animation, the heading „Ești înscris în tragerea la sorți pentru categoria {tip}!” (or „Ești înscris în tragerea la sorți!” without a type) and „Mult succes! Îți ținem pumnii!”."
         fish_ref: "app/(app)/raffle/confirmation.tsx:34-35,85-101; constants/raffleCopy.ts:92-95"
+        status: passing
+        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: _components/Confetti — an SVG burst in token fills, animated once by the Web Animations API from the success disc; prefers-reduced-motion → the pieces sit still (e2e: animations running by default, none with reducedMotion reduce). FlowConfirmation (disc + h2 heading + sub-message) on a lavender bento surface; heading from model.ts confirmationHeading (type label, else the raw key as fish, else the plain line; unit model.test.ts)."
       - id: participant.raffle-confirmation.c3
         text: "„ŞANSELE TALE ACTUALE” with the entries count and „șansă” (1) / „șanse”."
         fish_ref: "app/(app)/raffle/confirmation.tsx:103-115; constants/raffleCopy.ts:96-98"
+        status: passing
+        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: a signature (navy) BentoTile, SignatureNumber size tile with the unit separate (rule 10): chancesUnit = formatCount minus the figure («șansă» / «șanse» / «de șanse» from 20; unit-tested), «Categoria {tip}» caption. Not joined (or no session): web DIVERGES from fish (which shows «Ești înscris…» + 0 chances + an upload the CMS refuses with 400) — router.replace to /tombola, where the intro shows the join form or sends the viewer home / to the winners (model.ts notJoinedRedirect, decided only on settled data so a just-made join's refetch never bounces back; e2e not joined → /tombola, no session → /). OWNER DECISION pending: revert to fish's page by dropping the redirect (receiptBlock still hides the upload card when not joined). Unknown (initial read error) → the retry gate, never «0 șanse» (rule 4, e2e); a failed BACKGROUND refetch over loaded data (focus, stale, after a delete) keeps the content and shows an inline alert «Nu am putut actualiza tombola…» + «Încearcă din nou» (useRaffle hasData; e2e delete OK → participation 500 → content stays → retry → up to date)."
       - id: participant.raffle-confirmation.c4
         text: "„Premii” lists session prizes (static fallback) with the same expandable rows as the intro, all expanded at first."
         fish_ref: "app/(app)/raffle/confirmation.tsx:38-48,117-177"
+        status: passing
+        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: FlowAsideCard «Premii» with the shared PrizeRow (intro variant, registrations, badge colour), uncontrolled defaultExpanded → every row open (e2e: aria-expanded true, toggle hides the items); session prizes else STATIC_PRIZES (e2e data-source session / static). ≥1024 the right column spanning the left rows."
       - id: participant.raffle-confirmation.c5
         text: "Not ended and no receipt: card „Mărește-ți șansele de câștig!”, the PescarMania receipt text, a dashed „+2” „Şanse bonus pentru încărcarea bonului fiscal” and „Încarcă bonul fiscal”, which opens the upload dialog (first)."
         fish_ref: "app/(app)/raffle/confirmation.tsx:179-226; constants/raffleCopy.ts:99-103"
+        status: passing
+        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: the card with fish's heading, PescarMania text, the dashed green «+2» row and «Încarcă bonul fiscal» → ReceiptUploadDialog mode first. Hidden after the end, without a session and when not joined (CMS 400). Registration closed and no receipt yet: the first upload stays allowed (fish confirmation.tsx:179 and the CMS uploadReceipt, which checks only the participation) and the card says «Înscrierile s-au închis: după ce îl încarci, bonul nu mai poate fi înlocuit sau șters.» (lock icon; model.ts firstUploadIsFinal) — then the receipt card is locked as c7. e2e (closed + no receipt: hint, upload, then locked; open: no hint) + shots locked-no-receipt."
       - id: participant.raffle-confirmation.c6
         text: "Not ended with a receipt: card „Mărește-ți șansele de câștig!” / „Bonul tău încărcat” / „Ai 2 șanse de câștig în plus pentru că ai adăugat bonul.”, the receipt image (or „Bon încărcat. Poți înlocui sau șterge până la termenul limită.”), „Înlocuiește bonul” (upload dialog, replace) and „Șterge bonul” (busy while deleting)."
         fish_ref: "app/(app)/raffle/confirmation.tsx:228-306; constants/raffleCopy.ts:105-107,158-159"
+        status: passing
+        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: the shared _shared/ReceiptCard (reused by «Șansele mele» in B4): heading «Mărește-ți șansele de câștig!», «Bonul tău încărcat», the bonus line, the image (unoptimized: a private receipt never enters the optimizer cache; contained in ≤320×200) or fish's fallback line, «Înlocuiește bonul» → dialog replace (preview «Bonul tău încărcat»). e2e: image src, fallback, replace posts multipart."
       - id: participant.raffle-confirmation.c7
         text: "Replace and delete are disabled, with „Nu mai poți modifica bonul după termenul limită.”, unless the session is not ended AND registration is still open (canChangeType)."
         fish_ref: "app/(app)/raffle/confirmation.tsx:268-302; hooks/useRaffle.ts:140; constants/raffleCopy.ts:163"
+        status: passing
+        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: receiptCardModel (unit receiptCard.test.ts): replace/delete disabled + lock icon + «Nu mai poți modifica bonul după termenul limită.» unless RaffleState.canChangeType (not ended AND registration open). e2e: closed session → both disabled, a forced click sends no DELETE. The lock is client-only (the CMS upload/delete do not check registration) — same as fish."
       - id: participant.raffle-confirmation.c8
         text: "„Șterge bonul” sends DELETE /raffle-sessions/{session}/receipt (server removes the receipt and 2 entries, min 1); a failure shows nothing in fish — web must show an error."
         fish_ref: "app/(app)/raffle/confirmation.tsx:50-57; hooks/useRaffle.ts:229-235; services/api/raffle.ts:235-250"
+        status: passing
+        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: core deleteRaffleReceiptMutation (DELETE /raffle-sessions/{id}/receipt via /api/cms); the button busy (aria-busy, spinner, disabled) until the participation refetch lands; a failure shows «Nu am putut șterge bonul. Te rugăm să încerci din nou.» (role alert) and keeps the receipt — web fixes fish's silence. After a delete focus moves to the upload card's heading. The failure message is cleared when the upload dialog opens and on a successful upload (never stale under a fresh receipt). e2e: success (busy, upload card, chances 3→1), failure (message, receipt kept, cleared on replace)."
       - id: participant.raffle-confirmation.c9
         text: "Ended with winners: a „Vezi câștigători” button to the winners page."
         fish_ref: "app/(app)/raffle/confirmation.tsx:308-312"
+        status: passing
+        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: «Vezi câștigători» a primary ButtonLink → /tombola/castigatori, only when ended with winners (model.ts showWinnersLink, unit-tested); ended without winners: only «Închide». No receipt cards once ended (e2e)."
       - id: participant.raffle-confirmation.c10
         text: "Upload dialog: title „Încarcă bonul fiscal” / „Adaugă bon fiscal” / „Înlocuiește bonul fiscal”, in replace mode a preview „Bonul tău încărcat”, the instructions and disclaimer, „Alege o metodă de încărcare”, „Fotografiază acum” / „Încarcă din galerie” (busy while uploading) and the tips on one line; success closes the dialog."
         fish_ref: "components/raffle/RaffleUploadReceiptSheet.tsx:27-187; contexts/RaffleContext.tsx:30-53"
+        status: passing
+        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: the shared ReceiptUploadDialog (ResponsiveSurface: sheet on the phone, dialog from 768): per-mode titles, replace preview, instructions + disclaimer, «Alege o metodă de încărcare», «Fotografiază acum» on touch screens only + «Încarcă din galerie» (busy while uploading), tips; success closes it (focus → the new receipt card's heading); a failure keeps it open with «Nu am putut încărca bonul…» (fish swallows it). e2e: first + replace, busy, multipart, failure; axe on the open dialog; Escape closes."
       - id: participant.raffle-confirmation.c11
         text: "Upload and delete invalidate raffle active, raffle participation and competitions.all, so chances and receipt state refresh."
         fish_ref: "services/mutations/useUploadRaffleReceipt.ts:23-27; services/mutations/useDeleteRaffleReceipt.ts:10-14"
+        status: passing
+        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: core upload/delete mutations invalidate raffle active + participation + competitions.all (onSettled). e2e: the stateful mock adds / removes 2 entries — the chances tile goes 1→3 after an upload and 3→1 after a delete, with active and participation re-read; and the «local CMS» spec runs it unmocked on :1337 (join as the QA user, upload a PNG through the /api/cms proxy, CMS 1→3, DELETE answer shape, 3→1, 400 for an upload when not joined; then the participation and the file are removed)."
     mobile_only: false
-    status: todo
+    status: passing
+    note: "Web: app/(site)/tombola/confirmare (T6; page + loading, _components/{ConfirmationScreen,Confetti,model}) and the shared _shared/ReceiptCard. Signed in only (proxy 307 → /intra?next=…, requireViewer), noindex, all data per viewer via /api/cms (useRaffle). Phone: fish's single column and order; 768–1023 the celebration and the chances tile side by side; ≥1024 two columns (celebration + chances, receipt, buttons left; prizes right). e2e tests/e2e/tombola-confirmare.spec.ts (route-mocked raffle for the edge and failure states + one unmocked round trip on the LOCAL CMS, cleaned up), axe at 375/1280 incl. the open dialog and the refresh alert, keyboard path. Shots .shots/tombola-confirmare (375/768/1280/1440/1920 × no receipt, receipt, receipt without image, locked, locked without receipt, ended with / without winners; refresh-error 375/1280; replace dialog 375). Open: /tombola/confirmare is not in SiteHeader OWN_BAND_ROUTES (≥768 the band reads «Acasă / [placeholder]» for 3 s) — handed to the shell owner."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.raffle-receipt-submitted
@@ -1160,26 +1218,41 @@ screens:
       - id: participant.raffle-winners.c1
         text: "Unless the session is ended and has winners, the page redirects to home."
         fish_ref: "app/(app)/raffle/winners.tsx:59-61"
+        status: passing
+        web_note: "WinnersScreen: useRaffle({signedIn:false}) (active session only), pure shouldLeave (unit castigatori/_components/model.test.ts) → router.replace(/) after the data when not ended, ended without winners, or no session (404). A neutral skeleton meanwhile (header + grey notice/cards, nothing that says winners or none); a failed read is a retry gate, never «no winners» (rule 4). e2e tests/e2e/tombola-castigatori.spec.ts «c7 … c1 not ended → home», «c1 — ended without winners → home; no session → home», «c1 — nothing about winners shows before the data», «load error → retry gate»."
       - id: participant.raffle-winners.c2
         text: "Title „Câștigători”; with no winner groups: „Câștigătorii nu au fost anunțați încă.” and „Înapoi acasă”."
         fish_ref: "app/(app)/raffle/winners.tsx:63-77; constants/raffleCopy.ts:172-177"
+        status: passing
+        web_note: "FlowHeader h1 «Câștigători»; hasWinners with an empty winnersByTypeKey → a T4Gate (trophy) «Câștigătorii nu au fost anunțați încă.» + outlined «Înapoi acasă» (router.replace). e2e «c2–c5 …», «c2 — winners flagged but no group …»."
       - id: participant.raffle-winners.c3
         text: "A notice „Câștigătorii vor fi contactați de către echipa Bluvi. În cazul în care nu răspund în timp util, se va mai face o tragere la sorți.”."
         fish_ref: "app/(app)/raffle/winners.tsx:82-99"
+        status: passing
+        web_note: "T4Notice tone info (status-info tokens): «Câștigătorii vor fi contactați de către echipa Bluvi.» as its title, the second sentence under it. e2e «c2–c5 …»."
       - id: participant.raffle-winners.c4
         text: "One card per type in winnersByTypeKey: a badge „Categoria {label}” in the type's badgeColor (default indigo), the prize of that type (session prize, else static) as an expandable row, then „Câștigători”."
         fish_ref: "app/(app)/raffle/winners.tsx:101-212"
+        status: passing
+        web_note: "One card per winnersByTypeKey key in CMS order (pure winnerGroups, unit): h2 = TypeBadge «Categoria {label}» in the CMS badgeColor (blank/invalid → accent indigo; label white or black, whichever is AA — shared/badge.ts), the type prize as PrizeRow status variant, collapsed as fish, then h3 «Câștigători». The row's own type badge is left out (the card's badge already names the category). DEVIATION (owner rule 4 over parity): the prize comes from the session only — the session's prize of that type, else no prize row; fish falls back to the static intro prizes (rafflePrizes, e.g. «Echipament premium de pescuit 500 LEI × 2»), which on a results page would state as won a prize and a value the CMS never gave. Phone/tablet: fish stack; ≥1024 the grid is sized by the category count so the cards fill the row: 1 → one wide card (prize left, winners right; no prize → winners in 2–3 columns), 2 → two columns, 3+ → three. e2e «c2–c5 …» (order, colours, prize, expand), «c4 — no prize row when the session has none …», «layout — the cards fill the row from 1024 …» (1- and 2-category shots at 1280/1920)."
       - id: participant.raffle-winners.c5
         text: "Each winner row shows the avatar (default guest image), the username or „Câștigător #{i}”, a trophy on the first, and links to /pescari/{documentId}."
         fish_ref: "app/(app)/raffle/winners.tsx:18-47"
+        status: passing
+        web_note: "Winner row = Link to anglerHref(documentId) (/pescari/{id}): avatar 40 = the photo (resolved to absolute by core mediaOrigin), else fish's guest picture for every winner without one, named or not (a person on a white disc; no initials, as fish guest.png), username or «Câștigător #{i}» (blank username too), solid trophy (medal gold, sr-only «primul extras») on the first. e2e «c2–c5 …» (names, trophy only on #1, hrefs, absolute avatar URL, guest disc on a named and an unnamed winner without a photo, none with a photo), «c5 — a winner row opens the angler profile»."
       - id: participant.raffle-winners.c6
         text: "„Înapoi acasă” replaces the page with home."
         fish_ref: "app/(app)/raffle/winners.tsx:215-217"
+        status: passing
+        web_note: "«Înapoi acasă»: fish's outlined button at the end of the page (full width on a phone, own width from 768; no sticky bar — nothing to finish here) → router.replace(/). The header back chip also goes home. e2e «c6 — … replaces the page with home; keyboard» (Back does not return to the winners; Tab order back chip → prize toggle → winner links)."
       - id: participant.raffle-winners.c7
         text: "Public: guests can open it (winners are public; the active session endpoint is public, avatar URLs resolved to absolute)."
         fish_ref: "components/raffle/RaffleDashboardCard.tsx:249-252; services/api/raffle.ts:118-155"
+        status: passing
+        web_note: "Public: not in proxy.ts's sign-in list (a guest GET answers 200, no 307), no participation read (fake-raffle counts 0). Static shell (metadata, BreadcrumbList JSON-LD, brand OG card raffleWinners, header + skeleton); the session is read in the browser via /api/cms — no CMS cache tag exists for raffle sessions. noindex,follow and not in the sitemap (the page sends visitors home except while a drawn session is active). The header owns the way back (SiteHeader OWN_BAND_ROUTES). e2e «c7 — a guest can open it …»; every test runs without a cookie."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "app/(site)/tombola/castigatori (T6 FlowLayout bare + notice). Shots .shots/tombola-castigatori (375/768/1280/1440/1920, empty, loading). axe clean on winners and empty states."
 
 behaviours:
   - id: participant.b.register-entry
@@ -1204,24 +1277,38 @@ behaviours:
   - id: participant.b.chat-entry
     text: "The chat entry on the competition page exists only for signed-in users; it opens the last room used in that competition (if any) and passes the competition name so the header is titled immediately."
     fish_ref: "components/competition/CompetitionRanking.tsx:352-365,1234,1961; features/chat/domain/lastTab.ts:7-10"
+    status: passing
+    web_note: "CompetitionScreen: signed in only, the header «Chat» (ChatHeaderButton, from 768) and the phone bar's Chat tile are LINKS to routes.competitionChat(id, lastTab) (chat:lastTab read after hydration; the server HTML links the plain chat); signed out: no entry. The name is not handed over (the chat reads the competition on the server). ChatDock / MobileChatSheet / ChatRoom.tsx removed. e2e tests/e2e/concurs-chat.spec.ts «c41 b.chat-entry …», «b.chat-entry b.chat-badge …»; concurs-previzualizare.spec.ts «bara-actiuni.c2 …» (the tile's href), concurs-tabs.spec.ts (the bar's Chat link)."
   - id: participant.b.chat-badge
     text: "Chat entry badge: total unread across readable rooms (General; Participanți for members), „99+” cap, alert tone; „Nou” (info tone) when the account never opened this chat (no receipt in any readable room) and it has messages; nothing when 0; unreadable receipt never claims „Nou”."
     fish_ref: "features/chat/hooks/useCompetitionChatBadge.ts:10-79"
+    status: passing
+    web_note: "ChatPanel useChatBadge → the source's subscribeBadge (core subscribeCompetitionChatBadge / chatBadgeOf): the total over the readable rooms, «99+», «Nou» when never opened, nothing at 0; the SDK chunk fetched after hydration. Accessible names «Chat concurs|competiție, N mesaje necitite / mesaje noi». e2e tests/e2e/concurs-chat.spec.ts «b.chat-entry b.chat-badge …»."
   - id: participant.b.chat-notification-route
     text: "CHAT_MESSAGE notification → /competitions/{competitionId}/chat?tab={tab|chatRoom|general}&name={competitionName} (web: /concursuri/{id}/chat?tab=…); no competitionId → no route; opening it does not mark the notification read differently from the list rules in account.yml."
     fish_ref: "helpers/getRedirectLocationForNotification.ts:82-88"
+    status: passing
+    web_note: "lib/notification-href: NOTIFICATION_PAGES_ON_WEB.competitionChat on; CHAT_MESSAGE → /concursuri/{id}/chat?tab=participanti|general (tab | chatRoom, default general); no competitionId → no route (core). The notification's read state follows the /notificari rules unchanged. Unit tests/unit/notification-href.test.ts; e2e tests/e2e/concurs-chat.spec.ts «c5 b.chat-notification-route …» (a link into the open chat re-selects the room)."
   - id: participant.b.chat-open-room-push
     text: "Mobile only: while a room is open its own foreground pushes are suppressed and already-presented ones cleared. Web equivalent: do not raise an in-app toast for messages of the room on screen."
     fish_ref: "features/chat/activeChatRoom.ts:10-40; features/chat/domain/notificationRoom.ts:3-21"
+    status: passing
+    web_note: "The web raises no in-app toast for chat messages at all; _live/activeRoom.ts keeps the room on screen (while the page is visible) for anything that ever does (isActiveChatRoom, unit). e2e tests/e2e/concurs-chat.spec.ts «b.chat-open-room-push …»."
   - id: participant.b.chat-signed-out
     text: "fish has no auth gate on the chat route (a signed-out deep link shows the auth error toast over an empty room); web shows the sign-in gate and returns to the chat after sign-in."
     fish_ref: "features/chat/hooks/useChatRoom.ts:188-196; app/(app)/_layout.tsx:44-47"
+    status: passing
+    web_note: "proxy.ts matcher /concursuri/:id/chat/:path* → 307 /intra?next=<path+query>; a refused cookie → ChatSignedOut (SignInGate in the chat frame, next = the chat with its room). e2e tests/e2e/concurs-chat.spec.ts «b.chat-signed-out …» ×2."
   - id: participant.b.chat-realtime
     text: "Chat is Firestore realtime (messages, reactions, receipts, typing, meta), signed in with the CMS-minted Firebase custom token; one shared Firebase project across envs with env-prefixed paths; never write to Partide collections."
     fish_ref: "features/chat/domain/chatPaths.ts:1-85; features/chat/hooks/useChatAuth.ts:12-28"
+    status: passing
+    web_note: "Every Firestore read and write goes through the ChatSource seam (_live/source.ts); the real source is core/realtime/chat on ctx.chatDb (the environment's database), signed in with the CMS custom token; nothing touches Partide collections. e2e tests/e2e/concurs-chat.spec.ts «c1 c2 c4 b.chat-realtime …» (pushed snapshots, listened paths), «c30 b.chat-realtime …»; zero Firebase requests (fixture)."
   - id: participant.b.chat-outbox
     text: "Sends survive reloads: queued rows are kept locally (fish SQLite; web: IndexedDB/localStorage via core outbox storage) and drained at app start and when the network returns; a row already written is never re-dated."
     fish_ref: "features/chat/outbox/worker.ts:169-229; features/chat/outbox/ChatOutboxMount.tsx:1-32"
+    status: passing
+    web_note: "Rows in IndexedDB (localStorage fallback without the photo bytes); restored photos get fresh object URLs; the worker drains on mount, `online` and when the tab is visible again; a written row is never re-dated (core). e2e tests/e2e/concurs-chat.spec.ts «c31 b.chat-outbox — … survives a reload …»."
   - id: participant.b.poll-notification-route
     text: "POLL_OPENED, POLL_CLOSED and POLL_SUGGESTION_APPROVED notifications open the current poll (web /sondaje)."
     fish_ref: "helpers/getRedirectLocationForNotification.ts:92-95"

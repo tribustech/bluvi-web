@@ -1,7 +1,8 @@
 import { collectConsoleErrors } from './helpers/console';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { qaJwt, signIn } from './helpers/session';
-import { expect, test, type BrowserContext, type Page, type Route } from '@playwright/test';
+import { type BrowserContext, type Page, type Route } from '@playwright/test';
+import { expect, test } from './helpers/fake-chat';
 
 /*
  * Concurs · the page frame around the tabs — parity docs/parity/areas/competition-page.yml:

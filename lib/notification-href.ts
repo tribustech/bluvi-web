@@ -19,8 +19,8 @@ import { anglerHref, partidaHref, routes } from '@/lib/routes';
  * pages add no link here; the unit test pins that no type maps onto them.
  */
 export const NOTIFICATION_PAGES_ON_WEB = {
-  /** /concursuri/[id]/chat?camera= — competition chat (M5, participant.yml). */
-  competitionChat: false,
+  /** /concursuri/[id]/chat?tab= — competition chat — ON since M5-B3 (participant.b.chat-notification-route). */
+  competitionChat: true,
   /** /concursuri/[id]/penalizari — penalties (M6, organizer.yml). */
   penalties: false,
   /** /sondaje — the current poll (POLL_OPENED / POLL_CLOSED / POLL_SUGGESTION_APPROVED) — ON since M5-B1
@@ -82,8 +82,11 @@ export function notificationHref(route: NotificationRoute): string | null {
     case 'competitionWeighing':
       return routes.competitionWeighing(route.params.competitionId, route.params.weighingId, route.params.standId);
     case 'competitionChat':
-      // TODO(M5): routes.competitionChat(id, camera) when the chat ships.
-      return null; // NOTIFICATION_PAGES_ON_WEB.competitionChat is off: no page yet
+      // CHAT_MESSAGE → the room the push names (tab | chatRoom, default general; fish
+      // getRedirectLocationForNotification.ts:82-88). fish's `name` is not carried: the page reads
+      // the competition itself on the server, so the header is titled at first paint anyway.
+      if (!NOTIFICATION_PAGES_ON_WEB.competitionChat) return null;
+      return routes.competitionChat(route.params.competitionId, route.params.tab === 'participants' ? 'participanti' : 'general');
     case 'penalties':
       // TODO(M6): routes.competitionPenalties(id).
       return null; // NOTIFICATION_PAGES_ON_WEB.penalties is off: no page yet
