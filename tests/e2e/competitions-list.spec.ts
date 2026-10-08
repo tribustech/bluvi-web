@@ -335,7 +335,7 @@ test.describe('signed out', () => {
     await expect(item.getByText('LIVE', { exact: true }).first()).toBeVisible();
     await expect(item.getByText(dto.dateLabel, { exact: true })).toBeVisible();
     // c2: a competition with a banner shows the banner (the poster's medium size), not the lake.
-    const thumb = item.getByRole('button', { name: `Vezi imaginea pentru ${name}` });
+    const thumb = item.getByRole('button', { name: `Mărește afișul: ${name}` });
     const src = await thumb.locator('img').getAttribute('src');
     expect(decodeURIComponent(src ?? '')).toContain(dto.banner.mediumUrl ?? dto.banner.url);
     await thumb.click();
@@ -353,6 +353,52 @@ test.describe('signed out', () => {
     await thumb.click();
     await page.getByRole('dialog', { name }).getByRole('button', { name: 'Vezi concursul' }).click();
     await expect(page).toHaveURL(new RegExp(`/concursuri/${dto.documentId}`));
+    expect(errors).toEqual([]);
+  });
+
+  test('competitions-list.cards.c2 owner 2026-10-08 — the poster opens the photo (click / Enter), never the competition; the rest of the card does', async ({ page }) => {
+    const errors = consoleErrors(page);
+    let checked = 0;
+    for (const size of [PHONE, DESKTOP]) {
+      await page.setViewportSize(size);
+      for (const path of ['/concursuri/viitoare', '/concursuri/live', '/concursuri/rezultate']) {
+        await open(page, path);
+        const poster = list(page).getByRole('button', { name: /^Mărește afișul: / }).first();
+        if ((await poster.count()) === 0) continue;
+        checked += 1;
+        const at = page.url();
+        const article = poster.locator('xpath=ancestor::article[1]');
+        const href = await article.getByRole('link').first().getAttribute('href');
+        await poster.scrollIntoViewIfNeeded();
+        expect(await poster.evaluate((b) => getComputedStyle(b).cursor)).toBe('zoom-in');
+
+        // Click: the viewer, at once — no page, no other dialog in between; the URL does not move.
+        await poster.click();
+        const viewer = page.getByRole('dialog');
+        await expect(viewer).toHaveCount(1);
+        await expect(viewer.getByRole('img', { name: /^Afișul concursului / })).toBeVisible();
+        expect(page.url()).toBe(at);
+        await page.keyboard.press('Escape');
+        await expect(viewer).toHaveCount(0);
+        await expect(poster).toBeFocused();
+        expect(page.url()).toBe(at);
+
+        // Enter on the focused poster: the same viewer; ✕ closes it and focus returns.
+        await page.keyboard.press('Enter');
+        await expect(viewer).toHaveCount(1);
+        await viewer.getByRole('button', { name: 'Închide imaginea' }).click();
+        await expect(viewer).toHaveCount(0);
+        await expect(poster).toBeFocused();
+        expect(page.url()).toBe(at);
+
+        // The card body (just under the poster: the date line, no control of its own) opens the competition.
+        const frame = (await poster.boundingBox())!;
+        const card = (await article.boundingBox())!;
+        await article.click({ position: { x: 24, y: frame.y - card.y + frame.height + 20 } });
+        await expect(page).toHaveURL(new RegExp(`${href}$`));
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(2);
     expect(errors).toEqual([]);
   });
 
@@ -620,7 +666,7 @@ test.describe('signed in', () => {
     // A guest without a photo gets an initials disc.
     await expect(podium.nth(2).getByText('IO', { exact: true })).toBeVisible();
     // c3: no poster → a plain grey square (no button).
-    await expect(item('FX Live fără afiș').getByRole('button', { name: /^Vezi imaginea/ })).toHaveCount(0);
+    await expect(item('FX Live fără afiș').getByRole('button', { name: /^Mărește afișul/ })).toHaveCount(0);
     // Every footer note sits under the same hairline as the stat footers.
     await expect(item('FX Live fără capturi').getByText('Încă nu sunt capturi înregistrate.')).toHaveCSS('border-top-width', '1px');
     // Cards of one grid row share their footer line (subgrid), whatever their footers hold.
@@ -637,7 +683,7 @@ test.describe('signed in', () => {
     await page.setViewportSize(CARDS);
     await open(page);
     await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
-    await list(page).getByRole('button', { name: 'Vezi imaginea pentru FX Feeder pe manșe' }).click();
+    await list(page).getByRole('button', { name: 'Mărește afișul: FX Feeder pe manșe' }).click();
     let viewer = page.getByRole('dialog', { name: 'FX Feeder pe manșe' });
     await expect(viewer.getByText('LIVE · 20 oct')).toBeVisible();
     await expect(viewer.getByText('Feeder · Manșa 1/2')).toBeVisible();
@@ -645,12 +691,12 @@ test.describe('signed in', () => {
     await expect(viewer.getByText('6 pescari')).toBeVisible();
     await expect(viewer.getByText('1.024,3 kg')).toBeVisible();
     await page.getByRole('button', { name: 'Închide imaginea' }).click();
-    await list(page).getByRole('button', { name: 'Vezi imaginea pentru FX Viitor fără limită' }).click();
+    await list(page).getByRole('button', { name: 'Mărește afișul: FX Viitor fără limită' }).click();
     viewer = page.getByRole('dialog', { name: 'FX Viitor fără limită' });
     await expect(viewer.getByText('Echipe de 3')).toBeVisible();
     await expect(viewer.getByText('24 echipe')).toBeVisible();
     await page.keyboard.press('Escape');
-    await list(page).getByRole('button', { name: 'Vezi imaginea pentru FX Viitor cu așteptare' }).click();
+    await list(page).getByRole('button', { name: 'Mărește afișul: FX Viitor cu așteptare' }).click();
     await expect(page.getByRole('dialog', { name: 'FX Viitor cu așteptare' }).getByText('9/10 pescari')).toBeVisible();
   });
 
@@ -779,7 +825,7 @@ test.describe('list states (mocked)', () => {
     await page.setViewportSize(CARDS);
     await open(page);
     await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
-    await list(page).getByRole('button', { name: 'Vezi imaginea pentru FX Viitor cu așteptare' }).click();
+    await list(page).getByRole('button', { name: 'Mărește afișul: FX Viitor cu așteptare' }).click();
     const viewer = page.getByRole('dialog', { name: 'FX Viitor cu așteptare' });
     await expect(viewer.getByText('Imaginea nu a putut fi încărcată')).toBeVisible();
     const thumb = viewer.getByRole('img', { name: 'Afișul concursului FX Viitor cu așteptare' });

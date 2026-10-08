@@ -213,6 +213,70 @@ test('account.sign-in.c1 c2 c3 c19 — idle: copy, providers in order with marks
   expect(errors).toEqual([]);
 });
 
+/** The photo's decoded width vs the width it is drawn at (camera push included). */
+async function visualFit(page: Page) {
+  const img = page.locator('[data-intra-visual] img');
+  await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth)).toBeGreaterThan(0);
+  return img.evaluate((i: HTMLImageElement) => ({ natural: i.naturalWidth, rendered: i.getBoundingClientRect().width }));
+}
+
+test('account.sign-in web layout (owner 2026-10-08) — the shell stays; ≥1024 two columns (landscape photo panel + sign-in card), 768 one centred card under a band, the phone keeps fish; the photo is never upscaled', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  for (const width of [1280, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(PATH);
+    // The site's own top bar, as on every page.
+    await expect(page.getByRole('banner')).toBeVisible();
+    const visual = (await page.locator('[data-intra-visual]').boundingBox())!;
+    const cardTitle = screen(page).getByRole('heading', { level: 2, name: 'Intră în contul tău' });
+    await expect(cardTitle).toBeVisible();
+    const title = (await cardTitle.boundingBox())!;
+    const google = (await providerButton(page, 'Google').boundingBox())!;
+    // Two columns: the card sits to the right of the photo panel, side by side (same top band).
+    expect(google.x, `${width}: card right of the photo`).toBeGreaterThanOrEqual(visual.x + visual.width + 16);
+    expect(title.x).toBeGreaterThanOrEqual(visual.x + visual.width + 16);
+    expect(Math.abs(title.y - visual.y), `${width}: columns share the top`).toBeLessThan(80);
+    // A landscape panel, not the phone portrait; the page is a centred column, not full bleed.
+    expect(visual.width).toBeGreaterThan(visual.height);
+    expect(google.x + google.width - visual.x).toBeLessThanOrEqual(1160);
+    // The value line + the three reasons sit on the photo panel.
+    const reasons = screen(page).getByRole('list', { name: 'De ce să intri în cont' });
+    await expect(reasons.getByRole('listitem')).toHaveText([/^Concursuri live/, /^Rezervări la bălți/, /^Profilul tău de pescar/]);
+    const h1 = (await page.getByRole('heading', { level: 1 }).boundingBox())!;
+    expect(h1.x + h1.width).toBeLessThanOrEqual(visual.x + visual.width);
+    // Never upscaled: the decoded photo is at least as wide as it is drawn.
+    const fit = await visualFit(page);
+    expect(fit.natural, `${width}: ${fit.natural}px photo drawn ${fit.rendered}px wide`).toBeGreaterThanOrEqual(fit.rendered);
+  }
+
+  // 768: one centred card, the photo a band across its top, the providers under the heading.
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.goto(PATH);
+  const band = (await page.locator('[data-intra-visual]').boundingBox())!;
+  const h1 = (await page.getByRole('heading', { level: 1 }).boundingBox())!;
+  const google = (await providerButton(page, 'Google').boundingBox())!;
+  expect(band.width).toBeLessThanOrEqual(520);
+  expect(Math.abs(band.x + band.width / 2 - 384)).toBeLessThan(2);
+  expect(band.width).toBeGreaterThan(band.height * 2);
+  expect(h1.y).toBeGreaterThanOrEqual(band.y + band.height);
+  expect(google.y).toBeGreaterThan(h1.y + h1.height);
+  await expect(screen(page).getByRole('heading', { level: 2, name: 'Intră în contul tău' })).toBeHidden();
+  await expect(screen(page).getByRole('list', { name: 'De ce să intri în cont' })).toBeHidden();
+  let fit = await visualFit(page);
+  expect(fit.natural).toBeGreaterThanOrEqual(fit.rendered);
+
+  // 375: fish's screen — the photo full bleed behind the top half, the copy and buttons over it.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto(PATH);
+  const photo = (await page.locator('[data-intra-visual]').boundingBox())!;
+  expect(photo.x).toBe(0);
+  expect(photo.width).toBe(375);
+  await expect(screen(page).getByRole('list', { name: 'De ce să intri în cont' })).toBeHidden();
+  fit = await visualFit(page);
+  expect(fit.natural).toBeGreaterThanOrEqual(fit.rendered);
+  expect(errors).toEqual([]);
+});
+
 test('account.sign-in.c4 c5 c8 c9 c22 — pending: one spinner, everything disabled, a second press sends nothing, backdrop paused; failure → generic alert, cleared on retry', async ({ page }) => {
   const errors = collectConsoleErrors(page, { ignore: EXPECTED_CONSOLE });
   let calls = 0;

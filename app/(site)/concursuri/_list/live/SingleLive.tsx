@@ -94,7 +94,15 @@ export function SingleLive({
         <div className="flex min-w-0 flex-col gap-6 p-5 xl:p-8">
           <div className="flex items-start gap-4">
             {photo ? (
-              <button type="button" onClick={() => onOpenPhoto(photo)} aria-label={`Vezi imaginea pentru ${c.name}`} className="shrink-0 cursor-zoom-in rounded-card">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenPhoto(photo);
+                }}
+                aria-label={`Mărește afișul: ${c.name}`}
+                className="shrink-0 cursor-zoom-in rounded-card"
+              >
                 <PosterThumb src={posterOf(c).thumb} priority={priority} />
               </button>
             ) : (

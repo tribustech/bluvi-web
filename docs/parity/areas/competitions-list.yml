@@ -257,7 +257,7 @@ screens:
         text: "Poster source order: banner small → banner original → lake image small → lake image original; the full-screen photo uses the same media's original URL."
         fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:101
       - id: competitions-list.cards.c3
-        text: 'Compact: a 76px rounded square poster on the left is its own button "Vezi imaginea pentru {nume}" that opens the photo viewer; without a poster a plain grey square keeps the layout.'
+        text: 'Compact: a 76px rounded square poster on the left is its own button "Mărește afișul: {nume}" that opens the photo viewer (never navigates); without a poster a plain grey square keeps the layout.'
         fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:340
       - id: competitions-list.cards.c4
         text: 'Compact date line: live → red dot + "LIVE · {dateLabel}" in red; otherwise dateLabel in uppercase indigo.'

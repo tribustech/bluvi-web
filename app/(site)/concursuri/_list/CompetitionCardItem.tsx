@@ -69,8 +69,11 @@ export function CompetitionCardItem({
         {thumb && openPhoto ? (
           <button
             type="button"
-            onClick={openPhoto}
-            aria-label={`Vezi imaginea pentru ${c.name}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              openPhoto();
+            }}
+            aria-label={`Mărește afișul: ${c.name}`}
             className="relative z-above size-19 shrink-0 cursor-zoom-in overflow-hidden rounded-avatar bg-soft-fill"
           >
             <Image

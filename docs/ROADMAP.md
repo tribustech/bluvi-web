@@ -237,6 +237,16 @@ Add each new piece of feedback here, dated.
     - No /tombola pages (intro, confirmation, «Șansele mele», receipt upload, «Bon încărcat», winners),
       no raffle card on Acasă, no raffle reads or writes in core, no link or notification target to
       a raffle. The fish raffle screens are `mobile_only` in the inventory, their criteria `n/a`.
+23. **Sign-in is a web page, not a phone screen blown up (owner 2026-10-08).** «Ecranul de login nu arată
+    ca și cum ar fi web.»
+    - The site shell (top bar) stays. From 1024: two columns capped at ~1160 — a landscape visual with
+      the value line and concrete reasons on the left, a clean sign-in card on the right. 768–1023: one
+      centred card with a smaller visual band. The phone keeps fish's welcome screen.
+    - A photo is never drawn wider than its source (no stretched portrait); crop it, or use a
+      composition in tokens.
+24. **A poster or photo on a card opens the photo, never the page (owner 2026-10-08).** As in fish:
+    click / Enter on the poster opens the photo viewer at once (no page or dialog in between, the URL
+    does not change, «Mărește afișul», zoom-in cursor); the rest of the card opens the item.
 
 
 

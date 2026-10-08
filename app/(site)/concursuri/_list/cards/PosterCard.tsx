@@ -20,7 +20,8 @@ import { blur, CardName, Chips, photoRequestOf, posterOf, type PhotoRequest } fr
  *    is a SQUARE: a near-square poster fills it, any other is shown whole over its blurhash bands
  *    (stretched, darkened). On the phone the frame takes fish's natural ratio clamped to 0.55–2.4
  *    (../posterFit.ts), the poster shown whole when clamped. Tapping the poster opens the photo
- *    viewer (its own control above the card link, z-above), as fish's onOpenPhoto;
+ *    viewer (its own control «Mărește afișul» above the card link, z-above, zoom-in cursor) and
+ *    never navigates, as fish's onOpenPhoto; the rest of the card opens the competition;
  *  - the date in small caps with the ranking and format chips on the same row, the name (the
  *    card's ONE link, the kit's stretched CardTitle → /concursuri/[id]), the lake and organizer;
  *  - the footer under a hairline: fish's Upcoming / Live / Results footer for the card's status
@@ -125,11 +126,20 @@ function PosterFrame({
       ) : (
         <Image src={src} alt="" aria-hidden fill sizes="40vw" className={cn('scale-110 object-cover opacity-70 blur-xl brightness-75', bands)} />
       )}
+      {/* The poster is the photo, not the card (fish onOpenPhoto, owner 2026-10-08): click / Enter
+          opens the viewer right here — no navigation, the URL stays; the card link never sees it. */}
       <button
         type="button"
-        onClick={onOpen ?? undefined}
+        onClick={
+          onOpen
+            ? (e) => {
+                e.stopPropagation();
+                onOpen();
+              }
+            : undefined
+        }
         disabled={!onOpen}
-        aria-label={`Vezi imaginea pentru ${c.name}`}
+        aria-label={`Mărește afișul: ${c.name}`}
         className="absolute inset-0 z-above cursor-zoom-in focus-visible:-outline-offset-2"
       >
         <Image
