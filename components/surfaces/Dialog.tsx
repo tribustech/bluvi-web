@@ -26,6 +26,8 @@ type Props = {
    * stay pinned under it behind a hairline — the submit never ends up below the fold.
    */
   scrollBody?: boolean;
+  /** A long read: max 760 px (a ~720 px text column) instead of 480. */
+  wide?: boolean;
   /** false: a click on the backdrop does not close it (Escape and the X still do). Default true. */
   backdropDismiss?: boolean;
   className?: string;
@@ -44,6 +46,7 @@ export function Dialog({
   closeButton,
   titleHidden,
   scrollBody,
+  wide,
   backdropDismiss = true,
   className,
 }: Props) {
@@ -58,7 +61,8 @@ export function Dialog({
       aria-describedby={description ? descId : undefined}
       className={cn(
         // text-left: a <dialog> inherits from where it is mounted (a centred header would centre it).
-        'm-auto w-[calc(100%-32px)] max-w-[480px] rounded-card bg-surface p-0 text-left text-ink shadow-e2',
+        'm-auto w-[calc(100%-32px)] rounded-card bg-surface p-0 text-left text-ink shadow-e2',
+        wide ? 'max-w-[760px]' : 'max-w-[480px]',
         'backdrop:bg-scrim open:flex open:flex-col',
         scrollBody && 'max-h-[calc(100dvh-32px)] overflow-clip',
         'scale-100 opacity-100 transition-[opacity,scale] duration-(--duration-slow) ease-slow starting:scale-95 starting:opacity-0',

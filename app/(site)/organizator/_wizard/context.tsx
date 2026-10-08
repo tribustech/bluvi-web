@@ -34,7 +34,8 @@
  *    values            CreateCompetitionFormData (core/organizer), the form's current values
  *    errors            createCompetitionSchema issues, first message per field (show once `touched`)
  *    touched           fields the user has left (touch) — when to show a field's error
- *    setValue(f, v, { autoSave })  'now' = save at once, 'debounced' = 500 ms, false (default) = none
+ *    setValue(f, v, { autoSave, normalize })  'now' = save at once, 'debounced' = 500 ms, false (default) = none;
+ *                      normalize: a self-correction that does not make the form dirty (fish, no shouldDirty)
  *    touch(f)          the field lost focus: marks it touched and auto-saves now (fish onBlur)
  *    flushAutoSave()   run a pending auto-save now; resolves when it settled (never rejects)
  *    goTo(pas) / goNext() / goBack()   step navigation (each flushes the auto-save first)
@@ -125,6 +126,12 @@ import { stepFromPath, stepIndex as indexOf, WIZARD_STEP_DEFS } from './stepDefs
 
 export type WizardMode = 'new' | 'draft' | 'edit';
 export type AutoSaveOption = 'now' | 'debounced' | false;
+/**
+ * autoSave: see the contract. normalize: a correction the step applies by itself (fish setValue
+ * without shouldDirty) — when the field still held its loaded / saved value, the baseline moves
+ * with it, so `dirty` stays false.
+ */
+export type SetValueOptions = { autoSave?: AutoSaveOption; normalize?: boolean };
 export type WizardLake = { data: LakeDetail | null; loading: boolean; error: boolean };
 
 /** DOM ids the frame moves focus to (the step that renders the control uses the same id). */
@@ -147,7 +154,7 @@ export type WizardContextValue = {
   values: CreateCompetitionFormData;
   errors: WizardFieldErrors;
   touched: ReadonlySet<WizardField>;
-  setValue: <K extends WizardField>(field: K, value: CreateCompetitionFormData[K], opts?: { autoSave?: AutoSaveOption }) => void;
+  setValue: <K extends WizardField>(field: K, value: CreateCompetitionFormData[K], opts?: SetValueOptions) => void;
   touch: (field: WizardField) => void;
   flushAutoSave: () => Promise<void>;
   goTo: (pas: WizardStep) => void;
@@ -587,14 +594,21 @@ export function WizardProvider({ initialValues, initialDraftId, competitionId, r
 
   /* ── values ────────────────────────────────────────────────────────────────────────────────── */
   const setValue = useCallback(
-    <K extends WizardField>(field: K, value: CreateCompetitionFormData[K], opts?: { autoSave?: AutoSaveOption }) => {
-      const next = { ...valuesRef.current, [field]: value };
+    <K extends WizardField>(field: K, value: CreateCompetitionFormData[K], opts?: SetValueOptions) => {
+      const prev = valuesRef.current;
+      const next = { ...prev, [field]: value };
       valuesRef.current = next;
       setValues(next);
+      if (opts?.normalize) {
+        // fish setValue without shouldDirty: a field the user had not changed moves its baseline
+        // too, so the correction never counts as an edit (leave guard, auto-save).
+        const base = baselineRef.current;
+        if (valuesEqual({ ...base, [field]: prev[field] }, base)) markSaved({ ...base, [field]: value });
+      }
       if (opts?.autoSave === 'now') void flushAutoSave();
       else if (opts?.autoSave === 'debounced') schedulerRef.current.schedule();
     },
-    [flushAutoSave],
+    [flushAutoSave, markSaved],
   );
 
   const touch = useCallback(

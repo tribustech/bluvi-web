@@ -12,7 +12,8 @@ type Props = {
   onClose: () => void;
   /**
    * `context` = list must stay visible (stand, pescar, cântărire); `decision` = anulare, penalizare
-   * (an alert dialog); `info` = a dismissible informational panel (a plain dialog with «Închide»).
+   * (an alert dialog); `info` = a dismissible informational panel (a plain dialog with «Închide»);
+   * `reading` = `info` for a long read (a wide dialog with a ~720 px column).
    */
   intent: SurfaceIntent;
   title: string;
@@ -57,6 +58,7 @@ export function ResponsiveSurface({ open, onClose, intent, title, subtitle, chil
         closeButton={intent !== 'decision'}
         titleHidden={titleHidden}
         scrollBody={pinnedActions}
+        wide={intent === 'reading'}
       >
         {children}
       </Dialog>

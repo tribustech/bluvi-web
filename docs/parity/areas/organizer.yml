@@ -584,7 +584,8 @@ screens:
     core:
       - core/organizer/domain/createCompetition.ts#parseTierSizesInput
       - core/organizer/domain/createCompetition.ts#getGeneralPriorityMetric
-      - "(missing) ranking config + explanations (fish helpers/rankingConfig.ts, constants/*Explanation*.ts)"
+      - core/organizer/domain/rankingConfig.ts (RANKING_TYPES, DISABLED_RANKING_TYPES, general mode + grid rule helpers)
+      - core/organizer/domain/rankingExplanations.ts
     states:
       - "no ranking type selected"
       - "each of the 9 selectable types selected (card expanded with its options)"
@@ -599,41 +600,67 @@ screens:
       - id: organizer.step-ranking.c1
         text: "Section „Tipul clasamentului” („Alege metoda principală și configurează departajările contextuale.”) lists 11 types with label and description in this order: Cantitate, Calitate, Cantitate/Calitate, Calitate/Cantitate, Calitate/Calitate, Calitate/Cantitate/CMMC, Best of, Best of x, y, z..., Feeder (FIPS), Campionat Național, Campionat Mondial FIPSed."
         fish_ref: app/(app)/create-competition/step-ranking.tsx:33-93
+        status: passing
+        web_note: "T4Section «Tipul clasamentului» + a native radiogroup of 11 T4ChoiceCards from core RANKING_TYPES (fish order, label + description; fish's emoji aria-hidden). e2e «c1 c2 c3 c12 …» (order, values, accessible names)."
       - id: organizer.step-ranking.c2
         text: "Campionat Național and Campionat Mondial FIPSed are shown disabled (greyed, not selectable); a hydrated value of one of them is cleared."
         fish_ref: app/(app)/create-competition/step-ranking.tsx:95
+        status: passing
+        web_note: "Native disabled radios (kit dashed look, greyscale emoji, AA text — never faded), skipped by arrow keys; model.rankingNormalization clears a hydrated national/fipsed without a save. e2e «c1 c2 c3 c12 …», «c2 — a draft carrying a disabled type …»; unit model.test.ts."
       - id: organizer.step-ranking.c3
         text: "Each card is a single-choice radio; the selected card expands to show its options and a „Vezi explicația completă” link."
         fish_ref: components/RankingTypeCard.tsx:31-93
+        status: passing
+        web_note: "One name → arrow keys move the choice and focus; T4ChoiceCard `expanded` (small additive kit prop) grows the checked card's options + «Vezi explicația completă» inside the same ring. e2e «c1 c2 c3 c12 …» (Space / ArrowDown, wrap past the disabled pair), «c3 c4 — every selectable type …». Web addition (the arrows change the type as they move, fish only on a tap): a type reached again with the arrow keys gets back its tiers / best-of values / legs from this visit (model.typeOwnValues + rankingTypePatchRestoring, unit-tested); a click / Space keeps fish's reset. e2e «c3 c4 — arrowing past a type and back …» (the PUT after ArrowUp carries the tiers, ArrowDown again the 3 legs)."
       - id: organizer.step-ranking.c4
         text: "Selecting a type normalizes the general ranking mode and grid rule for it, clears best-of fields unless bestOf, clears tiers unless bestOfTiers, sets legs to 2 for feederRounds (clears them otherwise) and schedules an auto-save."
         fish_ref: app/(app)/create-competition/step-ranking.tsx:652-683
+        status: passing
+        web_note: "model.rankingTypePatch (unit-tested): normalized mode + grid rule, best-of '' unless bestOf, tiers unless bestOfTiers, legs 2 for feeder (kept if set) else cleared; written then one debounced auto-save. fish's two normalising effects (mode / grid rule fitting a loaded type, no shouldDirty) go through setValue `normalize`: the wizard baseline moves with them, so opening the step never makes the form dirty (no leave question, no auto-save); the disabled-type clear stays an edit (fish shouldDirty). e2e «c3 c4 …» asserts the MOCKED PUT body for all 9 types; «c4 — the normalised mode / grid rule … Back leaves without asking» (edit: quality with both null → back to step 1 and out, no dialog, no write)."
       - id: organizer.step-ranking.c5
         text: "For Cantitate, Calitate, Cantitate/Calitate and Calitate/Cantitate the card shows „Clasament general” with a picker „Mod de departajare în clasamentul general” showing the current mode label (default „După poziția în sector”, phrased „După poziția în sector, primează …”)."
         fish_ref: app/(app)/create-competition/step-ranking.tsx:725-757
+        status: passing
+        web_note: "OptionTrigger under «Clasament general» (4 types) with getGeneralRankingWinnerModeLabel. e2e «c5 c6 c11 …»."
       - id: organizer.step-ranking.c6
         text: "The general mode picker („📊 Alege modul de departajare în clasamentul general”) explains „Cum funcționează departajarea” with a type-specific help text, offers an expandable „După poziția în sector” group with the type's sector-priority options (reversed only for Cantitate/Calitate and Calitate/Cantitate) and „După punctaj”; the choice applies only on „Confirmă”."
         fish_ref: app/(app)/create-competition/step-ranking.tsx:244-379
+        status: passing
+        web_note: "GeneralModeDialog (sheet <768, dialog ≥768): help box, expandable «După poziția în sector» (aria-expanded; 2 rows only for quantityQuality / qualityQuantity, ⚖️/🐟 by getGeneralPriorityMetric), «După punctaj»; local until «Confirmă» (X drops it). e2e «c5 c6 c11 …» (MOCKED PUT bodies)."
       - id: organizer.step-ranking.c7
         text: "For Calitate, Cantitate/Calitate and Calitate/Cantitate the card shows „Standuri fără grilă” with „Regula departajare standuri fără grilă”: „După numărul de capturi” (default) or „După media greutății”, with the tiebreak help text, confirmed with „Confirmă”."
         fish_ref: app/(app)/create-competition/step-ranking.tsx:97-113
+        status: passing
+        web_note: "GridRuleDialog: default «După numărul de capturi», GRID_RULE_TIEBREAK_HELP, «Confirmă». e2e «c7 c11 …» at 375 (sheet), MOCKED PUT gridRule average."
       - id: organizer.step-ranking.c8
         text: "For Best of x, y, z... the card shows „Praguri clasament”: a field accepting only digits and commas (placeholder „9,7,5,3”) validated on blur — non-positive / non-integer, empty, more than 20, or not strictly descending each show its message; a valid value is saved and auto-saved."
         fish_ref: app/(app)/create-competition/step-ranking.tsx:473-556
+        status: passing
+        web_note: "TiersField: digits+commas filter, core parseTierSizesInput on blur (each message), error clears on typing, valid → setValue + save now. e2e «c8 …» (5 error cases, MOCKED PUT [9,7,5,3])."
       - id: organizer.step-ranking.c9
-        text: "For Feeder (FIPS) the card shows „Număr de manșe” with two exclusive choices „2 manșe” (default) and „3 manșe”."
+        text: "For Feeder (FIPS) the card shows „Număr de manșe” with exclusive choices „1 manșă”, „2 manșe” (default) and „3 manșe” (fish 3.6.1)."
         fish_ref: app/(app)/create-competition/step-ranking.tsx:807-847
+        status: passing
+        web_note: "LegsChoice (segmented native radios). fish 3.6.1 (ea89c087) and docs/domain/competitions.md allow 1, 2 or 3 legs, so the web offers «1 manșă» / «2 manșe» (default) / «3 manșe» — criterion text predates the 1-leg change. e2e «c9 …» (click + arrow keys, MOCKED PUT roundsCount)."
       - id: organizer.step-ranking.c10
         text: "For Best of the card shows „Parametri Best Of” with „Număr de pești pentru clasament” (1–100, „Numărul de pești trebuie să fie între 1 și 100.”) and „Număr de câștigători” (≥ 1, „Numărul de câștigători trebuie să fie cel puțin 1.”), digits only, auto-saved on blur."
         fish_ref: app/(app)/create-competition/step-ranking.tsx:849-913
+        status: passing
+        web_note: "BestOfFields: digits only, schema messages on every keystroke, saved on blur (touch). e2e «c10 …» (errors, MOCKED PUT bodies, cleared by another type)."
       - id: organizer.step-ranking.c11
         text: "„Vezi explicația completă” opens a scrollable panel with the explanation title and headed sections for the ranking type, the general-mode group (built from the type's options as „1. 📊 După poziția în sector”, „1.n …”, „2. 🔢 După punctaj”) or the grid rule."
         fish_ref: app/(app)/create-competition/step-ranking.tsx:136-196
+        status: passing
+        web_note: "Card link / dialog links → setQuery({ explicatie: explanationParam(target) }) for ranking / generalMode / gridRule; the panel body is organizer.ranking-explanation. e2e «c5 c6 c11 …», «c7 c11 …» (param + Escape returns to the picker)."
       - id: organizer.step-ranking.c12
         text: "The footer has „Următorul pas” (→ lac și sectoare); the save button appears only when editing a published competition."
         fish_ref: app/(app)/create-competition/step-ranking.tsx:695-704
+        status: passing
+        web_note: "The frame's T4ActionBar: «Următorul pas» → /lac-si-sectoare; the secondary save button only in edit mode («Salvează modificările», no auto-save) — stepDefs `saveOnlyInEdit` on clasament, as fish. e2e «c1 c2 c3 c12 …» (new: no save button), «… a saved draft hydrates …» (draft: none), «c12 — edit mode …» (shown)."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/organizator-pas-clasament.spec.ts
+    web_note: "M6-B3: app/(site)/organizator/_wizard/steps/clasament (index, RankingTypeCard on T4ChoiceCard + its new optional `expanded` prop, GeneralModeDialog, GridRuleDialog, TiersField, BestOfFields, LegsChoice, parts, model + model.test.ts). Every draft PUT MOCKED (harness guard), reads are fixtures. Screenshots of every state at 375/1280/1440/1920 in .shots/organizator-pas-clasament; axe 0."
 
   - id: organizer.step-lake-sectors
     title: Lac și sectoare
@@ -771,32 +798,52 @@ screens:
       - id: organizer.step-stand-allocation.c1
         text: "Section „Alocare standuri” reads „Selectează un sector, apoi apasă pe standuri pentru a le aloca.”."
         fish_ref: app/(app)/create-competition/step-stand-allocation.tsx:74-80
+        status: passing
+        web_note: "T4Section «Alocare standuri» with fish's description. e2e «c1 c2 …»."
       - id: organizer.step-stand-allocation.c2
         text: "Without a lake, sectors or stands an empty card shows „Selectează un lac în pasul anterior.”, „Adaugă sectoare în pasul anterior.” or „Lacul selectat nu are standuri configurate.” with „Înapoi la lac și sectoare”."
         fish_ref: app/(app)/create-competition/step-stand-allocation.tsx:90-109
+        status: passing
+        web_note: "The three empty cards in fish's order (model emptyReason), «Înapoi la lac și sectoare» → goTo('lac-si-sectoare') (flushes the auto-save). While the lake detail loads: a skeleton; when it fails: a danger notice with «Încearcă din nou» (rule 4, never the «no stands» copy). e2e «c1 c2 …», «the lake detail loading …»."
       - id: organizer.step-stand-allocation.c3
         text: "Sector tabs show the letter badge, „Sector X” and „N stand” / „N standuri”; the first sector is selected on entry."
         fish_ref: components/StandAllocator.tsx:82-138
+        status: passing
+        web_note: "One tablist «Sectoare» (rule 20): a soft-fill track, the selected tab a surface with the 2px accent ring + e1 lift in ONE box-shadow (e2e checks the computed inset); SectorBadge + «Sector X» + formatCount; first sector selected at mount (fish useState); ← → ↑ ↓ Home End, roving tabindex. Every tab always visible (no sideways scroller hiding sectors): phone a 2-column grid with the count under the name (fish); wider card: wraps with the count badge inline; card ≥ ~670px (1920): a sticky column left of the grid with the tally «Alocate: N din M». More than 8 sectors (CMS allows 24, A..X): compact letter chips with the count under the letter, «Sector X, N standuri» as name + tooltip, so 24 sectors are 4–6 rows at every width and the sticky column fits the viewport. e2e «c3 c4 c5 …», «keyboard …», «c3 — 6 sectors on a phone …», «c3 — 24 sectors …» (shots sase-sectoare-375, sectoare-24-375/1280/1920)."
       - id: organizer.step-stand-allocation.c4
         text: "Stands are sorted by name numerically and laid out in a grid; an allocated stand takes its sector's color and reads sector letter + stand name (e.g. „A12”); stands of the selected sector are outlined."
         fish_ref: components/StandAllocator.tsx:140-182
+        status: passing
+        web_note: "sortStands (numeric localeCompare); auto-fill grid (3 columns on a phone, up to 9 at 1920); allocated: the sector token at 40% (rank-sector-tint, sectorVar) reading «A12»; the selected sector's stands get the 2px accent ring and aria-pressed. Web uses the ranking sector tokens, not fish helpers/sectorColors (one sector palette on the web). e2e «c3 c4 c5 …»."
       - id: organizer.step-stand-allocation.c5
         text: "Activating a free stand adds it to the selected sector; activating one of the selected sector's stands removes it; a stand in another sector is refused with the toast „Standul este deja alocat sectorului X.”."
         fish_ref: app/(app)/create-competition/step-stand-allocation.tsx:34-56
+        status: passing
+        web_note: "model toggleStand; refusal → site toast (danger) «Standul este deja alocat sectorului X.». Buttons labelled «Stand 12, alocat sectorului A». e2e «c3 c4 c5 …», «keyboard …» (Enter / Space)."
       - id: organizer.step-stand-allocation.c6
         text: "When at least 2 stands have past competitions, each scored stand shows a percentile label: „Foarte bun” (top 25%), „Bun”, „Mediu”, „Slab” in their colors."
         fish_ref: components/StandAllocator.tsx:48-63
+        status: passing
+        web_note: "model perfLevels (fish's percentile 1 − i/(n−1), ≥ 2 scored stands); the label is a small surface pill in the status pair colours (success / info / neutral / danger, AA on any tint). e2e «c6 c7 …» against Chita's real scores, «c6 — fewer than 2 …» (fixture)."
       - id: organizer.step-stand-allocation.c7
         text: "„Cum funcționează?” opens „Performanța standurilor” explaining the score (average catch weight from past competitions on the lake), the four levels and „Scorurile se actualizează automat la finalul fiecărei competiții. Standurile fără competiții anterioare nu au scor.”."
         fish_ref: components/StandAllocator.tsx:190-239
+        status: passing
+        web_note: "PerformanceExplanation on ResponsiveSurface (sheet on a phone, dialog from 768) with fish's copy word for word + «Am înțeles». e2e «c6 c7 …»."
       - id: organizer.step-stand-allocation.c8
         text: "With no sector selected the stands are dimmed and „Selectează un sector mai întâi” is shown."
         fish_ref: components/StandAllocator.tsx:184-188
+        status: passing
+        web_note: "Reachable when sectors arrive after the step mounted (fish keeps the mount-time tab): grid at 60% opacity, buttons aria-disabled and inert; the hint is a warning strip ABOVE the grid (fish: below; on a phone below would be off-screen). e2e «c8 …»."
       - id: organizer.step-stand-allocation.c9
         text: "The footer has „Următorul pas” (→ revizuire); the save button only when editing a published competition."
         fish_ref: app/(app)/create-competition/step-stand-allocation.tsx:63-72
+        status: passing
+        web_note: "The frame's T4ActionBar: «Următorul pas» → revizuire; in edit mode «Salvează modificările» beside it. The web frame also shows «Salvează și ieși» outside edit mode (organizer.wizard decision, as on every step). No auto-save from this step (fish neither). e2e «c9 …» (new + edit: the fixture competition's own sectors[].stands hydrate A1/A2/B3 with no seam; a new stand A4 then «Salvează modificările» → the route-mocked PUT /competitions/organizer/:id asserted: method, path, confirmRiskChanges false, draftMeta.standAllocations A:[1,2,4] B:[3])."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/organizator-pas-standuri.spec.ts
+    web_note: "M6-B3: app/(site)/organizator/_wizard/steps/standuri (index, StandAllocator, PerformanceExplanation, model + model.test.ts). Reads: Chita Lake detail from the local CMS (21 stands with scores); the «no stands» / «no history» / slow / failing lakes are fixtures; NO real writes (no name → no auto-save; the step never auto-saves; harness guard); the edit-mode save is a route-mocked PUT asserted in the spec. Screenshots at 375/1280/1440/1920 in .shots/organizator-pas-standuri; axe 0."
 
   - id: organizer.step-review
     title: Revizuire
@@ -925,7 +972,7 @@ screens:
     milestone: M6
     roles: [organizer]
     core:
-      - "(missing) ranking explanations (fish constants/rankingExplanations.ts)"
+      - core/organizer/domain/rankingExplanations.ts#getRankingExplanation
     states:
       - "known ranking type"
       - "unknown type"
@@ -934,14 +981,22 @@ screens:
       - id: organizer.ranking-explanation.c1
         text: "The page title is the explanation title of the ranking type given by the type parameter."
         fish_ref: app/(app)/create-competition/ranking-explanation.tsx:9-16
+        status: passing
+        web_note: "The panel's h2 (and the dialog's accessible name) is getRankingExplanation(type).title, with an eyebrow (the surface subtitle) naming the kind («Tip de clasament» / «Clasament general» / «Regula grilei»), none over «Necunoscut»; opening (and only a new ?explicatie=, never a draft hydrating / auto-saving) focuses it and scrolls the body to the top (tabIndex -1, no ring — rule 8). e2e organizator-explicatie.spec.ts «c1 c2 — by URL, a known type…»."
       - id: organizer.ranking-explanation.c2
         text: "Each section shows its optional heading and its body text, in order."
         fish_ref: app/(app)/create-competition/ranking-explanation.tsx:17-29
+        status: passing
+        web_note: "Sections in source order, each an optional h3 (numbered «1.n …» sub-headings h4, indented) and its body split on blank lines into paragraphs, line breaks kept (pre-line); a short «…:» lead line («Cum funcționează:», «Exemplu concret:», «În sector:») is set bold. Unit model.test.ts proves the paragraphs rejoin to the body exactly; e2e «c1 c2» checks every heading + body text of quantity."
       - id: organizer.ranking-explanation.c3
         text: "An unknown type shows the title „Necunoscut” and the text „Tip de clasament necunoscut.”."
         fish_ref: app/(app)/create-competition/ranking-explanation.tsx:10-13
+        status: passing
+        web_note: "Any unknown ?explicatie= value → UNKNOWN_RANKING_EXPLANATION, with no eyebrow. Types are looked up as OWN keys only (Object.hasOwn), so «constructor» / «toString» / «__proto__» (or grila-constructor) read «Necunoscut» instead of crashing the wizard. Rule 4: a concept the type does not have (mod-general-bestOf, grila-quantity) or of an unknown type (grila-nuExista), and a bare «grila» whose form type has no grid rule, also read «Necunoscut» — fish only offers those links where they exist. Unit model.test.ts; e2e «c3 — by URL, an unknown type…» (phone sheet), «grid rule … type without a general mode», «an Object.prototype name…»."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/organizator-explicatie.spec.ts
+    web_note: "M6-B3: app/(site)/organizator/_wizard/explanation (index = RankingExplanationPanel, model + model.test.ts). Rendered by the wizard frame over «clasament» while ?explicatie= is set: quantity (a type) | mod-general-<type> | grila (the form's type) / grila-<type>. Through the kit's surface rule (ResponsiveSurface intent `reading`, added to rule.ts): <768 the kit Sheet fitted to its content (draggable handle), ≥768 the kit Dialog in its wide variant (760 px, a ≤ 720 px reading column); body scrolls, «Am înțeles» pinned, X / Escape / scrim close. Closing: opened from the step (an entry the wizard pushed) → history.back(), so reads never stack dead Back entries; a deep link (the wizard's first entry) → the param is removed with replaceState (no extra entry). Both asserted. No reads, no writes (harness guard). Screenshots at 375/1280/1440/1920 (known, unknown, general mode, grid rule) in .shots/organizator-explicatie; axe 0."
 
   - id: organizer.sectors
     title: Alocarea standurilor pe sectoare
@@ -1548,3 +1603,5 @@ behaviours:
   - id: organizer.b.ranking-explanation-orphan
     text: "fish has a standalone ranking-explanation screen that nothing navigates to; step-ranking shows explanations in an in-page panel. Web keeps one explanation panel, deep-linkable via ?explicatie=."
     fish_ref: app/(app)/create-competition/ranking-explanation.tsx:8-33
+    status: passing
+    web_note: "No standalone route: /organizator/concursuri/nou/clasament?explicatie=<type> opens the same panel step-ranking uses (deep link, reload-safe); the panel keeps focus inside (native modal) and closing restores the step URL. Opened from «Vezi explicația completă», closing returns to the step entry with history.back() (the next Back leaves the step). e2e organizator-explicatie.spec.ts (by URL; «opened from «Vezi explicația completă»… no dead Back»; «keyboard: focus stays in the panel…»)."

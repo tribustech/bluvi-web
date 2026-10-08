@@ -459,7 +459,7 @@ function WizardFrame() {
     <T4ActionBar
       primary={primary}
       secondary={
-        isLast ? undefined : (
+        isLast || (def.saveOnlyInEdit && w.mode !== 'edit') ? undefined : (
           <Button variant="secondary" onClick={() => void w.saveAndExit()} disabled={w.busy} data-testid="wizard-save">
             {w.saveLabel}
           </Button>
@@ -507,7 +507,7 @@ function WizardFrame() {
         </div>
       </T4Frame>
 
-      {explanation ? <RankingExplanationPanel target={explanation} onClose={() => w.setQuery({ explicatie: null })} /> : null}
+      {explanation ? <RankingExplanationPanel target={explanation} onClose={() => w.setQuery({ explicatie: null }, { replace: true })} /> : null}
 
       <ExitDialog
         open={exitOpen}

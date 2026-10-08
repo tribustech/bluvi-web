@@ -41,6 +41,13 @@ type Props = {
   invalid?: boolean;
   /** The control's spoken name when the visible text is terse («7» → «Standul 7, liber, Cabană»). */
   ariaLabel?: string;
+  /**
+   * Content that belongs to this choice (a ranking type's own options), shown under the row while
+   * it is checked. The card then wraps both: the 2px ring goes round the row AND the content, so
+   * the options read as part of the choice (fish RankingTypeCard). Pass it (even `null`) on every
+   * card of the group, so the radio is never remounted when the choice moves (arrow keys keep focus).
+   */
+  expanded?: ReactNode;
   id?: string;
   className?: string;
 };
@@ -88,12 +95,16 @@ export function T4ChoiceCard({
   layout = 'row',
   invalid = false,
   ariaLabel,
+  expanded,
   id,
   className,
 }: Props) {
   const tile = layout === 'tile' || layout === 'tile-row';
   const pad = density === 'compact' ? 'p-3' : 'p-4';
-  return (
+  const wraps = expanded !== undefined;
+  // With `expanded` the checked card's ground and ring move to the wrapper (round row + content).
+  const open = wraps && checked && !disabled;
+  const card = (
     <label
       className={cn(
         'group relative flex min-w-0 rounded-card',
@@ -103,16 +114,18 @@ export function T4ChoiceCard({
         'transition-[box-shadow,background-color,color,opacity] duration-(--duration-fast) ease-fast',
         disabled
           ? DISABLED
-          : cn(
-              'cursor-pointer bg-surface hover:bg-soft-fill active:opacity-70',
-              checked
-                ? RING_SELECTED
-                : invalid
-                  ? RING_DANGER
-                  : 'shadow-e0',
-            ),
+          : open
+            ? 'cursor-pointer'
+            : cn(
+                'cursor-pointer bg-surface hover:bg-soft-fill active:opacity-70',
+                checked
+                  ? RING_SELECTED
+                  : invalid
+                    ? RING_DANGER
+                    : 'shadow-e0',
+              ),
         'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent',
-        className,
+        !wraps && className,
       )}
     >
       <input
@@ -182,6 +195,13 @@ export function T4ChoiceCard({
         </span>
       ) : null}
     </label>
+  );
+  if (!wraps) return card;
+  return (
+    <div className={cn('flex min-w-0 flex-col rounded-card', open && cn('bg-surface', RING_SELECTED), className)}>
+      {card}
+      {open && expanded ? <div className={cn('flex min-w-0 flex-col gap-4 pt-0', density === 'compact' ? 'px-3 pb-3' : 'px-4 pb-4')}>{expanded}</div> : null}
+    </div>
   );
 }
 

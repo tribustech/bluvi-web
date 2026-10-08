@@ -9,12 +9,14 @@ export type WizardStepDef = {
   slug: WizardStep;
   title: string;
   analytics: 'basics' | 'config' | 'ranking' | 'lake-sectors' | 'stand-allocation' | 'review';
+  /** fish `isEditCompetitionMode && <Button>`: the footer's save button only when editing a published competition. */
+  saveOnlyInEdit?: true;
 };
 
 export const WIZARD_STEP_DEFS: readonly WizardStepDef[] = [
   { slug: 'detalii', title: 'Detalii de bază', analytics: 'basics' },
   { slug: 'configurare', title: 'Configurare competiție', analytics: 'config' },
-  { slug: 'clasament', title: 'Tip clasament', analytics: 'ranking' },
+  { slug: 'clasament', title: 'Tip clasament', analytics: 'ranking', saveOnlyInEdit: true },
   { slug: 'lac-si-sectoare', title: 'Lac și sectoare', analytics: 'lake-sectors' },
   { slug: 'standuri', title: 'Alocă standuri', analytics: 'stand-allocation' },
   { slug: 'revizuire', title: 'Revizuire', analytics: 'review' },

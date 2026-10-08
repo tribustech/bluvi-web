@@ -517,7 +517,8 @@ test('organizer.wizard.c4 (web) — a top-bar link away from a dirty wizard asks
 });
 
 test('organizer.wizard.c9 — saving with a name under 3 characters: «Adaugă un nume» → back to step 1', async ({ page, organizer }) => {
-  await open(page, NEW('clasament'));
+  // configurare: fish shows the save button there outside edit mode (not on clasament, step-ranking c12).
+  await open(page, NEW('configurare'));
   await saveBtn(page).click();
   const d = dialog(page, 'Adaugă un nume');
   await expect(d).toBeVisible();

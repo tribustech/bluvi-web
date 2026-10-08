@@ -11,12 +11,14 @@
  *     dialog (no «Închide» X — it must be answered).
  *   - `info` — a non-blocking, informational panel (a «În curând» offer): **Dialog**, a plain
  *     dialog with the «Închide» X (tablet too).
+ *   - `reading` — a long read (an explanation): `info`, but the dialog is wide enough for a ~720 px
+ *     reading column (tablet too).
  *
  * Pure function so it is usable from server code and tests; `useBreakpoint()` supplies the
  * breakpoint in the browser.
  */
 export type Breakpoint = 'mobile' | 'tablet' | 'desktop';
-export type SurfaceIntent = 'context' | 'decision' | 'info';
+export type SurfaceIntent = 'context' | 'decision' | 'info' | 'reading';
 export type SurfaceKind = 'sheet' | 'dialog' | 'panel';
 
 export const BREAKPOINT_MD = 768;
