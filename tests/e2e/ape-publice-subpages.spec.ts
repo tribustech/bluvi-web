@@ -309,10 +309,11 @@ test.describe('public-waters.partide', () => {
       await page.goto(`/ape-publice/${TIN.id}/partide`);
       const empty = page.getByTestId('partide-empty');
       await expect(empty).toContainText('Nicio partidă înregistrată pe această apă încă.');
-      // Until the web's start flow ships: «Începe o partidă aici» opens the app's store listing
-      // (Google Play first off Apple devices), the other store beside it — never a dead end.
-      await expect(empty.getByRole('link', { name: 'Începe o partidă aici' })).toHaveAttribute('href', /play\.google\.com/);
-      await expect(empty.getByRole('link', { name: 'App Store' })).toHaveAttribute('href', /apps\.apple\.com/);
+      // fish's green «Începe o partidă aici»: the web's start flow pre-set to this water
+      // (waterCode = linkCode; partide.incepe c15).
+      const start = empty.getByRole('link', { name: 'Începe o partidă aici' });
+      await expect(start).toHaveAttribute('href', `/partide/incepe?apa=${encodeURIComponent(TIN.code)}`);
+      await expect(start).toHaveClass(/bg-success/);
       await expectNoA11yViolations(page);
     });
   });

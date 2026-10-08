@@ -454,13 +454,15 @@ test('lakes.partide.c6 lakes.partide.c7 — the latest catches rail (3 tiles →
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(lakes.get(ID.big)!.name);
 });
 
-test('lakes.partide.s3 — never had a partidă: the empty copy and «Începe o partidă aici» (blocked: the button opens the app until /partide/incepe ships, M4)', async ({ page }) => {
+test('lakes.partide.c4 lakes.partide.s3 — never had a partidă: the empty copy and «Începe o partidă aici» → /partide/incepe?balta=', async ({ page }) => {
   await go(page, `/balti/${ID.belin}/partide`);
   const empty = page.getByTestId('partide-empty');
   await expect(empty).toContainText('Nicio partidă înregistrată la această baltă încă.');
   await expect(empty.getByTestId('start-here')).toHaveText('Începe o partidă aici');
   // fish Button preset="green": the kit success variant.
   await expect(empty.getByTestId('start-here')).toHaveClass(/bg-success/);
+  // c4 (M4-B6): the web's start flow, this lake preselected (partide.incepe c15).
+  await expect(empty.getByTestId('start-here')).toHaveAttribute('href', `/partide/incepe?balta=${ID.belin}`);
   await expectNoA11yViolations(page);
 });
 

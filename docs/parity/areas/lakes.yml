@@ -1003,8 +1003,8 @@ screens:
       - id: lakes.partide.c4
         text: "No live and no finished partide: „Nicio partidă înregistrată la această baltă încă.” and a green „Începe o partidă aici” → /partide/incepe?balta={id}."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:155"
-        status: todo
-        web_note: "BLOCKED on M4: /partide/incepe is not on the web; the empty copy shows and «Începe o partidă aici» opens the app (ON_WEB.startPartida)."
+        status: passing
+        web_note: "e2e tests/e2e/balta-subpagini-3.spec.ts (lakes.partide.c4): the green «Începe o partidă aici» links /partide/incepe?balta={id} since M4-B6 (ON_WEB.startPartida; partide.incepe c15 preselects the lake)."
       - id: lakes.partide.c5
         text: "With live sessions, the live card (same as on the lake page) leads the page."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:174"

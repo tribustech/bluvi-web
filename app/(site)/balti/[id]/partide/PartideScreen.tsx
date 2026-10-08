@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { Suspense, useMemo, useState, useSyncExternalStore } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { ChevronRightIcon } from '@heroicons/react/20/solid';
 import { ArrowPathIcon, CalendarDaysIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import { CardShell, CardTitle } from '@/components/cards/CardShell';
@@ -31,7 +31,6 @@ import {
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { lakeHref } from '../_components/availability';
-import { APP_STORE, PLAY_STORE } from '../_components/LakeDialogs';
 import { LiveCard, LiveCardForViewer, useNow } from '../_components/PartideSection';
 import { TitleShimmer } from '../_sub/FallbackHeader';
 import { LakePages } from '../_sub/LakePages';
@@ -533,10 +532,6 @@ function RefreshTool({ onRefresh }: { onRefresh: () => Promise<boolean> }) {
 
 /* c4 — never had a partidă. */
 
-const noSubscribe = () => () => {};
-/** An Apple device (the App Store first), read in the browser; the server answers no. */
-const useApple = () => useSyncExternalStore(noSubscribe, () => /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent), () => false);
-
 const EMPTY_ICON = (
   <EmptyIcon>
     <CalendarDaysIcon aria-hidden />
@@ -544,42 +539,23 @@ const EMPTY_ICON = (
 );
 
 /**
- * fish's green «Începe o partidă aici» → /partide/start?lakeId=. The web's start flow is M4
- * (availability.ts `startPartida`): until then the same button opens the app's store listing — the
- * visitor's platform first, the other beside it — never a dead link.
+ * fish's green «Începe o partidă aici» → /partide/start?lakeId= — the web's start flow,
+ * /partide/incepe?balta= (parity partide.incepe c15: the lake preselected, step 2 open). A guest goes
+ * through sign-in and comes back to it (proxy.ts). Without the flow (availability.ts `startPartida`
+ * off) the empty copy stands alone — never a dead link.
  */
 function StartHere({ lakeId }: { lakeId: string }) {
-  const apple = useApple();
   const start = lakeHref('startPartida', routes.startPartida({ balta: lakeId }));
-  if (start) {
-    return (
-      <ListEmpty
-        title={EMPTY_TITLE}
-        icon={EMPTY_ICON}
-        action={
-          <Link href={start} className={buttonClass({ variant: 'success' })} data-testid="start-here">
-            Începe o partidă aici
-          </Link>
-        }
-      />
-    );
-  }
-  const first = apple ? { href: APP_STORE, store: 'App Store' } : { href: PLAY_STORE, store: 'Google Play' };
-  const other = apple ? { href: PLAY_STORE, store: 'Google Play' } : { href: APP_STORE, store: 'App Store' };
   return (
     <ListEmpty
       title={EMPTY_TITLE}
       icon={EMPTY_ICON}
-      description={`Pornirea unei partide de pe web vine în curând; până atunci, din aplicația Bluvi (${first.store}).`}
       action={
-        <>
-          <a href={first.href} rel="noopener" className={buttonClass({ variant: 'success' })} data-testid="start-here">
+        start ? (
+          <Link href={start} className={buttonClass({ variant: 'success' })} data-testid="start-here">
             Începe o partidă aici
-          </a>
-          <a href={other.href} rel="noopener" className={buttonClass({ variant: 'secondary' })}>
-            {other.store}
-          </a>
-        </>
+          </Link>
+        ) : undefined
       }
     />
   );

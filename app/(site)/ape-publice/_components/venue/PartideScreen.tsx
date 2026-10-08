@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { Suspense, useMemo, useSyncExternalStore, type ReactNode } from 'react';
+import { Suspense, useMemo, type ReactNode } from 'react';
 import { ChevronRightIcon } from '@heroicons/react/20/solid';
 import { CalendarDaysIcon } from '@heroicons/react/24/outline';
 import { AsideSkeleton, FilterColumn, FilterColumnSkeleton, ListEmpty, ListError, ListFooter, ListPage, listGridClass } from '@/components/templates/T1';
@@ -28,7 +28,6 @@ import {
 import { createBrowserTransport } from '@/lib/client/transport';
 import { ON_WEB, partidaHref, routes } from '@/lib/routes';
 import { LiveCard, LiveCardForViewer, useNow } from '../detail/VenuePartideSection';
-import { APP_STORE, PLAY_STORE } from '../stores';
 import { AnglerAvatar, EmptyIcon, FaceRow, SafePhoto, TitleBone, VenueHeader, WaterPages, WaterTabs, WaterTabsSkeleton } from './bits';
 import { dateRange, fmtDuration } from './dates';
 import { formatCount, pluralNoun } from '@/core/realtime/chat/format';
@@ -112,19 +111,7 @@ export function PartideScreen({ code, waterKey, title }: { code: string; waterKe
     return (
       <ListPage header={header} filters={filters} filtersLabel="Paginile apei">
         <div data-testid="partide-empty">
-          {ON_WEB.startPartida ? (
-            <ListEmpty
-              title={EMPTY_TITLE}
-              icon={EMPTY_ICON}
-              action={
-                <Link href={routes.startPartida({ apa: code })} className={buttonClass({ variant: 'primary' })}>
-                  Începe o partidă aici
-                </Link>
-              }
-            />
-          ) : (
-            <StartInApp />
-          )}
+          <StartHere code={code} />
         </div>
       </ListPage>
     );
@@ -446,33 +433,23 @@ const EMPTY_ICON = (
   </EmptyIcon>
 );
 
-const noSubscribe = () => () => {};
-/** An Apple device (the App Store first), read in the browser; the server answers no (Google Play first). */
-const useApple = () => useSyncExternalStore(noSubscribe, () => /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent), () => false);
-
 /**
- * c5 until the web's start flow ships (lib/routes.ts ON_WEB.startPartida): fish's green «Începe o partidă aici»
- * opens the app's store listing — the visitor's platform first, the other store beside it — never a
- * «coming soon» line with nothing to do (parity public-waters.partide.c5 deviation note).
+ * fish's green «Începe o partidă aici» (VenueSessionsScreen:155-170) → the web's start flow pre-set
+ * to this water, /partide/incepe?apa=<linkCode> (parity public-waters.partide.c5, partide.incepe
+ * c15). A guest goes through sign-in and comes back to it (proxy.ts). Without the flow
+ * (ON_WEB.startPartida off) the empty copy stands alone — never a dead link.
  */
-function StartInApp() {
-  const apple = useApple();
-  const first = apple ? { href: APP_STORE, store: 'App Store' } : { href: PLAY_STORE, store: 'Google Play' };
-  const other = apple ? { href: PLAY_STORE, store: 'Google Play' } : { href: APP_STORE, store: 'App Store' };
+function StartHere({ code }: { code: string }) {
   return (
     <ListEmpty
       title={EMPTY_TITLE}
       icon={EMPTY_ICON}
-      description={`Pornirea unei partide de pe web vine în curând; până atunci, din aplicația Bluvi (${first.store}).`}
       action={
-        <>
-          <a href={first.href} rel="noopener" className={buttonClass({ variant: 'primary' })} data-testid="start-in-app">
+        ON_WEB.startPartida ? (
+          <Link href={routes.startPartida({ apa: code })} className={buttonClass({ variant: 'success' })} data-testid="start-here">
             Începe o partidă aici
-          </a>
-          <a href={other.href} rel="noopener" className={buttonClass({ variant: 'secondary' })}>
-            {other.store}
-          </a>
-        </>
+          </Link>
+        ) : undefined
       }
     />
   );

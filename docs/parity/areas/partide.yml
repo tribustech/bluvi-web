@@ -1043,7 +1043,8 @@ screens:
       - "core/partide/domain captureEdits (StartPartidaInput, sessionFromInput), fishCatalog (resolveDefaultTargets, mergeSpeciesChips, sameSpecies), upsertBodies"
       - "core/realtime/partide pointer (set active session)"
       - "core/lakes lakeQuery (stands, coordinates), lakesIndexQuery, claimedPublicWatersQuery"
-      - "MISSING ports: helpers/pinVenue (resolvePinVenue), helpers/venueSuggestions (nearby / recent / random), venue search (lakes + public waters), public-water point lookup + county lookup (needs the public-waters data source)"
+      - "core/partide/domain venueSearch (VenueSelection, mergeVenueResults), nearbyWater, pinVenue (resolvePinVenue), venueSuggestions (nearby / recent / random) — ported in M4-B6"
+      - "app/(site)/partide/incepe/api/apa-la-punct — the public water + county at a point (read-only over the ape-publice SQLite source)"
     states:
       - signed-out → sign-in
       - "step venue: suggestions loading / location blocked (never asked / denied / services off) / location unresolved / nearby / recent / random"
@@ -1057,50 +1058,81 @@ screens:
       - id: partide.incepe.c1
         text: "Signed out, the route redirects to sign-in."
         fish_ref: "app/(app)/partide/start.tsx:68-72"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts (proxy.ts 307 for a cookie-less request, requireViewer for a dead session; /intra?next= keeps ?balta / ?apa)."
       - id: partide.incepe.c2
         text: "Title „Începe o partidă” with a back control; step 1 is the venue picker, step 2 the details."
         fish_ref: "app/(app)/partide/start.tsx:313-338"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts. Web: T4 — the header (back · eyebrow «Partide» · «Începe o partidă» · «Pasul n din 2») with the segment bar (from 1280 the same segments at the top of the step: two steps need no rail). The back control leaves the flow on step 1 (fish goBackOrHome, components/nav/useBack) and returns to the picker on step 2."
       - id: partide.incepe.c3
         text: "The venue picker has a search field „Caută o baltă sau o apă publică...” (results from 2 characters, lakes and public waters merged, „Niciun rezultat pentru „{term}”.” when none) and a dashed card „Pune un pin pe hartă” / „Pentru un loc care nu e în listă”."
         fish_ref: "features/partide/components/VenuePicker.tsx:247-293,374-409"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts. Web: components/partide/venue/useVenueSearch (B2: /feed/lakes/search + the site's /ape-publice/api/search); a failed search says so with «Reîncearcă» (rule 4). From 768 the search and the pin card share a row; results are a grid of row cards."
       - id: partide.incepe.c4
         text: "Without a search term the picker shows suggestions: „Aproape de tine” (≤3 lakes + waters within 150 km, max 5 rows), „Folosite recent” (max 3 when nearby exists, else 5), „Sugestii” (random lakes); a location-permission card when blocked and a retry card when the position could not be resolved."
         fish_ref: "features/partide/components/VenuePicker.tsx:297-371"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts + core/partide/domain/__tests__/venueSuggestions.test.ts. Web deviations: the permission card asks the browser only from its button (no prompt on page load); «denied» opens the lakes LocationDialog (a page cannot open the site settings); «unavailable» (POSITION_UNAVAILABLE / no Geolocation) is fish's services_off, a TIMEOUT is the retry card. «Folosite recent» reads /feed/sessions/mine (fish's TODO(partide-coop) source — fish's in-memory store holds only the live partidă)."
       - id: partide.incepe.c5
         text: "A dropped pin is resolved before continuing („Verificăm locul...”): a catalog lake within 400 m wins, else a public water at the point (claimed by a lake → that lake), else the water itself, else a plain pin; the pin coordinate stays the anchor."
         fish_ref: "features/partide/helpers/pinVenue.ts:1-90"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts + core/partide/domain/__tests__/pinVenue.test.ts. Web: the water + county at the point come from the flow's read-only route /partide/incepe/api/apa-la-punct (fish getWaterAtPoint / nearestCountyTo over the same ANAR dataset). The pin picker is titled «Alege locul» (fish reuses the catch picker's «Alege locul capturii»)."
       - id: partide.incepe.c6
         text: "An unresolved pin asks for „Nume loc” (placeholder „ex. Cot Dunăre”, default „Loc nou”) under „Loc nou pe hartă” with the coordinates (4 decimals) and „Înapoi” / „Continuă”."
         fish_ref: "features/partide/components/VenuePicker.tsx:170-245"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts. The county, when known, follows the coordinates («· Jud. Brașov»)."
       - id: partide.incepe.c7
         text: "Step 2 opens with the venue card (name, locality / water type / „Jud. {county}” / „Loc pe hartă”) and „Schimbă”, which resets venue, anchor, anchor name and stand and returns to step 1."
         fish_ref: "app/(app)/partide/start.tsx:166-173,304-376"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts."
       - id: partide.incepe.c8
         text: "Lake with stands: „Stand” selector („Alege standul”, clearable with „Șterge standul”); the position preview is dimmed and routes to the stand picker until a stand is chosen, with „Alege standul, apoi poți ajusta poziția pe hartă.”; choosing a stand moves the anchor to its coordinates and opens the adjust map."
         fish_ref: "app/(app)/partide/start.tsx:117-137,383-435"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts. Web: from 1280 the preview is large in the right column, «Începe partida» docked under it. The preview is a static satellite mosaic (Esri tiles, zoom 17) with fish's green dot — no map engine for a picture."
       - id: partide.incepe.c9
         text: "Venue without stands: „Poziție” preview (opens the adjust map) and an optional name field „Nume standul / locul (opțional)”."
         fish_ref: "app/(app)/partide/start.tsx:436-463"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts."
       - id: partide.incepe.c10
         text: "„Durată estimată” presets „12h”, „1 zi” (default), „2 zile”, „3 zile”, „7 zile” and „Alta” (day/hour picker up to 7 days)."
         fish_ref: "app/(app)/partide/start.tsx:44-53,469-514"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts. «Alta»: Zile (0–7) + Ore selects, at least 1 h, at most 7 zile (fish TimerWheelPicker «dh»), read back as «Total: 2 zile și 5 ore»."
       - id: partide.incepe.c11
         text: "„Ce pescuiești?” shows species chips (the first 6 catalog fish, or default targets, merged with the selection) as multi-select toggles plus „Vezi toate” opening the full species picker."
         fish_ref: "app/(app)/partide/start.tsx:209-221,519-556"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts."
       - id: partide.incepe.c12
         text: "„Partidă publică” switch (on by default) with „Vizibilă în comunitate și pe profil — ceilalți văd doar capturile, nu locul exact sau alte detalii.”"
         fish_ref: "app/(app)/partide/start.tsx:94,560-584"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts."
       - id: partide.incepe.c13
         text: "„Începe partida” is enabled only with a venue and an anchor (lake anchor loads from the lake's coordinates); it creates the session with venue, venueName, locality, anchor, anchorName (only without a stand), stand, planned duration, no rods, targets and visibility, then replaces the page with the new partidă."
         fish_ref: "app/(app)/partide/start.tsx:227-270"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts (POST /feed/sessions route-mocked, body asserted; the pointer claimed — the Firestore fake follows the new session). Through the live repo (core createPartideSessionRepo), as fish useStartPartida; nothing is written to Firestore."
       - id: partide.incepe.c14
         text: "If the user already has an active partidă: toast „Ai deja o partidă activă” and navigate to that partidă; auth missing → sign-in; other errors → „Ceva n-a mers. Încearcă din nou.”"
         fish_ref: "app/(app)/partide/start.tsx:271-285"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts (the CMS refusal with its ids rebuilds the pointer; a live pointer on this browser refuses locally with no POST; 500 → the generic toast, the form kept). 401 → sign-in with this path (model.ts startFailureOf)."
       - id: partide.incepe.c15
         text: "?balta=lakeId or ?apa=linkCode preselects that venue once and opens step 2 directly."
         fish_ref: "app/(app)/partide/start.tsx:180-206"
+        status: passing
+        note: "e2e tests/e2e/partide-incepe.spec.ts. Web: an unknown ?balta / ?apa drops back to step 1 with «Nu am găsit locul din link. Alege-l din listă.» (fish stays on the picker silently)."
     mobile_only: false
-    status: todo
+    status: passing
+    note: "Web: app/(site)/partide/incepe (T4, two steps; _flow/*). Per user and client-side behind requireViewer; noindex. Entry points flipped with lib/routes.ts ON_WEB.startPartida: the hub's «Începe» pill, the heroes, the record invitations, Acasă's hero, the lake / public-water «Începe o partidă aici». Visual: tests/visual/partide-incepe.visual.spec.ts (baselines pending approval)."
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.intra

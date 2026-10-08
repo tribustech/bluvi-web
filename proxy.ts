@@ -40,5 +40,7 @@ export const config = {
     { source: '/partide/istoric', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // M4: a partidă by its client id (PARTIDA_FINISHED / AUTO_CLOSE_WARN) — resolved per user.
     { source: '/partide/sesiune/:clientId', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    // M4: start a partidă (partide.incepe) — a per-user write, signed in only (?balta / ?apa kept).
+    { source: '/partide/incepe', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
   ],
 };

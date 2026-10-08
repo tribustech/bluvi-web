@@ -263,7 +263,9 @@ export const routes = {
  *  - partida → /partide/[id], with the own-vs-spectator resolution (M4) — ON since M4-B3 (every
  *    partidă link across the site: lake / public-water live rows, history cards and record heroes,
  *    the angler profile's session cards, the partidă notifications);
- *  - startPartida → the start-partidă flow (M4);
+ *  - startPartida → /partide/incepe, the start-partidă flow (M4, partide.incepe) — ON since M4-B6 (the
+ *    Partide hub's «Începe» pill, heroes and record invitations, Acasă's hero, the lake / public-water
+ *    «Începe o partidă aici»);
  *  - settings → /setari, the settings hub (M2, account.settings) — ON since M2-B5 (the own profile's
  *    cog and the account menus' «Setări» rows);
  *  - myBookings → /rezervari, the viewer's bookings (M3, booking.rezervarile-mele) — ON since M3-B1
@@ -275,7 +277,7 @@ export const ON_WEB = {
   angler: true,
   connections: true,
   partida: true,
-  startPartida: false,
+  startPartida: true,
   settings: true,
   myBookings: true,
   bookingDetail: true,

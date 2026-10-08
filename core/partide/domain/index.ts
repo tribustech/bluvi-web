@@ -38,3 +38,7 @@ export * from './partideSpam';
 export * from './captureSave';
 export * from './baitTaxonomy';
 export * from './baitHistory';
+export * from './venueSearch';
+export * from './nearbyWater';
+export * from './pinVenue';
+export * from './venueSuggestions';

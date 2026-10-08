@@ -479,7 +479,7 @@ screens:
         status: passing
       - id: public-waters.partide.c5
         text: "No live and no finished partide: „Nicio partidă înregistrată pe această apă încă.” and a green „Începe o partidă aici” button opening the start-partidă flow pre-set to this water (waterCode = linkCode)."
-        note: "web deviation (interim, until the web start flow ships — lib/routes.ts ON_WEB.startPartida): „Începe o partidă aici” is the primary action and opens the Bluvi app's store listing (App Store on Apple devices, Google Play otherwise), the other store as a secondary button; the caption says the web start is coming. Swap to the start flow (waterCode = linkCode) when it ships."
+        note: "Since M4-B6 the green «Începe o partidă aici» opens the web's start flow pre-set to this water, /partide/incepe?apa={linkCode} (partide.incepe c15); e2e tests/e2e/ape-publice-subpages.spec.ts."
         fish_ref: features/partide/screens/VenueSessionsScreen.tsx:155-170
         status: passing
       - id: public-waters.partide.c6
