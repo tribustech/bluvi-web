@@ -204,6 +204,21 @@ export async function getOrganizerCompetitionSourceDetail(
   return getOrganizerCompetitionDetail(t, source.documentId);
 }
 
+/* ================================================================== */
+/* AI — fish services/api/ai.ts                                         */
+/* ================================================================== */
+
+const formatTextResponseSchema = z.object({ data: z.object({ formatted: z.string() }) });
+
+/**
+ * fish `services/api/ai.ts#formatText` — the create-competition editor's «Formatează cu AI»: the
+ * plain text in, formatted HTML out (a paid model call on the CMS; authenticated, rate-limited).
+ */
+export async function formatText(t: Transport, text: string): Promise<string> {
+  const res = await call(t, { method: 'POST', path: '/ai/format-text', body: { text }, auth: 'required' }, formatTextResponseSchema);
+  return res.data.formatted;
+}
+
 /** fish `services/api/organizer.ts#cancelOrganizerCompetition` */
 export async function cancelOrganizerCompetition(t: Transport, competitionId: string, payload: { reason?: string } = {}) {
   const body = payload.reason ? { reason: payload.reason } : {};

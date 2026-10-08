@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LockClosedIcon, PlusCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { Cog6ToothIcon, LockClosedIcon, PlusCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import {
   competitionKeys,
   competitionMyStatusQuery,
@@ -58,7 +58,7 @@ import { routes } from '@/lib/routes';
 import type { Viewer } from '@/lib/server/viewer';
 import { signInHref } from '../../../_shell/SiteHeader';
 import { isUnknownViewer, useViewerState } from '../../../_shell/viewer-context';
-import { ActionsSheet } from './ActionsSheet';
+import { ActionsSheet, OrganizerMenu } from './ActionsSheet';
 import { ActiveWeighingBanner, MobileActionBar, SORT_OPTION, type BarConfirm } from './ActionBar';
 import { FeederHelp, FeederLegTabs, FeederRankingTable, feederLegEmpty, type FeederData } from './FeederRanking';
 import { NcRankingTable, NcSectorPills, NcSortControl, ncSortFor, type NcSort, type NcView } from './NcRanking';
@@ -514,6 +514,7 @@ function Screen({
   const [extraAsk, setExtraAsk] = useState(false);
   const extraLoading = requestExtra.isPending ? 'Se înregistrează cererea...' : deleteExtra.isPending ? 'Se șterge cererea...' : null;
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [organizerOpen, setOrganizerOpen] = useState(false);
   /** `fromSheet`: the «Acțiuni» sheet's item (fish ExtraScaleRequestSheetItem) — no question, closes the sheet on success. */
   const runExtra = (fromSheet = false) => {
     setExtraAsk(false);
@@ -688,6 +689,8 @@ function Screen({
   // ranking the web can show, Chat when signed in. Share is always the header's chip.
   // The other route tabs once it has started: fish's «Acțiuni» (a guest's sheet offers sign-in).
   const actionsTile = !onClasament && (status === 'started' || status === 'completed');
+  // fish RankingActionBar «Organizare»: the author, before the start and while it runs.
+  const organizer = isAuthenticated && statute?.userRole === 'author' && (status === 'notStarted' || status === 'started');
   const barHasActions =
     status === 'notStarted' ||
     actionsTile ||
@@ -737,6 +740,13 @@ function Screen({
           // From 768, signed in: the chat is a header link to the chat page (participant.b.chat-entry);
           // the header holds its place while the session resolves (CompetitionHeader `chat`).
           chat={() => <ChatHeaderButton competitionId={id} badge={chatBadge} />}
+          organizerAction={
+            organizer ? (
+              <Button variant="secondary" icon={<Cog6ToothIcon />} aria-haspopup="dialog" onClick={() => setOrganizerOpen(true)}>
+                Organizare
+              </Button>
+            ) : null
+          }
         />
       </DetailBand>
       {/* parity shell.c19: the route tabs pin (phone: with the T3 mini title row, following the bar). */}
@@ -1002,13 +1012,18 @@ function Screen({
             barMessage={barMessage}
             onBarMessageDismiss={() => setBarMessage(null)}
             onActions={actionsTile ? () => setActionsOpen(true) : undefined}
+            onOrganizer={organizer ? () => setOrganizerOpen(true) : undefined}
           />
         </DetailActionBar>
+      ) : null}
+      {organizer ? (
+        <OrganizerMenu open={organizerOpen} onClose={() => setOrganizerOpen(false)} competitionId={id} competitionStatus={status ?? ''} />
       ) : null}
       {actionsTile ? (
         <ActionsSheet
           open={actionsOpen}
           onClose={() => setActionsOpen(false)}
+          competitionId={id}
           viewer={viewer}
           statute={statute}
           statutePending={isAuthenticated && ((statuteQ.isPending && statuteQ.fetchStatus !== 'paused') || overlayPending)}

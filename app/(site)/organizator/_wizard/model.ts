@@ -184,25 +184,33 @@ export function triageEditError(error: unknown): EditErrorTriage {
 }
 
 /**
- * The step list (rail, ≥1280) — c3, the same fill as the phone's segment bar (fish StepIndicator
- * `index <= currentStep`): every step before the current one is filled, the rest upcoming, so the
- * layout never changes meaning at 1280. Completeness (the draft's completedSteps 1–5, the panel's
- * «Pas N/5») is said apart, under the title: «Completat» / «De completat» on a passed step,
- * «Completat» on a later one already filled in. Every step is reachable (fish lets the organizer
- * jump to any segment).
+ * How a step stands for the rail: filled in, failing a publish check (red), or still to fill in
+ * (neutral). The review step derives it from its own error codes (steps/revizuire/model
+ * reviewStepStatus) so the rail and the review cards never give opposite answers.
  */
-export function wizardSteps(current: WizardStep, completed: readonly number[]): T4Step[] {
+export type WizardStepStatus = 'complete' | 'error' | 'incomplete';
+
+/**
+ * The step list (rail, ≥1280) — c3. A check only on a step that is «Completat»: from `status`
+ * when given (the review step), else the draft's completedSteps 1–5 (the panel's «Pas N/5»). A
+ * passed step not completed is «De completat» with a neutral numbered marker; a step failing a
+ * publish check is red («Are câmpuri de corectat»). Every step is reachable (fish lets the
+ * organizer jump to any segment). The phone's segment bar stays positional (wizardSegments).
+ */
+export function wizardSteps(
+  current: WizardStep,
+  completed: readonly number[],
+  status?: Partial<Record<WizardStep, WizardStepStatus>>,
+): T4Step[] {
   const at = WIZARD_STEP_DEFS.findIndex(s => s.slug === current);
   return WIZARD_STEP_DEFS.map((s, i) => {
-    const complete = completed.includes(i + 1);
-    const summary = i === at ? undefined : complete ? 'Completat' : i < at ? 'De completat' : undefined;
-    return {
-      id: s.slug,
-      title: s.title,
-      ...(summary ? { summary } : {}),
-      state: i === at ? 'current' : i < at ? 'done' : 'upcoming',
-      reachable: true,
-    };
+    if (i === at) return { id: s.slug, title: s.title, state: 'current', reachable: true };
+    const st = status?.[s.slug] ?? (completed.includes(i + 1) ? 'complete' : i < at ? 'incomplete' : null);
+    const base = { id: s.slug, title: s.title, reachable: true };
+    if (st === 'complete') return { ...base, summary: 'Completat', state: 'done' };
+    if (st === 'error') return { ...base, state: 'error' };
+    if (st === 'incomplete') return { ...base, summary: 'De completat', state: 'upcoming' };
+    return { ...base, state: 'upcoming' };
   });
 }
 

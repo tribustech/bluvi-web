@@ -35,13 +35,29 @@ describe('wizard steps', () => {
     expect(stepFromPath('/concursuri/x')).toBeNull();
   });
 
-  it('step list: filled by position like the segment bar (c3), completeness apart, everything reachable', () => {
+  it('step list: a check only on «Completat», a neutral marker on «De completat», the review status wins (c3)', () => {
     const steps = wizardSteps('clasament', [1, 5]);
-    expect(steps.map(s => s.state)).toEqual(['done', 'done', 'current', 'upcoming', 'upcoming', 'upcoming']);
+    expect(steps.map(s => s.state)).toEqual(['done', 'upcoming', 'current', 'upcoming', 'done', 'upcoming']);
     expect(steps.map(s => s.summary)).toEqual(['Completat', 'De completat', undefined, undefined, 'Completat', undefined]);
     expect(steps.every(s => s.reachable)).toBe(true);
-    // A new competition on the review step: steps 1–5 are passed (filled), none complete.
-    expect(wizardSteps('revizuire', []).map(s => s.state)).toEqual(['done', 'done', 'done', 'done', 'done', 'current']);
+    // A new competition on the review step: steps 1–5 passed, none complete — no check anywhere.
+    expect(wizardSteps('revizuire', []).map(s => s.state)).toEqual(['upcoming', 'upcoming', 'upcoming', 'upcoming', 'upcoming', 'current']);
+    // The review's own status overrides completedSteps.
+    const review = wizardSteps('revizuire', [1, 2, 3, 4, 5], {
+      detalii: 'complete',
+      configurare: 'complete',
+      clasament: 'complete',
+      'lac-si-sectoare': 'error',
+      standuri: 'incomplete',
+    });
+    expect(review.map(s => [s.state, s.summary])).toEqual([
+      ['done', 'Completat'],
+      ['done', 'Completat'],
+      ['done', 'Completat'],
+      ['error', undefined],
+      ['upcoming', 'De completat'],
+      ['current', undefined],
+    ]);
     // c3: the segment bar fills by position (up to and including the current step).
     expect(wizardSegments('clasament').map(s => s.state)).toEqual(['done', 'done', 'current', 'upcoming', 'upcoming', 'upcoming']);
   });

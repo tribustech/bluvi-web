@@ -10,7 +10,8 @@
  * - <ol>/<li> → list block (ordered)
  * - <strong>/<b> → bold inline node
  * - <em>/<i> → italic inline node
- * - Plain text → text inline node
+ * - Plain text → text inline node (entities decoded)
+ * - <strong>/<em> nested in any order and depth (a real walk, not one level of regex)
  */
 
 export type TextInlineNode = {
@@ -27,43 +28,72 @@ export type StrapiBlockNode = {
   format?: 'ordered' | 'unordered';
 };
 
+const NAMED_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+
+/**
+ * The text of an HTML text run: entities decoded (TipTap's getHTML() escapes & < > and writes
+ * &nbsp; for runs of spaces — the Strapi text node must hold «Crap & amur», not «Crap &amp; amur»).
+ */
+export function decodeHtmlEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (whole, name: string) => {
+    if (name[0] === '#') {
+      const code = name[1] === 'x' || name[1] === 'X' ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+      if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return whole;
+      return code === 0xa0 ? ' ' : String.fromCodePoint(code);
+    }
+    return NAMED_ENTITIES[name.toLowerCase()] ?? whole;
+  });
+}
+
+/**
+ * Inline HTML → text nodes. A real nested walk: marks are counters carried down the open tags, so
+ * `<strong>Premiu mare <em>special</em></strong>` keeps «Premiu mare » (bold) and «special» (bold +
+ * italic) — ProseMirror nests bold above italic, so a word made italic inside a bold run always
+ * produces that shape. Unknown inline tags (span, a, u…) keep their text; <br> is a line break.
+ * Adjacent runs with the same marks merge.
+ */
 function parseInlineNodes(html: string): TextInlineNode[] {
   const nodes: TextInlineNode[] = [];
-  // Match tags or text segments
-  const regex = /<(strong|b|em|i)>([\s\S]*?)<\/\1>|([^<]+)/g;
-  let match: RegExpExecArray | null;
+  let bold = 0;
+  let italic = 0;
 
-  while ((match = regex.exec(html)) !== null) {
-    const tag = match[1];
-    const tagContent = match[2];
-    const plainText = match[3];
-
-    if (tag && tagContent) {
-      // Handle nested formatting: <strong><em>text</em></strong>
-      const innerRegex = /<(strong|b|em|i)>([\s\S]*?)<\/\1>/;
-      const innerMatch = tagContent.match(innerRegex);
-
-      if (innerMatch) {
-        const outerBold = tag === 'strong' || tag === 'b';
-        const outerItalic = tag === 'em' || tag === 'i';
-        const innerBold = innerMatch[1] === 'strong' || innerMatch[1] === 'b';
-        const innerItalic = innerMatch[1] === 'em' || innerMatch[1] === 'i';
-
-        nodes.push({
-          type: 'text',
-          text: innerMatch[2],
-          bold: outerBold || innerBold || undefined,
-          italic: outerItalic || innerItalic || undefined,
-        });
-      } else {
-        const node: TextInlineNode = { type: 'text', text: tagContent };
-        if (tag === 'strong' || tag === 'b') node.bold = true;
-        if (tag === 'em' || tag === 'i') node.italic = true;
-        nodes.push(node);
-      }
-    } else if (plainText) {
-      nodes.push({ type: 'text', text: plainText });
+  const push = (raw: string) => {
+    const text = decodeHtmlEntities(raw);
+    if (!text) return;
+    const last = nodes[nodes.length - 1];
+    const b = bold > 0;
+    const it = italic > 0;
+    if (last && Boolean(last.bold) === b && Boolean(last.italic) === it) {
+      last.text += text;
+      return;
     }
+    const node: TextInlineNode = { type: 'text', text };
+    if (b) node.bold = true;
+    if (it) node.italic = true;
+    nodes.push(node);
+  };
+
+  const tokens = /<(\/?)([a-z][a-z0-9]*)\b[^>]*?(\/?)>|([^<]+)|(<)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = tokens.exec(html)) !== null) {
+    const [, closing, rawTag, selfClosing, text, strayLt] = match;
+    if (text != null) {
+      push(text);
+      continue;
+    }
+    if (strayLt != null) {
+      push('<');
+      continue;
+    }
+    const tag = rawTag.toLowerCase();
+    if (tag === 'br') {
+      push('\n');
+      continue;
+    }
+    if (selfClosing) continue;
+    const delta = closing ? -1 : 1;
+    if (tag === 'strong' || tag === 'b') bold = Math.max(0, bold + delta);
+    else if (tag === 'em' || tag === 'i') italic = Math.max(0, italic + delta);
   }
 
   if (nodes.length === 0) {

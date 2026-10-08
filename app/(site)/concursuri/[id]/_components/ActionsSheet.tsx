@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { ClipboardDocumentListIcon, ClockIcon, ScaleIcon, TrashIcon, UserIcon } from '@heroicons/react/24/outline';
 import type { RegistrationAction } from '@/core/competitions';
 import type { UserStatuteForCompetition } from '@/core/social';
+import { ResponsiveSurface } from '@/components/surfaces/ResponsiveSurface';
 import { Sheet } from '@/components/surfaces/Sheet';
 import { cn } from '@/components/ui/cn';
+import { routes } from '@/lib/routes';
 import type { PageViewer } from './Follow';
 
 /*
@@ -21,8 +23,9 @@ import type { PageViewer } from './Follow';
  *    with fish's reason under it; offered, it opens the registration form or the team disclaimer), after the start
  *    «Vezi cântarele din concurs», and for a registered participant of a running competition
  *    «Solicită extra cântar» / «Șterge solicitarea de extra cântar»;
- *  - the author / a referee: their sheets (start, end, referees, scale) are competition-page.organizare
- *    (M6); until then the web offers them «Vezi cântarele din concurs».
+ *  - the author / a referee: «Vezi cântarele din concurs» after the start; the author also gets the
+ *    organizer items the web has a screen for (OrganizerItems: «Alocă standuri pe sectoare»). The
+ *    rest of their sheets (start, end, referees, scale) are competition-page.organizare (M6).
  *
  * «Vezi cântarele din concurs» opens the Clasament's Cântare view (fish: the scale area's weighings
  * page, M6).
@@ -40,6 +43,7 @@ export type SheetExtraScale = {
 type Props = {
   open: boolean;
   onClose: () => void;
+  competitionId: string;
   viewer: PageViewer;
   statute: UserStatuteForCompetition | undefined;
   statutePending: boolean;
@@ -54,6 +58,7 @@ type Props = {
 export function ActionsSheet({
   open,
   onClose,
+  competitionId,
   viewer,
   statute,
   statutePending,
@@ -73,7 +78,14 @@ export function ActionsSheet({
     const weighings =
       competitionStatus !== 'notStarted' ? <SheetLink href={weighingsHref} Icon={ClockIcon} label="Vezi cântarele din concurs" onNavigate={onClose} /> : null;
     const manager = statute?.userRole === 'author' || statute?.userRole === 'referee';
-    if (manager) {
+    if (statute?.userRole === 'author' && competitionStatus !== 'completed') {
+      items = (
+        <>
+          {weighings}
+          <OrganizerItems competitionId={competitionId} competitionStatus={competitionStatus} onNavigate={onClose} />
+        </>
+      );
+    } else if (manager) {
       items = weighings ?? <p className="px-1 t-body text-muted">Acțiunile organizatorului sunt în aplicația Bluvi.</p>;
     } else {
       const label = registration?.label ?? 'Înscrie-te';
@@ -104,6 +116,54 @@ export function ActionsSheet({
     <Sheet open={open} onClose={onClose} title="Acțiuni">
       <ul className="flex flex-col gap-2 pb-4">{items}</ul>
     </Sheet>
+  );
+}
+
+/** fish OrganizerSheetItems: a closed action says why under its label. */
+const STARTED_REASON = 'Competiția a început deja, nu se mai pot face modificări';
+
+/**
+ * The author's items the web has a screen for (fish OrganizerSheetItems /
+ * CompetitionRanking organizerMenuOptions): «Alocă standuri pe sectoare» → the sectors editor
+ * (organizer.sectors), open only before the start — after it, disabled with fish's reason.
+ */
+export function OrganizerItems({
+  competitionId,
+  competitionStatus,
+  onNavigate,
+}: {
+  competitionId: string;
+  competitionStatus: string;
+  onNavigate?: () => void;
+}) {
+  return competitionStatus === 'notStarted' ? (
+    <SheetLink href={routes.competitionSectors(competitionId)} Icon={ClipboardDocumentListIcon} label="Alocă standuri pe sectoare" onNavigate={onNavigate} />
+  ) : (
+    <SheetButton Icon={ClipboardDocumentListIcon} label="Alocă standuri pe sectoare" disabled description={STARTED_REASON} />
+  );
+}
+
+/**
+ * fish RankingActionBar «Organizare» (author, not completed): the organizer's menu, opened from the
+ * phone bar's «Organizare» tile and, from 768, the header's «Organizare» button.
+ */
+export function OrganizerMenu({
+  open,
+  onClose,
+  competitionId,
+  competitionStatus,
+}: {
+  open: boolean;
+  onClose: () => void;
+  competitionId: string;
+  competitionStatus: string;
+}) {
+  return (
+    <ResponsiveSurface open={open} onClose={onClose} intent="info" title="Organizare" sheetSnap="fit">
+      <ul className="flex flex-col gap-2 pb-4" data-testid="organizer-menu">
+        <OrganizerItems competitionId={competitionId} competitionStatus={competitionStatus} onNavigate={onClose} />
+      </ul>
+    </ResponsiveSurface>
   );
 }
 

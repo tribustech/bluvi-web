@@ -45,7 +45,7 @@ import {
   PublishFailedDialog,
   RiskDialog,
 } from './dialogs';
-import { parseRichTextField, RichTextEditor } from './editor';
+import { parseRichTextField, RichTextEditor, type RichTextEditorHandle } from './editor';
 import { parseExplanationParam, RankingExplanationPanel } from './explanation';
 import { wizardBasePath, wizardSegments, wizardSteps } from './model';
 import { ProgressDialog } from './ProgressDialog';
@@ -55,6 +55,7 @@ import { StepConfigurare } from './steps/configurare';
 import { StepDetalii } from './steps/detalii';
 import { StepLacSiSectoare } from './steps/lac-si-sectoare';
 import { StepRevizuire } from './steps/revizuire';
+import { reviewStepStatus } from './steps/revizuire/model';
 import { StepStanduri } from './steps/standuri';
 import { useWizardLeaveGuard } from './useWizardLeaveGuard';
 import { WizardSkeleton } from './WizardSkeleton';
@@ -350,8 +351,13 @@ function WizardFrame() {
   // The save state shows once: in the header below 1280, in the sticky rail from 1280 (c2).
   const desktop = useBreakpoint() === 'desktop';
 
+  const editorField = w.step === 'detalii' && w.query.get('editor') ? parseRichTextField(w.query.get('editor')) : null;
+  // The open rich text editor's unapplied text counts as unsaved (organizer.rich-text-editor).
+  const [editorDirty, setEditorDirty] = useState(false);
+  const editorHandle = useRef<RichTextEditorHandle>(null);
+
   // The leave guard: a dirty form is never dropped silently (c4, web: links, Back, closing the tab).
-  const guardActive = w.dirty && !w.busy && !x.leaving;
+  const guardActive = (w.dirty || (editorField != null && editorDirty)) && !w.busy && !x.leaving;
   useWizardLeaveGuard({
     active: guardActive,
     basePath,
@@ -383,6 +389,7 @@ function WizardFrame() {
   const saveFromExit = () => {
     heldLeave.current = null;
     setExitOpen(false);
+    editorHandle.current?.apply();
     void w.saveAndExit();
   };
   const discardFromExit = () => {
@@ -399,10 +406,10 @@ function WizardFrame() {
     requestAnimationFrame(() => document.getElementById(w.fieldIds.name)?.focus());
   };
 
-  const editorField = w.step === 'detalii' && w.query.get('editor') ? parseRichTextField(w.query.get('editor')) : null;
   const explanation = w.step === 'clasament' ? parseExplanationParam(w.query.get('explicatie')) : null;
 
-  const steps = wizardSteps(w.step, x.completedSteps);
+  // On the review step the rail says what the review cards say (the same error codes).
+  const steps = wizardSteps(w.step, x.completedSteps, w.step === 'revizuire' ? reviewStepStatus(w.values) : undefined);
   const name = w.values.name?.trim();
   const eyebrow = `${EYEBROW[w.mode]}${name ? ` · ${name}` : ''}`;
 
@@ -411,7 +418,9 @@ function WizardFrame() {
       title={def.title}
       eyebrow={eyebrow}
       status={<WizardStatusLine step={w.stepIndex + 1} state={w.autoSave} showSave={!desktop} />}
-      back={{ label: w.stepIndex > 0 ? 'Pasul anterior' : 'Ieși din asistent', onClick: onBack }}
+      // While the editor is open its own back and «Gata» are the only ways out of it (fish's
+      // full-screen route): no header back, no step jumps that would drop its text.
+      back={editorField ? undefined : { label: w.stepIndex > 0 ? 'Pasul anterior' : 'Ieși din asistent', onClick: onBack }}
       busy={w.busy}
       focusKey={w.step}
       trailing={
@@ -427,7 +436,9 @@ function WizardFrame() {
           </IconButton>
         ) : null
       }
-      progress={<T4Progress steps={wizardSegments(w.step)} onSelect={id => w.goTo(id as WizardStep)} label="Pașii competiției" />}
+      progress={
+        <T4Progress steps={wizardSegments(w.step)} onSelect={editorField ? undefined : id => w.goTo(id as WizardStep)} label="Pașii competiției" />
+      }
     />
   );
 
@@ -493,7 +504,7 @@ function WizardFrame() {
         header={header}
         rail={
           <div className="flex flex-col gap-6">
-            <T4StepList steps={steps} onSelect={id => w.goTo(id as WizardStep)} label="Pașii competiției" />
+            <T4StepList steps={steps} onSelect={editorField ? undefined : id => w.goTo(id as WizardStep)} label="Pașii competiției" />
             {desktop ? (
               <RailSaveNote mode={w.mode} nameValid={(name ?? '').length >= 3} online={w.online} state={w.autoSave} />
             ) : null}
@@ -503,7 +514,11 @@ function WizardFrame() {
         actions={actions}
       >
         <div data-testid="wizard-step" data-step={w.step} className="contents">
-          {editorField ? <RichTextEditor field={editorField} /> : <StepBody step={w.step} />}
+          {editorField ? (
+            <RichTextEditor key={editorField} field={editorField} onDirtyChange={setEditorDirty} handle={editorHandle} />
+          ) : (
+            <StepBody step={w.step} />
+          )}
         </div>
       </T4Frame>
 

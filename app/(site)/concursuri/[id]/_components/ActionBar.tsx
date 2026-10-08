@@ -13,6 +13,7 @@ import {
   CheckCircleIcon,
   ChevronLeftIcon,
   ClipboardDocumentListIcon,
+  Cog6ToothIcon,
   EllipsisHorizontalCircleIcon,
   MapPinIcon,
   TrophyIcon,
@@ -49,8 +50,9 @@ import { LiveDot } from '@/components/templates/LiveDot';
  * Extra-Cântar (a registered participant while the competition runs) asks in the bar, as fish:
  * the question with Anulează / Confirmă, then the bar says it is sending, then the result.
  *
- * Not on the web yet (no web flow behind them): Organizare (author), Adaugă cântar (referee),
- * Penalizări (the penalties page, M6). «Înscrie-te» follows fish's rules (core registrationAction);
+ * «Organizare» (the author, before the start and while it runs, as fish) opens the organizer menu
+ * with the items the web has a screen for (ActionsSheet OrganizerMenu). Not on the web yet (no web
+ * flow behind them): Adaugă cântar (referee), Penalizări (the penalties page, M6). «Înscrie-te» follows fish's rules (core registrationAction);
  * when it is offered it opens the registration form (or the team disclaimer first, for a new team
  * registration — competition-page.bara-actiuni.c4).
  */
@@ -111,7 +113,17 @@ type Props = {
   loadingLabel: string | null;
   /** The route tabs other than Clasament: fish's «Acțiuni» button, opening the actions sheet (ActionsSheet). */
   onActions?: () => void;
+  /** The author, not completed: fish's «Organizare» tile, opening the organizer menu (ActionsSheet OrganizerMenu). */
+  onOrganizer?: () => void;
 };
+
+const organizerTile = (onPress: () => void): Tile => ({
+  id: 'organizare',
+  label: 'Organizare',
+  Icon: Cog6ToothIcon,
+  onPress,
+  accessibilityLabel: 'Acțiuni organizator',
+});
 
 export function MobileActionBar(props: Props) {
   const { competition, viewer, signIn, onSort, onView, onFullView, fullViewDisabled, chat: chatEntry, chatBadge, barMessage, confirm, loadingLabel } = props;
@@ -183,6 +195,7 @@ export function MobileActionBar(props: Props) {
         signIn={signIn}
         href={props.registrationHref}
         chat={v === undefined ? 'bone' : v && v !== 'unknown' && chatEntry ? chatTile(chatEntry, chatBadge) : null}
+        organizer={v && v !== 'unknown' && props.onOrganizer ? organizerTile(props.onOrganizer) : null}
       />
     );
     content = (
@@ -192,6 +205,8 @@ export function MobileActionBar(props: Props) {
     );
   } else {
     const tiles: Tile[] = [];
+    // fish: «Organizare» first, for the author while it is not completed.
+    if (props.onOrganizer && status === 'started') tiles.push(organizerTile(props.onOrganizer));
     if ((status === 'started' || status === 'completed') && props.rankingAvailable !== false) {
       tiles.push(
         {
@@ -256,7 +271,19 @@ export function MobileActionBar(props: Props) {
  * that always says what it does or why it is closed (the line's height is always there, so the bar
  * never grows when the session lands), and Chat beside it when signed in.
  */
-function RegisterRow({ state, signIn, href, chat }: { state: RegisterState; signIn: string; href: string; chat: Tile | 'bone' | null }) {
+function RegisterRow({
+  state,
+  signIn,
+  href,
+  chat,
+  organizer = null,
+}: {
+  state: RegisterState;
+  signIn: string;
+  href: string;
+  chat: Tile | 'bone' | null;
+  organizer?: Tile | null;
+}) {
   const icon = <ClipboardDocumentListIcon />;
   const line =
     state.kind === 'pending'
@@ -291,6 +318,11 @@ function RegisterRow({ state, signIn, href, chat }: { state: RegisterState; sign
           {unknown ? <SessionRecheck /> : null}
         </p>
       </div>
+      {organizer ? (
+        <div className="w-16 shrink-0">
+          <TileControl tile={organizer} />
+        </div>
+      ) : null}
       {chat ? (
         <div className="w-16 shrink-0">
           <TileControl tile={chat === 'bone' ? { id: 'chat', label: 'Chat', Icon: ChatBubbleOvalLeftIcon, bone: true } : chat} />

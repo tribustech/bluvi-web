@@ -54,6 +54,39 @@ describe('rich text', () => {
   });
 });
 
+describe('rich text — nested marks, entities, empty fields', () => {
+  it('keeps the text around a mark nested in another (bold run with one italic word)', () => {
+    expect(htmlToStrapiBlocks('<p><strong>a <em>b</em> c</strong></p>')?.[0].children).toEqual([
+      { type: 'text', text: 'a ', bold: true },
+      { type: 'text', text: 'b', bold: true, italic: true },
+      { type: 'text', text: ' c', bold: true },
+    ]);
+    expect(htmlToStrapiBlocks('<p><strong>Premiu mare <em>special</em></strong></p>')?.[0].children).toEqual([
+      { type: 'text', text: 'Premiu mare ', bold: true },
+      { type: 'text', text: 'special', bold: true, italic: true },
+    ]);
+    expect(htmlToStrapiBlocks('<ul><li><p><em>x <strong>y</strong></em> z</p></li></ul>')?.[0].children[0]).toEqual({
+      type: 'list-item',
+      children: [
+        { type: 'text', text: 'x ', italic: true },
+        { type: 'text', text: 'y', bold: true, italic: true },
+        { type: 'text', text: ' z' },
+      ],
+    });
+  });
+
+  it('decodes entities, so text round-trips through the editor HTML', () => {
+    expect(htmlToStrapiBlocks('<p>Crap &amp; amur &gt; 20&nbsp;kg &lt;3 &quot;x&quot; &#39;y&#39;</p>')?.[0].children).toEqual([
+      { type: 'text', text: 'Crap & amur > 20 kg <3 "x" \'y\'' },
+    ]);
+    const blocks = [{ type: 'paragraph', children: [{ type: 'text', text: 'taxă & cazare, > 20 kg <a>', bold: true }] }];
+    const html = strapiBlocksToHtml(blocks);
+    expect(html).toBe('<p><strong>taxă &amp; cazare, &gt; 20 kg &lt;a&gt;</strong></p>');
+    expect(htmlToStrapiBlocks(html)).toEqual(blocks);
+    expect(strapiBlocksToHtml(htmlToStrapiBlocks(html))).toBe(html);
+  });
+});
+
 describe('create-competition wizard', () => {
   it('validates the relaxed form rules', () => {
     expect(createCompetitionSchema.safeParse({ name: 'ab' }).success).toBe(false);

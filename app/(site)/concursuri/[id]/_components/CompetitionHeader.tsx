@@ -52,6 +52,8 @@ export type HeaderProps = {
   registrationHref?: string;
   /** From 768, a registered participant of a running competition: Extra-cântar (the phone has it in the bar). */
   extraAction?: ReactNode;
+  /** From 768, the author while not completed: «Organizare» (the phone has it in the bar). */
+  organizerAction?: ReactNode;
 };
 
 export const TITLE_ID = 'concurs-titlu';
@@ -77,6 +79,7 @@ export function CompetitionHeader({
   registration,
   registrationHref,
   extraAction,
+  organizerAction,
 }: HeaderProps) {
   const toast = useSiteToast();
   const status = c.competitionStatus;
@@ -170,6 +173,7 @@ export function CompetitionHeader({
               }}
             </ViewerSlot>
           ) : null}
+          {organizerAction}
           {extraAction}
           <span {...SHARE_PROPS}>
             <DetailShareButton look="button" title={c.name} text={share} label="Distribuie" onCopied={copied} />

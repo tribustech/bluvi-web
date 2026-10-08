@@ -857,7 +857,9 @@ screens:
     roles: [organizer]
     core:
       - core/organizer/domain/createCompetition.ts#getStandCapacityWarning
-      - "(missing) ranking type / general mode / grid rule labels (fish helpers/rankingConfig.ts)"
+      - core/organizer/domain/rankingConfig.ts#getRankingTypeLabel
+      - core/organizer/domain/rankingConfig.ts#getGeneralRankingWinnerModeLabel
+      - core/organizer/domain/rankingConfig.ts#GRID_RULE_LABELS
     states:
       - "all sections valid: publish enabled"
       - "a section with missing / invalid fields: red section, „Completează”, publish disabled"
@@ -869,41 +871,67 @@ screens:
       - id: organizer.step-review.c1
         text: "Four summary sections „Detalii de bază”, „Configurare”, „Clasament”, „Lac și sectoare” each have an „Editează” link that returns to its step (after flushing auto-save); a section with errors turns red and the link reads „Completează”."
         fish_ref: app/(app)/create-competition/step-review.tsx:32-63
+        status: passing
+        web_note: "Four ReviewSection cards (T4 surface, disc + h2); the button is «Editează» (secondary) or, while the section has an error, red «Completează» on a danger-ringed card with the disc turning to an exclamation; it calls goTo(step), which flushes the auto-save first. e2e «c1 c2 c11 …» (all four red on an empty form) and «c1 — … flush the auto-save …» (name set without auto-save → «Editează» on Configurare → the mocked POST draft with the name, then /configurare; each section lands on its step)."
       - id: organizer.step-review.c2
         text: "Missing required values show the label with „Lipsește” in red; empty optional values are not listed."
         fish_ref: app/(app)/create-competition/step-review.tsx:65-90
+        status: passing
+        web_note: "Rows from steps/revizuire/model.ts buildReview (unit-tested): «Lipsește» in status-danger-fg; an empty optional value is not listed. The rows also say the schema's own message when a field fails createCompetitionSchema (a 2-letter name, 150 fish), since the frame blocks publish on those too; a schema error on a field no row shows (a stale type-owned value from a hydrated draft / edited competition) gets its own red row in its card, so the review and the frame gate always agree. Above the cards a T4ErrorSummary lists every problem (each line focuses its row); with none, a success notice — or, when stands are fewer than places, a warning notice «Poți publica, dar nu toți participanții vor avea stand» with «Alocă standuri». On this step the rail (1280+) takes each step's status from the same codes (reviewStepStatus): a check only on «Completat», red on an error, neutral «De completat». e2e «c1 c2 c11 …», «c5 c9 …»."
       - id: organizer.step-review.c3
         text: "Detalii de bază lists Nume, Data început, Data sfârșit („d MMM yyyy, HH:mm”) and Taxă înscriere („X RON” when > 0, else „Gratuit”) with the fee range error when invalid."
         fish_ref: app/(app)/create-competition/step-review.tsx:267-308
+        status: passing
+        web_note: "Dates in Romanian «14 noi 2026, 07:00» (local time, the detalii step's formatDay/formatTime — fish formats without a locale); «150 RON» / «Gratuit»; the range error as a red note under the fee, the section red. e2e «c3 c4 c6 c8 c11 …», «c3 — a fee out of range …»."
       - id: organizer.step-review.c4
         text: "Configurare lists Tip competiție (Individual / Echipă), Participanți/echipă for teams (1–10), Total participanți / Total echipe (≥ 1) and Specii de pește (count, at least one required)."
         fish_ref: app/(app)/create-competition/step-review.tsx:310-375
+        status: passing
+        web_note: "«Specii de pește» says «2 specii» / «1 specie» (formatCount) instead of fish's bare count. e2e «c3 c4 c6 c8 c11 …» (single, team, team size 11 → «Lipsește»)."
       - id: organizer.step-review.c5
         text: "Under the limit, when allocated stands are fewer than the limit, a red note reads „Nu ai standuri pe lac pentru N participanți/echipe.” or „Ai doar K stand(uri) pe lac pentru N participanți/echipe.”."
         fish_ref: app/(app)/create-competition/step-review.tsx:350-367
+        status: passing
+        web_note: "Red note under the total with formatCount plurals («pentru 25 de echipe»); a note, not an error: the section stays neutral and publish enabled (fish). e2e «c5 c9 …»."
       - id: organizer.step-review.c6
-        text: "Clasament lists Tip clasament (Romanian label), Mod clasament general, Regula departajare, and per type: Nr. pești clasament + Nr. câștigători (Best of), Număr de manșe (Feeder, must be 2 or 3), Praguri Best of (Best of tiers)."
+        text: "Clasament lists Tip clasament (Romanian label), Mod clasament general, Regula departajare, and per type: Nr. pești clasament + Nr. câștigători (Best of), Număr de manșe (Feeder, 1, 2 or 3), Praguri Best of (Best of tiers)."
         fish_ref: app/(app)/create-competition/step-review.tsx:377-438
+        status: passing
+        web_note: "Feeder legs are 1, 2 or 3 in fish 3.6.1 (1-leg shipped): the row reads «1 manșă» / «3 manșe», «Lipsește» when unset. e2e «c6 …» (quantityQuality + general mode + grid rule, Best of, Feeder)."
       - id: organizer.step-review.c7
         text: "Best-of-tiers errors: tiers that are not positive, strictly descending integers read „Pragurile (…) trebuie să fie întregi pozitive, ordonate descrescător și distincte.”; more tiers than allocated stands reads „Ai N praguri dar doar K standuri. Aloca cel puțin …”."
         fish_ref: app/(app)/create-competition/step-review.tsx:425-452
+        status: passing
+        web_note: "Copy fixed: «Alocă» with its diacritic, «1 prag» / «3 praguri» / «un stand». e2e «c7 c10 …»."
       - id: organizer.step-review.c8
         text: "Lac și sectoare lists Lac (name), Sectoare (count) and one row per sector („K standuri”, plus „min N pești” for quality-based types, red „Min pești invalid (N)” below 1)."
         fish_ref: app/(app)/create-competition/step-review.tsx:471-527
+        status: passing
+        web_note: "Sectors as tiles (SectorBadge colour, «Sector A», «3 standuri, min 2 pești» / «1 stand, min 1 pește») in a container grid; the lake name from the lake detail, a neutral bar while it loads (rule 4), «Selectat» when it cannot be read. e2e «c8 c10 — sectors …», «c8 — while the lake loads …»."
       - id: organizer.step-review.c9
         text: "An amber warning reads „Avertisment: ai configurat K standuri pentru N participanți/echipe. Cel puțin M … nu vor putea fi alocați pe stand.” when allocated stands < limit."
         fish_ref: app/(app)/create-competition/step-review.tsx:481-502
+        status: passing
+        web_note: "Amber box (status-warning) under «Sectoare»; plurals and participle agree («1 echipă nu va putea fi alocată», «25 de echipe … alocate»; fish says «alocați» for teams). e2e «c5 c9 …»."
       - id: organizer.step-review.c10
         text: "Lake errors: no lake, no sectors, national/FIPSed without exactly 3 sectors („Necesită exact 3 sectoare”), best-of-tiers without exactly 1 sector („Necesită exact 1 sector”), min fish < 1 („Minim 1 per sector”)."
         fish_ref: app/(app)/create-competition/step-review.tsx:203-218
+        status: passing
+        web_note: "e2e «c8 c10 — sectors …» (quality min 0, national / FIPSed on 2 sectors, no lake / sectors) and «c7 c10 …» (best of tiers on 2 sectors)."
       - id: organizer.step-review.c11
         text: "„Publică competiția” is disabled while any section has an error or an operation runs, and shows loading while publishing."
         fish_ref: app/(app)/create-competition/step-review.tsx:255-263
+        status: passing
+        web_note: "The frame's primary (WizardScreen): disabled on isPublishBlocked (schema + reviewErrors — the same codes this step turns red, unit «the review and the frame gate agree») and while busy; T4Spinner while publishing. e2e «c11 — publish …»: held publish → disabled + spinning, «Completează/Editează» disabled; mocked POST draft (body asserted) + PUT …/publish; lands on /concursuri/<real local id>?fromPublish=1. «c11 — a saved draft …»: mocked PUT draft + PUT publish."
       - id: organizer.step-review.c12
         text: "When editing a published competition the only footer button is the save label („Salvează modificările”), disabled while any section has an error."
         fish_ref: app/(app)/create-competition/step-review.tsx:247-253
+        status: passing
+        web_note: "e2e «c12 …»: /concursuri/fx-rev-e/editeaza/revizuire (competition read route-mocked) — no «Publică competiția», no «Salvează și ieși», «Salvează modificările» enabled, disabled when species are missing; save → mocked PUT /competitions/organizer/fx-rev-e (body asserted), back to the competition."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/organizator-pas-revizuire.spec.ts
+    web_note: "M6-B4: app/(site)/organizator/_wizard/steps/revizuire (index, ReviewSection, model + model.test.ts — 35 unit tests incl. the review/frame gate agreement). One column on a phone; from a ~672 px step column (@container: tablet, 1440+) the four cards pair up two by two, same height per row (bento); the frame's summary + publish card stay sticky on the right from 1280. Reads: Chita Lake from the local CMS; the edit competition a fixture built from a real local one. NO real writes: draft create / update, publish and the competition PUT are route-mocked and asserted (harness guard). Screenshots of every state at 375/1280/1440/1920 in .shots/organizator-pas-revizuire; axe 0."
 
   - id: organizer.rich-text-editor
     title: Editor text (Descriere / Premii / Regulament)
@@ -923,8 +951,11 @@ screens:
       - core/organizer/api.ts#getOrganizerCompetitions
       - core/organizer/api.ts#getOrganizerCompetitionSourceDetail
       - core/organizer/domain/richText.ts#strapiBlocksToHtml
-      - "(missing) AI formatting call POST /ai/format-text (fish services/api/ai.ts)"
-      - "(missing) hasMeaningfulEditorContent / filterOutCurrentCompetitionSource (fish helpers/createCompetitionRegulationCopy.ts)"
+      - core/organizer/api.ts#formatText
+      - core/organizer/queries.ts#organizerCompetitionsInfiniteQuery
+      - core/organizer/domain/regulationCopy.ts#hasMeaningfulEditorContent
+      - core/organizer/domain/regulationCopy.ts#filterOutCurrentCompetitionSource
+      - core/organizer/domain/regulationCopy.ts#availableSourcesCount
     states:
       - "editor focused with existing or empty content"
       - "AI format: idle / „Se formatează...” / „Formatat” / „Eroare”"
@@ -935,32 +966,52 @@ screens:
       - id: organizer.rich-text-editor.c1
         text: "The header has a back control (leaves without applying changes), the field title (Descriere / Premii / Regulament; unknown field falls back to Descriere) and a „Gata” button."
         fish_ref: app/(app)/create-competition/rich-text-editor.tsx:295-324
+        status: passing
+        web_note: "Header row: back (aria «Înapoi, fără să aplici modificările»; leaves without applying, nothing saved — the browser's Back does the same), the h2 title from ?editor= (descriere / premii / regulament, anything else → Descriere), «Gata». A pushed entry is left with history.back(), a deep link drops the param in place (replace). <768 full screen over the page (fixed, page scroll locked), ≥768 one large card in the wizard's form column (rail + summary stay from 1280); the frame's action bar is hidden. e2e organizator-editor.spec.ts «c1 c3 …», «c1 — title per field …»."
       - id: organizer.rich-text-editor.c2
         text: "„Gata” stores the editor HTML in the field (marking the form dirty), triggers an auto-save and returns to the step."
         fish_ref: app/(app)/create-competition/rich-text-editor.tsx:146-151
+        status: passing
+        web_note: "«Gata» → setValue(field, editor.getHTML(), { autoSave: 'now' }) (dirty) then returns to the step. TipTap 3's trailing empty paragraph is off (it would be saved as an empty Strapi paragraph). e2e «c2 …»: the form value is the HTML, the route-mocked draft PUT carries the field as Strapi blocks, the URL drops ?editor= with no dead Back entry."
       - id: organizer.rich-text-editor.c3
         text: "The editor opens focused with the field's current content and a formatting toolbar (default rich text items: bold, italic, lists, headings, undo/redo…)."
         fish_ref: app/(app)/create-competition/rich-text-editor.tsx:139-144
+        status: passing
+        web_note: "TipTap (@tiptap/react + starter-kit, the same ProseMirror schema as fish's TenTap), client-only via next/dynamic ssr:false (skeleton while the chunk loads), opened focused at the end with the field's HTML. Toolbar (WAI-ARIA toolbar, one tab stop, arrows/Home/End; aria-pressed toggles): undo, redo, bold, italic, H1–H3, bullet and numbered lists — only what htmlToStrapiBlocks keeps (links, quotes, code, strike, underline, hard breaks and list nesting are off; Tab leaves the editor instead of nesting). The empty editor shows fish's (defined, unused there) example text as a placeholder (aria-placeholder, never content). e2e «c1 c3 …» (content, focus, the 9 buttons, bold/heading/list/undo/redo, keyboard), «c1 — title per field …» (placeholder)."
       - id: organizer.rich-text-editor.c4
         text: "An actions row offers „Copiază din altă competiție” only for Descriere and Regulament, and „Formatează cu AI” for every field."
         fish_ref: app/(app)/create-competition/rich-text-editor.tsx:326-363
+        status: passing
+        web_note: "Actions row (scrolls on a phone with fish's fade): «Copiază din altă competiție» for Descriere and Regulament only, «Formatează cu AI» for every field. e2e «c4 …»."
       - id: organizer.rich-text-editor.c5
         text: "„Formatează cu AI” does nothing on empty text; otherwise it shows „Se formatează...” (disabled), replaces the content with the formatted result and shows „Formatat” or „Eroare” for 2 s."
         fish_ref: app/(app)/create-competition/rich-text-editor.tsx:160-181
+        status: passing
+        web_note: "AiFormatButton: empty text → no request; else «Se formatează...» (disabled; editor read-only and «Gata» disabled meanwhile), content replaced by data.formatted, then «Formatat» / «Eroare» for 2 s (FORMAT_FEEDBACK_MS), status announced politely. formatText unit-tested with a fake transport (core/organizer/formatText.test.ts). e2e «c5 …» with POST /ai/format-text ALWAYS route-mocked (request body asserted; success, then 500)."
       - id: organizer.rich-text-editor.c6
         text: "„Copiază din altă competiție” opens a panel titled the same with the hint „Selectează o altă competiție ca să copiezi … existent(ă), apoi îl poți adapta mai ușor pentru competiția curentă.” and „N competiție disponibilă / competiții disponibile” (the current competition/draft excluded)."
         fish_ref: components/competition/RegulationSourcePickerSheet.tsx:205-222
+        status: passing
+        web_note: "CopyFromCompetitionPanel on the kit surface rule (intent reading: <768 Sheet 90%, ≥768 wide Dialog, actions pinned): title, the hint agreed per field («…copiezi descrierea existentă, apoi o poți adapta…» / «…regulamentul existent, apoi îl poți adapta…» — fish's «existent(ă) … îl» made grammatical), formatCount «1 competiție disponibilă» / «N competiții disponibile» (total minus the current draft/competition, never below 0). The count only appears once the list answered (rule 4). e2e «c6 c7 …», «c6 — one competition …»."
       - id: organizer.rich-text-editor.c7
         text: "The source list loads the organizer's competitions 10 per page (infinite), excluding the current one; while loading „Se încarcă competițiile...”, on error „Nu am putut încărca competițiile. Încearcă din nou.” with „Reîncearcă”, and when empty „Ești la prima competiție pe care o creezi în Bluvi și nu avem de unde copia datele.” / „Data viitoare va fi mai ușor.”; „Închide” closes."
         fish_ref: app/(app)/create-competition/rich-text-editor.tsx:183-217
+        status: passing
+        web_note: "organizerCompetitionsInfiniteQuery (pageSize 10) with the current draft filtered out; the next page loads when the end of the list scrolls into view (IntersectionObserver) with an inline «Se încarcă mai multe competiții...». Loading «Se încarcă competițiile...» (+ row skeletons), error «Nu am putut încărca competițiile. Încearcă din nou.» + «Reîncearcă» (loading again while retrying), empty «Ești la prima competiție…» / «Data viitoare va fi mai ușor.», «Închide». Rows: banner thumb or document placeholder, name, dd.mm.yyyy (Europe/Bucharest), status badge. e2e «c6 c7 …» (13 rows incl. current → 12, pages 1/10 and 2/10 asked), «c7 — loading … error … empty»."
       - id: organizer.rich-text-editor.c8
         text: "Choosing a source shows „Previzualizare <câmp>” with its name, date and status badge (Ciornă / În viitor / În curs / Terminat), the rendered content, or „Se încarcă …”, an error with „Reîncearcă”, or „Competiția selectată nu are …”; „Înapoi” returns to the list."
         fish_ref: components/competition/RegulationSourcePickerSheet.tsx:145-200
+        status: passing
+        web_note: "«Previzualizare <câmp>», the source's thumb, name, date and status badge (StatusPill: Ciornă warning / În viitor info / În curs success / Terminat neutral), the content rendered by the site's blocks renderer (stiri RichText), «Se încarcă descrierea/regulamentul...», «Nu am putut încărca … pentru această competiție.» + «Reîncearcă», or «Competiția selectată nu are …»; «Înapoi» returns to the list. Draft sources read /competitions/organizer/draft/:id, others /competitions/organizer/:id (getOrganizerCompetitionSourceDetail). e2e «c8 c9 …»."
       - id: organizer.rich-text-editor.c9
         text: "„Copiază” is disabled while loading or when the source has no content; when the editor already has meaningful text it asks „Înlocuiești <câmp>?” / „Textul existent va fi înlocuit.” („Renunță” / „Copiază”), then replaces the editor content and closes the panel."
         fish_ref: app/(app)/create-competition/rich-text-editor.tsx:268-292
+        status: passing
+        web_note: "«Copiază» disabled while loading or when the source has no content; an editor with meaningful text (hasMeaningfulEditorContent) asks «Înlocuiești descrierea? / regulamentul?» / «Textul existent va fi înlocuit.» (alert dialog: «Renunță» / «Copiază»), then replaces the content and closes the panel; an empty editor is replaced at once. Nothing is stored until «Gata». e2e «c8 c9 …» (empty editor), «c9 — existing text …» (Renunță keeps, Copiază replaces, form value unchanged)."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/organizator-editor.spec.ts
+    web_note: "M6-B4: app/(site)/organizator/_wizard/editor (index = RichTextEditor; Editor (TipTap, client-only chunk), Toolbar, AiFormatButton, CopyFromCompetitionPanel, model + model.test.ts). Rendered by the wizard frame instead of StepDetalii while ?editor= is set. Reads only (organizer competitions + source detail as fixtures in e2e); the auto-save PUT and POST /ai/format-text route-mocked; harness guard on. Screenshots at 375/1280/1440/1920 for every state (editor, empty, copy list/loading/error/empty, preview loading/content/empty/error, replace confirm; the AI loading/done/error button states at 375 only, they last 2 s) in .shots/organizator-editor; axe 0."
 
   - id: organizer.ranking-explanation
     title: Explicație tip clasament
@@ -1028,29 +1079,46 @@ screens:
       - id: organizer.sectors.c1
         text: "Loading shows a full loading state; an error shows the error screen with retry."
         fish_ref: app/(app)/configure/sectors/[competitionId].tsx:160-166
+        status: passing
+        web_note: "ManagementFrame (requires author): loading = the header with the real title + SectorsBodySkeleton (SlotGrid's columns/track/height, busy, «Se încarcă sectoarele…»); error without data = T4Gate danger with «Încearcă din nou», which refetches the competition. Signed in only (proxy 307 → /intra?next=, requireViewer), noindex. e2e tests/e2e/concurs-sectoare.spec.ts «c1/c2/c4 — loading…», «c1 — an error offers…», «signed out → sign-in…»."
       - id: organizer.sectors.c2
         text: "The title is „Alocarea standurilor pe sectoare”; leaving with unsaved changes asks „Ești sigur că vrei să renunți la modificările făcute?” / „Toate schimbările făcute vor fi pierdute.” („Închide” / „Renunță”)."
         fish_ref: app/(app)/configure/sectors/[competitionId].tsx:99-106
+        status: passing
+        web_note: "h1 «Alocarea standurilor pe sectoare». Leave guard: the site's one leave dialog (useLeaveGuard, as participant.register c20) «Renunți la modificări?» / «Continuă editarea» / danger «Renunță» — holds the back link, in-app links, browser Back and unload while there are unsaved edits; untouched → back leaves at once. e2e «c2 — leaving with unsaved changes…»."
       - id: organizer.sectors.c3
         text: "When the competition is not notStarted a red dashed banner reads „Competiția a început deja! Alocarea standurilor nu mai poate fi modificată!”, slots are disabled and there is no save button."
         fish_ref: app/(app)/configure/sectors/[competitionId].tsx:190-203
+        status: passing
+        web_note: "Not notStarted → red dashed banner (status-danger tokens, border-style dashed asserted), every slot disabled, no ✕ badge, no action bar; the ≥1280 aside states «N din M locuri ocupate». e2e «c3 — started…» (status served as started)."
       - id: organizer.sectors.c4
         text: "Info lines show „Nr. sectoare: N” and „Nr. max standuri per sector: ceil(participantsLimit / sectors)” (1 when unknown)."
         fish_ref: app/(app)/configure/sectors/[competitionId].tsx:64-69
+        status: passing
+        web_note: "«Nr. sectoare: N» and «Nr. max standuri per sector: ceil(participantsLimit / sectors)», 1 when the limit (or the sectors) is unknown (model.standsPerSector, unit). e2e «c1/c2/c4» (local 20 / 4 → 5) and «c4 — … 1 when the limit is unknown» (limit served null → one slot per sector)."
       - id: organizer.sectors.c5
         text: "Each sector „Sector X” shows that many dashed slots, prefilled from the sector's current stands in order, each showing the stand name or „-”."
         fish_ref: app/(app)/configure/sectors/[competitionId].tsx:36-51
+        status: passing
+        web_note: "SlotGrid: «Sector X» h2 in competition.sectors order (not sorted), slots prefilled from the sector's stands in order (stand name or «-»). Web: a sector with more stands than the max gets a slot per stand (fish keeps and re-sends them invisibly; the web shows what it sends). Phone: stacked sectors, wrapping dashed boxes; ≥768 the sectors are side-by-side columns with the sector colour (ranking palette) as the top edge; ≥1280 an aside with each sector's «ocupate/locuri». e2e «c5 — …» (order, prefill, columns on one row at 1280)."
       - id: organizer.sectors.c6
         text: "Activating an empty slot opens a picker labelled „Sector X” listing every lake stand, with stands already placed in any slot disabled; choosing one fills the slot."
         fish_ref: app/(app)/configure/sectors/[competitionId].tsx:90-98
+        status: passing
+        web_note: "StandPickerDialog (ResponsiveSurface info: sheet <768, dialog ≥768) titled «Sector X», «Alege standul pentru locul N»: every lake stand in the lake's order as a grid of buttons; placed ones disabled (struck, «deja plasat» for AT); a choice fills the slot and closes; Escape/X closes without a choice. e2e «c6/c7 — …» (count = lake stands, another sector's stand disabled, the emptied ones enabled, fill)."
       - id: organizer.sectors.c7
         text: "Activating a filled slot, or its red ✕ badge, empties it; slots ignore input while a save is pending."
         fish_ref: app/(app)/configure/sectors/[competitionId].tsx:253-292
+        status: passing
+        web_note: "A filled slot is one button: activating it (or its red ✕ badge, inside it) empties it; while a save is pending every slot is disabled. e2e «c6/c7» (box and badge) and «c8 — Salvează…» (slot disabled while the POST is held)."
       - id: organizer.sectors.c8
         text: "„Salvează” sends { allocations: { sectorId: [standIds] } } (every sector present, empty slots skipped), shows a spinner while pending, toasts „Standurile au fost alocate cu succes!”, goes back and refetches the competition; errors toast the server message."
         fish_ref: app/(app)/configure/sectors/[competitionId].tsx:108-158
+        status: passing
+        web_note: "«Salvează» → core allocateStandsToSectorsMutation: POST /competitions/:id/allocate-stands-to-sectors { allocations: { sectorDocumentId: [standDocumentIds] } } (every sector, empties skipped, slot order kept; model.allocationsBody, unit); spinner + aria-busy, then toast «Standurile au fost alocate cu succes!», invalidate competition byId, router.replace to the competition page (fish router.back(): the editor leaves no history entry, browser Back never returns to it — e2e goBack). Edits are a diff over the competition (model SlotEdits) applied over every refetch: a sector added / a new limit while dirty keeps its server stands and slot count (unit). Error: toast of the transport's message (the CMS bluCode message, else the generic one, as fish api.ts) and the edits stay. e2e: POST route-mocked with the exact body asserted (no write reaches the CMS), refetch observed; error case 400 bluCode + 500 generic."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "M6-B4: app/(site)/concursuri/[id]/sectoare (page/loading/error) + _sectors (SectorsScreen, SlotGrid, StandPickerDialog, SectorsSkeleton, layout.ts, model.ts + model.test.ts). T6 via ManagementFrame (requires author; a known non-author gets the neutral «Doar pentru organizatorul concursului» gate — e2e «not the author…»). Reads: the competition only (shared key with the frame). The one write is route-mocked in e2e; every non-GET to /api/cms is recorded and must equal the mocked POSTs. Screenshots of loading, loaded, error, locked, picker, saving, denied at 375/1280/1440/1920 in .shots/sectoare-*; axe 0 on loaded, error, picker, locked. Entry point (fish OrganizerSheetItems / RankingActionBar «Organizare»): the competition page's «Organizare» for the author while notStarted/started (phone bar tile «Acțiuni organizator», ≥768 header button) opens the organizer menu (ActionsSheet OrganizerMenu) whose «Alocă standuri pe sectoare» links here; after the start the item is disabled with «Competiția a început deja, nu se mai pot face modificări» (also in the author's «Acțiuni» sheet). e2e c8 starts on the competition page and reaches the editor through it (phone), plus the 1280 header path. ≥768 columns use auto-fit (real columns stretch; a wide column lays its slots in 2–3 columns via container queries): 2/4/9/24 sectors fill the card at 1280/1440/1920."
 
   - id: organizer.participants
     title: Alocare participanți / Standuri manșa N
