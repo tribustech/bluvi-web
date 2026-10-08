@@ -5,9 +5,6 @@ import { getMyBookingsUpcomingCount } from '@/core/booking';
 import { getLiveCompetition } from '@/core/competitions';
 import { getOwnedLakesStats } from '@/core/lakes';
 import {
-  deriveRaffleState,
-  fetchActiveRaffle,
-  fetchRaffleParticipation,
   getCompetitionActiveWeighing,
   getOrganizerDashboard,
   type CompetitionActiveWeighing,
@@ -17,7 +14,6 @@ import { getUnreadNotificationsForLoggedInUser } from '@/core/social';
 import type { DehydratedState } from '@tanstack/react-query';
 import { isApiError, type Transport } from '@/core/transport';
 import { prefetchState, type Prefetchable } from '@/lib/client/hydration';
-import { cmsUrl } from '@/lib/server/env';
 import { createServerTransport } from '@/lib/server/transport';
 import { getShellSession, type ShellUser } from '../_shell/session';
 import { isUnknownViewer } from '../_shell/viewer-state';
@@ -37,7 +33,7 @@ import { isUnknownViewer } from '../_shell/viewer-state';
  * TanStack block (poll, suggested anglers) mounts and finishes its read in the browser
  * (prefetchTracked); so do the live competition, the organiser and operator cards (LateBlocks.tsx),
  * which show nothing until the browser read confirms them (owner rule 4, ROADMAP §4b: when we don't
- * know, we don't show — never «we could not check» copy); the raffle drops its status row, and the
+ * know, we don't show — never «we could not check» copy); the
  * partidă hero is hidden (offered only on a confirmed «no live partidă»). Staging / prod add 2–3 s
  * per request, so no budget
  * here would be «long enough»: the client takeover is what keeps the blocks.
@@ -249,25 +245,4 @@ export const loadMyLiveCompetition = cache(async () => {
 export const loadActiveWeighing = cache(async (competitionId: string): Promise<CompetitionActiveWeighing[]> => {
   if (!(await getHomeViewer())) return [];
   return (await quiet('active weighing', (t) => getCompetitionActiveWeighing(t, competitionId))) ?? [];
-});
-
-/**
- * fish RaffleDashboardCard → `useRaffle` (`useRaffleActive` + `useRaffleParticipation`): the active
- * raffle session, null when there is none (the card is hidden). The session is public (cached by
- * the CMS headers); the participation is the signed-in user's own.
- */
-export const loadRaffle = cache(async () => {
-  const mediaOrigin = new URL(cmsUrl()).origin;
-  // The participation does not depend on the session's answer: both reads run together.
-  const viewer = await getHomeViewer();
-  const [active, participation] = await Promise.all([
-    quiet('raffle active', (t) => fetchActiveRaffle(t, { mediaOrigin })),
-    viewer ? attempt('raffle participation', (t) => fetchRaffleParticipation(t, { mediaOrigin })) : null,
-  ]);
-  if (!active?.session) return null;
-  // A failed participation read is NOT «not registered»: the card shows no join CTA (and no
-  // receipt prompt) but «Nu am putut verifica înscrierea · Reîncearcă» (as PartidaCtaSlot's 'failed').
-  const participationFailed = participation === FAILED;
-  const state = deriveRaffleState(active, participationFailed ? null : participation, null);
-  return state.sessionDocumentId ? { state, signedIn: !!viewer, participationFailed } : null;
 });

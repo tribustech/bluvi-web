@@ -153,13 +153,13 @@ test('participant.team-disclaimer.c1 participant.team-disclaimer.c2 participant.
   );
   await expect(signup.locator('strong')).toHaveText('o singură persoană din echipă');
 
-  // c4 — «Modificări», the last sentence emphasised (fish copy, see b.disclaimer-copy-mismatch).
+  // c4 — «Modificări», the last sentence emphasised (owner 2026-10-08: the copy matches the behaviour, b.disclaimer-copy-mismatch).
   const changes = page.getByRole('region', { name: 'Modificări' });
   await expect(changes.getByRole('heading', { level: 2 })).toHaveText('Modificări');
   await expect(changes.locator('p')).toHaveText(
-    'Datele înscrierii pot fi modificate doar până când organizatorul competiției acceptă înscrierea. După ce înscrierea a fost aprobată, nicio modificare nu mai este permisă.',
+    'Datele înscrierii pot fi modificate cât timp înscrierea așteaptă aprobarea organizatorului. După aprobare, mai poți modifica echipa doar până începe concursul.',
   );
-  await expect(changes.locator('strong')).toHaveText('nicio modificare nu mai este permisă.');
+  await expect(changes.locator('strong')).toHaveText('mai poți modifica echipa doar până începe concursul.');
 
   // Phone: one CTA, in the bar on the bottom edge.
   await expect(continueLink(page)).toHaveCount(1);

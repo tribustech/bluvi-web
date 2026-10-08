@@ -14,7 +14,6 @@ import {
   loadMyLiveCompetition,
   loadOrganizerDashboard,
   loadOwnedLakes,
-  loadRaffle,
   prefetchTracked,
 } from './data';
 import { LateLiveCompetition, LateOrganizerBanner, LateOwnedLakesCard } from './LateBlocks';
@@ -23,7 +22,6 @@ import { OrganizerBanner, OrganizerBannerSkeleton } from './OrganizerBanner';
 import { OwnedLakesCard, OwnedLakesCardSkeleton } from './OwnedLakesCard';
 import { PartidaCta } from './PartidaCta';
 import { PollCard } from './PollCard';
-import { RaffleCard } from './RaffleCard';
 import { SuggestedAnglers } from './SuggestedAnglers';
 import { BookingsBadge } from './Widgets';
 
@@ -34,7 +32,7 @@ import { BookingsBadge } from './Widgets';
 
 /**
  * Holds its children until the session is read, so page.tsx can reveal a whole column at once:
- * every per-user block inside without a boundary of its own (role-gated cards, poll, raffle,
+ * every per-user block inside without a boundary of its own (role-gated cards, poll,
  * suggestions) is part of the same reveal, and nothing painted below them is pushed down later.
  */
 export async function AfterSession({ children, unknown }: { children: ReactNode; unknown?: ReactNode }) {
@@ -145,15 +143,6 @@ export async function PollSlot({ layout }: { layout: 'mobile' | 'desktop' }) {
       <PollCard layout={layout} signedIn={signedIn} />
     </HydrationBoundary>
   );
-}
-
-/** fish RaffleDashboardCard: between the poll and the suggested anglers, only while a session runs. */
-export async function RaffleSlot() {
-  // Unknown: the guest card would ask a signed-in viewer to sign in.
-  if ((await getHomeSession()) === 'unknown') return null;
-  const raffle = await loadRaffle();
-  if (!raffle) return null;
-  return <RaffleCard raffle={raffle.state} signedIn={raffle.signedIn} participationFailed={raffle.participationFailed} />;
 }
 
 /**

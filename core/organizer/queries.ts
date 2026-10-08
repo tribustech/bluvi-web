@@ -1,8 +1,6 @@
 import { infiniteQueryOptions, nextPageParam, queryOptions } from '../shared';
 import type { Transport } from '../transport';
 import {
-  fetchActiveRaffle,
-  fetchRaffleParticipation,
   getAllocatedParticipants,
   getCompetitionActiveWeighing,
   getExtraScalesList,
@@ -15,7 +13,6 @@ import {
   getWeighings,
   getWeighingsSummary,
   getWeightingsTotal,
-  type MediaOriginOption,
 } from './api';
 import { groupRevisionsBySession } from './domain/weighing';
 import type { OrganizerStatKey } from './schemas';
@@ -47,13 +44,6 @@ export const weighingKeys = {
   totalWeightByCompetitionIdAndStandId: (competitionId: string, standId: string) =>
     ['weighings', 'competition', competitionId, 'stand', standId, 'totalWeight'] as const,
   revisions: (weighingId: string) => ['weighings', 'id', weighingId, 'revisions'] as const,
-};
-
-/** fish `queryKeys.raffle` */
-export const raffleKeys = {
-  state: ['raffle', 'state'] as const,
-  active: ['raffle', 'active'] as const,
-  participation: ['raffle', 'participation'] as const,
 };
 
 /**
@@ -231,40 +221,5 @@ export function extraScalesListQuery(t: Transport, competitionId: string) {
     queryKey: competitionManagementKeys.extraScalesList(competitionId),
     queryFn: () => getExtraScalesList(t, competitionId),
     enabled: !!competitionId,
-  });
-}
-
-/* ------------------------------------------------------------------ */
-/* Raffle                                                              */
-/* ------------------------------------------------------------------ */
-
-const RAFFLE_STALE_TIME_MS = 1000 * 60 * 2; // 2 minutes
-
-/**
- * fish `useRaffleActive` — active raffle session. Refetches when invalidated (e.g. root
- * invalidateQueries on app foreground).
- */
-export function raffleActiveQuery(t: Transport, options: MediaOriginOption = {}) {
-  return queryOptions({
-    queryKey: raffleKeys.active,
-    queryFn: () => fetchActiveRaffle(t, options),
-    staleTime: RAFFLE_STALE_TIME_MS,
-  });
-}
-
-/**
- * fish `useRaffleParticipation` — current user's participation for the active session.
- * Enabled only when signed in and there is an active session (fish reads it from
- * `useRaffleActive().data?.session`; the web passes it in).
- */
-export function raffleParticipationQuery(
-  t: Transport,
-  { isAuthenticated, hasActiveSession, mediaOrigin }: MediaOriginOption & { isAuthenticated: boolean; hasActiveSession: boolean }
-) {
-  return queryOptions({
-    queryKey: raffleKeys.participation,
-    queryFn: () => fetchRaffleParticipation(t, { mediaOrigin }),
-    enabled: isAuthenticated && hasActiveSession,
-    staleTime: RAFFLE_STALE_TIME_MS,
   });
 }

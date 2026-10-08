@@ -287,23 +287,23 @@ screens:
       - id: home.acasa.c36
         text: "Raffle card appears only when there is an active raffle session: both header logos (server URLs or Bluvi / Pescarmania fallbacks), optional title and subtitle, „{n} participanți”, and a ZILE/ORE/MIN/SEC flip countdown while not ended and an end date exists."
         fish_ref: components/raffle/RaffleDashboardCard.tsx:265-378
-        status: passing
-        note: "e2e tests/e2e/acasa.spec.ts. Web: with no CMS title the heading reads «Tragere la sorți» (the section needs a name); fish shows none."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web. No raffle card on Acasă (e2e tests/e2e/acasa.spec.ts asserts none and no /tombola link)."
       - id: home.acasa.c37
         text: "Raffle prize rows come from the session (fallback: built-in prizes), each with type badge, value in lei, registrations for its type and an image, expandable one at a time."
         fish_ref: components/raffle/RaffleDashboardCard.tsx:244-245,382-423
-        status: passing
-        note: "e2e tests/e2e/acasa.spec.ts"
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web. No raffle card on Acasă (e2e tests/e2e/acasa.spec.ts asserts none and no /tombola link)."
       - id: home.acasa.c38
         text: "Raffle CTA area: not joined → pulsing „Înscrie-te la tombolă” (signed out: „Intra in cont”) plus the bon-fiscal description; joined → „Vezi șansele tale” and „{entries} șanse” with a trophy, and the „Mărește-ți șansele! …” receipt prompt while no receipt is uploaded; ended without winners → „Tombola încheiată – câștigătorii vor fi anunțați”; ended with winners → „Vezi câștigători”. A previous-winner announcement is shown when present."
         fish_ref: components/raffle/RaffleDashboardCard.tsx:426-572
-        status: passing
-        note: "e2e tests/e2e/acasa.spec.ts. Web: the guest CTA reads «Intră ca să participi» (what the sign-in unlocks, not one more bare «Intră în cont»); the decorative pulse / snake border is not ported."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web. No raffle card on Acasă (e2e tests/e2e/acasa.spec.ts asserts none and no /tombola link)."
       - id: home.acasa.c39
         text: "Pressing the raffle card: ended with winners → winners page (public, no sign-in); ended without winners → nothing; signed out → sign-in; joined → confirmation; else → raffle sign-up."
         fish_ref: components/raffle/RaffleDashboardCard.tsx:247-261
-        status: passing
-        note: "web: the CTA link carries the destination (interactive prize rows cannot nest in one link); guest → /intra, joined → /tombola/confirmare, ended with winners → /tombola/castigatori. Verified in e2e (guest) and code."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web. No raffle card on Acasă (e2e tests/e2e/acasa.spec.ts asserts none and no /tombola link)."
       - id: home.acasa.c40
         text: "Suggested anglers (signed in only): „Pescari pe care îi poți urmări” with „Vezi toate” to the suggested list; page 1 only, minus cards dismissed this session; hidden while loading, on error, or when fewer than 3 cards remain (no skeleton)."
         fish_ref: features/anglers/components/SuggestedAnglersRail.tsx:13-38

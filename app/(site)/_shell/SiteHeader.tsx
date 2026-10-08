@@ -89,14 +89,6 @@ const OWN_BAND_ROUTES: readonly RegExp[] = [
   /^\/sondaje\/?$/,
   // «Sondaje anterioare» (T1, participant.polls-past.c1): the same — its header's back control.
   /^\/sondaje\/anterioare\/?$/,
-  // «Câștigători» (T6, participant.raffle-winners): its header's back control owns the way back.
-  /^\/tombola\/castigatori\/?$/,
-  // «Șansele mele» (T6, participant.raffle-status): the same — its header's back control.
-  /^\/tombola\/sansele-mele\/?$/,
-  // «Încarcă bonul fiscal» (T6, participant.raffle-upload-receipt): the same — its header's back control.
-  /^\/tombola\/bon\/?$/,
-  // «Bon încărcat» (T6, participant.raffle-receipt-submitted): the same — its header's back control.
-  /^\/tombola\/bon-trimis\/?$/,
 ];
 
 export function ownsBreadcrumbBand(pathname: string): boolean {

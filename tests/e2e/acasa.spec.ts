@@ -14,7 +14,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
  * below 768 the profile card is the header, from 768 the T5 header. Only one composition is
  * displayed, so every locator is narrowed to its visible match.
  *
- * Blocks that depend on local data (organiser banner, poll, raffle, a live competition) are asserted
+ * Blocks that depend on local data (organiser banner, poll, a live competition) are asserted
  * when present and skipped with a note when the local CMS has nothing for them.
  */
 
@@ -330,18 +330,6 @@ for (const [label, heading, path, cmsPath] of [
     await expect(h2(page, heading)).toBeVisible({ timeout: 20_000 });
   });
 }
-
-test('owner rule 4 — raffle participation with no answer: no join CTA, no «could not check» copy', async ({ page }) => {
-  // Loads Acasă (two widths for some) and waits out the browser takeover's retries.
-  test.slow();
-  await signIn(page.context(), jwt);
-  await openWith(page, PHONE, { [FAULT_COOKIE]: 'raffle participation' });
-  await expectSignedIn(page);
-  const raffle = visible(page.locator('section').filter({ has: page.getByRole('list', { name: 'Premii' }) }));
-  if ((await raffle.count()) === 0) test.skip(true, 'no active raffle session locally');
-  await expect(raffle.getByRole('link', { name: /Înscrie-te|Vezi șansele|Intră ca să participi/ })).toHaveCount(0);
-  await expect(raffle).not.toContainText(UNKNOWN_COPY);
-});
 
 /* ---------- operator, tools, partidă hero ---------- */
 
@@ -724,20 +712,12 @@ for (const signedIn of [false, true]) test(`home.acasa.c30 c31 c32 c35 — poll 
   expect(shared.url).toMatch(/\/sondaje$/);
 });
 
-/* ---------- raffle ---------- */
+/* ---------- no raffle ---------- */
 
-test('home.acasa.c36 c37 c38 — raffle card (when a session runs)', async ({ page }) => {
+test('home.acasa.c36 c37 c38 — no raffle on the web (owner 2026-10-08): no raffle card, no link to /tombola', async ({ page }) => {
   await open(page, PHONE, false);
-  const raffle = visible(page.locator('section').filter({ has: page.getByRole('list', { name: 'Premii' }) }));
-  if ((await raffle.count()) === 0) test.skip(true, 'no active raffle session locally');
-  await expect(raffle.getByText(/^\d+ participanți$/)).toBeVisible();
-  await expect(raffle.getByRole('img', { name: 'Bluvi' })).toBeVisible();
-  await expect(raffle.getByRole('img', { name: 'PescarMania' })).toBeVisible();
-  // Each prize row renders its registrations twice (narrow / wide card layouts), one displayed.
-  await expect(visible(raffle.getByText(/^\d+ înscriși$/))).toBeVisible();
-  const cta = raffle.getByRole('link', { name: 'Intră ca să participi' });
-  // participant.b.raffle-entry: the guest comes back to the raffle after sign-in.
-  if (await cta.count()) await expect(cta).toHaveAttribute('href', '/intra?next=%2Ftombola');
+  await expect(page.getByText('Tragere la sorți')).toHaveCount(0);
+  await expect(page.locator('a[href^="/tombola"], a[href*="next=%2Ftombola"]')).toHaveCount(0);
 });
 
 /* ---------- suggested anglers (signed in) ---------- */

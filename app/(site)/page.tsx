@@ -19,7 +19,6 @@ import { LAKE_CARD_HEIGHT } from './_home/HomeLakeCard';
 import { HomeHeader, HomeHeaderSkeleton, ProfileCard, ProfileCardSkeleton } from './_home/ProfileCard';
 import {
   CompetitionsPrerendered,
-  IfRaffle,
   IfSponsors,
   LakesLive,
   LakesPrerendered,
@@ -36,7 +35,6 @@ import {
   OrganizerSlot,
   PartidaCtaSlot,
   PollSlot,
-  RaffleSlot,
   RightColumnLateLiveSlot,
   RightColumnLiveSlot,
   SignedOutOnly,
@@ -82,7 +80,7 @@ export const metadata: Metadata = {
  * the T5 header (greeting, slogan, refresh). Body: ONE tree at every width (no second copy of the
  * page for the other breakpoint — the rails, their headings and images exist once):
  * - the main column, in fish's order at every width (inventory home.acasa.c58): the partidă hero,
- *   competitions, poll · raffle · suggested anglers, lakes, the lake request, sponsors, news,
+ *   competitions, poll, suggested anglers, lakes, the lake request, sponsors, news,
  *   feedback (beside the web-only app promo from 1280, the page's last block);
  * - from 1280 the sticky right column «Ce mă așteaptă» (my partidă or live competition, organiser
  *   panel, my lake, tools — fish's blocks above the hero, which below 1280 open the main column
@@ -105,8 +103,8 @@ export const metadata: Metadata = {
  * Each rail's server prefetch (HydrateRail) is inside that boundary, never at the page root: a
  * failed or short-lived read stays a hole behind the rail's fallback instead of blocking the route.
  *
- * Per-user blocks and layout shift: the static shell cannot know the role, the live partidă, the
- * poll or the raffle, and inserting them later pushes down what is already painted. So each
+ * Per-user blocks and layout shift: the static shell cannot know the role, the live partidă or the
+ * poll, and inserting them later pushes down what is already painted. So each
  * column that holds them is revealed ONCE: behind one <Suspense> whose fallback paints nothing
  * readable — a neutral skeleton of the column at its height (aria-busy), never public blocks the
  * per-user ones would then land above — the session-gated version (AfterSession) swaps in whole
@@ -219,13 +217,8 @@ function MainColumn() {
           <CompetitionsSection />
         </HydrateRail>
       </Suspense>
-      {/* From a 896px column (@4xl, ~1620 and up) the poll and the raffle share one row, stretched
-          to one height — never a 1000px-wide poll or raffle slab. A lone one takes the row;
-          neither: the wrapper is empty and display:none (no extra gap). */}
-      <div className="flex flex-col gap-4 empty:hidden md:gap-5 xl:gap-6 @4xl:flex-row @4xl:*:min-w-0 @4xl:*:flex-1">
-        <PollSlot layout="mobile" />
-        <RaffleSlot />
-      </div>
+      {/* No raffle on the web (owner 2026-10-08): the poll takes its row alone. */}
+      <PollSlot layout="mobile" />
       <SuggestedAnglersSlot />
       <Suspense fallback={<LakesPrerendered />}>
         <HydrateRail rail="lakes">
@@ -310,8 +303,8 @@ function UnknownSessionColumn() {
 
 /**
  * The main column while the session is read: one neutral bone per section the column will hold,
- * in its order and at its height (the rails at their cards' own height classes) — the raffle and
- * Sponsori too, gated by their public reads, so a visitor who scrolls while it loads lands where
+ * in its order and at its height (the rails at their cards' own height classes) — Sponsori too,
+ * gated by its public read, so a visitor who scrolls while it loads lands where
  * the column puts them. Nothing readable, so nothing the per-user blocks could land above and push
  * down. (The role-gated cards above Instrumente cannot be known before the session.)
  */
@@ -340,11 +333,6 @@ function MainColumnSkeleton() {
       <SkeletonSection>
         <RailSkeleton label="Se încarcă concursurile" width={224} heightClass={COMPETITION_CARD_HEIGHT} />
       </SkeletonSection>
-      <Suspense fallback={null}>
-        <IfRaffle>
-          <span aria-hidden className="h-160 rounded-bento bg-soft-fill @xl:h-120" />
-        </IfRaffle>
-      </Suspense>
       <SkeletonSection>
         <div className="xl:hidden">
           <RailSkeleton label="Se încarcă bălțile" width={200} heightClass={LAKE_CARD_HEIGHT} />

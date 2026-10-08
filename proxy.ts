@@ -46,12 +46,5 @@ export const config = {
     { source: '/partide/capturile-mele', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // M4: a partidă by its client id (PARTIDA_FINISHED / AUTO_CLOSE_WARN) — resolved per user.
     { source: '/partide/sesiune/:clientId', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    // M5 raffle (participant.raffle-*): the intro + join, confirmation, «Șansele mele», the receipt
-    // upload and «Bon încărcat» are per user. /tombola/castigatori stays public (not listed).
-    { source: '/tombola', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    { source: '/tombola/confirmare', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    { source: '/tombola/sansele-mele', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    { source: '/tombola/bon', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    { source: '/tombola/bon-trimis', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
   ],
 };

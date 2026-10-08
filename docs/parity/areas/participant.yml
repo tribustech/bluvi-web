@@ -6,7 +6,8 @@
 # inventoried in home.yml; the registration entry button on the competition page belongs to the competition
 # screen and appears here only as behaviours.
 # Web route conventions used here: /concursuri/[id]/inscriere[/echipa|/fara-cont], /concursuri/[id]/chat[/foto],
-# /sondaje[/anterioare] (home.yml already uses /sondaje), /tombola[/...].
+# /sondaje[/anterioare] (home.yml already uses /sondaje). Owner 2026-10-08: no raffle on the web (the Tombolă
+# screens are mobile_only, their criteria n/a; /tombola[/...] is gone).
 area: participant
 screens:
   # ---------------------------------------------------------------------------------------------
@@ -211,7 +212,7 @@ screens:
         text: "Card „Modificări”: „Datele înscrierii pot fi modificate doar până când organizatorul competiției acceptă înscrierea. După ce înscrierea a fost aprobată, nicio modificare nu mai este permisă.” with the last sentence emphasised."
         fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:72-84"
         status: passing
-        web_note: "Copy kept from fish although it contradicts the behaviour — see participant.b.disclaimer-copy-mismatch."
+        web_note: "Owner 2026-10-08: copy changed on web; fish still has the old copy — fix in fish later. Web: «Datele înscrierii pot fi modificate cât timp înscrierea așteaptă aprobarea organizatorului. După aprobare, **mai poți modifica echipa doar până începe concursul.**» (last sentence emphasised; behaviour unchanged, as fish). e2e tests/e2e/concurs-inscriere-echipa.spec.ts «c1 c2 c3 c4»."
       - id: participant.team-disclaimer.c5
         text: "„Am înțeles” opens the registration page of the same competition (one navigation even on double click)."
         fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:17-19,87-89"
@@ -512,7 +513,7 @@ screens:
         text: "Each room subscribes live to its newest 50 messages and loads older pages of 50 as the reader nears the top (≈1.5 screens early); once the whole history is loaded the top shows „Acesta este începutul conversației.” plus „Mesajele se văd de către urmăritorii concursului.” (General) or „Mesajele se văd de către participanți și organizatori.” (Participanți)."
         fish_ref: "features/chat/hooks/useChatRoom.ts:27,199; features/chat/components/MessageList.tsx:696-747,811-827; features/chat/domain/conversationStart.ts:9-21"
         status: passing
-        web_note: "_chat/MessageList.tsx over the controller's room (core subscribeChatRoom, 50 live; loadMore pages of 50): the scroller is flex-col-reverse (rests at the end, an older page prepended never moves the view) and asks for the next page 1.5 screens before the top (list/model shouldLoadOlder); the whole history loaded → ConversationStart «Acesta este începutul conversației.» + the room's audience line (core shouldShowConversationStart); «Se încarcă mesajele mai vechi…» while a page loads. e2e tests/e2e/concurs-chat-mesaje.spec.ts «c12 …» (120 seeded → 50 → 100 → 120, both rooms' lines)."
+        web_note: "_chat/MessageList.tsx over the controller's room (core subscribeChatRoom, 50 live; loadMore pages of 50): the scroller is flex-col-reverse (rests at the end, an older page prepended never moves the view) and asks for the next page 1.5 screens before the top (list/model shouldLoadOlder); the whole history loaded → ConversationStart «Acesta este începutul conversației.» + the room's audience line (core shouldShowConversationStart); «Se încarcă mesajele mai vechi…» while a page loads. e2e tests/e2e/concurs-chat-mesaje.spec.ts «c12 …» (120 seeded → 50 → 100 → 120, both rooms' lines). Owner manual pass on staging Firestore 2026-10-08: read + send OK."
       - id: participant.chat.c13
         text: "While a room loads, bubble-shaped skeleton rows are shown (left/right, varying widths) instead of a spinner."
         fish_ref: "features/chat/components/MessageList.tsx:681-683,748-760,829-855"
@@ -527,22 +528,22 @@ screens:
         text: "Day separators read „Astăzi”, „Ieri”, „{weekday}, {d} {lună abreviată}” or „{d} {lună} {an}” for another year; while scrolling a floating chip shows the day of the topmost row (hidden when a real separator is at the top)."
         fish_ref: "features/chat/domain/format.ts:1-27; features/chat/components/MessageList.tsx:217-240,528-545,761-768"
         status: passing
-        web_note: "core buildChatListItems day chips (list/DateChip: «Astăzi», «Ieri», «{zi}, {d} {lună}», «{d} {lună} {an}»); while the reader scrolls (wheel / touch / keys / scrollbar — not the list's own moves), the topmost row's day floats at the top for 900 ms, hidden when a real chip is the top row. e2e tests/e2e/concurs-chat-mesaje.spec.ts «c15 c16 c17 c18 …», «c15 — scrolling floats …»."
+        web_note: "core buildChatListItems day chips (list/DateChip: «Astăzi», «Ieri», «{zi}, {d} {lună}», «{d} {lună} {an}»); while the reader scrolls (wheel / touch / keys / scrollbar — not the list's own moves), the topmost row's day floats at the top for 900 ms, hidden when a real chip is the top row. e2e tests/e2e/concurs-chat-mesaje.spec.ts «c15 c16 c17 c18 …», «c15 — scrolling floats …». Owner manual pass on staging Firestore 2026-10-08: read + send OK."
       - id: participant.chat.c16
         text: "Consecutive messages of one sender within 5 minutes form a group (shared corners); others' groups show the avatar (photo or initials) and name on the first message, the avatar links to /pescari/{senderId}, and in General a role label „Participant”, „Organizator” or „Arbitru” under the name."
         fish_ref: "features/chat/domain/listItems.ts:12,93-106; features/chat/components/MessageBubble.tsx:196-233,306-319,365-375,658-683; features/chat/screens/ChatScreen.tsx:574-577"
         status: passing
-        web_note: "core buildChatListItems group positions (5 min, same sender) → list/model bubbleShape: shared inner corners, avatar (photo / initials, stable tone) + name on others' first bubble, the avatar a link to /pescari/{id} (anglerHref), «Participant» / «Organizator» / «Arbitru» under the name in General only (model roleLabel). e2e tests/e2e/concurs-chat-mesaje.spec.ts «c15 c16 c17 c18 …»."
+        web_note: "core buildChatListItems group positions (5 min, same sender) → list/model bubbleShape: shared inner corners, avatar (photo / initials, stable tone) + name on others' first bubble, the avatar a link to /pescari/{id} (anglerHref), «Participant» / «Organizator» / «Arbitru» under the name in General only (model roleLabel). e2e tests/e2e/concurs-chat-mesaje.spec.ts «c15 c16 c17 c18 …». Owner manual pass on staging Firestore 2026-10-08: read + send OK."
       - id: participant.chat.c17
         text: "Bubbles: mine on the right (indigo), others on the left (grey); URLs (http/https/www) and Romanian phone numbers are links (tel:); time HH:mm (24 h); „(editat)” when edited; my messages show ✓ while pending, ✓✓ delivered, ✓✓ blue once every other known reader's receipt is at or after it."
         fish_ref: "features/chat/components/MessageBubble.tsx:210-263,401-471; features/chat/components/LinkedText.tsx:7-27; features/chat/domain/linkify.ts:1-40; features/chat/domain/transforms.ts:129-144"
         status: passing
-        web_note: "list/MessageBubble: mine right on the accent, others left on soft-fill; list/LinkedText (core linkify: URLs open in a new tab, RO phones tel:); meta «(editat)» · HH:mm (core formatTime24) · ticks (model tickOf: ✓ pending, ✓✓ delivered, ✓✓ in --color-receipt-read once every other known reader is past it — core getReceiptStatus via the controller), with sr-only «Trimis / Livrat / Citit». e2e tests/e2e/concurs-chat-mesaje.spec.ts «c15 c16 c17 c18 …» (seeded receipts → read / delivered)."
+        web_note: "list/MessageBubble: mine right on the accent, others left on soft-fill; list/LinkedText (core linkify: URLs open in a new tab, RO phones tel:); meta «(editat)» · HH:mm (core formatTime24) · ticks (model tickOf: ✓ pending, ✓✓ delivered, ✓✓ in --color-receipt-read once every other known reader is past it — core getReceiptStatus via the controller), with sr-only «Trimis / Livrat / Citit». e2e tests/e2e/concurs-chat-mesaje.spec.ts «c15 c16 c17 c18 …» (seeded receipts → read / delivered). Owner manual pass on staging Firestore 2026-10-08: read + send OK."
       - id: participant.chat.c18
         text: "A deleted message keeps its place as „Acest mesaj a fost șters” (or „Acest mesaj a fost șters de organizator” when deletedBy differs from the sender), italic with a ban icon, without photos, reactions or quote."
         fish_ref: "features/chat/components/MessageBubble.tsx:198-206,252-255,378-399"
         status: passing
-        web_note: "model deletedCopy: «Acest mesaj a fost șters» / «… de organizator» (deletedBy ≠ sender), italic with the ban icon, no photos / reactions / quote / menu. e2e tests/e2e/concurs-chat-mesaje.spec.ts «c15 c16 c17 c18 …», «c23 c27 …» (after a delete)."
+        web_note: "model deletedCopy: «Acest mesaj a fost șters» / «… de organizator» (deletedBy ≠ sender), italic with the ban icon, no photos / reactions / quote / menu. e2e tests/e2e/concurs-chat-mesaje.spec.ts «c15 c16 c17 c18 …», «c23 c27 …» (after a delete). Owner manual pass on staging Firestore 2026-10-08: read + send OK."
       - id: participant.chat.c19
         text: "A reply shows a quote with the original sender and the original's current text (its edited version), „Mesaj șters” when the original was deleted, else the snapshot text / „Imagine” / „Mesaj”; clicking it scrolls to the original (loading older pages as needed, toast „Nu am găsit mesajul la care s-a răspuns.” if absent) and briefly highlights it."
         fish_ref: "features/chat/components/MessageBubble.tsx:473-518; features/chat/components/MessageList.tsx:405-444,592-605; features/chat/hooks/useChatRoom.ts:469-510"
@@ -602,7 +603,7 @@ screens:
         text: "Sending shows my bubble at once (pending, 60% opacity) from the outbox; photos are compressed (long edge ≤ 1280 px, JPEG 0.8, original kept when smaller), uploaded to /upload, then the message doc {senderId, senderName, senderAvatar, text, attachments, replyTo, senderRole, createdAt, type:'text'} is written; if preparing fails, the photos and reply are restored and the toast „Mesajul nu a putut fi pregătit pentru trimitere.” is shown."
         fish_ref: "features/chat/hooks/useChatSend.ts:82-120; features/chat/media/compressChatPhoto.ts:11-24; features/chat/outbox/worker.ts:169-229; features/chat/outbox/uploader.ts:33-63"
         status: passing
-        web_note: "enqueueMessage: the compression hook (compressChatPhoto: long edge ≤ 1280, JPEG 0.8, original kept when not smaller), the core outbox row (bubble at once), the core worker writes {senderId, senderName, senderAvatar, text, attachments?, replyTo?, senderRole, createdAt, type:'text'}; a row that cannot be stored restores photos + reply and toasts «Mesajul nu a putut fi pregătit pentru trimitere.». The worker's Firestore I/O is injectable (core OutboxIo) so the e2e runs the REAL worker against the fake. e2e tests/e2e/concurs-chat.spec.ts «c30 b.chat-realtime …» (payload); slice 3 (composer): the bubble at once and field/tray cleared, photos uploaded to /upload then one doc with attachments, an upload 413 fails the row at once, a prepare failure restores photos + reply with the toast, offline queue then drain — e2e tests/e2e/concurs-chat-compunere.spec.ts «c30 …» ×4."
+        web_note: "enqueueMessage: the compression hook (compressChatPhoto: long edge ≤ 1280, JPEG 0.8, original kept when not smaller), the core outbox row (bubble at once), the core worker writes {senderId, senderName, senderAvatar, text, attachments?, replyTo?, senderRole, createdAt, type:'text'}; a row that cannot be stored restores photos + reply and toasts «Mesajul nu a putut fi pregătit pentru trimitere.». The worker's Firestore I/O is injectable (core OutboxIo) so the e2e runs the REAL worker against the fake. e2e tests/e2e/concurs-chat.spec.ts «c30 b.chat-realtime …» (payload); slice 3 (composer): the bubble at once and field/tray cleared, photos uploaded to /upload then one doc with attachments, an upload 413 fails the row at once, a prepare failure restores photos + reply with the toast, offline queue then drain — e2e tests/e2e/concurs-chat-compunere.spec.ts «c30 …» ×4. Owner manual pass on staging Firestore 2026-10-08: read + send OK."
       - id: participant.chat.c31
         text: "A send that fails is retried after 2 s, 8 s and 30 s (4 attempts); being offline does not spend attempts; closed chat („Chat-ul s-a închis.”), upload 401/403/413 or another account's row fail at once; a failed row shows „Nu s-a trimis · apasă lung” under my bubble; a permission-denied write with a role chip is retried once without the chip."
         fish_ref: "features/chat/outbox/state.ts:7-33; features/chat/outbox/worker.ts:23,149-150,231-283; features/chat/components/MessageBubble.tsx:271-275; features/chat/domain/sendFallback.ts:5-14"
@@ -662,10 +663,10 @@ screens:
         text: "Chat auth uses the Firebase custom token (uid = profile documentId); one re-mint and retry on permission-denied/unauthenticated; failures toast „Nu am putut autentifica chat-ul. Te rugăm să încerci din nou.” or „Nu am putut încărca chat-ul. Te rugăm să încerci din nou.”."
         fish_ref: "features/chat/hooks/useChatAuth.ts:7-53; features/chat/hooks/useChatRoom.ts:179-246"
         status: passing
-        web_note: "ChatSource.ensure (core createChatAuth: custom token from /api/firebase-token, one re-mint on permission-denied); toasts «Nu am putut autentifica chat-ul…» (auth) / «Nu am putut încărca chat-ul…» (listener) — and the latter when the chat's chunk cannot load (retried when back online). e2e tests/e2e/concurs-chat.spec.ts «c42 …»."
+        web_note: "ChatSource.ensure (core createChatAuth: custom token from /api/firebase-token, one re-mint on permission-denied); toasts «Nu am putut autentifica chat-ul…» (auth) / «Nu am putut încărca chat-ul…» (listener) — and the latter when the chat's chunk cannot load (retried when back online). e2e tests/e2e/concurs-chat.spec.ts «c42 …». Owner manual pass on staging Firestore 2026-10-08: read + send OK."
     mobile_only: false
     status: proposed
-    web_note: "Slice 1/3 «frame + data» built (M5-B3): app/(site)/concursuri/[id]/chat (page.tsx: auth-only — proxy 307, dead cookie → the sign-in gate, session unknown → error.tsx; noindex; the competition's public read for the header), _live (source.ts — the ChatSource seam: firestoreSource over core/realtime/chat + lib/client/firebase, fakeSource from window.__BLUVI_FAKE_CHAT__ outside production; hooks.ts; outboxStorage.ts — IndexedDB, localStorage fallback; lastTab.ts; activeRoom.ts), _chat (ChatController context, ChatHeader, RoomTabs, FollowPrompt, MuteDialog, RulesDialog, ClosedNotice, ChatFrame — phone full-screen, 768–1279 header + tabs over the conversation, ≥1280 three columns 280 / conversation / 320 «Poze din cameră» + «Despre cameră», each scrolling on its own, the page never scrolls). MessageList.tsx and Composer.tsx are STUBS that slices 2 («list», c12–c25, c32–c39) and 3 («composer», c25–c29) replace. e2e tests/e2e/concurs-chat.spec.ts (Firestore fake only — zero Firebase requests — and route-mocked CMS writes), shots at 375 / 768 / 1280 / 1440 / 1920 in .shots/chat. The ROADMAP's global.b.notification-routes-web text says ?camera=; the web uses ?tab= (the brief, fish's own param name)."
+    web_note: "Slice 1/3 «frame + data» built (M5-B3): app/(site)/concursuri/[id]/chat (page.tsx: auth-only — proxy 307, dead cookie → the sign-in gate, session unknown → error.tsx; noindex; the competition's public read for the header), _live (source.ts — the ChatSource seam: firestoreSource over core/realtime/chat + lib/client/firebase, fakeSource from window.__BLUVI_FAKE_CHAT__ outside production; hooks.ts; outboxStorage.ts — IndexedDB, localStorage fallback; lastTab.ts; activeRoom.ts), _chat (ChatController context, ChatHeader, RoomTabs, FollowPrompt, MuteDialog, RulesDialog, ClosedNotice, ChatFrame — phone full-screen, 768–1279 header + tabs over the conversation, ≥1280 three columns 280 / conversation / 320 «Poze din cameră» + «Despre cameră», each scrolling on its own, the page never scrolls). MessageList.tsx and Composer.tsx are STUBS that slices 2 («list», c12–c25, c32–c39) and 3 («composer», c25–c29) replace. e2e tests/e2e/concurs-chat.spec.ts (Firestore fake only — zero Firebase requests — and route-mocked CMS writes), shots at 375 / 768 / 1280 / 1440 / 1920 in .shots/chat. The ROADMAP's global.b.notification-routes-web text says ?camera=; the web uses ?tab= (the brief, fish's own param name). Owner manual pass on staging Firestore 2026-10-08: read + send OK. Stays proposed only for c14, c21 and c29 (partial: code gaps, not live data); not covered by the pass and still to check by hand on staging: reactions, typing, edit / delete from the web, photos, read receipts, mute, the rules consent, the unread pill, the offline outbox."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.chat-photo
@@ -958,81 +959,82 @@ screens:
       - id: participant.raffle-intro.c1
         text: "Redirects: already joined → home; no active session → home; ended with winners → winners page; ended without winners → home."
         fish_ref: "app/(app)/raffle/index.tsx:116-125"
-        status: passing
-        web_note: "IntroScreen: after the session + participation + profile load, core-free introRedirect (unit raffle.test.ts) → router.replace: joined → /, no session → /, ended+winners → /tombola/castigatori, ended without → /; the skeleton meanwhile (no flash of the form). A failed read is a retry gate, never the form (rule 4). e2e tests/e2e/tombola.spec.ts «c1», «a failed read…»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c2
         text: "Page title „Tragere la sorți” and a hero lake image."
         fish_ref: "app/(app)/raffle/index.tsx:128-136; constants/raffleCopy.ts:66-67"
-        status: passing
-        web_note: "FlowHeader h1 «Tragere la sorți» + a lake hero (next/image, priority; a 941px lake photo instead of fish's 320px one so it is sharp at 720). e2e «c2–c8»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c3
         text: "Intro card with a gift icon: „Participă la tragerea la sorți pentru șansa de a câștiga echipamente de pescuit și premii speciale” and „Alătură-te competiției noastre și ai șansa să câștigi echipamente premium de pescuit și alte premii exclusive de la Bluvi Expo.”."
         fish_ref: "app/(app)/raffle/index.tsx:138-159; constants/raffleCopy.ts:69-71"
-        status: passing
-        web_note: "Intro card with the gift disc, fish's two lines. e2e «c2–c8»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c4
         text: "When the session has types: a card „Alege tipul premiilor” / „Selectează secțiunea în care vrei să intri: Crap, Feeder sau Răpitor. Poți schimba tipul mai târziu, până aproape de încheierea tombolei.” with one toggle per type (its label), the selected one filled; choosing clears the error."
         fish_ref: "app/(app)/raffle/index.tsx:161-196"
-        status: passing
-        web_note: "TypePicker: a fieldset «Alege tipul premiilor» + fish's text, ChoiceGrid compact of ChoiceTile `radio` (native radios: arrows/Space; selected = filled accent); the tile also shows the type's registrations through registrationsLabel (formatCount: «1 înscris» / «4 înscriși» / «20 de înscriși»; fish writes «1 înscriși»). Picking clears the error. e2e «c2–c8», «c12», «keyboard»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c5
         text: "„Premii” lists the session prizes, falling back to the static prizes when the session has none; every prize starts expanded."
         fish_ref: "app/(app)/raffle/index.tsx:42-43,53-58,198-256; constants/raffleCopy.ts:14-42"
-        status: passing
-        web_note: "prizesToShow: session prizes else STATIC_PRIZES (copy.ts, fish rafflePrizes); every prize starts expanded. Type badge = the session type's label, else prizeTypeLabel maps the static keys (crap/feeder/rapitor → Crap/Feeder/Răpitor; fish shows the raw key). FLAG for the owner (ROADMAP §4b rule 4): the static fallback shows invented prizes («500 LEI × 2» …) as if real — kept as a fish-parity exception for now; the alternative is an empty «Premiile vor fi anunțate» state. e2e «c2–c8» (data-source=session), «c5 — static prizes» ×2."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c6
         text: "A prize row shows its image (or a tinted placeholder), title, a subtitle „{description} · {price} LEI × {count}” (or „{count} ×” before the title when there is no price), „{n} înscriși” for its type and a type badge in the type's badgeColor; prizes with items get a „1 produs/{n} produse” toggle listing each item's image, label and description."
         fish_ref: "components/raffle/ExpandablePrizeRow.tsx:67-228; constants/raffleCopy.ts:178-182"
-        status: passing
-        web_note: "_shared/PrizeRow (controlled/uncontrolled): image or tinted gift placeholder, «{count} ×» without a price, prizeSubtitle, registrationsLabel (correct plural), type badge in the CMS badgeColor with black/white text by contrast (badge.ts: always ≥4.5:1; white on #FFC107 would be 1.6:1); «1 produs/{n} produse» is a button with aria-expanded; legacy subItems accepted (core). e2e «c2–c8» (colours asserted), unit raffle.test.ts."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c7
         text: "„Cum funcționează” lists 3 numbered steps: „Înscrie-te în tragerea la sorți prin aplicație”, „Primești automat 1 șansă de câștig”, „Cumpără de minim 150 lei de la PescarMania, înscrie bonul fiscal și primești 2 șanse în plus la tragerea la sorți.”."
         fish_ref: "app/(app)/raffle/index.tsx:258-283; constants/raffleCopy.ts:10-11,72-77"
-        status: passing
-        web_note: "Three numbered steps (ol). e2e «c2–c8»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c8
         text: "A green box „Bonus pentru clienți” with the PescarMania receipt text."
         fish_ref: "app/(app)/raffle/index.tsx:285-307; constants/raffleCopy.ts:78-79"
-        status: passing
-        web_note: "Bonus box on the status-success tokens. e2e «c2–c8»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c9
         text: "„Adaugă bon fiscal PescarMania” + hint, with „Fotografiază” and „Din galerie” (web: one file picker accepting images, camera capture on phones); once chosen the receipt is previewed with „Elimină imaginea”."
         fish_ref: "app/(app)/raffle/index.tsx:60-68,309-355; constants/raffleCopy.ts:85-86"
-        status: passing
-        web_note: "ReceiptPicker: «Din galerie» (input accept=image/*) everywhere, «Fotografiază» (capture=environment) only on a coarse pointer; preview + «Elimină imaginea». e2e «c9» ×2 (desktop / touch context)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c10
         text: "Disclaimer „Dacă câștigi, vom verifica bonul fiscal. Dacă bonul nu este corect sau este duplicat, vei fi descalificat.”."
         fish_ref: "app/(app)/raffle/index.tsx:357-361; constants/raffleCopy.ts:87-88"
-        status: passing
-        web_note: "Disclaimer on status-danger-bg. e2e «c2–c8»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c11
         text: "A checkbox „Am citit regulamentul tombolei” (the label toggles it too) and a link „Vezi regulament” opening a dialog with the CMS regulationTitle (only when set), each section's title and body, and „Închide”."
         fish_ref: "app/(app)/raffle/index.tsx:388-415; components/raffle/RaffleRegulationSheet.tsx:15-61; hooks/useRaffle.ts:104-114"
-        status: passing
-        web_note: "Native checkbox in its label (the label toggles) + «Vezi regulament» → ResponsiveSurface info (sheet <768, dialog ≥768): regulationTitle as the title only when set (else a hidden «Regulament»), sections, «Închide». e2e «c11» ×2, axe with the dialog open."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c12
         text: "„Intră în tragerea la sorți” checks in order: regulation not ticked → „Te rugăm să accepți regulamentul tombolei (bifează că ai citit regulamentul).”; registration closed → „Înscrierile pentru tombolă nu mai sunt deschise.”; no type → „Te rugăm să alegi tipul premiilor (Crap, Feeder sau Răpitor).” (so a session without types can never be joined); errors appear in a card titled „Erori”."
         fish_ref: "app/(app)/raffle/index.tsx:70-87,161,363-386"
-        status: passing
-        web_note: "joinBlocker (copy.ts, unit): regulation → closed → type, into the «Erori» card (T4ErrorSummary look, focused on every refused press); a no-types session can never be joined (fish parity) — the web also says «Înscrierile nu sunt încă disponibile.» above the CTA so the «alege tipul» error is not a dead end; FLAG for the owner: alternatively disable the CTA for a no-types session. ≥1024 the card sits above «Înscrierea ta» in the sticky column; below 1024 the focused card AND the end of the summary column (checkbox + CTA) are scrolled into view together (fish has the card right above them). e2e «c12» ×4."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c13
         text: "Without a phone on the profile the phone dialog opens instead: „Completează numărul de telefon”, „Avem nevoie de numărul tău de telefon pentru a te contacta dacă câștigi.”, field „Număr de telefon” (placeholder 07xxxxxxxx, required „Introdu numărul de telefon”, min 7 „Minim 7 caractere”), „Închide” / „Salvează” → updates the profile phone, toast „Număr salvat.”, refreshes the profile and closes (error toast: message or „Eroare la salvare.”); the user then joins again."
         fish_ref: "app/(app)/raffle/index.tsx:88-91; components/raffle/RafflePhoneRequiredSheet.tsx:29-120; contexts/RaffleContext.tsx:35-54"
-        status: passing
-        web_note: "PhonePromptDialog (decision surface): zod required → min 7, PATCH /user/profile {phone} (core updateProfileMutation), toast «Număr salvat.», refetch profile, close; no join until pressed again. Failure: toast with the coded server message else «Eroare la salvare.» (uncoded server text is never shown, transport rule). e2e «c13» ×2 (PATCH body asserted)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c14
         text: "Joining sends POST /raffle-sessions/{session}/join {typeKey}, then, when a receipt was chosen, POST /raffle-sessions/{session}/receipt (multipart files), then opens the confirmation; the button is busy meanwhile; any failure shows „Nu am putut finaliza înscrierea. Te rugăm să încerci din nou.”."
         fish_ref: "app/(app)/raffle/index.tsx:92-104,417-419; hooks/useRaffle.ts:205-225; services/api/raffle.ts:185-233"
-        status: passing
-        web_note: "POST /raffle-sessions/{id}/join {typeKey} then multipart receipt (`files`, compressed JPEG) then router.push(/tombola/confirmare); button aria-busy «Se înscrie…»; join failure → «Erori» card with fish's message. Web change: a failed RECEIPT after a successful join toasts «Ești înscris, dar bonul nu a putut fi încărcat. Îl poți adăuga de aici.» and still opens the confirmation (the viewer is joined, the confirmation offers the upload; fish shows its «try again» join message, then its Redirect dumps them on Acasă). e2e «c14 c15», «c14» ×2 — all writes route-mocked (helpers/fake-raffle.ts), never a real join."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-intro.c15
         text: "Join and upload invalidate raffle active, raffle participation and competitions.all."
         fish_ref: "services/mutations/useJoinRaffleSession.ts:12-16; services/mutations/useUploadRaffleReceipt.ts:23-27"
-        status: passing
-        web_note: "core joinRaffleSessionMutation / uploadRaffleReceiptMutation onSettled invalidate raffle active, participation, competitions.all; e2e «c14 c15» asserts the active + participation refetches."
-    mobile_only: false
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
+    mobile_only: true
+    web_replacement: "Owner 2026-10-08: no raffle on the web. The /tombola pages, the Acasă raffle card, the core raffle reads/writes and their tests are removed; nothing on the web links to a raffle (fish keeps it in the app)."
     status: passing
-    web_note: "M5-B2 built: app/(site)/tombola (page/loading/error + _intro/**), shared raffle blocks in tombola/_shared (copy.ts port of fish raffleCopy + static prizes, useRaffle, PrizeRow, ReceiptUploadDialog, badge.ts, raffle.test.ts). T6 FlowLayout bare: phone = fish single column (the summary card with the regulation + CTA last); ≥1024 content (full shell width; from 1440 a two-column bento: hero | intro, types across, prizes | how it works over the bonus, receipt + disclaimer across) left + sticky 384 «Înscrierea ta» (type, 1 șansă / +2 șanse cu bon, regulation, CTA) right, attached to its column. Auth-only: proxy 307 + requireViewer; noindex. Not shipped: critic panel + visual baselines pending."
+    web_note: "Owner 2026-10-08: no raffle on the web."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.raffle-upload-receipt
@@ -1059,41 +1061,42 @@ screens:
       - id: participant.raffle-upload-receipt.c1
         text: "No fish screen navigates here (the confirmation uses the upload dialog instead); the route takes mode=add|replace, anything else = first. Web may keep it as the deep-linkable form of the same upload dialog."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:14-18; app/(app)/raffle/confirmation.tsx:211-224"
-        status: passing
-        note: "e2e tests/e2e/tombola-bon.spec.ts. Web keeps the orphan as the deep-linkable page form of _shared/ReceiptUploadDialog (owner decides on links, b.raffle-orphans): `mod=adauga` → add, `mod=inlocuieste` → replace, anything else → first (_components/mode.ts, unit mode.test.ts). Auth-only (proxy 307 to /intra?next= with the mode kept), noindex; not joined / no session → /tombola; the draw over (isEnded) → /tombola/sansele-mele, as fish hides the receipt block once ended (status.tsx:298-299) and the CMS would still accept the upload. e2e: ended-winners → «Șansele mele», no upload card, no POST; no link to it on home, the confirmation or «Șansele mele»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-upload-receipt.c2
         text: "Title per mode: „Încarcă bonul fiscal” (first), „Adaugă bon fiscal” (add), „Înlocuiește bonul fiscal” (replace)."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:24-29; constants/raffleCopy.ts:110-112"
-        status: passing
-        note: "e2e tests/e2e/tombola-bon.spec.ts: h1 and document title for no mod, an unknown mod, adauga, inlocuieste (generateMetadata per mode)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-upload-receipt.c3
         text: "Replace mode with a receipt already uploaded: a card „Bonul tău încărcat” with the image and „Înlocuiește cu o nouă fotografie mai jos.”."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:22,59-78"
-        status: passing
-        note: "e2e tests/e2e/tombola-bon.spec.ts: replace with a receipt shows the card, the image (unoptimized: private, browser-fetched) and the hint; replace without a receipt and add mode show none. ≥1024 the preview is a compact row (160px thumbnail left, title + hint right) atop the right column, the drop zone alone on the left (asserted at 1280 and 1920)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-upload-receipt.c4
         text: "Instructions box „Instrucţiuni” / „Fă o fotografie bonului tău fiscal. Cumpără de minim 150 lei de la PescarMania, …” with the red disqualification disclaimer."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:80-109; constants/raffleCopy.ts:113-116"
-        status: passing
-        note: "e2e tests/e2e/tombola-bon.spec.ts: «Instrucțiuni» box with the full text and the disclaimer in status-danger (red asserted by computed colour); phone order instructions → upload → tips; ≥1024 instructions + tips in the right column. DOM order = phone order (preview, instructions, upload, tips; computed `order` 0 everywhere, WCAG 1.3.2): ≥1024 is explicit grid placement, no display:contents/order."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-upload-receipt.c5
         text: "Upload card: camera icon, „Încarcă bonul fiscal”, „Alege o metodă de încărcare”, „Fotografiază acum” and „Încarcă din galerie”, both busy and disabled while uploading."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:111-138; constants/raffleCopy.ts:117-120"
-        status: passing
-        note: "e2e tests/e2e/tombola-bon.spec.ts: pointer → «Încarcă din galerie» only (primary) + a web-only drop hint (≥1024 the card is a drop zone); touch (hasTouch) → «Fotografiază acum» (capture=environment) above «Încarcă din galerie»; both disabled + aria-busy with «Se încarcă bonul…» while the POST is held. Pointer: window-level dragover/drop (preventDefault) so a near-miss drop (tips, instructions, header) never opens the file in the tab; it goes to the same upload; a drop on the zone uploads once."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-upload-receipt.c6
         text: "Tips card „Sfaturi pentru o fotografie bună” with „Asigură-te că bonul este complet vizibil”, „Verifică ca data și numele magazinului să fie lizibile”, „Folosește lumină naturală pentru claritate”."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:140-168; constants/raffleCopy.ts:121-126"
-        status: passing
-        note: "e2e tests/e2e/tombola-bon.spec.ts: «Sfaturi pentru o fotografie bună» heading and the three tips as list items."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-upload-receipt.c7
         text: "A chosen file is uploaded (replace uses the same POST receipt endpoint) and the page is replaced by „Bon încărcat”; a failed upload shows nothing in fish (no catch) — web must show an error and keep the page."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:31-54; hooks/useRaffle.ts:216-227"
-        status: passing
-        note: "e2e tests/e2e/tombola-bon.spec.ts: a chosen file → one multipart POST /api/cms/raffle-sessions/{id}/receipt (`files` part, filename) in add and replace mode, then router.replace to /tombola/bon-trimis; a 500 → role=alert «Nu am putut încărca bonul…», the page stays, buttons re-enabled and described by the error (fish swallows it)."
-    mobile_only: false
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
+    mobile_only: true
+    web_replacement: "Owner 2026-10-08: no raffle on the web. The /tombola pages, the Acasă raffle card, the core raffle reads/writes and their tests are removed; nothing on the web links to a raffle (fish keeps it in the app)."
     status: passing
-    web_note: "M5-B5 built: app/(site)/tombola/bon (page/loading + _components: UploadReceiptScreen, mode + unit test). T6 FlowLayout bare: phone = fish stack (preview, instructions, upload card, tips), same DOM order; ≥1024 grid placement: upload drop zone left spanning all rows | compact preview row, instructions, tips right. Ended draw → «Șansele mele». Window-level drop guard on pointer devices. Same copy and core uploadRaffleReceiptMutation as _shared/ReceiptUploadDialog (no edit to _shared). Own breadcrumb band (SiteHeader OWN_BAND_ROUTES, back control). Every e2e route-mocked (fake-raffle + a participation/receipt layer): no real upload. Shots .shots/tombola-bon (first, replace-preview, failed × 375/768/1280/1440/1920; uploading 375/1280; touch 375). axe clean. No visual baselines yet."
+    web_note: "Owner 2026-10-08: no raffle on the web."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.raffle-confirmation
@@ -1133,61 +1136,62 @@ screens:
       - id: participant.raffle-confirmation.c1
         text: "Title „Confirmare participare”; back and „Închide” both return to home."
         fish_ref: "app/(app)/raffle/confirmation.tsx:60-63,314-316; constants/raffleCopy.ts:91,104"
-        status: passing
-        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: FlowHeader h1 + back link «Înapoi acasă» → /; «Închide» an outline ButtonLink → / (fish dismissTo('/')). Metadata title from copy.ts, robots noindex (e2e: both hrefs, Închide lands on /, meta robots)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-confirmation.c2
         text: "A celebration animation, the heading „Ești înscris în tragerea la sorți pentru categoria {tip}!” (or „Ești înscris în tragerea la sorți!” without a type) and „Mult succes! Îți ținem pumnii!”."
         fish_ref: "app/(app)/raffle/confirmation.tsx:34-35,85-101; constants/raffleCopy.ts:92-95"
-        status: passing
-        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: _components/Confetti — an SVG burst in token fills, animated once by the Web Animations API from the success disc; prefers-reduced-motion → the pieces sit still (e2e: animations running by default, none with reducedMotion reduce). FlowConfirmation (disc + h2 heading + sub-message) on a lavender bento surface; heading from model.ts confirmationHeading (type label, else the raw key as fish, else the plain line; unit model.test.ts)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-confirmation.c3
         text: "„ŞANSELE TALE ACTUALE” with the entries count and „șansă” (1) / „șanse”."
         fish_ref: "app/(app)/raffle/confirmation.tsx:103-115; constants/raffleCopy.ts:96-98"
-        status: passing
-        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: a signature (navy) BentoTile, SignatureNumber size tile with the unit separate (rule 10): chancesUnit = formatCount minus the figure («șansă» / «șanse» / «de șanse» from 20; unit-tested), «Categoria {tip}» caption. Not joined (or no session): web DIVERGES from fish (which shows «Ești înscris…» + 0 chances + an upload the CMS refuses with 400) — router.replace to /tombola, where the intro shows the join form or sends the viewer home / to the winners (model.ts notJoinedRedirect, decided only on settled data so a just-made join's refetch never bounces back; e2e not joined → /tombola, no session → /). OWNER DECISION pending: revert to fish's page by dropping the redirect (receiptBlock still hides the upload card when not joined). Unknown (initial read error) → the retry gate, never «0 șanse» (rule 4, e2e); a failed BACKGROUND refetch over loaded data (focus, stale, after a delete) keeps the content and shows an inline alert «Nu am putut actualiza tombola…» + «Încearcă din nou» (useRaffle hasData; e2e delete OK → participation 500 → content stays → retry → up to date)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-confirmation.c4
         text: "„Premii” lists session prizes (static fallback) with the same expandable rows as the intro, all expanded at first."
         fish_ref: "app/(app)/raffle/confirmation.tsx:38-48,117-177"
-        status: passing
-        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: FlowAsideCard «Premii» with the shared PrizeRow (intro variant, registrations, badge colour), uncontrolled defaultExpanded → every row open (e2e: aria-expanded true, toggle hides the items); session prizes else STATIC_PRIZES (e2e data-source session / static). ≥1024 the right column spanning the left rows."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-confirmation.c5
         text: "Not ended and no receipt: card „Mărește-ți șansele de câștig!”, the PescarMania receipt text, a dashed „+2” „Şanse bonus pentru încărcarea bonului fiscal” and „Încarcă bonul fiscal”, which opens the upload dialog (first)."
         fish_ref: "app/(app)/raffle/confirmation.tsx:179-226; constants/raffleCopy.ts:99-103"
-        status: passing
-        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: the card with fish's heading, PescarMania text, the dashed green «+2» row and «Încarcă bonul fiscal» → ReceiptUploadDialog mode first. Hidden after the end, without a session and when not joined (CMS 400). Registration closed and no receipt yet: the first upload stays allowed (fish confirmation.tsx:179 and the CMS uploadReceipt, which checks only the participation) and the card says «Înscrierile s-au închis: după ce îl încarci, bonul nu mai poate fi înlocuit sau șters.» (lock icon; model.ts firstUploadIsFinal) — then the receipt card is locked as c7. e2e (closed + no receipt: hint, upload, then locked; open: no hint) + shots locked-no-receipt."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-confirmation.c6
         text: "Not ended with a receipt: card „Mărește-ți șansele de câștig!” / „Bonul tău încărcat” / „Ai 2 șanse de câștig în plus pentru că ai adăugat bonul.”, the receipt image (or „Bon încărcat. Poți înlocui sau șterge până la termenul limită.”), „Înlocuiește bonul” (upload dialog, replace) and „Șterge bonul” (busy while deleting)."
         fish_ref: "app/(app)/raffle/confirmation.tsx:228-306; constants/raffleCopy.ts:105-107,158-159"
-        status: passing
-        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: the shared _shared/ReceiptCard (reused by «Șansele mele» in B4): heading «Mărește-ți șansele de câștig!», «Bonul tău încărcat», the bonus line, the image (unoptimized: a private receipt never enters the optimizer cache; contained in ≤320×200) or fish's fallback line, «Înlocuiește bonul» → dialog replace (preview «Bonul tău încărcat»). e2e: image src, fallback, replace posts multipart."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-confirmation.c7
         text: "Replace and delete are disabled, with „Nu mai poți modifica bonul după termenul limită.”, unless the session is not ended AND registration is still open (canChangeType)."
         fish_ref: "app/(app)/raffle/confirmation.tsx:268-302; hooks/useRaffle.ts:140; constants/raffleCopy.ts:163"
-        status: passing
-        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: receiptCardModel (unit receiptCard.test.ts): replace/delete disabled + lock icon + «Nu mai poți modifica bonul după termenul limită.» unless RaffleState.canChangeType (not ended AND registration open). e2e: closed session → both disabled, a forced click sends no DELETE. The lock is client-only (the CMS upload/delete do not check registration) — same as fish."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-confirmation.c8
         text: "„Șterge bonul” sends DELETE /raffle-sessions/{session}/receipt (server removes the receipt and 2 entries, min 1); a failure shows nothing in fish — web must show an error."
         fish_ref: "app/(app)/raffle/confirmation.tsx:50-57; hooks/useRaffle.ts:229-235; services/api/raffle.ts:235-250"
-        status: passing
-        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: core deleteRaffleReceiptMutation (DELETE /raffle-sessions/{id}/receipt via /api/cms); the button busy (aria-busy, spinner, disabled) until the participation refetch lands; a failure shows «Nu am putut șterge bonul. Te rugăm să încerci din nou.» (role alert) and keeps the receipt — web fixes fish's silence. After a delete focus moves to the upload card's heading. The failure message is cleared when the upload dialog opens and on a successful upload (never stale under a fresh receipt). e2e: success (busy, upload card, chances 3→1), failure (message, receipt kept, cleared on replace)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-confirmation.c9
         text: "Ended with winners: a „Vezi câștigători” button to the winners page."
         fish_ref: "app/(app)/raffle/confirmation.tsx:308-312"
-        status: passing
-        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: «Vezi câștigători» a primary ButtonLink → /tombola/castigatori, only when ended with winners (model.ts showWinnersLink, unit-tested); ended without winners: only «Închide». No receipt cards once ended (e2e)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-confirmation.c10
         text: "Upload dialog: title „Încarcă bonul fiscal” / „Adaugă bon fiscal” / „Înlocuiește bonul fiscal”, in replace mode a preview „Bonul tău încărcat”, the instructions and disclaimer, „Alege o metodă de încărcare”, „Fotografiază acum” / „Încarcă din galerie” (busy while uploading) and the tips on one line; success closes the dialog."
         fish_ref: "components/raffle/RaffleUploadReceiptSheet.tsx:27-187; contexts/RaffleContext.tsx:30-53"
-        status: passing
-        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: the shared ReceiptUploadDialog (ResponsiveSurface: sheet on the phone, dialog from 768): per-mode titles, replace preview, instructions + disclaimer, «Alege o metodă de încărcare», «Fotografiază acum» on touch screens only + «Încarcă din galerie» (busy while uploading), tips; success closes it (focus → the new receipt card's heading); a failure keeps it open with «Nu am putut încărca bonul…» (fish swallows it). e2e: first + replace, busy, multipart, failure; axe on the open dialog; Escape closes."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-confirmation.c11
         text: "Upload and delete invalidate raffle active, raffle participation and competitions.all, so chances and receipt state refresh."
         fish_ref: "services/mutations/useUploadRaffleReceipt.ts:23-27; services/mutations/useDeleteRaffleReceipt.ts:10-14"
-        status: passing
-        note: "e2e tests/e2e/tombola-confirmare.spec.ts. Web: core upload/delete mutations invalidate raffle active + participation + competitions.all (onSettled). e2e: the stateful mock adds / removes 2 entries — the chances tile goes 1→3 after an upload and 3→1 after a delete, with active and participation re-read; and the «local CMS» spec runs it unmocked on :1337 (join as the QA user, upload a PNG through the /api/cms proxy, CMS 1→3, DELETE answer shape, 3→1, 400 for an upload when not joined; then the participation and the file are removed)."
-    mobile_only: false
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
+    mobile_only: true
+    web_replacement: "Owner 2026-10-08: no raffle on the web. The /tombola pages, the Acasă raffle card, the core raffle reads/writes and their tests are removed; nothing on the web links to a raffle (fish keeps it in the app)."
     status: passing
-    note: "Web: app/(site)/tombola/confirmare (T6; page + loading, _components/{ConfirmationScreen,Confetti,model}) and the shared _shared/ReceiptCard. Signed in only (proxy 307 → /intra?next=…, requireViewer), noindex, all data per viewer via /api/cms (useRaffle). Phone: fish's single column and order; 768–1023 the celebration and the chances tile side by side; ≥1024 two columns (celebration + chances, receipt, buttons left; prizes right). e2e tests/e2e/tombola-confirmare.spec.ts (route-mocked raffle for the edge and failure states + one unmocked round trip on the LOCAL CMS, cleaned up), axe at 375/1280 incl. the open dialog and the refresh alert, keyboard path. Shots .shots/tombola-confirmare (375/768/1280/1440/1920 × no receipt, receipt, receipt without image, locked, locked without receipt, ended with / without winners; refresh-error 375/1280; replace dialog 375). Open: /tombola/confirmare is not in SiteHeader OWN_BAND_ROUTES (≥768 the band reads «Acasă / [placeholder]» for 3 s) — handed to the shell owner."
+    web_note: "Owner 2026-10-08: no raffle on the web."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.raffle-receipt-submitted
@@ -1210,25 +1214,27 @@ screens:
       - id: participant.raffle-receipt-submitted.c1
         text: "Reached only from the upload-receipt page (itself not linked in fish)."
         fish_ref: "app/(app)/raffle/upload-receipt.tsx:40"
-        status: passing
-        web_note: "Orphan: /tombola/bon-trimis is linked from nothing (home, confirmation, «Șansele mele» checked); /tombola/bon sends the viewer here after a successful upload (participant.raffle-upload-receipt). Auth-only (proxy 307 → /intra?next=, dead cookie → requireViewer), noindex; not in the raffle → handed to the intro (/tombola). e2e tests/e2e/tombola-bon-trimis.spec.ts «c1 — an orphan …», «signed out → sign-in …», «not in the raffle …»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-receipt-submitted.c2
         text: "Title „Bon încărcat”, a green check and „Bonul a fost aprobat! Ai primit 2 șanse bonus.” when receiptUploaded, else „Bonul tău este în curs de verificare.”."
         fish_ref: "app/(app)/raffle/receipt-submitted.tsx:19-30; constants/raffleCopy.ts:128-131"
-        status: passing
-        web_note: "T6 FlowLayout card + fill + narrow (phone: flush white section from the header to the action bar; from 768 a centred card ≤ 720), FlowConfirmation and «Detalii șanse» one group in the upper third (1 : 2 spacers around the group, so the tiles sit right under the message; the skeleton uses the same frame — e2e «layout 375 …» checks disc and tiles at the same y, loading vs loaded): h1 «Bon încărcat», the status-success check disc, «Bonul a fost aprobat! Ai primit 2 șanse bonus.» when receiptUploaded else «Bonul tău este în curs de verificare.» (breakdown.ts, unit). Neutral skeleton while the participation loads, retry gate on failure (rule 4). e2e «c2 c3 — under verification …», «c2 c3 — approved …» (axe), «rule 4 — loading …», «rule 4 — the participation fails …»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-receipt-submitted.c3
         text: "„Detalii șanse”: „Înainte” 1; „Bonus (în așteptare)” while under verification else „Bonus”, value 2 when uploaded or under verification else 0; „Total” 3 while under verification else the entries count."
         fish_ref: "app/(app)/raffle/receipt-submitted.tsx:14-63; constants/raffleCopy.ts:132-136"
-        status: passing
-        web_note: "«Detalii șanse» as bento FactTiles (2 + total across on a phone, 3 in a row from 768): «Înainte» 1, «Bonus (în așteptare)» / «Bonus» 2|0, «Total» 3 while under verification else entriesCount — fish's exact precedence, pure receiptBreakdown (breakdown.test.ts). Units spaced and agreeing via formatCount («1 șansă», «3 șanse»), one spoken phrase per tile. e2e «c2 c3 …» (1/2/3 verifying, 1/2/5 approved), «c3 — no receipt …» (0, entries)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-receipt-submitted.c4
         text: "„Vezi șansele mele” goes back, or home when there is nothing behind."
         fish_ref: "app/(app)/raffle/receipt-submitted.tsx:66-68; helpers/navigationHelpers.ts:7-14"
-        status: passing
-        web_note: "«Vezi șansele mele» in T6's action bar (FlowLayout `actions`: thumb-zone bar below 1280, docked card from 1280) = fish goToDashboardSafely: router.back() when canGoBackInApp (lib/client/in-app-history), else router.replace(home); a real link to / for modified clicks. The header chevron («Înapoi») does the same (fish BackButton: canGoBack ? back : replace('/')), href / as the no-JS fallback. e2e «c4 — … goes back when there is a page of ours behind (keyboard)», «c4 — the real way in (sansele-mele → bon → replace) …» (client push to /tombola/bon, stubbed upload, router.replace; Back skips the replaced entry, history.length unchanged), «header back — the real way in …», «header back — with nothing behind …», «c4 — with nothing behind … goes home, replacing this page», «keyboard order …»."
-    mobile_only: false
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
+    mobile_only: true
+    web_replacement: "Owner 2026-10-08: no raffle on the web. The /tombola pages, the Acasă raffle card, the core raffle reads/writes and their tests are removed; nothing on the web links to a raffle (fish keeps it in the app)."
     status: passing
+    web_note: "Owner 2026-10-08: no raffle on the web."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.raffle-status
@@ -1263,46 +1269,47 @@ screens:
       - id: participant.raffle-status.c1
         text: "No fish screen navigates here; it is the fuller „my chances” page that the confirmation page replaced."
         fish_ref: "app/(app)/raffle/_layout.tsx:16; components/raffle/RaffleDashboardCard.tsx:259"
-        status: passing
-        web_note: "Built for parity, reachable by URL only: nothing on the web links to /tombola/sansele-mele (Acasă and the confirmation included; owner decides). Auth-only (proxy 307 → /intra?next=, dead cookie → requireViewer), noindex; a viewer not in the raffle is handed to the intro (/tombola), no session → home via the intro. e2e tests/e2e/tombola-sansele-mele.spec.ts «c1 — reachable by URL only …», «signed out → sign-in …», «not joined → the intro …»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-status.c2
         text: "Title „Şansele mele”; a hero card „ŞANSELE TALE TOTALE”, the entries count, „şanse de câștig”, with a receipt „Total șanse cu bon: {n} șanse”, and a breakdown „Intrare” 1, „Bonus” 2|0, „Total” entries."
         fish_ref: "app/(app)/raffle/status.tsx:59-117; constants/raffleCopy.ts:140-145,162"
-        status: passing
-        web_note: "Bento hero: navy signature tile «ȘANSELE TALE TOTALE» + SignatureNumber (figure, unit «șansă/șanse/de șanse de câștig» via formatCount — fish always says «şanse»), with a receipt «Total șanse cu bon: {n} șanse»; FactTiles «Intrare» 1 / «Bonus» 2|0 / «Total» n (model.ts, unit). Comma diacritics (Ș) instead of fish's cedilla. e2e «c2 c3 — running, no receipt …», «c2 — with a receipt …»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-status.c3
         text: "Not ended and with an end date: „Câştigătorul anunțat în:” with days/hours/minutes („Zile”, „Ore”, „Minute”), computed when the page renders (fish does not tick)."
         fish_ref: "app/(app)/raffle/status.tsx:15-26,119-153; constants/raffleCopy.ts:146-149"
-        status: passing
-        web_note: "Countdown tile «Câștigătorul anunțat în:» from countdownParts(end, now) taken once at render; does not tick, as fish. Web fix over fish (owner rule: plurals): each label agrees with its figure via countdownCells (pluralNoun) — «Zi/Zile», «Oră/Ore», «Minut/Minute» — where fish prints «1 Zile»; a screen reader hears formatCount («1 zi», «20 de minute»). Countdown.ts + unit (1, 2–19, 20+, 101). e2e «c2 c3 …» (clock pinned: 2 Zile / 2 Ore / 30 Minute, unchanged 2 minutes later), «c3 — 1 day, 1 hour, 1 minute left …» (Zi / Oră / Minut)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-status.c4
         text: "Ended: „Tragerea s-a încheiat.”."
         fish_ref: "app/(app)/raffle/status.tsx:155-161"
-        status: passing
-        web_note: "Ended: the countdown tile is replaced by «Tragerea s-a încheiat.»; no receipt card; other types disabled, and the type card's body is replaced by the lock line «Tragerea s-a încheiat: tipul nu mai poate fi schimbat.» (rule 4: no «Poți schimba tipul…» once untrue; model typesNote, unit). e2e «c4 — ended …» (axe)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-status.c5
         text: "With types: „Tipul premiilor alese” / „Poți schimba tipul (Crap, Feeder sau Răpitor) până la termenul limită stabilit în timpul tombolei.”; other types are disabled after the deadline; choosing another re-joins with that type (POST join, busy on the selected one); failure „Nu am putut schimba tipul. Te rugăm să încerci din nou.”."
         fish_ref: "app/(app)/raffle/status.tsx:163-217"
-        status: passing
-        web_note: "T6 ChoiceGrid radio tiles in a fieldset (legend «Tipul premiilor alese» + fish body). Explicit commit (the re-join is a server write): a tap/click commits at once, as fish; arrow keys only pick (no write) and show «Tipul tău rămâne {saved} până confirmi.» + «Schimbă în {type}»; Space / Enter or that button commit, Escape drops the pick. Re-join = core joinRaffleSessionMutation {typeKey}; spinner + sr «Se schimbă tipul…» on the chosen tile, fieldset disabled/aria-busy meanwhile, focus returned to the checked tile; failure «Nu am putut schimba tipul. Te rugăm să încerci din nou.» (role=alert), old type kept. After the deadline the body is replaced by the lock line «Termenul limită a trecut: tipul nu mai poate fi schimbat.» (typesNote) and the other types are disabled tiles. e2e «c5 — type change …» (POST join {typeKey:'feeder'}), «c5 — keyboard: arrows only pick …» (arrows → no join; Space / Enter / button → join; Escape), «c5 — a failed change …», «c5 c7 — after the deadline …» (no join by click or keyboard)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-status.c6
         text: "„Premii pe care le poți câștiga”: session prizes (one expanded at a time) or, without them, three static prizes („Echipament premium de pescuit”, „Merchandise Bluvi”, „Premii speciale expoziție”) with their descriptions."
         fish_ref: "app/(app)/raffle/status.tsx:219-296; constants/raffleCopy.ts:150-156"
-        status: passing
-        web_note: "FlowAsideCard «Premii pe care le poți câștiga»: session prizes via _shared/PrizeRow (status variant, all closed, one open at a time) or the three static prizes with descriptions. ≥1024 the right column. e2e «c6 — session prizes …», «c6 — without session prizes …»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-status.c7
         text: "Not ended: a receipt card „Bonul tău încărcat” (preview or „Bon încărcat. Poți înlocui sau șterge până la termenul limită.”, deadline hint, „Înlocuiește bonul” / „Șterge bonul” disabled after the deadline) or „Bon fiscal PescarMania (min. 150 lei)” with „Încarcă bon fiscal” (upload dialog, add)."
         fish_ref: "app/(app)/raffle/status.tsx:298-367; constants/raffleCopy.ts:157-163"
-        status: passing
-        web_note: "Before the end: _shared/ReceiptCard (preview / fallback line, deadline hint, replace/delete disabled after the deadline; delete via core deleteRaffleReceiptMutation, failure shown) or the add card «Bon fiscal PescarMania (min. 150 lei)» + «Încarcă bon fiscal» → _shared/ReceiptUploadDialog mode add; after an upload/delete focus moves to the new card's heading. Web addition: after the deadline without a receipt the add card says a first bon is final. e2e «c7 — no receipt …» (mocked upload, chances 1→3), «c7 — with a receipt …» (replace dialog, delete → add card), «c7 — receipt without an image URL …», «c5 c7 — after the deadline, no receipt …»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-status.c8
         text: "„Înapoi acasă” replaces the page with home."
         fish_ref: "app/(app)/raffle/status.tsx:369-371"
-        status: passing
-        web_note: "Outlined «Înapoi acasă» → router.replace('/'); the header back chip also goes home (no crumb band: SiteHeader OWN_BAND_ROUTES). e2e «c8 — … replaces the page with home; keyboard»."
-    mobile_only: false
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
+    mobile_only: true
+    web_replacement: "Owner 2026-10-08: no raffle on the web. The /tombola pages, the Acasă raffle card, the core raffle reads/writes and their tests are removed; nothing on the web links to a raffle (fish keeps it in the app)."
     status: passing
-    web_note: "M5-B4 built: app/(site)/tombola/sansele-mele (page/loading + _components: StatusScreen, Countdown, model, unit tests). T6 FlowLayout bare: phone = fish stack (hero, breakdown, countdown, type, prizes, receipt, back); ≥768 bento (navy signature tile left over two rows, countdown/ended + three facts right); ≥1024 two columns (type, receipt, back | prizes). Every e2e route-mocked (fake-raffle + a stateful participation layer): no real join/upload/delete. Shots .shots/tombola-sansele-mele from the e2e (running, countdown-singular, receipt, deadline, ended, type-unsaved, type-failed, static-prizes, error, loading — each at 375/768/1280/1440/1920). Visual baselines tests/visual/tombola-sansele-mele.visual.spec.ts (running, receipt, deadline, ended, static-prizes, type-unsaved, type-failed, error, loading × 375/768/1280/1440/1920, darwin; countdown masked; awaiting owner approval). axe clean."
+    web_note: "Owner 2026-10-08: no raffle on the web."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.raffle-winners
@@ -1326,41 +1333,42 @@ screens:
       - id: participant.raffle-winners.c1
         text: "Unless the session is ended and has winners, the page redirects to home."
         fish_ref: "app/(app)/raffle/winners.tsx:59-61"
-        status: passing
-        web_note: "WinnersScreen: useRaffle({signedIn:false}) (active session only), pure shouldLeave (unit castigatori/_components/model.test.ts) → router.replace(/) after the data when not ended, ended without winners, or no session (404). A neutral skeleton meanwhile (header + grey notice/cards, nothing that says winners or none); a failed read is a retry gate, never «no winners» (rule 4). e2e tests/e2e/tombola-castigatori.spec.ts «c7 … c1 not ended → home», «c1 — ended without winners → home; no session → home», «c1 — nothing about winners shows before the data», «load error → retry gate»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-winners.c2
         text: "Title „Câștigători”; with no winner groups: „Câștigătorii nu au fost anunțați încă.” and „Înapoi acasă”."
         fish_ref: "app/(app)/raffle/winners.tsx:63-77; constants/raffleCopy.ts:172-177"
-        status: passing
-        web_note: "FlowHeader h1 «Câștigători»; hasWinners with an empty winnersByTypeKey → a T4Gate (trophy) «Câștigătorii nu au fost anunțați încă.» + outlined «Înapoi acasă» (router.replace). e2e «c2–c5 …», «c2 — winners flagged but no group …»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-winners.c3
         text: "A notice „Câștigătorii vor fi contactați de către echipa Bluvi. În cazul în care nu răspund în timp util, se va mai face o tragere la sorți.”."
         fish_ref: "app/(app)/raffle/winners.tsx:82-99"
-        status: passing
-        web_note: "T4Notice tone info (status-info tokens): «Câștigătorii vor fi contactați de către echipa Bluvi.» as its title, the second sentence under it. e2e «c2–c5 …»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-winners.c4
         text: "One card per type in winnersByTypeKey: a badge „Categoria {label}” in the type's badgeColor (default indigo), the prize of that type (session prize, else static) as an expandable row, then „Câștigători”."
         fish_ref: "app/(app)/raffle/winners.tsx:101-212"
-        status: passing
-        web_note: "One card per winnersByTypeKey key in CMS order (pure winnerGroups, unit): h2 = TypeBadge «Categoria {label}» in the CMS badgeColor (blank/invalid → accent indigo; label white or black, whichever is AA — shared/badge.ts), the type prize as PrizeRow status variant, collapsed as fish, then h3 «Câștigători». The row's own type badge is left out (the card's badge already names the category). DEVIATION (owner rule 4 over parity): the prize comes from the session only — the session's prize of that type, else no prize row; fish falls back to the static intro prizes (rafflePrizes, e.g. «Echipament premium de pescuit 500 LEI × 2»), which on a results page would state as won a prize and a value the CMS never gave. Phone/tablet: fish stack; ≥1024 the grid is sized by the category count so the cards fill the row: 1 → one wide card (prize left, winners right; no prize → winners in 2–3 columns), 2 → two columns, 3+ → three. e2e «c2–c5 …» (order, colours, prize, expand), «c4 — no prize row when the session has none …», «layout — the cards fill the row from 1024 …» (1- and 2-category shots at 1280/1920)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-winners.c5
         text: "Each winner row shows the avatar (default guest image), the username or „Câștigător #{i}”, a trophy on the first, and links to /pescari/{documentId}."
         fish_ref: "app/(app)/raffle/winners.tsx:18-47"
-        status: passing
-        web_note: "Winner row = Link to anglerHref(documentId) (/pescari/{id}): avatar 40 = the photo (resolved to absolute by core mediaOrigin), else fish's guest picture for every winner without one, named or not (a person on a white disc; no initials, as fish guest.png), username or «Câștigător #{i}» (blank username too), solid trophy (medal gold, sr-only «primul extras») on the first. e2e «c2–c5 …» (names, trophy only on #1, hrefs, absolute avatar URL, guest disc on a named and an unnamed winner without a photo, none with a photo), «c5 — a winner row opens the angler profile»."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-winners.c6
         text: "„Înapoi acasă” replaces the page with home."
         fish_ref: "app/(app)/raffle/winners.tsx:215-217"
-        status: passing
-        web_note: "«Înapoi acasă»: fish's outlined button at the end of the page (full width on a phone, own width from 768; no sticky bar — nothing to finish here) → router.replace(/). The header back chip also goes home. e2e «c6 — … replaces the page with home; keyboard» (Back does not return to the winners; Tab order back chip → prize toggle → winner links)."
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
       - id: participant.raffle-winners.c7
         text: "Public: guests can open it (winners are public; the active session endpoint is public, avatar URLs resolved to absolute)."
         fish_ref: "components/raffle/RaffleDashboardCard.tsx:249-252; services/api/raffle.ts:118-155"
-        status: passing
-        web_note: "Public: not in proxy.ts's sign-in list (a guest GET answers 200, no 307), no participation read (fake-raffle counts 0). Static shell (metadata, BreadcrumbList JSON-LD, brand OG card raffleWinners, header + skeleton); the session is read in the browser via /api/cms — no CMS cache tag exists for raffle sessions. noindex,follow and not in the sitemap (the page sends visitors home except while a drawn session is active). The header owns the way back (SiteHeader OWN_BAND_ROUTES). e2e «c7 — a guest can open it …»; every test runs without a cookie."
-    mobile_only: false
+        status: n/a
+        web_note: "Owner 2026-10-08: no raffle on the web."
+    mobile_only: true
+    web_replacement: "Owner 2026-10-08: no raffle on the web. The /tombola pages, the Acasă raffle card, the core raffle reads/writes and their tests are removed; nothing on the web links to a raffle (fish keeps it in the app)."
     status: passing
-    web_note: "app/(site)/tombola/castigatori (T6 FlowLayout bare + notice). Shots .shots/tombola-castigatori (375/768/1280/1440/1920, empty, loading). axe clean on winners and empty states."
+    web_note: "Owner 2026-10-08: no raffle on the web."
 
 behaviours:
   - id: participant.b.register-entry
@@ -1376,7 +1384,8 @@ behaviours:
   - id: participant.b.disclaimer-copy-mismatch
     text: "Flag to owner: the team disclaimer says no change is allowed after approval, but an approved team registration stays editable while the competition is notStarted (fish behaviour wins until decided)."
     fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:72-83; components/competition/CompetitionRanking.tsx:476"
-    web_note: "OPEN — owner decision needed. Web keeps fish's copy (participant.team-disclaimer.c4) and fish's behaviour (core registrationAction: an approved team entry stays editable while notStarted). Either the copy changes («…până la începerea concursului») or approved entries lock; until then both stay as in fish."
+    status: passing
+    web_note: "Owner 2026-10-08: copy changed on web; fish still has the old copy — fix in fish later. Resolved: the behaviour stays fish's (core registrationAction: an approved team entry stays editable while notStarted) and the web «Modificări» card now says so (participant.team-disclaimer.c4)."
   - id: participant.b.organizer-edit-registration
     text: "Organizer „Editează” on a participant row (hidden for rejected rows and cancelled/completed competitions): guest registrations open the guests form with registrationId/guestName/teamName; account registrations open the registration page in organizer mode (asOrganizer=1, registrationId)."
     fish_ref: "components/CollapsableActions.tsx:38-80,160-167"
@@ -1411,7 +1420,7 @@ behaviours:
     text: "Chat is Firestore realtime (messages, reactions, receipts, typing, meta), signed in with the CMS-minted Firebase custom token; one shared Firebase project across envs with env-prefixed paths; never write to Partide collections."
     fish_ref: "features/chat/domain/chatPaths.ts:1-85; features/chat/hooks/useChatAuth.ts:12-28"
     status: passing
-    web_note: "Every Firestore read and write goes through the ChatSource seam (_live/source.ts); the real source is core/realtime/chat on ctx.chatDb (the environment's database), signed in with the CMS custom token; nothing touches Partide collections. e2e tests/e2e/concurs-chat.spec.ts «c1 c2 c4 b.chat-realtime …» (pushed snapshots, listened paths), «c30 b.chat-realtime …»; zero Firebase requests (fixture)."
+    web_note: "Every Firestore read and write goes through the ChatSource seam (_live/source.ts); the real source is core/realtime/chat on ctx.chatDb (the environment's database), signed in with the CMS custom token; nothing touches Partide collections. e2e tests/e2e/concurs-chat.spec.ts «c1 c2 c4 b.chat-realtime …» (pushed snapshots, listened paths), «c30 b.chat-realtime …»; zero Firebase requests (fixture). Owner manual pass on staging Firestore 2026-10-08: read + send OK (history from the app — names, roles, avatars, the deleted placeholder, day separators — and a web message delivered to the app, double check)."
   - id: participant.b.chat-outbox
     text: "Sends survive reloads: queued rows are kept locally (fish SQLite; web: IndexedDB/localStorage via core outbox storage) and drained at app start and when the network returns; a row already written is never re-dated."
     fish_ref: "features/chat/outbox/worker.ts:169-229; features/chat/outbox/ChatOutboxMount.tsx:1-32"
@@ -1435,14 +1444,15 @@ behaviours:
   - id: participant.b.raffle-entry
     text: "Acasă raffle card: ended → winners page if it has winners, else nothing; signed out → sign-in; joined → confirmation; otherwise → raffle intro."
     fish_ref: "components/raffle/RaffleDashboardCard.tsx:247-261"
-    status: passing
-    web_note: "Acasă RaffleCard (unchanged otherwise): ended+winners → /tombola/castigatori, ended without → nothing, guest → /intra?next=%2Ftombola (homeLinks.raffleSignIn; fish dismissTo(/sign-in) has no way back), joined → /tombola/confirmare, else → /tombola. e2e tests/e2e/tombola.spec.ts «participant.b.raffle-entry», acasa.spec.ts «c36 c37 c38». The intro itself re-applies the rule (participant.raffle-intro.c1)."
+    status: n/a
+    web_note: "Owner 2026-10-08: no raffle on the web."
   - id: participant.b.raffle-data
     text: "Active session GET /raffle-sessions/active (public; 404 → no session) and participation GET /raffle-sessions/participation (only signed in with an active session; 401 → none), both stale after 2 minutes; relative media URLs are made absolute; prizes accept items or subItems."
     fish_ref: "services/queries/useRaffleActive.ts:9-15; services/queries/useRaffleParticipation.ts:11-22; services/api/raffle.ts:5-183"
-    status: passing
-    web_note: "tombola/_shared/useRaffle: core raffleActiveQuery (404 → null) + raffleParticipationQuery (enabled signed in + active session; 401 → null), staleTime 2 min (core), mediaOrigin = NEXT_PUBLIC_CMS_URL origin, deriveRaffleState; both via /api/cms (direct:false) so specs stub one origin. Prizes items/subItems: core normalizeSessionPrizes. e2e tombola.spec.ts «c2–c8 … b.raffle-data» (legacy subItems rendered), core unit tests."
+    status: n/a
+    web_note: "Owner 2026-10-08: no raffle on the web."
   - id: participant.b.raffle-orphans
     text: "fish declares raffle/upload-receipt, raffle/receipt-submitted and raffle/status but nothing navigates to them (the upload became a dialog, „my chances” became the confirmation page). Port them for parity but flag to the owner whether to keep them."
     fish_ref: "app/(app)/raffle/_layout.tsx:12-17; components/raffle/RaffleDashboardCard.tsx:259"
-    web_note: "FLAG TO OWNER (open): fish declares raffle/upload-receipt, receipt-submitted and status but nothing navigates to them. The web reserves /tombola/bon[?mod=adauga|inlocuieste], /tombola/bon-trimis and /tombola/sansele-mele (lib/routes raffleReceipt / raffleReceiptSubmitted / raffleStatus, auth-only in proxy.ts) and ships ReceiptUploadDialog for them; decide whether to keep these pages or drop them (the confirmation + upload dialog cover the flow)."
+    status: n/a
+    web_note: "Owner 2026-10-08: no raffle on the web."

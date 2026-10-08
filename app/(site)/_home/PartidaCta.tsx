@@ -3,7 +3,7 @@ import { cn } from '@/components/ui/cn';
 import { appLinks } from '@/lib/app-links';
 
 /**
- * The coloured banners of Acasă (this, LakeRequestBanner, the raffle) share one spec: the hero step
+ * The coloured banners of Acasă (this, LakeRequestBanner) share one spec: the hero step
  * of the radius scale (rounded-bento, Fundații: 20 for bento and hero — the rail cards around them
  * are 16), p-4 / 4.5 from 1280, a t-heading heading (the T5 card-section step: card-contained h2s
  * are t-heading, plain section titles t-title2 — the ground, indigo or photo, carries the emphasis),

@@ -15,7 +15,7 @@ import { homeLakesQuery, homeNewsQuery, homeSponsorsQuery, liveCardsQuery, upcom
  * never every cached lakes / news entry another screen left behind (lake details, map clusters,
  * the search palette…) — the notifications are invalidated (active only), and the server blocks are
  * re-rendered (`router.refresh`: profile, organiser stats, the operator card and its stats, the
- * bookings count, the raffle). The suggested-anglers rail is left alone on purpose (fish: a refresh
+ * bookings count). The suggested-anglers rail is left alone on purpose (fish: a refresh
  * must never reshuffle it — SuggestedAnglers pins its order).
  *
  * A failed refetch keeps its data on screen, so it is SAID, visibly: a toast (the spinner stopping
@@ -35,8 +35,8 @@ export function useHomeRefresh(): () => Promise<RefreshResult> {
 /**
  * The refetch alone, without feedback (the full-page error card is its own feedback). The server
  * blocks are re-rendered (`router.refresh`) only when the public reads came back: when they failed
- * the CMS is down, and a server re-render could only lose what is on screen (the poll and raffle
- * would vanish, the organiser and operator stats turn into errors) — the screen keeps its data.
+ * the CMS is down, and a server re-render could only lose what is on screen (the poll would
+ * vanish, the organiser and operator stats turn into errors) — the screen keeps its data.
  */
 export function useHomeRefetch(): () => Promise<boolean> {
   const qc = useQueryClient();

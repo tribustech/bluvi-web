@@ -7,4 +7,3 @@ export * from './domain/createCompetition';
 export * from './domain/richText';
 export * from './domain/weighing';
 export * from './domain/penalties';
-export * from './domain/raffle';

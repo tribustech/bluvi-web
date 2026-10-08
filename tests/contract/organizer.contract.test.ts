@@ -1,7 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  fetchActiveRaffle,
-  fetchRaffleParticipation,
   getAllocatedParticipants,
   getCompetitionActiveWeighing,
   getDraft,
@@ -204,20 +202,5 @@ describe('competition statistics', () => {
       const snapshot = await valueOrDenied(getCompetitionTimelineSnapshot(t, competitionId!));
       if (snapshot !== 'denied' && snapshot) expect(Array.isArray(snapshot.stands)).toBe(true);
     }
-  });
-});
-
-describe('raffle', () => {
-  it('active session is public', async () => {
-    for (const t of [guest, user]) {
-      const active = await fetchActiveRaffle(t);
-      if (active) expect(active.session.documentId).toBeTruthy();
-    }
-  });
-
-  it('participation is per-user', async () => {
-    await expectDenied(fetchRaffleParticipation(guest));
-    const mine = await fetchRaffleParticipation(user);
-    if (mine) expect(typeof mine.joined).toBe('boolean');
   });
 });

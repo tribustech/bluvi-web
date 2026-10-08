@@ -2,8 +2,6 @@ import 'server-only';
 import { cache, type ReactNode } from 'react';
 import type { InfiniteData } from '@tanstack/react-query';
 import { selectCompetitionCards } from '@/core/competitions';
-import { fetchActiveRaffle } from '@/core/organizer';
-import { cmsUrl } from '@/lib/server/env';
 import { createServerTransport } from '@/lib/server/transport';
 import { CompetitionsView } from './CompetitionsSection';
 import { LakesSection, LakesView } from './LakesSection';
@@ -102,10 +100,4 @@ export async function LakesLive() {
 export async function IfSponsors({ children }: { children: ReactNode }) {
   const data = await loadSponsors();
   return data?.data.length ? children : null;
-}
-
-/** Its children only while a raffle session is active (the raffle card is public). */
-export async function IfRaffle({ children }: { children: ReactNode }) {
-  const active = await fetchActiveRaffle(createServerTransport(), { mediaOrigin: new URL(cmsUrl()).origin }).catch(() => null);
-  return active?.session ? children : null;
 }

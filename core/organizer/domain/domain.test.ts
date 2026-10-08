@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { organizerCompetitionSchema } from '../schemas';
-import { competitionDoc, participation, raffleActive, weighingByStand, weighingDetail } from '../fixtures.test-data';
+import { competitionDoc, weighingByStand, weighingDetail } from '../fixtures.test-data';
 import {
   buildCompetitionPayload,
   createCompetitionSchema,
@@ -16,7 +16,6 @@ import {
 } from './createCompetition';
 import { flattenPages, isOrganizerProfile, normalizePaginatedResponse } from './organizer';
 import { findSectorForStand, penaltyFormSchema, supportsPenalties, toCreatePenaltyParams } from './penalties';
-import { deriveRaffleState, normalizeActiveRaffle, normalizeParticipation, resolveMediaUrl } from './raffle';
 import { htmlToStrapiBlocks, strapiBlocksToHtml } from './richText';
 import {
   applyOptimisticCatches,
@@ -26,7 +25,7 @@ import {
   splitWeightWithScaleConstraint,
   sumWeighingsTotal,
 } from './weighing';
-import { raffleActiveRawSchema, raffleParticipationRawSchema, weighingDetailSchema } from '../schemas';
+import { weighingDetailSchema } from '../schemas';
 
 describe('rich text', () => {
   it('round-trips paragraphs, headings, lists and marks', () => {
@@ -227,29 +226,5 @@ describe('penalties', () => {
     expect(toCreatePenaltyParams({ action: 'WARNING', value: '3', reason: 'Motiv' }, { competitionId: 'c', registrationId: 'r' }).value).toBeUndefined();
     const sectors = [{ name: 'A', stands: [{ id: 1, documentId: 's1' }] }];
     expect(findSectorForStand(sectors, 's1')?.name).toBe('A');
-  });
-});
-
-describe('raffle', () => {
-  it('resolves media urls', () => {
-    expect(resolveMediaUrl('/u/a.jpg', 'http://cms/')).toBe('http://cms/u/a.jpg');
-    expect(resolveMediaUrl('u/a.jpg', 'http://cms')).toBe('http://cms/u/a.jpg');
-    expect(resolveMediaUrl('https://s3/a.jpg', 'http://cms')).toBe('https://s3/a.jpg');
-    expect(resolveMediaUrl('/u/a.jpg')).toBe('/u/a.jpg');
-    expect(resolveMediaUrl(null)).toBeNull();
-  });
-
-  it('derives the raffle state from session + participation', () => {
-    const active = normalizeActiveRaffle(raffleActiveRawSchema.parse(raffleActive.data));
-    expect(deriveRaffleState(null, null, 'crap')).toMatchObject({ joined: false, selectedTypeKey: 'crap' });
-
-    const noParticipation = deriveRaffleState(active, null, null);
-    expect(noParticipation).toMatchObject({ registeredCount: 3, sessionDocumentId: 'f5jc', regulationTitle: 'Regulament', joined: false });
-    expect(noParticipation.sessionPrizes[0]).toMatchObject({ title: 'Kit Crap', count: 1, priceLei: undefined });
-
-    const p = normalizeParticipation(raffleParticipationRawSchema.parse(participation));
-    expect(p.receiptImageUrl).toBe('/uploads/r.jpg');
-    const joined = deriveRaffleState(active, p, null);
-    expect(joined).toMatchObject({ joined: true, entriesCount: 3, selectedTypeKey: 'crap', canChangeType: false, isEnded: true });
   });
 });

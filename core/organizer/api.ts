@@ -1,8 +1,7 @@
 import * as z from 'zod';
 import { paginationMetaSchema } from '../shared';
-import { call, callVoid, isApiError, type Transport } from '../transport';
+import { call, callVoid, type Transport } from '../transport';
 import { normalizePaginatedResponse } from './domain/organizer';
-import { normalizeActiveRaffle, normalizeParticipation, resolveMediaUrl } from './domain/raffle';
 import { sumWeighingsTotal } from './domain/weighing';
 import {
   allocatedParticipantsResponseSchema,
@@ -19,10 +18,7 @@ import {
   organizerRecentLakeSchema,
   organizerStatDetailItemSchema,
   organizerUpdateCompetitionResponseSchema,
-  raffleActiveRawSchema,
-  raffleParticipationRawSchema,
   startedWeighingSchema,
-  uploadRaffleReceiptRawSchema,
   weighingByStandSchema,
   weighingDetailSchema,
   weighingRevisionsResponseSchema,
@@ -35,12 +31,9 @@ import {
   type OrganizerCompetitionSourceDetail,
   type OrganizerCompetitionSourceSummary,
   type OrganizerStatKey,
-  type RaffleActiveResponse,
-  type RaffleParticipationDto,
   type UpdateDraftPayload,
 } from './schemas';
 import { extraScaleSchema, penaltySchema, type PenaltyAction } from '../competitions/schemas';
-import type { MediaFile } from '../social/api';
 
 const id = encodeURIComponent;
 
@@ -493,114 +486,6 @@ export function createPenalty(t: Transport, { competitionId, registrationId, act
 /** fish `services/api/penalties.ts#deletePenalty` */
 export function deletePenalty(t: Transport, penaltyId: string) {
   return callVoid(t, { method: 'DELETE', path: `/penalties/${id(penaltyId)}`, auth: 'required' });
-}
-
-/* ================================================================== */
-/* Raffle — fish services/api/raffle.ts                                */
-/* ================================================================== */
-
-/** `mediaOrigin` replaces fish's `EXPO_PUBLIC_API_URL` origin for relative media URLs. */
-export type MediaOriginOption = { mediaOrigin?: string };
-
-/** fish `services/api/raffle.ts#fetchActiveRaffle` — null when no session (or 404). */
-export async function fetchActiveRaffle(
-  t: Transport,
-  { mediaOrigin }: MediaOriginOption = {}
-): Promise<RaffleActiveResponse | null> {
-  try {
-    const res = await call(
-      t,
-      { method: 'GET', path: '/raffle-sessions/active', auth: 'none' },
-      z.object({ data: raffleActiveRawSchema.nullable() })
-    );
-    if (!res.data?.session) return null;
-    return normalizeActiveRaffle(res.data, mediaOrigin);
-  } catch (error) {
-    // 404 when no active session – surface as null, not an error
-    if (isApiError(error) && error.status === 404) return null;
-    throw error;
-  }
-}
-
-/** fish `services/api/raffle.ts#fetchRaffleParticipation` — null when signed out. */
-export async function fetchRaffleParticipation(
-  t: Transport,
-  { mediaOrigin }: MediaOriginOption = {}
-): Promise<RaffleParticipationDto | null> {
-  try {
-    const res = await call(
-      t,
-      { method: 'GET', path: '/raffle-sessions/participation', auth: 'required' },
-      z.object({ data: raffleParticipationRawSchema.nullable() })
-    );
-    if (!res.data) return null;
-    return normalizeParticipation(res.data, mediaOrigin);
-  } catch (error) {
-    // If user is unauthenticated, treat as no participation
-    if (isApiError(error) && error.status === 401) return null;
-    throw error;
-  }
-}
-
-/** fish `services/api/raffle.ts#joinRaffleSession` */
-export async function joinRaffleSession(
-  t: Transport,
-  sessionDocumentId: string,
-  typeKey: string,
-  { mediaOrigin }: MediaOriginOption = {}
-): Promise<RaffleParticipationDto> {
-  const res = await call(
-    t,
-    { method: 'POST', path: `/raffle-sessions/${id(sessionDocumentId)}/join`, body: { typeKey }, auth: 'required' },
-    z.object({ data: raffleParticipationRawSchema })
-  );
-  return normalizeParticipation(res.data, mediaOrigin);
-}
-
-/**
- * Upload raffle receipt image. Backend stores in S3 under raffle/{raffleId}
- * and updates the user's participation (entries + receipt flags).
- * fish `services/api/raffle.ts#uploadRaffleReceipt`
- */
-export async function uploadRaffleReceipt(
-  t: Transport,
-  raffleId: string,
-  file: MediaFile,
-  { mediaOrigin }: MediaOriginOption = {}
-): Promise<{ url: string; participation?: RaffleParticipationDto }> {
-  const formData = new FormData();
-  formData.append('files', file.blob, file.filename || `receipt-${Date.now()}.jpg`);
-
-  const res = await call(
-    t,
-    { method: 'POST', path: `/raffle-sessions/${id(raffleId)}/receipt`, body: formData, auth: 'required' },
-    z.object({ data: uploadRaffleReceiptRawSchema })
-  );
-  const rawUrl = res.data.url;
-  if (!rawUrl) throw new Error('Upload succeeded but no file URL returned');
-  return {
-    url: resolveMediaUrl(rawUrl, mediaOrigin) ?? rawUrl,
-    participation: res.data.participation ? normalizeParticipation(res.data.participation, mediaOrigin) : undefined,
-  };
-}
-
-/**
- * Remove current user's receipt for the session. Backend clears receipt media
- * and sets receiptUploaded/receiptUnderVerification to false; entriesCount is reduced by 2 (min 1).
- * fish `services/api/raffle.ts#deleteRaffleReceipt`
- */
-export async function deleteRaffleReceipt(
-  t: Transport,
-  sessionDocumentId: string,
-  { mediaOrigin }: MediaOriginOption = {}
-): Promise<RaffleParticipationDto> {
-  const res = await call(
-    t,
-    { method: 'DELETE', path: `/raffle-sessions/${id(sessionDocumentId)}/receipt`, auth: 'required' },
-    z.object({ data: raffleParticipationRawSchema })
-  );
-  const dto = normalizeParticipation(res.data, mediaOrigin);
-  return { ...dto, receiptImageUrl: dto.receiptImageUrl ?? null };
 }
 
 /* ================================================================== */

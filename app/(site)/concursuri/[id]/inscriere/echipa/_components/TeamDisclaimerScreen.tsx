@@ -50,9 +50,9 @@ import { TeamDisclaimerSkeleton } from "./TeamDisclaimerSkeleton";
  * the title text and, on the right, the competition's facts (lake, dates, team size) with «Am
  * înțeles» docked under them. The cards keep fish's indigo outline (DisclaimerItem).
  *
- * Known divergence kept from fish (parity b.disclaimer-copy-mismatch): «Modificări» says nothing
- * changes once approved, while fish (and core registrationAction) still let an approved team edit
- * while the competition has not started. Copy and behaviour stay fish's until the owner decides.
+ * «Modificări» (parity b.disclaimer-copy-mismatch, owner 2026-10-08): the behaviour stays fish's
+ * (core registrationAction: an approved team can still edit its entry until the competition
+ * starts) and the web copy says so. fish still has the old «nicio modificare» copy.
  */
 
 const TITLE = "Câteva lucruri de menționat";
@@ -169,11 +169,10 @@ function Disclaimer({
               coechipierii. Aceștia vor fi înregistrați și notificați automat.
             </RuleCard>
             <RuleCard title="Modificări" icon={<PencilSquareIcon />}>
-              Datele înscrierii pot fi modificate doar până când organizatorul
-              competiției acceptă înscrierea. După ce înscrierea a fost
-              aprobată,{" "}
+              Datele înscrierii pot fi modificate cât timp înscrierea așteaptă
+              aprobarea organizatorului. După aprobare,{" "}
               <strong className="font-semibold text-ink">
-                nicio modificare nu mai este permisă.
+                mai poți modifica echipa doar până începe concursul.
               </strong>
             </RuleCard>
           </div>

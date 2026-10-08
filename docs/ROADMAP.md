@@ -101,7 +101,7 @@ Facebook does:
 | T3 | Detail with tabs | competition, lake, angler profile, partidă, public water |
 | T4 | Multi-step form | create competition, booking, registration, walk-in, review |
 | T5 | Dashboard | home, organizer panel, lake panel |
-| T6 | Single-task flow | scale, capture, raffle, penalties, join with code |
+| T6 | Single-task flow | scale, capture, penalties, join with code |
 
 ## 4b. Owner design rules (feedback log)
 
@@ -232,6 +232,11 @@ Add each new piece of feedback here, dated.
       rankings, the spectator page with its catches and gallery, venue community, angler search,
       profile sections. The viewer's own partidă is the read-only, spectator-style page plus the app
       hand-over; the live dock is read-only («Partida ta e live» → the page / the app).
+22. **No raffle on the web (owner 2026-10-08).** «Nu mai punem tombola.» Owner 2026-10-08: no raffle on
+    the web.
+    - No /tombola pages (intro, confirmation, «Șansele mele», receipt upload, «Bon încărcat», winners),
+      no raffle card on Acasă, no raffle reads or writes in core, no link or notification target to
+      a raffle. The fish raffle screens are `mobile_only` in the inventory, their criteria `n/a`.
 
 
 
@@ -276,7 +281,7 @@ Counts are fish screens (`fish/app/**`). Exact lists live in the inventory.
 | **M2 Account** | Sign-in, complete profile, own profile, angler profile, connections, suggested anglers, notifications, notification preferences and settings, settings, edit profile | ~11 |
 | **M3 Booking** | Book a lake (3 steps), my bookings + detail, lake review | ~6 |
 | **M4 Partide** | Partide list, live partidă (Firestore), start, capture + photo preview, history, statistics, anglers, ranking, community (venue, catches, gallery), join with code | ~15 |
-| **M5 Competition participant** | Registration (teams, guests, disclaimer), competition chat + photo, polls (current, past), raffle (6 screens) | ~13 |
+| **M5 Competition participant** | Registration (teams, guests, disclaimer), competition chat + photo, polls (current, past); raffle (6 screens) dropped on the web (§4b rule 22) | ~13 |
 | **M6 Organizer** | Organizer panel, create-competition wizard (all steps, rich text editor, ranking explanation, stand allocation), sectors, participant allocation, scale (index, add, history, revisions), penalties (index, select stand, apply), stand timeline | ~20 |
 | **M7 Lake operator** | Choose lake, lake panel, bookings grid, stand blocks, walk-in (3 steps), rate angler | ~8 |
 | **M8 Launch** | Final domain and URL scheme (slug vs documentId) with redirects; universal links coordinated with the app (`bluvi-app.wearetribus.com` AASA) so one link opens the app on phones and the web elsewhere; GDPR cookie banner + GA4; Sentry; accessibility and performance audit; `/web-drift` zero gaps; runbook | — |

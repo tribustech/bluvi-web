@@ -14,10 +14,8 @@ import {
   deleteDraft,
   deleteExtraScaleRequest,
   deletePenalty,
-  deleteRaffleReceipt,
   endCantar,
   endCompetition,
-  joinRaffleSession,
   publishDraft,
   removeCompetitionReferee,
   reopenWeighing,
@@ -26,12 +24,10 @@ import {
   startCompetition,
   updateDraft,
   updateOrganizerCompetition,
-  uploadRaffleReceipt,
   type CreatePenaltyParams,
-  type MediaOriginOption,
 } from './api';
 import { applyOptimisticCatches, applyReopenToWeighings } from './domain/weighing';
-import { organizerKeys, raffleKeys, weighingKeys } from './queries';
+import { organizerKeys, weighingKeys } from './queries';
 import type {
   AllocateStandsToSectorsRequest,
   AllocateStandToRegistrationRequest,
@@ -384,43 +380,6 @@ export function uploadWitnessSignatureMutation(t: Transport) {
   return mutationOptions({
     mutationFn: ({ files, id }: UploadMediaReq) =>
       uploadMediaAndAttachToEntity(t, { files, id, ref: 'api::weighing.weighing', field: 'witnessSignature' }),
-  });
-}
-
-/* ------------------------------------------------------------------ */
-/* Raffle                                                              */
-/* ------------------------------------------------------------------ */
-
-/** What every raffle write refreshes: the session, my participation, and competition lists. */
-function invalidateRaffle(qc: QueryClient) {
-  void qc.invalidateQueries({ queryKey: raffleKeys.active });
-  void qc.invalidateQueries({ queryKey: raffleKeys.participation });
-  void qc.invalidateQueries({ queryKey: competitionsKeys.all });
-}
-
-/** fish `useJoinRaffleSession` */
-export function joinRaffleSessionMutation(t: Transport, qc: QueryClient, options: MediaOriginOption = {}) {
-  return mutationOptions({
-    mutationFn: ({ sessionDocumentId, typeKey }: { sessionDocumentId: string; typeKey: string }) =>
-      joinRaffleSession(t, sessionDocumentId, typeKey, options),
-    onSettled: () => invalidateRaffle(qc),
-  });
-}
-
-/** fish `useUploadRaffleReceipt` */
-export function uploadRaffleReceiptMutation(t: Transport, qc: QueryClient, options: MediaOriginOption = {}) {
-  return mutationOptions({
-    mutationFn: ({ raffleId, file }: { raffleId: string; file: MediaFile }) =>
-      uploadRaffleReceipt(t, raffleId, file, options),
-    onSettled: () => invalidateRaffle(qc),
-  });
-}
-
-/** fish `useDeleteRaffleReceipt` */
-export function deleteRaffleReceiptMutation(t: Transport, qc: QueryClient, options: MediaOriginOption = {}) {
-  return mutationOptions({
-    mutationFn: (sessionDocumentId: string) => deleteRaffleReceipt(t, sessionDocumentId, options),
-    onSettled: () => invalidateRaffle(qc),
   });
 }
 

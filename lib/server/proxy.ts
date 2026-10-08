@@ -22,7 +22,6 @@ export const PROXY_ALLOWED_PREFIXES = [
   '/notifications',
   '/penalties',
   '/polls',
-  '/raffle-sessions',
   '/rankings',
   '/registrations',
   '/reservations',

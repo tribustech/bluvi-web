@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeTransport } from '@/tests/transport';
-import { ApiError, type TransportRequest } from '../transport';
+import type { TransportRequest } from '../transport';
 import { competitionCardsKeys, competitionsKeys, type Registration } from '../competitions';
 import * as api from './api';
 import {
@@ -10,8 +10,6 @@ import {
   competitionDoc,
   extraScale,
   paginated,
-  participation,
-  raffleActive,
   revisionClosed,
   revisionReopen,
   statDetailItem,
@@ -24,7 +22,6 @@ import {
   cancelOrganizerCompetitionMutation,
   createPenaltyMutation,
   invalidateOrganizerDashboardQueries,
-  joinRaffleSessionMutation,
   reopenCantarMutation,
   startCompetitionMutation,
 } from './mutations';
@@ -34,15 +31,11 @@ import {
   organizerDashboardQuery,
   organizerKeys,
   organizerStatDetailsInfiniteQuery,
-  raffleKeys,
-  raffleParticipationQuery,
   weighingKeys,
   weighingRevisionsQuery,
   weighingsQuery,
   weighingsTotalQuery,
 } from './queries';
-
-const file = () => ({ blob: new Blob(['x'], { type: 'image/jpeg' }), filename: 'a.jpg' });
 
 type Case = {
   name: string;
@@ -154,18 +147,6 @@ const cases: Case[] = [
     expect: { method: 'POST', path: `/competitions/${C}/registrations/r1/penalties`, body: { action: 'DEDUCT_TOTAL_WEIGHT', value: 1.5, reason: 'Nada' } },
   },
   { name: 'deletePenalty', run: t => api.deletePenalty(t, 'p1'), response: null, expect: { method: 'DELETE', path: '/penalties/p1' } },
-  // raffle.ts
-  { name: 'fetchActiveRaffle', run: t => api.fetchActiveRaffle(t), response: raffleActive, expect: { path: '/raffle-sessions/active', auth: 'none' } },
-  { name: 'fetchActiveRaffle (no session)', run: t => api.fetchActiveRaffle(t), response: { data: null }, expect: { path: '/raffle-sessions/active' }, result: null },
-  { name: 'fetchRaffleParticipation', run: t => api.fetchRaffleParticipation(t), response: { data: participation }, expect: { path: '/raffle-sessions/participation', auth: 'required' } },
-  { name: 'joinRaffleSession', run: t => api.joinRaffleSession(t, 'f5jc', 'crap'), response: { data: participation }, expect: { method: 'POST', path: '/raffle-sessions/f5jc/join', body: { typeKey: 'crap' } } },
-  {
-    name: 'uploadRaffleReceipt',
-    run: t => api.uploadRaffleReceipt(t, 'f5jc', file(), { mediaOrigin: 'http://cms' }),
-    response: { data: { url: '/uploads/r.jpg', fileId: 9, participation: { ...participation, canChangeType: undefined } } },
-    expect: { method: 'POST', path: '/raffle-sessions/f5jc/receipt', auth: 'required' },
-  },
-  { name: 'deleteRaffleReceipt', run: t => api.deleteRaffleReceipt(t, 'f5jc'), response: { data: { ...participation, receiptUrl: undefined, receiptUploaded: false } }, expect: { method: 'DELETE', path: '/raffle-sessions/f5jc/receipt' } },
   // catch.ts (media.ts + requestOrganizerRole are tested in core/social)
   { name: 'deleteCatch', run: t => api.deleteCatch(t, 'c1'), response: { data: { statusCode: 204, message: 'Operation was successful' } }, expect: { method: 'DELETE', path: '/catches/c1' } },
 ];
@@ -195,26 +176,6 @@ describe('organizer api', () => {
     const draft = await api.getDraft(transport, 'd1');
     expect(draft.author).toEqual({ id: 13, documentId: 'q9kp', username: 'Toni' });
   });
-
-  it('resolves relative raffle media against the given origin', async () => {
-    const { transport } = createFakeTransport([raffleActive]);
-    const res = await api.fetchActiveRaffle(transport, { mediaOrigin: 'http://cms' });
-    expect(res?.session.headerLogoLeftUrl).toBe('http://cms/uploads/left.png');
-    expect(res?.session.prizes?.[0].image?.url).toBe('http://cms/uploads/kit.jpg');
-    expect(res?.session.prizes?.[0].items?.[0].image?.url).toBe('http://cms/uploads/m.jpg');
-    expect(res?.winnersByTypeKey?.crap[0].avatarUrl).toBe('http://cms/uploads/a.jpg');
-  });
-
-  it('maps a 404 raffle / 401 participation to null', async () => {
-    const failing = (status: number) => ({
-      request: async () => {
-        throw new ApiError({ message: 'x', status, code: 'HTTP' });
-      },
-    });
-    await expect(api.fetchActiveRaffle(failing(404))).resolves.toBeNull();
-    await expect(api.fetchRaffleParticipation(failing(401))).resolves.toBeNull();
-    await expect(api.fetchRaffleParticipation(failing(500))).rejects.toMatchObject({ status: 500 });
-  });
 });
 
 describe('organizer queries', () => {
@@ -228,7 +189,6 @@ describe('organizer queries', () => {
     expect(weighingKeys.revisions('w')).toEqual(['weighings', 'id', 'w', 'revisions']);
     expect(competitionManagementKeys.activeWeighingById('c')).toEqual(['competitions', 'c', 'active-weighing']);
     expect(competitionManagementKeys.extraScalesList('c')).toEqual(['competition', 'c', 'extra-scales-list']);
-    expect(raffleKeys.participation).toEqual(['raffle', 'participation']);
   });
 
   it('scopes a feeder stand\'s weighings to the leg (fish useWeighings / useWeighingsTotal)', () => {
@@ -254,11 +214,6 @@ describe('organizer queries', () => {
     expect(q.staleTime).toBe(0);
     const grouped = await (q.queryFn as () => Promise<Record<number, unknown[]>>)();
     expect(Object.keys(grouped)).toEqual(['1', '2']);
-  });
-
-  it('only asks for participation with a session and a user', () => {
-    expect(raffleParticipationQuery(t, { isAuthenticated: true, hasActiveSession: false }).enabled).toBe(false);
-    expect(raffleParticipationQuery(t, { isAuthenticated: true, hasActiveSession: true }).enabled).toBe(true);
   });
 });
 
@@ -323,16 +278,6 @@ describe('organizer mutations', () => {
     expect(qc.getQueryData<(typeof weighingByStand)[]>(key)?.[0].weighingStatus).toBe('started');
     (options.onError as (e: unknown, v: unknown, c: unknown) => void)(new Error('x'), vars, ctx);
     expect(qc.getQueryData(key)).toEqual([weighingByStand]);
-  });
-
-  it('raffle writes refresh session, participation and competitions', async () => {
-    const qc = new QueryClient();
-    [raffleKeys.active, raffleKeys.participation, ['competitions', 'x']].forEach(k => qc.setQueryData(k, 1));
-    const { transport } = createFakeTransport([{ data: participation }]);
-    await run(joinRaffleSessionMutation(transport, qc), qc, { sessionDocumentId: 'f5jc', typeKey: 'crap' });
-    expect(qc.getQueryState(raffleKeys.active)?.isInvalidated).toBe(true);
-    expect(qc.getQueryState(raffleKeys.participation)?.isInvalidated).toBe(true);
-    expect(qc.getQueryState(['competitions', 'x'])?.isInvalidated).toBe(true);
   });
 
   it('accepts a registration optimistically and marks the list stale WITHOUT refetching', async () => {

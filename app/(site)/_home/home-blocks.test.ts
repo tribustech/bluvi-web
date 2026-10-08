@@ -3,13 +3,11 @@ import { renderToString } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pollKeys, type CompetitionCard, type LiveCompetition, type Poll } from '@/core/competitions';
-import { deriveRaffleState } from '@/core/organizer';
 import { chooseRail, CompetitionsView, railStatus } from './CompetitionsSection';
 import { CompetitionRailCard } from './CompetitionRailCard';
 import { MyLiveCompetition } from './MyLiveCompetition';
 import { LateLiveCompetition, LateOrganizerBanner, LateOwnedLakesCard } from './LateBlocks';
 import { PollCard } from './PollCard';
-import { RaffleCard } from './RaffleCard';
 import {
   MobileDockSlot,
   OperatorSlot,
@@ -32,7 +30,6 @@ const data = vi.hoisted(() => ({
   loadMyLiveCompetition: vi.fn(),
   loadOrganizerDashboard: vi.fn(),
   loadOwnedLakes: vi.fn(),
-  loadRaffle: vi.fn(),
   prefetchTracked: vi.fn(),
 }));
 vi.mock('./data', () => data);
@@ -166,31 +163,6 @@ describe('Acasă owner rule 4 — failed reads hide the block', () => {
     vi.clearAllMocks();
     data.getHomeSession.mockResolvedValue(viewer);
     data.getHomeViewer.mockResolvedValue(viewer);
-  });
-
-  const raffle = deriveRaffleState(
-    {
-      // No end date: no countdown (it needs the app router).
-      session: { documentId: 'r1', endDate: null, types: [], prizes: [] },
-      registrationsByType: { crap: 2 },
-      isRegistrationOpen: true,
-      isEnded: false,
-      hasWinners: false,
-      winnersByTypeKey: {},
-    } as unknown as Parameters<typeof deriveRaffleState>[0],
-    null,
-    null
-  );
-
-  it('raffle, participation read failed: no status row, no CTA, no «Nu am putut»', () => {
-    const html = renderToString(createElement(RaffleCard, { raffle, signedIn: true, participationFailed: true }));
-    expect(html).toContain('Tragere la sorți');
-    expect(html).not.toMatch(UNKNOWN_COPY);
-    expect(html).not.toContain('Înscrie-te la tombolă');
-    expect(html).not.toContain('Vezi șansele tale');
-    expect(html).not.toContain('href="/tombola');
-    // Control: the same card with the participation known does offer the CTA.
-    expect(renderToString(createElement(RaffleCard, { raffle, signedIn: true }))).toContain('Înscrie-te la tombolă');
   });
 
   it('live rail card without results: the faces only, never «indisponibil»', () => {
