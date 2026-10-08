@@ -920,7 +920,8 @@ screens:
     roles: [angler, organizer, referee, operator]
     core:
       - "core/partide/domain stats (computeHourHeatmap), venueRef (sessionVenueRef)"
-      - "MISSING pure port: helpers/patterns (scopeEvents, computeTripStats, computeBaitRanking, computeArrivalRecap)"
+      - "core/partide/domain/patterns (scopeEvents, computeTripStats, computeBaitRanking, computeArrivalRecap, computeVenuePatterns, eventHeatmapByHour)"
+      - "core/partide partideHistoryQuery + partidaDetailQuery (the venue scope)"
     states:
       - scope „Această partidă” with events / without events
       - scope „Toate partidele” with data / not enough data
@@ -929,26 +930,40 @@ screens:
       - id: partide.partida-statistici.c1
         text: "A segmented toggle „Această partidă” (default) / „Toate partidele”."
         fish_ref: "features/partide/scenes/StatisticiScene.tsx:48-51,124-151"
+        status: passing
+        note: "e2e tests/e2e/partida-statistici.spec.ts (375/1280/1440/1920; keyboard: a native radio pair, ←/→ switch it). A segmented control that looks like one (rule 20): one track, the chosen half filled accent. Switching back is instant; the venue reads happen once, on first choice."
       - id: partide.partida-statistici.c2
         text: "„Această partidă” cards: „Capturi” (indigo), „Cea mai mare” (kg), „Greutate totală” (kg)."
         fish_ref: "features/partide/scenes/StatisticiScene.tsx:53-59"
+        status: passing
+        note: "e2e tests/e2e/partida-statistici.spec.ts. Capturi is the navy signature tile (rules 9, 19), Cea mai mare (amber) and Greutate totală (lavender) StatTiles, «kg» spaced apart (rule 10). Web: a partidă with no weighed capture shows «—» in both weight tiles where fish printed «0 kg» (rule 4)."
       - id: partide.partida-statistici.c3
         text: "„Toate partidele” cards for the venue: „Partide”, „Top momeală”, „Distanță ideală”, „Ore de vârf” („—” when unknown)."
         fish_ref: "features/partide/scenes/StatisticiScene.tsx:61-68"
+        status: passing
+        note: "e2e tests/e2e/partida-statistici.spec.ts (values, and «—» for Top momeală / Distanță ideală when no bait × band reaches 3 events). Partide = the signature tile with «ale tale la această baltă» (pe această apă / în acest loc); Distanță ideală as «70–75» + spaced «m». core/partide/domain/patterns.ts computeArrivalRecap (unit tested)."
       - id: partide.partida-statistici.c4
         text: "„Capturi pe lansetă” bars (one per rod label, relative to the max) appear only in partidă scope when the partidă has rods."
         fish_ref: "features/partide/scenes/StatisticiScene.tsx:97,199-239"
+        status: passing
+        note: "e2e tests/e2e/partida-statistici.spec.ts (bars relative to the busiest rod: 100% / 50% / 0%, rod colour; none across the venue; none without rods). From a 768px-wide panel the bars sit beside the leaderboard."
       - id: partide.partida-statistici.c5
         text: "Both scopes show a bait leaderboard and a 24-hour heatmap counting non-blank events by hour."
         fish_ref: "features/partide/scenes/StatisticiScene.tsx:84-96,113-117"
+        status: passing
+        note: "e2e tests/e2e/partida-statistici.spec.ts (bait ranking order + cells, case folded, «Necunoscută» fallback; heatmap counts per hour, blanks excluded, heat levels). Leaderboard is a real table with a tinted header and separators; heatmap 3×8 on the phone, 2×12, 1×24 on a wide panel. Ramp: heat-1…4 tokens (fish RAMP, two steps darkened for AA)."
       - id: partide.partida-statistici.c6
         text: "Empty: „Niciun eveniment încă în această partidă.” (partidă scope) / „Încă nu sunt suficiente date pentru această baltă.” (venue scope with zero sessions)."
         fish_ref: "features/partide/scenes/StatisticiScene.tsx:99-111"
+        status: passing
+        note: "e2e tests/e2e/partida-statistici.spec.ts (both copies, 375 + 1280). Web: on the web the current partidă always counts at its own venue, so «Încă nu sunt suficiente date…» shows when the venue scope holds no event at all (zero sessions or zero events) — fish reaches the same copy only for a partidă read from history (its store held only the live one)."
       - id: partide.partida-statistici.c7
         text: "Venue scope is computed client-side from the sessions/events loaded in the live projection for the same venue (anchor radius 40 m), not from a server endpoint."
         fish_ref: "features/partide/domain/hooks.ts:672-694"
+        status: passing
+        note: "e2e tests/e2e/partida-statistici.spec.ts (only /feed/sessions/mine + the same-lake /feed/sessions/:id details are read, in parallel, after the scope is chosen; never this partidă's detail, another lake, or a /feed/community statistic; skeleton while reading; a failed read → error card + retry of what failed, never partial figures). Web equivalent of fish's live store: the viewer's own partide at the venue (scopeEvents rule, 40 m), events of the most recent 20 read (caption says so when capped) + this partidă's live events. No CMS change."
     mobile_only: false
-    status: todo
+    status: passing
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.partida-setari

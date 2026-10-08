@@ -42,3 +42,4 @@ export * from './venueSearch';
 export * from './nearbyWater';
 export * from './pinVenue';
 export * from './venueSuggestions';
+export * from './patterns';

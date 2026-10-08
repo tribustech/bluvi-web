@@ -32,7 +32,7 @@ export const PARTIDE_PAGES_ON_WEB = {
   /** /partide/[id]?tab=galerie — the member view's «Galerie» tab (partide.partida-galerie). */
   partidaGalerie: true,
   /** /partide/[id]?tab=statistici — the member view's «Statistici» tab (partide.partida-statistici). */
-  partidaStatistici: false,
+  partidaStatistici: true,
   /** /partide/[id]?tab=setari — the member view's «Setări» tab (partide.partida-setari). */
   partidaSetari: true,
   /** /partide/[id]/capturi — every catch of a partidă. */

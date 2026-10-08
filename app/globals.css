@@ -377,6 +377,22 @@
   --color-indigo-5: #6265f1;
   --color-indigo-7: #4338ca;
 
+  /* ---- Partidă «Trăsături pe ore» heat ramp (fish HourHeatmap RAMP, levels 1–4; level 0 is
+   * soft-fill). #6366F1 → indigo-5 and the peak #0891B2 → #0E7490 one cyan step down, so the
+   * white hour on them clears AA (4.47 → 4.52, 3.68 → 5.36); heat-ink is fish's #312E81. ---- */
+  --color-heat-1: #a5b4fc;
+  --color-heat-2: #6265f1;
+  --color-heat-3: #4f46e5;
+  --color-heat-4: #0e7490;
+  --color-heat-ink: #312e81;
+  /* «Clasament momeli» row dots (fish Leaderboard DOT_COLORS) — decorative, never under text. */
+  --color-bait-1: #f43f5e;
+  --color-bait-2: #3b82f6;
+  --color-bait-3: #4cb944;
+  --color-bait-4: #eab308;
+  --color-bait-5: #0891b2;
+  --color-bait-6: #a855f7;
+
   /* fish ramp values; the badge TEXT uses the AA-darkened --bluvi-badge-*-fg, never these. */
   --color-green-3: #6bbaa3;
   --color-yellow-5: #eab308;
