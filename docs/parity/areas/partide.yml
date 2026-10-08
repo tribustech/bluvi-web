@@ -1814,8 +1814,8 @@ screens:
       - id: partide.spectator.c12
         text: "When hasMoreCatches, „Vezi toate ({catchCount})” opens /partide/[id]/capturi."
         fish_ref: "app/(app)/partide/comunitate/[id].tsx:746-758"
-        status: proposed
-        note: "Hidden until /partide/[id]/capturi ships (B8; lib/partide-pages partidaCatches) — rule 4; e2e «c12 …» asserts it stays hidden. Flip with B8."
+        status: passing
+        note: "M4-B8 (PARTIDE_PAGES_ON_WEB.partidaCatches on): e2e tests/e2e/partide-spectator.spec.ts «c12 …» (hasMoreCatches → «Vezi toate (27)» links /partide/[id]/capturi in the catches card; none when every catch is shown) and tests/e2e/partide-spectator-capturi.spec.ts «partide.spectator.c12 …» (the click lands on «Capturi (27)»)."
       - id: partide.spectator.c13
         text: "A venue card at the bottom (image or pin, name, locality + past-card meta) links to the venue page when one exists."
         fish_ref: "app/(app)/partide/comunitate/[id].tsx:766-800"
@@ -1830,7 +1830,7 @@ screens:
     status: proposed
     e2e: tests/e2e/partide-spectator.spec.ts
     visual: tests/visual/partide-spectator.visual.spec.ts (baselines not committed until the owner approves)
-    web_note: "M4-B1. /partide/[id] public + prerendered from the cached public read (_spectator/load.ts: CMS 60 s live / 24 h ended, tag session-<id>), handed to communitySessionQuery (HydrationBoundary). JSON-LD SportsEvent (venue as Place) + breadcrumb, OG/Twitter card (venue, total kg, top photo; brand card for private/unknown). A private/unknown partidă (CMS 404) renders the not-found state through OwnOrSpectator's notFound slot with noindex — never notFound(), so B2 can show a member their private partidă. Layout: phone fish order; from 768 Airbnb title row + photo grid; from 1024 two columns (content | sticky tiles, Pescari, venue). c1 and c12 stay proposed (B2, B8). Kit: DetailPhotoHero `onOpenPhoto` (additive) so the grid opens the page's captioned lightbox. ON_WEB.partida stays false until B2 (own partide in profile lists would otherwise land on the spectator view)."
+    web_note: "M4-B1. /partide/[id] public + prerendered from the cached public read (_spectator/load.ts: CMS 60 s live / 24 h ended, tag session-<id>), handed to communitySessionQuery (HydrationBoundary). JSON-LD SportsEvent (venue as Place) + breadcrumb, OG/Twitter card (venue, total kg, top photo; brand card for private/unknown). A private/unknown partidă (CMS 404) renders the not-found state through OwnOrSpectator's notFound slot with noindex — never notFound(), so B2 can show a member their private partidă. Layout: phone fish order; from 768 Airbnb title row + photo grid; from 1024 two columns (content | sticky tiles, Pescari, venue). c1 stays proposed (B2); c12 passing since B8. Kit: DetailPhotoHero `onOpenPhoto` (additive) so the grid opens the page's captioned lightbox. ON_WEB.partida stays false until B2 (own partide in profile lists would otherwise land on the spectator view)."
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.spectator-capturi
@@ -1853,17 +1853,28 @@ screens:
       - id: partide.spectator-capturi.c1
         text: "Title „Capturi ({total})” (total from page 1; without it just „Capturi”) with back."
         fish_ref: "app/(app)/partide/comunitate/capturi/[id].tsx:71-78"
+        status: passing
+        note: "e2e «c1 «Capturi (27)» …» (the h1, «Partidă la {venue}» under it, the back square «Înapoi la partidă» → /partide/[id]) and «c1 c4 first load …» (just «Capturi» over the skeleton until page 1 answers)."
       - id: partide.spectator-capturi.c2
         text: "Every catch as a row (thumb, species, time, kg; the session's max catch highlighted), loading more at the end."
         fish_ref: "app/(app)/partide/comunitate/capturi/[id].tsx:80-98"
+        status: passing
+        note: "e2e «c2 phone …» (fish rows via the B1 CatchRow: thumb, species or «Captură», HH:MM, kg; the max — kg === the partidă's maxKg, never re-derived — in indigo; 20, then the cursor page p20 once the reader scrolls → 27), «c2 desktop (rule 14) …» (from 768 a real table: Ora · Foto · Specie · Greutate, «–» for an unweighed catch, the max also badged «Cea mai mare») «c2 from 1280 …» (the partidă summary card docks beside the table; the table ≤ 600 wide at 1280/1440/1920 and the kg ≤ 360 px from its species, rule 16), «c2 a partidă over more than one day …» (catches on 2+ Bucharest calendar days — partide can last 36 h: a «Zi» column before «Ora» on desktop, a «7 OCT» caption above each day's rows on the phone, «6 OCT, 14:30» in the lightbox and the thumbnail's name; a same-day partidă keeps HH:MM alone, fish) and «c2 live …» (the partidă's 60 s poll bringing a new catchCount / maxKg invalidates the list: «Capturi (5)», 5 rows, the new biggest highlighted, the summary's count = the list's total)."
       - id: partide.spectator-capturi.c3
         text: "Rows with a photo open the lightbox (photos only) with caption „{specie} · {kg} kg · HH:MM”."
         fish_ref: "app/(app)/partide/comunitate/capturi/[id].tsx:18-58"
+        status: passing
+        note: "e2e «c3 phone …» (a photo row opens the kit Lightbox, «Crap · 3,4 kg · 14:50»; → skips the photo-less rows; no-photo rows are not buttons) and «c3 desktop …» (the thumbnail button by keyboard, focus back on Escape; a click on the row opens it too)."
       - id: partide.spectator-capturi.c4
         text: "Empty: „Nicio captură încă.”; first load: list skeleton."
         fish_ref: "app/(app)/partide/comunitate/capturi/[id].tsx:100-112"
+        status: passing
+        note: "e2e «c4 empty …» at 375/1280/1440/1920 («Nicio captură încă.» + «Înapoi la partidă», «Capturi (0)», no table) and «c1 c4 first load …» (the list skeleton, «Se încarcă capturile…»)."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/partide-spectator-capturi.spec.ts
+    visual: tests/visual/partide-spectator-capturi.visual.spec.ts (baselines not committed until the owner approves)
+    web_note: "M4-B8. /partide/[id]/capturi public + prerendered: the partidă (the partidă page's cached read, _spectator/load.ts) and the first catches page (capturi/_list/load.ts, GET /feed/community/sessions/:id/catches, CMS TTL 60 s live / 24 h ended, tag session-<id>) handed to communitySessionQuery + sessionCatchesInfiniteQuery (HydrationBoundary); JSON-LD ImageGallery (the first page's photos, captioned) + breadcrumb; share card = the partidă's (opengraph-image re-export); noindex when the partidă has no catch. A private / unknown partidă (CMS 404) → the partidă's not-found state, noindex, never notFound() (e2e «not found» ×2). Extra states: a failed first read → «Nu am putut încărca capturile.» + «Reîncearcă» (e2e); a failed next page → ListFooter's retry. Layout: phone fish's rows; from 768 a table (rule 14); from 1280 the summary card (status, venue, count — the list's own total once known —, the biggest, «Vezi partida»), the table capped at 600 (rule 16; at 1920 the leftover beside the 600 + 360 body stays margin). Multi-day partide show the day (a «Zi» column / day captions); a same-day one HH:MM only (fish). Live: the partidă's 60 s poll changing catchCount / maxKg / endedAt re-reads the catches (fish has no summary card and offers pull-to-refresh instead). Server: the partidă and the first catches page are read side by side (one 4 s budget, not two in a row); the catches are dropped when the partidă is missing / unread. The next page loads once the reader scrolls (ListFooter armOnScroll: a 20-row page's footer is in range on a tall screen). Notifications: FOLLOW_RECORD_PERSONAL / FOLLOW_RECORD_LAKE → this page (partide.b.notif-community)."
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.spectator-galerie
@@ -1889,12 +1900,12 @@ screens:
         text: "Header „Galerie” with member avatars and subtitle „{members} · {photoCount} fotografii” and a close control."
         fish_ref: "features/partide/screens/SessionGalleryScreen.tsx:115-121"
         status: passing
-        note: "e2e tests/e2e/partide-spectator-galerie.spec.ts «c1 c2 at 375/768/1280/1440/1920» (kit FaceStack, three faces max; «Ion Pescar, Dan și Mihai · 32 de fotografii» — photoCount from the partidă, formatCount plurals, each part only once known, rule 4), «c1 one angler, one photo» («1 fotografie»), «c1 the close control» (useBack: history, else /partide/[id]; breadcrumb Partide › Partidă la … › Galerie). Way in (rule 1): the spectator hero's «Vezi toate fotografiile (N)» from 768 and the phone's count pill / photo tap (fish openGallery) — «way in …» ×2."
+        note: "e2e tests/e2e/partide-spectator-galerie.spec.ts «c1 c2 at 375/768/1280/1440/1920» (kit FaceStack, three faces max; «Ion Pescar, Dan și Mihai · 32 de fotografii» — photoCount from the partidă, formatCount plurals, each part only once known, rule 4), «c1 one angler, one photo» («1 fotografie»), «c1 the close control» (useBack: history, else /partide/[id]; breadcrumb Partide › Partidă la … › Galerie). The close control is fish GalleryScreenHeader's round ✕ on the RIGHT (where the Lightbox's ✕ is), also in loading.tsx so the header never shifts; «c1 c2 at …» asserts it right of the title, flush with the content edge, round. Way in (rule 1): the spectator hero's «Vezi toate fotografiile (N)» from 768 and the phone's count pill / photo tap (fish openGallery) — «way in …» ×2."
       - id: partide.spectator-galerie.c2
         text: "Masonry grid of the partidă's photo catches (30 per page), loading more at the end; a photo opens the lightbox with the catch footer."
         fish_ref: "features/partide/screens/SessionGalleryScreen.tsx:38-70"
         status: passing
-        note: "e2e «c1 c2 at …» (photos=1, pageSize=30, 30 tiles, the next cursor at the end → 32, order kept, two columns on a phone, ~220px tracks wider; axe clean) and «c2 a photo opens the lightbox…» (big kg with the unit apart, «specie · HH:MM» Bucharest, the roster's faces + names; ←/→, the last loaded asks for the next page). Web: the lake gallery's masonry + CatchTile (read-only), the kit Lightbox with a fish CatchLightboxFooter port."
+        note: "e2e «c1 c2 at …» (photos=1, pageSize=30, 30 tiles, the next cursor at the end → 32, order kept, two columns on a phone, ~220px tracks wider; axe clean) and «c2 a photo opens the lightbox…» (big kg with the unit apart, «specie · HH:MM» Bucharest, the roster's faces + names; ←/→, the last loaded asks for the next page; no console errors — the footer rows are divs, a <p> cannot hold the FaceStack's <div>). Web: the lake gallery's masonry + CatchTile (read-only), the kit Lightbox with a fish CatchLightboxFooter port."
       - id: partide.spectator-galerie.c3
         text: "Empty: „Nicio fotografie încă.”"
         fish_ref: "features/partide/screens/SessionGalleryScreen.tsx:134"
@@ -2001,8 +2012,8 @@ behaviours:
   - id: partide.b.notif-community
     text: "PARTIDA_CATCH, PARTIDA_FINISHED_FOLLOWED, FOLLOW_PARTIDA_START and FOLLOW_PARTIDA_FIRST_CATCH (data.sessionDocumentId) open /partide/[documentId]; FOLLOW_RECORD_PERSONAL / FOLLOW_RECORD_LAKE open /partide/[documentId]/capturi."
     fish_ref: "helpers/getRedirectLocationForNotification.ts:117-123,178-185"
-    status: proposed
-    note: "/partide/[id] part passing since M4-B3: PARTIDA_CATCH, PARTIDA_FINISHED_FOLLOWED, FOLLOW_PARTIDA_START, FOLLOW_PARTIDA_FIRST_CATCH → partidaHref (tests/unit/notification-href.test.ts; e2e tests/e2e/partide-links.spec.ts «… partide.b.notif-community …» — the /notificari row links /partide/[documentId]). FOLLOW_RECORD_PERSONAL / FOLLOW_RECORD_LAKE → /partide/[id]/capturi waits on that page (NOTIFICATION_PAGES_ON_WEB.communityCatches)."
+    status: passing
+    note: "/partide/[id] part passing since M4-B3: PARTIDA_CATCH, PARTIDA_FINISHED_FOLLOWED, FOLLOW_PARTIDA_START, FOLLOW_PARTIDA_FIRST_CATCH → partidaHref (tests/unit/notification-href.test.ts; e2e tests/e2e/partide-links.spec.ts «… partide.b.notif-community …» — the /notificari row links /partide/[documentId]). Capturi part since M4-B8 (NOTIFICATION_PAGES_ON_WEB.communityCatches on): FOLLOW_RECORD_PERSONAL / FOLLOW_RECORD_LAKE → /partide/[documentId]/capturi, no link without a string documentId (tests/unit/notification-href.test.ts; the gate ↔ page check pins it to app/(site)/partide/[id]/capturi); the page itself: tests/e2e/partide-spectator-capturi.spec.ts."
   - id: partide.b.signin-gating
     text: "Signed-out: start, join (both), pescari redirect to sign-in; the Ale mele tab shows the sign-in wall; the Pescari quick-nav tile and the follow bell push sign-in; Comunitate, Explorează, statistici, clasament and spectator pages are public."
     fish_ref: "features/partide/scenes/AcasaScene.tsx:119-126"

@@ -151,7 +151,17 @@ for (const width of WIDTHS) {
     // fish MemberAvatars: the faces beside the names (initials, three at most), decorative.
     const faces = page.getByTestId('gallery-faces');
     await expect(faces.locator('[aria-hidden="true"]').first()).toHaveText('IPDAMI');
-    await expect(page.getByRole('button', { name: 'Închide galeria' })).toBeVisible();
+    // fish GalleryScreenHeader: a round ✕ on the RIGHT of the title (where the Lightbox's ✕ is), not
+    // a ← on the left.
+    const close = page.getByRole('button', { name: 'Închide galeria' });
+    await expect(close).toBeVisible();
+    await expect(close.locator('svg')).toHaveCount(1);
+    const closeBox = (await close.boundingBox())!;
+    const titleBox = (await page.getByRole('heading', { level: 1, name: 'Galerie' }).boundingBox())!;
+    expect(closeBox.x, 'the ✕ sits right of the title').toBeGreaterThan(titleBox.x + titleBox.width - 1);
+    const bodyBox = (await page.getByTestId('gallery-body').boundingBox())!;
+    expect(Math.abs(closeBox.x + closeBox.width - (bodyBox.x + bodyBox.width)), 'flush with the content\'s right edge').toBeLessThan(2);
+    expect(await close.evaluate(el => parseFloat(getComputedStyle(el).borderRadius)), 'round').toBeGreaterThanOrEqual(closeBox.width / 2 - 1);
     // c2: the first page — 30 tiles (on a tall wide screen the footer is in view at once and the next
     // page follows straight away), the masonry placed (two columns on a phone, more as it widens).
     await expect.poll(() => tiles(page).count()).toBeGreaterThanOrEqual(30);
@@ -229,6 +239,8 @@ test('partide.spectator-galerie way in on a phone: the photo count pill (fish op
  * ---------------------------------------------------------------------------------------------- */
 
 test('partide.spectator-galerie.c2 a photo opens the lightbox: big kg, «specie · ora», the roster; ← → page; the last loaded asks for the next page', async ({ page }) => {
+  // No console errors around the lightbox (React's DOM-nesting warnings — a <div> inside a <p> — are errors).
+  const errors = collectConsoleErrors(page, { ignore: EXPECTED_CONSOLE });
   const calls = await mockCms(page);
   await open(page, MANY, 1280);
   await tiles(page).nth(1).click();
@@ -261,6 +273,7 @@ test('partide.spectator-galerie.c2 a photo opens the lightbox: big kg, «specie 
   await expect(dialog).toContainText('Galerie · 31 din 32');
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
+  expect(errors).toEqual([]);
 });
 
 /* ------------------------------------------------------------------------------------------------

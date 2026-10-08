@@ -482,11 +482,16 @@ test('partide.spectator.c10 a biggest catch with a photo opens the lightbox on i
   await expect(page.getByTestId('lightbox-footer')).toHaveText('Crap · 3,4 kg · 14:30');
 });
 
-test('partide.spectator.c12 more catches than shown: «Vezi toate» stays hidden until /partide/[id]/capturi ships (rule 4)', async ({ page }) => {
+test('partide.spectator.c12 more catches than shown: «Vezi toate (27)» opens /partide/[id]/capturi; none when all are shown', async ({ page }) => {
   await mockCms(page);
   await open(page, MORE);
   await expect(page.getByTestId('partida-catch')).toHaveCount(4);
-  await expect(page.getByRole('link', { name: /Vezi toate/ })).toHaveCount(0);
+  await expect(page.getByTestId('partida-catches').getByRole('link', { name: 'Vezi toate (27)' })).toHaveAttribute('href', `/partide/${MORE}/capturi`);
+  // hasMoreCatches false: no link (the full list is already on the page). The page itself:
+  // tests/e2e/partide-spectator-capturi.spec.ts «partide.spectator.c12 …».
+  await open(page, ENDED);
+  await expect(page.getByTestId('partida-catch')).toHaveCount(4);
+  await expect(page.getByTestId('partida-catches').getByRole('link', { name: /Vezi toate/ })).toHaveCount(0);
 });
 
 /* ------------------------------------------------------------------------------------------------

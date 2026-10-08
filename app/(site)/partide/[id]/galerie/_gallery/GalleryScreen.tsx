@@ -8,7 +8,6 @@ import { SetBreadcrumb } from '@/app/(site)/_shell/SiteHeader';
 // The lake gallery's masonry and catch tile, read-only (their TODO(kit): a Masonry in components/ui).
 import { CatchTile } from '@/app/(site)/balti/[id]/_sub/CatchTile';
 import { DEFAULT_RATIO, MasonryGrid, MasonrySkeleton, tileRatio } from '@/app/(site)/balti/[id]/_sub/Masonry';
-import { useBack } from '@/components/nav/useBack';
 import { clockRo } from '@/components/partide/session/format';
 import { Lightbox, type LightboxItem } from '@/components/surfaces/Lightbox';
 import { ListEmpty, ListError, ListFooter, ListHeader, ListPage } from '@/components/templates/T1';
@@ -26,6 +25,7 @@ import { isApiError } from '@/core/transport';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { SpectatorNotFound } from '../../_spectator/states';
+import { GalleryClose } from './GalleryClose';
 import { galleryTrail, GALLERY_LABEL } from './seo';
 import { GALLERY_QUERY, galleryPhotos, gallerySubtitle, photoCaption, tileLabel, type GalleryPhoto } from './view';
 
@@ -34,8 +34,8 @@ import { GALLERY_QUERY, galleryPhotos, gallerySubtitle, photoCaption, tileLabel,
  * partide.spectator-galerie c1–c4), T1's ListPage with no filters and no aside.
  *  - c1 «Galerie», the members' faces (kit FaceStack, fish MemberAvatars: three at most) and
  *    «{membri} · {N} fotografii» — N is the partidă's photoCount (its TRUE total, whatever has
- *    loaded), each part only once known (rule 4) — and the close control (useBack: the previous page
- *    of this tab, else the partidă — fish router.back());
+ *    loaded), each part only once known (rule 4) — and fish's round ✕ on the RIGHT, where the
+ *    Lightbox's ✕ is (GalleryClose: useBack — the previous page of this tab, else the partidă);
  *  - c2 the photos from core sessionCatchesInfiniteQuery(id, { photosOnly, pageSize: 30 }) — NOT the
  *    detail's `photos`, capped at 12 — in the lake gallery's masonry (two columns on a phone, ~220px
  *    tracks as the page widens), the next page half a screen early with fish's spinner footer; a
@@ -53,7 +53,6 @@ import { GALLERY_QUERY, galleryPhotos, gallerySubtitle, photoCaption, tileLabel,
  * of it stays on screen (invariant 15).
  */
 
-const CLOSE_LABEL = 'Închide galeria';
 const TITLE_ID = 'galerie-titlu';
 
 const notFound = (e: unknown) => isApiError(e) && (e.status === 404 || e.status === 400);
@@ -64,7 +63,6 @@ export function GalleryScreen({ documentId }: { documentId: string }) {
   const session = useQuery({ ...communitySessionQuery(t, documentId), refetchOnWindowFocus: false });
   // Focus refetches come from the c4 listener only (TanStack's own would read every page a second time).
   const q = useInfiniteQuery({ ...sessionCatchesInfiniteQuery(t, documentId, GALLERY_QUERY), refetchOnWindowFocus: false });
-  const back = useBack(routes.partida(documentId));
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [broken, setBroken] = useState<ReadonlySet<string>>(() => new Set());
   const markBroken = (key: string) => setBroken(prev => (prev.has(key) ? prev : new Set(prev).add(key)));
@@ -167,7 +165,7 @@ export function GalleryScreen({ documentId }: { documentId: string }) {
             title={GALLERY_LABEL}
             titleId={TITLE_ID}
             description={<Subtitle members={detail ? members : []} text={subtitle} pending={!detail && session.isPending} />}
-            back={{ label: CLOSE_LABEL, onClick: back }}
+            actions={<GalleryClose documentId={documentId} />}
           />
         }
       >
@@ -232,19 +230,20 @@ function GalleryLightboxFooter({ p, members, anglerLabel }: { p: GalleryPhoto; m
   return (
     <div className="flex flex-col gap-0.75" data-testid="gallery-lightbox-footer">
       {p.weightKg != null ? (
-        <p className="flex items-baseline gap-1.25">
+        <div className="flex items-baseline gap-1.25">
           <span className="t-display">{fmtKg(p.weightKg)}</span>
           <span className="t-heading text-lavender-3">kg</span>
-        </p>
+        </div>
       ) : null}
       {secondary ? <p className="t-body text-lavender-2">{secondary}</p> : null}
       {anglerLabel ? (
-        <p className="mt-1 flex min-w-0 items-center gap-2.25 t-body-strong">
+        // A div: the kit FaceStack renders a <div>, which a <p> cannot hold.
+        <div className="mt-1 flex min-w-0 items-center gap-2.25 t-body-strong">
           {members.length ? (
             <FaceStack people={members.slice(0, 3).map(m => ({ name: nameOf(m), src: m.avatarUrl }))} size={32} className="shrink-0 *:border-on-photo-scrim/35" />
           ) : null}
           <span className="truncate">{anglerLabel}</span>
-        </p>
+        </div>
       ) : null}
     </div>
   );

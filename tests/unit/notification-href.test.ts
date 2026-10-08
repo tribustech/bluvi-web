@@ -97,8 +97,9 @@ describe('notificationHref — every type with its ids', () => {
     [T.PARTIDA_FINISHED_FOLLOWED, { sessionDocumentId: 'p1' }, '/partide/p1'],
     [T.FOLLOW_PARTIDA_START, { sessionDocumentId: 'p1' }, '/partide/p1'],
     [T.FOLLOW_PARTIDA_FIRST_CATCH, { sessionDocumentId: 'p1' }, '/partide/p1'],
-    [T.FOLLOW_RECORD_PERSONAL, { sessionDocumentId: 'p1' }, null],
-    [T.FOLLOW_RECORD_LAKE, { sessionDocumentId: 'p1' }, null],
+    // partide.b.notif-community (capturi): a record → the partidă's catches.
+    [T.FOLLOW_RECORD_PERSONAL, { sessionDocumentId: 'p1' }, '/partide/p1/capturi'],
+    [T.FOLLOW_RECORD_LAKE, { sessionDocumentId: 'p1' }, '/partide/p1/capturi'],
     [T.COMPETITION_AUTO_CANCELLED_ORGANIZER, {}, null],
     [T.BOOKING_REQUEST_RECEIVED_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
     [T.BOOKING_CONFIRMED_ANGLER, { bookingId: 'b1' }, '/rezervari/b1'],
@@ -132,6 +133,16 @@ describe('notificationHref — every type with its ids', () => {
     expect(href(T.PARTIDA_FINISHED, { sessionId: 'a/b c' })).toBe('/partide/sesiune/a%2Fb%20c');
     expect(href(T.PARTIDA_CATCH, { sessionDocumentId: 'a/b c' })).toBe('/partide/a%2Fb%20c');
     expect(href(T.PARTIDA_INVITE, { partidaCode: 'a/b c' })).toBe('/partide/intra/a%2Fb%20c');
+    expect(href(T.FOLLOW_RECORD_LAKE, { sessionDocumentId: 'a/b c' })).toBe('/partide/a%2Fb%20c/capturi');
+  });
+
+  it('partide.b.notif-community: a record without a session documentId (missing, empty or not a string) → no link', () => {
+    for (const type of [T.FOLLOW_RECORD_PERSONAL, T.FOLLOW_RECORD_LAKE]) {
+      expect(href(type, {})).toBeNull();
+      expect(href(type, { sessionDocumentId: '' })).toBeNull();
+      expect(href(type, { sessionDocumentId: 42 })).toBeNull();
+      expect(href(type, { sessionId: 'local-1' })).toBeNull();
+    }
   });
 
   it('partide.b.notif-invite: PARTIDA_INVITE without a code (missing, empty or not a string) → no link', () => {
@@ -208,6 +219,7 @@ describe('notificationHref — a missing required id means no link', () => {
     [T.PARTIDA_INVITE, {}],
     [T.PARTIDA_CATCH, {}],
     [T.FOLLOW_RECORD_LAKE, {}],
+    [T.FOLLOW_RECORD_PERSONAL, {}],
     [T.BOOKING_CONFIRMED_ANGLER, {}],
     [T.BOOKING_REMINDER_ANGLER, { lakeId: 'l1' }],
     [T.BOOKING_CANCELLED_OPERATOR, {}],

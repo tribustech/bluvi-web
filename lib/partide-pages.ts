@@ -35,8 +35,8 @@ export const PARTIDE_PAGES_ON_WEB = {
   partidaStatistici: true,
   /** /partide/[id]?tab=setari — the member view's «Setări» tab (partide.partida-setari). */
   partidaSetari: true,
-  /** /partide/[id]/capturi — every catch of a partidă. */
-  partidaCatches: false,
+  /** /partide/[id]/capturi — every catch of a partidă (partide.spectator-capturi). */
+  partidaCatches: true,
   /** /partide/[id]/galerie — the photos of a partidă (partide.spectator-galerie). */
   partidaGallery: true,
   /** /partide/[id]/captura — the capture flow (partide.captura). */

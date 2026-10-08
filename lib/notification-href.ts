@@ -36,8 +36,11 @@ export const NOTIFICATION_PAGES_ON_WEB = {
    * own list) or falls back to Ale mele — ON since M4-B3 (partide.b.notif-finished-autoclose).
    */
   ownPartida: true,
-  /** /partide/[id]/capturi — a community session's catches (M4). */
-  communityCatches: false,
+  /**
+   * /partide/[id]/capturi — a partidă's catches (FOLLOW_RECORD_PERSONAL / FOLLOW_RECORD_LAKE, the
+   * documentId) — ON since M4-B8 (partide.b.notif-community).
+   */
+  communityCatches: true,
   /** /organizator — the organizer panel (M6). */
   organizer: false,
   /** /rezervari/[id] — the angler's booking detail (M3) — ON since M3-B2. */
@@ -106,8 +109,9 @@ export function notificationHref(route: NotificationRoute): string | null {
       // documentId): the partidă page, member or spectator view (partide.b.notif-community).
       return partidaHref(route.params.sessionDocumentId);
     case 'communityCatches':
-      // TODO(M4): routes.partidaCatches(id) (/partide/[id]/capturi).
-      return null; // NOTIFICATION_PAGES_ON_WEB.communityCatches is off: no page yet
+      // FOLLOW_RECORD_PERSONAL / FOLLOW_RECORD_LAKE (the documentId; core answers null without one)
+      // → the partidă's catches (fish comunitate/capturi/[id], partide.b.notif-community).
+      return NOTIFICATION_PAGES_ON_WEB.communityCatches ? routes.partidaCatches(route.params.sessionDocumentId) : null;
     case 'organizerDashboard':
       return NOTIFICATION_PAGES_ON_WEB.organizer ? routes.organizer() : null;
     case 'booking':
