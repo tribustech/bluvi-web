@@ -468,9 +468,10 @@ test('partide.spectator.c10 c11 the biggest catch and the catch list: the max in
   await expect(box.getByTestId('lightbox-footer')).toHaveText('Caras · 1,24 kg · 13:30');
   await page.keyboard.press('Escape');
   await expect(box).toBeHidden();
-  // The photo pill opens it too (before the gallery ships, B8).
-  await view.getByTestId('partida-photo-count').click();
-  await expect(box.getByTestId('lightbox-footer')).toHaveText('Crap · 3,4 kg · 14:30');
+  // The photo pill (phone) and «Vezi toate fotografiile (2)» (from 768) open the gallery
+  // (partide.spectator-galerie, tests/e2e/partide-spectator-galerie.spec.ts «way in …»).
+  await expect(view.getByTestId('partida-photo-count')).toHaveAttribute('href', `/partide/${ENDED}/galerie`);
+  await expect(view.getByRole('link', { name: 'Vezi toate fotografiile (2)' })).toHaveAttribute('href', `/partide/${ENDED}/galerie`);
 });
 
 test('partide.spectator.c10 a biggest catch with a photo opens the lightbox on it', async ({ page }) => {

@@ -1888,17 +1888,28 @@ screens:
       - id: partide.spectator-galerie.c1
         text: "Header „Galerie” with member avatars and subtitle „{members} · {photoCount} fotografii” and a close control."
         fish_ref: "features/partide/screens/SessionGalleryScreen.tsx:115-121"
+        status: passing
+        note: "e2e tests/e2e/partide-spectator-galerie.spec.ts «c1 c2 at 375/768/1280/1440/1920» (kit FaceStack, three faces max; «Ion Pescar, Dan și Mihai · 32 de fotografii» — photoCount from the partidă, formatCount plurals, each part only once known, rule 4), «c1 one angler, one photo» («1 fotografie»), «c1 the close control» (useBack: history, else /partide/[id]; breadcrumb Partide › Partidă la … › Galerie). Way in (rule 1): the spectator hero's «Vezi toate fotografiile (N)» from 768 and the phone's count pill / photo tap (fish openGallery) — «way in …» ×2."
       - id: partide.spectator-galerie.c2
         text: "Masonry grid of the partidă's photo catches (30 per page), loading more at the end; a photo opens the lightbox with the catch footer."
         fish_ref: "features/partide/screens/SessionGalleryScreen.tsx:38-70"
+        status: passing
+        note: "e2e «c1 c2 at …» (photos=1, pageSize=30, 30 tiles, the next cursor at the end → 32, order kept, two columns on a phone, ~220px tracks wider; axe clean) and «c2 a photo opens the lightbox…» (big kg with the unit apart, «specie · HH:MM» Bucharest, the roster's faces + names; ←/→, the last loaded asks for the next page). Web: the lake gallery's masonry + CatchTile (read-only), the kit Lightbox with a fish CatchLightboxFooter port."
       - id: partide.spectator-galerie.c3
         text: "Empty: „Nicio fotografie încă.”"
         fish_ref: "features/partide/screens/SessionGalleryScreen.tsx:134"
+        status: passing
+        note: "e2e «c3 empty at 375/1280» (+ «Înapoi la partidă»), «c3 loading» (masonry skeleton), «c3 a failed first read» (error card + retry, never an empty gallery), «not found» ×2 (CMS 404 = private/unknown → the partidă's not-found state, noindex, no photo read on the server)."
       - id: partide.spectator-galerie.c4
         text: "Returning to the page refetches the session (focus)."
         fish_ref: "features/partide/screens/SessionGalleryScreen.tsx:42-46"
+        status: passing
+        note: "e2e «c4 the tab coming back (visibilitychange)…»: one partidă read per return through core refetchCommunitySessionOnFocus (TanStack's own focus refetch off on both queries); as in fish the invalidated key is a prefix of the photos' key, so the loaded photo page is read again too."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/partide-spectator-galerie.spec.ts
+    visual: tests/visual/partide-spectator-galerie.visual.spec.ts (photos, one, empty, error, lightbox, not-found × 375/768/1280/1440/1920)
+    web_note: "M4-B8. Public, prerendered: the partidă + the first 30 photos are cached public reads (tag session-<id>) in the HTML, ImageGallery + BreadcrumbList JSON-LD, share card «Partidă · Galerie» with the photo count and the first photo (e2e «the server prerender…»). Empty gallery → noindex. lib/partide-pages partidaGallery on; the spectator hero links it."
 
   # ───────────────────────────────────────────────────────────────────────────────────────────────
   - id: partide.rod-config

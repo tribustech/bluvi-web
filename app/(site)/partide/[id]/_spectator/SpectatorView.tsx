@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Suspense, useId, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRightIcon, MapPinIcon } from '@heroicons/react/20/solid';
-import { PhotoIcon } from '@heroicons/react/24/outline';
+import { PhotoIcon, Squares2X2Icon } from '@heroicons/react/24/outline';
 import { FishIcon } from '@/components/icons/brand';
 import { BiggestCatch } from '@/components/partide/session/BiggestCatch';
 import { CatchRow } from '@/components/partide/session/CatchRow';
@@ -29,6 +29,7 @@ import {
   DetailShareButton,
   PHOTO_PILL,
   PRESENCE_ICON,
+  SHOW_ALL_CLASS,
 } from '@/components/templates/T3';
 import { DetailStickyAside } from '@/components/templates/T3/DetailStickyAside';
 import { cn } from '@/components/ui/cn';
@@ -42,6 +43,7 @@ import {
   type CommunityMemberDTO,
   type CommunitySessionDetailDTO,
 } from '@/core/partide';
+import { formatCount } from '@/core/realtime/chat/format';
 import { isApiError } from '@/core/transport';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { partideHrefs } from '@/lib/partide-pages';
@@ -71,8 +73,9 @@ import { SpectatorError, SpectatorNotFound } from './states';
  * background refetch fails on the network, so a blip never turns a shown partidă into an error
  * (fish); a 404 / 400 does turn it into «not found» — it went private or was deleted.
  * The session only shapes the bell and the member rows (behind their own Suspense, never the page).
- * Photos open the kit Lightbox, captioned «Crap · 3,4 kg · 14:30» (c10, c11); the gallery and the
- * full catch list (B8, lib/partide-pages) stay hidden until they ship (rule 4).
+ * Photos open the kit Lightbox, captioned «Crap · 3,4 kg · 14:30» (c10, c11); the gallery
+ * (/partide/[id]/galerie, lib/partide-pages) is the photo count on the phone and «Vezi toate
+ * fotografiile (N)» from 768.
  */
 
 export function SpectatorView({ documentId }: { documentId: string }) {
@@ -126,8 +129,32 @@ function Loaded({ detail }: { detail: CommunitySessionDetailDTO }) {
       <FollowSessionButton sessionDocumentId={detail.documentId} look={look} />
     </Suspense>
   );
-  const photoPill =
-    view.photoCount > 0 && lightboxItems.length > 0 ? (
+  // The gallery (partide.spectator-galerie, fish openGallery): the phone's count pill and a tap on a
+  // hero photo go there; from 768 the tiles keep the lightbox and «Vezi toate fotografiile (N)» —
+  // Airbnb's «Show all photos», owner rule 1 — is the way in (2+ photos: one would only reopen itself).
+  const gallery = view.photoCount > 0 ? partideHrefs.partidaGallery(detail.documentId) : null;
+  const galleryLinks = gallery ? (
+    <>
+      <Link
+        href={gallery}
+        aria-label={`Galerie: ${formatCount(view.photoCount, 'fotografie', 'fotografii')}`}
+        data-testid="partida-photo-count"
+        className={cn(PHOTO_PILL, 'hover:brightness-125 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-photo-scrim md:hidden [&>svg]:size-5')}
+      >
+        <PhotoIcon aria-hidden />
+        {view.photoCount}
+      </Link>
+      {view.photoCount > 1 ? (
+        <Link href={gallery} className={SHOW_ALL_CLASS} data-testid="partida-show-all">
+          <Squares2X2Icon aria-hidden />
+          Vezi toate fotografiile ({view.photoCount})
+        </Link>
+      ) : null}
+    </>
+  ) : null;
+  const photoPill = galleryLinks
+    ? galleryLinks
+    : view.photoCount > 0 && lightboxItems.length > 0 ? (
       <button
         type="button"
         aria-haspopup="dialog"
@@ -190,9 +217,10 @@ function Loaded({ detail }: { detail: CommunitySessionDetailDTO }) {
             className="max-md:-order-1"
             photos={heroPhotos}
             label={`Fotografii din partida de la ${detail.venueName}`}
-            // Catch photos open the captioned lightbox; the venue image (no catch photo) opens nothing
-            // until the gallery ships (B8).
+            // From 768 catch photos open the captioned lightbox, on the phone a tap opens the gallery
+            // (fish onPressPhoto); the venue image (no catch photo) opens nothing — the gallery is empty.
             onOpenPhoto={fromCatches ? i => setLightbox(i) : undefined}
+            phoneHref={fromCatches ? (gallery ?? undefined) : undefined}
             // A photo that fails to load (a deleted S3 object): fish's fish on the indigo tint, as the
             // catch thumbnails — never the broken-image glyph.
             photoFallback={TILE_FALLBACK}

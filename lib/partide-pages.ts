@@ -37,8 +37,8 @@ export const PARTIDE_PAGES_ON_WEB = {
   partidaSetari: true,
   /** /partide/[id]/capturi — every catch of a partidă. */
   partidaCatches: false,
-  /** /partide/[id]/galerie — the photos of a partidă. */
-  partidaGallery: false,
+  /** /partide/[id]/galerie — the photos of a partidă (partide.spectator-galerie). */
+  partidaGallery: true,
   /** /partide/[id]/captura — the capture flow (partide.captura). */
   capture: true,
   /** /partide/incepe — start a partidă (lib/routes.ts ON_WEB.startPartida). */
