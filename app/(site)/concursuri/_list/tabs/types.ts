@@ -1,12 +1,11 @@
 import type { ComponentType } from 'react';
 import type { CompetitionCard, CompetitionCardStatus } from '@/core/competitions';
 import type { Transport } from '@/core/transport';
-import type { PhotoRequest } from '../cards/parts';
 import type { DesktopViewer } from '../desktop/data';
 
 /*
  * The contract between the Concursuri page (../CompetitionsScreen: header, tabs as links, search,
- * filter bar, summary, load-more, dialogs, photo viewer) and each tab's own content. A tab module
+ * filter bar, summary, load-more, dialogs) and each tab's own content. A tab module
  * fills two slots of its tab's page — nothing else on the page is the tab's:
  *
  *   Top   above the search row and filter bar, under the Viitoare bento (if shown): the tab's own
@@ -34,8 +33,6 @@ export type TabViewProps = {
   viewer: DesktopViewer;
   /** Signed in, or a session the server could not read in time (per-user reads still work). */
   isAuthenticated: boolean;
-  /** Opens the page's photo viewer (a card's poster). */
-  onOpenPhoto: (photo: PhotoRequest) => void;
   /** The list region's heading id — name the Body's <ul> with it (aria-labelledby). */
   labelledBy: string;
   /** How many of the first posters should load eagerly (0 when something sits above the list). */

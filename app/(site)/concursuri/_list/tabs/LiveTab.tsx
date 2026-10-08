@@ -103,7 +103,6 @@ function Body(p: TabViewProps) {
           priority={p.priorityCount > 0}
           weighings={recent.state === 'ready' ? stripItems(recent.items, new Set([c.documentId]), 10) : null}
           onOpenWeighing={detail.open}
-          onOpenPhoto={p.onOpenPhoto}
         />
         <WeighingDetail t={p.t} target={detail.target} onClose={detail.close} />
       </div>
@@ -116,7 +115,7 @@ function Body(p: TabViewProps) {
         const flash = recent.flash[c.documentId];
         return (
           <li key={c.documentId} data-live-card={c.documentId} className={cn(posterItemClass(true), s.rise, 'relative')} style={{ '--i': i } as CSSProperties}>
-            <PosterCard competition={c} onOpenPhoto={p.onOpenPhoto} priority={i < p.priorityCount} />
+            <PosterCard competition={c} priority={i < p.priorityCount} />
             {flash ? <span key={flash} aria-hidden data-flash="" className={cn('pointer-events-none absolute inset-0 rounded-card', s.wash)} /> : null}
           </li>
         );

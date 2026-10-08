@@ -145,9 +145,12 @@ for (const b of BALTA) {
       await expect(items).toHaveCount(13);
       expect(asked.map((u) => u.searchParams.get('page'))).toContain('2');
       await expectNoA11yViolations(page);
-      // c9: a card opens the competition.
-      await first.getByRole('link', { name: 'FX p1 0' }).click();
+      // c9: a card opens the competition — the poster too (owner 2026-10-08, §4b.24: no photo viewer).
+      await expect(first.getByRole('button', { name: /afiș|imaginea/i })).toHaveCount(0);
+      // force: the card's stretched link lies over the poster and takes the click (that is the point).
+      await first.locator('img').first().click({ force: true });
       await expect(page).toHaveURL(/\/concursuri\/p1-0$/, { timeout: 60_000 });
+      await expect(page.getByRole('dialog')).toHaveCount(0);
     } finally {
       await setFaults(page, []);
     }

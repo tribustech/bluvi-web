@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useInfiniteQuery, type InfiniteData, type UseInfiniteQueryResult } from '@tanstack/react-query';
 import { TrophyIcon } from '@heroicons/react/24/outline';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -12,8 +11,7 @@ import { formatCount } from '@/core/realtime/chat/format';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { logEvent } from '../../../concursuri/_list/analytics';
-import { CardSkeleton, cardItemClass, CompetitionCardItem, type PhotoRequest } from '../../../concursuri/_list/CompetitionCardItem';
-import { PhotoViewer } from '../../../concursuri/_list/PhotoViewer';
+import { CardSkeleton, cardItemClass, CompetitionCardItem } from '../../../concursuri/_list/CompetitionCardItem';
 import { RESULTS_REFRESH } from '../../../concursuri/_list/resultsChromeStyles';
 import { firstReadFailed, SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_sub/states';
 import { useBack } from '../_sub/useBack';
@@ -78,11 +76,9 @@ export function LakeCompetitionsScreen({
   bareTab?: LakeCompetitionTab;
 }) {
   const t = useMemo(() => createBrowserTransport(), []);
-  const router = useRouter();
   const [tab, setTab] = useState<LakeCompetitionTab>(initialTab);
   useListUrlState({ tab: tab === bareTab ? null : tab });
   const back = useBack(routes.lake(lakeId));
-  const [photo, setPhoto] = useState<PhotoRequest | null>(null);
 
   const q = useInfiniteQuery(lakeCompetitionCardsQuery(t, lakeId, tabOf(tab).status));
   // Every tab's size rides on each tab's read: kept across a switch so the LIVE dot never flickers.
@@ -151,15 +147,7 @@ export function LakeCompetitionsScreen({
         />
       }
     >
-      <TabList key={tab} q={q} tab={tab} counts={counts} onTab={selectFromEmpty} onOpenPhoto={setPhoto} />
-      <PhotoViewer
-        photo={photo}
-        onClose={() => setPhoto(null)}
-        onOpenCompetition={id => {
-          setPhoto(null);
-          router.push(routes.competition(id));
-        }}
-      />
+      <TabList key={tab} q={q} tab={tab} counts={counts} onTab={selectFromEmpty} />
     </ListPage>
   );
 }
@@ -171,13 +159,11 @@ function TabList({
   tab,
   counts,
   onTab,
-  onOpenPhoto,
 }: {
   q: CardsQuery;
   tab: LakeCompetitionTab;
   counts: Counts | null;
   onTab: (tab: LakeCompetitionTab) => void;
-  onOpenPhoto: (photo: PhotoRequest) => void;
 }) {
   const meta = tabOf(tab);
   const items = useMemo(() => (q.data?.pages.flatMap(p => p.data) ?? []).map(withoutLake), [q.data]);
@@ -249,7 +235,7 @@ function TabList({
         <ListGrid min="md" labelledBy={headingId} className="gap-y-2.5">
           {items.map((c, i) => (
             <li key={c.documentId} className={cardItemClass(aligned)}>
-              <CompetitionCardItem competition={c} aligned={aligned} onOpenPhoto={onOpenPhoto} priority={i < PRIORITY_CARDS} />
+              <CompetitionCardItem competition={c} aligned={aligned} priority={i < PRIORITY_CARDS} />
             </li>
           ))}
         </ListGrid>

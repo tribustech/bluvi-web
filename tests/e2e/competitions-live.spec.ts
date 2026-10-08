@@ -438,6 +438,9 @@ test.describe('signed in', () => {
     await expect(view.getByRole('list', { name: 'Clasament acum' }).getByRole('listitem').first().locator('img')).toHaveAttribute('src', /leader/);
     // LCP: the view's poster loads eagerly.
     await expect(view.locator('img[fetchpriority="high"]').first()).toBeAttached();
+    // Owner 2026-10-08 (§4b.24): the poster links to the competition — no viewer button.
+    await expect(view.getByRole('button', { name: /afiș|imaginea/i })).toHaveCount(0);
+    await expect(view.locator('img[fetchpriority="high"]').first().locator('xpath=ancestor::a[1]')).toHaveAttribute('href', `/concursuri/${only.documentId}`);
     await settled(page);
     await expectNoA11yViolations(page);
     await page.setViewportSize(PHONE);

@@ -68,11 +68,9 @@ import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { logFiltersApplied, logScopeChanged, logSearchCommitted, logStatusChanged } from './analytics';
 import { PosterGrid, PosterGridSkeleton } from './cards/PosterCard';
-import type { PhotoRequest } from './cards/parts';
 import { FiltersDialog, periodChoices, PickerRow, type FiltersView } from './FiltersDialog';
 import { DesktopRowsSkeleton, DesktopTabView } from './desktop/DesktopTabView';
 import type { DesktopViewer } from './desktop/data';
-import { PhotoViewer } from './PhotoViewer';
 import {
   countLabel,
   FORMAT_LABEL,
@@ -181,7 +179,6 @@ export function CompetitionsScreen({
     scope: initial.scope === 'followed' ? 'followed' : 'all',
     status: 'notStarted',
   });
-  const [photo, setPhoto] = useState<PhotoRequest | null>(null);
   // «Today» for the period presets, the chips, the calendar and the period-vs-state check (filters.c4).
   // Read once for a hydration-stable first render, then again whenever the page comes back into view
   // and on every filters opening (fish recomputes per sheet opening): a tab left open past midnight,
@@ -854,7 +851,6 @@ export function CompetitionsScreen({
           t,
           viewer,
           isAuthenticated,
-          onOpenPhoto: setPhoto,
           labelledBy: SUMMARY_ID,
         }
       : null;
@@ -947,7 +943,7 @@ export function CompetitionsScreen({
   } else if (TabBody && tabProps) {
     body = <TabBody {...tabProps} />;
   } else {
-    const cards = <PosterGrid cards={competitions} onOpenPhoto={setPhoto} labelledBy={SUMMARY_ID} priorityCount={showPulse ? 0 : 2} />;
+    const cards = <PosterGrid cards={competitions} labelledBy={SUMMARY_ID} priorityCount={showPulse ? 0 : 2} />;
     body = mineActive ? (
       <>
         <div className="lg:hidden">{cards}</div>
@@ -1110,14 +1106,6 @@ export function CompetitionsScreen({
         ) : null}
       </ListRegion>
       {dialogs}
-      <PhotoViewer
-        photo={photo}
-        onClose={() => setPhoto(null)}
-        onOpenCompetition={(id) => {
-          setPhoto(null);
-          router.push(routes.competition(id));
-        }}
-      />
     </ListPage>
   );
 }

@@ -64,7 +64,7 @@ screens:
       - "density: WEB one only (no Listă / Afiș toggle, owner 2026-10-06) — fish's poster cards (expanded density) at every width"
       - "arrived on a tab's own page (/concursuri/viitoare · /live · /rezultate, e.g. from Acasă «Vezi toate») or on /concursuri (Live when something is live, else Viitoare)"
       - "chrome state: search row visible vs scrolled away (magnifier + filter icons fade into the title row)"
-      - photo viewer open over the list
+      - "photo viewer open over the list — WEB n/a (owner 2026-10-08, §4b.24): no photo viewer, the poster opens the competition"
       - render error caught by the route error boundary (retry card)
       - "WEB Viitoare at every width: poster cards grouped on the time axis (Azi · Mâine · Săptămâna asta · Weekendul ăsta · Săptămâna viitoare · months), passed starts last (c40)"
       - "WEB Live at every width: «Cântăriri recente» + «Concursul tău» above poster cards in a stable order (competitions-list.live c16–c24)"
@@ -153,6 +153,7 @@ screens:
       - id: competitions-list.index.c26
         text: Tapping a card poster opens the photo full screen over the page with the competition caption, the competition name as sender and its dateLabel as time, and an action "Vezi concursul" that closes the viewer and opens the competition; closing returns to the list unchanged.
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:667
+        web_note: "n/a on the web — owner 2026-10-08 (ROADMAP §4b.24): the poster tap opens the competition, unlike fish; there is no photo viewer on the cards."
       - id: competitions-list.index.c27
         text: A ?status=started|notStarted|completed parameter (used by Acasă "Vezi toate") clears search and filters, switches to that tab, and is then removed so a later visit does not snap back to it; any other value is ignored.
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:350
@@ -256,8 +257,9 @@ screens:
       - id: competitions-list.cards.c2
         text: "Poster source order: banner small → banner original → lake image small → lake image original; the full-screen photo uses the same media's original URL."
         fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:101
+        web_note: "WEB: the poster source order holds; there is no full-screen photo (owner 2026-10-08, §4b.24) — the poster opens the competition."
       - id: competitions-list.cards.c3
-        text: 'Compact: a 76px rounded square poster on the left is its own button "Mărește afișul: {nume}" that opens the photo viewer (never navigates); without a poster a plain grey square keeps the layout.'
+        text: 'Compact: a 76px rounded square poster on the left; WEB (owner 2026-10-08, unlike fish): it is part of the card''s one link and opens the competition, no photo viewer; without a poster a plain grey square keeps the layout.'
         fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:340
       - id: competitions-list.cards.c4
         text: 'Compact date line: live → red dot + "LIVE · {dateLabel}" in red; otherwise dateLabel in uppercase indigo.'
@@ -307,6 +309,7 @@ screens:
       - id: competitions-list.cards.c18
         text: 'Photo caption in the viewer: name (≤3 lines), lake and date ("LIVE · " prefix when live), ranking chip, format chip ("Echipe de {teamSize}" when known), entrants chip ("{joined}/{capacity} {unit}" for upcoming with capacity, else "{joined} {unit}"), and capturi / kg cântărite / kg CMMC when there are catches.'
         fish_ref: features/competitions/components/cards/CompetitionPhotoCaption.tsx:22
+        web_note: "n/a on the web — owner 2026-10-08 (ROADMAP §4b.24): the poster tap opens the competition, unlike fish; there is no photo viewer on the cards."
       - id: competitions-list.cards.c19
         text: "The card formats nothing that depends on timezone or ranking rules: dateLabel, hoursLabel, rankingLabel, counts, unit and podium come from the DTO as-is."
         fish_ref: features/competitions/components/cards/preview/CompetitionCardPreview.tsx:18
@@ -994,7 +997,7 @@ screens:
         fish_ref: app/(app)/(tabs)/competitions/index.tsx
         web_note: "_list/SignedOutGate.tsx, _list/placeholders.ts, _list/live/placeholders.ts."
       - id: competitions-list.live.c21
-        text: 'WEB one live competition: the grid collapses into one rich view (no strip, no hero) — poster (opens the photo viewer), «LIVE · START HH:MM · N pescari» (+ «Concursul tău»), the name linking to the competition, lake · county, how long since its latest weighing; the leader as a signature number with «Locul 2 X la Y», the top five (medal discs, avatar, stand, value); «Vezi clasamentul» / «Toate cântarele»; the card''s figures (Capturi, Total cântărit, Cea mai mare captură) and its own «Cântăriri recente» (each opens the detail). Signed out the leaderboard and the weighings are blurred over fake data.'
+        text: 'WEB one live competition: the grid collapses into one rich view (no strip, no hero) — poster (opens the competition, owner 2026-10-08), «LIVE · START HH:MM · N pescari» (+ «Concursul tău»), the name linking to the competition, lake · county, how long since its latest weighing; the leader as a signature number with «Locul 2 X la Y», the top five (medal discs, avatar, stand, value); «Vezi clasamentul» / «Toate cântarele»; the card''s figures (Capturi, Total cântărit, Cea mai mare captură) and its own «Cântăriri recente» (each opens the detail). Signed out the leaderboard and the weighings are blurred over fake data.'
         fish_ref: services/queries/useRankings.ts
         web_note: "_list/live/SingleLive.tsx (boardOf)."
       - id: competitions-list.live.c22
@@ -1005,7 +1008,7 @@ screens:
         text: 'WEB the live reads poll on their TTLs (recent weighings 30s; the list, my live registration and its ranking 60s) only while the page is visible; a hidden page reads nothing.'
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:211
       - id: competitions-list.live.c24
-        text: 'WEB kept from the page: search, filters, «Urmărite», «Ale mele», results mode, the tab badges from meta.counts, the photo viewer, the followers pill and sheet, whole-card links to /concursuri/[id], analytics. Phone, tablet and desktop pass axe.'
+        text: 'WEB kept from the page: search, filters, «Urmărite», «Ale mele», results mode, the tab badges from meta.counts, the followers pill and sheet, whole-card links to /concursuri/[id], analytics. Phone, tablet and desktop pass axe.'
         fish_ref: app/(app)/(tabs)/competitions/index.tsx
     mobile_only: false
     status: passing

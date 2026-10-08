@@ -244,9 +244,10 @@ Add each new piece of feedback here, dated.
       centred card with a smaller visual band. The phone keeps fish's welcome screen.
     - A photo is never drawn wider than its source (no stretched portrait); crop it, or use a
       composition in tokens.
-24. **A poster or photo on a card opens the photo, never the page (owner 2026-10-08).** As in fish:
-    click / Enter on the poster opens the photo viewer at once (no page or dialog in between, the URL
-    does not change, «Mărește afișul», zoom-in cursor); the rest of the card opens the item.
+24. **Poster tap opens the competition (owner 2026-10-08), unlike fish.** On every competition card
+    (/concursuri grid, single live view, the lake page's list) the poster is part of the card's one
+    link to /concursuri/[id]: no photo viewer, lightbox or any screen in between, no poster button of
+    its own, no zoom-in cursor.
 
 
 

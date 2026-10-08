@@ -47,7 +47,7 @@ function Top({ t, isAuthenticated }: TabViewProps) {
 const MINE_WAIT_MS = 2500;
 const NO_MINE: ReadonlySet<string> = new Set();
 
-function Body({ cards, onOpenPhoto, priorityCount, t, isAuthenticated }: TabViewProps) {
+function Body({ cards, priorityCount, t, isAuthenticated }: TabViewProps) {
   const session = { isAuthenticated };
   /*
    * The viewer's registrations lead their group (stable order: mine first, then start time). The
@@ -75,7 +75,7 @@ function Body({ cards, onOpenPhoto, priorityCount, t, isAuthenticated }: TabView
     [registered.data, isAuthenticated, gaveUp],
   );
   if (waiting && !gaveUp) return <PosterGridSkeleton />;
-  return <UpcomingGroups cards={cards} mine={mine} onOpenPhoto={onOpenPhoto} priorityCount={priorityCount} />;
+  return <UpcomingGroups cards={cards} mine={mine} priorityCount={priorityCount} />;
 }
 
 export const upcomingTab: TabModule = { Top, Body, Skeleton: () => <PosterGridSkeleton /> };

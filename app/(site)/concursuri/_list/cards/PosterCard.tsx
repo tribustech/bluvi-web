@@ -11,7 +11,7 @@ import { blurDataUrl } from '@/lib/blurhash';
 import { FollowersPill } from '../Followers';
 import { posterFrame } from '../posterFit';
 import { StatusFooter } from './footers';
-import { blur, CardName, Chips, photoRequestOf, posterOf, type PhotoRequest } from './parts';
+import { blur, CardName, Chips, posterOf } from './parts';
 
 /*
  * The /concursuri card at every width — fish's POSTER card (CompetitionCardPreview, expanded
@@ -19,9 +19,9 @@ import { blur, CardName, Chips, photoRequestOf, posterOf, type PhotoRequest } fr
  *  - the poster across the top with «● LIVE» and the followers pill on the photo. From 768 the frame
  *    is a SQUARE: a near-square poster fills it, any other is shown whole over its blurhash bands
  *    (stretched, darkened). On the phone the frame takes fish's natural ratio clamped to 0.55–2.4
- *    (../posterFit.ts), the poster shown whole when clamped. Tapping the poster opens the photo
- *    viewer (its own control «Mărește afișul» above the card link, z-above, zoom-in cursor) and
- *    never navigates, as fish's onOpenPhoto; the rest of the card opens the competition;
+ *    (../posterFit.ts), the poster shown whole when clamped. The poster is part of the card: a
+ *    click on it opens the competition like the rest of the card — no photo viewer (owner
+ *    2026-10-08, unlike fish's onOpenPhoto);
  *  - the date in small caps with the ranking and format chips on the same row, the name (the
  *    card's ONE link, the kit's stretched CardTitle → /concursuri/[id]), the lake and organizer;
  *  - the footer under a hairline: fish's Upcoming / Live / Results footer for the card's status
@@ -51,7 +51,6 @@ const CARD_STATES = cn(
 
 export type PosterCardProps = {
   competition: CompetitionCard;
-  onOpenPhoto: (photo: PhotoRequest) => void;
   /** The first cards of a list with nothing above them carry the page's LCP image. */
   priority?: boolean;
   /** Share the grid row's footer line (a subgrid). Off where footers differ a lot (podiums). */
@@ -62,9 +61,8 @@ export type PosterCardProps = {
   className?: string;
 };
 
-export function PosterCard({ competition: c, onOpenPhoto, priority = false, aligned = true, footer, className }: PosterCardProps) {
+export function PosterCard({ competition: c, priority = false, aligned = true, footer, className }: PosterCardProps) {
   const { media, thumb } = posterOf(c);
-  const photo = photoRequestOf(c);
   const live = c.status === 'started';
   return (
     <CardShell elevated interactive className={cn(aligned && CARD_SUBGRID, CARD_STATES, className)}>
@@ -74,7 +72,6 @@ export function PosterCard({ competition: c, onOpenPhoto, priority = false, alig
             c={c}
             media={media}
             src={media?.mediumUrl ?? media?.url ?? thumb}
-            onOpen={photo ? () => onOpenPhoto(photo) : null}
             priority={priority}
           />
         ) : (
@@ -95,13 +92,11 @@ function PosterFrame({
   c,
   media,
   src,
-  onOpen,
   priority,
 }: {
   c: CompetitionCard;
   media: CardMedia | null;
   src: string;
-  onOpen: (() => void) | null;
   priority: boolean;
 }) {
   // The DTO's pixel size, else the decoded image (older uploads have none).
@@ -126,36 +121,20 @@ function PosterFrame({
       ) : (
         <Image src={src} alt="" aria-hidden fill sizes="40vw" className={cn('scale-110 object-cover opacity-70 blur-xl brightness-75', bands)} />
       )}
-      {/* The poster is the photo, not the card (fish onOpenPhoto, owner 2026-10-08): click / Enter
-          opens the viewer right here — no navigation, the URL stays; the card link never sees it. */}
-      <button
-        type="button"
-        onClick={
-          onOpen
-            ? (e) => {
-                e.stopPropagation();
-                onOpen();
-              }
-            : undefined
-        }
-        disabled={!onOpen}
-        aria-label={`Mărește afișul: ${c.name}`}
-        className="absolute inset-0 z-above cursor-zoom-in focus-visible:-outline-offset-2"
-      >
-        <Image
-          src={src}
-          alt=""
-          fill
-          sizes="(min-width: 1800px) 25vw, (min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw"
-          className={cn(frame.phoneContain ? 'object-contain' : 'object-cover', frame.squareContain ? 'md:object-contain' : 'md:object-cover')}
-          onLoad={(e) => {
-            const img = e.currentTarget;
-            if (img.naturalWidth && img.naturalHeight) setDecoded(img.naturalWidth / img.naturalHeight);
-          }}
-          {...blur(media)}
-          {...(priority ? { loading: 'eager' as const, fetchPriority: 'high' as const } : {})}
-        />
-      </button>
+      {/* Under the card's stretched link (owner 2026-10-08): a click on the poster opens the competition. */}
+      <Image
+        src={src}
+        alt=""
+        fill
+        sizes="(min-width: 1800px) 25vw, (min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw"
+        className={cn(frame.phoneContain ? 'object-contain' : 'object-cover', frame.squareContain ? 'md:object-contain' : 'md:object-cover')}
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          if (img.naturalWidth && img.naturalHeight) setDecoded(img.naturalWidth / img.naturalHeight);
+        }}
+        {...blur(media)}
+        {...(priority ? { loading: 'eager' as const, fetchPriority: 'high' as const } : {})}
+      />
       <div className="absolute top-3 right-3 z-above flex items-center gap-1.5">
         {live ? <Pill tone="live">LIVE</Pill> : null}
         <FollowersPill viewers={c.viewers} competitionId={c.documentId} onPhoto />
@@ -219,12 +198,10 @@ export function PosterCardSkeleton() {
 /** A grid of poster cards (the default content of a tab, results mode and «Toate concursurile»). */
 export function PosterGrid({
   cards,
-  onOpenPhoto,
   labelledBy,
   priorityCount = 0,
 }: {
   cards: CompetitionCard[];
-  onOpenPhoto: (photo: PhotoRequest) => void;
   labelledBy?: string;
   /** How many of the first posters load eagerly (the page's LCP when nothing sits above them). */
   priorityCount?: number;
@@ -235,7 +212,7 @@ export function PosterGrid({
     <ul aria-labelledby={labelledBy} className={POSTER_GRID}>
       {cards.map((c, i) => (
         <li key={c.documentId} className={posterItemClass(aligned)}>
-          <PosterCard competition={c} aligned={aligned} onOpenPhoto={onOpenPhoto} priority={i < priorityCount} />
+          <PosterCard competition={c} aligned={aligned} priority={i < priorityCount} />
         </li>
       ))}
     </ul>

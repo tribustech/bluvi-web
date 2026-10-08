@@ -323,7 +323,7 @@ test.describe('signed out', () => {
     await expect(page).toHaveURL(/\/concursuri\/a6xjl65ooe9eadrtvvqj9hn1/);
   });
 
-  test('competitions-list.cards.c2 competitions-list.cards.c3 competitions-list.cards.c4 competitions-list.index.c26 competitions-list.index.s18 — poster button, LIVE pill + date line, the photo viewer', async ({ page }) => {
+  test('competitions-list.cards.c2 competitions-list.cards.c4 — the poster (banner), LIVE pill + date line; a click on the poster opens the competition', async ({ page }) => {
     const errors = consoleErrors(page);
     await page.setViewportSize(CARDS);
     await open(page, '/concursuri/live');
@@ -335,67 +335,45 @@ test.describe('signed out', () => {
     await expect(item.getByText('LIVE', { exact: true }).first()).toBeVisible();
     await expect(item.getByText(dto.dateLabel, { exact: true })).toBeVisible();
     // c2: a competition with a banner shows the banner (the poster's medium size), not the lake.
-    const thumb = item.getByRole('button', { name: `Mărește afișul: ${name}` });
-    const src = await thumb.locator('img').getAttribute('src');
+    const poster = item.locator('img:not([aria-hidden])').first();
+    const src = await poster.getAttribute('src');
     expect(decodeURIComponent(src ?? '')).toContain(dto.banner.mediumUrl ?? dto.banner.url);
-    await thumb.click();
-    const viewer = page.getByRole('dialog', { name });
-    await expect(viewer).toBeVisible();
-    await expect(viewer.getByRole('img', { name: `Afișul concursului ${name}` })).toHaveAttribute('src', dto.banner.url);
-    await expect(viewer.getByText(dto.dateLabel, { exact: true })).toBeVisible();
-    await expect(viewer.getByText(/kg/).first()).toBeVisible();
-    // axe reads colours mid fade-in otherwise (a half-opaque chip measures below AA).
-    await viewer.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
-    await expectNoA11yViolations(page);
-    await page.keyboard.press('Escape');
-    await expect(viewer).toBeHidden();
-    await expect(page).toHaveURL(/\/concursuri\/live$/);
-    await thumb.click();
-    await page.getByRole('dialog', { name }).getByRole('button', { name: 'Vezi concursul' }).click();
-    await expect(page).toHaveURL(new RegExp(`/concursuri/${dto.documentId}`));
+    // Owner 2026-10-08 (§4b.24): no poster button, no viewer — the poster opens the competition.
+    await expect(item.getByRole('button', { name: /afiș|imaginea/i })).toHaveCount(0);
+    // force: the card's stretched link lies over the poster and takes the click (that is the point).
+    await poster.click({ force: true });
+    await expect(page).toHaveURL(new RegExp(`/concursuri/${dto.documentId}$`));
+    await expect(page.getByRole('dialog')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
-  test('competitions-list.cards.c2 owner 2026-10-08 — the poster opens the photo (click / Enter), never the competition; the rest of the card does', async ({ page }) => {
+  test('competitions-list.cards.c1 owner 2026-10-08 — the poster is part of the card link: a click opens /concursuri/[id], no dialog, no zoom cursor', async ({ page }) => {
     const errors = consoleErrors(page);
     let checked = 0;
     for (const size of [PHONE, DESKTOP]) {
       await page.setViewportSize(size);
       for (const path of ['/concursuri/viitoare', '/concursuri/live', '/concursuri/rezultate']) {
         await open(page, path);
-        const poster = list(page).getByRole('button', { name: /^Mărește afișul: / }).first();
-        if ((await poster.count()) === 0) continue;
+        const article = list(page).locator('article').filter({ has: page.locator('img:not([aria-hidden])') }).first();
+        if ((await article.count()) === 0) continue;
         checked += 1;
-        const at = page.url();
-        const article = poster.locator('xpath=ancestor::article[1]');
+        await expect(list(page).getByRole('button', { name: /^(Mărește afișul|Vezi imaginea)/ })).toHaveCount(0);
         const href = await article.getByRole('link').first().getAttribute('href');
+        expect(href).toMatch(/^\/concursuri\/[^/]+$/);
+        const poster = article.locator('img:not([aria-hidden])').first();
         await poster.scrollIntoViewIfNeeded();
-        expect(await poster.evaluate((b) => getComputedStyle(b).cursor)).toBe('zoom-in');
-
-        // Click: the viewer, at once — no page, no other dialog in between; the URL does not move.
-        await poster.click();
-        const viewer = page.getByRole('dialog');
-        await expect(viewer).toHaveCount(1);
-        await expect(viewer.getByRole('img', { name: /^Afișul concursului / })).toBeVisible();
-        expect(page.url()).toBe(at);
-        await page.keyboard.press('Escape');
-        await expect(viewer).toHaveCount(0);
-        await expect(poster).toBeFocused();
-        expect(page.url()).toBe(at);
-
-        // Enter on the focused poster: the same viewer; ✕ closes it and focus returns.
-        await page.keyboard.press('Enter');
-        await expect(viewer).toHaveCount(1);
-        await viewer.getByRole('button', { name: 'Închide imaginea' }).click();
-        await expect(viewer).toHaveCount(0);
-        await expect(poster).toBeFocused();
-        expect(page.url()).toBe(at);
-
-        // The card body (just under the poster: the date line, no control of its own) opens the competition.
-        const frame = (await poster.boundingBox())!;
-        const card = (await article.boundingBox())!;
-        await article.click({ position: { x: 24, y: frame.y - card.y + frame.height + 20 } });
+        const box = (await poster.boundingBox())!;
+        const [cx, cy] = [box.x + box.width / 2, box.y + box.height / 2];
+        // What is under the pointer at the poster's centre is the card's link, with a pointer cursor.
+        const hit = await page.evaluate(([x, y]) => {
+          const el = document.elementFromPoint(x, y);
+          return { href: el?.closest('a')?.getAttribute('href') ?? null, cursor: el ? getComputedStyle(el).cursor : null };
+        }, [cx, cy]);
+        expect(hit.href).toBe(href);
+        expect(hit.cursor).not.toBe('zoom-in');
+        await page.mouse.click(cx, cy);
         await expect(page).toHaveURL(new RegExp(`${href}$`));
+        await expect(page.getByRole('dialog')).toHaveCount(0);
       }
     }
     expect(checked).toBeGreaterThanOrEqual(2);
@@ -666,7 +644,7 @@ test.describe('signed in', () => {
     // A guest without a photo gets an initials disc.
     await expect(podium.nth(2).getByText('IO', { exact: true })).toBeVisible();
     // c3: no poster → a plain grey square (no button).
-    await expect(item('FX Live fără afiș').getByRole('button', { name: /^Mărește afișul/ })).toHaveCount(0);
+    await expect(item('FX Live fără afiș').getByRole('button', { name: /afiș|imaginea/i })).toHaveCount(0);
     // Every footer note sits under the same hairline as the stat footers.
     await expect(item('FX Live fără capturi').getByText('Încă nu sunt capturi înregistrate.')).toHaveCSS('border-top-width', '1px');
     // Cards of one grid row share their footer line (subgrid), whatever their footers hold.
@@ -676,28 +654,6 @@ test.describe('signed in', () => {
     expect(await footerTop('FX Viitor fără limită')).toBe(await footerTop('FX Viitor cu așteptare'));
     await expectNoA11yViolations(page);
     expect(errors).toEqual([]);
-  });
-
-  test('competitions-list.cards.c18 competitions-list.index.c26 — the photo caption: chips, entrants and the catch figures', async ({ page }) => {
-    await page.route(FOLLOWED, (r) => json(r, cardsPage([STATE_CARDS.liveFeeder, STATE_CARDS.upcomingNoCapacity, STATE_CARDS.upcomingPending])));
-    await page.setViewportSize(CARDS);
-    await open(page);
-    await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
-    await list(page).getByRole('button', { name: 'Mărește afișul: FX Feeder pe manșe' }).click();
-    let viewer = page.getByRole('dialog', { name: 'FX Feeder pe manșe' });
-    await expect(viewer.getByText('LIVE · 20 oct')).toBeVisible();
-    await expect(viewer.getByText('Feeder · Manșa 1/2')).toBeVisible();
-    await expect(viewer.getByText('Individual')).toBeVisible();
-    await expect(viewer.getByText('6 pescari')).toBeVisible();
-    await expect(viewer.getByText('1.024,3 kg')).toBeVisible();
-    await page.getByRole('button', { name: 'Închide imaginea' }).click();
-    await list(page).getByRole('button', { name: 'Mărește afișul: FX Viitor fără limită' }).click();
-    viewer = page.getByRole('dialog', { name: 'FX Viitor fără limită' });
-    await expect(viewer.getByText('Echipe de 3')).toBeVisible();
-    await expect(viewer.getByText('24 echipe')).toBeVisible();
-    await page.keyboard.press('Escape');
-    await list(page).getByRole('button', { name: 'Mărește afișul: FX Viitor cu așteptare' }).click();
-    await expect(page.getByRole('dialog', { name: 'FX Viitor cu așteptare' }).getByText('9/10 pescari')).toBeVisible();
   });
 
   test('competitions-list.index.s12 — phone signed in passes axe with «Ale mele»', async ({ page }) => {
@@ -817,20 +773,6 @@ test.describe('list states (mocked)', () => {
     await page.unroute(PUBLIC);
     await list(page).getByRole('button', { name: 'Încearcă din nou' }).click();
     await expect(notice).toHaveCount(0);
-  });
-
-  test('competitions-list.index.c26 competitions-list.index.s18 competitions-list.cards.c18 — the viewer draws the thumbnail first; a failed original keeps it, with a message', async ({ page }) => {
-    await page.route(/\/uploads\/fixture\.jpg\?o/, (r) => r.fulfill({ status: 404, body: '' }));
-    await page.route(FOLLOWED, (r) => json(r, cardsPage([STATE_CARDS.upcomingPending])));
-    await page.setViewportSize(CARDS);
-    await open(page);
-    await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
-    await list(page).getByRole('button', { name: 'Mărește afișul: FX Viitor cu așteptare' }).click();
-    const viewer = page.getByRole('dialog', { name: 'FX Viitor cu așteptare' });
-    await expect(viewer.getByText('Imaginea nu a putut fi încărcată')).toBeVisible();
-    const thumb = viewer.getByRole('img', { name: 'Afișul concursului FX Viitor cu așteptare' });
-    await expect(thumb).toHaveAttribute('src', /fixture\.jpg\?s/);
-    await expect(viewer.getByRole('button', { name: 'Vezi concursul' })).toBeVisible();
   });
 });
 

@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { cn } from '@/components/ui/cn';
 import type { CompetitionCard } from '@/core/competitions';
 import { PosterCard, posterItemClass } from '../cards/PosterCard';
-import type { PhotoRequest } from '../cards/parts';
 import { PAST_GROUP, upcomingGroups } from './buckets';
 
 /*
@@ -34,13 +33,11 @@ const groupId = (key: string) => `viitoare-${key}`;
 export function UpcomingGroups({
   cards,
   mine,
-  onOpenPhoto,
   priorityCount,
   at,
 }: {
   cards: CompetitionCard[];
   mine: ReadonlySet<string>;
-  onOpenPhoto: (photo: PhotoRequest) => void;
   priorityCount: number;
   /** The clock to group on (ms); the static shell passes its cached one. Default: mount time. */
   at?: number;
@@ -71,7 +68,7 @@ export function UpcomingGroups({
                 const priority = index++ < priorityCount;
                 return (
                   <li key={c.documentId} className={posterItemClass(true)}>
-                    <PosterCard competition={c} onOpenPhoto={onOpenPhoto} priority={priority} />
+                    <PosterCard competition={c} priority={priority} />
                   </li>
                 );
               })}
@@ -84,13 +81,12 @@ export function UpcomingGroups({
 }
 
 const NO_MINE: ReadonlySet<string> = new Set();
-const noPhoto = () => {};
 
 /**
  * The page's static shell (../CompetitionsRoute): the first page of the tab's cards, from the
  * cached public read, in start order (who is reading is not known there), grouped on the shell's
- * clock. The poster's viewer opens once the page itself lands, a moment later.
+ * clock.
  */
 export function UpcomingGroupsShell({ cards, at }: { cards: CompetitionCard[]; at: number }) {
-  return <UpcomingGroups cards={cards} mine={NO_MINE} onOpenPhoto={noPhoto} priorityCount={0} at={at} />;
+  return <UpcomingGroups cards={cards} mine={NO_MINE} priorityCount={0} at={at} />;
 }

@@ -11,7 +11,7 @@ import { InlineNumber, SignatureNumber } from '@/components/ui/SignatureNumber';
 import { entrantsCount, formatKg, formatTotalKg, rankingsQuery, type CompetitionCard, type RecentWeighing } from '@/core/competitions';
 import type { Transport } from '@/core/transport';
 import { routes } from '@/lib/routes';
-import { photoRequestOf, posterOf, type PhotoRequest } from '../cards/parts';
+import { posterOf } from '../cards/parts';
 import { LIVE_POLL_MS } from '../desktop/data';
 import { gapOf, miniRanking, valueText, type MiniRanking } from '../desktop/model';
 import { useNow } from '../desktop/motion';
@@ -71,7 +71,6 @@ export function SingleLive({
   priority = false,
   weighings,
   onOpenWeighing,
-  onOpenPhoto,
 }: {
   c: CompetitionCard;
   t: Transport;
@@ -82,10 +81,9 @@ export function SingleLive({
   /** This competition's recent weighings (null: unknown — the block hides). */
   weighings: RecentWeighing[] | null;
   onOpenWeighing: (w: RecentWeighing, el: HTMLElement) => void;
-  onOpenPhoto: (p: PhotoRequest) => void;
 }) {
   const ranking = useQuery({ ...rankingsQuery(t, c.documentId, 'started'), enabled: signedIn, refetchInterval: LIVE_POLL_MS });
-  const photo = photoRequestOf(c);
+  const thumb = posterOf(c).thumb;
   const start = c.hoursLabel?.split(/[–-]/)[0]?.trim();
   const r = c.results;
   return (
@@ -93,18 +91,12 @@ export function SingleLive({
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="flex min-w-0 flex-col gap-6 p-5 xl:p-8">
           <div className="flex items-start gap-4">
-            {photo ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenPhoto(photo);
-                }}
-                aria-label={`Mărește afișul: ${c.name}`}
-                className="shrink-0 cursor-zoom-in rounded-card"
-              >
-                <PosterThumb src={posterOf(c).thumb} priority={priority} />
-              </button>
+            {thumb ? (
+              // The poster opens the competition (owner 2026-10-08, no photo viewer); the name is the
+              // link's accessible twin, so this one stays out of the tab order and the a11y tree.
+              <Link href={routes.competition(c.documentId)} tabIndex={-1} aria-hidden className="shrink-0 rounded-card">
+                <PosterThumb src={thumb} priority={priority} />
+              </Link>
             ) : (
               <PosterThumb src={null} />
             )}

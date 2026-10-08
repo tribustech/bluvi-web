@@ -5,7 +5,7 @@ import { CardShell } from '@/components/cards/CardShell';
 import { LiveDot } from '@/components/templates/T1';
 import { cn } from '@/components/ui/cn';
 import { cardDateLabel, type CompetitionCard } from '@/core/competitions';
-import { blur, CardName, Chips, LakeLine, photoRequestOf, posterOf, type PhotoRequest } from './cards/parts';
+import { blur, CardName, Chips, LakeLine, posterOf } from './cards/parts';
 import { StatusFooter } from './cards/footers';
 import { FollowersPill } from './Followers';
 
@@ -16,8 +16,9 @@ import { FollowersPill } from './Followers';
  * (dateLabel, hoursLabel, rankingLabel, counts, unit, podium); the card formats nothing that
  * depends on a timezone or a ranking rule (parity competitions-list.cards.c19).
  *
- * The whole card is ONE link named by the competition (the kit's stretched CardTitle, c1). The
- * poster and the followers pill are their own controls above it (z-above), as in fish.
+ * The whole card is ONE link named by the competition (the kit's stretched CardTitle, c1), poster
+ * included: a click on the poster opens the competition, no photo viewer (owner 2026-10-08, unlike
+ * fish). The followers pill is its own control above it (z-above).
  *
  * Surface: the kit CardShell (e0) in its `interactive` mode: hover and
  * keyboard focus inside lift it to e2 (the kit's states; the card never takes the page's colour),
@@ -28,9 +29,6 @@ import { FollowersPill } from './Followers';
  * (podium footers of one to six rows) are not aligned: each hugs its own content. One density: fish's
  * compact «Listă» card (the owner dropped the Listă / Afiș toggle, 2026-10-06).
  */
-
-export type { PhotoRequest } from './cards/parts';
-
 
 /** The card in the list grid: a body row and a footer row of the grid's own tracks (see above). */
 export const CARD_SUBGRID = 'row-span-2 grid min-w-0 grid-rows-subgrid gap-y-0';
@@ -47,35 +45,23 @@ const CARD_STATES = cn(
 
 export function CompetitionCardItem({
   competition: c,
-  onOpenPhoto,
   priority = false,
   aligned = true,
 }: {
   competition: CompetitionCard;
   /** Share the grid row's footer line (a subgrid); off for results, where footers differ by rows. */
   aligned?: boolean;
-  onOpenPhoto: (photo: PhotoRequest) => void;
   /** The first cards of a list with no bento above them carry the page's LCP image. */
   priority?: boolean;
 }) {
   const { media, thumb } = posterOf(c);
-  const photo = photoRequestOf(c);
-  const openPhoto = photo ? () => onOpenPhoto(photo) : null;
 
   return (
     // fish: the compact card sits flat.
     <CardShell interactive className={cn(aligned && CARD_SUBGRID, CARD_STATES)}>
       <div className="flex items-start gap-3 p-3">
-        {thumb && openPhoto ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              openPhoto();
-            }}
-            aria-label={`Mărește afișul: ${c.name}`}
-            className="relative z-above size-19 shrink-0 cursor-zoom-in overflow-hidden rounded-avatar bg-soft-fill"
-          >
+        {thumb ? (
+          <span className="relative size-19 shrink-0 overflow-hidden rounded-avatar bg-soft-fill">
             <Image
               src={thumb}
               alt=""
@@ -85,7 +71,7 @@ export function CompetitionCardItem({
               {...blur(media)}
               {...(priority ? { loading: 'eager' as const, fetchPriority: 'high' as const } : {})}
             />
-          </button>
+          </span>
         ) : (
           <span aria-hidden className="size-19 shrink-0 rounded-avatar bg-soft-fill" />
         )}
