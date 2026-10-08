@@ -51,7 +51,8 @@ import { LiveDot } from '@/components/templates/LiveDot';
  *
  * Not on the web yet (no web flow behind them): Organizare (author), Adaugă cântar (referee),
  * Penalizări (the penalties page, M6). «Înscrie-te» follows fish's rules (core registrationAction);
- * when it is offered it opens the competition in the Bluvi app (registration is M5 on the web).
+ * when it is offered it opens the registration form (or the team disclaimer first, for a new team
+ * registration — competition-page.bara-actiuni.c4).
  */
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -99,7 +100,7 @@ type Props = {
   rankingAvailable?: boolean;
   /** «Înscrie-te» / «Modifică înscrierea» for this viewer, a guest's too (core registrationAction). */
   registration: RegistrationAction | null;
-  /** Where an offered registration continues (the Bluvi app). */
+  /** Where an offered registration goes: the form, or the team disclaimer (core registrationAction.target). */
   registrationHref: string;
   /** Extra-Cântar: shown to a registered participant while the competition runs. */
   extraScale: { requested: boolean; onPress: () => void } | null;
@@ -262,7 +263,7 @@ function RegisterRow({ state, signIn, href, chat }: { state: RegisterState; sign
       : state.kind === 'signIn'
         ? 'Intră în cont pentru a te înscrie.'
         : state.kind === 'offered'
-          ? 'Înscrierea continuă în aplicația Bluvi.'
+          ? null
           : state.reason;
   const unknown = state.kind === 'unknown';
   return (
@@ -275,8 +276,8 @@ function RegisterRow({ state, signIn, href, chat }: { state: RegisterState; sign
             {state.label}
           </ButtonLink>
         ) : state.kind === 'offered' ? (
-          // Offered: the registration itself is an app flow (forms, team, payment rules) until M5.
-          <ButtonLink block href={href} icon={icon} aria-describedby="inscriere-motiv">
+          // Offered: the registration form (or the team disclaimer before a new team entry).
+          <ButtonLink block href={href} icon={icon}>
             {state.label}
           </ButtonLink>
         ) : (

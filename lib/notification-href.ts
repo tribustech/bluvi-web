@@ -23,8 +23,9 @@ export const NOTIFICATION_PAGES_ON_WEB = {
   competitionChat: false,
   /** /concursuri/[id]/penalizari — penalties (M6, organizer.yml). */
   penalties: false,
-  /** /sondaje — the current poll (M5). */
-  polls: false,
+  /** /sondaje — the current poll (POLL_OPENED / POLL_CLOSED / POLL_SUGGESTION_APPROVED) — ON since M5-B1
+   * (participant.b.poll-notification-route). */
+  polls: true,
   /**
    * /partide/intra/[cod] — join a partidă with a code (PARTIDA_INVITE) — ON since M4-B6
    * (partide.b.notif-invite).

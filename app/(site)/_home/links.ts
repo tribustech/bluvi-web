@@ -1,5 +1,6 @@
 import { PATHS } from '@/components/nav/items';
 import { routes } from '@/lib/routes';
+import { FOCUS_SUGGEST } from '../sondaje/_components/model';
 
 /**
  * Acasă's link table — every destination from lib/routes.ts (the one route builder), named as the
@@ -19,6 +20,8 @@ export const homeLinks = {
   organizer: PATHS.organizer,
   /** fish /polls/current */
   polls: routes.polls(),
+  /** fish PollCard `router.push('/polls/current', { focus: 'suggest' })` — the poll page, its suggestion field focused (home.acasa.c34) */
+  pollSuggest: `${routes.polls()}?focus=${FOCUS_SUGGEST}`,
   /** fish `router.push('/sign-in', { redirectTo: '/polls/current' })` (guest taps a poll option / suggest) */
   pollSignIn: routes.signIn(routes.polls()),
   /** fish /(app)/scale/[competitionId]/history?sectorName&standName&standId (ScaleItem) */

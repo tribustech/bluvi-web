@@ -277,8 +277,8 @@ screens:
       - id: home.acasa.c34
         text: "While voting is open and all options are visible, a „Sugerează o opțiune” / „Scrie ideea ta...” row is shown; on Acasă pressing it opens the poll page focused on the suggestion field."
         fish_ref: components/PollCard.tsx:59-60,126-135
-        status: failing
-        note: "web deviation: the suggestion is an inline field on Acasă (PollSuggestInput behaviour) because /sondaje has no page yet (M5); switch to «open the poll page focused» when it exists."
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts «home.acasa.c34» (the row links /sondaje?focus=sugestie and the field is focused there). Web: fish onPressInsteadOfFocus — the Acasă row is a link for everyone (a guest meets the sign-in on the poll page); the inline field was removed."
       - id: home.acasa.c35
         text: "Sharing the poll shares „🗳️ Votează în sondajul comunității Bluvi:\\n\\n{title}” and the poll URL (web: /sondaje)."
         fish_ref: helpers/sharePoll.ts:4-14

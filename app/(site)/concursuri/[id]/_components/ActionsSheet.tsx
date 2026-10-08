@@ -18,7 +18,7 @@ import type { PageViewer } from './Follow';
  *  - a guest: only «Autentifică-te pentru a putea participa la competiție» → sign-in;
  *  - while the session / statute is read: skeleton rows (fish SheetItemsSkeleton);
  *  - a signed-in angler: «Înscrie-te» / «Modifică înscrierea» (core registrationAction: disabled
- *    with fish's reason under it; offered, it continues in the Bluvi app until M5), after the start
+ *    with fish's reason under it; offered, it opens the registration form or the team disclaimer), after the start
  *    «Vezi cântarele din concurs», and for a registered participant of a running competition
  *    «Solicită extra cântar» / «Șterge solicitarea de extra cântar»;
  *  - the author / a referee: their sheets (start, end, referees, scale) are competition-page.organizare
@@ -80,7 +80,7 @@ export function ActionsSheet({
       items = (
         <>
           {registration && !registration.disabled ? (
-            <SheetLink href={registrationHref} Icon={ClipboardDocumentListIcon} label={label} description="Înscrierea continuă în aplicația Bluvi." />
+            <SheetLink href={registrationHref} Icon={ClipboardDocumentListIcon} label={label} onNavigate={onClose} />
           ) : (
             <SheetButton Icon={ClipboardDocumentListIcon} label={label} disabled description={registration?.reason ?? undefined} />
           )}

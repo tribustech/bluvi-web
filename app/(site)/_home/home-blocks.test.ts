@@ -62,18 +62,24 @@ function renderPoll(signedIn: boolean) {
 }
 
 describe('Acasă PollCard', () => {
-  it('guest: options and suggest field link to sign-in, back to the poll', () => {
+  // home.acasa.c34: the «Sugerează o opțiune» row is a link to the poll page with its field focused,
+  // for everyone (a guest meets the sign-in there) — never an inline field.
+  const suggest = 'href="/sondaje?focus=sugestie"';
+
+  it('guest: options link to sign-in, back to the poll; suggest opens the poll page', () => {
     const html = renderPoll(false);
     const href = '/intra?next=%2Fsondaje';
-    expect(html.split(`href="${href}"`).length - 1).toBe(3); // 2 options + suggest
+    expect(html.split(`href="${href}"`).length - 1).toBe(2); // 2 options
+    expect(html).toContain(suggest);
     expect(html).not.toContain('<textarea');
   });
 
-  it('signed in: options are vote toggles and the suggest field is a real field', () => {
+  it('signed in: options are vote toggles and suggest opens the poll page', () => {
     const html = renderPoll(true);
     expect(html).not.toContain('/intra?next=');
     expect(html).toContain('aria-pressed');
-    expect(html).toContain('<textarea');
+    expect(html).toContain(suggest);
+    expect(html).not.toContain('<textarea');
   });
 });
 

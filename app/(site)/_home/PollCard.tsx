@@ -2,20 +2,20 @@
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircleIcon, ShareIcon } from '@heroicons/react/24/outline';
+import { ChevronRightIcon, ShareIcon } from '@heroicons/react/24/outline';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { currentPollQuery, pollSuggestMutation, pollVoteMutation, type Poll, type PollOption } from '@/core/competitions';
+import { currentPollQuery, pollVoteMutation, type Poll, type PollOption } from '@/core/competitions';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { plural, Tag } from '@/components/cards';
 import { IconButton } from '@/components/nav/IconButton';
-import { ResponsiveSurface } from '@/components/surfaces/ResponsiveSurface';
 import { DashboardSection } from '@/components/templates/T5';
-import { Button, buttonClass } from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { useSiteToast } from '../_shell/Toast';
 import { announce, prepareAnnouncer } from './announce';
 import { closesInLabel } from './format';
 import { homeLinks } from './links';
+import { pollShareText } from '../sondaje/_components/model';
 
 const PREVIEW_OPTION_COUNT = 3;
 
@@ -29,9 +29,9 @@ const PREVIEW_OPTION_COUNT = 3;
  * results view, not a disabled one (web difference: fish fades it to 60%, which drops the option
  * names under AA): every option draws its share bar, the leader's stronger, and the footer says
  * «vot închis». The header carries fish's share button; the
- * «Sugerează o opțiune» field sits under the options while the poll is open and every option is
- * visible (fish `!votingClosed && (!canCollapse || expanded)`). It is a real field here: the web
- * has no full-screen poll page to send the tap to (fish `onPressInsteadOfFocus`).
+ * «Sugerează o opțiune» row sits under the options while the poll is open and every option is
+ * visible (fish `!votingClosed && (!canCollapse || expanded)`): fish's `onPressInsteadOfFocus`
+ * preview, a link to /sondaje?focus=sugestie, where the field takes focus (home.acasa.c34).
  *
  * Keyboard: casting a vote unmounts the focused «Votează», so focus goes back to that option's own
  * toggle and the outcome is announced («Vot înregistrat.»; a failure — core rolls it back — is a
@@ -130,22 +130,18 @@ export function PollCard({ layout, signedIn }: { layout: 'mobile' | 'desktop'; s
       </ul>
 
       {!poll.votingClosed && (!canCollapse || expanded) ? (
-        signedIn ? (
-          <SuggestField pollId={poll.documentId} />
-        ) : (
-          <Link
-            href={homeLinks.pollSignIn}
-            className="flex items-center gap-3 rounded-control border border-hairline bg-surface p-3.5 hover:border-accent"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block t-heading text-ink-2">Sugerează o opțiune</span>
-              <span className="mt-1 block t-body text-muted">Intră în cont ca să trimiți ideea ta</span>
-            </span>
-            <span aria-hidden className={buttonClass({ size: 'compact' })}>
-              Trimite
-            </span>
-          </Link>
-        )
+        // fish PollSuggestInput `onPressInsteadOfFocus` (home.acasa.c34): a preview row that opens the
+        // poll page with its suggestion field focused — for everyone (a guest meets the sign-in there).
+        <Link
+          href={homeLinks.pollSuggest}
+          className="flex items-center gap-3 rounded-control border border-hairline bg-surface p-3.5 hover:border-accent"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block t-heading text-ink-2">Sugerează o opțiune</span>
+            <span className="mt-1 block t-body text-muted">Scrie ideea ta...</span>
+          </span>
+          <ChevronRightIcon aria-hidden className="size-5 shrink-0 text-muted" />
+        </Link>
       ) : null}
 
       {canCollapse ? (
@@ -291,7 +287,7 @@ function ShareButton({ title }: { title: string }) {
 
   const share = async () => {
     const url = `${window.location.origin}${homeLinks.polls}`;
-    const text = `Votează în sondajul comunității Bluvi:\n\n${title}`;
+    const text = pollShareText(title);
     try {
       if (navigator.share) {
         await navigator.share({ title, text, url });
@@ -316,95 +312,6 @@ function ShareButton({ title }: { title: string }) {
         <ShareIcon aria-hidden />
       </IconButton>
     </div>
-  );
-}
-
-const SUGGEST_MIN = 3;
-const SUGGEST_MAX = 200;
-
-/** fish PollSuggestInput: an option-shaped row with a multi-line field and a «Trimite» pill. */
-function SuggestField({ pollId }: { pollId: string }) {
-  const t = useMemo(() => createBrowserTransport(), []);
-  const suggest = useMutation(pollSuggestMutation(t));
-  const [text, setText] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
-  const fieldId = useId();
-  const errorId = `${fieldId}-error`;
-  const trimmed = text.trim();
-  const canSubmit = !suggest.isPending && trimmed.length >= SUGGEST_MIN && trimmed.length <= SUGGEST_MAX;
-
-  const submit = async () => {
-    if (!canSubmit) return;
-    setError(null);
-    try {
-      await suggest.mutateAsync({ pollId, text: trimmed });
-      setText('');
-      setSent(true);
-    } catch (e) {
-      setError(e instanceof Error && e.message ? e.message : 'Nu am putut trimite sugestia.');
-    }
-  };
-
-  return (
-    <>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit();
-        }}
-        className="flex items-center gap-3 rounded-control border border-hairline bg-surface p-3.5 focus-within:border-accent"
-      >
-        <div className="min-w-0 flex-1">
-          <label htmlFor={fieldId} className="block t-heading text-ink-2">
-            Sugerează o opțiune
-          </label>
-          <textarea
-            id={fieldId}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                void submit();
-              }
-            }}
-            placeholder="Scrie ideea ta..."
-            maxLength={SUGGEST_MAX}
-            rows={1}
-            disabled={suggest.isPending}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? errorId : undefined}
-            className="mt-1 block w-full resize-none bg-transparent t-body text-ink-2 outline-none [field-sizing:content] placeholder:text-muted"
-          />
-          {error ? (
-            <p id={errorId} role="alert" className="mt-1 t-caption text-status-danger-fg">
-              {error}
-            </p>
-          ) : null}
-        </div>
-        <Button type="submit" size="compact" disabled={!canSubmit}>
-          Trimite
-        </Button>
-      </form>
-      <ResponsiveSurface
-        open={sent}
-        onClose={() => setSent(false)}
-        intent="decision"
-        title="Sugestie trimisă!"
-        actions={
-          <Button block onClick={() => setSent(false)}>
-            Am înțeles
-          </Button>
-        }
-      >
-        <p className="flex items-start gap-2.5 t-body text-ink-2">
-          <CheckCircleIcon aria-hidden className="size-6 shrink-0 text-success" />
-          Sugestia ta a fost trimisă spre verificare. Dacă este aprobată, va fi adăugată ca opțiune în sondaj și vei primi o
-          notificare.
-        </p>
-      </ResponsiveSurface>
-    </>
   );
 }
 

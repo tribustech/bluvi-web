@@ -339,19 +339,20 @@ test('competition-page.bara-actiuni.c1 competition-page.bara-actiuni.c4 competit
   });
   await open(page, ID.empty);
   await settle(page);
-  await expect(bar(page).getByRole('link', { name: 'Înscrie-te' })).toHaveAttribute('href', /bluvi-app\.wearetribus\.com/);
+  await expect(bar(page).getByRole('link', { name: 'Înscrie-te' })).toHaveAttribute('href', /^\/concursuri\/[^/]+\/inscriere(\/echipa)?$/);
   expect(await page.evaluate(() => (window as unknown as { __signInLinks: string[] }).__signInLinks)).toEqual([]);
 });
 
-test('competition-page.bara-actiuni.c4 competition-page.bara-actiuni.c5 competition-page.bara-actiuni.s3 — signed in, allowed: «Înscrie-te» continues in the app; the rules disable it with fish’s reason', async ({ page, context }) => {
+test('competition-page.bara-actiuni.c4 competition-page.bara-actiuni.c5 competition-page.bara-actiuni.s3 — signed in, allowed: «Înscrie-te» opens the web registration (the team disclaimer first for a new team entry); the rules disable it with fish’s reason', async ({ page, context }) => {
   test.skip(!ID.empty, NO_EMPTY);
   await signIn(context, jwt);
   await mockMyStatus(context, ID.empty, null);
   await open(page, ID.empty);
   await settle(page);
   const offered = bar(page).getByRole('link', { name: 'Înscrie-te' });
-  await expect(offered).toHaveAttribute('href', `https://bluvi-app.wearetribus.com/competitions/${ID.empty}`);
-  await expect(bar(page).getByText('Înscrierea continuă în aplicația Bluvi.')).toBeVisible();
+  // participant.register owns the form (M5): no app hand-off copy any more.
+  await expect(offered).toHaveAttribute('href', new RegExp(`^/concursuri/${ID.empty}/inscriere(/echipa)?$`));
+  await expect(page.getByText('Înscrierea continuă în aplicația Bluvi.')).toHaveCount(0);
 });
 
 test('competition-page.bara-actiuni.c5 competition-page.bara-actiuni.c12 competition-page.bara-actiuni.s3 — rejected: «Înscrie-te» disabled, «Cererea ta … a fost respinsă.»', async ({ page, context }) => {

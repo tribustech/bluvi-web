@@ -41,6 +41,10 @@ describe('notificationHref — every type with its ids', () => {
     [T.COMPETITION_START, C, '/concursuri/c1'],
     [T.FOLLOW_COMPETITION_START, C, '/concursuri/c1'],
     [T.NEW_COMPETITIONS, C, '/concursuri/c1'],
+    // → the current poll (participant.b.poll-notification-route)
+    [T.POLL_OPENED, {}, '/sondaje'],
+    [T.POLL_CLOSED, {}, '/sondaje'],
+    [T.POLL_SUGGESTION_APPROVED, {}, '/sondaje'],
     // → its ranking
     [T.COMPETITION_END, C, '/concursuri/c1/clasament'],
     [T.COMPETITION_ROUND_END, C, '/concursuri/c1/clasament'],
@@ -83,9 +87,6 @@ describe('notificationHref — every type with its ids', () => {
     // → pages not on the web yet: no link (each gate in NOTIFICATION_PAGES_ON_WEB / ON_WEB)
     [T.CHAT_MESSAGE, { ...C, tab: 'participants' }, null],
     [T.PENALTY, C, null],
-    [T.POLL_OPENED, {}, null],
-    [T.POLL_CLOSED, {}, null],
-    [T.POLL_SUGGESTION_APPROVED, {}, null],
     // partide.b.notif-invite: the invite code → the join confirmation (sign-in first when signed out).
     [T.PARTIDA_INVITE, { partidaCode: 'ABC123' }, '/partide/intra/ABC123'],
     // partide.b.notif-finished-autoclose: the CLIENT id → the resolver page (pointer / own list → the

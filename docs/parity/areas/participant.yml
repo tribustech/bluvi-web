@@ -46,7 +46,10 @@ screens:
       - existing pending registration (editable, can leave)
       - existing approved registration, team, competition notStarted (editable, cannot leave)
       - existing registration after start (locked, contact organizer)
-      - organizer mode (edits another team's registration, never locked by status)
+      - organizer mode (edits another team's registration, never locked by status; only for the competition's author)
+      - organizer link to a registration that no longer exists (gate «Înscrierea nu a fost găsită»)
+      - competition read error (retry) / unknown competition (404 gate)
+      - session unknown (error.tsx «Serverul nu răspunde» + retry)
       - phone already on profile (read-only) / phone missing (required)
       - team with zero teammates (confirm dialog)
       - team at max size (add teammates disabled)
@@ -58,71 +61,115 @@ screens:
       - id: participant.register.c1
         text: "While the profile or the competition is loading, a full-page loading state is shown instead of the form."
         fish_ref: "app/(app)/register/[competitionId].tsx:288-298"
+        status: passing
+        web_note: "RegistrationSkeleton (the page's Suspense fallback, loading.tsx, and while the competition / profile / statute read): the real header, the field card, the bar's CTA and from 1024 the summary column's shape; one sr-only status. e2e tests/e2e/concurs-inscriere.spec.ts «c1»."
       - id: participant.register.c2
         text: "Signed out, the page titled „Înscriere” shows the fisherman illustration, the heading „Înscrie-te la competiție”, the text „Autentifică-te pentru a putea participa la competiție. După ce te conectezi, revino aici pentru a-ți finaliza înscrierea.” and a „Intră în cont” button that opens sign-in (web: /intra?next=<this page>)."
         fish_ref: "app/(app)/register/[competitionId].tsx:300-334"
+        status: passing
+        web_note: "No session cookie → proxy.ts 307 /intra?next=<path+query> (organizer query kept). A cookie the CMS refuses → fish's gate in the T4 frame, FishermanArt (static token-coloured SVG for fish's Lottie), «Intră în cont» → routes.signIn(this page). A session the CMS cannot read → error.tsx «Serverul nu răspunde». e2e tests/e2e/concurs-inscriere.spec.ts «c2» ×2."
       - id: participant.register.c3
         text: "The registration being edited is, in normal mode, the competition registration with status registered or pending whose participants include the viewer's documentId; in organizer mode (asOrganizer=1) it is the registration whose documentId is registrationId. No match = new registration."
         fish_ref: "app/(app)/register/[competitionId].tsx:52-66"
+        status: passing
+        web_note: "_form/model.ts findEditedRegistration (unit). Web: the organizer mode needs ?organizator=1 + ?inscriere= AND statute.userRole = author (else the viewer's own form); an organizer link to a registration that no longer exists shows «Înscrierea nu a fost găsită» instead of fish's fallback to a NEW entry of the organizer (rule 4). e2e tests/e2e/concurs-inscriere.spec.ts «c3 …», «organizer mode», «?organizator=1 from someone who does not author». Review fixes 2026-10-08: (a) an organizer link whose statute read fails shows the error state «A apărut o eroare…» with a retry that re-reads the statute — never the organizer's own new form (the CMS auto-approves the author's own entry); (b) normal mode compares the registrations (edge-cached) with my-status (live) — model.ts registrationsSettle (unit): pending/registered with no entry yet, or no status with the entry still listed, → the skeleton while the competition is re-read every CDN_PURGE_SETTLE_MS (5 tries, then the error state), never a new form that would POST a duplicate or a left entry offering «Părăsește» again; (c) a direct link in a state where the competition page disables the entry (core registrationAction: rejected, non-author of a pending team, started / deadline passed / limit reached) → a T4Gate with fish's reason and «Înapoi la concurs» (same titles as the disclaimer's access.ts); the viewer's own entry in such a state stays readable, locked with the reason. e2e «statute read fails», «edge copy predates the write», «edge copy predates a leave», «the form’s URL opened directly»."
       - id: participant.register.c4
         text: "A read-only field „Nume utilizator*” shows the viewer's username (organizer mode: the registration author's username)."
         fish_ref: "app/(app)/register/[competitionId].tsx:385-392"
+        status: passing
+        web_note: "Read-only TextInput. e2e tests/e2e/concurs-inscriere.spec.ts «c3 c4 c5 …», «organizer mode». Read-only values (username, the profile's phone, a locked team name) are not TextInputs: no fill, a hairline, the muted value and a lock (ReadOnlyField; e2e checks the transparent shell and the lock)."
       - id: participant.register.c5
         text: "The phone field „Număr de telefon*” (placeholder „Introdu numărul de telefon”, numeric keyboard) appears only for a new registration; it is prefilled from profile.phone and read-only when the profile already has one; it is required („Acest câmp este obligatoriu”) and must be 7–15 characters („Numărul de telefon trebuie să conțină minim 7 și maximum 15 caractere”)."
         fish_ref: "app/(app)/register/[competitionId].tsx:394-419"
+        status: passing
+        web_note: "inputmode numeric, aria-required; read-only with the helper «Numărul din profilul tău.» when the profile has one; validated on submit then live (zod schema in model.ts, unit) with the T4 error summary focused. e2e tests/e2e/concurs-inscriere.spec.ts «c5 — phone missing», «c3 c4 c5 …»."
       - id: participant.register.c6
         text: "Team competitions only: an optional „Numele echipei” field (placeholder „Introdu numele echipei”, helper „Numele echipei este opțional și poate fi adăugat ulterior”) limited to 30 characters („Numele echipei poate conține maximum 30 de caractere.”)."
         fish_ref: "app/(app)/register/[competitionId].tsx:421-444"
+        status: passing
+        web_note: "Validated on submit (fish's maxLength rule), the message inline and in the error summary. e2e tests/e2e/concurs-inscriere.spec.ts «c6 c7 …»."
       - id: participant.register.c7
         text: "Team competitions only: a „Coechipieri” section; when teamParticipants is set, the caption „Această competiție permite înscrierea unui număr maxim de {N} participanți/echipă. Vă rugăm să adăugați un număr maxim de {N-1} coechipieri.” is shown."
         fish_ref: "app/(app)/register/[competitionId].tsx:446-454"
+        status: passing
+        web_note: "T4Section «Coechipieri» with the caption as its description; Romanian plurals via formatCount (model.ts teamLimitCaption, unit). e2e tests/e2e/concurs-inscriere.spec.ts «c6 c7 …»."
       - id: participant.register.c8
         text: "The „Adaugă coechipieri” control is disabled once teammates + 1 (the viewer) reaches teamParticipants."
         fish_ref: "app/(app)/register/[competitionId].tsx:455-473"
+        status: passing
+        web_note: "model.ts canAddTeammate (unit); also disabled while a write runs. e2e tests/e2e/concurs-inscriere.spec.ts «c6 c7 c8 …»."
       - id: participant.register.c9
         text: "The teammate picker has a search field „Introdu numele” and lists users from GET /user/all?page&pageSize=20&search (infinite, next page at the end of the list with a „Se încarcă...” footer); each row shows the thumb avatar (fallback disc), the username and „#{username}{id}”; users already added are disabled and dimmed; states „Se încarcă...”, „Eroare la încărcarea datelor”, „Nu s-au găsit rezultate”; closing the picker clears the search. The viewer is not filtered out of the results."
         fish_ref: "components/competition/CompetitionParticipantsSelect.tsx:40-212; services/queries/useUsers.ts:5-20; services/api/users.ts:5-20"
+        status: passing
+        web_note: "TeammatePicker: ResponsiveSurface (sheet <768, dialog ≥768), core paginatedUsersInfiniteQuery (pageSize 20); the next page loads when the list's end scrolls into view (fish: momentum end); the search waits 250 ms after typing (fish: every key); rows = Avatar 32 (initials disc fallback), username, «#{username}{id}»; added rows disabled + 50% + check; the body mounts only while open, so closing clears the search. e2e tests/e2e/concurs-inscriere.spec.ts «c6 c7 c8 c9 …» (loading, rows, next page, disabled, no results, error, keyboard). Web addition: the anchor (the viewer, or the entry's author in organizer mode) is in `taken` and its row is disabled with «tu» / «autorul înscrierii» (fish lists it as choosable and the CMS refuses the duplicate after submit with copy without diacritics). e2e «c9 — the picker lists the viewer disabled as «tu»»."
       - id: participant.register.c10
         text: "Choosing a user appends them to the team; each chosen teammate is listed with their username and a remove (X) control that drops them from the form."
         fish_ref: "components/competition/CompetitionParticipantsSelect.tsx:93-95; app/(app)/register/[competitionId].tsx:474-497"
+        status: passing
+        web_note: "e2e tests/e2e/concurs-inscriere.spec.ts «c6 c7 c8 c9 c10 …»."
       - id: participant.register.c11
         text: "The form is seeded with the registration's participants minus the viewer (organizer mode: minus the author), its team name and the profile phone, and re-seeded whenever that server data changes unless the user has already edited the form."
         fish_ref: "app/(app)/register/[competitionId].tsx:96-151"
+        status: passing
+        web_note: "model.ts seedValues / seedKey / isDirty (unit); the screen re-seeds on a new key unless dirty. e2e tests/e2e/concurs-inscriere.spec.ts «c11 — re-seeded …» (a refetch while untouched replaces the values; after an edit they stay)."
       - id: participant.register.c12
         text: "Footer: no registration → „Finalizează”; registration in normal mode with competitionStatus other than notStarted → only the text „Nu poți face modificări. Contactează organizatorul.”; otherwise „Salvează modificările” (disabled until the form changes) plus, in normal mode with status pending, a red „Părăsește concursul”."
         fish_ref: "app/(app)/register/[competitionId].tsx:341-383"
+        status: passing
+        web_note: "model.ts footerState (unit). Phone: the T4 action bar pinned to the viewport bottom; from 1024 the same actions inside the sticky summary card. Web addition: under «Nu poți face modificări…» the team name is read-only and the teammate controls are hidden (fish leaves them editable with nothing to save them). e2e tests/e2e/concurs-inscriere.spec.ts «c12 — approved …», «pending team …». Locked: also no team-name helper, no limit caption, no «Adaugă coechipieri»; the team as plain read-only rows (e2e)."
       - id: participant.register.c13
         text: "For a team competition with zero teammates, „Finalizează” and „Salvează modificările” first open a non-dismissable confirmation „Nu ați adăugat niciun coechipier. Sunteți sigur că doriți să înregistrați echipa fără coechipieri?” with „Sunt sigur” (continues the submit) and „Închide” (cancels)."
         fish_ref: "app/(app)/register/[competitionId].tsx:155-164; components/EmptyTeamMembersSheet.tsx:22-70"
+        status: passing
+        web_note: "EmptyTeamConfirm: alert Dialog, no backdrop / Escape close. e2e tests/e2e/concurs-inscriere.spec.ts «c6 … c13», «c13 — «Sunt sigur»…»."
       - id: participant.register.c14
         text: "Create sends POST /registrations {data:{competition, teamName, registrationStatus, participants:[...teammate documentIds, viewer documentId], phone}} where phone is null when the profile already has one."
         fish_ref: "app/(app)/register/[competitionId].tsx:166-180; services/api/registrations.ts:4-11"
+        status: passing
+        web_note: "model.ts createPayload (unit); POST asserted at the browser's CMS edge (route mock). The real write on the local CMS is opt-in (E2E_REAL_REGISTRATION=1): the CMS e-mails the author and staff on create / leave. e2e tests/e2e/concurs-inscriere.spec.ts «c3 c4 c5 c12 c14 c15 c16 …», «c6 … c14»."
       - id: participant.register.c15
         text: "After create, the competition (byId), competitions.all, competitions.my, competitionCards root and profile.my are invalidated; analytics event competition_registration_created {competition_id, participants}."
         fish_ref: "app/(app)/register/[competitionId].tsx:182-205; services/mutations/useCreateCompetitionRegistration.ts:16-24"
+        status: passing
+        web_note: "core createCompetitionRegistrationMutation onSettled (all, my, cards, profile.my) + the screen's byId invalidation; lib/analytics track. e2e tests/e2e/concurs-inscriere.spec.ts (re-read of the competition after the POST, the analytics event). After the POST the screen marks byId stale and re-reads it CDN_PURGE_SETTLE_MS later (the update's pattern), so the 5-minute staleTime never keeps the pre-write copy."
       - id: participant.register.c16
         text: "Submitting opens a status dialog: pending „Înscriere în curs...”; success „Felicitări!” / „Solicitarea ta a fost înregistrată cu succes.” / „Vei fi contactat în cel mai scurt timp pentru confirmarea locului.”, closing itself after 3 s and returning to the competition page; error shows the server message (fallback „A apărut o problemă în cadrul solicitării, te rugăm să încerci mai târziu.”) and „Închide”. It cannot be dismissed while pending."
         fish_ref: "components/RegistrationStatusModalSheet.tsx:63-160"
+        status: passing
+        web_note: "StatusDialog: centred alert Dialog at every width (fish's detached sheet); pending cannot be dismissed; success closes after 3 s (AUTO_CLOSE_MS) and router.replace(routes.competition(id)); error = the server's message (fallback in model.ts) + «Închide». e2e tests/e2e/concurs-inscriere.spec.ts «c3 … c16», «c16 — create refused»."
       - id: participant.register.c17
         text: "Update sends PUT /registrations/{registrationId} {data:{competition, participants:[...teammates, anchor], teamName}} where anchor is the viewer, or the registration author in organizer mode; a missing registration fails with „Nu s-a găsit înscrierea!”."
         fish_ref: "app/(app)/register/[competitionId].tsx:209-230; services/api/registrations.ts:13-26"
+        status: passing
+        web_note: "model.ts updatePayload (unit; a missing registration throws fish's message, shown in the dialog). e2e tests/e2e/concurs-inscriere.spec.ts «pending team …», «organizer mode …»."
       - id: participant.register.c18
         text: "After a successful update the saved values become the form baseline; the competition (byId) is marked stale at once and refetched 2000 ms later (after the edge purge); competitions.my is invalidated; the dialog shows „Modificare în curs...” then „Felicitări!” / „Înregistrarea ta a fost modificată cu succes.”; analytics competition_registration_updated."
         fish_ref: "app/(app)/register/[competitionId].tsx:232-245; services/mutations/useUpdateCompetitionRegistration.ts:13-39; components/RegistrationStatusModalSheet.tsx:162-191"
+        status: passing
+        web_note: "core updateCompetitionRegistrationMutation (CDN_PURGE_SETTLE_MS): the e2e asserts the competition re-read lands ≥1.5 s after the PUT; the baseline reset; analytics. e2e tests/e2e/concurs-inscriere.spec.ts «c3 c11 c12 c17 c18 …»."
       - id: participant.register.c19
         text: "„Părăsește concursul” asks „Ești sigur că dorești să părăsești concursul?” („Închide” / destructive „Părăsește concursul”), then sends PATCH /registrations/{id}/leave; the dialog shows „Modificare în curs...” then „Ai părăsit competiția.”; an error shows the message as a toast; competition byId, competitions.all, my and competitionCards are invalidated."
         fish_ref: "app/(app)/register/[competitionId].tsx:253-286; services/mutations/useLeaveCompetition.ts:6-19; components/RegistrationStatusModalSheet.tsx:193-221"
+        status: passing
+        web_note: "Alert Dialog «Ești sigur că dorești să părăsești concursul?» («Închide» / danger «Părăsește concursul»), core leaveCompetitionMutation + byId invalidation; a refusal → the site toast with the server's message. e2e tests/e2e/concurs-inscriere.spec.ts «c19». Same delayed byId re-read after the leave as after the create (c15)."
       - id: participant.register.c20
         text: "Leaving with unsaved changes asks „Ești sigur că vrei să renunți la modificările făcute?” / „Toate schimbările făcute vor fi pierdute.” with „Închide” and destructive „Renunță” (web: also on browser back/unload)."
         fish_ref: "app/(app)/register/[competitionId].tsx:270-277,340"
+        status: passing
+        web_note: "Web: the site's one leave dialog (components/account/profile-form/useLeaveGuard, reused as-is): «Renunți la modificări?» / «Modificările pe care nu le-ai salvat se pierd.» with «Continuă editarea» / danger «Renunță» — same decision as fish's Alert, one copy across the site; it also holds in-app links, browser Back and unload (beforeunload). e2e tests/e2e/concurs-inscriere.spec.ts «c20» ×2."
       - id: participant.register.c21
         text: "In organizer mode the save button stays available whatever the competition status and the leave button is never shown."
         fish_ref: "app/(app)/register/[competitionId].tsx:345,363"
+        status: passing
+        web_note: "e2e tests/e2e/concurs-inscriere.spec.ts «organizer mode …» (save after the start, no leave, PUT anchored to the author)."
       - id: participant.register.c22
         text: "Leaving the page drops the cached user-search pages (users.paginated)."
         fish_ref: "app/(app)/register/[competitionId].tsx:290-294"
+        status: passing
+        web_note: "The screen's unmount removes usersKeys.paginated. e2e tests/e2e/concurs-inscriere.spec.ts «c22» (back on the page the picker reads again instead of showing cached rows)."
     mobile_only: false
-    status: todo
+    status: passing
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.team-disclaimer
@@ -134,31 +181,49 @@ screens:
     template: T4
     milestone: M5
     roles: [angler, organizer]
-    core: [competitions.competitionQuery]
+    core: [competitions.competitionQuery, competitions.registrationAction]
     states:
       - default
-      - signed-out (sign-in gate before reaching it)
+      - loading (session gate / competition read — the page's skeleton, the copy is never flashed)
+      - signed-out (proxy 307 to /intra?next= this page)
+      - dead session cookie (the sign-in gate in the page's frame, back to this page)
+      - session unknown (CMS did not answer /users/me — «Serverul nu răspunde» + retry)
+      - competition read error (retry) / unknown competition (404)
+      - redirected (single competition, or the viewer already has a pending / approved entry)
+      - closed (rejected, deadline passed, limit reached, started / draft / completed / cancelled — the reason + «Înapoi la concurs», no copy)
     criteria:
       - id: participant.team-disclaimer.c1
         text: "The page has a back control, the fisherman illustration and the title „Câteva lucruri de menționat”."
         fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:28-46"
+        status: passing
+        web_note: "The title is the T4 header's h1 with the competition's name as its eyebrow. From 768 the body is on the header's axis (cards on the back control's edge), from 1280 under the title text with a «Despre concurs» fact card (lake, dates, team size — only what is known) on the right and «Am înțeles» docked under it (T4Frame aside; e2e checks the axis and the docking at 768/1024/1280/1440/1920). Back (components/nav/useBack): back when the page before is the site's, else the competition page (e2e). FishermanArt is a static SVG stand-in for fish's Lottie."
       - id: participant.team-disclaimer.c2
         text: "Intro: „Acesta este un concurs pe echipe, astfel vă rugăm să luați în considerare următoarele:” with „echipe” highlighted."
         fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:49-55"
+        status: passing
+        web_note: "Highlighted by accent ink AND semibold (never colour alone); e2e checks weight and colour."
       - id: participant.team-disclaimer.c3
         text: "Card „Înscrierea în concurs”: „Doar o singură persoană din echipă trebuie să facă înregistrarea în concurs și să adauge toți coechipierii. Aceștia vor fi înregistrați și notificați automat.” with „o singură persoană din echipă” emphasised."
         fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:59-71"
+        status: passing
+        web_note: "fish DisclaimerItem's look: 2px accent outline + accent-filled icon disc (theme tokens, dark mode follows); e2e checks the 2px border and that the disc has the border's colour. Same for c4."
       - id: participant.team-disclaimer.c4
         text: "Card „Modificări”: „Datele înscrierii pot fi modificate doar până când organizatorul competiției acceptă înscrierea. După ce înscrierea a fost aprobată, nicio modificare nu mai este permisă.” with the last sentence emphasised."
         fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:72-84"
+        status: passing
+        web_note: "Copy kept from fish although it contradicts the behaviour — see participant.b.disclaimer-copy-mismatch."
       - id: participant.team-disclaimer.c5
         text: "„Am înțeles” opens the registration page of the same competition (one navigation even on double click)."
         fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:17-19,87-89"
+        status: passing
+        web_note: "A link to routes.competitionRegister(id); the shell's NavigationGuard drops the second activation (e2e: double click, then Back returns to the disclaimer). Below 1280: in the bar on the bottom edge; from 1280 docked under the fact card in the right column. Keyboard: Tab + Enter (e2e)."
       - id: participant.team-disclaimer.c6
         text: "It is shown only on the way to a NEW registration in a team competition; single competitions and users already pending/registered go straight to the registration page."
-        fish_ref: "components/NormalUserSheetItems.tsx:38-61"
+        fish_ref: "components/NormalUserSheetItems.tsx:24-35,38-61,74-95"
+        status: passing
+        web_note: "Also guards a typed / old link / Back after the button turned disabled (_components/access.ts, unit access.test.ts): registrationAction(...).disabled — or a draft / completed / cancelled competition — → a T4Gate «Înscrierea nu este disponibilă» («…nu mai poate fi modificată» for an entry being edited) with fish's reason and «Înapoi la concurs», never the copy or «Am înțeles»; otherwise target !== 'teamDisclaimer' → router.replace to /inscriere. The skeleton stands until the competition and /my-status are read, so nothing flashes (e2e: single, pending, approved → form; rejected, deadline passed, limit reached, cancelled → the reason, the copy never rendered, URL unchanged — mocked competition / my-status). The registration form itself (/inscriere, participant.register) must apply the same rule for a direct link."
     mobile_only: false
-    status: todo
+    status: passing
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.register-guests
@@ -571,50 +636,81 @@ screens:
       - id: participant.poll-current.c1
         text: "Header: back (home when there is nothing behind), title „Sondaj”, a history button „Sondaje anterioare” to the past polls, and a share button „Distribuie sondajul” only when a poll exists."
         fish_ref: "app/(app)/polls/current.tsx:37-39,51-64; helpers/goBackOrHome.ts:15-21"
+        status: todo
+        note: "e2e tests/e2e/sondaj.spec.ts. Web: T6 FlowHeader (no breadcrumb band): back chip = fish goBackOrHome (history back when the page before is ours, else a replace to Acasă; a real link to /); «Sondaje anterioare» → /sondaje/anterioare and «Distribuie sondajul» (only with a poll) are header chips below 1024 (hidden by CSS from 1024, a viewport decision, never a data one) and aside cards from 1024. TODO: «Sondaje anterioare» is hidden (rule 4) until participant.polls-past ships /sondaje/anterioare — POLLS_PAST_ON_WEB in app/(site)/sondaje/_components/model.ts; flip it with that screen and this criterion passes (the e2e follows the flag)."
       - id: participant.poll-current.c2
         text: "While loading, the header stays and the body shows „Se încarcă...”."
         fish_ref: "app/(app)/polls/current.tsx:66-77"
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts. Web: the header stays; the poll card in grey (aria-busy) with «Se încarcă...» as the status line. The skeleton has the loaded geometry (from 1024 the poll track + grey aside cards; the e2e checks the loaded card lands on the skeleton's x/width) and the header chips are decided by the viewport, so nothing shifts when the poll arrives."
       - id: participant.poll-current.c3
         text: "Without an active poll: „Niciun sondaj activ”, „Revino mai târziu pentru următorul sondaj al comunității.” and a link „Vezi sondajele anterioare”."
         fish_ref: "app/(app)/polls/current.tsx:79-98"
+        status: todo
+        note: "e2e tests/e2e/sondaj.spec.ts. Web: T4Gate in the narrow FlowLayout; «Vezi sondajele anterioare» is an outline button link. TODO: the button is hidden (rule 4) until participant.polls-past ships /sondaje/anterioare (POLLS_PAST_ON_WEB)."
       - id: participant.poll-current.c4
         text: "The poll title is the page heading, followed by its description when present."
         fish_ref: "app/(app)/polls/current.tsx:132-141"
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts. Web: the h1 is the header's «Sondaj» (T6); the poll title is the card's h2 at title1, then the description and a facts line «{n} vot/voturi · se închide în …» / «Vot închis» (web addition: says why a closed poll does nothing)."
       - id: participant.poll-current.c5
         text: "Options are sorted by votes descending, ties by the admin order."
         fish_ref: "services/queries/usePollCurrent.ts:6-13"
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts (fixture in admin order ≠ vote order, tie broken by order). core sortPollOptionsByVotes."
       - id: participant.poll-current.c6
         text: "Each option shows an optional chip „Sugerat de {name}”, its title, an optional description, „{p}%” (rounded; 0 when there are no votes) and „{n} vot/voturi”; my voted option has a stronger border and a fill bar to its percentage that re-animates from 0 when my vote changes."
         fish_ref: "components/PollOption.tsx:32-170"
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts. Web: PollOptionRow (shared, readOnly for the past polls); counts with lib plural («21 de voturi»); the bar remounts per vote (grows from 0), reduced motion → no transition; my vote is also said in words («, votul tău», sr-only) in every mode, and a closed/read-only row carries no aria-pressed (a result, not a toggle) — e2e asserts the accessible names; participant.polls-past's e2e should assert it on its read-only rows."
       - id: participant.poll-current.c7
         text: "Clicking an option: voting closed → nothing (options dimmed); signed out → sign-in with return to this page; my current vote with nothing pending → nothing; the pending option again → deselects; otherwise it becomes the pending selection (tinted; dashed border when it switches an existing vote)."
         fish_ref: "app/(app)/polls/current.tsx:100-112; components/PollOption.tsx:62-99"
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts. Web: closed rows are aria-disabled at opacity .75 (fish .6 drops captions under AA); the dashed pending border follows fish's code (pending && !voted — also on a first vote); a guest's row is a link to /intra?next=%2Fsondaje. Pure rule in _components/model.ts pressOption (unit)."
       - id: participant.poll-current.c8
         text: "The pending option replaces its percentage with an inline button „Votează” (no vote yet) or „Schimbă votul”, which casts PUT /polls/{documentId}/vote {optionId} and clears the selection."
         fish_ref: "app/(app)/polls/current.tsx:114-121,143-157; components/PollOption.tsx:142-157; services/api/polls.ts:19-21"
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts (PUT body {optionId} asserted, focus returns to the option)."
       - id: participant.poll-current.c9
         text: "A vote updates the counts optimistically (moves one vote from my previous option, +1 total only on a first vote), rolls back on error and refetches the poll when settled."
         fish_ref: "services/mutations/usePollVote.ts:7-47"
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts (optimistic counts before the answer, settle refetch, 500 → rollback + toast «Votul nu a fost înregistrat. Încearcă din nou.» — the toast is a web addition)."
       - id: participant.poll-current.c10
         text: "While voting is open, a row „Sugerează o opțiune” with a multi-line input „Scrie ideea ta...” (max 200) and „Trimite”, enabled for 3–200 trimmed characters; for guests the input is disabled but „Trimite” goes to sign-in with return to this page; disabled while sending."
         fish_ref: "components/PollSuggestInput.tsx:43-172; app/(app)/polls/current.tsx:158-167"
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts. Web: Enter sends, Shift+Enter breaks the line; a «n/200» counter; guests see «Intră în cont ca să trimiți ideea ta.» under the off field and «Trimite» is a link to sign-in. Below 1024 fish's row under the options, from 1024 the aside's first card."
       - id: participant.poll-current.c11
         text: "A suggestion sends POST /polls/{documentId}/suggest {text}; success clears the input and opens „Sugestie trimisă!” / „Sugestia ta a fost trimisă spre verificare. Dacă este aprobată, va fi adăugată ca opțiune în sondaj și vei primi o notificare.” / „Am înțeles”; failure toasts the message or „Nu am putut trimite sugestia.”."
         fish_ref: "components/PollSuggestInput.tsx:108-122; components/PollSuggestionSentSheet.tsx:14-56; services/api/polls.ts:23-25"
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts (POST body {text} trimmed, ResponsiveSurface sheet/dialog with fish copy, 400 → toast). Web: the toast shows the CMS message only for a bluCode error, else «Nu am putut trimite sugestia.» (the transport's generic text is not shown)."
       - id: participant.poll-current.c12
         text: "?focus=suggest (web ?focus=sugestie, used by the Acasă card) focuses the suggestion input once the page has loaded."
         fish_ref: "app/(app)/polls/current.tsx:24-25; components/PollSuggestInput.tsx:55-78"
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts (phone and 1280)."
       - id: participant.poll-current.c13
         text: "Data: GET /polls/current, personalised (myVoteOptionId) when signed in; stale after 10 s, refetched on focus and by a manual refresh; no polling."
         fish_ref: "services/queries/usePollCurrent.ts:15-26; services/api/polls.ts:4-7; app/(app)/polls/current.tsx:27-30,130"
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts (one real signed-in GET on the local CMS through /api/cms; no polling within 10 s; refetch on visibilitychange once stale). The browser reload is the manual refresh (no pull-to-refresh on web)."
       - id: participant.poll-current.c14
         text: "Share text is „🗳️ Votează în sondajul comunității Bluvi:” + blank line + the title, with the poll URL (web: absolute /sondaje; Web Share API, else copy the link); cancelling is silent."
         fish_ref: "helpers/sharePoll.ts:4-15"
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts (Web Share text + absolute /sondaje; no share sheet → clipboard + toast «Linkul a fost copiat.»; cancel silent). No emoji, as home.acasa.c35. _components/sharePoll.ts."
       - id: participant.poll-current.c15
         text: "Analytics: poll_view once per poll {poll_document_id, voting_closed, has_voted}; poll_vote or poll_vote_change {poll_document_id, option_id}; poll_suggest {poll_document_id, text_length}."
         fish_ref: "app/(app)/polls/current.tsx:41-49; services/mutations/usePollVote.ts:17-22; services/mutations/usePollSuggest.ts:8-13"
+        status: passing
+        note: "e2e tests/e2e/sondaj.spec.ts (bluvi:analytics events: poll_view once, poll_vote then poll_vote_change, poll_suggest with text_length)."
     mobile_only: false
-    status: todo
+    status: passing
+    note: "Web: app/(site)/sondaje (T6; page, loading, error, opengraph/twitter image, _components/{PollScreen,PollOptionRow,SuggestInput,SuggestionSentDialog,sharePoll,model}). Static public shell (title «Sondaj», canonical, BreadcrumbList JSON-LD, brand OG card «Sondajul comunității», sitemap), the poll read client-side. Unit _components/model.test.ts. Shots .shots/sondaj (375/768/1280/1440/1920: open, voted, pending, closed, guest, none, loading, sent)."
 
   # ---------------------------------------------------------------------------------------------
   - id: participant.polls-past
@@ -1010,12 +1106,17 @@ behaviours:
   - id: participant.b.register-entry
     text: "Competition page „Înscrie-te”: users already pending/registered and single competitions go to the registration page; a new team registration goes through the team disclaimer first. Signed-out users see the sign-in gate (web: /intra?next=…)."
     fish_ref: "components/NormalUserSheetItems.tsx:38-61; components/competition/CompetitionRanking.tsx:481-494"
+    status: passing
+    web_note: "CompetitionScreen registrationHref = core registrationAction.target: routes.competitionRegister(id) or routes.competitionTeamDisclaimer(id), in the header action, the phone bar row and the Acțiuni sheet; signed out → /intra?next= (unchanged). e2e tests/e2e/concurs-inscriere.spec.ts «competition-page.bara-actiuni.c4 participant.b.register-entry» (single, new team → /echipa, pending team → the form), concurs-previzualizare.spec.ts «bara-actiuni.c1 …», «bara-actiuni.c4 …»."
   - id: participant.b.register-entry-disabled
     text: "The registration button is disabled when the user was rejected, is a non-author teammate of a pending team, is approved (unless team competition still notStarted), or — for new/pending — when the competition has started or the registration deadline has passed, or the participants limit (registered count = participantsLimit) is reached."
     fish_ref: "components/competition/CompetitionRanking.tsx:453-480; components/NormalUserSheetItems.tsx:30-36"
+    status: passing
+    web_note: "core registrationAction (unit, competitionActions.test.ts), unchanged by M5. concurs-previzualizare.spec.ts «bara-actiuni.c5 …» (full, deadline, rejected, registered, non-author teammate); e2e tests/e2e/concurs-inscriere.spec.ts «participant.b.register-entry-disabled» (rejected: no link to the form), «the form’s URL opened directly» (the form applies the same rule to a bookmark / history / stale tab: rejected, non-author pending, deadline passed → a gate with the reason; the own entry → locked with it)."
   - id: participant.b.disclaimer-copy-mismatch
     text: "Flag to owner: the team disclaimer says no change is allowed after approval, but an approved team registration stays editable while the competition is notStarted (fish behaviour wins until decided)."
     fish_ref: "app/(app)/register/team-competition-disclaimer.tsx:72-83; components/competition/CompetitionRanking.tsx:476"
+    web_note: "OPEN — owner decision needed. Web keeps fish's copy (participant.team-disclaimer.c4) and fish's behaviour (core registrationAction: an approved team entry stays editable while notStarted). Either the copy changes («…până la începerea concursului») or approved entries lock; until then both stay as in fish."
   - id: participant.b.organizer-edit-registration
     text: "Organizer „Editează” on a participant row (hidden for rejected rows and cancelled/completed competitions): guest registrations open the guests form with registrationId/guestName/teamName; account registrations open the registration page in organizer mode (asOrganizer=1, registrationId)."
     fish_ref: "components/CollapsableActions.tsx:38-80,160-167"
@@ -1043,12 +1144,18 @@ behaviours:
   - id: participant.b.poll-notification-route
     text: "POLL_OPENED, POLL_CLOSED and POLL_SUGGESTION_APPROVED notifications open the current poll (web /sondaje)."
     fish_ref: "helpers/getRedirectLocationForNotification.ts:92-95"
+    status: passing
+    note: "lib/notification-href: NOTIFICATION_PAGES_ON_WEB.polls on ('currentPoll' → /sondaje). Unit tests/unit/notification-href.test.ts (POLL_OPENED / POLL_CLOSED / POLL_SUGGESTION_APPROVED → /sondaje; gate ↔ app/(site)/sondaje); e2e tests/e2e/sondaj.spec.ts (the /notificari rows link /sondaje)."
   - id: participant.b.poll-deeplink
     text: "Universal links cover /polls/*; the shared poll URL is {WEB_DOMAIN}/polls/current, so the web must answer /polls/current (and /polls/past) with a redirect to /sondaje (/sondaje/anterioare)."
     fish_ref: "helpers/sharePoll.ts:4-6; features/partide/helpers/deepLinks.ts:15"
+    status: todo
+    note: "next.config.ts redirects /polls/current → /sondaje (308). /polls/past → /sondaje (307, temporary) until participant.polls-past ships /sondaje/anterioare; POLLS_PAST_ON_WEB (app/(site)/sondaje/_components/model.ts) then makes it the permanent /polls/past → /sondaje/anterioare. e2e tests/e2e/sondaj.spec.ts follows the flag (and asserts GET /sondaje/anterioare is not 404 once on)."
   - id: participant.b.poll-signin-redirect
     text: "Voting or suggesting signed out goes to sign-in with redirectTo=/polls/current (web next=/sondaje) and comes back to the poll."
     fish_ref: "app/(app)/polls/current.tsx:102-104,163-165; components/PollCard.tsx:38"
+    status: passing
+    note: "Guest option rows and «Trimite» link /intra?next=%2Fsondaje (routes.signIn(routes.polls())); e2e tests/e2e/sondaj.spec.ts clicks through to sign-in."
   - id: participant.b.raffle-entry
     text: "Acasă raffle card: ended → winners page if it has winners, else nothing; signed out → sign-in; joined → confirmation; otherwise → raffle intro."
     fish_ref: "components/raffle/RaffleDashboardCard.tsx:247-261"

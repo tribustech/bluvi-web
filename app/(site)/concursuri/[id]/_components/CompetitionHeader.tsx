@@ -48,7 +48,7 @@ export type HeaderProps = {
   onRecheckOverlay?: () => Promise<boolean>;
   /** fish's «Înscrie-te» rules (core registrationAction) for this viewer — a guest's too. */
   registration?: RegistrationAction | null;
-  /** Where an offered registration continues (the Bluvi app until M5). */
+  /** Where an offered registration goes: the form, or the team disclaimer (core registrationAction.target). */
   registrationHref?: string;
   /** From 768, a registered participant of a running competition: Extra-cântar (the phone has it in the bar). */
   extraAction?: ReactNode;
@@ -190,7 +190,7 @@ export function CompetitionHeader({
 /**
  * The action bar's «Înscrie-te» / «Modifică înscrierea» as a header button (fish RankingActionBar,
  * notStarted), on core registrationAction for every viewer: a guest is sent to sign in while it is
- * open; signed in and offered, it continues in the Bluvi app (the web registration is M5); closed,
+ * open; signed in and offered, it opens the registration form (or the team disclaimer); closed,
  * it is the focusable disabled button described by the visible reason under the header's actions.
  * While the session is pending: a bone of its size (never the guest's link).
  */
@@ -206,7 +206,7 @@ function RegisterAction({ state, signIn, href, reasonId }: { state: RegisterStat
   }
   if (state.kind === 'offered' && href) {
     return (
-      <ButtonLink href={href} icon={icon} title="Înscrierea continuă în aplicația Bluvi.">
+      <ButtonLink href={href} icon={icon}>
         {state.label}
       </ButtonLink>
     );

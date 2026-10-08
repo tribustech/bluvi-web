@@ -1,0 +1,13 @@
+import { brandImage, ogResponse } from '@/lib/server/og/images';
+import { OG_ALT } from '@/lib/server/og/model';
+import { OG_SIZE } from '@/lib/server/og/tokens';
+
+// Open Graph / Twitter image of /sondaje (participant.poll-current): the brand card — the poll
+// itself is read in the browser (personalised), never drawn here.
+export const alt = OG_ALT.polls;
+export const size = OG_SIZE;
+export const contentType = 'image/png';
+
+export default function Image() {
+  return ogResponse(() => brandImage('polls'), 'polls');
+}

@@ -637,6 +637,10 @@ function Screen({
   // fish disabledInscrieTe / NormalUserSheetItems (core) for every viewer: a full competition or a
   // passed deadline is closed for a guest too (only an open one sends a guest to sign in).
   const registration = registrationAction(competition, viewer?.documentId ?? null, new Date());
+  // fish handleInscrieTe (competition-page.bara-actiuni.c4): the form, or the team disclaimer first
+  // for a NEW team registration (core registrationAction.target).
+  const registrationHref =
+    registration.target === 'teamDisclaimer' ? routes.competitionTeamDisclaimer(id) : routes.competitionRegister(id);
   const me = myEntry(competition, viewer ?? null);
   const metadata = rankingData?.metadata;
   // Owner rule 20: each view's count is a badge on its tab (only when it is known — rule 4).
@@ -707,7 +711,7 @@ function Screen({
           datesProse={dates.prose}
           signIn={signIn}
           registration={registration}
-          registrationHref={appLink(id)}
+          registrationHref={registrationHref}
           extraAction={
             extraAllowed ? (
               // Busy, not native-disabled: focus comes back here from the dialog's «Confirmă» and
@@ -982,7 +986,7 @@ function Screen({
             onFullView={() => setFullOpen(true)}
             fullViewDisabled={fullViewDisabled}
             registration={registration}
-            registrationHref={appLink(id)}
+            registrationHref={registrationHref}
             extraScale={
               extraAllowed
                 ? {
@@ -1011,7 +1015,7 @@ function Screen({
           statutePending={isAuthenticated && ((statuteQ.isPending && statuteQ.fetchStatus !== 'paused') || overlayPending)}
           competitionStatus={status ?? ''}
           registration={registration}
-          registrationHref={appLink(id)}
+          registrationHref={registrationHref}
           signIn={signIn}
           weighingsHref={routes.competitionWeighings(id)}
           extraScale={

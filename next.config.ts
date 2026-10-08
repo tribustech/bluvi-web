@@ -1,6 +1,7 @@
 import path from 'node:path';
 import type { NextConfig } from 'next';
 import pkg from './package.json';
+import { POLLS_PAST_ON_WEB } from './app/(site)/sondaje/_components/model';
 
 /**
  * Only the real production site may be indexed. Every other deployment (staging, previews, the
@@ -56,6 +57,14 @@ const nextConfig: NextConfig = {
       // partidaJoinDeepLink, fish CoopCard) → the web's join-with-code page, which asks first and
       // sends a signed-out visitor to sign-in and back (partide.b.deep-link-join).
       { source: '/partide/join/:code', destination: '/partide/intra/:code', permanent: true },
+      // fish's poll links https://bluvi-app.wearetribus.com/polls/current (helpers/sharePoll.ts) and
+      // /polls/past (universal links cover /polls/*) → the web's poll pages (participant.b.poll-deeplink).
+      // Until /sondaje/anterioare ships (POLLS_PAST_ON_WEB), /polls/past goes to the current poll with
+      // a temporary redirect, so no browser caches a 308 to a page that does not exist yet.
+      { source: '/polls/current', destination: '/sondaje', permanent: true },
+      POLLS_PAST_ON_WEB
+        ? { source: '/polls/past', destination: '/sondaje/anterioare', permanent: true }
+        : { source: '/polls/past', destination: '/sondaje', permanent: false },
     ];
   },
   async headers() {

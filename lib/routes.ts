@@ -91,6 +91,28 @@ export const routes = {
    */
   competitionParticipants: (documentId: string, filtru?: 'in-asteptare') =>
     `/concursuri/${encodeURIComponent(documentId)}/participanti${filtru ? `?filtru=${filtru}` : ''}`,
+  /**
+   * The registration form (participant.register; fish /register/[competitionId]). Organizer mode
+   * (fish asOrganizer=1 + registrationId): `organizator` + `inscriere` (a registration documentId) —
+   * honoured only when the viewer authors the competition.
+   */
+  competitionRegister: (documentId: string, opts: { organizator?: boolean; inscriere?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.organizator) q.set('organizator', '1');
+    if (opts.inscriere) q.set('inscriere', opts.inscriere);
+    const qs = q.toString();
+    return `/concursuri/${encodeURIComponent(documentId)}/inscriere${qs ? `?${qs}` : ''}`;
+  },
+  /** «Câteva lucruri de menționat» before a NEW team registration (participant.team-disclaimer). */
+  competitionTeamDisclaimer: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/inscriere/echipa`,
+  /** Guests without an account (participant.register-guests): edit one (`inscriere`), team name only (`doarEchipa`). */
+  competitionRegisterGuests: (documentId: string, opts: { inscriere?: string; doarEchipa?: boolean } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.inscriere) q.set('inscriere', opts.inscriere);
+    if (opts.doarEchipa) q.set('doarEchipa', '1');
+    const qs = q.toString();
+    return `/concursuri/${encodeURIComponent(documentId)}/inscriere/fara-cont${qs ? `?${qs}` : ''}`;
+  },
   competitionExtraScales: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/extra-cantare`,
   competitionRules: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/regulament`,
   /**
@@ -230,6 +252,8 @@ export const routes = {
   booking: (documentId: string) => `/rezervari/${encodeURIComponent(documentId)}`,
   /** The current poll (fish /polls/current). */
   polls: () => '/sondaje',
+  /** Past polls (participant.polls-past; fish /polls/past). */
+  pollsPast: () => '/sondaje/anterioare',
   raffle: () => '/tombola',
   raffleConfirmation: () => '/tombola/confirmare',
   raffleWinners: () => '/tombola/castigatori',

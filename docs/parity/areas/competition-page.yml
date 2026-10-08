@@ -1384,8 +1384,8 @@ screens:
       - id: competition-page.bara-actiuni.c4
         text: "Înscrie-te goes to the registration form when the competition is individual or the viewer is pending/registered, and to the team disclaimer for a new team registration."
         fish_ref: components/competition/CompetitionRanking.tsx:481-494
-        status: todo
-        web_note: "The web registration form / team disclaimer are M5: an offered «Înscrie-te» opens the competition in the Bluvi app (universal link) with «Înscrierea continuă în aplicația Bluvi.»."
+        status: passing
+        web_note: "M5: registrationHref = core registrationAction.target → /concursuri/[id]/inscriere or /concursuri/[id]/inscriere/echipa (header action, phone bar, Acțiuni sheet); the app hand-off copy is gone. e2e tests/e2e/concurs-inscriere.spec.ts «competition-page.bara-actiuni.c4 …», concurs-previzualizare.spec.ts «bara-actiuni.c4 …»."
       - id: competition-page.bara-actiuni.c5
         text: "Înscrie-te is disabled (50% opacity, aria-disabled) when rejected; when pending on a team registration the viewer did not author; when registered unless the competition is team and not started; otherwise when started, past registrationDeadline or the participants limit is reached."
         fish_ref: components/competition/CompetitionRanking.tsx:453-480; components/competition/RankingActionBar.tsx:263-273
