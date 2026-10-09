@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { useParams } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
+import { notifyManager, useQueryClient } from '@tanstack/react-query';
 import { competitionsKeys, type CompetitionWithMyStatus, type DetailRegistration } from '@/core/competitions';
 import type { RankingFaceData } from '@/components/ranking/RankingFace';
 
@@ -51,7 +51,10 @@ export function useRankingFaces(): RankingFaces {
   const params = useParams<{ id?: string }>();
   const id = typeof params?.id === 'string' ? params.id : '';
   const qc = useQueryClient();
-  const subscribe = useCallback((onChange: () => void) => qc.getQueryCache().subscribe(onChange), [qc]);
+  // Batched like TanStack's own hooks: the cache notifies synchronously when another component's
+  // query is built during ITS render (a dialog's search key), and a direct setState here would be
+  // «Cannot update a component while rendering a different component».
+  const subscribe = useCallback((onChange: () => void) => qc.getQueryCache().subscribe(notifyManager.batchCalls(onChange)), [qc]);
   const read = useCallback(() => (id ? qc.getQueryData<CompetitionWithMyStatus>(competitionsKeys.byId(id)) : undefined), [qc, id]);
   const competition = useSyncExternalStore(subscribe, read, read);
   const registrations = competition?.registrations;
