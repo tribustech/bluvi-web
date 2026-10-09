@@ -380,17 +380,21 @@ export const MAX_HISTORY_PAGES = 200;
 /**
  * The linkCodes of the waters with a finished public partida on record (the community history,
  * walked once, MAX_HISTORY_PAGES guard): only these can have community subpages with content, so
- * only these are read per water. A page that fails ends the walk (what was read is kept: a water
- * left out is never guessed in).
+ * only these are read per water. The first page gives the page count, the rest are read CONCURRENCY
+ * at a time: read one after another (~100 pages on staging) a slow CMS took the sitemap route past
+ * the build's 60 s page timeout («Failed to build /sitemaps/sitemap/… after 3 attempts»). Pages up
+ * to the first that fails are kept (a water left out is never guessed in).
  */
 export async function watersWithPartide(t: Transport): Promise<Set<string>> {
+  const read = (page: number) => maybe(getCommunityHistory(t, { page, pageSize: 100 }));
+  const first = await read(1);
+  if (!first) return new Set();
+  const last = Math.min(first.meta.pagination.pageCount, MAX_HISTORY_PAGES);
+  const rest = await mapLimit(Array.from({ length: Math.max(last - 1, 0) }, (_, i) => i + 2), CONCURRENCY, read);
+  const failed = rest.findIndex(r => !r);
+  const pages = [first, ...(failed === -1 ? rest : rest.slice(0, failed))].filter(r => r !== null);
   const codes = new Set<string>();
-  for (let page = 1; page <= MAX_HISTORY_PAGES; page++) {
-    const res = await maybe(getCommunityHistory(t, { page, pageSize: 100 }));
-    if (!res) break;
-    for (const s of res.data) if (s.venue.key.startsWith('water:')) codes.add(s.venue.key.slice('water:'.length));
-    if (page >= res.meta.pagination.pageCount) break;
-  }
+  for (const res of pages) for (const s of res.data) if (s.venue.key.startsWith('water:')) codes.add(s.venue.key.slice('water:'.length));
   return codes;
 }
 

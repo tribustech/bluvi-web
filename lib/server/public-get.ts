@@ -22,7 +22,44 @@ const MAX_EXPIRE_SECONDS = 7 * 24 * 60 * 60;
  * answered 500 (2026-10-04). Error answers and private responses live only seconds.
  */
 export function cachedPublicGet(url: string, appHeaders: Record<string, string>): Promise<PublicGetResult> {
+  const placeholder = placeholderAnswer(url);
+  if (placeholder) return Promise.resolve(placeholder);
   return readPublic(...publicGetArgs(url, appHeaders));
+}
+
+/**
+ * The ids a route hands when it has nothing real to prerender: generateStaticParams' `_` (an empty
+ * or failed CMS list; partide / pescari / ape-publice always) and the `''` Next passes an image's
+ * metadata while it collects routes. Never a Strapi documentId.
+ */
+export const PLACEHOLDER_IDS: readonly string[] = ['_', ''];
+
+export const isPlaceholderId = (id: string): boolean => PLACEHOLDER_IDS.includes(id);
+
+/** What the CMS answers for an id it does not have (Strapi's NotFoundError body). */
+const NOT_FOUND: PublicGetResult = {
+  ok: false,
+  status: 404,
+  body: JSON.stringify({ data: null, error: { status: 404, name: 'NotFoundError', message: 'Not Found', details: {} } }),
+  contentType: 'application/json',
+};
+
+/**
+ * A GET whose path names the placeholder id (`…/sessions/_`, `…/competitions/_/rankings`) is the
+ * CMS's 404, answered here, before any cache entry or request. As a cached error answer it would
+ * live seconds and be shared by every placeholder page of the build; such a short-lived entry read
+ * back from the shared cache handler is left out of the warming pass and the final pass misses it
+ * («Unexpected cache miss after cache warming phase», m8.cache-warming). Real ids are untouched:
+ * their 404s still reach the CMS and are never baked for long.
+ */
+export function placeholderAnswer(url: string): PublicGetResult | null {
+  let path: string;
+  try {
+    path = new URL(url).pathname;
+  } catch {
+    return null;
+  }
+  return path.split('/').some(seg => seg === '_') ? { ...NOT_FOUND } : null;
 }
 
 /**

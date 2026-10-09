@@ -23,7 +23,7 @@ import { legacyPriceFrom, quoteHoursNote, type PriceFromValue } from '../../_lis
  *
  * Cached per lake under the lake's own CMS tag (`lake-<id>`: saving the booking config purges
  * it, cms feed/controllers/lakes.ts saveBookingConfig), at most an hour; a failed read lives
- * seconds, never baked in.
+ * seconds (minutes while the build prerenders), never baked in.
  */
 
 export type PriceFrom = PriceFromValue;
@@ -91,8 +91,14 @@ async function ratesFrom(
       return best;
     }
   }
-  if (failed) cacheLife('seconds');
-  else cacheLife('hours');
+  // A failed quote is never baked for long. While the build prerenders, 'minutes' (expire ≥ 5 min) and
+  // not 'seconds': a seconds-lived entry, shared by the lake page and its OG card, is left out of the
+  // static shell and the final pass misses it («Unexpected cache miss after cache warming phase»,
+  // m8.cache-warming; seen with a slow CMS).
+  if (failed) {
+    if (process.env.NEXT_PHASE === 'phase-production-build') cacheLife('minutes');
+    else cacheLife('seconds');
+  } else cacheLife('hours');
   return null;
 }
 

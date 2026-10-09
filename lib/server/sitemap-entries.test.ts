@@ -12,6 +12,7 @@ import {
   sitemapChunk,
   venueSubpageHas,
   sitemapEntries,
+  watersWithPartide,
   sitemapIds,
   type LakeFacts,
   type VenueFacts,
@@ -285,6 +286,19 @@ describe('sitemapEntries', () => {
     expect(urls).not.toContain(w('L:CLAIMED'));
     expect(urls).toContain(w(WATER, '/partide'));
     expect(urls).toContain(w(42));
+  });
+
+  it('the history walk reads every page (in parallel after the first) and keeps pages up to the first that fails', async () => {
+    const pageOf = (req: TransportRequest) => Number(new URLSearchParams(req.path.split('?')[1]).get('page'));
+    const all = createFakeTransport(req => page([historyRow(`water:W${pageOf(req)}`), historyRow(`lake:l${pageOf(req)}`)], 5, pageOf(req)));
+    expect([...(await watersWithPartide(all.transport))].sort()).toEqual(['W1', 'W2', 'W3', 'W4', 'W5']);
+    expect(all.calls.map(pageOf).sort()).toEqual([1, 2, 3, 4, 5]);
+
+    const broken = createFakeTransport(req => {
+      if (pageOf(req) === 4) throw new Error('down');
+      return page([historyRow(`water:W${pageOf(req)}`)], 5, pageOf(req));
+    });
+    expect([...(await watersWithPartide(broken.transport))].sort()).toEqual(['W1', 'W2', 'W3']);
   });
 
   it('s4: a failed history walk lists no water community subpage', async () => {

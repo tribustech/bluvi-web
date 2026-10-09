@@ -4,6 +4,7 @@ import { getRankings } from '@/core/competitions';
 import { getLake } from '@/core/lakes';
 import { isApiError } from '@/core/transport';
 import { createServerTransport } from '@/lib/server/transport';
+import { isPlaceholderId } from '@/lib/server/public-get';
 import { miniRanking, type MiniRanking } from '@/app/(site)/concursuri/_list/desktop/model';
 import { loadCompetition } from '@/app/(site)/concursuri/[id]/_components/load';
 import { lakePriceFrom } from '@/app/(site)/balti/[id]/_components/priceFrom';
@@ -44,11 +45,27 @@ import { OG_SIZE } from './tokens';
  * image: the card leaves that fact out and is kept for minutes only, so the next request reads
  * again. A read that answered — even «no price» (rule 4) or a ranking this build cannot parse — is
  * the answer, cached as long as the entity. An entity that cannot be read at all answers the
- * section's brand card, kept for seconds. The public-water dataset is bundled with the build.
+ * section's brand card (unreadLife). The public-water dataset is bundled with the build.
+ *
+ * No model is ever kept under 'minutes' (m8.cache-warming): during the prerender an entry whose
+ * expire is under 5 minutes, read back from the shared cache handler because a sibling page filled
+ * it first, is left out of the warming pass, the final pass misses it («Unexpected cache miss after
+ * cache warming phase») and the page's image alt becomes a dynamic hole.
  */
 
 const READ_MS = 4000;
 const PRICE_MS = 2500;
+/**
+ * During `next build` the CMS answers dozens of prerender workers at once: the page itself waits up
+ * to 8 s for its core (concursuri load.ts READ_TIMEOUT_MS), so a 4 s card read timed out on real,
+ * completed competitions and baked the brand card. The build waits longer and retries a slow read
+ * once; a visitor's request keeps the short budget.
+ */
+const BUILD_READ_MS = 20_000;
+
+const building = () => process.env.NEXT_PHASE === 'phase-production-build';
+const readMs = () => (building() ? BUILD_READ_MS : READ_MS);
+const priceMs = () => (building() ? BUILD_READ_MS : PRICE_MS);
 
 /** Strapi documentIds and dataset ids: anything else is answered with the brand card, unread. */
 const ID = /^[A-Za-z0-9:%_.-]{1,80}$/;
@@ -72,14 +89,21 @@ export async function within<T>(p: Promise<T>, ms: number): Promise<Read<T>> {
   }
 }
 
-type Life = 'seconds' | 'minutes' | 'hours' | 'days' | 'max';
-const ORDER: Life[] = ['seconds', 'minutes', 'hours', 'days', 'max'];
+/** `p()` within the read budget; in the build, a slow or transiently failed read is tried once more. */
+async function read<T>(p: () => Promise<T>, ms: () => number = readMs): Promise<Read<T>> {
+  const first = await within(p(), ms());
+  if (first.ok || !first.transient || !building()) return first;
+  return within(p(), ms());
+}
+
+/** A card's lifetime: never 'seconds' (expire under 5 minutes is not prerenderable; see the header). */
+export type Life = 'minutes' | 'hours' | 'days' | 'max';
+const ORDER: Life[] = ['minutes', 'hours', 'days', 'max'];
 const shortest = (...lives: Life[]): Life => ORDER[Math.min(...lives.map(l => ORDER.indexOf(l)))];
 
 /** cacheLife with a computed profile (its overloads take literals only). */
 function keep(life: Life) {
-  if (life === 'seconds') cacheLife('seconds');
-  else if (life === 'minutes') cacheLife('minutes');
+  if (life === 'minutes') cacheLife('minutes');
   else if (life === 'hours') cacheLife('hours');
   else if (life === 'days') cacheLife('days');
   else cacheLife('max');
@@ -92,20 +116,39 @@ function keep(life: Life) {
  */
 type Model = { card: EntityCard | null; life: Life; picture: { url: string; fit: PictureFit } | null };
 
-/** An entity that could not be read (or an id that is not one): the brand card, kept seconds. */
-function unread(): Model {
-  cacheLife('seconds');
-  return { card: null, life: 'seconds', picture: null };
+/** Why a model has no card: the read failed for now (`transient`) or the entity is not there (`absent`). */
+export type Miss = 'transient' | 'absent';
+
+/**
+ * How long a brand card answered for an entity that could not be read holds — never under
+ * 'minutes' (see the header):
+ * - a placeholder id (`_`, `''`) or a string that is not an id: the answer is the same forever → max;
+ * - a water the bundled dataset does not have: the build's answer, as long as the dataset → max;
+ * - a CMS entity that is not there (a 404, a shape this build cannot read): minutes, and its tag
+ *   (cacheTag before the read) refreshes it the moment the CMS publishes it;
+ * - a slow or transiently failed read: minutes, read again on the next request after that.
+ */
+export function unreadLife(kind: EntityKind, id: string, miss: Miss): Life {
+  if (isPlaceholderId(id) || !ID.test(id)) return 'max';
+  if (miss === 'absent' && kind === 'water') return 'max';
+  return 'minutes';
+}
+
+/** The brand card, kept for unreadLife. */
+function unread(kind: EntityKind, id: string, miss: Miss): Model {
+  const life = unreadLife(kind, id, miss);
+  keep(life);
+  return { card: null, life, picture: null };
 }
 
 async function lakeModel(id: string, label: string | null): Promise<Model> {
   'use cache';
-  if (!ID.test(id)) return unread();
+  if (isPlaceholderId(id) || !ID.test(id)) return unread('lake', id, 'absent');
   cacheTag(`lake-${id}`);
-  const read = await within(getLake(createServerTransport(), id), READ_MS);
-  if (!read.ok) return unread();
-  const lake = read.value;
-  const price = await within(lakePriceFrom(lake), PRICE_MS);
+  const got = await read(() => getLake(createServerTransport(), id));
+  if (!got.ok) return unread('lake', id, got.transient ? 'transient' : 'absent');
+  const lake = got.value;
+  const price = await read(() => lakePriceFrom(lake), priceMs);
   // «No price» is the rule-4 answer, cached as the lake; only a slow / failed read is retried soon.
   const life: Life = !price.ok && price.transient ? 'minutes' : 'hours';
   keep(life);
@@ -115,18 +158,19 @@ async function lakeModel(id: string, label: string | null): Promise<Model> {
 
 async function competitionModel(id: string, label: string | null): Promise<Model> {
   'use cache';
-  if (!ID.test(id)) return unread();
+  if (isPlaceholderId(id) || !ID.test(id)) return unread('competition', id, 'absent');
   cacheTag(`competition-${id}`);
-  const read = await within(loadCompetition(id), READ_MS);
-  if (!read.ok || read.value.kind === 'missing' || read.value.kind === 'invalid') return unread();
-  const load = read.value;
+  const got = await read(() => loadCompetition(id));
+  if (!got.ok) return unread('competition', id, got.transient ? 'transient' : 'absent');
+  if (got.value.kind === 'missing' || got.value.kind === 'invalid') return unread('competition', id, 'absent');
+  const load = got.value;
   const c = load.competition;
   const completed = c.competitionStatus === 'completed';
   let ranking: MiniRanking | null = null;
   let life: Life = completed ? 'days' : 'hours';
   // A ranking type this build does not know (or none, `''`): no podium, nothing to read or retry.
   if (completed && load.kind === 'ok') {
-    const raw = await within(getRankings(createServerTransport(), id), READ_MS);
+    const raw = await read(() => getRankings(createServerTransport(), id));
     // fish's card names the angler in an individual competition, never the team name typed (model.ts podiumNames).
     if (raw.ok) ranking = miniRanking(podiumNames(raw.value, c.competitionType));
     else if (raw.transient) life = 'minutes';
@@ -147,30 +191,25 @@ async function competitionModel(id: string, label: string | null): Promise<Model
  */
 async function waterModel(id: string, label: string | null): Promise<Model> {
   'use cache';
-  if (!ID.test(id)) return absentWater();
-  const read = await within(loadPublicWater(id), READ_MS);
-  if (!read.ok) return unread();
-  if (read.value.kind === 'missing') return absentWater();
+  if (isPlaceholderId(id) || !ID.test(id)) return unread('water', id, 'absent');
+  const got = await read(() => loadPublicWater(id));
+  if (!got.ok) return unread('water', id, got.transient ? 'transient' : 'absent');
+  if (got.value.kind === 'missing') return unread('water', id, 'absent');
   cacheLife('max');
-  const water = read.value.water;
+  const water = got.value.water;
   const outline = water.geometry ? waterOutline(water.geometry) : null;
   return { card: waterCard(water, outline, label), life: 'max', picture: null };
 }
 
-/** A water the bundled dataset does not have: the brand card, for the build's lifetime. */
-function absentWater(): Model {
-  cacheLife('max');
-  return { card: null, life: 'max', picture: null };
-}
-
 async function newsModel(id: string): Promise<Model> {
   'use cache';
-  if (!ID.test(id)) return unread();
+  if (isPlaceholderId(id) || !ID.test(id)) return unread('news', id, 'absent');
   cacheTag(`announcement-${id}`);
-  const read = await within(loadNews(id), READ_MS);
-  if (!read.ok || read.value.kind === 'missing') return unread();
+  const got = await read(() => loadNews(id));
+  if (!got.ok) return unread('news', id, got.transient ? 'transient' : 'absent');
+  if (got.value.kind === 'missing') return unread('news', id, 'absent');
   cacheLife('hours');
-  const n = read.value.data;
+  const n = got.value.data;
   // The original upload (the feed's largest size; the medium one is soft at the panel's 520 px),
   // drawn whole: a news cover is a designed graphic, its own headline must not be cut — unless its
   // shape is near the panel's, then cropped (no dark slivers; layout.ts drawnWhole).
@@ -181,13 +220,14 @@ async function newsModel(id: string): Promise<Model> {
 
 async function sponsorModel(id: string): Promise<Model> {
   'use cache';
-  if (!ID.test(id)) return unread();
+  if (isPlaceholderId(id) || !ID.test(id)) return unread('sponsor', id, 'absent');
   cacheTag(`sponsor-${id}`);
-  const read = await within(loadSponsor(id), READ_MS);
-  if (!read.ok || read.value.kind === 'missing') return unread();
+  const got = await read(() => loadSponsor(id));
+  if (!got.ok) return unread('sponsor', id, got.transient ? 'transient' : 'absent');
+  if (got.value.kind === 'missing') return unread('sponsor', id, 'absent');
   cacheLife('days');
-  const url = sponsorImage(read.value.data.image)?.src ?? null;
-  return { card: sponsorCard(read.value.data, url), life: 'days', picture: url ? { url, fit: 'contain' } : null };
+  const url = sponsorImage(got.value.data.image)?.src ?? null;
+  return { card: sponsorCard(got.value.data, url), life: 'days', picture: url ? { url, fit: 'contain' } : null };
 }
 
 const CACHED_MODELS: Record<EntityKind, (id: string, label: string | null) => Promise<Model>> = {
@@ -254,9 +294,18 @@ export const waterImage = (id: string, label: string | null) => entityImage('wat
 export const newsImage = (id: string) => entityImage('news', ...ogModelArgs(id, null));
 export const sponsorImageCard = (id: string) => entityImage('sponsor', ...ogModelArgs(id, null));
 
-/** The image's alt, from the same cached model (never the picture). */
+/**
+ * The image's alt, from the same cached model (never the picture). A placeholder id (`_`, `''`) or a
+ * string that is not an id answers the section's brand alt with no cache entry at all: its page
+ * 404s at once (a placeholder read never reaches the CMS, lib/server/public-get.ts), so the
+ * prerender's warming pass may end before the metadata asks, and a cached model the final pass then
+ * asks for misses («Unexpected cache miss after cache warming phase», 2026-10-09: /balti/_/partide,
+ * /balti/_/recenzii, /ape-publice/_/capturi with an empty CMS list).
+ */
 export async function ogAlt(kind: EntityKind, id: string, label: string | null = null): Promise<string> {
-  const model = await MODELS[kind](id, label);
+  const [key, labelKey] = ogModelArgs(id, label);
+  if (isPlaceholderId(key) || !ID.test(key)) return entityAlt(kind, null, await ogTokens());
+  const model = await MODELS[kind](key, labelKey);
   return entityAlt(kind, model.card, await ogTokens());
 }
 
