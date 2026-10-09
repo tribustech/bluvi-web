@@ -21,7 +21,23 @@ const MAX_EXPIRE_SECONDS = 7 * 24 * 60 * 60;
  * digest), so a CMS 404 could not be told apart from an outage and an unknown competition
  * answered 500 (2026-10-04). Error answers and private responses live only seconds.
  */
-export async function cachedPublicGet(url: string, appHeaders: Record<string, string>): Promise<PublicGetResult> {
+export function cachedPublicGet(url: string, appHeaders: Record<string, string>): Promise<PublicGetResult> {
+  return readPublic(...publicGetArgs(url, appHeaders));
+}
+
+/**
+ * The cache key of a public GET, canonical: the URL as built (its query order is the request the
+ * CMS and Cloudflare see, so it is never reordered) and the headers as a plain object with sorted
+ * keys. The prerender's cache-warming pass and its final pass must ask for the same key, or the
+ * final pass misses («Unexpected cache miss after cache warming phase»); same input → same JSON.
+ */
+export function publicGetArgs(url: string, appHeaders: Record<string, string>): [string, Record<string, string>] {
+  const headers: Record<string, string> = {};
+  for (const k of Object.keys(appHeaders).sort()) headers[k] = appHeaders[k];
+  return [url, headers];
+}
+
+async function readPublic(url: string, appHeaders: Record<string, string>): Promise<PublicGetResult> {
   'use cache';
 
   const res = await fetch(url, { headers: { accept: 'application/json', ...appHeaders } });

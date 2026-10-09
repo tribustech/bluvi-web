@@ -137,15 +137,30 @@ async function competitionModel(id: string, label: string | null): Promise<Model
   return { card: competitionCard(c, ranking, url, label), life, picture: url ? { url, fit: 'auto' } : null };
 }
 
+/**
+ * A public water's card. The dataset is bundled with the build, so «no such water» (a placeholder
+ * id such as generateStaticParams' `_`, a row a newer dataset dropped) is the build's answer, kept
+ * as long as the dataset (`max`, as readWater keeps it) — never a seconds-lived entry: during the
+ * prerender a short-lived entry another page already filled is left out of the warming pass, and
+ * the final pass then misses it («Unexpected cache miss after cache warming phase», Vercel build
+ * 2026-10-09). Only a slow read is retried soon.
+ */
 async function waterModel(id: string, label: string | null): Promise<Model> {
   'use cache';
-  if (!ID.test(id)) return unread();
+  if (!ID.test(id)) return absentWater();
   const read = await within(loadPublicWater(id), READ_MS);
-  if (!read.ok || read.value.kind === 'missing') return unread();
+  if (!read.ok) return unread();
+  if (read.value.kind === 'missing') return absentWater();
   cacheLife('max');
   const water = read.value.water;
   const outline = water.geometry ? waterOutline(water.geometry) : null;
   return { card: waterCard(water, outline, label), life: 'max', picture: null };
+}
+
+/** A water the bundled dataset does not have: the brand card, for the build's lifetime. */
+function absentWater(): Model {
+  cacheLife('max');
+  return { card: null, life: 'max', picture: null };
 }
 
 async function newsModel(id: string): Promise<Model> {
@@ -175,13 +190,26 @@ async function sponsorModel(id: string): Promise<Model> {
   return { card: sponsorCard(read.value.data, url), life: 'days', picture: url ? { url, fit: 'contain' } : null };
 }
 
-const MODELS: Record<EntityKind, (id: string, label: string | null) => Promise<Model>> = {
+const CACHED_MODELS: Record<EntityKind, (id: string, label: string | null) => Promise<Model>> = {
   lake: lakeModel,
   competition: competitionModel,
   water: waterModel,
   news: id => newsModel(id),
   sponsor: id => sponsorModel(id),
 };
+
+/**
+ * A model's cache key, canonical: the id as a string ('' when a route hands none — Next calls an
+ * image's metadata with no params while it collects routes) and the label as a string or an
+ * explicit null, never undefined (`$undefined` in the key).
+ */
+export function ogModelArgs(id: unknown, label: unknown): [string, string | null] {
+  return [typeof id === 'string' ? id : '', typeof label === 'string' ? label : null];
+}
+
+const MODELS: Record<EntityKind, (id: string, label: string | null) => Promise<Model>> = Object.fromEntries(
+  (Object.keys(CACHED_MODELS) as EntityKind[]).map(kind => [kind, (id: string, label: string | null) => CACHED_MODELS[kind](...ogModelArgs(id, label))]),
+) as Record<EntityKind, (id: string, label: string | null) => Promise<Model>>;
 
 /** The section's brand card, for an entity that could not be read. */
 function fallbackCard(kind: EntityKind): OgCard {
@@ -220,11 +248,11 @@ async function entityImage(kind: EntityKind, id: string, label: string | null): 
   return renderCard(card);
 }
 
-export const lakeImage = (id: string, label: string | null) => entityImage('lake', id, label);
-export const competitionImage = (id: string, label: string | null) => entityImage('competition', id, label);
-export const waterImage = (id: string, label: string | null) => entityImage('water', id, label);
-export const newsImage = (id: string) => entityImage('news', id, null);
-export const sponsorImageCard = (id: string) => entityImage('sponsor', id, null);
+export const lakeImage = (id: string, label: string | null) => entityImage('lake', ...ogModelArgs(id, label));
+export const competitionImage = (id: string, label: string | null) => entityImage('competition', ...ogModelArgs(id, label));
+export const waterImage = (id: string, label: string | null) => entityImage('water', ...ogModelArgs(id, label));
+export const newsImage = (id: string) => entityImage('news', ...ogModelArgs(id, null));
+export const sponsorImageCard = (id: string) => entityImage('sponsor', ...ogModelArgs(id, null));
 
 /** The image's alt, from the same cached model (never the picture). */
 export async function ogAlt(kind: EntityKind, id: string, label: string | null = null): Promise<string> {
