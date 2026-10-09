@@ -369,8 +369,9 @@ function CatchesTable({
                     unitClassName={max ? 'text-accent-ink' : 'text-muted'}
                   />
                 ) : (
-                  <span className="t-body text-muted" aria-label="necântărită">
-                    –
+                  <span className="t-body text-muted">
+                    <span aria-hidden>–</span>
+                    <span className="sr-only">necântărită</span>
                   </span>
                 )}
               </td>

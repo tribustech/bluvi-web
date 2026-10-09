@@ -36,3 +36,39 @@ Before the follow-up, the same proxy gave 4 warnings plus the sitemap build fail
 
 Tests: tests/unit/use-cache-args.test.ts runs the real models with `next/cache` and the loaders mocked. A placeholder gets no cache entry for the alt and `max` for the image. An absent water gets `max`. A missing CMS entity and a transient failure get `minutes`. The build retries. A placeholder GET makes no request. lib/server/sitemap-entries.test.ts covers the parallel walk.
 
+
+## m8.a11y-audit — every route, axe WCAG 2.0/2.1 A + AA, 375 and 1280 (M8-B3)
+
+**Result (2026-10-09, local CMS, shared dev server):** `tests/e2e/a11y-audit.spec.ts` — 209 tests, all green. 96 `page.tsx` patterns → 101 rows (a competition per status, `/` and `/partide` signed out and in, `/pescari/[id]` both ways) × 2 widths = 202 route scans, plus the consent banner + preferences dialog (2) and 4 keyboard tests. **0 axe violations.** No row skipped: every fixture id resolved through core/ (competition started / notStarted / completed, a stand with weighings, a free Chita slot, an own not-started competition, Chita, Snagov, news, sponsor, partidă, angler, an angler booking and an operator booking).
+
+- **Route table:** `tests/e2e/helpers/a11y-routes.ts`. One test fails when a `page.tsx` has no row, so a new page joins the audit or breaks it.
+- **Auth:** guest for public pages. The QA user for per-user pages, and also for organizer pages (it holds the Organizer role) and operator pages (it owns Chita). Each per-user scan asserts it was not bounced to `/intra`.
+- **States scanned:** filters (`/balti`, `/concursuri`), species (1280) / search (375) on `/balti`, followers (a Sheet under 1280, the docked side panel from 1280), share / directions on the lake page, photo viewer (lake hero at 1280, `/galerie` at both widths), contact (an alertdialog popover at 1280), search palette, consent preferences (from Acasă and `/setari`).
+- **Read-only:** every non-GET through `/api/cms` is answered locally and Firestore is aborted.
+
+**Fixed by root cause.** axe reported 0 violations. These are its «needs review» items and pixel-probe failures:
+
+| rule | where | fix |
+|---|---|---|
+| aria-prohibited-attr (aria-label on a generic span) | ranking `PlaceCell` «–» (fără loc) / «=» (egal), components/ranking/shell.tsx: every ranking table; 6 nodes on the live competition at each width | the glyph `aria-hidden`, the words `sr-only` |
+| aria-prohibited-attr | partidă catches table «–» (necântărită), CatchesView.tsx | same |
+| aria-prohibited-attr | competition page «Vezi mai mult» text overlay (Sheet / reading Dialog): its focusable scroll body carried aria-label without a role, tabParts.tsx | `role="region"` |
+| color-contrast (over image) | `/intra` < 768: «MAI APROAPE DE CE IUBEȘTI» over the photo's dawn band, 2.1:1 | a scrim behind the intro, fading in above the eyebrow (≥ 4.5:1) |
+| color-contrast (over decorative art) | `/partide` LUNA invitation at ≥ 1280: «Recordul lunii te așteaptă» over the corner trophy, 4.35:1 | the headline in `on-bento-indigo` (white, 4.9:1) |
+
+**Pixel probe.** axe cannot rate text over an image, gradient, pseudo-element or overlap (1 225 «incomplete» nodes). For each of them the probe freezes transitions, hides the node's text, screenshots its glyph box and rates the text colour against those pixels at the 5th percentile. Of 1 179 nodes probed, the ones still flagged after the two fixes above are:
+- nodes under a fixed bar at screenshot time (the `/balti` list under the phone's bottom bar, the allocation status above its gradient fade);
+- initials covered by the avatar photo;
+- decorative dots or icons inside the box (the live hero's status dot, store logos, the tab count badge);
+- the `aria-hidden` «·» separator on the review page.
+
+None of them is a readable text pair under AA.
+
+**Keyboard** (same spec):
+- Tab order: the skip link «Sari la conținut» comes first and is visible when focused; the next Tab stop is the top bar; activating the skip link moves focus into `main`.
+- Dialog: Filtre on `/balti` keeps 40 Tabs and a Shift+Tab inside, Escape closes it, and focus returns to the opener.
+- Owner rule 8: a programmatically focused `h1` has no ring.
+
+**Excluded, with the reason at the call site:** `.maplibregl-map` (the maplibre-gl canvas and its controls, third party) on `/balti/harta`, `/balti/[id]/harta`, `/ape-publice`, `/ape-publice/[id]`, `/ape-publice/[id]/harta`. CMS-authored rich text (news, rules) is scanned and passes.
+
+**Sector colours (ROADMAP §8 kit gap):** they stay fish's A–X values. They draw only the stripe and the dot. Text on a sector fill takes `components/ranking/sector.ts` `sectorInk` (white or black, every pair ≥ 4.6:1), so B, C and K pass without changing fish's palette (rules 12/15).

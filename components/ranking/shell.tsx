@@ -235,11 +235,20 @@ export function PlaceCell({
     <span className={cn('inline-flex items-center gap-1 align-middle t-num-18', onTint && !onFill && 'text-accent-ink')}>
       {align === 'end' ? trophy : null}
       {text === '–' ? (
-        <span aria-label="fără loc">–</span>
+        <span>
+          {/* aria-label on a bare span is not read (axe aria-prohibited-attr): the glyph is hidden, the words are text. */}
+          <span aria-hidden>–</span>
+          <span className="sr-only">fără loc</span>
+        </span>
       ) : (
         <span>
           <span className="sr-only">Locul </span>
-          {tied ? <span aria-label="egal">=</span> : null}
+          {tied ? (
+            <>
+              <span aria-hidden>=</span>
+              <span className="sr-only">egal </span>
+            </>
+          ) : null}
           {text}
         </span>
       )}

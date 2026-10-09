@@ -107,7 +107,10 @@ function InviteTile({ window: w }: { window: Window }) {
     <a href={appLinks.startPartida()} aria-label={`${inv.copy} Începe o partidă în aplicația Bluvi`} className={cn(TILE, bentoSurface(inv.tone), 'justify-between gap-2 p-3.5', FOCUS)} data-testid={`record-invite-${w}`}>
       <BentoArt>{inv.art}</BentoArt>
       <WindowBadge window={w} onSurface />
-      <span className="t-body-strong">{inv.copy}</span>
+      {/* The invitation is the tile's headline and its second line can run over the corner art.
+          On indigo the art lifts the ground to #655EE9: the label colour (#E0E7FF) drops to 4.35:1
+          there, white keeps 4.9:1 (M8 a11y audit, pixel probe at 1280). */}
+      <span className={cn('t-body-strong', inv.tone === 'indigo' && 'text-on-bento-indigo')}>{inv.copy}</span>
       <TileAction>Începe în aplicație</TileAction>
     </a>
   );

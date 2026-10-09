@@ -114,7 +114,7 @@ function TextOverlay({ open, onClose, title, children }: { open: boolean; onClos
       <Sheet open={open} onClose={onClose} title={title} initialSnap={0.9}>
         {/* Focusable so a keyboard can scroll the sheet's text (axe scrollable-region-focusable:
             TODO(kit, Sheet) — make the Sheet's own scroll body focusable). */}
-        <div tabIndex={0} aria-label={title} className="rounded-control pb-6 outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent">
+        <div tabIndex={0} role="region" aria-label={title} className="rounded-control pb-6 outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent">
           {children}
         </div>
       </Sheet>
@@ -124,6 +124,7 @@ function TextOverlay({ open, onClose, title, children }: { open: boolean; onClos
     <Dialog open={open} onClose={onClose} title={title} closeButton className="md:max-w-180">
       <div
         tabIndex={0}
+        role="region"
         aria-label={title}
         className="-mx-5 max-h-[70dvh] overflow-y-auto px-5 pb-1 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent"
       >

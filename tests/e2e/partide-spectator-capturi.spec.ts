@@ -218,7 +218,7 @@ test('partide.spectator-capturi.c2 desktop (rule 14): a table with every column,
   await expect(first.nth(3)).toHaveText(/3,4\s*kg/);
   await expect(rows.nth(1).getByRole('cell').nth(3)).toHaveText(/1,24\s*kg/);
   await expect(rows.nth(2).getByRole('cell').nth(2)).toHaveText('Captură');
-  await expect(rows.nth(2).getByRole('cell').nth(3)).toHaveText('–'); // not weighed (never «capot»)
+  await expect(rows.nth(2).getByRole('cell').nth(3)).toHaveText(/^–\s*necântărită$/); // not weighed (never «capot»): the dash, read as «necântărită»
   await expect(rows.nth(3)).toHaveAttribute('data-max', 'true');
   await expect(rows.nth(3)).toContainText('Cea mai mare');
   await expect(table.getByText('Cea mai mare')).toHaveCount(1);

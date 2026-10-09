@@ -311,7 +311,10 @@ export function SignIn({ config }: { config: SignInConfig }) {
           photo panel ≥1024 (same grid cell as the photo), with the three reasons to sign in. */}
         <div className="relative flex flex-1 flex-col px-6 pt-2 md:flex-none md:px-10 md:pt-7 lg:col-start-1 lg:row-start-1 lg:justify-end lg:px-12 lg:pt-12 lg:pb-12 lg:text-on-welcome">
           <div aria-hidden className="min-h-32 flex-1 md:hidden" />
-          <div className="flex flex-col gap-3 pb-7 md:gap-2 md:pb-5 lg:max-w-[520px] lg:gap-3 lg:pb-0">
+          {/* <768 the intro can land on the photo's bright dawn band (its height follows the screen's):
+              a scrim of its own, fading in above the eyebrow, keeps welcome-2 on it at AA (≥ 4.5:1,
+              M8 a11y audit; fish's gradient alone left 2.1:1 over the sun). */}
+          <div className="relative flex flex-col gap-3 pb-7 before:pointer-events-none before:absolute before:-inset-x-6 before:-top-20 before:-bottom-40 before:z-behind before:bg-[linear-gradient(180deg,transparent_0%,color-mix(in_srgb,var(--color-welcome)_92%,transparent)_80px)] before:content-[''] md:gap-2 md:pb-5 md:before:hidden lg:max-w-[520px] lg:gap-3 lg:pb-0">
             <p className={cn('t-label tracking-[2px]', W.secondary, 'md:text-accent-ink lg:text-welcome-2')}>MAI APROAPE DE CE IUBEȘTI</p>
             <h1 id="intra-titlu" className="t-hero text-on-welcome md:t-display md:text-ink lg:t-hero lg:text-on-welcome">
               Hai la pescuit.
