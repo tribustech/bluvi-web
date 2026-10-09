@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { formatViolations, scanA11y } from './helpers/a11y';
-import { A11Y_ROUTES, OPEN_DIALOG, discoverIds, type A11yRoute, type Ids } from './helpers/a11y-routes';
+import { A11Y_ROUTES, OPEN_DIALOG, discoverIds, unresolvedRows, type A11yRoute, type Ids } from './helpers/a11y-routes';
 import { BASE_URL } from './helpers/base-url';
 import { qaJwt, signIn } from './helpers/session';
 
@@ -10,13 +10,18 @@ import { qaJwt, signIn } from './helpers/session';
  * M8 accessibility audit (parity global.b.a11y-audit, ROADMAP §5/§9): axe-core WCAG 2.0/2.1 A + AA
  * over every route under app/(site) (tests/e2e/helpers/a11y-routes.ts) at 375 and 1280, signed out
  * for public routes and as the QA user for per-user, organizer and operator ones, plus the states
- * each row opens (filters, consent dialog) and the consent banner. Then the keyboard paths: the
- * skip link, the top bar in Tab order, a dialog that traps and restores focus, no ring on a
- * programmatically focused heading (owner rule 8).
+ * each row opens (dialogs, sheets, a refused submit) and the consent banner. Then the keyboard
+ * paths: the skip link, the top bar in Tab order, a dialog that traps and restores focus, and the
+ * heading a keyboard step change focuses carrying no ring (owner rule 8).
+ *
+ * Every row must land where it is named (A11yRoute.expectPath) and every fixture must resolve: a
+ * missing id FAILS the row (only `optional` rows skip, listed in the summary) — a green run means
+ * every screen was really scanned.
  *
  * Read-only: every non-GET through /api/cms is answered locally (never reaches the CMS), Firestore
- * (one shared project for every env) is aborted. Each scan's violations are appended to
- * node_modules/.cache/bluvi-e2e/a11y-audit.jsonl (rule, route, selector, count) for the report.
+ * (one shared project for every env) is aborted or served by helpers/fake-chat.ts. Each scan's
+ * violations are appended to node_modules/.cache/bluvi-e2e/a11y-audit.jsonl (rule, route, selector,
+ * count) for the report.
  */
 
 const WIDTHS = [375, 1280] as const;
@@ -33,8 +38,11 @@ test.describe.configure({ timeout: 120_000 });
 test.beforeAll(async ({ request }) => {
   jwt = await qaJwt(request);
   ids = await discoverIds(jwt);
-  // The fixture ids this run resolved (the report names them).
+  // The fixture ids this run resolved (the report names them), and the rows they leave unresolved.
   console.log(`a11y-audit ids: ${JSON.stringify(ids)}`);
+  const { required, optional } = unresolvedRows(ids);
+  if (optional.length) console.log(`a11y-audit optional rows skipped (no local fixture): ${optional.map(label).join('; ')}`);
+  if (required.length) console.log(`a11y-audit rows WITHOUT a fixture (they fail): ${required.map(label).join('; ')}`);
   mkdirSync(join(process.cwd(), 'node_modules/.cache/bluvi-e2e'), { recursive: true });
 });
 
@@ -93,6 +101,19 @@ test('global.b.a11y-audit — every app/(site) page.tsx has a row in the audit t
   expect(found.filter((p) => !covered.has(p)).sort(), 'routes with no audit row').toEqual([]);
 });
 
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Escape until no modal is open (a confirm over a sheet closes one at a time). */
+async function closeDialogs(page: Page) {
+  await page.keyboard.press('Escape');
+  for (let i = 0; i < 3; i++) {
+    const open = page.locator(OPEN_DIALOG).locator('visible=true');
+    if (!(await open.count())) return;
+    await open.first().waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
+    if (await open.count()) await page.keyboard.press('Escape');
+  }
+}
+
 const statesFor = (r: A11yRoute, w: number) => {
   const names = (r.states ?? []).filter((s) => !s.widths || s.widths.includes(w)).map((s) => s.name);
   return names.length ? ` + ${names.join(', ')}` : '';
@@ -103,17 +124,26 @@ for (const route of A11Y_ROUTES) {
   for (const width of WIDTHS) {
     test(`global.b.a11y-audit · ${label(route)} · ${width}px — zero axe violations${statesFor(route, width)}`, async ({ page, context }) => {
       const path = route.path(ids);
-      test.skip(!path, `no local fixture for ${route.pattern}`);
+      if (route.optional && !path) test.skip(true, `optional row: no local fixture for ${route.pattern}`);
+      expect(path, `fixture for ${label(route)} (the local CMS must have it — see discoverIds)`).toBeTruthy();
       await context.addCookies([PREVIEW]);
       if (route.auth !== 'guest') await signIn(context, jwt);
       await readOnly(page);
+      // Read mocks after readOnly: Playwright runs the newest route first.
+      if (route.setup) await route.setup(page, ids);
       await page.setViewportSize({ width, height: width < 768 ? 812 : 900 });
       const res = await page.goto(path!, { waitUntil: 'domcontentloaded', timeout: 90_000 });
       expect(res?.status() ?? 0, `${path} answers`).toBeLessThan(500);
       await settle(page);
 
-      // A per-user route must not have bounced to sign-in: the scan is of the screen itself.
-      if (route.auth !== 'guest') expect(new URL(page.url()).pathname, 'signed in, not sent to /intra').not.toBe('/intra');
+      // The scan is of the screen the row is named after: no redirect to sign-in, to a parent page or
+      // to the grid. Only a route whose job is to redirect declares where it lands.
+      const want = route.expectPath ?? new RegExp(`^${escape(new URL(path!, BASE_URL).pathname)}$`);
+      await expect.poll(() => new URL(page.url()).pathname, { message: `${label(route)} stays on its screen`, timeout: 10_000 }).toMatch(want);
+      if (route.ready) {
+        await route.ready(page, width);
+        await settle(page);
+      }
 
       const reports: string[] = [];
       const results = await scanA11y(page, { exclude: route.exclude });
@@ -123,13 +153,12 @@ for (const route of A11Y_ROUTES) {
 
       for (const state of route.states ?? []) {
         if (state.widths && !state.widths.includes(width)) continue;
-        const scope = await state.open(page);
+        const scope = await state.open(page, ids);
         await settle(page);
         const r = await scanA11y(page, { include: scope ?? undefined, exclude: route.exclude });
         record(route.pattern, state.name, width, r.violations);
         if (r.violations.length) reports.push(`[${state.name}]\n${formatViolations(r.violations)}`);
-        await page.keyboard.press('Escape');
-        await page.locator(OPEN_DIALOG).locator('visible=true').first().waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
+        await closeDialogs(page);
       }
       if (reports.length) await test.info().attach('axe-violations', { body: reports.join('\n\n'), contentType: 'text/plain' });
       expect(reports, reports.join('\n\n')).toEqual([]);
@@ -206,19 +235,36 @@ test.describe('keyboard', () => {
     await expect(opener).toBeFocused();
   });
 
-  test('global.b.a11y-audit — owner rule 8: a heading focused programmatically after navigation shows no ring', async ({ page }) => {
+  test('global.b.a11y-audit — owner rule 8: Enter on «Continuă» in a T4 flow moves focus to the new step\'s h1, and it shows no ring', async ({ page, context }) => {
+    await context.addCookies([PREVIEW]);
+    await signIn(context, jwt);
     await readOnly(page);
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/stiri');
+    await page.goto('/organizator/concursuri/nou/detalii', { waitUntil: 'domcontentloaded', timeout: 90_000 });
     await settle(page);
-    const ring = await page.evaluate(() => {
-      const h = document.querySelector('main h1') as HTMLElement | null;
-      if (!h) return 'no h1';
-      if (!h.hasAttribute('tabindex')) h.setAttribute('tabindex', '-1');
-      h.focus();
+    // A real keyboard path: Tab until «Continuă» has focus (Chromium's :focus-visible heuristic then
+    // matches the programmatic focus T4Header gives the next h1), Enter.
+    const next = page.getByTestId('wizard-next').locator('visible=true').first();
+    await expect(next).toBeVisible({ timeout: 30_000 });
+    let reached = false;
+    for (let i = 0; i < 80 && !reached; i++) {
+      await page.keyboard.press('Tab');
+      reached = await next.evaluate((el) => el === document.activeElement);
+    }
+    expect(reached, 'Tab reaches «Continuă»').toBe(true);
+    expect(await next.evaluate((el) => el.matches(':focus-visible')), 'the keyboard focus on «Continuă» is :focus-visible').toBe(true);
+    await page.keyboard.press('Enter');
+    await page.waitForURL((u) => /\/organizator\/concursuri\/nou\/(?!detalii)[^/]+$/.test(u.pathname), { timeout: 15_000 });
+    await expect.poll(() => page.evaluate(() => document.activeElement?.tagName ?? null)).toBe('H1');
+    const h1 = await page.evaluate(() => {
+      const h = document.activeElement as HTMLElement;
       const s = getComputedStyle(h);
-      return s.outlineStyle === 'none' || s.outlineWidth === '0px' ? 'none' : `${s.outlineStyle} ${s.outlineWidth}`;
+      return { inMain: !!h.closest('main'), tabindex: h.getAttribute('tabindex'), focusVisible: h.matches(':focus-visible'), outlineStyle: s.outlineStyle, outlineWidth: s.outlineWidth };
     });
-    expect(ring).toBe('none');
+    // The app's own tabindex (nothing injected), focus that Chromium treats as keyboard focus — and still no ring.
+    expect(h1.inMain).toBe(true);
+    expect(h1.tabindex).toBe('-1');
+    expect(h1.focusVisible, 'the h1 focus follows a keyboard action (:focus-visible matches)').toBe(true);
+    expect(h1.outlineStyle === 'none' || h1.outlineWidth === '0px', `ring on the focused h1: ${h1.outlineStyle} ${h1.outlineWidth}`).toBe(true);
   });
 });

@@ -263,7 +263,11 @@ function Ticks({ tick }: { tick: Tick }) {
   );
 }
 
-/** c19: the quoted original — its sender and current text; a button that jumps to it. */
+/**
+ * c19: the quoted original — its sender and current text; a button that jumps to it. In my own
+ * bubble the quote is a deeper shade of the accent (accent-ink over it): an on-accent tint lightened
+ * the bubble under the white text below 4.5:1 (axe, M8 audit).
+ */
 function ReplyQuote({ replyTo, quote, mine, onPress }: { replyTo: chat.ChatReplyTo; quote?: { text: string; deleted: boolean }; mine: boolean; onPress: () => void }) {
   const q = quote ?? { text: replyTo.text || (replyTo.hasAttachments ? 'Imagine' : 'Mesaj'), deleted: false };
   return (
@@ -276,7 +280,7 @@ function ReplyQuote({ replyTo, quote, mine, onPress }: { replyTo: chat.ChatReply
       aria-label={`Răspuns la ${replyTo.senderName}: ${q.text}. Mergi la mesaj`}
       className={cn(
         'mb-2 flex w-full min-w-40 cursor-pointer flex-col items-start rounded-md border-l-3 p-2 text-left outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid',
-        mine ? 'border-on-accent bg-on-accent/15 hover:bg-on-accent/25 focus-visible:outline-on-accent' : 'border-accent bg-surface/70 hover:bg-surface focus-visible:outline-accent',
+        mine ? 'border-on-accent bg-accent-ink/40 hover:bg-accent-ink/55 focus-visible:outline-on-accent' : 'border-accent bg-surface/70 hover:bg-surface focus-visible:outline-accent',
       )}
     >
       <span className={cn('max-w-full truncate t-label', mine ? 'text-on-accent' : 'text-accent-ink')}>{replyTo.senderName}</span>
