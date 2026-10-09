@@ -428,6 +428,8 @@ export function LakesHome() {
         position={position}
         seeAllHref={seeAllHref(section)}
         impressionReady={location.known}
+        // The first full rail on a phone carries the page's LCP photos (from 768 the grid does).
+        priority={section === sections.find((x) => x.key !== 'recent_viewed' && x.lakes.length > 0)}
         radiusAction={section.key === 'nearby' ? { label: `${Math.round(nearbyRadiusKm)} km`, href: nearbyHref } : null}
       />
     );

@@ -26,7 +26,13 @@ export function LakeGridCard({
 }: {
   lake: LakeHomeSectionLake;
   distanceLabel?: string | null;
-  /** The first row of the grid: the browser loads those photos first (LCP). */
+  /**
+   * The first row of the grid / the phone's first rail: the browser loads those photos first (LCP).
+   * `fetchPriority` only, still lazy and never a preload: the page holds the phone rails and the
+   * desktop grid at once (one of them display:none), and a preload or an eager image is fetched
+   * even where it is hidden — a phone paid for the desktop grid's first row, and the reverse
+   * (M8-B4). A lazy image is fetched only where it is shown, and at high priority there.
+   */
   priority?: boolean;
 }) {
   const image = lakeImage(lake);
@@ -47,7 +53,7 @@ export function LakeGridCard({
             src={image.src}
             alt=""
             fill
-            priority={priority}
+            fetchPriority={priority ? 'high' : undefined}
             sizes="(min-width: 1280px) 300px, (min-width: 768px) 33vw, 50vw"
             className="object-cover transition-transform duration-(--duration-medium) ease-slow group-hover:scale-[1.03] motion-reduce:transition-none"
             {...(image.blurhash ? { placeholder: 'blur' as const, blurDataURL: blurDataUrl(image.blurhash) } : {})}

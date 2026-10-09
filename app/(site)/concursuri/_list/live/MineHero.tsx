@@ -37,12 +37,13 @@ export type HeroModel = {
   href: string;
 };
 
-export function MineHero({ m }: { m: HeroModel }) {
+/** `priority`: the hero opens the page (the guest's preview on Live), so its poster is the LCP. */
+export function MineHero({ m, priority = false }: { m: HeroModel; priority?: boolean }) {
   return (
     <section aria-label="Concursul tău" className={cn(bentoSurface('signature'), s.rise, 'rounded-bento p-5 xl:p-8')}>
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_auto_minmax(0,1fr)] xl:items-center xl:gap-10">
         <div className="flex min-w-0 items-center gap-4">
-          <PosterThumb src={m.poster} />
+          <PosterThumb src={m.poster} priority={priority} />
           <div className="flex min-w-0 flex-col gap-1.5">
             <span className="flex items-center gap-2 t-eyebrow text-lavender uppercase">
               <LiveDot tone="on-accent" /> Concursul tău{m.stand ? ` · Stand ${m.stand}` : ''}

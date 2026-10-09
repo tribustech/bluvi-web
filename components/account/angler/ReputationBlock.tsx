@@ -5,7 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { Ago } from '@/app/(site)/balti/[id]/_components/Ago';
 import { RatingStars } from '@/app/(site)/balti/[id]/_components/RatingStars';
-import { T2Spinner } from '@/components/templates/T2';
+// The overlay module, not the T2 barrel: the barrel drags T2Map (supercluster, maplibre CSS) along.
+import { T2Spinner } from '@/components/templates/T2/T2MapOverlay';
 import { cn } from '@/components/ui/cn';
 import {
   anglerReviewOverall,

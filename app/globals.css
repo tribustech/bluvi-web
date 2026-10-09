@@ -1,6 +1,21 @@
 @import "tailwindcss";
 
 /*
+ * Nunito italic (M8-B4): the face behind `italic` / <em> (rich text, a deleted chat message). Not
+ * in app/fonts.ts on purpose: next/font preloads every face it declares on every page, at high
+ * priority, before the page's own resources — 31 KB of a face almost no page shows (Lighthouse
+ * counted it in every page's LCP). Declared here it loads only when italic text is drawn. The
+ * family name is next/font's for `export const nunito` (app/fonts.ts): keep the two in step.
+ */
+@font-face {
+  font-family: nunito;
+  src: url("./fonts/Nunito-Italic-latin.woff2") format("woff2");
+  font-weight: 200 600;
+  font-style: italic;
+  font-display: swap;
+}
+
+/*
  * WCAG AA contrast pass (2026-10-05). Body text ≥ 4.5:1, large text (≥ 24px, or ≥ 18.66px bold)
  * and UI component edges ≥ 3:1. Every used text/background pair was computed; only the tokens
  * below moved, each by the smallest same-hue lightness step that clears its worst used pair.

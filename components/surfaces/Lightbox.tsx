@@ -2,7 +2,8 @@
 
 import { ChevronLeftIcon, ChevronRightIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useEffect, useId, useRef, useState, type KeyboardEventHandler, type ReactNode } from 'react';
-import { T2Spinner } from '@/components/templates/T2';
+// The overlay module, not the T2 barrel: the barrel drags T2Map (supercluster, maplibre CSS) along.
+import { T2Spinner } from '@/components/templates/T2/T2MapOverlay';
 import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/components/ui/cn';
 import { fmtKg } from '@/core/partide';

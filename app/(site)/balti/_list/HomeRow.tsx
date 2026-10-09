@@ -141,12 +141,16 @@ function SeeAllEnd({ href, title, heightClass }: { href: string; title: string; 
   );
 }
 
+/** A 412px phone shows two 200px rail cards. */
+const PRIORITY_CARDS = 2;
+
 export function HomeRow({
   section,
   position,
   seeAllHref,
   radiusAction,
   impressionReady = true,
+  priority = false,
 }: {
   section: LakeHomeSection;
   /** The rows' order is final (the location permission is known): the impression may be counted. */
@@ -157,6 +161,8 @@ export function HomeRow({
   seeAllHref: string;
   /** The nearby row: «50 km ›» and where it goes (c12). */
   radiusAction?: { label: string; href: string } | null;
+  /** The phone's first rail: its first two photos are the page's LCP (eager, high priority). */
+  priority?: boolean;
 }) {
   const [rail, setRail] = useState<RailHandle | null>(null);
   const presentation = getLakesHomeCardPresentation(section.key);
@@ -208,7 +214,7 @@ export function HomeRow({
             {/* The grid's card (one card design on the page, owner rule 5): a 4:3 photo and three
                 fixed-height lines, so every card in the row is as tall as the row — no empty band
                 under a shorter card. «Vizualizate recent» keeps fish's compact tile (c15). */}
-            {compact ? <LakeTile lake={lake} variant="compact" distanceLabel={distanceOf(lake)} /> : <LakeGridCard lake={lake} distanceLabel={distanceOf(lake)} />}
+            {compact ? <LakeTile lake={lake} variant="compact" distanceLabel={distanceOf(lake)} /> : <LakeGridCard lake={lake} distanceLabel={distanceOf(lake)} priority={priority && i < PRIORITY_CARDS} />}
           </div>
         </RailItem>
       ))}
@@ -267,8 +273,13 @@ const PLACEHOLDER_COPY = {
   },
 } as const;
 
-/** The placeholder card's box — its skeleton takes the same (HomeSkeleton). */
-const NEARBY_CARD_BOX = 'min-h-44 md:min-h-24';
+/**
+ * The placeholder card's box — its skeleton takes the same (HomeSkeleton). Below 768 the card is
+ * 218px from 360 to 767 (padding, the 48px icon, the title, two lines of description, the
+ * full-width 48px button): 220 holds it, so the rails under it never move when the location
+ * permission is read (it was 176, a 0.065 layout shift on a 412px phone, M8-B4).
+ */
+const NEARBY_CARD_BOX = 'min-h-55 md:min-h-24';
 
 export function NearbyPlaceholder({
   mode,

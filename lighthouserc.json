@@ -6,7 +6,17 @@
       "startServerReadyTimeout": 60000,
       "url": [
         "http://localhost:3200/",
-        "http://localhost:3200/concursuri/uxxie29m6820wrpdv45w0m7q"
+        "http://localhost:3200/balti",
+        "http://localhost:3200/balti/s84u55lo4n9z0emngozttt6e",
+        "http://localhost:3200/balti/harta",
+        "http://localhost:3200/concursuri",
+        "http://localhost:3200/concursuri/uxxie29m6820wrpdv45w0m7q",
+        "http://localhost:3200/concursuri/uxxie29m6820wrpdv45w0m7q/clasament",
+        "http://localhost:3200/ape-publice",
+        "http://localhost:3200/stiri",
+        "http://localhost:3200/stiri/e75ur4eyp4q1itaia7zotwxn",
+        "http://localhost:3200/partide",
+        "http://localhost:3200/partide/pyz9mcgitrsqyclj5kan6wkz"
       ],
       "numberOfRuns": 3,
       "settings": {

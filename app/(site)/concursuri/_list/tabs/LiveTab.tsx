@@ -55,7 +55,8 @@ function Top(p: TabViewProps) {
       <SignedOutGate hint="Cântăririle și locul tău în concurs, pe măsură ce se întâmplă.">
         <div className="flex flex-col gap-8 p-1">
           <WeighingStrip items={PLACEHOLDER_RECENT_WEIGHINGS} headingId="cantariri-recente-exemplu" />
-          <MineHero m={PLACEHOLDER_HERO} />
+          {/* The first thing a guest sees on Live: its poster is the page's LCP (M8-B4). */}
+          <MineHero m={PLACEHOLDER_HERO} priority />
         </div>
       </SignedOutGate>
     );

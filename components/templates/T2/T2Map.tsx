@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { useT2Frame, useT2LayoutBridge } from './context';
 import { ROMANIA_BOUNDS, type T2Bounds, type T2LatLng, type T2MapPoint, type T2Viewport } from './geo';
-import { loadMaplibre } from './maplibre';
+import { loadMaplibre, T2_MAP_STYLE } from './maplibre';
 import { CLUSTER_SIZE_PX, T2MapCluster, T2MapPin, T2UserDot, T2UserHalo } from './T2MapMarkers';
 import { T2MapPill, T2Spinner } from './T2MapOverlay';
 
@@ -36,7 +36,9 @@ import { T2MapPill, T2Spinner } from './T2MapOverlay';
  * GeoJSON clustering runs on) over the points the page passes; a page that clusters on the server
  * (fish /lakes/map-clusters) passes the server nodes as points and `cluster={false}`.
  */
-export const T2_MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+// The constant lives in ./maplibre (light) so a page that only needs the style URL (MiniMap) does
+// not pull this module, supercluster and the maplibre CSS into its first load.
+export { T2_MAP_STYLE };
 
 /** Clusters above this size use the large style (fish: count > 10 → red, else blue). */
 const LARGE_CLUSTER = 10;

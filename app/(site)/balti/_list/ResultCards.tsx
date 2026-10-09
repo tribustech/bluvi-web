@@ -116,6 +116,7 @@ export function ResultLakeCard({
   photos,
   price,
   priceLoading = false,
+  photoPriority = false,
 }: {
   lake: LegacyLake;
   distanceLabel: string | null;
@@ -123,6 +124,8 @@ export function ResultLakeCard({
   price?: { min?: number | null; max?: number | null } | null;
   /** The price index is still being read (and has none for this lake yet). */
   priceLoading?: boolean;
+  /** One of the list's first cards (LCP): its photo loads eagerly at high priority. */
+  photoPriority?: boolean;
 }) {
   const t = useMemo(() => createBrowserTransport(), []);
   const detail = useQuery({ ...lakeQuery(t, lake.documentId), staleTime: DETAIL_STALE_MS, gcTime: DETAIL_STALE_MS });
@@ -171,6 +174,7 @@ export function ResultLakeCard({
         bookHref={lake.bookingEnabled ? routes.lakeBooking(lake.documentId) : null}
         onCall={phones.length ? () => setCall(true) : null}
         onDirections={coordinate ? () => setDirections(true) : null}
+        photoPriority={photoPriority}
       />
       {coordinate ? <DirectionsDialog open={directions} onClose={() => setDirections(false)} name={lake.name} coordinate={coordinate} /> : null}
       {phones.length ? <CallDialog open={call} onClose={() => setCall(false)} name={lake.name} contacts={phones} /> : null}

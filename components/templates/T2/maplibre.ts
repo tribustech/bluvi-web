@@ -8,6 +8,9 @@
  * from maplibre-worker.ts (the `new Worker(new URL(…, import.meta.url))` form is what the bundler
  * recognises). Every other `new Worker` call goes to the browser's constructor unchanged.
  */
+/** OpenFreeMap «Positron» (see T2Map.tsx for why). */
+export const T2_MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+
 const WORKER_MARKER = '/__bluvi/maplibre-worker.mjs';
 
 let loading: Promise<typeof import('maplibre-gl')> | null = null;

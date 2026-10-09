@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { MapPinIcon } from '@heroicons/react/24/solid';
 import { MapIcon } from '@heroicons/react/24/outline';
-import { loadMaplibre } from '@/components/templates/T2/maplibre';
-import { T2_MAP_STYLE } from '@/components/templates/T2/T2Map';
+import { loadMaplibre, T2_MAP_STYLE } from '@/components/templates/T2/maplibre';
 import { cn } from '@/components/ui/cn';
 
 /*

@@ -552,7 +552,7 @@ export function LakesMap() {
     listBody = (
       <>
         <T2List label="Bălți" stale={refreshing}>
-          {listLakes.map((lake) => {
+          {listLakes.map((lake, index) => {
             const c = lake.coordinates
               ? {
                   latitude: Number(lake.coordinates.lat),
@@ -573,6 +573,8 @@ export function LakesMap() {
                   distanceLabel={distanceTo(user, c)}
                   price={priceById.get(lake.documentId) ?? null}
                   priceLoading={pricesPending}
+                  // The first two rows fill a phone's sheet and the top of the desktop list.
+                  photoPriority={index < 2}
                 />
               </T2ListItem>
             );

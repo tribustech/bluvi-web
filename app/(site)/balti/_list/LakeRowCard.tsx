@@ -81,6 +81,8 @@ export type LakeRowCardProps = {
   onDirections?: (() => void) | null;
   /** Selected on the map (T2ListItem draws the outline). */
   className?: string;
+  /** The list's first cards: their first photo is the page's LCP (eager, high priority). */
+  photoPriority?: boolean;
 };
 
 /** «45», «45–90» (RON). */
@@ -129,6 +131,7 @@ export function LakeRowCard({
   onCall,
   onDirections,
   className,
+  photoPriority = false,
 }: LakeRowCardProps) {
   // The signature number is the lowest price («de la»): the range belongs to the lake page.
   const from = priceMin ?? priceMax ?? null;
@@ -179,7 +182,7 @@ export function LakeRowCard({
         {rating && rating.count > 0 ? <RatingInline overall={rating.overall} count={rating.count} className="pt-0.5 t-label" /> : null}
       </div>
 
-      <Gallery photos={photos} name={name} className="[grid-area:photo]" />
+      <Gallery photos={photos} name={name} priority={photoPriority} className="[grid-area:photo]" />
 
       {/* The right: the price, the place, the facts. */}
       <div data-row-info="" className="flex min-w-0 flex-col gap-1.5 p-3 [grid-area:info] md:gap-2 md:px-4">
@@ -271,7 +274,7 @@ export function LakeRowCard({
 }
 
 /** The card photo with its gallery: arrows (above the card link) and the «1 / N» counter. */
-function Gallery({ photos, name, className }: { photos: LakeImageSrc[]; name: string; className?: string }) {
+function Gallery({ photos, name, priority = false, className }: { photos: LakeImageSrc[]; name: string; priority?: boolean; className?: string }) {
   const [i, setI] = useState(0);
   const n = photos.length;
   const photo = photos[Math.min(i, Math.max(0, n - 1))];
@@ -290,6 +293,8 @@ function Gallery({ photos, name, className }: { photos: LakeImageSrc[]; name: st
           alt=""
           fill
           sizes="(min-width: 1280px) 288px, (min-width: 768px) 260px, 150px"
+          // A client-rendered list: eager + high priority, no preload link (it would arrive after the head).
+          {...(priority && i === 0 ? { loading: 'eager' as const, fetchPriority: 'high' as const } : {})}
           className="object-cover"
           {...(photo.blurhash ? { placeholder: 'blur' as const, blurDataURL: blurDataUrl(photo.blurhash) } : {})}
         />
