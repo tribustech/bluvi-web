@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { analyticsAttrs } from '@/components/analytics/attrs';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowPathIcon, ChevronRightIcon, ClockIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import {
@@ -73,7 +74,7 @@ export function CompetitionPreview({ competition, dates }: { competition: Compet
             </span>
             {registered === 0 && pending === 0 ? <span className="t-caption text-ink-2">Fii primul care se înscrie la această competiție!</span> : null}
             {TAB_ON_WEB.participanti ? (
-              <MoreLink href={routes.competitionParticipants(competition.documentId)}>Vezi toate înscrierile</MoreLink>
+              <MoreLink href={routes.competitionParticipants(competition.documentId)} event="ranking_viewRegister">Vezi toate înscrierile</MoreLink>
             ) : null}
           </span>
         }
@@ -99,7 +100,7 @@ export function CompetitionPreview({ competition, dates }: { competition: Compet
       />
       {TAB_ON_WEB.informatii ? (
         <div className="mt-3">
-          <MoreLink href={routes.competitionInfo(competition.documentId)}>Vezi toate informațiile</MoreLink>
+          <MoreLink href={routes.competitionInfo(competition.documentId)} event="ranking_viewInfo">Vezi toate informațiile</MoreLink>
         </div>
       ) : null}
     </DetailSection>
@@ -175,9 +176,12 @@ export function CompetitionPreview({ competition, dates }: { competition: Compet
   );
 }
 
-function MoreLink({ href, children }: { href: string; children: ReactNode }) {
+/** fish logs ranking_viewInfo / ranking_viewRegister { event_class, event_name } on these (data-analytics-*). */
+const MORE_EVENT_NAME = { ranking_viewInfo: 'see_Info_button', ranking_viewRegister: 'see_register_button' } as const;
+
+function MoreLink({ href, event, children }: { href: string; event: keyof typeof MORE_EVENT_NAME; children: ReactNode }) {
   return (
-    <Link href={href} className="inline-flex min-h-11 items-center gap-1 t-label text-accent-ink hover:underline">
+    <Link href={href} {...analyticsAttrs(event, { event_class: 'Competition Page', event_name: MORE_EVENT_NAME[event] })} className="inline-flex min-h-11 items-center gap-1 t-label text-accent-ink hover:underline">
       {children}
       <ChevronRightIcon aria-hidden className="size-4" />
     </Link>

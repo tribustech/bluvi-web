@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Request, type Route } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { collectConsoleErrors } from './helpers/console';
+import { BASE_URL } from './helpers/base-url';
 import { CMS, qaJwt, signIn } from './helpers/session';
 
 /*
@@ -587,6 +588,45 @@ test.describe('signed in — mocked states', () => {
       }
     } finally {
       await ctx.close();
+    }
+  });
+
+  test('c3 c31: /pescari/[id]/conexiuni streams its own skeleton (JS off, signed in) — never the profile fallback', async ({ browser }) => {
+    // The profile's page + loading.tsx live in the (profil) group, so they wrap /pescari/[id] only:
+    // the connections page keeps ConnectionsSkeleton as its first paint (M8 follow-up).
+    const ctx = await browser.newContext({ javaScriptEnabled: false });
+    try {
+      await signIn(ctx, jwt);
+      const page = await ctx.newPage();
+      for (const width of [375, 1280]) {
+        await page.setViewportSize({ width, height: 900 });
+        const res = await page.goto(`/pescari/${MOCK}/conexiuni`);
+        expect(res?.status(), 'no redirect to sign-in for a signed-in visitor').toBeLessThan(300);
+        await expect(page).toHaveURL(new RegExp(`/pescari/${MOCK}/conexiuni$`));
+        await expect(page.locator('[data-testid=connections-skeleton]:visible').first()).toBeVisible();
+        await expect(page.getByTestId('profile-fallback')).toHaveCount(0);
+        await expect(page.getByRole('heading', { level: 1, name: 'Profil de pescar' })).toHaveCount(0);
+      }
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test('the profile render throws → the profile error boundary: back control, h1 «Profil de pescar», «Serverul nu răspunde» + «Încearcă din nou»', async ({ page }) => {
+    // Dev-only fault switch (_components/e2e-faults.ts): this context's server render of the profile throws.
+    const { hostname } = new URL(BASE_URL);
+    await page.context().addCookies([{ name: 'bluvi-e2e-pescar', value: 'throw', domain: hostname, path: '/' }]);
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/pescari/${MOCK}`);
+      await expect(page.getByTestId('profile-error')).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1, name: 'Profil de pescar' })).toBeAttached();
+      await expect(page.getByText('Serverul nu răspunde')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Înapoi', exact: true })).toBeVisible();
+      // focusOnMount: the retry has the focus.
+      await expect(page.getByRole('button', { name: 'Încearcă din nou' })).toBeFocused();
+      await expect(page.getByTestId('profile-fallback')).toHaveCount(0);
+      await expectNoA11yViolations(page);
     }
   });
 

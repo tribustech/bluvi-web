@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { analyticsAttrs } from '@/components/analytics/attrs';
 import { useQuery } from '@tanstack/react-query';
 import type { getSponsors } from '@/core/competitions';
 import { createBrowserTransport } from '@/lib/client/transport';
@@ -16,7 +17,7 @@ type Sponsor = NonNullable<Awaited<ReturnType<typeof getSponsors>>>['data'][numb
 
 /**
  * fish (tabs)/index.tsx «Sponsori»: shown only when there is at least one; a tap opens the sponsor
- * (fish also logs `sponsor_dashboard`: GA4 lands in M8). Rendered inside a <Suspense> whose fallback
+ * (and logs fish's `sponsor_dashboard` through data-analytics-*, components/analytics). Rendered inside a <Suspense> whose fallback
  * is SponsorsView from the server's data.
  *
  * Web difference: fish's 245×150 tiles made a third rail of big cards here. The web shows a compact
@@ -58,6 +59,7 @@ function SponsorChip({ sponsor: s }: { sponsor: Sponsor }) {
   return (
     <Link
       href={homeLinks.sponsor(s.documentId)}
+      {...analyticsAttrs('sponsor_dashboard', { sponsor_id: s.documentId, sponsor_name: s.name, sponsor_url: s.url })}
       className={cn(
         'relative flex items-center justify-center overflow-hidden rounded-card bg-surface px-3 shadow-e0 transition-[box-shadow,opacity] duration-(--duration-fast) ease-fast hover:shadow-[var(--shadow-e2),var(--shadow-e0)] active:opacity-70',
         SPONSOR_CHIP

@@ -12,6 +12,7 @@ import {
   type CompetitionWithMyStatus,
 } from '@/core/competitions';
 import type { RichTextNode } from '@/core/shared';
+import { analyticsAttrs } from '@/components/analytics/attrs';
 import { DetailAsideCard, type DetailFact } from '@/components/templates/T3';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { cn } from '@/components/ui/cn';
@@ -115,21 +116,24 @@ export function FactsAside({ competition }: { competition: CompetitionWithMyStat
 export function ContactSection({ competition: c, title = 'Contact' }: { competition: CompetitionWithMyStatus; title?: string }) {
   const lakeContacts = c.lake?.contact ?? [];
   const empty = !c.author && c.referees.length === 0 && lakeContacts.length === 0;
+  // fish CompetitionContact: every phone logs contact_pressed «Competition phone contact».
+  const call = analyticsAttrs('contact_pressed', { contact_type: 'Competition phone contact', competition_id: c.documentId, competition_name: c.name });
   return (
     <DetailAsideCard title={title}>
       {empty ? (
         <p className="t-body text-ink-2">Nu există date de contact pentru acest concurs.</p>
       ) : (
         <div className="flex flex-col gap-4">
-          {c.author ? <ContactGroup title="Organizator Concurs" people={[{ key: c.author.documentId, name: c.author.username, phone: c.author.phone }]} /> : null}
+          {c.author ? <ContactGroup call={call} title="Organizator Concurs" people={[{ key: c.author.documentId, name: c.author.username, phone: c.author.phone }]} /> : null}
           {c.referees.length > 0 ? (
             <ContactGroup
+              call={call}
               title={c.referees.length === 1 ? 'Arbitru' : 'Arbitri'}
               people={c.referees.map(r => ({ key: r.documentId, name: r.username, phone: r.phone }))}
             />
           ) : null}
           {lakeContacts.map(lc => (
-            <ContactGroup key={lc.id} title={lc.header ?? undefined} people={[{ key: String(lc.id), name: lc.name ?? '', phone: lc.phone }]} />
+            <ContactGroup key={lc.id} call={call} title={lc.header ?? undefined} people={[{ key: String(lc.id), name: lc.name ?? '', phone: lc.phone }]} />
           ))}
         </div>
       )}
@@ -138,7 +142,15 @@ export function ContactSection({ competition: c, title = 'Contact' }: { competit
 }
 
 /** The role is a label (t-caption, muted — as the facts' labels), the person the data (body-strong). */
-function ContactGroup({ title, people }: { title?: string; people: { key: string; name: string; phone: string | null | undefined }[] }) {
+function ContactGroup({
+  title,
+  people,
+  call,
+}: {
+  title?: string;
+  people: { key: string; name: string; phone: string | null | undefined }[];
+  call: ReturnType<typeof analyticsAttrs>;
+}) {
   return (
     <div className="flex flex-col">
       {title ? <h4 className="t-caption text-muted">{title}</h4> : null}
@@ -147,9 +159,10 @@ function ContactGroup({ title, people }: { title?: string; people: { key: string
           <li key={p.key} className="flex min-h-11 items-center justify-between gap-3">
             <span className="min-w-0 t-body-strong text-ink">{p.name || '–'}</span>
             {p.phone ? (
-              // fish: a phone is a tel: link (analytics contact_pressed lands with GA4 in M8).
+              // fish: a phone is a tel: link; contact_pressed through data-analytics-* (components/analytics).
               <a
                 href={`tel:${p.phone.replace(/\s+/g, '')}`}
+                {...call}
                 aria-label={p.name ? `Sună pe ${p.name}: ${p.phone}` : `Sună la ${p.phone}`}
                 className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-control px-1 t-body-strong text-accent-ink tabular-nums hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent"
               >

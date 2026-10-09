@@ -348,7 +348,7 @@ screens:
         text: "„Sponsori” section appears only when the sponsors list is non-empty: horizontal sponsor images; pressing one logs sponsor_dashboard and opens that sponsor."
         fish_ref: app/(app)/(tabs)/index.tsx:592-636
         status: passing
-        note: "link verified in e2e; the sponsor_dashboard event lands with GA4 in M8 (home.b.analytics)."
+        note: "link verified in e2e; the chip logs sponsor_dashboard (data-analytics-*, home.b.analytics)."
       - id: home.acasa.c49
         text: "„Noutăți” heading with „Vezi toate” to the news list, then a horizontal rail of news cards (10 per page, infinite load); 3 skeletons while loading; empty → „Momentan nu există noutăți.”"
         fish_ref: components/NewsHorizontalList.tsx:32-75
@@ -522,7 +522,7 @@ screens:
         text: "Rich text supports paragraphs, headings level 1–3, ordered/unordered lists („ - ” items), bold, italic, underline and links; tel links render as „📞 …” and dial; other links open the URL; link clicks log news_link_clicked with newsId and url."
         fish_ref: components/CustomBlocksRenderer.tsx:20-122
         status: passing
-        note: "e2e tests/e2e/stiri.spec.ts + unit _content/content.test.ts: paragraphs, headings 1–3 (title1/heading/bodyStrong, one level under the page h1), lists with « - », bold/italic/underline, a soft line break («\\n», Shift+Enter in Strapi) as a new line like fish (unit; fixed 2026-10-05 — it collapsed into a space), external links in a new tab, tel links dial (20/solid phone icon instead of the 📞 emoji — Fundații: no emoji in UI). Each link carries news_link_clicked { newsId, url } as data-analytics-*; the GA4 listener lands in M8 (home.b.analytics)."
+        note: "e2e tests/e2e/stiri.spec.ts + unit _content/content.test.ts: paragraphs, headings 1–3 (title1/heading/bodyStrong, one level under the page h1), lists with « - », bold/italic/underline, a soft line break («\\n», Shift+Enter in Strapi) as a new line like fish (unit; fixed 2026-10-05 — it collapsed into a space), external links in a new tab, tel links dial (20/solid phone icon instead of the 📞 emoji — Fundații: no emoji in UI). Each link carries news_link_clicked { newsId, url } as data-analytics-*, logged by components/analytics/AnalyticsLinkListener (home.b.analytics)."
       - id: home.stire.c8
         text: "Reachable from a NEWS push notification (newsId) and from news cards on Acasă and Noutăți."
         fish_ref: helpers/getRedirectLocationForNotification.ts:96-98
@@ -576,7 +576,7 @@ screens:
         text: "Link clicks in the description log sponsor_link_clicked with sponsor_id, sponsor_name and url."
         fish_ref: app/(app)/sponsors/[sponsorId].tsx:43-47
         status: passing
-        note: "e2e tests/e2e/stiri.spec.ts + unit: links carry sponsor_link_clicked { sponsor_id, sponsor_name, url } as data-analytics-*; the GA4 listener lands in M8 (home.b.analytics)."
+        note: "e2e tests/e2e/stiri.spec.ts + unit: links carry sponsor_link_clicked { sponsor_id, sponsor_name, url } as data-analytics-*, logged by components/analytics/AnalyticsLinkListener (home.b.analytics)."
     mobile_only: false
     # built on the T3 tracks 2026-10-05 (app/(site)/sponsori/[id]); every criterion verified.
     # re-checked 2026-10-06: full width asserted in tests/e2e/full-width.spec.ts (gutters, 720 measure, «Alți sponsori» right column).
@@ -608,8 +608,10 @@ behaviours:
     text: "The active-partidă dock wins over the CONCURSUL MEU panel; only one is shown."
     fish_ref: app/(app)/(tabs)/index.tsx:653-663
   - id: home.b.analytics
-    text: "Events: sponsor_dashboard (sponsor tap), sponsor_link_clicked, news_link_clicked, contact_pressed, suggested_angler_dismiss / suggested_angler_follow (source home_rail), poll_vote / poll_vote_change (GA4 lands in M8)."
+    text: "Events: sponsor_dashboard (sponsor tap), sponsor_link_clicked, news_link_clicked, contact_pressed, suggested_angler_dismiss / suggested_angler_follow (source home_rail), poll_vote / poll_vote_change (GA4 behind consent, m8.ga4)."
     fish_ref: app/(app)/(tabs)/index.tsx:606-610; components/ContactSheet.tsx:35; features/anglers/components/SuggestedAnglerCard.tsx:52,109; services/mutations/usePollVote.ts:19
+    status: passing
+    web_note: "All on lib/analytics with fish names and params. sponsor_dashboard {sponsor_id, sponsor_name, sponsor_url} on the Acasă sponsor chips, and news_link_clicked / sponsor_link_clicked on rich-text links, as data-analytics-* read by the one delegated listener components/analytics/AnalyticsLinkListener.tsx (attrs helper components/analytics/attrs.ts) — e2e tests/e2e/analytics-ga4.spec.ts «Acasă «Sponsori»: a chip logs sponsor_dashboard…», «a link carrying data-analytics-event…»; markup in tests/e2e/stiri.spec.ts «home.stire.c7», «home.sponsor.c5». contact_pressed «Bluvi support contact» (components/account/ContactSurface), suggested_angler_follow / _dismiss {source home_rail} (tests/e2e/pescari-sugerati.spec.ts), poll_vote / poll_vote_change (tests/e2e/sondaj.spec.ts). Transport (m8.ga4): lib/analytics track() → gtag('event', name, fish params) only after consent with GA loaded, nothing queued before the opt-in — proven in components/analytics/ga4.test.ts (jsdom, test id: «a screen event (share_competition) reaches gtag with fish params», «events before the opt-in are dropped», «refuse after accept…») and tests/e2e/analytics-ga4.spec.ts (off path on the shared server: no gtag / no collect before and after «Accept toate»). GA4 itself needs NEXT_PUBLIC_GA4_ID on the production deployment (elsewhere only with NEXT_PUBLIC_ANALYTICS_DEBUG, like fish isCollectionEnabled), GA4 enhanced measurement «history» page changes and «Site search» turned off in the web stream (owner, docs/RUNBOOK.md, launch blocker) and the visitor's «Analiză» opt-in; without GA on the events stay on the page's bluvi:analytics channel (no script, no cookie)."
   - id: home.b.consent-link
     text: "After the profile loads, the stored consent is linked to the user's documentId (fish CMP; web: cookie consent in M8)."
     fish_ref: app/(app)/(tabs)/index.tsx:203-211

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { communityKeys, createServerClock, getActiveSession, getSession, partideHistoryQuery, partideKeys, type SessionDetailDTO } from '@/core/partide';
 import type { Transport } from '@/core/transport';
@@ -68,10 +68,32 @@ export function usePartideViewer(): PartideViewer {
   const user = userOf(state);
   const t = useMemo(() => createBrowserTransport(), []);
   const probe = useQuery({ ...activePartidaQuery(t, user?.documentId ?? ''), enabled: !!user });
+  const hydrated = useHydrated();
+  // `kind` and `uid` need no hydration gate: they come from the session read the server started
+  // (ViewerProvider's promise, _shell/session.ts getViewerState, from the cookie), and the browser
+  // resolves the SAME serialized value — it never reads the session itself. So the server and the
+  // hydrating browser always agree on pending / guest / viewer and on the uid (StartPill, the guest
+  // «Pescari» href, c15's self rows; e2e partide-hub-hydration.spec.ts «selfvenue»). Only the probe
+  // is browser-only, so only `active` is gated.
   if (isUnknownViewer(state)) return { kind: 'pending' };
   if (!user) return { kind: 'guest' };
-  const active = probe.data !== undefined ? probe.data : probe.isError ? 'failed' : 'pending';
+  // While a boundary hydrates, the probe reads as the server rendered it (never run there: pending).
+  // A streamed boundary can hydrate after the shell's own probe has already answered in the browser
+  // — the cached-JS repeat visit — and reading that answer here would render the hero instead of the
+  // server's skeleton: React #418 (M8 follow-up «/partide hydration mismatch»).
+  const active = !hydrated ? 'pending' : probe.data !== undefined ? probe.data : probe.isError ? 'failed' : 'pending';
   return { kind: 'viewer', uid: user.documentId, active };
+}
+
+const noSubscribe = () => () => {};
+
+/** false while the calling component hydrates (the server's value), true after and on client renders. */
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    noSubscribe,
+    () => true,
+    () => false,
+  );
 }
 
 /**

@@ -5,10 +5,10 @@ import { AcasaSceneSkeleton } from '@/components/partide/community/AcasaSceneSke
 import { DashboardPage } from '@/components/templates/T5';
 import { collectionPageJsonLd, jsonLdHtml } from '@/lib/json-ld';
 import { absoluteUrl, routes } from '@/lib/routes';
-import { ComunitateScreen } from './_comunitate/ComunitateScreen';
-import { comunitateState, overviewForSeo } from './_comunitate/state';
-import { HubRefresh } from './_hub/HubRefresh';
-import { PartideHeader, PartideTabs } from './_hub/PartideChrome';
+import { ComunitateScreen } from '../_comunitate/ComunitateScreen';
+import { comunitateState, overviewForSeo } from '../_comunitate/state';
+import { HubRefresh } from '../_hub/HubRefresh';
+import { PartideHeader, PartideTabs } from '../_hub/PartideChrome';
 
 /*
  * Partide — the hub's «Comunitate» tab: fish app/(app)/(tabs)/partide.tsx (sub-tab «acasa») and

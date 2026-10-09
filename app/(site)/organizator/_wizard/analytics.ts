@@ -1,12 +1,13 @@
 import { track } from '@/lib/analytics';
+import { captureException, captureMessage } from '@/lib/observability/report';
 import type { WizardStepDef } from './stepDefs';
 
 /*
  * organizer.b.wizard-analytics — fish helpers/createCompetitionAnalytics.ts, same event names and
  * params, through the site's one channel (lib/analytics `track`). fish's Sentry calls
  * (captureCreateCompetitionError / captureOperationTimeout, tag feature_area=create_competition)
- * have no web SDK before M8: they are logged with the same tags so nothing is silently dropped.
- * TODO(M8): send them to Sentry.
+ * go to Sentry with the same tags (lib/observability/report: a no-op while it is off) and stay in
+ * the console.
  */
 
 export type WizardAnalyticsStep = WizardStepDef['analytics'] | 'unknown';
@@ -44,13 +45,15 @@ type ErrorContext = { step: WizardAnalyticsStep; draft_id: string | null; rankin
 
 /** fish captureCreateCompetitionError (Sentry exception, tags feature / action). */
 export function captureCreateCompetitionError(error: unknown, context: { action: 'save_draft' | 'publish_draft' | 'delete_draft' } & ErrorContext) {
-  console.warn('[create_competition]', { tags: { feature: 'create_competition', feature_area: WIZARD_FEATURE_AREA, action: context.action }, extra: context }, error);
+  const tags = { feature: 'create_competition', feature_area: WIZARD_FEATURE_AREA, action: context.action };
+  console.warn('[create_competition]', { tags, extra: context }, error);
+  captureException(error, { tags, extra: context });
 }
 
 /** fish captureOperationTimeout (Sentry warning message). */
 export function captureOperationTimeout(mode: 'save' | 'publish' | 'delete', context: ErrorContext) {
-  console.warn(`[create_competition] Create competition ${mode} timed out`, {
-    tags: { feature: 'create_competition', feature_area: WIZARD_FEATURE_AREA, action: `${mode}_timeout` },
-    extra: context,
-  });
+  const message = `Create competition ${mode} timed out`;
+  const tags = { feature: 'create_competition', feature_area: WIZARD_FEATURE_AREA, action: `${mode}_timeout` };
+  console.warn(`[create_competition] ${message}`, { tags, extra: context });
+  captureMessage(message, { level: 'warning', tags, extra: context });
 }

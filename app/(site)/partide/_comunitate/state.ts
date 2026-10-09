@@ -6,7 +6,8 @@ import { communityHistoryInfiniteQuery, communityOverviewQuery, getCommunityOver
 import { ApiError, type Transport, type TransportRequest } from '@/core/transport';
 import { prefetchState } from '@/lib/client/hydration';
 import { createServerTransport } from '@/lib/server/transport';
-import { e2eSkipPrefetch } from './e2e-faults';
+import { getViewerState } from '../../_shell/session';
+import { e2eFaults, e2eHold, e2eSelfVenue, e2eSkipPrefetch } from './e2e-faults';
 
 /*
  * The server reads of Partide · Comunitate. Both are public, edge-cached CMS reads (`auth: 'none'`),
@@ -45,12 +46,17 @@ export async function comunitateState(): Promise<DehydratedState> {
     await connection();
     return NONE;
   }
+  await e2eHold();
   const t = boundedTransport();
   const first = await prefetchState([communityOverviewQuery(t)], ['community-live']);
   const overview = first.queries[0]?.state.data as CommunityOverviewDTO | undefined;
   if (!overview) {
     await connection();
     return first;
+  }
+  if ((await e2eFaults()).selfVenue) {
+    const viewer = await getViewerState();
+    if (viewer && 'documentId' in viewer) return e2eSelfVenue(first, viewer.documentId);
   }
   if (overview.activeVenues.length > 0) return first;
   const second = await prefetchState([communityHistoryInfiniteQuery(t, [])], ['community-history']);

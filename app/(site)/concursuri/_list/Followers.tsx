@@ -10,7 +10,7 @@ import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { formatInt } from '@/components/cards/format';
 import { FollowersList, followersSubtitle } from '@/components/cards/FollowersList';
 import { cn } from '@/components/ui/cn';
-import { competitionFollowersQuery } from '@/core/competitions';
+import { competitionFollowersQuery, formatCount } from '@/core/competitions';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { anglerHref } from '@/lib/routes';
 
@@ -44,6 +44,9 @@ export function FollowersPill({
   const [open, setOpen] = useState(false);
   const pill = useRef<HTMLButtonElement>(null);
   const count = Math.max(0, viewers);
+  // formatCount's words after the number: «urmăritor», «urmăritori», «de urmăritori» from 20 (fish
+  // FollowersPill prints the bare plural; the web takes the correct Romanian plural, owner rules).
+  const words = formatCount(count, 'urmăritor', 'urmăritori').slice(String(count).length + 1);
   const close = () => {
     setOpen(false);
     // The docked panel is not modal (nothing restores focus for it): back to the pill.
@@ -71,7 +74,7 @@ export function FollowersPill({
       >
         <EyeIcon aria-hidden className="size-3" />
         {formatInt(count)}
-        <span className={cn(compact && 'max-md:sr-only')}> {count === 1 ? 'urmăritor' : 'urmăritori'}</span>
+        <span className={cn(compact && 'max-md:sr-only')}> {words}</span>
       </button>
       {open ? <FollowersSurface onClose={close} competitionId={competitionId} /> : null}
     </>

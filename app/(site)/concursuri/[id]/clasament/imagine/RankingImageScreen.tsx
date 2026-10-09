@@ -28,6 +28,7 @@ import { SadSearchIcon } from '@/components/icons/brand';
 import { IconButton } from '@/components/nav/IconButton';
 import { DetailBackButton, DetailBand, DetailBody, DetailHeader, DetailPage, DetailSection, DetailSectionState, headerChipClass } from '@/components/templates/T3';
 import { Button, ButtonLink } from '@/components/ui/Button';
+import { captureException } from '@/lib/observability/report';
 import { cn } from '@/components/ui/cn';
 import { routes } from '@/lib/routes';
 import { useSiteToast } from '../../../../_shell/Toast';
@@ -135,8 +136,11 @@ function useRankingImage(fileUrl: string, name: string, initial: State | undefin
         });
       } catch (e) {
         if (ctrl.signal.aborted && !timedOut) return;
-        // fish reports the capture failure to Sentry. TODO(M8): Sentry on the web.
+        // fish ranking-image.tsx:144 reports the capture failure to Sentry (a no-op while it is off).
         console.warn('[imagine-clasament]', timedOut ? 'timeout' : e);
+        captureException(timedOut ? new Error('ranking image: timeout') : e, {
+          tags: { feature: 'ranking_image', failure: timedOut ? 'timeout' : 'fetch' },
+        });
         setState({ kind: 'failed' });
       } finally {
         clearTimeout(timer);

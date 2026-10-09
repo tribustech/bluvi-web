@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { installInAppHistory } from '@/lib/client/in-app-history';
 import { getQueryClient } from '@/lib/client/query-client';
 import { announceSessionExpired, claimSessionDead, signOutFirebaseQuietly } from '@/lib/client/session-expired';
+import { setSessionIdentity } from '@/lib/observability/report';
 import { routes } from '@/lib/routes';
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -14,6 +15,8 @@ export function Providers({ children }: { children: ReactNode }) {
     const client = getQueryClient(() => {
       // global.b.session-expired: one forced sign-out per burst (60 s, re-armed by a sign-in).
       if (!claimSessionDead()) return;
+      // m8.sentry: fish AuthContext.tsx:80-105 — events after the forced sign-out say so, with no user.
+      setSessionIdentity('expired');
       // Forget everything user-scoped at once; the proxy already dropped the dead cookie, the
       // logout makes sure of it before the next page renders.
       client.clear();

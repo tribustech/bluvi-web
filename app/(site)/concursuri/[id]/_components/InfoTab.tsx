@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { analyticsAttrs } from '@/components/analytics/attrs';
 import { competitionProgress, type CompetitionWithMyStatus } from '@/core/competitions';
 import { DetailAsideCard, DetailBody, DetailFacts, DetailSection } from '@/components/templates/T3';
 import { Badge } from '@/components/ui/Badge';
@@ -145,6 +146,7 @@ function SponsorsSection({ sponsors }: { sponsors: CompetitionWithMyStatus['spon
           <li key={s.documentId}>
             <Link
               href={routes.sponsor(s.documentId)}
+              {...analyticsAttrs('sponsor_competition_screen', { sponsor_id: s.documentId, sponsor_name: s.name, sponsor_url: s.url })}
               className="group flex flex-col gap-1.5 rounded-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent"
             >
               <span className="relative flex aspect-8/5 w-full items-center justify-center overflow-hidden rounded-card bg-page shadow-e0 transition-shadow duration-(--duration-fast) ease-fast group-hover:shadow-e2">

@@ -5,8 +5,9 @@ import { AnglerProfileView } from '@/components/account/angler/AnglerProfileView
 import { parseProfileTab } from '@/components/account/angler/tabs';
 import { param, type SearchParams } from '@/lib/search-params';
 import { routes } from '@/lib/routes';
-import { AnglerProfileFallback } from './_components/AnglerProfileFallback';
-import { prefetchProfileTab } from './_components/prefetch';
+import { AnglerProfileFallback } from '../_components/AnglerProfileFallback';
+import { e2eThrowProfile } from '../_components/e2e-faults';
+import { prefetchProfileTab } from '../_components/prefetch';
 
 /*
  * Profil pescar — fish app/(app)/anglers/[documentId]/index.tsx → AnglerProfileScreen (parity
@@ -19,6 +20,9 @@ import { prefetchProfileTab } from './_components/prefetch';
  * through /api/cms with the session cookie; an unknown id answers 404 ANGLER:NOT_FOUND there →
  * notFound() (not-found.tsx). Signed out the header slot is a sign-in hint and the public tabs
  * stay (web deviation from fish's redirect, documented in the parity entry's c1 web_note).
+ *
+ * The page, its loading.tsx and error.tsx sit in the (profil) route group so they wrap this page
+ * only: /pescari/[id]/conexiuni keeps its own skeleton and error (M8 follow-up).
  *
  * SEO: until the CMS serves a public header (docs/private/cms-patches/M2-angler-public-profile.md)
  * the page has no name to show a crawler: `noindex, follow`, no JSON-LD, not in the sitemap, and
@@ -61,6 +65,7 @@ export default async function AnglerPage({ params, searchParams }: Props) {
 
 async function Profile({ id, searchParams }: { id: string; searchParams: Props['searchParams'] }) {
   const tab = parseProfileTab(param(await searchParams, 'tab'));
+  await e2eThrowProfile();
   const state = await prefetchProfileTab(id, tab);
   return (
     <HydrationBoundary state={state}>

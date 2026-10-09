@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useSyncExternalStore, useTransition } from 'react';
 import { useSiteToast } from '@/app/(site)/_shell/Toast';
+import { startNewSession } from '@/lib/observability/report';
 import { claimSessionDead, signOutFirebaseQuietly } from './session-expired';
 
 /*
@@ -110,6 +111,8 @@ export function useSignOut({ to, onDone }: { to?: string; onDone?: () => void } 
       }
       // From here on a 401 is the sign-out itself, not a dead session (see above).
       claimSessionDead();
+      // m8.sentry: later events carry no user and session.state=none; the dedupe re-arms.
+      startNewSession('none');
       await signOutFirebaseQuietly();
       void qc.cancelQueries();
       qc.clear();

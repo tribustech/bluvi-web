@@ -241,7 +241,14 @@ describe('notificationHref — a missing required id means no link', () => {
 
 describe('gates follow the pages that exist under app/(site)', () => {
   const site = path.resolve(__dirname, '../../app/(site)');
-  const page = (rel: string) => existsSync(path.join(site, rel, 'page.tsx'));
+  // Route groups (`(name)`) do not change the URL: a page may sit inside one (e.g. pescari/[id]/(profil)).
+  const inGroups = (dir: string): boolean =>
+    existsSync(path.join(dir, 'page.tsx')) ||
+    (existsSync(dir) &&
+      readdirSync(dir, { withFileTypes: true }).some(
+        (d) => d.isDirectory() && /^\(.+\)$/.test(d.name) && inGroups(path.join(dir, d.name)),
+      ));
+  const page = (rel: string) => inGroups(path.join(site, rel));
   const pages: Record<Exclude<keyof typeof NOTIFICATION_PAGES_ON_WEB, 'organizerPendingFilter' | 'ownPartida'>, string> = {
     competitionChat: 'concursuri/[id]/chat',
     penalties: 'concursuri/[id]/penalizari',

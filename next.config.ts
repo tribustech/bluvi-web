@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { NextConfig } from 'next';
+import { withSentryConfig } from '@sentry/nextjs/config';
 import pkg from './package.json';
 import { POLLS_PAST_ON_WEB } from './app/(site)/sondaje/_components/model';
 
@@ -22,6 +23,9 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   env: {
     NEXT_PUBLIC_APP_VERSION: pkg.version,
+    // m8.sentry: the browser's Sentry environment (lib/observability/env.ts), from the same
+    // variables the server reads. No DSN here: NEXT_PUBLIC_SENTRY_DSN comes from the environment.
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT || process.env.VERCEL_ENV || '',
   },
   async redirects() {
     /*
@@ -167,4 +171,23 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+/*
+ * m8.sentry: source maps go to Sentry only on a build that has SENTRY_AUTH_TOKEN + SENTRY_ORG +
+ * SENTRY_PROJECT (owner's Vercel env, build only). Without them the config is untouched. The SDK
+ * itself is wired in instrumentation.ts / instrumentation-client.ts behind the DSN env vars.
+ */
+const uploadSourceMaps = Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
+
+export default uploadSourceMaps
+  ? withSentryConfig(nextConfig, {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      silent: !process.env.CI,
+      widenClientFileUpload: true,
+      sourcemaps: { deleteSourcemapsAfterUpload: true },
+      telemetry: false,
+      // Navigation spans are not traced (5 % of page loads are); instrumentation-client.ts exports no hook.
+      suppressOnRouterTransitionStartWarning: true,
+    })
+  : nextConfig;

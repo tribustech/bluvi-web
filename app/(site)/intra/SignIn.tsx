@@ -29,6 +29,7 @@ import {
 } from './logic';
 import { canGoBackInApp } from '@/lib/client/in-app-history';
 import { rearmSessionGuard, signOutFirebaseQuietly } from '@/lib/client/session-expired';
+import { setSessionIdentity, startNewSession } from '@/lib/observability/report';
 import { appleCredential, askFacebookEmailAgain, facebookCredential, googleCredential, preload, SignInError } from './sdk';
 
 export type { SignInConfig } from './logic';
@@ -192,6 +193,8 @@ export function SignIn({ config }: { config: SignInConfig }) {
     try {
       const auth = await post(provider, await credential());
       rearmSessionGuard();
+      // m8.sentry: a new session — the API-error dedupe re-arms; the id follows with the profile.
+      startNewSession('valid');
       if (!mounted.current) {
         // Signed in from a page the user already left: keep the session, re-render where they
         // are now, never navigate (account.sign-in.c23).
@@ -208,8 +211,10 @@ export function SignIn({ config }: { config: SignInConfig }) {
         // would make a half signed-in app — the web drops the cookie instead, and any Firebase
         // user this browser still holds, as fish's sign-out does).
         await Promise.all([fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined), signOutFirebaseQuietly()]);
+        setSessionIdentity('none');
         throw new Error(GENERIC_ERROR);
       }
+      setSessionIdentity('valid', profile.id);
       // c13: only now that the sign-in is whole; then c14 (fish: after the bridge).
       void bridgeFirebase(auth.firebaseToken).then(() => probeLivePartida(profile.documentId));
       // Anything cached while signed out (optional-auth reads) is now wrong; the profile is fresh.

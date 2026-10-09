@@ -66,6 +66,14 @@ async function settled(page: Page) {
 }
 
 /** Most tests start on Viitoare (its bento, its count); /concursuri itself opens on Live when something is live (c37). */
+/** c6: a follower row landed on the angler profile — the page rendered, not a 404 at the same URL. */
+async function expectProfileLanded(page: Page) {
+  await expect(page.getByTestId('angler-profile')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Profil de pescar' })).toBeAttached();
+  await expect(page.getByText('Pescarul nu a fost găsit')).toHaveCount(0);
+  await expect(page.getByText('Pagina nu a fost găsită')).toHaveCount(0);
+}
+
 async function open(page: Page, path = '/concursuri/viitoare') {
   await page.goto(path);
   await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeVisible();
@@ -384,16 +392,20 @@ test.describe('signed out', () => {
     await page.setViewportSize(DESKTOP);
     await open(page, '/concursuri/live');
     const item = list(page).locator('article').filter({ has: page.getByRole('link', { name: '[CHAT25] Test chat v2 — Cantitate', exact: true }) });
-    const pill = item.getByRole('button', { name: /^\d+ urmăritor(i)?$/ });
+    const pill = item.getByRole('button', { name: /^\d+ (de )?urmăritor(i)?$/ });
     await pill.click();
     // Fundații §07: an angler list browsed beside the page is «context» → the side panel at 1280.
     const panel = page.getByRole('complementary', { name: 'Urmăritori' });
     await expect(panel).toBeVisible();
     await expect(panel.getByRole('button', { name: 'Închide' })).toBeFocused();
     await expect(panel.getByText(/^\d+ urmăresc$/)).toBeVisible();
-    // The angler profile is M2: until it ships the rows are the people (avatar + name), never a 404 link.
-    await expect(panel.getByRole('listitem').first()).toBeVisible();
-    await expect(panel.locator('a[href^="/pescari/"]')).toHaveCount(0);
+    // c6: each row (avatar + name) opens the angler profile — M2 shipped /pescari/[id], so a row is one link there.
+    const rows = panel.getByRole('listitem');
+    await expect(rows.first()).toBeVisible();
+    const rowCount = await rows.count();
+    await expect(panel.locator('li a[href^="/pescari/"]')).toHaveCount(rowCount);
+    const profileHref = await rows.first().getByRole('link').getAttribute('href');
+    expect(profileHref).toMatch(/^\/pescari\/[^/?#]+$/);
     await page.waitForTimeout(600); // the panel's slide-in, so axe reads the settled colours
     await expectNoA11yViolations(page);
     await page.keyboard.press('Escape');
@@ -407,6 +419,23 @@ test.describe('signed out', () => {
     await expect(page.getByRole('dialog', { name: 'Urmăritori' })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Urmăritori' })).toBeHidden();
+    // c6: a row lands on that angler's profile, and the dialog is gone (fish FollowersListSheet
+    // dismisses the sheet, then pushes the profile).
+    await pill.click();
+    await page.getByRole('dialog', { name: 'Urmăritori' }).getByRole('listitem').first().getByRole('link').click();
+    await expect(page).toHaveURL(new RegExp(`${profileHref}$`));
+    await expectProfileLanded(page);
+    await expect(page.getByRole('dialog', { name: 'Urmăritori' })).toBeHidden();
+    // The same from the docked panel (≥1280, here 1440): the panel closes, the profile renders.
+    await page.setViewportSize(WIDE);
+    await open(page, '/concursuri/live');
+    await pill.click();
+    const docked = page.getByRole('complementary', { name: 'Urmăritori' });
+    await expect(docked).toBeVisible();
+    await docked.getByRole('listitem').first().getByRole('link').click();
+    await expect(page).toHaveURL(new RegExp(`${profileHref}$`));
+    await expectProfileLanded(page);
+    await expect(page.getByRole('complementary', { name: 'Urmăritori' })).toBeHidden();
   });
 
   /* ------------------------------ pulse ------------------------------ */
@@ -672,6 +701,41 @@ test.describe('list states (mocked)', () => {
   test.beforeEach(async ({ context, page }) => {
     await signIn(context, jwt);
     await fixtureImages(page);
+  });
+
+  test('competitions-list.cards.c5 competitions-list.cards.c6 — the followers list while loading (spinner), empty («Nu există urmăritori», «0 urmăresc»), and the pill\'s plurals (formatCount)', async ({ page }) => {
+    const errors = consoleErrors(page);
+    // The pill's copy: 1 urmăritor · 2 urmăritori · 20 de urmăritori (formatCount, the word from 20 takes «de»).
+    await page.route(FOLLOWED, (r) =>
+      json(r, cardsPage([card('fx-f1', { name: 'FX Un urmăritor', viewers: 1 }), card('fx-f2', { name: 'FX Doi urmăritori', viewers: 2 }), card('fx-f20', { name: 'FX Douăzeci', viewers: 20 })], { counts: { notStarted: 3, started: 0, completed: 0 } })),
+    );
+    let release: () => void = () => {};
+    const held = new Promise<void>((res) => (release = res));
+    await page.route(/\/feed\/competitions\/fx-f2\/followers/, async (r) => {
+      await held;
+      await json(r, { data: [] });
+    });
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await open(page);
+    await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
+    await expect(cardLink(page, 'FX Douăzeci')).toBeVisible();
+    const pillOf = (name: string) => list(page).locator('article').filter({ has: page.getByRole('link', { name, exact: true }) }).getByRole('button', { name: /urmăritor/ });
+    await expect(pillOf('FX Un urmăritor')).toHaveAccessibleName('1 urmăritor');
+    await expect(pillOf('FX Doi urmăritori')).toHaveAccessibleName('2 urmăritori');
+    await expect(pillOf('FX Douăzeci')).toHaveAccessibleName('20 de urmăritori');
+    // c6 loading: the spinner (role=status) inside the dialog while the read is held.
+    await pillOf('FX Doi urmăritori').click();
+    const dialog = page.getByRole('dialog', { name: 'Urmăritori' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('status', { name: 'Se încarcă urmăritorii' })).toBeVisible();
+    await expect(dialog.getByText('Nu există urmăritori')).toHaveCount(0);
+    // c6 empty: «Nu există urmăritori» and fish's «${followers.length} urmăresc» → «0 urmăresc».
+    release();
+    await expect(dialog.getByText('Nu există urmăritori')).toBeVisible();
+    await expect(dialog.getByText('0 urmăresc', { exact: true })).toBeVisible();
+    await expect(dialog.getByRole('status', { name: 'Se încarcă urmăritorii' })).toHaveCount(0);
+    await expect(dialog.getByRole('listitem')).toHaveCount(0);
+    expect(errors).toEqual([]);
   });
 
   test('competitions-list.index.s8 competitions-list.index.c19 — a tab switch keeps the previous list with the busy bar; never the refresh spinner', async ({ page }) => {

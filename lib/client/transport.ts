@@ -1,4 +1,5 @@
 import { baseInit, buildPath, performFetch, type Transport, type TransportRequest } from '@/core/transport';
+import { reportApiError } from '@/lib/observability/report';
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.0.0';
 const PUBLIC_CMS_URL = process.env.NEXT_PUBLIC_CMS_URL?.replace(/\/$/, '');
@@ -17,18 +18,28 @@ const PUBLIC_CMS_URL = process.env.NEXT_PUBLIC_CMS_URL?.replace(/\/$/, '');
 export function createBrowserTransport({ direct = Boolean(PUBLIC_CMS_URL) }: { direct?: boolean } = {}): Transport {
   return {
     async request<T>(req: TransportRequest) {
-      const path = buildPath(req.path, req.query);
-      const publicDirect = direct && req.method === 'GET' && req.auth === 'none';
-      if (publicDirect) {
-        return performFetch<T>(
-          fetch,
-          `${PUBLIC_CMS_URL}${path}`,
-          { method: 'GET', headers: { accept: 'application/json' }, signal: req.signal, credentials: 'omit' },
-          req.path
-        );
+      try {
+        return await send<T>(req, direct);
+      } catch (e) {
+        // m8.sentry: api_url / api_status, deduped per (status, endpoint); a no-op while Sentry is off.
+        reportApiError(e);
+        throw e;
       }
-      const init = baseInit(req, APP_VERSION);
-      return performFetch<T>(fetch, `/api/cms${path}`, { ...init, credentials: 'same-origin' }, req.path);
     },
   };
+}
+
+function send<T>(req: TransportRequest, direct: boolean) {
+  const path = buildPath(req.path, req.query);
+  const publicDirect = direct && req.method === 'GET' && req.auth === 'none';
+  if (publicDirect) {
+    return performFetch<T>(
+      fetch,
+      `${PUBLIC_CMS_URL}${path}`,
+      { method: 'GET', headers: { accept: 'application/json' }, signal: req.signal, credentials: 'omit' },
+      req.path
+    );
+  }
+  const init = baseInit(req, APP_VERSION);
+  return performFetch<T>(fetch, `/api/cms${path}`, { ...init, credentials: 'same-origin' }, req.path);
 }
