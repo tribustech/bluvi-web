@@ -1,12 +1,13 @@
 import { type Page, type Route } from '@playwright/test';
 import { expect, test } from './helpers/fake-chat';
-import { getCompetition, removeRegistration, type CompetitionDetail } from '../../core/competitions';
+import { getCompetition, type CompetitionDetail } from '../../core/competitions';
 import { getProfile, type Profile } from '../../core/social';
 import { createTestTransport } from '../transport';
 import { expectNoA11yViolations as scan } from './helpers/a11y';
 import { BASE_URL as BASE } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { findCompetition, registrationOpen } from './helpers/fixtures';
+import { cleanupTestCompetitions, competitionExists, createTestCompetition, registrationsOf, userByName } from './helpers/real-registration';
 import { qaJwt, signIn } from './helpers/session';
 
 /*
@@ -17,11 +18,11 @@ import { qaJwt, signIn } from './helpers/session';
  * Writes. Every write here is answered by page.route at the browser's CMS edge (/api/cms or the CMS
  * origin) with fixture competitions, and the spec asserts its method, path and body: team entries
  * (adding teammates pushes to their real accounts), updates, the organizer mode, leave and every
- * error. The ONE real write path (the QA user registers to a notStarted SINGLE competition it does
- * not author, then leaves it) is OPT-IN, E2E_REAL_REGISTRATION=1: the CMS's create and leave
- * controllers e-mail the competition author AND two hard-coded staff addresses through Postmark and
- * push NEW_REGISTRATION_ORGANIZER with the local CMS's real FCM key — a default run must not reach
- * real inboxes. When it runs, afterAll leaves any pending QA entry in that competition.
+ * error. The ONE real write path here (the QA user registers to a notStarted SINGLE competition it
+ * does not author, sees it on the CMS, then leaves it) runs by default since 2026-10-08 (the local
+ * CMS has no push tokens and Postmark runs on its test token); E2E_REAL_REGISTRATION=0 skips it. It
+ * uses its own throwaway competition (helpers/real-registration), deleted with its registrations in
+ * a finally. The other real paths (team, edit, guests, waiting list) are concurs-inscriere-real.spec.ts.
  * Firestore is not touched by this screen.
  */
 
@@ -34,7 +35,7 @@ const WIDE = { width: 1440, height: 900 };
 
 /** A notStarted SINGLE competition with open registration that the QA user does not author. */
 const REAL_SINGLE = process.env.E2E_REGISTER_SINGLE ?? 'pby1ovhq0xevex2byx16md28';
-const REAL_WRITE = process.env.E2E_REAL_REGISTRATION === '1';
+const REAL_WRITE = process.env.E2E_REAL_REGISTRATION !== '0';
 
 let jwt = '';
 let qa: Profile;
@@ -50,14 +51,6 @@ test.beforeAll(async ({ request }) => {
     matches: (c, now) => c.competitionType === 'single' && registrationOpen(c, now) && c.author?.documentId !== qa.documentId,
   });
   base = single ?? (await getCompetition(createTestTransport(), REAL_SINGLE));
-});
-
-test.afterAll(async () => {
-  if (!REAL_WRITE || !single) return;
-  // Leave whatever pending QA entry a failed run left behind.
-  const c = await getCompetition(createTestTransport(), single.documentId).catch(() => null);
-  const mine = c?.registrations.find(r => r.registrationStatus === 'pending' && r.author?.documentId === qa.documentId);
-  if (mine) await removeRegistration(createTestTransport(jwt), mine.documentId).catch(() => {});
 });
 
 /* ============================================================================================== */
@@ -1278,35 +1271,40 @@ test('participant.register.c9 — the picker lists the viewer disabled as «tu»
 /* The real write (opt-in)                                                                         */
 /* ============================================================================================== */
 
-test('participant.register.c14 participant.register.c19 — REAL write on the local CMS (E2E_REAL_REGISTRATION=1): register, see it, leave', async ({
+test('participant.register.c14 participant.register.c19 — REAL write on the local CMS: register, see it on the CMS, leave', async ({
   page,
   context,
 }) => {
-  test.skip(!REAL_WRITE, 'opt-in: the CMS e-mails the author and staff on create / leave (see the header)');
-  test.skip(!single, 'no notStarted single competition with open registration locally');
-  const id = single!.documentId;
-  const mineBefore = single!.registrations.find(
-    r => ['pending', 'registered'].includes(r.registrationStatus) && r.participants.some(p => p.documentId === qa.documentId),
-  );
-  test.skip(Boolean(mineBefore), `the QA user is already registered in ${id} (leave it by hand)`);
-  await signIn(context, jwt);
-  await go(page, formPath(id));
-  await ready(page);
-  await submit(page).click();
-  await expect(status(page)).toHaveAttribute('data-phase', 'success', {
-    timeout: 30_000,
-  });
-  await page.waitForURL(`${BASE}/concursuri/${id}`, { timeout: 15_000 });
-  const c = await getCompetition(createTestTransport(), id);
-  expect(c.registrations.some(r => r.registrationStatus === 'pending' && r.author?.documentId === qa.documentId)).toBe(true);
-  await go(page, formPath(id));
-  await ready(page);
-  await visible(page.getByTestId('registration-leave')).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Părăsește concursul' }).click();
-  await expect(status(page)).toContainText('Ai părăsit competiția.', {
-    timeout: 30_000,
-  });
-  await page.waitForURL(`${BASE}/concursuri/${id}`, { timeout: 15_000 });
+  test.skip(!REAL_WRITE, 'E2E_REAL_REGISTRATION=0');
+  const organizer = await userByName('Audit Organizator');
+  const id = await createTestCompetition({ label: 'individual', author: organizer.documentId, competitionType: 'single' });
+  try {
+    await signIn(context, jwt);
+    await go(page, formPath(id));
+    await ready(page);
+    await submit(page).click();
+    await expect(status(page)).toHaveAttribute('data-phase', 'success', {
+      timeout: 30_000,
+    });
+    await page.waitForURL(`${BASE}/concursuri/${id}`, { timeout: 15_000 });
+    let regs = await registrationsOf(id);
+    expect(regs).toHaveLength(1);
+    expect(regs[0]).toMatchObject({ registrationStatus: 'pending', author: { documentId: qa.documentId } });
+    expect(regs[0].participants.map(p => p.documentId)).toEqual([qa.documentId]);
+    await go(page, formPath(id));
+    await ready(page);
+    await visible(page.getByTestId('registration-leave')).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Părăsește concursul' }).click();
+    await expect(status(page)).toContainText('Ai părăsit competiția.', {
+      timeout: 30_000,
+    });
+    await page.waitForURL(`${BASE}/concursuri/${id}`, { timeout: 15_000 });
+    regs = await registrationsOf(id);
+    expect(regs.map(r => r.registrationStatus)).toEqual(['cancelled']);
+  } finally {
+    await cleanupTestCompetitions();
+  }
+  expect(await competitionExists(id)).toBe(false);
 });
 
 /* ============================================================================================== */
