@@ -734,41 +734,67 @@ screens:
       - id: operator.blocaje.c1
         text: "Header: back, title „Blocaje și închideri”, trailing round indigo „+” button (accessible name „Adaugă blocaj”) that opens the add form (operator.blocaj-nou)."
         fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:123-139,145-149
+        status: passing
+        web_note: "e2e tests/e2e/operator-blocaje.spec.ts «REAL …» (h1, Back, the round accent «+» link named «Adaugă blocaj» → /operator/{id}/blocaje/nou)."
       - id: operator.blocaje.c2
         text: "Data GET /feed/availability-blocks?lakeId={lakeId}; loading shows a loader, failure the shared error screen with retry."
         fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:27,162-165; services/api/booking.ts:247-255
+        status: passing
+        web_note: "e2e tests/e2e/operator-blocaje.spec.ts «REAL …» (one GET /api/cms/feed/availability-blocks?lakeId=), «c2: first load shows the skeleton …», «c2: a failed read … retry», «c2: … (403) reads «Nu ai acces»». Web: the loader is a skeleton of month cards."
       - id: operator.blocaje.c3
         text: "Blocks sharing start, end, reason, note and contact are one row (a multi-stand save); stand names natural-sorted; rows ordered by start."
         fish_ref: features/operator/blockListModel.ts:48-74
+        status: passing
+        web_note: "e2e tests/e2e/operator-blocaje.spec.ts «REAL …» (a 2-stand save is one row «Standurile 2, 10», start order) and «c3 c4 c6 c7 c8 …» (3-stand row 9, 11, 12); unit _list/model.test.ts."
       - id: operator.blocaje.c4
         text: "Blocks not yet ended are grouped under month headers „{Luna yyyy}” (by start month, uppercase caption); each section is one card with hairline separators."
         fish_ref: features/operator/blockListModel.ts:83-99; app/(app)/operator/[lakeId]/blocks.tsx:89-121,174-180
+        status: passing
+        web_note: "e2e tests/e2e/operator-blocaje.spec.ts «REAL …» («Martie 2027», text-transform uppercase) and «c3 c4 …» (Octombrie / Noiembrie 2026, one card per month with hairlines). Layout: one column below 1024px, then two columns from 1024px and three from 1700px, never more columns than month cards (two months at 1920 = two wide cards); e2e asserts 1/2/2/2 (two months) and 1/2/2/3 (three) at 375/1280/1440/1920."
       - id: operator.blocaje.c5
         text: "Ended blocks are hidden; a footer link „Afișează trecutul ({n})” reveals them in a last section „Trecut”, newest first, dimmed."
         fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:37,40-44,183-191; features/operator/blockListModel.ts:89-90; features/operator/BlockRow.tsx:36
+        status: passing
+        web_note: "e2e tests/e2e/operator-blocaje.spec.ts «c5: «Afișează trecutul (2)» …» (Trecut last, newest first, focus moves to it). Web: dimmed = tint at .55 and the text stepped down to muted (fish fades the whole row to .55, which breaks AA contrast)."
       - id: operator.blocaje.c6
         text: "Row: tinted square with a reason-coloured dot (Concurs indigo, Închidere red, Întreținere amber, Rezervare telefonică green, Altele grey), the period, „{reason label} · {scope}”, and an optional third line „{contact name · phone} — {note}” (2 lines max)."
         fish_ref: features/operator/BlockRow.tsx:18-59; features/operator/blockReasons.ts:6-12,24-30
+        status: passing
+        web_note: "e2e tests/e2e/operator-blocaje.spec.ts «c3 c4 c6 c7 c8 …» (distinct reason tints, legacy offlineReservation «Ion Popescu · 0722 123 456 — …» clamped to 2 lines) and «c5 …» (Închidere). Tints are theme tokens (accent / live / rating / success / faint on their tint backgrounds)."
       - id: operator.blocaje.c7
         text: "Period formats: same day „Vi 25 sep · 06:00–18:00”; whole days (both midnight) „Vi 4 – Lu 7 sep” showing the last included day (months on both ends when they differ); otherwise „Vi 18 sep 18:00 – Du 20 sep 06:00”."
         fish_ref: features/operator/blockListModel.ts:29-46
+        status: passing
+        web_note: "e2e tests/e2e/operator-blocaje.spec.ts «REAL …» and «c3 c4 c6 c7 c8 …» (same day, whole days across months «Vi 30 oct – Du 1 noi», otherwise «Vi 16 oct 18:00 – Du 18 oct 06:00»). Web: the period wraps on a phone instead of truncating."
       - id: operator.blocaje.c8
         text: "Scope: „Tot lacul” (no stand), „Standul {n}”, „Standurile {a, b, c}”."
         fish_ref: features/operator/blockListModel.ts:76-81
+        status: passing
+        web_note: "e2e tests/e2e/operator-blocaje.spec.ts «REAL …» and «c3 c4 c6 c7 c8 …» (Tot lacul / Standul 3 / Standurile 2, 10)."
       - id: operator.blocaje.c9
         text: "Trash button (accessible name „Șterge blocajul”) asks for confirmation: single „Șterge blocajul?” / „Această acțiune nu poate fi anulată.”; group „Șterge {n} blocaje?” / „{scope} — se deblochează toate.”; buttons „Înapoi” / „Șterge” (destructive)."
         fish_ref: features/operator/BlockRow.tsx:24-33,60-73
+        status: passing
+        web_note: "e2e tests/e2e/operator-blocaje.spec.ts «REAL …» (group and single copy, «Înapoi» deletes nothing, keyboard Enter/Escape with focus back on the trash). Alert dialog; desktop rows show «Șterge» beside the icon. Every trash is named «Șterge blocajul» and described by its row's period + meta (aria-describedby, WCAG 2.4.6; toHaveAccessibleDescription in «c3 c4 …»)."
       - id: operator.blocaje.c10
         text: "Delete removes every block of the row, one DELETE after another; the row shows a spinner meanwhile; success toast „Blocaj șters” / „{n} blocaje șterse”; failure toast with the server message or „Nu am putut șterge blocajul.”"
         fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:52-66; features/operator/BlockRow.tsx:67,72
+        status: passing
+        web_note: "e2e tests/e2e/operator-blocaje.spec.ts «REAL …» (REAL DELETEs on the local CMS, the second starts after the first answered, row spinner + aria-busy, «2 blocaje șterse» / «Blocaj șters», CMS has nothing left) and «c10: a failed delete …» (fallback, then the server's bluCode message). Each deleted block leaves the cache as its DELETE succeeds, so the row is gone when the toast shows even with a slow list GET (REAL test delays the GET 4 s). Web beyond fish: a group that fails part-way says «{done} din {n} blocaje șterse. {reason}» (fish's create-path copy; «c10: a group whose second DELETE fails …», unit deletePartialFailureMessage). Plurals via formatCount."
       - id: operator.blocaje.c11
         text: "Empty: „Niciun blocaj.” with „Apasă + pentru a închide lacul sau standuri într-o perioadă.”"
         fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:192-208
+        status: passing
+        web_note: "e2e tests/e2e/operator-blocaje.spec.ts «c11 …» (empty copy; only finished blocks → empty + the past link, as fish)."
       - id: operator.blocaje.c12
         text: "Refresh (pull-to-refresh; web: refresh control) refetches the blocks; a delete invalidates bookings (availability) and operator stats."
         fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:46-50,182; services/mutations/useDeleteBlock.ts:5-14
+        status: passing
+        web_note: "e2e tests/e2e/operator-blocaje.spec.ts «c12 …» (refresh control + window focus refetch, no polling); unit _list/model.test.ts «c12» (delete invalidates ['bookings'] and ['operator-stats'])."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/operator-blocaje.spec.ts
+    web_note: "M7-B3: app/(site)/operator/[lakeId]/blocaje (page, loading, error, _list/{BlocksScreen,BlockRow,DeleteBlockDialog,frame,model + model.test.ts}) on the shared operator frame. T1: back + h1 over the lake name, refresh + round «+»; month cards (uppercase caption, hairlines from the text edge), explicit 2/3 columns on desktop (capped at the card count) with row actions visible. Per owner: GET/DELETE /feed/availability-blocks through /api/cms, never cached, noindex. e2e: REAL create (core createBlock, far-future, run-tagged note) + UI delete + API cleanup on Chita; fixtures for past/legacy/every reason/empty/error. Screenshots at 375/1280/1440/1920 in .shots/operator-blocaje; axe 0."
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: operator.blocaj-nou
@@ -808,62 +834,102 @@ screens:
       - id: operator.blocaj-nou.c1
         text: "In fish the form replaces the blocks list on the same screen with title „Adaugă blocaj” and no „+”; Back (and „Anulează”) returns to the list. Web: its own route; back/cancel return to /operator/[lakeId]/blocaje."
         fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:145-161
+        status: passing
+        web_note: "Own route app/(site)/operator/[lakeId]/blocaje/nou (T6 FlowLayout/FlowHeader, eyebrow = the lake's name, breadcrumb … / Blocaje / Adaugă blocaj); Back is a link to routes.operatorBlocks, «Anulează» pushes it (phone: at the end of the form, from 768 in the action bar). Only an owned lake gets the form (fish reaches it only from an owned lake's list): the shared core ownedLakesQuery decides — skeleton while it loads, «Nu ai acces» (OperatorErrorState, the blocks list's wording) when the lake is not in it, no POST possible. e2e tests/e2e/operator-blocaj-nou.spec.ts «c1 c2 …», «c1: Back → the list» and «c0 role-gating» (a real non-owned local lake)."
       - id: operator.blocaj-nou.c2
         text: "„Aplică pentru”: chip „Tot lacul” (active when no stand is picked; activating it clears stands) followed by one chip per stand, multi-select toggle."
         fish_ref: features/operator/CreateBlockForm.tsx:167-193
+        status: passing
+        web_note: "Toggle chips (aria-pressed, «Standul n» accessible names) in pick order; «Tot lacul» pressed with none and clears them; the aside summary says the scope (core scopeLabel). e2e «c1 c2 …»."
       - id: operator.blocaj-nou.c3
         text: "Stands and tour start times come from the first availability page of the lake."
         fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:28-30
+        status: passing
+        web_note: "Stands + slotStartTimes from the first page of core lakeAvailabilityInfiniteQuery via /api/cms (useBlockAvailability). e2e «c1 c2 …» compares the chips with GET /feed/lakes/:id/availability."
       - id: operator.blocaj-nou.c4
         text: "„Perioadă” month calendar: Monday-first weekday header (Lu … Du), current month first, previous arrow disabled on the current month, next arrow unbounded; title „{Luna yyyy}”."
         fish_ref: features/operator/BlockCalendar.tsx:12,56-100
+        status: passing
+        web_note: "_form/BlockCalendar: Lu…Du, today's month first, ‹ disabled on it, › unbounded, title «Octombrie 2026»; the 1st under its weekday. e2e «c1 c2 …»; unit model.test.ts monthGrid."
       - id: operator.blocaj-nou.c5
         text: "Day colours: selected range indigo; past days grey and not selectable; days touched by any booking or block red („Ocupat”); others green („Liber”); legend „Liber” / „Ocupat” below."
         fish_ref: features/operator/BlockCalendar.tsx:47-54,107-133,135-165; features/operator/blockCalendarLogic.ts:34-50
+        status: passing
+        web_note: "data-status selected (accent) / past (grey, aria-disabled) / busy (status-danger) / free (status-success), legend Liber / Ocupat, today aria-current. Web, rule 4: a month whose page is loading or failed paints its days neutral («unknown»), never green. e2e «c5 c7 …» (loaded month: only free/busy/past), «c16 c17 c19» (the saved block's days turn red after the refetch), «c6»."
       - id: operator.blocaj-nou.c6
         text: "Navigating to a month not yet loaded fetches further availability pages until it is covered, with a spinner beside the month name meanwhile."
         fish_ref: features/operator/BlockCalendar.tsx:35-42,84
+        status: passing
+        web_note: "useBlockAvailability pulls fetchNextPage until the month on screen is covered (page index = model.pageIndexOf: counted from the `now` pinned at mount, so a form open past a month's last midnight never takes the new month for page 0 and paints it green; unit with fake timers); spinner (role=status «Se încarcă luna…») beside the title, grid aria-busy; a failed page stops the loop with «Nu am putut încărca ocuparea pentru …» + «Reîncearcă». e2e «c6 …» (held page: spinner + neutral days → coloured; 500 → retry line → retry)."
       - id: operator.blocaj-nou.c7
         text: "Range picking: first tap = start; a second tap on the same or a later day = end; a tap before the start, or after a complete range, restarts from that day."
         fish_ref: features/operator/blockCalendarLogic.ts:12-24
+        status: passing
+        web_note: "core nextRange. e2e «c5 c7 …» (start, tap before restarts, same day = 1 zi, tap after a complete range restarts, later tap closes); unit."
       - id: operator.blocaj-nou.c8
         text: "Summary line: „Apasă ziua de început, apoi ziua de sfârșit.” → „{Ziua, d mmm} → apasă ziua de sfârșit (aceeași zi = o singură zi)” → „{start} → {end} · {n} zi|zile” (bold)."
         fish_ref: features/operator/CreateBlockForm.tsx:44-48,151-157,208-216
+        status: passing
+        web_note: "model.selectionLine (formatCount: «1 zi», «3 zile», «24 de zile»), bold once complete. e2e «c5 c7 c8 …»; unit."
       - id: operator.blocaj-nou.c9
         text: "Boundary hours: „De la ora” chips 00:00 + the lake's tour start times (no 24:00); „Până la ora” chips the tour start times + 24:00 (no 00:00); defaults 00:00 → 24:00 (whole days); start applies to the start day, end to the end day, 24:00 = next midnight."
         fish_ref: features/operator/CreateBlockForm.tsx:64-65,217-258; features/operator/blockCalendarLogic.ts:52-79
+        status: passing
+        web_note: "_form/HourChips (radios): 00:00 06:00 18:00 / 06:00 18:00 24:00 on Chita, defaults 00:00 → 24:00; core buildBlockInterval (24:00 = next midnight). e2e «c1 …», «c5 …» (06:00 → 18:00), «c16 …» (POST bodies). Web: the two groups stack where a column is narrow."
       - id: operator.blocaj-nou.c10
         text: "With a complete range a line „Blocat: {formatted period}” shows the resulting interval."
         fish_ref: features/operator/CreateBlockForm.tsx:259-263
+        status: passing
+        web_note: "«Blocat: {formatBookingPeriod}» under the hours (and in the ≥1280 summary). e2e «c5 c7 c8 c10 …»."
       - id: operator.blocaj-nou.c11
         text: "„Motiv” chips: Concurs, Închidere, Întreținere, Altele (default Închidere); „Rezervare telefonică” is not offered."
         fish_ref: features/operator/CreateBlockForm.tsx:84-90,279-291; features/operator/blockReasons.ts:14-21
+        status: passing
+        web_note: "_form/ReasonChips: Concurs, Închidere (default), Întreținere, Altele; no «Rezervare telefonică». e2e «c1 …», «c16 …» (reason maintenance in the body)."
       - id: operator.blocaj-nou.c12
         text: "„Notă (opțional)” multiline, placeholder „Detalii suplimentare”, max 500 („Nota poate avea cel mult 500 de caractere.”); trimmed, omitted when blank."
         fish_ref: features/operator/CreateBlockForm.tsx:27,128,294-307
+        status: passing
+        web_note: "T4TextArea «Notă (opțional)», placeholder «Detalii suplimentare», counter n / 500; 501 → «Nota poate avea cel mult 500 de caractere.» (after a save attempt, live afterwards); trimmed, left out when blank. e2e «c13 c14 c12 …», «c16 …» (trimmed note); unit buildInputs."
       - id: operator.blocaj-nou.c13
         text: "Validation: start required („Alege data de început.”), end required („Alege data de sfârșit.”), end after start („Data de sfârșit trebuie să fie după data de început.”), end in the future („Perioada trebuie să fie în viitor.”); errors show under the calendar."
         fish_ref: features/operator/CreateBlockForm.tsx:20-37,264-275
+        status: passing
+        web_note: "model.validatePeriod / calendarError (fish's schema order): live after every calendar / hour tap, under the calendar (role=alert, the grid's description). e2e «c13 c14 c12 …» (empty, start only, 18:00 → 06:00, today 00:00 → 06:00 in the past when run after 06:00); unit."
       - id: operator.blocaj-nou.c14
         text: "A rejected save toasts the first invalid field's message — „Apasă și ziua de sfârșit (aceeași zi pentru o singură zi).” when only the start was picked, else the field message or „Verifică datele blocajului.” — and scrolls the calendar into view for date errors."
         fish_ref: features/operator/CreateBlockForm.tsx:41-42,135-148
+        status: passing
+        web_note: "model.rejectedSave → danger toast; a date error scrolls «Perioadă» into view and focuses the calendar's day. e2e «c13 c14 c12 …» at 375 (scrolled to the bottom, calendar back in the viewport)."
       - id: operator.blocaj-nou.c15
         text: "Buttons: „Salvează și închide” (solid, loading while saving), „Salvează și adaugă altul” (outline), „Anulează” (soft); all disabled while saving."
         fish_ref: features/operator/CreateBlockForm.tsx:309-324
+        status: passing
+        web_note: "FlowActions: «Salvează și închide» (submit, spinner + aria-busy), «Salvează și adaugă altul» (outline), «Anulează» (ghost); all disabled while saving, chips and calendar too. e2e «c15 c18 …» (held POST)."
       - id: operator.blocaj-nou.c16
         text: "Save sends one POST /feed/availability-blocks per picked stand (in order), or one whole-lake block when none is picked, with {lake, stand?, startDate, endDate, reason, note?}."
         fish_ref: features/operator/CreateBlockForm.tsx:120-134; app/(app)/operator/[lakeId]/blocks.tsx:68-80; services/api/booking.ts:239-245
+        status: passing
+        web_note: "Sequential createBlockMutation.mutateAsync per stand in pick order, or one whole-lake input. e2e «c16 c17 c19» REAL writes on Chita (whole lake, then 2 stands; exact bodies asserted, device-local midnights), deleted in afterEach via core deleteBlock."
       - id: operator.blocaj-nou.c17
         text: "Success toast „Blocaj adăugat” / „{n} blocaje adăugate”; „Salvează și închide” returns to the list; „Salvează și adaugă altul” keeps the form and resets only the period (range and hours), keeping scope, reason and note."
         fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:78-80; features/operator/CreateBlockForm.tsx:103-112
+        status: passing
+        web_note: "Toast «Blocaj adăugat» / «2 blocaje adăugate» / «21 de blocaje adăugate» (formatCount, unit); close → routes.operatorBlocks; add another → range + hours reset, scope / reason / note kept. e2e «c16 c17 c19»."
       - id: operator.blocaj-nou.c18
         text: "Failure toast: the server reason (or „Nu am putut adăuga blocajul.”), prefixed „{done} din {n} blocaje adăugate.” when some stands already saved; saved blocks stay."
         fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:81-85
+        status: passing
+        web_note: "model.failureMessage: the server sentence when it carries a bluCode, else «Nu am putut adăuga blocajul.»; prefix «{done} din {n} blocaje adăugate.» (formatCount: «20 din 21 de blocaje»); saved blocks stay. Web (fish re-POSTs them): the saved stands leave the selection and the toast ends «Am păstrat doar standurile rămase.», so a retry sends only the failed ones — the CMS has no overlap check, no duplicate blocks. e2e «c15 c18 …» (first stand REAL, second mocked 400 BLOCK_CONFLICTS_BOOKING; the retry POSTs only the second stand; then a code-less 500 → fallback); unit."
       - id: operator.blocaj-nou.c19
         text: "A created block invalidates bookings (availability, grid) and operator stats."
         fish_ref: services/mutations/useCreateBlock.ts:6-16
+        status: passing
+        web_note: "core createBlockMutation → invalidateOperatorSurfaces (['bookings'] incl. availability-paged + blocks, operator stats). e2e «c16 c17 c19»: the blocked days turn red on the refetched availability."
     mobile_only: false
-    status: todo
+    status: passing
+    e2e: tests/e2e/operator-blocaj-nou.spec.ts
+    web_note: "M7-B3: app/(site)/operator/[lakeId]/blocaje/nou (page, loading, error, _form/{CreateBlockScreen,CreateBlockFallback,BlockCalendar,HourChips,ReasonChips,chips,model + model.test.ts,useBlockAvailability}). T6: phone stacked in fish order; from 1024 two columns (calendar left, scope + reason + note right); from 1280 the aside «Rezumat» with the actions docked. Per owner never cached: availability + POST through /api/cms. Calendar = APG date grid (one tab stop, arrows / Home / End / PageUp / PageDown, aria-selected). Screenshots of every state at 375/1280/1440/1920 in .shots/operator-blocaj-nou; axe 0 (empty, range, month loading, validation, loading, error)."
 
   # ─────────────────────────────────────────────────────────────────────────────────────────
   - id: operator.calendar
@@ -1107,53 +1173,78 @@ screens:
     core:
       - social.createAnglerReviewMutation (POST /feed/angler-reviews {booking, stars, comment?, tags})
       - social.domain.reviewTags (groupsForRating, keepValidTags, reviewTagLabel)
-      - formatBookingPeriod — not in core yet
+      - booking.domain.formatBookingPeriod
     states:
       - signed-out (redirect to /intra and back)
       - opened with full params (name + stay line)
       - "opened without params (direct link: „pescarul”, no stay line)"
       - 5 stars (praise only) / 3–4 stars (praise + faults) / < 3 stars (comment required)
       - submitting
-      - server refusal (no-show, already reviewed, not ended, comment required)
+      - server refusal (no-show, already reviewed, not ended, comment required, not this owner's 403, gone 404)
     criteria:
       - id: operator.evalueaza-pescar.c1
         text: "Opened from „Evaluează pescarul” (card or detail) with angler name, id, avatar, stand and period passed along; nothing is fetched on this page."
         fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:110-127; features/operator/BookingDetailSheet.tsx:64-78
+        status: passing
+        web_note: "e2e tests/e2e/operator-evalueaza-pescar.spec.ts «c1 gate …» (signed out → /intra?next=<the whole link>, proxy), «c1 c2 c3 …» (every param rendered; no booking / reputation / review read), «c1 params are sanitised …» (foreign avatar host never requested, markup shown as text, 80-char name cap, a non-id booking → not-found page). Unit model.test.ts parseRateParams / cleanAvatar. Web: avatar only https on the CMS's S3 buckets or the CMS origin; text params capped (name 80, stand 40), control characters stripped; an id that is not documentId-shaped is a 404 (streamed, so status 200 — ROADMAP §8)."
       - id: operator.evalueaza-pescar.c2
         text: "Header: back + title „Evaluează pescarul”."
         fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:196-201
+        status: passing
+        web_note: "e2e «c1 c2 c3 …» (h1 + «Înapoi»), «c2: back returns to the page before; without history it goes to the operator area» (fish router.back(); no history → /operator, which lands a single-lake owner on the panel)."
       - id: operator.evalueaza-pescar.c3
         text: "Stay card: avatar (initials fallback), the name (fallback „pescarul”), caption „Standul {stand} · {period}” with missing parts omitted and the line hidden when both are missing."
         fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:137,141-148,203-224
+        status: passing
+        web_note: "e2e «c1 c2 c3 …» (S3 photo, «Standul 3 · Sâmbătă, 15 aug · 06:00–18:00»), «c3: a direct link without params …» (initials, «pescarul», no line), «c3: missing parts are omitted …». Web: FlowSubjectCard (T6, + additive `leading` avatar slot); the period is device-local like fish, so it is written after hydration (a bar holds its place); word joiners keep «06:00–18:00» on one line."
       - id: operator.evalueaza-pescar.c4
         text: "Question „Cum a fost cu {name}?” over five large stars, preset to 5; full stars only; activating the current value does not clear it (a score is always set); web: keyboard-operable radio group."
         fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:23-32,129,153-158,229-249
+        status: passing
+        web_note: "e2e «c4 c5 …»: radiogroup named by the question, 5 checked, Tab lands on the chosen star, arrows choose, re-activating the current star keeps it (always one checked). 52px targets, 44px stars."
       - id: operator.evalueaza-pescar.c5
         text: "Verdict under the stars: 5 „Excelent” and 4 „Bine” (green), 3 „Acceptabil” (neutral), 2 „Slab” and 1 „Foarte slab” (red)."
         fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:51-59,246-248
+        status: passing
+        web_note: "e2e «c4 c5 …»: Excelent/Bine green (status-success-fg), Acceptabil ink-2, Slab/Foarte slab red (status-danger-fg) — computed colours asserted."
       - id: operator.evalueaza-pescar.c6
         text: "Tags: at 5 stars only „A mers bine” (A respectat regulile, A lăsat locul curat, Prietenos, Liniștit); below 5 also „Nu a mers” (Nu a respectat regulile, A lăsat mizerie, Comportament nepotrivit, Gălăgios). Chips toggle; selected praise fills green, selected faults red."
         fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:61-95,252-275; features/operator/reviewTags.ts:16-52
+        status: passing
+        web_note: "e2e «c6 c7 …»: 5 → only «A mers bine» (4 chips), 4 → «Nu a mers» too; chips are aria-pressed toggle buttons (click, Enter, Space), picked praise fills success green, picked fault live red (computed colours), plus a check mark."
       - id: operator.evalueaza-pescar.c7
         text: "Raising the score to 5 drops any fault tags already picked; praise tags are kept on every change."
         fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:150-158; features/operator/reviewTags.ts:54-59
+        status: passing
+        web_note: "e2e «c6 c7 …» (4 → curat + Gălăgios, down to 2 keeps both, up to 5 drops Gălăgios, curat kept); unit model.test.ts withStars."
       - id: operator.evalueaza-pescar.c8
         text: "„Comentariu” card: marker „opțional”, or „obligatoriu” (red) under 3 stars; placeholder „Ceva de menționat despre această rezervare?” / „Spune pe scurt ce nu a mers.” under 3 stars; with an empty comment under 3 stars the line „Adaugă un comentariu pentru o notă sub 3 stele” is shown."
         fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:135,277-302
+        status: passing
+        web_note: "e2e «c8 c9 …»: opțional / obligatoriu (red), both placeholders, the hint under 3 stars with an empty (or blank) comment, gone once typed; axe 0."
       - id: operator.evalueaza-pescar.c9
         text: "Sticky „Trimite evaluarea” disabled while invalid (comment required and empty) or submitting; loading while submitting."
         fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:135-136,305-315
+        status: passing
+        web_note: "e2e «c8 c9 …» (disabled while invalid), «c9 c10 + b.double-submit …» (held POST: disabled + aria-busy + spinner, a second press sends nothing), «c9 layout …» (375: the bar on the bottom edge; 1280: docked under the stay card; axe 0 at both). Web: also off until hydrated (a press before would be the browser's GET submit)."
       - id: operator.evalueaza-pescar.c10
         text: "Submit POSTs /feed/angler-reviews {booking: bookingId, stars, comment (trimmed, omitted when empty), tags}; success toasts „Evaluare trimisă” and goes back."
         fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:165-182; services/api/reviews.ts:18-25
+        status: passing
+        web_note: "e2e «c9 c10 …» (body {data: {booking, stars: 4, comment trimmed, tags: [friendly, noisy]}}, toast «Evaluare trimisă», then back), «c10: an empty comment is omitted …». POST route-mocked (no delete endpoint for angler reviews)."
       - id: operator.evalueaza-pescar.c11
         text: "Error toasts: ANGLER_DID_NOT_SHOW „Pescarul e marcat ca neprezentat — neprezentarea ține deja loc de evaluare.”; ALREADY_REVIEWED „Ai evaluat deja această rezervare.”; INVALID_STATUS „Poți evalua doar după ce se încheie rezervarea.”; COMMENT_REQUIRED „La un punctaj mic, comentariul este obligatoriu.”; else the message or „Evaluarea nu a putut fi trimisă.”"
         fish_ref: app/(app)/operator/rate-angler/[bookingId].tsx:34-49
+        status: passing
+        web_note: "e2e «c11 (real): …» against the LOCAL CMS (no write: the CMS refuses before writing, the booking is checked by a read first, a guard aborts a POST for any other id): INVALID_STATUS (a not-ended booking of the owned lake; CTA stays on), ALREADY_REVIEWED (a booking the inbox shows reviewedByOperator; skipped with a report annotation when the local seed has none — angler reviews have no delete endpoint, so the spec does not create one), 403 (the plain e2e angler, who owns no lake → «Nu ai acces la această rezervare.») and 404 (an unknown id → «Rezervarea nu mai există.»). «c11 (mock): …» for what the seed / the form cannot provoke: ANGLER_DID_NOT_SHOW, COMMENT_REQUIRED, another code → the server's sentence, a 500 → «Evaluarea nu a putut fi trimisă.». Codes by details.bluCode (an old CMS's message-as-code is mapped too, unit); the code-less 403 / 404 by status (fish shows its generic line). Web: a final refusal (403, 404, ALREADY_REVIEWED, ANGLER_DID_NOT_SHOW) keeps the CTA off with its sentence under the form; the others leave it on."
       - id: operator.evalueaza-pescar.c12
         text: "Success invalidates all reputation queries, all bookings queries (the De evaluat list drops the row) and all operator-stats queries (panel and home review counts)."
         fish_ref: services/mutations/useCreateAnglerReview.ts:5-21
+        status: passing
+        web_note: "unit core/social/mutations.test.ts (createAnglerReviewMutation invalidates ['reputation'], ['bookings'], ['operator-stats']); e2e «c12 + b.write-invalidation …» on the REAL local inbox: Chita's completed walk-in detail → «Evaluează pescarul» → sent (POST mocked) → back to the inbox, which reads the bookings list again. A missing local seed (no owned lake, the walk-in gone, rated or not ended) FAILS the test — no silent skip."
     mobile_only: false
-    status: todo
+    status: passing
+    web_note: "M7-B3: app/(site)/operator/evalueaza/[bookingId] (page, loading, error, _rate/{RateAnglerScreen,StarRating,TagGroups,model + model.test.ts}); kit: FlowSubjectCard `leading` slot (additive). T6: phone one column (stay card, stars, tags, comment; the CTA bar on the bottom edge), 1280 the stay card in the aside with «Trimite evaluarea» docked under it, from 1440 stars | tags side by side, the comment under both. Nothing fetched; per owner, noindex, the write through /api/cms. Screenshots 375/1280/1440/1920 (5, 4 + tags, 2 + hint, no params) reviewed; axe 0."
 
 behaviours:
   - id: operator.b.role-gating
@@ -1202,6 +1293,8 @@ behaviours:
   - id: operator.b.local-day
     text: "„Today” on the panel (arrivals, cash, moments) and the block calendar's day keys are device-local calendar days, never UTC (toISOString would file a Friday-00:00 block under Thursday); trend bucket keys are server lake-local and parsed without timezone shift."
     fish_ref: features/operator/todayCounts.ts:55-60; features/operator/blockCalendarLogic.ts:26-32; features/operator/dashboard/trendLabels.ts:11-21
+    status: passing
+    web_note: "Both halves proven in e2e. Panel: operator.panou «another time zone › c28 b.local-day». Block calendar (operator.blocaj-nou): day keys via core localDayKey / local Date fields only (never toISOString) — tests/e2e/operator-blocaj-nou.spec.ts «another time zone › b.local-day» (America/Los_Angeles: the picked 9th posts that day's LA midnight, same calendar day) and «c16 …» (Bucharest bodies = local midnights); unit _form/model.test.ts (DST days; pageIndexOf across a month's last midnight with fake timers: the device-local today moving to a new month maps to the next page, never the pinned month's)."
   - id: operator.b.analytics
     text: "Calling a guest from the operator action row logs analytics event contact_pressed {contact_type: 'Operator guest contact', lake_id, lake_name} (GA4 via the web consent layer, M8)."
     fish_ref: features/operator/BookingDetailSheet.tsx:126-133

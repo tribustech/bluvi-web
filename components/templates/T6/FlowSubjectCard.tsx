@@ -13,6 +13,7 @@ export function FlowSubjectCard({
   subtitle,
   people,
   aside,
+  leading,
   className,
 }: {
   /** «Sector A, Stand 3» / «Stand A1(10)». */
@@ -25,16 +26,20 @@ export function FlowSubjectCard({
   people?: string[];
   /** Right side: a total (SignatureNumber), a status. */
   aside?: ReactNode;
+  /** Left of the text, vertically centred with it: the subject's face (an Avatar). */
+  leading?: ReactNode;
   className?: string;
 }) {
   return (
     <div
       className={cn(
         // Spans its container: to line up with a form grid, place it in the grid's first column.
-        'flex items-start gap-4 rounded-card border border-dashed border-accent bg-accent-tint px-4 py-3 md:px-5 md:py-4',
+        'flex gap-4 rounded-card border border-dashed border-accent bg-accent-tint px-4 py-3 md:px-5 md:py-4',
+        leading ? 'items-center' : 'items-start',
         className,
       )}
     >
+      {leading ? <div className="shrink-0">{leading}</div> : null}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="t-title2 text-accent-ink">{title}</p>
         {kicker ? <p className="t-heading text-accent-ink">{kicker}</p> : null}
