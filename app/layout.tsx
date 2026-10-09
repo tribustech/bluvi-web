@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { ConsentProvider } from '@/components/consent/ConsentProvider';
 import { nunito } from './fonts';
 import './globals.css';
 import { Providers } from './providers';
@@ -14,6 +15,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ro" className={nunito.variable}>
       <body>
+        {/* Cookie consent (m8.consent): renders nothing on the server; first in the DOM so the banner is the first Tab stop. */}
+        <ConsentProvider />
         <Providers>{children}</Providers>
       </body>
     </html>

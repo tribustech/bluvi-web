@@ -1253,8 +1253,8 @@ screens:
       - id: account.settings.c16
         text: "Legal card: „Termeni și condiții” and „Politica de confidențialitate” open the Termly pages; „Setări de confidențialitate” opens privacy settings (web: the cookie-consent preferences)."
         fish_ref: "app/(app)/settings.tsx:290-312"
-        status: failing
-        note: "PARTIAL: «Termeni și condiții» + «Politica de confidențialitate» open the Termly URLs (intra/logic.ts TERMS_URL / PRIVACY_URL) in a new tab — e2e «c2 c3 c4…». «Setări de confidențialitate» (the cookie-consent preferences) ships with the M8 consent banner (account.cmp-personalize): hidden until then (rule 4), asserted absent."
+        status: passing
+        note: "«Termeni și condiții» + «Politica de confidențialitate» open the Termly URLs (intra/logic.ts TERMS_URL / PRIVACY_URL) in a new tab — e2e «c2 c3 c4…». «Setări de confidențialitate» (M8, m8.consent): components/consent/OpenConsentSettings — a link to /cookie-uri (no-JS fallback) that opens the consent preferences dialog in place; focus returns to the row. e2e tests/e2e/setari.spec.ts «c2 c3 c4…» (href), tests/e2e/consent.spec.ts «s6 account.settings.c16 home.acasa.c53» (dialog, save, focus return)."
       - id: account.settings.c17
         text: "„Contactează-ne” opens a contact panel titled „Contact” with „Ai nevoie de ajutor sau ai întrebări? Suntem aici pentru tine!”, a tel: link to +40 733 017 091 (logs contact_pressed) and a mailto: link to the support address."
         fish_ref: "components/Contact.tsx:8-48; components/ContactSheet.tsx:14-66; common/utils/constants.ts:38-39"
@@ -1278,7 +1278,7 @@ screens:
     mobile_only: false
     e2e: tests/e2e/setari.spec.ts
     status: proposed
-    web_note: "M2-B5 (app/(site)/setari): no template — SettingsFrame (T1 ListPage + ListHeader) + the B4 settings kit. Phone/tablet: one column ≤720 in fish's order; from 1280 three columns over the shell's full content width (left 320/360: profile card + INFORMAȚII · centre 1fr: Notificări / organizer + Reputație, whose reviews get the width — 528 at 1280 to 912 at 1920 · right 320/360: legal, Contactează-ne, Deconectare / Șterge contul); the right column, «Reîmprospătează» and the top bar's avatar end on the same edge (e2e-asserted ±2px). Signed out → 307 /intra?next=%2Fsetari (proxy) / requireViewer in Suspense. noindex. All writes route-mocked. Open: c13 (M3), c16 privacy settings (M8); critic panel + visual baselines pending (ROADMAP §6, §9)."
+    web_note: "M2-B5 (app/(site)/setari): no template — SettingsFrame (T1 ListPage + ListHeader) + the B4 settings kit. Phone/tablet: one column ≤720 in fish's order; from 1280 three columns over the shell's full content width (left 320/360: profile card + INFORMAȚII · centre 1fr: Notificări / organizer + Reputație, whose reviews get the width — 528 at 1280 to 912 at 1920 · right 320/360: legal, Contactează-ne, Deconectare / Șterge contul); the right column, «Reîmprospătează» and the top bar's avatar end on the same edge (e2e-asserted ±2px). Signed out → 307 /intra?next=%2Fsetari (proxy) / requireViewer in Suspense. noindex. All writes route-mocked. Open: c13 (M3); c16 privacy settings done in M8-B1 (m8.consent); critic panel + visual baselines pending (ROADMAP §6, §9)."
 
   - id: account.onboarding
     title: Introducere Bluvi
@@ -1324,20 +1324,25 @@ screens:
     fish:
       - app/(app)/cmp-personalize.tsx
       - CMP/ui/PersonalizeScreen.tsx
+      - CMP/ui/text.ts
+      - CMP/config/cmp.config.ts
       - app/(app)/_layout.tsx
-    web_route: none
+    web_route: /cookie-uri
     template: none
-    milestone: M2
-    roles: [angler, organizer, referee, operator]
+    milestone: M8
+    roles: [guest, angler, organizer, referee, operator]
     core: []
-    states: [consent categories shown]
+    states: [first visit (banner), preferences dialog, page with decision unknown (server HTML / JS off), page decided, saved]
     criteria:
       - id: account.cmp-personalize.c1
         text: "Opened from Settings → „Setări de confidențialitate”; the native header is titled „Setări de confidențialitate” and lets the user change consent per category (GDPR SDK)."
         fish_ref: "app/(app)/_layout.tsx:153-160; app/(app)/settings.tsx:306-311; CMP/ui/PersonalizeScreen.tsx:81"
-    mobile_only: true
-    web_replacement: "Cookie consent banner with a preferences dialog (M8); the Settings row „Setări de confidențialitate” reopens that dialog."
-    status: todo
+        status: passing
+        note: "Web: cookie consent (lib/consent, components/consent, app/(site)/cookie-uri). First-party cookie bluvi_consent {v:1, analytics, errors, at} (180 days, Lax, Secure on https; a version bump re-asks). Banner (client-only, nothing in the server HTML; bottom sheet < 768, bottom-left card ≤ 440 from 768) with three equal buttons «Refuz toate» / «Accept toate» / «Personalizează»; preferences dialog (ModalSurface) titled «Setări de confidențialitate» with per-category switches + fish's detail sections, Escape closes without saving, focus trapped and returned; /cookie-uri public, static, indexable, same controls inline. e2e tests/e2e/consent.spec.ts s1–s7 + axe at 375/768/1280/1440 (banner and dialog open); unit lib/consent/model.test.ts."
+    mobile_only: false
+    e2e: tests/e2e/consent.spec.ts
+    status: proposed
+    web_note: "M8-B1. DEVIATION FROM FISH (flag for the M8 review): fish treats Google Analytics (and RN Firebase) as «mandatory»; the web keeps every optional category OFF until the visitor opts in (GDPR / ePrivacy), and Sentry's legal basis is consent (lit. a) instead of fish's legitimate interest (lit. f). Categories: «Strict necesare» (bluvi_session, bluvi_consent, local storage, Firebase Auth for chat — always on), «Analiză» (GA4), «Monitorizarea erorilor» (Sentry browser). No Firestore write (home.b.consent-link stays skipped). Withdrawal deletes _ga / _ga_* on the host and parent domains. Public API for B2 (GA4 / Sentry wiring): lib/consent/README.md. Critic panel + visual baselines pending."
 
 behaviours:
   - id: account.b.signed-out-gate

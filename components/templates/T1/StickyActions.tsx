@@ -11,7 +11,7 @@ export function StickyActions({ children, className }: { children: ReactNode; cl
   return (
     <div
       className={cn(
-        'fixed inset-x-0 bottom-0 z-sticky flex gap-3 border-t border-hairline bg-surface px-4 pt-3 shadow-tabbar md:hidden',
+        'fixed inset-x-0 bottom-(--consent-inset,0px) z-sticky flex gap-3 border-t border-hairline bg-surface px-4 pt-3 shadow-tabbar md:hidden',
         'pb-[max(--spacing(3),env(safe-area-inset-bottom))]',
         className,
       )}

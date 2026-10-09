@@ -486,7 +486,7 @@ export function LakesHome() {
       {totalLakes > 0 ? (
         // fish: the floating map button (c23) — the all-lakes map, filters cleared; «Arată harta»
         // (owner rule 6). A phone pattern: from 768 it is the header's primary action.
-        <div className="pointer-events-none fixed inset-x-0 bottom-[max(var(--spacing)*4,env(safe-area-inset-bottom))] z-sticky flex justify-center px-4 md:hidden">
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(max(var(--spacing)*4,env(safe-area-inset-bottom))+var(--consent-inset,0px))] z-sticky flex justify-center px-4 md:hidden">
           <Link
             href={routes.lakesMap()}
             className={buttonClass({ variant: 'primary', className: cn('pointer-events-auto gap-2 px-5.5', T2_FLOATING_BUTTON) })}

@@ -372,8 +372,8 @@ screens:
       - id: home.acasa.c53
         text: "Signed out only: a „Setări de confidențialitate” card (fish opens the CMP; web opens the cookie-consent settings)."
         fish_ref: app/(app)/(tabs)/index.tsx:650,678-699
-        status: failing
-        note: "the web has no consent manager yet: the card opens the privacy policy. Cookie-consent settings land in M8."
+        status: passing
+        note: "PrivacySettingsCard → components/consent/OpenConsentSettings: opens the consent preferences dialog in place (m8.consent), a link to /cookie-uri with JS off; focus returns to the card. e2e tests/e2e/acasa.spec.ts «home.acasa.c52 c53», tests/e2e/consent.spec.ts «s6 account.settings.c16 home.acasa.c53»."
       - id: home.acasa.c54
         text: "Signed in and registered in a live competition (and no active partidă): a „CONCURSUL MEU” panel with the competition name (opens the competition). In every other case — signed out, not in one, still loading, or the read failed — no panel and no copy about it."
         fish_ref: components/DashboardSheet.tsx:34-56; app/(app)/(tabs)/index.tsx:654-663

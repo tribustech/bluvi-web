@@ -1754,6 +1754,8 @@ behaviours:
   - id: competition-page.b.share-url
     text: "fish shares https://bluvi-app.wearetribus.com/competitions/{id}; the web shares absoluteUrl(/concursuri/[id]) and the universal-link path /competitions/[id] must redirect to /concursuri/[id] (M8)."
     fish_ref: common/utils/constants.ts:35; app/(app)/competitions/[competitionId].tsx:313-326
+    status: passing
+    note: "M8-B1: next.config.ts /competitions/:id → /concursuri/:id (308; ?activeTabId= → the tab page). e2e tests/e2e/legacy-redirects.spec.ts «competition-page.b.share-url …» (a real local competition lands on its page) and the per-row 308 checks."
   - id: competition-page.b.inbound-links
     text: "The page is opened from competition cards and rails, the organizer panel, the operator lake panel (today's competition), the booking calendar competition block, angler profiles, the chat (back to competition), the live-competition dashboard sheet and, after a successful registration, by returning to it (dismissTo)."
     fish_ref: features/competitions/components/cards/CompetitionCardV2.tsx:97; app/(app)/organizer/index.tsx:248; app/(app)/operator/[lakeId]/index.tsx:684; features/lakes/booking/CompetitionBlockSheet.tsx:45; components/profile/AnglerProfileScreen.tsx:252; features/chat/screens/ChatScreen.tsx:486; components/DashboardSheet.tsx:44; components/RegistrationStatusModalSheet.tsx:92

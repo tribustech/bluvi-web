@@ -37,7 +37,7 @@ export function DetailActionBar({ summary, above, tablet = false, hideFrom, labe
         aria-hidden
         className={cn(above ? 'h-[calc(--spacing(30)+env(safe-area-inset-bottom))]' : 'h-[calc(--spacing(18)+env(safe-area-inset-bottom))]', hide)}
       />
-      <div role="region" aria-label={label} data-t3="actionbar" inert={inert || undefined} className={cn('fixed inset-x-0 bottom-0 z-sticky', hide, className)}>
+      <div role="region" aria-label={label} data-t3="actionbar" inert={inert || undefined} className={cn('fixed inset-x-0 bottom-(--consent-inset,0px) z-sticky', hide, className)}>
         {above}
         <div className="flex min-h-18 items-center gap-3 border-t border-hairline bg-surface px-4 pt-3 pb-[max(--spacing(3),env(safe-area-inset-bottom))] shadow-tabbar md:px-6">
           {summary ? <div className="min-w-0 flex-1">{summary}</div> : null}

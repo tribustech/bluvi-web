@@ -16,6 +16,8 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     trace: 'retain-on-failure',
+    // A decided, all-refused cookie consent (m8.consent), so no spec sees the banner; consent.spec.ts clears it.
+    storageState: 'tests/e2e/helpers/consent-state.json',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },

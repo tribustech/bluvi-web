@@ -304,6 +304,8 @@ export const routes = {
   /** Complete the profile after the first sign-in (account.complete-profile; fish /complete-profile). */
   completeProfile: () => '/profil/completeaza',
   settings: () => '/setari',
+  /** Cookie consent preferences, public (m8.consent; fish /cmp-personalize). Not under /setari: the proxy gates that for guests. */
+  cookieSettings: () => '/cookie-uri',
   notifications: () => '/notificari',
   /** Notification settings (account.notification-settings; fish /settings/notifications). */
   notificationSettings: () => '/setari/notificari',

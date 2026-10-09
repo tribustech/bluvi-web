@@ -1,0 +1,15 @@
+{
+  "cookies": [
+    {
+      "name": "bluvi_consent",
+      "value": "%7B%22v%22%3A1%2C%22analytics%22%3Afalse%2C%22errors%22%3Afalse%2C%22at%22%3A%222026-10-09T00%3A00%3A00.000Z%22%7D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}

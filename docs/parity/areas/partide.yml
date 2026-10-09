@@ -2005,7 +2005,7 @@ behaviours:
     text: "Invite link https://bluvi-app.wearetribus.com/partide/join/{code} must work on web: /partide/join/[code] redirects to /partide/intra/[cod] (sign-in first when signed out, then back)."
     fish_ref: "features/partide/components/CoopCard.tsx:38-39"
     status: proposed
-    note: "Owner 2026-10-08: running a partidă is app-only on web; CTA to the app. The invite link opens the app on a phone (AASA /partide/*); where it lands on the web, next.config.ts redirects /partide/join/:code (and /partide/join, /partide/start — the app links lib/app-links builds) to /partide (temporary 307: the universal-link plan is M8's), whose hero hands over to the app."
+    note: "Owner 2026-10-08: running a partidă is app-only on web; CTA to the app. The invite link opens the app on a phone (AASA /partide/*); where it lands on the web, next.config.ts redirects /partide/join/:code (and /partide/join, /partide/start — the app links lib/app-links builds) to /partide (temporary 307: the universal-link plan is M8's), whose hero hands over to the app. M8-B1: kept as 307 (rule 21 overrides the /partide/intra target); checked with the rest of the legacy table in tests/e2e/legacy-redirects.spec.ts; the universal-link / domain plan is the owner decision in docs/reviews/M8-url-scheme.md."
   - id: partide.b.notif-invite
     text: "Notification PARTIDA_INVITE (data.partidaCode) routes to /partide/intra/[cod]; missing code → no navigation."
     fish_ref: "helpers/getRedirectLocationForNotification.ts:104-106"

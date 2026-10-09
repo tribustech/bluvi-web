@@ -1501,6 +1501,8 @@ behaviours:
   - id: lakes.b.share-link
     text: "Shared lake links use https://bluvi-app.wearetribus.com/lakes/{documentId} (universal link to the app); the web must serve /lakes/{id} as a permanent redirect to /balti/{id} (and /lakes/{id}/reviews → /balti/{id}/recenzii) so links already in circulation open on the web (M8 universal-link coordination)."
     fish_ref: "features/lakes/components/ShareLakeSheet.tsx:118"
+    status: passing
+    note: "M8-B1: next.config.ts /lakes/:id/reviews → /balti/:id/recenzii, /lakes/:id → /balti/:id, /lakes → /balti (308). e2e tests/e2e/legacy-redirects.spec.ts «lakes.b.share-link …» (Chita from the local CMS lands on its page; 308 rows per path). Domain decision: docs/reviews/M8-url-scheme.md."
   - id: lakes.b.notification-follow-lake-review
     text: "Notification FOLLOW_LAKE_REVIEW (data.lakeId) routes to the lake's reviews list (/balti/[id]/recenzii); no lakeId → no navigation. Web in-app notification list must use the same target."
     fish_ref: "helpers/getRedirectLocationForNotification.ts:188"

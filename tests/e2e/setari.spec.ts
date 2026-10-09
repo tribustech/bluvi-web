@@ -113,14 +113,14 @@ test.describe('account.settings', () => {
       await expect(info.locator('div', { hasText: 'Telefon' })).toContainText('0712 345 678');
       await expect(info.locator('div', { hasText: 'Activ de la' })).toContainText('05 noi 2025');
       await expect(info.locator('div', { hasText: 'Autentificat cu' })).toContainText('Google');
-      // c16: Termly in a new tab; «Setări de confidențialitate» waits for the M8 consent banner.
+      // c16: Termly in a new tab; «Setări de confidențialitate» opens the consent dialog (consent.spec.ts s6), /cookie-uri without JS.
       const terms = page.getByRole('link', { name: /^Termeni și condiții/ });
       await expect(terms).toHaveAttribute('href', /termly\.io.*14bbf816/);
       await expect(terms).toHaveAttribute('target', '_blank');
       const privacy = page.getByRole('link', { name: /^Politica de confidențialitate/ });
       await expect(privacy).toHaveAttribute('href', /termly\.io.*958c9787/);
       await expect(privacy).toHaveAttribute('target', '_blank');
-      await expect(page.getByText('Setări de confidențialitate')).toHaveCount(0);
+      await expect(page.getByTestId('settings-legal').getByRole('link', { name: 'Setări de confidențialitate' })).toHaveAttribute('href', '/cookie-uri');
       // c17, c18, c19 entry points.
       await expect(page.getByRole('button', { name: 'Contactează-ne' })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Deconectare' })).toBeVisible();
