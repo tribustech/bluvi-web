@@ -270,32 +270,13 @@ test.describe('signed in', () => {
     expect(Date.parse(bodies[0].startDate)).toBe(cur.start.getTime());
     await expect(panel(page).getByTestId('selection-price')).toBeVisible({ timeout: 20_000 });
     await expect(panel(page).getByTestId('selection-refusal')).toHaveCount(0);
-    // Priced and not refused: Continuă is held only for the steps still to ship (c9), said in the note.
-    await expect(page.getByTestId('selection-continue-held')).toBeVisible();
+    // Priced and not refused: Continuă is live (c9) — no mount hold, no note.
+    await expect(page.getByTestId('selection-continue')).not.toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByTestId('selection-continue-held')).toHaveCount(0);
   });
 
-  test('c9 (held): Continuă never leads into a 404 — held with an honest note until the extras / review steps ship', async ({ page }) => {
-    await open(page);
-    const cur = currentSlot();
-    await band(page, fx.plain.name, cur.day, cur.label).click();
-    await expect(panel(page).getByTestId('selection-price')).toBeVisible({ timeout: 20_000 });
-    const cont = page.getByTestId('selection-continue');
-    await expect(cont).toHaveAttribute('aria-disabled', 'true');
-    const note = page.getByTestId('selection-continue-held');
-    await expect(note).toHaveText('Adăugarea la poartă se finalizează deocamdată din aplicația Bluvi.');
-    await expect(cont).toHaveAccessibleDescription('Adăugarea la poartă se finalizează deocamdată din aplicația Bluvi.');
-    const before = page.url();
-    await cont.click({ force: true });
-    await page.waitForTimeout(600);
-    expect(page.url()).toBe(before);
-    await expect(grid(page)).toBeVisible();
-    await shot(page, 'continue-held');
-    await expectNoA11yViolations(page);
-  });
-
-  // Re-enable when operator.calendar-extra / -confirmare ship (walkInFlow drops continueHeld): the
-  // destination must RENDER its step, not only change the URL.
-  test.fixme('c9: Continuă → …/calendar/confirmare («Confirmă rezervarea») for a stand with nothing to add, …/calendar/extra («Extra») for a night on a cabin stand', async ({ page }) => {
+  // The destination must RENDER its step, not only change the URL.
+  test('c9: Continuă → …/calendar/confirmare («Confirmă rezervarea») for a stand with nothing to add, …/calendar/extra («Extra») for a night on a cabin stand', async ({ page }) => {
     await open(page);
     const cur = currentSlot();
     await band(page, fx.plain.name, cur.day, cur.label).click();
@@ -383,7 +364,9 @@ test.describe('signed in', () => {
     const summary = page.getByTestId('selection-summary');
     await expect(summary.getByRole('heading', { name: `Stand ${fx.inProgress.name}` })).toBeVisible();
     await expect(summary.getByRole('button', { name: 'Anulează' })).toBeVisible();
-    await expect(summary.getByTestId('selection-summary-continue')).toHaveAttribute('aria-disabled', 'true');
+    // Priced and not held for the mount (c9): the compact card's Continuă is live, no note.
+    await expect(summary.getByTestId('selection-summary-continue')).not.toHaveAttribute('aria-disabled', 'true');
+    await expect(summary.getByTestId('selection-summary-continue')).toHaveAccessibleDescription('');
     await expect(grid(page).locator('button[data-status="selected"]')).toHaveCount(1);
     await shot(page, 'selection-and-detail');
     await expectNoA11yViolations(page);

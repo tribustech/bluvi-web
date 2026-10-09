@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mergePages, type BookingQuote, type LakeAvailability } from '@/core/booking';
+import { walkInFlow } from '@/app/(site)/operator/[lakeId]/calendar/_walkin/flowConfig';
 import { stepHref } from '../_flow/params';
 import { continueHeld, extraLine, extrasRedirect, keepOffered, quoteView, toggleExtra, tourNights } from './model';
 
@@ -58,6 +59,16 @@ describe('extras guard (booking.rezerva-extra.c1, c2)', () => {
   it('renders when the stand adds something', () => {
     expect(extrasRedirect('l', { selection: NIGHT, extras: [] }, merged)).toBeNull();
     expect(extrasRedirect('l', { selection: DAY, extras: [] }, merged)).toBeNull(); // the per-stay mat
+  });
+
+  it('walk-in (operator.calendar-extra.c1): the same rules, onto the operator calendar', () => {
+    const w = walkInFlow('l');
+    expect(extrasRedirect('l', { selection: null, extras: [] }, null, w)).toBe('/operator/l/calendar');
+    expect(extrasRedirect('l', { selection: { ...NIGHT, stand: 'gone' }, extras: [] }, merged, w)).toBe('/operator/l/calendar');
+    expect(extrasRedirect('l', { selection: DAY, extras: ['cabana'] }, onlyNightly, w)).toBe(
+      `/operator/l/calendar?stand=s2&start=${encodeURIComponent(DAY.start)}&end=${encodeURIComponent(DAY.end)}`
+    );
+    expect(extrasRedirect('l', { selection: NIGHT, extras: [] }, merged, w)).toBeNull();
   });
 });
 

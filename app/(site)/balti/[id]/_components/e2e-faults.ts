@@ -11,10 +11,11 @@ import { ApiError } from '@/core/transport';
  *    `stats`, `competitions-tab` — ../_sub/server.ts); `<read>-slow` delays it 2.5s — under the
  *    section timeout (load.ts SECTION_TIMEOUT_MS, 4s), so it is a slow read that SUCCEEDS (the
  *    streaming placeholders, c32); `<read>-hang` delays it 5s — past the timeout, so the read fails
- *    by timing out (the lake read's own bound is 8s: `lake-hang` is just slow);
+ *    by timing out (the lake read's own bound is 8s: `lake-hang` is just slow); `<read>-404` answers
+ *    it as not found (`lake-404`: a lake the public read does not know — unpublished, pending);
  *  - `no-photos`, `no-coordinates`, `owner-without-profile`, `no-optional` (no facilities, fish,
  *    prices, contact, address, website, coordinates), `with-phone` (one contact phone — a
- *    phone-booking lake that lists its number) reshape the lake (states s4, s9, s8, s12, c16 — the
+ *    phone-booking lake that lists its number), `deposit` (a 30% deposit lake) reshape the lake (states s4, s9, s8, s12, c16 — the
  *    local CMS has no such lake).
  * In production builds both functions are no-ops (NODE_ENV is inlined) and the route answers 404.
  */
@@ -41,6 +42,7 @@ export async function e2eFault(lakeId: string, read: string): Promise<void> {
   if (faults.has(`${read}-slow`)) await new Promise(r => setTimeout(r, SLOW_MS));
   if (faults.has(`${read}-hang`)) await new Promise(r => setTimeout(r, HANG_MS));
   if (faults.has(read)) throw new ApiError({ message: `e2e fault: ${read}`, status: 0, code: 'NETWORK', path: read });
+  if (faults.has(`${read}-404`)) throw new ApiError({ message: `e2e fault: ${read}`, status: 404, code: 'HTTP', path: read });
 }
 
 export function e2eLakeStub(lakeId: string, lake: LakeDetail): LakeDetail {
@@ -51,6 +53,7 @@ export function e2eLakeStub(lakeId: string, lake: LakeDetail): LakeDetail {
     ...(faults.has('no-photos') ? { images: [] } : {}),
     ...(faults.has('no-coordinates') ? { coordinates: null } : {}),
     ...(faults.has('owner-without-profile') ? { ownerDocumentId: null } : {}),
+    ...(faults.has('deposit') ? { paymentMode: 'deposit', depositPercent: 30 } : {}),
     ...(faults.has('with-phone') ? { contact: [{ id: 0, header: null, name: null, phone: '0700 000 000' }] } : {}),
     ...(faults.has('no-optional')
       ? { facility: [], fishSpecies: [], price: [], contact: [], address: null, website: null, coordinates: null }

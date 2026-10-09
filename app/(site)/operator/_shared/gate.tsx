@@ -22,7 +22,9 @@ import type { Viewer } from '@/lib/server/viewer';
  * - Session unknown (CMS down / slow): SessionUnknownError → the route's error.tsx (re-export
  *   OperatorRouteError from ./OperatorErrorState).
  * - Ownership is NOT checked here (operator.b.role-gating): the CMS owner-gates every operator
- *   endpoint, and a refusal lands in the screen's OperatorErrorState («Nu ai acces»).
+ *   endpoint, and a refusal lands in the screen's OperatorErrorState («Nu ai acces»). A screen that
+ *   reads nothing owner-gated (calendar/extra: public availability + quote) must check
+ *   viewer.ownedLakes itself — no 403 would ever come back.
  * Everything operator is per owner: read in the browser through /api/cms, never cached, never indexed.
  */
 

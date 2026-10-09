@@ -1,5 +1,6 @@
 import { countNights, type AvailabilityExtra, type BookingQuote, type MergedAvailability } from '@/core/booking';
 import { formatCount } from '@/core/realtime/chat/format';
+import { anglerFlow, type FlowConfig } from '../_flow/config';
 import { offeredForSelection, selectionStand } from '../_flow/guards';
 import { stepHref, type FlowParams, type FlowSelection } from '../_flow/params';
 import { lei } from '../_grid/model';
@@ -16,14 +17,21 @@ import { lei } from '../_grid/model';
  * cabin, a hand-edited link), so the angler lands on the same pill and «Continuă» goes straight to
  * the review (nextStepFromGrid). A stand the lake no longer has, or a lake that stopped taking
  * bookings, is not a valid selection: the bare grid. `merged` null = the availability is still
- * loading: only the URL can be judged yet.
+ * loading: only the URL can be judged yet. `config`: the angler's flow, or the operator's walk-in
+ * (operator.calendar-extra.c1 — the same rules, its grid is /operator/[lakeId]/calendar).
  */
-export function extrasRedirect(lakeId: string, params: FlowParams, merged: MergedAvailability | null): string | null {
+export function extrasRedirect(
+  lakeId: string,
+  params: FlowParams,
+  merged: MergedAvailability | null,
+  config: FlowConfig = anglerFlow(lakeId)
+): string | null {
   const sel = params.selection;
-  if (!sel) return stepHref(lakeId, 'grid', { selection: null, extras: [] });
+  const bare = stepHref(lakeId, 'grid', { selection: null, extras: [] }, config);
+  if (!sel) return bare;
   if (!merged) return null;
-  if (!merged.bookingEnabled || !selectionStand(merged, sel)) return stepHref(lakeId, 'grid', { selection: null, extras: [] });
-  if (offeredForSelection(merged, sel).length === 0) return stepHref(lakeId, 'grid', { selection: sel, extras: [] });
+  if (!merged.bookingEnabled || !selectionStand(merged, sel)) return bare;
+  if (offeredForSelection(merged, sel).length === 0) return stepHref(lakeId, 'grid', { selection: sel, extras: [] }, config);
   return null;
 }
 

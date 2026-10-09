@@ -5,7 +5,7 @@ import { guardStep, nextStepFromGrid, selectionTaken } from '@/app/(site)/balti/
 import { flowTargets, isFlowUrl, stepPath } from '@/app/(site)/balti/[id]/rezerva/_flow/nav';
 import { stepHref } from '@/app/(site)/balti/[id]/rezerva/_flow/params';
 import { buildGridModel, runAction, selectionFree, standRuns } from '@/app/(site)/balti/[id]/rezerva/_grid/model';
-import { WALK_IN_CONTINUE_HELD, walkInFlow } from './flowConfig';
+import { walkInFlow } from './flowConfig';
 
 process.env.TZ = 'Europe/Bucharest';
 
@@ -54,8 +54,8 @@ describe('walk-in config (operator.calendar)', () => {
     expect(W.paths.exit).toBe('/operator/lake1');
     expect(W.titleFallback).toBe('Balta');
     expect(W.walkIn).toBe(true);
-    // The steps are not built yet: Continuă is held with an honest note, never a 404 (c9).
-    expect(W.continueHeld).toBe(WALK_IN_CONTINUE_HELD);
+    // Both steps exist: Continuă is never held for the mount (c9).
+    expect(W.continueHeld).toBeNull();
   });
 
   it('flow URLs and history targets follow the config, not /balti/…/rezerva', () => {

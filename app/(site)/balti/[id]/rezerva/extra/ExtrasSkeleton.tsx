@@ -17,9 +17,10 @@ import { routes } from '@/lib/routes';
  * The extras step before the availability (or the session gate) has answered: the step's own frame
  * — header «Extra», the subtitle and context lines, two card-shaped bars, the summary with «—» and
  * the held «Continuă» — so nothing moves when the cards land (CLS ≤ 0.05). Also shown for the
- * instant the guard spends sending a bad link back to the grid.
+ * instant the guard spends sending a bad link back to the grid. `gridHref`: the back link before the
+ * screen is up (the angler's grid by default; the walk-in passes its calendar).
  */
-export function ExtrasSkeleton({ lakeName, back }: { lakeName?: string; back?: T4Back }) {
+export function ExtrasSkeleton({ lakeName, back, gridHref }: { lakeName?: string; back?: T4Back; gridHref?: string }) {
   const { id } = useParams<{ id: string }>();
   return (
     <T4Frame
@@ -27,7 +28,7 @@ export function ExtrasSkeleton({ lakeName, back }: { lakeName?: string; back?: T
         <T4Header
           eyebrow={lakeName || <T4LineBar type="t-eyebrow" className="w-32" />}
           title="Extra"
-          back={back ?? { label: 'Înapoi la selecție', href: routes.lakeBooking(id ?? '') }}
+          back={back ?? { label: 'Înapoi la selecție', href: gridHref ?? routes.lakeBooking(id ?? '') }}
         />
       }
       busy

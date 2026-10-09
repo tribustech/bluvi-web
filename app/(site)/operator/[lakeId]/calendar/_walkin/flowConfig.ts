@@ -11,13 +11,7 @@ import type { FlowConfig } from '@/app/(site)/balti/[id]/rezerva/_flow/config';
  *  - blocked bands open nothing (c5); booked bands open the booking (the screen's onBookedCell, c6);
  *  - the quote (and the submit) are walk-ins: the server skips the end-time rule (c7);
  *  - Continuă → …/calendar/extra or …/calendar/confirmare (c9); Back leaves to the panel (c11).
- *    Those two steps (operator.calendar-extra / -confirmare) are not built yet, so Continuă is HELD
- *    with an honest note (continueHeld, owner rule 4) instead of leading into a 404; the paths stay
- *    so the steps only have to drop the note when they ship.
  */
-
-/** Shown under the held «Continuă» until the extras / review steps exist on the web. */
-export const WALK_IN_CONTINUE_HELD = 'Adăugarea la poartă se finalizează deocamdată din aplicația Bluvi.';
 
 export function walkInFlow(lakeId: string): FlowConfig {
   return {
@@ -35,6 +29,6 @@ export function walkInFlow(lakeId: string): FlowConfig {
     titleFallback: 'Balta',
     walkIn: true,
     blockedCellOpens: false,
-    continueHeld: WALK_IN_CONTINUE_HELD,
+    continueHeld: null,
   };
 }

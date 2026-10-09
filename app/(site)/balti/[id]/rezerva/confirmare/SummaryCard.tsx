@@ -71,6 +71,7 @@ export function SummaryCard({
   checkoutBufferMinutes,
   quote,
   refreshing,
+  stacked = false,
 }: {
   lake: ReviewLake;
   standName: string;
@@ -80,6 +81,12 @@ export function SummaryCard({
   quote: PricedQuote;
   /** A newer price is in flight (after a price change): the figures are dimmed until it lands. */
   refreshing: boolean;
+  /**
+   * One column at every width, the money always inside (the operator's walk-in review docks this
+   * card in its own ~360 right column from 1024). Off (the angler's review): the halves from 1280
+   * and the money moved to PriceAside there.
+   */
+  stacked?: boolean;
 }) {
   const start = new Date(startISO);
   const hours = Math.max(1, Math.round((new Date(endISO).getTime() - start.getTime()) / 3_600_000));
@@ -94,7 +101,10 @@ export function SummaryCard({
     <section
       aria-labelledby="rezervare-balta"
       data-testid="review-summary"
-      className="flex flex-col gap-4 rounded-card bg-surface p-4 shadow-e0 md:p-5 xl:grid xl:grid-cols-2 xl:gap-x-8 xl:p-6"
+      className={cn(
+        'flex flex-col gap-4 rounded-card bg-surface p-4 shadow-e0 md:p-5 xl:p-6',
+        !stacked && 'xl:grid xl:grid-cols-2 xl:gap-x-8'
+      )}
     >
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex items-center gap-3">
@@ -131,7 +141,10 @@ export function SummaryCard({
         </ul>
       </div>
 
-      <div data-testid="review-when" className="flex min-w-0 flex-col gap-4 xl:justify-center xl:border-l xl:border-hairline xl:pl-8">
+      <div
+        data-testid="review-when"
+        className={cn('flex min-w-0 flex-col gap-4', !stacked && 'xl:justify-center xl:border-l xl:border-hairline xl:pl-8')}
+      >
         <p className="t-body flex items-center gap-2 text-ink-2" data-testid="review-period">
           <CalendarIcon aria-hidden className="size-5 shrink-0 text-muted" />
           {formatBookingPeriod(startISO, endISO, checkoutBufferMinutes)}
@@ -147,7 +160,7 @@ export function SummaryCard({
       </div>
 
       <div
-        className={cn('flex flex-col gap-3 xl:hidden', refreshing && 'opacity-45')}
+        className={cn('flex flex-col gap-3', !stacked && 'xl:hidden', refreshing && 'opacity-45')}
         data-testid="review-money"
         data-stale={refreshing || undefined}
       >

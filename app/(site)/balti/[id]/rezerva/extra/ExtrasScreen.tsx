@@ -22,8 +22,10 @@ import {
 } from '@/components/templates/T4';
 import { Button, buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
+import { anglerFlow, type FlowConfig } from '../_flow/config';
 import { offeredForSelection, selectionStand } from '../_flow/guards';
 import { useFlowQuote, useLiveAvailability } from '../_flow/hooks';
+import { useFlowNav } from '../_flow/nav';
 import { readFlowParams, stepHref } from '../_flow/params';
 import { lei } from '../_grid/model';
 import { ExtrasSkeleton } from './ExtrasSkeleton';
@@ -41,6 +43,11 @@ import { continueHeld, extraLine, extrasRedirect, keepOffered, quoteView, toggle
  * cached per stand / window / extras, so toggling back shows that answer at once while it is read
  * again. «Continuă» is held until the CURRENT list has a server total (c7).
  *
+ * Two mounts (FlowConfig, _flow/config.ts): the angler's /balti/[id]/rezerva/extra (default) and the
+ * operator's walk-in /operator/[lakeId]/calendar/extra (operator.calendar-extra — fish
+ * walk-in/extras.tsx is the same screen): the config only moves the paths (grid, review), the header's
+ * fallback title and the quote's `walkIn` flag. Pass a stable config (built once per mount).
+ *
  * Data: the availability is LIVE (client-only, staleTime 0 — booking.b.live-availability) and gives
  * the stand's extras and the lake's time zone; the lake's name and checkout buffer come from the
  * cached public lake (page.tsx).
@@ -51,20 +58,11 @@ export type ExtrasLake = { documentId: string; name: string; checkoutBufferMinut
 const TITLE = 'Extra';
 const SUBTITLE = 'Poți adăuga la rezervare, dacă vrei.';
 
-type NavigationLike = { currentEntry?: { index: number } | null; entries?: () => { url: string | null }[] };
-
-/** The entry under this one is the grid (the way the angler came): step back onto it. */
-function previousIsGrid(gridPath: string): boolean {
-  const nav = (window as unknown as { navigation?: NavigationLike }).navigation;
-  const i = nav?.currentEntry?.index;
-  if (!nav?.entries || i == null || i < 1) return false;
-  const prev = nav.entries()[i - 1]?.url;
-  return !!prev && new URL(prev).pathname === gridPath;
-}
-
-export function ExtrasScreen({ lake }: { lake: ExtrasLake }) {
+export function ExtrasScreen({ lake, config: given }: { lake: ExtrasLake; config?: FlowConfig }) {
   const lakeId = lake.documentId;
+  const config = useMemo(() => given ?? anglerFlow(lakeId), [given, lakeId]);
   const router = useRouter();
+  const { stepBack } = useFlowNav(lakeId, config);
   const search = useSearchParams();
   const [initial] = useState(() => readFlowParams(new URLSearchParams(search.toString())));
   const sel = initial.selection;
@@ -72,7 +70,7 @@ export function ExtrasScreen({ lake }: { lake: ExtrasLake }) {
   const { query, merged, checkoutBufferMinutes } = useLiveAvailability(lakeId);
 
   // ── Guard (c1, c2) ────────────────────────────────────────────────────────────────────────
-  const redirect = extrasRedirect(lakeId, initial, merged);
+  const redirect = extrasRedirect(lakeId, initial, merged, config);
   useEffect(() => {
     if (redirect) router.replace(redirect);
   }, [redirect, router]);
@@ -84,12 +82,13 @@ export function ExtrasScreen({ lake }: { lake: ExtrasLake }) {
   const chosen = useMemo(() => keepOffered(picked, offered), [picked, offered]);
   useEffect(() => {
     if (!ready || !sel) return;
-    const url = stepHref(lakeId, 'extras', { selection: sel, extras: chosen });
+    const url = stepHref(lakeId, 'extras', { selection: sel, extras: chosen }, config);
     if (url === `${window.location.pathname}${window.location.search}`) return;
     window.history.replaceState(null, '', url);
-  }, [ready, sel, chosen, lakeId]);
+  }, [ready, sel, chosen, lakeId, config]);
 
-  const quoteQ = useFlowQuote(lakeId, ready ? sel : null, chosen);
+  // The walk-in quotes as the submit will (walkIn: the server skips the end-time rule, operator.calendar-extra.c2).
+  const quoteQ = useFlowQuote(lakeId, ready ? sel : null, chosen, config.walkIn);
   const view = quoteView(quoteQ);
   const held = continueHeld(view);
   // The last priced answer, so the summary keeps its receipt (dimmed) while a toggle re-quotes
@@ -98,19 +97,19 @@ export function ExtrasScreen({ lake }: { lake: ExtrasLake }) {
   if (view.kind === 'priced' && lastPriced?.quote !== view.quote) setLastPriced(view);
 
   // ── Ways out ──────────────────────────────────────────────────────────────────────────────
-  const gridHref = stepHref(lakeId, 'grid', { selection: sel, extras: [] });
-  /** Back to the grid with the selection kept, the extras dropped (c8, fish goBack → clearExtras). */
-  const goBack = useCallback(() => {
-    if (previousIsGrid(new URL(gridHref, window.location.origin).pathname)) router.back();
-    else router.replace(gridHref);
-  }, [gridHref, router]);
+  /**
+   * Back to the grid with the selection kept, the extras dropped (c8, operator.calendar-extra.c4;
+   * fish goBack → clearExtras): a pop onto the grid's entry when this tab came from it, else the
+   * grid with the selection in place of this entry (a shared link, a reload in a new tab).
+   */
+  const goBack = useCallback(() => stepBack('grid', { selection: sel, extras: [] }), [stepBack, sel]);
   const onContinue = useCallback(() => {
     if (!sel) return;
-    router.push(stepHref(lakeId, 'review', { selection: sel, extras: chosen }));
-  }, [router, lakeId, sel, chosen]);
+    router.push(stepHref(lakeId, 'review', { selection: sel, extras: chosen }, config));
+  }, [router, lakeId, sel, chosen, config]);
 
   const back: T4Back = { label: 'Înapoi la selecție', onClick: goBack };
-  const header = <T4Header eyebrow={lake.name || 'Rezervare'} title={TITLE} back={back} />;
+  const header = <T4Header eyebrow={lake.name || config.titleFallback} title={TITLE} back={back} />;
 
   if (!ready || !sel) {
     if (!merged && query.isError && sel) {
