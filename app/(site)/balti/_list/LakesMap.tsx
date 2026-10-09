@@ -552,7 +552,7 @@ export function LakesMap() {
     listBody = (
       <>
         <T2List label="Bălți" stale={refreshing}>
-          {listLakes.map((lake, index) => {
+          {listLakes.map((lake) => {
             const c = lake.coordinates
               ? {
                   latitude: Number(lake.coordinates.lat),
@@ -573,8 +573,10 @@ export function LakesMap() {
                   distanceLabel={distanceTo(user, c)}
                   price={priceById.get(lake.documentId) ?? null}
                   priceLoading={pricesPending}
-                  // The first two rows fill a phone's sheet and the top of the desktop list.
-                  photoPriority={index < 2}
+                  // No eager / high-priority photo here (M8-B4 A/B, docs/reviews/M8-notes.md): the list
+                  // waits for maplibre-gl and the map's first bounds, so the hint measured nothing
+                  // (LCP 9.39 s with it, 9.33 s without, 5 runs) and only competed with the map's
+                  // chunks. Bring it back once the first list page renders before the map.
                 />
               </T2ListItem>
             );

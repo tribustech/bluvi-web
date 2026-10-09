@@ -161,7 +161,10 @@ export function HomeRow({
   seeAllHref: string;
   /** The nearby row: «50 km ›» and where it goes (c12). */
   radiusAction?: { label: string; href: string } | null;
-  /** The phone's first rail: its first two photos are the page's LCP (eager, high priority). */
+  /**
+   * The phone's first rail: its first two photos are the page's LCP (preloaded for phones, eager,
+   * high priority; LakeGridCard PhotoPriority 'phone' — the rails are never shown from 768).
+   */
   priority?: boolean;
 }) {
   const [rail, setRail] = useState<RailHandle | null>(null);
@@ -214,7 +217,7 @@ export function HomeRow({
             {/* The grid's card (one card design on the page, owner rule 5): a 4:3 photo and three
                 fixed-height lines, so every card in the row is as tall as the row — no empty band
                 under a shorter card. «Vizualizate recent» keeps fish's compact tile (c15). */}
-            {compact ? <LakeTile lake={lake} variant="compact" distanceLabel={distanceOf(lake)} /> : <LakeGridCard lake={lake} distanceLabel={distanceOf(lake)} priority={priority && i < PRIORITY_CARDS} />}
+            {compact ? <LakeTile lake={lake} variant="compact" distanceLabel={distanceOf(lake)} /> : <LakeGridCard lake={lake} layout="rail" distanceLabel={distanceOf(lake)} priority={priority && i < PRIORITY_CARDS ? 'phone' : undefined} />}
           </div>
         </RailItem>
       ))}

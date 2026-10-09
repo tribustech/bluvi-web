@@ -2,7 +2,7 @@
 
 import { useMemo, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { infiniteQueryOptions, useInfiniteQuery } from '@tanstack/react-query';
 import {
   type ListBack,
   describeError,
@@ -14,7 +14,7 @@ import {
   ListPage,
   listGridClass,
 } from '@/components/templates/T1';
-import { newsInfiniteQuery } from '@/core/news';
+import type { newsInfiniteQuery, newsKeys } from '@/core/news';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { NewsCard } from '../_content/NewsCard';
@@ -35,10 +35,32 @@ import { NEWS_PAGE_SIZE } from '../_content/pageSize';
  *    footer spinner); a failed page says so with «Reîncearcă»; at the end the footer goes away
  *    (fish ListLoadingStateFooter hides when there is no more data).
  */
+/**
+ * core/news `newsInfiniteQuery`, with the module (its zod schemas) imported on the first page the
+ * browser reads itself — the server's prefetch hydrates page 1, so the first load never needs it
+ * (M8-B4, global.b.performance-audit). Key, staleness and paging are core's (the key's type is
+ * checked against `newsKeys.list`; NewsList.test.ts pins the value).
+ */
+const NEWS_STALE_TIME_MS = 60 * 60 * 1000;
+type NewsPage = Awaited<ReturnType<NonNullable<ReturnType<typeof newsInfiniteQuery>['queryFn']>>>;
+function lazyNewsQuery(t: ReturnType<typeof createBrowserTransport>, pageSize: number) {
+  return infiniteQueryOptions({
+    queryKey: ['news', { pageSize }] as const satisfies ReturnType<typeof newsKeys.list>,
+    queryFn: async ({ pageParam }): Promise<NewsPage> => (await import('@/core/news')).getNews(t, { page: pageParam, pageSize }),
+    initialPageParam: 1,
+    getNextPageParam: (last: NewsPage) => {
+      const p = last.meta?.pagination;
+      return p && p.page < p.pageCount ? p.page + 1 : undefined;
+    },
+    staleTime: NEWS_STALE_TIME_MS,
+    gcTime: NEWS_STALE_TIME_MS,
+  });
+}
+
 export function NewsList() {
   const router = useRouter();
   const t = useMemo(() => createBrowserTransport(), []);
-  const q = useInfiniteQuery(newsInfiniteQuery(t, { pageSize: NEWS_PAGE_SIZE }));
+  const q = useInfiniteQuery(lazyNewsQuery(t, NEWS_PAGE_SIZE));
   const items = useMemo(() => q.data?.pages.flatMap((p) => p.data) ?? [], [q.data]);
   const total = q.data?.pages.at(-1)?.meta.pagination.total;
 

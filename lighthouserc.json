@@ -27,6 +27,14 @@
         "chromeFlags": "--headless=new --no-sandbox"
       }
     },
+    "desktop": {
+      "paths": ["/", "/balti", "/balti/[id]", "/concursuri"],
+      "settings": {
+        "preset": "desktop",
+        "onlyCategories": ["performance", "accessibility", "best-practices", "seo"],
+        "chromeFlags": "--headless=new --no-sandbox"
+      }
+    },
     "assert": {
       "assertions": {
         "largest-contentful-paint": ["error", { "maxNumericValue": 2500, "aggregationMethod": "median-run" }],

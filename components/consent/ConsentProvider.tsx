@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { acceptAll, anyActive, useActiveCategories } from '@/lib/consent/active';
 import { CONSENT_OPEN_EVENT, setConsent } from '@/lib/consent/store';
@@ -8,7 +9,14 @@ import { useConsent } from '@/lib/consent/useConsent';
 import { NO_CHOICE, type ConsentChoice } from '@/lib/consent/model';
 import { routes } from '@/lib/routes';
 import { ConsentBanner } from './ConsentBanner';
-import { ConsentPreferencesDialog } from './ConsentPreferencesDialog';
+
+/**
+ * The preferences dialog is a client-only chunk, fetched on its first opening: it is never on screen
+ * when a page loads, so it stays out of every page's first load (M8-B4).
+ */
+const ConsentPreferencesDialog = dynamic(() => import('./ConsentPreferencesDialog').then((m) => m.ConsentPreferencesDialog), {
+  ssr: false,
+});
 
 /**
  * The consent layer's UI, mounted once from app/layout.tsx (m8.consent):

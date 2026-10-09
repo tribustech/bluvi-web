@@ -1,4 +1,5 @@
-import Image from 'next/image';
+import Image, { getImageProps } from 'next/image';
+import { preload } from 'react-dom';
 import { CardTitle, Pill } from '@/components/cards';
 import { cn } from '@/components/ui/cn';
 import { getLakeLocationSubtitle, type LakeHomeSectionLake } from '@/core/lakes';
@@ -19,23 +20,71 @@ import { RatingInline } from './RatingInline';
  * gives way first). The distance pill sits on the photo when the lake is in the nearby set.
  */
 
+/**
+ * Where a card's photo is the page's LCP. The page holds the phone rails and the desktop grid at
+ * once, one of them display:none (LakesHome), and an eager image or a plain preload is fetched even
+ * where it is hidden. So a priority photo is scoped to the layout that shows it (M8-B4):
+ *  - 'phone': the first full rail, shown below 768; 'wide': the grid's first row when the grid is
+ *    hidden below 768; 'all': a grid shown at every width (a picked category).
+ *  - a preload in <head> with that media query (high priority, fetched before layout; a phone never
+ *    fetches the wide one, a desktop never the phone one) and an eager <img> in a <picture> whose
+ *    other-layout <source> is a blank data: GIF, so the hidden copy downloads nothing.
+ */
+export type PhotoPriority = 'phone' | 'wide' | 'all';
+
+const PHONE_MEDIA = '(max-width: 767.98px)';
+const WIDE_MEDIA = '(min-width: 768px)';
+/** The <picture> source of the layout that hides the card: a 1×1 transparent GIF, no request. */
+const BLANK_GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+/**
+ * `sizes` of the photo. The rail's card is its own string (its real width on a phone, ~200 px):
+ * React keys an image preload by srcset + sizes, not media, so the same lake first in the rail and
+ * in the grid must not share one key, or the second media-scoped preload is dropped.
+ */
+const SIZES = {
+  grid: '(min-width: 1280px) 300px, (min-width: 768px) 33vw, 50vw',
+  rail: '50vw',
+} as const;
+
 export function LakeGridCard({
   lake,
   distanceLabel,
-  priority = false,
+  priority,
+  layout = 'grid',
 }: {
   lake: LakeHomeSectionLake;
   distanceLabel?: string | null;
-  /**
-   * The first row of the grid / the phone's first rail: the browser loads those photos first (LCP).
-   * `fetchPriority` only, still lazy and never a preload: the page holds the phone rails and the
-   * desktop grid at once (one of them display:none), and a preload or an eager image is fetched
-   * even where it is hidden — a phone paid for the desktop grid's first row, and the reverse
-   * (M8-B4). A lazy image is fetched only where it is shown, and at high priority there.
-   */
-  priority?: boolean;
+  /** The card's photo is one of the page's LCP candidates, in that layout (PhotoPriority). */
+  priority?: PhotoPriority;
+  /** The grid (default) or the phone's rail: the photo's `sizes`. */
+  layout?: keyof typeof SIZES;
 }) {
   const image = lakeImage(lake);
+  const sizes = SIZES[layout];
+  const hiddenMedia = priority === 'phone' ? WIDE_MEDIA : priority === 'wide' ? PHONE_MEDIA : null;
+  if (priority && image) {
+    const { props } = getImageProps({ src: image.src, alt: '', fill: true, sizes });
+    preload(props.src, {
+      as: 'image',
+      // Unoptimized images (next dev) have no srcset: a 1x one keeps the preload keyed by `sizes`.
+      imageSrcSet: props.srcSet ?? `${props.src} 1x`,
+      imageSizes: sizes,
+      fetchPriority: 'high',
+      media: priority === 'phone' ? PHONE_MEDIA : priority === 'wide' ? WIDE_MEDIA : undefined,
+    });
+  }
+  const photo = image ? (
+    <Image
+      src={image.src}
+      alt=""
+      fill
+      {...(priority ? { loading: 'eager' as const, fetchPriority: 'high' as const } : {})}
+      sizes={sizes}
+      className="object-cover transition-transform duration-(--duration-medium) ease-slow group-hover:scale-[1.03] motion-reduce:transition-none"
+      {...(image.blurhash ? { placeholder: 'blur' as const, blurDataURL: blurDataUrl(image.blurhash) } : {})}
+    />
+  ) : null;
   const location = getLakeLocationSubtitle(
     { county: lake.county ?? null, countyRef: lake.countyRef ?? null, cityRef: lake.cityRef ?? null },
     { includeAddress: false },
@@ -48,17 +97,14 @@ export function LakeGridCard({
   return (
     <article className="group relative flex min-w-0 flex-col gap-2.5">
       <div className="relative aspect-4/3 overflow-hidden rounded-card bg-soft-fill">
-        {image ? (
-          <Image
-            src={image.src}
-            alt=""
-            fill
-            fetchPriority={priority ? 'high' : undefined}
-            sizes="(min-width: 1280px) 300px, (min-width: 768px) 33vw, 50vw"
-            className="object-cover transition-transform duration-(--duration-medium) ease-slow group-hover:scale-[1.03] motion-reduce:transition-none"
-            {...(image.blurhash ? { placeholder: 'blur' as const, blurDataURL: blurDataUrl(image.blurhash) } : {})}
-          />
-        ) : null}
+        {photo && hiddenMedia ? (
+          <picture>
+            <source media={hiddenMedia} srcSet={BLANK_GIF} />
+            {photo}
+          </picture>
+        ) : (
+          photo
+        )}
         {distanceLabel ? (
           <Pill tone="scrim" className="absolute top-2.5 left-2.5">
             <span className="sr-only">La </span>

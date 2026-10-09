@@ -221,7 +221,8 @@ export function CompetitionBanner({ banner, name }: { banner: Banner; name: stri
       width={w || 1600}
       height={h || 900}
       sizes={small ? `${w}px` : '(min-width: 1280px) 50vw, (min-width: 768px) 720px, 100vw'}
-      priority
+      // The competition page's LCP: preloaded (Next 16's replacement for the deprecated `priority`).
+      preload
       style={style}
       className={className}
     />

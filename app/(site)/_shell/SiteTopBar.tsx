@@ -2,12 +2,12 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition, type RefObject } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { notificationsKeys, unreadNotificationsCountQuery } from '@/core/social';
-import { CommandPalette } from '@/components/nav/CommandPalette';
+import type { notificationsKeys } from '@/core/social';
 import { OPEN_PALETTE_EVENT } from '@/components/nav/openPalette';
 import { activeAdminKey, adminLinks, currentKind, navKeyForPath, PATHS, SECTIONS, type AdminLink } from '@/components/nav/items';
-import { MobileMenu, type MenuSession } from '@/components/nav/MobileMenu';
+import type { MenuSession } from '@/components/nav/MobileMenu';
 import { BREAKPOINT_MD } from '@/components/surfaces/rule';
 import { CONCEAL_TOP_PX, useBarConcealedFlag } from '@/components/nav/stickyStack';
 import { TopBar, type TopBarViewer } from '@/components/nav/TopBar';
@@ -15,6 +15,56 @@ import { useSignOut } from '@/lib/client/sign-out';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { signInHref, useIsNotFound } from './SiteHeader';
 import { isUnknownViewer, useShellViewer, useViewerState, type ShellViewer } from './viewer-context';
+
+/*
+ * The ☰ panel and the ⌘K palette are client-only chunks, fetched on the first opening (or once the
+ * page has loaded and gone idle, so that opening is instant) — never in the first load: the
+ * palette's search pulls core/lakes, core/competitions, core/social and zod into the shell of every
+ * page (M8-B4, global.b.performance-audit). The trigger buttons stay in the bar.
+ */
+const loadPalette = () => import('@/components/nav/CommandPalette').then((m) => m.CommandPalette);
+const loadMenu = () => import('@/components/nav/MobileMenu').then((m) => m.MobileMenu);
+const CommandPalette = dynamic(loadPalette, { ssr: false });
+const MobileMenu = dynamic(loadMenu, { ssr: false });
+
+/** true from the first time `open` is true: the panel then stays mounted (its state, its close). */
+function useOpenedOnce(open: boolean): boolean {
+  const [opened, setOpened] = useState(open);
+  if (open && !opened) setOpened(true);
+  return opened || open;
+}
+
+/** Fetches the panels' chunks once the page has loaded and gone idle (off the LCP path). */
+function usePrefetchPanels() {
+  useEffect(() => {
+    let idle = 0;
+    let timer = 0;
+    const go = () => {
+      loadMenu().catch(() => {});
+      loadPalette().catch(() => {});
+    };
+    const schedule = () => {
+      if (typeof window.requestIdleCallback === 'function') idle = window.requestIdleCallback(go, { timeout: 5_000 });
+      else timer = window.setTimeout(go, 2_000);
+    };
+    if (document.readyState === 'complete') schedule();
+    else window.addEventListener('load', schedule, { once: true });
+    return () => {
+      window.removeEventListener('load', schedule);
+      if (idle) window.cancelIdleCallback(idle);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, []);
+}
+
+/**
+ * core/social's unreadNotificationsCountQuery, with the module (and zod) imported only when a
+ * signed-in viewer's count is read. The key is core/social's `notificationsKeys.unread` (the type
+ * checks it), so every invalidation of it elsewhere still reaches the dot.
+ */
+const UNREAD_KEY = ['notifications', 'unread'] as const satisfies typeof notificationsKeys.unread;
+const readUnread = async (t: ReturnType<typeof createBrowserTransport>) =>
+  (await import('@/core/social')).getUnreadNotificationsForLoggedInUser(t);
 
 /** The unread dot: refreshed every 2 min, on focus, and whenever /notificari is opened. */
 const UNREAD_STALE_MS = 60_000;
@@ -151,6 +201,9 @@ export function SiteTopBar() {
   );
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
+  const menuMounted = useOpenedOnce(menuOpen);
+  const searchMounted = useOpenedOnce(searchOpen);
+  usePrefetchPanels();
 
   return (
     <>
@@ -166,27 +219,25 @@ export function SiteTopBar() {
       <Suspense fallback={null}>
         <QuietSessionRetry />
       </Suspense>
-      <MobileMenu
-        open={menuOpen}
-        onClose={closeMenu}
-        session={session}
-        onSignOut={signOut}
-        signingOut={signingOut}
-        retrying={retrying}
-        signInHref={signIn}
-        active={active}
-        activeCurrent={activeCurrent}
-        admin={admin}
-        onAdminRetry={adminFailed ? retry : undefined}
-        resetKey={known.pathname}
-      />
-      <CommandPalette
-        open={searchOpen}
-        onClose={closeSearch}
-        signedIn={signedIn}
-        signInHref={signIn}
-        admin={admin}
-      />
+      {menuMounted ? (
+        <MobileMenu
+          open={menuOpen}
+          onClose={closeMenu}
+          session={session}
+          onSignOut={signOut}
+          signingOut={signingOut}
+          retrying={retrying}
+          signInHref={signIn}
+          active={active}
+          activeCurrent={activeCurrent}
+          admin={admin}
+          onAdminRetry={adminFailed ? retry : undefined}
+          resetKey={known.pathname}
+        />
+      ) : null}
+      {searchMounted ? (
+        <CommandPalette open={searchOpen} onClose={closeSearch} signedIn={signedIn} signInHref={signIn} admin={admin} />
+      ) : null}
       <p role="status" className="sr-only">
         {signingOut ? 'Se închide sesiunea…' : ''}
       </p>
@@ -268,7 +319,10 @@ function Bar({
   }, [report, pathname, viewer]);
 
   const unread = useQuery({
-    ...unreadNotificationsCountQuery(t, { isAuthenticated: signedIn === true && !signingOut }),
+    queryKey: UNREAD_KEY,
+    queryFn: () => readUnread(t),
+    enabled: signedIn === true && !signingOut,
+    select: (data: { count: number }) => data.count,
     staleTime: UNREAD_STALE_MS,
     refetchOnWindowFocus: true,
     refetchInterval: UNREAD_POLL_MS,
@@ -276,7 +330,7 @@ function Bar({
 
   // Opening the notifications page is when the count changes: re-read it there.
   useEffect(() => {
-    if (signedIn === true && pathname === '/notificari') void qc.invalidateQueries({ queryKey: notificationsKeys.unread });
+    if (signedIn === true && pathname === '/notificari') void qc.invalidateQueries({ queryKey: UNREAD_KEY });
   }, [qc, signedIn, pathname]);
 
   const topBarViewer: TopBarViewer =

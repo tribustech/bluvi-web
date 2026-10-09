@@ -54,7 +54,9 @@ export async function ProfileCard({ className }: { className?: string }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={viewer.avatarUrl} alt="" className="size-16 shrink-0 rounded-avatar bg-soft-fill object-cover" />
       ) : (
-        <Image src={logo} alt="" width={64} height={64} className="size-16 shrink-0 rounded-avatar object-cover" priority />
+        // Decorative, 64 px: eager (above the fold) but never a preload or a high-priority fetch —
+        // those belong to the page's LCP image (M8-B4).
+        <Image src={logo} alt="" width={64} height={64} className="size-16 shrink-0 rounded-avatar object-cover" loading="eager" />
       )}
       <div className="flex min-w-0 flex-col gap-1">
         <Title className="t-title1 text-ink">

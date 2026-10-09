@@ -12,7 +12,7 @@ import { blurDataUrl } from '@/lib/blurhash';
 import { routes } from '@/lib/routes';
 import { track } from './analytics';
 import type { HomeCategory } from './categories';
-import { LAKE_GRID, LakeGridCard, LakeGridCardSkeleton } from './LakeGridCard';
+import { LAKE_GRID, LakeGridCard, LakeGridCardSkeleton, type PhotoPriority } from './LakeGridCard';
 import { lakeImage } from './lakeImage';
 
 /*
@@ -112,18 +112,27 @@ export function CategoryBar({
 /** The grid's section_key: fish's key for the CMS rows, the category key for the web's own. */
 const sectionKey = (key: string) => (key === 'all' ? 'all_lakes' : key);
 
+/** The grid's first cards whose photos load first (LCP): a 1280 row holds 4. */
+const FIRST_ROW = 4;
+
 export function HomeGrid({
   category,
   position,
   distanceOf,
   radiusAction,
   className,
+  scope = 'all',
 }: {
   category: HomeCategory;
   /** The category's place in the bar, 1-based: the grid's section_position (lakes.home.c28). */
   position: number;
   /** «7.4 km» for a lake in the nearby set. */
   distanceOf: (lake: LakeHomeSectionLake) => string | null;
+  /**
+   * Where the grid is shown, for its first row's LCP photos (LakeGridCard PhotoPriority): 'wide'
+   * when it is hidden below 768 (the phone has the rails), 'all' when it is the page at every width.
+   */
+  scope?: PhotoPriority;
   /** «Aproape de tine»: «50 km ›» to the nearby map instead of «Vezi pe hartă» (lakes.home.c12). */
   radiusAction?: { label: string; href: string } | null;
   className?: string;
@@ -197,7 +206,7 @@ export function HomeGrid({
       <ul className={LAKE_GRID} onClick={onClick}>
         {category.lakes.map((lake, i) => (
           <li key={lake.documentId} data-lake-id={lake.documentId} data-item-position={i + 1} className="min-w-0">
-            <LakeGridCard lake={lake} distanceLabel={distanceOf(lake)} priority={i < 4} />
+            <LakeGridCard lake={lake} distanceLabel={distanceOf(lake)} priority={i < FIRST_ROW ? scope : undefined} />
           </li>
         ))}
         <li data-grid-end="" className="min-w-0">

@@ -56,6 +56,17 @@ Tick every box before the launch day. Agents cannot do any of these.
       Variables» stays ON.** GA and the environment detection (`resolveAppEnv`, Sentry
       environment) read `NEXT_PUBLIC_VERCEL_ENV`, which Vercel inlines only while this toggle is
       on. Off → GA never loads in production, even after consent, and nothing else fails.
+- [ ] **Security headers / CSP** (none ship today). Before adding a `Content-Security-Policy`
+      header, account for the page's inline scripts: the first `<head>` script is reveal-now
+      (`lib/reveal-now.ts`, `REVEAL_NOW_SCRIPT`, global.b.performance-audit p1) — a fixed string, so
+      allow it by its `'sha256-…'` hash (recompute whenever the constant changes); React's
+      streaming runtime (`$RC`, `$RT`), Next's flight payload (`self.__next_f.push`) and the
+      geo-hint script on /balti are inline too and change per page. A nonce needs dynamic rendering
+      and is incompatible with this site's prerendered shells (Next CSP guide «Static vs Dynamic
+      Rendering with CSP»), so it is either `'unsafe-inline'` for scripts with an allow-list of
+      hosts, or Next's experimental SRI (hash-based) — decide and test on a preview first: a CSP
+      that blocks reveal-now silently brings back React's 300 ms reveal throttle (LCP), one that
+      blocks React's runtime leaves streamed content hidden.
 - [ ] Production env vars (§2) set **before** the production build: everything `NEXT_PUBLIC_*`,
       `SITE_INDEXABLE` and the Sentry build vars are read **at build time**. Changing one later means
       a redeploy.

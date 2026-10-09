@@ -385,7 +385,7 @@ export function LakesHome() {
       placeNearby();
       if (category) {
         blocks.push(
-          <HomeGrid key="grid-all" category={category} position={categories.indexOf(category) + 1} distanceOf={distanceOf} className="max-md:hidden" />,
+          <HomeGrid key="grid-all" category={category} position={categories.indexOf(category) + 1} distanceOf={distanceOf} scope="wide" className="max-md:hidden" />,
         );
       }
     }

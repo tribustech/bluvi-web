@@ -5,7 +5,7 @@
  * is the root main files plus the entry chunks of its page and every layout above it (gzip bytes,
  * what a browser downloads). It also flags the heavy libraries that must stay route-scoped and
  * lazy (maplibre-gl, supercluster, tiptap / prosemirror, firebase, gifenc): none may sit in the
- * first load of a public page.
+ * first load of a public page; and zod, which must stay out of the shell (/ and /stiri: none).
  *
  *   node scripts/lighthouse-bundles.mjs [.next-m8-perf] [--json]
  */
@@ -43,6 +43,9 @@ const HEAVY = {
   tiptap: /ProseMirror/,
   firebase: /@firebase\/app/,
   gifenc: /writeFrame/,
+  // zod's core (the class registry names its types): the shell must not carry it — the top bar's
+  // palette, menu and unread count load it on demand (M8-B4 follow-up). A page's own schemas may.
+  zod: /"\$ZodType"/,
 };
 
 const build = JSON.parse(readFileSync(path.join(dist, 'build-manifest.json'), 'utf8'));
