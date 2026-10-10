@@ -149,7 +149,8 @@ export function CommandPalette({ open, onClose, signedIn, signInHref = '/intra',
       {...dialog}
       aria-labelledby={titleId}
       className={cn(
-        'm-0 h-dvh max-h-none w-full max-w-none bg-surface p-0 text-ink',
+        // Phone: the visible area (the visual viewport) — the results end above the iOS keyboard.
+        'm-0 h-(--vv-h,100dvh) max-h-none w-full max-w-none bg-surface p-0 text-ink max-md:fixed max-md:inset-x-0 max-md:top-(--vv-top,0px) max-md:bottom-auto',
         'md:mx-auto md:mt-[12dvh] md:h-fit md:max-h-[min(--spacing(160),76dvh)] md:w-[calc(100%-var(--spacing)*12)] md:max-w-160 md:rounded-card md:shadow-e2',
         'backdrop:bg-scrim open:flex open:flex-col',
         'opacity-100 transition-[opacity,scale] duration-(--duration-medium) ease-slow starting:opacity-0 md:scale-100 md:starting:scale-98',

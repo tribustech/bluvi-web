@@ -1,9 +1,11 @@
 'use client';
 
-import { useId, type ReactNode } from 'react';
+import { useId, useRef, type ReactNode } from 'react';
 import { ChevronLeftIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { IconButton } from '@/components/nav/IconButton';
 import { useModalDialog } from './useModalDialog';
+import { useBreakpoint } from './useBreakpoint';
+import { DISMISS_MS, useSheetDrag } from './useSheetDrag';
 import { cn } from '@/components/ui/cn';
 
 /*
@@ -13,7 +15,9 @@ import { cn } from '@/components/ui/cn';
  * presentation, which Dialog / Sheet do not have (first used by the Concursuri search and filters).
  *
  *  - phone (<768): `fullScreen` fills the screen (fish CompetitionsSearchScreen, a full-screen
- *    Modal); otherwise an 85% bottom sheet (fish CompetitionFiltersSheet, snap 85%);
+ *    Modal); otherwise an 85% bottom sheet (fish CompetitionFiltersSheet, snap 85%) with the kit
+ *    Sheet's handle and gesture (useSheetDrag: drag the header, or pull the content down from its
+ *    top, to dismiss), sitting above the iOS keyboard (the visual viewport, useModalDialog);
  *  - from 768: a dialog (e2). The search is anchored near the top and grows DOWNWARD with its
  *    answer (min 320, at most 640 / 80dvh): its field never moves, and a three-row answer leaves no
  *    white band under it. The filters are centred, so they keep a fixed height (their sub-views swap
@@ -44,16 +48,33 @@ export function ModalSurface({
 }) {
   const dialog = useModalDialog(open, onClose, { backdrop: backdropDismiss });
   const titleId = useId();
+  const breakpoint = useBreakpoint();
+  const sheet = !fullScreen && breakpoint === 'mobile';
+  const body = useRef<HTMLDivElement>(null);
+  const drag = useSheetDrag({
+    open,
+    enabled: sheet,
+    panelRef: dialog.ref,
+    scrollerRef: body,
+    rests: () => [dialog.ref.current?.offsetHeight ?? 0],
+    restIndex: () => 0,
+    dismissible: true,
+    onSettle: () => {},
+    onClose,
+  });
   return (
     <dialog
       {...dialog}
       aria-labelledby={titleId}
+      style={sheet ? { ...drag.style, ...(drag.dismissing ? { transitionDuration: `${DISMISS_MS}ms` } : null) } : undefined}
       className={cn(
         'max-w-none bg-surface p-0 text-ink shadow-e2 backdrop:bg-scrim open:flex open:flex-col',
-        'transition-[opacity,translate,scale] duration-(--duration-slow) ease-slow',
+        drag.dragging ? 'transition-none' : 'transition-[opacity,translate,scale,height] duration-(--duration-slow) ease-slow',
+        drag.dismissing && 'ease-out',
         fullScreen
-          ? 'max-md:fixed max-md:inset-0 max-md:m-0 max-md:h-dvh max-md:max-h-none max-md:w-full max-md:translate-y-0 max-md:starting:translate-y-6 max-md:starting:opacity-0'
-          : 'max-md:fixed max-md:inset-x-0 max-md:top-auto max-md:bottom-0 max-md:m-0 max-md:h-[85dvh] max-md:max-h-none max-md:w-full max-md:rounded-t-card max-md:translate-y-0 max-md:starting:translate-y-full',
+          ? 'max-md:fixed max-md:inset-x-0 max-md:top-(--vv-top,0px) max-md:bottom-auto max-md:m-0 max-md:h-(--vv-h,100dvh) max-md:max-h-none max-md:w-full max-md:translate-y-0 max-md:starting:translate-y-6 max-md:starting:opacity-0'
+          : // The bottom follows the visual viewport (the iOS keyboard's top), the height the visible area.
+            'max-md:fixed max-md:inset-x-0 max-md:top-auto max-md:bottom-(--vv-bottom,0px) max-md:m-0 max-md:h-[min(85dvh,calc(var(--vv-h,100dvh)*0.92))] max-md:max-h-none max-md:w-full max-md:overflow-clip max-md:rounded-t-card max-md:translate-y-0 max-md:starting:translate-y-full',
         // From 768: the kit Dialog's frame, a little wider for the search's two-line rows. The search
         // is top-anchored (as the ⌘K palette), so growing with its suggestions never moves the field;
         // the centred filters keep a FIXED height, their sub-views (Filtre / Perioadă / Județ)
@@ -64,7 +85,16 @@ export function ModalSurface({
           : 'md:m-auto md:h-[min(680px,85dvh)] md:max-h-none md:max-w-[480px]',
       )}
     >
-      <div className={cn('flex shrink-0 items-center gap-1 px-5 pt-3 pb-2', !fullScreen && 'border-b border-hairline pb-3')}>
+      {sheet ? (
+        // The kit Sheet's handle (36×4), the drag area together with the header under it.
+        <div {...drag.handleProps} data-sheet-handle="" className="flex shrink-0 cursor-grab touch-none justify-center pt-2.5 select-none active:cursor-grabbing md:hidden">
+          <span aria-hidden className="h-1 w-9 rounded-full bg-handle" />
+        </div>
+      ) : null}
+      <div
+        {...(sheet ? drag.handleProps : null)}
+        className={cn('flex shrink-0 items-center gap-1 px-5 pt-3 pb-2', !fullScreen && 'border-b border-hairline pb-3', sheet && 'touch-none pt-1 select-none')}
+      >
         {back ? (
           <IconButton aria-label={back.label} onClick={back.onBack} className="-ml-3">
             <ChevronLeftIcon aria-hidden />
@@ -79,7 +109,9 @@ export function ModalSurface({
           <XMarkIcon aria-hidden />
         </IconButton>
       </div>
-      <div className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain px-5', bodyClassName)}>{children}</div>
+      <div ref={body} data-sheet-body={sheet ? '' : undefined} className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain px-5', !footer && 'pb-[env(safe-area-inset-bottom)]', bodyClassName)}>
+        {children}
+      </div>
       {footer ? (
         <div className="shrink-0 border-t border-hairline px-5 pt-3 pb-[max(var(--spacing)*4,env(safe-area-inset-bottom))]">{footer}</div>
       ) : null}

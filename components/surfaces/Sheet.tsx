@@ -1,14 +1,20 @@
 'use client';
 
-import { useId, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useId, useRef, useState, type ReactNode } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/components/ui/cn';
 import { useModalDialog } from './useModalDialog';
+import { DISMISS_MS, useSheetDrag } from './useSheetDrag';
 
-/** `fit`: as tall as the content (capped at 95%) — a short informational sheet, no dead space. */
+/** `fit`: as tall as the content (capped at 92%) — a short informational sheet, no dead space. */
 export type SheetSnap = 0.5 | 0.9 | 'fit';
-/** Released below this fraction of the viewport (from the 50% snap), the sheet closes. */
-const CLOSE_BELOW = 0.3;
+
+/**
+ * The visible area's height (the visual viewport, so the sheet sits above the iOS keyboard), set on
+ * the <dialog> by useModalDialog; the full dynamic viewport until it is known.
+ */
+const VH = 'var(--vv-h,100dvh)';
+const SNAP_HEIGHT = { 0.5: `calc(${VH}*0.5)`, 0.9: `calc(${VH}*0.9)` } as const;
 
 type Props = {
   open: boolean;
@@ -34,10 +40,17 @@ type Props = {
 };
 
 /**
- * Mobile bottom sheet (<768): drag the handle/header to resize, snaps at its initial snap (50% of
- * the viewport, or `fit` — the content's own height) and 90%, dragged low enough it closes. The
- * handle is also a button (Enter/Space toggles initial ↔ 90) so the snap is reachable without a
- * pointer. Modal: scrim, Escape and scrim tap close.
+ * THE phone bottom sheet (<768) — every phone sheet of the site is this one (directly, through
+ * ResponsiveSurface, or ModalSurface's sheet), behaving as fish's gorhom sheets:
+ *  - rests at its initial snap (50% of the visible height, or `fit` — the content's own height) and
+ *    90%; the handle / header drags it, with momentum (sheetPhysics, the lakes map sheet's model);
+ *    pulling down on the content while it is scrolled to its top drags it too; dragged / flicked low
+ *    enough it slides away and closes. The handle is also a button (Enter/Space toggles initial ↔ 90).
+ *  - the content scrolls inside (only when taller than the sheet) and never hands the scroll on;
+ *    the page behind never scrolls or rubber-bands (useModalDialog → scrollLock);
+ *  - max 92% of the visible height, bottom safe area kept, above the bottom tab bar (top layer), and
+ *    above the iOS keyboard (the dialog follows the visual viewport);
+ *  - modal: scrim tap and Escape close, focus is contained and returned (native <dialog>).
  */
 export function Sheet({
   open,
@@ -56,51 +69,38 @@ export function Sheet({
   const dialog = useModalDialog(open, onClose, { backdrop: backdropDismiss });
   const titleId = useId();
   const [snap, setSnap] = useState<SheetSnap>(initialSnap);
-  /** While dragging: the pointer's travel and the panel's height when the drag began (px). */
-  const [drag, setDrag] = useState<{ dy: number; base: number } | null>(null);
   // Every opening starts at the initial snap.
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) setSnap(initialSnap);
   }
-  const start = useRef<{ y: number; moved: boolean; base: number } | null>(null);
   const panel = useRef<HTMLDivElement>(null);
-  /** The fitted height last seen (px): where a `fit` sheet returns to from 90%. */
-  const fitPx = useRef(0);
+  const body = useRef<HTMLDivElement>(null);
   /** The other end of the handle's toggle: 90%, or back to the initial snap (0.5 when that is 90). */
   const low: SheetSnap = initialSnap === 0.9 ? 0.5 : initialSnap;
+  /** The fitted height last seen (px): where a `fit` sheet returns to from 90%. */
+  const fitPx = useRef(0);
 
-  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    const base = panel.current?.offsetHeight ?? 0;
-    if (snap === 'fit') fitPx.current = base;
-    start.current = { y: e.clientY, moved: false, base };
-  };
-  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    const s = start.current;
-    if (!s) return;
-    const dy = e.clientY - s.y;
-    if (!s.moved && Math.abs(dy) > 4) {
-      s.moved = true;
-      // Capture only once it is a drag, so a plain tap still clicks the handle button.
-      e.currentTarget.setPointerCapture(e.pointerId);
-    }
-    if (s.moved) setDrag({ dy, base: s.base });
-  };
-  const onPointerUp = () => {
-    const s = start.current;
-    start.current = null;
-    setDrag(null);
-    if (!s || !s.moved || !drag) return;
-    const vh = window.innerHeight;
-    const fraction = (s.base - drag.dy) / vh;
-    const lowFraction = low === 'fit' ? (fitPx.current || vh / 2) / vh : low;
-    // Below 60% of the low snap it closes (0.3 of the viewport for the 50% snap).
-    if (fraction < lowFraction * (CLOSE_BELOW / 0.5)) return onClose();
-    setSnap(Math.abs(0.9 - fraction) < Math.abs(lowFraction - fraction) ? 0.9 : low);
-  };
+  const drag = useSheetDrag({
+    open,
+    enabled: !fixed,
+    panelRef: panel,
+    scrollerRef: body,
+    rests: () => {
+      const h = dialog.ref.current?.clientHeight || window.innerHeight;
+      // A `fit` sheet's low rest is its own height, measured while it rests there.
+      const lowPx = low === 'fit' ? (snap === 'fit' ? (panel.current?.offsetHeight ?? h / 2) : fitPx.current || h / 2) : low * h;
+      if (snap === 'fit') fitPx.current = lowPx;
+      return [lowPx, 0.9 * h];
+    },
+    restIndex: () => (snap === 0.9 ? 1 : 0),
+    dismissible: true,
+    onSettle: (i) => setSnap(i === 1 ? 0.9 : low),
+    onClose,
+  });
 
-  const height = drag ? `${drag.base - drag.dy}px` : snap === 'fit' ? undefined : `${snap * 100}dvh`;
+  const height = snap === 'fit' ? undefined : SNAP_HEIGHT[snap];
 
   return (
     <dialog
@@ -112,22 +112,28 @@ export function Sheet({
         // scroll to reveal it and stay scrolled — the panel left undocked, its top clipped. A clipped
         // box is not a scroll container: the panel's own body scrolls instead.
         // text-left: a <dialog> inherits from where it is mounted (a centred header would centre it).
-        'fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none overflow-clip bg-transparent p-0 text-left text-ink',
+        // The visible area (top / height of the visual viewport): with the iOS keyboard up the sheet
+        // sits on the keyboard, not under it.
+        'fixed inset-x-0 top-(--vv-top,0px) bottom-auto m-0 h-(--vv-h,100dvh) max-h-none w-full max-w-none overflow-clip bg-transparent p-0 text-left text-ink',
         'backdrop:bg-scrim open:flex open:flex-col open:justify-end',
         className,
       )}
     >
       <div
         ref={panel}
-        style={{ height }}
+        data-sheet-panel=""
+        style={{ height, ...drag.style, ...(drag.dismissing ? { transitionDuration: `${DISMISS_MS}ms` } : null) }}
         className={cn(
-          'flex max-h-[95dvh] w-full flex-col rounded-t-card bg-surface shadow-e2',
+          'flex max-h-[calc(var(--vv-h,100dvh)*0.92)] w-full flex-col rounded-t-card bg-surface shadow-e2',
           'translate-y-0 starting:translate-y-full',
-          !drag && 'transition-[height,translate] duration-(--duration-slow) ease-slow',
+          drag.dismissing
+            ? 'transition-[translate] ease-out'
+            : !drag.dragging && 'transition-[height,translate] duration-(--duration-slow) ease-slow',
         )}
       >
         <div
-          {...(fixed ? {} : { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp })}
+          {...drag.handleProps}
+          data-sheet-handle=""
           className={cn('relative shrink-0 px-5 pt-2.5 pb-3', !fixed && 'cursor-grab touch-none select-none active:cursor-grabbing')}
         >
           {closeButton ? (
@@ -160,7 +166,17 @@ export function Sheet({
           </h2>
           {subtitle ? <div className={cn('t-caption text-muted', closeButton && 'pr-10')}>{subtitle}</div> : null}
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4">{children}</div>
+        <div
+          ref={body}
+          data-sheet-body=""
+          className={cn(
+            'min-h-0 flex-1 overflow-y-auto overscroll-contain px-5',
+            // No footer: the content clears the home indicator itself.
+            footer ? 'pb-4' : 'pb-[max(--spacing(4),env(safe-area-inset-bottom))]',
+          )}
+        >
+          {children}
+        </div>
         {footer ? (
           <div className="shrink-0 border-t border-hairline px-5 pt-3 pb-[max(16px,env(safe-area-inset-bottom))]">
             {footer}
