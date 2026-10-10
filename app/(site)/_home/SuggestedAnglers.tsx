@@ -7,7 +7,7 @@ import { createBrowserTransport } from '@/lib/client/transport';
 import { dismissedStore, useDismissedSuggestions } from '@/components/account/suggestions/dismissedStore';
 import { SuggestedAnglerCard } from '@/components/account/suggestions/SuggestedAnglerCard';
 import { announce, prepareAnnouncer, restoreFocusTo } from './announce';
-import { HorizontalRail, RailItem } from './HorizontalRail';
+import { HorizontalRail, RailItem, HOME_RAIL_BLEED } from './HorizontalRail';
 import { RailSection } from './RailSection';
 import { homeLinks } from './links';
 
@@ -42,7 +42,8 @@ export function SuggestedAnglers() {
   return (
     <RailSection title="Pescari pe care îi poți urmări" href={homeLinks.suggestedAnglers}>
       <PrepareAnnouncer />
-      <HorizontalRail label="Pescari sugerați" width={160}>
+      <HorizontalRail
+              className={HOME_RAIL_BLEED} label="Pescari sugerați" width={160}>
         {visible.map((a, i) => (
           <RailItem key={a.documentId} width={160}>
             {/* fish's one SuggestedAnglerCard, followSource «home_rail» (the same card as «Vezi toate»). */}

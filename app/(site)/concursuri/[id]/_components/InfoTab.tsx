@@ -4,7 +4,14 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { analyticsAttrs } from '@/components/analytics/attrs';
-import { competitionProgress, type CompetitionWithMyStatus } from '@/core/competitions';
+import {
+  competitionProgress,
+  DEFAULT_PARTICIPANTS_LIMIT,
+  getParticipationType,
+  getRankingTypeLabel,
+  registrationCounts,
+  type CompetitionWithMyStatus,
+} from '@/core/competitions';
 import { DetailAsideCard, DetailBody, DetailFacts, DetailSection } from '@/components/templates/T3';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/components/ui/cn';
@@ -26,8 +33,8 @@ import { ClampedRichText } from './tabParts';
  * The banner is never blown up past its own size (CompetitionBanner).
  *
  * Web differences: fish's «Taxă de inscriere» is spelt «Taxă de înscriere»; «CONTACT» is the
- * sentence-case section title «Contact» and the duration dates are sentence case (Fundații: no
- * all-caps); «51 de ore» (fish: «51 ore»); sponsors are an auto-fill grid, not a sideways rail.
+ * sentence-case section title «Contact» and the duration dates are sentence case from 768 (Fundații:
+ * no all-caps) — below 768 fish's «CONTACT» and «VIN, 21 AUG 2026» (ROADMAP §4b.25); «51 de ore» (fish: «51 ore»); sponsors are an auto-fill grid, not a sideways rail.
  */
 
 export function InfoTab({ competition }: { competition: CompetitionWithMyStatus }) {
@@ -47,30 +54,76 @@ export function InfoTab({ competition }: { competition: CompetitionWithMyStatus 
       {c.banner ? <CompetitionBanner banner={c.banner} name={c.name} /> : null}
 
       {c.description?.length ? (
-        <DetailSection id="descriere" title="Descriere">
+        <DetailSection id="descriere" title="Descriere" className={PHONE_SECTION}>
           <ClampedRichText blocks={normalizeRichLinks(c.description)} title="Descriere" />
         </DetailSection>
       ) : null}
 
-      {/* Below 1280 (from 1280 the left column has them). */}
-      <DetailSection title="Detalii" className="xl:hidden">
-        <DetailFacts layout="grid" className="md:grid-cols-4" facts={competitionFacts(c, 'grid')} />
+      {/* Below 1280 (from 1280 the left column has them). The phone draws fish's 2 × 2 block
+          (FishFacts) under no visible heading, as fish. */}
+      <DetailSection title="Detalii" className={cn('xl:hidden', PHONE_SECTION, 'max-md:[&>div:first-child]:sr-only')}>
+        <DetailFacts layout="grid" className="max-md:hidden md:grid-cols-4" facts={competitionFacts(c, 'grid')} />
+        <FishFacts competition={c} />
       </DetailSection>
 
       <DurationSection competition={c} />
 
       {c.fishType.length > 0 ? (
-        <DetailSection id="pesti" title="Pești de prins">
+        <DetailSection id="pesti" title="Pești de prins" className={PHONE_SECTION}>
           <SpeciesList label="Pești de prins" species={c.fishType.map(f => ({ id: f.documentId, name: f.Name }))} />
         </DetailSection>
       ) : null}
 
       {c.reward?.length ? (
-        <DetailSection id="premii" title="Premii">
+        <DetailSection id="premii" title="Premii" className={PHONE_SECTION}>
           <ClampedRichText blocks={normalizeRichLinks(c.reward)} title="Premii" />
         </DetailSection>
       ) : null}
     </DetailBody>
+  );
+}
+
+/**
+ * Phone (§4b.25): fish CompetitionInfo draws its blocks on the white screen, 16px apart, each titled
+ * in the body step (14/600) — no section cards, no title2 headings.
+ */
+const PHONE_SECTION = 'max-md:rounded-none max-md:bg-transparent max-md:py-2 max-md:shadow-none max-md:[&>div:first-child]:mb-2 max-md:[&>div:first-child_h2]:t-body';
+
+/**
+ * fish CompetitionInfo's facts on the phone: two rows of two — «Taxă de înscriere» over the fee in
+ * title1 indigo-5, «Tipul de concurs» over fish's violet badge, «Tipul de participare» over its blue
+ * badge, the registrations over «n / limit» in muted body (it opens Participanți, as fish).
+ */
+function FishFacts({ competition: c }: { competition: CompetitionWithMyStatus }) {
+  const { approved, pending } = registrationCounts(c.registrations);
+  const limit = c.participantsLimit || DEFAULT_PARTICIPANTS_LIMIT;
+  const waiting = c.competitionStatus === 'notStarted' && pending > 0 ? pending : 0;
+  const label = 't-body text-ink';
+  return (
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-4 md:hidden">
+      <div className="flex flex-col">
+        <dt className={label}>Taxă de înscriere</dt>
+        <dd className="t-title1 text-fish-indigo5">{c.registerFee ? `${c.registerFee} lei` : 'Intrare gratuită'}</dd>
+      </div>
+      <div className="flex flex-col items-start gap-2">
+        <dt className={label}>Tipul de concurs</dt>
+        <dd className="rounded-badge bg-fish-badge-violet px-1 py-0.5 t-label text-fish-badge-violet-ink">{getRankingTypeLabel(c)}</dd>
+      </div>
+      <div className="flex flex-col items-start gap-2">
+        <dt className={label}>Tipul de participare</dt>
+        <dd className="rounded-badge bg-fish-badge-blue px-1 py-0.5 t-label text-fish-badge-blue-ink">{getParticipationType(c)}</dd>
+      </div>
+      <div className="flex flex-col items-start gap-2">
+        <dt className={label}>{c.competitionType === 'team' ? 'Echipe înscrise' : 'Participanți înscriși'}</dt>
+        <dd className="t-body">
+          <Link href={routes.competitionParticipants(c.documentId)} className="text-ink-2 tabular-nums hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent">
+            {approved} / {limit}
+            <span className="sr-only">, vezi participanții</span>
+          </Link>
+          {waiting ? <span className="text-fish-orange"> ({waiting} în așteptare)</span> : null}
+        </dd>
+      </div>
+    </dl>
   );
 }
 
@@ -107,7 +160,7 @@ function DurationSection({ competition: c }: { competition: CompetitionWithMySta
   const start = timeBadge(c.startDate);
   const end = timeBadge(c.endDate);
   return (
-    <DetailSection id="durata" title={`Durata concursului (${competitionDuration(c.startDate, c.endDate)})`}>
+    <DetailSection id="durata" title={`Durata concursului (${competitionDuration(c.startDate, c.endDate)})`} className={PHONE_SECTION}>
       <div className="flex flex-col gap-2">
         <Meter thumb value={progress} label="Timp scurs din concurs" valueText={progress === null ? 'Se calculează' : `${progress}%`} />
         <div className="flex justify-between gap-4">
@@ -127,7 +180,7 @@ function TimeMark({ label, time, date, dateLong, align = 'start' }: { label: str
       <Badge color="indigo" className={cn('tabular-nums', align === 'end' && 'self-end!')}>
         {time}
       </Badge>
-      <span className="t-caption text-muted md:hidden">{date}</span>
+      <span className="t-caption text-muted uppercase md:hidden">{date}</span>
       <span className="t-caption text-muted max-md:hidden">{dateLong}</span>
     </p>
   );

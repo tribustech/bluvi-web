@@ -89,7 +89,8 @@ export function PollCard({ layout, signedIn }: { layout: 'mobile' | 'desktop'; s
   return (
     // The plain T5 card, on the surface like every other card of the column (fish tints the poll's
     // ground; the web keeps the column's one surface / hairline rhythm — the share bars carry the tint).
-    <DashboardSection variant="card" title={poll.title} action={<ShareButton title={poll.title} />}>
+    // Below 768 fish's tinted ground (indigo1, no shadow) and its tinted share square (§4b.25).
+    <DashboardSection variant="card" className="max-md:bg-indigo-1 max-md:shadow-none" title={poll.title} action={<ShareButton title={poll.title} />}>
       <div className="flex flex-col gap-3">
       {poll.description ? <p className="t-body text-ink">{poll.description}</p> : null}
 
@@ -301,7 +302,7 @@ function ShareButton({ title }: { title: string }) {
   };
 
   return (
-    <div className="relative -my-3 flex shrink-0 items-center xl:-my-2">
+    <div className="relative -my-3 flex shrink-0 items-center xl:-my-2 max-md:[&>button]:bg-indigo-2">
       <span
         role="status"
         className={cn('absolute right-full mr-2 whitespace-nowrap rounded-badge bg-surface px-1.5 py-0.5 t-caption text-accent-ink shadow-e0', !copied && 'sr-only')}

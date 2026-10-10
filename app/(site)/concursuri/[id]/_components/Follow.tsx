@@ -63,7 +63,7 @@ function followErrorMessage(error: unknown): string {
  * too (parity shell.c5: n = viewers, 0 when absent; the list then says «Nu există urmăritori»), so the
  * badge row keeps its anatomy and the first follow only changes the number.
  */
-export function FollowersPill({ competition }: { competition: CompetitionWithMyStatus }) {
+export function FollowersPill({ competition, look }: { competition: CompetitionWithMyStatus; /** Phone: fish's pill ($gray7, radius 4, 26px, white 12/700, §4b.25). */ look?: 'fish' }) {
   const [open, setOpen] = useState(false);
   const count = Math.max(0, competition.viewers ?? 0);
   return (
@@ -73,15 +73,27 @@ export function FollowersPill({ competition }: { competition: CompetitionWithMyS
         — and no side padding, so it lines up with the title when it leads the row. Phone: a 44px
         target whose extra height hangs outside the row (-my), so the row is as tall as its pills.
       */}
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        onClick={() => setOpen(true)}
-        className="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 t-label whitespace-nowrap text-ink-2 hover:text-ink hover:underline max-md:-my-2.5 md:min-h-9"
-      >
-        <EyeSolidIcon aria-hidden className={PRESENCE_ICON.strong} />
-        {count} {count === 1 ? 'urmăritor' : 'urmăritori'}
-      </button>
+      {look === 'fish' ? (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
+          className="inline-flex h-6.5 shrink-0 cursor-pointer items-center gap-1 rounded-sm bg-fish-gray7 px-2 t-label whitespace-nowrap text-fish-on active:bg-fish-chip-icon"
+        >
+          <EyeSolidIcon aria-hidden className="size-4" />
+          {count} {count === 1 ? 'urmăritor' : 'urmăritori'}
+        </button>
+      ) : (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
+          className="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 t-label whitespace-nowrap text-ink-2 hover:text-ink hover:underline max-md:-my-2.5 md:min-h-9"
+        >
+          <EyeSolidIcon aria-hidden className={PRESENCE_ICON.strong} />
+          {count} {count === 1 ? 'urmăritor' : 'urmăritori'}
+        </button>
+      )}
       <FollowersSurface open={open} onClose={() => setOpen(false)} competitionId={competition.documentId} />
     </>
   );
@@ -130,7 +142,10 @@ export function FollowToggle({
   overlayFailed = false,
   onRecheckOverlay,
   size = 'default',
+  look,
 }: {
+  /** Phone: fish FollowButton (26px, radius 4, indigo-5 → $gray7 once following, white 14, §4b.25). */
+  look?: 'fish';
   /** `compact` (36px) in the phone's badge row, so the state line stays a light row under the meta. */
   size?: ButtonSize;
   competition: CompetitionWithMyStatus;
@@ -163,7 +178,12 @@ export function FollowToggle({
 
   // Session not known yet, or the statute still loading: a bone of the button's size (nothing moves).
   if (viewer === undefined || statutePending) {
-    return <span aria-hidden className={cn('block w-36 shrink-0 animate-shimmer rounded-control', size === 'compact' ? 'h-9' : 'h-12 xl:h-10')} />;
+    return (
+      <span
+        aria-hidden
+        className={cn('block shrink-0 animate-shimmer', look === 'fish' ? 'h-6.5 w-28 rounded-sm' : cn('w-36 rounded-control', size === 'compact' ? 'h-9' : 'h-12 xl:h-10'))}
+      />
+    );
   }
 
   if (viewer && overlayFailed) {
@@ -221,9 +241,26 @@ export function FollowToggle({
     timer.current = setTimeout(act, FOLLOW_DEBOUNCE_MS);
   };
 
+  const button =
+    look === 'fish' ? (
+      <button
+        type="button"
+        aria-pressed={viewer ? isFollowing : undefined}
+        aria-busy={follow.isPending || undefined}
+        onClick={onPress}
+        className={cn(
+          'inline-flex h-6.5 shrink-0 cursor-pointer items-center gap-1.5 rounded-sm px-2 t-body text-fish-on transition-colors duration-(--duration-fast)',
+          isFollowing ? 'bg-fish-gray7 active:bg-fish-indigo5' : 'bg-fish-indigo5 active:bg-indigo-4',
+        )}
+      >
+        {isFollowing ? <BellAlertSolidIcon aria-hidden className="size-4" /> : <EyeSolidIcon aria-hidden className="size-4" />}
+        {isFollowing ? 'Urmăresc' : 'Urmărește'}
+      </button>
+    ) : null;
+
   return (
     <>
-      <Button
+      {button ?? <Button
         // The call to action is tonal (Fundații §07 button sheet; on an upcoming competition
         // «Înscrie-te» stays the one filled action); once following it steps back to the quiet,
         // selected look — neutral ground, ink-2 label, the solid bell — so the two states differ at
@@ -238,7 +275,7 @@ export function FollowToggle({
         onClick={onPress}
       >
         {isFollowing ? 'Urmăresc' : 'Urmărește'}
-      </Button>
+      </Button>}
       {viewer ? (
         // fish FollowNotificationsSheet `celebrate` (account.b.follow-celebrate): the shared panel.
         <PreferencesPanel

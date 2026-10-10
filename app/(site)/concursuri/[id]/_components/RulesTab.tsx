@@ -81,7 +81,8 @@ export function RulesTab({ competition }: { competition: CompetitionWithMyStatus
         <DetailSectionState
           // Shares the column with the Contact card (below 1280) / sits between the side columns:
           // the column's width, not the 720 frame of a state alone in the body.
-          className="max-w-none!"
+          // Phone (§4b.25): fish's one plain line at the top, no icon (the call button stays: a web extra).
+          className="max-w-none! max-md:[&>div]:items-start max-md:[&>div]:px-4 max-md:[&>div]:py-4 max-md:[&>div]:text-left max-md:[&>div>span:first-child]:hidden max-md:[&_h2]:t-body max-md:[&_h2]:text-ink max-md:[&_p]:hidden"
           icon={
             <span className="flex size-12 items-center justify-center rounded-full bg-accent-tint text-accent-ink [&>svg]:size-6">
               <DocumentTextIcon aria-hidden />

@@ -600,10 +600,26 @@ for (const vp of [PHONE, DESKTOP]) {
   });
 }
 
-for (const vp of [PHONE, TABLET]) {
+test('competition-page.informatii.c4 c5 c6 §4b.25 — phone: fish\'s four facts, 2 × 2 — the label over the value, the fee in indigo, the type badges, the registrations a link', async ({ page }) => {
+  await open(page, info(ID.sponsors), PHONE);
+  const facts = page.getByRole('heading', { name: 'Detalii' }).locator('xpath=ancestor::section[1]').locator('dl').locator('visible=true');
+  await expect(facts).toHaveCount(1);
+  const tiles = facts.locator('> div');
+  await expect(tiles.locator('dt')).toHaveText(['Taxă de înscriere', 'Tipul de concurs', 'Tipul de participare', /^(Participanți înscriși|Echipe înscrise)$/]);
+  // Two columns: the first two side by side, the next two under them.
+  const box = await tiles.evaluateAll(els => els.map(el => el.getBoundingClientRect()).map(r => ({ x: Math.round(r.x), y: Math.round(r.y) })));
+  expect(box[0].y).toBe(box[1].y);
+  expect(box[2].y).toBe(box[3].y);
+  expect(box[0].x).toBe(box[2].x);
+  expect(box[2].y).toBeGreaterThan(box[0].y);
+  await expect(tiles.nth(1).locator('dd')).toHaveText('Campionat Mondial FIPSed');
+  await expect(tiles.nth(3).getByRole('link', { name: /99 \/ 99/ })).toHaveAttribute('href', `/concursuri/${ID.sponsors}/participanti`);
+});
+
+for (const vp of [TABLET]) {
   test(`competition-page.informatii.c4 competition-page.informatii.c5 competition-page.informatii.c6 competition-page.informatii.s3 — the four fact tiles share one rhythm: values at the tile’s edge, labels on one baseline (${vp.width}px)`, async ({ page }) => {
     await open(page, info(ID.sponsors), vp);
-    const tiles = page.getByRole('heading', { name: 'Detalii' }).locator('xpath=ancestor::section[1]').locator('dl > div');
+    const tiles = page.getByRole('heading', { name: 'Detalii' }).locator('xpath=ancestor::section[1]').locator('dl').locator('visible=true').locator('> div');
     await expect(tiles).toHaveCount(4);
     const geo = await tiles.evaluateAll(els =>
       els.map(el => {
@@ -635,16 +651,13 @@ for (const vp of [PHONE, TABLET]) {
   });
 }
 
-test(`competition-page.informatii.c2 competition-page.informatii.s2 — a large banner: edge to edge on the phone, a card at its own ratio from 768 (no grey stage)`, async ({ page }) => {
+test(`competition-page.informatii.c2 competition-page.informatii.s2 — a large banner: fish's inset card on the phone (16px gutter, 12px corners, §4b.25), a card at its own ratio from 768 (no grey stage)`, async ({ page }) => {
   const img = page.getByRole('img', { name: /^Afișul concursului/ });
   await open(page, info(ID.sponsors), PHONE);
   let box = (await img.boundingBox())!;
-  expect(box.x).toBe(0);
-  expect(box.width).toBe(PHONE.width);
-  expect(await img.evaluate(el => getComputedStyle(el).borderTopLeftRadius)).toBe('0px');
-  // The first block sits 8px under the tabs, like every other gap of the phone body.
-  const body = (await page.locator('[data-t3="body"]').boundingBox())!;
-  expect(Math.round(box.y - body.y)).toBe(8);
+  expect(Math.round(box.x)).toBe(16);
+  expect(Math.round(box.width)).toBe(PHONE.width - 32);
+  expect(await img.evaluate(el => [getComputedStyle(el).borderTopLeftRadius, getComputedStyle(el.parentElement!).borderTopLeftRadius])).toContain('12px');
 
   await open(page, info(ID.sponsors), TABLET);
   box = (await img.boundingBox())!;
@@ -709,12 +722,12 @@ const SIGN_IN_HINT = 'Statisticile pescarilor se văd după ce';
 const GUEST_LINE = 'Statisticile nu sunt disponibile pentru utilizatorii adăugați manual.';
 /** The phone card's corner tag (fish: «Stand X» / «Nealocat»), found by its text, never by DOM position. */
 const TAG = /^(Stand .+|Nealocat)$/;
-const tagOf = (card: Locator) => card.getByText(TAG);
-/** Every phone card's corner tag text, in order (one tag per card). */
+const tagOf = (card: Locator) => card.getByText(TAG).locator('visible=true');
+/** Every phone card's corner tag text, in order (one shown tag per card; each width draws its own). */
 const cardTags = (page: Page) =>
   cards(page).evaluateAll((els, source) => {
     const re = new RegExp(source);
-    return els.map(e => [...e.querySelectorAll('span')].map(n => n.textContent?.trim() ?? '').filter(t => re.test(t)).join(' | '));
+    return els.map(e => [...e.querySelectorAll('span')].filter(n => n.getClientRects().length > 0).map(n => n.textContent?.trim() ?? '').filter(t => re.test(t)).join(' | '));
   }, TAG.source);
 
 /** The approved registrations as the page lists them: by stand, naturally, unallocated first (core). */
@@ -1232,21 +1245,25 @@ test(`competition-page.participanti.c8 competition-page.participanti.s7 — an o
   expect(await gap(0)).toBeGreaterThan(8);
 });
 
-test(`competition-page.informatii.c1 competition-page.participanti.c1 competition-page.regulament.c1 — signed in on the phone: a route tab’s skeleton already has the Chat bar, where the loaded bar lands`, async ({ page, context }) => {
+test(`competition-page.informatii.c1 competition-page.participanti.c1 competition-page.regulament.c1 §4b.25 — signed in on the phone: a route tab’s skeleton already has fish's floating «Acțiuni», where the loaded button lands`, async ({ page, context }) => {
   await signIn(context, jwt);
   const release = await holdTabSkeleton(page, ID.rich, 'informatii', 'Informații', PHONE);
-  // CompetitionScreen's rule (barHasActions): a signed-in reader always has Chat in the bar.
-  await expect(page.locator('[data-bone="chat-bar"]')).toBeVisible();
-  const bar = page.getByRole('region', { name: 'Bara de acțiuni' });
-  const boneBar = (await bar.boundingBox())!;
+  // CompetitionScreen's rule (actionsTile): a route tab of a started / ended competition has only
+  // fish's floating «Acțiuni» button (fish ActionButton), no bar and no Chat tile.
+  const bone = page.locator('[data-bone="actions-button"] > span');
+  await expect(bone).toBeVisible();
+  const boneBox = (await bone.boundingBox())!;
   await release();
   await expect(page.getByRole('region', { name: /^Durata concursului/ })).toBeVisible();
   await settle(page);
-  // participant.b.chat-entry: the Chat tile is a link to the chat page.
-  await expect(bar.getByRole('link', { name: /Chat/ })).toBeVisible();
-  const loadedBar = (await bar.boundingBox())!;
-  expect(Math.abs(loadedBar.y - boneBar.y)).toBeLessThan(1);
-  expect(Math.abs(loadedBar.height - boneBar.height)).toBeLessThan(1);
+  const bar = page.getByRole('region', { name: 'Bara de acțiuni' });
+  const button = bar.getByRole('button', { name: 'Acțiuni concurs' });
+  await expect(button).toBeVisible();
+  await expect(bar.getByRole('link', { name: /Chat/ })).toHaveCount(0);
+  const loaded = (await button.boundingBox())!;
+  expect(Math.abs(loaded.y - boneBox.y)).toBeLessThan(1);
+  expect(Math.abs(loaded.height - boneBox.height)).toBeLessThan(1);
+  expect(Math.abs(loaded.width - boneBox.width)).toBeLessThan(1);
 });
 
 test(`competition-page.participanti.c10 — coming back after a while re-reads the competition, the statute and the stats`, async ({ page, context }) => {
@@ -1557,7 +1574,41 @@ const groundOf = (l: Locator) =>
     return getComputedStyle(document.body).backgroundColor;
   });
 
-for (const vp of [PHONE, LAPTOP, DESKTOP, WIDE]) {
+test('competition-page.b.view-tabs §4b.25 — phone: fish chipRow, four square chips, the selected one in its view colour, no count badges', async ({ page }) => {
+  await open(page, `/concursuri/${ID.live}`, PHONE);
+  const tablist = page.getByRole('tablist', { name: 'Vederi clasament' }).locator('visible=true');
+  await expect(tablist).toHaveCount(1);
+  const tabs = tablist.getByRole('tab');
+  await expect(tabs).toHaveCount(4);
+  // fish has no counts on its chips: each tab is named by its label alone.
+  for (const [i, name] of ['Clasament', 'Cântare', 'Statistici', 'Toți peștii'].entries()) await expect(tabs.nth(i)).toHaveAccessibleName(name);
+  // Four separate squares across the row, 12px apart.
+  const boxes = await tabs.evaluateAll(els => els.map(e => e.getBoundingClientRect()).map(r => ({ x: r.x, y: r.y, w: r.width, h: r.height })));
+  for (const b of boxes) expect(Math.abs(b.w - b.h)).toBeLessThan(1);
+  for (let i = 1; i < boxes.length; i++) {
+    expect(Math.abs(boxes[i].y - boxes[0].y)).toBeLessThan(1);
+    expect(Math.round(boxes[i].x - (boxes[i - 1].x + boxes[i - 1].w))).toBe(12);
+  }
+  const fill = (l: Locator) => l.evaluate(el => getComputedStyle(el).backgroundColor);
+  const selected = tablist.getByRole('tab', { selected: true });
+  await expect(selected).toHaveAccessibleName('Clasament');
+  const rest = await fill(tabs.nth(1));
+  expect(await fill(selected)).not.toBe(rest);
+  expect(await fill(tabs.nth(2))).toBe(rest);
+  // Keyboard: Right moves selection and focus, the selected chip takes its own view colour.
+  await page.waitForFunction(() => Object.keys(document.querySelector('h1')!).some(k => k.startsWith('__react')));
+  const clasamentFill = await fill(selected);
+  await selected.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+  await expect(tabs.nth(1)).toBeFocused();
+  await expect.poll(() => fill(tabs.nth(1))).not.toBe(rest);
+  expect(await fill(tabs.nth(1))).not.toBe(clasamentFill);
+  await expectNoA11yViolations(page, { include: '[role="tablist"][aria-label="Vederi clasament"]' });
+});
+
+// From 768 (on the phone fish's chips, §4b.25, above).
+for (const vp of [LAPTOP, DESKTOP, WIDE]) {
   test(`competition-page.b.view-tabs — owner rule 20: Clasament / Cântare / Statistici / Toți peștii are one tab container, the selected one filled, hover and focus, counts as badges (${vp.width}px)`, async ({ page }) => {
     await open(page, `/concursuri/${ID.live}`, vp);
     const tablist = page.getByRole('tablist', { name: 'Vederi clasament' }).locator('visible=true');
@@ -1619,7 +1670,8 @@ for (const [kind, key, noun] of [
   ['feeder (team)', 'viewFeeder', /echip(ă|e)/],
   ['national championship', 'viewNc', /club(uri)?/],
 ] as const) {
-  for (const vp of [PHONE, DESKTOP]) {
+  // The phone's chips carry no counts (fish, §4b.25).
+  for (const vp of [DESKTOP]) {
     test(`competition-page.b.view-tabs — owner rule 20, ${kind}: the Clasament badge counts the table shown, spoken with its noun (${vp.width}px)`, async ({ page }) => {
       const id = ID[key];
       await open(page, `/concursuri/${id}`, vp);
@@ -1663,7 +1715,7 @@ for (const [kind, key] of [
   }
 }
 
-test('competition-page.b.view-tabs — owner rule 20, 375: a four-digit count stays a badge inside its chip («999+», the full count spoken)', async ({ page }) => {
+test('competition-page.b.view-tabs — owner rule 20, 768: a four-digit count stays a badge inside its tab («999+», the full count spoken)', async ({ page }) => {
   await page.clock.install();
   // The ranking re-read (after its five minutes) says 1.284 catches: the Toți peștii badge.
   await page.route(new RegExp(`/competitions/${ID.live}/ranking(\\?|$)`), async route => {
@@ -1672,7 +1724,7 @@ test('competition-page.b.view-tabs — owner rule 20, 375: a four-digit count st
     json.metadata.totalCatchesCount = 1284;
     await route.fulfill({ response: res, json });
   });
-  await open(page, `/concursuri/${ID.live}`, PHONE);
+  await open(page, `/concursuri/${ID.live}`, TABLET);
   await settle(page);
   const tablist = page.getByRole('tablist', { name: 'Vederi clasament' }).locator('visible=true');
   const all = tablist.getByRole('tab', { name: /^Toți peștii/ });

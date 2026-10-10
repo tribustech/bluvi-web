@@ -6,7 +6,7 @@ import type { MouseEvent } from 'react';
 import { useFollowAngler } from '@/components/account/angler/useFollowAngler';
 import { FollowButton } from '@/components/cards/FollowButton';
 import { IconButton } from '@/components/nav/IconButton';
-import { Avatar, toneForId } from '@/components/ui/Avatar';
+import { Avatar, fishToneForId, toneForId } from '@/components/ui/Avatar';
 import { cn } from '@/components/ui/cn';
 import { formatFollowers, pickTopStats, type SuggestedAngler } from '@/core/social';
 import { track } from '@/lib/analytics';
@@ -79,7 +79,9 @@ export function SuggestedAnglerCard({
           <XMarkIcon aria-hidden />
         </IconButton>
       </span>
-      <Avatar name={angler.username} src={angler.avatarUrl} size={64} tone={toneForId(angler.documentId)} />
+      {/* Below 768 fish's saturated disc (InitialsAvatar solid, ROADMAP §4b.25); from 768 the kit's pastel tone. */}
+      <Avatar name={angler.username} src={angler.avatarUrl} size={64} tone={toneForId(angler.documentId)} className="max-md:hidden" />
+      <Avatar name={angler.username} src={angler.avatarUrl} size={64} tone={fishToneForId(angler.documentId)} className="md:hidden" />
       <div className="flex w-full min-w-0 flex-col items-center gap-0.5">
         <Heading className="w-full min-w-0 truncate text-center t-body-strong text-ink">
           <Link

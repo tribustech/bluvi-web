@@ -438,6 +438,8 @@ test.describe('account.notifications', () => {
     await expect(rows(page).nth(0)).toHaveAttribute('data-read', 'true');
     await expect(rows(page).nth(0).getByRole('button')).toHaveCount(0);
     await expect(page).toHaveURL(/\/notificari$/);
+    // The bar's bell: from 768 (the phone has no top bar, §4b rule 25).
+    await page.setViewportSize({ width: 1280, height: 900 });
     await expect(bell(page)).toHaveAttribute('aria-label', 'Notificări');
     const ev = (await events()).find((e) => e.name === 'notification_clicked_from_list');
     expect(ev?.params).toEqual({

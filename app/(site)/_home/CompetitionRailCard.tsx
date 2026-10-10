@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Image from 'next/image';
-import { MapPinIcon } from '@heroicons/react/20/solid';
+import { EyeIcon, MapPinIcon, TrophyIcon, UserIcon, UserGroupIcon } from '@heroicons/react/20/solid';
 import type { CompetitionCard } from '@/core/competitions';
 import { CardShell, CardTitle, Pill, Tag, formatDecimal, plural } from '@/components/cards';
 import { FishIcon, ScaleIcon } from '@/components/icons/brand';
@@ -16,6 +16,9 @@ import { routes } from '@/lib/routes';
  * Every card in a row is the same height: the title reserves two lines, the footer is 56px, and
  * the row stretches its cards (flex/grid) so a wrapped badge row never makes the row ragged.
  */
+/** fish's attribute badge: 12/600, 12px solid glyph, radius 6. */
+const FISH_BADGE = 'inline-flex h-6 max-w-full min-w-0 items-center gap-1 rounded-md px-2 t-caption whitespace-nowrap';
+
 /**
  * The rail card's height per breakpoint (poster 120, 144 from 1280 + two-line title + one row of
  * tags + 56px footer; the type steps change at 1280). The skeleton is drawn at it; the card holds
@@ -75,7 +78,11 @@ export function CompetitionRailCard({
         ) : null}
         <div className="absolute top-2 right-2 flex items-center gap-1.5">
           {isLive ? <Pill tone="live">LIVE</Pill> : null}
-          <Pill tone="scrim">{c.viewers === 1 ? '1 urmăritor' : `${c.viewers} urmăritori`}</Pill>
+          <Pill tone="scrim">
+            {/* fish: the eye before the count. */}
+            <EyeIcon aria-hidden className="size-3.5 shrink-0" />
+            {c.viewers === 1 ? '1 urmăritor' : `${c.viewers} urmăritori`}
+          </Pill>
         </div>
       </div>
 
@@ -94,12 +101,23 @@ export function CompetitionRailCard({
             </>
           ) : null}
         </p>
-        <div className="mt-1 flex flex-wrap gap-1">
+        <div className="mt-1 flex flex-wrap gap-1 max-md:hidden">
           {/* The kit attribute badge, text only (it has no icon slot; §05 never shrinks an outline). */}
           <Tag tone="indigo" title={c.rankingLabel}>
             {c.rankingLabel}
           </Tag>
           <Tag tone="gray">{isTeam ? 'Echipe' : 'Individual'}</Tag>
+        </div>
+        {/* Below 768 fish's badges (ROADMAP §4b.25): violet with a trophy, blue with a person. */}
+        <div className="mt-1 flex flex-wrap gap-1 md:hidden">
+          <span title={c.rankingLabel} className={cn(FISH_BADGE, 'bg-fish-badge-violet text-fish-badge-violet-ink')}>
+            <TrophyIcon aria-hidden className="size-3 shrink-0" />
+            <span className="truncate">{c.rankingLabel}</span>
+          </span>
+          <span className={cn(FISH_BADGE, 'bg-fish-badge-blue text-fish-badge-blue-ink')}>
+            {isTeam ? <UserGroupIcon aria-hidden className="size-3 shrink-0" /> : <UserIcon aria-hidden className="size-3 shrink-0" />}
+            {isTeam ? 'Echipe' : 'Individual'}
+          </span>
         </div>
       </div>
 

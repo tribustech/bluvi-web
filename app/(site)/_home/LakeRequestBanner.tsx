@@ -39,7 +39,7 @@ export function LakeRequestBanner({ layout = 'mobile', className }: { layout?: '
       <Image src={lakePhoto} alt="" fill sizes="(min-width: 1280px) 60vw, 100vw" className="z-backdrop object-cover" placeholder="blur" />
       <span aria-hidden className="absolute inset-0 z-behind bg-photo-scrim" />
       <div className={BANNER_TEXT}>
-        <h2 id={`acasa-sugereaza-${layout}`} className="t-heading">
+        <h2 id={`acasa-sugereaza-${layout}`} className="t-heading max-md:t-title1">
           Nu găsești balta preferată?
         </h2>
         <p className={BANNER_COPY}>
@@ -55,8 +55,8 @@ export function LakeRequestBanner({ layout = 'mobile', className }: { layout?: '
       </div>
       <Suspense
         fallback={
-          <div className={BANNER_ACTIONS}>
-            <span aria-hidden className={buttonClass({ variant: 'outline' })}>
+          <div className={cn(BANNER_ACTIONS, PHONE_ACTIONS)}>
+            <span aria-hidden className={cn(buttonClass({ variant: 'outline' }), PHONE_BUTTON)}>
               Sugerează baltă
             </span>
           </div>
@@ -67,6 +67,10 @@ export function LakeRequestBanner({ layout = 'mobile', className }: { layout?: '
     </section>
   );
 }
+
+/** Below 768 fish's action: at the right, a white (0.9) outlined button with black text, no accent. */
+const PHONE_ACTIONS = 'max-md:flex max-md:justify-end';
+const PHONE_BUTTON = 'max-md:border-surface max-md:bg-surface/90 max-md:px-5 max-md:text-ink';
 
 const WILL_MESSAGE = 'Îți vom trimite un mesaj după ce o adăugăm.';
 
@@ -82,8 +86,8 @@ function BannerAction() {
   const [open, setOpen] = useState(false);
   if (signedOut) {
     return (
-      <div className={BANNER_ACTIONS}>
-        <ButtonLink href={homeLinks.signIn} variant="outline" className={ON_DARK_FOCUS}>
+      <div className={cn(BANNER_ACTIONS, PHONE_ACTIONS)}>
+        <ButtonLink href={homeLinks.signIn} variant="outline" className={cn(ON_DARK_FOCUS, PHONE_BUTTON)}>
           Intră ca să sugerezi
         </ButtonLink>
       </div>
@@ -91,8 +95,8 @@ function BannerAction() {
   }
   return (
     <>
-      <div className={BANNER_ACTIONS}>
-        <Button variant="outline" onClick={() => setOpen(true)} aria-haspopup="dialog" className={ON_DARK_FOCUS}>
+      <div className={cn(BANNER_ACTIONS, PHONE_ACTIONS)}>
+        <Button variant="outline" onClick={() => setOpen(true)} aria-haspopup="dialog" className={cn(ON_DARK_FOCUS, PHONE_BUTTON)}>
           Sugerează baltă
         </Button>
       </div>

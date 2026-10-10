@@ -3,23 +3,32 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ComponentType, type SVGProps } from 'react';
 import Link from 'next/link';
 import {
-  ArrowsPointingOutIcon,
-  ArrowsUpDownIcon,
   ChatBubbleOvalLeftIcon,
   ArrowPathIcon,
-  PlusCircleIcon,
   ScaleIcon,
-  XCircleIcon,
   CheckCircleIcon,
-  ChevronLeftIcon,
   ClipboardDocumentListIcon,
-  Cog6ToothIcon,
-  ExclamationTriangleIcon,
   EllipsisHorizontalCircleIcon,
   MapPinIcon,
   TrophyIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
+import {
+  ArrowTopRightOnSquareIcon as VeziFullSolid,
+  ArrowsUpDownIcon as SortSolid,
+  ChartBarIcon as StatsSolid,
+  ChevronLeftIcon as BackSolid,
+  Cog6ToothIcon as CogSolid,
+  ExclamationTriangleIcon as WarnSolid,
+  MapPinIcon as PinSolid,
+  ScaleIcon as ScaleSolid,
+  ShareIcon as ShareSolid,
+  TrophyIcon as TrophySolid,
+  UserGroupIcon as GroupSolid,
+  XCircleIcon as XCircleSolid,
+} from '@heroicons/react/24/solid';
+import { SHARE_MARK } from './analytics';
+import { HistoryIcon, MessageCircleIcon } from './fishIcons';
 import type { CompetitionWithMyStatus, RegistrationAction } from '@/core/competitions';
 import type { CompetitionActiveWeighing } from '@/core/organizer';
 import { Button, ButtonLink } from '@/components/ui/Button';
@@ -30,7 +39,7 @@ import { ChatCountBadge, chatEntryLabel } from './ChatPanel';
 import type { PageViewer } from './Follow';
 import { nationalStandLabel, standLabel } from './stand';
 import { DisabledRegisterButton, registerState, SessionRecheck, ViewerSlot, type RegisterState, type SlotViewer } from './viewerSlot';
-import { VIEWS, type RankingViewKey } from './views';
+import type { RankingViewKey } from './views';
 import { LiveDot } from '@/components/templates/LiveDot';
 import { ORGANIZER_ICON, optionTone } from './organizer/icons';
 import type { OrganizerOption } from './organizer/model';
@@ -77,15 +86,19 @@ type Tile = {
   bone?: boolean;
   /** fish's red squares (end the competition, remove a referee): the danger tint. */
   tone?: 'accent' | 'danger';
+  /** fish RankingActionBar `color`: the tile's Material square (a bg-fish-* class). */
+  fill?: string;
+  /** Marks the tile for share_competition (analytics.ts). */
+  share?: boolean;
 };
 
-export type SortOption = { value: string; label: string; Icon: Icon };
+export type SortOption = { value: string; label: string; Icon: Icon; PhoneIcon?: Icon; fill?: string };
 
 /** fish RankingBarSortBy, with the submenu's labels. */
 export const SORT_OPTION: Record<'stand' | 'position' | 'club', SortOption> = {
-  stand: { value: 'stand', label: 'Stand', Icon: MapPinIcon },
-  club: { value: 'club', label: 'Club', Icon: UserGroupIcon },
-  position: { value: 'position', label: 'Poziția în clasament', Icon: TrophyIcon },
+  stand: { value: 'stand', label: 'Stand', Icon: MapPinIcon, PhoneIcon: PinSolid, fill: 'bg-fish-blue' },
+  club: { value: 'club', label: 'Club', Icon: UserGroupIcon, PhoneIcon: GroupSolid, fill: 'bg-fish-deep-purple' },
+  position: { value: 'position', label: 'Poziția în clasament', Icon: TrophyIcon, PhoneIcon: TrophySolid, fill: 'bg-fish-amber' },
 };
 
 /** fish RankingActionBar's in-bar confirmation (Extra-Cântar). */
@@ -127,15 +140,44 @@ type Props = {
   refereeScaleHref?: string;
   /** Not the author, a ranking type with penalties, after the start: «Penalizări» → the penalties page (bara-actiuni c10). */
   penaltiesHref?: string;
+  /** fish's «Share» tile (last in the row): the system share sheet, else the link is copied. */
+  share?: { title: string; text: string; onCopied: () => void };
 };
 
 // No aria-label: the visible «Organizare» is the name (WCAG 2.5.3 Label in Name — «click Organizare»).
 const organizerTile = (onPress: () => void): Tile => ({
   id: 'organizare',
   label: 'Organizare',
-  Icon: Cog6ToothIcon,
+  Icon: CogSolid,
+  fill: 'bg-fish-indigo',
   onPress,
 });
+
+/** fish's share: the system share sheet where there is one, else the link is copied. */
+function shareTile(share: NonNullable<Props['share']>): Tile {
+  return {
+    id: 'share',
+    label: 'Share',
+    Icon: ShareSolid,
+    fill: 'bg-fish-amber',
+    share: true,
+    onPress: () => {
+      const url = window.location.href;
+      void (async () => {
+        try {
+          if (navigator.share) {
+            await navigator.share({ title: share.title, text: share.text, url });
+            return;
+          }
+          await navigator.clipboard.writeText(url);
+          share.onCopied();
+        } catch {
+          // Share sheet dismissed, or the clipboard refused: nothing to report.
+        }
+      })();
+    },
+  };
+}
 
 export function MobileActionBar(props: Props) {
   const { competition, viewer, signIn, onSort, onView, onFullView, fullViewDisabled, chat: chatEntry, chatBadge, barMessage, confirm, loadingLabel } = props;
@@ -200,17 +242,18 @@ export function MobileActionBar(props: Props) {
         label="Acțiuni organizator"
         onEscape={() => closeMenu()}
         tiles={[
-          { id: 'back', label: 'Înapoi', Icon: ChevronLeftIcon, onPress: () => closeMenu() },
+          { id: 'back', label: 'Înapoi', Icon: BackSolid, fill: 'bg-fish-chip-icon', onPress: () => closeMenu() },
           ...options.map(
             (o): Tile =>
               o.action.type === 'link'
-                ? { id: `org-${o.key}`, label: o.label, Icon: ORGANIZER_ICON[o.icon], href: o.action.href }
+                ? { id: `org-${o.key}`, label: o.label, Icon: ORGANIZER_ICON[o.icon], fill: optionFill(o), href: o.action.href }
                 // A link keeps the submenu until the page changes: unmounting it on click cancelled the navigation.
                 : {
                     id: `org-${o.key}`,
                     label: o.label,
                     Icon: ORGANIZER_ICON[o.icon],
                     tone: optionTone(o),
+                    fill: optionFill(o),
                     onPress: () => {
                       // fish handleOptionSelect: a write that asks closes the submenu (the question
                       // takes the bar) and focus comes back to «Organizare» once it is answered; a
@@ -238,8 +281,8 @@ export function MobileActionBar(props: Props) {
         label="Sortare clasament"
         onEscape={() => closeMenu()}
         tiles={[
-          { id: 'back', label: 'Înapoi', Icon: ChevronLeftIcon, onPress: () => closeMenu() },
-          ...(props.sortOptions ?? []).map(o => ({ id: o.value, label: o.label, Icon: o.Icon, onPress: () => pick(o.value) })),
+          { id: 'back', label: 'Înapoi', Icon: BackSolid, fill: 'bg-fish-chip-icon', onPress: () => closeMenu() },
+          ...(props.sortOptions ?? []).map(o => ({ id: o.value, label: o.label, Icon: o.PhoneIcon ?? o.Icon, fill: o.fill, onPress: () => pick(o.value) })),
         ]}
       />
     );
@@ -265,58 +308,65 @@ export function MobileActionBar(props: Props) {
   } else {
     const tiles: Tile[] = [];
     // fish: «Organizare» first, for the author while it is not completed.
-    if (props.organizer?.options.length && status === 'started') tiles.push(organizerTile(() => openMenu('organizare')));
+    if (props.organizer?.options.length && status === 'started' && !props.onActions) tiles.push(organizerTile(() => openMenu('organizare')));
     if ((status === 'started' || status === 'completed') && props.rankingAvailable !== false) {
       tiles.push(
         {
           id: 'tot-ecranul',
-          label: 'Tot ecranul',
-          Icon: ArrowsPointingOutIcon,
+          label: 'Vezi full',
+          Icon: VeziFullSolid,
+          fill: 'bg-fish-blue',
           onPress: onFullView,
           disabled: fullViewDisabled,
           accessibilityLabel: 'Vezi clasamentul pe tot ecranul',
         },
-        { id: 'cantare', label: 'Cântare', Icon: viewIcon('cantare'), onPress: () => onView('cantare'), accessibilityLabel: 'Vezi cântarele din concurs' },
+        { id: 'cantare', label: 'Cântare', Icon: HistoryIcon, fill: 'bg-fish-cyan', onPress: () => onView('cantare'), accessibilityLabel: 'Vezi cântarele din concurs' },
       );
       // fish: a referee's «Adaugă cântar» (the scale page), after Cântare.
       if (props.refereeScaleHref) {
-        tiles.push({ id: 'adauga-cantar', label: 'Adaugă cântar', Icon: ORGANIZER_ICON.scale, href: props.refereeScaleHref });
+        tiles.push({ id: 'adauga-cantar', label: 'Adaugă cântar', Icon: ScaleSolid, fill: 'bg-fish-red', href: props.refereeScaleHref });
       }
       // fish: Extra-Cântar / «Anulează extra» for a registered participant while it runs.
       if (props.extraScale) {
         tiles.push({
           id: 'extra',
           label: props.extraScale.requested ? 'Anulează extra' : 'Extra-Cântar',
-          Icon: props.extraScale.requested ? XCircleIcon : PlusCircleIcon,
+          Icon: props.extraScale.requested ? XCircleSolid : ScaleSolid,
+          fill: 'bg-fish-orange',
           onPress: props.extraScale.onPress,
           accessibilityLabel: props.extraScale.requested ? 'Anulează cererea de extra cântar' : 'Solicită extra cântar',
         });
       }
       // fish: no Sortare on a feeder ranking (fixed order).
       if (props.sortOptions) {
-        tiles.push({ id: 'sortare', label: 'Sortare', Icon: ArrowsUpDownIcon, onPress: () => openMenu('sortare'), accessibilityLabel: 'Sortare clasament' });
+        tiles.push({ id: 'sortare', label: 'Sortare', Icon: SortSolid, fill: 'bg-fish-teal', onPress: () => openMenu('sortare'), accessibilityLabel: 'Sortare clasament' });
       }
-      tiles.push({ id: 'statistici', label: 'Statistici', Icon: viewIcon('statistici'), onPress: () => onView('statistici') });
+      tiles.push({ id: 'statistici', label: 'Statistici', Icon: StatsSolid, fill: 'bg-fish-deep-purple', onPress: () => onView('statistici') });
     }
     // fish: «Penalizări» for everyone but the author (who has it in the menu), after Statistici.
     if (props.penaltiesHref) {
       // Its visible label is its name (WCAG 2.5.3).
-      tiles.push({ id: 'penalizari', label: 'Penalizări', Icon: ExclamationTriangleIcon, href: props.penaltiesHref });
+      tiles.push({ id: 'penalizari', label: 'Penalizări', Icon: WarnSolid, fill: 'bg-fish-orange', href: props.penaltiesHref });
     }
-    // fish ActionButton (every tab but Clasament): «Acțiuni» opens the actions sheet.
-    if (props.onActions) {
-      tiles.push({ id: 'actiuni', label: 'Acțiuni', Icon: EllipsisHorizontalCircleIcon, onPress: props.onActions, accessibilityLabel: 'Acțiuni concurs' });
+    // fish ActionButton (every tab but Clasament): only the floating «Acțiuni» button, which
+    // opens the actions sheet — no bar, no Chat tile (fish withChatItem is the ranking bar's).
+    if (props.onActions && tiles.length === 0) {
+      content = <FloatingActions onPress={props.onActions} />;
+    } else if (props.onActions) {
+      tiles.push({ id: 'actiuni', label: 'Acțiuni', Icon: EllipsisHorizontalCircleIcon, fill: 'bg-fish-indigo', onPress: props.onActions, accessibilityLabel: 'Acțiuni concurs' });
     }
+    // fish: «Share» closes the ranking bar.
+    if (props.share && !props.onActions && tiles.length > 0) tiles.push(shareTile(props.share));
     // fish withChatItem: Chat goes second (signed in only). While the session is pending its place
     // is held by a bone tile, so the tiles never move when it lands.
     const withChat = (v: SlotViewer) => {
       const row = [...tiles];
       const chat: Tile | null =
-        v === undefined ? { id: 'chat', label: 'Chat', Icon: ChatBubbleOvalLeftIcon, bone: true } : v && v !== 'unknown' && chatEntry ? chatTile(chatEntry, chatBadge) : null;
+        v === undefined ? { id: 'chat', label: 'Chat', Icon: MessageCircleIcon, bone: true } : v && v !== 'unknown' && chatEntry ? chatTile(chatEntry, chatBadge) : null;
       if (chat) row.splice(Math.min(1, row.length), 0, chat);
       return <Bar label="Acțiuni concurs" tiles={row} />;
     };
-    content = (
+    content ??= (
       <ViewerSlot viewer={viewer} fallback={withChat(undefined)}>
         {withChat}
       </ViewerSlot>
@@ -444,7 +494,8 @@ function chatTile(entry: { href: string; onOpen: () => void }, chatBadge: chat.C
   return {
     id: 'chat',
     label: 'Chat',
-    Icon: ChatBubbleOvalLeftIcon,
+    Icon: MessageCircleIcon,
+    fill: 'bg-fish-pink',
     href: entry.href,
     onPress: entry.onOpen,
     badge: chatBadge,
@@ -452,18 +503,45 @@ function chatTile(entry: { href: string; onOpen: () => void }, chatBadge: chat.C
   };
 }
 
-/** A view's icon, the one its chip and desktop tab use. */
-const viewIcon = (key: RankingViewKey): Icon => VIEWS.find(v => v.key === key)?.Icon ?? TrophyIcon;
+/** fish organizerMenuOptions' squares: red for the destructive entries, else fish's indigo. */
+const optionFill = (o: OrganizerOption): string => (optionTone(o) === 'danger' ? 'bg-fish-red' : 'bg-fish-indigo');
 
 /**
- * Up to six tiles share the width evenly (≥ 59px each at 375); a long label wraps to two lines inside
- * its tile. More than six (the author's submenu, a referee's full row): each tile keeps 80px (fish
- * gives these labels labelMaxWidth 104, CompetitionRanking.tsx:580-601) and its label up to three
- * lines, so «Alocă participanții pe standuri» / «Adaugă participanți fără cont» are never cut; the
- * row scrolls sideways (fish's ScrollView). At 375 about 4.5 tiles fit, so a tile is always cut at
- * the edge and the row reads as «more»; the edge fades until the end of the row is reached.
+ * fish ActionButton: the floating «Acțiuni» button (Button default: indigo-5, radius 10, 20×10
+ * padding, the button shadow), centred 16px above the bottom inset, on every tab but Clasament.
  */
-const EVEN_MAX = 6;
+/** fish ActionButton's bar: no white bar, only the floating button (DetailActionBar className; the skeleton draws the same). */
+export const FLOATING_ACTIONS_BAR =
+  'pointer-events-none [&>div:last-child]:border-t-0 [&>div:last-child]:bg-transparent [&>div:last-child]:shadow-none [&>div:last-child]:pt-0 [&>div:last-child]:pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] [&>button]:pointer-events-auto';
+/** The floating «Acțiuni» button's box (its bone is the same box). */
+export const FLOATING_ACTIONS_BUTTON = 'rounded-control px-5 py-2.5 t-heading font-semibold';
+
+function FloatingActions({ onPress }: { onPress: () => void }) {
+  const hydrated = useHydrated();
+  return (
+    <div className="flex justify-center">
+      <button
+        type="button"
+        data-tile="actiuni"
+        onClick={hydrated ? onPress : undefined}
+        aria-disabled={hydrated ? undefined : true}
+        aria-label="Acțiuni concurs"
+        className={`pointer-events-auto cursor-pointer ${FLOATING_ACTIONS_BUTTON} bg-fish-indigo5 text-fish-on shadow-button transition-opacity active:opacity-85 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent`}
+      >
+        Acțiuni
+      </button>
+    </div>
+  );
+}
+
+/**
+ * fish useBarScale: each tile is a fifth of the screen, left-aligned (a short row leaves the room at
+ * the end, as fish); a long label wraps to two lines inside its tile. More than five (Share closes
+ * most rows, the author's submenu): the row scrolls sideways (fish's ScrollView) — the submenu's
+ * long labels («Alocă participanții pe standuri») get up to three lines; the edge fades until the
+ * end of the row is reached.
+ */
+const EVEN_MAX = 5;
 function Bar({ label, tiles, onEscape }: { label: string; tiles: Tile[]; onEscape?: () => void }) {
   const scroll = tiles.length > EVEN_MAX;
   const [atEnd, setAtEnd] = useState(false);
@@ -493,13 +571,13 @@ function Bar({ label, tiles, onEscape }: { label: string; tiles: Tile[]; onEscap
             : undefined
         }
         className={cn(
-          'flex px-2',
+          'flex',
           scroll && 'snap-x overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
           scroll && !atEnd && '[mask-image:linear-gradient(to_left,transparent,black_--spacing(8))]',
         )}
       >
         {tiles.map(tile => (
-          <li key={tile.id} className={scroll ? 'w-20 shrink-0 snap-start' : 'min-w-0 flex-1'}>
+          <li key={tile.id} className="w-1/5 min-w-0 shrink-0 snap-start" {...(tile.share ? { [SHARE_MARK]: '' } : {})}>
             <TileControl tile={tile} lines={scroll ? 3 : 2} />
           </li>
         ))}
@@ -525,23 +603,19 @@ function TileControl({ tile, lines = 2 }: { tile: Tile; lines?: 2 | 3 }) {
   if (tile.bone) {
     return (
       <span aria-hidden className="flex w-full flex-col items-center gap-0.5 py-0.5">
-        <span className="size-8 animate-shimmer rounded-control" />
+        <span className="size-7 animate-shimmer rounded-lg" />
         <span className="h-3 w-8 animate-shimmer rounded-full" />
       </span>
     );
   }
   const body = (
     <>
-      <span
-        className={cn(
-          'relative flex size-8 items-center justify-center rounded-control',
-          tile.tone === 'danger' ? 'bg-status-danger-bg text-status-danger-fg' : 'bg-accent-tint text-accent-ink',
-        )}
-      >
-        <tile.Icon aria-hidden className="size-6" />
-        <ChatCountBadge badge={tile.badge ?? null} className="absolute -top-2 left-5" />
+      {/* fish BAR_TILE: a 28px Material square (radius 8) with the 16px white icon; label 11/600 #212121. */}
+      <span className={cn('relative flex size-7 items-center justify-center rounded-lg text-fish-on', tile.fill ?? (tile.tone === 'danger' ? 'bg-fish-red' : 'bg-fish-indigo'))}>
+        <tile.Icon aria-hidden className="size-4" />
+        <ChatCountBadge badge={tile.badge ?? null} className="absolute -top-2 left-4" />
       </span>
-      <span data-tile-label className={cn('text-center t-micro text-ink', lines === 3 ? 'line-clamp-3 max-w-19' : 'line-clamp-2 max-w-17')}>
+      <span data-tile-label className={cn('text-center t-fish-11 font-semibold leading-3 text-fish-bar-label', lines === 3 ? 'line-clamp-3 max-w-19' : 'line-clamp-2 max-w-16')}>
         {tile.label}
       </span>
     </>

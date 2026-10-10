@@ -31,9 +31,13 @@ export const ON_DARK_FOCUS = 'focus-visible:outline-on-accent';
  * «Deschide în aplicația Bluvi» below 1280, the two store links from 1280 (OpenInApp), the same for
  * a guest and a viewer (the app signs in itself). The page's one glowing card (Fundații §04).
  */
+/** Below 768, fish NoActiveCta: its lighter gradient, the 5px bleed of the cards above, the white pill action. */
+const PHONE_HERO =
+  'max-md:-mx-1.25 max-md:bg-linear-to-br max-md:from-fish-cta-from max-md:via-fish-cta-via max-md:to-fish-cta-to max-md:[&_a]:rounded-full max-md:[&_a]:border-0';
+
 export function PartidaCta({ layout, className }: { layout: 'mobile' | 'desktop'; className?: string }) {
   return (
-    <section aria-labelledby={`acasa-partida-cta-${layout}`} data-testid="partida-cta" className={cn(BANNER, BANNER_ROW, 'bg-accent-ink text-on-accent shadow-glow', className)}>
+    <section aria-labelledby={`acasa-partida-cta-${layout}`} data-testid="partida-cta" className={cn(BANNER, BANNER_ROW, 'bg-accent-ink text-on-accent shadow-glow', PHONE_HERO, className)}>
       <Waves />
       <Copy layout={layout} />
       <OpenInApp href={appLinks.partide()} onDark className={BANNER_ACTIONS} testId="partida-cta-app" />
@@ -47,7 +51,7 @@ export function PartidaCta({ layout, className }: { layout: 'mobile' | 'desktop'
  */
 export function PartidaCtaSkeleton({ layout, className }: { layout: 'mobile' | 'desktop'; className?: string }) {
   return (
-    <section aria-labelledby={`acasa-partida-cta-${layout}`} aria-busy className={cn(BANNER, BANNER_ROW, 'bg-accent-ink text-on-accent shadow-glow', className)}>
+    <section aria-labelledby={`acasa-partida-cta-${layout}`} aria-busy className={cn(BANNER, BANNER_ROW, 'bg-accent-ink text-on-accent shadow-glow', PHONE_HERO, className)}>
       <Waves />
       <Copy layout={layout} />
       {/* The loaded action row's own box (flex-wrap, the same gaps, the link's 44px line), so the
@@ -64,10 +68,10 @@ export function PartidaCtaSkeleton({ layout, className }: { layout: 'mobile' | '
 function Copy({ layout }: { layout: 'mobile' | 'desktop' }) {
   return (
     <div className={BANNER_TEXT}>
-      <h2 id={`acasa-partida-cta-${layout}`} className="t-heading">
+      <h2 id={`acasa-partida-cta-${layout}`} className="t-heading max-md:t-title1">
         Ești la pescuit?
       </h2>
-      <p className={BANNER_COPY}>
+      <p className={cn(BANNER_COPY, 'max-md:t-caption max-md:text-on-accent/85')}>
         Partidele se încep și se țin în aplicația Bluvi: capturi, lansete și cronometre, chiar și fără semnal.
       </p>
     </div>

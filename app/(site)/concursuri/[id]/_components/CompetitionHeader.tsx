@@ -8,6 +8,7 @@ import { DetailBackButton, DetailHeader, DetailShareButton } from '@/components/
 import { ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { LiveDot } from '@/components/templates/LiveDot';
 import { routes } from '@/lib/routes';
 import type { Viewer } from '@/lib/server/viewer';
 import { useSiteToast } from '../../../_shell/Toast';
@@ -103,6 +104,7 @@ export function CompetitionHeader({
         ) : (
           <FollowToggle
             size={size}
+            look={size === 'compact' ? 'fish' : undefined}
             competition={c}
             viewer={v}
             statute={statute}
@@ -119,10 +121,26 @@ export function CompetitionHeader({
       // One row, as fish: on the phone it may run under the back / share chips (it sits below them).
       // Phone: always the compact button's height (36), with or without it, so a completed page (no
       // Urmărește) is as tall as the skeleton and as a live one.
-      <span className="flex flex-nowrap items-center gap-2.5 max-md:min-h-9">
-        {status === 'started' ? <StatusPill tone="live">LIVE</StatusPill> : null}
-        <FollowersPill competition={c} />
-        {followable ? <span className="md:hidden">{follow('compact')}</span> : null}
+      // Phone (§4b.25): fish LivePlusViewers + FollowButton — square-cornered 26px pills, 4px apart.
+      <span className="flex flex-nowrap items-center gap-2.5 max-md:min-h-6.5 max-md:gap-1">
+        {status === 'started' ? (
+          <>
+            <span className="max-md:hidden">
+              <StatusPill tone="live">LIVE</StatusPill>
+            </span>
+            <span className="inline-flex h-6.5 shrink-0 items-center gap-1 rounded-sm bg-live px-2 t-body-strong text-fish-on md:hidden">
+              <LiveDot tone="inverse" />
+              Live
+            </span>
+          </>
+        ) : null}
+        <span className="contents max-md:hidden">
+          <FollowersPill competition={c} />
+        </span>
+        <span className="contents md:hidden">
+          <FollowersPill competition={c} look="fish" />
+        </span>
+        {followable ? <span className="flex md:hidden">{follow('compact')}</span> : null}
       </span>
     ) : null;
 
@@ -226,7 +244,7 @@ function RegisterBone() {
 
 /** The follow button's bone while the session is pending: its size, nothing readable. */
 function FollowBone({ size }: { size?: 'compact' }) {
-  return <span aria-hidden className={cn('block w-36 shrink-0 animate-shimmer rounded-control', size === 'compact' ? 'h-9' : 'h-12 xl:h-10')} />;
+  return <span aria-hidden className={cn('block shrink-0 animate-shimmer', size === 'compact' ? 'h-6.5 w-28 rounded-sm' : 'h-12 w-36 rounded-control xl:h-10')} />;
 }
 
 /** 768–1279, no chat: an empty box of the chat button's size (ChatHeaderPlaceholder), see `chat`. */

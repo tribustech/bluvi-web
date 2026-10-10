@@ -20,10 +20,12 @@ export type OrganizerStats = Awaited<ReturnType<typeof getOrganizerDashboard>>;
  */
 export function OrganizerBanner({ stats, layout, className }: { stats: OrganizerStats; layout: 'mobile' | 'desktop'; className?: string }) {
 
+  // From 768 the status pairs on the label line; on the phone fish's own dots beside the number
+  // (ROADMAP §4b.25: the phone looks like fish).
   const items = [
-    { dot: 'bg-status-info-fg', value: stats.byStatus?.notStarted || 0, label: 'Viitoare' },
-    { dot: 'bg-status-pending-fg', value: stats.pendingRegistrations, label: 'În așteptare' },
-    { dot: 'bg-status-success-fg', value: stats.emptySpots, label: 'Locuri libere' },
+    { dot: 'bg-status-info-fg', phoneDot: 'bg-fish-dot-upcoming', value: stats.byStatus?.notStarted || 0, label: 'Viitoare' },
+    { dot: 'bg-status-pending-fg', phoneDot: 'bg-fish-dot-pending', value: stats.pendingRegistrations, label: 'În așteptare' },
+    { dot: 'bg-status-success-fg', phoneDot: 'bg-fish-dot-free', value: stats.emptySpots, label: 'Locuri libere' },
   ];
 
   return (
@@ -32,11 +34,13 @@ export function OrganizerBanner({ stats, layout, className }: { stats: Organizer
       className={cn(
         // A whole-card link: Fundații's card press (opacity .7), no scale.
         'relative flex flex-col gap-3 rounded-card bg-accent-ink p-4.5 text-on-accent transition-opacity duration-(--duration-fast) ease-fast active:opacity-70',
+        // fish: the indigo diagonal gradient, padding 16, gap 14, a soft indigo shadow.
+        'max-md:-mx-1.25 max-md:gap-3.5 max-md:bg-linear-to-br max-md:from-fish-organizer-from max-md:via-fish-organizer-via max-md:to-fish-organizer-to max-md:p-4 max-md:shadow-e2',
         className
       )}
     >
       <div className="flex items-center justify-between">
-        <h2 id={`acasa-organizator-${layout}`} className="t-heading">
+        <h2 id={`acasa-organizator-${layout}`} className="t-heading max-md:t-body">
           <Link
             href={homeLinks.organizer}
             className="outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-[-2px] focus-visible:after:outline-on-accent"
@@ -46,19 +50,22 @@ export function OrganizerBanner({ stats, layout, className }: { stats: Organizer
         </h2>
         <span aria-hidden className="flex items-center gap-0.5 t-caption text-on-accent/85">
           Deschide
-          <ChevronRightIcon className="size-6" />
+          <ChevronRightIcon className="size-6 max-md:size-3.5" />
         </span>
       </div>
       <dl className="flex items-center">
         {items.map((s, i) => (
-          <div key={s.label} className={cn('flex flex-1 flex-col-reverse items-center gap-1', i > 0 && 'border-l border-on-accent/20')}>
+          <div key={s.label} className={cn('flex flex-1 flex-col-reverse items-center gap-1', i > 0 && 'border-l border-on-accent/20 max-md:border-l-0 max-md:relative max-md:before:absolute max-md:before:top-1/2 max-md:before:left-0 max-md:before:h-7 max-md:before:w-px max-md:before:-translate-y-1/2 max-md:before:bg-on-accent/20')}>
             {/* The status dot sits on the label line, never beside the number (beside it, a dot
                 reads as a glyph: «O2»). A plain filled dot, no ring. */}
             <dt className="flex items-center justify-center gap-1.5 text-center t-caption text-on-accent/85">
-              <span aria-hidden className={cn('size-2 shrink-0 rounded-full', s.dot)} />
+              <span aria-hidden className={cn('size-2 shrink-0 rounded-full max-md:hidden', s.dot)} />
               {s.label}
             </dt>
-            <dd className="t-stat tabular-nums">{s.value}</dd>
+            <dd className="flex items-center gap-1.5 t-stat tabular-nums">
+              <span aria-hidden className={cn('size-2 shrink-0 rounded-full md:hidden', s.phoneDot)} />
+              {s.value}
+            </dd>
           </div>
         ))}
       </dl>
@@ -72,7 +79,7 @@ export function OrganizerBanner({ stats, layout, className }: { stats: Organizer
  */
 export function OrganizerBannerSkeleton({ className }: { className?: string }) {
   return (
-    <div role="status" aria-label="Se încarcă panoul organizator" className={cn('flex flex-col gap-3 rounded-card bg-accent-ink p-4.5', className)}>
+    <div role="status" aria-label="Se încarcă panoul organizator" className={cn('flex flex-col gap-3 rounded-card bg-accent-ink p-4.5 max-md:-mx-1.25', className)}>
       <span aria-hidden className="flex h-6 items-center">
         <span className="h-4 w-36 rounded-full bg-on-accent/20" />
       </span>

@@ -201,10 +201,11 @@ test.describe('keyboard', () => {
       const skip = page.getByRole('link', { name: 'Sari la conținut' });
       await expect(skip).toBeFocused();
       await expect(skip).toBeVisible();
-      // The top bar comes right after the skip link.
+      // The top bar comes right after the skip link; the phone has none (fish's chrome, §4b rule
+      // 25): the screen's own header in main is next.
       await page.keyboard.press('Tab');
-      const inBar = await page.evaluate(() => !!document.activeElement?.closest('header'));
-      expect(inBar, 'the second Tab stop is in the top bar').toBe(true);
+      const second = await page.evaluate(() => (document.activeElement?.closest('main') ? 'main' : document.activeElement?.closest('header') ? 'bar' : 'other'));
+      expect(second, 'the second Tab stop').toBe(width < 768 ? 'main' : 'bar');
       // The skip link moves focus into main.
       await skip.focus();
       await page.keyboard.press('Enter');

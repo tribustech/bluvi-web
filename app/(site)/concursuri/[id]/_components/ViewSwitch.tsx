@@ -63,22 +63,16 @@ function CountBadge({ badge, selected, className }: { badge: ViewBadge; selected
 }
 
 /**
- * Owner rule 20 (ROADMAP §4b, «nici nu vezi că sunt taburi»): the four views read as tabs — one
- * container, a strong selected state, hover and focus, the counts as badges.
- *
- * Phone (fish `chipRow`): one track holding the four tabs, icon over label. The track has the same
- * visible edge as the desktop control (a surface track, the handle-grey border, the e1 lift): a
- * soft-fill track on the white phone ground was ~1.08:1, so only the filled chip read as a control.
- * The selected one is filled accent-ink with on-accent text (accent-ink, not accent: a 10px label in
- * white on accent is 4.46:1); the others take the accent tint on hover. The badge is drawn on the
- * icon's corner, pushed left when it is wide so it never leaves its chip (a flex spacer that shrinks).
+ * Phone (ROADMAP §4b.25: the phone is fish screen for screen): fish CompetitionRanking `chipRow` —
+ * four separate square chips across the content width, #f0f0f0 at rest with the solid heroicon in
+ * #616161, the selected one filled with its view's own colour (VIEW_CHIP_CONFIG) and white icon and
+ * label; radius 14, label 11px. No count badges (fish has none; the desktop tabs keep them).
  */
-export function ViewChips({ value, onChange, badges = {} }: Props & { badges?: Badges }) {
+export function ViewChips({ value, onChange }: Props & { badges?: Badges }) {
   return (
-    <div role="tablist" aria-label="Vederi clasament" className="grid grid-cols-4 gap-1 rounded-card border border-handle bg-surface p-1 shadow-e1 md:hidden">
-      {VIEWS.map(({ key, label, Icon }) => {
+    <div role="tablist" aria-label="Vederi clasament" className="grid grid-cols-4 gap-3 md:hidden">
+      {VIEWS.map(({ key, label, PhoneIcon }) => {
         const selected = key === value;
-        const badge = badges[key];
         return (
           <button
             key={key}
@@ -91,28 +85,27 @@ export function ViewChips({ value, onChange, badges = {} }: Props & { badges?: B
             onClick={() => onChange(key)}
             onKeyDown={e => onTabKey(e, value, onChange, chipId)}
             className={cn(
-              'relative flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-[calc(var(--radius-card)-4px)] px-1 py-2.5 transition-[background-color,color,box-shadow] duration-(--duration-fast) ease-select active:opacity-80',
+              'flex aspect-square min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-[14px] p-1.5 active:opacity-85',
               FOCUS_RING,
-              selected ? 'bg-accent-ink text-on-accent shadow-e1' : 'text-ink-2 hover:bg-accent-tint hover:text-accent-ink',
+              selected ? cn(VIEW_FILL[key], 'text-fish-on') : 'bg-fish-chip text-fish-chip-ink',
             )}
           >
-            <Icon aria-hidden className={cn('size-6', !selected && 'text-accent-ink')} />
-            <span className={cn('max-w-full truncate', selected ? 't-micro-strong' : 't-micro text-ink')}>{label}</span>
-            {/* After the label in the DOM (the tab's name starts with the view), drawn on the icon's
-                corner: the spacer (50% + 6px of the 4px-inset row) puts it at the chip's 50% + 6px,
-                and shrinks when the badge is wider than the room left, so it never leaves the chip. */}
-            {badge ? (
-              <span className="pointer-events-none absolute inset-x-1 top-1.5 flex">
-                <span aria-hidden className="min-w-0 shrink basis-[calc(50%+--spacing(1.5))]" />
-                <CountBadge badge={badge} selected={selected} className="max-w-full" />
-              </span>
-            ) : null}
+            <PhoneIcon aria-hidden className={cn('size-5.5', selected ? 'text-fish-on' : 'text-fish-chip-icon')} />
+            <span className={cn('max-w-full truncate t-fish-11', selected && 'font-semibold')}>{label}</span>
           </button>
         );
       })}
     </div>
   );
 }
+
+/** fish VIEW_CHIP_CONFIG colours. */
+const VIEW_FILL: Record<RankingViewKey, string> = {
+  clasament: 'bg-fish-view-clasament',
+  cantare: 'bg-fish-view-cantare',
+  statistici: 'bg-fish-view-statistici',
+  allFish: 'bg-fish-view-allfish',
+};
 
 /**
  * From 768: the same four views as a segmented control under the route tabs (DetailTabs).

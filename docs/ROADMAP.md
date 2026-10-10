@@ -73,12 +73,16 @@ of every milestone. A milestone closes only when it reports zero unexplained gap
 
 ## 4. Shell and templates
 
-**Shell.** The menu is a top bar at every width:
-- **Phone:** logo, search, notifications, avatar and ☰, which opens the menu as a panel.
-- **Desktop:** logo, the main links (Acasă, Bălți, Competiții, Partide), ⌘K search, notifications,
+**Shell.**
+- **Phone (<768) — fish's chrome (§4b rule 25, owner 2026-10-10):** no top bar; each screen's own
+  header is its top bar, as in fish. On the tab roots, fish's bottom tab bar: Acasă, Bălți,
+  Competiții, Partide, Profil (signed in only, as in fish; signed out, Acasă's «Conectează-te» card
+  signs in). Screens fish pushes above the tabs have no tab bar. The ☰ panel is retired: Setări is behind Profil's gear, notifications behind Acasă's bell,
+  Administrare in Acasă's organiser / operator cards.
+- **From 768:** logo, the main links (Acasă, Bălți, Competiții, Partide), ⌘K search, notifications,
   avatar, and an Administrare menu for organizers and operators.
 
-The bottom tab bar, the rail and the side menu are retired.
+The rail and the side menu are retired.
 
 **Width (owner decision 2026-10-04, overrides Fundații's "content max 1120px"):** use the screen like
 Facebook does:
@@ -248,6 +252,20 @@ Add each new piece of feedback here, dated.
     (/concursuri grid, single live view, the lake page's list) the poster is part of the card's one
     link to /concursuri/[id]: no photo viewer, lightbox or any screen in between, no poster button of
     its own, no zoom-in cursor.
+25. **On the phone, the web is the fish app, screen for screen (owner 2026-10-10).** «Ar trebui să avem
+    bottom navigation frumos ca pe mobile și să avem exact acele iconițe ca pe mobile. Home nu arată ca
+    pe aplicația mobilă. Ecranul de competiție nu are treabă cu mobile, trebuie să fie la fel.»
+    - Below 768 every screen looks and behaves like its fish screen: same layout, components,
+      spacing, type scale, colours and the exact same icons (ported as SVG from the packages fish
+      draws them with, never a look-alike).
+    - From 1024 the web layouts stay. 768–1023 follows the phone unless the page already has a
+      tablet layout.
+    - The phone chrome is fish's bottom tab bar (Acasă, Bălți, Competiții, Partide, Profil: the same
+      labels, order, icons, active tint, 49px + safe area, white with 16px top corners), shown on the
+      tab roots only, as in fish. It replaces the phone top bar + ☰ (2026-10-04): each screen's own
+      header is its top bar. Signed out there is no Profil tab (fish); Acasă's card signs in.
+    - Differences from fish are allowed only where the web cannot do the same, and are written down
+      next to the code.
 
 
 

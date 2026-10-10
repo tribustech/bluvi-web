@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { ChevronRightIcon } from '@heroicons/react/20/solid';
 import { DashboardSection, LINK_ACTION } from '@/components/templates/T5';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { announce, prepareAnnouncer, restoreFocusTo } from './announce';
-import { CardSkeleton, RailArrows, RailRegistry, railListClass, type RailHandle, type RailWidth } from './HorizontalRail';
+import { CardSkeleton, HOME_RAIL_BLEED, RailArrows, RailRegistry, railListClass, type RailHandle, type RailWidth } from './HorizontalRail';
 
 /**
  * A titled block of Acasă's main column — fish components/SeeAllTitle.tsx (title2 + «Vezi toate»)
@@ -34,8 +35,10 @@ export function RailSection({
   const [rail, setRail] = useState<RailHandle | null>(null);
   const link = href ? (
     // The T5 link action (44px target; -my-3 keeps the heading row at its text height).
-    <Link href={href} aria-label={`${linkLabel}: ${title}`} className={cn(LINK_ACTION, '-my-3')}>
+    <Link href={href} aria-label={`${linkLabel}: ${title}`} className={cn(LINK_ACTION, '-my-3 gap-0.5')}>
       {linkLabel}
+      {/* fish SeeAllTitle: the small chevron after «Vezi toate» (phone). */}
+      <ChevronRightIcon aria-hidden className="size-4 md:hidden" />
     </Link>
   ) : null;
   return (
@@ -46,7 +49,8 @@ export function RailSection({
         title={
           leading ? (
             <span className="flex items-center gap-2.5">
-              {leading}
+              {/* fish's titles carry no mark: the phone shows the title alone. */}
+              <span className="contents max-md:hidden">{leading}</span>
               {title}
             </span>
           ) : (
@@ -73,7 +77,7 @@ export function RailSection({
 export function RailSkeleton({ label, width, heightClass }: { label: string; width: RailWidth; heightClass: string }) {
   return (
     // The rail's own list layout (railListClass): the bones sit on the tracks the cards will take.
-    <div role="status" aria-label={label} className={cn('-mb-3 overflow-hidden', railListClass(width))}>
+    <div role="status" aria-label={label} className={cn('-mb-3 overflow-hidden', railListClass(width), HOME_RAIL_BLEED)}>
       {[0, 1, 2].map((i) => (
         <CardSkeleton key={i} width={width} heightClass={heightClass} />
       ))}

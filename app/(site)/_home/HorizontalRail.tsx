@@ -15,6 +15,9 @@ import { announce, prepareAnnouncer, restoreFocusTo } from './announce';
  */
 export const RAIL_BLEED = '-mx-4 px-4 scroll-px-4 md:-mx-6 md:px-6 md:scroll-px-6 xl:mx-0 xl:px-0 xl:scroll-px-0';
 
+/** Acasă's rails: fish's home screen pads its content 20px on phone, so the bleed matches it. */
+export const HOME_RAIL_BLEED = '-mx-5 px-5 scroll-px-5 md:-mx-6 md:px-6 md:scroll-px-6 xl:mx-0 xl:px-0 xl:scroll-px-0';
+
 /**
  * The rails' one layout rule (ROADMAP §4: grids auto-fill, more cards as the screen grows, never
  * wider ones). Below 768 a row of fixed slots (`width`) that scrolls. From 768 the slots are the

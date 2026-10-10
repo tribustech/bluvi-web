@@ -127,7 +127,8 @@ export default function Home() {
       {/* home.acasa.c57: signed in with an incomplete profile, the non-dismissable form (1.1s after load). */}
       <CompleteProfileSheet />
       <DashboardPage
-        className="max-md:pt-4"
+        // Phone: fish's screen padding (20) and its 10px between blocks (ROADMAP §4b rule 25).
+        className="max-md:gap-2.5 max-md:px-5 max-md:pt-5 max-md:[&>div]:gap-2.5"
         header={
           <Suspense fallback={<HomeHeaderSkeleton />}>
             <HomeHeader />
@@ -150,11 +151,14 @@ export default function Home() {
             sidesBelowXl="hidden"
             contextFrom="2xl"
             main={
-              <Suspense fallback={<MainColumnSkeleton />}>
-                <AfterSession unknown={<UnknownSessionColumn />}>
-                  <MainColumn />
-                </AfterSession>
-              </Suspense>
+              // Phone: fish's 10px between blocks (the column keeps its own rhythm from 768).
+              <div className="flex flex-col gap-2.5 md:contents">
+                <Suspense fallback={<MainColumnSkeleton />}>
+                  <AfterSession unknown={<UnknownSessionColumn />}>
+                    <MainColumn />
+                  </AfterSession>
+                </Suspense>
+              </div>
             }
             context={
               <Suspense fallback={<HomeShortcutsSkeleton />}>
@@ -198,8 +202,9 @@ function MainColumn() {
       <ShortcutsAt1280 />
       {/* account.onboarding web replacement: what Bluvi is, under the guest's header card; from
           1280 it heads the right column, above Instrumente. */}
+      {/* Not on the phone: fish's Acasă has no such block (ROADMAP §4b rule 25). */}
       <SignedOutOnly>
-        <div className={BELOW_XL}>
+        <div className="hidden md:max-xl:contents">
           <Pillars layout="mobile" />
         </div>
       </SignedOutOnly>

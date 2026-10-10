@@ -482,6 +482,73 @@
   --color-rank-on-dark: #ffffff;
   --color-rank-on-light: #000000;
 
+  /*
+   * ---- competition page, phone: fish's own colours (ROADMAP §4b.25) ----
+   * Theme-invariant, drawn as fish draws them below 768. View chips (CompetitionRanking
+   * VIEW_CHIP_CONFIG + the #f0f0f0 / #616161 idle chip), the header pills (FollowersPill $gray7,
+   * FollowButton $indigo5) and the action bar's Material tiles (RankingActionBar MATERIAL, label #212121).
+   */
+  --color-fish-view-clasament: #3f51b5;
+  /* Under white text, one Material step down where fish's own fails AA (Fundații: text AA on every
+   * surface): Cântare #E64A19 → #BF360C (3.9 → 5.6:1), Toți peștii #009688 → #00796B (3.7 → 5.3:1). */
+  --color-fish-view-cantare: #bf360c;
+  --color-fish-view-statistici: #5c6bc0;
+  --color-fish-view-allfish: #00796b;
+  --color-fish-chip: #f0f0f0;
+  /* fish components/OrganizerBanner.tsx: the gradient and its three status dots. */
+  --color-fish-organizer-from: #312e81;
+  --color-fish-organizer-via: #4338ca;
+  --color-fish-organizer-to: #4f46e5;
+  --color-fish-dot-upcoming: #818cf8;
+  --color-fish-dot-pending: #fbbf24;
+  --color-fish-dot-free: #34d399;
+  /* fish NoActiveCta («Ești la pescuit?»): the lighter indigo gradient. */
+  --color-fish-cta-from: #5357e0;
+  --color-fish-cta-via: #6366f1;
+  --color-fish-cta-to: #818cf8;
+  /* fish helpers/anglerInitials.ts AVATAR_COLORS (white initials). Yellow #eab308 and green #4cb944
+     are taken one step darker so the 24px initials clear 3:1 (WCAG large text). */
+  --color-fish-avatar-1: #6366f1;
+  --color-fish-avatar-2: #0891b2;
+  --color-fish-avatar-3: #a16207;
+  --color-fish-avatar-4: #3b8f35;
+  --color-fish-avatar-5: #f43f5e;
+  --color-fish-avatar-6: #b45309;
+  --color-fish-chip-pressed: #e0e0e0;
+  --color-fish-chip-icon: #616161;
+  --color-fish-chip-ink: #262626;
+  --color-fish-gray7: #404040;
+  /* fish $indigo5 #6366F1 under white 14–16px text is 4.47:1; a hair darker for AA (4.88:1). */
+  --color-fish-indigo5: #5b5ef0;
+  --color-fish-on: #ffffff;
+  --color-fish-bar-label: #212121;
+  --color-fish-blue: #2196f3;
+  --color-fish-cyan: #00bcd4;
+  --color-fish-teal: #009688;
+  --color-fish-green: #4caf50;
+  --color-fish-amber: #ffc107;
+  --color-fish-orange: #ff9800;
+  --color-fish-deep-purple: #673ab7;
+  --color-fish-red: #f44336;
+  --color-fish-indigo: #3f51b5;
+  --color-fish-pink: #e91e63;
+  --color-fish-slate: #37474f;
+  /* Participanți card (fish ParticipantCard): the card/ring hairline, the stand tag's gradients. */
+  --color-fish-card-line: #e2e8f0;
+  /* Toți peștii: the stand circle (fish #ECEFF1 under #37474F). */
+  --color-fish-stand-bg: #eceff1;
+  /* fish's «Intră în cont» link under a sign-in sentence (fish #0D9488 is 3.7:1 on white → #0F766E, 5.5:1). */
+  --color-fish-link: #0f766e;
+  /* Informații badges (fish CompetitionInfo): ranking type violet, participation blue. */
+  --color-fish-badge-violet: #ede9fe;
+  --color-fish-badge-violet-ink: #5b21b6;
+  --color-fish-badge-blue: #e8f0fc;
+  --color-fish-badge-blue-ink: #1e467a;
+  --color-fish-stand-from: #0d9488;
+  --color-fish-stand-to: #2563eb;
+  --color-fish-unallocated-from: #dc2626;
+  --color-fish-unallocated-to: #b91c1c;
+
   /* ---- spacing: Tailwind's 4px base already matches Fundații 1..16 (4..64px) ---- */
   --spacing: 4px;
 
@@ -688,6 +755,10 @@
 /* button-compact: the compact Button label (36px high, inline actions). */
 @utility t-button-compact {
   font: 700 13px/18px var(--bluvi-font);
+}
+/* fish-11: fish's 11px labels (view chips 11/500, action-bar tiles 11/600 helper2 at 11), phone only (§4b.25). */
+@utility t-fish-11 {
+  font: 500 11px/13px var(--bluvi-font);
 }
 /* table: ranking table rows, 14/600 at every width (t-body grows to 15 from 1280px). */
 @utility t-table {

@@ -290,14 +290,15 @@ test.describe('account.notification-settings', () => {
     await expect.poll(() => patches).toEqual([{ enabled: false }, { enabled: true }]);
   });
 
-  test('entry point: reached by a click — /notificari (gear 768–1279, summary row from 1280), ☰ on a phone', async ({ page }) => {
+  test('entry point: reached by a click — /notificari (gear 768–1279, summary row from 1280), Profil → Setări on a phone', async ({ page }) => {
     await mockProfile(page, { notificationsEnabled: true });
     await signIn(page.context(), jwt);
-    // Phone: the ☰ menu's «Setări» (the hub, ON_WEB.settings since M2-B5) → «Notificări».
+    // Phone (fish, §4b rule 25): the Profil tab → its cog «Setări» (the hub) → «Notificări».
     await page.setViewportSize({ width: 375, height: 900 });
-    await page.goto('/notificari');
-    await page.getByRole('button', { name: 'Meniu', exact: true }).click();
-    await page.getByRole('dialog').getByRole('link', { name: 'Setări', exact: true }).click();
+    await page.goto('/');
+    await page.locator('nav[data-tab-bar]').getByRole('link', { name: 'Profil', exact: true }).click();
+    await expect(page).toHaveURL(/\/profil$/);
+    await page.getByTestId('profile-settings-button').filter({ visible: true }).click();
     await expect(page).toHaveURL(/\/setari$/);
     await page.getByRole('main').getByRole('link', { name: 'Notificări', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${PATH}$`));

@@ -159,57 +159,21 @@ test('§4b.12 §4b.13 §4b.15 — club ranking (NC): coloured header, one club e
   await expect(table.locator('[data-ranking-face]')).toHaveCount(18);
 });
 
-test('§4b.15 — a quantity ranking on a 375 phone: Stand, the name, Cantitate and Loc on the first screen (the deciding columns pinned at the right, fish’s order kept)', async ({ page }) => {
+test('§4b.15 §4b.25 — a quantity ranking on a 375 phone is fish\'s table: fish\'s column order, the Stand pinned at the left, every other column scrolls (nothing pinned at the right)', async ({ page }) => {
   await open(page, ID.quantity, PHONE);
   const region = page.getByRole('region', { name: 'Clasament general', exact: true }).locator('visible=true');
   await expect(region.locator('tbody tr').first()).toBeVisible();
-  await expect(region.locator('xpath=..')).toHaveAttribute('data-wide', 'true');
-  const box = (await region.boundingBox())!;
   const head = (title: RegExp) => region.locator('thead th').filter({ hasText: title });
-  const inView = async (title: RegExp) => {
-    const b = (await head(title).boundingBox())!;
-    return b.x >= box.x - 1 && b.x + b.width <= box.x + box.width + 1;
-  };
-  // fish's order: Cantitate stays in the middle of the table, «Poziție generală» last.
   const titles = (await region.locator('thead th').allInnerTexts()).map(t => t.replace(/\s+/g, ' ').trim());
   expect(titles).toEqual(['Stand', 'Participant', 'C.M.M.C', 'Cantitate', 'Nr. Buc', 'Puncte cantitate', 'Poziție sector', 'Poziție generală']);
-  // The two deciding columns wait pinned at the right edge.
-  await expect.poll(() => inView(/^Cantitate$/)).toBe(true);
-  expect(await inView(/^Poziție generală$/)).toBe(true);
-  const loc = (await head(/^Poziție generală$/).boundingBox())!;
-  expect(Math.abs(loc.x + loc.width - (box.x + box.width))).toBeLessThanOrEqual(1.5);
-  // The name beside them is not covered: its text ends before Cantitate starts.
+  await expect(region.locator('[data-pin^="r"]')).toHaveCount(0);
+  const standX = (await head(/^Stand$/).boundingBox())!.x;
   const quantityX = (await head(/^Cantitate$/).boundingBox())!.x;
-  const name = (await region.locator('tbody tr').first().locator('th[scope="row"] > span').boundingBox())!;
-  expect(name.x + name.width).toBeLessThanOrEqual(quantityX + 1);
-  // A little scroll: Cantitate and Loc are still where they were (the columns pass under them).
-  await region.evaluate(el => el.scrollTo({ left: 40 }));
-  await expect.poll(() => region.evaluate(el => el.scrollLeft)).toBeGreaterThan(30);
-  await expect.poll(async () => Math.abs((await head(/^Cantitate$/).boundingBox())!.x - quantityX)).toBeLessThanOrEqual(1);
-  // To the end: Cantitate has moved on to its own place, the columns after it show, Loc stays at the edge.
-  await region.evaluate(el => el.scrollTo({ left: el.scrollWidth }));
-  await expect.poll(() => inView(/^Poziție sector$/)).toBe(true);
-  expect((await head(/^Cantitate$/).boundingBox())!.x).toBeLessThan(quantityX - 1);
-  const end = (await head(/^Poziție generală$/).boundingBox())!;
-  expect(Math.abs(end.x + end.width - (box.x + box.width))).toBeLessThanOrEqual(1.5);
-});
-
-test('competition-page.clasament (phone) — no column cut by the right pins on the first screen: the name fills the room between the Stand and the pinned block', async ({ page }) => {
-  for (const width of [375, 414]) {
-    await open(page, ID.quantity, { width, height: 812 });
-    const region = page.getByRole('region', { name: 'Clasament general', exact: true }).locator('visible=true');
-    await expect(region.locator('xpath=..')).toHaveAttribute('data-wide', 'true');
-    const box = (await region.boundingBox())!;
-    const cantitate = region.locator('thead th').filter({ hasText: /^Cantitate$/ });
-    await expect.poll(async () => {
-      const name = (await region.locator('thead th').nth(1).boundingBox())!;
-      return Math.abs(name.x + name.width - (await cantitate.boundingBox())!.x);
-    }).toBeLessThanOrEqual(1.5);
-    // Nothing between the name and Cantitate: C.M.M.C (the third column) is under the pins.
-    const cmmc = (await region.locator('thead th').nth(2).boundingBox())!;
-    expect(cmmc.x).toBeGreaterThanOrEqual((await cantitate.boundingBox())!.x - 1);
-    expect(box.width).toBeGreaterThan(0);
-  }
+  // Sideways: the Stand stays, Cantitate passes under it like every other column (fish ScrollView).
+  await region.evaluate(el => el.scrollTo({ left: 80 }));
+  await expect.poll(() => region.evaluate(el => el.scrollLeft)).toBeGreaterThan(60);
+  await expect.poll(async () => Math.abs((await head(/^Stand$/).boundingBox())!.x - standX)).toBeLessThanOrEqual(1);
+  await expect.poll(async () => (await head(/^Cantitate$/).boundingBox())!.x).toBeLessThan(quantityX - 60);
 });
 
 test('§4b.17 — from 1024 a ranking row opens the person popover anchored to it (standard, feeder, club ranking); never the docked panel', async ({ page }) => {
@@ -547,7 +511,7 @@ test('competition-page.clasament.c18 — bestOf winners are numberOfWinners (the
   await expect(table.locator('tbody tr:not([data-winner]) td.rank-sector-win')).toHaveCount(0);
 });
 
-test('competition-page.clasament.c19 competition-page.clasament.c20 — the competition’s biggest catch is gold with bold dark text on its catch cell and its C.M.M.C (phone too); a split catch is marked SPLIT', async ({
+test('competition-page.clasament.c19 competition-page.clasament.c20 — the competition’s biggest catch is gold with bold dark text on its catch cell and its C.M.M.C (phone too, no legend there); a split catch is marked SPLIT', async ({
   page,
 }) => {
   await openFixture(page, 'calitateCantitateCMMC');
@@ -561,10 +525,8 @@ test('competition-page.clasament.c19 competition-page.clasament.c20 — the comp
   await expect(page.getByRole('list', { name: 'Legendă' })).toContainText('C.M.M.C a concursului');
   await page.setViewportSize(PHONE);
   await expect(displayed(page).locator('td[data-biggest]')).toHaveCount(2);
-  // The phone has the legend too, under its table.
-  const legend = page.getByRole('list', { name: 'Legendă' }).locator('visible=true');
-  await expect(legend).toContainText('C.M.M.C a concursului');
-  await expect(legend).toContainText('fără capturi');
+  // The phone is fish's table (§4b.25): no legend under it.
+  await expect(page.getByRole('list', { name: 'Legendă' }).locator('visible=true')).toHaveCount(0);
 });
 
 test('competition-page.clasament.c20 — a split catch shows a small «SPLIT» in its cell', async ({ page }) => {
@@ -598,7 +560,8 @@ test('competition-page.clasament.c23 — one penalty marker per row beside the n
     await expect(out).toHaveCount(1);
     await expect(out).toHaveClass(/bg-status-danger-fg/);
     await expect(table.locator('th[scope=row]').filter({ has: page.getByRole('img', { name: 'Echipa este eliminată' }) })).toContainText('Pescar 2');
-    // The legend names both markers at every width (the phone's under its table).
+    // The legend names both markers from 768 (the phone is fish's table, no legend: §4b.25).
+    if (viewport === PHONE) continue;
     const legend = page.getByRole('list', { name: 'Legendă' }).locator('visible=true');
     await expect(legend).toContainText('penalizare aplicată');
     await expect(legend).toContainText('eliminat');
@@ -660,19 +623,19 @@ test('competition-page.clasament — the side column on 24 sectors: an empty sec
   expect(await column.evaluate(el => getComputedStyle(el).maskImage)).toContain('linear-gradient');
 });
 
-test('competition-page.clasament — phone: rows below the table region are announced («Încă N pescari în tabel», a faded, square bottom) and the cue scrolls the region on', async ({ page }) => {
+test('competition-page.clasament §4b.25 — phone: fish\'s table — full bleed, square, every row in the page (no inner cap), 40px rows, nothing pinned at the right', async ({ page }) => {
   await open(page, ID.quantity, PHONE);
   const table = displayed(page);
   await expect(table.locator('tbody tr').first()).toBeVisible();
-  const cue = page.locator('[data-rows-below-cue]');
-  await expect(cue).toHaveText(/^Încă \d+ pescari în tabel/);
-  expect(await table.evaluate(el => getComputedStyle(el).borderBottomLeftRadius)).toBe('0px');
-  const before = Number((await cue.innerText()).replace(/\D/g, ''));
-  await cue.click();
-  await expect.poll(() => table.evaluate(r => r.scrollTop)).toBeGreaterThan(0);
-  await table.evaluate(r => (r.scrollTop = r.scrollHeight));
-  await expect(cue).toHaveCount(0);
-  expect(before).toBeGreaterThan(0);
+  // No «Încă N pescari» cue and no legend: the page scrolls through every row, as fish.
+  await expect(page.locator('[data-rows-below-cue]')).toHaveCount(0);
+  const box = (await table.boundingBox())!;
+  expect(box.x).toBeLessThanOrEqual(0.5);
+  expect(box.width).toBeGreaterThanOrEqual(PHONE.width - 1);
+  expect(await table.evaluate(el => getComputedStyle(el).borderTopLeftRadius)).toBe('0px');
+  expect(await table.evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+  expect(Math.round((await table.locator('tbody tr').first().boundingBox())!.height)).toBe(40);
+  await expect(table.locator('[data-pin^="r"]')).toHaveCount(0);
 });
 
 test('competition-page.clasament — the side column on bestOfTiers: «Podium» from the places 1–3 only, each with the Best N it won at and its value (never «–»)', async ({ page }) => {

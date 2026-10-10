@@ -7,9 +7,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { notificationsKeys } from '@/core/social';
 import { OPEN_PALETTE_EVENT } from '@/components/nav/openPalette';
 import { activeAdminKey, adminLinks, currentKind, navKeyForPath, PATHS, SECTIONS, type AdminLink } from '@/components/nav/items';
-import type { MenuSession } from '@/components/nav/MobileMenu';
-import { BREAKPOINT_MD } from '@/components/surfaces/rule';
-import { CONCEAL_TOP_PX, useBarConcealedFlag } from '@/components/nav/stickyStack';
 import { TopBar, type TopBarViewer } from '@/components/nav/TopBar';
 import { useSignOut } from '@/lib/client/sign-out';
 import { createBrowserTransport } from '@/lib/client/transport';
@@ -17,15 +14,14 @@ import { signInHref, useIsNotFound } from './SiteHeader';
 import { isUnknownViewer, useShellViewer, useViewerState, type ShellViewer } from './viewer-context';
 
 /*
- * The ☰ panel and the ⌘K palette are client-only chunks, fetched on the first opening (or once the
- * page has loaded and gone idle, so that opening is instant) — never in the first load: the
- * palette's search pulls core/lakes, core/competitions, core/social and zod into the shell of every
- * page (M8-B4, global.b.performance-audit). The trigger buttons stay in the bar.
+ * The ⌘K palette is a client-only chunk, fetched on the first opening (or once the page has loaded
+ * and gone idle, so that opening is instant) — never in the first load: its search pulls core/lakes,
+ * core/competitions, core/social and zod into the shell of every page (M8-B4,
+ * global.b.performance-audit). The trigger button stays in the bar. (The phone ☰ panel is gone:
+ * below 768 the shell is fish's bottom tab bar, ROADMAP §4b rule 25.)
  */
 const loadPalette = () => import('@/components/nav/CommandPalette').then((m) => m.CommandPalette);
-const loadMenu = () => import('@/components/nav/MobileMenu').then((m) => m.MobileMenu);
 const CommandPalette = dynamic(loadPalette, { ssr: false });
-const MobileMenu = dynamic(loadMenu, { ssr: false });
 
 /** true from the first time `open` is true: the panel then stays mounted (its state, its close). */
 function useOpenedOnce(open: boolean): boolean {
@@ -34,13 +30,12 @@ function useOpenedOnce(open: boolean): boolean {
   return opened || open;
 }
 
-/** Fetches the panels' chunks once the page has loaded and gone idle (off the LCP path). */
+/** Fetches the palette's chunk once the page has loaded and gone idle (off the LCP path). */
 function usePrefetchPanels() {
   useEffect(() => {
     let idle = 0;
     let timer = 0;
     const go = () => {
-      loadMenu().catch(() => {});
       loadPalette().catch(() => {});
     };
     const schedule = () => {
@@ -70,16 +65,12 @@ const readUnread = async (t: ReturnType<typeof createBrowserTransport>) =>
 const UNREAD_STALE_MS = 60_000;
 const UNREAD_POLL_MS = 120_000;
 
-/** Phone hide-on-scroll: ignore jitter below this many px; always show within the bar's height. */
-const CONCEAL_DELTA_PX = 4;
-
 /** What the bar has resolved so far; undefined = not known yet. */
 type Known = { pathname?: string; viewer?: ShellViewer };
 
 type Derived = {
   /** true / false once known; null while resolving or when the session could not be read. */
   signedIn: boolean | null;
-  session: MenuSession;
   admin: AdminLink[];
   /** /feed/owned-lakes failed: Administrare stays, with a retry row (never silently dropped). */
   adminFailed: boolean;
@@ -115,7 +106,6 @@ function derive({ pathname, viewer }: Known, notFound = false, search = ''): Der
       : (admin.find((a) => a.key === active)?.href ?? SECTIONS.find((i) => i.key === active)?.href ?? ACCOUNT_HREF[active]);
   return {
     signedIn: resolved ? user !== null : null,
-    session: viewer === undefined ? 'pending' : isUnknownViewer(viewer) ? 'unknown' : user ? 'in' : 'out',
     admin,
     adminFailed,
     active,
@@ -125,15 +115,16 @@ function derive({ pathname, viewer }: Known, notFound = false, search = ''): Der
 }
 
 /**
- * The site's top bar with its phone menu panel and ⌘K palette. The bar sits behind two Suspense
+ * The site's top bar (from 768; below it the shell is fish's: each screen's own header and the
+ * bottom tab bar, ROADMAP §4b rule 25) and the ⌘K palette (also opened by a page's own search
+ * button on the phone). The bar sits behind two Suspense
  * boundaries — the pathname (request data on dynamic routes), then the session — and until the
  * session resolves the avatar slot holds a neutral placeholder, so a signed-in visitor never sees
- * «Intră» flash. The panel and the palette are rendered once, outside both boundaries: they keep
+ * «Intră» flash. The palette is rendered once, outside both boundaries: it keeps
  * their state (typed query, focus) while the bar's fallbacks are swapped for the resolved bar,
  * which reports what it knows upwards.
  */
 export function SiteTopBar() {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [known, setKnown] = useState<Known>({});
   const [search, setSearch] = useState('');
@@ -141,7 +132,7 @@ export function SiteTopBar() {
 
   // Administrare's «Reîncearcă» (the viewer's lakes could not be read): router.refresh() re-reads
   // them on the server, in a transition, so the row stays busy for the whole re-read.
-  const [retrying, startRetry] = useTransition();
+  const [, startRetry] = useTransition();
   const retry = useCallback(() => startRetry(() => router.refresh()), [router]);
 
   // After a confirmed sign-out, focus lands on «Intră» once the bar shows it (not on <body>).
@@ -161,13 +152,11 @@ export function SiteTopBar() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setMenuOpen(false);
         setSearchOpen((o) => !o);
       }
     };
     // A page's own search button (openPalette, e.g. «Caută pescari») opens it too.
     const onOpen = () => {
-      setMenuOpen(false);
       setSearchOpen(true);
     };
     window.addEventListener('keydown', onKey);
@@ -179,14 +168,10 @@ export function SiteTopBar() {
   }, []);
 
   const scrolled = useScrolled();
-  const concealed = useConcealOnScroll(menuOpen || searchOpen);
 
   const bar: BarProps = {
-    menuOpen,
     scrolled,
-    concealed,
     search,
-    onMenu: useCallback(() => setMenuOpen(true), []),
     onSearch: useCallback(() => setSearchOpen(true), []),
     report: setKnown,
     onSignOut: signOut,
@@ -195,13 +180,8 @@ export function SiteTopBar() {
     focusSignInRef,
   };
   const notFound = useIsNotFound(known.pathname);
-  const { signedIn, session, admin, adminFailed, active, activeCurrent, signIn } = useMemo(
-    () => derive(known, notFound, search),
-    [known, notFound, search],
-  );
-  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const { signedIn, admin, signIn } = useMemo(() => derive(known, notFound, search), [known, notFound, search]);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
-  const menuMounted = useOpenedOnce(menuOpen);
   const searchMounted = useOpenedOnce(searchOpen);
   usePrefetchPanels();
 
@@ -219,22 +199,6 @@ export function SiteTopBar() {
       <Suspense fallback={null}>
         <QuietSessionRetry />
       </Suspense>
-      {menuMounted ? (
-        <MobileMenu
-          open={menuOpen}
-          onClose={closeMenu}
-          session={session}
-          onSignOut={signOut}
-          signingOut={signingOut}
-          retrying={retrying}
-          signInHref={signIn}
-          active={active}
-          activeCurrent={activeCurrent}
-          admin={admin}
-          onAdminRetry={adminFailed ? retry : undefined}
-          resetKey={known.pathname}
-        />
-      ) : null}
       {searchMounted ? (
         <CommandPalette open={searchOpen} onClose={closeSearch} signedIn={signedIn} signInHref={signIn} admin={admin} />
       ) : null}
@@ -246,11 +210,8 @@ export function SiteTopBar() {
 }
 
 type BarProps = {
-  menuOpen: boolean;
   scrolled: boolean;
-  concealed: boolean;
   search: string;
-  onMenu: () => void;
   onSearch: () => void;
   report: (k: Known) => void;
   onSignOut: () => void;
@@ -294,11 +255,8 @@ function LateViewer(props: BarProps & { pathname: string }) {
 function Bar({
   pathname,
   viewer,
-  menuOpen,
   scrolled,
-  concealed,
   search,
-  onMenu,
   onSearch,
   report,
   onSignOut,
@@ -345,7 +303,9 @@ function Bar({
   useEffect(() => {
     if (!focusSignInRef.current || topBarViewer.status !== 'out') return;
     focusSignInRef.current = false;
-    const target = document.querySelector<HTMLElement>('header [data-sign-in]') ?? document.getElementById('continut');
+    // The bar's «Intră» from 768; below it (no bar) the page itself.
+    const signIn = document.querySelector<HTMLElement>('header [data-sign-in]');
+    const target = signIn && signIn.getClientRects().length > 0 ? signIn : document.getElementById('continut');
     target?.focus();
   }, [focusSignInRef, topBarViewer.status]);
 
@@ -358,14 +318,12 @@ function Bar({
       onAdminRetry={adminFailed ? onAdminRetry : undefined}
       hasUnread={!signingOut && (unread.data ?? 0) > 0}
       onSearch={onSearch}
-      onMenu={onMenu}
       onSignOut={onSignOut}
       signingOut={signingOut}
-      menuOpen={menuOpen}
       resetKey={pathname}
       scrolled={scrolled}
-      concealed={concealed}
-      className="sticky top-0 z-sticky"
+      // Below 768 the phone has no top bar (fish: each screen's own header, §4b rule 25).
+      className="sticky top-0 z-sticky max-md:hidden"
     />
   );
 }
@@ -395,48 +353,6 @@ function useScrolled(): boolean {
     return () => io.disconnect();
   }, []);
   return scrolled;
-}
-
-/**
- * Phone only (<768): the bar slides away while the visitor scrolls down and comes back on any
- * scroll up, near the top, while a panel is open (`hold`) or while focus is inside it, so the
- * page's own rows get the screen. Desktop never conceals.
- */
-function useConcealOnScroll(hold: boolean): boolean {
-  const [concealed, setConcealed] = useState(false);
-  useEffect(() => {
-    if (hold) return;
-    const phone = window.matchMedia(`(max-width: ${BREAKPOINT_MD - 1}px)`);
-    let last = window.scrollY;
-    let frame = 0;
-    const update = () => {
-      frame = 0;
-      const y = window.scrollY;
-      const delta = y - last;
-      const focusInBar = document.activeElement?.closest('header') != null;
-      if (!phone.matches || y < CONCEAL_TOP_PX || focusInBar) setConcealed(false);
-      else if (delta > CONCEAL_DELTA_PX) setConcealed(true);
-      else if (delta < -CONCEAL_DELTA_PX) setConcealed(false);
-      if (Math.abs(delta) > CONCEAL_DELTA_PX || y < CONCEAL_TOP_PX) last = y;
-    };
-    const onScroll = () => {
-      if (!frame) frame = requestAnimationFrame(update);
-    };
-    const reveal = () => setConcealed(false);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    phone.addEventListener('change', reveal);
-    document.addEventListener('focusin', update);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      phone.removeEventListener('change', reveal);
-      document.removeEventListener('focusin', update);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, [hold]);
-  const result = concealed && !hold;
-  // Every pinned row follows this one value (html[data-bar-concealed], shell UNDER_BAR_TOP).
-  useBarConcealedFlag(result);
-  return result;
 }
 
 /**

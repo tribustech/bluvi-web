@@ -45,7 +45,8 @@ export function competitionMeta(c: HeaderCore, datesProse: string) {
     <span key="author">Organizat de {c.author?.username || 'Necunoscut'}</span>,
     <LakeLink key="lake" competition={c} />,
     datesProse ? (
-      <span key="dates" className={cn(c.competitionStatus === 'notStarted' && 'max-md:hidden')}>
+      // The phone header is fish's: organiser and lake only (§4b.25); the dates are in Informații.
+      <span key="dates" className="max-md:hidden">
         {datesProse}
       </span>
     ) : null,

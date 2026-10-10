@@ -115,7 +115,8 @@ export function ExtraScalesTab({ t, competition }: { t: Transport; competition: 
       />
     );
   } else if (!q.data?.length) {
-    body = <DetailSectionState icon={<StateIcon />} heading="Nu există nicio cerere de extra cântar." />;
+    // Phone (§4b.25): fish's one plain line at the top, no icon.
+    body = <DetailSectionState icon={<StateIcon />} heading="Nu există nicio cerere de extra cântar." className={FISH_EMPTY} />;
   } else {
     const done = q.data.filter(s => extraScaleState(s, status).completed).length;
     const open = q.data.length - done;
@@ -309,3 +310,6 @@ function RequestItem({
     </CardShell>
   );
 }
+
+/** fish's empty tab on the phone: the sentence alone, top-left in body type (DetailSectionState restyled). */
+const FISH_EMPTY = 'max-md:[&>div]:items-start max-md:[&>div]:px-4 max-md:[&>div]:py-4 max-md:[&>div]:text-left max-md:[&>div>span:first-child]:hidden max-md:[&_h2]:t-body max-md:[&_h2]:text-ink';

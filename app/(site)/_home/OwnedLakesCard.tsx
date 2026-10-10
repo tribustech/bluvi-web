@@ -9,6 +9,11 @@ import {
   TicketIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
+import {
+  CalendarDaysIcon as CalendarDaysSolid,
+  ChartBarSquareIcon as ChartBarSquareSolid,
+  TicketIcon as TicketSolid,
+} from '@heroicons/react/16/solid';
 import type { OwnedLakesStats } from '@/core/lakes';
 import { ACTION_TILE, CountBadge, DashboardLine, DashboardLines, DashboardSection, ICON_TILE, type ActionTone } from '@/components/templates/T5';
 import { cn } from '@/components/ui/cn';
@@ -73,7 +78,8 @@ export function OwnedLakesCard({
     <DashboardSection
       variant="card"
       flush
-      className={cn('relative', className)}
+      // fish: the card bleeds 5px past the page padding, as the profile card and the organiser banner.
+      className={cn('relative max-md:-mx-1.25', className)}
       title={
         // The whole card opens the lake panel.
         <Link
@@ -83,8 +89,18 @@ export function OwnedLakesCard({
           {title}
         </Link>
       }
-      caption={occupancy && occupancy.total > 0 ? <span className="tabular-nums">{`${occupancy.booked} / ${occupancy.total} standuri ocupate`}</span> : null}
+      caption={
+        occupancy && occupancy.total > 0 ? <span className="tabular-nums max-md:hidden">{`${occupancy.booked} / ${occupancy.total} standuri ocupate`}</span> : null
+      }
     >
+      {/* fish: on the phone the occupancy sits at the right of the title row («0 / 21 standuri»). */}
+      {occupancy && occupancy.total > 0 ? (
+        <span className="absolute top-4.5 right-4.5 t-caption text-muted tabular-nums md:hidden">
+          {`${occupancy.booked} / ${occupancy.total} standuri`}
+          {/* fish shows «standuri»; the web says what the ratio counts to a screen reader. */}
+          <span className="sr-only"> ocupate</span>
+        </span>
+      ) : null}
       <DashboardLines bare dense={dense} label="Situația bălții" className={ABOVE_STRETCH}>
         {pending > 0 ? (
           <DashboardLine
@@ -107,11 +123,13 @@ export function OwnedLakesCard({
       </DashboardLines>
 
       <QuickActions>
-        <QuickAction icon={<ChartBarSquareIcon />} tone="accent" label="Panou" href={operatorHref(lakeId, 'panel')} />
-        <QuickAction icon={<CalendarDaysIcon />} tone="accent" label="Calendar" href={operatorHref(lakeId, 'calendar')} />
+        <QuickAction icon={<ChartBarSquareIcon />} phoneIcon={<ChartBarSquareSolid />} phoneTile="bg-fish-indigo" tone="accent" label="Panou" href={operatorHref(lakeId, 'panel')} />
+        <QuickAction icon={<CalendarDaysIcon />} phoneIcon={<CalendarDaysSolid />} phoneTile="bg-fish-blue" tone="accent" label="Calendar" href={operatorHref(lakeId, 'calendar')} />
         {/* The badge counts unanswered requests, so the tap has to land on them. */}
         <QuickAction
           icon={<TicketIcon />}
+          phoneIcon={<TicketSolid />}
+          phoneTile="bg-fish-green"
           tone="success"
           label="Rezervări"
           badge={pending}
@@ -160,7 +178,27 @@ function QuickActions({ children }: { children: ReactNode }) {
   );
 }
 
-function QuickAction({ icon, tone, label, badge, href }: { icon: ReactNode; tone: ActionTone; label: string; badge?: number; href: string }) {
+/**
+ * On the phone the tile is fish OperatorQuickAction's: a 28px square (radius 8) in its Material
+ * colour, a white 16px solid glyph, the label 12/600; from 768 the kit's tinted tile.
+ */
+function QuickAction({
+  icon,
+  phoneIcon,
+  phoneTile,
+  tone,
+  label,
+  badge,
+  href,
+}: {
+  icon: ReactNode;
+  phoneIcon: ReactNode;
+  phoneTile: string;
+  tone: ActionTone;
+  label: string;
+  badge?: number;
+  href: string;
+}) {
   const count = badge ? (badge > 99 ? '99+' : String(badge)) : null;
   return (
     <li className="flex flex-1">
@@ -169,12 +207,15 @@ function QuickAction({ icon, tone, label, badge, href }: { icon: ReactNode; tone
         className="relative z-above flex flex-1 flex-col items-center justify-center gap-1.5 rounded-control py-1 transition-[background-color,opacity] duration-(--duration-fast) ease-fast hover:bg-soft-fill active:opacity-70"
       >
         <span className="relative">
-          <span aria-hidden className={cn(ICON_TILE, ACTION_TILE[tone])}>
+          <span aria-hidden className={cn(ICON_TILE, ACTION_TILE[tone], 'max-md:hidden')}>
             {icon}
+          </span>
+          <span aria-hidden className={cn('flex size-7 items-center justify-center rounded-lg text-fish-on md:hidden [&>svg]:size-4', phoneTile)}>
+            {phoneIcon}
           </span>
           <CountBadge count={badge} className="absolute -top-1.5 -right-2" />
         </span>
-        <span className="t-label text-ink">{label}</span>
+        <span className="t-label text-ink max-md:t-caption">{label}</span>
         {count ? <span className="sr-only">, {count} în așteptare</span> : null}
       </Link>
     </li>
@@ -191,7 +232,7 @@ function QuickAction({ icon, tone, label, badge, href }: { icon: ReactNode; tone
 export function OwnedLakesCardSkeleton({ layout, className }: { layout: Layout; className?: string }) {
   const bone = 'inline-block h-3.5 rounded-full bg-soft-fill align-middle animate-shimmer';
   return (
-    <div role="status" className={className}>
+    <div role="status" className={cn('max-md:-mx-1.25', className)}>
       <DashboardSection
         variant="card"
         flush

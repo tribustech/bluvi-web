@@ -119,7 +119,8 @@ export function ContactSection({ competition: c, title = 'Contact' }: { competit
   // fish CompetitionContact: every phone logs contact_pressed «Competition phone contact».
   const call = analyticsAttrs('contact_pressed', { contact_type: 'Competition phone contact', competition_id: c.documentId, competition_name: c.name });
   return (
-    <DetailAsideCard title={title}>
+    // Below 768 fish's all-caps «CONTACT» (§4b.25); from 768 the sentence-case aside title.
+    <DetailAsideCard title={<span className="max-md:uppercase">{title}</span>}>
       {empty ? (
         <p className="t-body text-ink-2">Nu există date de contact pentru acest concurs.</p>
       ) : (
@@ -153,11 +154,12 @@ function ContactGroup({
 }) {
   return (
     <div className="flex flex-col">
-      {title ? <h4 className="t-caption text-muted">{title}</h4> : null}
+      {/* Below 768 fish CompetitionContact: the role dark body, the name muted, the number without a glyph. */}
+      {title ? <h4 className="t-caption text-muted max-md:t-body max-md:text-ink">{title}</h4> : null}
       <ul className="flex flex-col">
         {people.map(p => (
           <li key={p.key} className="flex min-h-11 items-center justify-between gap-3">
-            <span className="min-w-0 t-body-strong text-ink">{p.name || '–'}</span>
+            <span className="min-w-0 t-body-strong text-ink max-md:t-body max-md:text-muted">{p.name || '–'}</span>
             {p.phone ? (
               // fish: a phone is a tel: link; contact_pressed through data-analytics-* (components/analytics).
               <a
@@ -166,7 +168,7 @@ function ContactGroup({
                 aria-label={p.name ? `Sună pe ${p.name}: ${p.phone}` : `Sună la ${p.phone}`}
                 className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-control px-1 t-body-strong text-accent-ink tabular-nums hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent"
               >
-                <PhoneIcon aria-hidden className="size-4" />
+                <PhoneIcon aria-hidden className="size-4 max-md:hidden" />
                 {p.phone}
               </a>
             ) : (
@@ -235,11 +237,12 @@ export function CompetitionBanner({ banner, name }: { banner: Banner; name: stri
     );
   }
   if (!known) {
-    return <div className="relative aspect-video overflow-hidden bg-soft-fill md:rounded-card md:shadow-e0">{image('size-full object-cover')}</div>;
+    // Phone (§4b.25): fish's banner sits inside the 16px gutter with 12px corners.
+    return <div className="relative aspect-video overflow-hidden bg-soft-fill max-md:mx-4 max-md:mt-4 max-md:rounded-xl md:rounded-card md:shadow-e0">{image('size-full object-cover')}</div>;
   }
   return (
     // At most the upload's own width (CSS px), centred when the column is wider.
-    <div className="flex justify-center">{image('h-auto w-full object-cover md:max-h-120 md:rounded-card md:shadow-e0', { maxWidth: `${w}px` })}</div>
+    <div className="flex justify-center max-md:px-4 max-md:pt-4">{image('h-auto w-full object-cover max-md:rounded-xl md:max-h-120 md:rounded-card md:shadow-e0', { maxWidth: `${w}px` })}</div>
   );
 }
 
@@ -259,10 +262,10 @@ export function SpeciesList({ species, label }: { species: { id: string; name: s
     <ul aria-label={label} className="grid grid-cols-[repeat(auto-fill,--spacing(38))] gap-3">
       {species.map(s => (
         <li key={s.id} data-species className="flex flex-col gap-1.5">
-          <span className="relative block aspect-2/1 w-full overflow-hidden rounded-control bg-surface shadow-e0">
+          <span className="relative block aspect-2/1 w-full overflow-hidden rounded-control bg-surface shadow-e0 max-md:shadow-e1">
             <Image src={speciesImage(s.name)} alt="" fill sizes="152px" className="object-contain" />
           </span>
-          <span className="t-label text-ink">{s.name}</span>
+          <span className="t-label text-ink max-md:t-body max-md:text-muted">{s.name}</span>
         </li>
       ))}
     </ul>

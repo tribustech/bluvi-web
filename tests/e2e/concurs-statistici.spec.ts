@@ -695,7 +695,8 @@ test('competition-page.cantare.c8 — the phone action bar «Cântare» tile ope
 
 test('competition-page.statistici.c1 competition-page.statistici.s1 — signed out: the sign-in prompt', async ({ page }) => {
   await open(page, `/concursuri/${ID.rich}/statistici`);
-  await expect(page.getByText('Trebuie să fii autentificat pentru a vedea statisticile.')).toBeVisible();
+  // The phone line (fish) and the desktop gate share the sentence; one of them is displayed.
+  await expect(page.getByText('Trebuie să fii autentificat pentru a vedea statisticile.').filter({ visible: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Intră în cont' })).toHaveAttribute('href', /statistici/);
 });
 
@@ -1287,7 +1288,8 @@ test('competition-page.toti-pestii.c1 c2 c3 c4 c5 c7 competition-page.toti-pesti
   expect(pagination.total, 'the rich competition has more than one page of catches').toBeGreaterThan(CATCHES_PAGE);
   const errors = await open(page, `/concursuri/${ID.rich}/capturi`, PHONE);
   const sorts = page.getByRole('radiogroup', { name: 'Sortare capturi' });
-  await expect(sorts.locator('label')).toHaveText(['Cei mai mari', 'Cei mai mici', 'Pe stand', 'Pe sector']);
+  // Phone: fish's sort chips (radio buttons, §4b.25); from 768 the kit choice chips.
+  await expect(sorts.getByRole('radio')).toHaveText(['Cei mai mari', 'Cei mai mici', 'Pe stand', 'Pe sector']);
   await expect(sorts.getByRole('radio', { name: 'Cei mai mari' })).toBeChecked();
   const list = page.locator('ul').filter({ hasText: / kg/ }).first();
   await expect(list.getByRole('listitem')).toHaveCount(Math.min(CATCHES_PAGE, pagination.total), { timeout: 30_000 });

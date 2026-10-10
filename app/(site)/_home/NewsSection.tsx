@@ -7,7 +7,7 @@ import type { AnnouncementListItem } from '@/core/news';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { CardShell, CardTitle, Tag } from '@/components/cards';
-import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem, useRailRead } from './HorizontalRail';
+import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem, useRailRead, HOME_RAIL_BLEED } from './HorizontalRail';
 import { HomeGrid, HomeGridSkeleton } from './HomeGrid';
 import { RailEmpty, RailSection, RailSkeleton } from './RailSection';
 import { newsDate } from './format';
@@ -71,6 +71,7 @@ export function NewsView({
           {/* Below 1280 the rail; from 1280 one full row of the grid (HomeGrid). */}
           <div className="xl:hidden">
             <HorizontalRail
+              className={HOME_RAIL_BLEED}
               label="Noutăți"
               width={224}
               onEndReached={onEndReached}

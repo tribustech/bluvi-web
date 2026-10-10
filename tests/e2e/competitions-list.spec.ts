@@ -122,21 +122,21 @@ test.describe('signed out', () => {
     expect(errors).toEqual([]);
   });
 
-  test('competitions-list.index.c1 competitions-list.index.s17 — phone: the title and tabs are a sticky chrome with a fade under it; it follows the top bar up', async ({ page }) => {
+  test('competitions-list.index.c1 competitions-list.index.s17 — phone: the title and tabs are a sticky chrome with a fade under it, pinned to the top edge', async ({ page }) => {
     await page.setViewportSize(PHONE);
     await open(page);
     const chrome = page.locator('header').filter({ has: page.getByRole('heading', { level: 1, name: 'Concursuri' }) }).locator('..');
     await expect(chrome).toHaveCSS('position', 'sticky');
     const fade = await chrome.evaluate((el) => getComputedStyle(el, '::after').backgroundImage);
     expect(fade).toContain('linear-gradient');
-    // At rest: in the flow, under the 56px top bar.
-    expect((await chrome.boundingBox())!.y).toBeGreaterThanOrEqual(56);
+    // At rest: in the flow at the top of the page (no top bar on the phone, §4b rule 25).
+    expect((await chrome.boundingBox())!.y).toBeGreaterThanOrEqual(0);
     await page.mouse.move(180, 500);
     for (let i = 0; i < 5; i++) await page.mouse.wheel(0, 300);
     await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeInViewport();
     await expect(tab(page, 'Live')).toBeInViewport();
-    // The bar slid away: the chrome follows it to the edge, so nothing scrolls past above the title.
-    await expect(page.locator('header').and(page.locator('[data-concealed]'))).toHaveCount(1);
+    // Pinned at the top edge, so nothing scrolls past above the title.
+    await expect(page.getByRole('banner')).toBeHidden();
     await expect.poll(async () => Math.round((await chrome.boundingBox())!.y)).toBe(0);
   });
 

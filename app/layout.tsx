@@ -15,7 +15,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ro" className={nunito.variable}>
+    // data-bar-concealed: the phone (<768) has no top bar (fish's chrome, ROADMAP §4b rule 25), so
+    // every row pinned under it sits at the top edge from the first paint (components/nav/shell.tsx;
+    // its selectors are all max-md, so wider screens ignore it).
+    <html lang="ro" className={nunito.variable} data-bar-concealed="">
       <head>
         {/* Before React's streaming runtime: reveal Suspense boundaries without the 300 ms throttle (lib/reveal-now.ts). */}
         <script dangerouslySetInnerHTML={{ __html: REVEAL_NOW_SCRIPT }} />

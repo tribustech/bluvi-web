@@ -1,5 +1,11 @@
 import type { ComponentType, SVGProps } from 'react';
 import { PresentationChartBarIcon, QueueListIcon, ScaleIcon, TrophyIcon } from '@heroicons/react/24/outline';
+import {
+  PresentationChartBarIcon as PresentationChartBarSolid,
+  QueueListIcon as QueueListSolid,
+  ScaleIcon as ScaleSolid,
+  TrophyIcon as TrophySolid,
+} from '@heroicons/react/24/solid';
 
 /** fish CompetitionRanking `rankingView`. */
 export type RankingViewKey = 'clasament' | 'cantare' | 'statistici' | 'allFish';
@@ -7,15 +13,15 @@ export type RankingViewKey = 'clasament' | 'cantare' | 'statistici' | 'allFish';
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
 /**
- * fish `VIEW_CHIP_CONFIG`, same order and labels. fish paints each chip its own Material hue; on
- * the web indigo is the only accent (Fundații §01), so every view gets the same treatment
- * (ViewSwitch) and the icons are the 24 outline set (§05).
+ * fish `VIEW_CHIP_CONFIG`, same order and labels. From 768 the web's tabs use the 24 outline set
+ * (`Icon`, Fundații §05); the phone chips are fish's own (`PhoneIcon`, heroicons solid, and each
+ * view's colour — ROADMAP §4b.25).
  */
-export const VIEWS: { key: RankingViewKey; label: string; Icon: Icon }[] = [
-  { key: 'clasament', label: 'Clasament', Icon: TrophyIcon },
-  { key: 'cantare', label: 'Cântare', Icon: ScaleIcon },
-  { key: 'statistici', label: 'Statistici', Icon: PresentationChartBarIcon },
-  { key: 'allFish', label: 'Toți peștii', Icon: QueueListIcon },
+export const VIEWS: { key: RankingViewKey; label: string; Icon: Icon; PhoneIcon: Icon }[] = [
+  { key: 'clasament', label: 'Clasament', Icon: TrophyIcon, PhoneIcon: TrophySolid },
+  { key: 'cantare', label: 'Cântare', Icon: ScaleIcon, PhoneIcon: ScaleSolid },
+  { key: 'statistici', label: 'Statistici', Icon: PresentationChartBarIcon, PhoneIcon: PresentationChartBarSolid },
+  { key: 'allFish', label: 'Toți peștii', Icon: QueueListIcon, PhoneIcon: QueueListSolid },
 ];
 
 /**

@@ -60,7 +60,7 @@ export function MyLiveCompetition({
       className={cn(
         'flex flex-col gap-2.5 bg-accent text-on-accent',
         layout === 'dock'
-          ? 'sticky bottom-0 z-sticky -mx-4 -mb-8 rounded-t-bento md:-mx-6 md:-mb-10 px-5 pt-5 pb-[max(--spacing(5),env(safe-area-inset-bottom))] shadow-tabbar xl:hidden'
+          ? 'sticky bottom-0 z-sticky -mx-5 -mb-8 rounded-t-bento md:-mx-6 md:-mb-10 px-5 pt-5 pb-[max(--spacing(5),env(safe-area-inset-bottom))] shadow-tabbar xl:hidden'
           : // Flat, as OrganizerBanner: the indigo fill separates it; e1 is for photo cards.
             'rounded-card p-4.5'
       )}

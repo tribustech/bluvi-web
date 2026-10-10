@@ -66,7 +66,7 @@ function SponsorChip({ sponsor: s }: { sponsor: Sponsor }) {
       )}
     >
       {src ? (
-        <Image src={src} alt={s.name} fill sizes="160px" className="object-contain p-2.5" />
+        <Image src={src} alt={s.name} fill sizes="(min-width: 768px) 160px, 245px" className="object-cover md:object-contain md:p-2.5" />
       ) : (
         <span className="line-clamp-2 text-center t-caption text-ink">{s.name}</span>
       )}

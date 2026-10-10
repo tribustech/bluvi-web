@@ -68,7 +68,9 @@ for (const signedIn of [false, true]) {
         await expect(visible(page.getByRole('button', { name: 'Contactează-ne' }))).toHaveCount(0);
         await expect(h2(page, 'Ce găsești pe Bluvi')).toHaveCount(0);
       } else {
-        await expect(h2(page, 'Ce găsești pe Bluvi')).toBeVisible();
+        // §4b rule 25: fish's Acasă has no pillars block; the phone shows none (from 768 it stays).
+        if (vp.width < 768) await expect(h2(page, 'Ce găsești pe Bluvi')).toHaveCount(0);
+        else await expect(h2(page, 'Ce găsești pe Bluvi')).toBeVisible();
         await expect(visible(page.getByRole('button', { name: 'Contactează-ne' }))).toBeVisible();
         await expect(visible(page.getByRole('link', { name: /Setări de confidențialitate/ }))).toBeVisible();
         await expect(h2(page, /^Balta mea/)).toHaveCount(0);
@@ -108,9 +110,9 @@ test('home.acasa.c1 c4 c5 — signed-in profile card: greeting, profile link, be
   const title = visible(page.getByRole('heading', { level: 1 }));
   await expect(title).toHaveText(/^(Salut, .+!|Bine ai venit!)$/);
   await expect(title.getByRole('link')).toHaveAttribute('href', '/profil');
-  // c5: the bell lives in the top bar at every width (ROADMAP §4), never repeated in the card.
-  await expect(visible(page.getByRole('main').getByRole('link', { name: /^Notificări/ }))).toHaveCount(0);
-  const bell = visible(page.getByRole('banner').getByRole('link', { name: /^Notificări/ }));
+  // c5: on the phone there is no top bar (§4b rule 25): the bell sits on the card, as in fish.
+  await expect(page.getByRole('banner').locator('visible=true')).toHaveCount(0);
+  const bell = visible(page.getByRole('main').getByRole('link', { name: /^Notificări/ }));
   await expect(bell).toHaveAttribute('href', '/notificari');
   // The dot is announced in the name exactly when the unread count is > 0.
   const res = await request.get(`${CMS}/notification-users/unread`, { headers: { Authorization: `Bearer ${jwt}` } });
@@ -347,7 +349,8 @@ test('home.acasa.c11 c12 c13 c15 — operator card', async ({ page }) => {
   await expect(card).toBeVisible();
   const single = /^Balta mea/.test((await card.getByRole('heading', { level: 2 }).textContent()) ?? '');
   // fish «{booked} / {total} standuri»; the web says what the ratio counts («ocupate»).
-  await expect(card.getByText(/^\d+ \/ \d+ standuri ocupate$/)).toBeVisible();
+  // One per width: the caption from 768, fish's title-row figure on the phone (the noun read out).
+  await expect(card.getByText(/^\d+ \/ \d+ standuri ocupate$/).locator('visible=true')).toHaveCount(1);
   // Either the pending summary or the quiet line with tomorrow's count.
   const pending = card.getByText(/^(1 cerere așteaptă răspuns|\d+ cereri așteaptă răspuns)$/);
   if (await pending.count()) {
@@ -657,7 +660,8 @@ for (const vp of [PHONE, DESKTOP]) {
     await expect(cards.first()).toBeVisible();
     const first = cards.first();
     await expect(first.getByRole('link').first()).toHaveAttribute('href', /^\/concursuri\/[^/]+$/);
-    await expect(first.getByText(/^(Individual|Echipe)$/)).toBeVisible();
+    // One badge row per width (the kit's from 768, fish's violet/blue below; §4b rule 25).
+    await expect(first.getByText(/^(Individual|Echipe)$/).locator('visible=true')).toHaveCount(1);
     if (live) {
       await expect(first.getByText('LIVE', { exact: true })).toBeVisible();
       await expect(first.getByText(/(capturi|captură|Încă nu sunt capturi)/).first()).toBeVisible();
@@ -785,9 +789,13 @@ test('home.acasa.c43 c44 — lakes rail', async ({ page }) => {
   await expect(items.first().getByRole('link').first()).toHaveAttribute('href', /^\/balti\/[^/]+$/);
   // c44: the rating is a badge on the photo only when the lake has reviews — never «no reviews» copy.
   await expect(lakes.getByText('Fără recenzii')).toHaveCount(0);
-  // Owner rule 5 (no empty footer space): the facilities are named (first two, then «+n») on the
-  // card's last line, never a row of bare glyphs that stays blank when a lake lists none.
-  await expect(lakes.getByRole('list', { name: 'Facilități' })).toHaveCount(0);
+  // §4b rule 25 (overrides owner rule 5 on the phone): fish's bare facility glyphs, at most four
+  // then «+N», each named for a screen reader. From 768 the named fact line stays (rule 5).
+  const glyphs = lakes.getByRole('list', { name: 'Facilități' }).locator('visible=true');
+  for (const list of await glyphs.all()) expect(await list.locator(':scope > li').count()).toBeLessThanOrEqual(5);
+  await expect(lakes.getByText(/^(Facilități|Specii|Regim): $/).locator('visible=true')).toHaveCount(0);
+  await page.setViewportSize(TABLET);
+  await expect(lakes.getByRole('list', { name: 'Facilități' }).locator('visible=true')).toHaveCount(0);
   await expect(visible(lakes.getByText(/^(Facilități|Specii|Regim): $/)).first()).toBeAttached();
 });
 
@@ -943,8 +951,18 @@ test('account.onboarding.c1 c2 c3 c4 replaced — a first visit to / never redir
     // No onboarding pager («Sari peste», «Continuă»): the home itself is the landing.
     await expect(page.getByRole('button', { name: 'Sari peste' })).toHaveCount(0);
     await expect(visible(page.getByRole('heading', { level: 1, name: 'Bine ai venit pe Bluvi' }))).toBeVisible();
+    if (vp.width < 768) {
+      // §4b rule 25: the phone is fish's Acasă — no pillars, no top bar; the card's «Conectează-te» signs in.
+      await expect(page.getByRole('region', { name: 'Ce găsești pe Bluvi' }).locator('visible=true')).toHaveCount(0);
+      const card = visible(page.getByRole('main').getByRole('link', { name: 'Conectează-te', exact: true }));
+      await expect(card).toHaveAttribute('href', '/intra');
+      await card.click();
+      await expect(page).toHaveURL(/\/intra$/);
+      await context.close();
+      continue;
+    }
     // c4 — the landing says what Bluvi is: fish's four onboarding pillars (app/onboarding.tsx
-    // STORIES, kicker + headline), under the header card on the phone, heading the right column from 1280.
+    // STORIES, kicker + headline), heading the right column from 1280.
     const pillars = visible(page.getByRole('region', { name: 'Ce găsești pe Bluvi' }));
     await expect(pillars).toBeVisible();
     for (const [kicker, headline] of [
@@ -956,12 +974,7 @@ test('account.onboarding.c1 c2 c3 c4 replaced — a first visit to / never redir
       await expect(pillars.getByText(kicker, { exact: true })).toBeVisible();
       await expect(pillars.getByText(headline, { exact: true })).toBeVisible();
     }
-    if (vp.width < 768) {
-      // Under the header card: the sign-in card's «Conectează-te» comes first.
-      const card = visible(page.getByRole('main').getByRole('link', { name: 'Conectează-te', exact: true }));
-      const [cardBox, pillarsBox] = [await card.boundingBox(), await pillars.boundingBox()];
-      expect(pillarsBox!.y).toBeGreaterThan(cardBox!.y);
-    } else {
+    {
       // In «Ce mă așteaptă», above Instrumente: what Bluvi is before its coming-soon tools.
       const tools = section(page, 'Instrumente');
       const [toolsBox, pillarsBox] = [await tools.boundingBox(), await pillars.boundingBox()];

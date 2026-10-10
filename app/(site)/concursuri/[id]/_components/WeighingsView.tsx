@@ -64,7 +64,8 @@ import { routes } from '@/lib/routes';
  */
 
 const STAND_GRID = cn('grid grid-cols-[minmax(0,1fr)] items-start', LIST_GUTTER, 'md:grid-cols-[repeat(auto-fill,minmax(--spacing(80),1fr))]');
-const STAND_CARD = 'rounded-card bg-surface p-4 shadow-e0';
+// Phone (§4b.25): fish StandCantarCard — indigo-1, radius 5, 8 × 6 padding, no shadow.
+const STAND_CARD = 'rounded-card bg-surface p-4 shadow-e0 max-md:rounded-[5px] max-md:bg-indigo-1 max-md:px-2 max-md:py-1.5 max-md:shadow-none';
 /** Keyboard focus on a control (owner rule 8): the accent ring, never on a pointer press. */
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent';
 export function WeighingsView({
@@ -306,7 +307,7 @@ export function WeighingsView({
         ) : null}
         {session === 'out' ? (
           // Signed out the totals are read per stand, on open: said once, not on every card.
-          <p className="flex items-center gap-1.5 t-caption text-muted">
+          <p className="flex items-center gap-1.5 t-caption text-muted max-md:hidden">
             <InformationCircleIcon aria-hidden className="size-4 shrink-0" />
             Deschide un stand ca să vezi cântarele lui.
           </p>
@@ -315,8 +316,9 @@ export function WeighingsView({
           const fill = sectorFill(sector.name, 'var(--color-accent)');
           return (
             <section key={sector.documentId} aria-labelledby={`cantar-${sector.documentId}`} className="flex flex-col gap-2">
-              <h2 id={`cantar-${sector.documentId}`} className="flex items-center gap-2 t-title2">
-                <span aria-hidden className={cn('size-2.5 rounded-full', fill.className)} style={fill.style} />
+              {/* fish: «Sector A» in title1 on a 16px inset, no sector dot (§4b.25). */}
+              <h2 id={`cantar-${sector.documentId}`} className="flex items-center gap-2 t-title2 max-md:px-4 max-md:t-title1">
+                <span aria-hidden className={cn('size-2.5 rounded-full max-md:hidden', fill.className)} style={fill.style} />
                 Sector {sector.name}
               </h2>
               {allocationLoading ? (
@@ -544,7 +546,7 @@ function StandCard({
   const personOn = !!alloc && !!person?.has(alloc.registrationId);
 
   return (
-    <div className={cn(STAND_CARD, 'transition-shadow duration-(--duration-fast)', expanded && 'ring-2 ring-accent')}>
+    <div className={cn(STAND_CARD, 'transition-shadow duration-(--duration-fast)', expanded && 'ring-2 ring-accent max-md:ring-0')}>
       <button
         type="button"
         aria-expanded={expanded}
@@ -554,14 +556,14 @@ function StandCard({
       >
         <span className="min-w-0 flex-1">
           {/* fish: «Stand 12» under its «Sector A» heading; the national championship «Stand A3(12)». */}
-          <span className="block truncate t-heading">Stand {standLabel}</span>
+          <span className="block truncate t-heading max-md:t-body">Stand {standLabel}</span>
           {personOn ? null : <span className="block truncate t-caption text-muted">{who}</span>}
         </span>
         {counts && counts.kg !== null ? (
           // fish: the total in the accent; the unit apart, smaller and muted (owner rule 10).
           <InlineNumber value={formatKg(counts.kg, decimals)} unit="kg" valueClassName="t-body-strong text-accent-ink" className="shrink-0" />
         ) : null}
-        <ChevronDownIcon aria-hidden className={cn('size-6 shrink-0 text-muted transition-transform duration-(--duration-fast)', expanded && 'rotate-180')} />
+        <ChevronDownIcon aria-hidden className={cn('size-6 shrink-0 text-muted transition-transform duration-(--duration-fast) max-md:size-5', expanded && 'rotate-180')} />
       </button>
       {personOn && alloc && person ? (
         <button

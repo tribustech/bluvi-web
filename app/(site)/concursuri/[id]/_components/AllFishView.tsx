@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType, type SVGProps } from 'react';
+import { ArrowTrendingDownIcon, ArrowTrendingUpIcon, MapPinIcon, Squares2X2Icon } from '@heroicons/react/24/solid';
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import {
   competitionCatchesInfiniteQuery,
@@ -30,9 +31,10 @@ import { formatStand, standLabel } from './stand';
  * the first row's lines vanish and a part-filled last row leaves no orphan hairlines under empty
  * columns. The columns are rows of one list, so they sit a wider channel apart than the T1 cards.
  */
-const CARD = 'overflow-hidden rounded-card bg-surface shadow-e0';
+// Phone (§4b.25): fish's plain list on the white screen — no card, a gray hairline under each row.
+const CARD = 'overflow-hidden rounded-card bg-surface shadow-e0 max-md:rounded-none max-md:shadow-none';
 const LIST = '-mt-px grid grid-cols-[minmax(0,1fr)] md:grid-cols-[repeat(auto-fill,minmax(--spacing(80),1fr))] md:gap-x-6 md:px-2';
-const ROW = 'flex min-w-0 items-center gap-2.5 border-t border-hairline px-4 py-2.5 md:px-2';
+const ROW = 'flex min-w-0 items-center gap-2.5 border-t border-hairline px-4 py-2.5 md:px-2 max-md:border-t-0 max-md:border-b max-md:border-fish-card-line max-md:px-4';
 
 /*
  * fish CompetitionRanking `rankingView === 'allFish'`: every catch, sortable (Cei mai mari / mici,
@@ -48,12 +50,44 @@ const MAX_FACES = 6;
 /** fish handleLoadMore: within this much of the end the next page loads. */
 const LOAD_AHEAD_PX = 200;
 
-const SORTS: { value: CompetitionCatchesSort; label: string }[] = [
-  { value: 'weight_desc', label: 'Cei mai mari' },
-  { value: 'weight_asc', label: 'Cei mai mici' },
-  { value: 'stand', label: 'Pe stand' },
-  { value: 'sector', label: 'Pe sector' },
+const SORTS: { value: CompetitionCatchesSort; label: string; Icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
+  { value: 'weight_desc', label: 'Cei mai mari', Icon: ArrowTrendingUpIcon },
+  { value: 'weight_asc', label: 'Cei mai mici', Icon: ArrowTrendingDownIcon },
+  { value: 'stand', label: 'Pe stand', Icon: MapPinIcon },
+  { value: 'sector', label: 'Pe sector', Icon: Squares2X2Icon },
 ];
+
+/**
+ * Phone (§4b.25): fish's sort chips (SORT_CHIP_CONFIG) — pills, the selected one teal with white
+ * text, each with its solid icon in a small rounded square; a radio group, scrolling sideways.
+ */
+function FishSortChips({ value, onChange }: { value: CompetitionCatchesSort; onChange: (v: CompetitionCatchesSort) => void }) {
+  return (
+    <div role="radiogroup" aria-label="Sortare capturi" className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
+      {SORTS.map(({ value: v, label, Icon }) => {
+        const on = v === value;
+        return (
+          <button
+            key={v}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(v)}
+            className={cn(
+              'flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full py-1.5 pr-3 pl-1.5 t-caption active:opacity-85 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent',
+              on ? 'bg-fish-view-allfish text-fish-on' : 'bg-fish-chip font-medium text-fish-chip-ink',
+            )}
+          >
+            <span aria-hidden className={cn('flex size-6 items-center justify-center rounded-md', on ? 'bg-fish-on/25' : 'bg-fish-chip-pressed')}>
+              <Icon className={cn('size-3.5', on ? 'text-fish-on' : 'text-fish-chip-icon')} />
+            </span>
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function AllFishView({
   t,
@@ -183,18 +217,27 @@ export function AllFishView({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* The kit choice chips (T1), the same pills as the ranking's sector filter. */}
-      <ChoiceChips
-        name="catches-sort"
-        label="Sortare capturi"
-        scroll={scroll}
-        options={SORTS}
+      <FishSortChips
         value={sort}
         onChange={value => {
           setSort(value);
           setPicked(null);
         }}
       />
+      {/* From 768 the kit choice chips (T1), the same pills as the ranking's sector filter. */}
+      <div className="max-md:hidden">
+        <ChoiceChips
+          name="catches-sort"
+          label="Sortare capturi"
+          scroll={scroll}
+          options={SORTS}
+          value={sort}
+          onChange={value => {
+            setSort(value);
+            setPicked(null);
+          }}
+        />
+      </div>
       {options.length > 0 && filterValue ? (
         <ChoiceChips
           name="catches-filter"
@@ -239,7 +282,11 @@ export function AllFishView({
                 <li key={String(c.id)} className={ROW}>
                   {/* fish: «A12» (or the sector, or «-»): the page's one stand mark (dot + label), so the
                       faces on the right stay the row's only round element. */}
-                  <span className="min-w-12 shrink-0">
+                  {/* fish: the stand in a 40px slate circle («W17»). */}
+                  <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-fish-stand-bg t-caption font-bold text-fish-slate md:hidden">
+                    {c.standName ? standLabel(c.sectorName ?? '', c.standName) : (c.sectorName ?? '-')}
+                  </span>
+                  <span className="min-w-12 shrink-0 max-md:sr-only">
                     {c.standName ? (
                       <StandMark sector={c.sectorName ?? ''} stand={c.standName} />
                     ) : (
@@ -251,8 +298,8 @@ export function AllFishView({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline gap-1.5">
-                      <span className="t-body-strong tabular-nums">{formatKg(c.weight, decimals)} kg</span>
-                      {c.fishName ? <span className="truncate t-caption text-ink-2">{c.fishName}</span> : null}
+                      <span className="t-body-strong tabular-nums max-md:t-body">{formatKg(c.weight, decimals)} kg</span>
+                      {c.fishName ? <span className="truncate t-caption text-ink-2 max-md:text-fish-view-allfish">{c.fishName}</span> : null}
                     </span>
                     <span className="block truncate t-caption text-muted">{name}</span>
                   </span>

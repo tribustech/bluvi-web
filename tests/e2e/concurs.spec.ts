@@ -141,8 +141,8 @@ test('shell.c3 c5 — started: Live, the followers pill with the count, the foll
   await open(page, ID.live);
   const c = core.get(ID.live)!;
   const header = page.locator('[data-t3="header"]');
-  // Fundații StatusPill «LIVE» (fish «Live»), with the pulsing dot.
-  await expect(header.getByText(/^live$/i)).toBeVisible();
+  // Fundații StatusPill «LIVE» from 768; the phone draws fish's «Live» pill (§4b.25). One is displayed.
+  await expect(header.getByText(/^live$/i).filter({ visible: true })).toBeVisible();
   await expect(followersPill(page)).toHaveText(`${c.viewers} ${c.viewers === 1 ? 'urmăritor' : 'urmăritori'}`);
   await expect(followButton(page)).toBeVisible();
 });
@@ -301,7 +301,7 @@ async function collectEvents(page: Page) {
   return () => page.evaluate(() => (window as unknown as { __events: { name: string; params: Record<string, unknown> }[] }).__events);
 }
 
-test('shell.c21 — share: the header chip and the desktop button share the fish text and the page URL, and log share_competition', async ({ page, context }) => {
+test('shell.c21 — share: the header chip, the phone bar\'s «Share» tile and the desktop button share the fish text and the page URL, and log share_competition', async ({ page, context }) => {
   const events = await collectEvents(page);
   await context.addInitScript(() => {
     (window as unknown as { __shared: unknown[] }).__shared = [];
@@ -316,12 +316,14 @@ test('shell.c21 — share: the header chip and the desktop button share the fish
   await open(page, ID.live);
   await settle(page);
   await page.getByRole('button', { name: 'Distribuie competiția' }).click();
+  // The phone bar's fish «Share» tile shares the same text and URL (§4b.25).
+  await page.getByRole('navigation', { name: 'Acțiuni concurs' }).getByRole('button', { name: 'Share', exact: true }).click();
   await page.setViewportSize(DESKTOP);
   await expect(visible(page.getByRole('button', { name: 'Distribuie', exact: true }))).toBeVisible();
   await visible(page.getByRole('button', { name: 'Distribuie', exact: true })).click();
-  await expect.poll(() => page.evaluate(() => (window as unknown as { __shared: unknown[] }).__shared.length)).toBe(2);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __shared: unknown[] }).__shared.length)).toBe(3);
   const shared = await page.evaluate(() => (window as unknown as { __shared: { text: string; url: string }[] }).__shared);
-  expect(shared).toHaveLength(2);
+  expect(shared).toHaveLength(3);
   for (const s of shared) {
     expect(s.text).toBe(`Intră în Bluvi să vezi competiția de pescuit ${c.name} de pe balta ${c.lake!.name}`);
     expect(s.url).toMatch(new RegExp(`/concursuri/${ID.live}$`));
@@ -329,6 +331,7 @@ test('shell.c21 — share: the header chip and the desktop button share the fish
   // fish handleShareCompetition: share_competition { competition_id, competition_name } per share.
   const shares = (await events()).filter(e => e.name === 'share_competition');
   expect(shares).toEqual([
+    { name: 'share_competition', params: { competition_id: ID.live, competition_name: c.name } },
     { name: 'share_competition', params: { competition_id: ID.live, competition_name: c.name } },
     { name: 'share_competition', params: { competition_id: ID.live, competition_name: c.name } },
   ]);

@@ -67,17 +67,27 @@ export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop
     }
   }, []);
 
+  // Phone (<768) is fish WidgetsList (ROADMAP §4b rule 25): a left-aligned row of 84px cells, 10
+  // apart, straight on the page (no card); the 64px squircle (radius 16), its state pill hung over
+  // the tile's bottom edge (fish bottom −4), the caption in body ink-2 6px under it, a coming-soon
+  // tile at .55. From 768 the layouts described above.
   const tile = desktop ? 'size-14 rounded-card' : 'size-16 rounded-card';
-  const cell = 'flex flex-col items-center';
-  // 36 = 4 of air, the 26px pill, 6 to the caption — at every width, so the captions share a baseline.
-  const target = 'group flex flex-col items-center gap-9 rounded-control outline-offset-4 active:opacity-70';
-  const caption = 'text-center t-caption text-ink-2 group-hover:text-ink';
+  const cell = desktop ? 'flex flex-col items-center' : 'flex flex-col items-center max-md:w-21';
+  // md+: 36 = 4 of air, the 26px pill, 6 to the caption — so the captions share a baseline.
+  const target = cn(
+    'group flex flex-col items-center rounded-control outline-offset-4 active:opacity-70',
+    desktop ? 'gap-9' : 'gap-1.5 md:gap-9'
+  );
+  const caption = cn('text-center text-ink-2 group-hover:text-ink', desktop ? 't-caption' : 'max-md:line-clamp-2 max-md:t-body md:t-caption');
+  const soon = desktop ? 'opacity-70' : 'opacity-55 md:opacity-70';
 
   return (
     <DashboardSection variant={desktop ? 'card' : 'plain'} title="Instrumente">
       <ul
         className={cn(
-          desktop ? 'grid grid-cols-3 gap-2' : 'grid grid-cols-3 justify-items-center gap-2 rounded-card bg-surface p-4.5 shadow-e0'
+          desktop
+            ? 'grid grid-cols-3 gap-2'
+            : 'flex items-start gap-2.5 pb-2.5 md:grid md:grid-cols-3 md:justify-items-center md:gap-2 md:rounded-card md:bg-surface md:p-4.5 md:shadow-e0'
         )}
       >
         <li className={cell}>
@@ -89,7 +99,7 @@ export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop
             <span className={cn('relative block', tile)}>
               <Image src={rezervari} alt="" className={cn('size-full object-cover', tile)} />
               {bookingsBadge}
-              {showNou ? <TilePill tone="info">NOU</TilePill> : null}
+              {showNou ? <TilePill tone="info" phone={!desktop}>NOU</TilePill> : null}
             </span>
             <span className={caption}>Rezervări</span>
           </Link>
@@ -98,8 +108,8 @@ export function Widgets({ layout, bookingsBadge }: { layout: 'mobile' | 'desktop
           <li key={w.title} className={cell}>
             <button type="button" onClick={() => setInterest(w)} className={target} aria-label={`${w.title}, în curând`}>
               <span className={cn('relative block', tile)}>
-                <Image src={w.image} alt="" className={cn('size-full object-cover opacity-70', tile)} />
-                <TilePill tone="warning">În curând</TilePill>
+                <Image src={w.image} alt="" className={cn('size-full object-cover', soon, tile)} />
+                <TilePill tone="warning" phone={!desktop}>În curând</TilePill>
               </span>
               <span className={caption}>{w.title}</span>
             </button>
@@ -243,12 +253,26 @@ function NotifyLabel({ busy, label }: { busy: boolean; label: string }) {
   );
 }
 
-/** A state hung 4px under its tile (StatusPill: «NOU», «În curând»), centred on the tile. */
-function TilePill({ tone, children }: { tone: 'info' | 'warning'; children: ReactNode }) {
+/**
+ * A state on its tile, centred: from 768 hung 4px under it (StatusPill: «NOU», «În curând»). On the
+ * phone (`phone`) fish's pill over the tile's bottom edge: solid, radius 8, 6×2 padding, caption
+ * bold, a small shadow — «În curând» on fish yellow5, «NOU» on the live red. Web difference: the
+ * yellow pill's text is ink, not fish's white (white on yellow5 is 2.1:1, under AA).
+ */
+function TilePill({ tone, phone = false, children }: { tone: 'info' | 'warning'; phone?: boolean; children: ReactNode }) {
   return (
-    <span className="pointer-events-none absolute inset-x-0 top-full mt-1 flex justify-center">
-      <StatusPill tone={tone}>{children}</StatusPill>
-    </span>
+    <>
+      {phone ? (
+        <span className="pointer-events-none absolute inset-x-0 -bottom-1 flex justify-center md:hidden">
+          <span className={cn('rounded-lg px-1.5 py-0.5 t-label shadow-button', tone === 'warning' ? 'bg-yellow-5 text-ink' : 'bg-live text-on-accent')}>
+            {children}
+          </span>
+        </span>
+      ) : null}
+      <span className={cn('pointer-events-none absolute inset-x-0 top-full mt-1 flex justify-center', phone && 'max-md:hidden')}>
+        <StatusPill tone={tone}>{children}</StatusPill>
+      </span>
+    </>
   );
 }
 
@@ -257,7 +281,8 @@ export function BookingsBadge({ count }: { count: number | null }) {
   if (!count) return null;
   return (
     <>
-      <CountBadge count={count} className="absolute -top-1 -right-1" />
+      {/* Phone: fish's 22px indigo count (white label); from 768 the T5 corner badge. */}
+      <CountBadge count={count} className="absolute -top-1 -right-1 max-md:h-5.5 max-md:min-w-5.5 max-md:bg-accent max-md:px-1.5 max-md:t-label max-md:text-on-accent max-md:ring-0" />
       <span className="sr-only">, {count > 99 ? '99+' : count} rezervări viitoare</span>
     </>
   );

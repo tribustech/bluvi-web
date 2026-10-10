@@ -5,6 +5,7 @@ import { ForcedSession, type ForcedSessionRule } from './ForcedSession';
 import { getShellSession, getViewerState } from './session';
 import { NavigationGuard } from './NavigationGuard';
 import { NetworkBanner } from './NetworkBanner';
+import { BottomTabBar } from './BottomTabBar';
 import { BreadcrumbProvider, PageBreadcrumbs } from './SiteHeader';
 import { SiteTopBar } from './SiteTopBar';
 import { ToastProvider } from './Toast';
@@ -13,9 +14,13 @@ import { ViewerProvider } from './viewer-context';
 /**
  * THE app shell — app/(site)/layout.tsx renders it, and so does every template demo under
  * /dev/templates, so what the owner approves is what the product ships (ROADMAP §4, 2026-10-04):
- * - a top bar at every width: <768 logo, search, notifications, avatar or «Intră», ☰ → menu panel;
- *   ≥768 logo, Acasă · Bălți · Competiții · Partide, Administrare (organiser / operator), search
- *   (⌘K field from 1280), notifications, avatar menu. Sticky, hairline bottom border, 56 / 64px;
+ * - <768 (ROADMAP §4b rule 25, owner 2026-10-10): the fish app's chrome — no top bar (each screen's
+ *   own header is its top bar, as in fish) and fish's bottom tab bar on the tab roots (BottomTabBar);
+ *   <html data-bar-concealed> is set statically (app/layout.tsx), so every pinned row sits at the
+ *   top edge on the phone;
+ * - ≥768 the top bar: logo, Acasă · Bălți · Competiții · Partide, Administrare (organiser /
+ *   operator), search (⌘K field from 1280), notifications, avatar menu. Sticky, hairline bottom
+ *   border, 64px;
  * - the «Sari la conținut» skip link, the #shell-scroll-sentinel (the bar lifts once the page
  *   scrolls under it), the offline banner under the bar (NetworkBanner), the navigation
  *   double-activation guard (NavigationGuard), and from 768 the breadcrumb band of pages deeper than a section — unless
@@ -53,17 +58,26 @@ export function SiteShell({ children, forced }: { children: ReactNode; forced?: 
       <NavigationGuard />
       <ToastProvider>
         <BreadcrumbProvider>
-          <div className="relative min-h-dvh overflow-x-clip">
+          {/* Below 768, while the bottom tab bar is on the page ([data-tab-bar], tab roots only), its
+              height is --tabbar-h, for fixed / sticky bottom elements: bottom-(--tabbar-h,0px). The
+              page ends above the bar through the bar's own spacer (BottomTabBar). */}
+          <div
+            className={cn(
+              'relative min-h-dvh overflow-x-clip',
+              'max-md:has-[[data-tab-bar]]:[--tabbar-h:calc(49px+env(safe-area-inset-bottom))]',
+            )}
+          >
             {/* Top-of-page sentinel: once it scrolls out, the bar lifts (SiteTopBar useScrolled). */}
             <div id="shell-scroll-sentinel" aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px" />
             {forced ? <ForcedSession rule={forced}>{bar}</ForcedSession> : bar}
             {/* Offline: a strip sticky right under the bar (nothing while online). */}
             <NetworkBanner />
             <PageBreadcrumbs />
-            {/* scroll-mt: the skip link lands below the sticky bar (56 / 64), not under it. */}
-            <main id="continut" tabIndex={-1} className={cn('mx-auto scroll-mt-14 outline-none md:scroll-mt-16', SHELL_MAX)}>
+            {/* scroll-mt: the skip link lands below the sticky bar (64, from 768), not under it. */}
+            <main id="continut" tabIndex={-1} className={cn('mx-auto outline-none md:scroll-mt-16', SHELL_MAX)}>
               {children}
             </main>
+            <BottomTabBar />
           </div>
         </BreadcrumbProvider>
       </ToastProvider>

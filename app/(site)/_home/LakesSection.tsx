@@ -5,8 +5,9 @@ import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/r
 import type { LakeCard, LakeCardListResponse } from '@/core/lakes';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
+import { cn } from '@/components/ui/cn';
 import { HomeLakeCard, LAKE_CARD_HEIGHT } from './HomeLakeCard';
-import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem, useRailRead } from './HorizontalRail';
+import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem, useRailRead, HOME_RAIL_BLEED } from './HorizontalRail';
 import { HomeGrid, HomeGridSkeleton } from './HomeGrid';
 import { RailEmpty, RailSection, RailSkeleton } from './RailSection';
 import { homeLakesQuery } from './queries';
@@ -96,6 +97,8 @@ export function LakesView({
           {/* Below 1280 the rail (a phone swipes); from 1280 two full rows of the grid (HomeGrid). */}
           <div className="xl:hidden">
             <HorizontalRail
+              // fish MiniatureLakeCard: 132 wide on the phone, two and a bit per screen.
+              className={cn(HOME_RAIL_BLEED, 'max-md:[&>li]:w-33')}
               label="Bălți"
               width={200}
               onEndReached={onEndReached}

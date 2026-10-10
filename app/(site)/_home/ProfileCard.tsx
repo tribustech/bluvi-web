@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { DashboardHeader } from '@/components/templates/T5';
 import { cn } from '@/components/ui/cn';
 import { getHomeSession } from './data';
+import { HomeBell } from './HomeBell';
 import { HomeRefresh } from './HomeRefresh';
 import { homeLinks } from './links';
 import { Slogan } from './Slogan';
@@ -18,10 +19,11 @@ function greeting(viewer: { username: string | null } | null): string {
 }
 
 /**
- * Three columns: avatar · text · refresh. The refresh has its own column spanning both rows, so
- * neither the greeting nor the slogan ever runs under it, and its top edge is the greeting's.
+ * fish's card: 12 padding, 10 gap, radius 16, the indigo glow (shadow-glow is fish's indigo5 0.15
+ * r10), 5px wider than the column on each side (fish marginHorizontal -5). Three columns: photo ·
+ * text · bell; the bell has its own column, so neither line ever runs under it.
  */
-const CARD = 'relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 rounded-card bg-surface p-3 shadow-e0';
+const CARD = 'relative -mx-1.25 grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2.5 rounded-card bg-surface p-3 shadow-glow';
 /** The whole card is the link (fish: the card is one Pressable): a stretched ::after. */
 const STRETCHED =
   'outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-[-2px] focus-visible:after:outline-accent';
@@ -32,9 +34,10 @@ const STRETCHED =
  * has none), «Salut, <username>!» and the rotating slogan; the card opens the profile. Signed out:
  * the logo, «Conectează-te», the signed-out slogan; the card opens sign-in.
  *
- * Web difference: fish's bell is not here — the phone top bar owns notifications (ROADMAP §4), so
- * the card never repeats a shell control. Its trailing slot is the refresh instead (the web
- * stand-in for fish pull-to-refresh, which the ≥768 header carries as a labelled button).
+ * Signed in, fish's bell sits in the top-right corner (HomeBell, ROADMAP §4b rule 25: the phone is
+ * fish screen for screen); a guest's card has none, as fish. No refresh button here: fish refreshes
+ * by pull-to-refresh, which a phone browser does natively (it reloads the page); from 768 the
+ * header carries the labelled refresh.
  */
 export async function ProfileCard({ className }: { className?: string }) {
   const session = await getHomeSession();
@@ -52,27 +55,24 @@ export async function ProfileCard({ className }: { className?: string }) {
       {viewer?.avatarUrl ? (
         // A remote CMS photo at thumbnail size: the image optimizer buys nothing here.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={viewer.avatarUrl} alt="" className="size-16 shrink-0 rounded-avatar bg-soft-fill object-cover" />
+        <img src={viewer.avatarUrl} alt="" className="size-17.5 shrink-0 rounded-avatar bg-soft-fill object-cover" />
       ) : (
         // Decorative, 64 px: eager (above the fold) but never a preload or a high-priority fetch —
         // those belong to the page's LCP image (M8-B4).
-        <Image src={logo} alt="" width={64} height={64} className="size-16 shrink-0 rounded-avatar object-cover" loading="eager" />
+        <Image src={logo} alt="" width={70} height={70} className="size-17.5 shrink-0 rounded-avatar object-cover" loading="eager" />
       )}
-      <div className="flex min-w-0 flex-col gap-1">
+      <div className="mt-1 flex min-w-0 flex-col gap-1">
         <Title className="t-title1 text-ink">
           <Link href={viewer ? homeLinks.profile : homeLinks.signIn} className={STRETCHED}>
             {greeting(viewer)}
           </Link>
         </Title>
-        {/* Three lines (3 × 20) reserved: the longest slogan fits whole beside the refresh chip at
-            375 (~190px of measure — a brand line never ends in «…»), and whichever one the visit
-            picks, the card keeps its height (no shift after hydration). */}
-        <Slogan signedIn={!!viewer} className="line-clamp-3 min-h-15 t-body" />
+        {/* Two lines (2 × 20) reserved, as fish's card shows them beside the 70px photo; the
+            longest slogan may take a third (a brand line never ends in «…»). */}
+        <Slogan signedIn={!!viewer} className="line-clamp-3 min-h-10 t-body" />
       </div>
       {/* Above the card's stretched link. */}
-      <div className="relative z-above">
-        <HomeRefresh />
-      </div>
+      {viewer ? <HomeBell className="relative z-above" /> : null}
     </div>
   );
 }
@@ -85,7 +85,7 @@ export async function ProfileCard({ className }: { className?: string }) {
  */
 function NeutralProfileCard({ className }: { className?: string }) {
   return (
-    <div className={cn('flex items-center justify-between gap-3 rounded-card bg-surface p-3 shadow-e0', className)}>
+    <div className={cn('-mx-1.25 flex items-center justify-between gap-3 rounded-card bg-surface p-3 shadow-glow', className)}>
       <Image src={logo} alt="" width={40} height={40} className="size-10 shrink-0 rounded-avatar object-cover" />
       <h1 className="sr-only">Acasă</h1>
       <HomeRefresh />
@@ -98,7 +98,7 @@ export function ProfileCardSkeleton({ className }: { className?: string }) {
   return (
     <div className={cn(CARD, className)} role="status" aria-label="Se încarcă profilul">
       <ProfileCardBones />
-      <span aria-hidden className="size-12 rounded-control" />
+      <span aria-hidden className="size-7" />
     </div>
   );
 }
@@ -107,12 +107,12 @@ export function ProfileCardSkeleton({ className }: { className?: string }) {
 function ProfileCardBones() {
   return (
     <>
-      <span aria-hidden className="size-16 shrink-0 rounded-avatar bg-soft-fill animate-shimmer" />
-      <span aria-hidden className="flex min-w-0 flex-col gap-1">
+      <span aria-hidden className="size-17.5 shrink-0 rounded-avatar bg-soft-fill animate-shimmer" />
+      <span aria-hidden className="mt-1 flex min-w-0 flex-col gap-1">
         <span className="t-title1">
           <span className="inline-block h-5 w-3/5 rounded-full bg-soft-fill align-middle animate-shimmer" />
         </span>
-        <span className="flex min-h-15 flex-col t-body">
+        <span className="flex min-h-10 flex-col t-body">
           <span>
             <span className="inline-block h-3.5 w-11/12 rounded-full bg-soft-fill align-middle animate-shimmer" />
           </span>
@@ -143,7 +143,8 @@ export async function HomeHeader() {
     <>
       {/* A guest's h1 is the same at every width: on the phone a plain title above the sign-in
           card (which carries the slogan and the refresh), from 768 the T5 header. */}
-      {viewer ? null : <h1 className="t-title1 text-ink md:hidden">{GUEST_TITLE}</h1>}
+      {/* Visually hidden on the phone: fish opens on the sign-in card, no title above it. */}
+      {viewer ? null : <h1 className="sr-only md:hidden">{GUEST_TITLE}</h1>}
       <DashboardHeader
         className="max-md:hidden"
         title={viewer ? greeting(viewer) : GUEST_TITLE}

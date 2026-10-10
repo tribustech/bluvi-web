@@ -3,6 +3,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { collectConsoleErrors } from './helpers/console';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import { ON_WEB } from '@/lib/routes';
+import { chrome, primaryNav, tabBar } from './helpers/chrome';
 
 /*
  * account.own-profile (/profil, T3 — AnglerProfileView mode="own") + account.b.profile-entry.
@@ -133,14 +134,14 @@ test.describe('signed out', () => {
     await expect(page.getByTestId('angler-profile')).toHaveCount(0);
   });
 
-  test('account.b.profile-entry signed out: the top bar offers «Intră», no avatar; the Home card says «Conectează-te» → /intra (c8)', async ({ page }) => {
-    for (const width of [375, 1440]) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto('/');
-      const banner = page.getByRole('banner');
-      await expect(banner.getByRole('link', { name: 'Intră', exact: true }).filter({ visible: true })).toHaveAttribute('href', /^\/intra/);
-      await expect(account(page)).toHaveCount(0);
-    }
+  test('account.b.profile-entry signed out: the top bar offers «Intră» from 768; the phone\'s tab bar has no Profil (fish); the Home card says «Conectează-te» → /intra (c8)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/');
+    await expect(chrome(page, 1440).getByRole('link', { name: 'Intră', exact: true }).filter({ visible: true })).toHaveAttribute('href', /^\/intra/);
+    await expect(account(page)).toHaveCount(0);
+    await page.setViewportSize({ width: 375, height: 900 });
+    await expect(tabBar(page)).toBeVisible();
+    await expect(tabBar(page).getByRole('link', { name: 'Profil', exact: true })).toHaveCount(0);
     await page.setViewportSize({ width: 375, height: 900 });
     await expect(page.getByRole('main').getByRole('link', { name: 'Conectează-te', exact: true }).filter({ visible: true })).toHaveAttribute('href', '/intra');
   });
@@ -196,11 +197,10 @@ test.describe('signed in', () => {
     await loaded(page);
     if (!ON_WEB.settings) {
       await expect(page.getByTestId('profile-settings-button')).toHaveCount(0);
-      // Neither the avatar menu (≥768) nor the phone menu offers a dead «Setări».
-      for (const width of [375, 1440]) {
+      // The avatar menu (≥768) offers no dead «Setări» (the phone has no menu: fish's tab bar).
+      for (const width of [1440]) {
         await page.setViewportSize({ width, height: 900 });
-        const menu = width < 768 ? page.getByRole('banner').getByRole('button', { name: 'Meniu', exact: true }).filter({ visible: true }) : account(page);
-        await menu.click();
+        await account(page).click();
         await expect(page.getByRole('menuitem', { name: 'Profil' }).or(page.getByRole('link', { name: 'Profil', exact: true })).filter({ visible: true }).first()).toBeVisible();
         await expect(page.getByRole('menuitem', { name: 'Setări', exact: true })).toHaveCount(0);
         await expect(page.getByRole('link', { name: 'Setări', exact: true }).filter({ visible: true })).toHaveCount(0);
@@ -208,11 +208,14 @@ test.describe('signed in', () => {
       }
       return;
     }
-    // Both account menus offer «Setări» → /setari (the avatar menu ≥768, the ☰ panel below).
-    for (const width of [375, 1440]) {
+    // The avatar menu offers «Setări» → /setari from 768; below it (fish) the Profil tab is the way
+    // in and the cog the way to Setări — no ☰ menu.
+    await page.setViewportSize({ width: 375, height: 900 });
+    await expect(page.getByRole('button', { name: 'Meniu', exact: true }).filter({ visible: true })).toHaveCount(0);
+    await expect(tabBar(page).getByRole('link', { name: 'Profil', exact: true })).toHaveAttribute('aria-current', 'page');
+    for (const width of [1440]) {
       await page.setViewportSize({ width, height: 900 });
-      const menu = width < 768 ? page.getByRole('banner').getByRole('button', { name: 'Meniu', exact: true }).filter({ visible: true }) : account(page);
-      await menu.click();
+      await account(page).click();
       const row = page.getByRole('menuitem', { name: 'Setări', exact: true }).or(page.getByRole('link', { name: 'Setări', exact: true })).filter({ visible: true }).first();
       await expect(row).toBeVisible();
       await expect(row).toHaveAttribute('href', '/setari');
@@ -481,7 +484,16 @@ test.describe('signed in', () => {
   });
 
   test('c5 account.b.profile-entry: the avatar thumb opens the account menu → Profil; ring + «current» on /profil only', async ({ page }) => {
-    for (const width of [375, 1440]) {
+    // Phone (fish, §4b rule 25): the Profil tab is the entry — the avatar, current on /profil only.
+    await open(page, { width: 375, path: '/' });
+    const profilTab = tabBar(page).getByRole('link', { name: 'Profil', exact: true });
+    await expect(profilTab).not.toHaveAttribute('aria-current');
+    await profilTab.click();
+    await expect(page).toHaveURL(/\/profil$/);
+    await loaded(page);
+    await expect(profilTab).toHaveAttribute('aria-current', 'page');
+    // From 768: the top bar's avatar menu.
+    for (const width of [1440]) {
       await open(page, { width, path: '/' });
       const trigger = account(page);
       await expect(trigger).toBeVisible();
@@ -581,7 +593,7 @@ test.describe('signed in', () => {
     await page.getByRole('button', { name: 'Încearcă din nou' }).click();
     await loaded(page);
     await expect(page.getByRole('alert').filter({ hasText: 'Ceva n-a mers' })).toHaveCount(0);
-    await page.getByRole('banner').getByRole('link', { name: 'Bălți', exact: true }).filter({ visible: true }).click();
+    await primaryNav(page).getByRole('link', { name: 'Bălți', exact: true }).click();
     await expect(page).toHaveURL(/\/balti$/);
     expect(errors).toEqual([]);
   });

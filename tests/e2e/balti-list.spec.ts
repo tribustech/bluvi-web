@@ -239,8 +239,8 @@ test.describe('lakes.home', () => {
       const header = page.locator('[data-stuck]');
       await expect(header).toHaveCount(1);
       if (vp.width < 768) {
-        // The top bar slid away: the header follows it to the top edge (no strip above it).
-        await expect(page.locator('header').and(page.locator('[data-concealed]'))).toHaveCount(1);
+        // No top bar on the phone (fish's chrome, §4b rule 25): the header pins to the top edge.
+        await expect(page.getByRole('banner')).toBeHidden();
         await expect.poll(async () => (await header.boundingBox())?.y).toBeLessThan(1);
       }
       await expectNoA11yViolations(page);

@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExclamationTriangleIcon, LockClosedIcon, PlusCircleIcon, ScaleIcon, XCircleIcon } from '@heroicons/react/24/outline';
@@ -59,7 +60,7 @@ import type { Viewer } from '@/lib/server/viewer';
 import { signInHref } from '../../../_shell/SiteHeader';
 import { isUnknownViewer, useViewerState } from '../../../_shell/viewer-context';
 import { ActionsSheet } from './ActionsSheet';
-import { ActiveWeighingBanner, MobileActionBar, SORT_OPTION, type BarConfirm } from './ActionBar';
+import { ActiveWeighingBanner, FLOATING_ACTIONS_BAR, MobileActionBar, SORT_OPTION, type BarConfirm } from './ActionBar';
 import { FeederHelp, FeederLegTabs, FeederRankingTable, feederLegEmpty, type FeederData } from './FeederRanking';
 import { NcRankingTable, NcSectorPills, NcSortControl, ncSortFor, type NcSort, type NcView } from './NcRanking';
 import { useSiteToast } from '../../../_shell/Toast';
@@ -74,7 +75,7 @@ import { QueryRetry } from './QueryRetry';
 import { RefreshRetry } from './RefreshRetry';
 import { LIVE_POLL_MS, PAGE_RETRY } from './retry-policy';
 import { LOAD_ERROR_COPY, skeletonVariantOf } from './screen-state';
-import { CompetitionHeader } from './CompetitionHeader';
+import { CompetitionHeader, shareText } from './CompetitionHeader';
 import { CompetitionStickyTabs } from './CompetitionStickyTabs';
 import { DesktopStats, entrantCounts, weighingTileTone } from './DesktopStats';
 import type { PageViewer } from './Follow';
@@ -739,7 +740,8 @@ function Screen({
     hasBanner(activeWeighing);
 
   return (
-    <DetailPage phoneGround={rankingVisible && onClasament ? 'surface' : 'page'}>
+    // fish: every tab on the white screen (§4b.25).
+    <DetailPage phoneGround="surface">
       {/* The header band, then the route tabs in a band of their own: they stick under the top bar
           (parity shell.c19), so a reader at row 20 changes tab without scrolling up. */}
       <DetailBand hairline={false} className={ORGANIZER_MENU_OPEN}>
@@ -811,7 +813,8 @@ function Screen({
       {/* parity shell.c19: the route tabs pin (phone: with the T3 mini title row, following the bar). */}
       <CompetitionStickyTabs competition={competition}>
         {/* fish ROUTES_LIST: each tab its own page (tabs.ts); the mark: its links log the tab event (analytics.ts). */}
-        <div {...{ [TABS_MARK]: '' }} className="contents">
+        {/* Phone: fish's tabs carry no counts (§4b.25); the count pill stays from 768. */}
+        <div {...{ [TABS_MARK]: '' }} className="contents max-md:[&_a>span+span]:hidden">
           <DetailTabs
             label="Secțiunile concursului"
             tabs={COMPETITION_TABS.map(t => ({
@@ -970,13 +973,24 @@ function Screen({
                       )}
                       {view === 'statistici' &&
                         (viewer === null ? (
-                          <SignInGate
-                            title="Statisticile concursului"
-                            description="Trebuie să fii autentificat pentru a vedea statisticile."
-                            icon={<LockClosedIcon />}
-                            href={signIn}
-                            headingLevel={3}
-                          />
+                          <>
+                            {/* Phone (§4b.25): fish's two lines — the sentence, then the teal «Intră în cont». */}
+                            <div className="flex flex-col items-center gap-3 px-4 pt-6 text-center md:hidden">
+                              <p className="t-body text-ink-2">Trebuie să fii autentificat pentru a vedea statisticile.</p>
+                              <Link href={signIn} className="t-body text-fish-link hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent">
+                                Intră în cont
+                              </Link>
+                            </div>
+                            <div className="max-md:hidden">
+                              <SignInGate
+                                title="Statisticile concursului"
+                                description="Trebuie să fii autentificat pentru a vedea statisticile."
+                                icon={<LockClosedIcon />}
+                                href={signIn}
+                                headingLevel={3}
+                              />
+                            </div>
+                          </>
                         ) : viewer ? (
                           <StatisticsView
                             t={t}
@@ -1041,6 +1055,13 @@ function Screen({
       {barHasActions ? (
         <DetailActionBar
           label="Bara de acțiuni"
+          // fish ActionButton: on the other tabs only the floating «Acțiuni» button — no white bar.
+          // fish RankingActionBar: white, no top border or shadow, 4px over the tiles.
+          className={
+            actionsTile
+              ? FLOATING_ACTIONS_BAR
+              : '[&>div:last-child]:min-h-16 [&>div:last-child]:border-t-0 [&>div:last-child]:shadow-none [&>div:last-child]:pt-1 [&>div:last-child]:pb-[max(--spacing(1),env(safe-area-inset-bottom))]'
+          }
           above={
             hasBanner(activeWeighing) ? (
               <ActiveWeighingBanner
@@ -1081,6 +1102,7 @@ function Screen({
             organizer={organizerMenu}
             refereeScaleHref={onClasament ? refereeScaleHref : undefined}
             penaltiesHref={onClasament ? penaltiesHref : undefined}
+            share={{ title: competition.name, text: shareText(competition), onCopied: () => toast('Linkul competiției a fost copiat.', 'success') }}
           />
         </DetailActionBar>
       ) : null}

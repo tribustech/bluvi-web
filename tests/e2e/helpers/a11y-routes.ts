@@ -275,7 +275,8 @@ export const A11Y_ROUTES: A11yRoute[] = [
     pattern: '/',
     auth: 'guest',
     path: () => '/',
-    states: [consentDialog, { name: 'contact', open: dialog(/^Contactează-ne/) }, { name: 'search palette', open: dialog(/^Caută( bălți, concursuri, pescari)?$/) }],
+// The top bar's search: from 768 (the phone has fish's chrome, no top bar — §4b rule 25).
+    states: [consentDialog, { name: 'contact', open: dialog(/^Contactează-ne/) }, { name: 'search palette', open: dialog(/^Caută( bălți, concursuri, pescari)?$/), widths: [768, 1280] }],
   },
   { pattern: '/', auth: 'user', path: () => '/' },
   { pattern: '/[...rest]', auth: 'guest', path: () => '/nu-exista-pagina-asta' },

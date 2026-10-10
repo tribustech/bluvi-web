@@ -7,7 +7,7 @@ import { createBrowserTransport } from '@/lib/client/transport';
 import { COMPETITION_CARD_HEIGHT, CompetitionRailCard } from './CompetitionRailCard';
 import { TrophyIcon } from '@heroicons/react/24/outline';
 import { plural } from '@/components/cards/format';
-import { CardSkeleton, HorizontalRail, RailEndCard, RailItem, RailRetryItem, useRailRead } from './HorizontalRail';
+import { CardSkeleton, HorizontalRail, RailEndCard, RailItem, RailRetryItem, useRailRead, HOME_RAIL_BLEED } from './HorizontalRail';
 import { RailEmpty, RailError, RailSection, RailSkeleton } from './RailSection';
 import { homeLinks } from './links';
 import { liveCardsQuery, SIGNED_OUT, upcomingCardsQuery } from './queries';
@@ -119,6 +119,7 @@ export function CompetitionsView({
         <RailEmpty>Momentan nu este disponibil niciun concurs.</RailEmpty>
       ) : (
         <HorizontalRail
+              className={HOME_RAIL_BLEED}
           label={label}
           width={224}
           onEndReached={onEndReached}

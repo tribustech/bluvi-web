@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 
 import {
   DetailActionBar,
@@ -18,7 +18,7 @@ import { StatRowBones } from './DesktopStats';
 import { RankingSkeleton, rankingSkeletonKind } from './RankingView';
 import type { SkeletonVariant } from './screen-state';
 import type { CompetitionTab } from './tabs';
-import { isUnknownViewer, useViewerState } from '../../../_shell/viewer-context';
+import { FLOATING_ACTIONS_BAR, FLOATING_ACTIONS_BUTTON } from './ActionBar';
 import { ExtraScaleBones, HowItWorks, LIST_TITLE, NotStartedState } from './ExtraScalesTab';
 import { bannerShape } from './infoParts';
 import { ParticipantsBones } from './ParticipantsTab';
@@ -41,8 +41,7 @@ import { ParticipantsBones } from './ParticipantsTab';
  *      are the ranking's (live / ended is the common case), so nothing flashes or pops in;
  *  - the phone's action bar, by CompetitionScreen's rules (barHasActions): on Clasament the
  *    ranking's tiles (or Înscrie-te before the start); on the other tabs Înscrie-te before the
- *    start, otherwise the Chat tile when the session the server streams is a signed-in reader
- *    (TabBarBones) — so the loaded bar never pops in.
+ *    start, otherwise fish's floating «Acțiuni» (ActionsButtonBones) — so the loaded bar never pops in.
  * Announced once.
  *
  * `head` (CompetitionRoute's fallback, the core already read): the header's server-known parts are
@@ -101,7 +100,8 @@ export function CompetitionSkeleton({
       <p role="status" className="sr-only">
         Se încarcă concursul…
       </p>
-      <DetailPage phoneGround={tab === 'clasament' && (variant === 'ranking' || variant === 'shell') ? 'surface' : 'page'}>
+      {/* fish: every tab on the white screen (§4b.25), as the loaded page. */}
+      <DetailPage phoneGround="surface">
         <DetailBand>
           <DetailHeader
             phoneAlign="center"
@@ -118,23 +118,23 @@ export function CompetitionSkeleton({
               )
             }
             media={c ? <CompetitionThumb competition={c} /> : <Block className="size-16 rounded-card xl:size-24" />}
-            // DetailHeader's own meta list: organiser, lake, dates (before the start the phone keeps
-            // the dates in the preview).
+            // DetailHeader's own meta list: organiser, lake, dates (the phone header is fish's —
+            // organiser and lake only, headerMeta.tsx).
             meta={
               c && head
                 ? competitionMeta(c, head.datesProse)
                 : [
                     <Line key="author" className="w-40 md:w-32" />,
                     <Line key="lake" className="w-28 md:w-20" />,
-                    <Line key="dates" className={cn('w-24', variant === 'preview' && 'max-md:hidden')} />,
+                    <Line key="dates" className="w-24 max-md:hidden" />,
                   ]
             }
-            // The (LIVE +) followers pills (36px from 768); on the phone the compact Urmărește beside
-            // them, in the loaded row's fixed 36px height.
+            // The (LIVE +) followers pills (36px from 768); on the phone fish's 26px square-cornered
+            // pills and Urmărește, 4px apart (CompetitionHeader, §4b.25).
             badges={
-              <span aria-hidden className="flex items-center gap-2.5 max-md:min-h-9 md:h-9">
-                <span className={cn('block h-6.5 w-36', SHIMMER)} />
-                <Block className="h-9 w-36 md:hidden" />
+              <span aria-hidden className="flex items-center gap-2.5 max-md:min-h-6.5 max-md:gap-1 md:h-9">
+                <span className={cn('block h-6.5 w-36 max-md:w-28 max-md:rounded-sm', SHIMMER)} />
+                <span className="block h-6.5 w-28 shrink-0 animate-shimmer rounded-sm md:hidden" />
               </span>
             }
             actions={
@@ -169,14 +169,11 @@ export function CompetitionSkeleton({
               <StatRowBones tiles={statTiles} />
             </div>
             <DetailSection tone="plain" className="flex flex-col gap-4 max-md:pt-2">
-              {/* The phone's four view chips: ViewChips' exact box — one surface track with the
-                  handle-grey border and the e1 lift, p-1, four chips of icon (24) over the label. */}
-              <span aria-hidden data-skeleton-views="chips" className="grid grid-cols-4 gap-1 rounded-card border border-handle bg-surface p-1 shadow-e1 md:hidden">
+              {/* The phone's four view chips: ViewChips' exact box — fish's four separate square chips,
+                  12px apart, radius 14 (§4b.25). */}
+              <span aria-hidden data-skeleton-views="chips" className="grid grid-cols-4 gap-3 md:hidden">
                 {[0, 1, 2, 3].map(i => (
-                  <span key={i} className="flex min-w-0 flex-col items-center justify-center gap-1 px-1 py-2.5">
-                    <Block className="size-6" />
-                    <Line className="w-12 t-micro" />
-                  </span>
+                  <span key={i} className="aspect-square min-w-0 animate-shimmer rounded-[14px]" />
                 ))}
               </span>
               {/* From 768: ViewTabs' exact box — a content-sized surface track (border, p-1, e1), four
@@ -214,11 +211,9 @@ export function CompetitionSkeleton({
             </span>
           </DetailActionBar>
         ) : tab !== 'clasament' ? (
-          // The session is the server's streamed read: nothing in the static shell, the bar's bones
-          // as soon as it says «signed in».
-          <Suspense fallback={null}>
-            <ChatBarBones />
-          </Suspense>
+          // Started / ended (or not known yet, the common case): fish's floating «Acțiuni», for
+          // every reader (CompetitionScreen actionsTile).
+          <ActionsButtonBones />
         ) : variant === 'ranking' || variant === 'shell' ? (
           <DetailActionBar label="Bara de acțiuni">
             <span aria-hidden className="-mx-4 flex px-2">
@@ -237,17 +232,12 @@ export function CompetitionSkeleton({
   );
 }
 
-/** A route tab's bar for a signed-in reader once the competition runs or ended: the Chat tile (ActionBar). */
-function ChatBarBones() {
-  const state = useViewerState();
-  if (!state || isUnknownViewer(state)) return null;
+/** A route tab's bar once the competition runs or ended: fish's floating «Acțiuni» button (ActionBar FloatingActions). */
+function ActionsButtonBones() {
   return (
-    <DetailActionBar label="Bara de acțiuni">
-      <span aria-hidden data-bone="chat-bar" className="-mx-4 flex px-2">
-        <span className="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-0.5">
-          <Block className="size-8" />
-          <Line className="w-10 t-micro" />
-        </span>
+    <DetailActionBar label="Bara de acțiuni" className={FLOATING_ACTIONS_BAR}>
+      <span aria-hidden data-bone="actions-button" className="flex justify-center">
+        <span className={cn(FLOATING_ACTIONS_BUTTON, 'animate-shimmer text-transparent')}>Acțiuni</span>
       </span>
     </DetailActionBar>
   );

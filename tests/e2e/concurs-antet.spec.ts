@@ -77,7 +77,7 @@ test('competition-page.shell.c19 — from 768 the tab strip sticks under the top
   expect(errors).toEqual([]);
 });
 
-test('competition-page.shell.c19 — phone: the strip follows the top bar up on scroll down and comes back with it on scroll up', async ({ page }) => {
+test('competition-page.shell.c19 — phone: the strip pins at the top edge on scroll, in both directions (no site top bar over a pushed screen, §4b.25)', async ({ page }) => {
   const errors = await open(page, `/concursuri/${ID.live}`);
   await settle(page);
   await page.mouse.move(180, 500);
@@ -91,10 +91,10 @@ test('competition-page.shell.c19 — phone: the strip follows the top bar up on 
   const navY = Math.round((await tabsNav(page).boundingBox())?.y ?? -1);
   expect(navY).toBeGreaterThanOrEqual(0);
   expect(navY).toBeLessThanOrEqual(46);
-  // Scrolling up brings the bar back; the band sits under it (56).
+  // §4b.25: a competition is a screen pushed over the tabs (fish) — no site top bar on the phone, so
+  // scrolling up leaves the band at the top edge (never a gap over it, owner rule 3).
   await page.mouse.wheel(0, -200);
-  await expect.poll(top).toBe(56);
-  await expect(page.locator('header').first()).toBeInViewport();
+  await expect.poll(top).toBe(0);
   await expectNoA11yViolations(page);
   expect(errors).toEqual([]);
 });

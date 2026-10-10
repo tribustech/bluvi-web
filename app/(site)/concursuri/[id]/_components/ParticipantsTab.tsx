@@ -77,8 +77,8 @@ import { RegistrationsList } from './registrations/RegistrationsList';
  * phone keeps fish's corner tag «Stand 12».
  */
 
-/** The kit grid (T1, 340px cards) — the phone's rows edge to edge, 8px apart. */
-const GRID = cn(listGridClass('lg'), 'items-start max-md:-mx-4 max-md:gap-2');
+/** The kit grid (T1, 340px cards) — the phone: fish's list, 16px gutters, cards 16px apart (§4b.25). */
+const GRID = cn(listGridClass('lg'), 'items-start max-md:gap-4');
 
 const noSubscribe = () => () => {};
 
@@ -165,6 +165,8 @@ export function ParticipantsTab({ t, competition, viewer, statute, signIn }: Pro
         ) : (
           <DetailSection
             tone="plain"
+            // fish has no heading over the list: on the phone it is for screen readers only.
+            className="max-md:pt-4 max-md:[&>div:first-child]:sr-only"
             title={team ? 'Echipe înscrise' : 'Participanți înscriși'}
             description={team ? formatCount(registrations.length, 'echipă aprobată', 'echipe aprobate') : formatCount(registrations.length, 'participant aprobat', 'participanți aprobați')}
           >
@@ -339,7 +341,7 @@ function ParticipantCard({
     <>
       <CardAvatar registration={r} team={team} name={name} broken={broken} />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="line-clamp-2 t-body-strong text-ink">{name}</span>
+        <span className="line-clamp-2 t-body-strong text-ink max-md:t-caption">{name}</span>
         {subtitle ? <span className="line-clamp-2 t-caption text-muted">{subtitle}</span> : null}
       </span>
     </>
@@ -348,11 +350,20 @@ function ParticipantCard({
   const HOVER = cn('transition-colors duration-(--duration-fast)', !expanded && 'max-md:hover:bg-soft-fill');
 
   return (
-    <CardShell interactive label={name} className="max-md:rounded-none max-md:shadow-none!">
-      {/* fish's corner pill: «Stand 12» (teal → the info status pair) / «Nealocat» (red). */}
-      <Pill tone={r.stand?.name ? 'info' : 'danger'} className="pointer-events-none absolute top-0 right-0 z-above rounded-none! rounded-bl-card!">
+    <CardShell interactive label={name} className="max-md:border max-md:border-fish-card-line">
+      {/* fish's corner pill: «Stand 12» (teal → the info status pair) / «Nealocat» (red); the phone
+          draws fish's own gradient (teal → blue, red → dark red). */}
+      <Pill tone={r.stand?.name ? 'info' : 'danger'} className="pointer-events-none absolute top-0 right-0 z-above rounded-none! rounded-bl-card! max-md:hidden">
         {r.stand?.name ? `Stand ${r.stand.name}` : 'Nealocat'}
       </Pill>
+      <span
+        className={cn(
+          'pointer-events-none absolute top-0 right-0 z-above rounded-tr-card rounded-bl-card bg-linear-to-br px-2.5 py-1.5 t-caption text-fish-on md:hidden',
+          r.stand?.name ? 'from-fish-stand-from to-fish-stand-to' : 'from-fish-unallocated-from to-fish-unallocated-to',
+        )}
+      >
+        {r.stand?.name ? `Stand ${r.stand.name}` : 'Nealocat'}
+      </span>
       {profile ? (
         <>
           <Link href={profile} className={cn(HEADER, FOCUS, HOVER)}>
@@ -419,9 +430,21 @@ function CardAvatar({ registration: r, team, name, broken }: { registration: Det
       </span>
     );
   }
-  if (r.guestName && r.participants.length === 0) return <Avatar name={r.guestName} size={48} tone="neutral" />;
+  // fish avatarRing: the face in a white 2px-padded ring with a slate hairline and a soft shadow.
+  const ring = 'shrink-0 rounded-full max-md:border-2 max-md:border-fish-card-line max-md:bg-surface max-md:p-0.5 max-md:shadow-e1';
+  if (r.guestName && r.participants.length === 0) {
+    return (
+      <span className={ring}>
+        <Avatar name={r.guestName} size={48} tone="neutral" />
+      </span>
+    );
+  }
   const p = r.participants[0];
-  return <Avatar name={p?.username ?? name} src={photo(p?.avatar?.url, broken)} size={48} />;
+  return (
+    <span className={ring}>
+      <Avatar name={p?.username ?? name} src={photo(p?.avatar?.url, broken)} size={48} />
+    </span>
+  );
 }
 
 /** The opened card: the sign-in prompt, the stats of its angler(s), or the guest line. */
@@ -430,7 +453,7 @@ function CardStats({ registration: r, stats, viewer, broken }: { registration: D
     return (
       <div className="flex flex-col items-center gap-1 py-1 text-center">
         <p className="t-caption text-ink-2">Trebuie să fii autentificat pentru a vedea statisticile pescarilor.</p>
-        <Link href={stats.href} className="inline-flex min-h-11 items-center rounded-control px-2 t-body-strong text-accent-ink hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent">
+        <Link href={stats.href} className="inline-flex min-h-11 items-center rounded-control px-2 t-body-strong text-accent-ink hover:underline max-md:t-caption max-md:text-fish-link focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent">
           Intră în cont
         </Link>
       </div>

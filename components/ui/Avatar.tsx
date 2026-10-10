@@ -8,7 +8,9 @@ import { getInitials, hashString } from "./initials";
  * square (radius 12) for teams and lakes. `solid` is fish's filled indigo placeholder disc (the
  * followers list): never picked by name, only asked for.
  */
-export type AvatarTone = "indigo" | "tint" | "success" | "warning" | "neutral" | "solid";
+export type AvatarTone = "indigo" | "tint" | "success" | "warning" | "neutral" | "solid" | FishAvatarTone;
+/** fish's saturated initials discs (anglerInitials.ts AVATAR_COLORS), keyed by fishToneForId. */
+export type FishAvatarTone = "fish-1" | "fish-2" | "fish-3" | "fish-4" | "fish-5" | "fish-6";
 export type AvatarSize = 24 | 32 | 40 | 44 | 48 | 64;
 
 const TONES: AvatarTone[] = ["indigo", "tint", "success", "warning", "neutral"];
@@ -21,7 +23,20 @@ const TONE: Record<AvatarTone, string> = {
   neutral: "bg-status-neutral-bg text-status-neutral-fg",
   // on-accent on accent: 4.5:1 light, 6.3:1 dark (the primary button's pair).
   solid: "bg-accent text-on-accent",
+  "fish-1": "bg-fish-avatar-1 text-fish-on",
+  "fish-2": "bg-fish-avatar-2 text-fish-on",
+  "fish-3": "bg-fish-avatar-3 text-fish-on",
+  "fish-4": "bg-fish-avatar-4 text-fish-on",
+  "fish-5": "bg-fish-avatar-5 text-fish-on",
+  "fish-6": "bg-fish-avatar-6 text-fish-on",
 };
+
+/** fish anglerInitials.ts colorForId: the same 32-bit hash, so an angler gets fish's swatch. */
+export function fishToneForId(documentId: string): FishAvatarTone {
+  let hash = 0;
+  for (let i = 0; i < documentId.length; i++) hash = (hash * 31 + documentId.charCodeAt(i)) >>> 0;
+  return `fish-${(hash % 6) + 1}` as FishAvatarTone;
+}
 
 // Initials at ~1/3 of the side (32 → 11, 48 → 16), weight 800.
 const SIZE: Record<AvatarSize, string> = {

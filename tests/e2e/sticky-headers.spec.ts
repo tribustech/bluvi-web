@@ -1,11 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /*
- * Owner rule 3 (docs/ROADMAP.md §4b, 2026-10-06): a sticky or animated header never floats. On the
- * phone the top bar slides away on scroll down (TopBar `data-concealed`); every row pinned under it
- * (T3 section chips, the competition's tab strip) must follow it to the top edge and come back down
- * with it — never a 56px strip of page between the edge and a row «in the air». From 768 the bar
- * never hides, and the rows sit right under it. Local CMS on :1337; ids as in balta / concurs specs.
+ * Owner rule 3 (docs/ROADMAP.md §4b, 2026-10-06): a sticky or animated header never floats. The
+ * phone has no top bar (fish's chrome, §4b rule 25, 2026-10-10): every pinned row (T3 section chips,
+ * the competition's tab strip, the list chromes) holds the top edge, scrolling down and up — never a
+ * strip of page between the edge and a row «in the air». From 768 the bar never hides, and the rows
+ * sit right under it. Local CMS on :1337; ids as in balta / concurs specs.
  */
 
 const LAKE = process.env.E2E_LAKE_FULL ?? 'g14bobjsal2dbks2jg38v0oi';
@@ -69,20 +69,20 @@ async function track(page: Page, row: string, y: number, ms = 450) {
 }
 
 for (const { name, path, row, desktop = true, motion = false } of PINNED) {
-  test(`sticky · ${name} · 375 — follows the sliding bar, never floats`, async ({ page }) => {
+  test(`sticky · ${name} · 375 — no top bar: the pinned row holds the top edge, never floats`, async ({ page }) => {
     await open(page, path, 375);
     await expect(page.locator(row).first()).toBeAttached();
+    await expect(page.getByRole('banner')).toBeHidden();
     await geometry(page, row, 300);
     const down = await geometry(page, row, 1100);
-    expect(down.concealed, 'scrolling down slides the bar away').toBe(true);
     expect(down.row, 'the pinned row takes the top edge').toBe(0);
     const up = await geometry(page, row, 800);
-    expect(up.concealed, 'scrolling up brings the bar back').toBe(false);
-    expect(up.row, 'the pinned row sits right under the bar').toBe(up.bar);
-    // In motion too: down then up again, frame by frame, the row never lags the bar.
+    expect(up.bar, 'no bar comes back on scroll up').toBe(0);
+    expect(up.row, 'the pinned row stays on the top edge').toBe(0);
+    // In motion too: down then up again, frame by frame, the row never leaves the edge.
     if (!motion) return;
     await geometry(page, row, 1100);
-    expect(await track(page, row, 800), 'the row moves with the bar on reveal').toBeLessThanOrEqual(3);
+    expect(await track(page, row, 800), 'the row stays on the edge while scrolling up').toBeLessThanOrEqual(3);
   });
 
   if (desktop) test(`sticky · ${name} · 1280 — under the bar, which never hides`, async ({ page }) => {
@@ -147,7 +147,8 @@ test('sticky · Baltă · 1280 — bar and pinned row cast one shadow (the row\'
   await page.waitForTimeout(700);
   const s = await page.evaluate(() => ({
     bar: getComputedStyle(document.querySelector('header')!).boxShadow,
-    row: getComputedStyle(document.querySelector('nav[data-t3="chips"]')!).boxShadow,
+    // The row casts it from its full-bleed surface (DetailSections: data-pinned:before:shadow-e1).
+    row: getComputedStyle(document.querySelector('nav[data-t3="chips"]')!, '::before').boxShadow,
   }));
   expect(s.bar.replace(/rgba\(0, 0, 0, 0\) 0px 0px 0px 0px,?\s*/g, '').trim()).toBe('');
   expect(s.row).not.toBe('none');
