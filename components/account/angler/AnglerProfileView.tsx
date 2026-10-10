@@ -24,6 +24,7 @@ import {
   dedupeByKey,
   groupPublicSessionsByMonth,
   type AnglerProfile,
+  type AnglerPublicProfile,
   type CompetitionsHistoryFilter,
   type PublicSession,
   type getAnglerCatches,
@@ -74,6 +75,13 @@ import { useFollowAngler } from './useFollowAngler';
  * sign in, never «Nicio … încă» (an unknown id answers the public lists with [] too). An unknown session shows the
  * neutral header skeleton, never the guest hint.
  *
+ * `publicProfile` (/pescari/[id], when the CMS serves GET /feed/anglers/:id/public — CMS PR #113):
+ * the viewer-independent header the server read. It renders the identity card for everyone from the
+ * first HTML (crawlers, guests, a session still being read); only the per-viewer bits wait for the
+ * session: the follow button (a bone until GET /feed/anglers/:id answers; a guest's press opens
+ * sign-in) and, on your own page, «Editează profilul». The guest hint and the guest empty-tab copy
+ * are then not needed (we know the angler exists). Without it (an older CMS): as above.
+ *
  * Layout: phone / tablet = fish's column (white header band, the tab bar, the selected list on
  * the grey ground). ≥1280 = two columns: the identity card left (sticky under the bar), the tabs
  * and the list right — a full-width page (ROADMAP §4), the grids auto-fill.
@@ -82,7 +90,17 @@ import { useFollowAngler } from './useFollowAngler';
  * scrolls with the page until its bottom is 24px above the window's, and pins there (./frame ASIDE,
  * --aside-h measured by useAsideHeight).
  */
-export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: { documentId: string; mode: 'own' | 'other'; initialTab?: ProfileTab }) {
+export function AnglerProfileView({
+  documentId,
+  mode,
+  initialTab = 'capturi',
+  publicProfile = null,
+}: {
+  documentId: string;
+  mode: 'own' | 'other';
+  initialTab?: ProfileTab;
+  publicProfile?: AnglerPublicProfile | null;
+}) {
   const viewer = useViewerState();
   const unknown = isUnknownViewer(viewer);
   const signedIn = !!userOf(viewer);
@@ -93,7 +111,12 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
 
   const profileQ = useQuery(anglerProfileQuery(t, documentId, { isAuthenticated: signedIn }));
   if (profileQ.error && isApiError(profileQ.error) && profileQ.error.status === 404) notFound();
-  const profile = profileQ.data;
+  const viewerProfile = profileQ.data;
+  /** What the page shows: the per-viewer header once read, else the public one (its flags unknown → false). */
+  const profile: AnglerProfile | undefined =
+    viewerProfile ?? (publicProfile ? { ...publicProfile, id: 0, isFollowedByMe: false, isSelf: false } : undefined);
+  /** The public header stands in: the per-viewer bits are not known yet (or, for a guest, never). */
+  const fromPublic = !viewerProfile && !!publicProfile;
 
   const [tab, setTab] = useState<ProfileTab>(initialTab);
   const [compChip, setCompChip] = useState<CompChip>('toate');
@@ -124,8 +147,12 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
   };
 
   const asideRef = useAsideHeight();
+  /** A guest who cannot know whether the angler exists (no public header): empty tabs ask to sign in. */
+  const anonGuest = guest && !publicProfile;
 
-  const header: ReactNode = unknown || (signedIn && profileQ.isPending) ? (
+  const header: ReactNode = fromPublic && profile ? (
+    <ProfileHeader profile={profile} mode={mode} signedIn={signedIn} follow={guest ? 'guest' : 'pending'} />
+  ) : unknown || (signedIn && profileQ.isPending) ? (
     <ProfileHeaderSkeleton mode={mode} />
   ) : !signedIn ? (
     <GuestHint documentId={documentId} />
@@ -199,12 +226,12 @@ export function AnglerProfileView({ documentId, mode, initialTab = 'capturi' }: 
             data-testid={`panel-${tab}`}
           >
             <h2 className="sr-only">{TAB_LABELS[tab]}</h2>
-            {tab === 'capturi' ? <CatchesPanel q={catchesQ} guest={guest} own={mode === 'own'} allCatches={profile?.counts.catches} /> : null}
-            {tab === 'sesiuni' ? <SessionsPanel q={sessionsQ} guest={guest} own={mode === 'own'} /> : null}
+            {tab === 'capturi' ? <CatchesPanel q={catchesQ} guest={anonGuest} own={mode === 'own'} allCatches={profile?.counts.catches} /> : null}
+            {tab === 'sesiuni' ? <SessionsPanel q={sessionsQ} guest={anonGuest} own={mode === 'own'} /> : null}
             {tab === 'concursuri' ? (
               <CompetitionsPanel
                 q={compsQ}
-                guest={guest}
+                guest={anonGuest}
                 own={mode === 'own'}
                 knownTotal={profile?.counts.competitions}
                 compChip={compChip}

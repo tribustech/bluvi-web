@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { TransportRequest } from '@/core/transport';
+import { ApiError, type TransportRequest } from '@/core/transport';
 import { createFakeTransport } from '@/tests/transport';
 import {
   LAKES_PER_CHUNK,
+  anglerEntries,
   MAX_URLS,
   WATERS_PER_CHUNK,
   competitionViewHas,
@@ -337,7 +338,7 @@ describe('the sitemap split', () => {
   it('names one sitemap per group, lakes and waters chunked', async () => {
     const { transport } = createFakeTransport(cms);
     const keys = Array.from({ length: WATERS_PER_CHUNK + 1 }, (_, i) => i + 1);
-    expect(await sitemapIds(transport, () => keys)).toEqual(['pagini', 'balti-0', 'concursuri-viitoare', 'concursuri-live', 'concursuri-rezultate', 'ape-publice-0', 'ape-publice-1']);
+    expect(await sitemapIds(transport, () => keys)).toEqual(['pagini', 'balti-0', 'concursuri-viitoare', 'concursuri-live', 'concursuri-rezultate', 'pescari', 'ape-publice-0', 'ape-publice-1']);
     expect(await sitemapIds(transport)).not.toContain('ape-publice-0');
   });
 
@@ -353,6 +354,31 @@ describe('the sitemap split', () => {
     expect(await sitemapChunk(transport, 'nimic')).toEqual([]);
     expect(LAKES_PER_CHUNK * 9).toBeLessThanOrEqual(MAX_URLS);
     expect(WATERS_PER_CHUNK * 5).toBeLessThanOrEqual(MAX_URLS);
+  });
+});
+
+describe('anglerEntries (pescari)', () => {
+  const top = (...uids: string[]) => ({ data: { ...stats(1), topAnglers: uids.map(uid => ({ uid, name: uid, avatarUrl: null, partide: 1, catches: 1, totalKg: 1 })) } });
+  const pub = (documentId: string) => ({
+    data: { documentId, username: documentId, avatarUrl: null, bio: null, memberSince: '2025-01-01T00:00:00.000Z', counts: { followers: 0, following: 0, catches: 0, sessions: 1, competitions: 0 }, biggestCatch: null, podium: { first: 0, second: 0, third: 0 } },
+  });
+
+  it('lists the week / month / year top anglers once each, when their public header answers', async () => {
+    const { transport, calls } = createFakeTransport(req => {
+      if (req.path === '/feed/community/stats') return req.query?.period === 'week' ? top('a1', 'a2') : req.query?.period === 'month' ? top('a2') : top('a1', 'gone');
+      if (req.path === '/feed/anglers/gone/public') throw new ApiError({ message: 'x', status: 404, code: 'HTTP', bluCode: 'ANGLER:NOT_FOUND' });
+      return pub(req.path.split('/')[3]);
+    });
+    expect((await anglerEntries(transport)).map(e => e.url)).toEqual([`${S}/pescari/a1`, `${S}/pescari/a2`]);
+    expect(calls.filter(c => c.path.endsWith('/public')).every(c => c.auth === 'none')).toBe(true);
+  });
+
+  it('a CMS without the public header route (bare 404): no angler is listed', async () => {
+    const { transport } = createFakeTransport(req => {
+      if (req.path === '/feed/community/stats') return top('a1');
+      throw new ApiError({ message: 'Not Found', status: 404, code: 'HTTP' });
+    });
+    expect(await anglerEntries(transport)).toEqual([]);
   });
 });
 

@@ -62,14 +62,32 @@ export function BigAvatar({ name, src, toneKey }: { name: string; src: string | 
   );
 }
 
-export function ProfileHeader({ profile, mode, signedIn }: { profile: AnglerProfile; mode: 'own' | 'other'; signedIn: boolean }) {
+/**
+ * `follow`: `live` (default) — the per-viewer header: the follow button with its real state, or
+ * «Editează profilul» on your own page. With the PUBLIC header standing in (/pescari/[id], before
+ * or without a session): `pending` — the session or the per-viewer read is not in yet, so the slot is
+ * a bone (no follow state, no self check, nothing to flash); `guest` — signed out, a follow button
+ * whose press opens sign-in with this page as the way back (account.b.guest-follow).
+ */
+export function ProfileHeader({
+  profile,
+  mode,
+  signedIn,
+  follow: followSlot = 'live',
+}: {
+  profile: AnglerProfile;
+  mode: 'own' | 'other';
+  signedIn: boolean;
+  follow?: 'live' | 'pending' | 'guest';
+}) {
   const t = useMemo(() => createBrowserTransport(), []);
   const { data: reputation } = useQuery(userReputationQuery(t, profile.documentId));
   const rating = reputation?.avgStars ?? null;
   const [photoOpen, setPhotoOpen] = useState(false);
   const [reputationOpen, setReputationOpen] = useState(false);
   const follow = useFollowAngler(profile.documentId, { signedIn });
-  const showFollow = mode === 'other' && !profile.isSelf;
+  const live = followSlot === 'live';
+  const showFollow = mode === 'other' && (followSlot === 'guest' || (live && !profile.isSelf));
   const ratingText = rating != null ? rating.toFixed(1).replace('.', ',') : null;
 
   return (
@@ -132,7 +150,10 @@ export function ProfileHeader({ profile, mode, signedIn }: { profile: AnglerProf
           />
         </div>
       ) : null}
-      {profile.isSelf ? (
+      {mode === 'other' && followSlot === 'pending' ? (
+        <span aria-hidden className="order-3 mt-3.5 h-10 w-36 animate-shimmer rounded-control xl:order-1 xl:mt-4 xl:w-full" data-testid="follow-pending" />
+      ) : null}
+      {live && profile.isSelf ? (
         // The own profile's way to «Editează profilul» (/setari/profil) — in the follow button's place.
         <div className="order-3 mt-3.5 flex xl:order-1 xl:mt-4 xl:w-full" data-testid="edit-profile-slot">
           <ButtonLink href={routes.editProfile()} variant="secondary" className="xl:w-full">

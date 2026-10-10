@@ -6,6 +6,8 @@ import {
   getAnglerFollowers,
   getAnglerFollowing,
   getAnglerProfile,
+  getAnglerPublicProfile,
+  isAnglerNotFound,
   getAnglerSessions,
   getFirebaseToken,
   getMyWidgetNotification,
@@ -80,6 +82,23 @@ describe('anglers — public tab lists (auth: false)', () => {
     // Signed in, the header tells: 404 ANGLER:NOT_FOUND (the page's notFound()).
     const err = await getAnglerProfile(user, unknown).catch(e => e);
     expect(isApiError(err) && err.status).toBe(404);
+  });
+});
+
+describe('anglers — public header (auth: false, CMS PR #113)', () => {
+  it('parses as guest and as user, identical bodies; an unknown id answers 404 ANGLER:NOT_FOUND', async ctx => {
+    const [id] = await knownAnglers();
+    const probe = await getAnglerPublicProfile(guest, id).catch(e => e);
+    // A CMS from before PR #113 has no such route: a bare 404 (the web keeps the noindex page).
+    if (isApiError(probe) && probe.status === 404 && !isAnglerNotFound(probe)) return ctx.skip();
+    if (probe instanceof Error) throw probe;
+    for (const a of await knownAnglers()) {
+      const asGuest = await getAnglerPublicProfile(guest, a);
+      expect(asGuest.documentId).toBe(a);
+      expect(asGuest).toEqual(await getAnglerPublicProfile(user, a));
+    }
+    const err = await getAnglerPublicProfile(guest, 'contractunknownangler0001').catch(e => e);
+    expect(isAnglerNotFound(err)).toBe(true);
   });
 });
 

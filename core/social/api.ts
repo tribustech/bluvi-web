@@ -4,6 +4,7 @@ import {
   anglerCatchPageSchema,
   anglerListPageSchema,
   anglerProfileSchema,
+  anglerPublicProfileSchema,
   anglerReviewSchema,
   competitionHistoryPageSchema,
   feedbackCreatedSchema,
@@ -48,6 +49,26 @@ const enc = encodeURIComponent;
 // Header + follow graph + discovery are per-viewer (isFollowedByMe) and users-permissions gated →
 // `required`. The three tab lists (sessions/competitions/catches) are `auth: false`, shared and
 // edge-cached 60s → `none`.
+
+/**
+ * Web-only (no fish counterpart): the PUBLIC header of /pescari/[id] — the server renders it for
+ * guests and crawlers (name, counts, JSON-LD, OG card). `none`: viewer-independent, cached under the
+ * CMS's headers. A CMS without the route answers a bare 404 (no bluCode); an unknown or blocked
+ * angler answers 404 `ANGLER:NOT_FOUND` — see `isAnglerNotFound`.
+ */
+export async function getAnglerPublicProfile(t: Transport, documentId: string) {
+  const res = await call(
+    t,
+    { method: 'GET', path: `/feed/anglers/${enc(documentId)}/public`, auth: 'none' },
+    z.object({ data: anglerPublicProfileSchema })
+  );
+  return res.data;
+}
+
+/** The CMS's «this angler does not exist» (unknown / blocked id) — never a missing route. */
+export function isAnglerNotFound(e: unknown): boolean {
+  return isApiError(e) && e.status === 404 && e.bluCode === 'ANGLER:NOT_FOUND';
+}
 
 /** fish `services/api/anglers.ts#getAnglerProfile` */
 export async function getAnglerProfile(t: Transport, documentId: string) {

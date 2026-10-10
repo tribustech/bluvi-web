@@ -6,6 +6,8 @@ import { categoryLabel, newsDate } from '@/app/(site)/stiri/_content/format';
 import type { WaterOutline } from '@/app/(site)/ape-publice/_components/map/outline';
 import { entityLayout } from './layout';
 import type { OgTokens } from './tokens';
+import { formatCount } from '@/core/realtime/chat/format';
+import type { AnglerPublicProfile } from '@/core/social';
 
 /*
  * What an Open Graph card says (parity global.b.seo-og-images) — pure: the CMS reads go in, the
@@ -114,12 +116,13 @@ export type BrandKey = keyof typeof BRAND_CARDS;
 export const brandCard = (key: BrandKey): BrandCard => ({ kind: 'brand', ...BRAND_CARDS[key] });
 
 /** The card for a page whose data could not be read: the section's brand card, never an error. */
-export const FALLBACK: Record<'lake' | 'competition' | 'water' | 'news' | 'sponsor', BrandKey | 'home'> = {
+export const FALLBACK: Record<'lake' | 'competition' | 'water' | 'news' | 'sponsor' | 'angler', BrandKey | 'home'> = {
   lake: 'lakes',
   competition: 'competitions',
   water: 'publicWaters',
   news: 'news',
   sponsor: 'home',
+  angler: 'home',
 };
 
 /* ---------------------------------------------------------------- lake */
@@ -327,6 +330,26 @@ export function sponsorCard(sp: { name: string }, logo: string | null): EntityCa
   });
 }
 
+/* ---------------------------------------------------------------- angler */
+
+/**
+ * An angler's card (/pescari/[id], from the PUBLIC header — CMS PR #113): the name, what they fished
+ * (public partide, competitions; a zero is left out, rule 4) and their profile photo, else the brand
+ * panel.
+ */
+export function anglerCard(p: Pick<AnglerPublicProfile, 'username' | 'counts'>, photo: string | null): EntityCard {
+  const facts = [
+    p.counts.sessions ? formatCount(p.counts.sessions, 'partidă', 'partide') : null,
+    p.counts.competitions ? formatCount(p.counts.competitions, 'concurs', 'concursuri') : null,
+  ].filter((f): f is string => !!f);
+  return entity({
+    eyebrow: 'Pescar pe Bluvi',
+    title: p.username,
+    meta: facts.length ? [{ icon: 'lake', text: clampText(facts.join(' · '), LINE_MAX) }] : [],
+    media: photo ? { kind: 'photo', src: photo } : { kind: 'brand' },
+  });
+}
+
 /* ---------------------------------------------------------------- alt text */
 
 /** The `alt` of the list pages' (and Acasă's) brand cards. */
@@ -355,6 +378,7 @@ const ALT_LEAD: Record<EntityKind, string> = {
   water: '',
   news: 'Știre Bluvi:',
   sponsor: 'Sponsor Bluvi:',
+  angler: 'Pescarul',
 };
 
 /**

@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Request, type Route } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page, type Request, type Route } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { collectConsoleErrors } from './helpers/console';
 import { BASE_URL } from './helpers/base-url';
@@ -17,6 +17,10 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  *    a second page of catches, duplicates across pages). The selected tab's first page is read on
  *    the SERVER (cached public read) — a browser route cannot answer it — so mocked tabs are always
  *    reached by switching to them in the browser.
+ *  - The PUBLIC header (GET /feed/anglers/:id/public, CMS PR #113) is a server read, so it is stubbed
+ *    through the dev-only POST /pescari/<id>/e2e-public (app/(site)/pescari/[id]/_components/
+ *    e2e-faults.ts): MOCK with the DTO for the indexable page; the pre-#113 tests pin ANDREW_R /
+ *    UNKNOWN to `unavailable` (a CMS without the route), whatever the local CMS has.
  * Firestore is never touched by this page.
  */
 
@@ -165,6 +169,19 @@ function competitions(filter: string | null) {
   return { data, meta: { pagination: { page: 1, pageSize: 20, pageCount: data.length ? 1 : 0, total: data.length } } };
 }
 
+/** The public header DTO of MOCK (CMS toAnglerPublicProfileDTO: no id / isFollowedByMe / isSelf). */
+function publicHeader(patch: Record<string, unknown> = {}) {
+  const pub: Record<string, unknown> = { ...header(patch) };
+  for (const k of ['id', 'isFollowedByMe', 'isSelf']) delete pub[k];
+  return pub;
+}
+
+/** Stubs the server's public header read for `id` (see the header): a DTO, «missing», «unavailable» or cleared. */
+async function stubPublic(request: APIRequestContext, id: string, body: { profile?: unknown; missing?: true; unavailable?: true } | Record<string, never>) {
+  const res = await request.post(`/pescari/${id}/e2e-public`, { data: body });
+  expect(res.ok(), 'the dev-only public header stub').toBe(true);
+}
+
 const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
@@ -206,6 +223,11 @@ const GUEST_EMPTY = 'Intră în cont ca să vezi profilul';
  * ---------------------------------------------------------------------------------------------- */
 
 test.describe('signed out', () => {
+  // These are the pre-#113 page (a CMS without the public header): pinned, so they hold either way.
+  test.beforeEach(async ({ request }) => {
+    await stubPublic(request, ANDREW_R, { unavailable: true });
+  });
+
   test('c1: public tabs + one quiet sign-in row with one secondary CTA, no header, no count badges; noindex; the tab is in the server HTML', async ({ page, request }) => {
     const errors = collectConsoleErrors(page, { ignore: EXPECTED_CONSOLE });
     const html = await (await request.get(`/pescari/${ANDREW_R}?tab=concursuri`)).text();
@@ -284,9 +306,96 @@ test.describe('signed out', () => {
     await page.waitForURL(u => new URL(u).pathname === '/');
   });
 
-  test('sitemap leaves angler profiles out until the public header exists', async ({ request }) => {
-    const res = await request.get('/sitemap.xml');
-    if (res.ok()) expect(await res.text()).not.toContain('/pescari/');
+  test('sitemap: the anglers sitemap lists only profiles whose public header answers', async ({ request }) => {
+    const index = await request.get('/sitemap.xml');
+    test.skip(!index.ok(), 'no sitemap on this server');
+    expect(await index.text()).toContain('/sitemaps/sitemap/pescari.xml');
+    const res = await request.get('/sitemaps/sitemap/pescari.xml');
+    expect(res.ok()).toBe(true);
+    const urls = [...(await res.text()).matchAll(/<loc>[^<]*\/pescari\/([^<]+)<\/loc>/g)].map(m => m[1]);
+    for (const id of urls) {
+      const pub = await request.get(`${CMS}/feed/anglers/${id}/public`);
+      expect(pub.ok(), `listed ${id}: its public header answers`).toBe(true);
+    }
+    // A CMS without the route (bare 404) lists none.
+    const probe = await request.get(`${CMS}/feed/anglers/${ANDREW_R}/public`);
+    if (probe.status() === 404) expect(urls).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * The public header (CMS PR #113): an indexable page, the header in the server HTML
+ * ---------------------------------------------------------------------------------------------- */
+
+test.describe('public header (indexable)', () => {
+  test.beforeEach(async ({ request }) => {
+    await stubPublic(request, MOCK, { profile: publicHeader() });
+  });
+  test.afterEach(async ({ request }) => {
+    await stubPublic(request, MOCK, {});
+  });
+
+  test('server HTML: title, description, canonical, index follow, JSON-LD ProfilePage + Person, the header with the name', async ({ request }) => {
+    const html = await (await request.get(`/pescari/${MOCK}`)).text();
+    expect(html).toContain('<title>Pescar Mock — pescar pe Bluvi</title>');
+    expect(html).toMatch(/<meta name="robots" content="index, follow"\/>/);
+    expect(html).toMatch(new RegExp(`<link rel="canonical" href="[^"]*/pescari/${MOCK}"/>`));
+    expect(html).toContain('<meta name="description" content="Pescar Mock: Crap și somn pe #Snagov, noaptea. #feeder_2026"/>');
+    expect(html).toContain('<meta property="og:title" content="Pescar Mock — pescar pe Bluvi"/>');
+    const ld = [...html.matchAll(/<script type="application\/ld\+json">([^<]*)<\/script>/g)].map(m => JSON.parse(m[1]));
+    const profilePage = ld.find(d => d['@type'] === 'ProfilePage');
+    expect(profilePage).toMatchObject({ mainEntity: { '@type': 'Person', name: 'Pescar Mock', identifier: MOCK } });
+    expect(JSON.stringify(profilePage)).not.toMatch(/isFollowedByMe|isSelf/);
+    expect(html).toContain('data-testid="profile-name">Pescar Mock<');
+    expect(html).not.toContain('data-testid="guest-hint"');
+  });
+
+  test('signed out: the identity card with counts and badges; follow opens sign-in (nothing posted); axe', async ({ page }) => {
+    const errors = collectConsoleErrors(page, { ignore: EXPECTED_CONSOLE });
+    const posts: string[] = [];
+    page.on('request', (r: Request) => {
+      if (r.method() === 'POST' && /\/follow$/.test(r.url())) posts.push(r.url());
+    });
+    await mockAngler(page);
+    await page.goto(`/pescari/${MOCK}`);
+    await expect(page.getByTestId('profile-name')).toHaveText('Pescar Mock');
+    await expect(page.getByTestId('followers-count')).toContainText('3');
+    await expect(page.getByTestId('guest-hint')).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: 'Concursuri, 4' })).toBeVisible();
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'index, follow');
+    for (const width of AXE_WIDTHS) {
+      await page.setViewportSize({ width, height: 900 });
+      await expectNoA11yViolations(page);
+    }
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.getByTestId('follow-slot').getByRole('button', { name: /Urmărește/ }).click();
+    await page.waitForURL(/\/intra\?/);
+    expect(decodeURIComponent(page.url())).toContain(`next=/pescari/${MOCK}`);
+    expect(posts).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  test('signed in: the public card at once, the follow slot a bone until the per-viewer header answers, then the real state', async ({ page }) => {
+    await asUser(page);
+    await mockAngler(page, { profile: header({ isFollowedByMe: true, counts: { followers: 4, following: 2, catches: 25, sessions: 2, competitions: 4 } }), delayHeaderMs: 2500 });
+    await page.goto(`/pescari/${MOCK}`);
+    await expect(page.getByTestId('profile-name')).toHaveText('Pescar Mock');
+    await expect(page.getByTestId('follow-pending')).toBeVisible();
+    await expect(page.getByTestId('follow-slot')).toHaveCount(0);
+    await expect(page.getByTestId('follow-slot').getByRole('button', { name: /^Urmăresc pe Pescar Mock/ })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('follow-pending')).toHaveCount(0);
+    await expect(page.getByTestId('followers-count')).toContainText('4');
+  });
+
+  test('ANGLER:NOT_FOUND signed out → the not-found card (no guest state)', async ({ page, request }) => {
+    await stubPublic(request, UNKNOWN, { missing: true });
+    try {
+      await page.goto(`/pescari/${UNKNOWN}`);
+      await expect(page.getByRole('heading', { name: 'Pescarul nu a fost găsit' })).toBeVisible();
+      await expect(page.getByTestId('guest-hint')).toHaveCount(0);
+    } finally {
+      await stubPublic(request, UNKNOWN, {});
+    }
   });
 });
 
@@ -325,7 +434,8 @@ test.describe('deep links', () => {
     expect(errors).toEqual([]);
   });
 
-  test('unknown id signed out → the guest state, never a fake «Nicio captură încă» (the public lists answer [] for it too)', async ({ page }) => {
+  test('unknown id signed out, CMS without the public header → the guest state, never a fake «Nicio captură încă» (the public lists answer [] for it too)', async ({ page, request }) => {
+    await stubPublic(request, UNKNOWN, { unavailable: true });
     await page.goto(`/pescari/${UNKNOWN}`);
     await expect(page.getByTestId('guest-hint')).toBeVisible();
     await expect(page.getByTestId('tab-empty')).toHaveText(GUEST_EMPTY);

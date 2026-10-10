@@ -2,6 +2,7 @@ import 'server-only';
 import { cacheLife, cacheTag } from 'next/cache';
 import { getRankings } from '@/core/competitions';
 import { getLake } from '@/core/lakes';
+import { getAnglerPublicProfile } from '@/core/social';
 import { isApiError } from '@/core/transport';
 import { createServerTransport } from '@/lib/server/transport';
 import { isPlaceholderId } from '@/lib/server/public-get';
@@ -13,6 +14,7 @@ import { waterOutline } from '@/app/(site)/ape-publice/_components/map/outline';
 import { loadNews, loadSponsor } from '@/app/(site)/stiri/_content/load';
 import { sponsorImage } from '@/app/(site)/stiri/_content/content';
 import {
+  anglerCard,
   brandCard,
   competitionCard,
   competitionPhoto,
@@ -230,12 +232,28 @@ async function sponsorModel(id: string): Promise<Model> {
   return { card: sponsorCard(got.value.data, url), life: 'days', picture: url ? { url, fit: 'contain' } : null };
 }
 
+/**
+ * An angler's card, from the public header (CMS PR #113). A CMS without the route answers 404 —
+ * settled, so the brand card is kept for minutes under `angler-<id>` and read again after that.
+ */
+async function anglerModel(id: string): Promise<Model> {
+  'use cache';
+  if (isPlaceholderId(id) || !ID.test(id)) return unread('angler', id, 'absent');
+  cacheTag(`angler-${id}`);
+  const got = await read(() => getAnglerPublicProfile(createServerTransport(), id));
+  if (!got.ok) return unread('angler', id, got.transient ? 'transient' : 'absent');
+  cacheLife('hours');
+  const url = got.value.avatarUrl;
+  return { card: anglerCard(got.value, url), life: 'hours', picture: url ? { url, fit: 'cover' } : null };
+}
+
 const CACHED_MODELS: Record<EntityKind, (id: string, label: string | null) => Promise<Model>> = {
   lake: lakeModel,
   competition: competitionModel,
   water: waterModel,
   news: id => newsModel(id),
   sponsor: id => sponsorModel(id),
+  angler: id => anglerModel(id),
 };
 
 /**
@@ -268,7 +286,7 @@ export async function brandImage(key: BrandKey | 'home'): Promise<Uint8Array> {
 async function entityImage(kind: EntityKind, id: string, label: string | null): Promise<Uint8Array> {
   'use cache';
   if (ID.test(id)) {
-    const tag = { lake: 'lake', competition: 'competition', news: 'announcement', sponsor: 'sponsor', water: null }[kind];
+    const tag = { lake: 'lake', competition: 'competition', news: 'announcement', sponsor: 'sponsor', angler: 'angler', water: null }[kind];
     if (tag) cacheTag(`${tag}-${id}`);
   }
   const model = await MODELS[kind](id, label);
@@ -293,6 +311,7 @@ export const competitionImage = (id: string, label: string | null) => entityImag
 export const waterImage = (id: string, label: string | null) => entityImage('water', ...ogModelArgs(id, label));
 export const newsImage = (id: string) => entityImage('news', ...ogModelArgs(id, null));
 export const sponsorImageCard = (id: string) => entityImage('sponsor', ...ogModelArgs(id, null));
+export const anglerImage = (id: string) => entityImage('angler', ...ogModelArgs(id, null));
 
 /**
  * The image's alt, from the same cached model (never the picture). A placeholder id (`_`, `''`) or a

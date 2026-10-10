@@ -12,6 +12,8 @@ import {
   getAnglerFollowers,
   getAnglerFollowing,
   getAnglerProfile,
+  getAnglerPublicProfile,
+  isAnglerNotFound,
   getAnglerSessions,
   getFirebaseToken,
   getMyWidgetNotification,
@@ -115,6 +117,23 @@ describe('anglers api (ported from fish services/api/__tests__/anglers.test.ts)'
     const p = await getAnglerProfile(transport, 'u1');
     expect(calls[0]).toMatchObject({ method: 'GET', path: '/feed/anglers/u1', auth: 'required' });
     expect(p.documentId).toBe('u1');
+  });
+
+  it('getAnglerPublicProfile: GET …/public as guest (auth none), per-viewer fields stripped', async () => {
+    const { documentId, username, avatarUrl, bio, memberSince, counts, biggestCatch, podium } = anglerProfile;
+    const pub = { documentId, username, avatarUrl, bio, memberSince, counts, biggestCatch, podium };
+    const { transport, calls } = createFakeTransport([{ data: { ...pub, isFollowedByMe: true } }]);
+    const p = await getAnglerPublicProfile(transport, 'u 1');
+    expect(calls[0]).toMatchObject({ method: 'GET', path: '/feed/anglers/u%201/public', auth: 'none' });
+    expect(p).toEqual(pub);
+    expect(p).not.toHaveProperty('isFollowedByMe');
+  });
+
+  it('isAnglerNotFound: only the CMS «no such angler» 404, never a missing route', () => {
+    expect(isAnglerNotFound(new ApiError({ message: 'x', status: 404, code: 'HTTP', bluCode: 'ANGLER:NOT_FOUND' }))).toBe(true);
+    expect(isAnglerNotFound(new ApiError({ message: 'Not Found', status: 404, code: 'HTTP' }))).toBe(false);
+    expect(isAnglerNotFound(new ApiError({ message: 'x', status: 500, code: 'HTTP' }))).toBe(false);
+    expect(isAnglerNotFound(new Error('x'))).toBe(false);
   });
 
   it('getAnglerCompetitions builds query params, dropping empty filters', async () => {

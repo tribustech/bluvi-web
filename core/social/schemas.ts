@@ -35,6 +35,15 @@ export const anglerProfileSchema = z.object({
 });
 export type AnglerProfile = z.infer<typeof anglerProfileSchema>;
 
+/**
+ * `toAnglerPublicProfileDTO` (CMS `GET /feed/anglers/:id/public`, auth: false, edge-cached 300s under
+ * `angler-<id>`; CMS PR #113) — the header minus everything per viewer (`id`, `isFollowedByMe`,
+ * `isSelf`), so the same body serves every visitor and a crawler. Web-only: fish reads the per-viewer
+ * header.
+ */
+export const anglerPublicProfileSchema = anglerProfileSchema.omit({ id: true, isFollowedByMe: true, isSelf: true });
+export type AnglerPublicProfile = z.infer<typeof anglerPublicProfileSchema>;
+
 /** `toAnglerListItemDTO` — followers/following/search/suggested rows. */
 export const anglerListItemSchema = z.object({
   documentId: z.string(),

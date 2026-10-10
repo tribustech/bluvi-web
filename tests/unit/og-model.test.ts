@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { MiniRanking, MiniRow } from '@/app/(site)/concursuri/_list/desktop/model';
 import {
+  anglerCard,
   BRAND_CARDS,
   clampText,
   competitionCard,
@@ -237,6 +238,19 @@ describe('public water, news, sponsor cards', () => {
     expect(sponsorCard({ name: 'TTBoilies' }, 'data:y')).toMatchObject({ eyebrow: 'Sponsor Bluvi', title: 'TTBoilies', media: { kind: 'logo', src: 'data:y' } });
     expect(sponsorCard({ name: 'TTBoilies' }, null).media).toEqual({ kind: 'brand' });
   });
+
+  it('angler: name, public partide and competitions (zeros left out), profile photo', () => {
+    const counts = { followers: 3, following: 1, catches: 40, sessions: 21, competitions: 1 };
+    expect(anglerCard({ username: 'Ion Pop', counts }, 'data:z')).toMatchObject({
+      eyebrow: 'Pescar pe Bluvi',
+      title: 'Ion Pop',
+      meta: [{ icon: 'lake', text: '21 de partide · 1 concurs' }],
+      media: { kind: 'photo', src: 'data:z' },
+    });
+    const none = anglerCard({ username: 'Nou', counts: { ...counts, sessions: 0, competitions: 0 } }, null);
+    expect(none.meta).toEqual([]);
+    expect(none.media).toEqual({ kind: 'brand' });
+  });
 });
 
 describe('alt text (generateImageMetadata)', () => {
@@ -272,6 +286,12 @@ describe('alt text (generateImageMetadata)', () => {
   it('an entity that could not be read: the alt of the brand card drawn instead', () => {
     expect(entityAlt('lake', null, t)).toBe(OG_ALT.lakes);
     expect(entityAlt('sponsor', null, t)).toBe(OG_ALT.home);
+    expect(entityAlt('angler', null, t)).toBe(OG_ALT.home);
+  });
+
+  it('angler: «Pescarul {nume}, {partide · concursuri}»', () => {
+    const counts = { followers: 0, following: 0, catches: 0, sessions: 2, competitions: 0 };
+    expect(entityAlt('angler', anglerCard({ username: 'Ion Pop', counts }, null), t)).toBe('Pescarul Ion Pop, 2 partide');
   });
 });
 

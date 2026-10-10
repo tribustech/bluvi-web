@@ -4,6 +4,7 @@ import { getCompetition, getCompetitionsByStatus, getCompetitionWeighingStatisti
 import { getClaimedPublicWaters, getLake, getLakesIndex, parseLakeCoordinates, toClaimedPublicWatersMap, type LakeDetail } from '@/core/lakes';
 import { getNews } from '@/core/news';
 import { getCommunityHistory, getCommunityStats, getCommunityVenueCatches, VENUE_CATCHES_PAGE_SIZE, communityVenueKey, type CommunityStatsDTO, type CommunityVenueRef } from '@/core/partide';
+import { getAnglerPublicProfile } from '@/core/social';
 import type { Transport } from '@/core/transport';
 import { partideHrefs } from '@/lib/partide-pages';
 import { absoluteUrl, routes, type CompetitionTabStatus } from '@/lib/routes';
@@ -436,6 +437,28 @@ export async function newsEntries(t: Transport): Promise<Entry[]> {
 }
 
 /* ------------------------------------------------------------------------------------------------
+ * Anglers
+ * ---------------------------------------------------------------------------------------------- */
+
+const ANGLER_PERIODS = ['week', 'month', 'year'] as const;
+
+/**
+ * The angler profiles (/pescari/[id], indexable since the CMS serves the public header — PR #113).
+ * The CMS has no public list of every angler, so the sitemap names the ones the public pages already
+ * link: the community's top anglers of the week, month and year (the stats every Partide page reads).
+ * Each is listed only when its public header answers — the same read that makes its page `index`
+ * (a CMS without the route, or an angler gone since: left out, never guessed in).
+ */
+export async function anglerEntries(t: Transport): Promise<Entry[]> {
+  const periods = await Promise.all(ANGLER_PERIODS.map(p => maybe(getCommunityStats(t, p))));
+  const ids = [...new Set(periods.flatMap(s => s?.topAnglers.map(a => a.uid) ?? []))];
+  const profiles = await mapLimit(ids, CONCURRENCY, id => maybe(getAnglerPublicProfile(t, id)));
+  return profiles
+    .filter((p): p is NonNullable<typeof p> => !!p)
+    .map(p => ({ url: absoluteUrl(routes.angler(p.documentId)), changeFrequency: 'weekly' as const, priority: 0.4 }));
+}
+
+/* ------------------------------------------------------------------------------------------------
  * The split: one sitemap per group (and per chunk), listed by the sitemap index
  * ---------------------------------------------------------------------------------------------- */
 
@@ -455,7 +478,8 @@ export type PublicWaterKeys = () => Promise<readonly (string | number)[]> | read
 
 /**
  * The sitemap ids: `pagini` (list pages, news, sponsors), `balti-<n>`, one per competition status
- * (each ≤ MAX_PAGES × 100 competitions × 6 URLs < MAX_URLS) and `ape-publice-<n>`. Counting needs only
+ * (each ≤ MAX_PAGES × 100 competitions × 6 URLs < MAX_URLS), `pescari` (anglerEntries) and
+ * `ape-publice-<n>`. Counting needs only
  * the lakes index and the dataset's keys; a failed index still lists chunk 0.
  */
 export async function sitemapIds(t: Transport, publicWaterKeys?: PublicWaterKeys): Promise<string[]> {
@@ -466,6 +490,7 @@ export async function sitemapIds(t: Transport, publicWaterKeys?: PublicWaterKeys
     'pagini',
     ...Array.from({ length: chunks(lakes, LAKES_PER_CHUNK) }, (_, i) => `balti-${i}`),
     ...Object.keys(COMPETITION_SITEMAP),
+    'pescari',
     ...(publicWaterKeys ? Array.from({ length: chunks(waters, WATERS_PER_CHUNK) }, (_, i) => `ape-publice-${i}`) : []),
   ];
 }
@@ -479,6 +504,8 @@ export async function sitemapChunk(t: Transport, id: string, publicWaterKeys?: P
     out = [...staticEntries(), ...news, ...sponsors];
   } else if (id.startsWith('balti-') && Number.isInteger(n)) {
     out = await settle('lakes', lakeEntries(t, n));
+  } else if (id === 'pescari') {
+    out = await settle('anglers', anglerEntries(t));
   } else if (id in COMPETITION_SITEMAP) {
     out = await settle(id, competitionEntries(t, COMPETITION_SITEMAP[id]));
   } else if (id.startsWith('ape-publice-') && Number.isInteger(n) && publicWaterKeys) {
