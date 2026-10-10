@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext, type Page, type Route } from '@pl
 import { expectNoA11yViolations } from './helpers/a11y';
 import { collectConsoleErrors } from './helpers/console';
 import { anglerJwt } from './helpers/fake-organizer';
+import { backdateTestBooking, deleteReviewsOfTestBooking, localDbAvailable, reviewsOfBooking } from './helpers/local-db';
 import { CMS, qaJwt, signIn } from './helpers/session';
 
 /*
@@ -14,10 +15,15 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  * ALREADY_REVIEWED (a booking a read shows as rated), 403 (a viewer who does not own the lake: the
  * plain e2e angler of helpers/fake-organizer) and 404 (an id no booking has) — the CMS refuses each
  * before writing, the booking is checked by a read first, and a guard aborts any POST for another id.
- * Angler reviews have no delete endpoint, so a SUCCESSFUL POST /feed/angler-reviews is ROUTE-MOCKED
- * at the browser's /api/cms proxy (body asserted), as are the refusals the UI cannot provoke on the
- * local seed (ANGLER_DID_NOT_SHOW needs an ended no-show, COMMENT_REQUIRED is blocked by the form,
- * another code, a 500). Nothing is written.
+ * The mocked tests ROUTE-MOCK a successful POST /feed/angler-reviews at the browser's /api/cms proxy
+ * (body asserted), as well as the refusals the UI cannot provoke on the local seed (ANGLER_DID_NOT_SHOW
+ * needs an ended no-show, COMMENT_REQUIRED is blocked by the form, another code, a 500).
+ *
+ * One REAL write (owner 2026-10-10, LOCAL CMS only: no push tokens, Postmark test key): «(real write)»
+ * creates a walk-in linked to the e2e angler, moves it into the past in the local Postgres (the CMS
+ * cannot create an ended walk-in), rates it from the inbox, reads the review back through the API,
+ * provokes the real ALREADY_REVIEWED, then deletes the review row + its link rows in one transaction
+ * (no delete endpoint; helpers/local-db.ts) and operator-cancels the walk-in.
  */
 
 test.use({ timezoneId: 'Europe/Bucharest', locale: 'ro-RO' });
@@ -83,6 +89,18 @@ async function lakeBookings(request: APIRequestContext, jwt: string, lakeId: str
     if (rows.length < 50) break;
   }
   return all;
+}
+
+/**
+ * The CMS answers 404 for a booking with no angler before any other check (a guest walk-in), so a
+ * real refusal needs a booking linked to an account: the inbox row does not say, the detail read does.
+ */
+async function withAngler(request: APIRequestContext, jwt: string, candidates: LakeBooking[]): Promise<LakeBooking | undefined> {
+  for (const b of candidates) {
+    const res = await request.get(`${CMS}/feed/bookings/${b.documentId}`, { headers: { Authorization: `Bearer ${jwt}` } });
+    if (res.ok() && (await res.json()).data?.angler?.documentId) return b;
+  }
+  return undefined;
 }
 
 /** The CMS's rateable test (feed/controllers/reviews.ts): a confirmed/completed stay that has ended. */
@@ -416,8 +434,9 @@ test.describe('signed in', () => {
     const lakeId = await ownedLake(request, jwt);
     const bookings = await lakeBookings(request, jwt, lakeId);
     // A future one first (the plain case); any other the CMS cannot rate otherwise.
-    const target = bookings.find((b) => Date.parse(b.endDate) > Date.now()) ?? bookings.find((b) => !rateable(b));
-    expect(target, 'local seed: the owned lake needs a booking that has not ended (or is not confirmed/completed)').toBeTruthy();
+    const target =
+      (await withAngler(request, jwt, bookings.filter((b) => Date.parse(b.endDate) > Date.now()))) ?? (await withAngler(request, jwt, bookings.filter((b) => !rateable(b))));
+    expect(target, 'local seed: the owned lake needs a booking with an angler that has not ended (or is not confirmed/completed)').toBeTruthy();
     expect(rateable(target!)).toBe(false);
     await realRefusal(page, target!.documentId, { status: 400, bluCode: 'INVALID_STATUS', toast: 'Poți evalua doar după ce se încheie rezervarea.', final: false });
   });
@@ -438,7 +457,8 @@ test.describe('signed in', () => {
   test('c11 (real): 403 — a viewer who does not own the lake → «Nu ai acces la această rezervare.», the CTA stays off', async ({ page, request, context }) => {
     const lakeId = await ownedLake(request, jwt);
     const bookings = await lakeBookings(request, jwt, lakeId);
-    expect(bookings.length, 'local seed: the owned lake needs a booking').toBeGreaterThan(0);
+    const target = await withAngler(request, jwt, bookings);
+    expect(target, 'local seed: the owned lake needs a booking with an angler').toBeTruthy();
     const other = await anglerJwt(request);
     expect(other, 'E2E_CMS_ADMIN_TOKEN (.env.local) is needed for the plain e2e angler').toBeTruthy();
     // The e2e angler owns no lake: the CMS answers ctx.forbidden() before reading anything else.
@@ -446,7 +466,7 @@ test.describe('signed in', () => {
     const ownedIds = ((await owned.json()).data ?? []).map((l: { documentId: string }) => l.documentId);
     expect(ownedIds).not.toContain(lakeId);
     await signIn(context, other!);
-    await realRefusal(page, bookings[0].documentId, { status: 403, toast: 'Nu ai acces la această rezervare.', final: true });
+    await realRefusal(page, target!.documentId, { status: 403, toast: 'Nu ai acces la această rezervare.', final: true });
   });
 
   test('c11 (real): 404 — a booking id no booking has → «Rezervarea nu mai există.», the CTA stays off', async ({ page }) => {
@@ -502,4 +522,108 @@ test.describe('signed in', () => {
     expect(bodies[0]).toMatchObject({ data: { booking: REAL_WALK_IN, stars: 5 } });
     await expect.poll(() => reads.length).toBeGreaterThan(0);
   });
+
+  test('c10 c11 c12 (real write): a real walk-in rated from the inbox, read back, ALREADY_REVIEWED, cleaned up', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    expect(localDbAvailable(), 'the real review needs the LOCAL CMS and its loopback Postgres (../fir-intins-cms/.env)').toBe(true);
+    const lakeId = await ownedLake(request, jwt);
+    const angler = await anglerJwt(request);
+    expect(angler, 'E2E_CMS_ADMIN_TOKEN (.env.local) is needed for the e2e angler').toBeTruthy();
+    const me = await request.get(`${CMS}/users/me`, { headers: { Authorization: `Bearer ${angler}` } });
+    const anglerId = ((await me.json()) as { documentId: string }).documentId;
+    expect(anglerId).toBeTruthy();
+    const reputation = async () => {
+      const res = await request.get(`${CMS}/feed/users/${anglerId}/reputation`);
+      expect(res.ok(), `GET reputation: HTTP ${res.status()}`).toBe(true);
+      return (await res.json()).data as { ratingCount: number; avgStars: number | null; reviews: { stars: number; comment: string | null; tags: string[] | null }[] };
+    };
+    const before = await reputation();
+
+    // A real walk-in linked to the e2e angler's account (a guest walk-in has no angler to rate), then
+    // moved into the past: the CMS refuses to create an ended walk-in (WINDOW_ENDED).
+    const slot = await freeChitaSlot(request, lakeId);
+    const res = await request.post(`${CMS}/feed/bookings/walk-in`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+      data: { data: { lake: lakeId, stand: slot.stand, startDate: slot.start, endDate: slot.end, extras: [], angler: anglerId, contactFullname: 'E2E Pescar' } },
+    });
+    expect(res.ok(), await res.text()).toBe(true);
+    const booking = ((await res.json()) as { data: { documentId: string; bookingStatus: string } }).data;
+    expect(booking.bookingStatus).toBe('confirmed');
+    const COMMENT = 'Test e2e real — recenzie ștearsă la final.';
+    try {
+      backdateTestBooking(booking.documentId);
+      expect(reviewsOfBooking(booking.documentId)).toBe(0);
+
+      // The operator's path: the inbox detail → «Evaluează pescarul» → 4 stars, a tag, a comment → sent.
+      await page.goto(`/operator/${lakeId}/rezervari?status=all&rezervare=${booking.documentId}`);
+      const rate = page.getByRole('button', { name: 'Evaluează pescarul' }).filter({ visible: true }).first();
+      await rate.waitFor({ timeout: 15_000 });
+      await rate.click();
+      await expect(page).toHaveURL(new RegExp(`/operator/evalueaza/${booking.documentId}\\?anglerName=`));
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await hydrated(page);
+      await star(page, 4).click({ force: true });
+      await chip(page, 'Prietenos').click();
+      await page.getByRole('textbox', { name: 'Comentariu' }).fill(COMMENT);
+      const posted = page.waitForResponse((r) => r.request().method() === 'POST' && r.url().endsWith('/api/cms/feed/angler-reviews'));
+      await submitBtn(page).click();
+      expect((await posted).status()).toBe(200);
+      await expect(page.getByText('Evaluare trimisă')).toBeVisible();
+      await expect(page).toHaveURL(new RegExp(`/operator/${lakeId}/rezervari`));
+
+      // Read back through the API: the booking is rated, the angler's reputation carries the review.
+      const row = (await lakeBookings(request, jwt, lakeId)).find((b) => b.documentId === booking.documentId);
+      expect(row?.reviewedByOperator).toBe(true);
+      const after = await reputation();
+      expect(after.ratingCount).toBe(before.ratingCount + 1);
+      expect(after.reviews).toContainEqual(expect.objectContaining({ stars: 4, comment: COMMENT, tags: ['friendly'] }));
+      expect(reviewsOfBooking(booking.documentId)).toBe(1);
+
+      // A second review of the same booking: the CMS's real ALREADY_REVIEWED, the CTA stays off.
+      await realRefusal(page, booking.documentId, { status: 400, bluCode: 'ALREADY_REVIEWED', toast: 'Ai evaluat deja această rezervare.', final: true });
+    } finally {
+      // No delete endpoint for angler reviews: the row (and its links) go in one local transaction;
+      // the reputation is aggregated on read, so nothing else is restored. The walk-in is cancelled.
+      const n = reviewsOfBooking(booking.documentId);
+      if (n > 0) expect(deleteReviewsOfTestBooking(booking.documentId, n)).toBe(n);
+      const c = await request.patch(`${CMS}/feed/bookings/${booking.documentId}/operator-cancel`, {
+        headers: { Authorization: `Bearer ${jwt}` },
+        data: { reason: 'Test e2e — curățenie automată.' },
+      });
+      expect(c.ok(), `cleanup of ${booking.documentId}: HTTP ${c.status()}`).toBe(true);
+    }
+    expect(reviewsOfBooking(booking.documentId)).toBe(0);
+    const restored = await reputation();
+    expect({ ratingCount: restored.ratingCount, avgStars: restored.avgStars }).toEqual({ ratingCount: before.ratingCount, avgStars: before.avgStars });
+  });
 });
+
+/** A free 06–18 slot on the owned lake, days 41–60 (the other operator specs book days 3–40). */
+async function freeChitaSlot(request: APIRequestContext, lakeId: string) {
+  const at = (days: number, hour: number) => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + days);
+    d.setHours(hour);
+    return d;
+  };
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  type Span = { start: string; end: string };
+  const overlaps = (a: Span, s: number, e: number) => Date.parse(a.start) < e && Date.parse(a.end) > s;
+  for (let day = 41; day <= 60; day++) {
+    const [s, e] = [at(day, 6), at(day, 18)];
+    const res = await request.get(`${CMS}/feed/lakes/${lakeId}/availability`, { params: { from: ymd(at(day - 1, 0)), to: ymd(at(day + 2, 0)) } });
+    const av = (await res.json()).data as {
+      stands: { documentId: string }[];
+      bookings: (Span & { standDocumentId: string })[];
+      blocks: (Span & { standDocumentId: string | null })[];
+    };
+    for (const st of [...av.stands].reverse()) {
+      const busy =
+        av.bookings.some((b) => b.standDocumentId === st.documentId && overlaps(b, +s - 3_600_000, +e + 3_600_000)) ||
+        av.blocks.some((b) => (b.standDocumentId === null || b.standDocumentId === st.documentId) && overlaps(b, +s, +e));
+      if (!busy) return { stand: st.documentId, start: s.toISOString(), end: e.toISOString() };
+    }
+  }
+  throw new Error('no free 06–18 slot on the owned lake in days 41–60');
+}

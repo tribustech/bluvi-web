@@ -2057,6 +2057,8 @@ behaviours:
   - id: partide.b.nou-badge
     text: "The Partide nav entry shows a „NOU” pill until the first visit (persisted flag) and only before PARTIDE_NEW_BADGE_UNTIL (2026-09-18, already past — so no badge today); an unknown flag shows no badge. Web: not needed unless the owner re-dates it."
     fish_ref: "features/partide/domain/viewAtoms.ts:54-100"
+    status: n/a
+    web_note: "Owner 2026-10-10: retired."
   - id: partide.b.venue-partide-pages
     text: "Venue partide pages and venue stats/leaderboards (/balti/[id]/partide, /ape-publice/[code]/partide …) are inventoried in the lakes and public-waters areas; this area links to them via venuePartideHref."
     fish_ref: "features/partide/community/venuePartideHref.ts:15-24"
