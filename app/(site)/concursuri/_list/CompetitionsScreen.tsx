@@ -95,6 +95,10 @@ import { RESULTS_REFRESH, RESULTS_STACK } from './resultsChromeStyles';
 import { SearchDialog } from './SearchDialog';
 import { StatusTabs } from './StatusTabs';
 import { TAB_MODULES, type TabViewProps } from './tabs';
+import { PhonePulse } from './phone/PhonePulse';
+import { PhoneBentoSkeleton } from './phone/PhoneBento';
+import { PhoneEmpty, PhoneList, PhoneListSkeleton } from './phone/PhoneList';
+import { useWide } from './phone/useWide';
 
 /*
  * Concursuri — fish app/(app)/(tabs)/competitions/index.tsx on T1 (parity competitions-list.index,
@@ -121,10 +125,22 @@ import { TAB_MODULES, type TabViewProps } from './tabs';
  *  - the aside (registrations, what is live / starting / just finished) docks from 1280 (three
  *    columns, ROADMAP §4) and sits under the list below it (ListPage asideInline «end»), its rows
  *    auto-filling the width there, never dropped.
+ *
+ * Below 768 the page is fish's Competiții tab, screen for screen (ROADMAP §4b rule 25, owner
+ * 2026-10-10): the title row (title1, the eye; the search / filters stand-ins once the search row
+ * has scrolled under it), fish's underline tab row, fish's search row (the 42 pill + the round
+ * filters button; no filter bar — a filter is results mode, as in fish), on Viitoare the bento
+ * (./phone/PhoneBento: hero stack with dots, person, live count, follow invite), the heading with
+ * its count, and fish's compact cards in one column (./phone/PhoneList) for every tab, «Ale mele»
+ * and results. Pull-to-refresh is the browser's own; the list re-reads when the page comes back
+ * after a while (as Acasă), so the phone has no refresh button. The approved web layouts start at
+ * 768 (useWide: until the client knows, both are drawn, each hidden by CSS at the other's widths).
  */
 
 /** fish LIVE_POLL_MS: the Live tab polls; nothing else does. */
 const LIVE_POLL_MS = 60_000;
+/** Phone: a page that comes back after this long re-reads (Acasă's rule, ../../_home/HomeRefresh). */
+const REFRESH_ON_RETURN_MS = 30_000;
 
 
 const REGION_ID = 'concursuri-lista';
@@ -159,6 +175,10 @@ export function CompetitionsScreen({
 }) {
   const t = useMemo(() => transport ?? createBrowserTransport(), [transport]);
   const session = { isAuthenticated };
+  // Which layout is on screen: null until the client knows (both drawn, CSS picks).
+  const wide = useWide();
+  const phoneShown = wide !== true;
+  const desktopShown = wide !== false;
   const qc = useQueryClient();
   const router = useRouter();
 
@@ -331,6 +351,27 @@ export function CompetitionsScreen({
     const r = await list.refetch();
     return r.isError ? 'reported' : true;
   };
+  // Phone: no refresh button (fish pulls; the browser's own pull reloads the page). When the page
+  // comes back after REFRESH_ON_RETURN_MS the list and the bento re-read quietly (Acasă's rule).
+  const refreshRef = useRef(refresh);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  });
+  useEffect(() => {
+    if (wide !== false) return;
+    let last = Date.now();
+    const onReturn = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - last < REFRESH_ON_RETURN_MS) return;
+      last = Date.now();
+      void refreshRef.current();
+    };
+    document.addEventListener('visibilitychange', onReturn);
+    window.addEventListener('focus', onReturn);
+    return () => {
+      document.removeEventListener('visibilitychange', onReturn);
+      window.removeEventListener('focus', onReturn);
+    };
+  }, [wide]);
   // The stale strip's own retry (a failed Live poll).
   const [retryingStale, setRetryingStale] = useState(false);
   const retryStale = () => {
@@ -639,13 +680,52 @@ export function CompetitionsScreen({
         // The fade starts with a few px of solid page under the tab rule, so nothing scrolling under
         // it is legible right against the active tab's underline (c1).
         "after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-10 after:bg-linear-to-b after:from-page after:from-25% after:to-transparent after:content-['']",
+        // Phone: fish's 28px fade under the tab rule.
+        'max-md:after:h-7',
       )}
     >
       <ListHeader
         titleId={TITLE_ID}
+        // Phone: fish's title1 in a 48 row, the tab row right under it.
+        titleClassName={PHONE_TITLE}
+        belowClassName={PHONE_BELOW}
         title="Concursuri"
         actions={
           <>
+            {/* Phone: fish's title row tools — 40 round, bare; the stand-ins fade in once the search
+                row has scrolled under the chrome; the eye last, 10 from the edge. */}
+            <span className="-mr-1.5 flex items-center gap-0.5 md:hidden">
+              <span
+                inert={!tucked || undefined}
+                className={cn(
+                  'gap-0.5 opacity-100 transition-[opacity,display] transition-discrete duration-(--duration-fast) ease-fast starting:opacity-0',
+                  tucked ? 'flex' : 'hidden',
+                )}
+              >
+                <button type="button" aria-label="Caută concursuri" aria-haspopup="dialog" onClick={openSearch} className={phoneToolClass(false)}>
+                  <MagnifyingGlassIcon aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  aria-label={filterCount > 0 ? `Filtre, ${filterCount} active` : 'Filtre'}
+                  aria-haspopup="dialog"
+                  onClick={() => openFilters()}
+                  className={phoneToolClass(filterCount > 0)}
+                >
+                  <AdjustmentsHorizontalIcon aria-hidden />
+                </button>
+              </span>
+              <button
+                type="button"
+                aria-pressed={followedOn}
+                aria-label={followedOn ? 'Toate concursurile' : 'Concursuri urmărite'}
+                onClick={() => toggleScope('followed')}
+                className={phoneToolClass(followedOn)}
+              >
+                <EyeIcon aria-hidden />
+              </button>
+            </span>
+            <span className="contents max-md:hidden">
             <span
               inert={!tucked || undefined}
               // Out of the layout until the row is tucked (the phone's title row holds three tools, as
@@ -685,6 +765,7 @@ export function CompetitionsScreen({
               pressed={followedOn}
               onToggle={() => toggleScope('followed')}
             />
+            </span>
           </>
         }
         below={
@@ -868,6 +949,35 @@ export function CompetitionsScreen({
   const TabSkeleton = tabModule?.Skeleton;
   const TabEmpty = tabModule?.Empty;
 
+  // Below 768: fish's states and fish's one list of compact cards (./phone). Shared: the sign-in
+  // gate, the error card and the empty copy (in results mode a short title: the heading above
+  // already names the question — never the search label three times on a phone).
+  const phoneEmptyTitle = emptyTitle;
+  const phoneEmptyText = resultsMode
+    ? search
+      ? 'Încearcă altă stare sau caută altceva.'
+      : 'Încearcă altă stare sau elimină câteva filtre.'
+    : scope === 'followed'
+      ? 'Salvează concursurile care te interesează sau verifică celelalte taburi.'
+      : 'Schimbă tabul pentru a vedea alte concursuri.';
+  const phoneBody: ReactNode = loading ? (
+    <PhoneListSkeleton />
+  ) : competitions.length === 0 ? (
+    <PhoneEmpty
+      title={phoneEmptyTitle}
+      description={phoneEmptyText}
+      action={
+        resultsMode ? (
+          <Button variant="secondary" onClick={() => exitResults(true)}>
+            {search ? 'Înapoi la concursuri' : 'Șterge filtrele'}
+          </Button>
+        ) : undefined
+      }
+    />
+  ) : (
+    <PhoneList cards={competitions} labelledBy={SUMMARY_ID} priorityCount={showPulse ? 0 : 2} />
+  );
+
   let body: ReactNode;
   if (sel.requiresSignIn) {
     body = (
@@ -956,6 +1066,17 @@ export function CompetitionsScreen({
     );
   }
 
+  // One wrapper per layout, kept whatever `wide` says (no remount when the client learns it); the
+  // layout not on screen is not rendered once that is known.
+  if (!sel.requiresSignIn && !failed) {
+    body = (
+      <>
+        {phoneShown ? <div className="md:hidden">{phoneBody}</div> : null}
+        {desktopShown ? <div className="flex flex-col gap-4 max-md:hidden">{body}</div> : null}
+      </>
+    );
+  }
+
   /* ---------------- aside (≥1440) ---------------- */
 
   const myCards = regSel.competitions.filter((c) => c.status !== 'completed').slice(0, 3);
@@ -1029,9 +1150,17 @@ export function CompetitionsScreen({
       aside={aside}
       asideLabel="Ce se întâmplă acum"
       asideBusy={asidePending}
+      // Phone: the chrome is the screen's top bar (fish: no gap above the title row); no aside (fish
+      // has none — the tabs and «Ale mele» are the way to every list).
+      className={PHONE_PAGE}
     >
-      {/* The tab's own blocks first (./tabs): promo, not the list's chrome. */}
-      {TabTop && tabProps ? <TabTop {...tabProps} /> : null}
+      {/* The tab's own blocks first (./tabs): promo, not the list's chrome. From 768 only: the phone
+          is fish's tab, which has none of them. */}
+      {TabTop && tabProps && desktopShown ? (
+        <div className="contents max-md:hidden">
+          <TabTop {...tabProps} />
+        </div>
+      ) : null}
       {/* Owner rule 6 (ROADMAP §4b): the search pill and the filter chips are ONE block, directly
           over the results they ask about. On a phone it stays at the top of the column (fish's
           order: title → tabs → search row), the bento under it. */}
@@ -1050,7 +1179,35 @@ export function CompetitionsScreen({
           />
         ) : (
           <div ref={toolbarRef}>
-            <ListToolbar>
+            {/* Phone: fish CompetitionsSearchRow — the 42 white pill and the round filters button. */}
+            <div className="flex items-center gap-2.5 md:hidden">
+              <button
+                type="button"
+                onClick={openSearch}
+                aria-haspopup="dialog"
+                aria-expanded={searchOpen}
+                aria-label="Caută un concurs, o baltă sau un organizator"
+                className={cn('flex h-10.5 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-full bg-surface px-3.5 text-left active:opacity-70', FOCUS_RING)}
+              >
+                <MagnifyingGlassIcon aria-hidden className="size-4.25 shrink-0 text-muted" />
+                <span className="min-w-0 flex-1 truncate t-caption text-muted">Concurs, baltă sau organizator</span>
+              </button>
+              <button
+                type="button"
+                aria-label={filterCount > 0 ? `Filtre, ${filterCount} active` : 'Filtre'}
+                aria-haspopup="dialog"
+                aria-expanded={filtersOpen && filtersEntry === 'filters'}
+                onClick={() => openFilters()}
+                className={cn(
+                  'flex size-10.5 shrink-0 cursor-pointer items-center justify-center rounded-full active:opacity-70 [&>svg]:size-5',
+                  FOCUS_RING,
+                  filterCount > 0 ? 'bg-fish-indigo5 text-fish-on' : 'bg-surface text-ink',
+                )}
+              >
+                <AdjustmentsHorizontalIcon aria-hidden />
+              </button>
+            </div>
+            <ListToolbar className="max-md:hidden">
               {/* search.c1: the pill opens the search dialog — typing there never filters this list. */}
               <button
                 type="button"
@@ -1073,11 +1230,28 @@ export function CompetitionsScreen({
           onPointerDownCapture={holdBar}
           onKeyDownCapture={holdBar}
           onFocusCapture={holdBar}
-          className={resultsMode ? 'hidden xl:block' : undefined}
+          // Phone: no filter bar (fish: the round button opens the filters; a filter is results mode).
+          className={resultsMode ? 'hidden xl:block' : 'max-md:hidden'}
         >
           {filterBar}
         </div>
       </div>
+      {/* Phone, Viitoare unfiltered: fish's bento under the search row. Until the client knows the
+          width, its bones (the bento's picks are the visit's own: never drawn on the server). */}
+      {showPulse && phoneShown ? (
+        <div className="md:hidden">
+          {wide === false ? (
+            <PhonePulse
+              t={t}
+              isAuthenticated={isAuthenticated}
+              onOpenLive={() => changeStatus('started')}
+              onOpenStartingSoon={() => changeStatus('notStarted')}
+            />
+          ) : (
+            <PhoneBentoSkeleton />
+          )}
+        </div>
+      ) : null}
       <p aria-live="polite" className="sr-only">
         {settledEmpty ? emptyTitle : ''}
       </p>
@@ -1086,6 +1260,8 @@ export function CompetitionsScreen({
         tabpanel={activeTabShown}
         labelledBy={activeTabShown ? `${REGION_ID}-tab-${activeTab}` : summaryShown ? SUMMARY_ID : TITLE_ID}
         busy={busy}
+        // Phone: fish's heading row sits 10 over the first card.
+        className="max-md:gap-2.5"
       >
         {summary}
         {staleNotice}
@@ -1107,6 +1283,15 @@ export function CompetitionsScreen({
       </ListRegion>
       {dialogs}
     </ListPage>
+  );
+}
+
+/** fish's title-row IconButton: 40 round, bare; pressed → indigo tint and indigo glyph. */
+function phoneToolClass(pressed: boolean) {
+  return cn(
+    'flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full active:opacity-60 [&>svg]:size-5',
+    FOCUS_RING,
+    pressed ? 'bg-accent-tint text-fish-indigo5' : 'text-ink',
   );
 }
 
@@ -1151,8 +1336,25 @@ function AsideList({ items, showLive = true }: { items: CompetitionCard[]; showL
   );
 }
 
-/** The page's loading frame (Suspense fallback): the bones of the tab's list (its module's Skeleton), else the poster grid's. */
+/**
+ * The page's loading frame (Suspense fallback): below 768 fish's compact card bones, from 768 the
+ * bones of the tab's list (its module's Skeleton), else the poster grid's.
+ */
 export function CompetitionsFallbackBody({ tab }: { tab?: CompetitionCardStatus }) {
   const Skeleton = tab ? TAB_MODULES[tab].Skeleton : PosterGridSkeleton;
-  return <Skeleton />;
+  return (
+    <>
+      <div className="md:hidden">
+        <PhoneListSkeleton />
+      </div>
+      <div className="max-md:hidden">
+        <Skeleton />
+      </div>
+    </>
+  );
 }
+
+/** The phone frame's class lists, shared with the server fallbacks (./CompetitionsRoute). */
+export const PHONE_PAGE = 'max-md:pt-0 max-md:[&>div>aside]:hidden';
+export const PHONE_TITLE = 'max-md:t-title1 max-md:tracking-normal';
+export const PHONE_BELOW = 'max-md:mt-0';

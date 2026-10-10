@@ -66,6 +66,8 @@ export function ListHeader({
   reserveBelow = false,
   reserveEnd,
   titleId,
+  titleClassName,
+  belowClassName,
   className,
 }: {
   title: ReactNode;
@@ -90,6 +92,10 @@ export function ListHeader({
    */
   reserveEnd?: ReactNode;
   titleId?: string;
+  /** Extra classes on the h1 (Concursuri's phone title is fish's title1: `max-md:t-title1`). */
+  titleClassName?: string;
+  /** Extra classes on the `below` row (Concursuri's phone tab row sits right under the title). */
+  belowClassName?: string;
   className?: string;
 }) {
   return (
@@ -107,7 +113,7 @@ export function ListHeader({
           )
         ) : null}
         <div className="min-w-0 flex-1">
-          <h1 id={titleId} tabIndex={-1} className={cn(back ? 't-title1' : 't-page-title', 'text-ink outline-none')}>
+          <h1 id={titleId} tabIndex={-1} className={cn(back ? 't-title1' : 't-page-title', 'text-ink outline-none', titleClassName)}>
             {title}
           </h1>
           {description ? <div className="t-caption mt-0.5 text-muted">{description}</div> : null}
@@ -115,7 +121,7 @@ export function ListHeader({
         {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </div>
       {below ? (
-        <div className="mt-3 xl:mt-4">{below}</div>
+        <div className={cn('mt-3 xl:mt-4', belowClassName)}>{below}</div>
       ) : reserveBelow ? (
         // The control sits 3px above the rule (mb-0.75), so a 40px toggle fits the 44px band exactly.
         <div className={cn('mt-4 hidden min-h-11 items-end gap-3 border-b xl:flex', PAGE_RULE)}>

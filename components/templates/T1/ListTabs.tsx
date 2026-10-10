@@ -185,6 +185,7 @@ export function TabContent({
       <span>{tab.label}</span>
       {tab.count ? (
         <span
+          data-tab-count=""
           aria-hidden={tab.accessibleLabel ? true : undefined}
           // Capped at 99+: the full figure (ro-RO grouped, «1.234») on hover.
           title={tab.count > 99 ? tab.count.toLocaleString('ro-RO') : undefined}

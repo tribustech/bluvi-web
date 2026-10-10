@@ -140,6 +140,38 @@ test.describe('signed out', () => {
     await expect.poll(async () => Math.round((await chrome.boundingBox())!.y)).toBe(0);
   });
 
+  test('competitions-list.index.c2 competitions-list.index.c8 competitions-list.pulse.c1 competitions-list.cards.c4 — phone (§4b.25): fish\'s Competiții tab — underline tabs, search pill + round filters, the bento on Viitoare, compact cards, no filter bar', async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    await open(page);
+    // Tabs: plain labels on the page ground, the active one with the 2.5px underline, no fill, no counts.
+    const active = tab(page, 'Viitoare');
+    await expect(active).toHaveAttribute('aria-selected', 'true');
+    expect(await active.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+    expect(parseFloat(await active.evaluate((el) => getComputedStyle(el, '::after').height))).toBeCloseTo(2.5, 1);
+    await expect(page.getByRole('tablist', { name: 'Stare concursuri' }).locator('[data-tab-count]').first()).toBeHidden();
+    // The search row: the 42 pill and the 42 round filters button; no filter bar.
+    const pill = page.getByRole('button', { name: 'Caută un concurs, o baltă sau un organizator' });
+    expect(Math.round((await pill.boundingBox())!.height)).toBe(42);
+    const filters = page.locator('[aria-expanded]').and(page.getByRole('button', { name: 'Filtre', exact: true }));
+    const box = (await filters.boundingBox())!;
+    expect([Math.round(box.width), Math.round(box.height)]).toEqual([42, 42]);
+    await expect(page.getByRole('button', { name: 'Perioadă' })).toBeHidden();
+    // Viitoare unfiltered: fish's bento, not the web spotlight.
+    await expect(page.getByRole('region', { name: 'Pulsul concursurilor' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'În lumina reflectoarelor' })).toHaveCount(0);
+    // The compact «Listă» card: the 76 poster beside the copy, one column.
+    const firstPoster = list(page).locator('article img:not([aria-hidden])').first();
+    await expect(firstPoster).toBeVisible();
+    expect(Math.round((await firstPoster.boundingBox())!.width)).toBe(76);
+    await expect(list(page).locator('[class*="poster-ratio"]')).toHaveCount(0);
+    // Off Viitoare: no bento, the same compact list.
+    await tab(page, 'Live').click();
+    await expect(page.getByRole('heading', { level: 2, name: 'Live acum' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Pulsul concursurilor' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Cântăriri recente' })).toHaveCount(0);
+    await expect(list(page).locator('article').first()).toBeVisible();
+  });
+
   test('competitions-list.index.c3 competitions-list.index.c5 competitions-list.index.c10 competitions-list.index.c11 competitions-list.index.c18 competitions-list.index.c28 competitions-list.index.s10 competitions-list.index.s11 — Live and Rezultate tabs; the event; Live polls every 60s', async ({ page, context }) => {
     await captureEvents(context);
     await page.clock.install();
@@ -246,13 +278,15 @@ test.describe('signed out', () => {
     // At the top the stand-ins are inert: never interactive together with the row they replace.
     const standIn = page.getByRole('button', { name: 'Caută concursuri' });
     await expect(standIn).toBeHidden();
-    // The phone's title row holds three tools at a time: refresh at the top, the two stand-ins once tucked.
-    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toBeVisible();
+    // §4b.25: the phone's title row is fish's — the eye, and the two stand-ins once tucked; no refresh
+    // button (fish pulls to refresh; the page re-reads when it comes back).
+    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toBeHidden();
     await page.mouse.wheel(0, 900);
     await expect(standIn).toBeVisible();
     const inert = () => standIn.evaluate((el) => el.closest('[inert]') !== null);
     expect(await inert()).toBe(false);
     await expect(standIn).toHaveCSS('opacity', '1');
+    await expect(page.getByRole('button', { name: 'Concursuri urmărite' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toBeHidden();
     // The title is never cut by the tools.
     expect(await page.getByRole('heading', { level: 1 }).evaluate((h) => h.scrollWidth <= h.clientWidth)).toBe(true);
@@ -362,7 +396,8 @@ test.describe('signed out', () => {
       await page.setViewportSize(size);
       for (const path of ['/concursuri/viitoare', '/concursuri/live', '/concursuri/rezultate']) {
         await open(page, path);
-        const article = list(page).locator('article').filter({ has: page.locator('img:not([aria-hidden])') }).first();
+        // :visible — until the client knows its width the page carries both layouts, one hidden (§4b.25).
+        const article = list(page).locator('article:visible').filter({ has: page.locator('img:not([aria-hidden])') }).first();
         if ((await article.count()) === 0) continue;
         checked += 1;
         await expect(list(page).getByRole('button', { name: /^(Mărește afișul|Vezi imaginea)/ })).toHaveCount(0);
@@ -459,7 +494,9 @@ test.describe('signed out', () => {
     for (const size of [PHONE, { width: 768, height: 1024 }, WIDE]) {
       await page.setViewportSize(size);
       await open(page);
-      await expect(page.getByRole('region', { name: 'În lumina reflectoarelor' })).toBeVisible();
+      // §4b.25: the phone is fish's tab — its bento; from 768 the approved Viitoare spotlight.
+      const promo = size === PHONE ? 'Pulsul concursurilor' : 'În lumina reflectoarelor';
+      await expect(page.getByRole('region', { name: promo })).toBeVisible();
       await settled(page);
       await expectNoA11yViolations(page);
     }

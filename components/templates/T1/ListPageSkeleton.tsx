@@ -127,6 +127,7 @@ export function ListPageSkeleton({
   summary,
   list,
   label = 'Se încarcă…',
+  className,
 }: {
   title: ReactNode;
   /**
@@ -162,6 +163,8 @@ export function ListPageSkeleton({
   /** The list's skeleton; default the cards grid (ListSkeleton min="sm"). */
   list?: ReactNode;
   label?: string;
+  /** The page's ListPage className (its own frame adjustments), so the skeleton sits where it will. */
+  className?: string;
 }) {
   return (
     <ListPage
@@ -171,6 +174,7 @@ export function ListPageSkeleton({
       asideFrom={asideFrom}
       asideInline={false}
       asideBusy={aside > 0}
+      className={className}
     >
       {heroFirst ? (
         <>

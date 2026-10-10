@@ -26,7 +26,9 @@ import { getSessionToken } from '@/lib/server/session';
 import { createServerTransport } from '@/lib/server/transport';
 import { getShellSession } from '../../_shell/session';
 import { userOf } from '../../_shell/viewer-state';
-import { CompetitionsFallbackBody, CompetitionsScreen } from './CompetitionsScreen';
+import { CompetitionsFallbackBody, CompetitionsScreen, PHONE_BELOW, PHONE_PAGE, PHONE_TITLE } from './CompetitionsScreen';
+import { PhoneBentoSkeleton } from './phone/PhoneBento';
+import { PhoneList } from './phone/PhoneList';
 import { LiveBand } from './upcoming/LiveBand';
 import { SpotlightView } from './upcoming/Spotlight';
 import { SPOTLIGHT_LIMIT, SpotlightSkeleton, UPCOMING_TOP } from './upcoming/SpotlightSkeleton';
@@ -369,11 +371,24 @@ function Fallback({ place, shell }: { place: ListPlace; shell: UpcomingShell | n
           results ? (
             <ResultsChromeFrame label={label} chips={chips} filterCount={chips.length} band={heading} />
           ) : (
-            <ListHeader title="Concursuri" below={<FallbackTabs active={place.scope === 'registered' || place.status === 'all' ? undefined : place.status} />} />
+            <ListHeader
+              title="Concursuri"
+              titleClassName={PHONE_TITLE}
+              belowClassName={PHONE_BELOW}
+              below={<FallbackTabs active={place.scope === 'registered' || place.status === 'all' ? undefined : place.status} />}
+            />
           )
         }
-        // The filter bar under the search row (results mode: under the results row, from 1280 — the hero slot).
-        filterBar={results ? undefined : <FilterBarSkeleton chips={barChips(place, false)} />}
+        className={PHONE_PAGE}
+        // The filter bar under the search row (results mode: under the results row, from 1280 — the hero
+        // slot). Not on the phone (fish: the round filters button).
+        filterBar={
+          results ? undefined : (
+            <div className="max-md:hidden">
+              <FilterBarSkeleton chips={barChips(place, false)} />
+            </div>
+          )
+        }
         // Results mode has no aside (results.c14).
         aside={results || desktopRows ? 0 : 1}
         searchPlaceholder={results ? undefined : 'Concurs, baltă sau organizator'}
@@ -417,13 +432,41 @@ function UpcomingFallback({ place, shell }: { place: ListPlace; shell: UpcomingS
     <div aria-busy>
       <ListPageSkeleton
         title="Concursuri"
-        header={<ListHeader title="Concursuri" below={<FallbackTabs active="notStarted" />} />}
-        filterBar={<FilterBarSkeleton chips={barChips(place, false)} />}
+        header={<ListHeader title="Concursuri" titleClassName={PHONE_TITLE} belowClassName={PHONE_BELOW} below={<FallbackTabs active="notStarted" />} />}
+        className={PHONE_PAGE}
+        filterBar={
+          <div className="max-md:hidden">
+            <FilterBarSkeleton chips={barChips(place, false)} />
+          </div>
+        }
         searchPlaceholder="Concurs, baltă sau organizator"
         summaryTitle={headingFor(place)}
-        hero={top}
+        // From 768 the tab's own Top; on the phone fish's bento (its picks are the visit's: bones).
+        hero={
+          <>
+            <div className="contents max-md:hidden">{top}</div>
+            {place.scope === 'all' ? (
+              <div className="md:hidden">
+                <PhoneBentoSkeleton />
+              </div>
+            ) : null}
+          </>
+        }
         heroFirst
-        list={cards.length && shell ? <UpcomingGroupsShell cards={cards} at={shell.at} /> : <CompetitionsFallbackBody tab="notStarted" />}
+        list={
+          cards.length && shell ? (
+            <>
+              <div className="md:hidden">
+                <PhoneList cards={cards} />
+              </div>
+              <div className="max-md:hidden">
+                <UpcomingGroupsShell cards={cards} at={shell.at} />
+              </div>
+            </>
+          ) : (
+            <CompetitionsFallbackBody tab="notStarted" />
+          )
+        }
       />
     </div>
   );

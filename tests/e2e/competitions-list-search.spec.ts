@@ -643,7 +643,9 @@ test.describe('competitions-list.results', () => {
       list(page)
         .locator('p[aria-hidden]')
         .getByText(/^(1 concurs în desfășurare|\d+ (de )?concursuri în desfășurare)$/)
-        .or(list(page).getByText('Niciun concurs cu aceste filtre', { exact: true })),
+        .or(list(page).getByText('Niciun concurs cu aceste filtre', { exact: true }))
+        // Until the client knows its width the page carries both layouts, one hidden (§4b.25).
+        .filter({ visible: true }),
     ).toBeVisible();
     await expectNoA11yViolations(page);
     // Each chip removes just its choice (status → every state); focus moves to the next chip.
