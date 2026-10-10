@@ -2052,6 +2052,30 @@ test.describe('lakes.results-map', () => {
     await expect(page.getByRole('button', { name: /^Vezi lista/ })).toHaveCount(0);
   });
 
+  test('lakes.results-map.c19 · phone (owner 2026-10-10): the sheet rests at peek · half · full; the handle steps it, «Hartă» drops it; floats clear the tab bar', async ({ page }) => {
+    await openMap(page, '', PHONE);
+    const sheet = page.locator('[data-sheet-snap]');
+    const handle = page.locator('[data-t2-sheet-handle] button');
+    const tabBar = (await page.locator('[data-tab-bar]').boundingBox())!;
+    await expect(sheet).toHaveAttribute('data-sheet-snap', 'half');
+    await expect(handle).toHaveAccessibleName('Extinde lista');
+    await handle.click();
+    await expect(sheet).toHaveAttribute('data-sheet-snap', 'full');
+    await expect(handle).toHaveAttribute('aria-expanded', 'true');
+    // At full the map is one tap away, above the tab bar.
+    const toMap = page.getByRole('button', { name: 'Hartă', exact: true });
+    await expect(toMap).toBeVisible();
+    expect((await toMap.boundingBox())!.y + 48).toBeLessThanOrEqual(tabBar.y);
+    await toMap.click();
+    // Peek: the count stays on screen above the tab bar; the handle opens the list.
+    await expect(sheet).toHaveAttribute('data-sheet-snap', 'peek');
+    await expect(handle).toHaveAccessibleName(/^Vezi lista \(\d+\)$/);
+    const heading = (await listHeading(page).boundingBox())!;
+    expect(heading.y + heading.height).toBeLessThanOrEqual(tabBar.y);
+    await handle.click();
+    await expect(sheet).toHaveAttribute('data-sheet-snap', 'half');
+  });
+
   test('lakes.results-map.c21 lakes.home.c20 lakes.results-map.s9 · Locația mea: denied → the permission dialog (also opens by itself once per session)', async ({ page }) => {
     await openMap(page, '', PHONE, 'denied');
     const dialog = page.getByRole('dialog', { name: 'Găsește bălți aproape de tine' });

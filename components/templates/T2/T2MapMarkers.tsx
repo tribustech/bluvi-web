@@ -1,19 +1,45 @@
 import type { ReactNode } from 'react';
-import { FishIcon } from '@/components/icons/brand';
 import { cn } from '@/components/ui/cn';
 
 /*
- * The map's markers. fish draws a round fish badge (assets/logo/bluvi_map_pin.png) and counted
- * cluster bubbles with two halo rings; the web keeps both shapes in the token colours. Each is a
- * real <button> (Tab reaches it, Enter selects it) with at least a 44px hit area (pins: a 44px
- * box around the 32px badge; clusters: 56 / 64).
+ * The map's markers, ported from fish (ROADMAP §4b.25) at every width: the Bluvi map pin
+ * (assets/logo/bluvi_map_pin.png — the white teardrop round the fish badge, 36×46, tip on the
+ * coordinate) and fish's counted cluster bubbles with two halo rings (LakesResultsWithMap
+ * ClusterBubble: blue, red from 11). Each is a real <button> (Tab reaches it, Enter selects it) with
+ * at least a 44px hit area.
  */
 
+/** fish bluvi_map_pin.png at 2× / 3× (public/images), drawn at its 1× size. */
+const PIN_SRC = '/images/map-pin@2x.png';
+const PIN_SRCSET = '/images/map-pin@2x.png 2x, /images/map-pin@3x.png 3x';
+
 /**
- * A place: the fish badge with a tip that sits on the coordinate (anchor «bottom»).
- * Selected = larger with an accent halo (fish: the pin card is open for it) — the same accent as
- * the selected list item's outline (T2ListItem), so the two halves of one selection match;
- * highlighted = its list row is hovered or focused.
+ * fish's pin: the white teardrop with the fish badge, its tip on the coordinate (anchor «bottom»).
+ * Visual only (the button names it).
+ */
+export function T2PinGlyph({ className }: { className?: string }) {
+  return (
+    // A static brand asset at its own size: next/image would add a wrapper and a loader for 8 KB.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={PIN_SRC}
+      srcSet={PIN_SRCSET}
+      alt=""
+      aria-hidden
+      width={36}
+      height={46}
+      draggable={false}
+      className={cn('block h-11.5 w-9 drop-shadow-[0_2px_3px_var(--color-scrim)] select-none', className)}
+    />
+  );
+}
+
+/**
+ * A place: fish's teardrop pin. fish draws every lake the same and opens the pin card for the
+ * tapped one; the web lifts the selected pin (larger) so the card and its pin read as one, and
+ * raises the pin whose list row is hovered or focused (owner rule 7, card ↔ marker, from 768).
+ * With a `badge` (a price, a rating — owner rule 7, imobiliare.ro) the pin is that pill from 768;
+ * the phone keeps fish's pin (§4b.25).
  */
 export function T2MapPin({
   id,
@@ -28,7 +54,7 @@ export function T2MapPin({
   id?: string;
   label: string;
   /**
-   * The pin as a price / rating pill instead of the fish badge (owner rule 7 — imobiliare.ro's
+   * From 768 the pin as a price / rating pill instead of fish's pin (owner rule 7 — imobiliare.ro's
    * «€ 94K» pins): «45 lei», «★ 4,8». Visual only: the accessible name stays `label`.
    */
   badge?: ReactNode;
@@ -51,16 +77,23 @@ export function T2MapPin({
       onFocus={onHover ? () => onHover(true) : undefined}
       onBlur={onHover ? () => onHover(false) : undefined}
       className={cn(
-        // 44×44 target, content at its bottom: the tip stays on the coordinate (anchor «bottom»).
+        // 44×46 target, content at its bottom: the tip stays on the coordinate (anchor «bottom»).
         'group flex min-h-11 min-w-11 cursor-pointer flex-col items-center justify-end outline-none',
         'origin-bottom transition-transform duration-(--duration-fast) ease-select',
         selected ? 'scale-125' : highlighted ? 'scale-115' : 'hover:scale-110',
       )}
     >
+      <span
+        className={cn(
+          'rounded-t-full rounded-b-card group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-accent',
+          badge != null && 'md:hidden',
+        )}
+      >
+        <T2PinGlyph />
+      </span>
       {badge != null ? (
-        <>
+        <span aria-hidden className="hidden flex-col items-center md:flex">
           <span
-            aria-hidden
             data-t2-pin-badge=""
             className={cn(
               'flex h-7 items-center gap-0.5 rounded-full border-2 px-2 t-label whitespace-nowrap tabular-nums shadow-e2',
@@ -75,82 +108,75 @@ export function T2MapPin({
             {badge}
           </span>
           <span
-            aria-hidden
             className={cn(
               '-mt-1.5 size-2.5 rotate-45 rounded-badge transition-colors duration-(--duration-fast) ease-fast',
               selected || highlighted ? 'bg-accent-ink' : 'bg-surface group-hover:bg-accent-tint',
             )}
           />
-        </>
-      ) : (
-        <>
-          <span
-            className={cn(
-              'flex size-8 items-center justify-center rounded-full border-2 border-on-accent bg-accent text-on-accent shadow-e2',
-              'group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-accent',
-              // The halo in a colour token (accent-tint-2 is tuned for dark), not an opacity of accent.
-              selected && 'ring-4 ring-accent-tint-2',
-            )}
-          >
-            <FishIcon size={18} />
-          </span>
-          {/* The tip: a 6px rotated square under the badge. */}
-          <span
-            aria-hidden
-            className="-mt-1.5 size-2.5 rotate-45 rounded-badge bg-accent"
-          />
-        </>
-      )}
+        </span>
+      ) : null}
     </button>
   );
 }
 
 /**
- * Bubble sizes (CSS px): the outer halo of a small and of a large cluster. T2Map spaces clusters by
- * the largest one (CLUSTER_RADIUS), so bubbles never overlap.
+ * Bubble sizes (CSS px): the outer halo of a cluster. T2Map spaces clusters by the largest one
+ * (CLUSTER_RADIUS), so bubbles never overlap.
  */
-export const CLUSTER_SIZE_PX = { small: 56, large: 64 } as const;
+export const CLUSTER_SIZE_PX = { small: 56, large: 56 } as const;
 
 /**
- * A counted cluster. fish: 56px halo, 48px ring, 40px core; > 10 places use the «large» style.
- * fish's red/blue are not in Fundații (rose is reserved for live competitions, lavender-on-navy for
- * the signature number), so both sizes are one colour family — accent-tint halos round an
- * accent-ink core — and large differs by size only (64 / 56 / 48). The count is a numeral: 800,
- * tabular (t-num-16, the ranking-pill number step), white on accent-ink (7.9:1).
+ * A counted cluster — fish LakesResultsWithMap ClusterBubble: a 56px ring (15%), a 48px ring
+ * (30%), a 40px core (wider for long counts) with the white 14/800 count; blue up to 10 places,
+ * red from 11 (`large`). `tone="water"` is fish's public-waters CountBadge: the indigo core in a
+ * 2px white ring on one 20% indigo halo. Highlighted (the list card of a place inside it is
+ * hovered — owner rule 7): ringed in accent ink, raised.
  */
 export function T2MapCluster({
   label,
   count,
   large,
+  tone = 'lakes',
   highlighted = false,
   onClick,
 }: {
   label: string;
   count: number;
   large: boolean;
-  /** It holds the lake hovered in the list (owner rule 7, card ↔ marker): ringed, its count kept. */
+  tone?: 'lakes' | 'water';
+  /** It holds the place hovered in the list (owner rule 7, card ↔ marker): ringed, its count kept. */
   highlighted?: boolean;
   onClick?: () => void;
 }) {
+  const water = tone === 'water';
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
       data-highlighted={highlighted || undefined}
+      data-cluster-tone={water ? 'water' : large ? 'large' : 'small'}
       className={cn(
-        'group flex cursor-pointer items-center justify-center rounded-full bg-accent-tint outline-none',
+        'group flex cursor-pointer items-center justify-center rounded-full outline-none',
         'transition-transform duration-(--duration-fast) ease-select hover:scale-105',
-        highlighted && 'scale-125 ring-4 ring-accent-ink ring-offset-2 ring-offset-surface shadow-e2',
-        large ? 'size-16' : 'size-14',
+        highlighted && 'scale-125 ring-4 ring-accent-ink ring-offset-2 ring-offset-surface',
+        water ? 'min-h-11 min-w-11 bg-map-water-cluster-halo p-1' : cn('size-14', large ? 'bg-map-cluster-hot-halo' : 'bg-map-cluster-halo'),
       )}
     >
-      <span className={cn('flex items-center justify-center rounded-full bg-accent-tint-2', large ? 'size-14' : 'size-12')}>
+      <span
+        className={cn(
+          'flex items-center justify-center rounded-full',
+          water ? 'contents' : cn('size-12', large ? 'bg-map-cluster-hot-halo-2' : 'bg-map-cluster-halo-2'),
+        )}
+      >
         <span
+          style={water ? { height: waterCore(count), minWidth: waterCore(count) } : undefined}
           className={cn(
-            'flex items-center justify-center rounded-full bg-accent-ink t-num-16 text-on-accent',
+            'flex items-center justify-center rounded-full t-num-14 text-on-map-cluster',
             'group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-accent',
-            large ? 'h-12 min-w-12 px-3' : 'h-10 min-w-10 px-2.5',
+            water
+              ? 'border-2 border-on-map-cluster bg-map-water-cluster px-1.5'
+              : cn('h-10 min-w-10 px-2.5', large ? 'bg-map-cluster-hot' : 'bg-map-cluster'),
           )}
         >
           {count}
@@ -158,6 +184,11 @@ export function T2MapCluster({
       </span>
     </button>
   );
+}
+
+/** fish PublicWaterClusters coreSize: the core grows with the count (log), 26 → 42px. */
+function waterCore(count: number): number {
+  return Math.round(Math.min(Math.max(20 + Math.log10(Math.max(count, 1)) * 9, 26), 42));
 }
 
 /**

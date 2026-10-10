@@ -12,6 +12,7 @@ import { FilterBar, FilterButton, ListEmpty, ListError, ListFooter } from '@/com
 import {
   boundsAround,
   MapControlButton,
+  T2LocateGlyph,
   T2BackLink,
   T2FilterChip,
   T2Layout,
@@ -31,6 +32,7 @@ import {
   type T2MapProps,
 } from '@/components/templates/T2';
 import { Button } from '@/components/ui/Button';
+import { filterChipClass } from '@/components/templates/T1/toolbarStyles';
 import { cn } from '@/components/ui/cn';
 import {
   bboxToMapRegion,
@@ -229,7 +231,9 @@ export function LakesMap() {
   /**
    * «Caută în zona hărții» (owner rule 7, imobiliare.ro / Airbnb): on (the default, fish's
    * behaviour) the list follows the map; off, the list stays on its area and a move leaves the new
-   * one pending behind «Caută în această zonă». From 768 only: a phone pan hides the list (c19).
+   * one pending behind «Caută în această zonă». The switch is from 768 only: a phone always follows
+   * (Airbnb: a pan refreshes the results, the old pins kept until the new ones land) and the pan
+   * drops the sheet to its peek (c19).
    */
   const [follow, setFollow] = useState(true);
   const followRef = useRef(true);
@@ -435,7 +439,7 @@ export function LakesMap() {
       setDraft(filters);
       if (phone) {
         snapBeforePanel.current = sheetSnap;
-        setSheetSnap('hidden');
+        setSheetSnap('peek');
       }
     }
     setPanel(section);
@@ -452,12 +456,13 @@ export function LakesMap() {
   /**
    * fish handleClearAll (c20): all lakes, no filters, back to the country overview. On a phone the
    * sheet steps down (fish drops it to its peek — a 40%-open sheet would hide half the country the
-   * zoom reveals): the kit's sheet has no peek, so it hides and «Vezi lista (N)» brings it back.
+   * zoom reveals): it drops to its peek (the count), and its handle («Vezi lista (N)») brings it
+   * back.
    */
   const clearAll = () => {
     track('lakes_map_clear_filters');
     setSelectedId(null);
-    setSheetSnap(phone ? 'hidden' : 'half');
+    setSheetSnap(phone ? 'peek' : 'half');
     setNonce((n) => n + 1);
     setListFocusKey(Date.now());
     router.replace(pathname, { scroll: false });
@@ -651,8 +656,9 @@ export function LakesMap() {
         />
       }
       filterCount={countLakeFilters(railFilters)}
-      onReset={clearAll}
-      canReset={hasAnyFilter && panel === null}
+      // No «Resetează» in the phone rail: the floating «Șterge filtre» chip over the map is the
+      // phone's reset (owner 2026-10-10 — one control, and the rail has no room). From 768 the
+      // header's own FilterBar (below) carries it.
       filters={chips}
       desktop={
         // From 768 the Bălți list's own search row (LakesSearchRow, owner rules 6 and 7): the same
@@ -688,7 +694,7 @@ export function LakesMap() {
     framedBbox.current = null;
   };
   const followControl = (
-    // From 768 (a phone pan hides the list instead, c19).
+    // From 768 (a phone always follows; a pan drops the sheet to its peek, c19).
     <span className="flex items-center gap-2 max-md:hidden">
       <label className="flex h-9 cursor-pointer items-center gap-2 rounded-full bg-surface pr-3.5 pl-3 t-label text-ink shadow-e2 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent">
         <input
@@ -727,12 +733,12 @@ export function LakesMap() {
     <T2MapPill busy>Se încarcă…</T2MapPill>
   ) : hasAnyFilter && panel === null ? (
     // Phone: «Șterge filtre» floats over the map (fish LakesResultsClearFiltersPill); from 768 it
-    // is in the toolbar.
-    <span className="md:hidden">
-      <Button variant="ghost" icon={<ArrowUturnLeftIcon />} onClick={clearAll} className={cn('bg-surface text-ink', T2_FLOATING_BUTTON)}>
-        {clearLabel}
-      </Button>
-    </span>
+    // is in the toolbar. Owner 2026-10-10: kept (no room in the chip row), but compact — the chips'
+    // own pill (height, type, white ground) with the floating shadow, never a big button.
+    <button type="button" onClick={clearAll} className={cn(filterChipClass(), 'shadow-e2! md:hidden')}>
+      <ArrowUturnLeftIcon aria-hidden className="size-4 stroke-2" />
+      {clearLabel}
+    </button>
   ) : null;
   const mapStatus = (
     <>
@@ -786,19 +792,18 @@ export function LakesMap() {
         onUserMoveStart={() => {
           locateKm.current = null;
           framedBbox.current = null;
-          // Phone only: panning hides the list; «Vezi lista (N)» brings it back (c19).
-          if (phone) setSheetSnap((s) => (s === 'full' ? s : 'hidden'));
+          // Phone only: panning drops the sheet to its peek; its handle («Vezi lista (N)») brings it
+          // back (c19).
+          if (phone) setSheetSnap((s) => (s === 'full' ? s : 'peek'));
         }}
         controls={
-          <div className="overflow-hidden rounded-control shadow-e2">
+          <div className="overflow-hidden rounded-full shadow-e2 md:rounded-control">
             <MapControlButton label="Locația mea" pressed={!!user} busy={locateBusy || location.locating} onClick={() => void locate()}>
-              {user ? (
-                <span className="flex">
-                  <MapPinSolidIcon aria-hidden className="size-5" />
-                </span>
-              ) : (
-                <MapPinIcon aria-hidden />
-              )}
+              {/* fish's round locate button and navigation glyph (indigo, filled); the map pin from 768. */}
+              <T2LocateGlyph className="text-accent-ink md:hidden" />
+              <span className="hidden md:flex">
+                {user ? <MapPinSolidIcon aria-hidden className="size-5" /> : <MapPinIcon aria-hidden className="size-6" />}
+              </span>
             </MapControlButton>
           </div>
         }

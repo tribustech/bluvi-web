@@ -488,10 +488,11 @@ export function LakesHome() {
       {totalLakes > 0 ? (
         // fish: the floating map button (c23) — the all-lakes map, filters cleared; «Arată harta»
         // (owner rule 6). A phone pattern: from 768 it is the header's primary action.
-        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(max(var(--spacing)*4,env(safe-area-inset-bottom))+var(--consent-inset,0px))] z-sticky flex justify-center px-4 md:hidden">
+        // Above the shell's bottom tab bar (--tabbar-h, owner 2026-10-10), else above the safe area.
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(max(var(--tabbar-h,0px),env(safe-area-inset-bottom))+var(--spacing)*4+var(--consent-inset,0px))] z-sticky flex justify-center px-4 md:hidden">
           <Link
             href={routes.lakesMap()}
-            className={buttonClass({ variant: 'primary', className: cn('pointer-events-auto gap-2 px-5.5', T2_FLOATING_BUTTON) })}
+            className={buttonClass({ variant: 'primary', className: cn('pointer-events-auto gap-2 rounded-full! px-5.5', T2_FLOATING_BUTTON) })}
           >
             <MapIcon aria-hidden className="size-5 stroke-2" />
             Arată harta

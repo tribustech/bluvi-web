@@ -550,6 +550,21 @@
   --color-fish-chip-icon: #616161;
   --color-fish-chip-ink: #262626;
   --color-fish-gray7: #404040;
+  /* fish LakesResultsWithMap ClusterBubble (ROADMAP §4b.25, every width): blue under 11 lakes, red
+     from 11, each in two 15% / 30% halo rings. The cores are one Material step down from fish's
+     #1E88E5 / #E53935 so the white 14px count clears AA (3.7 → 4.6:1, 4.0 → 5.0:1); the halos keep
+     fish's own tones. Public waters (fish PublicWaterClusters CountBadge): an indigo core in a white
+     ring on a 20% indigo halo. */
+  --color-map-cluster: #1976d2;
+  --color-map-cluster-halo: color-mix(in srgb, #1e88e5 15%, transparent);
+  --color-map-cluster-halo-2: color-mix(in srgb, #1e88e5 30%, transparent);
+  --color-map-cluster-hot: #d32f2f;
+  --color-map-cluster-hot-halo: color-mix(in srgb, #e53935 15%, transparent);
+  --color-map-cluster-hot-halo-2: color-mix(in srgb, #e53935 30%, transparent);
+  --color-map-water-cluster: #4f46e5;
+  --color-map-water-cluster-halo: color-mix(in srgb, #4f46e5 20%, transparent);
+  /* The count and the water ring: white in both themes (the bubbles are fixed colours). */
+  --color-on-map-cluster: #ffffff;
   /* fish $indigo5 #6366F1 under white 14–16px text is 4.47:1; a hair darker for AA (4.88:1). */
   --color-fish-indigo5: #5b5ef0;
   --color-fish-on: #ffffff;
@@ -799,6 +814,11 @@
 @utility t-num-26 {
   font: 800 26px/28px var(--bluvi-font);
   letter-spacing: -1.5px;
+  font-variant-numeric: tabular-nums;
+}
+/* num-14: the count in a map cluster bubble (fish ClusterBubble 14/800), at every width. */
+@utility t-num-14 {
+  font: 800 14px/16px var(--bluvi-font);
   font-variant-numeric: tabular-nums;
 }
 

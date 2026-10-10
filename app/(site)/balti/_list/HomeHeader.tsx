@@ -130,6 +130,8 @@ export function LakesSearchRow({
           className={cn(
             CONTROL_H,
             'flex min-w-0 flex-1 items-stretch rounded-control md:min-w-72 bg-surface p-0.75 shadow-e1 outline-1 -outline-offset-1 outline-hairline',
+            // Phone: fish LakesSearchBubble — a full pill.
+            'max-md:rounded-full max-md:[&>button]:rounded-full',
           )}
         >
           <button
@@ -155,7 +157,9 @@ export function LakesSearchRow({
           desktopHidden={false}
           expanded={filtersExpanded}
           onClick={() => onFilters?.()}
-          className={T2_EXPANDED}
+          // Phone: fish's round white filter button with the indigo glyph (the filled «on» stays
+          // while filters are active).
+          className={cn(T2_EXPANDED, 'max-md:rounded-full! max-md:shadow-e1!', filterCount === 0 && 'max-md:text-accent-ink!')}
         />
         {showToggle ? (
           view === 'list' ? (

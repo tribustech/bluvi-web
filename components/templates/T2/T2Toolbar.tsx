@@ -24,8 +24,9 @@ import { RING_SELECTED_EXPANDED } from '../rings';
  * dims what is on it (faint glyphs and text): a faded white control over the map shows the map
  * labels through it and reads as broken, not disabled.
  *
- * At the phone sheet's full rest T2Layout marks the toolbar wrapper `data-solid` (it becomes a white
- * header bar): the floating shadows drop to the e0 hairline there.
+ * `data-solid` on an ancestor (a page that docks the toolbar as a white header bar) drops the
+ * floating shadows to the e0 hairline. T2Layout no longer sets it: at the phone sheet's full rest
+ * the chrome keeps floating over the map, as in fish.
  */
 
 /** What a disabled toolbar does to its content: faint glyphs, text and placeholders; surfaces stay. */
@@ -139,12 +140,33 @@ export function T2Toolbar({
         {switcher ? <div className="hidden shrink-0 md:flex">{switcher}</div> : null}
         <div
           inert={disabled}
-          className={cn('min-w-0 flex-1', !stacked && 'md:max-w-120 xl:max-w-none', disabled && DIMMED)}
+          className={cn(
+            'min-w-0 flex-1',
+            !stacked && 'md:max-w-120 xl:max-w-none',
+            // Phone: fish MapChrome's search is a full pill with the filter button inside its end.
+            'max-md:[&_button]:rounded-full!',
+            filtersButton ? 'max-md:[&_button]:pr-14!' : null,
+            disabled && DIMMED,
+          )}
         >
           {search}
         </div>
         {filtersButton ? (
-          <div inert={disabled} className={cn('flex shrink-0', barMode && 'md:hidden', disabled && DIMMED)}>
+          <div
+            inert={disabled}
+            className={cn(
+              'flex shrink-0',
+              // Phone: drawn inside the search pill's end (fish: a 40px lilac circle with the
+              // sliders glyph) — still its own button beside the search one, not nested in it.
+              'max-md:relative max-md:z-above max-md:-ml-14 max-md:mr-1.5',
+              'max-md:[&>button]:size-10! max-md:[&>button]:min-w-0! max-md:[&>button]:rounded-full! max-md:[&>button]:p-0! max-md:[&>button]:shadow-none!',
+              'max-md:[&>button>svg]:size-5!',
+              // At rest the lilac tint; with active filters the kit's filled «on» stays.
+              'max-md:[&>button:not([aria-label*=active])]:bg-accent-tint! max-md:[&>button:not([aria-label*=active])]:text-accent-ink!',
+              barMode && 'md:hidden',
+              disabled && DIMMED,
+            )}
+          >
             {filtersButton}
           </div>
         ) : null}
@@ -339,7 +361,7 @@ export function T2FilterChip({
       ) : null}
       <span className="max-w-48 truncate">{text}</span>
       {kind === 'menu' ? (
-        <ChevronDownIcon aria-hidden className={cn('size-4 shrink-0 transition-transform duration-(--duration-fast) ease-fast', expanded && 'rotate-180')} />
+        <ChevronDownIcon aria-hidden className={cn('size-4 shrink-0 max-md:hidden transition-transform duration-(--duration-fast) ease-fast', expanded && 'rotate-180')} />
       ) : null}
     </button>
   );

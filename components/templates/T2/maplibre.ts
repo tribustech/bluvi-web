@@ -8,8 +8,13 @@
  * from maplibre-worker.ts (the `new Worker(new URL(…, import.meta.url))` form is what the bundler
  * recognises). Every other `new Worker` call goes to the browser's constructor unchanged.
  */
-/** OpenFreeMap «Positron» (see T2Map.tsx for why). */
-export const T2_MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+/**
+ * OpenFreeMap «Liberty» (see T2Map.tsx for why): the colourful base fish's platform map has
+ * (green land, blue water, relief) — owner 2026-10-10, «harta e gri».
+ */
+export const T2_MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+/** The quiet grey «Positron» of the same host: the base when Liberty fails to load. */
+export const T2_MAP_STYLE_FALLBACK = 'https://tiles.openfreemap.org/styles/positron';
 
 const WORKER_MARKER = '/__bluvi/maplibre-worker.mjs';
 
@@ -82,4 +87,21 @@ export function loadMaplibre(): Promise<typeof import('maplibre-gl')> {
     },
   );
   return loading;
+}
+
+/**
+ * Liberty, warmed toward fish's platform map (owner 2026-10-10: «harta e gri»): a light green land at
+ * the country / county zooms (paper beige again by the city zooms), darker green woods, and only a
+ * faint Natural Earth relief (at 0.45 its browns turned the green olive-grey). Paint only, and only on layers
+ * Liberty has — the Positron fallback is left as it is.
+ */
+export function tintBasemap(map: import('maplibre-gl').Map) {
+  if (map.getLayer('background'))
+    map.setPaintProperty('background', 'background-color', ['interpolate', ['linear'], ['zoom'], 6, '#c6e7a0', 10, '#d6ecbd', 12, '#eef2e3']);
+  if (map.getLayer('natural_earth'))
+    map.setPaintProperty('natural_earth', 'raster-opacity', ['interpolate', ['linear'], ['zoom'], 0, 0.35, 6, 0.18, 8, 0]);
+  if (map.getLayer('landcover_wood')) {
+    map.setPaintProperty('landcover_wood', 'fill-color', '#a3d47f');
+    map.setPaintProperty('landcover_wood', 'fill-opacity', 0.6);
+  }
 }

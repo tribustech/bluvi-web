@@ -7,13 +7,13 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } f
 import { createPortal } from 'react-dom';
 import { MapControlButton, T2_MAP_STYLE, T2MapPill } from '@/components/templates/T2';
 import { useT2LayoutBridge } from '@/components/templates/T2/context';
-import { loadMaplibre } from '@/components/templates/T2/maplibre';
+import { loadMaplibre, T2_MAP_STYLE_FALLBACK, tintBasemap } from '@/components/templates/T2/maplibre';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import type { PublicWaterGeometry, PublicWaterType } from '@/core/lakes';
 
 /*
- * The public-water map: the T2 map's base (MapLibre + OpenFreeMap Positron, the same controls,
+ * The public-water map: the T2 map's base (MapLibre + OpenFreeMap Liberty, Positron as its fallback, the same controls,
  * attribution and failure states — components/templates/T2/T2Map.tsx) with what T2Map cannot do
  * yet: GeoJSON layers (rivers as lines, lakes as washed polygons, the amber selection) and taps on
  * the map itself (fish resolves taps on the MapView, not on the shapes). Composed locally because
@@ -248,8 +248,20 @@ export function WaterMap({
         map = null;
         setState({ status: 'failed' });
       };
+      let fellBack = false;
       map.on('error', () => {
         if (loaded || cancelled || map?.isStyleLoaded()) return;
+        // Liberty did not load: the grey base once, in the same time budget (T2Map).
+        if (!fellBack && map) {
+          fellBack = true;
+          const fm = map;
+          fm.setStyle(T2_MAP_STYLE_FALLBACK);
+          fm.once('style.load', () => {
+            localiseLabels(fm);
+            ensureLayers(fm, start.selectedFill);
+          });
+          return;
+        }
         fail();
       });
       timeout = window.setTimeout(() => {
@@ -417,6 +429,7 @@ export function WaterMap({
 
 /** Place names in Romanian (T2Map localiseLabels). */
 function localiseLabels(map: MlMap) {
+  tintBasemap(map);
   for (const layer of map.getStyle().layers ?? []) {
     if (layer.type !== 'symbol') continue;
     const field = map.getLayoutProperty(layer.id, 'text-field');

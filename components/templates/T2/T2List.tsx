@@ -43,7 +43,7 @@ export function T2ListHeader({
         tabIndex={-1}
         className={cn(
           't-body-strong outline-none transition-colors duration-(--duration-fast) ease-fast',
-          stale ? 'text-muted' : 'text-ink-2',
+          stale ? 'text-muted' : 'text-ink md:text-ink-2',
         )}
       >
         {loading ? (

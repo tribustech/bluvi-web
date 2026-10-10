@@ -2,8 +2,12 @@
 
 import { createContext, useContext } from 'react';
 
-/** The phone sheet's resting heights (fish LakesResultsWithMap: closed · 40% · below the chrome). */
-export type T2SheetSnap = 'hidden' | 'half' | 'full';
+/**
+ * The phone sheet's rests (fish LakesResultsWithMap's gorhom snap points, Airbnb's interaction):
+ * `peek` — the handle and the count above the tab bar, the map uncovered; `half` — 45% of the
+ * screen; `full` — up to the toolbar, the list scrolling inside. A selected pin's card closes it.
+ */
+export type T2SheetSnap = 'peek' | 'half' | 'full';
 
 /**
  * What the layout tells the map so programmatic moves frame content in the part of the map the

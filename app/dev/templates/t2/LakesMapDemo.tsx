@@ -250,7 +250,7 @@ export function LakesMapDemo({
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   // A hovered pin outlines its list card (rule 7, card ↔ marker), as on /balti/harta.
   const [pinHoverId, setPinHoverId] = useState<string | null>(null);
-  const [sheetSnap, setSheetSnap] = useState<T2SheetSnap>(state === 'list-hidden' ? 'hidden' : state === 'list-full' ? 'full' : 'half');
+  const [sheetSnap, setSheetSnap] = useState<T2SheetSnap>(state === 'list-hidden' ? 'peek' : state === 'list-full' ? 'full' : 'half');
   const [panel, setPanel] = useState<LakeFilterSection | null>(state === 'filters-open' ? 'all' : null);
   const [draft, setDraft] = useState<LakeFilterValues>(filters);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -336,8 +336,8 @@ export function LakesMapDemo({
     setNearbyKm(null);
     setSelectedId(null);
     // As /balti/harta (fish drops the sheet to its peek): the phone sheet steps out of the
-    // country the zoom reveals; «Vezi lista (N)» brings it back.
-    if (!split) setSheetSnap('hidden');
+    // country the zoom reveals (its peek); the handle («Vezi lista (N)») brings it back.
+    if (!split) setSheetSnap('peek');
     setFocus({ key: `clear-${Date.now()}`, bounds: ROMANIA_BOUNDS });
     setListFocusKey(Date.now());
   };
@@ -680,7 +680,7 @@ export function LakesMapDemo({
         setLocateKm(null);
         // Phone only (fish hides the sheet on a pan): from 768 there is no sheet to hide, and a
         // «hidden» set there would greet a later phone-width window with a list nobody hid.
-        if (!split) setSheetSnap((s) => (s === 'full' ? s : 'hidden'));
+        if (!split) setSheetSnap((s) => (s === 'full' ? s : 'peek'));
       }}
       controls={
         <div className="overflow-hidden rounded-control shadow-e2">

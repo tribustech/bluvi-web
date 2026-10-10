@@ -20,16 +20,19 @@ import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { useT2Frame, useT2LayoutBridge } from './context';
 import { ROMANIA_BOUNDS, type T2Bounds, type T2LatLng, type T2MapPoint, type T2Viewport } from './geo';
-import { loadMaplibre, T2_MAP_STYLE } from './maplibre';
-import { CLUSTER_SIZE_PX, T2MapCluster, T2MapPin, T2UserDot, T2UserHalo } from './T2MapMarkers';
+import { loadMaplibre, T2_MAP_STYLE, T2_MAP_STYLE_FALLBACK, tintBasemap } from './maplibre';
+import { T2MapCluster, T2MapPin, T2UserDot, T2UserHalo } from './T2MapMarkers';
 import { T2MapPill, T2Spinner } from './T2MapOverlay';
 
 /*
- * Map library: MapLibre GL JS (BSD-3) with OpenFreeMap's «Positron» vector style — OpenStreetMap
- * data, no API key, no request quota, free for commercial use (https://openfreemap.org). Positron
- * is a quiet grey base, so the indigo pins carry the colour (fish uses the platform map).
- * The style's attribution is rendered by T2Map itself (see MapAttribution) so it can sit above the
- * phone sheet instead of under it.
+ * Map library: MapLibre GL JS (BSD-3) with OpenFreeMap's «Liberty» vector style — OpenStreetMap
+ * data (+ Natural Earth relief, public domain), no API key, no request quota, free for commercial
+ * use (https://openfreemap.org). Liberty is a colourful base like fish's platform map (owner
+ * 2026-10-10: «harta e gri» on the grey Positron); when Liberty fails to load the map falls back to
+ * Positron once, inside the same load budget, before it says it cannot show.
+ * The style's attribution (OpenFreeMap, © OpenMapTiles, © OpenStreetMap — required by the tile
+ * licence) is rendered by T2Map itself (see MapAttribution) so it can sit above the phone sheet
+ * instead of under it.
  *
  * Pins are DOM markers rendered by React into MapLibre markers (portals): real <button>s with a
  * name, reachable by Tab, styled with the tokens. Clustering is supercluster (what MapLibre's own
@@ -45,10 +48,11 @@ const LARGE_CLUSTER = 10;
 /** fish clusterTargetRegion: a cluster tap never zooms in more than 2 levels at once. */
 const MAX_CLUSTER_ZOOM_STEP = 2;
 /**
- * Pins and clusters are drawn this far apart before they merge (CSS px): the largest bubble plus an
- * 8px gap, so neighbouring bubbles never touch (a size change keeps them apart).
+ * Merge distance (CSS px) — fish's density: the CMS map-clusters supercluster (radius 40 on a 512
+ * extent at the floored 256-tile zoom) merges at ~20–40 screen px, so neighbouring bubbles may touch
+ * or overlap a little, as they do in the app; a wider radius left only 4 bubbles over Romania.
  */
-const CLUSTER_RADIUS = CLUSTER_SIZE_PX.large + 8;
+const CLUSTER_RADIUS = 36;
 /** Past this zoom every point is its own pin. */
 const CLUSTER_MAX_ZOOM = 13;
 /** Breathing room around framed content, on top of what the layout covers. */
@@ -57,7 +61,9 @@ const FRAME_MARGIN = 48;
  * The right side the floating control stack covers, plus a gap: 16 inset + 48 button (40 from 1280)
  * + 16. On a phone only «Locația mea» is there (no zoom buttons): 48 + 16.
  */
-const CONTROLS_RIGHT = { split: 16 + 48 + 16, phone: 48 + 16 };
+const CONTROLS_RIGHT = { split: 16 + 48 + 16 };
+/** Phone framing: a small breath above and below the band only (fish frames edge to edge). */
+const PHONE_FRAME_MARGIN = 8;
 /**
  * No `load` by then (style or tile host hanging, never answering): the map counts as failed — the
  * «Reîncearcă» state shows and the page gets its viewport — instead of a blank canvas forever.
@@ -173,12 +179,16 @@ export function T2Map<P extends T2MapPoint>({
   const frameRef = useRef(frame);
   const padding = useCallback(() => {
     const f = frameRef.current;
+    // Phone: fish frameRegionInBand — the region fills the band between the floating chrome and
+    // the sheet, edge to edge (longitude untouched: the locate button floats over the map there,
+    // as in fish), so Romania fills the screen instead of a small Romania on a wide Balkans map.
+    if (!f.split) return { top: f.top + PHONE_FRAME_MARGIN, bottom: f.bottom + PHONE_FRAME_MARGIN, left: 0, right: 0 };
     // Right: clear of the floating zoom / locate stack, so nothing framed lands under it.
     return {
       top: f.top + FRAME_MARGIN,
       bottom: f.bottom + FRAME_MARGIN,
       left: FRAME_MARGIN,
-      right: f.split ? CONTROLS_RIGHT.split : CONTROLS_RIGHT.phone,
+      right: CONTROLS_RIGHT.split,
     };
   }, []);
 
@@ -246,8 +256,17 @@ export function T2Map<P extends T2MapPoint>({
         map = null;
         setState({ status: 'failed' });
       };
+      let fellBack = false;
       map.on('error', () => {
         if (loaded || cancelled || map?.isStyleLoaded()) return;
+        // Liberty did not load: the grey base once, in the same time budget.
+        if (!fellBack && map) {
+          fellBack = true;
+          const m = map;
+          m.setStyle(T2_MAP_STYLE_FALLBACK);
+          m.once('style.load', () => localiseLabels(m));
+          return;
+        }
         fail();
       });
       // A host that never answers sends no `error` either: bound the wait.
@@ -603,12 +622,25 @@ function boundsNear(p: T2LatLng, z: number): T2Bounds {
  * `name:ro`, else the Latin name, else the local one. Road numbers (`ref`) are left alone.
  */
 function localiseLabels(map: MlMap) {
+  tintBasemap(map);
   for (const layer of map.getStyle().layers ?? []) {
     if (layer.type !== 'symbol') continue;
     const field = map.getLayoutProperty(layer.id, 'text-field');
     if (!field || !JSON.stringify(field).includes('name:latin')) continue;
     map.setLayoutProperty(layer.id, 'text-field', ['coalesce', ['get', 'name:ro'], ['get', 'name:latin'], ['get', 'name']]);
   }
+}
+
+/**
+ * fish LakesResultsMapLocateButton's glyph: lucide «navigation», filled, 22px — the locate button
+ * of the results maps (a round 48 surface on a phone, as fish).
+ */
+export function T2LocateGlyph({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className={cn('size-5.5 fill-current', className)}>
+      <polygon points="3 11 22 2 13 21 11 13 3 11" />
+    </svg>
+  );
 }
 
 /**

@@ -13,6 +13,7 @@ import { FilterButton, ListError } from '@/components/templates/T1';
 import {
   boundsAround,
   MapControlButton,
+  T2LocateGlyph,
   ROMANIA_BOUNDS,
   T2_EXPANDED,
   T2FilterChip,
@@ -406,8 +407,8 @@ export function PublicWatersMapScreen() {
     if (c.singleId != null) return select(c.singleId, 'pin');
     const map = mapRef.current;
     if (!map || !view) return;
-    // Browsing, like a pan: the list steps aside so the zoom target is not behind it.
-    setSheetSnap('hidden');
+    // Browsing, like a pan: the sheet drops to its peek so the zoom target is not behind it.
+    setSheetSnap('peek');
     // The index answers in the map's (integer) zoom; the tap rule (and its cap at the geometry band)
     // is fish's.
     const shift = view.mlZoom - view.zoom;
@@ -624,12 +625,13 @@ export function PublicWatersMapScreen() {
   };
   // The search header starts with the Bălți / Ape publice switch (owner rules 6–7, as /balti and
   // imobiliare.ro): the two halves of one list read as one screen. From 768 it leads the toolbar's
-  // row (T2Toolbar `switcher`, the h1 then for screen readers only); on a phone it floats as its
-  // own row above the search pill — the pill + «Filtre» need the row's width.
+  // row (T2Toolbar `switcher`, the h1 then for screen readers only); on a phone it is the SAME
+  // centred 240px pill /balti shows at its top (owner 2026-10-10: one toggle, one place), floating
+  // above the search pill.
   const toolbar = (
     <div className="flex flex-col gap-2">
-      <div className="flex md:hidden [&>nav]:w-full [&>nav]:shadow-e2 [[data-solid]_&>nav]:shadow-e0">
-        <WaterKindSwitch current="ape" />
+      <div className="mt-1 flex justify-center md:hidden [[data-solid]_&>nav]:shadow-e0">
+        <WaterKindSwitch current="ape" floating />
       </div>
     <T2Toolbar
       title="Ape publice"
@@ -711,21 +713,19 @@ export function PublicWatersMapScreen() {
         onMoveStart={(user) => {
           if (!user) return;
           setLocateKm(null);
-          if (!split) setSheetSnap((s) => (s === 'full' ? s : 'hidden'));
+          if (!split) setSheetSnap((s) => (s === 'full' ? s : 'peek'));
           dispatch({ type: 'USER_PANNED' });
         }}
         onMoveEnd={(m) => onMoveEnd(m)}
         onMapClick={onMapClick}
         controls={
-          <div className="overflow-hidden rounded-control shadow-e2">
+          <div className="overflow-hidden rounded-full shadow-e2 md:rounded-control">
             <MapControlButton label="Locația mea" pressed={!!userLocation} busy={locating} onClick={locate}>
-              {userLocation ? (
-                <span className="flex">
-                  <MapPinSolidIcon aria-hidden className="size-5" />
-                </span>
-              ) : (
-                <MapPinIcon aria-hidden />
-              )}
+              {/* fish's round locate button and navigation glyph (indigo, filled); the map pin from 768. */}
+              <T2LocateGlyph className="text-accent-ink md:hidden" />
+              <span className="hidden md:flex">
+                {userLocation ? <MapPinSolidIcon aria-hidden className="size-5" /> : <MapPinIcon aria-hidden className="size-6" />}
+              </span>
             </MapControlButton>
           </div>
         }
@@ -738,6 +738,7 @@ export function PublicWatersMapScreen() {
                     label={`${c.count} ape — mărește harta aici`}
                     count={c.count}
                     large={c.count > 10}
+                    tone="water"
                     highlighted={hoveredClusterKey === c.key}
                     onClick={() => pressCluster(c)}
                   />
