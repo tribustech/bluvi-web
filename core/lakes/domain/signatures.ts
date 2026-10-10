@@ -1,5 +1,5 @@
 import type { Bbox } from '../schemas';
-import type { LakeFilterValues, LakesCommittedSearch } from './filters';
+import { mapSearchToScopeQuery, type LakeFilterValues, type LakesCommittedSearch } from './filters';
 
 /**
  * Query-key signatures, ported verbatim from the fish hooks that build them. The key IS the cache
@@ -108,7 +108,8 @@ export function bboxBucketKey(bbox: Bbox | null, zoom: number): string {
 export interface LakesInBboxQueryParams {
   bbox: Bbox | null;
   filters: LakeFilterValues;
-  committedSearch: Pick<LakesCommittedSearch, 'mode'>;
+  /** `countyId` / `cityId` scope the read on a county / city search (`mapSearchToScopeQuery`). */
+  committedSearch: Pick<LakesCommittedSearch, 'mode'> & Partial<Pick<LakesCommittedSearch, 'countyId' | 'cityId'>>;
   enabled: boolean;
 }
 
@@ -122,5 +123,7 @@ export function makeLakesInBboxSignature(params: LakesInBboxQueryParams): string
     ratingTier: params.filters.ratingTier ?? null,
     bookableOnly: params.filters.bookableOnly,
     mode: params.committedSearch.mode ?? null,
+    // Web-only: the scope is a request param, so it is part of the key.
+    scope: mapSearchToScopeQuery(params.committedSearch),
   });
 }

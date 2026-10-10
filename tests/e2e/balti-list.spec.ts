@@ -2590,3 +2590,75 @@ test.describe('lakes M1 close-out (header, cards, map list)', () => {
     await expect(listHeading(page)).toBeInViewport();
   });
 });
+
+/*
+ * Owner decision 2026-10-10 (bluvi-strapi#112): a committed county / city search scopes the map
+ * reads (`/lakes/in-bbox`, `/lakes/map-clusters`) with `countyId` / `cityId`, the way it scopes
+ * `/lakes/explore/count`. The local CMS may predate the params (it strips them), so the scoped
+ * in-bbox answer is mocked: the real bbox read, kept to the county's lakes.
+ */
+test.describe('lakes.results-map · county/city scope', () => {
+  /** Records the map reads; with `scopeCounty`, answers a countyId in-bbox read as the new CMS would. */
+  async function recordMapReads(page: Page, scopeCounty = false) {
+    const urls: string[] = [];
+    await page.route(/localhost:1337\/api\/lakes\/(in-bbox|map-clusters)/, async (route) => {
+      const url = new URL(route.request().url());
+      urls.push(url.toString());
+      const headers = { ...route.request().headers(), authorization: `Bearer ${jwt}` };
+      const countyId = url.searchParams.get('countyId');
+      if (!scopeCounty || !countyId || !url.pathname.endsWith('/in-bbox')) {
+        await route.fulfill({ response: await route.fetch({ headers }) });
+        return;
+      }
+      const pageSize = Number(url.searchParams.get('pageSize') ?? 7);
+      const wide = new URL(url);
+      wide.searchParams.delete('countyId');
+      wide.searchParams.set('page', '1');
+      wide.searchParams.set('pageSize', '50');
+      const body = (await (await route.fetch({ url: wide.toString(), headers })).json()) as { data: { countyRef?: { documentId?: string } | null }[] };
+      const scoped = body.data.filter((l) => l.countyRef?.documentId === countyId);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: scoped.slice(0, pageSize), meta: { total: scoped.length, page: 1, pageSize, hasMore: scoped.length > pageSize } }),
+      });
+    });
+    return urls;
+  }
+
+  test('lakes.results-map.c5 · a county search sends countyId on every map read; the list is the county', async ({ page }) => {
+    let urls: string[] = [];
+    await openMap(page, `q=Giurgiu&judet=${GIURGIU}`, DESKTOP, 'prompt', async () => {
+      urls = await recordMapReads(page, true);
+    });
+    const inBbox = urls.filter((u) => u.includes('/lakes/in-bbox'));
+    const clusters = urls.filter((u) => u.includes('/lakes/map-clusters'));
+    expect(inBbox.length).toBeGreaterThan(0);
+    expect(clusters.length).toBeGreaterThan(0);
+    for (const u of [...inBbox, ...clusters]) expect(new URL(u).searchParams.get('countyId')).toBe(GIURGIU);
+    for (const u of [...inBbox, ...clusters]) expect(new URL(u).searchParams.has('cityId')).toBe(false);
+    // The heading is the scoped total (the fixture county holds 6 lakes, not the padded box's count).
+    const n = Number((await listHeading(page).textContent())!.match(/\d+/)![0]);
+    expect(n).toBeGreaterThan(0);
+    expect(n).toBeLessThanOrEqual(6);
+  });
+
+  test('lakes.results-map.c5 · a city search sends cityId; the all-lakes map sends no scope', async ({ page }) => {
+    let urls: string[] = [];
+    await openMap(page, '', DESKTOP, 'prompt', async () => {
+      urls = await recordMapReads(page);
+    });
+    expect(urls.length).toBeGreaterThan(0);
+    for (const u of urls) {
+      expect(new URL(u).searchParams.has('countyId')).toBe(false);
+      expect(new URL(u).searchParams.has('cityId')).toBe(false);
+    }
+    urls.length = 0;
+    await page.goto(`/balti/harta?q=R%C4%83suceni&judet=${GIURGIU}&localitate=c1`, { waitUntil: 'domcontentloaded' });
+    await expect.poll(() => urls.filter((u) => u.includes('/lakes/in-bbox')).length, { timeout: 25_000 }).toBeGreaterThan(0);
+    for (const u of urls.filter((x) => /\/lakes\/(in-bbox|map-clusters)/.test(x))) {
+      expect(new URL(u).searchParams.get('cityId')).toBe('c1');
+      expect(new URL(u).searchParams.has('countyId')).toBe(false);
+    }
+  });
+});

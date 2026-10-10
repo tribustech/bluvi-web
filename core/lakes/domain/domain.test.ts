@@ -11,6 +11,7 @@ import {
   mapApiSuggestion,
   mapFacilitiesToFilterValues,
   mapFishToFilterValues,
+  mapSearchToScopeQuery,
   nearbyCommittedSearch,
   suggestionToCommittedSearch,
   type LakeFilterValues,
@@ -240,6 +241,17 @@ describe('filters', () => {
 });
 
 /* fish features/lakes/helpers/__tests__/suggestionToCommittedSearch.test.ts */
+describe('mapSearchToScopeQuery', () => {
+  const S = { ...DEFAULT_LAKES_COMMITTED_SEARCH, countyId: 'cty1', cityId: 'cit1' };
+  it('scopes a committed county or city search only', () => {
+    expect(mapSearchToScopeQuery({ ...S, mode: 'county' })).toEqual({ countyId: 'cty1' });
+    expect(mapSearchToScopeQuery({ ...S, mode: 'city' })).toEqual({ cityId: 'cit1' });
+    for (const mode of [null, 'text', 'lake', 'nearby'] as const) expect(mapSearchToScopeQuery({ ...S, mode })).toEqual({});
+    expect(mapSearchToScopeQuery({ ...DEFAULT_LAKES_COMMITTED_SEARCH, mode: 'county' })).toEqual({});
+    expect(mapSearchToScopeQuery(undefined)).toEqual({});
+  });
+});
+
 describe('suggestionToCommittedSearch', () => {
   const base = { id: 's1', subtitle: '', color: '#000' } as const;
 

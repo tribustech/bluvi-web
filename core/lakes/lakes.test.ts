@@ -248,6 +248,35 @@ describe('lakes api — map viewport (fish lakesMapFilters.test)', () => {
     );
   });
 
+  it('sends the county/city scope on the three map reads, and nothing without one', async () => {
+    const clusters = { data: [], meta: { totalLakes: 0, totalNodes: 0, zoom: 10 } };
+    const page = { data: [], meta: { total: 0, page: 1, pageSize: 7, hasMore: false } };
+    const { transport, calls } = createFakeTransport([clusters, { data: [] }, page, page]);
+    await api.getLakeMapClusters(transport, { ...BBOX, zoom: 10, filters: EMPTY_LAKE_FILTERS, scope: { countyId: 'cty1' } });
+    await api.getLakeMapClusterLeaves(transport, { ...BBOX, zoom: 10, clusterId: '42', scope: { cityId: 'cit1' } });
+    await api.getLakesInBbox(transport, { ...BBOX, page: 1, pageSize: 7, scope: { countyId: 'cty1' } });
+    await api.getLakesInBbox(transport, { ...BBOX, page: 1, pageSize: 7, scope: {} });
+    expect(buildPath(calls[0].path, calls[0].query)).toBe('/lakes/map-clusters?north=46&south=45&east=26&west=25&zoom=10&countyId=cty1');
+    expect(buildPath(calls[1].path, calls[1].query)).toBe('/lakes/map-clusters/42/leaves?north=46&south=45&east=26&west=25&zoom=10&cityId=cit1');
+    expect(buildPath(calls[2].path, calls[2].query)).toBe('/lakes/in-bbox?north=46&south=45&east=26&west=25&page=1&pageSize=7&countyId=cty1');
+    expect(buildPath(calls[3].path, calls[3].query)).toBe('/lakes/in-bbox?north=46&south=45&east=26&west=25&page=1&pageSize=7');
+  });
+
+  it('the map queries take the scope from the committed search', async () => {
+    const county = { ...DEFAULT_LAKES_COMMITTED_SEARCH, mode: 'county' as const, query: 'Giurgiu', county: 'Giurgiu', countyId: 'cty1' };
+    const page = { data: [], meta: { total: 0, page: 1, pageSize: 7, hasMore: false } };
+    const clusters = { data: [], meta: { totalLakes: 0, totalNodes: 0, zoom: 10 } };
+    const { transport, calls } = createFakeTransport([page, clusters, { data: [] }]);
+    const qc = new QueryClient();
+    await qc.fetchInfiniteQuery(q.lakesInBboxInfiniteQuery(transport, { bbox: BBOX, filters: EMPTY_LAKE_FILTERS, committedSearch: county, enabled: true }));
+    await qc.fetchQuery(q.lakeMapClustersQuery(transport, { bbox: BBOX, zoom: 10, filters: EMPTY_LAKE_FILTERS, committedSearch: county, enabled: true }));
+    await qc.fetchQuery(q.lakeMapClusterLeavesQuery(transport, { clusterId: '42', bbox: BBOX, zoom: 10, committedSearch: county }));
+    for (const call of calls) expect(call.query).toMatchObject({ countyId: 'cty1' });
+    const scoped = q.lakesInBboxInfiniteQuery(transport, { bbox: BBOX, filters: EMPTY_LAKE_FILTERS, committedSearch: county, enabled: true });
+    const wide = q.lakesInBboxInfiniteQuery(transport, { bbox: BBOX, filters: EMPTY_LAKE_FILTERS, committedSearch: { mode: 'county' }, enabled: true });
+    expect(scoped.queryKey).not.toEqual(wide.queryKey);
+  });
+
   it('getLakesFocusBbox drops the missing id', async () => {
     const res = { bbox: { north: 44.3, south: 44.08, east: 26.3, west: 25.6 }, count: 6 };
     const { transport, calls } = createFakeTransport([res]);

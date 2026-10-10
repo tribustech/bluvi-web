@@ -8,6 +8,7 @@ import {
   mapSearchToCountQuery,
   toCsv,
   type LakeFilterValues,
+  type LakeMapScopeQuery,
   type LakesCommittedSearch,
 } from './domain/filters';
 import type { LakesExploreCountParams, LakesExploreSuggestionsParams, LakesHomeParams } from './domain/signatures';
@@ -90,16 +91,18 @@ export interface GetLakeMapClustersParams {
   west: number;
   zoom: number;
   filters?: LakeFilterValues;
+  /** Web-only: the committed county/city search (`mapSearchToScopeQuery`). */
+  scope?: LakeMapScopeQuery;
 }
 
 /** fish `services/api/lakes.ts#getLakeMapClusters` */
-export function getLakeMapClusters(t: Transport, { north, south, east, west, zoom, filters }: GetLakeMapClustersParams) {
+export function getLakeMapClusters(t: Transport, { north, south, east, west, zoom, filters, scope }: GetLakeMapClustersParams) {
   return call(
     t,
     {
       method: 'GET',
       path: '/lakes/map-clusters',
-      query: { north, south, east, west, zoom, ...mapFiltersToQuery(filters) },
+      query: { north, south, east, west, zoom, ...mapFiltersToQuery(filters), ...scope },
       auth: 'none',
     },
     lakeMapClustersResponseSchema
@@ -109,14 +112,15 @@ export function getLakeMapClusters(t: Transport, { north, south, east, west, zoo
 /** fish `services/api/lakes.ts#getLakeMapClusterLeaves` */
 export function getLakeMapClusterLeaves(
   t: Transport,
-  { clusterId, north, south, east, west, zoom, filters }: GetLakeMapClustersParams & { clusterId: string }
+  { clusterId, north, south, east, west, zoom, filters, scope }: GetLakeMapClustersParams & { clusterId: string }
 ) {
   return call(
     t,
     {
       method: 'GET',
       path: `/lakes/map-clusters/${enc(clusterId)}/leaves`,
-      query: { north, south, east, west, zoom, ...mapFiltersToQuery(filters) },
+      // The scope too: the CMS derives cluster ids from the (scoped) set it clusters.
+      query: { north, south, east, west, zoom, ...mapFiltersToQuery(filters), ...scope },
       auth: 'none',
     },
     lakeMapLeavesResponseSchema
@@ -132,16 +136,18 @@ export interface LakesInBboxParams {
   page: number;
   pageSize: number;
   filters?: LakeFilterValues;
+  /** Web-only: the committed county/city search (`mapSearchToScopeQuery`). */
+  scope?: LakeMapScopeQuery;
 }
 
 /** fish `services/api/lakes.ts#getLakesInBbox` */
-export function getLakesInBbox(t: Transport, { north, south, east, west, page, pageSize, filters }: LakesInBboxParams) {
+export function getLakesInBbox(t: Transport, { north, south, east, west, page, pageSize, filters, scope }: LakesInBboxParams) {
   return call(
     t,
     {
       method: 'GET',
       path: '/lakes/in-bbox',
-      query: { north, south, east, west, page, pageSize, ...mapFiltersToQuery(filters) },
+      query: { north, south, east, west, page, pageSize, ...mapFiltersToQuery(filters), ...scope },
       auth: 'none',
     },
     lakesInBboxResponseSchema

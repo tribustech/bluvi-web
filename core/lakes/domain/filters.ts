@@ -86,6 +86,26 @@ export function mapFiltersToQuery(filters?: LakeFilterValues): ExploreFilterQuer
   };
 }
 
+/** The county/city scope the map reads take (`/lakes/map-clusters`, `/leaves`, `/in-bbox`). */
+export interface LakeMapScopeQuery {
+  countyId?: string;
+  cityId?: string;
+}
+
+/**
+ * Web-only (owner, 2026-10-10): a committed county or city search scopes the map reads the way it
+ * scopes `/lakes/explore/count`, so the list count and the filter panel count agree. Every other
+ * mode only frames the map. A CMS without the params (before bluvi-strapi#112) strips them: the
+ * reads stay bbox-wide, as before.
+ */
+export function mapSearchToScopeQuery(
+  search?: Pick<LakesCommittedSearch, 'mode'> & Partial<Pick<LakesCommittedSearch, 'countyId' | 'cityId'>>
+): LakeMapScopeQuery {
+  if (search?.mode === 'county' && search.countyId) return { countyId: search.countyId };
+  if (search?.mode === 'city' && search.cityId) return { cityId: search.cityId };
+  return {};
+}
+
 /** fish `lakesExplore.ts#mapSearchToCountQuery`. */
 export function mapSearchToCountQuery(search?: LakesCommittedSearch) {
   const safeSearch = search ?? DEFAULT_LAKES_COMMITTED_SEARCH;

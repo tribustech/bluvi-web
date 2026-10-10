@@ -21,7 +21,7 @@ import {
   getReviewForLakeByAuthorId,
   getReviewsForLake,
 } from './api';
-import type { LakeFilterValues, LakesCommittedSearch } from './domain/filters';
+import { mapSearchToScopeQuery, type LakeFilterValues, type LakeMapScopeQuery, type LakesCommittedSearch } from './domain/filters';
 import {
   bboxBucketKey,
   makeLakesExploreCountSignature,
@@ -66,8 +66,8 @@ export const lakesKeys = {
    * Web-only: fish fetches cluster leaves imperatively (no cache entry). Nested under the
    * `map-clusters` prefix so the same invalidations reach it.
    */
-  mapClusterLeaves: (clusterId: string, bucket: string, filters: LakeFilterValues | undefined) =>
-    ['lakes', 'map-clusters', 'leaves', clusterId, bucket, filters ?? null] as const,
+  mapClusterLeaves: (clusterId: string, bucket: string, filters: LakeFilterValues | undefined, scope: LakeMapScopeQuery = {}) =>
+    ['lakes', 'map-clusters', 'leaves', clusterId, bucket, filters ?? null, scope] as const,
 };
 
 /** fish `queryKeys.publicWaters` */
@@ -261,6 +261,7 @@ export function lakesInBboxInfiniteQuery(t: Transport, params: LakesInBboxQueryP
         page: pageParam,
         pageSize: IN_BBOX_PAGE_SIZE,
         filters: params.filters,
+        scope: mapSearchToScopeQuery(params.committedSearch),
       });
     },
     initialPageParam: 1,
@@ -298,7 +299,7 @@ export interface MapClustersQueryParams {
 export function lakeMapClustersQuery(t: Transport, { bbox, zoom, filters, committedSearch, enabled }: MapClustersQueryParams) {
   return queryOptions({
     queryKey: lakesKeys.mapClusters(bboxBucketKey(bbox, zoom), filters, committedSearch),
-    queryFn: () => getLakeMapClusters(t, { ...(bbox as Bbox), zoom, filters }),
+    queryFn: () => getLakeMapClusters(t, { ...(bbox as Bbox), zoom, filters, scope: mapSearchToScopeQuery(committedSearch) }),
     enabled: enabled && bbox !== null,
     placeholderData: previous => previous,
     staleTime: 60_000,
@@ -309,11 +310,13 @@ export function lakeMapClustersQuery(t: Transport, { bbox, zoom, filters, commit
 /** Web-only factory for `getLakeMapClusterLeaves` (fish calls it imperatively); same cache times as clusters. */
 export function lakeMapClusterLeavesQuery(
   t: Transport,
-  params: { clusterId: string; bbox: Bbox; zoom: number; filters?: LakeFilterValues }
+  params: { clusterId: string; bbox: Bbox; zoom: number; filters?: LakeFilterValues; committedSearch?: LakesCommittedSearch }
 ) {
+  // The leaves must be read with the clusters' scope: the CMS numbers clusters over the scoped set.
+  const scope = mapSearchToScopeQuery(params.committedSearch);
   return queryOptions({
-    queryKey: lakesKeys.mapClusterLeaves(params.clusterId, bboxBucketKey(params.bbox, params.zoom), params.filters),
-    queryFn: () => getLakeMapClusterLeaves(t, { ...params.bbox, zoom: params.zoom, clusterId: params.clusterId, filters: params.filters }),
+    queryKey: lakesKeys.mapClusterLeaves(params.clusterId, bboxBucketKey(params.bbox, params.zoom), params.filters, scope),
+    queryFn: () => getLakeMapClusterLeaves(t, { ...params.bbox, zoom: params.zoom, clusterId: params.clusterId, filters: params.filters, scope }),
     enabled: !!params.clusterId,
     staleTime: 60_000,
     gcTime: 5 * 60_000,
