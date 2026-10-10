@@ -451,7 +451,8 @@ export function T2Layout({
           // fish: at the full rest the chrome keeps floating over the map, the sheet's rounded top
           // just under it (no solid header bar).
           className={cn(
-            'absolute inset-x-0 top-0 z-sticky border-b border-transparent px-4 pt-2',
+            // pt: 8 under the top safe area (viewport-fit=cover: a notch in landscape, a standalone status bar).
+            'absolute inset-x-0 top-0 z-sticky border-b border-transparent px-4 pt-[calc(var(--spacing)*2+env(safe-area-inset-top))]',
             // From 768 a band on the page ground (the list header's, so list ↔ map changes nothing),
             // its content on the shell column at both edges (the top bar's logo … its last action),
             // while the map and the list below stay full-bleed.

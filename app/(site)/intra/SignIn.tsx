@@ -293,8 +293,9 @@ export function SignIn({ config }: { config: SignInConfig }) {
       aria-labelledby="intra-titlu"
       data-pending={busyNow || undefined}
       className={cn(
-        // <768: fish's welcome screen, full bleed under the top bar.
-        'relative isolate flex min-h-[calc(100dvh-56px)] flex-col overflow-hidden text-on-welcome',
+        // <768: fish's welcome screen, full bleed, the whole window (no top bar on the phone) — the
+        // deep water reaches the bottom edge; globals.css paints <html> with it for the overscroll.
+        'relative isolate flex min-h-dvh flex-col overflow-hidden text-on-welcome',
         W.bg,
         // 768–1023: one centred card on the page, the photo as a band across its top.
         'md:mx-auto md:my-10 md:min-h-0 md:w-[calc(100%-64px)] md:max-w-[520px] md:rounded-bento md:border md:border-hairline md:bg-surface md:text-ink md:shadow-e2',
@@ -469,7 +470,7 @@ function Backdrop({ animate }: { animate: boolean }) {
       aria-hidden
       data-intra-visual
       className={cn(
-        'pointer-events-none absolute inset-x-0 top-0 z-behind h-[calc(100dvh-56px)] overflow-hidden',
+        'pointer-events-none absolute inset-x-0 top-0 z-behind h-dvh overflow-hidden',
         'md:relative md:inset-auto md:z-auto md:h-44 md:shrink-0',
         'lg:col-start-1 lg:row-start-1 lg:h-auto lg:rounded-bento lg:shadow-e2'
       )}

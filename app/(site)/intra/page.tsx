@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { SignIn } from './SignIn';
 import type { SignInConfig } from './logic';
 
@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   description: 'Intră în contul tău Bluvi cu Google, Facebook sau Apple.',
   robots: { index: false },
 };
+
+/** The phone screen is fish's deep-water welcome from the top edge down (--bluvi-welcome). */
+export const viewport: Viewport = { themeColor: '#071d29' };
 
 /** Which sign-in methods are configured. A provider without its id (or Google without the secret
  * the code exchange needs) is hidden rather than shown broken (account.sign-in.c2). */

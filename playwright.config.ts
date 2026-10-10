@@ -20,9 +20,12 @@ export default defineConfig({
     storageState: 'tests/e2e/helpers/consent-state.json',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /ios-viewport\.spec\.ts$/ },
     // Owner rule 3 (the phone header stack never floats) where it used to fail: iOS Safari's engine.
     { name: 'webkit-iphone', use: { ...devices['iPhone 13'] }, testMatch: /detail-airbnb\.spec\.ts$/, grep: /owner rule 3/ },
+    // iOS Safari viewport (owner 2026-10-10): fixed map screens, painted safe areas, full-height sign-in.
+    { name: 'webkit-ios-13', use: { ...devices['iPhone 13'] }, testMatch: /ios-viewport\.spec\.ts$/ },
+    { name: 'webkit-ios-15pro', use: { ...devices['iPhone 15 Pro'] }, testMatch: /ios-viewport\.spec\.ts$/ },
     // account.sign-in «back» (c17/c18) where the Navigation API is missing: Safari's engine.
     {
       name: 'webkit-intra',

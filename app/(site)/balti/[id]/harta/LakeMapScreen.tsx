@@ -184,7 +184,7 @@ export function MapFrame({
       </h1>
       <div className="relative min-h-0 flex-1 overflow-clip">
         {children}
-        <div className={cn('pointer-events-none absolute inset-x-0 top-4 z-overlay flex items-center gap-2 pr-20 pl-4', T2_ALIGN_LEFT)} data-testid="map-head">
+        <div className={cn('pointer-events-none absolute inset-x-0 top-[calc(var(--spacing)*4+env(safe-area-inset-top))] z-overlay flex items-center gap-2 pr-20 pl-4', T2_ALIGN_LEFT)} data-testid="map-head">
           <div ref={headRef} className="pointer-events-auto flex min-w-0 items-center gap-2">
             <div className="shrink-0" onClickCapture={onClickCapture} data-testid="map-back">
               <T2BackLink href={lakeId ? routes.lake(lakeId) : routes.lakes()} label="Înapoi" />

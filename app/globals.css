@@ -826,6 +826,27 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* The root paints the page ground too: iOS Safari shows it in the rubber-band overscroll and
+       behind its translucent toolbars (owner 2026-10-10: no white bands), not the canvas white. */
+    background: var(--color-page);
+  }
+  /*
+   * Phone, iOS Safari (owner 2026-10-10). A full-screen map (T2Viewport, data-viewport-lock) is a
+   * fixed, non-scrolling window like fish: the document never scrolls or rubber-bands, so the
+   * floating header can't be dragged under the status bar — only the bottom sheet's list scrolls.
+   * The sign-in welcome (/intra) is deep water through the bottom edge and the overscroll.
+   */
+  @media (width < 48rem) {
+    html:has([data-viewport-lock]),
+    html:has([data-viewport-lock]) body {
+      height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+    html:has([data-intra-visual]),
+    html:has([data-intra-visual]) body {
+      background: var(--color-welcome);
+    }
   }
   body {
     background: var(--color-page);

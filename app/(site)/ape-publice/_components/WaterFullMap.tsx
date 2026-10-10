@@ -45,7 +45,7 @@ export function WaterFullMap({ water }: { water: PublicWaterDetail }) {
           selected={{ id: water.id, type: water.type, geometry: water.geometry }}
           selectedFill="indigo"
         />
-        <div className="absolute top-4 left-4 z-overlay">
+        <div className="absolute top-[calc(var(--spacing)*4+env(safe-area-inset-top))] left-4 z-overlay">
           <T2BackLink href={routes.publicWater(key)} label="Înapoi" />
         </div>
         <div className="absolute inset-x-4 bottom-[max(--spacing(10),env(safe-area-inset-bottom))] z-overlay flex flex-col gap-1.5 rounded-card bg-surface p-3 shadow-e2 md:bottom-10 md:left-4 md:right-auto md:w-95">
@@ -72,7 +72,7 @@ export function WaterMapLoading() {
           <T2Spinner className="size-6 text-accent" />
           Se încarcă harta…
         </p>
-        <div className="absolute top-4 left-4">
+        <div className="absolute top-[calc(var(--spacing)*4+env(safe-area-inset-top))] left-4">
           <DetailBackButton fallbackHref={routes.publicWaters()} onPhoto />
         </div>
       </div>
