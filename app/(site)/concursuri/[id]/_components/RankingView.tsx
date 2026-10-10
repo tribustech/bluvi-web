@@ -46,7 +46,7 @@ const ALL_SECTORS = 'toate';
 const SELECT_SECTORS_FROM = 12;
 
 /**
- * Clasament view. Mobile: fish's ScrollableTable (MobileRanking: the kit table, the Stand pinned,
+ * Clasament view. Mobile: fish's ScrollableTable (MobileRanking → FishTable: the Stand frozen,
  * the columns scrolling sideways; stand order unless Sortare says otherwise), also in «Tot ecranul». Desktop (design): every column, every angler, General / Pe
  * sectoare, a sector filter A–X and a search by angler or stand, on CompetitionRankingTable (fish's
  * columns, stand order first as fish) — its column headers are the sort (from 768 there is no
@@ -103,14 +103,10 @@ export function RankingView({
 
   return (
     <>
-      <div className="md:hidden">
-        <MobileRanking
-          columns={table.columns}
-          rows={table.rows}
-          currentUserStandId={currentUserStandId}
-          onRowPress={onRowPress}
-          sortNonce={sortNonce}
-        />
+      {/* fish: the table 20px under the view chips (marginBottom 12 + the ScrollView's gap 8). */}
+      <div className="mt-1 md:hidden">
+        {/* Every Sortare pick (the bar) starts the table over, scrolled back to its left edge. */}
+        <MobileRanking key={sortNonce} columns={table.columns} rows={table.rows} onRowPress={onRowPress} />
       </div>
       <DesktopRanking table={placeTable} currentUserStandId={currentUserStandId} onFullView={onFullView} onRowPress={onRowPress} />
     </>

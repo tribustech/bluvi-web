@@ -499,10 +499,11 @@ test('competition-page.clasament.c16 — the phone table opens in stand order; S
   expect(places).toEqual([...places].sort((a, b) => a - b));
 });
 
-test('competition-page.clasament.c16 — on the phone every Sortare pick leaves the rows in the order it names, even after a header sort (the same value too)', async ({ page }) => {
+test('competition-page.clasament.c16 §4b.25 — on the phone the rows follow Sortare alone (fish\'s table has no header sort): place, then stand, then place again', async ({ page }) => {
   await open(page, ID.live);
   const table = grid(page);
   await expect(table.locator('tbody tr').first()).toBeVisible();
+  await expect(table.locator('thead button')).toHaveCount(0);
   const stands = async () =>
     (await table.locator('tbody tr td:first-child .sr-only').allTextContents()).map(t => {
       const m = /^Sector ([A-X]), stand [A-X]?(\d+)/.exec(t);
@@ -516,24 +517,16 @@ test('competition-page.clasament.c16 — on the phone every Sortare pick leaves 
     await page.getByRole('navigation', { name: 'Sortare clasament' }).getByRole('button', { name: label, exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: done })).toHaveCount(1);
   };
-  const headerSort = async (title: RegExp) => {
-    await table.locator('thead th').filter({ hasText: title }).getByRole('button').click();
-  };
+  const byPlace = async () => { const p = await places(); return p.join() === [...p].sort((a, b) => a - b).join(); };
+  const byStand = async () => { const s = await stands(); return s.join() === standOrder(s).join(); };
 
-  // Stand order (the default) → a header sort → Sortare → Stand (unchanged value): stand order again.
-  expect(await stands()).toEqual(standOrder(await stands()));
-  await headerSort(/Poziție generală/);
-  await expect.poll(async () => { const s = await stands(); return s.join() === standOrder(s).join(); }).toBe(false);
+  expect(await byStand()).toBe(true);
+  await sortare('Poziția în clasament', 'Sortarea clasamentului după poziția în clasament a fost efectuată.');
+  await expect.poll(byPlace).toBe(true);
   await sortare('Stand', 'Sortarea clasamentului după stand a fost efectuată.');
-  await expect.poll(async () => { const s = await stands(); return s.join() === standOrder(s).join(); }).toBe(true);
-
-  // Place order → a header sort → Sortare → Poziția în clasament (the same pick): place order again.
+  await expect.poll(byStand).toBe(true);
   await sortare('Poziția în clasament', 'Sortarea clasamentului după poziția în clasament a fost efectuată.');
-  await expect.poll(async () => { const p = await places(); return p.join() === [...p].sort((a, b) => a - b).join(); }).toBe(true);
-  await headerSort(/^Stand/);
-  await expect.poll(async () => { const p = await places(); return p.join() === [...p].sort((a, b) => a - b).join(); }).toBe(false);
-  await sortare('Poziția în clasament', 'Sortarea clasamentului după poziția în clasament a fost efectuată.');
-  await expect.poll(async () => { const p = await places(); return p.join() === [...p].sort((a, b) => a - b).join(); }).toBe(true);
+  await expect.poll(byPlace).toBe(true);
 });
 
 test('competition-page.clasament.c22 — in «Tot ecranul» on the phone the Stand column stays while the others scroll', async ({ page }) => {

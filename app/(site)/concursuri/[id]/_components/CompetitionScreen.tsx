@@ -62,6 +62,8 @@ import { isUnknownViewer, useViewerState } from '../../../_shell/viewer-context'
 import { ActionsSheet } from './ActionsSheet';
 import { ActiveWeighingBanner, FLOATING_ACTIONS_BAR, MobileActionBar, SORT_OPTION, type BarConfirm } from './ActionBar';
 import { FeederHelp, FeederLegTabs, FeederRankingTable, feederLegEmpty, type FeederData } from './FeederRanking';
+import { FishFeederLegTabs, FishFeederTable } from './FishFeeder';
+import { FishNcPills, FishNcTable } from './FishNc';
 import { NcRankingTable, NcSectorPills, NcSortControl, ncSortFor, type NcSort, type NcView } from './NcRanking';
 import { useSiteToast } from '../../../_shell/Toast';
 import { AllFishView } from './AllFishView';
@@ -901,7 +903,17 @@ function Screen({
                               // The controls are the ranking card's band (as the standard ranking's
                               // toolbar); from 1280 «Cum se calculează» docks beside the card.
                               <section ref={feederSection} aria-label="Clasament" className={cn('flex items-start gap-4', PRESSABLE_ROWS)}>
-                                <div className="min-w-0 flex-1">
+                                {/* Below 768: fish's own tabs and table (FishFeeder). */}
+                                <div className="min-w-0 flex-1 md:hidden">
+                                  <FishFeederLegTabs data={feeder} value={feederTab} onChange={setChosenFeederTab} onHelp={() => setFeederHelpOpen(true)} />
+                                  <FishFeederTable
+                                    data={feeder}
+                                    tab={feederTab}
+                                    isTeam={competition.competitionType === 'team'}
+                                    caption={feederTab === 'general' ? 'Clasament general' : `Clasament manșa ${feederTab}`}
+                                  />
+                                </div>
+                                <div className="min-w-0 flex-1 max-md:hidden">
                                   <FeederRankingTable
                                     data={feeder}
                                     tab={feederTab}
@@ -934,7 +946,19 @@ function Screen({
                               </section>
                             ) : nc && nc.length > 0 ? (
                               <section aria-label="Clasament">
-                                <NcRankingTable
+                                {/* Below 768: fish's own pills and tables (FishNc). */}
+                                <div className="md:hidden">
+                                  <FishNcPills sectors={competition.sectors} value={ncView} onChange={selectNcView} />
+                                  <FishNcTable
+                                    rankings={nc}
+                                    numberOfSectors={metadata?.numberOfSectors}
+                                    view={ncView}
+                                    sort={ncSort}
+                                    caption={ncSectorName ? `Clasament sector ${ncSectorName}` : 'Clasament pe cluburi'}
+                                  />
+                                </div>
+                                <div className="max-md:hidden">
+                                  <NcRankingTable
                                   rankings={nc}
                                   numberOfSectors={metadata?.numberOfSectors}
                                   view={ncView}
@@ -955,6 +979,7 @@ function Screen({
                                     </>
                                   }
                                 />
+                                </div>
                               </section>
                             ) : (
                               // fish: no NC data → «Nu există date de afișat».

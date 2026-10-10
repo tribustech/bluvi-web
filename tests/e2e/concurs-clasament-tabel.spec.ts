@@ -555,10 +555,11 @@ test('competition-page.clasament.c23 — one penalty marker per row beside the n
     const out = table.getByRole('img', { name: 'Echipa este eliminată' });
     await expect(warned).toHaveCount(1);
     await expect(warned).toHaveAttribute('title', /nadă în exces/);
-    await expect(warned).toHaveClass(/bg-badge-yellow-fg/);
+    // The phone is fish's table in fish's colours (PenaltyCard $yellow5 / $red6, §4b.25).
+    await expect(warned).toHaveClass(viewport === PHONE ? /bg-fish-rk-penalty/ : /bg-badge-yellow-fg/);
     // Two penalties, one of them ELIMINATE: one red marker, not one per penalty.
     await expect(out).toHaveCount(1);
-    await expect(out).toHaveClass(/bg-status-danger-fg/);
+    await expect(out).toHaveClass(viewport === PHONE ? /bg-fish-rk-eliminated/ : /bg-status-danger-fg/);
     await expect(table.locator('th[scope=row]').filter({ has: page.getByRole('img', { name: 'Echipa este eliminată' }) })).toContainText('Pescar 2');
     // The legend names both markers from 768 (the phone is fish's table, no legend: §4b.25).
     if (viewport === PHONE) continue;
@@ -638,6 +639,36 @@ test('competition-page.clasament §4b.25 — phone: fish\'s table — full bleed
   await expect(table.locator('[data-pin^="r"]')).toHaveCount(0);
 });
 
+test('competition-page.clasament §4b.25 (owner 2026-10-10) — phone: fish ScrollableTable\'s own dimensions, type and colours', async ({ page }) => {
+  await open(page, ID.quantity, PHONE);
+  const table = displayed(page);
+  const row = table.locator('tbody tr').first();
+  await expect(row).toBeVisible();
+  // fish's host: marginHorizontal -20 inside the screen's 16px padding — 4px off the left edge.
+  expect(Math.round((await table.boundingBox())!.x)).toBe(-4);
+  const heads = table.locator('thead th');
+  const box = async (l: Locator) => (await l.boundingBox())!;
+  // HEADER_CELL_HEIGHT 60, the Stand 60 (computeStandColumnWidth), PARTICIPANT_CELL_WIDTH 120, CELL_WIDTH 60.
+  expect(Math.round((await box(heads.first())).height)).toBe(60);
+  expect(Math.round((await box(heads.nth(0))).width)).toBe(60);
+  expect(Math.round((await box(heads.nth(1))).width)).toBe(120);
+  expect(Math.round((await box(heads.nth(2))).width)).toBe(60);
+  const style = (l: Locator) =>
+    l.evaluate(el => {
+      const c = getComputedStyle(el);
+      return { bg: c.backgroundColor, color: c.color, size: c.fontSize, weight: c.fontWeight, border: c.borderTopColor };
+    });
+  // $indigo2 head, $indigo5 ink: the Stand head caption (12), the others micro (10); $gray4 lines.
+  expect(await style(heads.nth(0))).toMatchObject({ bg: 'rgb(224, 231, 255)', color: 'rgb(99, 102, 241)', size: '12px', border: 'rgb(237, 237, 237)' });
+  expect(await style(heads.nth(1))).toMatchObject({ size: '10px' });
+  // FrozenFirstCell: white, 12 bold black. The cells: 12/500, a winner row white on the sector's 90%.
+  expect(await style(row.locator('td').first())).toMatchObject({ bg: 'rgb(255, 255, 255)', color: 'rgb(0, 0, 0)', size: '12px', weight: '700' });
+  const winner = table.locator('tbody tr[data-winner]').first();
+  expect(await style(winner.locator('th[scope=row]'))).toMatchObject({ color: 'rgb(255, 255, 255)', size: '12px', weight: '500' });
+  // No header sort on the phone (fish has none).
+  await expect(table.locator('thead button')).toHaveCount(0);
+});
+
 test('competition-page.clasament — the side column on bestOfTiers: «Podium» from the places 1–3 only, each with the Best N it won at and its value (never «–»)', async ({ page }) => {
   // 1920 with at most 4 catches (4 catch columns): room beside the table for the side column.
   await openFixture(page, 'bestOfTiers', {
@@ -675,7 +706,10 @@ test('competition-page.clasament.c24 — a row without a registration behind it 
 test('competition-page.clasament.c24 — a row with a registration opens the angler: the sheet on the phone (?pescar=)', async ({ page }) => {
   await open(page, ID.quantity, PHONE);
   const table = displayed(page);
-  await table.locator('tbody tr').first().locator('td').first().click();
+  const row = table.locator('tbody tr').first();
+  // The row is pressable once the page has hydrated (useRowPress marks it).
+  await expect(row).toHaveAttribute('data-pressable', '', { timeout: 60_000 });
+  await row.locator('td').first().click();
   await expect.poll(() => new URL(page.url()).searchParams.get('pescar')).not.toBeNull();
 });
 

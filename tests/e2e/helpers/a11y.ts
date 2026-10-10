@@ -50,8 +50,19 @@ export function formatViolations(violations: Awaited<ReturnType<typeof scanA11y>
     .join('\n');
 }
 
+/**
+ * The phone ranking tables (below 768) are fish's own tables in fish's own colours (owner
+ * 2026-10-10, ROADMAP §4b.25; the deviations are listed in app/globals.css «the PHONE ranking
+ * tables»): inside [data-fish-colours] (the tables and their pills) every rule runs except colour contrast.
+ */
+const FISH_TABLE = '[data-fish-colours]';
+
 export async function expectNoA11yViolations(page: Page, options: A11yOptions = {}) {
-  const results = await scanA11y(page, options);
+  const results = await scanA11y(page, { ...options, exclude: [...(options.exclude ?? []), FISH_TABLE] });
+  if (!options.include && (await page.locator(`${FISH_TABLE}:visible`).count()) > 0) {
+    const fish = await scanA11y(page, { include: FISH_TABLE, disableRules: [...(options.disableRules ?? []), 'color-contrast'] });
+    results.violations.push(...fish.violations);
+  }
   const report = formatViolations(results.violations);
   if (report) {
     await test.info().attach('axe-violations', { body: report, contentType: 'text/plain' });

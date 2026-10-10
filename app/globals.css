@@ -483,6 +483,38 @@
   --color-rank-on-light: #000000;
 
   /*
+   * ---- the PHONE ranking tables: fish's exact colours (owner 2026-10-10, ROADMAP §4b.25) ----
+   * Below 768 the ranking is fish's own table, its colours untouched (desktop keeps the AA-shifted
+   * rank-* tokens above). Deviations from AA kept on purpose (the AA fix changes the look): the
+   * indigo5 header ink on indigo2 (3.6:1, 10–12px), white on every 90% winner fill and every leg
+   * sector band (fish writes white on all of them; orange / olive / yellow sectors under 4.5:1),
+   * leg 1's #1E88E5 under white (3.7:1), NO_SECTOR's white band title (2.6:1), a picked sector pill
+   * white on its colour. The e2e axe scans leave colour contrast out inside [data-fish-colours] only
+   * (tests/e2e/helpers/a11y.ts).
+   * fish: components/ranking-table/RankingTable.tsx ($gray4 lines, $indigo2 / $indigo5 header),
+   * helpers/table/getTierCellColors.ts, components/penalty/PenaltyCard.tsx ($yellow5 / $red6),
+   * features/competitions/feeder-rounds/FeederRankingTable.tsx (LEG_COLORS[0], NO_SECTOR),
+   * CompetitionRanking FeederLegTabs / NationalChampionshipRanking sectorPills ($gray12 idle ink).
+   */
+  --color-fish-rk-line: #ededed;
+  --color-fish-rk-head: #e0e7ff;
+  --color-fish-rk-head-ink: #6366f1;
+  --color-fish-rk-tier-head: #a5b4fc;
+  --color-fish-rk-tier-head-ink: #312e81;
+  --color-fish-rk-tier: #e0e7ff;
+  --color-fish-rk-tier-winner-row: #c7d2fe;
+  --color-fish-rk-tier-win: #15803d;
+  --color-fish-rk-biggest: color-mix(in srgb, #ffd700 85%, #ffffff);
+  --color-fish-rk-penalty: #eab308;
+  --color-fish-rk-eliminated: #e11d48;
+  --color-fish-rk-leg-1: #1e88e5;
+  --color-fish-rk-leg-1-tint: color-mix(in srgb, #1e88e5 10%, #ffffff);
+  --color-fish-rk-leg-2: #00897b;
+  --color-fish-rk-leg-2-tint: color-mix(in srgb, #00897b 10%, #ffffff);
+  --color-fish-rk-pill-ink: #171717;
+  --color-fish-rk-help: #5c6bc0;
+
+  /*
    * ---- competition page, phone: fish's own colours (ROADMAP §4b.25) ----
    * Theme-invariant, drawn as fish draws them below 768. View chips (CompetitionRanking
    * VIEW_CHIP_CONFIG + the #f0f0f0 / #616161 idle chip), the header pills (FollowersPill $gray7,

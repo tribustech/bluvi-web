@@ -284,43 +284,50 @@ test('competition-page.clasament.c29 competition-page.clasament.s10 — feeder l
   }
 });
 
-test('competition-page.clasament.c29 competition-page.clasament.s10 — feeder leg on a 375 phone: Kg and Puncte as columns, Buc · CMMC under the full name; no sideways scroll', async ({ page }) => {
+test('competition-page.clasament.c29 competition-page.clasament.s10 §4b.25 — feeder leg on a 375 phone is fish’s LegTable: Stand · Echipă · Kg · Buc · C.M.M.C · Puncte, one solid band per sector, no sideways scroll', async ({ page }) => {
   await open(page, ID.feeder, PHONE);
   await pick(legChips(page), 'Manșa 1');
   const region = page.getByRole('region', { name: 'Clasament manșa 1' });
   await expect(region).toBeVisible();
+  // fish: «the leg table has no frozen column: on a 375pt screen it must fit without a sideways scroll».
   const { scroll, client } = await region.evaluate(el => ({ scroll: el.scrollWidth, client: el.clientWidth }));
   expect(scroll).toBeLessThanOrEqual(client + 1);
+  expect((await region.locator('thead th').allInnerTexts()).map(t => t.trim())).toEqual(['Stand', 'Echipă', 'Kg', 'Buc', 'C.M.M.C', 'Puncte']);
   await expect(region.getByRole('columnheader', { name: 'Puncte' })).toBeInViewport();
-  await expect(region.getByRole('columnheader', { name: 'Număr de bucăți' })).toBeHidden();
-  const first = region.locator('tbody tr').nth(1);
-  await expect(first).toContainText('Virgil Boldor si Marius Cornea');
-  await expect(first).toContainText('6 buc · CMMC 7,725');
-  // The second angler of the crew is not clamped away (no «…»), and no word is cut in half: the
-  // name wraps between its words, every line inside the pinned column.
-  const name = first.locator('td').first().locator('[data-rank-name]');
-  expect(await name.evaluate(el => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1)).toBe(true);
-  expect(await name.evaluate(el => getComputedStyle(el).webkitLineClamp)).toBe('none');
-  expect(await name.evaluate(el => getComputedStyle(el).overflowWrap)).toBe('normal');
+  // fish: the head 34 tall, the sector band 28 (12 bold white on the sector's colour), 44px rows.
+  expect(Math.round((await region.locator('thead th').first().boundingBox())!.height)).toBe(34);
+  const band = region.locator('th[scope=rowgroup]').first();
+  await expect(band).toHaveText('Sector A');
+  expect(Math.round((await band.boundingBox())!.height)).toBe(28);
+  expect(await band.evaluate(el => getComputedStyle(el).color)).toBe('rgb(255, 255, 255)');
+  const first = region.locator('tbody tr[data-registration]').first();
+  expect(Math.round((await first.boundingBox())!.height)).toBe(44);
+  // The name: two lines at most (fish numberOfLines 2), the second angler of a crew included.
+  const name = first.locator('[data-rank-name]');
+  expect(await name.evaluate(el => getComputedStyle(el).webkitLineClamp)).toBe('2');
 });
 
-test('competition-page.clasament.c28 — feeder General on a 375 phone: Loc and the name stay pinned while the legs scroll; the pinned edge shows once scrolled', async ({
+test('competition-page.clasament.c28 §4b.25 — feeder General on a 375 phone is fish’s GeneralTable: only Loc frozen, the name and every group scroll; fish’s heads and rows', async ({
   page,
 }) => {
   await open(page, ID.feeder, PHONE);
   const region = page.getByRole('region', { name: 'Clasament general' });
-  await expect(region).toHaveAttribute('data-more', 'true');
-  await expect(region).toHaveAttribute('data-scrolled', 'false');
-  const name = region.locator('tbody tr').first().locator('td').first();
-  // The pinned block (Loc + the name) stays under ~55% of the card, so Total and the first leg's
-  // colours are on screen without a scroll (ROADMAP §4b.15), as the NC table.
-  const card = (await region.boundingBox())!;
-  const nameBox = (await name.boundingBox())!;
-  expect(nameBox.x + nameBox.width - card.x).toBeLessThan(card.width * 0.55);
-  const before = nameBox.x;
-  await region.evaluate(el => el.scrollTo({ left: 260 }));
-  await expect(region).toHaveAttribute('data-scrolled', 'true');
-  expect(Math.round((await name.boundingBox())!.x)).toBe(Math.round(before));
+  await expect(region).toBeVisible();
+  const row = region.locator('tbody tr').first();
+  const loc = row.locator('th[scope=row]');
+  const name = row.locator('td').first();
+  // fish: Loc 40, the name at least 132; the group head 24 over a 26 sub head, 44px rows; zebra, the podium #EEF5FF with 🎖️.
+  expect(Math.round((await loc.boundingBox())!.width)).toBe(40);
+  expect(Math.round((await name.boundingBox())!.width)).toBeGreaterThanOrEqual(132);
+  expect(Math.round((await row.boundingBox())!.height)).toBe(44);
+  expect(Math.round((await region.getByRole('columnheader', { name: 'Total' }).boundingBox())!.height)).toBe(24);
+  await expect(row).toHaveAttribute('data-podium', 'true');
+  expect(await loc.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(238, 245, 255)');
+  await expect(loc.locator('[data-mark="podium"]')).toHaveText('🎖️');
+  const [locX, nameX] = [(await loc.boundingBox())!.x, (await name.boundingBox())!.x];
+  await region.evaluate(el => el.scrollTo({ left: 200 }));
+  await expect.poll(async () => Math.round((await name.boundingBox())!.x)).toBeLessThan(Math.round(nameX) - 100);
+  expect(Math.round((await loc.boundingBox())!.x)).toBe(Math.round(locX));
 });
 
 /*
@@ -377,7 +384,7 @@ test('competition-page.clasament.c27 competition-page.clasament.c30 competition-
   // c30: the next leg has not started.
   await pick(chips, 'Manșa 3');
   await expect(page.getByRole('heading', { name: 'Manșa 3 nu a început încă' })).toBeVisible();
-  await expect(page.getByText('Începe după încheierea manșei 2.')).toBeVisible();
+  await expect(visible(page.getByText('Începe după încheierea manșei 2.'))).toBeVisible();
   // bara-actiuni.c6: nothing to show full screen on an empty leg.
   await expect(visible(page.getByRole('button', { name: 'Clasament complet' }))).toBeDisabled();
 
@@ -403,7 +410,7 @@ test('competition-page.clasament.c30 competition-page.clasament.c31 competition-
   await expect(chips.getByRole('radio', { name: 'General' })).toBeChecked();
   await pick(chips, 'Manșa 3');
   await expect(page.getByRole('heading', { name: 'Manșa 3 nu a început încă' })).toBeVisible();
-  await expect(page.getByText('Organizatorul reașază standurile după tragerea la sorți, apoi pornește manșa.')).toBeVisible();
+  await expect(visible(page.getByText('Organizatorul reașază standurile după tragerea la sorți, apoi pornește manșa.'))).toBeVisible();
   await page.getByRole('button', { name: 'Cum se calculează clasamentul' }).click();
   await expect(page.getByRole('complementary', { name: 'Cum se calculează' }).getByText('Clasament provizoriu · manșa 2 este încheiată')).toBeVisible();
 });
@@ -413,7 +420,7 @@ test('competition-page.clasament.c27 competition-page.clasament.c30 competition-
   const chips = legChips(page);
   await expect(chips.getByRole('radio', { name: 'Manșa 3' })).toBeChecked();
   await expect(page.getByRole('heading', { name: 'Manșa 3 a început' })).toBeVisible();
-  await expect(page.getByText('Clasamentul manșei apare după prima cântărire.')).toBeVisible();
+  await expect(visible(page.getByText('Clasamentul manșei apare după prima cântărire.'))).toBeVisible();
 });
 
 test('competition-page.clasament.c30 competition-page.clasament.s10 — live feeder, leg 1 just started and nothing weighed anywhere (no rows): «Manșa 1 a început», not «Nu există date de afișat»', async ({
@@ -424,7 +431,7 @@ test('competition-page.clasament.c30 competition-page.clasament.s10 — live fee
   const chips = legChips(page);
   await expect(chips.getByRole('radio', { name: 'Manșa 1' })).toBeChecked();
   await expect(page.getByRole('heading', { name: 'Manșa 1 a început' })).toBeVisible();
-  await expect(page.getByText('Clasamentul manșei apare după prima cântărire.')).toBeVisible();
+  await expect(visible(page.getByText('Clasamentul manșei apare după prima cântărire.'))).toBeVisible();
   // A future leg keeps its own message on an empty ranking too; General has nothing to show.
   await pick(chips, 'Manșa 2');
   await expect(page.getByRole('heading', { name: 'Manșa 2 nu a început încă' })).toBeVisible();
@@ -636,29 +643,22 @@ test('competition-page.clasament-nc.c13 — «Clasament complet» opens the club
   await expect(dialog.getByRole('region', { name: 'Sector C complet' })).toBeVisible();
 });
 
-test('competition-page.clasament-nc.c1 — on a 375 phone the club table keeps Club, Pescari, Loc General and Loc Individual on the first screen; Pescari and both places stay pinned while the numbers scroll', async ({ page }) => {
+test('competition-page.clasament-nc.c1 §4b.25 — on a 375 phone the club table is fish’s NationalChampionshipTable: one sideways scroll, nothing frozen; fish’s widths, merged club cells, the club’s colour', async ({ page }) => {
   await open(page, ID.nc, PHONE);
   const region = page.getByRole('region', { name: 'Clasament pe cluburi' });
-  const card = (await region.boundingBox())!;
+  await expect(region).toBeVisible();
   const head = (title: string) => region.locator('thead th').filter({ hasText: new RegExp(`^${title}$`) });
-  const inView = async (title: string) => {
-    const b = (await head(title).boundingBox())!;
-    return b.x >= card.x - 1 && b.x + b.width <= card.x + card.width + 1;
-  };
-  for (const title of ['Club', 'Pescari', 'Loc General', 'Loc Individual']) expect(await inView(title), title).toBe(true);
-  // Loc Individual closes the card at its right edge, Loc General beside it.
-  const individual = (await head('Loc Individual').boundingBox())!;
-  expect(Math.abs(individual.x + individual.width - (card.x + card.width))).toBeLessThanOrEqual(1.5);
-  const names = region.locator('tbody tr').first().locator('td').first();
-  const [generalX, individualX] = [(await head('Loc General').boundingBox())!.x, individual.x];
+  // fish: Club 120, Pescari at least 200, the numbers 80, the head 60, rows 40.
+  expect(Math.round((await head('Club').boundingBox())!.width)).toBe(120);
+  expect(Math.round((await head('Pescari').boundingBox())!.width)).toBeGreaterThanOrEqual(200);
+  expect(Math.round((await head('Loc Individual').boundingBox())!.width)).toBe(80);
+  expect(Math.round((await head('Club').boundingBox())!.height)).toBe(60);
+  const club = region.locator('th[scope="rowgroup"]').first();
+  expect(await club.evaluate(el => getComputedStyle(el).borderLeftWidth)).toBe('4px');
+  const clubX = (await club.boundingBox())!.x;
   await region.evaluate(el => el.scrollTo({ left: 400 }));
-  await expect(region).toHaveAttribute('data-scrolled', 'true');
-  // Club scrolled away under Pescari, which is pinned at the card's left; the places did not move.
-  await expect.poll(async () => Math.round((await names.boundingBox())!.x)).toBe(Math.round(card.x));
-  expect(Math.round((await head('Loc General').boundingBox())!.x)).toBe(Math.round(generalX));
-  expect(Math.round((await head('Loc Individual').boundingBox())!.x)).toBe(Math.round(individualX));
-  // No right-edge fade over the pinned places.
-  expect(await region.evaluate(el => getComputedStyle(el).maskImage)).toBe('none');
+  // Nothing frozen: the club cell scrolls away with the rest.
+  await expect.poll(async () => Math.round((await club.boundingBox())!.x)).toBeLessThan(Math.round(clubX) - 300);
 });
 
 /** The NC ranking as the test says (the browser's own re-read, after a return to the tab). */
@@ -723,10 +723,8 @@ test('§4b.12 §4b.15 — the standard ranking on a 375 phone is fish’s Scroll
   await expect(region).toBeVisible();
   await expect(page.getByRole('list', { name: 'Clasament' })).toHaveCount(0);
   expect(await region.locator('thead th').first().evaluate(el => getComputedStyle(el).backgroundColor)).toBe(RANK_HEAD_BG);
-  // Measured as wider than the phone: the pinned layout is on.
-  await expect(region.locator('xpath=..')).toHaveAttribute('data-wide', 'true');
   const row = region.locator('tbody tr').first();
-  // The Stand cell stays white (its sector the 4px edge); the name cell carries fish's 40% tint.
+  // The Stand cell stays white (its sector the 4px edge, off screen as in fish); the name cell carries the sector's fill.
   const [standBg, nameBg] = await Promise.all([
     row.locator('td').first().evaluate(el => getComputedStyle(el).backgroundColor),
     row.locator('th[scope="row"]').evaluate(el => getComputedStyle(el).backgroundColor),
