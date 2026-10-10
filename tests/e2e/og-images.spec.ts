@@ -105,6 +105,18 @@ async function firstCompetition(request: APIRequestContext, status: 'completed' 
 const lakeName = async (request: APIRequestContext, id: string) => (await cmsJson<{ data: { name: string } }>(request, `/feed/lakes/${id}`)).data.name;
 const competitionName = async (request: APIRequestContext, id: string) => (await cmsJson<{ data: { name: string } }>(request, `/feed/competitions/${id}`)).data.name;
 
+/** A real public partidă of the local CMS (community history), or null. */
+async function firstPartida(request: APIRequestContext): Promise<string | null> {
+  const page = await cmsJson<{ data: { documentId: string }[] }>(request, '/feed/community/history?page=1&pageSize=1');
+  return page.data[0]?.documentId ?? null;
+}
+
+/**
+ * The host crawlers must be sent to: metadataBase (NEXT_PUBLIC_SITE_URL) in a build; `next dev`
+ * names its own origin for the file-convention images instead.
+ */
+const SITE_ORIGINS = [new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').origin, new URL(BASE_URL).origin];
+
 test.describe.configure({ timeout: 180_000 });
 
 test.describe('global.b.seo-og-images', () => {
@@ -198,6 +210,44 @@ test.describe('global.b.seo-og-images', () => {
     if (competitionId) {
       const card = new URL((await metaOf(request, `/concursuri/${competitionId}`))['twitter:image'], BASE_URL).pathname;
       await expectCard(request, card.replace(competitionId, 'nuexistaacestconcurs0000'));
+    }
+  });
+  test('a1 — every key public route has an absolute og:image AND twitter:image (route groups and subpages included)', async ({ request }) => {
+    // 2026-10-10: /partide (page in (hub)), /pescari/[id] (page in (profil)), /partide/exploreaza and
+    // /cookie-uri set `openGraph`, which replaced the parent segment's file-based images: no og:image.
+    const index = await cmsJson<{ data: { documentId: string }[] } | { documentId: string }[]>(request, '/feed/lakes/index');
+    const lake = (Array.isArray(index) ? index : index.data)[0]?.documentId;
+    const competition = await firstCompetition(request, 'completed');
+    const partida = await firstPartida(request);
+    const news = (await cmsJson<{ data: { documentId: string }[] }>(request, '/feed/announcements?pagination%5Bpage%5D=1&pagination%5BpageSize%5D=1')).data[0]?.documentId;
+    const routes = [
+      '/',
+      '/concursuri',
+      competition && `/concursuri/${competition}`,
+      '/balti',
+      lake && `/balti/${lake}`,
+      '/ape-publice/2245',
+      '/partide',
+      '/partide/exploreaza',
+      partida && `/partide/${partida}`,
+      // A known local angler: the page renders with or without the CMS's public header (PR #113).
+      '/pescari/vsfh2zhq9fkie6njt0ciok5u',
+      news && `/stiri/${news}`,
+      '/cookie-uri',
+    ].filter((r): r is string => !!r);
+    expect(routes.length, 'the local CMS has a lake, a competition, a partidă and a news item').toBe(12);
+    for (const route of routes) {
+      const meta = await metaOf(request, route);
+      for (const key of ['og:image', 'twitter:image'] as const) {
+        const url = meta[key];
+        expect(url, `${route} ${key}`).toBeTruthy();
+        expect(url, `${route} ${key} is absolute`).toMatch(/^https?:\/\//);
+        expect(SITE_ORIGINS, `${route} ${key} on the site's host (${url})`).toContain(new URL(url).origin);
+      }
+      if (route === '/') continue; // Acasă names og-home.jpg itself (the a1 Acasă test above)
+      // A page under a route group carries ITS route's card, not the root one.
+      expect(new URL(meta['og:image']).pathname.startsWith(`${route}/opengraph-image`), `${route} own card: ${meta['og:image']}`).toBe(true);
+      await expectCard(request, meta['og:image']);
     }
   });
 });
