@@ -58,8 +58,11 @@ export function standardFishRows(columns: ReadonlyArray<ColumnDefinition>, rows:
     const { sector, stand } = parseStand(row.position);
     const noCatch = isNoCatch(row);
     const empty = row.participant === EMPTY_STAND;
-    // As every ranking width: a row without a catch (or an empty stand) is never a winner.
+    // As every ranking width: a row without a catch (or an empty stand) is never a winner (no 🎖️).
     const winner = !!row.isWinner && !noCatch && !empty;
+    // fish's fill reads isWinner alone: a no-catch row in a winning place is the solid sector colour
+    // with white text and its «–» cells, like every other winner row.
+    const solid = !!row.isWinner && !empty;
     const minFish = typeof row.sectorMinNumberOfFish === 'number' ? row.sectorMinNumberOfFish : undefined;
     const marker = penaltyMarker(row.penalties);
     const cells = cols.map((col): FishCell => {
@@ -156,6 +159,7 @@ export function standardFishRows(columns: ReadonlyArray<ColumnDefinition>, rows:
       standSr: `Sector ${sector}, stand ${stand}`,
       color: row.backgroundColor,
       winner,
+      solid,
       cells,
     };
   });

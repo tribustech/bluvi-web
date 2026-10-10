@@ -75,6 +75,11 @@ export type FishRow = {
   /** The sector's colour (a CSS value): the frozen cell's edge and the fills. */
   color: string;
   winner: boolean;
+  /**
+   * fish isWinner as the fill reads it (the 90% sector colour, white text): the place alone, a row
+   * without a catch included. Defaults to `winner` (the prize mark), which a no-catch row never is.
+   */
+  solid?: boolean;
   /** One per column after the first. */
   cells: FishCell[];
   attrs?: Record<string, string | undefined>;
@@ -190,13 +195,14 @@ export function FishTable({
         </thead>
         <tbody>
           {rows.map(row => {
-            const tierWinnerRow = row.winner;
+            const solid = row.solid ?? row.winner;
             return (
               <tr
                 key={row.key}
                 data-stand-id={row.standId}
                 data-registration={row.registrationId}
                 data-winner={row.winner || undefined}
+                data-solid={solid || undefined}
                 {...row.attrs}
                 style={{ '--sector': row.color } as CSSProperties}
                 className="h-10"
@@ -226,7 +232,7 @@ export function FishTable({
                         'relative h-10 t-caption',
                         // fish: 500, bold on the gold and the won-at cell (fillClass).
                         fill !== 'biggest' && fill !== 'tierWin' && 'font-medium!',
-                        fillClass(fill, row.winner, tierWinnerRow),
+                        fillClass(fill, solid, solid),
                       )}
                     >
                       {fill === 'grey' ? (

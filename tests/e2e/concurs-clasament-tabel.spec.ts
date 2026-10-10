@@ -104,6 +104,25 @@ test('§4b.11 — no catch reads «–» in the weight, never «capot» (desktop
   const cell = tr.locator('> *').nth(quantity);
   await expect(cell.locator('span[aria-hidden]')).toHaveText('–');
   await expect(cell.getByText('Fără capturi')).toHaveClass(/sr-only/);
+  // Audit Pescar is 2nd of 2 in one sector (not a winner place): fish's 40% tint, black text.
+  await expect(tr).not.toHaveAttribute('data-solid', /.*/);
+  await expect(cell).toHaveClass(/rank-sector-tint/);
+  // fish: the fill reads isWinner alone — on 24 sectors every no-catch sector winner is the solid
+  // (90%) sector colour with white text and «–» cells, like the other winner rows (fish
+  // 30-comp-live-clasament); still no 🎖️ and no data-winner for it.
+  await open(page, ID.quantity, PHONE);
+  const phoneQty = page.getByRole('region', { name: 'Clasament general', exact: true }).locator('visible=true');
+  const phoneEmpties = phoneQty.locator('tbody tr').filter({ has: page.locator('.sr-only', { hasText: 'Fără capturi' }) });
+  const emptyCount = await phoneEmpties.count();
+  expect(emptyCount).toBeGreaterThan(0);
+  await expect(phoneEmpties.and(page.locator('[data-solid]'))).toHaveCount(emptyCount);
+  await expect(phoneEmpties.and(page.locator('[data-winner]'))).toHaveCount(0);
+  await expect(phoneEmpties.locator('.rank-sector-tint')).toHaveCount(0);
+  await expect(phoneEmpties.locator('[data-mark="prize"]')).toHaveCount(0);
+  const emptyName = phoneEmpties.first().locator('th');
+  await expect(emptyName).toHaveClass(/rank-sector-win/);
+  await expect(emptyName).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await open(page, ID.noCatch, PHONE);
   // Phone: no avatars in the ranking (no room), and still no «capot».
   await expect(page.locator('[data-ranking-face]:visible')).toHaveCount(0);
   await expect(phone).not.toContainText(/capot/i);
