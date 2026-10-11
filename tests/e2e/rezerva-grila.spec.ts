@@ -26,7 +26,7 @@ const AVAIL = /\/api\/cms\/feed\/lakes\/[^/]+\/availability/;
 const QUOTE = /\/api\/cms\/feed\/lakes\/[^/]+\/quote/;
 const COMPETITION = 'k7pdveb49ynob26xjyx4gyy0';
 const SHOTS = '.shots/rezerva-grila';
-const WIDTHS = [375, 1280, 1440, 1920] as const;
+const WIDTHS = [375, 768, 1024, 1280, 1440, 1920] as const;
 /** The mocked 500s (error states) are logged by the browser. */
 const EXPECTED_CONSOLE = [/Failed to load resource: the server responded with a status of 500/];
 
@@ -183,6 +183,17 @@ const runOn = (page: Page, stand: number, day: number) =>
 const dayPill = (page: Page, day: number) => grid(page).getByRole('button', { name: `${pill(day)}, selectează toată ziua` });
 const panel = (page: Page) => page.locator('[data-testid="selection-panel"], [data-testid="selection-card"]').filter({ has: page.getByTestId('selection-start') });
 const alertToast = (page: Page, text: string) => page.getByRole('alert').filter({ hasText: text });
+/** Desktop (≥768): the grid is paged by whole days — the next page (a week at 1280). */
+const nextPeriod = (page: Page) => page.getByRole('button', { name: /^(Săptămâna|Perioada) următoare$/ }).click();
+const prevPeriod = (page: Page) => page.getByRole('button', { name: /^(Săptămâna|Perioada) anterioară$/ });
+/** «11 – 17 oct 2026» — the period label of a page from day `a` to day `b`. */
+const period = (a: number, b: number) => {
+  const x = dayAt(a);
+  const y = dayAt(b);
+  if (x.getFullYear() !== y.getFullYear()) return `${x.getDate()} ${MO[x.getMonth()]} ${x.getFullYear()} – ${y.getDate()} ${MO[y.getMonth()]} ${y.getFullYear()}`;
+  if (x.getMonth() !== y.getMonth()) return `${x.getDate()} ${MO[x.getMonth()]} – ${y.getDate()} ${MO[y.getMonth()]} ${y.getFullYear()}`;
+  return `${x.getDate()} – ${y.getDate()} ${MO[y.getMonth()]} ${y.getFullYear()}`;
+};
 
 async function scrollGridTo(page: Page, x?: number, y?: number) {
   await scroller(page).evaluate(
@@ -232,6 +243,8 @@ test.describe('signed in', () => {
   });
 
   test('c3 c4 c8 c10 c11 c13 c25 c38: header, legend, frozen «Stand» column, day pills, slot chips, the looks', async ({ page }) => {
+    // The phone's scroller: yesterday is its first column (c8); desktop pages start today (own test).
+    await page.setViewportSize({ width: 375, height: 812 });
     const errors = collectConsoleErrors(page);
     await mockAvailability(page);
     await mockQuote(page);
@@ -247,7 +260,8 @@ test.describe('signed in', () => {
     // c8: the first column is yesterday; c10: day pills «Sâmbătă 15 aug», a frozen «Stand» column.
     const pills = grid(page).locator('button[data-day]');
     await expect(pills.first()).toHaveAttribute('aria-label', `${pill(-1)}, selectează toată ziua`);
-    await expect(dayPill(page, 3)).toHaveText(pill(3));
+    // The pill's visible label is the layer right after it (DayHeader: it sticks to the visible part).
+    await expect(dayPill(page, 3).locator('xpath=following-sibling::span[1]').locator('[data-full]')).toHaveText(pill(3));
     await expect(grid(page).getByText('Stand', { exact: true })).toBeVisible();
     await expect(grid(page).locator('[data-row]')).toHaveCount(14);
     // The cabin mark only on the stand with extras.
@@ -310,6 +324,8 @@ test.describe('signed in', () => {
   });
 
   test('c6 c7 c9 / booking.b.live-availability: month pages through /api/cms, re-read on mount and on focus, the next month near the end', async ({ page }) => {
+    // The phone's endless scroller (desktop pages: own test).
+    await page.setViewportSize({ width: 375, height: 812 });
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
     const seen = await mockAvailability(page, {
@@ -360,6 +376,8 @@ test.describe('signed in', () => {
   });
 
   test('c14 c15 c16 / booking.b.lead-time: past → toast; inside the lead time → «Rezervare din scurt», call only with a phone', async ({ page }) => {
+    // The phone's scroller: yesterday is its first column (c8); desktop pages start today (own test).
+    await page.setViewportSize({ width: 375, height: 812 });
     const errors = collectConsoleErrors(page);
     await mockAvailability(page);
     await mockQuote(page);
@@ -477,7 +495,7 @@ test.describe('signed in', () => {
     await expect(panel(page).getByRole('heading', { name: 'Stand 2' })).toBeVisible();
     await expect(grid(page).locator(`button[data-stand="${standId(1)}"][data-status="selected"]`)).toHaveCount(0);
     // A gap (stand 3 is booked day +8 06–18) → restart at the tapped cell.
-    await scrollGridTo(page, 6 * 180);
+    await nextPeriod(page);
     await band(page, 3, 7, '18–06').click();
     await band(page, 3, 8, '18–06').click();
     await expect(selected).toHaveCount(1);
@@ -489,6 +507,8 @@ test.describe('signed in', () => {
   });
 
   test('c20: the day pill selects the whole day on the selected stand; each refusal says why', async ({ page }) => {
+    // The phone's scroller: yesterday is its first column (c8); desktop pages start today (own test).
+    await page.setViewportSize({ width: 375, height: 812 });
     await mockAvailability(page);
     await mockQuote(page);
     await open(page);
@@ -560,7 +580,8 @@ test.describe('signed in', () => {
     await expect(p.getByTestId('selection-duration')).toHaveText('12h noapte');
     await expect(p.getByTestId('selection-rate')).toHaveText('Pachet noapte');
     await expect(p.getByTestId('selection-note')).toHaveText('Poți adăuga extra la pasul următor.');
-    // The same cabin stand by day: per-night extras are not offered.
+    // The same cabin stand by day: per-night extras are not offered (next week's page; the selection is kept).
+    await nextPeriod(page);
     await band(page, 2, 7, '06–18').click();
     await expect(p.getByTestId('selection-duration')).toHaveText('12h zi');
     await expect(p.getByTestId('selection-note')).toHaveText('Plata se face la fața locului.');
@@ -574,7 +595,9 @@ test.describe('signed in', () => {
     await open(page);
     await band(page, 7, 3, '18–06').click();
     const p = panel(page);
-    await expect(p.getByTestId('selection-no-price')).toHaveText('—');
+    // The phone panel's price slot says «—»; the desktop bar shows no price at all (the reason is on its left).
+    if ((page.viewportSize()?.width ?? 0) < 768) await expect(p.getByTestId('selection-no-price')).toHaveText('—');
+    else await expect(p.getByTestId('selection-no-price')).toHaveCount(0);
     await expect(p.getByTestId('selection-refusal')).toHaveText('Balta nu permite plecarea la 06:00.');
     await expect(p.getByTestId('selection-continue')).toHaveAttribute('aria-disabled', 'true');
     // Held: a click does nothing (aria-disabled — it stays focusable).
@@ -710,6 +733,7 @@ test.describe('signed in', () => {
     });
     await mockQuote(page);
     await open(page);
+    await nextPeriod(page);
     await band(page, 1, 7, '06–18').click();
     await expect(panel(page).getByTestId('selection-price')).toBeVisible();
     taken = true;
@@ -753,7 +777,9 @@ test.describe('signed in', () => {
       await expect(p.getByTestId('selection-note')).toHaveText('Avans 30%: 90 lei');
       // Refused («—»): no amount.
       await band(page, 7, 3, '18–06').click();
-      await expect(p.getByTestId('selection-no-price')).toHaveText('—');
+      // The phone panel's price slot says «—»; the desktop bar shows no price at all (the reason is on its left).
+      if ((page.viewportSize()?.width ?? 0) < 768) await expect(p.getByTestId('selection-no-price')).toHaveText('—');
+      else await expect(p.getByTestId('selection-no-price')).toHaveCount(0);
       await expect(p.getByTestId('selection-note')).toHaveCount(0);
       // Failed: no amount.
       await band(page, 8, 3, '18–06').click();
@@ -803,28 +829,85 @@ test.describe('signed in', () => {
     await expect.poll(async () => (await header.boundingBox())?.height ?? 0).toBeGreaterThan(40);
   });
 
-  test('c5 (web): from 1024 the header stays with a selection and the panel is the right summary card', async ({ page }) => {
+  test('c5 (web, owner 2026-10-11): from 768 the header stays with a selection and the panel is the bar docked in the grid card, full width', async ({ page }) => {
     await mockAvailability(page);
     await mockQuote(page);
     await open(page);
+    const bar = page.getByTestId('selection-panel');
     await expect(page.getByTestId('selection-empty')).toContainText('Alege un interval liber');
+    await expect(page.getByTestId('selection-card')).toHaveCount(0);
     await band(page, 1, 3, '06–18').click();
     await expect(page.getByTestId('booking-header')).not.toHaveAttribute('data-collapsed', /.*/);
-    await expect(page.getByTestId('selection-card').getByRole('heading', { name: 'Stand 1' })).toBeVisible();
-    await expect(page.getByTestId('selection-panel')).toHaveCount(0);
-    // The card sits right of the grid.
+    await expect(bar.getByRole('heading', { name: 'Stand 1' })).toBeVisible();
+    await expect(page.getByTestId('selection-empty')).toHaveCount(0);
+    // Inside the grid card, under the rows, as wide as the grid: no card beside it.
     const g = (await grid(page).boundingBox())!;
-    const c = (await page.getByTestId('selection-card').boundingBox())!;
-    expect(c.x).toBeGreaterThan(g.x + g.width);
+    const s = (await scroller(page).boundingBox())!;
+    const c = (await bar.boundingBox())!;
+    expect(Math.abs(c.width - g.width)).toBeLessThanOrEqual(2);
+    expect(c.y).toBeGreaterThanOrEqual(s.y + s.height - 1);
+    expect(c.y + c.height).toBeLessThanOrEqual(g.y + g.height + 1);
+    await bar.getByRole('button', { name: 'Anulează' }).click();
+    await expect(page.getByTestId('selection-empty')).toBeVisible();
+  });
+
+  test('desktop pages (owner 2026-10-11): whole days fill the width, no horizontal scroll; ‹ period ›, «Azi», read ahead; a selection across pages', async ({ page }) => {
+    const seen = await mockAvailability(page);
+    await mockQuote(page);
+    await open(page);
+    // Whole days at a comfortable width, filling the grid exactly: 7 from 1280, fewer below.
+    for (const [w, days] of [[768, 4], [1024, 5], [1280, 7], [1440, 7], [1920, 7]] as const) {
+      await page.setViewportSize({ width: w, height: 900 });
+      await expect(grid(page).locator('button[data-day]')).toHaveCount(days);
+      const geo = await scroller(page).evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }));
+      expect(geo.sw, `no horizontal overflow at ${w}`).toBeLessThanOrEqual(geo.cw);
+      const pills = grid(page).locator('button[data-day]');
+      const last = (await pills.last().boundingBox())!;
+      const box = (await scroller(page).boundingBox())!;
+      // The last pill ends at the grid's right edge (its 3px inset), not short of it.
+      expect(Math.abs(last.x + last.width + 3 - (box.x + geo.cw))).toBeLessThanOrEqual(2);
+      await expect(page.getByTestId('period-label')).toHaveText(period(0, days - 1));
+      await expect(prevPeriod(page)).toHaveAttribute('aria-label', days === 7 ? 'Săptămâna anterioară' : 'Perioada anterioară');
+    }
+    // The first page starts today: nothing before it.
+    await expect(grid(page).locator('button[data-day]').first()).toHaveAttribute('aria-label', `${pill(0)}, selectează toată ziua`);
+    await expect(prevPeriod(page)).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByTestId('period-label')).toHaveAttribute('aria-live', 'polite');
+    // A selection that runs across the page boundary: start on day +6, extend on the next page to day +7.
+    await band(page, 1, 6, '06–18').click();
+    await nextPeriod(page);
+    await expect(page.getByTestId('period-label')).toHaveText(period(7, 13));
+    await expect(prevPeriod(page)).not.toHaveAttribute('aria-disabled', /.*/);
+    await band(page, 1, 7, '06–18').click();
+    const selected = grid(page).locator('button[data-status="selected"]');
+    await expect(selected).toHaveCount(1);
+    await expect(panel(page).getByTestId('selection-start')).toHaveText(point(dayAt(6, 6)));
+    await expect(panel(page).getByTestId('selection-end')).toHaveText(point(new Date(dayAt(7, 18).getTime() - 30 * 60_000)));
+    // Read ahead: once the page after the shown one runs past the loaded months, the next month is asked for.
+    const now = new Date();
+    const nextMonth = iso(new Date(now.getFullYear(), now.getMonth() + 1, 1));
+    for (let i = 2; i < 6 && !seen.includes(nextMonth); i++) {
+      await nextPeriod(page);
+      await expect(page.getByTestId('period-label')).toHaveText(period(7 * i, 7 * i + 6));
+    }
+    await expect.poll(() => seen.includes(nextMonth)).toBe(true);
+    // «Azi» goes back to today's page; the selection stays (its first half is drawn there).
+    await page.getByRole('button', { name: 'Mergi la ziua de azi' }).click();
+    await expect(page.getByTestId('period-label')).toHaveText(period(0, 6));
+    await expect(selected).toHaveCount(1);
+    await expect(selected).toHaveAttribute('aria-label', new RegExp(`^1, ${esc(pill(6))} `));
+    await shot(page, 'pages-selection-across');
+    await expectNoA11yViolations(page);
   });
 
   test('c3 «Azi» + keyboard path: Tab into the grid, arrows move, Enter selects, focus stays on the selection', async ({ page }) => {
     await mockAvailability(page);
     await mockQuote(page);
     await open(page);
-    await scrollGridTo(page, 4000);
+    await nextPeriod(page);
+    await expect(page.getByTestId('period-label')).toHaveText(period(7, 13));
     await page.getByRole('button', { name: 'Mergi la ziua de azi' }).click();
-    await expect.poll(() => scroller(page).evaluate((el) => el.scrollLeft)).toBe(180);
+    await expect(page.getByTestId('period-label')).toHaveText(period(0, 6));
     // The day pills are one tab stop (today), the bands another.
     await page.getByRole('button', { name: 'Mergi la ziua de azi' }).focus();
     await page.keyboard.press('Tab');

@@ -10,12 +10,14 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type ReactNode,
   type Ref,
 } from 'react';
 import { ChevronRightIcon, HomeModernIcon } from '@heroicons/react/24/outline';
 import type { AvailabilityStand, DayHeader as Day, GridSelectionState } from '@/core/booking';
 import { cn } from '@/components/ui/cn';
-import { DayHeader } from './DayHeader';
+import { GRID_CARD } from './BookingFrame';
+import { DayHeader, fitDayLabels } from './DayHeader';
 import { GridBand, type BandMark } from './GridBand';
 import { CELL_H, HEADER_H, PINNED_W, selectionRightPx, standRuns, type GridModel, type GridRun } from './model';
 
@@ -36,6 +38,11 @@ import { CELL_H, HEADER_H, PINNED_W, selectionRightPx, standRuns, type GridModel
  * - a new selection centres its stand's row in the visible rows (c22);
  * - keyboard: one roving tab stop for the bands (arrows move within a row and between rows, Home /
  *   End to a row's ends), another for the day pills; Enter / Space press.
+ *
+ * Desktop pages (≥768, `pageWidthPx`; model.ts pageModel): the model is one page of whole days that
+ * fills the width exactly, so the scroller only scrolls vertically — no snap, no next-month trigger,
+ * no edge fade or chevron (the screen's ‹ › page instead). Days of the page not loaded yet are one
+ * pending placeholder. `onMeasure` reports the scroller's inner width, the page is cut to it.
  */
 
 export type GridHandle = { scrollToToday: () => void };
@@ -58,6 +65,12 @@ type Props = {
   handle?: Ref<GridHandle>;
   /** Operator only: the booked band being looked up / whose booking is open. */
   mark?: GridMark | null;
+  /** Desktop pages: the page's body width (days × day width); the grid never scrolls sideways. */
+  pageWidthPx?: number;
+  /** The scroller's client width, on mount and on every resize (desktop pages are cut to it). */
+  onMeasure?: (width: number) => void;
+  /** Inside the card, under the rows (the desktop selection bar). */
+  footer?: ReactNode;
 };
 
 export function AvailabilityGrid({
@@ -72,7 +85,11 @@ export function AvailabilityGrid({
   onDayPress,
   handle,
   mark = null,
+  pageWidthPx,
+  onMeasure,
+  footer,
 }: Props) {
+  const paged = pageWidthPx !== undefined;
   const scroller = useRef<HTMLDivElement>(null);
   // The mark as a cell range, resolved once per mark (never per band): only its stand's row gets it.
   const markRange = useMemo<MarkRange | null>(() => {
@@ -90,7 +107,9 @@ export function AvailabilityGrid({
     return from < 0 ? null : { from, to, kind: mark.kind };
   }, [mark, model.slots]);
   const { dayWidthPx, bodyWidthPx, days, headerSlots } = model.geometry;
-  const width = PINNED_W + bodyWidthPx + (fetchingNext ? dayWidthPx : 0);
+  /** The not-yet-loaded tail: the rest of a page, or the phone's one incoming month column. */
+  const pendingPx = paged ? Math.max(0, pageWidthPx - bodyWidthPx) : fetchingNext ? dayWidthPx : 0;
+  const width = PINNED_W + bodyWidthPx + pendingPx;
 
   // ── Roving focus: the band that is in the tab order ────────────────────────────────────────
   const [active, setActive] = useState<{ stand: string; cell: number } | null>(null);
@@ -185,9 +204,14 @@ export function AvailabilityGrid({
   }, []);
   useLayoutEffect(() => {
     const el = scroller.current;
-    if (!el || touched.current || dayWidthPx <= 0) return;
+    if (!el) return;
+    if (paged) {
+      el.scrollLeft = 0;
+      return;
+    }
+    if (touched.current || dayWidthPx <= 0) return;
     el.scrollLeft = openOnDay * dayWidthPx;
-  }, [openOnDay, dayWidthPx, bodyWidthPx]);
+  }, [paged, openOnDay, dayWidthPx, bodyWidthPx]);
 
   const armed = useRef(true);
   const selRight = selectionRightPx(model, state);
@@ -195,6 +219,8 @@ export function AvailabilityGrid({
   const check = useCallback(() => {
     const el = scroller.current;
     if (!el) return;
+    fitDayLabels(el, dayWidthPx);
+    if (paged) return;
     const viewport = el.clientWidth - PINNED_W;
     const x = el.scrollLeft;
     const nearEnd = x + viewport >= bodyWidthPx - dayWidthPx * 2;
@@ -204,7 +230,7 @@ export function AvailabilityGrid({
     } else if (!nearEnd) armed.current = true;
     const show = selRight >= 0 && selRight > x + viewport;
     setChevron(prev => (prev === show ? prev : show));
-  }, [bodyWidthPx, dayWidthPx, onReachEnd, selRight]);
+  }, [paged, bodyWidthPx, dayWidthPx, onReachEnd, selRight]);
   // New geometry (a month landed) or a new selection: re-check without waiting for a scroll.
   useEffect(() => {
     check();
@@ -217,11 +243,16 @@ export function AvailabilityGrid({
     if (!el) return;
     const ro = new ResizeObserver(() => {
       setHeight(el.clientHeight);
+      onMeasure?.(el.clientWidth);
       check();
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [check]);
+  }, [check, onMeasure]);
+  // The first width before the first paint, so a desktop page is cut to it before anything shows.
+  useLayoutEffect(() => {
+    if (scroller.current) onMeasure?.(scroller.current.clientWidth);
+  }, [onMeasure]);
   const selectedStand = state?.standDocumentId ?? null;
   useEffect(() => {
     const el = scroller.current;
@@ -253,9 +284,9 @@ export function AvailabilityGrid({
       role="region"
       aria-label="Disponibilitate pe standuri și zile"
       data-testid="availability-grid"
-      className="relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-card border border-hairline bg-surface"
+      className={cn('relative isolate flex min-h-0 flex-1 flex-col overflow-hidden', GRID_CARD)}
     >
-      <div ref={scroller} onScroll={check} onPointerDown={touch} onWheel={touch} onKeyDown={touch} onTouchStart={touch} className="min-h-0 flex-1 overflow-auto overscroll-contain [scrollbar-width:thin]">
+      <div ref={scroller} onScroll={check} onPointerDown={touch} onWheel={touch} onKeyDown={touch} onTouchStart={touch} className={cn('min-h-0 flex-1 overscroll-contain [scrollbar-width:thin]', paged ? 'overflow-x-hidden overflow-y-auto' : 'overflow-auto')}>
         <div className="relative" style={{ width }}>
           <DayHeader
             days={days}
@@ -263,7 +294,7 @@ export function AvailabilityGrid({
             headerSlots={headerSlots}
             dayWidthPx={dayWidthPx}
             bodyWidthPx={bodyWidthPx}
-            fetchingNext={fetchingNext}
+            pendingPx={pendingPx}
             tabDayIndex={todayPill}
             onDayPress={onDayPress}
           />
@@ -280,37 +311,42 @@ export function AvailabilityGrid({
               />
             ))}
           </div>
-          {fetchingNext ? (
+          {pendingPx > 0 ? (
             // One placeholder column for the month being read (fish: not one per row).
             <div
               aria-hidden
               data-testid="grid-next-placeholder"
               className="absolute bottom-0 bg-soft-fill opacity-60"
-              style={{ left: PINNED_W + bodyWidthPx, width: dayWidthPx, top: HEADER_H }}
+              style={{ left: PINNED_W + bodyWidthPx, width: pendingPx, top: HEADER_H }}
             />
           ) : null}
         </div>
       </div>
-      {/* The grid continues past the viewport: a fade on the right edge says so (c23). */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute right-0 bottom-0 w-7 bg-linear-to-r from-transparent to-surface"
-        style={{ top: HEADER_H }}
-      />
-      {/* The selection runs off the right edge: a chevron caps it. */}
-      <div
-        aria-hidden
-        data-testid="grid-edge-hint"
-        data-visible={chevron || undefined}
-        className={cn(
-          'pointer-events-none absolute right-0 bottom-0 flex w-7 items-center justify-center bg-surface/85 text-accent',
-          'transition-opacity duration-(--duration-fast) ease-fast',
-          chevron ? 'opacity-100' : 'opacity-0',
-        )}
-        style={{ top: HEADER_H }}
-      >
-        <ChevronRightIcon className="size-4" />
-      </div>
+      {paged ? null : (
+        <>
+          {/* The grid continues past the viewport: a fade on the right edge says so (c23; fish 0 → 0.9 white). */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute right-0 bottom-0 w-7 bg-linear-to-r from-transparent to-surface/90"
+            style={{ top: HEADER_H }}
+          />
+          {/* The selection runs off the right edge: a chevron caps it. */}
+          <div
+            aria-hidden
+            data-testid="grid-edge-hint"
+            data-visible={chevron || undefined}
+            className={cn(
+              'pointer-events-none absolute right-0 bottom-0 flex w-7 items-center justify-center bg-surface/85 text-accent',
+              'transition-opacity duration-(--duration-fast) ease-fast',
+              chevron ? 'opacity-100' : 'opacity-0',
+            )}
+            style={{ top: HEADER_H }}
+          >
+            <ChevronRightIcon className="size-4" />
+          </div>
+        </>
+      )}
+      {footer}
     </div>
   );
 }
@@ -339,7 +375,8 @@ const StandRow = memo(function StandRow({
         style={{ width: PINNED_W }}
       >
         <span className="t-body max-w-full truncate text-ink">{stand.name}</span>
-        {hasExtras ? <HomeModernIcon data-testid="stand-extras-mark" className="size-3 shrink-0 text-status-success-fg" /> : null}
+        {/* fish EXTRAS_MARK: 12px, gray5 (the legend's glyph is the green one). */}
+        {hasExtras ? <HomeModernIcon data-testid="stand-extras-mark" className="size-3 shrink-0 text-muted" /> : null}
       </div>
       <div className="relative shrink-0 border-b border-hairline" style={{ width: bodyWidthPx }}>
         {runs.map(run => (

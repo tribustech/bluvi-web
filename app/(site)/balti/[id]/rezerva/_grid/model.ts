@@ -123,6 +123,128 @@ export function buildGridModel(merged: MergedAvailability, nowMs: number, scale 
   };
 }
 
+/*
+ * Desktop pages (≥768, owner 2026-10-11: «evităm scroll orizontal … câte o săptămână cu butoane
+ * față/spate»). The grid never scrolls sideways there: it shows as many WHOLE days as fit at a
+ * comfortable width (7 from ~1280, fewer below), stretched to fill the column exactly, and ‹ › page
+ * through them. A page is a view of the same model: the cells (slots, selection, isAvailable) keep
+ * their global indices, only the geometry is cut to the page's days and rescaled — so a selection
+ * can run across pages and every rule stays the phone's.
+ */
+
+/** The narrowest a day column gets on a page (two 12h chips keep their glyph, the pill its weekday). */
+export const PAGE_MIN_DAY_PX = 160;
+/** A page is at most a week. */
+export const PAGE_MAX_DAYS = 7;
+
+/**
+ * How many whole days a page shows in `innerPx` (the grid's width without the stand column), 1–7,
+ * and the day width that fills it exactly. A lake whose own axis is wider than the comfortable
+ * minimum (short slots: 6h, 4h) keeps its own day width as the floor, so no band drops under 44px.
+ */
+export function pageFit(innerPx: number, baseDayPx: number): { days: number; dayPx: number } {
+  const min = Math.max(PAGE_MIN_DAY_PX, baseDayPx);
+  const days = Math.max(1, Math.min(PAGE_MAX_DAYS, Math.floor(innerPx / min)));
+  return { days, dayPx: innerPx / days };
+}
+
+/** Day columns the model holds (yesterday … the end of the last loaded month). */
+export const loadedDayCount = (model: GridModel) =>
+  model.geometry.dayWidthPx > 0 ? Math.round(model.geometry.bodyWidthPx / model.geometry.dayWidthPx) : 0;
+
+const hourOf = (d: Date) => d.getHours() + d.getMinutes() / 60;
+
+/**
+ * Where a page's day column starts, in hours after midnight: the lake's earliest slot start (06:00
+ * for a 06–18 / 18–06 lake, 00:00 for one that starts a slot at midnight, 07:30 for 07:30 / 19:30),
+ * on the clock the grid reads. Each column then runs from that hour to the same hour the next day
+ * and holds every slot that STARTS in it whole — a night is never split across two pages.
+ */
+export function slotShiftHours(model: GridModel): number {
+  let min = Infinity;
+  for (const s of model.slots) {
+    const h = hourOf(new Date(s.start));
+    if (h < min) min = h;
+    if (min === 0) break;
+  }
+  return Number.isFinite(min) ? min : 0;
+}
+
+/**
+ * The day column «now» falls in on a page axis: before the lake's first start hour it is still
+ * yesterday's column (its night slot is the one running).
+ */
+export function pageDayOf(model: GridModel, shift: number): number {
+  return model.todayDayIndex - (hourOf(new Date(model.nowMs)) < shift ? 1 : 0);
+}
+
+/**
+ * The model seen through one page: days [from, from + days) of the model's columns, each column
+ * from the lake's first start hour (slotShiftHours) to the same hour the next day, drawn `dayPx`
+ * wide from x = 0. One band and one header chip per slot that starts on the page, whole (never cut
+ * at midnight or at the page edge); day indices and «today» are page-relative; cells keep their
+ * global indices, so a selection lives outside the page. Days the model has not loaded yet are
+ * absent (`geometry.bodyWidthPx` stops at the loaded end; the grid draws the rest as pending).
+ */
+export function pageModel(model: GridModel, from: number, days: number, dayPx: number, shift = slotShiftHours(model)): GridModel {
+  const g = model.geometry;
+  const loaded = Math.max(0, Math.min(days, loadedDayCount(model) - from));
+  const col0 = columnDate(model, from);
+  const at = (i: number) => {
+    const d = columnDate(model, from + i);
+    d.setHours(Math.floor(shift), Math.round((shift % 1) * 60), 0, 0);
+    return d.getTime();
+  };
+  const ws = at(0);
+  const we = at(days);
+  const right = days * dayPx;
+  const chipOf = new Map(g.headerSlots.map(h => [h.cellIndex, h]));
+  const bands: GridGeometry['bands'] = [];
+  const headerSlots: GridGeometry['headerSlots'] = [];
+  model.slots.forEach((slot, cellIndex) => {
+    const start = new Date(slot.start);
+    const t = start.getTime();
+    if (t < ws || t >= we) return;
+    let col = differenceInCalendarDays(startOfDay(start), col0);
+    let h = hourOf(start) - shift;
+    if (h < 0) {
+      col -= 1;
+      h += 24;
+    }
+    const leftPx = col * dayPx + (h / 24) * dayPx;
+    const widthPx = Math.min(((Date.parse(slot.end) - t) / 86_400_000) * dayPx, right - leftPx);
+    const label = formatInterval(slot.start, slot.end);
+    bands.push({ cellIndex, dayIndex: col, leftPx, widthPx, label, isSegmentOfSplit: false });
+    const chip = chipOf.get(cellIndex);
+    headerSlots.push({ cellIndex, leftPx, widthPx, label: chip?.label ?? label, kind: chip?.kind ?? 'day' });
+  });
+  const dayList: DayHeader[] = [];
+  const labels: string[] = [];
+  g.days.forEach((d, i) => {
+    if (d.dayIndex < from || d.dayIndex >= from + loaded) return;
+    dayList.push({ ...d, dayIndex: d.dayIndex - from });
+    labels.push(model.dayLabels[i]);
+  });
+  return {
+    ...model,
+    geometry: { days: dayList, bands, headerSlots, dayWidthPx: dayPx, bodyWidthPx: loaded * dayPx },
+    dayLabels: labels,
+    todayDayIndex: model.todayDayIndex - from,
+  };
+}
+
+/** The date of the model's day column `i` (0 = the grid's first day). */
+export const columnDate = (model: GridModel, i: number) => addDays(startOfDay(new Date(model.gridFrom)), i);
+
+/** «11 – 17 oct 2026», «28 oct – 3 noi 2026», «29 dec 2026 – 4 ian 2027», «11 oct 2026» — a page's period. */
+export function periodLabel(first: Date, last: Date): string {
+  const dm = (d: Date) => `${d.getDate()} ${formatMonthAbbr(d)}`;
+  if (isSameDay(first, last)) return `${dm(first)} ${first.getFullYear()}`;
+  if (first.getFullYear() !== last.getFullYear()) return `${dm(first)} ${first.getFullYear()} – ${dm(last)} ${last.getFullYear()}`;
+  if (first.getMonth() === last.getMonth()) return `${first.getDate()} – ${dm(last)} ${last.getFullYear()}`;
+  return `${dm(first)} – ${dm(last)} ${last.getFullYear()}`;
+}
+
 /** Every cell of the selection is still free to book now (not taken, not started, past the lead time). */
 export function selectionFree(model: GridModel, state: GridSelectionState | null): boolean {
   if (!state) return false;

@@ -13,7 +13,7 @@ import { CELL_H, HEADER_H, PINNED_W, type GridRun } from './model';
  *
  * Looks (c13): free is white and silent; booked and blocked share one red «indisponibil»; the
  * selection is one indigo pill (c21); a free slot inside the lead time is yellow (c15); a started
- * slot is past — neutral, dashed (c14). Rounded bands touching edge to edge would leave notches,
+ * slot is past — neutral, dashed, washed to 55% (c14, fish pastBand). Rounded bands touching edge to edge would leave notches,
  * so each is inset by 1.5px (fish BAND_INSET): the gutter is intentional.
  */
 
@@ -21,7 +21,8 @@ const INSET = 1.5;
 
 function look(run: GridRun): string {
   if (run.selected) return 'z-above border-2 border-accent-ink bg-accent text-on-accent shadow-glow';
-  if (run.isPast) return 'border border-dashed border-faint bg-page text-muted';
+  // fish PAST: washed history — a near-white fill, a light dashed edge, the whole band at 55%.
+  if (run.isPast) return 'border border-dashed border-faint bg-page text-muted opacity-55';
   if (run.status === 'available' && run.tooSoon) return 'border border-yellow-5 bg-status-warning-bg text-status-warning-fg hover:brightness-97';
   if (run.status === 'available') return 'border border-hairline bg-surface text-ink hover:border-accent hover:bg-accent-tint';
   return 'border border-status-danger-line bg-status-danger-bg text-status-danger-fg';

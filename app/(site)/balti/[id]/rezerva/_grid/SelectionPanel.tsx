@@ -15,10 +15,12 @@ import { cn } from '@/components/ui/cn';
  * it says more — the rate row's own name (c30), the note by extras / payment mode (c33), a refusal or
  * a failed quote with its retry (c31, c32), then «Anulează» and «Continuă» (c35).
  *
- * Non-modal everywhere: no backdrop, the grid stays interactive, nothing traps focus. Below 1024 it
+ * Non-modal everywhere: no backdrop, the grid stays interactive, nothing traps focus. On a phone it
  * is a bottom panel in the page's flow under the grid (the grid gives it its height, so every row
- * can still scroll clear of it — c22); from 1024 the same content is the right column's summary
- * card (owner rule 1).
+ * can still scroll clear of it — c22). From 768 the same content is one bar docked at the bottom of
+ * the grid card, full width (`bar`, owner 2026-10-11: no card beside the grid): stand, period and
+ * the note / refusal on the left; on the right, vertically centred, the price (none on a refusal —
+ * the reason is on the left), the duration chip and the actions.
  */
 
 export type PanelQuote = {
@@ -30,7 +32,7 @@ export type PanelQuote = {
 };
 
 type Props = {
-  variant: 'sheet' | 'card';
+  variant: 'sheet' | 'bar';
   standName: string;
   startISO: string;
   endISO: string;
@@ -73,7 +75,7 @@ export function SelectionPanel({
   const rowLabel = quote?.basis?.rowLabel ?? null;
   const held = !!refusal || total == null || quoting || !!continueHeld;
   const heldNoteId = headingId ? `${headingId}-held` : undefined;
-  const card = variant === 'card';
+  const bar = variant === 'bar';
   const note = selectionNote({ offeredCount, paymentMode, depositPercent, total });
   /** A deposit read off the previous price is as stale as that price while a newer one loads. */
   const noteStale = quoting && total != null && offeredCount === 0 && paymentMode === 'deposit';
@@ -117,10 +119,97 @@ export function SelectionPanel({
     );
   }
 
+  const continueBtn = (
+    // Held, never `disabled`: focus stays on it while a price loads (the T4 demo's HeldButton).
+    <button
+      ref={continueRef}
+      type="button"
+      data-testid="selection-continue"
+      aria-disabled={held || undefined}
+      aria-describedby={continueHeld ? heldNoteId : undefined}
+      onClick={held ? undefined : onContinue}
+      className={buttonClass({ disabled: held, className: bar ? 'min-w-36' : 'flex-[2]' })}
+    >
+      <span aria-hidden className="flex size-5 items-center justify-center [&>svg]:size-5">
+        <CheckCircleIcon />
+      </span>
+      Continuă
+    </button>
+  );
+  const chips = (
+    <div className="flex flex-wrap justify-end gap-1">
+      <span data-testid="selection-duration" className="t-caption rounded-full bg-soft-fill px-2 py-0.5 text-ink-2">
+        {durationLabel(hours, start.getHours())}
+      </span>
+      {rowLabelAddsMeaning(rowLabel, hours) ? (
+        <span data-testid="selection-rate" className="t-caption rounded-full bg-status-success-bg px-2 py-0.5 text-status-success-fg">
+          {rowLabel}
+        </span>
+      ) : null}
+    </div>
+  );
+  const notes = (
+    <>
+      {note ? (
+        <p data-testid="selection-note" data-stale={noteStale || undefined} className={cn('t-body text-muted', noteStale && 'opacity-45')}>
+          {note}
+        </p>
+      ) : null}
+      {refusal ? (
+        <p data-testid="selection-refusal" role="alert" className="t-body text-status-danger-fg">
+          {refusal.message}
+        </p>
+      ) : null}
+    </>
+  );
+  const heldNote = continueHeld ? (
+    <p id={heldNoteId} data-testid="selection-continue-held" className="t-caption text-muted">
+      {continueHeld}
+    </p>
+  ) : null;
+
+  if (bar) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 xl:flex-nowrap">
+        <div className="flex min-w-0 flex-[1_1_20rem] flex-col justify-center gap-1">
+          <h2 id={headingId} className="t-heading text-ink">{`Stand ${standName}`}</h2>
+          {/* One line, start → end; each end never wraps mid-date. */}
+          <p className="t-body flex flex-wrap items-center gap-x-2 text-ink">
+            <span className="sr-only">De la </span>
+            <span data-testid="selection-start" className="whitespace-nowrap">
+              {formatBookingPoint(startISO)}
+            </span>
+            <span aria-hidden className="text-muted">→</span>
+            <span className="sr-only"> până la </span>
+            <span data-testid="selection-end" className="whitespace-nowrap">
+              {formatBookingPoint(endISO, checkoutBufferMinutes)}
+            </span>
+          </p>
+          {notes}
+        </div>
+        <div className="ms-auto flex shrink-0 items-center gap-4">
+          {/* The price, when there is one (a refusal says why on the left; no «—» here), then the duration. */}
+          <div role="status" aria-live="polite" className="flex min-h-9 flex-col items-end justify-center">
+            {refusal ? null : priceSlot}
+          </div>
+          {chips}
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onCancel}>
+                Anulează
+              </Button>
+              {continueBtn}
+            </div>
+            {heldNote}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={cn('flex flex-col', card ? 'gap-4' : 'gap-3 md:gap-4')}>
-      {card ? <p className="t-eyebrow text-muted uppercase">Selecția ta</p> : null}
-      <div className={cn('flex items-start justify-between gap-4', card && 'flex-col gap-3')}>
+    <div className="flex flex-col gap-3 md:gap-4">
+      <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-2.5">
           <h2 id={headingId} className="t-title2 text-ink">{`Stand ${standName}`}</h2>
           {/* Start above, end below, joined by a rail: the period never wraps mid-date. */}
@@ -146,122 +235,23 @@ export function SelectionPanel({
             </dl>
           </div>
         </div>
-        <div className={cn('flex flex-col gap-1', card ? 'items-start' : 'max-w-[45%] shrink-0 items-end')}>
-          <div role="status" aria-live="polite" className={cn('flex min-h-9 flex-col justify-center', card ? 'items-start' : 'items-end')}>
+        <div className="flex max-w-[45%] shrink-0 flex-col items-end gap-1">
+          <div role="status" aria-live="polite" className="flex min-h-9 flex-col items-end justify-center">
             {priceSlot}
           </div>
-          <div className={cn('flex flex-wrap gap-1', card ? 'justify-start' : 'justify-end')}>
-            <span data-testid="selection-duration" className="t-caption rounded-full bg-soft-fill px-2 py-0.5 text-ink-2">
-              {durationLabel(hours, start.getHours())}
-            </span>
-            {rowLabelAddsMeaning(rowLabel, hours) ? (
-              <span data-testid="selection-rate" className="t-caption rounded-full bg-status-success-bg px-2 py-0.5 text-status-success-fg">
-                {rowLabel}
-              </span>
-            ) : null}
-          </div>
+          {chips}
         </div>
       </div>
 
-      {note ? (
-        <p data-testid="selection-note" data-stale={noteStale || undefined} className={cn('t-body text-muted', noteStale && 'opacity-45')}>
-          {note}
-        </p>
-      ) : null}
-      {refusal ? (
-        <p data-testid="selection-refusal" role="alert" className="t-body text-status-danger-fg">
-          {refusal.message}
-        </p>
-      ) : null}
+      {notes}
 
-      <div className={cn('flex gap-3', card && 'flex-col-reverse gap-2.5')}>
-        <Button variant="outline" onClick={onCancel} className={card ? 'w-full' : 'flex-1'}>
-          Anulează
-        </Button>
-        {/* Held, never `disabled`: focus stays on it while a price loads (the T4 demo's HeldButton). */}
-        <button
-          ref={continueRef}
-          type="button"
-          data-testid="selection-continue"
-          aria-disabled={held || undefined}
-          aria-describedby={continueHeld ? heldNoteId : undefined}
-          onClick={held ? undefined : onContinue}
-          className={buttonClass({ disabled: held, className: card ? 'w-full' : 'flex-[2]' })}
-        >
-          <span aria-hidden className="flex size-5 items-center justify-center [&>svg]:size-5">
-            <CheckCircleIcon />
-          </span>
-          Continuă
-        </button>
-      </div>
-      {continueHeld ? (
-        <p id={heldNoteId} data-testid="selection-continue-held" className="t-caption text-muted">
-          {continueHeld}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * The selection, compact, over the docked booking detail (operator.calendar from 1280): the detail
- * takes the right column, but a selection the operator made before opening a booking to compare is
- * still there — its stand, interval, price, «Anulează» and «Continuă» stay in view instead of
- * vanishing behind the detail while the grid's pill says it exists.
- */
-export function SelectionSummary({
-  standName,
-  startISO,
-  endISO,
-  checkoutBufferMinutes,
-  price,
-  onCancel,
-  onContinue,
-  continueHeld = null,
-}: Pick<Props, 'standName' | 'startISO' | 'endISO' | 'checkoutBufferMinutes' | 'price' | 'onCancel' | 'onContinue' | 'continueHeld'>) {
-  const { quote, quoting } = price;
-  const total = quote?.total ?? null;
-  const held = !!quote?.refusal || total == null || quoting || !!continueHeld;
-  return (
-    <section
-      aria-labelledby="selection-summary-heading"
-      data-testid="selection-summary"
-      className="flex shrink-0 flex-col gap-3 rounded-card bg-surface p-4 shadow-[var(--shadow-e1),var(--shadow-e0)]"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="t-eyebrow text-muted uppercase">Selecția ta</p>
-          <h2 id="selection-summary-heading" className="t-body-strong text-ink">{`Stand ${standName}`}</h2>
-          <p className="t-caption text-muted">
-            <span className="whitespace-nowrap">{formatBookingPoint(startISO)}</span>
-            {' – '}
-            <span className="whitespace-nowrap">{formatBookingPoint(endISO, checkoutBufferMinutes)}</span>
-          </p>
-        </div>
-        <p role="status" aria-live="polite" className={cn('t-body-strong shrink-0 text-accent-ink tabular-nums', quoting && 'opacity-45')}>
-          {total != null ? `${lei(total)} lei` : quoting ? <T4Spinner className="text-accent-ink" /> : '—'}
-        </p>
-      </div>
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         <Button variant="outline" onClick={onCancel} className="flex-1">
           Anulează
         </Button>
-        <button
-          type="button"
-          data-testid="selection-summary-continue"
-          aria-disabled={held || undefined}
-          aria-describedby={continueHeld ? 'selection-summary-held' : undefined}
-          onClick={held ? undefined : onContinue}
-          className={buttonClass({ disabled: held, className: "flex-[2]" })}
-        >
-          Continuă
-        </button>
+        {continueBtn}
       </div>
-      {continueHeld ? (
-        <p id="selection-summary-held" className="t-caption text-muted">
-          {continueHeld}
-        </p>
-      ) : null}
-    </section>
+      {heldNote}
+    </div>
   );
 }

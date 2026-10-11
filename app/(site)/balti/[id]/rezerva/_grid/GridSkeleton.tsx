@@ -1,12 +1,14 @@
 import { cn } from '@/components/ui/cn';
+import { GRID_CARD } from './BookingFrame';
 import { CELL_H, HEADER_DAY_H, HEADER_H, PINNED_W } from './model';
 
 /*
  * The grid's own geometry, empty (fish GridSkeleton, c27): header pills and chips, the frozen
  * column and 10 rows × 4 days of ghost bands — so the screen paints its final shape at once and
  * the data fills a frame already parsed. Static: no shimmer on the bands (fish: "motion for its own
- * sake"). The day width is the canonical 06/18 × 12h lake's: 120px, 180 from 768 (model.ts scale);
- * from 768 the ghost runs 8 days so a wide column is not half empty.
+ * sake"). The day width is the canonical 06/18 × 12h lake's: 120px on a phone. From 768 the ghost is
+ * a desktop page (model.ts pageFit): its days fill the card's width — about 4 from 768, 5 from 1024,
+ * 7 from 1280 — under the period navigation's placeholder, over the selection bar's.
  */
 
 const ROWS = 10;
@@ -18,11 +20,18 @@ const at = (d: number, plus: string) => `calc(var(--day) * ${d} + ${plus})`;
 export function GridSkeleton() {
   const days = Array.from({ length: DAYS }, (_, i) => i);
   return (
+    <>
+    <PeriodNavSkeleton />
     <div
       role="status"
       aria-label="Se încarcă disponibilitatea"
       data-testid="availability-skeleton"
-      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-card border border-hairline bg-surface [--day:120px] md:[--day:180px]"
+      className={cn(
+        '@container flex min-h-0 flex-1 flex-col overflow-hidden [--day:120px]',
+        // The page's day width: the card's inner width (less the stand column) over the days a page holds.
+        'md:[--day:calc((100cqw-var(--spacing)*14)/4)] lg:[--day:calc((100cqw-var(--spacing)*14)/5)] xl:[--day:calc((100cqw-var(--spacing)*14)/7)]',
+        GRID_CARD,
+      )}
     >
       <div aria-hidden className="flex shrink-0 border-b border-hairline" style={{ height: HEADER_H }}>
         <div className="shrink-0 border-r border-hairline" style={{ width: PINNED_W }} />
@@ -61,26 +70,21 @@ export function GridSkeleton() {
           </div>
         ))}
       </div>
+      {/* The selection bar's one-line hint (from 768). */}
+      <div aria-hidden className="hidden shrink-0 items-center border-t border-hairline px-4 py-3 md:flex lg:px-5">
+        <span className="h-6 w-2/3 max-w-140 rounded-full bg-soft-fill" />
+      </div>
+    </div>
+    </>
+  );
+}
+
+/** The period navigation (‹ period ›, «Azi»), empty — from 768, over the grid (PeriodNav). */
+export function PeriodNavSkeleton() {
+  return (
+    <div aria-hidden className="hidden shrink-0 items-center justify-center pb-3 md:flex">
+      <span className="h-9 w-72 rounded-full bg-soft-fill" />
     </div>
   );
 }
 
-/**
- * The right column's summary card, empty (from 1024; BookingFrame `aside`): the loading frame has the
- * loaded grid's column split from the first paint, so the grid never jumps narrower when the data
- * lands. The same card shape as the «Selecția ta» empty state.
- */
-export function SelectionCardSkeleton() {
-  return (
-    <div
-      aria-hidden
-      data-testid="selection-card-skeleton"
-      className="flex flex-col gap-3 rounded-card bg-surface p-5 shadow-[var(--shadow-e1),var(--shadow-e0)] xl:p-6"
-    >
-      <span className="h-3 w-24 rounded-full bg-soft-fill" />
-      <span className="h-6 w-48 rounded-full bg-soft-fill" />
-      <span className="h-4 w-full rounded-full bg-soft-fill" />
-      <span className="h-4 w-4/5 rounded-full bg-soft-fill" />
-    </div>
-  );
-}

@@ -23,10 +23,28 @@ import { readFlowParams, stepHref, withFlowQuery, type FlowSelection } from '../
 import { AvailabilityGrid, type GridHandle, type GridMark } from './AvailabilityGrid';
 import { BlockDialog } from './BlockDialog';
 import { BookingFrame } from './BookingFrame';
-import { GridSkeleton, SelectionCardSkeleton } from './GridSkeleton';
+import { GridSkeleton } from './GridSkeleton';
 import { Legend, TodayButton } from './Legend';
-import { buildGridModel, dayIndexOf, dayRefusal, runAction, selectionFree, selectionLabelOf, zoneHint, type GridRun } from './model';
-import { SelectionPanel, SelectionSummary } from './SelectionPanel';
+import {
+  buildGridModel,
+  columnDate,
+  dayIndexOf,
+  dayRefusal,
+  loadedDayCount,
+  pageFit,
+  pageDayOf,
+  pageModel,
+  periodLabel,
+  PINNED_W,
+  runAction,
+  selectionFree,
+  slotShiftHours,
+  selectionLabelOf,
+  zoneHint,
+  type GridRun,
+} from './model';
+import { PeriodNav } from './PeriodNav';
+import { SelectionPanel } from './SelectionPanel';
 import { TooSoonDialog } from './TooSoonDialog';
 
 /*
@@ -50,6 +68,14 @@ import { TooSoonDialog } from './TooSoonDialog';
  *
  * The URL is shared: the grid owns stand / start / end / extra and keeps every other parameter (the
  * walk-in's ?rezervare=) when it writes them (withFlowQuery).
+ *
+ * Desktop (≥768, owner 2026-10-11): no horizontal scroll and no card beside the grid. The grid takes
+ * the whole column and shows one page of whole days (model.ts pageFit / pageModel: 7 from ~1280,
+ * fewer below), paged by ‹ › with the period between (PeriodNav); the page is kept as an offset in
+ * days from today, so a resize keeps its first day. The availability stays the month-paged infinite
+ * read: a page turn reads from what is loaded and asks for the next month once the page after the
+ * shown one runs past it. The selection is the bar docked at the bottom of the grid card (the
+ * phone's panel, laid out in one row); it is state outside the page, so it can run across pages.
  */
 
 /** History-state mark of the entry the first selection pushed (Next's pushState patch adds its own fields). */
@@ -105,7 +131,7 @@ type Props = {
   config?: FlowConfig;
   /** Operator only: a booked band answers with the slot it stands on (fish onBookingPress). */
   onBookedCell?: (cell: BookedCell) => void;
-  /** From 1024: shown in the right column instead of the summary card (the walk-in's booking detail). */
+  /** From 1024: the right column (the walk-in's booking detail, docked while a booking is open). */
   detail?: ReactNode;
   /** Operator only: the booked band being looked up (busy) / whose booking is open (AvailabilityGrid). */
   mark?: GridMark | null;
@@ -126,10 +152,10 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
     bookedRef.current = onBookedCell;
   });
   const bookedOpens = !!onBookedCell;
-  /** From 1024 the panel is the right summary card and the header stays (owner rule 1). */
+  /** From 1024 the walk-in's booking detail docks in a right column. */
   const desktop = useMedia('(min-width: 1024px)');
-  /** From 768 the time axis is drawn 1.5× wider (model.ts scaleGeometry). */
-  const wide = useMedia('(min-width: 768px)');
+  /** From 768 the grid is paged (no horizontal scroll) and the selection is the docked bar. */
+  const paged = useMedia('(min-width: 768px)');
   const search = useSearchParams();
   const [initial] = useState(() => readFlowParams(new URLSearchParams(search.toString())));
 
@@ -140,8 +166,8 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
   const nowMs = Math.max(mountMs, query.dataUpdatedAt);
   const { enforceLeadTime, allowInProgress, blockedCellOpens } = config;
   const model = useMemo(
-    () => (merged ? buildGridModel(merged, nowMs, wide ? 1.5 : 1, { enforceLeadTime, allowInProgress }) : null),
-    [merged, nowMs, wide, enforceLeadTime, allowInProgress]
+    () => (merged ? buildGridModel(merged, nowMs, 1, { enforceLeadTime, allowInProgress }) : null),
+    [merged, nowMs, enforceLeadTime, allowInProgress]
   );
 
   // ── The selection (the URL's, then the grid's) ─────────────────────────────────────────────
@@ -315,6 +341,44 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  // ── Desktop pages ─────────────────────────────────────────────────────────────────────────
+  const openOnDay = model
+    ? live
+      ? dayIndexOf(model, live.start)
+      : sel
+        ? dayIndexOf(model, sel.start)
+        : model.todayDayIndex
+    : 0;
+  /** The grid scroller's inner width (AvailabilityGrid onMeasure); 0 until measured. */
+  const [gridW, setGridW] = useState(0);
+  const fit = model && paged && gridW > PINNED_W ? pageFit(gridW - PINNED_W, model.geometry.dayWidthPx) : null;
+  const pageDays = fit?.days ?? 0;
+  const pageDayPx = fit?.dayPx ?? 0;
+  /** A page's columns start at the lake's first slot hour, so every slot on a page is whole. */
+  const shift = useMemo(() => (model ? slotShiftHours(model) : 0), [model]);
+  /** The first page starts on the column «now» is in (nothing earlier can be booked). */
+  const firstDay = model ? pageDayOf(model, shift) : 0;
+  /** Days from today to the page's first day; null until the seed is judged (the page then holds its day). */
+  const [offset, setOffset] = useState<number | null>(null);
+  const derivedOffset = pageDays ? Math.floor(Math.max(0, openOnDay - firstDay) / pageDays) * pageDays : 0;
+  const pageStart = firstDay + (offset ?? derivedOffset);
+  // Pinned once the seed's verdict is in (during render, like the verdict): clearing or moving the
+  // selection never turns the page.
+  if (offset === null && pageDays && verdict !== 'pending') setOffset(derivedOffset);
+  const view = useMemo(
+    () => (model && pageDays ? pageModel(model, pageStart, pageDays, pageDayPx, shift) : model),
+    [model, pageStart, pageDays, pageDayPx, shift]
+  );
+  const loadedDays = model ? loadedDayCount(model) : 0;
+  // Read ahead: the page after this one must be loaded by the time ‹ › gets there.
+  const wantDays = pageDays ? pageStart + pageDays * 2 : 0;
+  useEffect(() => {
+    if (wantDays > loadedDays && hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [wantDays, loadedDays, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  const goPrev = () => setOffset(Math.max(0, pageStart - firstDay - pageDays));
+  const goNext = () => setOffset(pageStart - firstDay + pageDays);
+  const goToday = () => setOffset(0);
+
   // ── The panel's quote and its way on ───────────────────────────────────────────────────────
   const quoteQ = useFlowQuote(lakeId, live, NO_EXTRAS, config.walkIn);
   const stand = selectionStand(merged, live);
@@ -369,7 +433,7 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
         back={back}
         busy
         legend={<Legend showTooSoon={enforceLeadTime} />}
-        aside={desktop && detail ? detail : <SelectionCardSkeleton />}
+        aside={desktop && detail ? detail : undefined}
       >
         <GridSkeleton />
       </BookingFrame>
@@ -418,8 +482,7 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
   }
 
   const hint = zoneHint(merged.timezone, nowMs);
-  const openOnDay = live ? dayIndexOf(model, live.start) : sel ? dayIndexOf(model, sel.start) : model.todayDayIndex;
-  const panel = (variant: 'sheet' | 'card') =>
+  const panel = (variant: 'sheet' | 'bar') =>
     live && stand ? (
       <SelectionPanel
         variant={variant}
@@ -449,8 +512,9 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
         title={title}
         eyebrow={eyebrow}
         back={back}
-        collapsed={!!live && !desktop}
-        trailing={<TodayButton onClick={() => gridRef.current?.scrollToToday()} />}
+        collapsed={!!live && !paged}
+        // From 768 «Azi» is in the period navigation.
+        trailing={paged ? undefined : <TodayButton onClick={() => gridRef.current?.scrollToToday()} />}
         legend={
           <>
             <Legend showTooSoon={enforceLeadTime} />
@@ -461,47 +525,9 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
             ) : null}
           </>
         }
-        aside={
-          desktop && detail ? (
-            // The docked detail, and over it the live selection, compact: comparing a booking never
-            // hides a selection the grid's pill still shows.
-            <div className="flex min-h-0 flex-1 flex-col gap-3">
-              {live && stand ? (
-                <SelectionSummary
-                  standName={stand.name}
-                  startISO={live.start}
-                  endISO={live.end}
-                  checkoutBufferMinutes={buffer}
-                  price={{ quote: quoteQ.data ?? null, quoting: quoteQ.isFetching, failed: quoteQ.isError, onRetry: () => void quoteQ.refetch() }}
-                  onCancel={clearSelection}
-                  onContinue={onContinue}
-                  continueHeld={continueHeld}
-                />
-              ) : null}
-              <div className="flex min-h-0 flex-1 flex-col">{detail}</div>
-            </div>
-          ) : desktop ? (
-            <section
-              aria-label="Selecția ta"
-              data-testid="selection-card"
-              className="flex flex-col rounded-card bg-surface p-5 shadow-[var(--shadow-e1),var(--shadow-e0)] xl:p-6"
-            >
-              {live ? (
-                panel('card')
-              ) : (
-                <div className="flex flex-col gap-2" data-testid="selection-empty">
-                  <p className="t-eyebrow text-muted uppercase">Selecția ta</p>
-                  <p className="t-heading text-ink">Alege un interval liber</p>
-                  <p className="t-body text-muted">
-                    Atinge un interval alb pe rândul standului dorit, apoi altul pe același rând ca să prelungești. Atinge o zi ca să iei toată ziua.
-                  </p>
-                </div>
-              )}
-            </section>
-          ) : undefined
-        }
+        aside={desktop && detail ? <div className="flex min-h-0 flex-1 flex-col">{detail}</div> : undefined}
         dock={
-          !desktop && live ? (
+          !paged && live ? (
             <section
               aria-label="Selecția ta"
               data-testid="selection-panel"
@@ -512,9 +538,20 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
           ) : undefined
         }
       >
+        {paged && fit && view ? (
+          <PeriodNav
+            label={periodLabel(columnDate(model, pageStart), columnDate(model, pageStart + pageDays - 1))}
+            days={pageDays}
+            prevDisabled={pageStart <= firstDay}
+            nextDisabled={pageStart + pageDays >= loadedDays && !hasNextPage}
+            onPrev={goPrev}
+            onNext={goNext}
+            onToday={goToday}
+          />
+        ) : null}
         <AvailabilityGrid
           handle={gridRef}
-          model={model}
+          model={view ?? model}
           stands={merged.stands}
           state={state}
           selectionLabel={selectionLabelOf(model, state)}
@@ -524,6 +561,22 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
           onBandPress={onBandPress}
           onDayPress={onDayPress}
           mark={mark}
+          pageWidthPx={paged ? pageDays * pageDayPx : undefined}
+          onMeasure={setGridW}
+          footer={
+            paged ? (
+              <section aria-label="Selecția ta" data-testid="selection-panel" className="shrink-0 border-t border-hairline bg-surface px-4 py-3 lg:px-5">
+                {live && stand ? (
+                  panel('bar')
+                ) : (
+                  <p data-testid="selection-empty" className="t-body py-1.5 text-muted">
+                    <span className="t-body-strong text-ink">Alege un interval liber.</span> Atinge un interval alb pe rândul standului,
+                    apoi altul pe același rând ca să prelungești; atinge o zi ca să iei toată ziua.
+                  </p>
+                )}
+              </section>
+            ) : undefined
+          }
         />
       </BookingFrame>
       {children}

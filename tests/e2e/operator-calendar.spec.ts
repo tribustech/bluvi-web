@@ -165,7 +165,6 @@ async function open(page: Page, query = '') {
   await expect(grid(page)).toBeVisible({ timeout: 45_000 });
 }
 const grid = (page: Page) => page.getByTestId('availability-grid');
-const scroller = (page: Page) => grid(page).locator('> div').first();
 const band = (page: Page, stand: string, day: number, interval: string) =>
   grid(page).getByRole('button', { name: new RegExp(`^${esc(stand)}, ${esc(pill(day))} ${esc(interval)}(,|$)`) });
 const panel = (page: Page) =>
@@ -174,12 +173,6 @@ const detail = (page: Page) => page.getByTestId('booking-detail');
 /** Any surface the booking detail could open in (sheet / dialog / docked panel). */
 const anySurface = (page: Page) => page.locator('dialog[open], aside[aria-labelledby]');
 
-async function scrollGridTo(page: Page, x?: number) {
-  await scroller(page).evaluate((el, x) => {
-    if (x !== undefined) el.scrollLeft = x;
-    el.dispatchEvent(new Event('scroll'));
-  }, x);
-}
 async function shot(page: Page, name: string) {
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${SHOTS}/${name}-${page.viewportSize()?.width}.png` });
@@ -326,14 +319,15 @@ test.describe('signed in', () => {
     await expect(docked).toBeVisible();
     await expect(detail(page)).toHaveAttribute('data-booking', fx.walkIn.id);
     await expect(page.getByTestId('booking-detail-angler')).toHaveText('Calendar E2E');
-    await expect(page.getByTestId('selection-empty')).toHaveCount(0);
+    // The selection bar stays under the grid (its hint while nothing is selected), never replaced by the detail.
+    await expect(page.getByTestId('selection-empty')).toBeVisible();
     const g = (await grid(page).boundingBox())!;
     const d = (await docked.boundingBox())!;
     expect(d.x).toBeGreaterThanOrEqual(g.x + g.width);
     releaseDetail();
     await shot(page, 'detail-docked');
     await expectNoA11yViolations(page);
-    // Closed with its X: the summary card is back, the URL loses ?rezervare.
+    // Closed with its X: the grid takes the width back, the URL loses ?rezervare.
     await docked.getByRole('button', { name: 'Închide' }).click();
     await expect(docked).toHaveCount(0);
     await expect(page).not.toHaveURL(/rezervare=/);
@@ -349,24 +343,24 @@ test.describe('signed in', () => {
     expect(errors).toEqual([]);
   });
 
-  test('c6 + c37: a selection and an open booking share the URL — the compact selection stays over the docked detail; reload, then Back clears the selection first', async ({ page }) => {
+  test('c6 + c37: a selection and an open booking share the URL — the selection bar stays under the grid next to the docked detail; reload, then Back clears the selection first', async ({ page }) => {
     await open(page);
     const cur = currentSlot();
     // The bare grid is the first entry; the first selection pushes its own.
     await band(page, fx.inProgress.name, cur.day, cur.label).click();
     await expect(page).toHaveURL(new RegExp(`stand=${fx.inProgress.stand}`));
-    // Open a booking to compare: the selection survives (URL, pill, compact card with its actions).
+    // Open a booking to compare: the selection survives (URL, pill, the selection bar under the grid with its actions).
     const booked = band(page, fx.walkIn.name, fx.walkIn.day, '06–18');
     await booked.click();
     await expect(page).toHaveURL(new RegExp(`rezervare=${fx.walkIn.id}`));
     await expect(page).toHaveURL(new RegExp(`stand=${fx.inProgress.stand}`));
     await expect(page.getByTestId('booking-detail-angler')).toHaveText('Calendar E2E');
-    const summary = page.getByTestId('selection-summary');
+    const summary = page.getByTestId('selection-panel');
     await expect(summary.getByRole('heading', { name: `Stand ${fx.inProgress.name}` })).toBeVisible();
     await expect(summary.getByRole('button', { name: 'Anulează' })).toBeVisible();
-    // Priced and not held for the mount (c9): the compact card's Continuă is live, no note.
-    await expect(summary.getByTestId('selection-summary-continue')).not.toHaveAttribute('aria-disabled', 'true');
-    await expect(summary.getByTestId('selection-summary-continue')).toHaveAccessibleDescription('');
+    // Priced and not held for the mount (c9): the bar's Continuă is live, no note.
+    await expect(summary.getByTestId('selection-continue')).not.toHaveAttribute('aria-disabled', 'true');
+    await expect(summary.getByTestId('selection-continue')).toHaveAccessibleDescription('');
     await expect(grid(page).locator('button[data-status="selected"]')).toHaveCount(1);
     await shot(page, 'selection-and-detail');
     await expectNoA11yViolations(page);
@@ -515,9 +509,11 @@ test.describe('signed in', () => {
       window.dispatchEvent(new Event('visibilitychange'));
     });
     await expect.poll(() => froms.length).toBeGreaterThan(before);
-    // The next month near the end of the grid.
+    // The next month once the page after the shown one runs past the loaded month (desktop pages, ‹ ›).
     const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    await scrollGridTo(page, 1e6);
+    for (let i = 0; i < 6 && !froms.some((f) => f.startsWith(ymd(next))); i++) {
+      await page.getByRole('button', { name: /^(Săptămâna|Perioada) următoare$/ }).click();
+    }
     await expect.poll(() => froms.some((f) => f.startsWith(ymd(next)))).toBe(true);
     // A fresh mount (a return from a later step) reads again.
     const n = froms.length;

@@ -16,11 +16,22 @@ import { cn } from '@/components/ui/cn';
  *   rule 1);
  *   below 1024 the selection panel docked under the grid, in the flow: the grid gives it its height.
  * The page itself never scrolls, so the phone's top bar never conceals and nothing can float.
+ *
+ * Phone (<768, ROADMAP §4b rule 25 — fish book-lake/[lakeId]/index.tsx, screen for screen): there is
+ * no site bar, so the frame is the whole viewport; the ground is white (fish ScrollScreen
+ * backgroundColor="white"), the grid card runs edge to edge (fish `marginHorizontal={-20}`, radius 12)
+ * and reaches down to the home indicator (fish reserves `insets.bottom` under the rows).
  */
 
-/** The viewport under the site bar (56 / 64 from 768) and the offline banner while it shows. */
+/** The viewport under the site bar (none below 768 — rule 25; 64 from 768) and the offline banner while it shows. */
 export const FRAME_H =
-  'h-[calc(100dvh-var(--spacing)*14-var(--shell-banner-h,0px))] md:h-[calc(100dvh-var(--spacing)*16-var(--shell-banner-h,0px))]';
+  'h-[calc(100dvh-var(--shell-banner-h,0px))] md:h-[calc(100dvh-var(--spacing)*16-var(--shell-banner-h,0px))]';
+
+/**
+ * The grid card (the grid and its skeleton): edge to edge on a phone, radius 12 (fish AvailabilityGrid
+ * card: `marginHorizontal={-20}`, borderRadius 12, a hairline); a card in the column from 768.
+ */
+export const GRID_CARD = 'rounded-xl border border-hairline bg-surface max-md:-mx-4 md:rounded-card';
 
 export const BOOKING_TITLE_ID = 'rezerva-title';
 
@@ -46,7 +57,7 @@ type Props = {
 
 export function BookingFrame({ title, eyebrow = 'Rezervă un stand', back, trailing, legend, collapsed = false, aside, dock, busy = false, children }: Props) {
   return (
-    <div className={cn('flex flex-col bg-page', FRAME_H)}>
+    <div className={cn('flex flex-col bg-surface md:bg-page', FRAME_H)}>
       <div
         data-testid="booking-header"
         data-collapsed={collapsed || undefined}
@@ -61,7 +72,16 @@ export function BookingFrame({ title, eyebrow = 'Rezervă un stand', back, trail
           {legend ? <div className={cn('mx-auto w-full pt-3', SHELL_MAX, SHELL_GUTTERS)}>{legend}</div> : null}
         </div>
       </div>
-      <div className={cn('mx-auto flex min-h-0 w-full flex-1 gap-6 pt-3 pb-3 md:pb-4 lg:pb-6', SHELL_MAX, SHELL_GUTTERS)}>
+      <div
+        className={cn(
+          'mx-auto flex min-h-0 w-full flex-1 gap-6 pt-3 md:pb-4 lg:pb-6',
+          // Phone: the grid ends above the home indicator; with the panel docked under it, the panel
+          // carries the safe area (fish bottomReserved: the sheet's height, else insets.bottom).
+          dock ? 'pb-3' : 'pb-[max(--spacing(3),env(safe-area-inset-bottom))]',
+          SHELL_MAX,
+          SHELL_GUTTERS,
+        )}
+      >
         <section aria-labelledby={BOOKING_TITLE_ID} aria-busy={busy || undefined} className="flex min-h-0 min-w-0 flex-1 flex-col">
           {children}
         </section>

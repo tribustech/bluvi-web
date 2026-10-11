@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { mergePages, type LakeAvailability } from '@/core/booking';
-import { buildGridModel, dayRefusal, runAction, selectionFree, selectionLabelOf, selectionNote, standRuns, zoneHint } from './model';
+import {
+  buildGridModel,
+  dayRefusal,
+  loadedDayCount,
+  pageDayOf,
+  pageFit,
+  pageModel,
+  periodLabel,
+  runAction,
+  selectionFree,
+  selectionLabelOf,
+  selectionNote,
+  slotShiftHours,
+  standRuns,
+  zoneHint,
+} from './model';
 
 process.env.TZ = 'Europe/Bucharest';
 
@@ -132,5 +147,70 @@ describe('selectionNote (c33)', () => {
     expect(selectionNote({ offeredCount: 0, paymentMode: 'deposit', depositPercent: 30, total: null })).toBeNull();
     // The extras note does not depend on the price.
     expect(selectionNote({ offeredCount: 2, paymentMode: 'deposit', depositPercent: 30, total: null })).toBe('Poți adăuga extra la pasul următor.');
+  });
+});
+
+describe('desktop pages (owner 2026-10-11)', () => {
+  it('fits whole days at ≥160px (or the lake\'s own day width), at most 7, filling the width exactly', () => {
+    expect(pageFit(1158, 120)).toEqual({ days: 7, dayPx: 1158 / 7 });
+    expect(pageFit(918, 120).days).toBe(5);
+    expect(pageFit(662, 120).days).toBe(4);
+    expect(pageFit(3000, 120).days).toBe(7);
+    expect(pageFit(100, 120)).toEqual({ days: 1, dayPx: 100 });
+    // 6h slots: the lake's 192px day is the floor (no band under 44px).
+    expect(pageFit(1158, 192).days).toBe(6);
+  });
+
+  it('cuts the model to the page on slot boundaries: each column 06:00 → 06:00, every slot whole, global cells', () => {
+    const today = model.todayDayIndex;
+    expect(slotShiftHours(model)).toBe(6);
+    // 12:00 is past the first start hour: the first page starts on today's column.
+    expect(pageDayOf(model, 6)).toBe(today);
+    const p = pageModel(model, today, 7, 160);
+    expect(p.geometry.days.map(d => d.dayIndex)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(p.geometry.days[0].date.getDate()).toBe(7);
+    expect(p.dayLabels[0]).toBe(model.dayLabels[today]);
+    expect(p.geometry.bodyWidthPx).toBe(7 * 160);
+    expect(p.todayDayIndex).toBe(0);
+    // 14 slots, two per column, each half a column, edge to edge from 0 to the page's right edge.
+    expect(p.geometry.bands).toHaveLength(14);
+    p.geometry.bands.forEach((b, i) => {
+      expect(b.leftPx).toBeCloseTo(i * 80);
+      expect(b.widthPx).toBeCloseTo(80);
+    });
+    expect(p.geometry.bands[0].cellIndex).toBe(cellAt('2026-10-07T06:00:00+03:00'));
+    expect(p.geometry.bands[13].cellIndex).toBe(cellAt('2026-10-13T18:00:00+03:00'));
+    expect(p.geometry.headerSlots.map(h => h.kind).slice(0, 2)).toEqual(['day', 'night']);
+    // Runs keep the global cell indices (a selection lives outside the page).
+    const runs = standRuns(p, { documentId: 's1', name: '1' }, null, null);
+    expect(runs[0].firstCell).toBe(cellAt('2026-10-07T06:00:00+03:00'));
+  });
+
+  it('before the first start hour, the first page starts on yesterday\'s column (its night is running)', () => {
+    const early = buildGridModel(mergePages([page]), new Date('2026-10-07T03:00:00+03:00').getTime());
+    expect(pageDayOf(early, slotShiftHours(early))).toBe(early.todayDayIndex - 1);
+  });
+
+  it('a lake starting a slot at midnight keeps calendar days', () => {
+    const m = buildGridModel(mergePages([{ ...page, incrementHours: 6, slotStartTimes: ['00:00', '06:00', '12:00', '18:00'] }]), NOW);
+    expect(slotShiftHours(m)).toBe(0);
+    const p = pageModel(m, m.todayDayIndex, 3, 200);
+    expect(p.geometry.bands).toHaveLength(12);
+    expect(p.geometry.bands[0].leftPx).toBe(0);
+  });
+
+  it('a page past the loaded end holds only the loaded days', () => {
+    const n = loadedDayCount(model);
+    const p = pageModel(model, n - 3, 7, 100);
+    expect(p.geometry.days).toHaveLength(3);
+    expect(p.geometry.bodyWidthPx).toBe(300);
+  });
+
+  it('labels the period', () => {
+    const d = (s: string) => new Date(`${s}T00:00:00`);
+    expect(periodLabel(d('2026-10-11'), d('2026-10-17'))).toBe('11 – 17 oct 2026');
+    expect(periodLabel(d('2026-10-28'), d('2026-11-03'))).toBe('28 oct – 3 noi 2026');
+    expect(periodLabel(d('2026-12-29'), d('2027-01-04'))).toBe('29 dec 2026 – 4 ian 2027');
+    expect(periodLabel(d('2026-10-11'), d('2026-10-11'))).toBe('11 oct 2026');
   });
 });
