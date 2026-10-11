@@ -14,6 +14,8 @@
  * both are gone; the scroll position is never touched, so nothing needs restoring.
  */
 let count = 0;
+/** Bumped by a forced release: a releaser from before it has nothing left to undo. */
+let pageGen = 0;
 let saved: { root: string } | null = null;
 let startX = 0;
 let startY = 0;
@@ -79,16 +81,72 @@ export function lockPageScroll(): () => void {
     document.addEventListener('touchstart', onTouchStart, { passive: true, capture: true });
     document.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
   }
+  const gen = pageGen;
   let released = false;
   return () => {
     if (released) return;
     released = true;
-    if (--count > 0 || !saved) return;
-    const root = document.documentElement;
-    root.style.cssText = saved.root;
-    saved = null;
-    delete root.dataset.scrollLocked;
-    document.removeEventListener('touchstart', onTouchStart, { capture: true });
-    document.removeEventListener('touchmove', onTouchMove, { capture: true });
+    // Force-released since (releaseOrphanLocks): nothing left to undo.
+    if (gen !== pageGen) return;
+    if (--count > 0) return;
+    releasePage();
   };
+}
+
+function releasePage() {
+  count = 0;
+  pageGen++;
+  const root = document.documentElement;
+  if (saved) root.style.cssText = saved.root;
+  saved = null;
+  delete root.dataset.scrollLocked;
+  document.removeEventListener('touchstart', onTouchStart, { capture: true });
+  document.removeEventListener('touchmove', onTouchMove, { capture: true });
+}
+
+/* ------------------------------------------------------------------ the full-screen map's lock */
+
+/**
+ * A full-screen map (T2Viewport, phone) takes the document's scroll away: `html[data-viewport-lock]`
+ * (globals.css, below 768). Owned by the mounted map — set in its layout effect, removed in that
+ * effect's cleanup — never inferred from the DOM: Next's cacheComponents keeps the previous route
+ * mounted but hidden (React <Activity>), so a `:has([data-viewport-lock])` rule kept the lake page
+ * reached from the map, /balti reached back from it, any tab, unscrollable (owner 2026-10-11).
+ * Activity runs the cleanup when it hides the route, and the effect again when it shows it.
+ */
+let viewportLocks = 0;
+let viewportGen = 0;
+
+export function lockViewport(): () => void {
+  if (typeof document === 'undefined') return () => {};
+  if (viewportLocks++ === 0) document.documentElement.dataset.viewportLock = '';
+  const gen = viewportGen;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    if (gen !== viewportGen) return;
+    if (--viewportLocks > 0) return;
+    releaseViewport();
+  };
+}
+
+function releaseViewport() {
+  viewportLocks = 0;
+  viewportGen++;
+  delete document.documentElement.dataset.viewportLock;
+}
+
+/** A visible (not display:none, not in a hidden <Activity>) element. */
+const shown = (el: Element) => el.getClientRects().length > 0;
+
+/**
+ * After a navigation (ShellScrollGuard, on every pathname change): a lock whose owner is no longer
+ * on screen is released. Belt and braces — every lock is released by its owner's cleanup; this
+ * only guarantees a new page is never left unscrollable by one that leaked.
+ */
+export function releaseOrphanLocks() {
+  if (typeof document === 'undefined') return;
+  if (viewportLocks > 0 && ![...document.querySelectorAll('[data-viewport-frame]')].some(shown)) releaseViewport();
+  if (count > 0 && ![...document.querySelectorAll('dialog[open]')].some(shown)) releasePage();
 }

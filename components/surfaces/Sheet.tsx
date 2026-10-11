@@ -1,12 +1,17 @@
 'use client';
 
-import { useId, useRef, useState, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/components/ui/cn';
 import { useModalDialog } from './useModalDialog';
 import { DISMISS_MS, useSheetDrag } from './useSheetDrag';
 
-/** `fit`: as tall as the content (capped at 92%) — a short informational sheet, no dead space. */
+/**
+ * The opening rest for content TALLER than the sheet's 92% cap: 50% / 90% of the visible height, or
+ * `fit` (the cap). Content that fits under the cap ignores it (owner 2026-10-11, fish gorhom's
+ * dynamic sizing): the sheet is exactly as tall as its content, the footer right under it, no
+ * empty band — and has that one rest.
+ */
 export type SheetSnap = 0.5 | 0.9 | 'fit';
 
 /**
@@ -14,7 +19,9 @@ export type SheetSnap = 0.5 | 0.9 | 'fit';
  * the <dialog> by useModalDialog; the full dynamic viewport until it is known.
  */
 const VH = 'var(--vv-h,100dvh)';
-const SNAP_HEIGHT = { 0.5: `calc(${VH}*0.5)`, 0.9: `calc(${VH}*0.9)` } as const;
+const SNAP_HEIGHT = { 0.5: `calc(${VH}*0.5)`, 0.9: `calc(${VH}*0.9)`, fit: `calc(${VH}*0.92)` } as const;
+/** The tallest a sheet gets (its max-height). */
+const MAX = 0.92;
 
 type Props = {
   open: boolean;
@@ -42,8 +49,9 @@ type Props = {
 /**
  * THE phone bottom sheet (<768) — every phone sheet of the site is this one (directly, through
  * ResponsiveSurface, or ModalSurface's sheet), behaving as fish's gorhom sheets:
- *  - rests at its initial snap (50% of the visible height, or `fit` — the content's own height) and
- *    90%; the handle / header drags it, with momentum (sheetPhysics, the lakes map sheet's model);
+ *  - content that fits under the 92% cap: exactly as tall as it, the footer right under it, one
+ *    rest (fish gorhom's dynamic sizing). Taller content: rests at its initial snap (50%, or `fit`:
+ *    the cap) and 90%, the body scrolling, the footer pinned; the handle / header drags it, with momentum (sheetPhysics, the lakes map sheet's model);
  *    pulling down on the content while it is scrolled to its top drags it too; dragged / flicked low
  *    enough it slides away and closes. The handle is also a button (Enter/Space toggles initial ↔ 90).
  *  - the content scrolls inside (only when taller than the sheet) and never hands the scroll on;
@@ -79,8 +87,50 @@ export function Sheet({
   const body = useRef<HTMLDivElement>(null);
   /** The other end of the handle's toggle: 90%, or back to the initial snap (0.5 when that is 90). */
   const low: SheetSnap = initialSnap === 0.9 ? 0.5 : initialSnap;
-  /** The fitted height last seen (px): where a `fit` sheet returns to from 90%. */
-  const fitPx = useRef(0);
+  const header = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const foot = useRef<HTMLDivElement>(null);
+  /**
+   * The sheet's natural height (px): header + the body's content and padding + footer — what it
+   * would be with no cap — when it fits under the cap; null while unknown or taller. Measured when
+   * it opens (before the first paint: useModalDialog shows the <dialog> in a layout effect) and
+   * whenever the content, the footer or the visible area resize (data streaming in, the keyboard).
+   * Within one opening it only grows: a search whose answer shortens while typing keeps its height
+   * (no sheet jumping under the finger); once taller than the cap it stays on its snaps.
+   */
+  const [natural, setNatural] = useState<number | null>(null);
+  const naturalRef = useRef<number | null>(null);
+  const hasFooter = footer != null;
+  useLayoutEffect(() => {
+    if (!open) return;
+    let peak = 0;
+    let tall = false;
+    const measure = () => {
+      const b = body.current;
+      const c = content.current;
+      if (!b || !c || !c.getClientRects().length) return;
+      const pad = getComputedStyle(b);
+      const px = Math.ceil(
+        (header.current?.offsetHeight ?? 0) +
+          parseFloat(pad.paddingTop) +
+          parseFloat(pad.paddingBottom) +
+          c.offsetHeight +
+          (foot.current?.offsetHeight ?? 0),
+      );
+      const h = dialog.ref.current?.clientHeight || window.innerHeight;
+      peak = Math.max(peak, px);
+      tall ||= peak > MAX * h;
+      const fits = tall ? null : peak;
+      naturalRef.current = fits;
+      setNatural(fits);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    for (const el of [content.current, header.current, foot.current, dialog.ref.current]) if (el) ro.observe(el);
+    return () => ro.disconnect();
+    // dialog.ref is a stable ref object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, hasFooter]);
 
   const drag = useSheetDrag({
     open,
@@ -89,10 +139,10 @@ export function Sheet({
     scrollerRef: body,
     rests: () => {
       const h = dialog.ref.current?.clientHeight || window.innerHeight;
-      // A `fit` sheet's low rest is its own height, measured while it rests there.
-      const lowPx = low === 'fit' ? (snap === 'fit' ? (panel.current?.offsetHeight ?? h / 2) : fitPx.current || h / 2) : low * h;
-      if (snap === 'fit') fitPx.current = lowPx;
-      return [lowPx, 0.9 * h];
+      // Content that fits: one rest, its own height. Taller: the snaps.
+      const fit = naturalRef.current;
+      if (fit !== null) return [fit, fit];
+      return [low === 'fit' ? MAX * h : low * h, 0.9 * h];
     },
     restIndex: () => (snap === 0.9 ? 1 : 0),
     dismissible: true,
@@ -100,7 +150,8 @@ export function Sheet({
     onClose,
   });
 
-  const height = snap === 'fit' ? undefined : SNAP_HEIGHT[snap];
+  // Content that fits: its own height. Taller (or not measured yet): the snap.
+  const height = natural !== null ? `${natural}px` : SNAP_HEIGHT[snap];
 
   return (
     <dialog
@@ -132,6 +183,7 @@ export function Sheet({
         )}
       >
         <div
+          ref={header}
           {...drag.handleProps}
           data-sheet-handle=""
           className={cn('relative shrink-0 px-5 pt-2.5 pb-3', !fixed && 'cursor-grab touch-none select-none active:cursor-grabbing')}
@@ -161,7 +213,7 @@ export function Sheet({
               <span aria-hidden className="h-1 w-9 rounded-full bg-handle" />
             </button>
           )}
-          <h2 id={titleId} className={titleHidden ? 'sr-only' : cn('t-heading', closeButton && 'pr-10')}>
+          <h2 id={titleId} tabIndex={-1} className={cn('outline-none', titleHidden ? 'sr-only' : cn('t-heading', closeButton && 'pr-10'))}>
             {title}
           </h2>
           {subtitle ? <div className={cn('t-caption text-muted', closeButton && 'pr-10')}>{subtitle}</div> : null}
@@ -175,10 +227,13 @@ export function Sheet({
             footer ? 'pb-4' : 'pb-[max(--spacing(4),env(safe-area-inset-bottom))]',
           )}
         >
-          {children}
+          {/* flow-root: the content's own margins count in its measured height. */}
+          <div ref={content} data-sheet-content="" className="flow-root">
+            {children}
+          </div>
         </div>
         {footer ? (
-          <div className="shrink-0 border-t border-hairline px-5 pt-3 pb-[max(16px,env(safe-area-inset-bottom))]">
+          <div ref={foot} className="shrink-0 border-t border-hairline px-5 pt-3 pb-[max(16px,env(safe-area-inset-bottom))]">
             {footer}
           </div>
         ) : null}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type MouseEvent, type SyntheticEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, type MouseEvent, type SyntheticEvent } from 'react';
 import { lockPageScroll } from './scrollLock';
 
 /**
@@ -13,12 +13,22 @@ import { lockPageScroll } from './scrollLock';
  * strip under it — the keyboard). Without a keyboard they are 0 / the full height / 0.
  * `backdrop: false`: a click on the backdrop does nothing (fish's non-dismissable backdrop); Escape
  * still calls onClose.
+ *
+ * Initial focus (owner rule 8: no focus ring on programmatic focus): showModal() focuses the first
+ * control — a sheet's drag handle, a close X — and iOS Safari draws its keyboard ring on it. When
+ * that is where it lands, the title (the dialog's aria-labelledby, tabIndex -1, no outline) takes it
+ * instead: a screen reader starts at the name, nobody sees a ring, Tab goes on to the controls.
+ * A host that wants a field focused still moves focus in its own effect, after this one.
+ *
+ * The <dialog> is shown in a LAYOUT effect, so a sheet can measure its content before the first
+ * paint, and closed in that effect's cleanup: a route hidden by React's <Activity> (Next's
+ * cacheComponents keeps the previous page mounted) must not leave a modal open in the top layer.
  */
 export function useModalDialog(open: boolean, onClose: () => void, { backdrop = true }: { backdrop?: boolean } = {}) {
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLElement | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const d = ref.current;
     if (!d) return;
     // Who had focus before: a dialog unmounted while open (a host that renders it only when open)
@@ -26,9 +36,23 @@ export function useModalDialog(open: boolean, onClose: () => void, { backdrop = 
     if (open && !d.open) {
       opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       d.showModal();
+      const active = document.activeElement;
+      const title = document.getElementById(d.getAttribute('aria-labelledby') ?? '');
+      if (title && d.contains(title) && active instanceof Element && d.contains(active) && active.closest('[data-sheet-handle], [data-dialog-chrome]')) {
+        if (!title.hasAttribute('tabindex')) title.tabIndex = -1;
+        title.focus({ preventScroll: true });
+      }
     }
     if (!open && d.open) d.close();
     if (!open) return;
+    return () => {
+      if (d.open) d.close();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    const d = ref.current;
+    if (!d || !open) return;
     const unlock = lockPageScroll();
     const vv = window.visualViewport;
     const sync = () => {

@@ -15,7 +15,7 @@ import { cn } from '@/components/ui/cn';
  * presentation, which Dialog / Sheet do not have (first used by the Concursuri search and filters).
  *
  *  - phone (<768): `fullScreen` fills the screen (fish CompetitionsSearchScreen, a full-screen
- *    Modal); otherwise an 85% bottom sheet (fish CompetitionFiltersSheet, snap 85%) with the kit
+ *    Modal); otherwise a bottom sheet as tall as its content, at most 85% (fish CompetitionFiltersSheet, snap 85%) with the kit
  *    Sheet's handle and gesture (useSheetDrag: drag the header, or pull the content down from its
  *    top, to dismiss), sitting above the iOS keyboard (the visual viewport, useModalDialog);
  *  - from 768: a dialog (e2). The search is anchored near the top and grows DOWNWARD with its
@@ -73,8 +73,10 @@ export function ModalSurface({
         drag.dismissing && 'ease-out',
         fullScreen
           ? 'max-md:fixed max-md:inset-x-0 max-md:top-(--vv-top,0px) max-md:bottom-auto max-md:m-0 max-md:h-(--vv-h,100dvh) max-md:max-h-none max-md:w-full max-md:translate-y-0 max-md:starting:translate-y-6 max-md:starting:opacity-0'
-          : // The bottom follows the visual viewport (the iOS keyboard's top), the height the visible area.
-            'max-md:fixed max-md:inset-x-0 max-md:top-auto max-md:bottom-(--vv-bottom,0px) max-md:m-0 max-md:h-[min(85dvh,calc(var(--vv-h,100dvh)*0.92))] max-md:max-h-none max-md:w-full max-md:overflow-clip max-md:rounded-t-card max-md:translate-y-0 max-md:starting:translate-y-full',
+          : // The bottom follows the visual viewport (the iOS keyboard's top). As tall as its content, at
+            // most 85% (owner 2026-10-11: a short sheet hugs it, its footer right under it, fish gorhom's
+            // dynamic sizing); taller content scrolls in the body, the footer pinned.
+            'max-md:fixed max-md:inset-x-0 max-md:top-auto max-md:bottom-(--vv-bottom,0px) max-md:m-0 max-md:h-auto max-md:max-h-[min(85dvh,calc(var(--vv-h,100dvh)*0.92))] max-md:w-full max-md:overflow-clip max-md:rounded-t-card max-md:translate-y-0 max-md:starting:translate-y-full',
         // From 768: the kit Dialog's frame, a little wider for the search's two-line rows. The search
         // is top-anchored (as the ⌘K palette), so growing with its suggestions never moves the field;
         // the centred filters keep a FIXED height, their sub-views (Filtre / Perioadă / Județ)
@@ -93,6 +95,7 @@ export function ModalSurface({
       ) : null}
       <div
         {...(sheet ? drag.handleProps : null)}
+        data-dialog-chrome=""
         className={cn('flex shrink-0 items-center gap-1 px-5 pt-3 pb-2', !fullScreen && 'border-b border-hairline pb-3', sheet && 'touch-none pt-1 select-none')}
       >
         {back ? (
@@ -102,7 +105,7 @@ export function ModalSurface({
         ) : null}
         {/* The title steps as the kit hosts do: from 768 the kit Dialog's t-title2 for both; on the
             phone the full-screen search's screen title (t-title1), the filters' sheet t-heading. */}
-        <h2 id={titleId} className={cn('min-w-0 flex-1 truncate', fullScreen ? 't-title1 md:t-title2' : 't-heading md:t-title2')}>
+        <h2 id={titleId} tabIndex={-1} className={cn('min-w-0 flex-1 truncate outline-none', fullScreen ? 't-title1 md:t-title2' : 't-heading md:t-title2')}>
           {title}
         </h2>
         <IconButton aria-label="Închide" onClick={onClose} className="-mr-3">

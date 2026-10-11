@@ -872,14 +872,16 @@
     background: var(--color-page);
   }
   /*
-   * Phone, iOS Safari (owner 2026-10-10). A full-screen map (T2Viewport, data-viewport-lock) is a
+   * Phone, iOS Safari (owner 2026-10-10). A full-screen map (T2Viewport → html[data-viewport-lock],
+   * set and released by the mounted map: scrollLock `lockViewport`, never a `:has()` — a hidden
+   * cached route still matches one, owner 2026-10-11) is a
    * fixed, non-scrolling window like fish: the document never scrolls or rubber-bands, so the
    * floating header can't be dragged under the status bar — only the bottom sheet's list scrolls.
    * The sign-in welcome (/intra) is deep water through the bottom edge and the overscroll.
    */
   @media (width < 48rem) {
-    html:has([data-viewport-lock]),
-    html:has([data-viewport-lock]) body {
+    html[data-viewport-lock],
+    html[data-viewport-lock] body {
       height: 100%;
       overflow: hidden;
       overscroll-behavior: none;

@@ -1,10 +1,11 @@
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { SHELL_MAX } from '@/components/nav/shell';
 import { cn } from '@/components/ui/cn';
 import { ForcedSession, type ForcedSessionRule } from './ForcedSession';
 import { getShellSession, getViewerState } from './session';
 import { NavigationGuard } from './NavigationGuard';
 import { NetworkBanner } from './NetworkBanner';
+import { ScrollLockGuard } from './ScrollLockGuard';
 import { BottomTabBar } from './BottomTabBar';
 import { BreadcrumbProvider, PageBreadcrumbs } from './SiteHeader';
 import { SiteTopBar } from './SiteTopBar';
@@ -23,7 +24,7 @@ import { ViewerProvider } from './viewer-context';
  *   border, 64px;
  * - the «Sari la conținut» skip link, the #shell-scroll-sentinel (the bar lifts once the page
  *   scrolls under it), the offline banner under the bar (NetworkBanner), the navigation
- *   double-activation guard (NavigationGuard), and from 768 the breadcrumb band of pages deeper than a section — unless
+ *   double-activation guard (NavigationGuard), the scroll-lock guard (ScrollLockGuard), and from 768 the breadcrumb band of pages deeper than a section — unless
  *   the route renders its own band on the server (SiteHeader ownsBreadcrumbBand);
  * - width (owner decision 2026-10-04): the bar's surface is full width; its row, the breadcrumb
  *   band and <main> share one column, full width up to 1680 of content (SHELL_MAX = 1680 + 2×32
@@ -56,6 +57,11 @@ export function SiteShell({ children, forced }: { children: ReactNode; forced?: 
       </a>
       {/* One listener: a second activation of the same link while it is loading is dropped. */}
       <NavigationGuard />
+      {/* A page-scroll lock never outlives its owner across a navigation (usePathname: in its own
+          Suspense, so it never makes a page dynamic). */}
+      <Suspense fallback={null}>
+        <ScrollLockGuard />
+      </Suspense>
       <ToastProvider>
         <BreadcrumbProvider>
           {/* Below 768, while the bottom tab bar is on the page ([data-tab-bar], tab roots only), its

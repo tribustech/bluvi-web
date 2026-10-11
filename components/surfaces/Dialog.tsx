@@ -72,7 +72,7 @@ export function Dialog({
       <div className={cn('flex flex-col gap-2 p-5', scrollBody && 'min-h-0 flex-1 overflow-y-auto overscroll-contain')}>
         <div className={cn('flex items-start gap-3', scrollBody && 'shrink-0')}>
           <div className="min-w-0 flex-1">
-            <h2 id={titleId} className={titleHidden ? 'sr-only' : 't-title2'}>
+            <h2 id={titleId} tabIndex={-1} className={cn('outline-none', titleHidden ? 'sr-only' : 't-title2')}>
               {title}
             </h2>
             {subtitle ? <div className="t-caption text-muted">{subtitle}</div> : null}
@@ -82,6 +82,7 @@ export function Dialog({
               type="button"
               onClick={onClose}
               aria-label="Închide"
+              data-dialog-chrome=""
               className="-mt-2 -mr-2 flex size-10 shrink-0 items-center justify-center rounded-control text-ink-2 hover:bg-soft-fill"
             >
               <XMarkIcon className="size-5" aria-hidden />

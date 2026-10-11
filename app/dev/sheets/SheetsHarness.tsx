@@ -7,7 +7,7 @@ import { Sheet, type SheetSnap } from '@/components/surfaces/Sheet';
 import { Button } from '@/components/ui/Button';
 
 type Open =
-  | { kind: 'sheet'; snap: SheetSnap; rows: number; field?: boolean }
+  | { kind: 'sheet'; snap: SheetSnap; rows: number; field?: boolean; footer?: boolean }
   | { kind: 'responsive' }
   | { kind: 'modal'; fullScreen: boolean }
   | null;
@@ -32,6 +32,10 @@ export function SheetsHarness() {
         <Button variant="secondary" onClick={() => setOpen({ kind: 'sheet', snap: 'fit', rows: 3 })}>
           Foaie scurtă
         </Button>
+        {/* A short sheet at the 50% snap with a footer: it hugs its content (owner 2026-10-11). */}
+        <Button variant="secondary" onClick={() => setOpen({ kind: 'sheet', snap: 0.5, rows: 3, footer: true })}>
+          Foaie mică
+        </Button>
         <Button variant="secondary" onClick={() => setOpen({ kind: 'sheet', snap: 0.9, rows: 8, field: true })}>
           Foaie cu câmp
         </Button>
@@ -54,7 +58,7 @@ export function SheetsHarness() {
         title="Foaie de probă"
         initialSnap={open?.kind === 'sheet' ? open.snap : 0.5}
         footer={
-          open?.kind === 'sheet' && open.field ? (
+          open?.kind === 'sheet' && (open.field || open.footer) ? (
             <Button block onClick={close}>
               Salvează
             </Button>
