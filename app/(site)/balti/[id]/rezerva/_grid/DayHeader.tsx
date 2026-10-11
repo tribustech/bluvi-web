@@ -83,6 +83,8 @@ type Props = {
   /** The day whose pill is the tab stop (today, else the first). */
   tabDayIndex: number;
   onDayPress: (day: Day) => void;
+  /** Where the row pins (desktop pages pin it under the site bar, on the page's scroll); default the scroller's top. */
+  pinClassName?: string;
 };
 
 export const DayHeader = memo(function DayHeader({
@@ -94,6 +96,7 @@ export const DayHeader = memo(function DayHeader({
   pendingPx,
   tabDayIndex,
   onDayPress,
+  pinClassName,
 }: Props) {
   const width = bodyWidthPx + pendingPx;
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -109,7 +112,7 @@ export const DayHeader = memo(function DayHeader({
     target.focus();
   };
   return (
-    <div className="sticky top-0 z-sticky flex border-b border-hairline bg-surface" style={{ height: HEADER_H, width: PINNED_W + width }}>
+    <div className={cn('sticky top-0 z-sticky flex border-b border-hairline bg-surface', pinClassName)} style={{ height: HEADER_H, width: PINNED_W + width }}>
       <div
         aria-hidden
         className="t-caption sticky left-0 z-above flex shrink-0 items-center justify-center border-r border-hairline bg-surface text-muted"

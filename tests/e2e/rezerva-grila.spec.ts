@@ -186,14 +186,24 @@ const alertToast = (page: Page, text: string) => page.getByRole('alert').filter(
 /** Desktop (≥768): the grid is paged by whole days — the next page (a week at 1280). */
 const nextPeriod = (page: Page) => page.getByRole('button', { name: /^(Săptămâna|Perioada) următoare$/ }).click();
 const prevPeriod = (page: Page) => page.getByRole('button', { name: /^(Săptămâna|Perioada) anterioară$/ });
-/** «11 – 17 oct 2026» — the period label of a page from day `a` to day `b`. */
-const period = (a: number, b: number) => {
-  const x = dayAt(a);
-  const y = dayAt(b);
-  if (x.getFullYear() !== y.getFullYear()) return `${x.getDate()} ${MO[x.getMonth()]} ${x.getFullYear()} – ${y.getDate()} ${MO[y.getMonth()]} ${y.getFullYear()}`;
-  if (x.getMonth() !== y.getMonth()) return `${x.getDate()} ${MO[x.getMonth()]} – ${y.getDate()} ${MO[y.getMonth()]} ${y.getFullYear()}`;
-  return `${x.getDate()} – ${y.getDate()} ${MO[y.getMonth()]} ${y.getFullYear()}`;
-};
+/**
+ * Desktop (≥768): turns the pages (Monday-anchored) until day `d` is on screen; a no-op on the
+ * phone's scroller, where every loaded day is in the DOM.
+ */
+async function goTo(page: Page, d: number) {
+  if (!(await page.getByTestId('period-nav').count())) return;
+  const want = `${pill(d)}, selectează toată ziua`;
+  for (let i = 0; i < 10; i++) {
+    const labels = await grid(page).locator('button[data-day]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+    if (labels.includes(want)) return;
+    const first = labels[0] ?? '';
+    let at = 0;
+    for (let k = -14; k < 60; k++) if (`${pill(k)}, selectează toată ziua` === first) at = k;
+    if (d < at) await prevPeriod(page).click();
+    else await nextPeriod(page);
+    await expect(grid(page).locator('button[data-day]').first()).not.toHaveAttribute('aria-label', first);
+  }
+}
 
 async function scrollGridTo(page: Page, x?: number, y?: number) {
   await scroller(page).evaluate(
@@ -261,6 +271,7 @@ test.describe('signed in', () => {
     const pills = grid(page).locator('button[data-day]');
     await expect(pills.first()).toHaveAttribute('aria-label', `${pill(-1)}, selectează toată ziua`);
     // The pill's visible label is the layer right after it (DayHeader: it sticks to the visible part).
+    await goTo(page, 3);
     await expect(dayPill(page, 3).locator('xpath=following-sibling::span[1]').locator('[data-full]')).toHaveText(pill(3));
     await expect(grid(page).getByText('Stand', { exact: true })).toBeVisible();
     await expect(grid(page).locator('[data-row]')).toHaveCount(14);
@@ -272,20 +283,29 @@ test.describe('signed in', () => {
     await expect(chips.filter({ hasText: '06–18' }).first().locator('[data-glyph="sun"]')).toHaveCount(1);
     await expect(chips.filter({ hasText: '18–06' }).first().locator('[data-glyph="moon"]')).toHaveCount(1);
     // c13: booked shows initials; blocked/booked are one red look; a competition carries a trophy and is one run.
+    await goTo(page, 3);
     await expect(band(page, 3, 3, '06–18')).toHaveText('AP');
+    await goTo(page, 3);
     await expect(band(page, 3, 3, '06–18')).toHaveAttribute('data-status', 'booked');
     const comp = grid(page).locator(`button[data-stand="${standId(1)}"][data-status="blocked"]`);
     await expect(comp).toHaveCount(1);
     await expect(comp.locator('svg')).toHaveCount(1);
     // c12: a block on that stand wins over its booking.
+    await goTo(page, 3);
     await expect(band(page, 6, 3, '06–18')).toHaveAttribute('data-status', 'blocked');
+    await goTo(page, 3);
     await expect(band(page, 6, 3, '06–18')).toHaveAttribute('aria-label', `6, ${pill(3)} 06–18, indisponibil, Închis`);
     await expect(grid(page).locator(`button[data-stand="${standId(6)}"][data-status="booked"]`)).toHaveCount(0);
     // c25: accessible names and the selected state; past and lead-time cells say what they are.
+    await goTo(page, 3);
     await expect(band(page, 1, 3, '06–18')).toHaveAttribute('aria-label', `1, ${pill(3)} 06–18, disponibil`);
+    await goTo(page, 3);
     await expect(band(page, 1, 3, '06–18')).toHaveAttribute('aria-pressed', 'false');
+    await goTo(page, -1);
     await expect(band(page, 1, -1, '06–18')).toHaveAttribute('aria-label', `1, ${pill(-1)} 06–18, trecut`);
+    await goTo(page, 1);
     await expect(band(page, 1, 1, '06–18')).toHaveAttribute('aria-label', `1, ${pill(1)} 06–18, disponibil, doar telefonic`);
+    await goTo(page, 1);
     await expect(band(page, 1, 1, '06–18')).toHaveAttribute('data-status', 'too-soon');
     // c38: no viewer chip.
     await expect(page.getByText(/privesc acum/)).toHaveCount(0);
@@ -382,9 +402,11 @@ test.describe('signed in', () => {
     await mockAvailability(page);
     await mockQuote(page);
     await open(page);
+    await goTo(page, -1);
     await band(page, 1, -1, '06–18').click();
     await expect(alertToast(page, 'Interval trecut — alege o zi viitoare.')).toBeVisible();
     await expect(panel(page)).toHaveCount(0);
+    await goTo(page, 1);
     await band(page, 1, 1, '06–18').click();
     const dialog = page.getByRole('dialog', { name: 'Rezervare din scurt' });
     await expect(dialog).toBeVisible();
@@ -435,13 +457,17 @@ test.describe('signed in', () => {
     await mockQuote(page);
     await open(page);
     // c18: booked, plain block → nothing opens, nothing is selected.
+    await goTo(page, 3);
     await band(page, 3, 3, '06–18').click();
+    await goTo(page, 3);
     await runOn(page, 4, 3).click();
+    await goTo(page, 3);
     await expect(runOn(page, 4, 3)).toHaveAttribute('data-status', 'blocked');
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(panel(page)).toHaveCount(0);
     await expect(page.getByRole('alert').filter({ hasText: /\S/ })).toHaveCount(0);
     // c17: a labelled operator block.
+    await goTo(page, 3);
     await runOn(page, 5, 3).click();
     let dialog = page.getByRole('dialog', { name: 'Reparăm pontonul' });
     await expect(dialog).toBeVisible();
@@ -470,12 +496,14 @@ test.describe('signed in', () => {
     await mockQuote(page);
     await open(page);
     const selected = grid(page).locator('button[data-status="selected"]');
+    await goTo(page, 3);
     await band(page, 1, 3, '06–18').click();
     await expect(selected).toHaveCount(1);
     await expect(selected).toHaveText('06–18');
     await expect(selected).toHaveAttribute('aria-pressed', 'true');
     await expect(panel(page).getByRole('heading', { name: 'Stand 1' })).toBeVisible();
     // Extend forward over a free run: one pill, the day-aware label.
+    await goTo(page, 4);
     await band(page, 1, 4, '06–18').click();
     await expect(selected).toHaveCount(1);
     const d3 = dayAt(3);
@@ -489,19 +517,23 @@ test.describe('signed in', () => {
     await expect(selected).toHaveCount(0);
     await expect(panel(page)).toHaveCount(0);
     // Another stand restarts there (c36: the panel follows live, without closing).
+    await goTo(page, 3);
     await band(page, 1, 3, '18–06').click();
     await expect(panel(page).getByRole('heading', { name: 'Stand 1' })).toBeVisible();
+    await goTo(page, 3);
     await band(page, 2, 3, '18–06').click();
     await expect(panel(page).getByRole('heading', { name: 'Stand 2' })).toBeVisible();
     await expect(grid(page).locator(`button[data-stand="${standId(1)}"][data-status="selected"]`)).toHaveCount(0);
     // A gap (stand 3 is booked day +8 06–18) → restart at the tapped cell.
-    await nextPeriod(page);
+    await goTo(page, 7);
     await band(page, 3, 7, '18–06').click();
+    await goTo(page, 8);
     await band(page, 3, 8, '18–06').click();
     await expect(selected).toHaveCount(1);
     await expect(selected).toHaveText('18–06');
     await expect(panel(page).getByTestId('selection-start')).toHaveText(point(dayAt(8, 18)));
     // Tapping an unavailable cell is a no-op for the selection.
+    await goTo(page, 8);
     await band(page, 3, 8, '06–18').click();
     await expect(panel(page).getByTestId('selection-start')).toHaveText(point(dayAt(8, 18)));
   });
@@ -513,21 +545,28 @@ test.describe('signed in', () => {
     await mockQuote(page);
     await open(page);
     await scrollGridTo(page, 0);
+    await goTo(page, 3);
     await dayPill(page, 3).click();
     await expect(alertToast(page, 'Selectează mai întâi un stand.')).toBeVisible();
+    await goTo(page, 4);
     await band(page, 1, 4, '06–18').click();
+    await goTo(page, -1);
     await dayPill(page, -1).click();
     await expect(alertToast(page, 'Ziua a trecut — alege o zi viitoare.')).toBeVisible();
     // Today: its morning slot has started — unless the run is before 06:00, when the day is simply taken (inside the lead).
+    await goTo(page, 0);
     await dayPill(page, 0).click();
     await expect(
       alertToast(page, new Date().getHours() >= 6 ? 'Ziua a început deja — alege o zi viitoare.' : 'Ziua nu e liberă integral la standul ales.')
     ).toBeVisible();
     // A taken cell that day on the selected stand.
+    await goTo(page, 4);
     await band(page, 3, 4, '06–18').click();
+    await goTo(page, 3);
     await dayPill(page, 3).click();
     await expect(alertToast(page, 'Ziua nu e liberă integral la standul ales.')).toBeVisible();
     // A free day: both slots as one pill.
+    await goTo(page, 4);
     await dayPill(page, 4).click();
     const selected = grid(page).locator('button[data-status="selected"]');
     await expect(selected).toHaveCount(1);
@@ -545,6 +584,7 @@ test.describe('signed in', () => {
     await mockAvailability(page);
     await open(page);
     slow = new Promise((r) => (open1 = r));
+    await goTo(page, 3);
     await band(page, 1, 3, '06–18').click();
     const p = panel(page);
     // c29: spinner + «se calculează» while the first price loads; Continuă held.
@@ -569,6 +609,7 @@ test.describe('signed in', () => {
     await expectNoA11yViolations(page);
     // c29: a newer answer in flight dims the previous price instead of hiding it.
     slow = new Promise((r) => (open1 = r));
+    await goTo(page, 3);
     await band(page, 2, 3, '18–06').click();
     await expect(p.getByTestId('selection-price')).toHaveAttribute('data-stale', 'true');
     await expect(p.getByTestId('selection-price')).toHaveText(/^300/);
@@ -581,7 +622,7 @@ test.describe('signed in', () => {
     await expect(p.getByTestId('selection-rate')).toHaveText('Pachet noapte');
     await expect(p.getByTestId('selection-note')).toHaveText('Poți adăuga extra la pasul următor.');
     // The same cabin stand by day: per-night extras are not offered (next week's page; the selection is kept).
-    await nextPeriod(page);
+    await goTo(page, 7);
     await band(page, 2, 7, '06–18').click();
     await expect(p.getByTestId('selection-duration')).toHaveText('12h zi');
     await expect(p.getByTestId('selection-note')).toHaveText('Plata se face la fața locului.');
@@ -593,6 +634,7 @@ test.describe('signed in', () => {
     const bodies = await mockQuote(page, (b) => (b.stand === standId(7) ? refused : fail ? 500 : priced()));
     await mockAvailability(page);
     await open(page);
+    await goTo(page, 3);
     await band(page, 7, 3, '18–06').click();
     const p = panel(page);
     // The phone panel's price slot says «—»; the desktop bar shows no price at all (the reason is on its left).
@@ -605,6 +647,7 @@ test.describe('signed in', () => {
     await expect(page).toHaveURL(new RegExp(`${PATH}\\?`));
     await shot(page, 'selection-refused');
     await expectNoA11yViolations(page);
+    await goTo(page, 3);
     await band(page, 8, 3, '18–06').click();
     await expect(p.getByTestId('selection-quote-failed')).toHaveText('Nu am putut calcula prețul', { timeout: 20_000 });
     await expect(p.getByTestId('selection-continue')).toHaveAttribute('aria-disabled', 'true');
@@ -622,6 +665,7 @@ test.describe('signed in', () => {
     await mockAvailability(page);
     await mockQuote(page);
     await open(page);
+    await goTo(page, 3);
     await band(page, 1, 3, '06–18').click();
     await expect(page).toHaveURL(new RegExp(`stand=${standId(1)}`));
     await panel(page).getByRole('button', { name: 'Anulează' }).click();
@@ -629,6 +673,7 @@ test.describe('signed in', () => {
     await expect(grid(page).locator('button[data-status="selected"]')).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`${PATH}$`));
     // A day tour on a plain stand → straight to the review.
+    await goTo(page, 3);
     await band(page, 1, 3, '06–18').click();
     await expect(panel(page).getByTestId('selection-price')).toBeVisible();
     await panel(page).getByTestId('selection-continue').click();
@@ -639,6 +684,7 @@ test.describe('signed in', () => {
     await page.goBack();
     await expect(panel(page).getByRole('heading', { name: 'Stand 1' })).toBeVisible();
     // A night on the cabin stand → the extras step.
+    await goTo(page, 3);
     await band(page, 2, 3, '18–06').click();
     await expect(panel(page).getByTestId('selection-price')).toBeVisible();
     await panel(page).getByTestId('selection-continue').click();
@@ -674,12 +720,14 @@ test.describe('signed in', () => {
     await signIn(page.context(), jwt);
     await page.goto(`/balti/${LAKE}`);
     await page.goto(PATH);
+    await goTo(page, 3);
     await band(page, 1, 3, '06–18').click();
     await expect(panel(page)).toBeVisible();
     await page.getByRole('button', { name: 'Anulează selecția' }).click();
     await expect(panel(page)).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`${PATH}$`));
     // Browser Back after a selection: the selection goes first.
+    await goTo(page, 4);
     await band(page, 1, 4, '06–18').click();
     await expect(panel(page)).toBeVisible();
     await page.goBack();
@@ -695,6 +743,7 @@ test.describe('signed in', () => {
     await signIn(page.context(), jwt);
     await page.goto(`/balti/${LAKE}`);
     await page.goto(PATH);
+    await goTo(page, 3);
     await band(page, 1, 3, '06–18').click();
     await expect(panel(page).getByTestId('selection-price')).toBeVisible();
     await panel(page).getByTestId('selection-continue').click();
@@ -709,6 +758,7 @@ test.describe('signed in', () => {
     await expect(page).toHaveURL(new RegExp(`/balti/${LAKE}$`));
     // The same with the header's «Anulează selecția» and the browser's Back.
     await page.goto(PATH);
+    await goTo(page, 4);
     await band(page, 1, 4, '06–18').click();
     await expect(panel(page).getByTestId('selection-price')).toBeVisible();
     await panel(page).getByTestId('selection-continue').click();
@@ -733,7 +783,7 @@ test.describe('signed in', () => {
     });
     await mockQuote(page);
     await open(page);
-    await nextPeriod(page);
+    await goTo(page, 7);
     await band(page, 1, 7, '06–18').click();
     await expect(panel(page).getByTestId('selection-price')).toBeVisible();
     taken = true;
@@ -749,6 +799,7 @@ test.describe('signed in', () => {
     await expect(panel(page)).toHaveCount(0);
     await expect(grid(page).locator('button[data-status="selected"]')).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`${PATH}$`));
+    await goTo(page, 7);
     await expect(runOn(page, 1, 7)).toHaveAttribute('data-status', 'booked');
   });
 
@@ -768,6 +819,7 @@ test.describe('signed in', () => {
       const p = panel(page);
       // Quoting: no «Avans 30%: 0 lei» next to the spinner.
       slow = new Promise((r) => (release = r));
+      await goTo(page, 3);
       await band(page, 1, 3, '06–18').click();
       await expect(p.getByTestId('selection-quoting')).toBeVisible();
       await expect(p.getByTestId('selection-note')).toHaveCount(0);
@@ -776,12 +828,14 @@ test.describe('signed in', () => {
       await expect(p.getByTestId('selection-price')).toHaveText(/^300\s+lei$/);
       await expect(p.getByTestId('selection-note')).toHaveText('Avans 30%: 90 lei');
       // Refused («—»): no amount.
+      await goTo(page, 3);
       await band(page, 7, 3, '18–06').click();
       // The phone panel's price slot says «—»; the desktop bar shows no price at all (the reason is on its left).
       if ((page.viewportSize()?.width ?? 0) < 768) await expect(p.getByTestId('selection-no-price')).toHaveText('—');
       else await expect(p.getByTestId('selection-no-price')).toHaveCount(0);
       await expect(p.getByTestId('selection-note')).toHaveCount(0);
       // Failed: no amount.
+      await goTo(page, 3);
       await band(page, 8, 3, '18–06').click();
       await expect(p.getByTestId('selection-quote-failed')).toBeVisible({ timeout: 20_000 });
       await expect(p.getByTestId('selection-note')).toHaveCount(0);
@@ -800,6 +854,7 @@ test.describe('signed in', () => {
     await expect(header).not.toHaveAttribute('data-collapsed', /.*/);
     // Stand 8, low on a phone: scroll it into view, select.
     await scrollGridTo(page, 3 * 120 - 60, 9999);
+    await goTo(page, 3);
     await band(page, 8, 3, '06–18').click();
     await expect(header).toHaveAttribute('data-collapsed', 'true');
     await expect.poll(async () => (await header.boundingBox())?.height ?? 0).toBeLessThan(1);
@@ -836,67 +891,85 @@ test.describe('signed in', () => {
     const bar = page.getByTestId('selection-panel');
     await expect(page.getByTestId('selection-empty')).toContainText('Alege un interval liber');
     await expect(page.getByTestId('selection-card')).toHaveCount(0);
+    await goTo(page, 3);
     await band(page, 1, 3, '06–18').click();
     await expect(page.getByTestId('booking-header')).not.toHaveAttribute('data-collapsed', /.*/);
     await expect(bar.getByRole('heading', { name: 'Stand 1' })).toBeVisible();
     await expect(page.getByTestId('selection-empty')).toHaveCount(0);
     // Inside the grid card, under the rows, as wide as the grid: no card beside it.
+    // In the grid card (pinned to the viewport's bottom while the page scrolls), as wide as the grid: no card beside it.
+    await expect(grid(page).getByTestId('selection-panel')).toHaveCount(1);
     const g = (await grid(page).boundingBox())!;
-    const s = (await scroller(page).boundingBox())!;
     const c = (await bar.boundingBox())!;
     expect(Math.abs(c.width - g.width)).toBeLessThanOrEqual(2);
-    expect(c.y).toBeGreaterThanOrEqual(s.y + s.height - 1);
-    expect(c.y + c.height).toBeLessThanOrEqual(g.y + g.height + 1);
+    expect(c.y + c.height).toBeLessThanOrEqual(Math.min(g.y + g.height, page.viewportSize()!.height) + 1);
     await bar.getByRole('button', { name: 'Anulează' }).click();
     await expect(page.getByTestId('selection-empty')).toBeVisible();
   });
 
-  test('desktop pages (owner 2026-10-11): whole days fill the width, no horizontal scroll; ‹ period ›, «Azi», read ahead; a selection across pages', async ({ page }) => {
+  test('desktop pages (owner 2026-10-11): whole days fill the width, Monday weeks, no scroll inside scroll; ‹ period › «Azi» in the header, read ahead; a selection across pages', async ({ page }) => {
     const seen = await mockAvailability(page);
     await mockQuote(page);
     await open(page);
+    const pills = grid(page).locator('button[data-day]');
     // Whole days at a comfortable width, filling the grid exactly: 7 from 1280, fewer below.
     for (const [w, days] of [[768, 4], [1024, 5], [1280, 7], [1440, 7], [1920, 7]] as const) {
       await page.setViewportSize({ width: w, height: 900 });
-      await expect(grid(page).locator('button[data-day]')).toHaveCount(days);
+      await expect(pills).toHaveCount(days);
       const geo = await scroller(page).evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }));
       expect(geo.sw, `no horizontal overflow at ${w}`).toBeLessThanOrEqual(geo.cw);
-      const pills = grid(page).locator('button[data-day]');
       const last = (await pills.last().boundingBox())!;
       const box = (await scroller(page).boundingBox())!;
       // The last pill ends at the grid's right edge (its 3px inset), not short of it.
       expect(Math.abs(last.x + last.width + 3 - (box.x + geo.cw))).toBeLessThanOrEqual(2);
-      await expect(page.getByTestId('period-label')).toHaveText(period(0, days - 1));
       await expect(prevPeriod(page)).toHaveAttribute('aria-label', days === 7 ? 'Săptămâna anterioară' : 'Perioada anterioară');
     }
-    // The first page starts today: nothing before it.
-    await expect(grid(page).locator('button[data-day]').first()).toHaveAttribute('aria-label', `${pill(0)}, selectează toată ziua`);
+    // A week is Monday → Sunday; the first page (the week of the first open slot) has nothing before it.
+    await expect(pills.first()).toHaveAttribute('aria-label', /^Luni /);
+    await expect(pills.last()).toHaveAttribute('aria-label', /^Duminică /);
     await expect(prevPeriod(page)).toHaveAttribute('aria-disabled', 'true');
+    const firstLabel = (await page.getByTestId('period-label').textContent())!;
     await expect(page.getByTestId('period-label')).toHaveAttribute('aria-live', 'polite');
-    // A selection that runs across the page boundary: start on day +6, extend on the next page to day +7.
-    await band(page, 1, 6, '06–18').click();
+    // The navigation is in the header, right of the lake's name (no row of its own over the grid).
+    const head = (await page.getByTestId('booking-header').boundingBox())!;
+    const nav = (await page.getByTestId('period-nav').boundingBox())!;
+    expect(nav.y + nav.height).toBeLessThanOrEqual(head.y + head.height);
+    // No scroll inside scroll: the grid is as tall as its rows, the page scrolls; the day header
+    // pins under the site bar and the selection bar to the viewport's bottom.
+    const inner = await scroller(page).evaluate((el) => el.scrollHeight - el.clientHeight);
+    expect(inner).toBeLessThanOrEqual(1);
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
+    // The pill sits 4px inside its row, the row right under the 64px site bar.
+    await expect.poll(async () => Math.round((await pills.first().boundingBox())!.y)).toBe(64 + 4);
+    const bar = (await page.getByTestId('selection-panel').boundingBox())!;
+    expect(Math.abs(bar.y + bar.height - 600)).toBeLessThanOrEqual(1);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    // A selection that runs across the page boundary: Sunday 06:00 → Monday 18:00 (a Sunday a week out, past the lead).
+    let sun = 7;
+    while (dayAt(sun).getDay() !== 0) sun++;
+    await goTo(page, sun);
+    await band(page, 1, sun, '06–18').click();
     await nextPeriod(page);
-    await expect(page.getByTestId('period-label')).toHaveText(period(7, 13));
     await expect(prevPeriod(page)).not.toHaveAttribute('aria-disabled', /.*/);
-    await band(page, 1, 7, '06–18').click();
+    await band(page, 1, sun + 1, '06–18').click();
     const selected = grid(page).locator('button[data-status="selected"]');
     await expect(selected).toHaveCount(1);
-    await expect(panel(page).getByTestId('selection-start')).toHaveText(point(dayAt(6, 6)));
-    await expect(panel(page).getByTestId('selection-end')).toHaveText(point(new Date(dayAt(7, 18).getTime() - 30 * 60_000)));
+    await expect(panel(page).getByTestId('selection-start')).toHaveText(point(dayAt(sun, 6)));
+    await expect(panel(page).getByTestId('selection-end')).toHaveText(point(new Date(dayAt(sun + 1, 18).getTime() - 30 * 60_000)));
+    await shot(page, 'pages-selection-across');
     // Read ahead: once the page after the shown one runs past the loaded months, the next month is asked for.
     const now = new Date();
     const nextMonth = iso(new Date(now.getFullYear(), now.getMonth() + 1, 1));
-    for (let i = 2; i < 6 && !seen.includes(nextMonth); i++) {
-      await nextPeriod(page);
-      await expect(page.getByTestId('period-label')).toHaveText(period(7 * i, 7 * i + 6));
-    }
+    for (let i = 0; i < 6 && !seen.includes(nextMonth); i++) await nextPeriod(page);
     await expect.poll(() => seen.includes(nextMonth)).toBe(true);
-    // «Azi» goes back to today's page; the selection stays (its first half is drawn there).
+    // «Azi» goes back to the first page; the selection stays.
     await page.getByRole('button', { name: 'Mergi la ziua de azi' }).click();
-    await expect(page.getByTestId('period-label')).toHaveText(period(0, 6));
-    await expect(selected).toHaveCount(1);
-    await expect(selected).toHaveAttribute('aria-label', new RegExp(`^1, ${esc(pill(6))} `));
-    await shot(page, 'pages-selection-across');
+    await expect(page.getByTestId('period-label')).toHaveText(firstLabel);
+    await goTo(page, sun);
+    await expect(selected).toHaveAttribute('aria-label', new RegExp(`^1, ${esc(pill(sun))} `));
     await expectNoA11yViolations(page);
   });
 
@@ -904,16 +977,21 @@ test.describe('signed in', () => {
     await mockAvailability(page);
     await mockQuote(page);
     await open(page);
+    const firstLabel = (await page.getByTestId('period-label').textContent())!;
     await nextPeriod(page);
-    await expect(page.getByTestId('period-label')).toHaveText(period(7, 13));
+    await expect(page.getByTestId('period-label')).not.toHaveText(firstLabel);
     await page.getByRole('button', { name: 'Mergi la ziua de azi' }).click();
-    await expect(page.getByTestId('period-label')).toHaveText(period(0, 6));
+    await expect(page.getByTestId('period-label')).toHaveText(firstLabel);
+    await goTo(page, 3);
     // The day pills are one tab stop (today), the bands another.
     await page.getByRole('button', { name: 'Mergi la ziua de azi' }).focus();
     await page.keyboard.press('Tab');
-    await expect(page.locator(':focus')).toHaveAttribute('aria-label', `${pill(0)}, selectează toată ziua`);
-    await page.keyboard.press('ArrowRight');
-    await expect(page.locator(':focus')).toHaveAttribute('aria-label', `${pill(1)}, selectează toată ziua`);
+    const pillLabels = await grid(page).locator('button[data-day]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+    const tabPill = pillLabels.includes(`${pill(0)}, selectează toată ziua`) ? pillLabels.indexOf(`${pill(0)}, selectează toată ziua`) : 0;
+    await expect(page.locator(':focus')).toHaveAttribute('aria-label', pillLabels[tabPill]!);
+    const step = tabPill < pillLabels.length - 1 ? 1 : -1;
+    await page.keyboard.press(step > 0 ? 'ArrowRight' : 'ArrowLeft');
+    await expect(page.locator(':focus')).toHaveAttribute('aria-label', pillLabels[tabPill + step]!);
     await page.keyboard.press('Tab');
     const focused = page.locator(':focus');
     await expect(focused).toHaveAttribute('data-band', 'true');
@@ -984,22 +1062,27 @@ test.describe('signed in', () => {
       await expect(grid(page)).toBeVisible();
       await shot(page, 'grid');
       await expectNoA11yViolations(page);
+      await goTo(page, 3);
       await band(page, 1, 3, '06–18').click();
       await expect(panel(page).getByTestId('selection-price')).toBeVisible();
       await shot(page, 'selection');
       await expectNoA11yViolations(page);
+      await goTo(page, 3);
       await band(page, 7, 3, '18–06').click();
       await expect(panel(page).getByTestId('selection-refusal')).toBeVisible();
       await shot(page, 'refusal');
+      await goTo(page, 3);
       await band(page, 8, 3, '18–06').click();
       await expect(panel(page).getByTestId('selection-quote-failed')).toBeVisible({ timeout: 20_000 });
       await shot(page, 'quote-failed');
       await panel(page).getByRole('button', { name: 'Anulează' }).click();
       await expect(panel(page)).toHaveCount(0);
+      await goTo(page, 1);
       await band(page, 1, 1, '06–18').click();
       await expect(page.getByRole('dialog', { name: 'Rezervare din scurt' })).toBeVisible();
       await shot(page, 'too-soon');
       await page.getByRole('button', { name: 'Am înțeles' }).click();
+      await goTo(page, 3);
       await runOn(page, 5, 3).click();
       await expect(page.getByRole('dialog', { name: 'Reparăm pontonul' })).toBeVisible();
       await shot(page, 'block');
@@ -1063,6 +1146,7 @@ test.describe('signed in, browser in Europe/London', () => {
     // The lake's 06–18 tour on day +3 reads «04–16» here.
     const label = `${london(dayAt(3, 6))}–${london(dayAt(3, 18))}`;
     expect(label).toBe('04–16');
+    await goTo(page, 3);
     await band(page, 1, 3, label).click();
     await expect(panel(page).getByTestId('selection-price')).toBeVisible();
     // …but the instants are the lake's: the quote and the URL carry 06:00 / 18:00 Bucharest.

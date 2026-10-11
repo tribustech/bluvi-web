@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { ExclamationTriangleIcon, NoSymbolIcon, PhoneIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
 import {
+  addDays,
   selectDaySelection,
   selectionFromState,
   toggleSelectionCell,
@@ -31,9 +32,11 @@ import {
   dayIndexOf,
   dayRefusal,
   loadedDayCount,
+  mondayOf,
   pageFit,
   pageDayOf,
   pageModel,
+  weekStartOf,
   periodLabel,
   PINNED_W,
   runAction,
@@ -71,8 +74,9 @@ import { TooSoonDialog } from './TooSoonDialog';
  *
  * Desktop (≥768, owner 2026-10-11): no horizontal scroll and no card beside the grid. The grid takes
  * the whole column and shows one page of whole days (model.ts pageFit / pageModel: 7 from ~1280,
- * fewer below), paged by ‹ › with the period between (PeriodNav); the page is kept as an offset in
- * days from today, so a resize keeps its first day. The availability stays the month-paged infinite
+ * fewer below), paged by ‹ › with the period between (PeriodNav, in the header's right side); weeks
+ * run Monday → Sunday and narrower pages step on from this week's Monday; the page is kept as an offset in
+ * days from this week's Monday, so a resize keeps its first day. The availability stays the month-paged infinite
  * read: a page turn reads from what is loaded and asks for the next month once the page after the
  * shown one runs past it. The selection is the bar docked at the bottom of the grid card (the
  * phone's panel, laid out in one row); it is state outside the page, so it can run across pages.
@@ -165,9 +169,15 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
   const [mountMs] = useState(() => Date.now());
   const nowMs = Math.max(mountMs, query.dataUpdatedAt);
   const { enforceLeadTime, allowInProgress, blockedCellOpens } = config;
+  // Desktop weeks run Monday → Sunday: the grid reaches back to the Monday of yesterday's week, so
+  // the current week's past days are drawn (as past). One number per day: the model rebuilds daily.
+  const weekFromMs = paged ? mondayOf(addDays(new Date(nowMs), -1)).getTime() : null;
   const model = useMemo(
-    () => (merged ? buildGridModel(merged, nowMs, 1, { enforceLeadTime, allowInProgress }) : null),
-    [merged, nowMs, enforceLeadTime, allowInProgress]
+    () =>
+      merged
+        ? buildGridModel(merged, nowMs, 1, { enforceLeadTime, allowInProgress }, weekFromMs === null ? undefined : new Date(weekFromMs))
+        : null,
+    [merged, nowMs, enforceLeadTime, allowInProgress, weekFromMs]
   );
 
   // ── The selection (the URL's, then the grid's) ─────────────────────────────────────────────
@@ -356,12 +366,19 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
   const pageDayPx = fit?.dayPx ?? 0;
   /** A page's columns start at the lake's first slot hour, so every slot on a page is whole. */
   const shift = useMemo(() => (model ? slotShiftHours(model) : 0), [model]);
-  /** The first page starts on the column «now» is in (nothing earlier can be booked). */
-  const firstDay = model ? pageDayOf(model, shift) : 0;
-  /** Days from today to the page's first day; null until the seed is judged (the page then holds its day). */
+  /**
+   * Pages count from the Monday of the week «now» is in, N days at a time (a whole Mon → Sun week at
+   * 7; fewer days step on contiguously from that Monday). The first page is the one holding «now»:
+   * nothing earlier can be booked, so ‹ stops there and «Azi» returns to it.
+   */
+  const nowDay = model ? pageDayOf(model, shift) : 0;
+  const weekStart = model ? weekStartOf(model, nowDay) : 0;
+  const pageOf = (day: number) => (pageDays ? Math.floor((day - weekStart) / pageDays) * pageDays : 0);
+  const firstOffset = pageOf(nowDay);
+  /** Days from that Monday to the page's first day; null until the seed is judged (the page then holds its day). */
   const [offset, setOffset] = useState<number | null>(null);
-  const derivedOffset = pageDays ? Math.floor(Math.max(0, openOnDay - firstDay) / pageDays) * pageDays : 0;
-  const pageStart = firstDay + (offset ?? derivedOffset);
+  const derivedOffset = Math.max(firstOffset, pageOf(openOnDay));
+  const pageStart = weekStart + (offset ?? derivedOffset);
   // Pinned once the seed's verdict is in (during render, like the verdict): clearing or moving the
   // selection never turns the page.
   if (offset === null && pageDays && verdict !== 'pending') setOffset(derivedOffset);
@@ -375,9 +392,9 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
   useEffect(() => {
     if (wantDays > loadedDays && hasNextPage && !isFetchingNextPage) void fetchNextPage();
   }, [wantDays, loadedDays, hasNextPage, isFetchingNextPage, fetchNextPage]);
-  const goPrev = () => setOffset(Math.max(0, pageStart - firstDay - pageDays));
-  const goNext = () => setOffset(pageStart - firstDay + pageDays);
-  const goToday = () => setOffset(0);
+  const goPrev = () => setOffset(Math.max(firstOffset, pageStart - weekStart - pageDays));
+  const goNext = () => setOffset(pageStart - weekStart + pageDays);
+  const goToday = () => setOffset(firstOffset);
 
   // ── The panel's quote and its way on ───────────────────────────────────────────────────────
   const quoteQ = useFlowQuote(lakeId, live, NO_EXTRAS, config.walkIn);
@@ -513,8 +530,24 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
         eyebrow={eyebrow}
         back={back}
         collapsed={!!live && !paged}
-        // From 768 «Azi» is in the period navigation.
-        trailing={paged ? undefined : <TodayButton onClick={() => gridRef.current?.scrollToToday()} />}
+        // From 768 the header's right side is the period navigation (with «Azi»).
+        trailing={
+          paged ? (
+            fit && view ? (
+              <PeriodNav
+                label={periodLabel(columnDate(model, pageStart), columnDate(model, pageStart + pageDays - 1))}
+                days={pageDays}
+                prevDisabled={pageStart - weekStart <= firstOffset}
+                nextDisabled={pageStart + pageDays >= loadedDays && !hasNextPage}
+                onPrev={goPrev}
+                onNext={goNext}
+                onToday={goToday}
+              />
+            ) : undefined
+          ) : (
+            <TodayButton onClick={() => gridRef.current?.scrollToToday()} />
+          )
+        }
         legend={
           <>
             <Legend showTooSoon={enforceLeadTime} />
@@ -538,17 +571,6 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
           ) : undefined
         }
       >
-        {paged && fit && view ? (
-          <PeriodNav
-            label={periodLabel(columnDate(model, pageStart), columnDate(model, pageStart + pageDays - 1))}
-            days={pageDays}
-            prevDisabled={pageStart <= firstDay}
-            nextDisabled={pageStart + pageDays >= loadedDays && !hasNextPage}
-            onPrev={goPrev}
-            onNext={goNext}
-            onToday={goToday}
-          />
-        ) : null}
         <AvailabilityGrid
           handle={gridRef}
           model={view ?? model}
@@ -565,7 +587,13 @@ export function BookingGridScreen({ lake, config: configProp, onBookedCell, deta
           onMeasure={setGridW}
           footer={
             paged ? (
-              <section aria-label="Selecția ta" data-testid="selection-panel" className="shrink-0 border-t border-hairline bg-surface px-4 py-3 lg:px-5">
+              // Pinned to the viewport's bottom while the grid is on screen (the page scrolls from 768);
+              // in the flow, so the last stand row ends above it.
+              <section
+                aria-label="Selecția ta"
+                data-testid="selection-panel"
+                className="sticky bottom-0 z-sticky shrink-0 border-t border-hairline bg-surface px-4 pt-3 pb-[max(--spacing(3),env(safe-area-inset-bottom))] shadow-tabbar lg:px-5"
+              >
                 {live && stand ? (
                   panel('bar')
                 ) : (

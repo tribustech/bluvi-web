@@ -1,5 +1,6 @@
 import {
   addDays,
+  capitalize,
   BLOCK_REASON_LABELS,
   buildGridGeometryFromSlots,
   cellA11yLabel,
@@ -7,6 +8,7 @@ import {
   formatInterval,
   formatLocalIso,
   formatMonthAbbr,
+  formatWeekdayWide,
   formatSelectionLabel,
   generateSlots,
   indexExceptions,
@@ -85,10 +87,18 @@ function scaleGeometry(g: GridGeometry, k: number): GridGeometry {
   };
 }
 
-export function buildGridModel(merged: MergedAvailability, nowMs: number, scale = 1, rules: GridRules = ANGLER_RULES): GridModel {
+export function buildGridModel(
+  merged: MergedAvailability,
+  nowMs: number,
+  scale = 1,
+  rules: GridRules = ANGLER_RULES,
+  /** Desktop week pages: start no later than this day (the Monday of this week), its past drawn as past. */
+  earliest?: Date
+): GridModel {
   // The grid starts at YESTERDAY, not at the loaded range's month boundary: deeper history is dead
   // weight (unselectable), so it is clipped out of the geometry (c8).
-  const yesterday = startOfDay(addDays(new Date(nowMs), -1));
+  const yesterday0 = startOfDay(addDays(new Date(nowMs), -1));
+  const yesterday = earliest && earliest < yesterday0 ? startOfDay(earliest) : yesterday0;
   const loadedFrom = new Date(merged.loadedRange.from);
   const gridFrom = loadedFrom >= yesterday ? merged.loadedRange.from : formatLocalIso(yesterday);
   const slots = generateSlots({
@@ -170,11 +180,23 @@ export function slotShiftHours(model: GridModel): number {
   return Number.isFinite(min) ? min : 0;
 }
 
+/** The model column a slot starting at `iso` is drawn in on a page axis (columns start at `shift`). */
+function pageColumnOf(model: GridModel, iso: string, shift: number): number {
+  const d = new Date(iso);
+  return differenceInCalendarDays(startOfDay(d), startOfDay(new Date(model.gridFrom))) - (hourOf(d) < shift ? 1 : 0);
+}
+
 /**
- * The day column «now» falls in on a page axis: before the lake's first start hour it is still
- * yesterday's column (its night slot is the one running).
+ * The column the first page must hold: that of the first slot still open — not started yet (the
+ * angler's flow), or not over yet where a running slot is sold (the operator's walk-in). So late on
+ * a Sunday, with the week's last night already started, the first page is next week, never a week
+ * of past cells. Falls back to «now»'s own column when nothing is loaded ahead.
  */
 export function pageDayOf(model: GridModel, shift: number): number {
+  const open = model.slots.find(s =>
+    model.rules.allowInProgress ? Date.parse(s.end) > model.nowMs : Date.parse(s.start) >= model.nowMs
+  );
+  if (open) return pageColumnOf(model, open.start, shift);
   return model.todayDayIndex - (hourOf(new Date(model.nowMs)) < shift ? 1 : 0);
 }
 
@@ -218,13 +240,21 @@ export function pageModel(model: GridModel, from: number, days: number, dayPx: n
     const chip = chipOf.get(cellIndex);
     headerSlots.push({ cellIndex, leftPx, widthPx, label: chip?.label ?? label, kind: chip?.kind ?? 'day' });
   });
+  // Every day of the page gets its header, also one before the loaded range (a week whose Monday is
+  // in the previous month: past, with no slots to draw).
+  const byIndex = new Map(g.days.map((d, i) => [d.dayIndex, i]));
   const dayList: DayHeader[] = [];
   const labels: string[] = [];
-  g.days.forEach((d, i) => {
-    if (d.dayIndex < from || d.dayIndex >= from + loaded) return;
-    dayList.push({ ...d, dayIndex: d.dayIndex - from });
-    labels.push(model.dayLabels[i]);
-  });
+  for (let i = 0; i < loaded; i++) {
+    const j = byIndex.get(from + i);
+    const date = columnDate(model, from + i);
+    const d: DayHeader =
+      j !== undefined
+        ? { ...g.days[j], dayIndex: i }
+        : { dayIndex: i, dayLabel: capitalize(formatWeekdayWide(date)), dayNumber: String(date.getDate()), date };
+    dayList.push(d);
+    labels.push(j !== undefined ? model.dayLabels[j] : dayPillLabel(d));
+  }
   return {
     ...model,
     geometry: { days: dayList, bands, headerSlots, dayWidthPx: dayPx, bodyWidthPx: loaded * dayPx },
@@ -232,6 +262,17 @@ export function pageModel(model: GridModel, from: number, days: number, dayPx: n
     todayDayIndex: model.todayDayIndex - from,
   };
 }
+
+/**
+ * The model's column of the Monday that starts the week holding column `day` (ISO weeks, Mon → Sun);
+ * negative when that Monday is before the grid's first day.
+ */
+export function weekStartOf(model: GridModel, day: number): number {
+  return day - ((columnDate(model, day).getDay() + 6) % 7);
+}
+
+/** The Monday that starts `d`'s week (ISO weeks, Mon → Sun), at midnight. */
+export const mondayOf = (d: Date) => addDays(startOfDay(d), -((d.getDay() + 6) % 7));
 
 /** The date of the model's day column `i` (0 = the grid's first day). */
 export const columnDate = (model: GridModel, i: number) => addDays(startOfDay(new Date(model.gridFrom)), i);

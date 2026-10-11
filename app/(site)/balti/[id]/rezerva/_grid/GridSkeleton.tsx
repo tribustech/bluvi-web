@@ -8,7 +8,7 @@ import { CELL_H, HEADER_DAY_H, HEADER_H, PINNED_W } from './model';
  * the data fills a frame already parsed. Static: no shimmer on the bands (fish: "motion for its own
  * sake"). The day width is the canonical 06/18 × 12h lake's: 120px on a phone. From 768 the ghost is
  * a desktop page (model.ts pageFit): its days fill the card's width — about 4 from 768, 5 from 1024,
- * 7 from 1280 — under the period navigation's placeholder, over the selection bar's.
+ * 7 from 1280 — over the selection bar's placeholder.
  */
 
 const ROWS = 10;
@@ -20,8 +20,6 @@ const at = (d: number, plus: string) => `calc(var(--day) * ${d} + ${plus})`;
 export function GridSkeleton() {
   const days = Array.from({ length: DAYS }, (_, i) => i);
   return (
-    <>
-    <PeriodNavSkeleton />
     <div
       role="status"
       aria-label="Se încarcă disponibilitatea"
@@ -75,16 +73,5 @@ export function GridSkeleton() {
         <span className="h-6 w-2/3 max-w-140 rounded-full bg-soft-fill" />
       </div>
     </div>
-    </>
   );
 }
-
-/** The period navigation (‹ period ›, «Azi»), empty — from 768, over the grid (PeriodNav). */
-export function PeriodNavSkeleton() {
-  return (
-    <div aria-hidden className="hidden shrink-0 items-center justify-center pb-3 md:flex">
-      <span className="h-9 w-72 rounded-full bg-soft-fill" />
-    </div>
-  );
-}
-

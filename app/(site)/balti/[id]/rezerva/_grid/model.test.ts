@@ -4,6 +4,7 @@ import {
   buildGridModel,
   dayRefusal,
   loadedDayCount,
+  mondayOf,
   pageDayOf,
   pageFit,
   pageModel,
@@ -14,6 +15,7 @@ import {
   selectionNote,
   slotShiftHours,
   standRuns,
+  weekStartOf,
   zoneHint,
 } from './model';
 
@@ -186,9 +188,15 @@ describe('desktop pages (owner 2026-10-11)', () => {
     expect(runs[0].firstCell).toBe(cellAt('2026-10-07T06:00:00+03:00'));
   });
 
-  it('before the first start hour, the first page starts on yesterday\'s column (its night is running)', () => {
-    const early = buildGridModel(mergePages([page]), new Date('2026-10-07T03:00:00+03:00').getTime());
-    expect(pageDayOf(early, slotShiftHours(early))).toBe(early.todayDayIndex - 1);
+  it('the first page holds the first open slot: the next start (angler), or a running night (walk-in)', () => {
+    const at3 = new Date('2026-10-07T03:00:00+03:00').getTime();
+    const angler = buildGridModel(mergePages([page]), at3);
+    expect(pageDayOf(angler, 6)).toBe(angler.todayDayIndex);
+    const walkIn = buildGridModel(mergePages([page]), at3, 1, { enforceLeadTime: false, allowInProgress: true });
+    expect(pageDayOf(walkIn, 6)).toBe(walkIn.todayDayIndex - 1);
+    // Late in the day, the day's last slot already started: the next column.
+    const late = buildGridModel(mergePages([page]), new Date('2026-10-07T21:00:00+03:00').getTime());
+    expect(pageDayOf(late, 6)).toBe(late.todayDayIndex + 1);
   });
 
   it('a lake starting a slot at midnight keeps calendar days', () => {
@@ -212,5 +220,18 @@ describe('desktop pages (owner 2026-10-11)', () => {
     expect(periodLabel(d('2026-10-28'), d('2026-11-03'))).toBe('28 oct – 3 noi 2026');
     expect(periodLabel(d('2026-12-29'), d('2027-01-04'))).toBe('29 dec 2026 – 4 ian 2027');
     expect(periodLabel(d('2026-10-11'), d('2026-10-11'))).toBe('11 oct 2026');
+  });
+
+  it('weeks run Monday → Sunday: the grid reaches back to this week\'s Monday, drawn as past', () => {
+    // 2026-10-07 is a Wednesday; its week starts Monday 5 oct.
+    expect(mondayOf(new Date(NOW)).getDate()).toBe(5);
+    const m = buildGridModel(mergePages([page]), NOW, 1, undefined, mondayOf(new Date(NOW)));
+    expect(m.gridFrom.startsWith('2026-10-05')).toBe(true);
+    const monday = weekStartOf(m, pageDayOf(m, slotShiftHours(m)));
+    expect(monday).toBe(0);
+    const p = pageModel(m, monday, 7, 160);
+    expect(p.geometry.days[0].date.getDay()).toBe(1);
+    expect(p.geometry.days[6].date.getDay()).toBe(0);
+    expect(standRuns(p, { documentId: 's2', name: '2' }, null, null)[0].isPast).toBe(true);
   });
 });

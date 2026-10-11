@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { SHELL_GUTTERS, SHELL_MAX } from '@/components/nav/shell';
+import { SHELL_GUTTERS, SHELL_MAX, UNDER_BAR_TOP_MD } from '@/components/nav/shell';
 import { T4Header, type T4Back } from '@/components/templates/T4';
 import { cn } from '@/components/ui/cn';
 
@@ -23,9 +23,14 @@ import { cn } from '@/components/ui/cn';
  * and reaches down to the home indicator (fish reserves `insets.bottom` under the rows).
  */
 
-/** The viewport under the site bar (none below 768 — rule 25; 64 from 768) and the offline banner while it shows. */
+/**
+ * Phone: exactly the viewport (no site bar — rule 25 — less the offline banner while it shows); the
+ * grid scrolls inside it. From 768 (owner 2026-10-11, «no scroll inside scroll»): at least the
+ * viewport under the 64px site bar, growing with the grid — the PAGE scrolls, the grid's day header
+ * pins under the site bar and the selection bar to the viewport's bottom.
+ */
 export const FRAME_H =
-  'h-[calc(100dvh-var(--shell-banner-h,0px))] md:h-[calc(100dvh-var(--spacing)*16-var(--shell-banner-h,0px))]';
+  'h-[calc(100dvh-var(--shell-banner-h,0px))] md:h-auto md:min-h-[calc(100dvh-var(--spacing)*16-var(--shell-banner-h,0px))]';
 
 /**
  * The grid card (the grid and its skeleton): edge to edge on a phone, radius 12 (fish AvailabilityGrid
@@ -85,7 +90,17 @@ export function BookingFrame({ title, eyebrow = 'Rezervă un stand', back, trail
         <section aria-labelledby={BOOKING_TITLE_ID} aria-busy={busy || undefined} className="flex min-h-0 min-w-0 flex-1 flex-col">
           {children}
         </section>
-        {aside ? <div className="hidden w-90 shrink-0 flex-col lg:flex">{aside}</div> : null}
+        {aside ? (
+          // The page scrolls from 768: the docked column pins under the site bar, a viewport tall.
+          <div
+            className={cn(
+              'sticky hidden h-[calc(100dvh-var(--spacing)*22-var(--shell-banner-h,0px))] w-90 shrink-0 flex-col self-start lg:flex',
+              UNDER_BAR_TOP_MD,
+            )}
+          >
+            {aside}
+          </div>
+        ) : null}
       </div>
       {dock}
     </div>

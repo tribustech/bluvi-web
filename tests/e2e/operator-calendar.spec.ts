@@ -173,6 +173,24 @@ const detail = (page: Page) => page.getByTestId('booking-detail');
 /** Any surface the booking detail could open in (sheet / dialog / docked panel). */
 const anySurface = (page: Page) => page.locator('dialog[open], aside[aria-labelledby]');
 
+/**
+ * Desktop (≥768): turns the pages (Monday-anchored weeks) until day `d` is on screen; a no-op on the
+ * phone's scroller, where every loaded day is in the DOM.
+ */
+async function goTo(page: Page, d: number) {
+  if (!(await page.getByTestId('period-nav').count())) return;
+  const want = `${pill(d)}, selectează toată ziua`;
+  for (let i = 0; i < 10; i++) {
+    const labels = await grid(page).locator('button[data-day]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+    if (labels.includes(want)) return;
+    const first = labels[0] ?? '';
+    let at = 0;
+    for (let k = -14; k < 60; k++) if (`${pill(k)}, selectează toată ziua` === first) at = k;
+    const dir = d < at ? 'anterioară' : 'următoare';
+    await page.getByRole('button', { name: new RegExp(`^(Săptămâna|Perioada) ${dir}$`) }).click();
+    await expect(grid(page).locator('button[data-day]').first()).not.toHaveAttribute('aria-label', first);
+  }
+}
 async function shot(page: Page, name: string) {
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${SHOTS}/${name}-${page.viewportSize()?.width}.png` });
@@ -232,8 +250,10 @@ test.describe('signed in', () => {
     await expect(legend).not.toContainText('Doar telefonic');
     // Chita's lead is 24h: tomorrow's day slot is free and white for the operator, never yellow.
     await expect(grid(page).locator('button[data-status="too-soon"]')).toHaveCount(0);
+    await goTo(page, 1);
     await expect(band(page, fx.inProgress.name, 1, '06–18')).toHaveAttribute('data-status', /available|booked|blocked/);
     // c5: the block is labelled («Test e2e calendar») — the angler's grid would explain it; here nothing.
+    await goTo(page, fx.block.day);
     const blocked = band(page, fx.block.name, fx.block.day, '06–18');
     await expect(blocked).toHaveAttribute('data-status', 'blocked');
     await blocked.click();
@@ -249,6 +269,7 @@ test.describe('signed in', () => {
     const bodies = quotes(page);
     await open(page);
     const cur = currentSlot();
+    await goTo(page, cur.day);
     const b = band(page, fx.inProgress.name, cur.day, cur.label);
     await expect(b).toHaveAttribute('data-status', 'available');
     await b.click();
@@ -272,6 +293,7 @@ test.describe('signed in', () => {
   test('c9: Continuă → …/calendar/confirmare («Confirmă rezervarea») for a stand with nothing to add, …/calendar/extra («Extra») for a night on a cabin stand', async ({ page }) => {
     await open(page);
     const cur = currentSlot();
+    await goTo(page, cur.day);
     await band(page, fx.plain.name, cur.day, cur.label).click();
     await expect(panel(page).getByTestId('selection-price')).toBeVisible({ timeout: 20_000 });
     await page.getByTestId('selection-continue').click();
@@ -282,6 +304,7 @@ test.describe('signed in', () => {
     expect(Date.parse(r.searchParams.get('end')!)).toBe(cur.end.getTime());
     expect(r.searchParams.getAll('extra')).toEqual([]);
     await open(page);
+    await goTo(page, 3);
     const night = band(page, fx.cabin.name, 3, '18–06');
     await expect(night).toHaveAttribute('data-status', 'available');
     await night.click();
@@ -297,6 +320,7 @@ test.describe('signed in', () => {
     // The detail's own GET is held too: what paints is the list row (the seed).
     const releaseDetail = await hold(page, new RegExp(`/api/cms/feed/bookings/${fx.walkIn.id}(\\?|$)`));
     await open(page);
+    await goTo(page, fx.walkIn.day);
     const booked = band(page, fx.walkIn.name, fx.walkIn.day, '06–18');
     await expect(booked).toHaveAttribute('data-status', 'booked');
     // The list is still loading: never «not found» — the band says it is busy, nothing opens yet…
@@ -347,9 +371,11 @@ test.describe('signed in', () => {
     await open(page);
     const cur = currentSlot();
     // The bare grid is the first entry; the first selection pushes its own.
+    await goTo(page, cur.day);
     await band(page, fx.inProgress.name, cur.day, cur.label).click();
     await expect(page).toHaveURL(new RegExp(`stand=${fx.inProgress.stand}`));
     // Open a booking to compare: the selection survives (URL, pill, the selection bar under the grid with its actions).
+    await goTo(page, fx.walkIn.day);
     const booked = band(page, fx.walkIn.name, fx.walkIn.day, '06–18');
     await booked.click();
     await expect(page).toHaveURL(new RegExp(`rezervare=${fx.walkIn.id}`));
@@ -361,6 +387,8 @@ test.describe('signed in', () => {
     // Priced and not held for the mount (c9): the bar's Continuă is live, no note.
     await expect(summary.getByTestId('selection-continue')).not.toHaveAttribute('aria-disabled', 'true');
     await expect(summary.getByTestId('selection-continue')).toHaveAccessibleDescription('');
+    // Desktop pages: the selection's own page still draws its pill.
+    await goTo(page, cur.day);
     await expect(grid(page).locator('button[data-status="selected"]')).toHaveCount(1);
     await shot(page, 'selection-and-detail');
     await expectNoA11yViolations(page);
@@ -432,6 +460,7 @@ test.describe('signed in', () => {
     const listed = page.waitForResponse(LIST);
     await open(page);
     await listed;
+    await goTo(page, fx.walkIn.day);
     const booked = band(page, fx.walkIn.name, fx.walkIn.day, '06–18');
     await booked.click();
     await expect.poll(() => page2Hits).toBe(1);
@@ -447,6 +476,7 @@ test.describe('signed in', () => {
     for (const w of [1024, 375]) {
       await page.setViewportSize({ width: w, height: w < 768 ? 812 : 900 });
       await open(page);
+      await goTo(page, fx.walkIn.day);
       await band(page, fx.walkIn.name, fx.walkIn.day, '06–18').click();
       const surface = page.locator('dialog[open]');
       await expect(surface).toBeVisible();
@@ -466,6 +496,7 @@ test.describe('signed in', () => {
     const listed = page.waitForResponse(LIST);
     await open(page);
     await listed;
+    await goTo(page, fx.walkIn.day);
     const booked = band(page, fx.walkIn.name, fx.walkIn.day, '06–18');
     await expect(booked).toHaveAttribute('data-status', 'booked');
     await booked.click();
@@ -553,6 +584,7 @@ test.describe('signed in', () => {
     await expect(grid(page)).toBeVisible({ timeout: 45_000 });
     await expect(page).toHaveURL(new RegExp(`${esc(PATH)}$`));
     const cur = currentSlot();
+    await goTo(page, cur.day);
     await band(page, fx.inProgress.name, cur.day, cur.label).click();
     await expect(panel(page)).toBeVisible();
     await page.getByRole('button', { name: 'Anulează selecția' }).click();
@@ -572,11 +604,14 @@ test.describe('signed in', () => {
   test('keyboard: Tab into the grid, arrows move, Enter selects the slot running now', async ({ page }) => {
     await open(page);
     const cur = currentSlot();
+    await goTo(page, cur.day);
     const target = band(page, fx.inProgress.name, cur.day, cur.label);
     await target.focus();
     await page.keyboard.press('Enter');
     await expect(grid(page).locator('button[data-status="selected"]')).toBeFocused();
-    await page.keyboard.press('ArrowRight');
+    // The slot running now may be the last band of its page (Sunday night): then step left.
+    const hasNext = await grid(page).locator('button[data-status="selected"]').evaluate((el) => !!el.nextElementSibling);
+    await page.keyboard.press(hasNext ? 'ArrowRight' : 'ArrowLeft');
     await expect(grid(page).locator('button[data-status="selected"]')).not.toBeFocused();
     await page.keyboard.press('Enter');
     await expect(grid(page).locator('button[data-status="selected"]')).toHaveCount(1);
@@ -597,12 +632,14 @@ test.describe('signed in', () => {
       await shot(page, 'grid');
       await expectNoA11yViolations(page);
       const cur = currentSlot();
+      await goTo(page, cur.day);
       await band(page, fx.inProgress.name, cur.day, cur.label).click();
       await expect(panel(page).getByTestId('selection-price')).toBeVisible({ timeout: 20_000 });
       await shot(page, 'selection');
       await expectNoA11yViolations(page);
       await panel(page).getByRole('button', { name: 'Anulează' }).click();
       await expect(panel(page)).toHaveCount(0);
+      await goTo(page, fx.walkIn.day);
       await band(page, fx.walkIn.name, fx.walkIn.day, '06–18').click();
       await expect(page.getByTestId('booking-detail-angler')).toHaveText('Calendar E2E');
       await shot(page, 'detail');

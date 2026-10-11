@@ -15,6 +15,7 @@ import {
 } from 'react';
 import { ChevronRightIcon, HomeModernIcon } from '@heroicons/react/24/outline';
 import type { AvailabilityStand, DayHeader as Day, GridSelectionState } from '@/core/booking';
+import { UNDER_BAR_TOP_MD } from '@/components/nav/shell';
 import { cn } from '@/components/ui/cn';
 import { GRID_CARD } from './BookingFrame';
 import { DayHeader, fitDayLabels } from './DayHeader';
@@ -284,9 +285,11 @@ export function AvailabilityGrid({
       role="region"
       aria-label="Disponibilitate pe standuri și zile"
       data-testid="availability-grid"
-      className={cn('relative isolate flex min-h-0 flex-1 flex-col overflow-hidden', GRID_CARD)}
+      // Desktop pages: clipped (rounded corners), never a scroll container — the page scrolls, so the
+      // day header can pin under the site bar and the footer to the viewport's bottom.
+      className={cn('relative isolate flex min-h-0 flex-1 flex-col', paged ? 'overflow-clip' : 'overflow-hidden', GRID_CARD)}
     >
-      <div ref={scroller} onScroll={check} onPointerDown={touch} onWheel={touch} onKeyDown={touch} onTouchStart={touch} className={cn('min-h-0 flex-1 overscroll-contain [scrollbar-width:thin]', paged ? 'overflow-x-hidden overflow-y-auto' : 'overflow-auto')}>
+      <div ref={scroller} onScroll={check} onPointerDown={touch} onWheel={touch} onKeyDown={touch} onTouchStart={touch} className={cn('min-h-0 flex-1', paged ? 'overflow-visible' : 'overflow-auto overscroll-contain [scrollbar-width:thin]')}>
         <div className="relative" style={{ width }}>
           <DayHeader
             days={days}
@@ -295,6 +298,7 @@ export function AvailabilityGrid({
             dayWidthPx={dayWidthPx}
             bodyWidthPx={bodyWidthPx}
             pendingPx={pendingPx}
+            pinClassName={paged ? UNDER_BAR_TOP_MD : undefined}
             tabDayIndex={todayPill}
             onDayPress={onDayPress}
           />
