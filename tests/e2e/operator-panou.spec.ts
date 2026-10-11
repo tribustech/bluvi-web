@@ -257,7 +257,7 @@ test.describe('signed in', () => {
     expect(errors).toEqual([]);
   });
 
-  test('c5 b.refresh: the refresh control and a window focus refetch the current window; no polling', async ({ page }) => {
+  test('c5 b.refresh: a window focus refetches the current window; no polling, no manual refresh control (owner 2026-10-11)', async ({ page }) => {
     const calls = await mockStats(page, (w) => ok(busy(w)));
     await page.setViewportSize({ width: 1280, height: 900 });
     await openPanel(page);
@@ -265,18 +265,11 @@ test.describe('signed in', () => {
     // No polling: nothing more on its own.
     await page.waitForTimeout(3000);
     expect(calls).toEqual(['week']);
-    await visible(page.getByRole('button', { name: 'Reîmprospătează' })).click();
-    await expect.poll(() => calls.length).toBe(2);
-    expect(calls[1]).toBe('week');
+    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
     // The chart's window, when it is another one.
     await trendCard(page).getByRole('tab', { name: 'Luna' }).click();
     await expect.poll(() => calls.at(-1)).toBe('month');
     const n = calls.length;
-    await visible(page.getByRole('button', { name: 'Reîmprospătează' })).click();
-    await expect.poll(() => calls.length).toBe(n + 1);
-    expect(calls.at(-1)).toBe('month');
-    // Let that refetch settle (a focus during a fetch is folded into it).
-    await expect(visible(page.getByRole('button', { name: 'Reîmprospătează' }))).not.toHaveAttribute('aria-disabled', 'true');
     await page.waitForTimeout(500);
     // Window focus (the tab comes back to the foreground).
     await page.evaluate(() => {
@@ -286,19 +279,27 @@ test.describe('signed in', () => {
       set('visible');
       document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
     });
-    await expect.poll(() => calls.length).toBe(n + 2);
+    await expect.poll(() => calls.length).toBe(n + 1);
     expect(calls.at(-1)).toBe('month');
   });
 
-  test('c4: a failed refetch keeps the figures on screen and says so', async ({ page }) => {
+  test('c4: a failed refetch keeps the figures on screen', async ({ page }) => {
     const errors = collectConsoleErrors(page, { ignore: EXPECTED_CONSOLE });
     let failing = false;
-    await mockStats(page, (w) => (failing ? fail(500) : ok(busy(w))));
+    const calls = await mockStats(page, (w) => (failing ? fail(500) : ok(busy(w))));
     await page.setViewportSize({ width: 375, height: 900 });
     await openPanel(page);
+    await expect.poll(() => calls.length).toBe(1);
     failing = true;
-    await visible(page.getByRole('button', { name: 'Reîmprospătează' })).click();
-    await expect(page.getByText('Nu s-a putut actualiza. Cifrele de pe ecran sunt cele de dinainte.')).toBeVisible({ timeout: 30_000 });
+    await page.evaluate(() => {
+      const set = (v: string) => Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
+      set('hidden');
+      document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+      set('visible');
+      document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+    });
+    await expect.poll(() => calls.length).toBeGreaterThan(1);
+    await page.waitForTimeout(500);
     await expect(rowOf(page, 'Andrei Ionescu')).toBeVisible();
     await expect(tiles(page).getByTestId('occupancy-tile-value')).toHaveText('4/21');
     expect(errors).toEqual([]);

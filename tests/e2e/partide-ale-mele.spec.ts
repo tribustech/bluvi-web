@@ -37,7 +37,6 @@ async function open(page: Page, viewport = PHONE) {
   await page.goto(PAGE);
 }
 
-const visible = (page: Page, testId: string) => page.getByTestId(testId).locator('visible=true');
 
 test('c1 — a guest gets the journal wall, «Autentifică-te» back to this tab; the other tabs stay links', async ({ page }) => {
   const errors = collectConsoleErrors(page);
@@ -104,21 +103,6 @@ test('c2 c3 — the list is read only on this tab (skeleton first, never zeros);
   await expect(page.getByTestId('journal-stat-strip')).toBeVisible();
   await expect(page.getByTestId('ale-mele-skeleton')).toHaveCount(0);
   expect(hits.mine).toBe(1);
-  expect(errors).toEqual([]);
-});
-
-test('c4 — a refetch shows «Se actualizează…» over the content, which stays', async ({ page, context }) => {
-  const errors = collectConsoleErrors(page);
-  await signedIn(context, page);
-  const { hits, state } = await mockMine(page, { rows: [F1, F2] });
-  await open(page, DESKTOP);
-  await expect(visible(page, 'history-preview').getByTestId('own-card')).toHaveCount(2);
-  state.delayMs = 2000;
-  await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-  await expect(page.getByTestId('refetch-row')).toHaveText('Se actualizează…');
-  await expect(visible(page, 'history-preview').getByTestId('own-card')).toHaveCount(2);
-  await expect(page.getByTestId('refetch-row')).toHaveCount(0);
-  expect(hits.mine).toBe(2);
   expect(errors).toEqual([]);
 });
 

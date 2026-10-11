@@ -1,20 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { ArrowPathIcon, CalendarIcon, InboxIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, InboxIcon } from '@heroicons/react/24/outline';
 import { useNowTick } from '@/components/account/angler/SessionHistoryCard';
 import { BookingDetailDialog, rateAnglerHref, useBookingDetailParam } from '@/components/operator';
 import { useOperatorBookingActions } from '@/components/operator/actions/useOperatorBookingActions';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
-import { FOCUS_RING, ListEmpty, ListError, pageToolClass, useListUrlState } from '@/components/templates/T1';
+import { FOCUS_RING, ListEmpty, ListError, useListUrlState } from '@/components/templates/T1';
 import { cn } from '@/components/ui/cn';
 import { BUCKET_LABELS, emptyCopy, lakeBookingsInfiniteQuery, type BookingDTO, type OperatorBucket, type OperatorSub } from '@/core/booking';
 import { isApiError } from '@/core/transport';
 import { routes } from '@/lib/routes';
-import { useSiteToast } from '../../../../_shell/Toast';
 import { OperatorErrorState } from '../../../_shared/OperatorErrorState';
 import { OperatorFrame, OperatorTitleSkeleton, operatorTrail } from '../../../_shared/OperatorFrame';
 import { useOperatorTransport } from '../../../_shared/useOperatorTransport';
@@ -32,7 +31,8 @@ import { TurnoverCard } from './TurnoverCard';
  * /operator/[lakeId]/rezervari — operator.rezervari (T1), fish app/(app)/operator/[lakeId]/bookings.tsx.
  *
  *  - c1 header: back (the panel when there is no in-app history), «Administrare rezervări» over the
- *    lake's name, the refresh control (c13) and the round «Calendarul bălții» button → the calendar.
+ *    lake's name and the round «Calendarul bălții» button → the calendar (c13's refresh control
+ *    removed by the owner 2026-10-11).
  *  - c2–c5, c27 the pinned chrome: the four bucket tabs (icons, the «De aprobat» badge from the
  *    FIRST page's pendingCount, never 0) and the sub chips of Confirmate / Nefinalizate, each tab
  *    remembering its sub while the page is open.
@@ -65,7 +65,6 @@ export function InboxScreen({
 }) {
   const t = useOperatorTransport();
   const router = useRouter();
-  const toast = useSiteToast();
   const lakeName = useOwnedLakeName(lakeId);
   const now = useNowTick();
   const desktop = useBreakpoint() === 'desktop';
@@ -131,16 +130,6 @@ export function InboxScreen({
     opener.current = null;
     if (el?.isConnected && (document.activeElement === document.body || !document.activeElement)) el.focus({ preventScroll: true });
   }, [open]);
-
-  // c13 — the refresh control (fish pull-to-refresh).
-  const [refreshing, setRefreshing] = useState(false);
-  const refresh = useCallback(async () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    const r = await list.refetch();
-    setRefreshing(false);
-    if (r.isError && r.data) toast('Nu am putut încărca rezervările.', 'danger');
-  }, [list, refreshing, toast]);
 
   // c7 — back to the top of a different list, the title row in view again.
   const toTop = () => window.scrollTo({ top: 0 });
@@ -238,10 +227,6 @@ export function InboxScreen({
       trail={operatorTrail({ label: lakeName ?? 'Balta', href: routes.operator(lakeId) }, { label: 'Rezervări' })}
       trailing={
         <>
-          <button type="button" onClick={() => void refresh()} aria-busy={refreshing || undefined} data-testid="inbox-refresh" className={pageToolClass()}>
-            <ArrowPathIcon aria-hidden className={cn(refreshing && 'animate-spin motion-reduce:animate-none')} />
-            <span className="sr-only md:not-sr-only">Reîmprospătează</span>
-          </button>
           {/* fish: the round indigo calendar button — the same reservations on stand × time (c1). */}
           <Link
             href={routes.operatorCalendar(lakeId)}

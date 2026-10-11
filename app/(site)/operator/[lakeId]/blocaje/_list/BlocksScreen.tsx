@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowPathIcon, CalendarDaysIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useNowTick } from '@/components/account/angler/SessionHistoryCard';
-import { FOCUS_RING, ListEmpty, pageToolClass } from '@/components/templates/T1';
+import { FOCUS_RING, ListEmpty } from '@/components/templates/T1';
 import { cn } from '@/components/ui/cn';
 import { bookingKeys, deleteBlockMutation, lakeBlocksQuery, type AvailabilityBlockDTO, type BlockRow as BlockRowModel } from '@/core/booking';
 import { routes } from '@/lib/routes';
@@ -24,13 +24,14 @@ import { BLOCKS_TITLE, blocksList, deletedToast, deletePartialFailureMessage } f
  * app/(app)/operator/[lakeId]/blocks.tsx.
  *
  *  - c1 header: back (the panel when there is no in-app history), the title over the lake's name,
- *    the refresh control (c12) and the round indigo «+» «Adaugă blocaj» → operator.blocaj-nou.
+ *    the round indigo «+» «Adaugă blocaj» → operator.blocaj-nou.
  *  - c2 GET /feed/availability-blocks?lakeId= through /api/cms (per owner, never cached); first load
  *    is the skeleton, a failure with nothing to show the shared OperatorErrorState with a retry.
  *  - c3 c4 month cards of grouped rows; c5 the past behind «Afișează trecutul ({n})».
  *  - c9 c10 trash → confirm → one DELETE after another, the row's spinner, the toasts (a group that
  *    fails part-way says how many were deleted).
- *  - c11 empty; c12 refresh control + refetch on window focus (staleTime 0).
+ *  - c11 empty; c12 refetch on window focus (staleTime 0); no manual refresh control (removed by the
+ *    owner 2026-10-11).
  */
 export function BlocksScreen({ lakeId }: { lakeId: string }) {
   const t = useOperatorTransport();
@@ -46,16 +47,6 @@ export function BlocksScreen({ lakeId }: { lakeId: string }) {
 
   const [showPast, setShowPast] = useState(false);
   const list = useMemo(() => (blocks.data && now !== null ? blocksList(blocks.data, now, showPast) : null), [blocks.data, now, showPast]);
-
-  // c12 — the refresh control (fish pull-to-refresh). A failed refetch keeps the rows and says so.
-  const [refreshing, setRefreshing] = useState(false);
-  const refresh = useCallback(async () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    const r = await blocks.refetch();
-    setRefreshing(false);
-    if (r.isError && r.data) toast('Nu am putut încărca blocajele.', 'danger');
-  }, [blocks, refreshing, toast]);
 
   // c9, c10 — the row being confirmed, then the row whose blocks are being deleted.
   const [confirming, setConfirming] = useState<BlockRowModel | null>(null);
@@ -186,13 +177,8 @@ export function BlocksScreen({ lakeId }: { lakeId: string }) {
       caption={lakeName ?? <OperatorTitleSkeleton className="h-3 w-28" />}
       back={{ fallbackHref: routes.operator(lakeId) }}
       trail={operatorTrail({ label: lakeName ?? 'Balta', href: routes.operator(lakeId) }, { label: 'Blocaje' })}
-      busy={refreshing}
       trailing={
         <>
-          <button type="button" onClick={() => void refresh()} aria-busy={refreshing || undefined} data-testid="blocks-refresh" className={pageToolClass()}>
-            <ArrowPathIcon aria-hidden className={cn(refreshing && 'animate-spin motion-reduce:animate-none')} />
-            <span className="sr-only md:not-sr-only">Reîmprospătează</span>
-          </button>
           {/* fish: the round indigo «+» (blocks.tsx:123-139) — the add form is its own page here. */}
           <Link
             href={routes.operatorBlockNew(lakeId)}

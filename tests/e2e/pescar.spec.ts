@@ -243,7 +243,7 @@ test.describe('signed out', () => {
     await expect(hint.getByRole('button')).toHaveCount(1);
     await expect(hint.getByRole('button')).toHaveClass(/bg-accent-tint-2/);
     await expect(hint.getByRole('button')).not.toHaveClass(/(^|\s)bg-accent(\s|$)/);
-    // One line at 375, clear of the back / refresh chips above it.
+    // One line at 375, clear of the back chip above it.
     const line = (await hint.locator('p').boundingBox())!;
     expect(line.height, 'the hint fits one line at 375').toBeLessThan(30);
     const chips = (await page.getByRole('button', { name: 'Înapoi', exact: true }).boundingBox())!;
@@ -477,9 +477,8 @@ test.describe('signed in — real data', () => {
     await expect(page.getByTestId('cmmc-verified')).toHaveCount(0); // a partidă record
     await expect(page.getByRole('button', { name: 'Înapoi' })).toBeVisible();
     await expect(page.getByTestId('profile-settings-button')).toHaveCount(0);
-    // The two header chips are twins on the white band (soft fill), not a white chip beside a grey one.
-    const fill = (name: string) => page.getByRole('button', { name, exact: true }).first().evaluate(el => getComputedStyle(el).backgroundColor);
-    expect(await fill('Înapoi')).toBe(await fill('Reîmprospătează'));
+    // No refresh control beside the back chip (removed by the owner 2026-10-11).
+    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
 
     await expect(tab(page, 'Capturi')).toHaveAttribute('aria-selected', 'true');
     await page.waitForLoadState('networkidle');
@@ -543,16 +542,6 @@ test.describe('signed in — real data', () => {
     expect(href).toMatch(/^\/concursuri\/[^/]+$/);
     await first.click();
     await page.waitForURL(`**${href}`);
-  });
-
-  test('c33: Reîmprospătează refetches the header and the selected tab', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`/pescari/${ANDREW_R}?tab=concursuri`);
-    await expect(page.getByTestId('profile-header')).toBeVisible();
-    const header = page.waitForRequest(r => new RegExp(`/feed/anglers/${ANDREW_R}(\\?|$)`).test(r.url()));
-    const list = page.waitForRequest(r => r.url().includes(`/feed/anglers/${ANDREW_R}/competitions`));
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await Promise.all([header, list]);
   });
 
   test('c38: the own documentId — no follow, the back control, no settings cog', async ({ page }) => {
@@ -1127,7 +1116,7 @@ test.describe('signed in — mocked states', () => {
     await expect(page.getByRole('dialog', { name: 'Reputație' })).toBeVisible();
   });
 
-  test('≥1280 rule 20 + rule 1: the tabs are one white card with count badges and the refresh chip; no back/refresh row; a compact record tile', async ({ page }) => {
+  test('≥1280 rule 20 + rule 1: the tabs are one white card with count badges, no refresh chip; no back row; a compact record tile', async ({ page }) => {
     await mockAngler(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/pescari/${MOCK}?tab=concursuri`);
@@ -1138,9 +1127,8 @@ test.describe('signed in — mocked states', () => {
     await expect(page.getByRole('tab', { name: 'Capturi', exact: true })).toBeVisible();
     const bar = page.getByRole('tablist').locator('..');
     expect(await bar.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(255, 255, 255)');
-    await expect(bar.getByTestId('profile-refresh-chip')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Înapoi', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
     // The identity card and the tab card start together, right under the site header.
     const [aside, tabs] = await Promise.all([page.getByRole('complementary').boundingBox(), bar.boundingBox()]);
     expect(Math.abs(aside!.y - tabs!.y)).toBeLessThan(2);

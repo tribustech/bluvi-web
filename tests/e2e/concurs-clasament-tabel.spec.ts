@@ -53,13 +53,14 @@ test('§4b.12 §4b.13 — standard table: coloured header (Best-N block a step d
   const heads = table.locator('thead th');
   await expect(heads.first()).toHaveText(/Stand/);
   expect(await heads.first().evaluate(el => getComputedStyle(el).backgroundColor)).toBe(HEAD_BG);
-  // The Best-N header keeps its own deeper band.
-  expect(await table.locator('thead th.bg-indigo-4').first().evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(HEAD_BG);
-  // Hairline rows and the sector stripe on every row.
+  // The Best-N header keeps its own deeper band (fish: indigo4 under #312E81).
+  expect(await table.locator('thead th.bg-fish-rk-tier-head').first().evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(HEAD_BG);
+  // fish's cell lines and the sector's 4px edge on every row's Stand cell (FishTable, every width).
   const rows = table.locator('tbody tr');
   await expect(rows).toHaveCount(5);
   expect(await rows.nth(1).locator('td').first().evaluate(el => getComputedStyle(el).borderTopWidth)).toBe('1px');
-  await expect(table.locator('tbody tr td:first-child > span.absolute.w-1')).toHaveCount(5);
+  const edges = await rows.locator('td:first-child').evaluateAll(tds => tds.map(td => getComputedStyle(td).borderLeftWidth));
+  expect(edges).toEqual(Array(5).fill('4px'));
   // Avatars: the photo when the angler has one, the initials otherwise — not part of the cell's text.
   const alesia = table.getByRole('rowheader', { name: 'Alesia Maria Radulescu' });
   await expect(alesia.locator('[data-ranking-face] img')).toHaveAttribute('src', /^https:\/\//);
@@ -78,7 +79,6 @@ test('§4b.11 — no catch reads «–» in the weight, never «capot» (desktop
   await expect(row.locator('td span[aria-hidden]').filter({ hasText: /^–$/ }).first()).toBeAttached();
   // (The competition's own name, «[AUDIT] Podium capot», is data; the ranking's UI says no «capot».)
   await expect(page.getByRole('region', { name: 'Clasament' }).first()).not.toContainText(/capot/i);
-  await expect(page.getByRole('list', { name: 'Legendă' })).toContainText('fără capturi');
   // A winner place without a catch is not a winner row: no 90% tint, no trophy (as RankingRow and
   // the feeder podium) — the last one never reads as a winner.
   await expect(row).not.toHaveAttribute('data-winner', /.*/);
@@ -128,10 +128,10 @@ test('§4b.11 — no catch reads «–» in the weight, never «capot» (desktop
   await expect(phone).not.toContainText(/capot/i);
 });
 
-/** fish's colours (app/globals.css): the plain grey head, TOTAL_COLOR, LEG_COLORS. */
+/** fish's colours (app/globals.css): the plain grey head, TOTAL_COLOR, LEG_COLORS (#1E88E5, #00897B). */
 const PLAIN_HEAD = 'rgb(241, 243, 248)';
 const TOTAL = 'rgb(57, 73, 171)';
-const LEG = ['rgb(21, 101, 192)', 'rgb(0, 121, 107)'];
+const LEG = ['rgb(30, 136, 229)', 'rgb(0, 137, 123)'];
 
 test('§4b.12 §4b.13 §4b.15 — feeder General: fish’s heads (plain Loc / Echipă, Total, a colour per leg), each group’s colour rule on the rows, avatars', async ({ page }) => {
   await open(page, ID.feeder);
@@ -170,10 +170,13 @@ test('§4b.12 §4b.13 §4b.15 — club ranking (NC): coloured header, one club e
   const clubs = table.locator('tbody th[scope="rowgroup"]');
   const count = await clubs.count();
   expect(count).toBeGreaterThan(1);
-  await expect(table.locator('tbody th[scope="rowgroup"] > span.absolute.w-1')).toHaveCount(count);
-  // The edge is the club's own colour (each rowgroup sets --sector): solid, never transparent.
-  const edge = await table.locator('tbody th[scope="rowgroup"] > span.absolute.w-1').first().evaluate(el => getComputedStyle(el).backgroundColor);
-  expect(edge).not.toBe('rgba(0, 0, 0, 0)');
+  // fish: the merged Club cell opened by the club colour's 4px edge (each rowgroup sets --sector).
+  const edges = await clubs.evaluateAll(ths => ths.map(th => [getComputedStyle(th).borderLeftWidth, getComputedStyle(th).borderLeftColor]));
+  expect(edges).toHaveLength(count);
+  for (const [width, colour] of edges) {
+    expect(width).toBe('4px');
+    expect(colour).not.toBe('rgba(0, 0, 0, 0)');
+  }
   await expect(table.locator('tbody tr')).toHaveCount(18);
   await expect(table.locator('[data-ranking-face]')).toHaveCount(18);
 });
@@ -358,15 +361,15 @@ test('competition-page.clasament.c10 — bestOf with more than one sector shows 
 test('competition-page.clasament.c11 — bestOfTiers: catch columns follow the data under the largest tier; the Best-N band (deeper on winner rows), the won cell solid green, bold', async ({ page }) => {
   await openFixture(page, 'bestOfTiers');
   const table = displayed(page);
-  await expect(table.locator('thead th.bg-indigo-4')).toHaveText([/^Best 3$/, /^Best 5$/, /^Best 7$/, /^Best 9$/]);
+  await expect(table.locator('thead th.bg-fish-rk-tier-head')).toHaveText([/^Best 3$/, /^Best 5$/, /^Best 7$/, /^Best 9$/]);
   // tierWonAt 1, 2, 3 of the tiers 9, 7, 5, 3: Best 9, Best 7, Best 5.
   const won = table.locator('td[data-tier-win]');
   await expect(won).toHaveCount(3);
-  await expect(won.first()).toHaveClass(/bg-success/);
+  await expect(won.first()).toHaveClass(/bg-fish-rk-tier-win/);
   expect(Number(await won.first().evaluate(e => getComputedStyle(e).fontWeight))).toBeGreaterThanOrEqual(700);
   // 3 rows, 4 tiers: every row a winner — the band's deeper step.
   await expect(table.locator('tbody tr[data-winner]')).toHaveCount(3);
-  await expect(table.locator('td.bg-accent-tint-3')).toHaveCount(9);
+  await expect(table.locator('td.bg-fish-rk-tier-winner-row')).toHaveCount(9);
 });
 
 test('competition-page.clasament.c11 — bestOfTiers with at most 4 catches: 4 catch columns, not the largest tier', async ({ page }) => {
@@ -425,12 +428,12 @@ test('competition-page.clasament.c16 — stand order by default (sector A→Z, t
   const table = displayed(page);
   const stands = table.locator('tbody tr td:first-child > span[aria-hidden]:not(.absolute)');
   await expect(stands).toHaveText(['B/2', 'B/5', 'C/9']);
-  const place = heads(table).filter({ hasText: 'Poziție generală' });
+  // fish Sortare → Poziția în clasament: from 768 the card's «Ordine» (fish's table has no header sort).
+  const order = page.getByRole('group', { name: 'Ordine' }).locator('visible=true');
   await expect(async () => {
-    await place.getByRole('button').click();
-    await expect(place).toHaveAttribute('aria-sort', 'ascending', { timeout: 1000 });
+    await order.getByText('Poziție', { exact: true }).click();
+    await expect(stands).toHaveText(['B/2', 'C/9', 'B/5'], { timeout: 1000 });
   }).toPass();
-  await expect(stands).toHaveText(['B/2', 'C/9', 'B/5']);
 });
 
 test('competition-page.clasament.c17 competition-page.clasament.c18 — every value cell in the sector colour (40%, 90% on a winner row), the white Stand cell with the 4px sector edge; winners = the sectors (quantity), numberOfWinners (bestOf), the tiers (bestOfTiers)', async ({
@@ -451,10 +454,10 @@ test('competition-page.clasament.c17 competition-page.clasament.c18 — every va
   ] as const) {
     const r = row(stand);
     await expect(r).toHaveAttribute('style', new RegExp(`--sector: var\\(--color-sector-${sector}\\)`));
-    // The Stand cell: no fill of its own, the sector's 4px edge.
+    // The Stand cell: no fill of its own, the sector's 4px edge (fish FrozenFirstCell).
     const standCell = r.locator('td').first();
-    await expect(standCell.locator('> span.absolute')).toHaveClass(new RegExp(`bg-sector-${sector}`));
-    expect((await standCell.locator('> span.absolute').boundingBox())!.width).toBeCloseTo(4, 0);
+    await expect(standCell).toHaveAttribute('style', new RegExp(`border-left-color: var\\(--color-sector-${sector}\\)`));
+    await expect(standCell).toHaveCSS('border-left-width', '4px');
     expect(await standCell.evaluate(e => getComputedStyle(e).backgroundColor)).toMatch(/rgba\(0, 0, 0, 0\)|rgb\(255, 255, 255\)/);
     // Every other cell: the sector fill (40%, or 90% on a winner row).
     const filled = r.locator('> [data-fill]');
@@ -474,12 +477,10 @@ test('competition-page.clasament.c17 competition-page.clasament.c18 — every va
         return r + g + b;
       });
   expect(await lum('B/2')).toBeLessThan(await lum('B/5'));
-  // fish's 🎖️ on «Poziție generală» of every winner row; with more than one sector, each sector's
-  // winner (sector place 1) also on «Poziție sector».
-  await expect(row('B/2').locator('td').nth(-2)).toContainText('câștigător de sector');
-  await expect(row('B/2').locator('td').last()).toContainText('câștigător');
-  await expect(row('C/9').locator('td').last()).toContainText('câștigător');
-  await expect(row('B/5')).not.toContainText('câștigător');
+  // fish's 🎖️ on «Poziție generală» of every winner row (fish's table marks nothing on «Poziție sector»).
+  await expect(row('B/2').locator('td').last()).toContainText('Premiat');
+  await expect(row('C/9').locator('td').last()).toContainText('Premiat');
+  await expect(row('B/5')).not.toContainText('Premiat');
   // The sector chips' dots follow the same colours.
   await expect(page.getByRole('radiogroup', { name: 'Filtru sector' }).locator('label').filter({ hasText: /^B$/ }).locator('span.rounded-full')).toHaveClass(/bg-sector-a/);
 });
@@ -499,7 +500,7 @@ test('competition-page.clasament.c18 — one sector (quantity): only the winner 
   await expect(marks).toHaveCount(1);
   await expect(table.locator('tbody tr[data-winner]')).toHaveCount(1);
   await expect(table.locator('tbody tr[data-winner] td').last().locator('[data-mark]')).toHaveCount(1);
-  await expect(table.locator('tbody tr[data-winner] td').last()).toContainText('Locul 1');
+  await expect(table.locator('tbody tr[data-winner] td').last()).toContainText('Premiat, 1');
   await expect(table).not.toContainText('câștigător de sector');
   await expect(table).not.toContainText('podium');
 });
@@ -515,10 +516,9 @@ test('competition-page.clasament.c18 — a sector’s second holding a place ≤
   });
   const table = displayed(page);
   const row = (stand: string) => table.locator('tbody tr').filter({ has: page.locator('td:first-child > span[aria-hidden]:not(.absolute)', { hasText: new RegExp(`^${stand}$`) }) });
-  await expect(row('B/5').locator('td').last()).toContainText('câștigător');
-  await expect(row('B/5')).not.toContainText('câștigător de sector');
-  // C/9 is sector C's winner (sector place 1) outside the places 1..S: the sector trophy, no general mark.
-  await expect(row('C/9').locator('td').nth(-2)).toContainText('câștigător de sector');
+  await expect(row('B/5').locator('td').last()).toContainText('Premiat');
+  // C/9 is sector C's winner (sector place 1) outside the places 1..S: no general mark (fish's
+  // table has no sector trophy).
   await expect(row('C/9').locator('td').last().locator('[data-mark]')).toHaveCount(0);
 });
 
@@ -526,7 +526,7 @@ test('competition-page.clasament.c18 — bestOf winners are numberOfWinners (the
   await openFixture(page, 'bestOf', { options: { numberOfWinners: 1 } });
   const table = displayed(page);
   await expect(table.locator('tbody tr[data-winner]')).toHaveCount(1);
-  await expect(table.locator('tbody tr[data-winner] td').last()).toContainText('câștigător');
+  await expect(table.locator('tbody tr[data-winner] td').last()).toContainText('Premiat');
   await expect(table.locator('tbody tr:not([data-winner]) td.rank-sector-win')).toHaveCount(0);
 });
 
@@ -539,9 +539,8 @@ test('competition-page.clasament.c19 competition-page.clasament.c20 — the comp
   const biggest = table.locator('td[data-biggest]');
   await expect(biggest).toHaveCount(2);
   await expect(biggest).toHaveText(['Cea mai mare captură: 26,275', 'Cea mai mare captură: 26,275']);
-  await expect(biggest.first()).toHaveClass(/bg-medal-gold/);
+  await expect(biggest.first()).toHaveClass(/bg-fish-rk-biggest/);
   expect(Number(await biggest.first().evaluate(e => getComputedStyle(e).fontWeight))).toBeGreaterThanOrEqual(700);
-  await expect(page.getByRole('list', { name: 'Legendă' })).toContainText('C.M.M.C a concursului');
   await page.setViewportSize(PHONE);
   await expect(displayed(page).locator('td[data-biggest]')).toHaveCount(2);
   // The phone is fish's table (§4b.25): no legend under it.
@@ -574,17 +573,12 @@ test('competition-page.clasament.c23 — one penalty marker per row beside the n
     const out = table.getByRole('img', { name: 'Echipa este eliminată' });
     await expect(warned).toHaveCount(1);
     await expect(warned).toHaveAttribute('title', /nadă în exces/);
-    // The phone is fish's table in fish's colours (PenaltyCard $yellow5 / $red6, §4b.25).
-    await expect(warned).toHaveClass(viewport === PHONE ? /bg-fish-rk-penalty/ : /bg-badge-yellow-fg/);
+    // fish's table at every width, in fish's colours (PenaltyCard $yellow5 / $red6, §4b.25).
+    await expect(warned).toHaveClass(/bg-fish-rk-penalty/);
     // Two penalties, one of them ELIMINATE: one red marker, not one per penalty.
     await expect(out).toHaveCount(1);
-    await expect(out).toHaveClass(viewport === PHONE ? /bg-fish-rk-eliminated/ : /bg-status-danger-fg/);
+    await expect(out).toHaveClass(/bg-fish-rk-eliminated/);
     await expect(table.locator('th[scope=row]').filter({ has: page.getByRole('img', { name: 'Echipa este eliminată' }) })).toContainText('Pescar 2');
-    // The legend names both markers from 768 (the phone is fish's table, no legend: §4b.25).
-    if (viewport === PHONE) continue;
-    const legend = page.getByRole('list', { name: 'Legendă' }).locator('visible=true');
-    await expect(legend).toContainText('penalizare aplicată');
-    await expect(legend).toContainText('eliminat');
   }
 });
 

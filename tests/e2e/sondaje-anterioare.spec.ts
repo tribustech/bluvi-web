@@ -119,7 +119,6 @@ const h1 = (page: Page) => page.getByRole('heading', { level: 1, name: 'Sondaje 
 const cards = (page: Page) => page.locator('[data-past-poll]');
 const card = (page: Page, title: string) => page.getByRole('article', { name: title });
 const rows = (page: Page, title: string) => card(page, title).getByRole('list', { name: 'Rezultate' }).locator(':scope > li');
-const refresh = (page: Page) => page.getByTestId('past-polls-refresh');
 
 const boxes = (page: Page) => cards(page).evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON() as DOMRect));
 
@@ -319,7 +318,7 @@ test.describe('participant.polls-past', () => {
     expect(errors).toEqual([]);
   });
 
-  test('c5 — keyboard: Tab reaches back, Reîncarcă and «Încarcă mai multe»; Enter loads page 2', async ({ page }) => {
+  test('c5 — keyboard: Tab reaches back and «Încarcă mai multe»; Enter loads page 2', async ({ page }) => {
     const seen = await mockPast(page);
     await open(page, { width: 1280 });
     await expect(cards(page)).toHaveCount(10);
@@ -327,8 +326,6 @@ test.describe('participant.polls-past', () => {
     await h1(page).focus();
     await page.keyboard.press('Shift+Tab');
     await expect(page.getByRole('button', { name: 'Înapoi' })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(refresh(page)).toBeFocused();
     // The cards are results: nothing focusable between the header and the footer.
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Încarcă mai multe' })).toBeFocused();
@@ -347,53 +344,11 @@ test.describe('participant.polls-past', () => {
     await expect(cards(page)).toHaveCount(10);
   });
 
-  test('c6 — «Reîncarcă» reloads the list (every loaded page), busy while it runs', async ({ page }) => {
-    const errors = collectConsoleErrors(page);
-    const seen = await mockPast(page);
-    await open(page, { width: 1280 });
-    await expect(cards(page)).toHaveCount(10);
-    await expect(refresh(page)).toHaveText('Reîncarcă');
-    // Slow the refetch down to see the busy state.
-    await page.unroute('**/api/cms/polls/past?*');
-    const again: number[] = [];
-    await page.route('**/api/cms/polls/past?*', async (route) => {
-      const p = Number(new URL(route.request().url()).searchParams.get('page'));
-      again.push(p);
-      await new Promise((r) => setTimeout(r, 800));
-      const changed = ALL.map((x, i) => (i === 0 ? { ...x, title: 'Titlu reîncărcat' } : x));
-      return json(route, { data: changed.slice((p - 1) * 10, p * 10), meta: { pagination: { page: p, pageSize: 10, pageCount: 2, total: 12 } } });
-    });
-    await refresh(page).click();
-    await expect(refresh(page)).toHaveAttribute('aria-busy', 'true');
-    await expect(refresh(page)).toContainText('Se reîncarcă…');
-    await expect(page.locator('section[aria-busy="true"]')).toHaveCount(1);
-    await expect(card(page, 'Titlu reîncărcat')).toBeVisible();
-    await expect(refresh(page)).not.toHaveAttribute('aria-busy', 'true');
-    await expect(page.getByRole('status').filter({ hasText: 'Sondajele au fost reîncărcate.' })).toHaveCount(1);
-    expect(again).toEqual([1]);
-    expect(seen.length).toBe(1);
-    expect(errors).toEqual([]);
-  });
-
-  test('c6 — a failed «Reîncarcă» says so visibly and keeps the cards', async ({ page }) => {
-    const errors = collectConsoleErrors(page, { ignore: EXPECTED_CONSOLE });
+  test('c6 — no «Reîncarcă» (removed by the owner 2026-10-11)', async ({ page }) => {
     await mockPast(page);
     await open(page, { width: 1280 });
     await expect(cards(page)).toHaveCount(10);
-    await page.unroute('**/api/cms/polls/past?*');
-    await page.route('**/api/cms/polls/past?*', (route) => json(route, { data: null, error: { status: 500, message: 'x' } }, 500));
-    await refresh(page).click();
-    const alert = page.getByRole('alert').filter({ hasText: 'Nu am putut reîncărca sondajele. Încearcă din nou.' });
-    await expect(alert).toBeVisible({ timeout: 30_000 });
-    await expect(cards(page)).toHaveCount(10);
-    await expect(card(page, FIRST.title)).toBeVisible();
-    // Not announced a second time as a success.
-    await expect(page.getByRole('status').filter({ hasText: 'Sondajele au fost reîncărcate.' })).toHaveCount(0);
-    for (const w of [375, 1280]) {
-      await page.setViewportSize({ width: w, height: w < 768 ? 812 : 900 });
-      await page.screenshot({ path: `${SHOTS}/refresh-failed-${w}.png` });
-    }
-    expect(errors).toEqual([]);
+    await expect(page.getByRole('button', { name: /Reîncarcă|Reîmprospătează/ })).toHaveCount(0);
   });
 
   test('first page failed — error with a retry that recovers', async ({ page }) => {
@@ -419,7 +374,6 @@ test.describe('participant.polls-past', () => {
     await mockPast(page);
     await open(page, { width: 1280 });
     await expect(cards(page)).toHaveCount(10);
-    await refresh(page).click();
     await page.getByRole('button', { name: 'Încarcă mai multe' }).click();
     await expect(cards(page)).toHaveCount(12);
     const views = (await events()).filter((e) => e.name === 'poll_past_view');

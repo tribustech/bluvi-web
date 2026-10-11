@@ -1,5 +1,4 @@
-import { competitionProfileKeys, competitionsKeys, type CompetitionStatus, type CompetitionType, type DetailRegistration, type Registration } from '@/core/competitions';
-import { competitionManagementKeys } from '@/core/organizer';
+import type { CompetitionStatus, CompetitionType, DetailRegistration, Registration } from '@/core/competitions';
 import { isApiError } from '@/core/transport';
 import { routes, type ParticipantsFilter } from '@/lib/routes';
 
@@ -236,15 +235,3 @@ export function toDetailRegistration(r: Registration): DetailRegistration {
   };
 }
 
-/**
- * fish RegistrationsList onRefresh: the list, then refreshActionSheetQueries — the competition, the
- * viewer's statute, the allocated participants.
- */
-export function refreshKeys(competitionId: string) {
-  return [
-    competitionsKeys.registrationsListById(competitionId),
-    competitionsKeys.byId(competitionId),
-    competitionProfileKeys.statuteForCompetition(competitionId),
-    competitionManagementKeys.allocatedParticipants(competitionId),
-  ] as const;
-}

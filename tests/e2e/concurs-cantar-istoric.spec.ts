@@ -575,22 +575,13 @@ test('organizer.scale-history.c10 — a refused start shows the error with «În
   await expect(page).toHaveURL(new RegExp(`/cantar/${STARTED_STAND}$`));
 });
 
-test('organizer.scale-history.c11 — the refresh action refetches the weighings, allocations, statute and competition', async ({ page }) => {
+test('organizer.scale-history.c11 — no manual refresh control (removed by the owner 2026-10-11)', async ({ page }) => {
   await page.setViewportSize(DESKTOP);
   const { watch, errors } = await open(page, STARTED, STARTED_STAND);
   await loaded(page);
-  const before = {
-    w: count(watch, BY_STAND),
-    a: count(watch, allocationsPath(STARTED)),
-    s: count(watch, statutePath(STARTED)),
-    c: count(watch, competitionPath(STARTED)),
-  };
-  await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Datele au fost actualizate.' })).toBeAttached();
-  expect(count(watch, BY_STAND)).toBeGreaterThan(before.w);
-  expect(count(watch, allocationsPath(STARTED))).toBeGreaterThan(before.a);
-  expect(count(watch, statutePath(STARTED))).toBeGreaterThan(before.s);
-  expect(count(watch, competitionPath(STARTED))).toBeGreaterThan(before.c);
+  // No manual refresh control (removed by the owner 2026-10-11): the reads refetch on focus and after writes.
+  await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
+  await expect(page.getByTestId('management-refresh')).toHaveCount(0);
   noWrites(watch);
   expect(errors).toEqual([]);
 });

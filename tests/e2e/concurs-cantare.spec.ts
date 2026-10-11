@@ -321,7 +321,7 @@ for (const width of [375, 1440]) {
   });
 }
 
-test('live 1440 · a weighing in progress refreshes itself: «Se actualizează în m:ss» counts down from 1:00, re-reads at 0 and on «Actualizează»', async ({ page, context }) => {
+test('live 1440 · a weighing in progress refreshes itself: «Se actualizează în m:ss» counts down from 1:00, re-reads at 0; no manual «Actualizează» (removed by the owner 2026-10-11)', async ({ page, context }) => {
   await signIn(context, jwt);
   const { pick } = data.live;
   const w = pick.weighings[0].documentId;
@@ -347,10 +347,7 @@ test('live 1440 · a weighing in progress refreshes itself: «Se actualizează �
   await page.clock.runFor(55_000);
   await expect.poll(() => reads).toBeGreaterThan(before);
   await expect(countdown).toHaveText(/^Se actualizează în (1:00|0:59)$/);
-  const again = reads;
-  await docked(page).getByRole('button', { name: 'Actualizează' }).click();
-  await expect.poll(() => reads).toBeGreaterThan(again);
-  await expect(countdown).toHaveText('Se actualizează în 1:00');
+  await expect(docked(page).getByRole('button', { name: 'Actualizează' })).toHaveCount(0);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 

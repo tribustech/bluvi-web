@@ -373,7 +373,7 @@ test('organizer.scale.c5 — an allocated stand opens its weighing history, once
   noWrites(watch);
 });
 
-test('find-as-you-type and the refresh action (fish pull-to-refresh)', async ({ page }) => {
+test('find-as-you-type; no manual refresh control (removed by the owner 2026-10-11)', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1000 });
   const { watch, errors } = await open(page, NC);
   await loaded(page);
@@ -402,12 +402,9 @@ test('find-as-you-type and the refresh action (fish pull-to-refresh)', async ({ 
   await search.fill('');
   await expect(page.getByTestId('scale-filter-count')).toHaveCount(0);
 
-  const before = watch.reads.filter((r) => r === allocationsPath(NC)).length;
-  const beforeC = watch.reads.filter((r) => r === competitionPath(NC)).length;
-  await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Datele au fost actualizate.' })).toBeAttached();
-  expect(watch.reads.filter((r) => r === allocationsPath(NC)).length).toBeGreaterThan(before);
-  expect(watch.reads.filter((r) => r === competitionPath(NC)).length).toBeGreaterThan(beforeC);
+  // No manual refresh control (removed by the owner 2026-10-11): the reads refetch on focus and after writes.
+  await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
+  await expect(page.getByTestId('management-refresh')).toHaveCount(0);
   await expectNoA11yViolations(page);
   noWrites(watch);
   expect(errors).toEqual([]);

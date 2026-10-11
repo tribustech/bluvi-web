@@ -45,7 +45,7 @@ import { WeighingTable } from './WeighingTable';
  * app/(app)/scale/[competitionId]/history.tsx). T6 in the ManagementFrame, `signedIn`: anyone
  * signed in reads it; the actions follow the statute.
  *  - c1: the title (fish's «Istoric cântariri» typo fixed); loading and error — the frame's retry
- *    refetches the competition and the statute, and onRefresh the weighings and the allocations;
+ *    refetches the competition, the statute, the weighings, the allocations and the total;
  *  - c2: the dashed stand card «Sector X, Stand N (T kg)» (NC label + club, «Echipa …», bullets);
  *  - c3: feeder — the weighings and the total are the current leg's (currentLegOf in the keys);
  *  - c4/c5: a card per weighing (below 1280) that opens it; from 1280 a table with every column and
@@ -132,7 +132,7 @@ export function HistoryScreen({ competitionId, standId, viewer }: { competitionI
         label: 'Înapoi la standuri',
       }}
       reads={[weighings, allocations]}
-      onRefresh={() => Promise.all([weighings.refetch(), allocations.refetch(), total.refetch()]).then((rs) => rs.find((r) => r.isError) ?? rs[0])}
+      onRetry={() => total.refetch()}
       skeleton={<HistoryBodySkeleton />}
       asideSkeleton={<FlowAsideSkeleton />}
       hint={({ competition: c, role }) => (c ? historyHint(c, role) : null)}

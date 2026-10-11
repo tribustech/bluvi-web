@@ -200,7 +200,7 @@ export function WeighingScreen({ competitionId, standId, weighingId, viewer }: P
         requires="signedIn"
         back={{ href: historyHref, label: 'Înapoi la cântăriri' }}
         reads={[weighing, allocations]}
-        onRefresh={() => Promise.all([weighing.refetch(), allocations.refetch(), standWeighings.refetch()])}
+        onRetry={() => standWeighings.refetch()}
         skeleton={<WeighingBodySkeleton />}
         asideSkeleton={<WeighingAsideSkeleton />}
         hint={() => (weighing.data ? <TotalLine weighing={weighing.data} /> : null)}

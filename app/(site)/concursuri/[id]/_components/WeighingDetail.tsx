@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import {
   weighingByIdQuery,
   weighingRevisionsQuery,
@@ -28,8 +28,7 @@ import { nationalStandLabel } from './stand';
 /*
  * fish components/WeighingDetailSheet.tsx (parity competition-page.cantar-detaliu): one stand's
  * weighings, one at a time — who is on the stand, Anterior / «Cântar i / n» / Următor, the total and
- * its state, the catches; a weighing in progress refreshes itself every minute (and on
- * «Actualizează»), catches that arrive in a refresh are marked for 5 s; a weighing that was edited
+ * its state, the catches; a weighing in progress refreshes itself every minute, catches that arrive in a refresh are marked for 5 s; a weighing that was edited
  * opens its history («Istoric modificări», read only when that view opens).
  *
  * The surface is the kit `context` one (ContextSurface): a sheet on the phone, a dialog to 1279,
@@ -388,25 +387,8 @@ function Weighing({
       ) : null}
       <TotalLine total={total} finished={finished} />
 
-      {inProgress ? (
-        <div className="flex items-center justify-between gap-3">
-          <p className="t-caption text-muted tabular-nums">Se actualizează în {countdown}</p>
-          <Button
-            variant="secondary"
-            size="compact"
-            icon={q.isFetching ? <ArrowPathIcon className="animate-spin" /> : undefined}
-            aria-busy={q.isFetching || undefined}
-            aria-disabled={q.isFetching || undefined}
-            onClick={() => {
-              if (q.isFetching) return;
-              void refetch();
-              setSeconds(REFRESH_SECONDS);
-            }}
-          >
-            {q.isFetching ? 'Se actualizează…' : 'Actualizează'}
-          </Button>
-        </div>
-      ) : null}
+      {/* No manual «Actualizează» (removed by the owner 2026-10-11): the countdown's own re-read. */}
+      {inProgress ? <p className="t-caption text-muted tabular-nums">Se actualizează în {countdown}</p> : null}
 
       {revisions > 0 ? (
         <button

@@ -5,9 +5,9 @@ import { useParams } from 'next/navigation';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Suspense, useMemo, useState } from 'react';
 import { ChevronRightIcon } from '@heroicons/react/20/solid';
-import { ArrowPathIcon, CalendarDaysIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import { CardShell, CardTitle } from '@/components/cards/CardShell';
-import { AsideSection, COLUMN_CARD, FilterColumn, FilterColumnSkeleton, FOCUS_RING, ListEmpty, ListFooter, ListHeader, ListPage, listGridClass, pageToolClass } from '@/components/templates/T1';
+import { AsideSection, COLUMN_CARD, FilterColumn, FilterColumnSkeleton, FOCUS_RING, ListEmpty, ListFooter, ListHeader, ListPage, listGridClass } from '@/components/templates/T1';
 import { buttonClass } from '@/components/ui/Button';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { cn } from '@/components/ui/cn';
@@ -55,8 +55,8 @@ import { formatCount } from '@/core/realtime/chat/format';
  *  - c6 the latest catches rail → /capturi?foto=; c7 the statistics card → /statistici;
  *  - c8 «Partide încheiate», 10 a page, de-duplicated, the next page near the end, each card
  *    ribboned «Încheiată» with «Vezi rezumatul»; c9 a partidă opens once the web has its page
- *    (availability.ts `partida`); c10 the live section polls (core: 60s) and «Reîmprospătează»
- *    reloads both feeds together.
+ *    (availability.ts `partida`); c10 the live section polls (core: 60s);
+ *    no manual refresh control (removed by the owner 2026-10-11).
  * From 1280 the lake's pages on the left, the rail and the statistics card docked on the right;
  * below it they follow the live card, in the fish order.
  */
@@ -76,21 +76,12 @@ export function PartideScreen({ lakeId, lakeName }: { lakeId: string; lakeName: 
   const rows = useMemo(() => dedupeByDocumentId(history.data?.pages.flatMap(p => p.data) ?? []), [history.data]);
   const total = history.data?.pages[0]?.meta.pagination.total;
 
-  /**
-   * c10: both feeds together; true when both answered. The busy look (spin, aria-busy) is only ever
-   * for a refresh the user started — never the 60s background poll or a refetch on mount: the HTML
-   * is static, and a stale cache refetching while it hydrates must not flip attributes the server
-   * rendered (hydration mismatch), nor spin a control nobody pressed.
-   */
-  const refresh = async () => {
-    const [a, b] = await Promise.all([live.refetch(), history.refetch()]);
-    return !a.isError && !b.isError;
-  };
+  // c3: the retry reloads both feeds together.
   const [retrying, setRetrying] = useState(false);
   const retry = async () => {
     setRetrying(true);
     try {
-      await refresh();
+      await Promise.all([live.refetch(), history.refetch()]);
     } finally {
       setRetrying(false);
     }
@@ -101,7 +92,6 @@ export function PartideScreen({ lakeId, lakeName }: { lakeId: string; lakeName: 
       title={lakeName || 'Partide'}
       description={CAPTION}
       back={{ label: 'Înapoi', onClick: back }}
-      actions={<RefreshTool onRefresh={refresh} />}
     />
   );
   const filters = (
@@ -501,35 +491,6 @@ function durationParts(ms: number): { value: string; unit: string } {
   const h = Math.floor(total / 60);
   const m = total % 60;
   return h > 0 ? { value: `${h}h`, unit: `${String(m).padStart(2, '0')}m` } : { value: String(m), unit: 'min' };
-}
-
-/**
- * c10 «Reîmprospătează» — the T1 header tool (pageToolClass: a 48 icon square below 768, labelled
- * from 768, so the lake's name keeps the phone's row). Busy only for the press itself: aria-busy +
- * aria-disabled (it keeps focus), the glyph turning; the outcome is said in a polite live region.
- */
-function RefreshTool({ onRefresh }: { onRefresh: () => Promise<boolean> }) {
-  const [busy, setBusy] = useState(false);
-  const [said, setSaid] = useState('');
-  const run = async () => {
-    if (busy) return;
-    setBusy(true);
-    setSaid('Se actualizează…');
-    const ok = await onRefresh().catch(() => false);
-    setBusy(false);
-    setSaid(ok ? 'Partidele sunt actualizate.' : 'Nu s-a putut actualiza.');
-  };
-  return (
-    <>
-      <button type="button" onClick={() => void run()} aria-busy={busy || undefined} aria-disabled={busy || undefined} className={pageToolClass()} data-testid="partide-refresh">
-        <ArrowPathIcon aria-hidden className={cn(busy && 'animate-spin motion-reduce:animate-none')} />
-        <span className="sr-only md:not-sr-only">Reîmprospătează</span>
-      </button>
-      <span role="status" className="sr-only">
-        {said}
-      </span>
-    </>
-  );
 }
 
 /* c4 — never had a partidă. */

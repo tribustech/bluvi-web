@@ -1,12 +1,14 @@
 'use client';
 
 import { useId, useMemo, type CSSProperties, type ReactNode } from 'react';
+import { ME_ROW } from '@/components/ranking/RankingTable';
 import { cn } from '@/components/ui/cn';
 
 /*
- * The phone's ranking table (below 768): fish components/ranking-table/RankingTable.tsx
+ * The competition's ranking table at every width: fish components/ranking-table/RankingTable.tsx
  * (ScrollableTable), as fish draws it on the competition screen (owner 2026-10-10: «Nu arată așa în
- * fish, refă-l»; ROADMAP §4b.25). The desktop keeps the kit RankingTable.
+ * fish, refă-l»; ROADMAP §4b.25; owner 2026-10-11: the same table on desktop, the kit table retired).
+ * From 768 it is drawn `wide` (below): fish's look on desktop proportions.
  *
  *  - fish's dimensions: CELL_WIDTH 60, PARTICIPANT_CELL_WIDTH 120, the header 60 tall, 40px rows,
  *    padding 4, a 1px $gray4 border round every cell (two cells side by side: a 2px light line);
@@ -27,6 +29,12 @@ import { cn } from '@/components/ui/cn';
  * Web-only (the data and a11y conventions every ranking width shares): a real <table> (the frozen
  * column is a sticky first cell), the region named by its caption, the decimal comma and «–» from
  * the shared formatters, «Fără capturi» for a screen reader.
+ *
+ * `wide` (from 768, owner 2026-10-11): the same cells, fills and marks on desktop proportions — the
+ * number columns 80 (fish's NationalChampionshipTable cell), the participant sized to the longest
+ * name with the face beside it (ROADMAP §4b.13, `lead`), 48px rows under a 56px head, 14px cells and
+ * 12px heads; the table only as wide as its columns (§4b.16), a visible scrollbar for the mouse when
+ * it is wider than its card (the Stand stays frozen).
  */
 
 /** fish RankingTable constants. */
@@ -38,6 +46,21 @@ const STAND_CHAR_WIDTH = 7;
 const STAND_CELL_PADDING = 16;
 const STAND_MIN_WIDTH = 60;
 const STAND_MAX_WIDTH = 140;
+
+/** `wide`: the desktop widths (see the header). */
+const WIDE = {
+  cell: 80,
+  char: 7,
+  dynamicPadding: 48,
+  /** The face (32) and its gap (8) beside the name. */
+  lead: 40,
+  participantMin: 180,
+  participantMax: 320,
+  standChar: 8,
+  standPadding: 28,
+  standMin: 72,
+  standMax: 150,
+};
 
 export type FishColumn = {
   key: string;
@@ -60,6 +83,8 @@ export type FishCell = {
   split?: boolean;
   /** After the text (fish PenaltyCard beside the participant). */
   after?: ReactNode;
+  /** Before the text, the cell then reads from the left (`wide`: the face beside the name). */
+  lead?: ReactNode;
   /** The participant cell: a row header for the table's semantics. */
   rowHeader?: boolean;
   attrs?: Record<string, string | undefined>;
@@ -82,8 +107,34 @@ export type FishRow = {
   solid?: boolean;
   /** One per column after the first. */
   cells: FishCell[];
+  /**
+   * `wide`: the viewer's own row (web-only; fish marks none) — the kit's mark over any fill (ME_ROW:
+   * an accent rule along every cell, the Stand cell tinted); the name says «Tu · » (standardFishRows).
+   */
+  me?: boolean;
   attrs?: Record<string, string | undefined>;
 };
+
+/** `wide`: fish's rules on the desktop widths; the participant sized to its longest name. */
+function wideColumnWidth(column: FishColumn, values: string[], lead: boolean): number {
+  const len = Math.max(column.title.length, ...values.map(v => v.length));
+  const extra = lead ? WIDE.lead : 0;
+  if (column.dynamicWidth) {
+    const min = Math.max(column.dynamicWidth.min ?? WIDE.cell, WIDE.cell);
+    const max = column.dynamicWidth.max ?? Number.POSITIVE_INFINITY;
+    return Math.min(Math.max(len * WIDE.char + WIDE.dynamicPadding, min), max) + extra;
+  }
+  if (column.width != null) return column.width;
+  if (column.key === 'participant') {
+    return Math.min(Math.max(len * WIDE.char + WIDE.dynamicPadding + extra, WIDE.participantMin), WIDE.participantMax);
+  }
+  return WIDE.cell;
+}
+
+function wideStandWidth(column: FishColumn, values: string[]): number {
+  const len = Math.max(column.title.length, ...values.map(v => v.length));
+  return Math.min(Math.max(len * WIDE.standChar + WIDE.standPadding, WIDE.standMin), WIDE.standMax);
+}
 
 /** fish computeColumnWidth. */
 function columnWidth(column: FishColumn, values: string[]): number {
@@ -135,23 +186,35 @@ export function FishTable({
   rows,
   caption,
   className,
+  wide = false,
+  sizeRows,
 }: {
+  /** The rows the widths are measured on (default `rows`): sector tables sized as one line up. */
+  sizeRows?: ReadonlyArray<FishRow>;
   columns: ReadonlyArray<FishColumn>;
   rows: ReadonlyArray<FishRow>;
   /** The region's name (the table's caption). */
   caption: string;
   className?: string;
+  /** From 768: the desktop proportions (see the header). */
+  wide?: boolean;
 }) {
   const widths = useMemo(
     () =>
       columns.map((col, i) => {
-        const values = rows.map(r => (i === 0 ? r.stand : (r.cells[i - 1]?.measure ?? '')));
-        if (i === 0 && col.key === 'position' && col.width == null) return standWidth(col, values);
+        const measured = sizeRows ?? rows;
+        const values = measured.map(r => (i === 0 ? r.stand : (r.cells[i - 1]?.measure ?? '')));
+        if (i === 0 && col.key === 'position' && col.width == null) return wide ? wideStandWidth(col, values) : standWidth(col, values);
+        if (wide) return wideColumnWidth(col, values, i > 0 && measured.some(r => r.cells[i - 1]?.lead != null));
         return columnWidth(col, values);
       }),
-    [columns, rows],
+    [columns, rows, sizeRows, wide],
   );
   const total = widths.reduce((a, b) => a + b, 0);
+  // `wide`: the table fills its card; the participant column takes what the fixed columns leave
+  // (never under its measured width), so the numbers keep their 80px and never go sparse.
+  const flex = wide ? columns.findIndex(c => c.key === 'participant') : -1;
+  const widthOf = (i: number): CSSProperties => (i === flex ? { minWidth: widths[i] } : px(widths[i]));
 
   return (
     <div
@@ -159,33 +222,39 @@ export function FishTable({
       aria-label={caption}
       tabIndex={0}
       data-fish-colours=""
+      data-natural-width={total}
       className={cn(
-        // fish ScrollView horizontal: no scrollbar, no bounce.
-        'w-full overflow-x-auto overscroll-x-none bg-rank-base [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        // fish ScrollView horizontal: no scrollbar, no bounce. Wide: the mouse needs the scrollbar.
+        'w-full overflow-x-auto overscroll-x-none bg-rank-base',
+        wide ? '[scrollbar-width:thin]' : '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent',
         className,
       )}
     >
-      <table className="table-fixed border-separate border-spacing-0 text-center" style={{ width: total }}>
+      <table
+        className="table-fixed border-separate border-spacing-0 text-center"
+        style={flex >= 0 ? { width: '100%', minWidth: total } : { width: total }}
+      >
         <caption className="sr-only">{caption}</caption>
         <colgroup>
           {widths.map((w, i) => (
-            <col key={columns[i].key} style={{ width: w }} />
+            <col key={columns[i].key} style={i === flex ? undefined : { width: w }} />
           ))}
         </colgroup>
         <thead>
-          <tr className="h-15">
+          <tr className={wide ? 'h-14' : 'h-15'}>
             {columns.map((col, i) => (
               <th
                 key={col.key}
                 scope="col"
-                style={px(widths[i])}
+                style={widthOf(i)}
                 className={cn(
                   CELL,
-                  'h-15 font-semibold! break-words',
+                  'font-semibold! break-words',
+                  wide ? 'h-14 px-2 t-caption' : 'h-15',
                   col.isTier ? 'bg-fish-rk-tier-head text-fish-rk-tier-head-ink' : 'bg-fish-rk-head text-fish-rk-head-ink',
                   // fish: the Stand head in caption (12), the others in micro (10).
-                  i === 0 ? 'sticky left-0 z-above t-caption' : 't-micro',
+                  i === 0 ? 'sticky left-0 z-above t-caption' : !wide && 't-micro',
                 )}
               >
                 {col.title}
@@ -203,14 +272,19 @@ export function FishTable({
                 data-registration={row.registrationId}
                 data-winner={row.winner || undefined}
                 data-solid={solid || undefined}
+                data-me={row.me || undefined}
                 {...row.attrs}
                 style={{ '--sector': row.color } as CSSProperties}
-                className="h-10"
+                className={cn(wide ? 'h-12' : 'h-10', row.me && ME_ROW)}
               >
                 {/* fish FrozenFirstCell: white, caption bold black, the sector's 4px left border. */}
                 <td
                   style={{ ...px(widths[0]), borderLeftColor: row.color }}
-                  className={cn(CELL, 'sticky left-0 z-above h-10 border-l-4 bg-rank-base t-caption font-bold! text-rank-on-light')}
+                  className={cn(
+                    CELL,
+                    'sticky left-0 z-above border-l-4 bg-rank-base font-bold! text-rank-on-light',
+                    wide ? 'h-12 px-2 t-table' : 'h-10 t-caption',
+                  )}
                 >
                   {row.standSr ? <span className="sr-only">{row.standSr}</span> : null}
                   <span aria-hidden={row.standSr ? true : undefined} className="block truncate">
@@ -226,10 +300,11 @@ export function FishTable({
                       scope={cell.rowHeader ? 'row' : undefined}
                       data-fill=""
                       {...cell.attrs}
-                      style={px(widths[ci + 1])}
+                      style={widthOf(ci + 1)}
                       className={cn(
                         CELL,
-                        'relative h-10 t-caption',
+                        'relative',
+                        wide ? 'h-12 px-2 t-table' : 'h-10 t-caption',
                         // fish: 500, bold on the gold and the won-at cell (fillClass).
                         fill !== 'biggest' && fill !== 'tierWin' && 'font-medium!',
                         fillClass(fill, solid, solid),
@@ -238,7 +313,8 @@ export function FishTable({
                       {fill === 'grey' ? (
                         cell.content
                       ) : (
-                        <span className="flex min-w-0 items-center justify-center gap-1">
+                        <span className={cn('flex min-w-0 items-center gap-1', cell.lead ? 'justify-start gap-2 text-left' : 'justify-center')}>
+                          {cell.lead}
                           <span className="min-w-0 truncate">{cell.content}</span>
                           {cell.after}
                         </span>

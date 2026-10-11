@@ -54,7 +54,7 @@ export function RevisionsScreen({ competitionId, standId, weighingId, viewer }: 
       requires="signedIn"
       back={{ href: routes.competitionScaleWeighing(competitionId, standId, weighingId), label: 'Înapoi la cântar' }}
       reads={[revisions]}
-      onRefresh={() => Promise.all([revisions.refetch(), allocations.refetch(), weighing.refetch()])}
+      onRetry={() => Promise.all([allocations.refetch(), weighing.refetch()])}
       skeleton={<RevisionsBodySkeleton />}
       asideSkeleton={<RevisionsAsideSkeleton />}
       hint={({ competition }) => {

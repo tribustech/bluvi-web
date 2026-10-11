@@ -64,8 +64,8 @@ import { StandRow } from './StandRow';
  * it from the author's menu and the feeder leg action «Reașază pentru manșa N»; the frame's `author`
  * gate shows a neutral page to anyone else).
  * - c1: the frame waits for the competition AND the allocations (AllocationBodySkeleton); an error
- *   gate's «Încearcă din nou» refetches the competition (frame), the allocations and the
- *   registrations list (onRefresh) — fish handleRefetch;
+ *   gate's «Încearcă din nou» refetches the competition, the allocations and the registrations list
+ *   (onRetry) — fish handleRefetch;
  * - c2/c3: the title from ?mansa=N (N > 1 = leg seating) and, in leg seating, the draw intro;
  * - c4–c6: per sector the stand rows (StandRow), prefilled from the allocations outside leg seating;
  *   a row opens the RegistrationPicker, its trash empties it;
@@ -141,9 +141,6 @@ export function AllocationScreen({
   const back = routes.competition(competitionId);
   const title = allocationTitle(legRound);
 
-  const refreshReads = () =>
-    Promise.all([allocations.refetch(), registrations.refetch(), ...(legRound ? [rankings.refetch()] : [])]);
-
   // fish handleRefetch (onSettled): the competition, the allocations and the registrations list.
   const refetchAfterSave = () => {
     void qc.invalidateQueries({ queryKey: competitionsKeys.byId(competitionId) });
@@ -196,7 +193,7 @@ export function AllocationScreen({
         requires="author"
         back={{ href: back, label: 'Înapoi la concurs' }}
         reads={[allocations]}
-        onRefresh={refreshReads}
+        onRetry={() => Promise.all([registrations.refetch(), ...(legRound ? [rankings.refetch()] : [])])}
         skeleton={<AllocationBodySkeleton />}
         asideSkeleton={<FlowAsideSkeleton />}
         hint={({ competition: c }) => (c?.lake ? <span>{c.lake.name}</span> : null)}

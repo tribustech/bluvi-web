@@ -896,7 +896,7 @@ screens:
         text: "A manual refresh reloads the list."
         fish_ref: "app/(app)/polls/past.tsx:120"
         status: passing
-        note: "e2e tests/e2e/sondaje-anterioare.spec.ts. Web: «Reîncarcă» in the header (fish pull-to-refresh): refetches every loaded page, aria-busy + turning icon + busy region over the old cards, «Sondajele au fost reîncărcate.» announced (sr status). A failed refresh keeps the cards and says so visibly: the site danger toast «Nu am putut reîncărca sondajele. Încearcă din nou.» (role=alert, so not announced twice; e2e: refresh → 500 → toast visible, cards remain)."
+        note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); «Reîncarcă» is gone; the list re-reads on navigation / reload. e2e tests/e2e/sondaje-anterioare.spec.ts «c6 — no «Reîncarcă»»."
       - id: participant.polls-past.c7
         text: "Analytics poll_past_view once per visit."
         fish_ref: "app/(app)/polls/past.tsx:35-37"

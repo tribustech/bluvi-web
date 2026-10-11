@@ -1,39 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { notificationsKeys } from '@/core/social';
-import { DashboardRefresh, type RefreshResult } from '@/components/templates/T5';
+import { Button } from '@/components/ui/Button';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { useSiteToast } from '../_shell/Toast';
 import { homeLakesQuery, homeNewsQuery, homeSponsorsQuery, liveCardsQuery, upcomingCardsQuery } from './queries';
 
 /**
- * fish (tabs)/index.tsx `handleRefetchAll` (pull-to-refresh), for the web: the browser queries Acasă
- * shows are refetched — exactly those (both competition rails, the home lakes, news and sponsors),
- * never every cached lakes / news entry another screen left behind (lake details, map clusters,
- * the search palette…) — the notifications are invalidated (active only), and the server blocks are
- * re-rendered (`router.refresh`: profile, organiser stats, the operator card and its stats, the
- * bookings count). The suggested-anglers rail is left alone on purpose (fish: a refresh
- * must never reshuffle it — SuggestedAnglers pins its order).
- *
- * A failed refetch keeps its data on screen, so it is SAID, visibly: a toast (the spinner stopping
- * over unchanged data would read as success), and 'reported' so the control does not announce it a
- * second time.
- */
-export function useHomeRefresh(): () => Promise<RefreshResult> {
-  const refetch = useHomeRefetch();
-  const toast = useSiteToast();
-  return useCallback(async () => {
-    if (await refetch()) return true;
-    toast('Nu am putut actualiza. Încearcă din nou.', 'danger');
-    return 'reported';
-  }, [refetch, toast]);
-}
-
-/**
- * The refetch alone, without feedback (the full-page error card is its own feedback). The server
+ * fish (tabs)/index.tsx `handleRefetchAll`, for the web: the browser queries Acasă shows are
+ * refetched — exactly those (both competition rails, the home lakes, news and sponsors), never every
+ * cached lakes / news entry another screen left behind — the notifications are invalidated (active
+ * only), and the server blocks are re-rendered (`router.refresh`: session, profile, organiser
+ * stats, the operator card, the bookings count). The suggested-anglers rail is left alone on
+ * purpose (fish: a refresh must never reshuffle it — SuggestedAnglers pins its order). No manual
+ * refresh control calls it (removed by the owner 2026-10-11): HomeFocusRefresh, the error card's
+ * retry and HomeRetry (the session read failed) do. Without feedback of its own. The server
  * blocks are re-rendered (`router.refresh`) only when the public reads came back: when they failed
  * the CMS is down, and a server re-render could only lose what is on screen (the poll would
  * vanish, the organiser and operator stats turn into errors) — the screen keeps its data.
@@ -60,10 +43,27 @@ async function refetchHome(qc: QueryClient, t: ReturnType<typeof createBrowserTr
   return !failed && results.every((r) => r.status === 'fulfilled');
 }
 
-/** The header control (from 768). */
-export function HomeRefresh() {
-  const refresh = useHomeRefresh();
-  return <DashboardRefresh onRefresh={refresh} />;
+/**
+ * The retry when the session could not be read (ProfileCard's NeutralProfileCard, HomeHeader): the
+ * same compact secondary «Încearcă din nou» as the other error retries, busy while it re-reads. A
+ * re-render re-reads the session; it is the only retry Acasă draws over a working page.
+ */
+export function HomeRetry() {
+  const refetch = useHomeRefetch();
+  const [pending, start] = useTransition();
+  return (
+    <Button
+      variant="secondary"
+      size="compact"
+      aria-busy={pending || undefined}
+      aria-disabled={pending || undefined}
+      onClick={() => {
+        if (!pending) start(async () => void (await refetch()));
+      }}
+    >
+      {pending ? 'Se încarcă…' : 'Încearcă din nou'}
+    </Button>
+  );
 }
 
 /** A tab that comes back after this long re-reads Acasă (the competition page's rule). */
@@ -72,7 +72,7 @@ const REFRESH_ON_RETURN_MS = 30_000;
 /**
  * fish (tabs)/index.tsx useFocusEffect: when Acasă regains focus it invalidates the live rail and
  * the «concursul meu» extra scales. On the web: when the tab becomes visible again (or the window
- * comes back to the front) after REFRESH_ON_RETURN_MS, the same refetch as the refresh control —
+ * comes back to the front) after REFRESH_ON_RETURN_MS, the same refetch as the error retries —
  * the rails and the server blocks (my live competition, its weighing line, the partidă dock) —
  * quietly (no toast: nobody asked). A client navigation back to / mounts this anew, and the router
  * re-renders the server blocks on its own; the throttle starts at mount. Renders nothing; mounted

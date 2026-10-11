@@ -295,10 +295,8 @@ test.describe('public-waters.partide', () => {
       await expect(page.getByTestId('history-card')).toHaveCount(1);
       expect(hits.venue).toBeGreaterThan(before.venue);
       expect(hits.history).toBeGreaterThan(before.history);
-      // c12: «Reîmprospătează» refetches both feeds together.
-      const again = { ...hits };
-      await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-      await expect.poll(() => hits.venue > again.venue && hits.history > again.history).toBe(true);
+      // c12: no manual refresh control (removed by the owner 2026-10-11).
+      await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
     });
   });
 
@@ -317,7 +315,7 @@ test.describe('public-waters.partide', () => {
     });
   });
 
-  test('public-waters.partide.c4 public-waters.partide.s4 — one feed failed: never the empty state, never «Actualizat»', async ({ page }) => {
+  test('public-waters.partide.c4 public-waters.partide.s4 — one feed failed: never the empty state', async ({ page }) => {
     watchConsole(page, [/500/, /Failed to load resource/]);
     await clientReads(page, async () => {
       // The live section failed, the history is empty: the page's error, not «Nicio partidă…».
@@ -327,9 +325,6 @@ test.describe('public-waters.partide', () => {
       await page.goto(`/ape-publice/${TIN.id}/partide`);
       await expect(page.getByTestId('partide-error')).toContainText('Nu am putut încărca partidele.');
       await expect(page.getByTestId('partide-empty')).toHaveCount(0);
-      // The refresh reports the failure, never «Actualizat».
-      await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-      await expect(page.getByRole('status').filter({ hasText: 'Nu s-a putut actualiza' })).toBeAttached();
       venueBroken = false;
       await page.getByTestId('partide-error').getByRole('button', { name: 'Încearcă din nou' }).click();
       await expect(page.getByTestId('partide-empty')).toContainText('Nicio partidă înregistrată pe această apă încă.');
@@ -883,7 +878,7 @@ test.describe('public-waters.clasament', () => {
     });
   });
 
-  test('public-waters.clasament.c10 public-waters.clasament.s7 — the period switch (bar, inert, busy) and the refresh refetches', async ({ page }) => {
+  test('public-waters.clasament.c10 public-waters.clasament.s7 — the period switch (bar, inert, busy)', async ({ page }) => {
     await clientReads(page, async () => {
       const asked: string[] = [];
       let release: () => void = () => {};
@@ -906,9 +901,6 @@ test.describe('public-waters.clasament', () => {
       release();
       await expect(page.getByTestId('switching-bar')).toHaveCount(0);
       await expect(content).not.toHaveAttribute('inert');
-      const before = asked.length;
-      await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-      await expect.poll(() => asked.length).toBeGreaterThan(before);
       expect(asked.at(-1)).toBe('year');
     });
   });

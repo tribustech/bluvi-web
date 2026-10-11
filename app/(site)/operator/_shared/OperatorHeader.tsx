@@ -20,7 +20,7 @@ export type OperatorBack = {
  * The header of every operator page (fish: BackButton + heading1 title, operator/index.tsx:40-45):
  * the back square — history back when the previous page is the site's own (components/nav/useBack),
  * else `back.fallbackHref` — the h1 (`title`; pass a skeleton node while it is unknown, rule 4),
- * an optional caption line under it and a trailing slot on the right (refresh, a primary action).
+ * an optional caption line under it and a trailing slot on the right (a primary action).
  * The T1 ListHeader on the page ground, the back square shown at every width.
  */
 export function OperatorHeader({

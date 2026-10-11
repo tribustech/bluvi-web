@@ -4,7 +4,7 @@ import { DashboardHeader } from '@/components/templates/T5';
 import { cn } from '@/components/ui/cn';
 import { getHomeSession } from './data';
 import { HomeBell } from './HomeBell';
-import { HomeRefresh } from './HomeRefresh';
+import { HomeRetry } from './HomeRefresh';
 import { homeLinks } from './links';
 import { Slogan } from './Slogan';
 import logo from './assets/logo_bluvi.png';
@@ -35,15 +35,14 @@ const STRETCHED =
  * the logo, «Conectează-te», the signed-out slogan; the card opens sign-in.
  *
  * Signed in, fish's bell sits in the top-right corner (HomeBell, ROADMAP §4b rule 25: the phone is
- * fish screen for screen); a guest's card has none, as fish. No refresh button here: fish refreshes
- * by pull-to-refresh, which a phone browser does natively (it reloads the page); from 768 the
- * header carries the labelled refresh.
+ * fish screen for screen); a guest's card has none, as fish. No refresh button (owner 2026-10-11):
+ * fish's pull-to-refresh is the phone browser's own (it reloads the page).
  */
 export async function ProfileCard({ className }: { className?: string }) {
   const session = await getHomeSession();
   // Unknown (the session read failed): the card's neutral skeleton — neither the greeting nor
-  // «Conectează-te», and no «could not check» copy (owner rule 4, ROADMAP §4b). Its refresh is the
-  // silent retry (as HomeFocusRefresh): a re-render re-reads the session.
+  // «Conectează-te», and no «could not check» copy (owner rule 4, ROADMAP §4b). Its retry
+  // (HomeRetry, as HomeFocusRefresh) re-renders the page, which re-reads the session.
   if (session === 'unknown') return <NeutralProfileCard className={className} />;
   const viewer = session;
   // Signed in the greeting is the phone's h1; a guest's h1 is GUEST_TITLE (HomeHeader, every width)
@@ -79,16 +78,16 @@ export async function ProfileCard({ className }: { className?: string }) {
 
 /**
  * The card when the session could not be read: a slim row — the Bluvi mark, the page's h1 (for
- * assistive tech only) and the real refresh, the retry. Owner rule 4 (ROADMAP §4b): nothing about
- * the viewer and no «could not check» copy; and no skeleton either — nothing will resolve it until
- * a refresh (or HomeFocusRefresh), so a bone that shimmers for good would read as stuck loading.
+ * assistive tech only) and the retry. Owner rule 4 (ROADMAP §4b): nothing about the viewer and no
+ * «could not check» copy; and no skeleton either — nothing will resolve it until a retry (or
+ * HomeFocusRefresh), so a bone that shimmers for good would read as stuck loading.
  */
 function NeutralProfileCard({ className }: { className?: string }) {
   return (
     <div className={cn('-mx-1.25 flex items-center justify-between gap-3 rounded-card bg-surface p-3 shadow-glow', className)}>
       <Image src={logo} alt="" width={40} height={40} className="size-10 shrink-0 rounded-avatar object-cover" />
       <h1 className="sr-only">Acasă</h1>
-      <HomeRefresh />
+      <HomeRetry />
     </div>
   );
 }
@@ -126,8 +125,8 @@ function ProfileCardBones() {
 }
 
 /**
- * From 768 — the T5 header: the greeting as the page title, the slogan as its caption, and the
- * refresh (fish pull-to-refresh). Signed out the title welcomes rather than asks («Conectează-te»
+ * From 768 — the T5 header: the greeting as the page title and the slogan as its caption (no
+ * refresh control: owner 2026-10-11). Signed out the title welcomes rather than asks («Conectează-te»
  * is the phone card's, where the whole card is the sign-in link): the top bar's «Intră» is the one
  * sign-in control here, and the signed-out slogan is the prompt.
  */
@@ -135,27 +134,26 @@ export async function HomeHeader() {
   const session = await getHomeSession();
   if (session === 'unknown') {
     // The session read failed: a neutral title (never the signed-out welcome), no caption and no
-    // alert (owner rule 4, ROADMAP §4b) — the refresh beside it is the retry.
-    return <DashboardHeader className="max-md:hidden" title="Acasă" actions={<HomeRefresh />} />;
+    // alert (owner rule 4, ROADMAP §4b) — the retry beside it re-reads.
+    return <DashboardHeader className="max-md:hidden" title="Acasă" actions={<HomeRetry />} />;
   }
   const viewer = session;
   return (
     <>
       {/* A guest's h1 is the same at every width: on the phone a plain title above the sign-in
-          card (which carries the slogan and the refresh), from 768 the T5 header. */}
+          card (which carries the slogan), from 768 the T5 header. */}
       {/* Visually hidden on the phone: fish opens on the sign-in card, no title above it. */}
       {viewer ? null : <h1 className="sr-only md:hidden">{GUEST_TITLE}</h1>}
       <DashboardHeader
         className="max-md:hidden"
         title={viewer ? greeting(viewer) : GUEST_TITLE}
         caption={<Slogan signedIn={!!viewer} as="span" className="" />}
-        actions={<HomeRefresh />}
       />
     </>
   );
 }
 
-/** The header while the session is read: the real refresh, bones for the words. */
+/** The header while the session is read: bones for the words. */
 export function HomeHeaderSkeleton() {
   return (
     <DashboardHeader
@@ -167,7 +165,6 @@ export function HomeHeaderSkeleton() {
         </>
       }
       caption={<span aria-hidden className="inline-block h-3.5 w-96 max-w-full rounded-full bg-soft-fill align-middle animate-shimmer" />}
-      actions={<HomeRefresh />}
     />
   );
 }

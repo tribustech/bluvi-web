@@ -53,7 +53,6 @@ const isCms = (r: Request) => path(r.url()).startsWith('/api/cms/');
 const page$ = (id: string, filtru?: string) => `/concursuri/${id}/participanti${filtru ? `?filtru=${filtru}` : ''}`;
 const listPath = (id: string) => `/api/cms/competitions/${id}/registrations`;
 const competitionPath = (id: string) => `/api/cms/feed/competitions/${id}`;
-const statutePath = (id: string) => `/api/cms/user/profile/competition/${id}/statute`;
 
 type Watch = { writes: string[]; reads: string[] };
 /** The anglers' stats batch is a read sent as POST (the person popover). */
@@ -469,17 +468,10 @@ test('competition-page.participanti-organizator.c9 — a failed change rolls the
   expect(watch.writes.every(w => w.endsWith('/accept'))).toBe(true);
 });
 
-test('competition-page.participanti-organizator.c10 — «Actualizează» re-reads the list, the competition and the statute', async ({ page }) => {
+test('competition-page.participanti-organizator.c10 — no manual «Actualizează» (removed by the owner 2026-10-11)', async ({ page }) => {
   const { watch } = await open(page, TEAM);
   await loaded(page);
-  // The first reads settled (an invalidation during an in-flight read is folded into it).
-  await expect.poll(() => count(watch, statutePath(TEAM))).toBeGreaterThan(0);
-  await page.waitForTimeout(1500);
-  const before = [count(watch, listPath(TEAM)), count(watch, competitionPath(TEAM)), count(watch, statutePath(TEAM))];
-  await section(page).getByRole('button', { name: 'Actualizează' }).click();
-  await expect.poll(() => count(watch, listPath(TEAM))).toBeGreaterThan(before[0]);
-  await expect.poll(() => count(watch, competitionPath(TEAM))).toBeGreaterThan(before[1]);
-  await expect.poll(() => count(watch, statutePath(TEAM))).toBeGreaterThan(before[2]);
+  await expect(section(page).getByRole('button', { name: 'Actualizează' })).toHaveCount(0);
   noWrites(watch);
 });
 

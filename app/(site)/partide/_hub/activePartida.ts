@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useSyncExternalStore } from 'react';
-import { useQuery, type QueryClient } from '@tanstack/react-query';
-import { communityKeys, createServerClock, getActiveSession, getSession, partideHistoryQuery, partideKeys, type SessionDetailDTO } from '@/core/partide';
+import { useQuery } from '@tanstack/react-query';
+import { createServerClock, getActiveSession, getSession, partideKeys, type SessionDetailDTO } from '@/core/partide';
 import type { Transport } from '@/core/transport';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { useViewerState, userOf, isUnknownViewer } from '../../_shell/viewer-context';
@@ -94,27 +94,4 @@ function useHydrated(): boolean {
     () => true,
     () => false,
   );
-}
-
-/**
- * fish handleRefresh (parity partide.comunitate.c24): refetch the own-sessions list and the live
- * probe, and invalidate every community query (queryKeys.community.all). Resolves false when a read
- * failed (DashboardRefresh says so).
- */
-export async function refreshPartideHub(qc: QueryClient, t: Transport, uid: string | null): Promise<boolean> {
-  const own = uid
-    ? [
-        qc.fetchQuery({ ...partideHistoryQuery(t), staleTime: 0 }).then(
-          () => true,
-          () => false,
-        ),
-        qc.refetchQueries({ queryKey: activePartidaKey(uid) }).then(() => !qc.getQueryState(activePartidaKey(uid))?.error),
-      ]
-    : [];
-  const community = qc.invalidateQueries({ queryKey: communityKeys.all }).then(() => {
-    const states = qc.getQueryCache().findAll({ queryKey: communityKeys.all, type: 'active' });
-    return states.every(q => q.state.status !== 'error');
-  });
-  const results = await Promise.all([...own, community]);
-  return results.every(Boolean);
 }

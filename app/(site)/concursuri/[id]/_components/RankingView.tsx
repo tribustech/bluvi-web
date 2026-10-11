@@ -5,13 +5,12 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import type { ColumnDefinition, RankingResponse } from '@/core/competitions';
 import { EMPTY_STAND, cellNumber, formatPlain, isNoCatch, isPodium, readCell, type RankingRowData } from '@/components/ranking';
 import { formatRankingWeight, kindOf } from '@/components/ranking/rankingColumns';
-import { RankingLegend } from '@/components/ranking/RankingLegend';
+import { RankingFace } from '@/components/ranking/RankingFace';
 import { InlineNumber } from '@/components/ui/SignatureNumber';
 import { COLUMN_STICKY_TOP_BELOW_TABS } from '@/components/templates/T3/metrics';
 import { sectorFill } from '@/components/ranking/sector';
 import { RANKING_HEAD } from '@/components/ranking/tableHead';
 import { formatCount } from '@/core/realtime/chat/format';
-import { CompetitionRankingTable } from './CompetitionRankingTable';
 import { SegmentedControl } from '@/components/forms/SegmentedControl';
 import { Select } from '@/components/forms/Select';
 import { TextInput } from '@/components/forms/TextInput';
@@ -19,26 +18,16 @@ import { ChoiceChips, type Choice } from '@/components/templates/T1';
 import { QueryRetry } from './QueryRetry';
 import { EmptyState, ErrorState } from '@/components/surfaces/StateCard';
 import { cn } from '@/components/ui/cn';
-import { MobileRanking } from './MobileRanking';
+import { FishTable } from './FishTable';
+import { MobileRanking, standardFishRows } from './MobileRanking';
 import { PRESSABLE_ROWS } from './rowPress';
 import { FullViewButtons, RANKING_TOOLBAR, useRankingPerson, useRankingRowPress } from './rankingShell';
+import { useRankingFaces } from './rankingFaces';
 import { isOfflineEmpty, OfflineState } from './offline';
-import { isTableRankingType, matchesRankingSearch, rowSector, sectorLetters, sectorsOf, type RankingTableData } from './ranking';
-import {
-  EMBEDDED_TABLE,
-  GENERAL_TABLE_LAYOUT,
-  RANKING_TABLE_FIXES,
-  STATIC_PINS_LAYOUT,
-  STICKY_HEAD_PAGE,
-  decidingKey,
-  rankingPinKeys,
-  useTablePins,
-} from './tableFixes';
+import { isTableRankingType, matchesRankingSearch, rowSector, sectorLetters, sectorsOf, type RankingSort, type RankingTableData } from './ranking';
+import { RANKING_TABLE_FIXES, decidingKey } from './tableFixes';
 
 type Mode = 'general' | 'sectors';
-
-/** From 768: the viewport minus the 64px bar, the 44px route tabs and some air (shell RANK_SCROLL_CAP). */
-const TABLE_SCROLL_CAP = 'calc(100dvh - var(--spacing) * 32)';
 
 const ALL_SECTORS = 'toate';
 
@@ -46,18 +35,19 @@ const ALL_SECTORS = 'toate';
 const SELECT_SECTORS_FROM = 12;
 
 /**
- * Clasament view. Mobile: fish's ScrollableTable (MobileRanking → FishTable: the Stand frozen,
- * the columns scrolling sideways; stand order unless Sortare says otherwise), also in «Tot ecranul». Desktop (design): every column, every angler, General / Pe
- * sectoare, a sector filter A–X and a search by angler or stand, on CompetitionRankingTable (fish's
- * columns, stand order first as fish) — its column headers are the sort (from 768 there is no
- * second sort control: «Poziție generală» is fish's Sortare → Poziția în clasament; the phone keeps
- * «Sortare» in the action bar).
+ * Clasament view: fish's ScrollableTable at every width (owner 2026-10-11). Phone: MobileRanking →
+ * FishTable (the Stand frozen, the columns scrolling sideways; stand order unless the bar's Sortare
+ * says otherwise). From 768: the same table drawn `wide`, every column, every angler, in a card with
+ * General / Pe sectoare, the order (Stand / Poziție: the same state as the bar's Sortare), a sector
+ * filter A–X and a search by angler or stand.
  */
 export function RankingView({
   query,
   table,
   placeTable,
-  currentUserStandId,
+  sort,
+  onSort,
+  currentUserStandId = null,
   custom,
   onFullView,
   rankingType,
@@ -77,7 +67,11 @@ export function RankingView({
   custom: ReactNode;
   table: RankingTableData | null;
   placeTable: RankingTableData | null;
-  currentUserStandId: string | null;
+  /** The order of `table` (fish Sortare); from 768 the card's «Ordine» sets it. */
+  sort: RankingSort;
+  onSort: (sort: RankingSort) => void;
+  /** From 768 the viewer's own row is marked, «Tu · » before the name. */
+  currentUserStandId?: string | null;
 }) {
   if (isOfflineEmpty(query)) return <OfflineState onRetry={() => void query.refetch()} />;
   if (query.isPending && query.fetchStatus !== 'idle') return <RankingSkeleton kind={rankingSkeletonKind(rankingType)} />;
@@ -108,7 +102,7 @@ export function RankingView({
         {/* Every Sortare pick (the bar) starts the table over, scrolled back to its left edge. */}
         <MobileRanking key={sortNonce} columns={table.columns} rows={table.rows} onRowPress={onRowPress} />
       </div>
-      <DesktopRanking table={placeTable} currentUserStandId={currentUserStandId} onFullView={onFullView} onRowPress={onRowPress} />
+      <DesktopRanking table={table} placeTable={placeTable} sort={sort} onSort={onSort} currentUserStandId={currentUserStandId} onFullView={onFullView} onRowPress={onRowPress} />
     </>
   );
 }
@@ -148,18 +142,38 @@ function CustomRanking({ onRowPress, children }: { onRowPress?: (standId: string
   );
 }
 
+/** The order of the desktop table (fish Sortare: stand by default, or the place). */
+const SORT_OPTIONS: { value: RankingSort; label: string }[] = [
+  { value: 'stand', label: 'Stand' },
+  { value: 'position', label: 'Poziție' },
+];
+
+/**
+ * From 768 (owner 2026-10-11): fish's table (FishTable `wide`, the phone's very cells) in a card
+ * whose band holds the desktop's controls — Afișare (General / Pe sectoare), the sector, the order
+ * (fish's Sortare, which the phone has in its bar), the search and «Clasament complet». The card
+ * spans the content column (its name column takes the leftover); from 1280 room the table does not
+ * need goes to the side column, when there is a catch to show there.
+ */
 function DesktopRanking({
   table,
+  placeTable,
+  sort,
+  onSort,
   currentUserStandId,
   onFullView,
   onRowPress,
 }: {
-  table: RankingTableData;
   currentUserStandId: string | null;
+  /** The rows in the order picked (`sort`). */
+  table: RankingTableData;
+  /** The rows in place order: the side column's leaders. */
+  placeTable: RankingTableData;
+  sort: RankingSort;
+  onSort: (sort: RankingSort) => void;
   onFullView: () => void;
   onRowPress?: (standId: string) => void;
 }) {
-  // The table sorts its own rows: a row is known by its stand id (data-stand-id).
   const section = useRef<HTMLElement>(null);
   // From 1024 the person's popover anchored to the row (ROADMAP §4b.17); 768–1023 the angler sheet.
   const person = useRankingPerson();
@@ -176,23 +190,23 @@ function DesktopRanking({
   const sectors = useMemo(() => sectorsOf(table.rows), [table.rows]);
   const selectSectors = sectors.length > SELECT_SECTORS_FROM;
   const picked = sector === ALL_SECTORS ? null : sector;
-  // fish's columns at every width (parity clasament c7–c13): a table wider than its card scrolls
-  // sideways with the Stand pinned at the left and the deciding columns at the right (tableFixes).
   const columns = table.columns;
-  const pinRight = useMemo(() => rankingPinKeys(columns, table.rows), [columns, table.rows]);
   const letters = useMemo(() => sectorLetters(table.rows), [table.rows]);
-  const multiSector = sectors.length > 1;
+  const faces = useRankingFaces();
 
   const rows = useMemo(
     () => table.rows.filter(r => (!picked || rowSector(r) === picked) && matchesRankingSearch(r, search)),
     [table.rows, picked, search],
   );
+  const fishRowsOf = (list: ReadonlyArray<RankingRowData>) =>
+    standardFishRows(
+      columns,
+      list,
+      row => <RankingFace name={row.participant} face={faces.byStand.get(String(row.standId))} />,
+      currentUserStandId,
+    );
 
-  const generalRef = useRef<HTMLDivElement>(null);
-  const pins = useTablePins(generalRef, columns, mode === 'general' ? rows.length : 0, table.rows);
-
-  // The legend names only what this ranking's cells draw (the same module under the phone table).
-  const legend = <RankingLegend columns={columns} rows={table.rows} />;
+  const allFishRows = fishRowsOf(rows);
 
   const sectorChoices: Choice<string>[] = [
     { value: ALL_SECTORS, label: 'Toate' },
@@ -219,14 +233,13 @@ function DesktopRanking({
   );
 
   // The table's own controls: one band, two groups — what is shown (Afișare, the sector: a select
-  // 768–1279 or past 12 sectors, the chips from 1280) and the search with «Clasament complet» (the
-  // full-screen icon 768–1279, the labelled button from 1280).
-  // The band never sets the card's width (ROADMAP §4b.16): `contain: inline-size` gives it no width
-  // of its own, so the card (and the column of sector tables) is as wide as the table; when the
-  // table is narrower than the controls, the second group wraps under the first.
+  // 768–1279 or past 12 sectors, the chips from 1280; the order) and the search with «Clasament
+  // complet» (the full-screen icon 768–1279, the labelled button from 1280). The band never sets
+  // the card's width (ROADMAP §4b.16): `contain: inline-size` gives it no width of its own, so the
+  // card is as wide as the table; when the table is narrower, the second group wraps under the first.
   const toolbar = (
     <div className={cn(RANKING_TOOLBAR, 'flex-wrap [contain:inline-size]')}>
-      <div className="flex max-w-full min-w-0 flex-[1_1_auto] items-center gap-3">
+      <div className="flex max-w-full min-w-0 flex-[1_1_auto] flex-wrap items-center gap-3">
         <SegmentedControl<Mode>
           label="Afișare"
           name="ranking-mode"
@@ -237,6 +250,14 @@ function DesktopRanking({
             { value: 'sectors', label: 'Pe sectoare' },
           ]}
           className="w-55 shrink-0 [&_legend]:sr-only"
+        />
+        <SegmentedControl<RankingSort>
+          label="Ordine"
+          name="ranking-sort"
+          value={sort}
+          onChange={onSort}
+          options={SORT_OPTIONS}
+          className="w-48 shrink-0 [&_legend]:sr-only"
         />
         {sectorSelect(cn('w-44', !selectSectors && 'xl:hidden', selectSectors && 'xl:w-50'))}
         {!selectSectors ? (
@@ -254,7 +275,8 @@ function DesktopRanking({
           onChange={e => setSearch(e.target.value)}
           autoComplete="off"
           enterKeyHint="search"
-          className="min-w-0 flex-1 [&>label]:sr-only"
+          // Never squeezed under its placeholder: short of room the group wraps under the first.
+          className="min-w-60 flex-1 [&>label]:sr-only"
         />
         <FullViewButtons onPress={onFullView} />
       </div>
@@ -263,112 +285,70 @@ function DesktopRanking({
 
   const empty = <EmptyState title="Niciun pescar sau stand nu se potrivește căutării." />;
 
-  const card = mode === 'general' ? (
-        // One card: the toolbar is its header band, then the table at its full height (no box
-        // scrolling inside the page) and the legend as its footer row. The card clips (not hides)
-        // its corners, so the header row can stick to the page; the kit table drops its own radius
-        // and shadow inside it.
-        <div
-          ref={generalRef}
-          data-wide={pins.wide}
-          data-fade={pins.fade}
-          data-pinned={pins.wide ? pins.pinned : undefined}
-          data-static-pins={pins.staticCount}
-          style={pins.style}
-          className={cn(
-            // As wide as the table (or its band of controls), never the whole column: the numbers
-            // stay beside the names at 1440+ (ROADMAP §4b.16); what is left is margin.
-            // No rows: nothing sizes the card, so it takes the column (the search's empty state).
-            rows.length === 0 ? 'w-full' : 'w-fit max-w-full',
-            'overflow-clip rounded-card bg-surface shadow-e0',
-            EMBEDDED_TABLE,
-            GENERAL_TABLE_LAYOUT,
-            STATIC_PINS_LAYOUT,
-            STICKY_HEAD_PAGE,
-          )}
-        >
-          <div className="border-b border-hairline">{toolbar}</div>
-          {rows.length === 0 ? (
-            <div className="p-4">{empty}</div>
-          ) : (
-            <>
-              <CompetitionRankingTable
-                caption="Clasament general"
-                columns={columns}
-                rows={rows}
-                pinRight={pinRight}
-                multiSector={multiSector}
-                currentUserStandId={currentUserStandId}
-                // Fits: full height, the header follows the page (STICKY_HEAD_PAGE). Wider: it
-                // scrolls in its own viewport-high region, where the header sticks at its top
-                // (ROADMAP §4b.12) instead of leaving with the page.
-                maxHeight={pins.wide ? TABLE_SCROLL_CAP : 'none'}
-              />
-              {legend}
-            </>
-          )}
-        </div>
-      ) : (
-        // One column as wide as the widest sector table: the band of controls on top spans it, and
-        // every sector table stretches to it — the number columns are fixed tracks (kit WIDTH), so
-        // only the name track takes the few pixels between sectors and the columns line up down the
-        // page (§4b.16: the stretch is at most the difference between the longest names).
-        <div className={cn('flex max-w-full flex-col gap-4', rows.length === 0 ? 'w-full' : 'w-fit', '[&_[role=region]]:w-full')}>
-          <div className="rounded-card bg-surface shadow-e0">{toolbar}</div>
-          {rows.length === 0
-            ? empty
-            : (picked ? [picked] : sectors).map(s => {
-                const sectorRows = rows.filter(r => rowSector(r) === s);
-                if (!sectorRows.length) return null;
-                const fill = sectorFill(letters.get(s) ?? s, sectorRows[0].backgroundColor);
-                return (
-                  <section key={s} aria-labelledby={`sector-${s}`} className="flex flex-col gap-2">
-                    <h2 id={`sector-${s}`} className="flex items-center gap-2 t-title2">
-                      <span aria-hidden className={cn('size-2.5 rounded-full', fill.className)} style={fill.style} />
-                      Sector {s}
-                    </h2>
-                    <CompetitionRankingTable
-                      caption={`Clasament sector ${s}`}
-                      columns={columns}
-                      rows={sectorRows}
-                      multiSector={multiSector}
-                      currentUserStandId={currentUserStandId}
-                      // A long sector scrolls in a viewport-high region: its header stays in view.
-                      maxHeight={TABLE_SCROLL_CAP}
-                    />
-                  </section>
-                );
-              })}
-          {rows.length > 0 ? <div className="rounded-card bg-surface shadow-e0">{legend}</div> : null}
-        </div>
-      );
+  const card =
+    mode === 'general' ? (
+      // One card: the toolbar is its header band, then fish's table at its full height (the page
+      // scrolls; wider than the card, it scrolls sideways with the Stand frozen).
+      <div className="w-full overflow-clip rounded-card bg-surface shadow-e0">
+        <div className="border-b border-hairline">{toolbar}</div>
+        {rows.length === 0 ? <div className="p-4">{empty}</div> : <FishTable wide caption="Clasament general" columns={columns} rows={allFishRows} />}
+      </div>
+    ) : (
+      // One column: every sector table measured on all the rows shown (sizeRows), so their columns
+      // line up down the page and they are equally wide; the band of controls on top spans them.
+      <div className="flex w-full flex-col gap-4">
+        <div className="rounded-card bg-surface shadow-e0">{toolbar}</div>
+        {rows.length === 0
+          ? empty
+          : (picked ? [picked] : sectors).map(s => {
+              const sectorRows = rows.filter(r => rowSector(r) === s);
+              if (!sectorRows.length) return null;
+              const fill = sectorFill(letters.get(s) ?? s, sectorRows[0].backgroundColor);
+              return (
+                <section key={s} aria-labelledby={`sector-${s}`} className="flex flex-col gap-2">
+                  <h2 id={`sector-${s}`} className="flex items-center gap-2 t-title2">
+                    <span aria-hidden className={cn('size-2.5 rounded-full', fill.className)} style={fill.style} />
+                    Sector {s}
+                  </h2>
+                  <div className="w-full overflow-clip rounded-card bg-surface shadow-e0">
+                    <FishTable wide caption={`Clasament sector ${s}`} columns={columns} rows={fishRowsOf(sectorRows)} sizeRows={allFishRows} />
+                  </div>
+                </section>
+              );
+            })}
+      </div>
+    );
 
   return (
     <section ref={section} aria-label="Clasament" className={cn('hidden md:block', RANKING_TABLE_FIXES, PRESSABLE_ROWS)}>
-      <SideColumnLayout aside={<RankingSide table={table} onPress={onRowPress ? pressStand : undefined} />}>{card}</SideColumnLayout>
+      <SideColumnLayout aside={hasRankingSide(placeTable) ? <RankingSide table={placeTable} onPress={onRowPress ? pressStand : undefined} /> : null}>
+        {card}
+      </SideColumnLayout>
       {person.popover}
     </section>
   );
 }
 
-/** The side column's narrowest useful width (spacing 72, 288px) and the gap before it (24px). */
+/** The side column's narrowest useful width (spacing 72, 288px), its widest (400px), the gap (24px). */
 const SIDE_MIN = 288;
+const SIDE_MAX = 400;
 const SIDE_GAP = 24;
 
 /**
- * ROADMAP §4b.16 (full-width desktop, like Facebook): the table stays compact (as wide as its
- * columns) and, from 1280, ALL the width it leaves goes to a sticky side column — a bento stack
- * (RankingSide), never dead space beside a 763px table on a 1440 / 1920 screen. The column only
- * shows when the leftover is wide enough for it (measured: the table keeps its own width, it is
- * never squeezed into a sideways scroll to make room), it is viewport-high (sticky under the tabs,
- * its own scroll when the stack is taller), and it steps aside while the angler panel is docked
- * (opened below 1024 or by `?pescar=`: AnglerStats, the same column's job).
+ * From 1280 the ranking card fills the column and a sticky side column (a bento stack, RankingSide)
+ * sits beside it when the room the table does not need (its natural width, FishTable
+ * `data-natural-width`) is at least 288px; the column is at most 400px, the table's name column takes
+ * the rest. Viewport-high (sticky under the tabs, its own scroll when the stack is taller); it steps
+ * aside while the angler panel is docked (opened below 1024 or by `?pescar=`: AnglerStats, the same
+ * column's job).
  */
 function SideColumnLayout({ aside, children }: { aside: ReactNode; children: ReactNode }) {
   const wrap = useRef<HTMLDivElement>(null);
   const main = useRef<HTMLDivElement>(null);
   const side = useRef<HTMLDivElement>(null);
-  const [room, setRoom] = useState(false);
+  const [sideWidth, setSideWidth] = useState(0);
+  // Nothing to put there (no catch yet): no column, the card takes the whole width.
+  const room = sideWidth > 0 && aside != null;
   // The stack taller than the viewport-high column: more below → the column's bottom fades out, so
   // a cut row never reads as the last one (the column scrolls on its own; the fade says so).
   const [more, setMore] = useState(false);
@@ -392,17 +372,24 @@ function SideColumnLayout({ aside, children }: { aside: ReactNode; children: Rea
     if (!box || !content) return;
     const measure = () => {
       const desktop = window.matchMedia('(min-width: 1280px)').matches;
-      setRoom(desktop && box.clientWidth - content.offsetWidth - SIDE_GAP >= SIDE_MIN);
+      // The widest table shown (the general one, or the sector tables, all one width).
+      const natural = Math.max(0, ...[...content.querySelectorAll<HTMLElement>('[data-natural-width]')].map(el => Number(el.dataset.naturalWidth)));
+      const left = box.clientWidth - natural - SIDE_GAP;
+      setSideWidth(desktop && natural > 0 && left >= SIDE_MIN ? Math.min(left, SIDE_MAX) : 0);
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(box);
-    ro.observe(content);
-    return () => ro.disconnect();
+    const mo = new MutationObserver(measure);
+    mo.observe(content, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-natural-width'] });
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+    };
   }, []);
   return (
     <div ref={wrap} className="flex items-start gap-6">
-      <div ref={main} className={cn('flex max-w-full min-w-0 flex-col gap-4', room && 'shrink-0')}>
+      <div ref={main} className="flex min-w-0 flex-1 flex-col gap-4">
         {children}
       </div>
       {room ? (
@@ -410,9 +397,9 @@ function SideColumnLayout({ aside, children }: { aside: ReactNode; children: Rea
           ref={side}
           data-ranking-side-column=""
           data-more={more || undefined}
+          style={{ width: sideWidth }}
           className={cn(
-            // Every pixel the table leaves (flex-1, no cap): the stack lays out by the column's width.
-            '@container sticky max-h-[calc(100dvh-var(--spacing)*36)] min-w-0 flex-1 self-start overflow-y-auto rounded-bento',
+            '@container sticky max-h-[calc(100dvh-var(--spacing)*36)] shrink-0 self-start overflow-y-auto rounded-bento',
             COLUMN_STICKY_TOP_BELOW_TABS,
             'data-more:[mask-image:linear-gradient(to_bottom,#000_calc(100%-4rem),transparent)]',
             // The angler panel docked beside the view (AnglerStats → ContextSurface → SidePanel).
@@ -464,6 +451,11 @@ function sideValue(row: RankingRowData, columns: ReadonlyArray<ColumnDefinition>
   };
 }
 
+/** The side column has something to show: somebody with a catch and a place. */
+function hasRankingSide(table: RankingTableData): boolean {
+  return table.rows.some(r => r.participant !== EMPTY_STAND && !isNoCatch(r) && r.generalPosition > 0);
+}
+
 /**
  * The side column on the ranking (live and completed alike), an Apple-style bento stack laid out by
  * the column's width (one column of tiles, two side by side from 672px): who leads (one line per
@@ -474,7 +466,6 @@ function sideValue(row: RankingRowData, columns: ReadonlyArray<ColumnDefinition>
  */
 function RankingSide({ table, onPress }: { table: RankingTableData; onPress?: (standId: string, anchor: HTMLElement) => void }) {
   const letters = useMemo(() => sectorLetters(table.rows), [table.rows]);
-  if (!table.rows.some(r => r.participant !== EMPTY_STAND && !isNoCatch(r) && r.generalPosition > 0)) return null;
   return (
     <div className="grid gap-4 @2xl:grid-cols-2 @2xl:items-start">
       <SectorLeaders table={table} letters={letters} onPress={onPress} />

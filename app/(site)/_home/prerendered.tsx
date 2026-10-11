@@ -1,5 +1,5 @@
 import 'server-only';
-import { cache, type ReactNode } from 'react';
+import { cache, Suspense, type ReactNode } from 'react';
 import type { InfiniteData } from '@tanstack/react-query';
 import { selectCompetitionCards } from '@/core/competitions';
 import { createServerTransport } from '@/lib/server/transport';
@@ -18,6 +18,13 @@ import { SponsorsView } from './SponsorsSection';
  * the live section takes over with identical markup at request time.
  *
  * A failed read falls back to the loading skeleton: the live section shows its own error state.
+ *
+ * Each fallback's read sits in a <Suspense> of its own (the loading markup as ITS fallback), so a
+ * fallback never suspends itself. At request time the live section can finish before its fallback's
+ * read: an unwrapped fallback was then a pending segment («P:n») inside the outer boundary's fallback
+ * region, React's batched reveal ($RV) removed that region, and the late segment's $RS threw
+ * «Cannot read properties of null (reading 'parentNode')». A nested boundary is safe there: its late
+ * $RC finds no boundary and drops the segment.
  */
 
 type Factory = { queryFn?: unknown; initialPageParam?: unknown };
@@ -57,10 +64,20 @@ const loadSponsors = cache(() =>
   )
 );
 
+const competitionsLoading = <CompetitionsView isLive competitions={[]} total={0} status="loading" />;
+
+export function CompetitionsPrerendered() {
+  return (
+    <Suspense fallback={competitionsLoading}>
+      <CompetitionsRead />
+    </Suspense>
+  );
+}
+
 /** Same choice as CompetitionsSection: live while anything is live, else upcoming, else nothing. */
-export async function CompetitionsPrerendered() {
+async function CompetitionsRead() {
   const [live, upcoming] = await loadCompetitions();
-  if (!live || !upcoming) return <CompetitionsView isLive competitions={[]} total={0} status="loading" />;
+  if (!live || !upcoming) return competitionsLoading;
   const liveCards = selectCompetitionCards(live, { scope: 'all' }, SIGNED_OUT);
   const upcomingCards = selectCompetitionCards(upcoming, { scope: 'all' }, SIGNED_OUT);
   const isLive = liveCards.competitions.length > 0;
@@ -69,18 +86,45 @@ export async function CompetitionsPrerendered() {
   return <CompetitionsView isLive={isLive} competitions={cards.competitions} total={cards.total} status="ready" />;
 }
 
-export async function LakesPrerendered() {
+const lakesLoading = <LakesView lakes={[]} total={undefined} loading />;
+
+export function LakesPrerendered() {
+  return (
+    <Suspense fallback={lakesLoading}>
+      <LakesRead />
+    </Suspense>
+  );
+}
+
+async function LakesRead() {
   const data = await loadLakes();
-  if (!data) return <LakesView lakes={[]} total={undefined} loading />;
+  if (!data) return lakesLoading;
   return <LakesView lakes={data.pages.flatMap((p) => p.data)} total={data.pages[0]?.meta.pagination.total} loading={false} />;
 }
 
-export async function NewsPrerendered() {
+export function NewsPrerendered() {
+  return (
+    <Suspense fallback={<NewsView news={undefined} />}>
+      <NewsRead />
+    </Suspense>
+  );
+}
+
+async function NewsRead() {
   const data = await loadNews();
   return <NewsView news={data ? data.pages.flatMap((p) => p.data) : undefined} />;
 }
 
-export async function SponsorsPrerendered() {
+/** Nothing while it reads: the rail renders nothing without sponsors either. */
+export function SponsorsPrerendered() {
+  return (
+    <Suspense fallback={null}>
+      <SponsorsRead />
+    </Suspense>
+  );
+}
+
+async function SponsorsRead() {
   const data = await loadSponsors();
   return <SponsorsView sponsors={data?.data ?? []} />;
 }

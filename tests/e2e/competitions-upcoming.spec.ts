@@ -86,6 +86,15 @@ async function viaLive(page: Page) {
   await expect(page).toHaveURL(/\/concursuri\/viitoare/);
 }
 
+/**
+ * A re-read without a refresh control (removed by the owner 2026-10-11): the lists go stale (the cards' 5 min
+ * on the page clock — install it before open()) and the tab coming back refetches them (focus refetch).
+ */
+async function reread(page: Page) {
+  await page.clock.runFor(5 * 60_000 + 1_000);
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange', { bubbles: true })));
+}
+
 async function settled(page: Page) {
   await page.waitForFunction(() =>
     document.getAnimations().every((a) => a.playState !== 'running' || a.effect?.getComputedTiming().iterations === Infinity),
@@ -142,6 +151,7 @@ test.describe('signed out (local CMS)', () => {
   });
 
   test('competitions-list.index.c38 — nothing live: no band (and none while the live list reads)', async ({ page }) => {
+    await page.clock.install();
     await open(page, '/concursuri/rezultate');
     await page.route(PUBLIC, (r) => {
       const status = new URL(r.request().url()).searchParams.get('status');
@@ -149,8 +159,9 @@ test.describe('signed out (local CMS)', () => {
       return json(r, cardsPage([], { total: 0, counts: { notStarted: 3, started: 0, completed: 5 } }));
     });
     // The re-read takes every card list from the mocks.
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).not.toHaveAttribute('aria-disabled');
+    const live = page.waitForResponse((r) => PUBLIC.test(r.url()) && r.url().includes('status=started'));
+    await reread(page);
+    await live;
     await page.getByRole('tab', { name: /^Viitoare/ }).click();
     await expect(list(page).locator('[data-upcoming-groups]')).toBeVisible();
     await expect(band(page)).toHaveCount(0);
@@ -201,7 +212,7 @@ test.describe('spotlight (mocked people)', () => {
     await expect(spotlight(page).locator('li')).toHaveCount(0);
   });
 
-  test('competitions-list.index.c39 competitions-list.pulse.c23 — bones while it reads; failed or empty → no section; «Reîmprospătează» re-reads it', async ({ page }) => {
+  test('competitions-list.index.c39 competitions-list.pulse.c23 — bones while it reads; failed or empty → no section; a new visit re-reads it', async ({ page }) => {
     let release: () => void = () => {};
     const held = new Promise<void>((r) => (release = r));
     let answer: { status: number; body: unknown } = { status: 500, body: { error: { status: 500, message: 'down' } } };
@@ -215,15 +226,16 @@ test.describe('spotlight (mocked people)', () => {
     await expect(spotlight(page)).toHaveAttribute('aria-busy', 'true');
     release();
     await expect(spotlight(page)).toHaveCount(0);
-    // Empty: still nothing. A refresh re-reads the people.
+    // Empty: still nothing. No manual refresh (removed by the owner 2026-10-11, and the person tile
+    // never refetches on focus — pulsePersonQueryPolicy): a new visit re-reads the people.
+    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
     answer = { status: 200, body: { data: null, items: [] } };
-    const reread = page.waitForRequest(PEOPLE);
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await reread;
-    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).not.toHaveAttribute('aria-disabled');
+    const again = page.waitForResponse(PEOPLE);
+    await viaLive(page);
+    await again;
     await expect(spotlight(page)).toHaveCount(0);
     answer = { status: 200, body: { data: person(9), items: [person(9)] } };
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
+    await viaLive(page);
     await expect(spotlight(page).getByText('Pescar 9', { exact: true })).toBeVisible();
   });
 });
@@ -321,11 +333,13 @@ test.describe('groups (mocked lists, signed in)', () => {
     await page.route(FOLLOWED, (r) => json(r, cardsPage([stale, b, a, mine, pending], { counts: { notStarted: 5, started: 0, completed: 7 } })));
     await page.route(REGISTERED, (r) => json(r, cardsPage([mine], { counts: { notStarted: 1, started: 0, completed: 0 } })));
     await page.setViewportSize(WIDE);
+    await page.clock.install();
     await open(page);
     await page.getByRole('button', { name: 'Concursuri urmărite' }).click();
     // The server prefetched the real registrations: a re-read takes them from the mock.
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).not.toHaveAttribute('aria-disabled');
+    const registered = page.waitForResponse(REGISTERED);
+    await reread(page);
+    await registered;
     const groups = list(page).locator('[data-upcoming-groups] > section > h3');
     await expect(groups).toHaveCount(2);
     // The passed start comes LAST, muted, with no explanatory sentence.

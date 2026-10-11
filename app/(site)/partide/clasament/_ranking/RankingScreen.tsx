@@ -181,7 +181,7 @@ function RankingScreen({ initial, syncUrl }: { initial: RankingPlace; syncUrl: b
         <ViewerProbe onUid={onUid} />
       </Suspense>
       <ListPage
-        header={<VenueHeader title={TITLE} backHref={routes.partide()} onRefresh={async () => !(await q.refetch()).isError} />}
+        header={<VenueHeader title={TITLE} backHref={routes.partide()} />}
         context={<CommunityPages period={period} />}
         contextLabel="Comunitate"
         aside={aside}

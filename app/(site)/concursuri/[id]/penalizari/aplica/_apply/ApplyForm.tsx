@@ -138,7 +138,6 @@ export function ApplyForm({ competitionId, registrationId, viewer }: Props) {
         requires="authorOrReferee"
         back={{ href: routes.competitionPenaltiesStand(competitionId), label: 'Înapoi la standuri' }}
         reads={readsRegistrations ? [registrations] : []}
-        onRefresh={() => (readsRegistrations ? registrations.refetch() : undefined)}
         skeleton={<ApplyBodySkeleton />}
         asideSkeleton={<ApplyAsideSkeleton />}
         asideMobile="hidden"

@@ -790,7 +790,7 @@ test.describe('operator.rezervari (local CMS)', () => {
     expect(errors).toEqual([]);
   });
 
-  test('c13 b.refresh: «Reîmprospătează» and window focus refetch the current list', async ({ page }) => {
+  test('c13 b.refresh: a window focus refetches the current list; no manual refresh control (owner 2026-10-11)', async ({ page }) => {
     let n = 0;
     await mockInbox(page, () => {
       n += 1;
@@ -798,11 +798,15 @@ test.describe('operator.rezervari (local CMS)', () => {
     });
     await go(page);
     await expect(page.getByText('Citire 1')).toBeVisible();
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
+    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
+    await page.evaluate(() => {
+      const set = (v: string) => Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
+      set('hidden');
+      document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+      set('visible');
+      document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+    });
     await expect(page.getByText('Citire 2')).toBeVisible();
-    await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')));
-    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await expect.poll(() => n).toBeGreaterThan(2);
   });
 
   test('c26 b.focus-param: ?focus scrolls that booking under the chrome, once', async ({ page }) => {
@@ -823,7 +827,13 @@ test.describe('operator.rezervari (local CMS)', () => {
     await expect(page).toHaveURL(/focus=f21/);
     // once only: scroll away and refetch — it stays where the operator put it
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
+    await page.evaluate(() => {
+      const set = (v: string) => Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
+      set('hidden');
+      document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+      set('visible');
+      document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+    });
     await expect.poll(() => n).toBeGreaterThan(1);
     await page.waitForTimeout(300);
     expect(await page.evaluate(() => window.scrollY)).toBe(0);

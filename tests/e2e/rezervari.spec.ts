@@ -286,15 +286,7 @@ test.describe('booking.rezervarile-mele', () => {
     await expect(page.getByTestId('bookings-skeleton')).toBeVisible();
     await expect(page.getByTestId('bookings-empty')).toHaveCount(0);
     await expect(page.getByTestId('bookings-empty')).toHaveText('Nicio cerere în așteptare.');
-    // A background refetch (Reîmprospătează, window focus) keeps the settled empty line: no flash.
-    const refetch = page.waitForResponse((r) => /\/api\/cms\/feed\/bookings\/mine\?.*bucket=pending/.test(r.url()));
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    for (let i = 0; i < 5; i++) {
-      await expect(page.getByTestId('bookings-empty')).toHaveText('Nicio cerere în așteptare.');
-      await page.waitForTimeout(150);
-    }
-    await refetch;
-    await expect(page.getByTestId('bookings-empty')).toHaveText('Nicio cerere în așteptare.');
+    // (The background-refetch no-flash check rode on «Reîmprospătează», removed by owner 2026-10-11.)
   });
 
   test('c11 review prompt: one lake / several (plural), «Scrie» → review form with the booking; above the list on the phone, right column from 1280', async ({ page }) => {
@@ -345,15 +337,12 @@ test.describe('booking.rezervarile-mele', () => {
     expect(errors).toEqual([]);
   });
 
-  test('c12 «Reîmprospătează» refetches the list and the review prompt', async ({ page }) => {
-    const calls = await mockMine(page, () => ({ body: body([VARIANTS.tomorrow]) }));
-    const review = await mockToReview(page, REVIEW_ONE);
+  test('c12 no manual refresh control (removed by the owner 2026-10-11)', async ({ page }) => {
+    await mockMine(page, () => ({ body: body([VARIANTS.tomorrow]) }));
+    await mockToReview(page, REVIEW_ONE);
     await open(page);
     await expect(cards(page)).toHaveCount(1);
-    const [m, r] = [calls.length, review.n];
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect.poll(() => calls.length).toBe(m + 1);
-    await expect.poll(() => review.n).toBe(r + 1);
+    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
   });
 
   test('c13–c19 row variants; c20 each row is one link to /rezervari/{id}, no action buttons', async ({ page }) => {

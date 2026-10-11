@@ -556,14 +556,15 @@ test('competition-page.clasament.c21 — catch cells past the sector minimum are
 test('competition-page.clasament.c16 — from 768 the table opens by stand too (sector A→Z, then stand number); «Poziție generală» orders by place (fish Sortare)', async ({ page }) => {
   await open(page, ID.live, DESKTOP);
   const table = grid(page);
-  await expect(table.locator('thead th').first()).toHaveAttribute('aria-sort', 'ascending');
+  // fish's table has no header sort: the card's «Ordine» is fish's Sortare (Stand by default).
+  const order = page.getByRole('group', { name: 'Ordine' }).locator('visible=true');
+  await expect(order.getByRole('radio', { name: 'Stand' })).toBeChecked();
   const stands = await table.locator('tbody tr td:first-child .sr-only').allTextContents();
   const parsed = stands.map(t => /Sector ([A-X]), stand [A-X]?(\d+)/.exec(t)!).map(m => [m[1], Number(m[2])] as const);
   expect(parsed).toEqual([...parsed].sort((a, b) => a[0].localeCompare(b[0]) || a[1] - b[1]));
-  const placeHead = table.locator('thead th').last();
   await expect(async () => {
-    await placeHead.getByRole('button').click();
-    await expect(placeHead).toHaveAttribute('aria-sort', 'ascending', { timeout: 1000 });
+    await order.getByText('Poziție', { exact: true }).click();
+    await expect(order.getByRole('radio', { name: 'Poziție' })).toBeChecked({ timeout: 1000 });
   }).toPass();
   const places = (await table.locator('tbody tr td:last-child').allInnerTexts()).map(t => Number(t.replace(/\D/g, '')));
   expect(places).toEqual([...places].sort((a, b) => a - b));

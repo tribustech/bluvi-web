@@ -42,7 +42,6 @@ import {
 } from '@/components/templates/T1';
 import { signInPath } from '@/components/nav/items';
 import { UNDER_BAR_TOP } from '@/components/nav/shell';
-import { DashboardRefresh, type RefreshResult } from '@/components/templates/T5';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
@@ -91,7 +90,7 @@ import {
   type Status,
 } from './place';
 import { ResultsChrome } from './ResultsChrome';
-import { RESULTS_REFRESH, RESULTS_STACK } from './resultsChromeStyles';
+import { RESULTS_STACK } from './resultsChromeStyles';
 import { SearchDialog } from './SearchDialog';
 import { StatusTabs } from './StatusTabs';
 import { TAB_MODULES, type TabViewProps } from './tabs';
@@ -113,8 +112,8 @@ import { useWide } from './phone/useWide';
  *    the active count opens the whole dialog, quick chips (Perioadă, Format, Locuri libere, Județ —
  *    plus Stare in results mode, where the tabs are gone) apply in one tap; the left column the
  *    filters used to take goes to the cards (three 280px cards in the 872 centre at 1280);
- *  - pull-to-refresh is the kit's stand-in (DashboardRefresh, as on Acasă): «Reîmprospătează» in
- *    the header, its outcome announced, the spinner its own (never a tab switch's);
+ *  - no manual refresh control at any width (removed by the owner 2026-10-11): the Live tab polls,
+ *    an error keeps its retry, and the list re-reads when the page comes back (as Acasă);
  *  - the cards are fish's POSTER cards at every width (./cards/PosterCard; owner, 2026-10-06 — no
  *    «Listă» / «Afiș» toggle), one column on the phone as in fish;
  *  - each status tab fills its own content slots (./tabs: Top above the search row, Body as the
@@ -133,7 +132,7 @@ import { useWide } from './phone/useWide';
  * (./phone/PhoneBento: hero stack with dots, person, live count, follow invite), the heading with
  * its count, and fish's compact cards in one column (./phone/PhoneList) for every tab, «Ale mele»
  * and results. Pull-to-refresh is the browser's own; the list re-reads when the page comes back
- * after a while (as Acasă), so the phone has no refresh button. The approved web layouts start at
+ * after a while (as Acasă). The approved web layouts start at
  * 768 (useWide: until the client knows, both are drawn, each hidden by CSS at the other's widths).
  */
 
@@ -343,16 +342,15 @@ export function CompetitionsScreen({
   const openSearch = () => setSearchOpen(true);
 
   // fish onRefresh: the list is the gesture's visible leg; every other card list (the tabs' own
-  // blocks, the spotlight people under the same root) re-reads underneath it. A failed
-  // re-read over cards on screen is said by the stale strip (or the list's error card) — 'reported',
-  // so DashboardRefresh does not announce it a second time.
-  const refresh = async (): Promise<RefreshResult> => {
+  // blocks, the spotlight people under the same root) re-reads underneath it. A failed re-read over
+  // cards on screen is said by the stale strip (or the list's error card).
+  const refresh = () => {
     void qc.invalidateQueries({ queryKey: competitionCardsKeys.root });
-    const r = await list.refetch();
-    return r.isError ? 'reported' : true;
+    return list.refetch();
   };
-  // Phone: no refresh button (fish pulls; the browser's own pull reloads the page). When the page
-  // comes back after REFRESH_ON_RETURN_MS the list and the bento re-read quietly (Acasă's rule).
+  // No refresh button (owner 2026-10-11; fish pulls, the browser's own pull reloads the page). When
+  // the phone page comes back after REFRESH_ON_RETURN_MS the list and the bento re-read quietly
+  // (Acasă's rule).
   const refreshRef = useRef(refresh);
   useEffect(() => {
     refreshRef.current = refresh;
@@ -490,7 +488,7 @@ export function CompetitionsScreen({
   const loading = list.isLoading || newQuestion || pageEmptiedLocally;
   const competitions: CompetitionCard[] = newQuestion ? [] : sel.competitions;
   const failed = list.isError && competitions.length === 0;
-  // A re-read (the Live poll, «Reîmprospătează») that failed over cards already shown: they stay, but
+  // A re-read (the Live poll, a return to the page) that failed over cards already shown: they stay, but
   // marked as not current — never old LIVE figures passed off as live.
   const stale = list.isRefetchError && competitions.length > 0;
   const busy = list.isPlaceholderData && list.isFetching && !newQuestion;
@@ -610,12 +608,6 @@ export function CompetitionsScreen({
   // What the pill says: the search, else that the list is filtered — and, filtered on «Urmărite»
   // (results.c6 keeps the scope), that it is still the followed list.
   const resultsLabel = resultsLabelFor(place);
-  // Below 768 the refresh takes the back square's framing (RESULTS_REFRESH); from 768 the labelled tool.
-  const refreshTool = (
-    <span className={RESULTS_REFRESH}>
-      <DashboardRefresh onRefresh={refresh} />
-    </span>
-  );
   // The header's reserved band from 1280 (results mode): the answer's size, as the list says it.
   const bandText = sel.requiresSignIn || failed
     ? heading
@@ -654,7 +646,6 @@ export function CompetitionsScreen({
           onPressLabel={() => (search ? openSearch() : openFilters())}
           onOpenFilters={() => openFilters()}
           filtersExpanded={filtersOpen}
-          trailing={refreshTool}
         />
         {/* From 1280 the filter bar's chips show every choice: no rail there. */}
         <ActiveFilters
@@ -753,11 +744,6 @@ export function CompetitionsScreen({
               >
                 <AdjustmentsHorizontalIcon aria-hidden />
               </button>
-            </span>
-            {/* Phone: while the search tools are tucked into the row, the refresh waits at the top
-                (the title row holds three tools, as fish's). */}
-            <span className={cn('contents', tucked && 'max-md:hidden')}>
-              <DashboardRefresh onRefresh={refresh} />
             </span>
             <ListHeaderToggle
               label={followedOn ? 'Toate concursurile' : 'Concursuri urmărite'}
@@ -1026,9 +1012,10 @@ export function CompetitionsScreen({
     body = <TabEmpty {...tabProps} />;
   } else if (competitions.length === 0) {
     body = (
-      // Results: the card spans the column, edge to edge with the pill and the heading (its text
-      // keeps its own measure inside); on the index the kit's centred 720 frame.
-      <div className={resultsMode ? '[&>div]:max-w-none' : 'contents'}>
+      // The card spans the column, edge to edge with the heading above it (its text keeps its own
+      // measure inside) — the kit's centred 720 frame floated off to the right of the left-aligned
+      // heading on a wide screen (owner 2026-10-11); and a short card, not a half-screen block.
+      <div className="[&>div]:max-w-none [&>div]:md:py-10 [&>div]:xl:py-10">
         <ListEmpty
           title={emptyTitle}
           description={
@@ -1175,8 +1162,7 @@ export function CompetitionsScreen({
             filterCount={filterCount}
             onBack={() => exitResults(true)}
             onPressLabel={search ? openSearch : () => openFilters()}
-            trailing={refreshTool}
-          />
+            />
         ) : (
           <div ref={toolbarRef}>
             {/* Phone: fish CompetitionsSearchRow — the 42 white pill and the round filters button. */}

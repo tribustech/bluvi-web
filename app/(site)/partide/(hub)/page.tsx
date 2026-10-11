@@ -7,7 +7,6 @@ import { collectionPageJsonLd, jsonLdHtml } from '@/lib/json-ld';
 import { absoluteUrl, routes } from '@/lib/routes';
 import { ComunitateScreen } from '../_comunitate/ComunitateScreen';
 import { comunitateState, overviewForSeo } from '../_comunitate/state';
-import { HubRefresh } from '../_hub/HubRefresh';
 import { PartideHeader, PartideTabs } from '../_hub/PartideChrome';
 
 /*
@@ -47,7 +46,7 @@ export default function PartidePage() {
       <Suspense fallback={null}>
         <PartideJsonLd />
       </Suspense>
-      <DashboardPage header={<PartideHeader actions={<HubRefresh />} />} toolbar={<PartideTabs current="comunitate" />}>
+      <DashboardPage header={<PartideHeader />} toolbar={<PartideTabs current="comunitate" />}>
         <Suspense fallback={<AcasaSceneSkeleton />}>
           <Comunitate />
         </Suspense>

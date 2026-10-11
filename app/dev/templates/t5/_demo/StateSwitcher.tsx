@@ -15,7 +15,6 @@ export const DEMO_STATES = [
   { key: 'one-pending', label: 'O cerere', hint: 'simulat, singular' },
   { key: 'many-pending', label: '120 de cereri', hint: 'simulat, «99+»' },
   { key: 'detail', label: 'Detaliu rezervare', hint: 'simulat, rândul deschis' },
-  { key: 'refresh-failed', label: 'Actualizare eșuată', hint: 'simulat, datele rămân' },
   { key: 'trend-loading', label: 'Grafic: se încarcă', hint: 'simulat, «Luna»' },
   { key: 'trend-failed', label: 'Grafic: eroare', hint: 'simulat, «Luna»' },
   { key: 'legacy', label: 'CMS vechi', hint: 'simulat' },

@@ -5,7 +5,7 @@ import { rankingResponseSchema } from '@/core/competitions/schemas';
 import { hydrateRanking, type RankingFixture } from '@/tests/fixtures/rankings/hydrate';
 import { paletteLetter, sectorColorMap } from '@/components/ranking/sector';
 import { buildRankingTable, sectorLetters } from './ranking';
-import { decidingKey, rankingPinKeys } from './tableFixes';
+import { decidingKey } from './tableFixes';
 
 /*
  * fish CompetitionRanking `tableColumns` / `tableRows` on the real ranking payloads
@@ -133,24 +133,23 @@ describe('sector colours — fish getColorsBySector: the palette by the sorted s
   });
 });
 
-describe('rankingPinKeys — the deciding columns pinned at the right, fish’s order untouched (clasament c7–c13)', () => {
-  it('quantity (no catch columns): Loc, then Cantitate (in the middle of the table)', () => {
-    expect(rankingPinKeys(build('quantity').columns)).toEqual(['generalPosition', 'quantity']);
+describe('decidingKey — the value a row was ranked on (the side column), clasament c7–c13', () => {
+  it('quantity: Cantitate', () => {
+    expect(decidingKey(build('quantity').columns)).toBe('quantity');
   });
-  it('quality: Loc, Calitate, then the totals after the last catch from the right', () => {
-    expect(rankingPinKeys(build('quality').columns)).toEqual(['generalPosition', 'quality', 'sectorPosition', 'catchCount']);
+  it('quality: Calitate', () => {
+    expect(decidingKey(build('quality').columns)).toBe('quality');
   });
   it('the point rankings decide on «Puncte total»', () => {
-    const keys = rankingPinKeys(build('qualityQuantity').columns);
-    expect(keys.slice(0, 2)).toEqual(['generalPosition', 'totalPoints']);
+    expect(decidingKey(build('qualityQuantity').columns)).toBe('totalPoints');
   });
-  it('bestOf: Loc and Medie (kg)', () => {
-    expect(rankingPinKeys(build('bestOf').columns).slice(0, 2)).toEqual(['generalPosition', 'topNCatchesAvarage']);
+  it('bestOf: Medie (kg)', () => {
+    expect(decidingKey(build('bestOf').columns)).toBe('topNCatchesAvarage');
   });
-  it('bestOfTiers: Loc and the Best N that decided the most rows (ties: the smaller N); without rows the smallest', () => {
+  it('bestOfTiers: the Best N that decided the most rows (ties: the smaller N); without rows the smallest', () => {
     const table = build('bestOfTiers');
     // tierWonAt 1, 2, 3 of the tiers 9, 7, 5, 3: Best 9, 7 and 5 one green cell each — Best 5 (the smaller N).
-    expect(rankingPinKeys(table.columns, table.rows)).toEqual(['generalPosition', 'tier5']);
+    expect(decidingKey(table.columns, table.rows)).toBe('tier5');
     expect(decidingKey(table.columns)).toBe('tier3');
   });
 });

@@ -510,9 +510,10 @@ screens:
         status: passing
         note: "M4-B3: live rows and history cards (title and «Vezi rezumatul») open /partide/[documentId]; own vs spectator is that page's call. e2e tests/e2e/ape-publice-subpages.spec.ts «public-waters.partide.c11 …» + tests/e2e/partide-links.spec.ts (own row → member view)."
       - id: public-waters.partide.c12
-        text: "Pull-to-refresh (web: a refresh action) refetches the venue section and the history together."
+        text: "Pull-to-refresh (web: no manual control since 2026-10-11; the error retry refetches both) refetches the venue section and the history together."
         fish_ref: features/partide/screens/VenueSessionsScreen.tsx:57-64
         status: passing
+        note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); the error card's «Încearcă din nou» refetches both feeds together. e2e tests/e2e/ape-publice-subpages.spec.ts."
       - id: public-waters.partide.c13
         text: "Live data polls every 60s (staleTime 30s); history staleTime 120s; neither retries automatically."
         fish_ref: features/partide/community/hooks.ts:283-295

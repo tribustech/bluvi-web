@@ -25,7 +25,7 @@ export default function StatsError({ error, retry }: { error: Error & { digest?:
     <DashboardPage
       header={
         <div className={VENUE_HEADER_INSET}>
-          <VenueHeader title="Statistici comunitate" backHref={routes.partide()} refresh={false} />
+          <VenueHeader title="Statistici comunitate" backHref={routes.partide()} />
         </div>
       }
     >

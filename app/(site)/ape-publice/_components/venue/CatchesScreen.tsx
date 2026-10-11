@@ -19,7 +19,7 @@ import { EmptyIcon, VenueHeader, WaterPages, useBack } from './bits';
  * public-waters.capturi): every catch photographed on the water, by everyone, attribution per photo.
  *  - c2 «Capturi», «<apă> · N capturi» (the server total, «· 0 capturi» included, once it answered),
  *    the close ✕ on the right (back) — the family's header (VenueHeader) with the ✕ in place of the
- *    back square, no refresh (fish has none here);
+ *    back square;
  *  - c3 the masonry skeleton (the real grid's columns), the empty state card with a way to the
  *    water's partide;
  *  - c4 the masonry (grid → thumb → full), «<specie> · X kg», pages of 20 near the end;
@@ -118,7 +118,6 @@ export function CatchesHeader({ subtitle, backHref }: { subtitle: string | null;
   return (
     <VenueHeader
       title="Capturi"
-      refresh={false}
       backHref={backHref}
       end={<CloseButton backHref={backHref} />}
       description={

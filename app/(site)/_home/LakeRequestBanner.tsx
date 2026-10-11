@@ -27,16 +27,16 @@ import lakePhoto from './assets/lake-request.jpeg';
  * Lottie is not ported. The banner spec is PartidaCta's (BANNER), at e1 — the glow is the hero's.
  * The photo's scrim carries the white text (no text shadow).
  *
- * One row of its own at every width, after the lakes rail (fish order, home.acasa.c58), with
- * fish's full copy; it lays out by the room of Acasă's main column (PartidaCta BANNER_ROW).
- * `layout="desktop"` (a narrow slot beside another card) keeps one paragraph: «Îți vom trimite un
- * mesaj…» moves into the form's intro, and signed out the button's label says what the sign-in
- * line said.
+ * Below 1024 one row of its own, after the lakes rail (fish order, home.acasa.c58), with fish's
+ * full copy; it lays out by the room of Acasă's main column (PartidaCta BANNER_ROW). From 1024
+ * `layout="desktop"`: half of a row beside the partidă hero (page.tsx BannerPair, owner
+ * 2026-10-11), laid out by its own cell; one paragraph: «Îți vom trimite un mesaj…» moves into the
+ * form's intro, and signed out the button's label says what the sign-in line said.
  */
 export function LakeRequestBanner({ layout = 'mobile', className }: { layout?: 'mobile' | 'desktop'; className?: string }) {
   return (
     <section aria-labelledby={`acasa-sugereaza-${layout}`} className={cn(BANNER, BANNER_ROW, 'text-on-photo-scrim shadow-e1', className)}>
-      <Image src={lakePhoto} alt="" fill sizes="(min-width: 1280px) 60vw, 100vw" className="z-backdrop object-cover" placeholder="blur" />
+      <Image src={lakePhoto} alt="" fill sizes={layout === 'desktop' ? '(min-width: 1280px) 30vw, 50vw' : '100vw'} className="z-backdrop object-cover" placeholder="blur" />
       <span aria-hidden className="absolute inset-0 z-behind bg-photo-scrim" />
       <div className={BANNER_TEXT}>
         <h2 id={`acasa-sugereaza-${layout}`} className="t-heading max-md:t-title1">

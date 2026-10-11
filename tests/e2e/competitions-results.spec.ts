@@ -426,15 +426,17 @@ test.describe('signed in (mocked list)', () => {
     const none = { capturedAt: '2026-09-20T10:00:00.000Z', hasCatches: false, catchCount: 0, totalKg: null, biggestFishKg: null, podium: [] };
     const a = done('fx-res-a', 'FX Rezultat A', '2026-09-20', { results: none });
     const b = done('fx-res-b', 'FX Rezultat B', '2026-09-13', { results: none });
-    // The first page comes with the HTML; the refetch («Reîmprospătează») no longer has the row
-    // that held the tab stop.
+    // The first page comes with the HTML; the re-read (a focus refetch once the list is stale — no
+    // manual refresh since the owner removed it 2026-10-11) no longer has the row that held the tab stop.
     await page.route(/\/feed\/competition-cards\?.*status=completed/, (r) => json(r, cardsPage([a, b], { counts: { notStarted: 0, started: 0, completed: 2 } })));
     await page.setViewportSize(DESKTOP);
+    await page.clock.install();
     await open(page);
     const first = list(page).locator('button[aria-expanded]').first();
     await expect(first).toHaveAttribute('tabindex', '0');
     const firstName = (await list(page).locator(`#${await first.getAttribute('aria-labelledby')}`).textContent()) ?? '';
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
+    await page.clock.runFor(5 * 60_000 + 1_000);
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange', { bubbles: true })));
     const rowA = toggle(page, 'FX Rezultat A');
     await expect(rowA).toBeVisible();
     await expect(toggle(page, firstName)).toHaveCount(0);

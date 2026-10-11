@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, type ReactNode } from 'react';
 import type { ColumnDefinition } from '@/core/competitions';
 import {
   EMPTY_STAND,
@@ -18,7 +18,7 @@ import { FISH_TABLE_BLEED, FishPenaltyCard, FishTable, type FishCell, type FishR
 import { PRESSABLE_ROWS, useRowPress } from './rowPress';
 
 /*
- * The phone ranking (below 768): fish's ScrollableTable (FishTable) on the builders' columns and rows
+ * The phone ranking (below 768; from 768 RankingView draws the same FishTable `wide`): fish's ScrollableTable (FishTable) on the builders' columns and rows
  * (core getTableColumns / createTableRows), in the order the bar's Sortare built (stand by default,
  * as fish). fish's table has no header sort, no legend, no own-row mark: neither has this one. A row
  * pressed opens its angler (fish onRowPress on the Stand and participant cells; here the whole row).
@@ -51,7 +51,14 @@ const PRESSED = '[&_tbody_tr[data-pressable]:active>*:nth-child(-n+2)]:opacity-6
  * (decimal comma, «–», ROADMAP §4b.11's «–» + «Fără capturi» for a row without a catch); the
  * widths are measured on fish's own strings (cellValueLength).
  */
-export function standardFishRows(columns: ReadonlyArray<ColumnDefinition>, rows: ReadonlyArray<RankingRowData>): FishRow[] {
+export function standardFishRows(
+  columns: ReadonlyArray<ColumnDefinition>,
+  rows: ReadonlyArray<RankingRowData>,
+  /** From 768: the face beside the name (ROADMAP §4b.13; FishTable `wide`). */
+  leadOf?: (row: RankingRowData) => ReactNode,
+  /** From 768: the viewer's stand — that row marked, its name «Tu · » (FishRow `me`). */
+  myStandId?: string | null,
+): FishRow[] {
   const cols = rankingColumns(columns).slice(1);
   const mainKey = mainValueKey(columns);
   return rows.map((row, index) => {
@@ -65,6 +72,7 @@ export function standardFishRows(columns: ReadonlyArray<ColumnDefinition>, rows:
     const solid = !!row.isWinner && !empty;
     const minFish = typeof row.sectorMinNumberOfFish === 'number' ? row.sectorMinNumberOfFish : undefined;
     const marker = penaltyMarker(row.penalties);
+    const me = !!myStandId && !empty && String(row.standId) === myStandId;
     const cells = cols.map((col): FishCell => {
       const raw = row[col.key];
       const cell = readCell(raw);
@@ -72,16 +80,20 @@ export function standardFishRows(columns: ReadonlyArray<ColumnDefinition>, rows:
       if (col.kind === 'name') {
         return {
           rowHeader: true,
-          measure: row.participant,
+          measure: me ? `Tu · ${row.participant}` : row.participant,
           content: empty ? (
             <>
               <span aria-hidden>–</span>
               <span className="sr-only">{EMPTY_STAND}</span>
             </>
+          ) : me ? (
+            `Tu · ${row.participant}`
           ) : (
             row.participant
           ),
           after: marker ? <FishPenaltyCard {...marker} /> : null,
+          // An empty stand keeps the face's room: its «–» lines up with the names.
+          lead: leadOf ? empty ? <span aria-hidden className="size-8 shrink-0" /> : leadOf(row) : undefined,
         };
       }
       const catchN = col.kind === 'catch' ? Number(/^catch(\d+)$/.exec(col.key)?.[1] ?? 0) : 0;
@@ -161,6 +173,7 @@ export function standardFishRows(columns: ReadonlyArray<ColumnDefinition>, rows:
       winner,
       solid,
       cells,
+      me,
     };
   });
 }

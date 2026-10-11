@@ -1031,6 +1031,7 @@ screens:
         text: "Live data refreshes every 60s; refresh reloads live + history together."
         fish_ref: "features/partide/screens/VenueSessionsScreen.tsx:57"
         status: passing
+        note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); live data still polls every 60s. e2e tests/e2e/balta-subpagini-3.spec.ts."
     e2e: tests/e2e/balta-subpagini-3.spec.ts
     mobile_only: false
     status: proposed
@@ -1243,7 +1244,7 @@ screens:
       - "empty tab"
       - "results"
       - "loading more"
-      - "refreshing (Reîmprospătează: cards kept, failed re-read marked with a retry)"
+      - "background re-read (window focus: cards kept, failed re-read marked with a retry; no manual refresh control since 2026-10-11)"
       - "unknown lakeId → not-found (noindex), no card read"
     criteria:
       - id: lakes.competitions.c1
@@ -1269,14 +1270,14 @@ screens:
         text: "A failed tab shows the error card with title, message and „Încearcă din nou” chosen by describeError (server down → «Serverul nu răspunde» + retry; a request the server refuses → its message, no retry); refresh refetches the active tab. No «Deconectează-te»: the read is public and the proxy already dropped a dead session's cookie, so the retry reads anonymously."
         fish_ref: "app/(app)/lakes/[lakeId]/concursuri.tsx:73"
         status: passing
-        note: "2026-10-07 M1 close-out: was a fixed title + «Verifică conexiunea…» + an unconditional retry for every failure. e2e competitions-list-balta.spec.ts «a failed tab says what failed …»."
+        note: "2026-10-07 M1 close-out: was a fixed title + «Verifică conexiunea…» + an unconditional retry for every failure. No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); the error card's retry and a failed background re-read's «Nu am putut actualiza lista.» retry remain. e2e competitions-list-balta.spec.ts «a failed tab says what failed …», «lakes.competitions.c5 lakes.competitions.s6 — no manual refresh control …»."
       - id: lakes.competitions.c6
         text: "?tab=live|viitoare|trecute selects the open tab (default: see c2) and changing tab updates the URL; the lake page rails' „Vezi toate” (fish /competitions/{started|notStarted|completed}/{lakeId}) land here with the matching tab, so the per-lake status lists of competitions-list (*-balta, merged_into this screen) need no page of their own."
         fish_ref: "components/HorizontalCompetitionsList.tsx:75"
         status: passing
     mobile_only: false
-    # c5 refresh (2026-10-07): DashboardRefresh «Reîmprospătează» in the header re-reads the open tab
-    # (tests/e2e/competitions-list-balta.spec.ts, lakes.competitions.c5 / s6 / s7).
+    # c5 refresh (2026-10-07): DashboardRefresh «Reîmprospătează» in the header re-read the open tab —
+    # removed by owner 2026-10-11 (no manual refresh controls on the web).
     # 2026-10-07 review round: bare URL → the tab that has competitions (c2 note), count pills, the empty card's
     # action logged + focus kept (c4), «N din 24 de concursuri» (formatCount). OPEN owner call: on this page every
     # card without a banner shows the same lake photo (fish banner → lake image, kept for parity) — drop the

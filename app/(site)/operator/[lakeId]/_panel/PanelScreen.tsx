@@ -1,15 +1,14 @@
 'use client';
 
-import { useCallback, useState, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ownedLakesQuery } from '@/core/booking';
 import { lakeOperatorStatsQuery, type LakeOperatorStats, type OperatorStatsWindowName } from '@/core/lakes';
 import { isApiError } from '@/core/transport';
 import { BookingDetailDialog, useBookingDetailParam } from '@/components/operator';
 import { useOperatorBookingActions } from '@/components/operator/actions/useOperatorBookingActions';
-import { DashboardLayout, DashboardRefresh, type RefreshResult } from '@/components/templates/T5';
+import { DashboardLayout } from '@/components/templates/T5';
 import { routes } from '@/lib/routes';
-import { useSiteToast } from '../../../_shell/Toast';
 import { panelBack } from '../../_shared/back';
 import { OperatorErrorState } from '../../_shared/OperatorErrorState';
 import { PanelSpinner } from './PanelSpinner';
@@ -23,8 +22,6 @@ import { PendingAlert } from './PendingAlert';
 import { QuickActions } from './QuickActions';
 import { StatTiles } from './StatTiles';
 import { TodayCard } from './TodayCard';
-
-const REFRESH_FAILED = 'Nu s-a putut actualiza. Cifrele de pe ecran sunt cele de dinainte.';
 
 /*
  * The panel's clock: device-local (operator.b.local-day), read only in the browser — the server
@@ -50,9 +47,9 @@ export const usePanelClock = () => useSyncExternalStore(subscribeClock, readCloc
  *  c1 header: back, the lake's name («Balta» when it is not in the list), «Azi, vineri 9 oct».
  *  c2 the window («week» first) is the query's only parameter.
  *  c3 first load: header + spinner, no quick actions. c4 error with nothing on screen → the shared
- *  error state; a failed refetch keeps the figures (a toast says it once).
- *  c5 / b.refresh: «Reîmprospătează» refetches the current window; the query also refetches whenever
- *  the window regains focus; no polling.
+ *  error state; a failed refetch keeps the figures.
+ *  c5 / b.refresh: the query refetches whenever the window regains focus; no polling (no manual
+ *  refresh control: removed by the owner 2026-10-11).
  *  c31 phone/tablet order: quick actions (sticky, attached to the top edge) · pending alert · Azi la
  *  baltă · drop-outs/reviews · the two tiles · trend. From 1280 (ROADMAP §4, three columns): left —
  *  the lake's shortcuts and the requests owed an answer; centre — today, what changed and the trend
@@ -62,7 +59,6 @@ export const usePanelClock = () => useSyncExternalStore(subscribeClock, readCloc
  */
 export function PanelScreen({ lakeId }: { lakeId: string }) {
   const t = useOperatorTransport();
-  const toast = useSiteToast();
   const now = usePanelClock();
   const lakeName = useOwnedLakeName(lakeId);
   const owned = useQuery(ownedLakesQuery(t));
@@ -82,24 +78,6 @@ export function PanelScreen({ lakeId }: { lakeId: string }) {
   const [settled, setSettled] = useState<{ window: OperatorStatsWindowName; data: LakeOperatorStats } | null>(null);
   if (fresh && (settled?.window !== trendWindow || settled.data !== fresh)) setSettled({ window: trendWindow, data: fresh });
   const view = panelView({ fresh, settled, window: trendWindow, isError: q.isError, error: q.error });
-
-  // The body is busy only while a refetch the user asked for runs (never a silent focus refetch).
-  const [userRefreshing, setUserRefreshing] = useState(false);
-  const { refetch } = q;
-  const refresh = useCallback(async (): Promise<RefreshResult> => {
-    setUserRefreshing(true);
-    try {
-      const r = await refetch();
-      if (!r.isError) return true;
-      // A dead session is the providers' (sign-out + /intra); say nothing more here.
-      if (isApiError(r.error) && r.error.code === 'SESSION_DEAD') return 'reported';
-      if (r.data === undefined) return false;
-      toast(REFRESH_FAILED, 'danger');
-      return 'reported';
-    } finally {
-      setUserRefreshing(false);
-    }
-  }, [refetch, toast]);
 
   const { bookingId, open, close } = useBookingDetailParam();
   const actions = useOperatorBookingActions({ lakeId, lakeName });
@@ -155,14 +133,14 @@ export function PanelScreen({ lakeId }: { lakeId: string }) {
         onWindowChange={(w) => (w === trendWindow && view.trendFailed ? void q.refetch() : setTrendWindow(w))}
         metric={metric}
         onMetricChange={setMetric}
-        busy={q.isFetching && (q.isPlaceholderData || userRefreshing)}
+        busy={q.isFetching && q.isPlaceholderData}
         failed={view.trendFailed ? { retry: () => void q.refetch(), retrying: q.isFetching } : null}
         nowMs={nowMs}
       />
     ) : null;
 
   return (
-    <OperatorFrame {...frame} busy={userRefreshing} trailing={<DashboardRefresh onRefresh={refresh} />}>
+    <OperatorFrame {...frame}>
       <DashboardLayout
         stacked={
           <>

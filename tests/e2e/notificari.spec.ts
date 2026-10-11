@@ -401,17 +401,11 @@ test.describe('account.notifications', () => {
     expect(errors).toEqual([]);
   });
 
-  test('c11 «Reîmprospătează» refetches the list', async ({ page }) => {
-    let title2 = 'Înainte';
-    const calls = await mock(page, { list: () => pageBody([{ documentId: 'r1', read: true, title: title2, type: 'lake:new-lakes' }]), unread: () => 0 });
+  test('c11 no manual refresh control (removed by the owner 2026-10-11)', async ({ page }) => {
+    await mock(page, { list: () => pageBody([{ documentId: 'r1', read: true, title: 'Înainte', type: 'lake:new-lakes' }]), unread: () => 0 });
     await open(page);
     await expect(rows(page)).toHaveCount(1);
-    await expect(rows(page).first()).toContainText('Înainte');
-    title2 = 'După';
-    const before = calls.list.length;
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect(rows(page).first()).toContainText('După');
-    expect(calls.list.length).toBeGreaterThan(before);
+    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
   });
 
   test('c8/c9 an unread row with no page (scheduled message) is a button: marks it read, logs it, navigates nowhere', async ({ page }) => {
@@ -462,25 +456,11 @@ test.describe('account.notifications', () => {
     await expect(page.getByText('Nu am putut încărca mai multe notificări.')).toBeVisible({ timeout: 20_000 });
     await expect(rows(page)).toHaveCount(10);
     await expect(page.getByRole('alert').filter({ hasText: 'Serverul nu răspunde' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toBeVisible();
     await expect(markAll(page)).toBeVisible();
     await page.screenshot({ path: `${SHOTS}/next-page-error-375.png`, fullPage: true });
     fail = false;
     await page.getByRole('button', { name: /Încearcă din nou|Reîncearcă/ }).last().click();
     await expect(rows(page)).toHaveCount(11);
-    expect(errors).toEqual([]);
-  });
-
-  test('c11 a failed «Reîmprospătează» keeps the rows and says so in a toast', async ({ page }) => {
-    const errors = collectConsoleErrors(page, { ignore: EXPECTED_CONSOLE });
-    let fail = false;
-    await mock(page, { list: () => (fail ? 500 : pageBody(MIXED)), unread: () => 3 });
-    await open(page);
-    await expect(rows(page)).toHaveCount(MIXED.length);
-    fail = true;
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect(page.getByRole('alert').filter({ hasText: 'Nu am putut reîmprospăta notificările' })).toBeVisible({ timeout: 20_000 });
-    await expect(rows(page)).toHaveCount(MIXED.length);
     expect(errors).toEqual([]);
   });
 
@@ -565,7 +545,8 @@ test.describe('account.notifications', () => {
     await mock(page, { list: (p) => (p === 1 ? pageBody(rowsNow, 1, pages) : new Promise<never>(() => {})), unread: () => count });
     await open(page, 1280);
     const summary = page.getByRole('complementary', { name: 'Rezumat' });
-    const refresh = () => page.getByRole('button', { name: 'Reîmprospătează' }).click();
+    // The list re-read: a reload (no manual refresh control since 2026-10-11).
+    const refresh = () => page.reload();
     // Every row loaded and read, the CMS still counts 2 (rows whose notification is gone): no number,
     // no «Citește tot» anywhere — the list is all read.
     await expect(rows(page)).toHaveCount(allRead.length);

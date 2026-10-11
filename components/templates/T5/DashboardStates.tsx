@@ -41,9 +41,8 @@ function TextBone({ step, className, on }: { step: string; className?: string; o
 
 /**
  * The caption's bone for a <DashboardHeader> drawn while the data loads (the real h1 stays), in
- * the caption's own line box. The header's action needs no bone: pass the real <DashboardRefresh />
- * (router.refresh needs no data and already has its final geometry), so nothing swaps at the top
- * of the page when the data lands.
+ * the caption's own line box. The header's actions are the real ones (they need no
+ * data), so nothing swaps at the top of the page when the data lands.
  */
 export function SkeletonCaption() {
   return <span aria-hidden className="inline-block h-3 w-28 rounded-full bg-soft-fill align-middle animate-shimmer" />;
@@ -204,8 +203,8 @@ function SkeletonActionBar() {
 
 /**
  * Loading — the page's own geometry in grey, announced once (the live region's TEXT; a status
- * announces content, not its name): the header (the back and refresh chips on the phone band, the
- * refresh button from 768), phone/tablet: action bar · today · tiles (a pair, a row of four from
+ * announces content, not its name): the header (the back chip on the phone band, the title block),
+ * phone/tablet: action bar · today · tiles (a pair, a row of four from
  * 768) · trend; from 1280 the three columns on the layout's own tracks: the lake's shortcuts ·
  * tiles, today, trend · two «ce mă așteaptă» cards. Use as the <Suspense> fallback of the dashboard body.
  */
@@ -218,7 +217,7 @@ export function DashboardSkeleton({
 }: {
   /**
    * Also draw the header in grey. Prefer a real <DashboardHeader> with the fallback title
-   * («Panoul bălții», SkeletonCaption, the real DashboardRefresh) and `header={false}`: the page
+   * («Panoul bălții», SkeletonCaption) and `header={false}`: the page
    * keeps its h1 and its way back while loading, and only the title text changes when data lands.
    */
   header?: boolean;
@@ -232,9 +231,8 @@ export function DashboardSkeleton({
     <div role="status" className="flex flex-col gap-4 md:gap-5 xl:gap-6">
       <span className="sr-only">{label}</span>
       {header ? (
-        // DashboardHeader's own box: the phone's surface band with the 48px chips, the title block
-        // and, from 768, the ghost refresh button's content (no fill: a 24px icon bone and a label
-        // bone, inset by the button's 12px padding), centred on it.
+        // DashboardHeader's own box: the phone's surface band with the 48px back chip and the title
+        // block (no refresh control: removed by the owner 2026-10-11).
         <div
           aria-hidden
           className="flex items-center gap-3 pt-2 max-md:-mx-4 max-md:border-b max-md:border-hairline max-md:bg-surface max-md:px-4 max-md:pb-3 md:gap-4 md:pt-6 xl:pt-8"
@@ -244,11 +242,8 @@ export function DashboardSkeleton({
             <TextBone step="t-title1 md:t-page-title" className="h-5 w-40 md:h-7 xl:w-64" />
             <TextBone step="t-caption md:t-body" className="h-3 w-28" />
           </span>
-          <span className="size-12 shrink-0 rounded-control bg-soft-fill md:hidden" />
-          <span className="hidden h-12 shrink-0 items-center gap-2 px-3 md:flex xl:h-10">
-            <span className="size-6 rounded-control bg-soft-fill animate-shimmer" />
-            <TextBone step="t-body-strong" className="h-3 w-28" />
-          </span>
+          {/* Keeps the title centred on the phone (the back chip's width on the other side). */}
+          <span className="size-12 shrink-0 md:hidden" />
         </div>
       ) : null}
       {/* phone / tablet */}

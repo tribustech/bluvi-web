@@ -11,8 +11,9 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  * tău», fish's poster cards in a stable order, the single-live view, nothing live, the signed-out
  * blur. Local CMS on :1337: three live competitions; the QA user is registered in none of them.
  * The local CMS may not have /feed/recent-weighings yet (it is on CMS staging): every test that
- * needs it serves it with page.route. The shared live list is re-read through «Reîmprospătează»
- * when a test narrows it (the server prefetched the real one).
+ * needs it serves it with page.route. The shared live list is re-read by the Live tab's own poll
+ * (the page clock runs it; no manual refresh since the owner removed it 2026-10-11) when a test
+ * narrows it (the server prefetched the real one).
  */
 
 const PHONE = { width: 375, height: 812 };
@@ -96,7 +97,10 @@ async function mockRecent(page: Page, state: { items: Weighing[] | null; reads: 
   await page.route(/\/feed\/weighings\/[^/?]+$/, (r) => json(r, DETAIL(new URL(r.request().url()).pathname.split('/').pop()!)));
 }
 
-/** The live list narrowed to `keep` (the real cards, optionally edited), re-read through «Reîmprospătează». */
+/**
+ * The live list narrowed to `keep` (the real cards, optionally edited), re-read by the Live tab's
+ * 60 s poll. Needs page.clock.install() before open().
+ */
 async function narrowLive(page: Page, keep: (c: Card) => boolean, edit: (c: Card) => Card = (c) => c) {
   await page.route(PUBLIC_LIVE, async (r) => {
     const res = await r.fetch();
@@ -104,8 +108,9 @@ async function narrowLive(page: Page, keep: (c: Card) => boolean, edit: (c: Card
     const data = body.data.filter(keep).map(edit);
     await json(r, { data, meta: { pagination: { ...body.meta.pagination, total: data.length, pageCount: data.length ? 1 : 0 }, counts: { ...body.meta.counts, started: data.length } } });
   });
-  await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-  await expect(page.getByRole('button', { name: 'Reîmprospătează' })).not.toHaveAttribute('aria-disabled');
+  const reread = page.waitForResponse((r) => PUBLIC_LIVE.test(r.url()));
+  await page.clock.runFor(61_000);
+  await reread;
 }
 
 async function open(page: Page) {
@@ -169,6 +174,7 @@ test.describe('signed out', () => {
 
   test('competitions-list.live.c21 competitions-list.live.s10 — one live competition, signed out: its view, the leaderboard blurred', async ({ page }) => {
     await page.setViewportSize(WIDE);
+    await page.clock.install();
     await open(page);
     const only = byStart(live)[0];
     await narrowLive(page, (c) => c.documentId === only.documentId);
@@ -183,6 +189,7 @@ test.describe('signed out', () => {
 
   test('competitions-list.live.c22 competitions-list.live.s11 — nothing live: «Niciun concurs live acum», the next start, the way to Viitoare', async ({ page }) => {
     await page.setViewportSize(WIDE);
+    await page.clock.install();
     await open(page);
     await narrowLive(page, () => false);
     await expect(list(page).getByRole('heading', { name: 'Niciun concurs live acum' })).toBeVisible();
@@ -359,6 +366,7 @@ test.describe('signed in', () => {
     const only = byStart(live).find((c) => c.name.includes('CHAT25')) ?? byStart(live)[0];
     await mockRecent(page, { reads: 0, items: [weighing('solo', only, { endAt: minutesAgo(2) })] });
     await page.setViewportSize(WIDE);
+    await page.clock.install();
     await open(page);
     await narrowLive(page, (c) => c.documentId === only.documentId);
     const view = page.getByRole('region', { name: only.name });
@@ -417,6 +425,7 @@ test.describe('signed in', () => {
     });
     await mockRecent(page, { reads: 0, items: [] });
     await page.setViewportSize(WIDE);
+    await page.clock.install();
     await open(page);
     await narrowLive(page, (c) => c.documentId === only.documentId, withPodium);
     const view = page.getByRole('region', { name: only.name });

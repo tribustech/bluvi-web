@@ -145,7 +145,6 @@ const fail = (status: number, message = 'x', bluCode?: string): Reply => ({
 });
 
 const page$ = () => `/operator/${lakeId}/blocaje`;
-const visible = (l: Locator) => l.filter({ visible: true });
 const heading = (page: Page) => page.getByRole('heading', { level: 1 });
 const rows = (page: Page) => page.getByTestId('block-row');
 const rowOf = (page: Page, id: string) => page.locator(`[data-testid="block-row"][data-block*="${id}"]`);
@@ -448,7 +447,14 @@ test.describe('signed in', () => {
     await expectNoA11yViolations(page);
     await shoot(page, 'empty');
     data = richFixture().filter((b) => b.documentId.startsWith('past-'));
-    await page.getByRole('button', { name: 'Reîmprospătează' }).filter({ visible: true }).click();
+    // A window focus re-reads the list (staleTime 0).
+    await page.evaluate(() => {
+      const set = (v: string) => Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
+      set('hidden');
+      document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+      set('visible');
+      document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+    });
     await expect(page.getByRole('button', { name: 'Afișează trecutul (2)' })).toBeVisible();
     await expect(empty).toBeVisible();
   });
@@ -507,16 +513,14 @@ test.describe('signed in', () => {
     expect(errors).toEqual([]);
   });
 
-  test('c12: the refresh control and a window focus refetch the blocks; no polling', async ({ page }) => {
+  test('c12: a window focus refetches the blocks; no polling, no manual refresh control (owner 2026-10-11)', async ({ page }) => {
     const calls = await mockList(page, () => ok(richFixture()));
     await open(page);
     await expect(rows(page).first()).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => calls.count()).toBe(1);
     await page.waitForTimeout(2000);
     expect(calls.count()).toBe(1);
-    await visible(page.getByRole('button', { name: 'Reîmprospătează' })).click();
-    await expect.poll(() => calls.count()).toBe(2);
-    await page.waitForTimeout(500);
+    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
     await page.evaluate(() => {
       const set = (v: string) => Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
       set('hidden');
@@ -524,6 +528,6 @@ test.describe('signed in', () => {
       set('visible');
       document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
     });
-    await expect.poll(() => calls.count()).toBe(3);
+    await expect.poll(() => calls.count()).toBe(2);
   });
 });

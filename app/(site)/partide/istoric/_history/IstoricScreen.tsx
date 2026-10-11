@@ -8,7 +8,6 @@ import { ICON_BUTTON_SIZE } from '@/components/nav/IconButton';
 import { useBack } from '@/components/nav/useBack';
 import { JournalKpiGrid } from '@/components/partide/own/JournalStatCard';
 import { AsideSection, AsideSkeleton, filterChipClass, ListEmpty, ListError, ListHeader, ListPage } from '@/components/templates/T1';
-import { DashboardRefresh } from '@/components/templates/T5';
 import { cn } from '@/components/ui/cn';
 import { computeHistoryStats, partideHistoryQuery } from '@/core/partide';
 import { createBrowserTransport } from '@/lib/client/transport';
@@ -36,8 +35,7 @@ import { WeightList } from './WeightList';
  *    change starts again at 10.
  *  - States (c7): the first read → skeleton; nothing after filtering → «Nicio partidă pentru
  *    filtrele selectate.»; a failed first read → an error card with a retry (owner rule 4: never an
- *    empty history we are not sure of). The header's refresh refetches the list (c8, fish pull-to-
- *    refresh).
+ *    empty history we are not sure of). No refresh control (owner 2026-10-11).
  */
 
 export const TITLE = 'Istoric partide';
@@ -84,11 +82,6 @@ export function IstoricScreen({ initial }: { initial: HistoryFilters }) {
   const shown = useMemo(() => windowSections(sections, count), [sections, count]);
   const more = count < total;
 
-  const refresh = async () => {
-    const r = await history.refetch();
-    return !r.isError;
-  };
-
   let body;
   if (history.isPending) body = <IstoricSkeleton />;
   else if (history.isError && !history.data)
@@ -122,13 +115,7 @@ export function IstoricScreen({ initial }: { initial: HistoryFilters }) {
     <>
       <SetBreadcrumb trail={TRAIL} />
       <ListPage
-        header={
-          <ListHeader
-            title={TITLE}
-            back={{ label: 'Înapoi', onClick: back }}
-            actions={<DashboardRefresh onRefresh={refresh} />}
-          />
-        }
+        header={<ListHeader title={TITLE} back={{ label: 'Înapoi', onClick: back }} />}
         // From 1440 the history's figures beside the cards (owner rule 1: the width is used; Ale
         // mele's stat language), on the late 320 track: at 1280 a docked column would squeeze the
         // cards under their 292 (the duration truncates), so 1280 keeps four columns of cards.
@@ -224,7 +211,7 @@ function useHistoryUrl(f: HistoryFilters) {
 
 /**
  * The whole page while the gate reads the session (loading.tsx and the page's Suspense fallback):
- * the real title, the back control's and the refresh's places, the chips (inert) and the skeleton.
+ * the real title, the back control's place, the chips (inert) and the skeleton.
  */
 export function IstoricPageLoading() {
   return (

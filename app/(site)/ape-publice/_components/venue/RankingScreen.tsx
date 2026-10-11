@@ -59,7 +59,7 @@ import { formatCount } from '@/core/realtime/chat/format';
  *  - c7 rows from rank 4 / «Doar podiumul…»; c8 species rows / their empty line;
  *  - c9 the «EU» pill for the signed-in, ranked viewer — after the rows below 1280 (the fish order,
  *    so its late arrival never moves the list), in the right column from 1280; c10 the period switch (SwitchingBar + inert, the family's one
- *    treatment) + the refresh.
+ *    treatment).
  * From 1280 the period, the list choice and the water's pages dock in the left column, the right
  * column holds your place and the period in numbers (ROADMAP §4, three columns): partide · pescari · capturi, the
  * same three figures as Statistici (D1: no kg figure on either sibling).
@@ -109,7 +109,7 @@ export function RankingScreen({
 
   const header = (
     <div>
-      <VenueHeader title={title} description={CAPTION} backHref={backHref} onRefresh={async () => !(await q.refetch()).isError} />
+      <VenueHeader title={title} description={CAPTION} backHref={backHref} />
       <WaterTabs waterKey={waterKey} current="clasament" period={period} />
     </div>
   );
@@ -215,7 +215,7 @@ export function RankingScreen({
 
 /**
  * The ranking's frame while the water and its period are read (fish ClasamentSkeleton), under the
- * loaded page's header slots (back, refresh) so nothing moves when the data lands. `title`
+ * loaded page's header slots (back) so nothing moves when the data lands. `title`
  * omitted (the route fallback, the water not read yet): a title bone.
  */
 export function RankingFallback({ title, backHref }: { title?: string; backHref: string }) {

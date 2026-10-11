@@ -7,14 +7,12 @@ import { ArrowPathIcon, ExclamationTriangleIcon, LockClosedIcon } from '@heroico
 import { competitionQuery, type CompetitionWithMyStatus } from '@/core/competitions';
 import type { Transport } from '@/core/transport';
 import { describeError } from '@/components/templates/T1/describeError';
-import { headerChipClass } from '@/components/templates/T3/DetailHeader';
 import { T4Gate } from '@/components/templates/T4';
 import { FlowHeader, FlowHeaderSkeleton, FlowLayout, FlowSkeleton } from '@/components/templates/T6';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
-import { useSiteToast } from '../../../_shell/Toast';
 import { COMPETITIONS_CRUMB } from '../_components/crumbs';
 import { deniedCopy, managementAccess, type CompetitionRole, type ManagementRequirement } from './access';
 import { useCompetitionRole } from './useCompetitionRole';
@@ -32,7 +30,6 @@ import { useCompetitionRole } from './useCompetitionRole';
  *     back={{ href: routes.competition(id), label: 'Înapoi la concurs' }}
  *     requires="signedIn" | "author" | "authorOrReferee" | "role"
  *     reads={[allocations]}                 // the page's own queries: their loading / error join the frame's
- *     onRefresh={() => allocations.refetch()}
  *     skeleton={<…/>} aside={(ctx) => …} actions={(ctx) => …}
  *   >
  *     {({ competition, role, t }) => <the task/>}
@@ -44,14 +41,15 @@ import { useCompetitionRole } from './useCompetitionRole';
  * - loading: the header with the real title + the page's `skeleton` (default FlowSkeleton), busy,
  *   announced once; nothing is printed for a state not known yet (owner rule 4);
  * - error (no data): T4Gate danger with fish ErrorScreen's copy (describeError) and «Încearcă din
- *   nou», which refetches the competition, the statute and calls `onRefresh` (the page's reads);
+ *   nou», which refetches the competition, the statute, the page's `reads` and calls `onRetry` (its
+ *   other reads);
  *   while it runs the button is disabled + aria-busy with a spinner (no repeat rounds), and a status
  *   line says it started and, if the gate stays, that it failed again;
  * - the gate: `requires` vs the statute (access.ts). Unknown statute → still loading; a known role
  *   without the right → a neutral gate with the way back (organizer.b.role-gate). The CMS stays the
  *   authority on every write;
- * - the refresh action in the header (fish pull-to-refresh, organizer.b.no-polling): refetches the
- *   competition, the statute and `onRefresh`; a failure keeps the data and toasts;
+ * - no manual refresh control in the header (removed by the owner 2026-10-11; organizer.b.no-polling:
+ *   the reads refetch on focus and after each write);
  * - the breadcrumb «Competiții › <concurs> › <title>», back to the competition page.
  * The page itself exports `managementMetadata(title)` (./metadata.ts: noindex) and gates the session
  * on the server (proxy.ts matcher + requireViewer), so the frame always runs signed in.
@@ -67,7 +65,7 @@ export type ManagementContext = {
   t: Transport;
 };
 
-type Read = Pick<UseQueryResult, 'isPending' | 'isError' | 'error' | 'data'>;
+type Read = Pick<UseQueryResult, 'isPending' | 'isError' | 'error' | 'data' | 'refetch'>;
 
 type Props = {
   competitionId?: string;
@@ -78,10 +76,10 @@ type Props = {
   hint?: (ctx: ManagementContext) => ReactNode;
   back: { href: string; label?: string };
   requires: ManagementRequirement;
-  /** The page's own queries: pending → the skeleton, failed without data → the error gate. */
+  /** The page's own queries: pending → the skeleton, failed without data → the error gate (its retry refetches them). */
   reads?: Read[];
-  /** The page's part of a refresh / retry (refetch its own reads). */
-  onRefresh: () => Promise<unknown> | void;
+  /** The page's other reads the error gate's retry also refetches (fish's refetch on that screen). */
+  onRetry?: () => Promise<unknown> | void;
   /** The task's loading body (default FlowSkeleton). */
   skeleton?: ReactNode;
   aside?: (ctx: ManagementContext) => ReactNode;
@@ -119,9 +117,9 @@ function CompetitionFrame(props: Props & { competitionId: string; t: Transport }
 type FrameProps = Props & {
   t: Transport;
   competition: CompetitionWithMyStatus | null;
-  competitionRead: (Read & { refetch: () => Promise<unknown> }) | null;
+  competitionRead: Read | null;
   role: CompetitionRole | undefined;
-  statuteRead: (Read & { refetch: () => Promise<unknown> }) | null;
+  statuteRead: Read | null;
 };
 
 function Frame({
@@ -133,7 +131,7 @@ function Frame({
   back,
   requires,
   reads = [],
-  onRefresh,
+  onRetry,
   skeleton,
   aside,
   asideSkeleton,
@@ -147,8 +145,6 @@ function Frame({
   statuteRead,
 }: FrameProps) {
   const pathname = usePathname();
-  const toast = useSiteToast();
-  const [refreshing, setRefreshing] = useState(false);
   // The error gate's retry: react-query keeps status 'error' while it refetches, so the gate would
   // look the same until it settles — this drives the busy button and the status line instead.
   const [retrying, setRetrying] = useState(false);
@@ -169,19 +165,7 @@ function Frame({
   const access = managementAccess(requires, { role, isOrganizer: viewer.isOrganizer });
 
   const refetchAll = () =>
-    Promise.all([competitionRead?.refetch(), statuteRead?.refetch(), onRefresh()]);
-
-  const refresh = async () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    try {
-      const results = await refetchAll();
-      // react-query resolves a failed refetch with { isError } (the data is kept): say so once.
-      if (results.some((r) => isFailedResult(r))) toast('Nu am putut actualiza datele. Încearcă din nou.', 'danger');
-    } finally {
-      setRefreshing(false);
-    }
-  };
+    Promise.all([competitionRead?.refetch(), statuteRead?.refetch(), ...reads.map((r) => r.refetch()), onRetry?.()]);
 
   const retry = async () => {
     if (retrying) return;
@@ -308,7 +292,6 @@ function Frame({
             meta={hint?.(ctx)}
             backHref={back.href}
             backLabel={backLabel}
-            trailing={<RefreshButton refreshing={refreshing} onRefresh={() => void refresh()} />}
           />
         }
         labelledBy={titleId}
@@ -323,37 +306,3 @@ function Frame({
 }
 
 const isFailedResult = (r: unknown) => typeof r === 'object' && r !== null && 'isError' in r && (r as { isError: boolean }).isError;
-
-/**
- * fish pull-to-refresh on the web: the header's refresh chip (T3's header chip, 48 / 40 from 1280).
- * While it runs the glyph spins (still, under reduced motion) and the chip is busy; the status line
- * announces the start and the end once.
- */
-function RefreshButton({ refreshing, onRefresh }: { refreshing: boolean; onRefresh: () => void }) {
-  const [announced, setAnnounced] = useState('');
-  const [prev, setPrev] = useState(refreshing);
-  if (prev !== refreshing) {
-    setPrev(refreshing);
-    setAnnounced(refreshing ? 'Se actualizează…' : 'Datele au fost actualizate.');
-  }
-  return (
-    <>
-      <button
-        type="button"
-        onClick={onRefresh}
-        aria-label="Reîmprospătează"
-        aria-busy={refreshing || undefined}
-        aria-disabled={refreshing || undefined}
-        data-testid="management-refresh"
-        className={headerChipClass({
-          className: 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-        })}
-      >
-        <ArrowPathIcon aria-hidden className={refreshing ? 'motion-safe:animate-spin' : undefined} />
-      </button>
-      <span role="status" className="sr-only">
-        {announced}
-      </span>
-    </>
-  );
-}

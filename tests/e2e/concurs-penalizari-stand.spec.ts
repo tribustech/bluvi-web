@@ -447,7 +447,7 @@ test('the gate: a participant gets «Doar pentru organizator și arbitri»; a re
   noWrites(watch);
 });
 
-test('find-as-you-type and the refresh action', async ({ page }) => {
+test('find-as-you-type; no manual refresh control (removed by the owner 2026-10-11)', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1000 });
   let name = '';
   const { watch, errors } = await open(page, STARTED, {
@@ -467,12 +467,9 @@ test('find-as-you-type and the refresh action', async ({ page }) => {
   await expect(page.getByTestId('penalty-stand-no-results')).toContainText('Nu există niciun stand sau pescar pentru «zzzz-nimic».');
   await shoot(page, 'no-results');
   await search.fill('');
-  const count = (p: string) => watch.reads.filter((r) => r === p).length;
-  const before = { c: count(competitionPath(STARTED)), a: count(allocationsPath(STARTED)) };
-  await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Datele au fost actualizate.' })).toBeAttached();
-  expect(count(competitionPath(STARTED))).toBeGreaterThan(before.c);
-  expect(count(allocationsPath(STARTED))).toBeGreaterThan(before.a);
+  // No manual refresh control (removed by the owner 2026-10-11): the reads refetch on focus and after writes.
+  await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
+  await expect(page.getByTestId('management-refresh')).toHaveCount(0);
   await expectNoA11yViolations(page);
   noWrites(watch);
   expect(errors).toEqual([]);

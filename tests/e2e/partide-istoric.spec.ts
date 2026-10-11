@@ -309,10 +309,10 @@ test('c7 — a failed first read is an error card with a retry, never an empty h
   await expect(cards(page)).toHaveCount(6);
 });
 
-test('c8 — filters live in the URL (a reload keeps them); the refresh refetches the own list', async ({ page, context }) => {
+test('c8 — filters live in the URL (a reload keeps them); no manual refresh control (owner 2026-10-11)', async ({ page, context }) => {
   const errors = collectConsoleErrors(page);
   await signedIn(context, page);
-  const { hits, state } = await mockMine(page, { rows: R.ALL });
+  const { hits } = await mockMine(page, { rows: R.ALL });
   await open(page, DESKTOP, routes.partideHistory({ byWeight: true, venues: ['Balta Chita'], withCaptures: true }));
   await expect(chip(page, 'Greutate')).toHaveAttribute('aria-pressed', 'true');
   await expect(chip(page, 'Cu capturi')).toHaveAttribute('aria-pressed', 'true');
@@ -334,11 +334,7 @@ test('c8 — filters live in the URL (a reload keeps them); the refresh refetche
   expect(Math.round(a!.y)).toBe(Math.round(b!.y));
   expect(a!.width).toBeLessThan(560);
 
-  const before = hits.mine;
-  state.rows = [...R.ALL, { ...R.SEP_20, documentId: 'new', clientId: 'client-new', lakeName: 'Balta Nouă', startedAt: '2026-09-26T05:00:00.000Z', endedAt: '2026-09-26T09:00:00.000Z' }];
-  await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-  await expect.poll(() => hits.mine).toBe(before + 1);
-  await expect(cards(page).first()).toContainText('Balta Nouă');
+  await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
   expect(hits.firebase).toEqual([]);
   expect(errors).toEqual([]);
 });

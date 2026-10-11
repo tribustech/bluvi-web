@@ -47,7 +47,8 @@ import { formatCount, pluralNoun } from '@/core/realtime/chat/format';
  *  - c6 the live card (the detail page's, same cache entry) when sessions are live;
  *  - c7/c8 the latest catches rail → /capturi?foto=; c9 the statistics card;
  *  - c10 «Partide încheiate», 10 per page, de-duplicated, the next page near the end;
- *  - c12 «Reîmprospătează» refetches both feeds (it reports a failure when either fails);
+ *  - c12 no manual refresh control (removed by the owner 2026-10-11); the error card's retry
+ *    refetches both feeds;
  *    c13 the polling lives in the core queries.
  * From 1280 the water's pages in the left column (every sibling's «Pe această apă»), the rail and
  * the statistics card docked in the right column; below it they follow the live card, in the fish
@@ -69,14 +70,11 @@ export function PartideScreen({ code, waterKey, title }: { code: string; waterKe
   const rows = useMemo(() => dedupeByDocumentId(history.data?.pages.flatMap((p) => p.data) ?? []), [history.data]);
   const total = history.data?.pages[0]?.meta.pagination.total;
 
-  const refresh = async () => {
-    const [a, b] = await Promise.all([live.refetch(), history.refetch()]);
-    return !(a.isError || b.isError);
-  };
+  const retry = () => Promise.all([live.refetch(), history.refetch()]);
   // Below 1280 the water's pages as tabs under the title (from 1280 the left column's list).
   const header = (
     <div>
-      <VenueHeader title={title} description={CAPTION} backHref={backHref} onRefresh={refresh} />
+      <VenueHeader title={title} description={CAPTION} backHref={backHref} />
       <WaterTabs waterKey={waterKey} current="partide" />
     </div>
   );
@@ -85,7 +83,7 @@ export function PartideScreen({ code, waterKey, title }: { code: string; waterKe
   // Both feeds are retry:false. A feed counts as failed while it has nothing to show and its last
   // answer was an error — also while that error is being retried (TanStack puts a query without
   // data back to «pending» on a refetch), so the retry shows busy on the error card instead of
-  // swapping the page for the skeleton (and remounting the header's refresh mid-announcement).
+  // swapping the page for the skeleton.
   const liveFailed = !live.data && (live.isError || live.errorUpdateCount > 0);
   const historyFailed = !history.data && (history.isError || history.errorUpdateCount > 0);
 
@@ -100,7 +98,7 @@ export function PartideScreen({ code, waterKey, title }: { code: string; waterKe
         <div data-testid="partide-error">
           <ListError
             title="Nu am putut încărca partidele."
-            onRetry={() => void refresh()}
+            onRetry={() => void retry()}
             retrying={live.isFetching || history.isFetching}
             attempt={Math.max(live.errorUpdateCount, history.errorUpdateCount)}
           />
@@ -188,7 +186,7 @@ export function PartideScreen({ code, waterKey, title }: { code: string; waterKe
 
 /**
  * fish IstoricSkeleton (c3): the page's frame, the live card, the rail and history cards in grey —
- * under the loaded page's own header (the back square, the caption, the refresh), so nothing moves
+ * under the loaded page's own header (the back square, the caption), so nothing moves
  * when the feeds land. `title` omitted (the route fallback, the water not read yet): a title bone.
  */
 export function PartideFallback({ title, backHref }: { title?: string; backHref: string }) {

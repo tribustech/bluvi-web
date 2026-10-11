@@ -1,6 +1,5 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import { AdjustmentsHorizontalIcon, ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { RESULTS_BACK, RESULTS_LABEL, RESULTS_ROW, resultsCircleClass, resultsPillClass } from './resultsChromeStyles';
 
@@ -23,7 +22,6 @@ export function ResultsChrome({
   labelOpensDialog = true,
   onOpenFilters,
   filtersExpanded,
-  trailing,
 }: {
   label: string;
   filterCount: number;
@@ -35,8 +33,6 @@ export function ResultsChrome({
   /** The filters circle; omitted where the filter bar is on screen (from 1280). */
   onOpenFilters?: () => void;
   filtersExpanded?: boolean;
-  /** After the pill: «Reîmprospătează» (results.c14, the index's pull-to-refresh stand-in). */
-  trailing?: ReactNode;
 }) {
   const active = filterCount > 0;
   return (
@@ -68,7 +64,6 @@ export function ResultsChrome({
           </button>
         ) : null}
       </div>
-      {trailing}
     </div>
   );
 }

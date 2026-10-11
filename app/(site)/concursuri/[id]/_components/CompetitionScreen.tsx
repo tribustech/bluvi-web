@@ -61,10 +61,10 @@ import { signInHref } from '../../../_shell/SiteHeader';
 import { isUnknownViewer, useViewerState } from '../../../_shell/viewer-context';
 import { ActionsSheet } from './ActionsSheet';
 import { ActiveWeighingBanner, FLOATING_ACTIONS_BAR, MobileActionBar, SORT_OPTION, type BarConfirm } from './ActionBar';
-import { FeederHelp, FeederLegTabs, FeederRankingTable, feederLegEmpty, type FeederData } from './FeederRanking';
+import { FeederHelp, FeederLegTabs, feederLegEmpty, type FeederData } from './FeederRanking';
 import { FishFeederLegTabs, FishFeederTable } from './FishFeeder';
 import { FishNcPills, FishNcTable } from './FishNc';
-import { NcRankingTable, NcSectorPills, NcSortControl, ncSortFor, type NcSort, type NcView } from './NcRanking';
+import { NcSectorPills, NcSortControl, ncSortFor, type NcSort, type NcView } from './NcRanking';
 import { useSiteToast } from '../../../_shell/Toast';
 import { AllFishView } from './AllFishView';
 import { ChatHeaderButton, markChatFromCompetition, useChatBadge, useChatHref } from './ChatPanel';
@@ -81,10 +81,10 @@ import { CompetitionHeader, shareText } from './CompetitionHeader';
 import { CompetitionStickyTabs } from './CompetitionStickyTabs';
 import { DesktopStats, entrantCounts, weighingTileTone } from './DesktopStats';
 import type { PageViewer } from './Follow';
-import { FullRankingDialog } from './FullRankingDialog';
+import { FullFishTables, FullRankingDialog } from './FullRankingDialog';
 import { imageQueryFor, imageQueryString } from '../clasament/imagine/model';
 import { trackRankingImage } from '../clasament/imagine/analytics';
-import { FullViewButtons } from './rankingShell';
+import { FullViewButtons, RankingCard } from './rankingShell';
 import { CompetitionPreview } from './Preview';
 import { buildRankingTable, rawWeightDecimals, weightDecimals, type RankingSort } from './ranking';
 import { RankingView } from './RankingView';
@@ -913,29 +913,28 @@ function Screen({
                                     caption={feederTab === 'general' ? 'Clasament general' : `Clasament manșa ${feederTab}`}
                                   />
                                 </div>
-                                <div className="min-w-0 flex-1 max-md:hidden">
-                                  <FeederRankingTable
+                                {/* From 768: the same fish table (`wide`) in the ranking card, the leg
+                                    tabs on its band (owner 2026-10-11). */}
+                                <RankingCard
+                                  className="min-w-0 flex-1 max-md:hidden"
+                                  toolbar={
+                                    <>
+                                      {/* The chips and their «?» together at the left; «Clasament complet» at the far end. */}
+                                      <div className="min-w-0 flex-1">
+                                        <FeederLegTabs data={feeder} value={feederTab} onChange={setChosenFeederTab} onHelp={() => setFeederHelpOpen(true)} />
+                                      </div>
+                                      <FullViewButtons onPress={() => setFullOpen(true)} disabled={fullViewDisabled} />
+                                    </>
+                                  }
+                                >
+                                  <FishFeederTable
+                                    wide
                                     data={feeder}
                                     tab={feederTab}
                                     isTeam={competition.competitionType === 'team'}
                                     caption={feederTab === 'general' ? 'Clasament general' : `Clasament manșa ${feederTab}`}
-                                    me={me}
-                                    toolbar={
-                                      <>
-                                        {/* The chips and their «?» together at the left; «Clasament complet» at the far end. */}
-                                        <div className="min-w-0 flex-1">
-                                          <FeederLegTabs
-                                            data={feeder}
-                                            value={feederTab}
-                                            onChange={setChosenFeederTab}
-                                            onHelp={() => setFeederHelpOpen(true)}
-                                          />
-                                        </div>
-                                        <FullViewButtons onPress={() => setFullOpen(true)} disabled={fullViewDisabled} />
-                                      </>
-                                    }
                                   />
-                                </div>
+                                </RankingCard>
                                 <FeederHelp
                                   open={feederHelpOpen}
                                   onClose={() => setFeederHelpOpen(false)}
@@ -957,14 +956,10 @@ function Screen({
                                     caption={ncSectorName ? `Clasament sector ${ncSectorName}` : 'Clasament pe cluburi'}
                                   />
                                 </div>
-                                <div className="max-md:hidden">
-                                  <NcRankingTable
-                                  rankings={nc}
-                                  numberOfSectors={metadata?.numberOfSectors}
-                                  view={ncView}
-                                  sort={ncSort}
-                                  caption={ncSectorName ? `Clasament sector ${ncSectorName}` : 'Clasament pe cluburi'}
-                                  currentUserStandId={me.standId}
+                                {/* From 768: the same fish tables (`wide`) in the ranking card, the
+                                    sector pills and the order on its band (owner 2026-10-11). */}
+                                <RankingCard
+                                  className="max-md:hidden"
                                   toolbar={
                                     <>
                                       {/* The pills scroll inside their own box (fading at its edge), never under Ordine. */}
@@ -972,14 +967,22 @@ function Screen({
                                         <NcSectorPills sectors={competition.sectors} value={ncView} onChange={selectNcView} />
                                       </div>
                                       {/* From 768 the order is chosen here (the phone has «Sortare» in the bar). */}
-                                      <div className="shrink-0 max-md:hidden">
+                                      <div className="shrink-0">
                                         <NcSortControl view={ncView} value={ncSort} onChange={setNcSort} />
                                       </div>
                                       <FullViewButtons onPress={() => setFullOpen(true)} disabled={fullViewDisabled} />
                                     </>
                                   }
-                                />
-                                </div>
+                                >
+                                  <FishNcTable
+                                    wide
+                                    rankings={nc}
+                                    numberOfSectors={metadata?.numberOfSectors}
+                                    view={ncView}
+                                    sort={ncSort}
+                                    caption={ncSectorName ? `Clasament sector ${ncSectorName}` : 'Clasament pe cluburi'}
+                                  />
+                                </RankingCard>
                               </section>
                             ) : (
                               // fish: no NC data → «Nu există date de afișat».
@@ -990,6 +993,8 @@ function Screen({
                           table={table}
                           sortNonce={sortNonce}
                           placeTable={placeTable}
+                          sort={sortBy}
+                          onSort={setSortBy}
                           currentUserStandId={me.standId}
                           rankingType={competition.rankingType}
                           onFullView={() => setFullOpen(true)}
@@ -1163,8 +1168,8 @@ function Screen({
         onClose={() => setFullOpen(false)}
         title={competition.name}
         subtitle={fullSubtitle}
-        table={placeTable}
-        initialSort={sortBy === 'position' ? 'place' : 'stand'}
+        table={table}
+        currentUserStandId={me.standId}
         imageHref={
           fullViewDisabled
             ? undefined
@@ -1178,23 +1183,35 @@ function Screen({
         onImage={() => trackRankingImage('ranking_image_pressed', { id, name: competition.name })}
       >
         {feeder ? (
-          <FeederRankingTable
-            data={feeder}
-            tab={feederTab}
-            isTeam={competition.competitionType === 'team'}
-            caption={`${fullSubtitle} complet`}
-            me={me}
-            full
+          <FullFishTables
+            phone={
+              <FishFeederTable data={feeder} tab={feederTab} isTeam={competition.competitionType === 'team'} caption={`${fullSubtitle} complet`} />
+            }
+            wide={
+              <FishFeederTable
+                wide
+                data={feeder}
+                tab={feederTab}
+                isTeam={competition.competitionType === 'team'}
+                caption={`${fullSubtitle} complet`}
+              />
+            }
           />
         ) : nc ? (
-          <NcRankingTable
-            rankings={nc}
-            numberOfSectors={metadata?.numberOfSectors}
-            view={ncView}
-            sort={ncSort}
-            caption={`${fullSubtitle} complet`}
-            currentUserStandId={me.standId}
-            full
+          <FullFishTables
+            phone={
+              <FishNcTable rankings={nc} numberOfSectors={metadata?.numberOfSectors} view={ncView} sort={ncSort} caption={`${fullSubtitle} complet`} />
+            }
+            wide={
+              <FishNcTable
+                wide
+                rankings={nc}
+                numberOfSectors={metadata?.numberOfSectors}
+                view={ncView}
+                sort={ncSort}
+                caption={`${fullSubtitle} complet`}
+              />
+            }
           />
         ) : null}
       </FullRankingDialog>

@@ -26,8 +26,7 @@ export function operatorTrail(...rest: Crumb[]): Crumb[] {
  *
  *   // A lake's panel: Back falls back to the picker only for a multi-lake owner (./back.ts).
  *   <OperatorFrame title={name ?? <TitleSkeleton/>} caption="Azi, sâmbătă 4 oct."
- *     back={panelBack(owned.data?.length)} trail={operatorTrail({ label: name })}
- *     trailing={<Refresh/>}>
+ *     back={panelBack(owned.data?.length)} trail={operatorTrail({ label: name })}>
  *     …
  *   </OperatorFrame>
  *   // A screen under the panel (inbox, blocks, calendar…): its parent, the panel.
@@ -41,7 +40,6 @@ export function OperatorFrame({
   back,
   trail,
   below,
-  busy,
   className,
   children,
 }: {
@@ -53,8 +51,6 @@ export function OperatorFrame({
   /** The breadcrumb band; omitted: «Acasă / Administrare / <title>» when the title is a string. */
   trail?: Crumb[];
   below?: ReactNode;
-  /** A refetch the user asked for is replacing the body (aria-busy on the body only). */
-  busy?: boolean;
   className?: string;
   children: ReactNode;
 }) {
@@ -63,7 +59,7 @@ export function OperatorFrame({
     <div className={cn(SHELL_GUTTERS, 'pt-4 pb-10 md:pt-6 xl:pt-8 xl:pb-16', className)}>
       {crumbs ? <SetBreadcrumb trail={crumbs} /> : null}
       <OperatorHeader title={title} titleId={titleId} caption={caption} trailing={trailing} back={back} below={below} />
-      <div aria-busy={busy || undefined} className="mt-4 flex min-w-0 flex-col gap-4 md:mt-5 xl:mt-6">
+      <div className="mt-4 flex min-w-0 flex-col gap-4 md:mt-5 xl:mt-6">
         {children}
       </div>
     </div>

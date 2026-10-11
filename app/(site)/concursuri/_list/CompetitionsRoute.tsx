@@ -6,7 +6,6 @@ import { connection } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
 import { HydrationBoundary } from '@tanstack/react-query';
 import { FilterBarSkeleton, ListHeader, ListPageSkeleton, ListSummary, PILL_H } from '@/components/templates/T1';
-import { DashboardRefresh } from '@/components/templates/T5';
 import { AdjustmentsHorizontalIcon, ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/components/ui/cn';
 import {
@@ -47,7 +46,7 @@ import {
   type ListRoute,
   type UrlParams,
 } from './place';
-import { RESULTS_BACK, RESULTS_REFRESH, RESULTS_ROW, RESULTS_STACK, resultsCircleClass, resultsPillClass } from './resultsChromeStyles';
+import { RESULTS_BACK, RESULTS_ROW, RESULTS_STACK, resultsCircleClass, resultsPillClass } from './resultsChromeStyles';
 import { ScreenBoundary } from './ScreenBoundary';
 import { bounded } from './server';
 import { StatusTabs } from './StatusTabs';
@@ -480,7 +479,7 @@ function FallbackTabs({ active }: { active?: CompetitionCardStatus }) {
 
 /**
  * The results chrome while the list reads (results.c3, c7): the back square, the pill with what was
- * asked and its filters circle, the refresh, and the chip rail as still pills — the live chrome's
+ * asked and its filters circle, and the chip rail as still pills — the live chrome's
  * own classes (./_list/resultsChromeStyles), so nothing moves when the list lands. The back is a
  * real link, usable before hydration.
  */
@@ -513,7 +512,7 @@ function ResultsChromeFrame({ label, chips, filterCount, band }: { label: string
   );
 }
 
-/** One results row (back, pill, refresh); `circle` below 1280, where the filter bar is not on screen. */
+/** One results row (back, pill); `circle` below 1280, where the filter bar is not on screen. */
 function ResultsRowFrame({
   label,
   circle = false,
@@ -541,9 +540,6 @@ function ResultsRowFrame({
           </span>
         ) : null}
       </div>
-      <span className={RESULTS_REFRESH}>
-        <DashboardRefresh />
-      </span>
     </div>
   );
 }

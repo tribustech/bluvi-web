@@ -13,7 +13,8 @@ import { card, page as cardsPage, PIXEL, STATE_CARDS } from './competitions-list
  *
  * Card states the local data lacks are served by page.route on the «Urmărite» list (never
  * prefetched by the server without ?scope=followed, so the browser asks for it); the shared lists
- * are re-read through «Reîmprospătează» when a test mocks them.
+ * are re-read by a focus refetch once stale (`reread`; no manual refresh since the owner removed it
+ * 2026-10-11) when a test mocks them.
  */
 
 const DESKTOP = { width: 1280, height: 900 };
@@ -78,6 +79,15 @@ async function open(page: Page, path = '/concursuri/viitoare') {
   await page.goto(path);
   await expect(page.getByRole('heading', { level: 1, name: 'Concursuri' })).toBeVisible();
   await expect(page.locator('#concursuri-lista-titlu')).toBeVisible();
+}
+
+/**
+ * A re-read without a refresh control: the lists go stale (the cards' 5 min on the page clock — install it
+ * before open()) and the tab coming back refetches them (react-query focus refetch).
+ */
+async function reread(page: Page) {
+  await page.clock.runFor(5 * 60_000 + 1_000);
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange', { bubbles: true })));
 }
 
 /* ================================================================== */
@@ -475,19 +485,14 @@ test.describe('signed out', () => {
 
   /* ------------------------------ pulse ------------------------------ */
 
-  test('competitions-list.index.c17 competitions-list.index.s7 competitions-list.pulse.c23 — «Reîmprospătează» re-reads the list, the person and every card list', async ({ page }) => {
-    await page.setViewportSize(DESKTOP);
-    await open(page);
-    const person = page.waitForRequest((r) => r.url().includes('/feed/pulse-person'));
-    const cards = page.waitForRequest((r) => PUBLIC.test(r.url()) && r.url().includes('status=notStarted'));
-    const live = page.waitForRequest((r) => PUBLIC.test(r.url()) && r.url().includes('status=started'));
-    const button = page.getByRole('button', { name: /Reîmprospătează|Se actualizează/ });
-    await button.click();
-    await Promise.all([person, cards, live]);
-    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).not.toHaveAttribute('aria-disabled');
-    // A tab switch never shows the refresh spinner.
-    await tab(page, 'Rezultate').click();
-    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).not.toHaveAttribute('aria-disabled');
+  test('competitions-list.index.c17 competitions-list.index.s7 competitions-list.pulse.c23 — no manual refresh control at any width (removed by the owner 2026-10-11)', async ({ page }) => {
+    for (const size of [PHONE, DESKTOP, WIDE]) {
+      await page.setViewportSize(size);
+      await open(page);
+      await expect(page.getByRole('button', { name: /Reîmprospătează|Se actualizează/ })).toHaveCount(0);
+      await tab(page, 'Rezultate').click();
+      await expect(page.getByRole('button', { name: /Reîmprospătează|Se actualizează/ })).toHaveCount(0);
+    }
   });
 
   test('competitions-list.index.s9 competitions-list.pulse.s3 — phone, tablet and wide layouts pass axe', async ({ page }) => {
@@ -574,14 +579,15 @@ test.describe('signed in', () => {
 
   test('competitions-list.index.c4 — the badge counts upcoming + live registrations, «99+» above 99', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
+    await page.clock.install();
     await open(page);
     let ahead = { notStarted: 2, started: 1, completed: 4 };
     await page.route(REGISTERED, (r) => json(r, cardsPage([card('fx-mine')], { counts: ahead, total: 7 })));
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
+    await reread(page);
     await expect(tab(page, 'Ale mele, 3')).toBeVisible();
     await expect(tab(page, 'Ale mele, 3')).toContainText('3');
     ahead = { notStarted: 100, started: 20, completed: 0 };
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
+    await reread(page);
     await expect(tab(page, 'Ale mele, 120')).toContainText('99+');
   });
 
@@ -796,7 +802,6 @@ test.describe('list states (mocked)', () => {
     await expect(list(page).getByText('FX Viitor cu așteptare', { exact: true })).toBeVisible();
     await expect(list(page)).toHaveAttribute('aria-busy', 'true');
     await expect(list(page).locator('span.h-0\\.5.bg-accent')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).not.toHaveAttribute('aria-disabled');
     release();
     // Rezultate is result rows (a button that opens the row), not cards.
     await expect(list(page).getByRole('button', { name: 'FX Încheiat cu podium', exact: true })).toBeVisible();
@@ -862,11 +867,12 @@ test.describe('list states (mocked)', () => {
 
   test('competitions-list.index.c17 competitions-list.index.c18 competitions-list.index.s7 — a failed re-read keeps the cards, marked; «Încearcă din nou» clears it', async ({ page }) => {
     await page.setViewportSize(CARDS);
+    await page.clock.install();
     await open(page, '/concursuri/rezultate');
     const first = list(page).locator('li[data-result-row]').first();
     await expect(first).toBeVisible();
     await page.route(PUBLIC, (r) => (r.request().url().includes('status=completed') ? json(r, { error: { status: 400, message: 'bad' } }, 400) : r.fallback()));
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
+    await reread(page);
     const notice = list(page).getByText('Nu am putut actualiza lista.');
     await expect(notice).toBeVisible();
     await expect(first).toBeVisible();

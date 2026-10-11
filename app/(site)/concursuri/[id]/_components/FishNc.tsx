@@ -9,17 +9,21 @@ import {
   type NcGeneralSort,
   type NcSectorSort,
 } from '@/core/competitions';
+import { RankingFace } from '@/components/ranking/RankingFace';
 import { sectorColorMap, sectorVar } from '@/components/ranking/sector';
 import { cn } from '@/components/ui/cn';
 import { roNum } from './FeederRanking';
 import { FISH_TABLE_BLEED, FishPills, FishTable, type FishColumn, type FishRow } from './FishTable';
 import type { NcSort, NcView } from './NcRanking';
+import { useRankingFaces, type RankingFaces } from './rankingFaces';
 
 /*
- * The National Championship / FIPSed ranking on the phone (below 768): fish
- * NationalChampionshipRanking (sectorPillRow) + components/ranking-table/NationalChampionshipTable.tsx
- * (General) + the shared ScrollableTable on fish's sector columns (a sector), as fish draws them
- * (owner 2026-10-10, ROADMAP §4b.25). The desktop keeps NcRanking.tsx.
+ * The National Championship / FIPSed ranking: fish NationalChampionshipRanking (sectorPillRow) +
+ * components/ranking-table/NationalChampionshipTable.tsx (General) + the shared ScrollableTable on
+ * fish's sector columns (a sector), as fish draws them (owner 2026-10-10, ROADMAP §4b.25). The
+ * tables at every width (owner 2026-10-11): from 768 `wide` — 48px rows, 14px cells, 12px heads,
+ * the team's face beside Pescari (§4b.13), in the screen's ranking card (the sector pills and the
+ * order on its band, NcRanking.tsx); the pills here are the phone's.
  *
  *  - The pills: General (#3F51B5 when picked) and one per sector (its colour), #f0f0f0 otherwise,
  *    12px, scrolling sideways edge to edge.
@@ -88,50 +92,76 @@ export function FishNcTable({
   view,
   sort,
   caption,
+  wide = false,
 }: {
   rankings: NationalChampionshipStandRanking[];
   numberOfSectors: number | null | undefined;
   view: NcView;
   sort: NcSort;
   caption: string;
+  /** From 768: the desktop proportions, no bleed (the screen's card holds it). */
+  wide?: boolean;
 }) {
+  const faces = useRankingFaces();
   if (view === 'general') {
+    const table = (
+      <ClubTable
+        rankings={rankings}
+        numberOfSectors={numberOfSectors}
+        sort={sort === 'club' ? 'club' : 'position'}
+        caption={caption}
+        faces={wide ? faces : null}
+      />
+    );
+    if (wide) return table;
     return (
       <div className={FISH_TABLE_BLEED}>
-        <div className="-ml-1 w-full">
-          <ClubTable rankings={rankings} numberOfSectors={numberOfSectors} sort={sort === 'club' ? 'club' : 'position'} caption={caption} />
-        </div>
+        <div className="-ml-1 w-full">{table}</div>
       </div>
     );
   }
-  return <SectorTable rankings={rankings} sectorId={view} sort={sort === 'stand' ? 'stand' : 'position'} caption={caption} />;
+  return (
+    <SectorTable rankings={rankings} sectorId={view} sort={sort === 'stand' ? 'stand' : 'position'} caption={caption} faces={wide ? faces : null} />
+  );
 }
 
+/** `wide`: the face (32) and its gap (8) beside the names. */
+const FACE_ROOM = 40;
+const faceOf = (faces: RankingFaces, registrationId: string | null | undefined) =>
+  registrationId ? (faces.byRegistration.get(registrationId) ?? null) : null;
+
 const px = (w: number): CSSProperties => ({ width: w, minWidth: w, maxWidth: w });
-/** fish TableCell / MergedCell: padding 4, the 1px $gray4 border, 40px. */
-const CELL = 'box-border border border-fish-rk-line p-1 text-center align-middle t-caption';
+/** fish TableCell / MergedCell: padding 4, the 1px $gray4 border, 40px. Wide: 14px, 8px sides. */
+const BOX = 'box-border border border-fish-rk-line text-center align-middle';
+const PHONE_CELL = cn(BOX, 'p-1 t-caption');
+const WIDE_CELL = cn(BOX, 'px-2 py-1 t-table');
 
 function ClubTable({
   rankings,
   numberOfSectors,
   sort,
   caption,
+  faces,
 }: {
   rankings: NationalChampionshipStandRanking[];
   numberOfSectors: number | null | undefined;
   sort: NcGeneralSort;
   caption: string;
+  /** `wide`: the faces beside Pescari (null on the phone). */
+  faces: RankingFaces | null;
 }) {
+  const wide = faces !== null;
+  const CELL = wide ? WIDE_CELL : PHONE_CELL;
   const clubs = useMemo(() => ncGeneralModel(sortNcClubs(rankings, sort), numberOfSectors), [rankings, sort, numberOfSectors]);
   const { nameW, standW } = useMemo(() => {
     const teams = clubs.flatMap(c => c.teams);
     const longest = Math.max(0, ...teams.map(t => t.participants.length));
     const stand = Math.max('Stand'.length, ...teams.map(t => t.stand.length));
     return {
-      nameW: Math.max(longest * 6 + PARTICIPANT_CELL_PADDING, MIN_PARTICIPANT_CELL_WIDTH),
+      nameW: Math.max(longest * (wide ? 7 : 6) + PARTICIPANT_CELL_PADDING, MIN_PARTICIPANT_CELL_WIDTH) + (wide ? FACE_ROOM : 0),
       standW: Math.min(Math.max(stand * STAND_CHAR_WIDTH + STAND_CELL_PADDING, MIN_STAND_CELL_WIDTH), MAX_STAND_CELL_WIDTH),
     };
-  }, [clubs]);
+  }, [clubs, wide]);
   const head: [string, number][] = [
     ['Club', CLUB_CELL_WIDTH],
     ['Pescari', nameW],
@@ -153,14 +183,29 @@ function ClubTable({
       aria-label={caption}
       tabIndex={0}
       data-fish-colours=""
-      className="w-full overflow-x-auto overscroll-x-none bg-rank-base [scrollbar-width:none] outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent [&::-webkit-scrollbar]:hidden"
+      className={cn(
+        'w-full overflow-x-auto overscroll-x-none bg-rank-base outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent',
+        // fish: no scrollbar; wide: the mouse needs it.
+        wide ? '[scrollbar-width:thin]' : '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+      )}
     >
-      <table className="table-fixed border-separate border-spacing-0" style={{ width: total }}>
+      {/* Wide: the table fills its card, Pescari takes what the fixed columns leave (never under its width). */}
+      <table className="table-fixed border-separate border-spacing-0" style={wide ? { width: '100%', minWidth: total } : { width: total }}>
         <caption className="sr-only">{caption}</caption>
+        <colgroup>
+          {head.map(([title, w]) => (
+            <col key={title} style={wide && title === 'Pescari' ? undefined : { width: w }} />
+          ))}
+        </colgroup>
         <thead>
-          <tr className="h-15">
+          <tr className={wide ? 'h-14' : 'h-15'}>
             {head.map(([title, w]) => (
-              <th key={title} scope="col" style={px(w)} className={cn(CELL, 'h-15 bg-fish-rk-head t-micro text-fish-rk-head-ink')}>
+              <th
+                key={title}
+                scope="col"
+                style={wide && title === 'Pescari' ? { minWidth: w } : px(w)}
+                className={cn(BOX, 'bg-fish-rk-head text-fish-rk-head-ink', wide ? 'h-14 px-2 py-1 t-caption' : 'h-15 p-1 t-micro')}
+              >
                 {title}
               </th>
             ))}
@@ -192,14 +237,26 @@ function ClubTable({
                 const individual = team.individualWinner ? 'rank-sector-win text-rank-on-dark' : clubFill;
                 return (
                   // Pressable from RankingView (CustomRanking): the angler sheet.
-                  <tr key={team.standId} data-stand-id={team.standId} data-registration={team.registrationId ?? undefined} className="h-10">
+                  <tr
+                    key={team.standId}
+                    data-stand-id={team.standId}
+                    data-registration={team.registrationId ?? undefined}
+                    className={wide ? 'h-12' : 'h-10'}
+                  >
                     {first ? (
                       <th scope="rowgroup" rowSpan={span} className={cn(CELL, clubFill, 'border-l-4 border-l-[var(--sector)] font-bold!')}>
                         <span className="line-clamp-3 break-words">{club.clubName}</span>
                       </th>
                     ) : null}
-                    <td className={cn(CELL, clubFill)}>
-                      <span className="line-clamp-2 break-words">{team.participants}</span>
+                    <td className={cn(CELL, clubFill, wide && 'text-left')}>
+                      {faces ? (
+                        <span className="flex min-w-0 items-center gap-2">
+                          <RankingFace name={team.participants} face={faceOf(faces, team.registrationId)} />
+                          <span className="line-clamp-2 break-words">{team.participants}</span>
+                        </span>
+                      ) : (
+                        <span className="line-clamp-2 break-words">{team.participants}</span>
+                      )}
                     </td>
                     <td className={cn(CELL, clubFill)}>{plainStand(team.stand)}</td>
                     <td className={cn(CELL, clubFill)}>{roNum(team.quantity)}</td>
@@ -260,11 +317,14 @@ function SectorTable({
   sectorId,
   sort,
   caption,
+  faces,
 }: {
   rankings: NationalChampionshipStandRanking[];
   sectorId: string;
   sort: NcSectorSort;
   caption: string;
+  /** `wide`: the faces beside Pescari (null on the phone). */
+  faces: RankingFaces | null;
 }) {
   const rows = useMemo<FishRow[]>(() => {
     const colors = sectorColorMap(rankings.flatMap(c => c.teams.map(t => t.sectorName)));
@@ -279,7 +339,12 @@ function SectorTable({
         winner: false,
         cells: [
           { measure: r.club, content: r.club },
-          { measure: r.participants, content: r.participants, rowHeader: true },
+          {
+            measure: r.participants,
+            content: r.participants,
+            rowHeader: true,
+            lead: faces ? <RankingFace name={r.participants} face={faceOf(faces, r.registrationId)} /> : undefined,
+          },
           {
             measure: r.quantity,
             content: r.capot ? (
@@ -299,9 +364,10 @@ function SectorTable({
         ],
       };
     });
-  }, [rankings, sectorId, sort]);
+  }, [rankings, sectorId, sort, faces]);
   // fish: a sector without teams.
-  if (rows.length === 0) return <p className="px-4 t-caption text-muted">Nu există DUO-uri în acest sector.</p>;
+  if (rows.length === 0) return <p className={cn('px-4 t-caption text-muted', faces && 'py-4')}>Nu există DUO-uri în acest sector.</p>;
+  if (faces) return <FishTable wide caption={caption} columns={SECTOR_COLUMNS} rows={rows} />;
   return (
     <div className={FISH_TABLE_BLEED}>
       <FishTable caption={caption} columns={SECTOR_COLUMNS} rows={rows} className="-ml-1" />

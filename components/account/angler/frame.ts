@@ -16,14 +16,14 @@ export const PROFILE_GRID = cn(
   'xl:grid-cols-[--spacing(90)_minmax(0,1fr)] 2xl:grid-cols-[--spacing(100)_minmax(0,1fr)]',
 );
 
-/** Phone / tablet: fish's header row (back · refresh · settings) on the white band; none from 1280. */
+/** Phone / tablet: fish's header row (back) on the white band; none from 1280. */
 export const HEADER_ROW = 'flex items-center gap-2 xl:hidden';
 export const HEADER_ROW_BAND = 'min-h-14 bg-surface px-4 pt-2 md:px-6';
 
 /**
- * Own mode below 1280 (fish AnglerProfileScreen's floating top row): no band — the ghost actions
- * (refresh, then the cog) float in the header band's top-right corner, over the avatar's top padding,
- * their glyphs on the band's 20 / 24px gutter. The identity card then starts with `pt-4`.
+ * Own mode below 1280 (fish AnglerProfileScreen's floating top row): no band — the ghost cog
+ * floats in the header band's top-right corner, over the avatar's top padding,
+ * its glyph on the band's 20 / 24px gutter. The identity card then starts with `pt-4`.
  */
 export const OWN_ACTIONS = 'absolute top-2 right-2 z-above flex items-center xl:hidden md:right-3';
 
@@ -51,7 +51,7 @@ export const TAB_BAR = 'flex items-end gap-2 bg-surface md:px-6 xl:rounded-card 
 /** ListTabs' extra classes in the bar (equal tabs on the phone; no rule under them in the card). */
 export const TAB_ROW = 'min-w-0 flex-1 max-md:gap-0 max-md:*:flex-1 max-md:*:justify-center max-md:*:pt-2.5 xl:flex-none xl:border-b-0';
 
-/** ≥1280 the refresh (and settings) chips at the tab bar's end. */
+/** ≥1280 the settings chip at the tab bar's end. */
 export const TAB_BAR_END = 'flex items-center gap-2 self-center pb-1 max-xl:hidden';
 
 /** The selected tab's panel. */

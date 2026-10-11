@@ -50,7 +50,6 @@ export function PenaltyStandScreen({ competitionId, viewer }: { competitionId: s
       requires="authorOrReferee"
       back={{ href: routes.competitionPenalties(competitionId), label: 'Înapoi la penalizări' }}
       reads={[allocations]}
-      onRefresh={() => allocations.refetch()}
       skeleton={<PenaltyStandBodySkeleton />}
       hint={({ competition }) =>
         competition && canPickPenaltyStand(competition) ? 'Alege standul echipei pe care vrei să o sancționezi.' : null

@@ -285,7 +285,7 @@ screens:
         status: passing
         web_note: "e2e: Cântare and Clasament; Statistici / Toți peștii verified in code."
       - id: competition-page.clasament.c6
-        text: "Refresh (pull-to-refresh; web: refresh action/focus) invalidates rankings, rankingBestN, weighingStatistics, timelineSnapshot, the current catches query, weighings, the competition, the viewer's statute and allocated participants."
+        text: "Refresh (pull-to-refresh; web: focus) invalidates rankings, rankingBestN, weighingStatistics, timelineSnapshot, the current catches query, weighings, the competition, the viewer's statute and allocated participants."
         fish_ref: components/competition/CompetitionRanking.tsx:878-893; common/helpers/refreshActionSheetQueries.ts:4-10
         status: passing
         web_note: "Web: a tab that comes back after ≥ 30 s re-reads the same keys (no pull-to-refresh on the web)."
@@ -749,6 +749,7 @@ screens:
         text: "In progress: „Se actualizează în m:ss” counting down from 1:00, refetching the weighing at 0 and restarting; „Actualizează” refetches immediately and resets the countdown (spinner while fetching)."
         fish_ref: components/WeighingDetailSheet.tsx:120-195,349-372
         status: passing
+        web_note: "The countdown and its re-read at 0:00 as fish; no manual «Actualizează» on the web — removed by owner 2026-10-11 (ROADMAP §4b); a failed re-read keeps its «Reîncearcă». e2e concurs-statistici.spec.ts «c1 c5», concurs-cantare.spec.ts «a weighing in progress refreshes itself» (no button asserted)."
       - id: competition-page.cantar-detaliu.c6
         text: "Catches that arrive in a refetch animate in and stay marked for 5 seconds."
         fish_ref: components/WeighingDetailSheet.tsx:124-154,39-61
@@ -1249,7 +1250,7 @@ screens:
         text: "Refresh invalidates the registrations list, the competition, the viewer's statute and allocated participants."
         fish_ref: components/competition/RegistrationsList.tsx:91-101
         status: passing
-        web_note: "«Actualizează» (fish pull-to-refresh) invalidates model.ts refreshKeys (unit): the list, the competition, the statute, the allocations (the last refetches only where observed); the tab coming back after 30 s re-reads the list (CompetitionScreen re-reads the rest). e2e tests/e2e/concurs-participanti-organizator.spec.ts «c10»."
+        web_note: "No manual «Actualizează» on the web — removed by owner 2026-10-11 (ROADMAP §4b); the tab coming back after 30 s re-reads the list (CompetitionScreen re-reads the competition, the statute and the allocations). e2e tests/e2e/concurs-participanti-organizator.spec.ts «c10» (no button)."
     mobile_only: false
     status: proposed
     e2e: tests/e2e/concurs-participanti-organizator.spec.ts

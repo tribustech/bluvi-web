@@ -41,11 +41,12 @@ export function OwnProfileTabsSkeleton({ tab }: { tab: ProfileTab }) {
           ))}
         </div>
         <span className="flex-1 max-xl:hidden" />
-        {/* ≥1280 the refresh and settings chips at the tab card's end (40px). */}
-        <div aria-hidden className={TAB_BAR_END}>
-          <span className="size-10 animate-shimmer rounded-control" />
-          {ON_WEB.settings ? <span className="size-10 animate-shimmer rounded-control" data-testid="settings-bone" /> : null}
-        </div>
+        {/* ≥1280 the settings chip at the tab card's end (40px). */}
+        {ON_WEB.settings ? (
+          <div aria-hidden className={TAB_BAR_END}>
+            <span className="size-10 animate-shimmer rounded-control" data-testid="settings-bone" />
+          </div>
+        ) : null}
       </div>
       <div className={PANEL}>
         <ProfileTabSkeleton tab={tab} />

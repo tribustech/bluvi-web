@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type Ref } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient, type UseMutationOptions } from '@tanstack/react-query';
-import { ArrowPathIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import { UserGroupIcon } from '@heroicons/react/24/outline';
 import {
   competitionRegistrationsListQuery,
   competitionsKeys,
@@ -35,7 +35,6 @@ import {
   filterFromParam,
   matchesFilter,
   paramOfFilter,
-  refreshKeys,
   registrationName,
   sortRegistrations,
   statusErrorMessage,
@@ -62,8 +61,8 @@ import {
  *    toasts fish's message — hook-level (fish useRegistrationsList), so every change reports, even two
  *    in flight or after leaving the tab; a refusal the CMS explains says why (statusErrorMessage).
  *    Focus then goes to what still exists: the row, else the next row's first action, else the
- *    filter. «Actualizează» (fish pull-to-refresh) re-reads the list, the competition,
- *    the viewer's statute and the allocations; coming back to the tab after 30 s re-reads the list.
+ *    filter. No manual refresh control (removed by the owner 2026-10-11): coming back to the tab
+ *    after 30 s re-reads the list.
  */
 
 const REFRESH_ON_RETURN_MS = 30_000;
@@ -131,11 +130,6 @@ export function RegistrationsList({ t, competition }: { t: Transport; competitio
     setAsk(null);
   };
 
-  const refreshing = q.isFetching && !q.isLoading;
-  const refresh = () => {
-    // fish RegistrationsList onRefresh: the list + refreshActionSheetQueries.
-    for (const queryKey of refreshKeys(id)) void qc.invalidateQueries({ queryKey });
-  };
   // The tab coming back after a while re-reads the list (CompetitionScreen re-reads the rest).
   const last = useRef(0);
   useEffect(() => {
@@ -211,17 +205,6 @@ export function RegistrationsList({ t, competition }: { t: Transport; competitio
       tone="plain"
       title="Înscrieri"
       description={team ? formatCount(counts.all, 'echipă înscrisă', 'echipe înscrise') : formatCount(counts.all, 'înscriere', 'înscrieri')}
-      action={
-        <button
-          type="button"
-          onClick={refresh}
-          aria-busy={refreshing || undefined}
-          className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-control px-3 t-button-compact text-ink-2 hover:bg-soft-fill hover:text-ink focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent"
-        >
-          <ArrowPathIcon aria-hidden className={cn('size-4', refreshing && 'animate-spin motion-reduce:animate-none')} />
-          Actualizează
-        </button>
-      }
     >
       <div ref={boxRef} className="flex flex-col gap-3 md:gap-4">
         <FilterBar ref={filterRef} value={filter} counts={counts} onChange={setFilter} />

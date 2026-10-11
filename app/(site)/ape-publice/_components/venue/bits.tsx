@@ -6,7 +6,6 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { ChevronRightIcon } from '@heroicons/react/20/solid';
 import { ChoiceChips, FOCUS_RING, ListHeader, ListTabs, TabsSkeleton } from '@/components/templates/T1';
 import { T2Spinner } from '@/components/templates/T2';
-import { DashboardRefresh, type RefreshResult } from '@/components/templates/T5';
 import { Avatar, toneForName } from '@/components/ui/Avatar';
 import { cn } from '@/components/ui/cn';
 import { fmtKg, isWeighed, type StatsPeriod } from '@/core/partide';
@@ -22,33 +21,26 @@ import { Button } from '@/components/ui/Button';
  * are the templates' (T1 ListError / ListEmpty) — never drawn here.
  * TODO(kit): the lake's subpages draw the same pieces (balti/[id]/_sub/stats.tsx) — one venue kit
  * in components/ once both units land (this unit may only touch app/(site)/ape-publice). The two
- * copies already differ (the lake dims text on a period switch, has no refresh, draws its totals as
- * 2×2 cells); this file is the decided treatment the lake should converge on.
+ * copies already differ (the lake dims text on a period switch, draws its totals as 2×2 cells); this file is the decided treatment the lake should converge on.
  */
 
 /**
  * The header of the four sibling pages (one treatment for the family, parity c2): the back square
  * at every width (fish BackButton — the T1 rule; T5's phone-only back would leave Statistici with
- * none from 768), the title, a caption naming the page when the title is the water's name, and
- * the refresh as the kit's icon control (a 48px square on a phone, so the title keeps the row; the
- * labelled ghost from 768). `onRefresh` omitted: the refresh re-renders the server page (a
- * fallback, before any data). `refresh={false}`: no refresh (Capturi, as fish). `end`: a trailing
- * control instead of the back square (Capturi's ✕).
+ * none from 768), the title and a caption naming the page when the title is the water's name. No
+ * refresh control (removed by the owner 2026-10-11). `end`: a trailing control instead of the back
+ * square (Capturi's ✕).
  */
 export function VenueHeader({
   title,
   description,
   backHref,
-  onRefresh,
-  refresh = true,
   end,
   className,
 }: {
   title: ReactNode;
   description?: ReactNode;
   backHref: string;
-  onRefresh?: () => Promise<RefreshResult> | RefreshResult;
-  refresh?: boolean;
   end?: ReactNode;
   /** On a T5 frame (DashboardPage has no top inset of its own): VENUE_HEADER_INSET. */
   className?: string;
@@ -60,35 +52,10 @@ export function VenueHeader({
       title={title}
       description={description}
       back={end ? undefined : { label: 'Înapoi', onClick: back }}
-      actions={
-        refresh || end ? (
-          <>
-            {refresh ? (
-              <span className={REFRESH_ON_PAGE}>
-                <DashboardRefresh onRefresh={onRefresh} />
-              </span>
-            ) : null}
-            {end}
-          </>
-        ) : undefined
-      }
+      actions={end}
     />
   );
 }
-
-/**
- * The phone refresh square on the PAGE ground: T5 DashboardRefresh draws T3's soft-fill header chip
- * (made for a surface band), which vanishes on #f4f5fa beside the back square. Here it takes the back
- * square's look (surface + hairline shadow, the kit focus ring) — the same family as ListHeader's
- * back and ListHeaderToggle. `contents`: the refresh's own pieces stay flex items of the actions row.
- * TODO(kit): a `ground="page"` prop on DashboardRefresh (T3 headerChipClass already has the
- * ground) — out of this unit's scope.
- */
-const REFRESH_ON_PAGE = cn(
-  'contents',
-  '[&>button:first-child]:bg-surface [&>button:first-child]:shadow-e0 [&>button:first-child]:hover:bg-soft-fill [&>button:first-child]:hover:brightness-100',
-  '[&>button:first-child]:focus-visible:outline-2 [&>button:first-child]:focus-visible:outline-offset-2 [&>button:first-child]:focus-visible:outline-solid [&>button:first-child]:focus-visible:outline-accent',
-);
 
 /** ListPage's top inset, for the header on a T5 frame (Statistici). */
 export const VENUE_HEADER_INSET = 'pt-4 md:pt-6 xl:pt-8';

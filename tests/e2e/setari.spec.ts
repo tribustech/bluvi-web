@@ -128,7 +128,7 @@ test.describe('account.settings', () => {
 
       // Layout: phone/tablet one column in fish's order; from 1280 three columns side by side —
       // left profile + INFORMAȚII, centre actions + Reputație (the widest), right legal → leave —
-      // filling the shell: the right column and «Reîmprospătează» end on the top bar's content edge.
+      // filling the shell: the right column ends on the top bar's content edge.
       const box = async (id: string) => (await page.getByTestId(id).boundingBox())!;
       const profileCard = await box('settings-profile-card');
       const actions = await box('settings-actions');
@@ -156,9 +156,6 @@ test.describe('account.settings', () => {
         // The shell's content edge: the window less 32 gutters, the shell capped at 1744 and centred.
         const edge = (width + Math.min(width, 1744)) / 2 - 32;
         expect(Math.abs(legal.x + legal.width - edge)).toBeLessThan(2);
-        const refresh = (await page.getByRole('button', { name: 'Reîmprospătează' }).filter({ visible: true }).boundingBox())!;
-        // The ghost button's 12px padding hangs past the edge (DashboardRefresh md:-mr-3): its label ends on it.
-        expect(Math.abs(refresh.x + refresh.width - 12 - edge)).toBeLessThan(2);
         const avatar = (await page.getByRole('banner').getByRole('button', { name: /^Contul meu, / }).filter({ visible: true }).boundingBox())!;
         expect(Math.abs(avatar.x + avatar.width - edge)).toBeLessThan(2);
       }
@@ -217,10 +214,8 @@ test.describe('account.settings', () => {
   test('c3 + account.edit-profile.c17 — the profile card opens «Editează profilul»; keyboard path', async ({ page }) => {
     await open(page, { width: 1280 });
     await loaded(page);
-    // Keyboard: back → refresh → profile card (the first card, as on screen).
+    // Keyboard: back → profile card (the first card, as on screen).
     await page.getByRole('button', { name: 'Înapoi' }).focus();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: 'Reîmprospătează' }).filter({ visible: true })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByTestId('settings-profile-card')).toBeFocused();
     await page.keyboard.press('Tab');
@@ -273,14 +268,11 @@ test.describe('account.settings', () => {
     expect(errors).toEqual([]);
   });
 
-  test('c20 — «Reîmprospătează» refetches the profile', async ({ page }) => {
-    const m = await mockProfile(page, {});
+  test('c20 — no manual refresh control (removed by the owner 2026-10-11)', async ({ page }) => {
+    await mockProfile(page, {});
     await open(page, { width: 1440 });
     await loaded(page);
-    const before = m.gets();
-    await page.getByRole('button', { name: 'Reîmprospătează' }).filter({ visible: true }).click();
-    await expect.poll(() => m.gets()).toBeGreaterThan(before);
-    await expect(page.getByRole('status').filter({ hasText: 'Actualizat' })).toBeAttached();
+    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
   });
 
   test('c5 c6 c7 — the organizer row by state: «Devino organizator» / «Cerere organizator · În așteptare» / «Organizator»', async ({ page }) => {

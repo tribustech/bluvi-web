@@ -25,7 +25,6 @@ export const GRID = listGridClass('lg');
  */
 export function MyBookingsFrame({
   back = { href: routes.home(), label: 'Înapoi' },
-  actions,
   chrome,
   aside,
   asideBusy = false,
@@ -33,7 +32,6 @@ export function MyBookingsFrame({
 }: {
   /** History back (else Acasă) in the screen; a plain link to Acasă in the server skeleton. */
   back?: ListBack;
-  actions?: ReactNode;
   chrome: ReactNode;
   aside?: ReactNode;
   asideBusy?: boolean;
@@ -43,7 +41,7 @@ export function MyBookingsFrame({
     <ListPage
       header={
         <>
-          <ListHeader title={TITLE} back={back} actions={actions} />
+          <ListHeader title={TITLE} back={back} />
           {chrome}
         </>
       }

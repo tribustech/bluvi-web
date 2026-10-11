@@ -16,7 +16,7 @@ export default function RankingError({ error, retry }: { error: Error & { digest
     console.error(error);
   }, [error]);
   return (
-    <ListPage header={<VenueHeader title="Clasamente" backHref={routes.partide()} refresh={false} />}>
+    <ListPage header={<VenueHeader title="Clasamente" backHref={routes.partide()} />}>
       <ListError
         title="Clasamentele nu au putut fi afișate."
         description="A apărut o eroare neașteptată. Încearcă din nou; dacă persistă, scrie-ne."

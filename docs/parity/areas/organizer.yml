@@ -195,10 +195,10 @@ screens:
         status: passing
         web_note: "core cancelOrganizerCompetitionMutation (PUT /competitions/organizer/:id/cancel, body {reason} trimmed, {} when blank; invalidates dashboard, every organizer list, the competition) — route-MOCKED in e2e; toasts incl. the failedNotifications variant; errors keep the dialog open. e2e «c23 c24 c25 …», «c25 cancel failure …»."
       - id: organizer.panel.c26
-        text: "Pull-to-refresh (web: a refresh action) refetches dashboard stats and every organizer competitions list."
+        text: "Pull-to-refresh (web: no manual control since 2026-10-11) refetches dashboard stats and every organizer competitions list."
         fish_ref: app/(app)/organizer/index.tsx:269-281
         status: passing
-        web_note: "DashboardRefresh «Reîmprospătează»: refetch the dashboard + invalidate organizerKeys.competitionsRoot. e2e «c26 …»."
+        web_note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); freshness is the writes' invalidations (organizer.b.no-polling). e2e organizator-panou.spec.ts «c26 …» asserts no «Reîmprospătează»."
       - id: organizer.panel.c27
         text: "A primary „Creează competiție” button with a plus icon is always visible (fixed at the bottom on phone) and opens the wizard at step 1 with return target the panel."
         fish_ref: app/(app)/organizer/index.tsx:693-750
@@ -1158,7 +1158,7 @@ screens:
         text: "Loading shows a loading state until both the competition and current allocations are loaded; an error shows the error screen whose retry refetches competition, allocations and registrations."
         fish_ref: app/(app)/configure/participants/[competitionId].tsx:213-240
         status: passing
-        web_note: "ManagementFrame (requires author) with reads=[allocations]: the header with the real title (from ?mansa, also in loading.tsx / the page fallback via useSearchParams; a grey bar while unknown) + AllocationBodySkeleton (the loaded columns and rows in grey, «Se încarcă standurile…») until the competition AND /allocated-participants are in. Error without data = T4Gate danger (describeError) whose «Încearcă din nou» refetches the competition (frame), the allocations and the registrations list (onRefresh = fish handleRefetch). Signed in only (proxy 307 → /intra?next=, requireViewer keeps ?mansa), noindex; not the author → the neutral «Doar pentru organizatorul concursului» gate. e2e tests/e2e/concurs-alocare.spec.ts «c1 — loading until…» (allocations held while the competition is in), «c1 — an error offers…» (counts the three reads), «signed out…», «not the author…»."
+        web_note: "ManagementFrame (requires author) with reads=[allocations]: the header with the real title (from ?mansa, also in loading.tsx / the page fallback via useSearchParams; a grey bar while unknown) + AllocationBodySkeleton (the loaded columns and rows in grey, «Se încarcă standurile…») until the competition AND /allocated-participants are in. Error without data = T4Gate danger (describeError) whose «Încearcă din nou» refetches the competition (frame), the allocations and the registrations list (onRetry = fish handleRefetch). Signed in only (proxy 307 → /intra?next=, requireViewer keeps ?mansa), noindex; not the author → the neutral «Doar pentru organizatorul concursului» gate. e2e tests/e2e/concurs-alocare.spec.ts «c1 — loading until…» (allocations held while the competition is in), «c1 — an error offers…» (counts the three reads), «signed out…», «not the author…»."
       - id: organizer.participants.c2
         text: "The title is „Alocare participanți”, or „Standuri manșa N” when seating feeder leg N > 1 (web: ?mansa=N)."
         fish_ref: app/(app)/configure/participants/[competitionId].tsx:39-43
@@ -1255,7 +1255,7 @@ screens:
         web_note: "Unallocated: a dashed, dimmed, non-focusable div (aria-disabled), no link. Allocated: a Link to /concursuri/[id]/cantar/[standId] (routes.competitionScaleStand; the stand page is organizer.scale-history, next batch) with TileChevron's pending spinner; a repeat activation within 800 ms is ignored (useNavigationGuard, organizer.b.navigation-guard). PARTIAL until organizer.scale-history ships: the stand page /concursuri/[id]/cantar/[standId] does not exist yet, so the link 404s. e2e «c5 — … links to its weighings» (3 free stands inert; href) passes; «c5 — … opens its weighing history, once» (double click → one history entry AND the «Istoric cântăriri» h1, not a not-found page) is test.fixme until that page exists."
     mobile_only: false
     status: proposed
-    web_note: "Partial: c5's target (organizer.scale-history) is not built. Reads only (competition, statute, /allocated-participants); every state screenshotted at 375/1280/1440/1920 by the e2e (.shots/cantar-*). Web additions: find-as-you-type (stand, seat, angler, team, club; the ≥1280 jump list follows it — «Căutare: N găsite», matches per sector, sectors without matches dimmed and inert), refresh action, ≥1280 aside. A closed feeder leg is not weighable (canWeighCompetition): neutral tiles and «Manșa N este încheiată: cântarul se redeschide la pornirea manșei N+1.». The skeleton uses StandOccupantList's grid (standGrid.ts), so nothing moves when the data lands."
+    web_note: "Partial: c5's target (organizer.scale-history) is not built. Reads only (competition, statute, /allocated-participants); every state screenshotted at 375/1280/1440/1920 by the e2e (.shots/cantar-*). Web additions: find-as-you-type (stand, seat, angler, team, club; the ≥1280 jump list follows it — «Căutare: N găsite», matches per sector, sectors without matches dimmed and inert), ≥1280 aside (the header refresh action was removed by owner 2026-10-11). A closed feeder leg is not weighable (canWeighCompetition): neutral tiles and «Manșa N este încheiată: cântarul se redeschide la pornirea manșei N+1.». The skeleton uses StandOccupantList's grid (standGrid.ts), so nothing moves when the data lands."
 
   - id: organizer.scale-history
     title: Istoric cântăriri (stand)
@@ -1348,10 +1348,10 @@ screens:
         status: passing
         web_note: "POST /weighings/start route-mocked in e2e (body {data:{stand, competition, weighingType}} asserted); spinner + «Se pornește cântarul…», no second start; success → router.push to the new weighing; error → the message (bluCode errors keep the CMS text) with «Închide». onSettled invalidates the stand's weighings, live competitions (+ extra-scale-new), the extra-scale list and the active weighing. On success the dialog closes (and the mutation resets) BEFORE router.push, as fish (onDismiss then push): with cacheComponents the page stays under <Activity>, and a layout-effect cleanup also closes the start and delete dialogs when it is hidden; e2e starts (mocked), goes Back, asserts no dialog and «Start cântar nou» opens a fresh confirmation. From 1280 the CTA card sits under «Pe acest stand», above the weighing panel (docked at the column's foot it fell below the fold on 1280×800); e2e asserts it is fully in the viewport with a 12-catch weighing selected."
       - id: organizer.scale-history.c11
-        text: "Pull-to-refresh (web: refresh action) refetches weighings, allocations, statute and competition."
+        text: "Pull-to-refresh (web: no manual control since 2026-10-11) refetches weighings, allocations, statute and competition."
         fish_ref: app/(app)/scale/[competitionId]/history.tsx:145-152
         status: passing
-        web_note: "The header's refresh chip (ManagementFrame) refetches competition + statute, and the page's weighings, allocations and total; e2e counts all four reads."
+        web_note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b): ManagementFrame's header chip is gone; the reads refetch on focus and after each write, and the error gate's «Încearcă din nou» refetches the competition, the statute and the page's reads. e2e «organizer.scale-history.c11 — no manual refresh control»."
     mobile_only: false
     status: passing
     e2e: tests/e2e/concurs-cantar-istoric.spec.ts
@@ -1511,10 +1511,10 @@ screens:
         status: passing
         web_note: "core reopenCantarMutation (optimistic «started» on the stand list, rollback; unit-tested in core/organizer/organizer.test.ts); pending «Se redeschide cântarul…»; success toast «Cântarul a fost redeschis cu succes», the weighing refetched (open again, actions back); error: message (fallback «Eroare la redeschiderea cântarului») with «Închide». e2e «c19/c20» (POST body asserted), «c20 — a failed reopen…»."
       - id: organizer.scale-weighing.c21
-        text: "Pull-to-refresh (web: refresh action) refetches the weighing, allocations and statute."
+        text: "Pull-to-refresh (web: no manual control since 2026-10-11) refetches the weighing, allocations and statute."
         fish_ref: app/(app)/scale/[competitionId]/add.tsx:233-239
         status: passing
-        web_note: "The header refresh (ManagementFrame) refetches the competition, the statute, the weighing, the allocations and the stand list. e2e «c21 — the refresh action…»."
+        web_note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); the reads refetch on focus and after each write. e2e «c21 — no manual refresh control»."
     mobile_only: false
     status: proposed
     web_note: "All 21 criteria proven by tests/e2e/concurs-cantar-cantarire.spec.ts (25 tests, reads on the local CMS, every write route-mocked with method/path/body asserted). States screenshotted at 375/1280/1440/1920 (.shots/cantarire-*). Web additions: state pill and «Total cântar» tile, «Se confirmă…» on optimistic rows, media count column, signature step counter, reason counter. The close waits for both signature uploads (fish does not). Deliberate deviations to confirm with the owner: c9 (zero-weight split parts refused, drift shown) and c19 (reopen hidden when the CMS would refuse)."
@@ -1563,7 +1563,7 @@ screens:
         text: "Without revisions: „Nu există modificări pentru acest cântar.”; pull-to-refresh refetches."
         fish_ref: app/(app)/scale/[competitionId]/revisions.tsx:69-82
         status: passing
-        web_note: "Empty: «Nu există modificări pentru acest cântar.» (no «Rezumat» of zeros); the header's «Reîmprospătează» (fish pull-to-refresh) refetches the log, the weighing and the allocations — fresh from the CMS; edge TTL 30 s on staging/prod (shared with fish). e2e «c5 — no log…» (served empty, then a round appears after refresh)."
+        web_note: "Empty: «Nu există modificări pentru acest cântar.» (no «Rezumat» of zeros); no manual refresh control (removed by owner 2026-10-11): a re-read (focus, a new visit) brings the log fresh from the CMS; edge TTL 30 s on staging/prod (shared with fish). e2e «c5 — no log…» (served empty, no refresh button, then a round appears after a reload)."
     mobile_only: false
     e2e: tests/e2e/concurs-cantar-modificari.spec.ts
     status: passing
@@ -1679,7 +1679,7 @@ screens:
         web_note: "hrefFor → routes.competitionPenaltiesApply(id, registrationId) (/penalizari/aplica?inscriere=); useNavigationGuard ignores a repeat within 800 ms; an allocation with an empty registration id is an inert tile (aria-disabled, «Înscriere indisponibilă»). Web: a competition where no penalty can be applied (ranking type without penalties, or not started) router.replace → the hub (consistent with apply c2). e2e «c3/c6 — …» (double click → one pushState AND the real «Aplică penalizare» h1; empty registration id → no navigation), «… → back to the penalties hub (replace)» ×3."
     mobile_only: false
     status: proposed
-    web_note: "Reads only (competition, statute, /allocated-participants); thin wrapper app/(site)/concursuri/[id]/penalizari/stand/_select over _organizer/StandOccupantList (additive `caption` prop) and occupant.ts (additive `teamFallback` option). Web additions: find-as-you-type (stand, angler, team), header refresh action, «Doar pentru organizator și arbitri» gate for other roles, a no-stands note (fish renders nothing): author «Concursul nu are încă standuri. Adaugă sectoarele și standurile din pagina sectoarelor.» + «Alocă standuri pe sectoare» (/sectoare, author only), referee «… Cere organizatorului să adauge sectoarele și standurile.» (e2e «no stands on any sector → …» ×2). Every state screenshotted at 375/1280/1440/1920 by the e2e (.shots/penalizari-stand-*)."
+    web_note: "Reads only (competition, statute, /allocated-participants); thin wrapper app/(site)/concursuri/[id]/penalizari/stand/_select over _organizer/StandOccupantList (additive `caption` prop) and occupant.ts (additive `teamFallback` option). Web additions: find-as-you-type (stand, angler, team), (the header refresh action was removed by owner 2026-10-11), «Doar pentru organizator și arbitri» gate for other roles, a no-stands note (fish renders nothing): author «Concursul nu are încă standuri. Adaugă sectoarele și standurile din pagina sectoarelor.» + «Alocă standuri pe sectoare» (/sectoare, author only), referee «… Cere organizatorului să adauge sectoarele și standurile.» (e2e «no stands on any sector → …» ×2). Every state screenshotted at 375/1280/1440/1920 by the e2e (.shots/penalizari-stand-*)."
 
   - id: organizer.penalties-apply
     title: Aplică penalizare
@@ -1815,7 +1815,7 @@ behaviours:
     text: "None of the organizer screens poll; freshness comes from explicit refetch actions (pull-to-refresh) and the invalidations listed in each criterion. Rankings are cached 5 min, weighing revisions are always refetched, user statute 1 h."
     fish_ref: services/queries/useRankings.ts:14-24
     status: proposed
-    web_note: "/organizator: no refetchInterval; one dashboard + one list read in 6 s idle, the refresh action refetches (e2e organizator-panou.spec.ts «c26 … b.no-polling»). The other organizer screens prove their own."
+    web_note: "/organizator: no refetchInterval; one dashboard + one list read in 6 s idle, no manual refresh control (removed by owner 2026-10-11) (e2e organizator-panou.spec.ts «c26 … b.no-polling»). The other organizer screens prove their own."
   - id: organizer.b.navigation-guard
     text: "Forward navigations from these screens are de-duplicated within 800 ms so a double tap never opens a page twice (web: ignore repeated activation while a navigation is pending)."
     fish_ref: hooks/useNavigationGuard.ts:5

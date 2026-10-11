@@ -145,21 +145,12 @@ test('home.acasa.c3 — the slogan advances on every visit', async ({ page }) =>
   await expect(caption).not.toHaveText(first ?? '');
 });
 
-test('home.acasa.c9 — the refresh action refetches and reports', async ({ page }) => {
-  await open(page, DESKTOP, true);
-  const refresh = visible(page.getByRole('button', { name: 'Reîmprospătează' }));
-  await expect(refresh).toBeVisible();
-  const reads = new Set<string>();
-  page.on('request', (r) => {
-    const u = new URL(r.url());
-    if (u.pathname.includes('/competition-cards') || u.pathname.includes('/feed/lakes') || u.pathname.includes('/announcements')) reads.add(u.pathname);
-    if (u.pathname.includes('suggested')) reads.add('SUGGESTED');
-  });
-  await refresh.click();
-  await expect(page.getByRole('status').filter({ hasText: /^Actualizat$/ })).toBeAttached({ timeout: 20_000 });
-  expect([...reads].some((p) => p.includes('competition-cards')), [...reads].join(',')).toBeTruthy();
-  expect([...reads].some((p) => p.includes('lakes')), [...reads].join(',')).toBeTruthy();
-  expect(reads.has('SUGGESTED'), 'the suggested rail is never refetched by a refresh').toBeFalsy();
+test('home.acasa.c9 — no manual refresh control (removed by the owner 2026-10-11)', async ({ page }) => {
+  for (const signedIn of [true, false]) {
+    await open(page, DESKTOP, signedIn);
+    await expect(h2(page, 'Noutăți')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Reîmprospătează|Actualizează|Reîncarcă/ })).toHaveCount(0);
+  }
 });
 
 /* ---------- owner rule 4: when we don't know, we don't show (ROADMAP §4b) ---------- */
@@ -246,9 +237,9 @@ for (const vp of [PHONE, { width: 1280, height: 800 }]) {
     // Session-independent: the tools (phone: main column; 1280: the aside) and the public sections.
     await expect(h2(page, 'Instrumente')).toBeVisible();
     for (const name of [/^Bălți/, 'Noutăți']) await expect(h2(page, name)).toBeVisible();
-    // No bone that never resolves: the phone card is a slim row with the refresh, not a shimmer.
+    // No bone that never resolves: the phone card is a slim row with the retry, not a shimmer.
     await expect(visible(main.locator('.animate-shimmer'))).toHaveCount(0);
-    await expect(visible(page.getByRole('button', { name: 'Reîmprospătează' }))).toBeVisible();
+    await expect(visible(page.getByRole('button', { name: 'Încearcă din nou' }))).toBeVisible();
     await expect(main).not.toContainText(UNKNOWN_COPY);
   });
 }
@@ -944,15 +935,12 @@ test('home.acasa.c52 c53 — guest contact and privacy cards', async ({ page }) 
 
 /* ---------- keyboard ---------- */
 
-test('home.acasa keyboard — skip link, rail arrows, header refresh reachable', async ({ page }) => {
+test('home.acasa keyboard — skip link', async ({ page }) => {
   await open(page, DESKTOP, true);
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Sari la conținut' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.locator('main#continut')).toBeFocused();
-  // The refresh is the first control of the page body.
-  await page.keyboard.press('Tab');
-  await expect(visible(page.getByRole('button', { name: 'Reîmprospătează' }))).toBeFocused();
 });
 
 /* ---------- account.onboarding (mobile only): the web replacement ---------- */

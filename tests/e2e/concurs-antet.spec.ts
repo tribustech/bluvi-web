@@ -352,17 +352,21 @@ test('competition-page.cantar-detaliu.c6 — a catch that arrives in a refresh i
     if (withCatch) body.catches = [...(body.catches ?? []), { id: 999_001, documentId: 'catch-e2e-new', weight: 4.25, fishType: { Name: 'Crap' }, media: [] }];
     return route.fulfill({ response: res, json });
   });
+  // The refresh is the in-progress countdown's own re-read at 0:00 (no manual «Actualizează» since
+  // the owner removed it 2026-10-11): the page clock runs it.
+  await page.clock.install();
   const errors = await open(page, `/concursuri/${OPEN.competition}/cantare?cantar=${OPEN.weighing}&stand=${OPEN.stand}`);
   const detail = page.getByRole('dialog', { name: 'Detaliu cântar' });
   await expect(detail.getByText('Acest cântar nu conține nicio captură.')).toBeVisible({ timeout: 30_000 });
   withCatch = true;
-  await detail.getByRole('button', { name: 'Actualizează' }).click();
+  await page.clock.runFor(60_000);
   const row = detail.locator('[data-new]');
   await expect(row).toHaveCount(1);
   await expect(row).toContainText('Crap');
   await expect(row).toContainText('(nouă)');
   // After 5 s it is one of the catches, unmarked.
-  await expect(row).toHaveCount(0, { timeout: 8000 });
+  await page.clock.runFor(6_000);
+  await expect(row).toHaveCount(0);
   await expect(detail.getByText(/Crap/)).toBeVisible();
   expect(errors).toEqual([]);
 });

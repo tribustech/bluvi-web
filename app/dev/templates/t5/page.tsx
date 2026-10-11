@@ -10,7 +10,6 @@ import {
   DashboardError,
   DashboardHeader,
   DashboardPage,
-  DashboardRefresh,
   DashboardSignedOut,
   DashboardSkeleton,
   SkeletonCaption,
@@ -31,7 +30,7 @@ export const metadata: Metadata = { title: 'T5 · Dashboard', robots: { index: f
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /** The ?state= values drawn by OperatorDashboard over fixtures (the rest are page states). */
-const SIMULATED: string[] = ['busy', 'legacy', 'empty', 'one-pending', 'many-pending', 'refresh-failed', 'trend-loading', 'trend-failed', 'detail'];
+const SIMULATED: string[] = ['busy', 'legacy', 'empty', 'one-pending', 'many-pending', 'trend-loading', 'trend-failed', 'detail'];
 
 /**
  * T5 «Dashboard» demo — the lake operator panel (fish app/(app)/operator/[lakeId]/index.tsx,
@@ -74,13 +73,12 @@ function Frame({ title = PANEL_TITLE, caption, actions, children }: { title?: st
 
 /**
  * Loading: the real header with the fallback title (fish keeps the panel header while loading,
- * operator.panou.c1 / c3) — the page has its h1, its way back and its real refresh control (the
- * router.refresh path needs no data) from the first paint, and only the title text changes when
+ * operator.panou.c1 / c3) — the page has its h1 and its way back from the first paint, and only the title text changes when
  * the data lands — over the body's skeleton.
  */
 function Loading({ caption }: { caption: ReactNode }) {
   return (
-    <Frame caption={caption} actions={<DashboardRefresh />}>
+    <Frame caption={caption}>
       <DashboardSkeleton header={false} />
     </Frame>
   );

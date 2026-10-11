@@ -202,7 +202,7 @@ screens:
         fish_ref: features/competitions/components/pulse/CountTile.tsx:24
         web_note: "_list/upcoming/LiveBand.tsx; reads the Live tab's own cached first page (PULSE_CARD_PARAMS.live). e2e competitions-upcoming.spec.ts."
       - id: competitions-list.index.c39
-        text: 'WEB Viitoare «În lumina reflectoarelor» (prototype app/dev/hub Spotlight; fish MomentCard for several people): GET /feed/pulse-person?limit=6 (public, edge-cached; `items`, else `[data]`), the first person on a big navy tile, the others on tinted bento tiles (two by two from 768, a snapping shelf on the phone; at most four small from 768, the last spanning the row when odd). Each tile: the server''s kicker, up to 3 round avatars (initials when none), the name, «Locul N · line» when ranked (a #N badge on the photo), the meta — the server''s copy, never rewritten. A tile is ONE link to its destination: competition → /concursuri/[id]/clasament; angler → the profile (signed out → sign-in) once the web has it (M2), until then not a link. Bones while it reads, nothing when it fails or is empty. Press logs competitions_moment_pressed. The server prefetches it with the page; «Reîmprospătează» re-reads it.'
+        text: 'WEB Viitoare «În lumina reflectoarelor» (prototype app/dev/hub Spotlight; fish MomentCard for several people): GET /feed/pulse-person?limit=6 (public, edge-cached; `items`, else `[data]`), the first person on a big navy tile, the others on tinted bento tiles (two by two from 768, a snapping shelf on the phone; at most four small from 768, the last spanning the row when odd). Each tile: the server''s kicker, up to 3 round avatars (initials when none), the name, «Locul N · line» when ranked (a #N badge on the photo), the meta — the server''s copy, never rewritten. A tile is ONE link to its destination: competition → /concursuri/[id]/clasament; angler → the profile (signed out → sign-in) once the web has it (M2), until then not a link. Bones while it reads, nothing when it fails or is empty. Press logs competitions_moment_pressed. The server prefetches it with the page; a new visit re-reads it (no manual refresh — removed by owner 2026-10-11).'
         fish_ref: features/competitions/components/pulse/MomentCard.tsx:40
         web_note: "_list/upcoming/Spotlight.tsx + SpotlightSkeleton.tsx (also the server frame); core pulsePeopleQuery. e2e competitions-upcoming.spec.ts (mocked)."
       - id: competitions-list.index.c40
@@ -457,7 +457,7 @@ screens:
       - id: competitions-list.pulse.c23
         text: Pull-to-refresh re-draws the person (bypassing its 5 min freshness) and the featured hero (only when featured is wanted) and re-picks the hero from refetched lists.
         fish_ref: features/competitions/helpers/useCompetitionsPulse.ts:216
-        web_note: "WEB: «Reîmprospătează» re-reads every card list and the spotlight people (competition-cards root)."
+        web_note: "WEB: no manual refresh control — removed by owner 2026-10-11 (ROADMAP §4b); the card lists refetch on focus once stale, the Live tab polls, the phone re-reads every card list when the page comes back after 30 s. e2e competitions-list.spec.ts «index.c17 … no manual refresh control at any width»."
       - id: competitions-list.pulse.c24
         text: "Analytics: hero impression once per competition per visit for the card actually leading the stack, hero press, person press, count tile press (competitions_hero_impression / _hero_pressed / _moment_pressed / _count_tile_pressed)."
         fish_ref: features/competitions/helpers/competitionsAnalytics.ts:68
@@ -690,7 +690,7 @@ screens:
         text: Results always open scrolled to the top and their scroll position is never remembered.
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:372
       - id: competitions-list.results.c14
-        text: 'No bento in results mode; cards, density, pagination, loading, error and pull-to-refresh behave as on the index. WEB: "Reîmprospătează" in the results chrome; results narrowed to Live poll every 60s; no aside (it repeated the answer''s first cards); a new question (entering results, another search) shows card bones while it reads, never the previous list.'
+        text: 'No bento in results mode; cards, density, pagination, loading, error and pull-to-refresh behave as on the index. WEB: no refresh control in the results chrome (removed by owner 2026-10-11); results narrowed to Live poll every 60s; no aside (it repeated the answer''s first cards); a new question (entering results, another search) shows card bones while it reads, never the previous list.'
         fish_ref: app/(app)/(tabs)/competitions/index.tsx:279
     mobile_only: false
     status: passing
@@ -744,7 +744,7 @@ screens:
         text: 'Empty list: "Momentan nu este disponibil niciun concurs." WEB adds a «Vezi toate concursurile» link to /concursuri.'
         fish_ref: components/CompetitionsFullList.tsx:116
       - id: competitions-list.viitoare.c7
-        text: 'Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads. WEB: «Reîmprospătează» in the header (DashboardRefresh) stands in for the gesture; the footer says «Se încarcă…».'
+        text: 'Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads. WEB: no manual refresh control (removed by owner 2026-10-11; focus refetch, the Live poll and the phone''s return re-read stand in for the gesture); the footer says «Se încarcă…».'
         fish_ref: app/(app)/competitions/notStarted/index.tsx:24
       - id: competitions-list.viitoare.c8
         text: Tapping a card opens the competition page.
@@ -880,7 +880,7 @@ screens:
     # /concursuri compact card are that page's). c3, c5–c7 are checked by tests/e2e/competitions-list-status.spec.ts;
     # c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts; state «unknown lakeId» (s7) by its .s7 test
     # (web: not-found page, no card read). c8 / «refreshing» (s5), 2026-10-07: fish pull-to-refresh is the
-    # /concursuri stand-in, DashboardRefresh «Reîmprospătează» in the T1 header's action slot — one read of the
+    # /concursuri stand-in, DashboardRefresh «Reîmprospătează» (since removed by owner 2026-10-11) in the T1 header's action slot — one read of the
     # open tab per press, cards kept (spinning glyph, region aria-busy), a failed re-read keeps them under
     # «Nu am putut actualiza lista.» with its own retry. Verifier lens (B4): all 16 criteria and 7 states covered;
     # balta spec 13/13 and status spec 7/7 green on :3121.
@@ -951,7 +951,7 @@ screens:
         text: 'Empty list: "Momentan nu este disponibil niciun concurs." WEB adds a «Vezi toate concursurile» link to /concursuri.'
         fish_ref: components/CompetitionsFullList.tsx:116
       - id: competitions-list.live.c7
-        text: 'Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads. WEB: «Reîmprospătează» in the header (DashboardRefresh) stands in for the gesture; the footer says «Se încarcă…».'
+        text: 'Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads. WEB: no manual refresh control (removed by owner 2026-10-11; focus refetch, the Live poll and the phone''s return re-read stand in for the gesture); the footer says «Se încarcă…».'
         fish_ref: app/(app)/competitions/started/index.tsx:24
       - id: competitions-list.live.c8
         text: Tapping a card opens the competition page.
@@ -1121,7 +1121,7 @@ screens:
     # /concursuri compact card are that page's). c3, c5–c7 are checked by tests/e2e/competitions-list-status.spec.ts;
     # c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts; state «unknown lakeId» (s7) by its .s7 test
     # (web: not-found page, no card read). c8 / «refreshing» (s5), 2026-10-07: fish pull-to-refresh is the
-    # /concursuri stand-in, DashboardRefresh «Reîmprospătează» in the T1 header's action slot — one read of the
+    # /concursuri stand-in, DashboardRefresh «Reîmprospătează» (since removed by owner 2026-10-11) in the T1 header's action slot — one read of the
     # open tab per press, cards kept (spinning glyph, region aria-busy), a failed re-read keeps them under
     # «Nu am putut actualiza lista.» with its own retry. Verifier lens (B4): all 16 criteria and 7 states covered;
     # balta spec 13/13 and status spec 7/7 green on :3121.
@@ -1185,7 +1185,7 @@ screens:
         text: 'Empty list: "Momentan nu este disponibil niciun concurs." WEB adds a «Vezi toate concursurile» link to /concursuri.'
         fish_ref: components/CompetitionsFullList.tsx:116
       - id: competitions-list.incheiate.c7
-        text: 'Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads. WEB: «Reîmprospătează» in the header (DashboardRefresh) stands in for the gesture; the footer says «Se încarcă…».'
+        text: 'Pull-to-refresh refetches the list; scrolling to the end loads the next page when there is one; a spinner footer shows while it loads. WEB: no manual refresh control (removed by owner 2026-10-11; focus refetch, the Live poll and the phone''s return re-read stand in for the gesture); the footer says «Se încarcă…».'
         fish_ref: app/(app)/competitions/completed/index.tsx:24
       - id: competitions-list.incheiate.c8
         text: Tapping a card opens the competition page.
@@ -1349,7 +1349,7 @@ screens:
     # /concursuri compact card are that page's). c3, c5–c7 are checked by tests/e2e/competitions-list-status.spec.ts;
     # c1, c2, c4, c8–c16 by tests/e2e/competitions-list-balta.spec.ts; state «unknown lakeId» (s7) by its .s7 test
     # (web: not-found page, no card read). c8 / «refreshing» (s5), 2026-10-07: fish pull-to-refresh is the
-    # /concursuri stand-in, DashboardRefresh «Reîmprospătează» in the T1 header's action slot — one read of the
+    # /concursuri stand-in, DashboardRefresh «Reîmprospătează» (since removed by owner 2026-10-11) in the T1 header's action slot — one read of the
     # open tab per press, cards kept (spinning glyph, region aria-busy), a failed re-read keeps them under
     # «Nu am putut actualiza lista.» with its own retry. Verifier lens (B4): all 16 criteria and 7 states covered;
     # balta spec 13/13 and status spec 7/7 green on :3121.

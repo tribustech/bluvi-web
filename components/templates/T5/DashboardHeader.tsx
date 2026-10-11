@@ -13,7 +13,7 @@ export interface DashboardHeaderProps {
    * takes over, so it is not rendered there.
    */
   back?: { href: string; label?: string; inApp?: boolean };
-  /** Trailing controls (refresh, a primary action). Icon-sized on a phone, labelled from 768. */
+  /** Trailing controls (a primary action). Icon-sized on a phone, labelled from 768. */
   actions?: ReactNode;
   className?: string;
 }

@@ -634,7 +634,7 @@ screens:
         text: "Empty narrower tab → one line: „Nicio cerere în așteptare.”, „Nicio rezervare astăzi.”, „Nicio rezervare viitoare.”, „Nicio rezervare încheiată.”, „Nicio rezervare respinsă.”, „Nicio rezervare anulată.”, „Nicio neprezentare.”, „Nimic nefinalizat.” (fallback „Nicio rezervare.”); no empty state while fetching."
         fish_ref: features/bookings/myBookingBuckets.ts:64-79; app/(app)/bookings/index.tsx:226-236
         status: passing
-        note: "myEmptyCopy per (bucket, sub), one centred line; nothing while THIS key has no settled answer (isFetching && !isFetched). Web deviation: a background refetch (window focus after staleTime, «Reîmprospătează») keeps the empty state — fish hides it on any fetch, but RN never refetches on focus, so there it never flashes. e2e «c10» (all eight lines, none during a first fetch, kept through a refetch)."
+        note: "myEmptyCopy per (bucket, sub), one centred line; nothing while THIS key has no settled answer (isFetching && !isFetched). Web deviation: a background refetch (window focus after staleTime; the manual «Reîmprospătează» was removed by owner 2026-10-11) keeps the empty state — fish hides it on any fetch, but RN never refetches on focus, so there it never flashes. e2e «c10» (all eight lines, none during a first fetch, kept through a refetch)."
       - id: booking.rezervarile-mele.c11
         text: "Review prompt above the list when lakes-to-review is non-empty (first entry): amber star card „Cum a fost la {lake}?” with „Ai fost acolo, dar n-ai lăsat încă o recenzie.” or, with more, „Ai fost acolo și n-ai lăsat recenzie. Încă {n} baltă așteaptă|bălți așteaptă.”; „Scrie” opens the lake review form with lakeId and booking id."
         fish_ref: app/(app)/bookings/index.tsx:186-222
@@ -644,7 +644,7 @@ screens:
         text: "Refresh (pull on mobile) refetches both the current list and the review prompt."
         fish_ref: app/(app)/bookings/index.tsx:101-107
         status: passing
-        note: "Header «Reîmprospătează» (pageToolClass; fish pull-to-refresh) refetches the list and lakes-to-review together. e2e «c12»."
+        note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); the list and lakes-to-review refetch on window focus once stale. e2e rezervari.spec.ts «c12» asserts no «Reîmprospătează»."
       - id: booking.rezervarile-mele.c13
         text: "Row: lake photo thumb (indigo pin placeholder when none, dimmed on dead bookings), lake name (fallback „Lac”), „Standul {name}” bold indigo, a green pill per extra, the period „{Wd} d MMM HH:mm → {Wd} d MMM HH:mm” (end minus checkout buffer) followed by „ · {h}h”, price „{priceTotal} lei” and the status pill on the right."
         fish_ref: features/bookings/MyBookingRow.tsx:28-29,64-171; features/bookings/ui/BookingLeadThumb.tsx:24-37

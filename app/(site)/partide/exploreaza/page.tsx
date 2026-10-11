@@ -6,7 +6,6 @@ import { membersLabel } from '@/core/partide';
 import { collectionPageJsonLd, jsonLdHtml } from '@/lib/json-ld';
 import { partideHrefs } from '@/lib/partide-pages';
 import { absoluteUrl, routes } from '@/lib/routes';
-import { HubRefresh } from '../_hub/HubRefresh';
 import { PartideHeader, PartideTabs } from '../_hub/PartideChrome';
 import { ExploreRoot } from './_explore/ExploreScreen';
 import { ExploreListSkeleton } from './_explore/parts';
@@ -44,7 +43,7 @@ export const metadata: Metadata = {
 
 export default function ExplorePage() {
   return (
-    <DashboardPage header={<PartideHeader actions={<HubRefresh />} />} toolbar={<PartideTabs current="exploreaza" />}>
+    <DashboardPage header={<PartideHeader />} toolbar={<PartideTabs current="exploreaza" />}>
       <Suspense fallback={<ExploreListSkeleton />}>
         <Explore />
       </Suspense>

@@ -17,17 +17,6 @@ import { cn } from '@/components/ui/cn';
 export const RESULTS_BACK = iconButtonClass({ className: cn('bg-surface shadow-e0 hover:bg-soft-fill', FOCUS_RING) });
 
 /**
- * Around DashboardRefresh in the results row: below 768 its icon square takes RESULTS_BACK's framing
- * (surface + hairline, ink-2 glyph), so the pill sits between two tools of one look; from 768 the
- * labelled ghost tool as everywhere. TODO(kit): a DashboardRefresh ground / className prop (T5).
- */
-export const RESULTS_REFRESH = cn(
-  'contents',
-  'max-md:[&>button:first-of-type]:bg-surface max-md:[&>button:first-of-type]:text-ink-2 max-md:[&>button:first-of-type]:shadow-e0',
-  'max-md:[&>button:first-of-type:hover]:bg-soft-fill max-md:[&>button:first-of-type:hover]:text-ink',
-);
-
-/**
  * The pill that stands in for the search field: the field's own shell (SEARCH_SHELL — radius-control,
  * the hairline outline, the toolbar height, hover soft-fill), so the search control keeps its shape
  * when the screen enters results mode. `circle`: room on the right for the filters circle.
@@ -52,7 +41,7 @@ export function resultsCircleClass(active: boolean) {
   );
 }
 
-/** One row: back square, pill, trailing tools. */
+/** One row: back square, pill. */
 export const RESULTS_ROW = 'flex items-center gap-2.5';
 
 /** Below 1280 the chrome is a sticky stack: the row, then the chip rail. */

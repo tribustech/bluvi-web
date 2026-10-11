@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { TabsSkeleton } from '@/components/templates/T1';
-import { DashboardHeader, DashboardPage, DashboardRefresh } from '@/components/templates/T5';
+import { DashboardHeader, DashboardPage } from '@/components/templates/T5';
 import { cn } from '@/components/ui/cn';
 import { routes } from '@/lib/routes';
 import { SetBreadcrumb } from '../../_shell/SiteHeader';
@@ -16,7 +16,7 @@ export function PanelFrame({ children }: { children: ReactNode }) {
   return (
     <>
       <SetBreadcrumb trail={PANEL_TRAIL} />
-      <DashboardPage className="max-md:pb-28" header={<DashboardHeader title={PANEL_TITLE} back={{ href: routes.home(), label: 'Înapoi', inApp: true }} actions={<DashboardRefresh />} />}>
+      <DashboardPage className="max-md:pb-28" header={<DashboardHeader title={PANEL_TITLE} back={{ href: routes.home(), label: 'Înapoi', inApp: true }} />}>
         {children}
       </DashboardPage>
     </>

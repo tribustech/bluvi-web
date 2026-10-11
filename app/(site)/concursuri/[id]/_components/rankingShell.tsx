@@ -13,18 +13,17 @@ import { PersonPopover, usePersonPopover, usePersonPopoverEnabled } from './Pers
 import { pageTransport } from './transport';
 
 /*
- * The ranking card's chrome every ranking of the page uses (RankingView.tsx, FeederRanking.tsx,
- * NcRanking.tsx): one card, one band of controls at its top, the «Clasament complet» buttons. The
- * table parts themselves (header / cell / pin steps, the frame, the place cell, the seat label) are
- * the kit's: components/ranking/shell.tsx, shared with the kit RankingTable.
+ * The ranking card's chrome every ranking of the page uses from 768 (RankingView.tsx, the feeder and
+ * club cards in CompetitionScreen.tsx): one card, one band of controls at its top, the «Clasament
+ * complet» buttons. The tables inside are fish's (FishTable.tsx, FishFeeder.tsx, FishNc.tsx).
  */
 
 /** The ranking card's band of controls (RankingView's toolbar): one row, on the card's surface. */
 export const RANKING_TOOLBAR = 'flex min-w-0 items-center gap-3 px-3 py-2.5';
 
 /**
- * A ranking card: the band of controls at its top, then the table (a RankingFrame `embedded`). What is
- * not a table (a state, the leg's sector cards from 1280) goes under the card, `after`.
+ * A ranking card: the band of controls at its top, then the table. What is not a table goes under
+ * the card, `after`.
  */
 export function RankingCard({
   toolbar,
@@ -38,15 +37,15 @@ export function RankingCard({
   after?: ReactNode;
   /** The column holding the card and `after`. */
   className?: string;
-  /** The card's own width rules (a feeder leg from 1280: as wide as the sector grid under it). */
+  /** More classes for the card itself. */
   cardClassName?: string;
 }) {
   return (
     <div className={cn('flex flex-col gap-4', className)}>
-      {/* As wide as its table (or its controls), never the whole column (ROADMAP §4b.16). Always a
-          card, also when it holds only the band (a feeder leg from 1280): the controls never sit
-          loose on the page (§4b.20). */}
-      <div className={cn('w-fit max-w-full overflow-clip rounded-card bg-surface shadow-e0', cardClassName)}>
+      {/* The whole column (coordinator 2026-10-11): the table fills it, its name column taking the
+          leftover while the numbers keep fixed tracks (FishTable `wide`). Always a card: the
+          controls never sit loose on the page (§4b.20). */}
+      <div className={cn('w-full overflow-clip rounded-card bg-surface shadow-e0', cardClassName)}>
         <div className={RANKING_TOOLBAR}>{toolbar}</div>
         {children}
       </div>
@@ -118,22 +117,6 @@ function usePageViewer(): { viewer: ViewerState | undefined; probe: ReactNode } 
     </Suspense>
   );
   return { viewer, probe };
-}
-
-/**
- * The viewer's own stand on this competition's page (the screen's myEntry): for a table drawn where
- * the screen hands no `currentUserStandId` down («Clasament complet»). Null signed out / unseated.
- */
-export function useMyStandId(): { standId: string | null; probe: ReactNode } {
-  const competition = usePageCompetition();
-  const { viewer, probe } = usePageViewer();
-  const documentId = viewer && !isUnknownViewer(viewer) ? viewer.documentId : null;
-  const standId = useMemo(() => {
-    if (!documentId || !competition) return null;
-    const mine = competition.registrations.find(r => r.registrationStatus === 'registered' && r.participants.some(p => p.documentId === documentId));
-    return mine?.stand ? String(mine.stand.id) : null;
-  }, [competition, documentId]);
-  return { standId, probe };
 }
 
 /**

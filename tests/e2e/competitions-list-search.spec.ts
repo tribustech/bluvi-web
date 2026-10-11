@@ -824,7 +824,7 @@ test.describe('competitions-list keyboard, focus and results chrome', () => {
     expect(await events(page)).toContainEqual({ name: 'competitions_status_changed', params: { status: 'started', scope: 'all' } });
   });
 
-  test('competitions-list.results.c14 competitions-list.results.c3 — ≥1280: the chrome in the centre column, no rail, no circle, no aside; Reîmprospătează re-reads the list', async ({ page }) => {
+  test('competitions-list.results.c14 competitions-list.results.c3 — ≥1280: the chrome in the centre column, no rail, no circle, no aside, no refresh control (removed by the owner 2026-10-11)', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await open(page, `/concursuri?lakeId=${CHITA}&label=Chita+Lake&format=team`);
     // The row and, under it, the filter bar (owner rule 2: no filter column) — the bar's «Filtre» is
@@ -842,10 +842,8 @@ test.describe('competitions-list keyboard, focus and results chrome', () => {
     // The square back and the pill share one height.
     const pill = page.getByRole('button', { name: 'Chita Lake. Schimbă căutarea' });
     expect(Math.round(backBox.width)).toBe(Math.round(backBox.height));
-    const asked = page.waitForRequest((r) => PUBLIC.test(r.url()) && r.url().includes(`lakeId=${CHITA}`));
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await asked;
     await expect(pill).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
     // Filters only: the label opens the filters dialog (c4), as below 1280.
     await open(page, '/concursuri?format=team');
     await page.getByRole('button', { name: 'Concursuri filtrate. Schimbă căutarea' }).click();

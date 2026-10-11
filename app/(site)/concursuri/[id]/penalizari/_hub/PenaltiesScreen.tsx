@@ -32,7 +32,7 @@ import { RevokeDialog } from './RevokeDialog';
  * signed-in viewer reads it (a PENALTY push lands the penalised team here); the actions follow the
  * statute.
  *  - c1: the title; loading joins the competition and the ranking (the frame's skeleton), an error on
- *    either is the frame's gate whose retry refetches both (onRefresh: the ranking);
+ *    either is the frame's gate whose retry refetches both (the ranking is one of its reads);
  *  - c2: the penalties of every ranking row and of every team inside a row, labelled, newest first
  *    (core gatherPenalties). Not started: the ranking is not read (rankingsQuery is disabled) → none;
  *  - c3: none → «Nu există penalizări aplicate», one of three lines, «Aplică penalizare» when allowed;
@@ -124,7 +124,6 @@ export function PenaltiesScreen({ competitionId, viewer }: { competitionId: stri
       requires="signedIn"
       back={{ href: routes.competition(competitionId), label: 'Înapoi la concurs' }}
       reads={rankingsRead}
-      onRefresh={() => (mayReadRanking ? rankings.refetch() : undefined)}
       skeleton={<PenaltiesBodySkeleton />}
       asideSkeleton={<FlowAsideSkeleton />}
       aside={({ competition: c, role }) => {

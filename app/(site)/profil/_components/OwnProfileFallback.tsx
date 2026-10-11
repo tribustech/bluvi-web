@@ -9,8 +9,8 @@ import { OwnProfileFallbackTabs, OwnProfileTabsSkeleton } from './OwnProfileFall
  * /profil while the session and the first tab are read (loading.tsx and the page's Suspense) — fish
  * ProfileSkeleton in own mode (parity account.own-profile c4): the shape AnglerProfileView mode="own"
  * lands in, in grey, on the view's own frame classes (components/account/angler/frame.ts). Below
- * 1280 no chip row: the two ghost actions (the small refresh, the cog) float in the header band's
- * top-right corner (OWN_ACTIONS), the header starts at pt-4; from 1280 they sit at the tab card's end.
+ * 1280 no chip row: the ghost cog floats in the header band's top-right corner (OWN_ACTIONS), the
+ * header starts at pt-4; from 1280 it sits at the tab card's end (no refresh: owner 2026-10-11).
  * The header skeleton has no follow pill but the edit button's and trophy row's bones
  * (ProfileHeaderSkeleton mode="own"). The tab bar and the panel follow ?tab= (OwnProfileFallbackTabs),
  * so /profil?tab=sesiuni streams Partide cards with «Partide» underlined — nothing jumps on landing.
@@ -21,10 +21,7 @@ export function OwnProfileFallback() {
       <h1 className="sr-only">Profilul meu</h1>
       <div className={PROFILE_GRID}>
         <div aria-hidden className={OWN_ACTIONS} data-testid="profile-header-row">
-          {/* The ghost refresh's 20px glyph, then the ghost cog's 24px one, each centred in 44px. */}
-          <span className="flex size-11 items-center justify-center">
-            <span className="size-5 animate-shimmer rounded-full" />
-          </span>
+          {/* The ghost cog's 24px glyph, centred in 44px. */}
           {ON_WEB.settings ? (
             <span className="flex size-11 items-center justify-center" data-testid="settings-bone">
               <span className="size-6 animate-shimmer rounded-full" />

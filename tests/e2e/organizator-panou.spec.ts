@@ -337,7 +337,6 @@ test.describe('organizer.panel', () => {
     const dock = await page.getByTestId('stat-dock').boundingBox();
     expect(dock?.y).toBe(64);
     for (const target of [
-      page.getByRole('button', { name: 'Reîmprospătează' }),
       page.getByTestId('create-competition'),
       tile(page, 'total'),
       panel(page),
@@ -648,7 +647,7 @@ test.describe('organizer.panel', () => {
     expect(errors).toEqual([]);
   });
 
-  test('c26 «Reîmprospătează» refetches the dashboard and the lists; b.no-polling: nothing refetches on its own', async ({ page }) => {
+  test('c26 no manual refresh control (removed by the owner 2026-10-11); b.no-polling: nothing refetches on its own', async ({ page }) => {
     const dashReqs: string[] = [];
     const listReqs: string[] = [];
     page.on('request', (r) => {
@@ -660,51 +659,7 @@ test.describe('organizer.panel', () => {
     await page.waitForTimeout(6000);
     expect(dashReqs).toHaveLength(1);
     expect(listReqs).toHaveLength(1);
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect.poll(() => dashReqs.length).toBe(2);
-    await expect.poll(() => listReqs.length).toBe(2);
-    await expect(page.getByRole('status').filter({ hasText: 'Actualizat' })).toHaveCount(1);
-  });
-
-  test('c26 «Reîmprospătează» also refreshes the stat details (a reopened panel refetches) and reports the list’s own outcome', async ({ page }) => {
-    let pending = 3;
-    let listStatus = 200;
-    const statReqs: string[] = [];
-    page.on('request', (r) => {
-      if (r.url().includes(`/api/cms${STATS}`)) statReqs.push(r.url());
-    });
-    await mockRead(page, DASH, () => ({ json: dashboardFixture({ pendingRegistrations: pending }) }));
-    await mockRead(page, STATS, () => ({
-      json: paginated(
-        Array.from({ length: pending }, (_, i) => statDetailFixture(i + 1)),
-        { pageSize: 5 },
-      ),
-    }));
-    await mockRead(page, LIST, () => (listStatus === 200 ? { json: paginated([]) } : { status: listStatus, json: { error: { message: 'x' } } }));
-    await open(page, 1440);
-    await tile(page, 'pending').click();
-    const side = page.locator('aside').filter({ has: page.getByRole('heading', { name: 'Participanți în așteptare' }) });
-    await expect(side.getByRole('list').getByRole('listitem')).toHaveCount(3);
-    await side.getByRole('button', { name: 'Închide' }).click();
-    expect(statReqs).toHaveLength(1);
-
-    // Refresh: 5 pending now; the reopened panel refetches and lists the 5 (staleTime would hide them).
-    pending = 5;
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Actualizat' })).toHaveCount(1);
-    await tile(page, 'pending').click();
-    await expect(side.getByRole('list').getByRole('listitem')).toHaveCount(5);
-    expect(statReqs).toHaveLength(2);
-    await side.getByRole('button', { name: 'Închide' }).click();
-
-    // The list fails during the refresh (the dashboard succeeds): reported as failed, not «Actualizat».
-    listStatus = 404;
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Nu s-a putut actualiza' })).toHaveCount(1);
-    // It recovers on the next refresh: reported as done.
-    listStatus = 200;
-    await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Actualizat' })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
   });
 
   test('c27 «Creează competiție»: fixed at the bottom on a phone, in the header from 768; opens the wizard returning here', async ({ page }) => {

@@ -14,8 +14,8 @@ export const SETTINGS_BACK = routes.profile();
 /**
  * The hub's width: below 1280 one column up to 720, centred (the settings kit's SETTINGS_COLUMN — the
  * edges of /setari/notificari, so going between them never moves the header); from 1280 the shell's
- * full content width (ROADMAP §4: 32 gutters, ≤ 1680), so the header's «Reîmprospătează» ends on the
- * top bar's right edge and the three columns fill the window — the centre takes what is left.
+ * full content width (ROADMAP §4: 32 gutters, ≤ 1680), so the three columns fill the window — the centre
+ * takes what is left.
  */
 const HUB_WIDTH = 'mx-auto w-full max-w-180 xl:mx-0 xl:max-w-none';
 
@@ -23,18 +23,16 @@ const HUB_WIDTH = 'mx-auto w-full max-w-180 xl:mx-0 xl:max-w-none';
  * Setări's frame (fish: BackButton + title1 «Setări» over the grey ScrollScreen). Composed from T1's
  * ListPage + ListHeader (no inventory template; the settings kit's SettingsScreenFrame is one column
  * plus a narrow aside, Setări needs three). No sticky header (owner rule 3): the band scrolls away.
- * `back` false: fish's ErrorScreen goBack={false} (c1). `actions`: the header's right end
- * («Reîmprospătează», c20). `busy` / `status`: the loading skeleton and its live line (outside it).
+ * `back` false: fish's ErrorScreen goBack={false} (c1). `busy` / `status`: the loading skeleton and
+ * its live line (outside it).
  */
 export function SettingsFrame({
   back = true,
-  actions,
   busy = false,
   status,
   children,
 }: {
   back?: boolean;
-  actions?: ReactNode;
   busy?: boolean;
   status?: string;
   children: ReactNode;
@@ -44,7 +42,7 @@ export function SettingsFrame({
     <ListPage
       header={
         <div className={HUB_WIDTH}>
-          <ListHeader title={SETTINGS_TITLE} titleId={TITLE_ID} back={back ? { label: 'Înapoi', onClick: goBack } : undefined} actions={actions} />
+          <ListHeader title={SETTINGS_TITLE} titleId={TITLE_ID} back={back ? { label: 'Înapoi', onClick: goBack } : undefined} />
         </div>
       }
     >

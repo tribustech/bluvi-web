@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, type ReactNode } from 'react';
+import { Suspense } from 'react';
 import { PlusIcon } from '@heroicons/react/20/solid';
 import { DashboardHeader } from '@/components/templates/T5';
 import { buttonClass } from '@/components/ui/Button';
@@ -15,7 +15,7 @@ import { usePartideViewer } from './activePartida';
  * fish features/partide/components/PartideChrome.tsx — the Partide hub's chrome, shared by its three
  * tabs (Comunitate here; Explorează and Ale mele in later batches read it as is):
  *  - the T5 header: the title «Partide» (h1), the indigo «Începe» pill (plus) — only when the viewer
- *    has NO live partidă (c1), and into the app (owner 2026-10-08) — and the page's refresh control;
+ *    has NO live partidă (c1), and into the app (owner 2026-10-08); no refresh control (owner 2026-10-11);
  *  - under it the underline tabs (c2): Comunitate · Explorează · Ale mele, each its own URL, so the
  *    choice is never persisted (c3: /partide always opens on Comunitate). Owner rule 20: one bar on
  *    a hairline, the active tab in the accent ink on a 2.5px underline, hover and focus states.
@@ -33,18 +33,15 @@ const TABS: { value: PartideTab; label: string; href: () => string | null }[] = 
   { value: 'ale-mele', label: 'Ale mele', href: () => partideHrefs.mine() },
 ];
 
-export function PartideHeader({ actions }: { actions?: ReactNode }) {
+export function PartideHeader() {
   return (
     <DashboardHeader
       title="Partide"
       actions={
-        <>
-          {/* Per-user: nothing until the session and the live probe have answered (owner rule 4). */}
-          <Suspense fallback={null}>
-            <StartPill />
-          </Suspense>
-          {actions}
-        </>
+        // Per-user: nothing until the session and the live probe have answered (owner rule 4).
+        <Suspense fallback={null}>
+          <StartPill />
+        </Suspense>
       }
     />
   );

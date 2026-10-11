@@ -1,19 +1,22 @@
 'use client';
 
-import { useMemo, useRef, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { ButtonLink } from '@/components/ui/Button';
 import { IconButton } from '@/components/nav/IconButton';
+import { RankingFace } from '@/components/ranking/RankingFace';
 import { useModalDialog } from '@/components/surfaces/useModalDialog';
 import { cn } from '@/components/ui/cn';
 import type { RankingTableData } from './ranking';
-import { CompetitionRankingTable, type RankingInitialSort } from './CompetitionRankingTable';
-import { useMyStandId } from './rankingShell';
-import { GENERAL_TABLE_LAYOUT, RANKING_TABLE_FIXES, STICKY_HEAD_DIALOG, rankingPinKeys, useTablePins } from './tableFixes';
+import { FishTable } from './FishTable';
+import { standardFishRows } from './MobileRanking';
+import { useRankingFaces } from './rankingFaces';
+import { RANKING_TABLE_FIXES } from './tableFixes';
 
 /**
  * fish «Vezi full» (/competitions/ranking-image: the whole table, every column) — on the web the
- * full table on the whole screen; the header's «Clasament complet» opens the same view.
+ * full table on the whole screen, fish's table at every width (FishTable; `wide` from 768, owner
+ * 2026-10-11); the header's «Clasament complet» opens the same view.
  * TODO(kit): a `fullscreen` variant of surfaces/Dialog (it caps at 480px, Fundații «confirmări»)
  * would replace this <dialog>; until then it is driven by the kit's useModalDialog (top layer,
  * focus trap, Escape) and closed with the shell's IconButton.
@@ -24,16 +27,12 @@ export function FullRankingDialog({
   title,
   subtitle = 'Clasament complet',
   table,
-  initialSort = 'stand',
   imageHref,
   onImage,
-  currentUserStandId,
+  currentUserStandId = null,
   children,
 }: {
-  /**
-   * The viewer's stand: their row is marked and prefixed «Tu · », as in the inline table. Left out,
-   * it is read from the page (the competition's registrations and the session: useMyStandId).
-   */
+  /** The viewer's stand: from 768 their row is marked and prefixed «Tu · », as in the inline table. */
   currentUserStandId?: string | null;
   /**
    * fish «Vezi full» opens the ranking IMAGE (competition-page.imagine-clasament): on the web the
@@ -47,22 +46,26 @@ export function FullRankingDialog({
   title: string;
   /** What the table is («Clasament complet», «Manșa 2», «Sector B»). */
   subtitle?: string;
+  /** The rows in the order the page shows them (fish Sortare: stand by default). */
   table: RankingTableData | null;
-  /** The order the table opens in: the phone's Sortare (fish: stand by default). */
-  initialSort?: RankingInitialSort;
   /** A ranking the shared table does not draw (feeder legs, the club ranking): its own table. */
   children?: ReactNode;
 }) {
   const dialog = useModalDialog(open, onClose);
-  const hostRef = useRef<HTMLDivElement>(null);
-  // fish RankingTable: the stand stays put while the other columns scroll sideways (parity
-  // clasament.c22) — Loc and Stand pinned, as the inline table. Only the «wide» half of the layout:
-  // without a data-wide attribute the «fits» rules (no inner scroll box) never apply here, so the
-  // table keeps scrolling inside the dialog.
-  const pins = useTablePins(hostRef, table?.columns ?? [], open && table ? table.rows.length : 0, table?.rows);
-  const pinRight = useMemo(() => (table ? rankingPinKeys(table.columns, table.rows) : []), [table]);
-  const mine = useMyStandId();
-  const myStandId = currentUserStandId === undefined ? mine.standId : currentUserStandId;
+  const faces = useRankingFaces();
+  const phoneRows = useMemo(() => (table ? standardFishRows(table.columns, table.rows) : []), [table]);
+  const wideRows = useMemo(
+    () =>
+      table
+        ? standardFishRows(
+            table.columns,
+            table.rows,
+            row => <RankingFace name={row.participant} face={faces.byStand.get(String(row.standId))} />,
+            currentUserStandId,
+          )
+        : [],
+    [table, faces, currentUserStandId],
+  );
   return (
     <dialog
       {...dialog}
@@ -85,29 +88,27 @@ export function FullRankingDialog({
           <XMarkIcon aria-hidden />
         </IconButton>
       </div>
-      {currentUserStandId === undefined ? mine.probe : null}
-      {open && children ? <div className="flex min-h-0 flex-1 flex-col p-3 md:p-6 [&>*]:max-h-full">{children}</div> : null}
+      {open && children ? children : null}
       {open && table && !children ? (
-        <div
-          ref={hostRef}
-          data-wide={pins.wide ? 'true' : undefined}
-          data-fade={pins.wide && pins.fade ? 'true' : undefined}
-          data-pinned={pins.wide ? pins.pinned : undefined}
-          style={pins.style}
-          // The table is as wide as its columns (ROADMAP §4b.16): centred, the rest is margin.
-          className={cn('min-h-0 flex-1 p-3 md:p-6 [&>[role=region]]:mx-auto', RANKING_TABLE_FIXES, GENERAL_TABLE_LAYOUT, STICKY_HEAD_DIALOG)}
-        >
-          <CompetitionRankingTable
-            caption="Clasament complet"
-            columns={table.columns}
-            rows={table.rows}
-            pinRight={pinRight}
-            currentUserStandId={myStandId}
-            maxHeight="100%"
-            initialSort={initialSort}
-          />
-        </div>
+        <FullFishTables
+          phone={<FishTable caption="Clasament complet" columns={table.columns} rows={phoneRows} />}
+          wide={<FishTable wide caption="Clasament complet" columns={table.columns} rows={wideRows} />}
+        />
       ) : null}
     </dialog>
+  );
+}
+
+/**
+ * The dialog's body: the phone's table below 768, the `wide` one from 768 in a card as wide as the
+ * table, centred (ROADMAP §4b.16: the rest is margin); the body scrolls (the header row with it, as
+ * fish's table).
+ */
+export function FullFishTables({ phone, wide }: { phone: ReactNode; wide: ReactNode }) {
+  return (
+    <div className={cn('min-h-0 flex-1 overflow-y-auto md:p-6', RANKING_TABLE_FIXES)}>
+      <div className="pt-3 md:hidden">{phone}</div>
+      <div className="mx-auto w-fit max-w-full overflow-clip rounded-card bg-surface shadow-e0 max-md:hidden">{wide}</div>
+    </div>
   );
 }

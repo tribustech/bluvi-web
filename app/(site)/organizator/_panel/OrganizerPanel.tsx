@@ -8,7 +8,7 @@ import { usePinned } from '@/components/nav/stickyStack';
 import { pickSurface } from '@/components/surfaces/rule';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { ListEmpty, ListError, ListFooter, StickyActions, type ListTab } from '@/components/templates/T1';
-import { DashboardHeader, DashboardPage, DashboardRefresh } from '@/components/templates/T5';
+import { DashboardHeader, DashboardPage } from '@/components/templates/T5';
 import { ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import {
@@ -17,7 +17,6 @@ import {
   flattenPages,
   organizerCompetitionsInfiniteQuery,
   organizerDashboardQuery,
-  organizerKeys,
   type DraftCompetition,
   type OrganizerStatKey,
 } from '@/core/organizer';
@@ -52,7 +51,8 @@ const PANEL_ID = 'organizer-list';
 /**
  * /organizator — organizer.panel (T5), fish app/(app)/organizer/index.tsx. Rendered for an Organizer
  * only (the page's requireOrganizer gate), so every read is on (c28); all per user through /api/cms,
- * no polling (organizer.b.no-polling): freshness is the refresh action and the writes' invalidations.
+ * no polling (organizer.b.no-polling): freshness is the writes' invalidations
+ * (no manual refresh control: removed by the owner 2026-10-11).
  */
 export function OrganizerPanel() {
   const t = useMemo(() => createBrowserTransport(), []);
@@ -110,16 +110,6 @@ export function OrganizerPanel() {
 
   const [cannotEdit, setCannotEdit] = useState(false);
 
-  // c26 — the refresh action (fish pull-to-refresh): the stats and the shown list are awaited and their
-  // results decide done / failed; everything else the organizer reads (the other tabs, the stat
-  // details — an open panel refetches now, a closed one on its next open) is invalidated alongside.
-  const refresh = async () => {
-    // Separate keys from the two refetches (an invalidation of the same key would cancel and restart them).
-    const [s, l] = await Promise.all([stats.refetch(), list.refetch(), qc.invalidateQueries({ queryKey: organizerKeys.statDetailsRoot })]);
-    void qc.invalidateQueries({ queryKey: organizerKeys.competitionsRoot, refetchType: 'inactive' });
-    return !(s.isError || l.isError);
-  };
-
   // c7 — the tiles collapse into the chip row once the band pins under the top bar.
   const band = useRef<HTMLDivElement>(null);
   const pinned = usePinned(band);
@@ -150,7 +140,6 @@ export function OrganizerPanel() {
             actions={
               <>
                 <OrganizerArt className="size-12 md:size-16" />
-                <DashboardRefresh onRefresh={refresh} />
                 <ButtonLink href={create} icon={<PlusIcon />} className="max-md:hidden" data-testid="create-competition">
                   Creează competiție
                 </ButtonLink>

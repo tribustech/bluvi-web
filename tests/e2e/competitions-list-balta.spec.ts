@@ -213,85 +213,18 @@ for (const b of BALTA) {
   });
 }
 
-for (const b of BALTA) {
-  // fish CompetitionsFullList pull-to-refresh → the tab's refetch. WEB: the /concursuri stand-in,
-  // DashboardRefresh «Reîmprospătează» in the header's action slot (lakes.competitions.c5).
-  test(`${b.id}.c8 ${b.id}.s5 lakes.competitions.c5 lakes.competitions.s6 — «Reîmprospătează» re-reads the open tab once per press, keeps the cards while it runs; a failed re-read keeps them, with a retry`, async ({ page }) => {
-    test.setTimeout(120_000);
-    await setFaults(page, ['competitions-tab']);
-    try {
-      const asked: string[] = [];
-      let round = 0;
-      let fail = false;
-      await page.route(CARDS, async (r) => {
-        const u = new URL(r.request().url());
-        asked.push(u.searchParams.get('status') ?? '');
-        if (u.searchParams.get('status') !== b.status) return r.continue();
-        const n = round++;
-        if (n > 0) await new Promise((res) => setTimeout(res, 1200));
-        if (fail) return json(r, { error: { status: 400, message: 'bad' } }, 400);
-        return json(r, cardsPage(rows(b.status, 10, `r${n}`), { pageCount: 1, total: 10 }));
-      });
-      await page.setViewportSize({ width: 1280, height: 900 });
-      await page.goto(url(b.tab));
-      const panel = page.getByRole('tabpanel');
-      const items = panel.getByRole('listitem').filter({ has: page.getByRole('link', { name: /^FX / }) });
-      await expect(panel.getByRole('link', { name: 'FX r0 0' })).toBeVisible({ timeout: 60_000 });
-      await expect(items).toHaveCount(10);
-      const button = page.getByRole('button', { name: 'Reîmprospătează' });
-      await expect(button).toBeVisible();
-      const before = asked.length;
-
-      // One press → one read of this tab, none of the others; the cards stay, the control and the
-      // region say it runs.
-      await button.click();
-      await expect(button).toHaveAttribute('aria-disabled', 'true');
-      await expect(panel).toHaveAttribute('aria-busy', 'true');
-      await expect(page.getByRole('status').filter({ hasText: 'Se actualizează…' })).toBeAttached();
-      await expect(items).toHaveCount(10);
-      await expect(panel.getByRole('link', { name: 'FX r0 0' })).toBeVisible();
-      await button.click({ force: true }); // ignored while it runs
-      await expect(panel.getByRole('link', { name: 'FX r1 0' })).toBeVisible();
-      await expect(button).not.toHaveAttribute('aria-disabled');
-      await expect(panel).not.toHaveAttribute('aria-busy');
-      expect(asked.slice(before)).toEqual([b.status]);
-      await expect(page.getByRole('status').filter({ hasText: 'Actualizat' })).toBeAttached();
-
-      // A failed re-read: the cards stay, marked, with their own retry.
-      fail = true;
-      await button.click();
-      const notice = panel.getByText('Nu am putut actualiza lista.');
-      await expect(notice).toBeVisible();
-      await expect(items).toHaveCount(10);
-      await expect(panel.getByRole('link', { name: 'FX r1 0' })).toBeVisible();
-      await expect(notice.locator('xpath=ancestor::*[@aria-live="polite"][1]')).toHaveCount(1);
-      await expect(button).not.toHaveAttribute('aria-disabled');
-      expect(asked.slice(before)).toEqual([b.status, b.status]);
-      await expectNoA11yViolations(page);
-      fail = false;
-      await panel.getByRole('button', { name: 'Încearcă din nou' }).click();
-      await expect(panel.getByRole('link', { name: 'FX r3 0' })).toBeVisible();
-      await expect(notice).toHaveCount(0);
-    } finally {
-      await setFaults(page, []);
-    }
-  });
-}
-
-test('lakes.competitions.s6 — phone: the refresh is the 48px square beside the title, never pushing it out', async ({ page }) => {
+test('lakes.competitions.c5 lakes.competitions.s6 — no manual refresh control (removed by the owner 2026-10-11); phone: the title keeps its row', async ({ page }) => {
   test.setTimeout(120_000);
   await setFaults(page, ['competitions-tab']);
   try {
     await page.route(CARDS, (r) => json(r, cardsPage(rows('started', 3, 'm'), { pageCount: 1, total: 3 })));
-    await page.setViewportSize({ width: 375, height: 800 });
-    await page.goto(url('live'));
-    await expect(page.getByRole('heading', { level: 1, name: 'Chita Lake' })).toBeVisible({ timeout: 60_000 });
-    const square = page.getByRole('button', { name: 'Reîmprospătează' });
-    await expect(square).toBeVisible();
-    const box = await square.boundingBox();
-    expect(box?.width).toBe(48);
-    expect(box?.height).toBe(48);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto(url('live'));
+      await expect(page.getByRole('heading', { level: 1, name: 'Chita Lake' })).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    }
   } finally {
     await setFaults(page, []);
   }

@@ -368,12 +368,14 @@ test('organizer.scale-weighing.c3/c18 — revisions: the notice links to the his
   await expect(link).toHaveAttribute('href', REVISIONS);
   await expect(page.getByRole('link', { name: 'Vezi istoric' })).toHaveAttribute('href', REVISIONS);
   served.revisions = 3;
-  await page.getByTestId('management-refresh').click();
+  await page.reload();
+  await loaded(page);
   await expect(link).toHaveText('Acest cântar a avut 3 modificări.');
   await shoot(page, 'revisions');
   // An open weighing with revisions keeps the notice, not «Vezi istoric» (fish: finished only).
   served.status = 'started';
-  await page.getByTestId('management-refresh').click();
+  await page.reload();
+  await loaded(page);
   await expect(page.getByRole('link', { name: 'Vezi istoric' })).toHaveCount(0);
   await expect(link).toBeVisible();
 });
@@ -822,14 +824,13 @@ test('organizer.scale-weighing.c20 — a failed reopen shows the message with «
   await expect(page.getByRole('button', { name: 'Vezi semnături' })).toBeVisible();
 });
 
-test('organizer.scale-weighing.c21 — the refresh action refetches the weighing, the allocations and the statute', async ({ page }) => {
+test('organizer.scale-weighing.c21 — no manual refresh control (removed by the owner 2026-10-11)', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const { watch } = await open(page, { served: { status: 'started' } });
+  await open(page, { served: { status: 'started' } });
   await loaded(page);
-  const count = (p: string) => watch.reads.filter((r) => r === p).length;
-  const before = [count(weighingPath(W)), count(allocationsPath(C)), count(statutePath(C))];
-  await page.getByTestId('management-refresh').click();
-  await expect.poll(() => [count(weighingPath(W)), count(allocationsPath(C)), count(statutePath(C))].every((n, i) => n > before[i])).toBe(true);
+  // No manual refresh control (removed by the owner 2026-10-11): the reads refetch on focus and after writes.
+  await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
+  await expect(page.getByTestId('management-refresh')).toHaveCount(0);
 });
 
 test('organizer.scale-weighing.c19 — «Redeschide cântarul» only when the CMS can accept it (web deviation from fish)', async ({ page }) => {

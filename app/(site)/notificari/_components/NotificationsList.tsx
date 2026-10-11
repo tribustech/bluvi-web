@@ -3,7 +3,7 @@
 import { useId, useMemo, type ReactNode } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ArrowPathIcon, BellIcon, ChevronRightIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { BellIcon, ChevronRightIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import {
   getRouteForNotificationItem,
   markNotificationAsReadMutation,
@@ -23,7 +23,6 @@ import { notificationHref } from '@/lib/notification-href';
 import { routes } from '@/lib/routes';
 import { MarkAllRead } from './MarkAllRead';
 import { NotificationRow } from './NotificationRow';
-import { useSiteToast } from '../../_shell/Toast';
 import { ASIDE_SKELETON, NotificationRowsSkeleton, NotificationsFrame } from './NotificationsSkeleton';
 import { useBackOrHome } from './back';
 import { ROWS } from './styles';
@@ -46,7 +45,7 @@ const SETTINGS_LINK = 'Setări notificări';
  *   ErrorScreen showSignOut: «Deconectează-te» runs the site's one sign-out (useSignOut: Firebase,
  *   cache, the in-progress guard, the SIGN_OUT_FAILED toast) and lands on /intra?next=/notificari.
  *   The card replaces the list only when nothing is loaded: a failed next page keeps the rows and
- *   says so in the footer, a failed «Reîmprospătează» keeps them and says so in a toast.
+ *   says so in the footer.
  * - c2 header: back (history, else Acasă — fish goBackOrHome) and «Notificări».
  * - c3/c4 «Citește tot» only while a loaded row is unread (fish notifications.tsx:46-49,75): in the
  *   header below 1280, in the summary column from 1280. The top bar's count never drives it: the
@@ -58,15 +57,14 @@ const SETTINGS_LINK = 'Setări notificări';
  *   notification_clicked_from_list, navigate; an unread row without one is a button that marks it
  *   read and logs it (redirect_url 'none'); a read row without one is plain text (NotificationRow).
  * - c10 «Nu există notificări».
- * - c11 fish's pull-to-refresh is the header's «Reîmprospătează»; the next page loads as the footer
- *   nears the viewport (ListFooter, with a button for keyboards), and says when the list ends.
+ * - c11 no manual refresh control (removed by the owner 2026-10-11); the next page loads as the
+ *   footer nears the viewport (ListFooter, with a button for keyboards), and says when the list ends.
  * - account.b.foreground-refresh: the list refetches on window focus (TanStack's default, stale
  *   after the client's 60 s); the top bar re-reads the unread count on focus and on this page.
  */
 export function NotificationsScreen() {
   const t = useMemo(() => createBrowserTransport(), []);
   const qc = useQueryClient();
-  const toast = useSiteToast();
   const back = useBackOrHome();
   const titleId = useId();
 
@@ -80,7 +78,6 @@ export function NotificationsScreen() {
   const unreadLoaded = items.reduce((n, row) => (row.read ? n : n + 1), 0);
   const hasUnread = unreadLoaded > 0;
   const total = list.data?.pages.at(-1)?.meta.pagination.total;
-  const refreshing = list.isRefetching && !list.isFetchingNextPage;
 
   const open = (n: NotificationResponse, href: string | null) => {
     track('notification_clicked_from_list', {
@@ -91,13 +88,6 @@ export function NotificationsScreen() {
     });
     // fish marks with the NOTIFICATION's documentId (core markNotificationAsRead), not the row's.
     if (!n.read) markRead(n.notification.documentId);
-  };
-
-  const refresh = async () => {
-    if (refreshing) return;
-    // A failed refresh keeps the rows on screen (TanStack keeps `data`): say so instead.
-    const result = await list.refetch();
-    if (result.isError) toast('Nu am putut reîmprospăta notificările. Încearcă din nou.', 'danger');
   };
 
   // fish ErrorScreen «Deconectează-te» (a 401 the global dead-session handler does not take).
@@ -112,22 +102,8 @@ export function NotificationsScreen() {
       back={{ label: 'Înapoi', onClick: back }}
       actions={
         <>
-          {loaded ? (
-            <>
-            <button
-              type="button"
-              onClick={() => void refresh()}
-              aria-disabled={refreshing || undefined}
-              aria-busy={refreshing || undefined}
-              className={pageToolClass()}
-            >
-              <ArrowPathIcon aria-hidden className={cn(refreshing && 'animate-spin motion-reduce:animate-none')} />
-              <span className="sr-only">{refreshing ? 'Se reîmprospătează…' : 'Reîmprospătează'}</span>
-            </button>
-            {/* From 1280 «Citește tot» is the summary column's labelled action. */}
-            {hasUnread ? <MarkAllRead t={t} onDone={focusTitle} className={cn(pageToolClass({ iconOnly: false }), 'xl:hidden')} /> : null}
-            </>
-          ) : null}
+          {/* From 1280 «Citește tot» is the summary column's labelled action. */}
+          {hasUnread ? <MarkAllRead t={t} onDone={focusTitle} className={cn(pageToolClass({ iconOnly: false }), 'xl:hidden')} /> : null}
           {/* The way to the notification settings (fish: Setări → Notificări; /setari is not on the web
               yet): this gear 768–1279, the summary column's row from 1280, the ☰ menu's row on a phone
               (a fourth header tool would squeeze the title there). */}

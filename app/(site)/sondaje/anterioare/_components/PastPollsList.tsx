@@ -1,16 +1,15 @@
 'use client';
 
-import { ArrowPathIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { ChartBarIcon } from '@heroicons/react/24/outline';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode, type RefObject } from 'react';
 import { useBack } from '@/components/nav/useBack';
-import { ListEmpty, ListError, ListFooter, ListHeader, ListPage, ListRegion, pageToolClass } from '@/components/templates/T1';
+import { ListEmpty, ListError, ListFooter, ListHeader, ListPage, ListRegion } from '@/components/templates/T1';
 import { cn } from '@/components/ui/cn';
 import { pastPollsInfiniteQuery } from '@/core/competitions';
 import { track } from '@/lib/analytics';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
-import { useSiteToast } from '../../../_shell/Toast';
 import { PAST_POLLS_TITLE, pollsCount } from './format';
 import { PastPollCard } from './PastPollCard';
 
@@ -67,9 +66,8 @@ function useMasonry(list: RefObject<HTMLUListElement | null>, items: readonly un
 /**
  * /sondaje/anterioare on T1 — fish app/(app)/polls/past.tsx (parity participant.polls-past).
  *
- *  - Header (c1): back (in-app history, else Acasă — fish goBackOrHome) + «Sondaje anterioare»,
- *    and «Reîncarcă» (c6) — the web's stand-in for fish's pull-to-refresh: it refetches every
- *    loaded page; while it runs the icon turns and the list is aria-busy over the old cards.
+ *  - Header (c1): back (in-app history, else Acasă — fish goBackOrHome) + «Sondaje anterioare»;
+ *    no manual refresh control (c6 «Reîncarcă» removed by the owner 2026-10-11).
  *  - Data (c5, c8): core pastPollsInfiniteQuery — GET /polls/past?page&pageSize=10 through
  *    /api/cms, auth optional: personalised (my vote) with the session cookie, plain for a guest.
  *  - States: a centred spinner while the first page loads (c2); «Niciun sondaj încheiat» (c3);
@@ -82,8 +80,6 @@ export function PastPollsList() {
   const t = useMemo(() => createBrowserTransport(), []);
   const q = useInfiniteQuery(pastPollsInfiniteQuery(t));
   const back = useBack(routes.home());
-  const [said, setSaid] = useState('');
-  const toast = useSiteToast();
   const listRef = useRef<HTMLUListElement>(null);
 
   const viewed = useRef(false);
@@ -95,19 +91,7 @@ export function PastPollsList() {
 
   const polls = useMemo(() => (q.data?.pages ?? []).flatMap((p) => p.data), [q.data]);
   const total = q.data?.pages.at(-1)?.meta.pagination.total;
-  const refreshing = q.isRefetching && !q.isFetchingNextPage;
   useMasonry(listRef, polls);
-
-  const refresh = async () => {
-    if (q.isFetching) return;
-    setSaid('');
-    const r = await q.refetch();
-    // A failed refresh keeps the old cards, so it is SAID visibly (the spinner stopping over them would
-    // read as success): the site's danger toast, which is also the role=alert announcement — the sr
-    // status stays for the success only, so nothing is announced twice (Acasă's refresh, the same).
-    if (r.isError) toast('Nu am putut reîncărca sondajele. Încearcă din nou.', 'danger');
-    else setSaid('Sondajele au fost reîncărcate.');
-  };
 
   let body: ReactNode;
   if (q.isPending) {
@@ -170,28 +154,12 @@ export function PastPollsList() {
           title={PAST_POLLS_TITLE}
           titleId={TITLE_ID}
           back={{ label: 'Înapoi', onClick: back }}
-          actions={
-            <button
-              type="button"
-              onClick={() => void refresh()}
-              aria-disabled={q.isFetching || undefined}
-              aria-busy={refreshing || undefined}
-              className={cn(pageToolClass(), 'aria-disabled:cursor-default')}
-              data-testid="past-polls-refresh"
-            >
-              <ArrowPathIcon aria-hidden className={cn(refreshing && 'animate-spin motion-reduce:animate-none')} />
-              <span className="sr-only md:not-sr-only">{refreshing ? 'Se reîncarcă…' : 'Reîncarcă'}</span>
-            </button>
-          }
         />
       }
     >
-      <ListRegion labelledBy={TITLE_ID} busy={refreshing}>
+      <ListRegion labelledBy={TITLE_ID}>
         {body}
       </ListRegion>
-      <p role="status" className="sr-only">
-        {said}
-      </p>
     </ListPage>
   );
 }
@@ -208,7 +176,7 @@ function PastPollsSpinner() {
 
 /**
  * The route's loading.tsx: the same header (back as a link to Acasă — no history handler on the
- * server; «Reîncarcă» held in place, inert) and the spinner, so nothing moves when the list lands.
+ * server) and the spinner, so nothing moves when the list lands.
  */
 export function PastPollsLoading() {
   return (
@@ -218,12 +186,6 @@ export function PastPollsLoading() {
           title={PAST_POLLS_TITLE}
           titleId={TITLE_ID}
           back={{ label: 'Înapoi', href: routes.home() }}
-          actions={
-            <span aria-hidden className={cn(pageToolClass(), 'cursor-default')}>
-              <ArrowPathIcon />
-              <span className="hidden md:inline">Reîncarcă</span>
-            </span>
-          }
         />
       }
     >

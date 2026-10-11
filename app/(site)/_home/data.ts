@@ -144,7 +144,7 @@ export type HomeViewer = ShellUser & { isOrganizer: boolean };
  * request): the user, null (signed out), or 'unknown' (a session cookie, but /users/me failed or
  * gave no answer). Unknown is NEVER the signed-out page (fish keeps the session and shows its
  * ErrorScreen, (tabs)/index.tsx isErrorProfile): the personal blocks and the guest prompts are
- * left out, with no alert in their place (owner rule 4, ROADMAP §4b); the refresh retries.
+ * left out, with no alert in their place (owner rule 4, ROADMAP §4b); HomeRetry re-reads.
  */
 export const getHomeSession = cache(async (): Promise<HomeViewer | null | 'unknown'> => {
   // The shell's bounded read (SHELL_SESSION_TIMEOUT_MS): the page and the top bar flip to «unknown»

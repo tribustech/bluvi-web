@@ -648,7 +648,7 @@ test('competition-page.cantar-detaliu.s2 competition-page.b.notif-weighing — a
   await expect(page).not.toHaveURL(/cantar=/);
 });
 
-test('competition-page.cantar-detaliu.c1 c5 competition-page.cantar-detaliu.s2 competition-page.b.notif-weighing — a link opens the detail; in progress: «Se actualizează în m:ss» counts down, «Actualizează» re-reads', async ({ page }) => {
+test('competition-page.cantar-detaliu.c1 c5 competition-page.cantar-detaliu.s2 competition-page.b.notif-weighing — a link opens the detail; in progress: «Se actualizează în m:ss» counts down, no manual «Actualizează» (removed by the owner 2026-10-11)', async ({ page }) => {
   await open(page, `/concursuri/${ID.openWeighing}/cantare?cantar=${ID.openWeighingId}&stand=${ID.openStand}`, PHONE);
   // Phone: the bottom sheet (a modal dialog).
   const sheet = page.getByRole('dialog', { name: 'Detaliu cântar' });
@@ -658,10 +658,7 @@ test('competition-page.cantar-detaliu.c1 c5 competition-page.cantar-detaliu.s2 c
   await expect(countdown).toBeVisible();
   const first = await countdown.textContent();
   await expect(countdown).not.toHaveText(first!, { timeout: 3000 });
-  const reread = page.waitForRequest(r => r.url().includes(`/feed/weighings/${ID.openWeighingId}`));
-  await sheet.getByRole('button', { name: 'Actualizează' }).click();
-  await reread;
-  await expect(countdown).toHaveText(/Se actualizează în (1:00|0:5\d)/);
+  await expect(sheet.getByRole('button', { name: 'Actualizează' })).toHaveCount(0);
   await settle(page);
   await expectNoA11yViolations(page);
 });

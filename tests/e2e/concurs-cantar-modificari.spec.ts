@@ -264,7 +264,7 @@ test('organizer.scale-revisions.c2–c4 — two rounds: one card each, «Adăuga
   expect(errors).toEqual([]);
 });
 
-test('organizer.scale-revisions.c5 — no log: «Nu există modificări pentru acest cântar.»; refresh refetches', async ({ page }) => {
+test('organizer.scale-revisions.c5 — no log: «Nu există modificări pentru acest cântar.»; a re-read shows a new round', async ({ page }) => {
   await page.setViewportSize(PHONE);
   let data: unknown[] = [];
   const { watch, errors } = await open(page, (p) =>
@@ -280,11 +280,12 @@ test('organizer.scale-revisions.c5 — no log: «Nu există modificări pentru a
   await page.setViewportSize(PHONE);
   await shoot(page, 'empty');
   await expectNoA11yViolations(page);
-  // fish pull-to-refresh: the header's refresh refetches the log, and a new round shows up.
+  // No manual refresh control (removed by the owner 2026-10-11): a re-read (here a reload) shows a new round.
+  await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
   data = TWO_ROUNDS.slice(0, 2);
   const before = logReads(watch);
-  await page.getByRole('button', { name: 'Reîmprospătează' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Datele au fost actualizate.' })).toBeAttached();
+  await page.reload();
+  await loaded(page);
   expect(logReads(watch)).toBeGreaterThan(before);
   await expect(page.getByTestId('revision-card')).toHaveCount(1);
   await expect(page.getByTestId('revisions-empty')).toHaveCount(0);

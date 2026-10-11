@@ -11,7 +11,6 @@ import {
   matchesFilter,
   paramOfFilter,
   phoneHref,
-  refreshKeys,
   registrationName,
   rowActions,
   sortRegistrations,
@@ -123,19 +122,6 @@ describe('statusText / toDetailRegistration', () => {
     const d = toDetailRegistration(reg('a', 'pending', '3', { participants: [user('u', null)] }));
     expect(d.participants[0]).toEqual({ id: 1, documentId: 'u', username: 'Cont șters', avatar: null });
     expect(d.guestName).toBeNull();
-  });
-});
-
-describe('refreshKeys (fish onRefresh + refreshActionSheetQueries)', () => {
-  it('the list, the competition, the statute, the allocations', () => {
-    expect(refreshKeys('c1')).toEqual([
-      ['competitions', 'c1', 'registrations'],
-      ['competitions', 'c1'],
-      expect.arrayContaining(['c1']),
-      expect.arrayContaining(['c1']),
-    ]);
-    expect(JSON.stringify(refreshKeys('c1')[2])).toMatch(/statute/i);
-    expect(JSON.stringify(refreshKeys('c1')[3])).toMatch(/allocat/i);
   });
 });
 

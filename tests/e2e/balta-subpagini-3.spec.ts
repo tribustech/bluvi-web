@@ -404,8 +404,8 @@ test('lakes.partide.c1 lakes.partide.c8 lakes.partide.c9 lakes.partide.s5 lakes.
   const cards = page.getByTestId('history-list').getByTestId('history-card');
   await expect(cards).toHaveCount(Math.min(10, bigHistoryTotal));
   await expect(cards.first().getByTestId('history-ribbon')).toHaveText('Încheiată');
-  // c10: the refresh control is never busy on its own (no spin / aria-busy from a background read).
-  await expect(page.getByTestId('partide-refresh')).not.toHaveAttribute('aria-busy', 'true');
+  // c10: no manual refresh control (removed by the owner 2026-10-11).
+  await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
   // c8 / c9: «Vezi rezumatul» and the card's one (stretched) link to /partide/[documentId].
   await expect(cards.first()).toContainText('Vezi rezumatul');
   await expect(cards.first().getByRole('link')).toHaveCount(1);
@@ -484,18 +484,9 @@ const liveSection = () => ({
   },
 });
 
-test('lakes.partide.c5 lakes.partide.c10 lakes.partide.s4 — live sessions lead with the lake page\'s live card; «Reîmprospătează» reloads live + history together', async ({ page }) => {
+test('lakes.partide.c5 lakes.partide.c10 lakes.partide.s4 — live sessions lead with the lake page\'s live card', async ({ page }) => {
   await faults(page, ID.big, ['partide']);
-  let liveReads = 0;
-  let historyReads = 0;
-  await page.route(cms(`/feed/community/lakes/${ID.big}`), route => {
-    liveReads += 1;
-    return json(route, liveSection());
-  });
-  await page.route(url => url.pathname.endsWith('/feed/community/history'), route => {
-    historyReads += 1;
-    return route.continue();
-  });
+  await page.route(cms(`/feed/community/lakes/${ID.big}`), route => json(route, liveSection()));
   await go(page, `/balti/${ID.big}/partide`);
   const live = page.getByTestId('live-block');
   await expect(live).toContainText('1 ACTIV ACUM');
@@ -507,16 +498,6 @@ test('lakes.partide.c5 lakes.partide.c10 lakes.partide.s4 — live sessions lead
     return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
   });
   expect(order).toBeTruthy();
-  const [l0, h0] = [liveReads, historyReads];
-  // Below 768 the tool is the icon square (the title keeps the row); its name is still the label.
-  const refresh = page.getByTestId('partide-refresh');
-  await expect(refresh).toHaveAccessibleName('Reîmprospătează');
-  expect((await refresh.boundingBox())!.width).toBeLessThanOrEqual(48);
-  await refresh.click();
-  await expect.poll(() => liveReads).toBeGreaterThan(l0);
-  await expect.poll(() => historyReads).toBeGreaterThan(h0);
-  await expect(refresh).not.toHaveAttribute('aria-busy', 'true');
-  await expect(refresh).toBeFocused();
   await expectNoA11yViolations(page);
 });
 

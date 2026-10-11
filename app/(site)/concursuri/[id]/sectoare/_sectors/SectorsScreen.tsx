@@ -109,7 +109,6 @@ export function SectorsScreen({ competitionId, viewer }: { competitionId: string
         titleId={SECTORS_TITLE_ID}
         requires="author"
         back={{ href: back, label: 'Înapoi la concurs' }}
-        onRefresh={() => undefined}
         skeleton={<SectorsBodySkeleton />}
         asideSkeleton={<FlowAsideSkeleton />}
         hint={({ competition: c }) => (c?.lake ? <span>{c.lake.name}</span> : null)}

@@ -54,7 +54,6 @@ export function ScaleScreen({ competitionId, viewer }: { competitionId: string; 
       requires="signedIn"
       back={{ href: routes.competition(competitionId), label: 'Înapoi la concurs' }}
       reads={[allocations]}
-      onRefresh={() => allocations.refetch()}
       skeleton={<ScaleBodySkeleton />}
       asideSkeleton={<ScaleAsideSkeleton />}
       hint={({ competition, role }) => (competition ? scaleHint(competition, role) : null)}

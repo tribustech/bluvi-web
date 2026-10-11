@@ -1,18 +1,16 @@
 'use client';
 
-import { ArrowPathIcon as ArrowPathMini } from '@heroicons/react/20/solid';
-import { ArrowPathIcon, Cog6ToothIcon, PhotoIcon, TrophyIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import { Cog6ToothIcon, PhotoIcon, TrophyIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import { useInfiniteQuery, useQuery, type InfiniteData, type UseInfiniteQueryResult } from '@tanstack/react-query';
 import Link from 'next/link';
 import { notFound, usePathname } from 'next/navigation';
-import { useCallback, useMemo, useState, useTransition, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { SetBreadcrumb } from '@/app/(site)/_shell/SiteHeader';
 import { useViewerState } from '@/app/(site)/_shell/viewer-context';
 import { isUnknownViewer, userOf } from '@/app/(site)/_shell/viewer-state';
 import { FollowButton } from '@/components/cards/FollowButton';
 import { ListError, ListFooter, ListTabs } from '@/components/templates/T1';
 import { DetailBackButton, headerChipClass } from '@/components/templates/T3';
-import { DashboardRefresh } from '@/components/templates/T5';
 import { FishOutlineIcon } from '@/components/nav/brand';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
@@ -140,12 +138,6 @@ export function AnglerProfileView({
     }
   };
 
-  // c33: refreshing refetches the header and the selected tab together.
-  const refresh = async () => {
-    const results = await Promise.all([signedIn ? profileQ.refetch() : null, activeQ.refetch()]);
-    return !results.some(r => r?.isError);
-  };
-
   const asideRef = useAsideHeight();
   /** A guest who cannot know whether the angler exists (no public header): empty tabs ask to sign in. */
   const anonGuest = guest && !publicProfile;
@@ -170,22 +162,18 @@ export function AnglerProfileView({
       {!profile ? <h1 className="sr-only">{mode === 'own' ? 'Profilul meu' : 'Profil de pescar'}</h1> : null}
       {/* The frame's classes live in ./frame, shared with the route fallbacks (c3: nothing moves when the page lands). */}
       <div className={PROFILE_GRID}>
-        {/* Phone / tablet, another angler: fish's header row (back · refresh) on the white band.
-            Own mode (fish floats one bare cog over the content; refresh is pull-to-refresh): no row —
-            two ghost icons in the header band's top-right corner, over the avatar's top padding, the
-            cog first in weight and a smaller muted refresh beside it (OwnProfileFallback mirrors it).
-            From 1280 neither (rule 1: the breadcrumb is the way back); refresh and settings move into
-            the tab bar's end. */}
+        {/* Phone / tablet, another angler: fish's header row (back) on the white band. Own mode (fish
+            floats one bare cog over the content): no row — the ghost cog in the header band's
+            top-right corner, over the avatar's top padding (OwnProfileFallback mirrors it). From 1280
+            neither (rule 1: the breadcrumb is the way back); settings moves into the tab bar's end.
+            No refresh control (removed by the owner 2026-10-11). */}
         {mode === 'own' ? (
           <div className={OWN_ACTIONS} data-testid="profile-header-row">
-            <RefreshChip onRefresh={refresh} look="ghost" />
             {ON_WEB.settings ? <SettingsChip look="ghost" /> : null}
           </div>
         ) : (
           <div className={cn(HEADER_ROW, HEADER_ROW_BAND)} data-testid="profile-header-row">
             <DetailBackButton fallbackHref={routes.home()} />
-            <span className="flex-1" />
-            <DashboardRefresh onRefresh={refresh} />
           </div>
         )}
 
@@ -212,10 +200,11 @@ export function AnglerProfileView({
               className={TAB_ROW}
             />
             <span className="flex-1 max-xl:hidden" />
-            <div className={TAB_BAR_END}>
-              <RefreshChip onRefresh={refresh} />
-              {mode === 'own' && ON_WEB.settings ? <SettingsChip look="compact" /> : null}
-            </div>
+            {mode === 'own' && ON_WEB.settings ? (
+              <div className={TAB_BAR_END}>
+                <SettingsChip look="compact" />
+              </div>
+            ) : null}
           </div>
           <div
             id={PANEL_ID}
@@ -286,52 +275,6 @@ function SettingsChip({ look }: { look: 'ghost' | 'compact' }) {
     >
       <Cog6ToothIcon aria-hidden />
     </Link>
-  );
-}
-
-/**
- * ≥1280: refresh as a compact icon chip at the tab bar's end (a tooltip names it), not a lone text
- * button across the page — fish's pull-to-refresh has no desktop gesture, so it stays reachable.
- * `ghost` (own mode below 1280): a smaller muted 20px glyph in a 44px hit area, secondary to the cog.
- * Same contract as T5 DashboardRefresh (`false` = failed, announced politely; focusable while busy).
- */
-function RefreshChip({ onRefresh, look = 'chip' }: { onRefresh: () => Promise<boolean>; look?: 'chip' | 'ghost' }) {
-  const [, start] = useTransition();
-  const [outcome, setOutcome] = useState<'idle' | 'pending' | 'done' | 'failed'>('idle');
-  const pending = outcome === 'pending';
-  const run = () => {
-    if (pending) return;
-    setOutcome('pending');
-    start(async () => {
-      try {
-        setOutcome((await onRefresh()) ? 'done' : 'failed');
-      } catch {
-        setOutcome('failed');
-      }
-    });
-  };
-  return (
-    <>
-      <button
-        type="button"
-        aria-label="Reîmprospătează"
-        title="Reîmprospătează"
-        onClick={run}
-        aria-disabled={pending || undefined}
-        aria-busy={pending || undefined}
-        className={look === 'ghost' ? cn(GHOST_ICON, 'text-muted hover:text-ink [&>svg]:size-5') : headerChipClass({ size: 'size-10' })}
-        data-testid={look === 'ghost' ? 'profile-refresh-ghost' : 'profile-refresh-chip'}
-      >
-        {look === 'ghost' ? (
-          <ArrowPathMini aria-hidden className={cn(pending && 'animate-spin motion-reduce:animate-none')} />
-        ) : (
-          <ArrowPathIcon aria-hidden className={cn(pending && 'animate-spin motion-reduce:animate-none')} />
-        )}
-      </button>
-      <span role="status" className="sr-only">
-        {outcome === 'pending' ? 'Se actualizează…' : outcome === 'done' ? 'Actualizat' : outcome === 'failed' ? 'Nu s-a putut actualiza' : ''}
-      </span>
-    </>
   );
 }
 

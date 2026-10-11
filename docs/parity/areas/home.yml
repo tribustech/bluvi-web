@@ -150,10 +150,10 @@ screens:
         status: passing
         note: "web: describeError copy + «Încearcă din nou» / «Deconectează-te» (POST /api/auth/logout) in HomeErrorGate. Verified in code."
       - id: home.acasa.c9
-        text: "Pull to refresh (web: a refresh action) invalidates profile, competitions, both competition rails, lakes, notifications, news, bookings, operator stats and the raffle — but NOT the suggested-anglers rail."
+        text: "Pull to refresh (web: no manual control since 2026-10-11 — focus refetch) invalidates profile, competitions, both competition rails, lakes, notifications, news, bookings, operator stats and the raffle — but NOT the suggested-anglers rail."
         fish_ref: app/(app)/(tabs)/index.tsx:247-268
         status: passing
-        note: "e2e tests/e2e/acasa.spec.ts"
+        note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); HomeFocusRefresh (home.b.focus-refresh) runs the same refetch when the tab comes back after 30 s, and HomeRetry («Încearcă din nou») only when the session read failed. e2e tests/e2e/acasa.spec.ts «home.acasa.c9 — no manual refresh control»."
       - id: home.acasa.c10
         text: "Organizer banner is shown only when signed in and the profile role is Organizer and the dashboard stats loaded; it reads „Panou organizator” / „Deschide” and three stats: Viitoare (byStatus.notStarted, 0 when absent), În așteptare (pendingRegistrations), Locuri libere (emptySpots). Pressing it opens the organizer panel."
         fish_ref: components/OrganizerBanner.tsx:61-120
@@ -398,7 +398,7 @@ screens:
         text: "Section order: profile card, organizer banner, operator card, Instrumente, partidă hero, competition rail, poll, raffle, suggested anglers, Bălți, lake-request banner, Sponsori, Noutăți, feedback, Contact (guest), confidentiality (guest)."
         fish_ref: app/(app)/(tabs)/index.tsx:343-650
         status: passing
-        note: "e2e tests/e2e/acasa.spec.ts"
+        note: "e2e tests/e2e/acasa.spec.ts (phone order). From 1024 the partidă hero leaves the top and shares a row with the lake-request banner (owner 2026-10-11, page.tsx BannerPair)."
     mobile_only: false
     # proposed: built on T5 (2026-10-05), every criterion has a check (status per criterion);
     # c18, c34, c53 still fail — see their notes.

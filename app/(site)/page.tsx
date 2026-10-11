@@ -81,6 +81,7 @@ export const metadata: Metadata = {
  * page for the other breakpoint — the rails, their headings and images exist once):
  * - the main column, in fish's order at every width (inventory home.acasa.c58): the partidă hero,
  *   competitions, poll (below 1280), suggested anglers, lakes, the lake request, sponsors, news,
+ *   (from 1024 the partidă hero leaves the top and sits beside the lake request — BannerPair),
  *   feedback (beside the web-only app promo from 1280, the page's last block);
  * - from 1280 the sticky right column «Ce mă așteaptă» (my partidă or live competition, organiser
  *   panel, my lake, tools — fish's blocks above the hero, which below 1280 open the main column
@@ -193,6 +194,35 @@ export default function Home() {
 /** Below 1280 only: a block the right column carries from 1280 (`display: contents`, so it keeps the column's gap). */
 const BELOW_XL = 'contents xl:hidden';
 
+/** Below 1024 only: the two banners in their fish places (BannerPair carries them from 1024). */
+const BELOW_LG = 'contents lg:hidden';
+
+/**
+ * From 1024 (owner 2026-10-11: the lake request alone «prea lat, se vede urat»), the two coloured
+ * banners side by side after Bălți, one row of two equal cards stretched to one height — each its
+ * own size container, so it lays out by its half (copy over the action, the action on the shared
+ * bottom edge), never by the main column's width. The lake request first: «Nu găsești balta
+ * preferată?» reads on from the Bălți grid right above it; the partidă hero beside it. A live
+ * partidă (or an unconfirmed probe) renders no hero: its cell is :empty and hidden, and the lake
+ * request takes the row alone (auto columns). Below 1024 neither exists (BELOW_LG keeps fish's places).
+ */
+function BannerPair() {
+  return (
+    <div className="hidden lg:grid lg:auto-cols-fr lg:grid-flow-col lg:gap-5 xl:gap-6">
+      <div className={PAIR_CELL}>
+        <LakeRequestBanner layout="desktop" className="flex-1" />
+      </div>
+      <div className={cn(PAIR_CELL, 'empty:hidden')}>
+        <Suspense fallback={<PartidaCtaSkeleton layout="desktop" className="flex-1" />}>
+          <PartidaCtaSlot layout="desktop" className="flex-1" />
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
+const PAIR_CELL = '@container flex min-w-0';
+
 /**
  * The main column, in fish's order (inventory home.acasa.c58), rendered after the session: every
  * per-user block is decided in this one reveal; those without a boundary of their own hold it.
@@ -215,9 +245,12 @@ function MainColumn() {
         <OperatorSlot layout="mobile" />
         <Widgets layout="mobile" bookingsBadge={bookingsBadge} />
       </div>
-      <Suspense fallback={<PartidaCtaSkeleton layout="mobile" />}>
-        <PartidaCtaSlot layout="mobile" />
-      </Suspense>
+      {/* Below 1024 the partidă hero keeps fish's place; from 1024 it is in the pair after Bălți. */}
+      <div className={BELOW_LG}>
+        <Suspense fallback={<PartidaCtaSkeleton layout="mobile" />}>
+          <PartidaCtaSlot layout="mobile" />
+        </Suspense>
+      </div>
       <Suspense fallback={<CompetitionsPrerendered />}>
         <HydrateRail rail="competitions">
           <CompetitionsSection />
@@ -234,7 +267,10 @@ function MainColumn() {
           <LakesLive />
         </HydrateRail>
       </Suspense>
-      <LakeRequestBanner />
+      <div className={BELOW_LG}>
+        <LakeRequestBanner />
+      </div>
+      <BannerPair />
       <Suspense fallback={<SponsorsPrerendered />}>
         <HydrateRail rail="sponsors">
           <SponsorsSection />
@@ -338,7 +374,7 @@ function MainColumnSkeleton() {
         </SkeletonSection>
       </div>
       {/* The partidă hero: stacked copy and actions in a narrow column, one row from 672px of it. */}
-      <span aria-hidden className="h-50 rounded-bento bg-soft-fill @2xl:h-28" />
+      <span aria-hidden className="h-50 rounded-bento bg-soft-fill @2xl:h-28 lg:hidden" />
       <SkeletonSection>
         <RailSkeleton label="Se încarcă concursurile" width={224} heightClass={COMPETITION_CARD_HEIGHT} />
       </SkeletonSection>
@@ -348,7 +384,12 @@ function MainColumnSkeleton() {
         </div>
         <HomeGridSkeleton kind="lakes" heightClass={LAKE_CARD_HEIGHT} className="max-xl:hidden" />
       </SkeletonSection>
-      <span aria-hidden className="h-64 rounded-bento bg-soft-fill @2xl:h-40" />
+      <span aria-hidden className="h-64 rounded-bento bg-soft-fill @2xl:h-40 lg:hidden" />
+      {/* From 1024 the two banners as one row (BannerPair), at its height. */}
+      <span aria-hidden className="hidden h-52.5 grid-cols-2 gap-5 lg:grid xl:h-53.5 xl:gap-6">
+        <span className="rounded-bento bg-soft-fill" />
+        <span className="rounded-bento bg-soft-fill" />
+      </span>
       <Suspense fallback={null}>
         <IfSponsors>
           <SkeletonSection>

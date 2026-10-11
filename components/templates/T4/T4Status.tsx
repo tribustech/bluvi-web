@@ -11,7 +11,7 @@ import type { T4SaveState } from './types';
 import { RING_DANGER } from '../rings';
 
 /**
- * Busy glyph: the shell's spinning ArrowPathIcon (TopBar, MobileMenu, T5 DashboardRefresh), in the
+ * Busy glyph: the shell's spinning ArrowPathIcon (TopBar, MobileMenu), in the
  * current colour — one busy look across the product. Only where a 20px icon slot exists (a kit
  * Button's icon slot): Fundații §05 has no 16px glyph, so caption lines say «…» in words instead.
  * Reduced motion stops the spin (globals.css).

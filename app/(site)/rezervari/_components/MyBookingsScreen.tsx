@@ -1,12 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { BookingRow } from '@/components/booking';
 import { useNowTick } from '@/components/account/angler/SessionHistoryCard';
-import { AsideSkeleton, ListError, ListFooter, pageToolClass, useListUrlState } from '@/components/templates/T1';
-import { cn } from '@/components/ui/cn';
+import { AsideSkeleton, ListError, ListFooter, useListUrlState } from '@/components/templates/T1';
 import {
   lakesToReviewQuery,
   MY_BUCKET_LABELS,
@@ -20,7 +18,6 @@ import { markBookingsVisited } from '@/lib/bookings-nou';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { bookingHref } from '@/lib/routes';
 import { useBackOrHome } from '../../notificari/_components/back';
-import { useSiteToast } from '../../_shell/Toast';
 import { BookingsChrome } from './BookingsChrome';
 import { EmptyHero, FindLakeCard, HeroFeatures } from './EmptyHero';
 import { BookingCardsSkeleton, GRID, MyBookingsFrame, PANEL_ID } from './frame';
@@ -45,7 +42,7 @@ import { parseSub, parseTab, urlValues } from './url';
  *    one-line copy per bucket/sub elsewhere, and nothing while this key has no settled answer yet (a
  *    background refetch keeps the empty state on screen).
  *  - c11 the review prompt: above the list on the phone, the right column from 1280.
- *  - c12 «Reîmprospătează» (fish pull-to-refresh) refetches the list AND the review prompt.
+ *  - c12 no manual refresh control (removed by the owner 2026-10-11).
  *  - c13–c19 the card (components/booking/BookingRow). c20: it opens the booking through
  *    bookingHref, which stays null (a plain card) until /rezervari/[id] ships.
  *  - c21 the visit retires the home's «NOU» pill (lib/bookings-nou).
@@ -54,7 +51,6 @@ import { parseSub, parseTab, urlValues } from './url';
  */
 export function MyBookingsScreen({ initialTab, initialSub }: { initialTab?: string; initialSub?: string }) {
   const t = useMemo(() => createBrowserTransport(), []);
-  const toast = useSiteToast();
   const back = useBackOrHome();
   const now = useNowTick();
 
@@ -77,16 +73,6 @@ export function MyBookingsScreen({ initialTab, initialSub }: { initialTab?: stri
   // Read off the FIRST page, never the last: the badge would otherwise change as the angler scrolls.
   const pendingCount = list.data?.pages[0]?.pendingCount ?? 0;
 
-  const [refreshing, setRefreshing] = useState(false);
-  const refresh = useCallback(async () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    // The prompt rides on its own query: refetching only the list would leave a stale prompt.
-    const [l] = await Promise.all([list.refetch(), toReview.refetch()]);
-    setRefreshing(false);
-    if (l.isError && l.data) toast('Nu am putut încărca rezervările.', 'danger');
-  }, [list, toReview, refreshing, toast]);
-
   const toTop = () => window.scrollTo({ top: 0 });
   const onBucket = (b: MyBucket) => {
     if (b === bucket) return;
@@ -101,7 +87,7 @@ export function MyBookingsScreen({ initialTab, initialSub }: { initialTab?: stri
   const loaded = list.data !== undefined;
   const failed = list.isError && !loaded;
   // c10 — an empty answer is shown as soon as THIS key has one; only a first fetch with nothing settled
-  // hides it. A background refetch (window focus after staleTime, «Reîmprospătează») keeps it on
+  // hides it. A background refetch (window focus after staleTime) keeps it on
   // screen: fish hides it during any fetch, but RN never refetches on focus, so there it never flashes.
   const settled = !(list.isFetching && !list.isFetched);
   const heroEmpty = loaded && rows.length === 0 && settled && bucket === 'all' && !sub;
@@ -174,17 +160,6 @@ export function MyBookingsScreen({ initialTab, initialSub }: { initialTab?: stri
   return (
     <MyBookingsFrame
       back={{ onClick: back, label: 'Înapoi' }}
-      actions={
-        <button
-          type="button"
-          onClick={() => void refresh()}
-          aria-busy={refreshing || undefined}
-          className={pageToolClass()}
-        >
-          <ArrowPathIcon aria-hidden className={cn(refreshing && 'animate-spin motion-reduce:animate-none')} />
-          <span className="sr-only md:not-sr-only">Reîmprospătează</span>
-        </button>
-      }
       chrome={<BookingsChrome bucket={bucket} sub={sub} pendingCount={pendingCount} onBucket={onBucket} onSub={onSub} />}
       aside={aside}
       asideBusy={asideBusy}

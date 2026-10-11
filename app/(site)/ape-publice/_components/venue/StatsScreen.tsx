@@ -109,7 +109,7 @@ export function StatsScreen({
 
   const header = (
     <div className={VENUE_HEADER_INSET}>
-      <VenueHeader title={title} description={CAPTION} backHref={backHref} onRefresh={async () => !(await q.refetch()).isError} />
+      <VenueHeader title={title} description={CAPTION} backHref={backHref} />
       <WaterTabs waterKey={waterKey} current="statistici" period={period} />
     </div>
   );
@@ -272,7 +272,7 @@ function StatsAside({ data, period, empty = null }: { data: CommunityStatsDTO; p
 
 /**
  * The page's frame while the water and its first period are read (fish StatisticiSkeleton, c4),
- * under the loaded page's header slots (back, caption, refresh), on the loaded page's tracks; every
+ * under the loaded page's header slots (back, caption), on the loaded page's tracks; every
  * bone shimmers. `title` omitted (the route fallback, the water not read yet): a title bone.
  */
 export function StatsFallback({ title, backHref }: { title?: string; backHref: string }) {

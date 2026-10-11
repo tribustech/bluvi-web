@@ -7,7 +7,6 @@ import { ContactCard } from '@/components/account/ContactSurface';
 import { ReputationBlock } from '@/components/account/angler/ReputationBlock';
 import { NavRow, SETTINGS_CARD, SettingsCard } from '@/components/account/settings';
 import { describeError, ListError } from '@/components/templates/T1';
-import { DashboardRefresh } from '@/components/templates/T5/DashboardRefresh';
 import { profileQuery, type Profile } from '@/core/social';
 import { isApiError } from '@/core/transport';
 import { useSignOut } from '@/lib/client/sign-out';
@@ -30,7 +29,7 @@ export const LOAD_ERROR_TITLE = 'Nu am putut încărca setările';
  * settings).
  * - c1: the full skeleton while it loads; a failed read → the error card with a retry and no back
  *   control (fish ErrorScreen goBack={false});
- * - c2: back + h1 «Setări»; c20: «Reîmprospătează» (fish pull-to-refresh) refetches the profile;
+ * - c2: back + h1 «Setări»; no refresh control (c20 removed by the owner 2026-10-11);
  * - c3 ProfileCardRow, c4 «Notificări», c5–c12 OrganizerRow, c13 «Rezervările mele» (shown once
  *   /rezervari is on the web, ON_WEB.myBookings, M3), c14 the own ReputationBlock, c15 InfoSection,
  *   c16 LegalCard, c17 ContactCard, c18/c19 LeaveActions.
@@ -70,16 +69,7 @@ export function SettingsScreen() {
   }
 
   return (
-    <SettingsFrame
-      actions={
-        <DashboardRefresh
-          onRefresh={async () => {
-            const r = await profile.refetch();
-            return !r.isError;
-          }}
-        />
-      }
-    >
+    <SettingsFrame>
       <SettingsColumns
         profile={<ProfileCardRow profile={data} />}
         actions={

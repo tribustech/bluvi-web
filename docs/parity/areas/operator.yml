@@ -152,10 +152,10 @@ screens:
         status: passing
         web_note: "e2e «c4: error with no data …» (500 → error state under the header, retry refetches), «c4 non-owner …» (403 → «Nu ai acces»), «c4: a failed refetch keeps the figures …» (toast «Nu s-a putut actualiza…», rows and tiles kept). A window that fails to load keeps the previous figures and says so in the trend card (unit model.test.ts panelView)."
       - id: operator.panou.c5
-        text: "Refresh (pull-to-refresh in fish; web: a refresh control) refetches the stats for the current window."
+        text: "Refresh (pull-to-refresh in fish; web: window focus — no manual control since 2026-10-11) refetches the stats for the current window."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:466-470,538
         status: passing
-        web_note: "e2e «c5 b.refresh …»: «Reîmprospătează» (DashboardRefresh, header) refetches window=week, then the chart's own window (month) once it is picked."
+        web_note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); refetchOnWindowFocus «always» re-reads the current window (and the chart's own window once picked). e2e operator-panou.spec.ts «c5 b.refresh …»."
       - id: operator.panou.c6
         text: "Quick actions row, three tiles in this order: „Calendar” (blue, calendar icon) → /operator/[lakeId]/calendar; „Rezervări” (indigo, ticket icon, red badge = pending count, „99+” above 99, no badge at 0) → /operator/[lakeId]/rezervari?status=pending when pending > 0, else /operator/[lakeId]/rezervari; „Blocaje” (red, no-symbol icon) → /operator/[lakeId]/blocaje."
         fish_ref: app/(app)/operator/[lakeId]/index.tsx:171-201; features/operator/OperatorQuickAction.tsx:72-89
@@ -347,7 +347,7 @@ screens:
         text: "Header: back, title „Administrare rezervări”, trailing round calendar button (accessible name „Calendarul bălții”) → /operator/[lakeId]/calendar."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:344-368
         status: passing
-        web_note: "«Administrare rezervări» over the lake's name, Back (panel fallback), «Reîmprospătează», round «Calendarul bălții» link → /calendar. e2e «c1 c2 c27 …»."
+        web_note: "«Administrare rezervări» over the lake's name, Back (panel fallback), round «Calendarul bălții» link → /calendar (no «Reîmprospătează»: removed by owner 2026-10-11). e2e «c1 c2 c27 …»."
       - id: operator.rezervari.c2
         text: "Tabs in order „De aprobat” (clock), „Confirmate” (calendar), „Nefinalizate” (x-circle), „Toate” (list), each with its icon."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:30-36,176-187; features/operator/bookingBuckets.ts:17-26
@@ -404,10 +404,10 @@ screens:
         status: passing
         web_note: "core emptyCopy per bucket/sub in ListEmpty. e2e «c12: the empty copy of every bucket / sub»."
       - id: operator.rezervari.c13
-        text: "Refresh (pull-to-refresh; web: refresh control) refetches the current list."
+        text: "Refresh (pull-to-refresh; web: window focus — no manual control since 2026-10-11) refetches the current list."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:148-154,317-324
         status: passing
-        web_note: "«Reîmprospătează» refetches; staleTime 0 → refetch on window focus (operator.b.refresh). e2e «c13 b.refresh …»."
+        web_note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); staleTime 0 → refetch on window focus (operator.b.refresh). e2e «c13 b.refresh …»."
       - id: operator.rezervari.c14
         text: "Confirmate · Azi only: rows grouped by stand (natural order); a stand with 2+ stays today becomes one turnover card — rows without their own card, in/out badge on the avatar, the moment label instead of the period, thread between rows. Other lists keep server start-time order."
         fish_ref: app/(app)/operator/[lakeId]/bookings.tsx:90-110,207-217; features/operator/OperatorBookingRow.tsx:127-147,183,279-324
@@ -787,10 +787,10 @@ screens:
         status: passing
         web_note: "e2e tests/e2e/operator-blocaje.spec.ts «c11 …» (empty copy; only finished blocks → empty + the past link, as fish)."
       - id: operator.blocaje.c12
-        text: "Refresh (pull-to-refresh; web: refresh control) refetches the blocks; a delete invalidates bookings (availability) and operator stats."
+        text: "Refresh (pull-to-refresh; web: window focus — no manual control since 2026-10-11) refetches the blocks; a delete invalidates bookings (availability) and operator stats."
         fish_ref: app/(app)/operator/[lakeId]/blocks.tsx:46-50,182; services/mutations/useDeleteBlock.ts:5-14
         status: passing
-        web_note: "e2e tests/e2e/operator-blocaje.spec.ts «c12 …» (refresh control + window focus refetch, no polling); unit _list/model.test.ts «c12» (delete invalidates ['bookings'] and ['operator-stats'])."
+        web_note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); e2e tests/e2e/operator-blocaje.spec.ts «c12 …» (window focus refetch, no polling, no refresh button); unit _list/model.test.ts «c12» (delete invalidates ['bookings'] and ['operator-stats'])."
     mobile_only: false
     status: passing
     e2e: tests/e2e/operator-blocaje.spec.ts
@@ -1287,9 +1287,9 @@ behaviours:
     fish_ref: services/mutations/invalidateOperatorSurfaces.ts:4-21; services/mutations/useCreateWalkInBooking.ts:10-16; services/mutations/useCreateAnglerReview.ts:9-20
     web_note: "M7-B1 (operator.actiuni-rezervare): accept, reject, operator cancel and no-show proven in e2e — the booking re-reads, operator-stats is re-requested, no-show re-requests reputation (tests/e2e/operator-actiuni-rezervare.spec.ts). Block create/delete, walk-in and the angler review are proven by their own screens' specs; status stays todo until they are."
   - id: operator.b.refresh
-    text: "No polling anywhere in the area (no refetchInterval): freshness comes from manual refresh, write invalidation and the calendar refetching availability whenever it regains focus. Web: offer an explicit refresh control and refetch on window focus."
+    text: "No polling anywhere in the area (no refetchInterval): freshness comes from manual refresh, write invalidation and the calendar refetching availability whenever it regains focus. Web: refetch on window focus (the explicit refresh controls were removed by owner 2026-10-11)."
     fish_ref: app/(app)/operator/[lakeId]/index.tsx:466-470; app/(app)/operator/[lakeId]/bookings.tsx:150-154; app/(app)/operator/[lakeId]/walk-in/index.tsx:23-32
-    web_note: "Panel (M7-B2, operator.panou): no refetchInterval; «Reîmprospătează» refetches the current window and the stats query refetches on every return to the foreground (refetchOnWindowFocus «always») — e2e tests/e2e/operator-panou.spec.ts «c5 b.refresh …» (no request in 3 s idle, refresh → week then month, visibilitychange → refetch). Status stays todo until the inbox and the calendar prove their part."
+    web_note: "Panel (M7-B2, operator.panou): no refetchInterval, no manual refresh control (removed by owner 2026-10-11); the stats query refetches on every return to the foreground (refetchOnWindowFocus «always») — e2e tests/e2e/operator-panou.spec.ts «c5 b.refresh …» (no request in 3 s idle, no «Reîmprospătează», visibilitychange → refetch of the chart's window). Status stays todo until the inbox and the calendar prove their part."
   - id: operator.b.single-lake
     text: "An operator with exactly one lake never sees the picker: /operator replaces itself with /operator/{lakeId}, and Acasă links straight to that lake."
     fish_ref: app/(app)/operator/index.tsx:20-26; components/OwnedLakesCard.tsx:77-79

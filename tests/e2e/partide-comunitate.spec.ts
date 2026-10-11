@@ -344,17 +344,12 @@ test('c22 c23 b.refetch-intervals — the overview polls every 60s without retry
   await expect(page.getByTestId('venue-card-solo')).toBeVisible();
 });
 
-test('c24 — «Reîmprospătează» refetches the own partide and every community query', async ({ page, context }) => {
+test('c24 — no manual refresh control (removed by the owner 2026-10-11)', async ({ page, context }) => {
   await signedIn(context, page);
-  const own = await mockActivePartida(page, null);
-  const { hits } = await open(page, { overview: OVERVIEW_EMPTY, history: [FINISHED_ROW] });
+  await mockActivePartida(page, null);
+  await open(page, { overview: OVERVIEW_EMPTY, history: [FINISHED_ROW] });
   await expect(page.getByRole('heading', { name: 'Ultimele partide' })).toBeVisible();
-  const before = { ...hits, mine: own.mine };
-  await page.getByRole('button', { name: 'Reîmprospătează' }).locator('visible=true').click();
-  await expect.poll(() => hits.overview).toBe(before.overview + 1);
-  await expect.poll(() => hits.history).toBe(before.history + 1);
-  await expect.poll(() => own.mine).toBeGreaterThan(before.mine);
-  await expect(page.getByRole('status').filter({ hasText: 'Actualizat' }).first()).toBeAttached();
+  await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
 });
 
 test('c5 c26 c27 c28 b.active-dock-global — a live partidă: no hero, no «Începe», the dock', async ({ page, context }) => {

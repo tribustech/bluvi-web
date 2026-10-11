@@ -8,8 +8,9 @@ import { appLinks } from '@/lib/app-links';
  * are 16), p-4 / 4.5 from 1280, a t-heading heading (the T5 card-section step: card-contained h2s
  * are t-heading, plain section titles t-title2 — the ground, indigo or photo, carries the emphasis),
  * t-body copy capped at a short reading measure (20rem, ~36 characters), and one action row pinned
- * to the bottom (`mt-auto`). The banner always spans Acasă's main column, and lays out by the room
- * that column has (it is a size container, T5 DashboardLayout): from 672px of column (@2xl — the
+ * to the bottom (`mt-auto`). Below 1024 the banner spans Acasă's main column (from 1024 the two
+ * banners share a row, each in its own size container — page.tsx BannerPair), and lays out by the
+ * room that column has (it is a size container, T5 DashboardLayout): from 672px of column (@2xl — the
  * 768 tablet's 704, 1280's 872, 1440's 712 and up) one row (BANNER_ROW): the copy (capped at
  * 30rem) and the actions right after it, 32 apart — never the action pinned to the far edge of a
  * 1016px column with a void between them; narrower (a phone) the copy over the actions. The

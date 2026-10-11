@@ -397,7 +397,7 @@ test.describe('signed in', () => {
   });
 
   for (const width of [375, 768]) {
-    test(`c2 phone/tablet (${width}): no toolbar row — the ghost refresh and cog float top right in the white band, the avatar right under the bar; the streamed fallback sits on the same lines`, async ({ page, request }) => {
+    test(`c2 phone/tablet (${width}): no toolbar row — the ghost cog floats top right (no refresh: owner 2026-10-11) in the white band, the avatar right under the bar; the streamed fallback sits on the same lines`, async ({ page, request }) => {
       // Landed view.
       await open(page, { width });
       await loaded(page);
@@ -405,21 +405,14 @@ test.describe('signed in', () => {
       expect(await row.evaluate(el => getComputedStyle(el).position), 'the actions float, no row of their own').toBe('absolute');
       const aside = (await page.getByRole('complementary', { name: 'Despre mine' }).boundingBox())!;
       const rowBox = (await row.boundingBox())!;
-      const refresh = (await row.getByRole('button', { name: 'Reîmprospătează' }).boundingBox())!;
+      await expect(page.getByRole('button', { name: 'Reîmprospătează' })).toHaveCount(0);
       const gear = (await row.getByRole('link', { name: 'Setări' }).boundingBox())!;
       // Top right inside the band: the cog last, its glyph on the gutter; ghost (no fill), 44px hit areas.
       expect(rowBox.y).toBeGreaterThanOrEqual(aside.y);
       expect(rowBox.y + rowBox.height).toBeLessThanOrEqual(aside.y + 56);
       expect(aside.x + aside.width - (gear.x + gear.width), 'cog at the right edge').toBeLessThanOrEqual(16);
-      expect(refresh.x + refresh.width).toBeLessThanOrEqual(gear.x + 1);
-      for (const b of [refresh, gear]) expect(Math.round(b.width)).toBe(44);
-      for (const name of ['Reîmprospătează', 'Setări']) {
-        const el = row.getByRole(name === 'Setări' ? 'link' : 'button', { name });
-        expect(await el.evaluate(e => getComputedStyle(e).backgroundColor), `${name}: ghost, no grey chip`).toBe('rgba(0, 0, 0, 0)');
-      }
-      // Refresh is secondary: a smaller glyph than the cog's.
-      const glyph = async (name: string, role: 'button' | 'link') => (await row.getByRole(role, { name }).locator('svg').boundingBox())!.width;
-      expect(await glyph('Reîmprospătează', 'button')).toBeLessThan(await glyph('Setări', 'link'));
+      expect(Math.round(gear.width)).toBe(44);
+      expect(await row.getByRole('link', { name: 'Setări' }).evaluate(e => getComputedStyle(e).backgroundColor), 'Setări: ghost, no grey chip').toBe('rgba(0, 0, 0, 0)');
       const avatarEl = page.getByTestId('profile-header').locator('div').first();
       const avatar = (await avatarEl.boundingBox())!;
       expect(avatar.y - aside.y, 'avatar under the bar, no empty toolbar above it').toBeLessThanOrEqual(20);

@@ -657,7 +657,7 @@ screens:
         text: "Refreshing refetches the profile header and the selected tab together."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:154-163,285-292"
         status: passing
-        web_note: "T5 DashboardRefresh refetches header + selected tab. e2e tests/e2e/pescar.spec.ts «c33»."
+        web_note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); the profile re-reads on navigation / reload. e2e tests/e2e/pescar.spec.ts asserts no «Reîmprospătează»."
       - id: account.angler-profile.c34
         text: "Items repeated across pages are shown once (first occurrence kept): catches by key, sessions by documentId, competitions by competition documentId."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:114-148; helpers/dedupeByKey.ts:1-15"
@@ -667,7 +667,7 @@ screens:
         text: "Another angler's profile has a back control at top left; with no history it goes to home."
         fish_ref: "components/profile/AnglerProfileScreen.tsx:324-326; components/BackButton.tsx:39-50"
         status: passing
-        web_note: "DetailBackButton (router.back, home when there is no history), the same chip as the refresh beside it below 1280 (soft fill on the white band). From 1280 there is no back/refresh row (rule 1): the breadcrumb is the way back and refresh is a compact icon chip at the end of the tab card. A guest's sign-in REPLACES the profile in history (useFollowAngler), so after signing in back leaves the profile in one press. e2e tests/e2e/pescar.spec.ts asserts the control and «c35: guest → sign in → back leaves the profile»; the no-history fallback is the shared T3 control. The breadcrumb is always set: «Acasă › Profil de pescar» while the header is pending or failed (and for a guest), then «Acasă › {nume}» — never the shell's URL-derived «Pescari» (no such page), so a failed header from 1280 still offers «Acasă»; e2e «c35 c6: the breadcrumb is «Acasă / Profil de pescar»…»."
+        web_note: "DetailBackButton (router.back, home when there is no history) on the white band below 1280, alone (no refresh chip: removed by owner 2026-10-11). From 1280 there is no back row (rule 1): the breadcrumb is the way back. A guest's sign-in REPLACES the profile in history (useFollowAngler), so after signing in back leaves the profile as fish does. e2e tests/e2e/pescar.spec.ts."
       - id: account.angler-profile.c36
         text: "The reputation panel (ReputationBlock) is titled „Reputație”, shows a spinner while loading, then the average with a star and „{n} evaluare/evaluări” or „Fără evaluări”, plus „{n} neprezentare/neprezentări” in red only when the no-show count is above zero, then the reviews; data from GET /feed/users/{id}/reputation."
         fish_ref: "features/reputation/ReputationBlock.tsx:22-78; services/api/reviews.ts:28-31"
@@ -954,7 +954,7 @@ screens:
         text: "Pull/refresh refetches; scrolling near the end loads the next page and the footer shows loading / end state."
         fish_ref: "app/(app)/notifications.tsx:90,98-102"
         status: passing
-        web_note: "Pull-to-refresh → the header's «Reîmprospătează» (refetches every loaded page). Infinite scroll: T1 ListFooter (IntersectionObserver 600px + a button for keyboards, «10 din 13 notificări», «Se încarcă…»); a failed next page keeps every loaded row and the header tools, and the footer says «Nu am putut încărca mai multe notificări.» with a retry; a failed «Reîmprospătează» keeps the rows and says so in a toast (the full error card is only for a first load with nothing on screen; fish shows its ErrorScreen in both cases). «Ai ajuns la finalul listei.» once more than one page was loaded (fish hides it). e2e tests/e2e/notificari.spec.ts «c11 next page», «c11 «Reîmprospătează»», «c11 a failed next page…», «c11 a failed «Reîmprospătează»…»."
+        web_note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); the list refetches on window focus (account.b.foreground-refresh). Infinite scroll: T1 ListFooter (IntersectionObserver 600px + a button for keyboards, «10 din 13 notificări», «Se încarcă…»); a failed next page keeps every loaded row and the footer says «Nu am putut încărca mai multe notificări.» with a retry. e2e tests/e2e/notificari.spec.ts «c11 …»."
       - id: account.notifications.c12
         text: "The query is skipped while signed out; on web the route redirects to /intra?next=/notificari."
         fish_ref: "services/queries/useNotificationsForLoggedUser.ts:7-13"
@@ -1276,7 +1276,7 @@ screens:
         text: "Pull/refresh refetches the profile."
         fish_ref: "app/(app)/settings.tsx:138-142,166"
         status: passing
-        note: "DashboardRefresh «Reîmprospătează» in the header refetches GET /user/profile («Actualizat» announced). e2e «c20»."
+        note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); the profile query refetches on window focus once stale. e2e setari.spec.ts «c20» asserts no «Reîmprospătează»."
     mobile_only: false
     e2e: tests/e2e/setari.spec.ts
     status: proposed

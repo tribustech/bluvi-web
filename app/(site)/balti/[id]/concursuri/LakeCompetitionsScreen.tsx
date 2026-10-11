@@ -4,7 +4,6 @@ import { useInfiniteQuery, type InfiniteData, type UseInfiniteQueryResult } from
 import { TrophyIcon } from '@heroicons/react/24/outline';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { describeError, ListEmpty, ListFooter, ListGrid, ListHeader, ListPage, ListRegion, ListTabs, LiveDot, TextAction, useListUrlState } from '@/components/templates/T1';
-import { DashboardRefresh, type RefreshResult } from '@/components/templates/T5';
 import { Button } from '@/components/ui/Button';
 import type { CompetitionCardsPage } from '@/core/competitions';
 import { formatCount } from '@/core/realtime/chat/format';
@@ -12,7 +11,6 @@ import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { logEvent } from '../../../concursuri/_list/analytics';
 import { CardSkeleton, cardItemClass, CompetitionCardItem } from '../../../concursuri/_list/CompetitionCardItem';
-import { RESULTS_REFRESH } from '../../../concursuri/_list/resultsChromeStyles';
 import { firstReadFailed, SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_sub/states';
 import { useBack } from '../_sub/useBack';
 import { lakeCompetitionCardsQuery, withoutLake } from './query';
@@ -38,10 +36,8 @@ import { LAKE_COMPETITION_TABS, LAKE_COMPETITIONS_CAPTION, NO_COMPETITIONS, tabO
  *    c5 a failed tab: its error card, title / message / «Încearcă din nou» per describeError (fish
  *    ErrorScreen describeErrorWithQuality); no «Deconectează-te» — the read is public, and a dead
  *    session's cookie is already dropped by the proxy, so the retry reads anonymously;
- *  - fish pull-to-refresh (CompetitionsFullList onRefresh → the tab's refetch) is the /concursuri
- *    stand-in, DashboardRefresh «Reîmprospătează» in the header's action slot: it re-reads the open
- *    tab only, the cards stay on screen (spinning glyph, the region busy); a failed re-read keeps
- *    them under «Nu am putut actualiza lista.» with its own retry.
+ *  - no manual refresh control (removed by the owner 2026-10-11); a failed background re-read keeps
+ *    the cards under «Nu am putut actualiza lista.» with its own retry.
  * The cards are the /concursuri list's (CompetitionCardItem, compact «Listă», aligned footers):
  * the same competition looks the same on both pages — the unit («20/20 echipe»), the pending
  * registrations, the faces, the followers pill (its list), the poster opening whole — minus the
@@ -86,13 +82,6 @@ export function LakeCompetitionsScreen({
   const fresh = q.data?.pages[0]?.meta.counts ?? null;
   if (fresh && (!counts || fresh.started !== counts.started || fresh.notStarted !== counts.notStarted || fresh.completed !== counts.completed)) setCounts(fresh);
 
-  // fish onRefresh: the active tab's refetch. A failed re-read over cards is said by the stale strip
-  // (or the tab's error card) — 'reported', so DashboardRefresh does not announce it twice.
-  const refresh = async (): Promise<RefreshResult> => {
-    const r = await q.refetch();
-    return r.isError ? 'reported' : true;
-  };
-
   const select = (next: LakeCompetitionTab) => {
     if (next !== tab) logEvent('competition_list_tab_pressed', { tab_id: TAB_EVENT_ID[next], screen_name: 'Competitions List', screen_class: 'Competitions List' });
     setTab(next);
@@ -119,12 +108,6 @@ export function LakeCompetitionsScreen({
           titleId={SUB_TITLE_ID}
           description={LAKE_COMPETITIONS_CAPTION}
           back={{ label: 'Înapoi', onClick: back }}
-          actions={
-            // Below 768 the refresh takes the back square's framing (page ground); from 768 the labelled tool.
-            <span className={RESULTS_REFRESH}>
-              <DashboardRefresh onRefresh={refresh} />
-            </span>
-          }
           below={
             <ListTabs
               label="Concursuri la baltă"
@@ -175,7 +158,7 @@ function TabList({
   // The empty tab points at the first other tab that has competitions (Viitoare, then Trecute, then Live).
   const next = counts ? (['viitoare', 'trecute', 'live'] as const).find(k => k !== tab && counts[COUNT_KEY[k]] > 0) : undefined;
 
-  // A failed re-read (refresh, or a refetch on focus) over cards: the cards stay, marked.
+  // A failed re-read (a refetch on focus) over cards: the cards stay, marked.
   const stale = q.isRefetchError && items.length > 0;
   const [retryingStale, setRetryingStale] = useState(false);
   const retryStale = () => {

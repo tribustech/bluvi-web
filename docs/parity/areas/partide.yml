@@ -192,10 +192,10 @@ screens:
         status: passing
         note: "e2e tests/e2e/partide-comunitate.spec.ts"
       - id: partide.comunitate.c24
-        text: "Pull-to-refresh (web: a refresh action) refetches the own-sessions list and invalidates every community query (queryKeys.community.all)."
+        text: "Pull-to-refresh (web: no manual control since 2026-10-11) refetches the own-sessions list and invalidates every community query (queryKeys.community.all)."
         fish_ref: "app/(app)/(tabs)/partide.tsx:113-120"
         status: passing
-        note: "e2e tests/e2e/partide-comunitate.spec.ts. Web: the T5 «Reîmprospătează» (fetches /feed/sessions/mine, refetches the live probe, invalidates communityKeys.all)."
+        note: "No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); the hub's HubRefresh is gone; the community queries refresh on their own intervals. e2e tests/e2e/partide-comunitate.spec.ts «c24 — no manual refresh control»."
       - id: partide.comunitate.c25
         text: "While loading, the scene shows the dashboard skeleton (AcasaSceneSkeleton) instead of zero-filled sections."
         fish_ref: "features/partide/scenes/AcasaScene.tsx:132-134"
@@ -428,7 +428,7 @@ screens:
         text: "During a background refetch a spinner row „Se actualizează…” sits above the content."
         fish_ref: "features/partide/scenes/AleMeleScene.tsx:202-209"
         status: passing
-        note: "e2e tests/e2e/partide-ale-mele.spec.ts (the hub's «Reîmprospătează» refetch)."
+        note: "e2e tests/e2e/partide-ale-mele.spec.ts. The hub's «Reîmprospătează» was removed by owner 2026-10-11; the «Se actualizează…» row shows for background refetches only."
       - id: partide.ale-mele.c5
         text: "A single flat stat card with four equal columns: „Partide”, „Capturi” (indigo), „Cantitate” and „Record” (kg via fmtKgStat, which trades decimals for magnitude); counts include the live partidă."
         fish_ref: "features/partide/scenes/AleMeleScene.tsx:211-233"
@@ -1483,7 +1483,7 @@ screens:
         text: "Filter state is shared in memory with the session (not persisted) and refresh refetches the own-sessions list."
         fish_ref: "features/partide/domain/viewAtoms.ts:10-14"
         status: passing
-        note: "e2e tests/e2e/partide-istoric.spec.ts. Filters live in the URL (replaceState: reload, back from a partidă and a shared link keep them; nothing else persists them). The header's «Reîmprospătează» refetches /feed/sessions/mine (fish pull-to-refresh)."
+        note: "e2e tests/e2e/partide-istoric.spec.ts. Filters live in the URL (replaceState: reload, back from a partidă and a shared link keep them; nothing else persists them). No manual refresh control on the web — removed by owner 2026-10-11 (ROADMAP §4b); the list re-reads on navigation / reload."
     mobile_only: false
     status: passing
     visual: "tests/visual/partide-istoric.visual.spec.ts — months, none-finished, error, many (window), weight, venues + captures, filtered-empty (mocked /api/cms reads, Firestore faked) at 375/768/1280/1440/1920; baselines not committed until the owner approves"

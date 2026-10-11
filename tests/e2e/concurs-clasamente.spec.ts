@@ -26,6 +26,8 @@ const ID = {
   quality: process.env.E2E_TABS_INDIVIDUALS ?? 'k5c9427518736c92684018b9',
   /** completed bestOfTiers (Best 3 / 5 / 7 / 9), one sector, four entrants without a catch. */
   bestOfTiers: process.env.E2E_COMPETITION_BEST_OF_TIERS ?? 'wyjmy091opw9wat92j7i9xc5',
+  /** completed quantity, one sector, no catch yet (no side column: the card takes the whole width). */
+  quantity: process.env.E2E_COMPETITION_QUANTITY_EMPTY ?? 'cij4qvadptzehubw4jwa2e8g',
 };
 
 const PHONE = { width: 375, height: 812 };
@@ -151,12 +153,10 @@ test('competition-page.clasament.c28 competition-page.clasament.s10 — feeder G
   // Ordered by generalPosition.
   const places = (await rows.locator('th').allInnerTexts()).map(t => Number(t.replace(/\D/g, '')));
   expect(places).toEqual([...places].sort((a, b) => a - b));
-  // Every place is the kit table's plain number (one idiom with the standard ranking); the podium
-  // (1–3 with fish) adds the trophy.
-  await expect(rows.nth(0).locator('th')).toContainText('podium');
-  await expect(rows.nth(2).locator('th')).toContainText('podium');
-  await expect(rows.nth(3).locator('th')).not.toContainText('podium');
-  await expect(rows.nth(3).locator('th .bg-accent-tint, th .bg-navy')).toHaveCount(0);
+  // fish's GeneralTable at every width (owner 2026-10-11): the podium (1–3) adds 🎖️ before the place.
+  await expect(rows.nth(0).locator('th [data-mark="podium"]')).toHaveText('🎖️');
+  await expect(rows.nth(2).locator('th [data-mark="podium"]')).toHaveCount(1);
+  await expect(rows.nth(3).locator('th [data-mark]')).toHaveCount(0);
   // The leg tabs are one segmented strip (ROADMAP §4b.20): their own track, sitting in the ranking
   // card's band (on its surface, not on the page grey); the selected leg is filled accent.
   const strip = legChips(page);
@@ -179,19 +179,8 @@ test('competition-page.clasament.c28 competition-page.clasament.s10 — feeder G
     }),
   );
   expect(await selectedTab.evaluate(el => getComputedStyle(el).color)).toBe('rgb(255, 255, 255)');
-  // Row 1: «Voicu Ionel si Ivan Gabriel», 3 points, 50,530 kg, C13 32,200 2 · A5 18,330 1 — each leg's
-  // stand with its sector (the dot, and «Sector C, stand 13» for a screen reader).
-  await expect(rows.nth(0).locator('td')).toHaveText([
-    'Voicu Ionel si Ivan Gabriel',
-    '3',
-    '50,530',
-    'Sector C, stand 13C13',
-    '32,200',
-    '2',
-    'Sector A, stand 5A5',
-    '18,330',
-    '1',
-  ]);
+  // Row 1: «Voicu Ionel si Ivan Gabriel», 3 points, 50,530 kg, C13 32,200 2 · A5 18,330 1 (fish's seat labels).
+  await expect(rows.nth(0).locator('td')).toHaveText(['Voicu Ionel si Ivan Gabriel', '3', '50,530', 'C13', '32,200', '2', 'A5', '18,330', '1']);
   // fish's colours (ROADMAP §4b.15): the Total group in TOTAL_COLOR, each leg its own colour —
   // white on the group header, the colour on its tinted sub-header and in its points.
   const bg = (l: Locator) => l.evaluate(el => getComputedStyle(el).backgroundColor);
@@ -199,17 +188,21 @@ test('competition-page.clasament.c28 competition-page.clasament.s10 — feeder G
   const groupHeads = table.locator('thead tr').first().locator('th');
   expect(await bg(groupHeads.nth(2))).toBe('rgb(57, 73, 171)');
   expect(await fg(groupHeads.nth(2))).toBe('rgb(255, 255, 255)');
-  expect(await bg(groupHeads.nth(3))).toBe('rgb(21, 101, 192)');
-  expect(await bg(groupHeads.nth(4))).toBe('rgb(0, 121, 107)');
+  // fish LEG_COLORS #1E88E5, #00897B.
+  expect(await bg(groupHeads.nth(3))).toBe('rgb(30, 136, 229)');
+  expect(await bg(groupHeads.nth(4))).toBe('rgb(0, 137, 123)');
   expect(await fg(rows.nth(3).locator('td').nth(1))).toBe('rgb(57, 73, 171)');
-  expect(await fg(rows.nth(3).locator('td').nth(5))).toBe('rgb(21, 101, 192)');
+  expect(await fg(rows.nth(3).locator('td').nth(5))).toBe('rgb(30, 136, 229)');
   // The plain heads (Loc, Echipă) are fish's grey head, the podium rows fish's blue, then zebra.
   expect(await bg(groupHeads.nth(0))).toBe('rgb(241, 243, 248)');
   expect(await bg(rows.nth(0))).toBe('rgb(238, 245, 255)');
   expect(await bg(rows.nth(3))).not.toBe(await bg(rows.nth(4)));
-  // Compact (§4b.16): the card is as wide as its table, the numbers stay beside the names.
+  // The card spans the content column (owner 2026-10-11, superseding §4b.16's compact card): the
+  // table fills it, the Echipă column takes the leftover, the numbers keep fixed tracks.
   const card = (await table.boundingBox())!;
-  expect(card.width).toBeLessThan(1000);
+  expect(card.width).toBeGreaterThan(1300);
+  const numbers = await table.locator('thead tr').nth(1).locator('th').evaluateAll(els => els.map(el => el.getBoundingClientRect().width));
+  for (const w of numbers) expect(w).toBeLessThanOrEqual(100);
   // Halves stay one decimal («6,5»).
   await expect(table.getByRole('cell', { name: '6,5', exact: true })).toBeVisible();
 });
@@ -221,56 +214,31 @@ test('competition-page.clasament.c29 competition-page.clasament.s10 — feeder l
   await pick(legChips(page), 'Manșa 1');
   const table = page.getByRole('region', { name: 'Clasament manșa 1' });
   await expect(table).toBeVisible();
-  // From 1280 one card per sector, side by side: the sector is the card's title (fish's solid
-  // sector band), then the full column heads — no second «Sector X» row inside the table.
-  expect(await headTexts(table.locator('table').first())).toEqual(['Stand', 'Echipă', 'Cantitate', 'Nr. buc', 'C.M.M.C', 'Puncte']);
-  await expect(table.locator('thead th').nth(2)).toHaveAccessibleName('Cantitate, kg');
-  await expect(table.locator('table')).toHaveCount(4);
-  await expect(table.getByRole('heading', { level: 3 })).toHaveText(['Sector A', 'Sector B', 'Sector C', 'Sector D']);
-  await expect(table.getByRole('rowheader').filter({ hasText: /^Sector [A-D]$/ })).toHaveCount(0);
+  // fish's LegTable at every width (owner 2026-10-11): one table, one solid band per sector.
+  expect((await headTexts(table)).map(t => t.trim())).toEqual(['Stand', 'Echipă', 'Kg', 'Buc', 'C.M.M.C', 'Puncte']);
+  await expect(table.locator('th[scope=rowgroup]')).toHaveText(['Sector A', 'Sector B', 'Sector C', 'Sector D']);
   // fish's colours (ROADMAP §4b.15): the plain grey head, the sector's solid band (sector A, white
   // on it), the sector winner on the sector's 16% tint.
   const headBg = await table.locator('thead th').first().evaluate(el => getComputedStyle(el).backgroundColor);
   expect(headBg).toBe('rgb(241, 243, 248)');
-  const band = table.getByRole('heading', { level: 3 }).first();
+  const band = table.locator('th[scope=rowgroup]').first();
   expect(await band.evaluate(el => [getComputedStyle(el).backgroundColor, getComputedStyle(el).color])).toEqual([
     'rgb(25, 118, 210)',
     'rgb(255, 255, 255)',
   ]);
   const a = table.locator('tbody').first();
-  const seats = await a.locator('tr th[scope="row"]').allInnerTexts();
+  const entries = a.locator('tr[data-registration]');
+  const seats = await entries.evaluateAll(trs => trs.map(tr => tr.querySelector('td')!.textContent!.trim()));
   expect(seats).toEqual(['A4', 'A1', 'A5', 'A2', 'A3']);
-  await expect(a.locator('tr').nth(0)).toContainText('Câștigător de sector');
-  await expect(a.locator('tr').nth(1)).not.toContainText('Câștigător de sector');
-  await expect(a.locator('tr').nth(0).locator('td').last()).toHaveText(/(^|\s)1$/);
-  const winnerBg = await a.locator('tr').nth(0).evaluate(el => getComputedStyle(el).backgroundColor);
+  await expect(entries.nth(0)).toHaveAttribute('data-sector-winner', 'true');
+  await expect(entries.nth(1)).not.toHaveAttribute('data-sector-winner', /.*/);
+  await expect(entries.nth(0).locator('td').last()).toHaveText('1');
+  const winnerBg = await entries.nth(0).evaluate(el => getComputedStyle(el).backgroundColor);
   expect(winnerBg).not.toBe('rgb(255, 255, 255)');
-  expect(winnerBg).not.toBe(await a.locator('tr').nth(2).evaluate(el => getComputedStyle(el).backgroundColor));
-  // The winner's trophy sits before the points, centred on them: its digits on the same line as
-  // every other row's, flush right with theirs, and the trophy's middle on the digits' middle.
-  const digitsMid = (cell: Locator) =>
-    cell.evaluate(el => {
-      // The last visible text node: the points' digits (the trophy's sr-only words skipped).
-      const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-      let text: Node | null = null;
-      for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.textContent?.trim() && !n.parentElement?.closest('.sr-only')) text = n;
-      if (!text) throw new Error('no digits');
-      const range = document.createRange();
-      range.selectNodeContents(text);
-      const r = range.getBoundingClientRect();
-      const row = el.getBoundingClientRect();
-      return { mid: r.top + r.height / 2 - row.top, right: row.right - r.right };
-    });
-  const winnerCell = a.locator('tr').nth(0).locator('td').last();
-  const winner = await digitsMid(winnerCell);
-  const plain = await digitsMid(a.locator('tr').nth(1).locator('td').last());
-  expect(Math.abs(winner.mid - plain.mid)).toBeLessThanOrEqual(1);
-  expect(Math.abs(winner.right - plain.right)).toBeLessThanOrEqual(1);
-  const trophy = (await winnerCell.locator('svg[data-mark]').boundingBox())!;
-  const cellBox = (await winnerCell.boundingBox())!;
-  expect(Math.abs(trophy.y + trophy.height / 2 - cellBox.y - winner.mid)).toBeLessThanOrEqual(1.5);
-  // Desktop density: the number cells have room (not the phone's 4px sides).
-  const kg = (await a.locator('tr').first().locator('td').nth(1).boundingBox())!;
+  expect(winnerBg).not.toBe(await entries.nth(2).evaluate(el => getComputedStyle(el).backgroundColor));
+  // Desktop density (FishFeederTable `wide`): 48px rows, the number cells have room.
+  expect(Math.round((await entries.nth(0).boundingBox())!.height)).toBe(48);
+  const kg = (await entries.nth(0).locator('td').nth(2).boundingBox())!;
   expect(kg.width).toBeGreaterThanOrEqual(64);
 });
 
@@ -544,25 +512,25 @@ test('competition-page.clasament.c3 competition-page.clasament-nc.c1 competition
   await expect(club.locator('th[scope="rowgroup"]')).toHaveText('Ardealul');
   await expect(club.locator('th[scope="rowgroup"]')).toHaveAttribute('rowspan', '3');
   await expect(club.locator('tr').first().locator('td').nth(0)).toHaveText('Cici');
-  await expect(club.locator('tr').first().locator('td').nth(1)).toHaveText('Sector A, stand 1A1');
+  await expect(club.locator('tr').first().locator('td').nth(1)).toHaveText('A1');
   await expect(club.locator('tr').first().locator('td').nth(2)).toHaveText('34,700');
   await expect(club.locator('tr').first().locator('td').nth(3)).toHaveText('165,300');
   // c5: clubPosition 1 ≤ 3 sectors → the club's trophy on its place; a team with generalPosition ≤ 3
   // the sector trophy on its individual place.
-  await expect(club.getByText(', câștigător', { exact: true })).toHaveCount(1);
-  await expect(club.getByText(', câștigător de sector', { exact: true })).toHaveCount(1);
-  await expect(table.locator('tbody').nth(3).getByText(/, câștigător/)).toHaveCount(0);
+  await expect(club.locator('[data-mark="prize"]')).toHaveCount(1);
+  await expect(club.locator('[data-mark="sector"]')).toHaveCount(1);
+  await expect(table.locator('tbody').nth(3).locator('[data-mark]')).toHaveCount(0);
   // fish's club colours (ROADMAP §4b.15): each club in its own colour (the palette A–F by row), a
-  // winning club at 90% under white/black, the others at 40% under black; the club cell opened by
-  // the colour's 4px edge.
+  // winning club at 90% under white, the others at 40% under black; the club cell opened by the
+  // colour's 4px edge.
   const look = (l: Locator) => l.evaluate(el => [getComputedStyle(el).backgroundColor, getComputedStyle(el).color]);
   const [winBg] = await look(club.locator('th[scope="rowgroup"]'));
   const [secondBg, secondInk] = await look(table.locator('tbody').nth(1).locator('th[scope="rowgroup"]'));
   const [plainBg, plainInk] = await look(table.locator('tbody').nth(3).locator('th[scope="rowgroup"]'));
   expect(new Set([winBg, secondBg, plainBg, 'rgb(255, 255, 255)']).size).toBe(4);
-  expect(secondInk).toBe('rgb(0, 0, 0)'); // sector B's orange at 90%: black (AA)
+  expect(secondInk).toBe('rgb(255, 255, 255)'); // fish: a winning club (place ≤ sectors) under white
   expect(plainInk).toBe('rgb(0, 0, 0)');
-  await expect(club.locator('th[scope="rowgroup"] .rank-sector-solid')).toHaveCount(1);
+  expect(await club.locator('th[scope="rowgroup"]').evaluate(el => getComputedStyle(el).borderLeftWidth)).toBe('4px');
   // The header row is fish's indigo band.
   expect(await table.locator('thead th').first().evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(224, 231, 255)');
   await axeAtRest(page);
@@ -591,14 +559,14 @@ test('competition-page.clasament-nc.c8 competition-page.clasament-nc.c9 competit
   expect(await headTexts(table)).toEqual(['Stand', 'Club', 'Pescari', 'Kg', 'Medie', 'CMMC', 'Nr. Buc', 'Puncte sector', 'Loc sector']);
   const rows = table.locator('tbody tr');
   // fish ScrollableTable: the Stand cell white, every other cell at sector A's 40%, black.
-  const stand = await rows.first().locator('th').evaluate(el => getComputedStyle(el).backgroundColor);
+  const stand = await rows.first().locator('td').first().evaluate(el => getComputedStyle(el).backgroundColor);
   const kgLook = await rows.first().locator('td').nth(2).evaluate(el => [getComputedStyle(el).backgroundColor, getComputedStyle(el).color]);
   expect(stand).toBe('rgb(255, 255, 255)');
   expect(kgLook[0]).not.toBe('rgb(255, 255, 255)');
   expect(kgLook[1]).toBe('rgb(0, 0, 0)');
   await expect(rows).toHaveCount(6);
   // Position: by generalPosition, capot last; Lala (A10, 1st in A) leads.
-  await expect(rows.first().locator('td').nth(1)).toHaveText('Lala');
+  await expect(rows.first().locator('th')).toHaveText('Lala');
   await expect(rows.first().locator('td').nth(2)).toHaveText('55,500');
   await expect(rows.first().locator('td').nth(3)).toHaveText('9,250');
   const order = visible(page.getByRole('group', { name: 'Ordine' }));
@@ -743,19 +711,25 @@ test('§4b.12 §4b.15 — the standard ranking on a 375 phone is fish’s Scroll
   await expect.poll(async () => Math.round((await row.locator('th[scope="row"]').boundingBox())!.x)).toBeLessThan(before);
 });
 
-test('§4b.16 — the standard table at 1440 is as wide as its columns: the band of controls never widens it, the name track fits the names', async ({
+test('the standard table at 1440 fills its card: the name column takes the leftover, the number columns stay fixed (80px)', async ({
   page,
 }) => {
-  for (const id of [ID.live, ID.bestOfTiers]) {
+  for (const id of [ID.live, ID.bestOfTiers, ID.quantity]) {
     await open(page, id);
     const region = visibleRegion(page, 'Clasament general');
     await expect(region.locator('tbody tr').first()).toBeVisible();
     const card = region.locator('xpath=..');
     const [regionBox, cardBox] = [(await region.boundingBox())!, (await card.boundingBox())!];
+    // The table fills the card; the card fills its column (or shares it with the side column).
     expect(Math.abs(cardBox.width - regionBox.width)).toBeLessThanOrEqual(1);
-    // The longest names here are ~150px: with the avatar and the padding, about 260px at most.
-    const name = (await region.locator('thead th').nth(1).boundingBox())!;
-    expect(name.width).toBeLessThanOrEqual(260);
+    const column = (await card.locator('xpath=..').boundingBox())!;
+    expect(Math.abs(column.width - cardBox.width)).toBeLessThanOrEqual(1);
+    const table = (await region.locator('table').boundingBox())!;
+    expect(Math.abs(table.width - regionBox.width)).toBeLessThanOrEqual(1);
+    const heads = await region.locator('thead th').evaluateAll(els => els.map(el => Math.round(el.getBoundingClientRect().width)));
+    // Every number column keeps its fixed track; the name column (second) is the widest.
+    for (const w of heads.slice(2)) expect(w).toBeLessThanOrEqual(96);
+    expect(heads[1]).toBe(Math.max(...heads));
   }
 });
 
@@ -814,7 +788,7 @@ test('§4b.20 — feeder leg from 1280: the leg tabs stay in a card heading the 
     await pick(legChips(page), 'Manșa 1');
     const grid = page.getByRole('region', { name: 'Clasament manșa 1' });
     await expect(grid.locator('table').first()).toBeVisible();
-    // The band is a card (its surface and shadow), the strip one segmented container on it.
+    // The band heads a card (its surface and shadow), the strip one segmented container on it.
     const band = legChips(page).locator('xpath=ancestor::div[contains(@class,"rounded-card")][1]');
     const look = await band.evaluate(el => [getComputedStyle(el).backgroundColor, getComputedStyle(el).boxShadow]);
     expect(look[0]).toBe('rgb(255, 255, 255)');
@@ -823,12 +797,10 @@ test('§4b.20 — feeder leg from 1280: the leg tabs stay in a card heading the 
     const tabs = legChips(page).locator('label');
     expect(await tabs.filter({ hasText: 'Manșa 1' }).evaluate(el => getComputedStyle(el).color)).toBe('rgb(255, 255, 255)');
     expect(await tabs.filter({ hasText: 'General' }).evaluate(el => getComputedStyle(el).color)).not.toBe('rgb(255, 255, 255)');
-    // The grid's header: aligned with the sector cards under it and as wide as the row they fill
-    // (never a stub card floating over a 1200px grid, §4b.16).
-    const cards = await grid.locator(':scope > section').evaluateAll(els => els.map(el => el.getBoundingClientRect()).map(r => ({ x: r.x, right: r.right, y: r.y })));
-    const firstRow = cards.filter(c => Math.abs(c.y - cards[0].y) < 1);
-    const card = (await band.boundingBox())!;
-    expect(Math.abs(card.x - firstRow[0].x)).toBeLessThanOrEqual(1);
-    expect(Math.abs(card.x + card.width - Math.max(...firstRow.map(c => c.right)))).toBeLessThanOrEqual(1);
+    // fish's LegTable sits in that card (owner 2026-10-11): the card exactly as wide as the table
+    // under its band (never a stub over a wider table, never stretched past it, §4b.16).
+    const [card, table] = [(await band.boundingBox())!, (await grid.boundingBox())!];
+    expect(Math.abs(card.x - table.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(card.width - table.width)).toBeLessThanOrEqual(1);
   }
 });

@@ -21,8 +21,8 @@ type CardParams = Omit<CompetitionCardsParams, 'page' | 'pageSize'>;
  * (lib/client/hydration `hydrationTime`, cacheLife 'max'), so with the factories' own staleTime
  * (minutes) the browser would find it stale at once and refetch every public rail on every visit —
  * requests that can only fail while the CMS is down. On Acasă the data is as fresh as the page:
- * a new server render (navigation, router.refresh) hydrates the newer copy, and «Reîmprospătează»
- * refetches explicitly (HomeRefresh). Other screens sharing a key keep their own staleTime.
+ * a new server render (navigation, router.refresh) hydrates the newer copy, and the focus refetch
+ * and the retries refetch explicitly (HomeRefresh useHomeRefetch). Other screens sharing a key keep their own staleTime.
  */
 const AS_FRESH_AS_THE_PAGE = { staleTime: Infinity } as const;
 

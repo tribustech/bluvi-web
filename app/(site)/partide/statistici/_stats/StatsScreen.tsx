@@ -74,7 +74,7 @@ export function StatsScreen({ initialPeriod }: { initialPeriod: StatsPeriod }) {
 
   return (
     <DashboardPage
-      header={<Header onRefresh={async () => !(await q.refetch()).isError} />}
+      header={<Header />}
       busy={switching}
       toolbar={
         <DashboardToolbar>
@@ -116,10 +116,10 @@ export function StatsScreen({ initialPeriod }: { initialPeriod: StatsPeriod }) {
   );
 }
 
-function Header({ onRefresh }: { onRefresh?: () => Promise<boolean> }) {
+function Header() {
   return (
     <div className={VENUE_HEADER_INSET}>
-      <VenueHeader title={TITLE} backHref={routes.partide()} onRefresh={onRefresh} />
+      <VenueHeader title={TITLE} backHref={routes.partide()} />
     </div>
   );
 }

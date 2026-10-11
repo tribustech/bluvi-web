@@ -41,7 +41,7 @@ export function T2MapPill({
 }
 
 /**
- * The busy glyph every template uses (T4Status, T5 DashboardRefresh, TopBar): the 24-outline
+ * The busy glyph every template uses (T4Status, TopBar): the 24-outline
  * ArrowPathIcon turning; still under prefers-reduced-motion (Fundații §06).
  */
 export function T2Spinner({ className }: { className: string }) {
