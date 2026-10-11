@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronLeftIcon, ChevronRightIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { useEffect, useId, useRef, useState, type KeyboardEventHandler, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEventHandler, type ReactNode } from 'react';
 // The overlay module, not the T2 barrel: the barrel drags T2Map (supercluster, maplibre CSS) along.
 import { T2Spinner } from '@/components/templates/T2/T2MapOverlay';
 import { Avatar } from '@/components/ui/Avatar';
@@ -16,8 +16,11 @@ import { useModalDialog } from './useModalDialog';
  * focus returns to the tile (native <dialog>). A catch carries fish's footer — the big kg, species
  * · date, the angler. Reaching the last loaded item asks for the next page (fish `onEndReached`);
  * while it loads «→» is busy, a failed page says so with a retry. The arrows stay in place at the
- * ends (aria-disabled), so keyboard focus never drops to the page behind. On touch a horizontal
- * swipe pages too (fish's paging FlatList — the primary gesture on a phone). A photo that fails to
+ * ends (aria-disabled), so keyboard focus never drops to the page behind. On touch the photos sit
+ * on a scroll-snap track (fish's paging FlatList — the primary gesture on a phone): the photo
+ * follows the finger and the neighbour slides in, the browser's own momentum and snap, one page per
+ * swipe (owner 2026-10-11: a swipe that only switched on release felt broken). Only the current
+ * photo and its neighbours are drawn; the other slides are empty boxes. A photo that fails to
  * load shows a muted photo glyph, never the browser's broken image. While the original downloads,
  * the tile's grid rendition (already in the browser's cache) stands in, blurred, with a spinner and
  * «Se încarcă fotografia…» announced — never a black stage that looks broken; the neighbours'
@@ -51,9 +54,6 @@ const ARROW =
   'absolute top-1/2 flex size-12 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-photo-scrim hover:bg-navy aria-disabled:cursor-default aria-disabled:text-faint aria-disabled:hover:bg-photo-scrim focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-photo-scrim';
 const ROUND =
   'flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-photo-scrim hover:bg-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-photo-scrim';
-
-/** A horizontal swipe longer than this pages (and wins over a vertical drift of the same size). */
-const SWIPE_PX = 50;
 
 const DATE = new Intl.DateTimeFormat('ro-RO', {
   day: 'numeric',
@@ -127,12 +127,48 @@ export function Lightbox({
     }
   }, [index, items]);
 
+  // The track follows `index`: instantly when the dialog opens, smoothly for an arrow or key. A
+  // swipe moves the track first and reports the page it settled on, so the effect finds it in place.
+  const track = useRef<HTMLDivElement>(null);
+  const smooth = useRef(false);
+  // The latest index, and the page an arrow / key scroll is heading to: while it travels, the
+  // pages it passes are not «settled» (only a swipe's resting page is reported).
+  const current = useRef(index);
+  const heading = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    current.current = index;
+    const el = track.current;
+    if (!el || index == null) return;
+    const left = index * el.clientWidth;
+    if (Math.abs(el.scrollLeft - left) > 1) {
+      heading.current = smooth.current ? index : null;
+      el.scrollTo({ left, behavior: smooth.current ? 'smooth' : 'instant' });
+    }
+    smooth.current = false;
+  }, [index, open]);
+
   const go = (d: number) => {
     if (index == null) return;
     const next = index + d;
-    if (next >= 0 && next < items.length) onIndex(next);
+    if (next < 0 || next >= items.length) return;
+    smooth.current = true;
+    onIndex(next);
   };
-  const swipe = useRef<{ x: number; y: number; id: number } | null>(null);
+
+  // The page the track rests on (scrollend; a short quiet period where it is not supported).
+  const settle = useRef<number | undefined>(undefined);
+  const onSettled = () => {
+    const el = track.current;
+    const now = current.current;
+    if (!el || now == null || !el.clientWidth) return;
+    const page = Math.round(el.scrollLeft / el.clientWidth);
+    if (heading.current != null) {
+      if (page === heading.current) heading.current = null;
+      return;
+    }
+    if (page !== now && page >= 0 && page < items.length) onIndex(page);
+  };
+  useEffect(() => () => window.clearTimeout(settle.current), []);
   const c = item?.catch;
   const secondary = c ? [c.species, catchDate(c.occurredAt)].filter(Boolean).join(' · ') : '';
 
@@ -158,28 +194,34 @@ export function Lightbox({
               <XMarkIcon aria-hidden className="size-6" />
             </button>
           </div>
-          <div
-            className="relative flex min-h-0 flex-1 touch-pan-y items-center px-2 md:px-6"
-            data-testid="lightbox-stage"
-            onClick={e => {
-              if (e.target === e.currentTarget) onIndex(null);
-            }}
-            onPointerDown={e => {
-              if (e.pointerType === 'mouse') return;
-              swipe.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
-            }}
-            onPointerUp={e => {
-              const s = swipe.current;
-              swipe.current = null;
-              if (!s || s.id !== e.pointerId) return;
-              const dx = e.clientX - s.x;
-              if (Math.abs(dx) >= SWIPE_PX && Math.abs(dx) > Math.abs(e.clientY - s.y)) go(dx < 0 ? 1 : -1);
-            }}
-            onPointerCancel={() => {
-              swipe.current = null;
-            }}
-          >
-            <LightboxPhoto key={item.key} src={item.src} preview={item.preview} alt={item.alt} />
+          <div className="relative flex min-h-0 flex-1" data-testid="lightbox-stage">
+            <div
+              ref={track}
+              data-testid="lightbox-track"
+              className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-hidden pointer-coarse:overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              // Touch scrolls it (the swipe); with a mouse or keyboard the arrows page it, so it is
+              // never a keyboard-unreachable scroller there.
+              onScroll={() => {
+                window.clearTimeout(settle.current);
+                settle.current = window.setTimeout(onSettled, 120);
+              }}
+              onClick={e => {
+                // A click on the dark ground (the slide around the photo) closes.
+                if ((e.target as HTMLElement).dataset.slide != null) onIndex(null);
+              }}
+            >
+              {items.map((it, i) => (
+                <div
+                  key={it.key}
+                  data-slide=""
+                  data-testid={i === index ? 'lightbox-current' : undefined}
+                  aria-hidden={i !== index || undefined}
+                  className="flex w-full shrink-0 snap-center snap-always items-center px-2 md:px-6"
+                >
+                  {index != null && Math.abs(i - index) <= 1 ? <LightboxPhoto src={it.src} preview={it.preview} alt={it.alt} /> : null}
+                </div>
+              ))}
+            </div>
             <button
               type="button"
               onClick={() => go(-1)}

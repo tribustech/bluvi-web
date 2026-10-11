@@ -181,6 +181,8 @@ export type Choice<V extends string> = {
  *  - `chips` (default): pills (fish OptionPill) — selected = accent tint + accent ink + accent ring.
  *    Wraps; `scroll` keeps one line that scrolls instead (fish: the period row, whose weekend pill
  *    carries its dates). For the Sheet / Dialog, where the width is the screen's.
+ *    `look="solid"`: fish's plain filter pill on the page ground (the lake gallery's Toate / Foto
+ *    baltă / Capturi comunitate) — white with a hairline, selected = solid accent with white text.
  *  - `list`: full-width rows (at least 40px, label left, check right, tint when selected) — for the
  *    narrow desktop filter column, where pills would wrap raggedly and leave orphans. A row grows
  *    for a `detail` line or a long label (two lines), never truncates.
@@ -192,6 +194,7 @@ export function ChoiceChips<V extends string>({
   onChange,
   scroll = false,
   layout = 'chips',
+  look = 'tint',
   label,
 }: {
   name: string;
@@ -200,6 +203,8 @@ export function ChoiceChips<V extends string>({
   onChange: (value: V) => void;
   scroll?: boolean;
   layout?: 'chips' | 'list';
+  /** Chips only: `tint` (fish OptionPill) or `solid` (fish's gallery filter pill, on the page ground). */
+  look?: 'tint' | 'solid';
   /** Only when the chips are not inside a FilterSection (which names them). */
   label?: string;
 }) {
@@ -227,10 +232,14 @@ export function ChoiceChips<V extends string>({
                 : cn(
                     PILL_H,
                     'shrink-0 rounded-full px-3.5 t-label whitespace-nowrap',
-                    'bg-soft-fill text-ink-2 hover:text-ink',
-                    // TODO(kit): a `--shadow-selected` token in globals.css (shared with every selected
-                    // pill), then `has-checked:shadow-selected` — globals.css is outside this task.
-                    'has-checked:bg-accent-tint has-checked:text-accent-ink', RING_SELECTED_CHECKED,
+                    look === 'solid'
+                      ? 'bg-surface text-ink-2 shadow-[inset_0_0_0_1px_var(--color-hairline)] hover:text-ink has-checked:bg-accent has-checked:text-on-accent has-checked:shadow-none'
+                      : cn(
+                          'bg-soft-fill text-ink-2 hover:text-ink',
+                          // TODO(kit): a `--shadow-selected` token in globals.css (shared with every selected
+                          // pill), then `has-checked:shadow-selected` — globals.css is outside this task.
+                          'has-checked:bg-accent-tint has-checked:text-accent-ink', RING_SELECTED_CHECKED,
+                        ),
                   ),
             )}
           >

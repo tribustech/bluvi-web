@@ -253,7 +253,7 @@ test('partide.spectator-galerie.c2 a photo opens the lightbox: big kg, «specie 
   await expect(footer.locator('.t-heading')).toHaveText('kg');
   await expect(footer).toContainText('Somn · 14:23');
   await expect(footer).toContainText('Ion Pescar, Dan și Mihai');
-  await expect(dialog.locator('img').first()).toHaveAttribute('src', /full-2\.png/);
+  await expect(dialog.getByTestId('lightbox-current').locator('img')).toHaveAttribute('src', /full-2\.png/);
   await page.keyboard.press('ArrowLeft');
   await expect(dialog).toContainText('Galerie · 1 din 32');
   await expect(footer).toContainText('Crap · 14:30');

@@ -87,7 +87,7 @@ async function trackCls(page: Page) {
 const readCls = (page: Page) => page.evaluate(() => (window as unknown as { __cls: number }).__cls);
 
 /** The lightbox's photo (the footer may carry the angler's avatar too). */
-const stageImg = (page: Page) => page.getByTestId('lightbox-stage').locator('img');
+const stageImg = (page: Page) => page.getByTestId('lightbox-current').locator('img');
 
 /** T1 ListFooter: «Încarcă mai multe» / «Se încarcă…» while a page is on its way. */
 const moreButton = (page: Page) => page.getByRole('button', { name: /^(Încarcă mai multe|Se încarcă…|Reîncearcă)$/ });
@@ -173,7 +173,7 @@ test('lakes.gallery.c1 lakes.gallery.c2 lakes.gallery.c3 lakes.gallery.c4 lakes.
   await expect(group.getByRole('radio', { name: 'Toate' })).toBeChecked();
   const tops = await group.locator('label').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().top)));
   expect(new Set(tops).size, 'the filters stay on one line (the row scrolls)').toBe(1);
-  await expect(page.getByTestId('gallery-filters')).toHaveCSS('overflow-x', 'auto');
+  await expect(page.getByTestId('gallery-filters').getByRole('radiogroup')).toHaveCSS('overflow-x', 'auto');
   // c3: photo, catch, (photo…), then the rest of the catches.
   const grid = page.getByTestId('gallery-grid');
   const kinds = await grid.locator('button[data-kind]').evaluateAll(els => els.slice(0, 4).map(e => e.getAttribute('data-kind')));
@@ -976,16 +976,14 @@ test('lakes.gallery.c8 lakes.catches.c5 — on a phone a horizontal swipe pages 
   await page.getByTestId('catches-grid').getByRole('button').first().click();
   const box = page.getByTestId('lightbox');
   await expect(box).toContainText(`Capturi · 1 din ${bigTotal}`);
-  const stage = page.getByTestId('lightbox-stage');
-  const r = (await stage.boundingBox())!;
-  const y = r.y + r.height / 2;
-  const swipe = async (from: number, to: number) => {
-    await stage.dispatchEvent('pointerdown', { pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: from, clientY: y, bubbles: true });
-    await stage.dispatchEvent('pointerup', { pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: to, clientY: y + 4, bubbles: true });
-  };
-  await swipe(r.x + r.width * 0.8, r.x + r.width * 0.2);
+  // The photos sit on a scroll-snap track (the browser's own swipe, momentum and snap): a swipe is
+  // the track scrolled by a page; the page it rests on becomes the current one.
+  const track = page.getByTestId('lightbox-track');
+  await expect(track).toHaveCSS('scroll-snap-type', 'x mandatory');
+  const page1 = (dir: 1 | -1) => track.evaluate((el, d) => el.scrollBy({ left: d * el.clientWidth, behavior: 'instant' }), dir);
+  await page1(1);
   await expect(box).toContainText(`Capturi · 2 din ${bigTotal}`);
-  await swipe(r.x + r.width * 0.2, r.x + r.width * 0.8);
+  await page1(-1);
   await expect(box).toContainText(`Capturi · 1 din ${bigTotal}`);
 });
 

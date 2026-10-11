@@ -23,7 +23,7 @@ import { blurDataUrl } from '@/lib/blurhash';
 import { CatchTile, catchLabel } from '../_sub/CatchTile';
 import { Lightbox, type LightboxItem } from '@/components/surfaces/Lightbox';
 import { BrokenPhoto, DEFAULT_RATIO, failedBeforeHydration, MasonryGrid, MasonrySkeleton, tileRatio } from '../_sub/Masonry';
-import { ChipStrip, firstReadFailed, SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_sub/states';
+import { firstReadFailed, SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_sub/states';
 import { useBack } from '../_sub/useBack';
 
 /*
@@ -110,9 +110,10 @@ export function GalleryScreen({ lakeId, lakeName, images }: { lakeId: string; la
 
   return (
     <ListPage header={header}>
-      <ChipStrip scroll testId="gallery-filters">
-        <ChoiceChips name="galerie-filtru" label="Arată" options={GALLERY_FILTERS.map(f => ({ value: f.id, label: f.label }))} value={filter} onChange={setFilter} />
-      </ChipStrip>
+      {/* fish gallery.tsx: plain pills on the page ground, one line that scrolls sideways. */}
+      <div data-testid="gallery-filters">
+        <ChoiceChips scroll look="solid" name="galerie-filtru" label="Arată" options={GALLERY_FILTERS.map(f => ({ value: f.id, label: f.label }))} value={filter} onChange={setFilter} />
+      </div>
       <section aria-label="Fotografii" aria-busy={pending || q.isFetchingNextPage || undefined} className="flex flex-col gap-4">
         {/* After a successful list retry the content takes focus — mounted fresh with each read
             (keyed), so a retry that lands while photos were already on screen still hands focus over. */}
