@@ -877,7 +877,8 @@
    * cached route still matches one, owner 2026-10-11) is a
    * fixed, non-scrolling window like fish: the document never scrolls or rubber-bands, so the
    * floating header can't be dragged under the status bar — only the bottom sheet's list scrolls.
-   * The sign-in welcome (/intra) is deep water through the bottom edge and the overscroll.
+   * The sign-in welcome (/intra, html[data-welcome] set while it is shown) is deep water through
+   * the bottom edge and the overscroll.
    */
   @media (width < 48rem) {
     html[data-viewport-lock],
@@ -886,8 +887,8 @@
       overflow: hidden;
       overscroll-behavior: none;
     }
-    html:has([data-intra-visual]),
-    html:has([data-intra-visual]) body {
+    html[data-welcome],
+    html[data-welcome] body {
       background: var(--color-welcome);
     }
   }

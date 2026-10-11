@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent, type MouseEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarDaysIcon, TrophyIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import { useQueryClient } from '@tanstack/react-query';
@@ -146,6 +146,26 @@ export function SignIn({ config }: { config: SignInConfig }) {
       mounted.current = false;
     };
   }, []);
+
+  // The deep-water page ground (globals.css html[data-welcome]) follows the screen being SHOWN, not
+  // mounted: cacheComponents keeps a left /intra mounted but hidden, and a `:has()` still matched it,
+  // painting the next page dark (owner 2026-10-11). Hidden, the layout effect is cleaned up.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.dataset.welcome = '';
+    return () => {
+      delete root.dataset.welcome;
+    };
+  }, []);
+
+  // A signed-in visitor shown /intra again (Forward after the sign-in's Back, or a cached screen
+  // re-shown) leaves at once: the sign-in is never offered twice (owner 2026-10-11). The profile is
+  // in the cache only once a session exists (set on success, dropped on sign-out).
+  useEffect(() => {
+    if (busy.current || !queryClient.getQueryData(profileKeys.my)) return;
+    if (canGoBackInApp()) router.back();
+    else router.replace(routes.home());
+  }, [queryClient, router]);
 
   // c4 on a phone: every popup must open inside the tap's user activation, so the SDKs are loaded
   // before the first tap (idle after first paint), not on the tap itself (sdk.ts preload).

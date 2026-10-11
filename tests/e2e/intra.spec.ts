@@ -464,6 +464,27 @@ test('account.sign-in.c17 account.b.sign-in-redirect — unsafe next is ignored:
   await fresh.close();
 });
 
+test('account.sign-in (owner 2026-10-11) — after a soft-navigated sign-in the page ground is the page again, and Forward never shows /intra to the signed-in visitor', async ({ page }, testInfo) => {
+  if (testInfo.project.name.startsWith('webkit')) await withoutNavigationApi(page);
+  // The top bar's «Intră» is a soft navigation (wide); the deep-water ground is a phone rule.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await mockLocalAuth(page);
+  await page.goto('/stiri');
+  await page.getByRole('banner').getByRole('link', { name: 'Intră', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`${PATH}(\\?|$)`));
+  await expect(page.locator('html')).toHaveAttribute('data-welcome', '');
+  await signInLocal(page);
+  await expect(page).toHaveURL(/\/stiri$/);
+  // The left /intra may stay mounted (hidden): its deep-water ground must not.
+  await expect(page.locator('html')).not.toHaveAttribute('data-welcome');
+  await page.setViewportSize({ width: 375, height: 812 });
+  const ground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(ground).not.toBe('rgb(7, 29, 41)');
+  await page.goForward();
+  await expect(page).not.toHaveURL(new RegExp(`${PATH}(\\?|$)`));
+  await expect(page.locator('html')).not.toHaveAttribute('data-welcome');
+});
+
 test('account.sign-in.c13 — the returned firebaseToken bridges Firebase Auth in the background; its failure does not fail sign-in; no Firestore', async ({ page }) => {
   let firestore = 0;
   await page.route(/firestore\.googleapis\.com/, (r) => {
