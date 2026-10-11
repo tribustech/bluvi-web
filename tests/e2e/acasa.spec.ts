@@ -716,6 +716,24 @@ for (const signedIn of [false, true]) test(`home.acasa.c30 c31 c32 c35 — poll 
   expect(shared.url).toMatch(/\/sondaje$/);
 });
 
+// Owner 2026-10-11: from 1280 the poll is in the right column «Ce mă așteaptă» (under the tools);
+// below 1280 it stays in the main column, in fish's place (after Concursuri).
+for (const vp of [PHONE, { width: 1280, height: 800 }, DESKTOP]) test(`home.acasa.c30 — poll column · ${vp.width}px`, async ({ page }) => {
+  await open(page, vp, true);
+  const share = visible(page.getByRole('button', { name: 'Distribuie sondajul' }));
+  if ((await share.count()) === 0) test.skip(true, 'no current poll in the local CMS');
+  const aside = page.getByRole('complementary', { name: 'Ce mă așteaptă' });
+  const inAside = await share.evaluate((el) => !!el.closest('aside'));
+  expect(inAside).toBe(vp.width >= 1280);
+  if (vp.width >= 1280) {
+    // Below the tools, and exactly one poll on the page.
+    const tools = visible(aside.getByRole('heading', { name: 'Instrumente' }));
+    const order = await tools.evaluate((t, s) => t.compareDocumentPosition(s as Node) & Node.DOCUMENT_POSITION_FOLLOWING, await share.elementHandle());
+    expect(order).toBeTruthy();
+  }
+  await expect(page.getByRole('button', { name: 'Distribuie sondajul' }).locator('visible=true')).toHaveCount(1);
+});
+
 /* ---------- no raffle ---------- */
 
 test('home.acasa.c36 c37 c38 — no raffle on the web (owner 2026-10-08): no raffle card, no link to /tombola', async ({ page }) => {

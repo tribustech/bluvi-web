@@ -80,12 +80,13 @@ export const metadata: Metadata = {
  * the T5 header (greeting, slogan, refresh). Body: ONE tree at every width (no second copy of the
  * page for the other breakpoint — the rails, their headings and images exist once):
  * - the main column, in fish's order at every width (inventory home.acasa.c58): the partidă hero,
- *   competitions, poll, suggested anglers, lakes, the lake request, sponsors, news,
+ *   competitions, poll (below 1280), suggested anglers, lakes, the lake request, sponsors, news,
  *   feedback (beside the web-only app promo from 1280, the page's last block);
  * - from 1280 the sticky right column «Ce mă așteaptă» (my partidă or live competition, organiser
  *   panel, my lake, tools — fish's blocks above the hero, which below 1280 open the main column
  *   instead); from 1440 (ROADMAP §4 width rule, three columns) also the sticky left column
- *   «Scurtături» (quick links — web only, _home/Shortcuts.tsx). At 1280 there is no left column
+ *   «Scurtături» (quick links — web only, _home/Shortcuts.tsx). The poll is in the right column
+ *   from 1280 too (owner 2026-10-11), under the tools; below 1280 it keeps fish's place. At 1280 there is no left column
  *   (`contextFrom="2xl"`, so the centre is 872 wide — three rail cards, as at 1440 — not 608):
  *   the same shortcuts open the main column as one row of chips (HomeShortcutStrip), never the
  *   right column, which must stay short enough to stick under the top bar. Those few small blocks
@@ -222,8 +223,11 @@ function MainColumn() {
           <CompetitionsSection />
         </HydrateRail>
       </Suspense>
-      {/* No raffle on the web (owner 2026-10-08): the poll takes its row alone. */}
-      <PollSlot layout="mobile" />
+      {/* No raffle on the web (owner 2026-10-08): the poll takes its row alone. From 1280 it is in
+          the right column (owner 2026-10-11, AsideColumn); fish's place below that. */}
+      <div className={BELOW_XL}>
+        <PollSlot layout="mobile" />
+      </div>
       <SuggestedAnglersSlot />
       <Suspense fallback={<LakesPrerendered />}>
         <HydrateRail rail="lakes">
@@ -381,7 +385,7 @@ function SkeletonSection({ children }: { children: ReactNode }) {
 
 /**
  * From 1280, the sticky right column «Ce mă așteaptă»: my partidă or live competition, organiser
- * panel, my lake, tools — rendered after the session (one reveal, as MainColumn). The shortcuts
+ * panel, my lake, tools, the poll — rendered after the session (one reveal, as MainColumn). The shortcuts
  * are never here (at 1280 they head the main column): with every role card at once the column
  * may still outgrow the viewport, and then StickyColumn sticks it by its bottom edge (its end
  * stays reachable) — the shortcuts would be the part cut off under the top bar.
@@ -397,6 +401,9 @@ function AsideColumn() {
         <Pillars layout="desktop" />
       </SignedOutOnly>
       <Widgets layout="desktop" bookingsBadge={bookingsBadge} />
+      {/* The poll, out of the main column from 1280 (owner 2026-10-11: «pe web le putem pune în
+          side bar»). Last of the session-decided blocks: the column's own cards stay on top. */}
+      <PollSlot layout="desktop" />
       {/* My live competition when the server read got no answer: read in the browser, landing
           last so nothing in the column moves (owner rule 4: nothing until it is confirmed). */}
       <RightColumnLateLiveSlot />
