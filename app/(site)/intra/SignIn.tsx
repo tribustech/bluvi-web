@@ -44,14 +44,14 @@ export type { SignInConfig } from './logic';
  *  - <768 fish's screen itself (full bleed under the top bar, photo behind the top half);
  *  - 768–1023 one centred 520px card on the page: the photo as a band, then the intro and the
  *    providers on the page surface;
- *  - ≥1024 two columns capped at 1160: a landscape crop of the photo with the value line and three
- *    reasons to sign in on the left, a clean sign-in card (title, providers, legal) on the right.
+ *  - ≥1024 two columns capped at 1280 (1360 from 1280): a tall crop of the photo with the value line
+ *    and three reasons to sign in on the left, a clean sign-in card (title, providers, legal)
+ *    centred on it on the right (owner 2026-10-12).
  *
  * After the session cookie is set (POST /api/auth/{provider}): GET /user/profile decides where to go
- * (c15/c16), then the Firebase bridge runs in the background (c13) — never for a sign-in that
- * failed — and sign_in is logged (c21).
- * Then fish's active-partidă probe (c14) restores a live session in the background
- * (probeLivePartida).
+ * (c15/c16), then the Firebase bridge runs (c13) — never for a sign-in that failed — and sign_in
+ * is logged (c21). Then fish's active-partidă probe (c14) restores a live session
+ * (probeLivePartida). The next page is a full load, once both are done (BACKGROUND_WAIT_MS).
  */
 
 /** fish welcomeTheme.ts — a fixed palette (the screen is dark in both themes, like fish). */
@@ -79,9 +79,34 @@ async function post(provider: Provider, body: unknown): Promise<AuthOk> {
 }
 
 /**
+ * How long the next page waits for the Firebase bridge and the partidă probe after a sign-in: the
+ * page is a full load, which would cut them off. Past this the visitor goes on regardless.
+ */
+const BACKGROUND_WAIT_MS = 3000;
+
+/**
+ * Back to the page before /intra, loaded from the server. Next's popstate handler would re-show the
+ * copy it kept from the signed-out visit, so a capture listener (on window, capture runs first)
+ * stops it and reloads the entry Back landed on. Until the new page paints, the browser keeps
+ * showing /intra, still pending.
+ */
+function reloadPreviousPage() {
+  window.addEventListener(
+    'popstate',
+    (e) => {
+      e.stopImmediatePropagation();
+      window.location.reload();
+    },
+    { capture: true, once: true }
+  );
+  window.history.back();
+}
+
+/**
  * c13: fish signInToFirebase(firebaseToken) — Firebase Auth only (chat, live partide later), never
- * a Firestore write. Background and non-fatal: a failure leaves Firestore unauthenticated until
- * a later re-mint (lib/client/firebase getCustomToken) and never fails or delays the sign-in.
+ * a Firestore write. Non-fatal: a failure leaves Firestore unauthenticated until a later re-mint
+ * (lib/client/firebase getCustomToken) and never fails the sign-in; it holds the next page for
+ * BACKGROUND_WAIT_MS at most.
  */
 async function bridgeFirebase(token: string | null | undefined): Promise<void> {
   if (!token) return;
@@ -187,20 +212,13 @@ export function SignIn({ config }: { config: SignInConfig }) {
   const finish = (incomplete: boolean) => {
     // c16 before c17: an incomplete profile always completes it first (replace: Back never
     // returns here). Otherwise a safe `next`, else back, else home.
+    // The next page is loaded from the server, already signed in (owner 2026-10-12): a soft
+    // navigation first showed the copy rendered while signed out (the page cacheComponents kept
+    // mounted, or its prefetched shell) and swapped in the signed-in one a moment later.
     const target = incomplete ? routes.completeProfile() : safeNext(new URLSearchParams(window.location.search).get('next'));
-    if (target) {
-      router.replace(target);
-      router.refresh();
-    } else if (canGoBackInApp()) {
-      // The page we return to was rendered signed out: re-render it once we are there.
-      window.addEventListener('popstate', () => router.refresh(), {
-        once: true,
-      });
-      router.back();
-    } else {
-      router.replace(routes.home());
-      router.refresh();
-    }
+    if (target) window.location.replace(target);
+    else if (canGoBackInApp()) reloadPreviousPage();
+    else window.location.replace(routes.home());
   };
 
   const run = async (provider: Provider, credential: () => Promise<unknown>) => {
@@ -235,8 +253,9 @@ export function SignIn({ config }: { config: SignInConfig }) {
         throw new Error(GENERIC_ERROR);
       }
       setSessionIdentity('valid', profile.id);
-      // c13: only now that the sign-in is whole; then c14 (fish: after the bridge).
-      void bridgeFirebase(auth.firebaseToken).then(() => probeLivePartida(profile.documentId));
+      // c13: only now that the sign-in is whole; then c14 (fish: after the bridge). Both finish
+      // before the next page loads (a full load would cut them off), up to BACKGROUND_WAIT_MS.
+      const background = bridgeFirebase(auth.firebaseToken).then(() => probeLivePartida(profile.documentId));
       // Anything cached while signed out (optional-auth reads) is now wrong; the profile is fresh.
       queryClient.clear();
       queryClient.setQueryData(profileKeys.my, profile);
@@ -247,6 +266,7 @@ export function SignIn({ config }: { config: SignInConfig }) {
         return;
       }
       navigating = true;
+      await Promise.race([background, new Promise((resolve) => setTimeout(resolve, BACKGROUND_WAIT_MS))]);
       finish(!profile.isProfileComplete);
     } catch (e) {
       if (e instanceof SignInError) {
@@ -319,13 +339,15 @@ export function SignIn({ config }: { config: SignInConfig }) {
         W.bg,
         // 768–1023: one centred card on the page, the photo as a band across its top.
         'md:mx-auto md:my-10 md:min-h-0 md:w-[calc(100%-64px)] md:max-w-[520px] md:rounded-bento md:border md:border-hairline md:bg-surface md:text-ink md:shadow-e2',
-        // ≥1024: two columns — the photo panel with the value line, the sign-in card beside it.
-        'lg:my-12 lg:grid lg:w-auto lg:max-w-[1160px] lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-8 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:px-8 lg:shadow-none xl:grid-cols-[minmax(0,1fr)_440px]'
+        // ≥1024: two columns — a tall photo panel with the value line, the sign-in card centred beside
+        // it (owner 2026-10-12: the photo bigger, the composition filling the window, not a short band
+        // in the top half).
+        'lg:my-10 lg:grid lg:w-auto lg:max-w-[1280px] lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center lg:gap-8 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:px-8 lg:shadow-none xl:max-w-[1360px] xl:grid-cols-[minmax(0,1fr)_440px] xl:gap-10'
       )}
     >
       {/* <1024 a pass-through (the photo and the intro are the section's own children); ≥1024 the
-          landscape photo panel (5:4, 4:3 from 1280; never stretched to the card's height), the intro over its foot. */}
-      <div data-intra-panel className="contents lg:relative lg:col-start-1 lg:row-start-1 lg:grid lg:aspect-[5/4] lg:min-w-0 xl:aspect-[4/3] lg:self-start">
+          photo panel, as tall as the window allows (520–720px), the intro over its foot. */}
+      <div data-intra-panel className="contents lg:relative lg:col-start-1 lg:row-start-1 lg:grid lg:h-[clamp(520px,calc(100dvh-200px),720px)] lg:min-w-0">
         <Backdrop animate={!reduceMotion && !busyNow} />
 
         {/* The intro: under the sky <768, under the band in the card 768–1023, over the foot of the
@@ -364,7 +386,7 @@ export function SignIn({ config }: { config: SignInConfig }) {
       </div>
 
       {/* The sign-in: the foot of the screen <768, the card's body 768–1023, its own card ≥1024. */}
-      <div className="relative flex flex-col px-6 pb-4 md:px-10 md:pb-8 lg:col-start-2 lg:row-start-1 lg:self-start lg:rounded-bento lg:border lg:border-hairline lg:bg-surface lg:px-10 lg:pt-10 lg:pb-8 lg:text-ink lg:shadow-e2">
+      <div className="relative flex flex-col px-6 pb-4 md:px-10 md:pb-8 lg:col-start-2 lg:row-start-1 lg:rounded-bento lg:border lg:border-hairline lg:bg-surface lg:px-10 lg:pt-10 lg:pb-8 lg:text-ink lg:shadow-e2">
         <div className="mb-6 hidden flex-col gap-1.5 lg:flex">
           <h2 className="t-title1 text-ink">Intră în contul tău</h2>
           <p className="t-body text-muted">Același cont ca în aplicația Bluvi.</p>
@@ -385,9 +407,8 @@ export function SignIn({ config }: { config: SignInConfig }) {
             <p className={cn('t-body', W.secondary, 'md:text-muted')}>Autentificarea nu este disponibilă momentan. Încearcă mai târziu.</p>
           ) : null}
 
-          {/* c9 / c20: one alert slot under the buttons, emptied when a new attempt starts. The card
-              is top-anchored at every width (self-start ≥1024), so an error never moves the buttons
-              just pressed. */}
+          {/* c9 / c20: one alert slot under the buttons, emptied when a new attempt starts. ≥1024 the
+              card is centred on the photo panel, so an error lifts it by half its own height. */}
           <p role="alert" aria-live="assertive" className={cn('t-body text-on-welcome md:text-status-danger-fg', !error && 'sr-only')}>
             {error}
           </p>
@@ -452,8 +473,8 @@ const REASONS = [
  * pauses while a sign-in is pending (fish `animate && !pending`), resuming from where it stopped.
  *
  * The photo is a 941×1672 portrait: <768 it fills the screen as in fish; 768–1023 it is a 176px
- * band across the card; ≥1024 a 4:3 landscape crop filling the left panel (≤ 660px wide at the
- * 1160 cap, so the 941px source is always downscaled, never stretched).
+ * band across the card; ≥1024 a crop filling the left panel (≤ 824px wide at the 1360 cap, 720px
+ * high, so the 941px source is always downscaled, never stretched).
  */
 function Backdrop({ animate }: { animate: boolean }) {
   const camera = useRef<HTMLDivElement>(null);
@@ -503,7 +524,7 @@ function Backdrop({ animate }: { animate: boolean }) {
           placeholder="blur"
           fetchPriority="high"
           loading="eager"
-          sizes="(min-width: 1024px) 700px, (min-width: 768px) 520px, 100vw"
+          sizes="(min-width: 1024px) 840px, (min-width: 768px) 520px, 100vw"
           className="object-cover object-[50%_30%] md:object-[50%_27%] lg:object-[50%_32%]"
         />
       </div>

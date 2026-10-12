@@ -25,8 +25,8 @@ function signInConfig(): SignInConfig {
 
 /**
  * /intra?next=<path> (account.sign-in, T6 single task). Static: the page never reads the session.
- * A visitor who is already signed in sees the same screen and may sign in again (the new session
- * replaces the cookie); every entry point to /intra is shown to guests only.
+ * A visitor with a session cookie never reaches it: proxy.ts sends them to the safe `next`, else
+ * home (owner 2026-10-11: the sign-in is never offered twice).
  */
 export default function SignInPage() {
   return <SignIn config={signInConfig()} />;

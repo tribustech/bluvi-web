@@ -6,6 +6,7 @@ import { CardShell, CardTitle, Pill, Tag, formatDecimal, plural } from '@/compon
 import { FishIcon, ScaleIcon } from '@/components/icons/brand';
 import { FaceStack } from '@/components/ui/Avatar';
 import { cn } from '@/components/ui/cn';
+import { ButtonLink } from '@/components/ui/Button';
 import { routes } from '@/lib/routes';
 
 /**
@@ -123,6 +124,73 @@ export function CompetitionRailCard({
 
       <div className="flex h-14 shrink-0 items-center border-t border-hairline px-3">
         {isLive ? <LiveFooter c={c} /> : <UpcomingFooter c={c} />}
+      </div>
+    </CardShell>
+  );
+}
+
+/**
+ * The rail's only competition, from 768 (owner 2026-10-12: one live competition read as a lone card
+ * beside an empty «Vezi toate» tile). The same facts as the rail card, laid out across the column:
+ * the poster on the left, the details and the live totals on the right, and a direct way to the
+ * ranking (live) or the competition (upcoming). Below 768 the rail card stays (fish).
+ */
+export function CompetitionFeatureCard({ competition: c }: { competition: CompetitionCard }) {
+  const href = routes.competition(c.documentId);
+  const media = c.banner ?? c.lake?.image ?? null;
+  const poster = media?.url ?? media?.smallUrl ?? null;
+  const isLive = c.status === 'started';
+  const isTeam = c.format.kind === 'team';
+
+  return (
+    <CardShell elevated interactive className="min-h-64 md:flex-row xl:min-h-72">
+      <div className="relative w-[44%] max-w-[480px] shrink-0 overflow-hidden bg-soft-fill">
+        {poster ? (
+          <>
+            <Image src={poster} alt="" fill sizes="480px" loading="eager" className="scale-110 object-cover blur-xl" aria-hidden />
+            {/* The section leads the page: the poster is its LCP candidate, as the rail's first one. */}
+            <Image src={poster} alt="" fill sizes="480px" loading="eager" fetchPriority="high" className="object-contain" />
+          </>
+        ) : null}
+        <div className="absolute top-3 right-3 flex items-center gap-1.5">
+          {isLive ? <Pill tone="live">LIVE</Pill> : null}
+          <Pill tone="scrim">
+            <EyeIcon aria-hidden className="size-3.5 shrink-0" />
+            {c.viewers === 1 ? '1 urmăritor' : `${c.viewers} urmăritori`}
+          </Pill>
+        </div>
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-6 xl:p-7">
+        <p className={cn('truncate t-eyebrow uppercase', isLive ? 'text-live' : 'text-accent-ink')}>{withHours(c)}</p>
+        <CardTitle href={href} className="line-clamp-2 t-title1 text-ink">
+          {c.name}
+        </CardTitle>
+        {c.lake ? (
+          <p className="flex min-w-0 items-center gap-1 t-body text-accent-ink">
+            <MapPinIcon aria-hidden className="size-4 shrink-0 text-accent" />
+            <span className="truncate">{c.lake.name}</span>
+          </p>
+        ) : null}
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <Tag tone="indigo" title={c.rankingLabel}>
+            {c.rankingLabel}
+          </Tag>
+          <Tag tone="gray">{isTeam ? 'Echipe' : 'Individual'}</Tag>
+        </div>
+
+        <div className="mt-auto flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-hairline pt-4">
+          {isLive ? <LiveFooter c={c} /> : <UpcomingFooter c={c} />}
+          {/* Above the card's stretched link (CardTitle), so it is a link of its own. */}
+          <ButtonLink
+            href={isLive ? routes.competitionRanking(c.documentId) : href}
+            variant="secondary"
+            size="compact"
+            className="relative z-above ml-auto"
+          >
+            {isLive ? 'Vezi clasamentul' : 'Vezi concursul'}
+          </ButtonLink>
+        </div>
       </div>
     </CardShell>
   );

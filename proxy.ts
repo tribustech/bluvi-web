@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { routes } from '@/lib/routes';
+import { safeNext } from '@/app/(site)/intra/logic';
 
 /**
  * The signed-out gate's fast path (parity account.b.signed-out-gate). Pages that need an account
@@ -11,14 +12,23 @@ import { routes } from '@/lib/routes';
  * requireViewer's call.
  *
  * Signed-in-only pages add their path pattern to `matcher` (a static list: Next reads it at build).
+ * /intra is the one `has` entry: there the cookie's presence sends the visitor away from the sign-in.
  */
 export function proxy(request: NextRequest) {
-  const { pathname, search } = request.nextUrl;
+  const { pathname, search, searchParams } = request.nextUrl;
+  // A visitor with a session cookie never sees the sign-in again (owner 2026-10-11): /intra goes
+  // to its safe `next`, else home. A dead cookie lands on that page, whose dead-session handling
+  // signs out and sends the visitor back here without it.
+  if (pathname === routes.signIn()) {
+    return NextResponse.redirect(new URL(safeNext(searchParams.get('next')) ?? routes.home(), request.url), 307);
+  }
   return NextResponse.redirect(new URL(routes.signIn(`${pathname}${search}`), request.url), 307);
 }
 
 export const config = {
   matcher: [
+    // /intra with a session cookie: the signed-in visitor leaves the sign-in (see proxy above).
+    { source: '/intra', has: [{ type: 'cookie', key: 'bluvi_session' }] },
     // /setari and below: settings, edit profile (M2).
     { source: '/setari/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // An angler's followers / following (account.connections): auth-scoped on the CMS.

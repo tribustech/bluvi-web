@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { selectCompetitionCards, type CompetitionCard } from '@/core/competitions';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { COMPETITION_CARD_HEIGHT, CompetitionRailCard } from './CompetitionRailCard';
+import { COMPETITION_CARD_HEIGHT, CompetitionFeatureCard, CompetitionRailCard } from './CompetitionRailCard';
 import { TrophyIcon } from '@heroicons/react/24/outline';
 import { plural } from '@/components/cards/format';
 import { CardSkeleton, HorizontalRail, RailEndCard, RailItem, RailRetryItem, useRailRead, HOME_RAIL_BLEED } from './HorizontalRail';
@@ -104,6 +104,9 @@ export function CompetitionsView({
 }) {
   const label = isLive ? 'Concursuri live' : 'Concursuri viitoare';
   const title = `${label}${total ? ` (${total})` : ''}`;
+  // One competition in all: from 768 it is shown across the column (CompetitionFeatureCard), not as
+  // a lone rail card beside «Vezi toate». The phone keeps fish's rail.
+  const single = status === 'ready' && competitions.length === 1 && (total || 1) === 1 && !fetchingNext && !nextError;
 
   return (
     <RailSection
@@ -117,6 +120,19 @@ export function CompetitionsView({
         <RailError onRetry={onRetry} retrying={retrying} />
       ) : competitions.length === 0 ? (
         <RailEmpty>Momentan nu este disponibil niciun concurs.</RailEmpty>
+      ) : single ? (
+        <>
+          <div className="md:hidden">
+            <HorizontalRail className={HOME_RAIL_BLEED} label={label} width={224}>
+              <RailItem width={224}>
+                <CompetitionRailCard competition={competitions[0]} eager />
+              </RailItem>
+            </HorizontalRail>
+          </div>
+          <div className="max-md:hidden">
+            <CompetitionFeatureCard competition={competitions[0]} />
+          </div>
+        </>
       ) : (
         <HorizontalRail
               className={HOME_RAIL_BLEED}

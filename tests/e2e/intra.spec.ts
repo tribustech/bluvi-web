@@ -57,10 +57,14 @@ test.beforeEach(async ({ page }) => {
   await page.route('https://appleid.cdn-apple.com/**', (r) => r.abort());
   // No Firestore traffic from sign-in, ever (shared project).
   await page.route(/firestore\.googleapis\.com/, (r) => r.abort());
+  // The events survive the full page load that follows a sign-in (sessionStorage, per tab).
   await page.addInitScript(() => {
     const w = window as unknown as { __events: unknown[] };
-    w.__events = [];
-    window.addEventListener('bluvi:analytics', (e) => w.__events.push((e as CustomEvent).detail));
+    w.__events = JSON.parse(sessionStorage.getItem('e2e:events') ?? '[]') as unknown[];
+    window.addEventListener('bluvi:analytics', (e) => {
+      w.__events.push((e as CustomEvent).detail);
+      sessionStorage.setItem('e2e:events', JSON.stringify(w.__events));
+    });
   });
 });
 
@@ -220,7 +224,7 @@ async function visualFit(page: Page) {
   return img.evaluate((i: HTMLImageElement) => ({ natural: i.naturalWidth, rendered: i.getBoundingClientRect().width }));
 }
 
-test('account.sign-in web layout (owner 2026-10-08) — the shell stays; ≥1024 two columns (landscape photo panel + sign-in card), 768 one centred card under a band, the phone keeps fish; the photo is never upscaled', async ({ page }) => {
+test('account.sign-in web layout (owner 2026-10-08, 2026-10-12) — the shell stays; ≥1024 two columns (a tall photo panel + the sign-in card centred on it), 768 one centred card under a band, the phone keeps fish; the photo is never upscaled', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   for (const width of [1280, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
@@ -232,13 +236,16 @@ test('account.sign-in web layout (owner 2026-10-08) — the shell stays; ≥1024
     await expect(cardTitle).toBeVisible();
     const title = (await cardTitle.boundingBox())!;
     const google = (await providerButton(page, 'Google').boundingBox())!;
-    // Two columns: the card sits to the right of the photo panel, side by side (same top band).
+    // Two columns: the card sits to the right of the photo panel, inside its height (centred on it).
     expect(google.x, `${width}: card right of the photo`).toBeGreaterThanOrEqual(visual.x + visual.width + 16);
     expect(title.x).toBeGreaterThanOrEqual(visual.x + visual.width + 16);
-    expect(Math.abs(title.y - visual.y), `${width}: columns share the top`).toBeLessThan(80);
-    // A landscape panel, not the phone portrait; the page is a centred column, not full bleed.
+    expect(title.y, `${width}: the card starts below the panel's top`).toBeGreaterThan(visual.y);
+    expect(google.y + google.height, `${width}: the card ends above the panel's foot`).toBeLessThan(visual.y + visual.height);
+    // A tall panel (owner 2026-10-12: the photo bigger): at least 520px, never taller than wide;
+    // the page is a centred column, not full bleed.
+    expect(visual.height).toBeGreaterThanOrEqual(520);
     expect(visual.width).toBeGreaterThan(visual.height);
-    expect(google.x + google.width - visual.x).toBeLessThanOrEqual(1160);
+    expect(google.x + google.width - visual.x).toBeLessThanOrEqual(1360);
     // The value line + the three reasons sit on the photo panel.
     const reasons = screen(page).getByRole('list', { name: 'De ce să intri în cont' });
     await expect(reasons.getByRole('listitem')).toHaveText([/^Concursuri live/, /^Rezervări la bălți/, /^Profilul tău de pescar/]);
