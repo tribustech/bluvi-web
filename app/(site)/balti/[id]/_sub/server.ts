@@ -6,7 +6,7 @@ import type { LakeDetail } from '@/core/lakes';
 import type { Transport, TransportRequest } from '@/core/transport';
 import { prefetchState, type Prefetchable } from '@/lib/client/hydration';
 import { breadcrumbListJsonLd } from '@/lib/json-ld';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { createServerTransport } from '@/lib/server/transport';
 import { hasCompetitions, lakeSubpageHas, lakesWithCompetitions, venueFacts, venueSubpageHas, type VenueSubpage } from '@/lib/server/sitemap-entries';
 import { e2eFault } from '../_components/e2e-faults';
@@ -79,7 +79,7 @@ export async function prefetchSub(
 export function subTrail(lake: LakeDetail, label: string) {
   return [
     { label: 'Bălți', href: routes.lakes() },
-    { label: lake.name, href: routes.lake(lake.documentId) },
+    { label: lake.name, href: routes.lake(lakeUrlId(lake)) },
     { label },
   ];
 }
@@ -134,5 +134,5 @@ export function subMetadata(
 
 /** The lake as the `about` of a subpage's CollectionPage. */
 export function lakeAbout(lake: LakeDetail) {
-  return { type: 'TouristAttraction', name: lake.name, path: routes.lake(lake.documentId) };
+  return { type: 'TouristAttraction', name: lake.name, path: routes.lake(lakeUrlId(lake)) };
 }

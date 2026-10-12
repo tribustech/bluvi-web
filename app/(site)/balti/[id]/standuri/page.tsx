@@ -4,9 +4,9 @@ import { Suspense } from 'react';
 import { HydrationBoundary } from '@tanstack/react-query';
 import { communityStatsQuery, parseStandSortParam, parseStatsPeriodParam } from '@/core/partide';
 import type { LakeDetail } from '@/core/lakes';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
-import { lakeIdsToPrerender, loadLake } from '../_components/load';
+import { lakeSubpageParams, loadLake } from '../_components/load';
 import { param } from '@/lib/search-params';
 import { jsonLdHtml } from '@/lib/json-ld';
 import { breadcrumbJsonLd, lakeAbout, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
@@ -28,9 +28,8 @@ type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<str
 
 export const instant = false;
 
-export async function generateStaticParams() {
-  const ids = await lakeIdsToPrerender();
-  return (ids.length ? ids : ['_']).map(id => ({ id }));
+export function generateStaticParams() {
+  return lakeSubpageParams();
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -40,7 +39,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return subMetadata(load.lake, {
     title: LABEL,
     description: `Standurile de la ${load.lake.name} după kilograme, capturi și record, din partidele comunității Bluvi.`,
-    path: routes.lakeStands(load.lake.documentId),
+    path: routes.lakeStands(lakeUrlId(load.lake)),
     empty: await lakeSubpageEmpty(load.lake, 'standuri'),
   });
 }
@@ -50,7 +49,7 @@ export default async function LakeStandsPage({ params, searchParams }: Props) {
   const load = await loadLake(id);
   if (load.kind === 'missing') notFound();
   const lake = load.lake;
-  const path = routes.lakeStands(lake.documentId);
+  const path = routes.lakeStands(lakeUrlId(lake));
   return (
     <>
       <SetBreadcrumb trail={subTrail(lake, LABEL)} />
@@ -69,7 +68,7 @@ async function Stands({ lake, searchParams }: { lake: LakeDetail; searchParams: 
   const { state } = await prefetchSub(lake.documentId, 'stats', t => [communityStatsQuery(t, period, { kind: 'lake', id: lake.documentId })]);
   // CollectionPage + the stands by kg (the canonical sort) as an ItemList; a sorted view (?sortare=)
   // keeps the canonical's order, the page it canonicalises to.
-  const ld = standsRankingJsonLd(`${LABEL} · ${lake.name}`, routes.lakeStands(lake.documentId), lakeAbout(lake), statsFromState(state));
+  const ld = standsRankingJsonLd(`${LABEL} · ${lake.name}`, routes.lakeStands(lakeUrlId(lake)), lakeAbout(lake), statsFromState(state));
   return (
     <HydrationBoundary state={state}>
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(ld)} />

@@ -72,6 +72,8 @@ export const lakeCardSchema = z.object({
   id: z.number().optional(),
   documentId: z.string(),
   name: z.string(),
+  /** The web URL segment (`/balti/<slug>`); absent until the CMS serves it (additive). */
+  slug: z.string().nullish(),
   county: z.string().nullable(),
   countyRef: locationRefSchema.nullish(),
   cityRef: locationRefSchema.nullish(),
@@ -170,6 +172,7 @@ export type LakeDetail = z.infer<typeof lakeDetailSchema>;
 
 /** fish `LakeIndexEntryDTO` — one row of /feed/lakes/index. */
 export const lakeIndexEntrySchema = z.object({
+  slug: z.string().nullish(),
   documentId: z.string(),
   name: z.string(),
   locality: z.string().nullable(),

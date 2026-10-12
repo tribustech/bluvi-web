@@ -3,11 +3,12 @@ import type { MetadataRoute } from 'next';
 import { getCompetition, getCompetitionsByStatus, getCompetitionWeighingStatistics, getSponsors, type CompetitionDetail, type CompetitionListItem } from '@/core/competitions';
 import { getClaimedPublicWaters, getLake, getLakesIndex, parseLakeCoordinates, toClaimedPublicWatersMap, type LakeDetail } from '@/core/lakes';
 import { getNews } from '@/core/news';
+import { buildLanding, readLandingLakes } from '@/lib/lake-landing';
 import { getCommunityHistory, getCommunityStats, getCommunityVenueCatches, VENUE_CATCHES_PAGE_SIZE, communityVenueKey, type CommunityStatsDTO, type CommunityVenueRef } from '@/core/partide';
 import { getAnglerPublicProfile } from '@/core/social';
 import type { Transport } from '@/core/transport';
 import { partideHrefs } from '@/lib/partide-pages';
-import { absoluteUrl, routes, type CompetitionTabStatus } from '@/lib/routes';
+import { absoluteUrl, routes, type CompetitionTabStatus, lakeUrlId } from '@/lib/routes';
 
 /*
  * The sitemap's entries (global.b.seo-sitemap). Every URL is a self-canonical page with its own
@@ -276,16 +277,18 @@ export type LakeFacts = VenueFacts & {
 export function lakeUrls(id: string, f: LakeFacts): Entry[] {
   const at = (path: string, changeFrequency: Entry['changeFrequency'], priority: number): Entry => ({ url: absoluteUrl(path), changeFrequency, priority });
   const has = (page: VenueSubpage) => venueSubpageHas(page, f, f.lake?.images.length ?? 0) === true;
-  const out: Entry[] = [at(routes.lake(id), 'weekly', 0.8)];
-  if (has('galerie')) out.push(at(routes.lakeGallery(id), 'weekly', 0.4));
-  if (has('capturi')) out.push(at(routes.lakeCatches(id), 'daily', 0.4));
-  if (has('partide')) out.push(at(routes.lakePartide(id), 'daily', 0.5));
-  if (has('statistici')) out.push(at(routes.lakeStats(id), 'daily', 0.4));
-  if (has('clasament')) out.push(at(routes.lakeRanking(id), 'daily', 0.4));
-  if (has('standuri')) out.push(at(routes.lakeStands(id), 'daily', 0.3));
-  if (f.hasCompetitions === true) out.push(at(routes.lakeCompetitions(id), 'daily', 0.5));
-  if (f.lake && lakeSubpageHas.recenzii(f.lake)) out.push(at(routes.lakeReviews(id), 'weekly', 0.5));
-  if (f.lake && lakeSubpageHas.harta(f.lake)) out.push(at(routes.lakeMap(id), 'monthly', 0.3));
+  // The slug URL once the lake has one (lakeUrlId): the sitemap lists what the canonical says.
+  const u = f.lake ? lakeUrlId(f.lake) : id;
+  const out: Entry[] = [at(routes.lake(u), 'weekly', 0.8)];
+  if (has('galerie')) out.push(at(routes.lakeGallery(u), 'weekly', 0.4));
+  if (has('capturi')) out.push(at(routes.lakeCatches(u), 'daily', 0.4));
+  if (has('partide')) out.push(at(routes.lakePartide(u), 'daily', 0.5));
+  if (has('statistici')) out.push(at(routes.lakeStats(u), 'daily', 0.4));
+  if (has('clasament')) out.push(at(routes.lakeRanking(u), 'daily', 0.4));
+  if (has('standuri')) out.push(at(routes.lakeStands(u), 'daily', 0.3));
+  if (f.hasCompetitions === true) out.push(at(routes.lakeCompetitions(u), 'daily', 0.5));
+  if (f.lake && lakeSubpageHas.recenzii(f.lake)) out.push(at(routes.lakeReviews(u), 'weekly', 0.5));
+  if (f.lake && lakeSubpageHas.harta(f.lake)) out.push(at(routes.lakeMap(u), 'monthly', 0.3));
   return out;
 }
 
@@ -324,6 +327,25 @@ export async function lakeEntries(t: Transport, chunk = 0): Promise<Entry[]> {
   if (!ids.length) return [];
   const withCompetitions = await lakesWithCompetitions(t);
   return (await mapLimit(ids, CONCURRENCY, async id => lakeUrls(id, await lakeFacts(t, id, withCompetitions)))).flat();
+}
+
+/**
+ * The lakes' SEO landing pages (lib/lake-landing.ts): the two hubs, every county and species page
+ * (a page per group with a lake — 1–2 lake pages included) and the feature pages that reach
+ * FEATURE_MIN. From the same cached public reads as the pages (/feed/lakes/filtered, /lakes/home),
+ * in the groups' own deterministic order. A failed lakes read throws (settle leaves the group out).
+ */
+export async function landingEntries(t: Transport): Promise<Entry[]> {
+  const landing = buildLanding(await readLandingLakes(t));
+  if (!landing.counties.length && !landing.species.length) return [];
+  const at = (path: string, priority: number): Entry => ({ url: absoluteUrl(path), changeFrequency: 'weekly', priority });
+  return [
+    ...(landing.counties.length ? [at(routes.lakesCounties(), 0.6)] : []),
+    ...landing.counties.map(c => at(routes.lakesCounty(c.slug), 0.6)),
+    ...(landing.species.length ? [at(routes.lakesSpeciesHub(), 0.5)] : []),
+    ...landing.species.map(s => at(routes.lakesSpecies(s.slug), 0.5)),
+    ...landing.features.map(f => at(routes.lakesFeature(f.slug), 0.6)),
+  ];
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -477,7 +499,8 @@ const COMPETITION_SITEMAP: Record<string, CompetitionTabStatus> = { 'concursuri-
 export type PublicWaterKeys = () => Promise<readonly (string | number)[]> | readonly (string | number)[];
 
 /**
- * The sitemap ids: `pagini` (list pages, news, sponsors), `balti-<n>`, one per competition status
+ * The sitemap ids: `pagini` (list pages, news, sponsors), `balti-<n>`, `balti-categorii` (the
+ * lakes' SEO landing pages, landingEntries), one per competition status
  * (each ≤ MAX_PAGES × 100 competitions × 6 URLs < MAX_URLS), `pescari` (anglerEntries) and
  * `ape-publice-<n>`. Counting needs only
  * the lakes index and the dataset's keys; a failed index still lists chunk 0.
@@ -489,6 +512,7 @@ export async function sitemapIds(t: Transport, publicWaterKeys?: PublicWaterKeys
   return [
     'pagini',
     ...Array.from({ length: chunks(lakes, LAKES_PER_CHUNK) }, (_, i) => `balti-${i}`),
+    'balti-categorii',
     ...Object.keys(COMPETITION_SITEMAP),
     'pescari',
     ...(publicWaterKeys ? Array.from({ length: chunks(waters, WATERS_PER_CHUNK) }, (_, i) => `ape-publice-${i}`) : []),
@@ -502,6 +526,8 @@ export async function sitemapChunk(t: Transport, id: string, publicWaterKeys?: P
   if (id === 'pagini') {
     const [news, sponsors] = await Promise.all([settle('news', newsEntries(t)), settle('sponsors', sponsorEntries(t))]);
     out = [...staticEntries(), ...news, ...sponsors];
+  } else if (id === 'balti-categorii') {
+    out = await settle('lake landings', landingEntries(t));
   } else if (id.startsWith('balti-') && Number.isInteger(n)) {
     out = await settle('lakes', lakeEntries(t, n));
   } else if (id === 'pescari') {

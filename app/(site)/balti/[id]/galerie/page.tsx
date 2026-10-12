@@ -3,9 +3,9 @@ import { notFound } from 'next/navigation';
 import { HydrationBoundary, type DehydratedState } from '@tanstack/react-query';
 import { buildGalleryCatchItems, buildGalleryPhotoItems } from '@/core/lakes';
 import { communityVenueCatchesInfiniteQuery, type LakeCatchesPage } from '@/core/partide';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
-import { lakeIdsToPrerender, loadLake } from '../_components/load';
+import { lakeSubpageParams, loadLake } from '../_components/load';
 import { jsonLdHtml } from '@/lib/json-ld';
 import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { GalleryScreen } from './GalleryScreen';
@@ -21,9 +21,8 @@ type Props = { params: Promise<{ id: string }> };
 
 export const instant = false;
 
-export async function generateStaticParams() {
-  const ids = await lakeIdsToPrerender();
-  return (ids.length ? ids : ['_']).map(id => ({ id }));
+export function generateStaticParams() {
+  return lakeSubpageParams();
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -33,7 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return subMetadata(load.lake, {
     title: 'Galerie',
     description: `Fotografiile bălții ${load.lake.name} și capturile pescarilor din comunitatea Bluvi.`,
-    path: routes.lakeGallery(load.lake.documentId),
+    path: routes.lakeGallery(lakeUrlId(load.lake)),
     empty: await lakeSubpageEmpty(load.lake, 'galerie'),
   });
 }
@@ -45,7 +44,7 @@ export default async function LakeGalleryPage({ params }: Props) {
   const lake = load.lake;
   const venue = { kind: 'lake', id: lake.documentId } as const;
   const { state } = await prefetchSub(lake.documentId, 'catches-page', t => [communityVenueCatchesInfiniteQuery(t, venue)]);
-  const path = routes.lakeGallery(lake.documentId);
+  const path = routes.lakeGallery(lakeUrlId(lake));
   return (
     <>
       <SetBreadcrumb trail={subTrail(lake, 'Galerie')} />

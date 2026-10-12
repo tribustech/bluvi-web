@@ -47,6 +47,17 @@ export const WEB_SCREEN_NAMES: Record<string, Name> = {
   // Lakes
   '/balti': 'Lakes List',
   '/balti/harta': 'Lakes List',
+  // Web-only SEO landing pages (owner 2026-10-12): lakes by county, species and feature.
+  '/balti/judete': 'Lakes Counties',
+  '/balti/judet/[judet]': 'Lakes County',
+  '/balti/specii': 'Lakes Species',
+  '/balti/specie/[specie]': 'Lakes Species Page',
+  '/balti/cu-rezervare-online': 'Lakes Feature',
+  '/balti/cu-cazare': 'Lakes Feature',
+  '/balti/cu-iluminat-nocturn': 'Lakes Feature',
+  '/balti/catch-and-release': 'Lakes Feature',
+  '/balti/cu-retinere': 'Lakes Feature',
+  '/balti/pentru-familii': 'Lakes Feature',
   '/balti/[id]': 'Lake Page',
   '/balti/[id]/capturi': 'Lake Capturi',
   '/balti/[id]/clasament': 'Lake Clasament',

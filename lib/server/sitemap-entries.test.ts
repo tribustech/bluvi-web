@@ -15,6 +15,7 @@ import {
   sitemapEntries,
   watersWithPartide,
   sitemapIds,
+  landingEntries,
   type LakeFacts,
   type VenueFacts,
 } from './sitemap-entries';
@@ -338,7 +339,7 @@ describe('the sitemap split', () => {
   it('names one sitemap per group, lakes and waters chunked', async () => {
     const { transport } = createFakeTransport(cms);
     const keys = Array.from({ length: WATERS_PER_CHUNK + 1 }, (_, i) => i + 1);
-    expect(await sitemapIds(transport, () => keys)).toEqual(['pagini', 'balti-0', 'concursuri-viitoare', 'concursuri-live', 'concursuri-rezultate', 'pescari', 'ape-publice-0', 'ape-publice-1']);
+    expect(await sitemapIds(transport, () => keys)).toEqual(['pagini', 'balti-0', 'balti-categorii', 'concursuri-viitoare', 'concursuri-live', 'concursuri-rezultate', 'pescari', 'ape-publice-0', 'ape-publice-1']);
     expect(await sitemapIds(transport)).not.toContain('ape-publice-0');
   });
 
@@ -464,5 +465,27 @@ describe('venueSubpageHas (shared with the subpages\' noindex)', () => {
 describe('publicWaterEntries', () => {
   it('encodes the linkCode', () => {
     expect(publicWaterEntries(['R:A.1'])[0].url).toBe(`${S}/ape-publice/R%3AA.1`);
+  });
+});
+
+describe('landingEntries (balti-categorii)', () => {
+  it('lists the hubs, every county and species with a lake and the feature pages with enough lakes', async () => {
+    const card = (documentId: string, county: string, species: string[], facility: string[] = []) => ({
+      ...lakeDetail({ documentId, county, fishSpecies: species.map((Name, i) => ({ id: i, fish: { documentId: Name, Name } })), facility: facility.map((name, i) => ({ id: i, name })) }),
+    });
+    const { transport } = createFakeTransport(req => {
+      if (req.path === '/feed/lakes/filtered')
+        return page([card('a', 'Ilfov', ['Crap'], ['Cabane']), card('b', 'Ilfov', ['Somn'], ['Cabane']), card('c', 'Calarasi', ['Crap'], ['Cabane'])]);
+      throw new Error('down');
+    });
+    expect((await landingEntries(transport)).map(e => e.url.replace(S, ''))).toEqual([
+      '/balti/judete',
+      '/balti/judet/ilfov',
+      '/balti/judet/calarasi',
+      '/balti/specii',
+      '/balti/specie/crap',
+      '/balti/specie/somn',
+      '/balti/cu-cazare',
+    ]);
   });
 });

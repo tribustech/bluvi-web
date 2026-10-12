@@ -6,7 +6,7 @@ import { buildGalleryCatchItems, getLake, getLakesIndex, getReviewsForLake, pars
 import { getCommunityVenueCatches, getCommunityVenueSection, type CommunityLakeSectionDTO } from '@/core/partide';
 import { ApiError, isApiError } from '@/core/transport';
 import { richTextToPlain } from '@/components/templates/T3';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { createServerTransport } from '@/lib/server/transport';
 import { e2eFault, e2eLakeStub } from './e2e-faults';
 import { lakeLocationLine } from './location';
@@ -131,6 +131,17 @@ export function loadLakeSections(id: string): LakeSections {
   };
 }
 
+/**
+ * A lake's subpages (statistics, reviews, gallery, catches, …) are rendered on their first visit,
+ * not at build time (owner 2026-10-12: each deploy rebuilt 9 × 201 subpages from the production CMS
+ * the app uses, slowing the app for ~5 minutes). The first visitor after a deploy gets the full page
+ * from the server (~1 s, same HTML crawlers get), the next ones the cached copy. Cache Components
+ * needs one param: `_` renders the not-found page.
+ */
+export function lakeSubpageParams(): { id: string }[] {
+  return [{ id: '_' }];
+}
+
 /** Lakes to prerender: the whole public index (one cached read). Cache Components needs one param. */
 export async function lakeIdsToPrerender(): Promise<string[]> {
   try {
@@ -172,7 +183,7 @@ export function lakeJsonLd(lake: LakeDetail): Record<string, unknown> {
     '@type': 'TouristAttraction',
     name: lake.name,
     description: lakeSummary(lake),
-    url: absoluteUrl(routes.lake(lake.documentId)),
+    url: absoluteUrl(routes.lake(lakeUrlId(lake))),
     touristType: 'Pescari',
     ...(images.length ? { image: images } : {}),
     ...(phone ? { telephone: phone } : {}),

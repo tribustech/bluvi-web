@@ -1,6 +1,6 @@
 import { formatReviewsCount, type LakeDetail, type Review } from '@/core/lakes';
 import { aggregateRatingJsonLd } from '@/lib/json-ld';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 
 /*
  * The lake's Recenzii page as JSON-LD: the lake (TouristAttraction, as on its own page) with an
@@ -37,7 +37,7 @@ export function reviewsJsonLd(lake: Pick<LakeDetail, 'documentId' | 'name' | 're
     '@context': 'https://schema.org',
     '@type': 'TouristAttraction',
     name: lake.name,
-    url: absoluteUrl(routes.lake(lake.documentId)),
+    url: absoluteUrl(routes.lake(lakeUrlId(lake))),
     subjectOf: { '@type': 'WebPage', url: absoluteUrl(path), name: `Recenzii · ${lake.name}` },
     aggregateRating: rating,
     review: reviews.map(r => ({

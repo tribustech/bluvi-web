@@ -71,11 +71,23 @@ describe('proxy matcher: M7 operator (operator.b.role-gating)', () => {
 
   it('never matches lookalike public paths', () => {
     expect(matches('/operatori')).toBe(false);
-    expect(matches('/balti/l1')).toBe(false);
   });
 
-  it('redirects the picker to /intra?next=/operator', () => {
-    const res = proxy(new NextRequest('http://localhost:3000/operator'));
+  it('a lake\'s booking flow and review form still send a signed-out visitor to /intra', async () => {
+    for (const path of ['/balti/l1/rezerva', '/balti/l1/rezerva/detalii', '/balti/l1/recenzie']) {
+      const res = await proxy(new NextRequest(`http://localhost:3000${path}?x=1`));
+      expect(res.status, path).toBe(307);
+      expect(res.headers.get('location'), path).toBe(`http://localhost:3000/intra?next=${encodeURIComponent(`${path}?x=1`)}`);
+    }
+  });
+
+  it('a public lake page runs the proxy only for its URL (slug map), never the sign-in gate', async () => {
+    const res = await proxy(new NextRequest('http://localhost:3000/balti/l1'));
+    expect(res.headers.get('location')).toBeNull();
+  });
+
+  it('redirects the picker to /intra?next=/operator', async () => {
+    const res = await proxy(new NextRequest('http://localhost:3000/operator'));
     expect(res.status).toBe(307);
     expect(res.headers.get('location')).toBe('http://localhost:3000/intra?next=%2Foperator');
   });

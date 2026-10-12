@@ -4,9 +4,9 @@ import { Suspense } from 'react';
 import { HydrationBoundary, type DehydratedState } from '@tanstack/react-query';
 import type { CompetitionCardsPage } from '@/core/competitions';
 import type { LakeDetail } from '@/core/lakes';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
-import { lakeIdsToPrerender, loadLake } from '../_components/load';
+import { lakeSubpageParams, loadLake } from '../_components/load';
 import { param } from '@/lib/search-params';
 import { jsonLdHtml } from '@/lib/json-ld';
 import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
@@ -28,9 +28,8 @@ type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<str
 
 export const instant = false;
 
-export async function generateStaticParams() {
-  const ids = await lakeIdsToPrerender();
-  return (ids.length ? ids : ['_']).map(id => ({ id }));
+export function generateStaticParams() {
+  return lakeSubpageParams();
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -40,7 +39,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return subMetadata(load.lake, {
     title: 'Concursuri',
     description: `Concursurile de pescuit de la ${load.lake.name}: cele live, cele care urmează și rezultatele celor încheiate, pe Bluvi.`,
-    path: routes.lakeCompetitions(load.lake.documentId),
+    path: routes.lakeCompetitions(lakeUrlId(load.lake)),
     empty: await lakeSubpageEmpty(load.lake, 'concursuri'),
   });
 }
@@ -75,7 +74,7 @@ async function Competitions({ lake, searchParams }: { lake: LakeDetail; searchPa
     const more = (await read(tab)).state;
     state = { ...state, queries: [...more.queries, ...state.queries] };
   }
-  const path = routes.lakeCompetitions(lake.documentId);
+  const path = routes.lakeCompetitions(lakeUrlId(lake));
   const first = firstPage(state)?.data ?? [];
   const list = {
     '@context': 'https://schema.org',
@@ -94,7 +93,7 @@ async function Competitions({ lake, searchParams }: { lake: LakeDetail; searchPa
         ...(c.startDate ? { startDate: c.startDate } : {}),
         ...(c.endDate ? { endDate: c.endDate } : {}),
         eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-        location: { '@type': 'Place', name: lake.name, url: absoluteUrl(routes.lake(lake.documentId)) },
+        location: { '@type': 'Place', name: lake.name, url: absoluteUrl(routes.lake(lakeUrlId(lake))) },
         ...(c.banner?.url ? { image: c.banner.url } : {}),
         ...(c.organizer ? { organizer: { '@type': 'Person', name: c.organizer.username } } : {}),
       },

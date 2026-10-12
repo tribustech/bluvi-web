@@ -1627,7 +1627,8 @@ test('lakes.detail.c2 SEO — metadata, canonical and JSON-LD (TouristAttraction
   await open(page, ID.chita, DESKTOP);
   const l = lakes.get(ID.chita)!;
   await expect(page).toHaveTitle(new RegExp(l.name));
-  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`/balti/${ID.chita}$`));
+  // The canonical is the readable URL once the lake has a slug (owner 2026-10-12), else its documentId.
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`/balti/${(l as { slug?: string | null }).slug || ID.chita}$`));
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /.{20,}/);
   const scripts = await page.locator('script[type="application/ld+json"]').evaluateAll(els => els.map(e => e.textContent ?? ''));
   const ld = JSON.parse(scripts.find(t => t.includes('TouristAttraction'))!);

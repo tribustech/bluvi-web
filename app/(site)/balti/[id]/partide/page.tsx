@@ -4,9 +4,9 @@ import { Suspense } from 'react';
 import { HydrationBoundary } from '@tanstack/react-query';
 import { communityHistoryInfiniteQuery, communityVenueCatchesInfiniteQuery, communityVenueKey, communityVenueSectionQuery, type CommunityVenueRef } from '@/core/partide';
 import type { LakeDetail } from '@/core/lakes';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
-import { lakeIdsToPrerender, loadLake } from '../_components/load';
+import { lakeSubpageParams, loadLake } from '../_components/load';
 import { jsonLdHtml } from '@/lib/json-ld';
 import { breadcrumbJsonLd, lakeAbout, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { collectionPageJsonLd } from '@/lib/json-ld';
@@ -24,9 +24,8 @@ type Props = { params: Promise<{ id: string }> };
 
 export const instant = false;
 
-export async function generateStaticParams() {
-  const ids = await lakeIdsToPrerender();
-  return (ids.length ? ids : ['_']).map(id => ({ id }));
+export function generateStaticParams() {
+  return lakeSubpageParams();
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -36,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return subMetadata(load.lake, {
     title: 'Partide',
     description: `Partidele de pescuit de la ${load.lake.name}: cine pescuiește acum, ultimele capturi și partidele încheiate, din comunitatea Bluvi.`,
-    path: routes.lakePartide(load.lake.documentId),
+    path: routes.lakePartide(lakeUrlId(load.lake)),
     empty: await lakeSubpageEmpty(load.lake, 'partide'),
   });
 }
@@ -52,8 +51,8 @@ export default async function LakePartidePage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={jsonLdHtml([
-          collectionPageJsonLd({ name: `Partide · ${lake.name}`, path: routes.lakePartide(lake.documentId), about: lakeAbout(lake) }),
-          breadcrumbJsonLd(lake, 'Partide', routes.lakePartide(lake.documentId)),
+          collectionPageJsonLd({ name: `Partide · ${lake.name}`, path: routes.lakePartide(lakeUrlId(lake)), about: lakeAbout(lake) }),
+          breadcrumbJsonLd(lake, 'Partide', routes.lakePartide(lakeUrlId(lake))),
         ])}
       />
       {/* The feeds' reads (up to the read budget on a slow CMS) behind the page's own skeleton, under

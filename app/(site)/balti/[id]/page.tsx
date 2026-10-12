@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { LakeScreen } from './_components/LakeScreen';
 import { lakeIdsToPrerender, lakeJsonLd, lakeSummary, loadLake, loadLakeSections } from './_components/load';
 import { lakePriceFrom } from './_components/priceFrom';
@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (load.kind === 'missing') return { title: 'Balta nu a fost găsită' };
   const lake = load.lake;
   const description = lakeSummary(lake);
-  const canonical = routes.lake(lake.documentId);
+  const canonical = routes.lake(lakeUrlId(lake));
   const where = lake.countyRef?.name ? ` · ${lake.countyRef.name}` : '';
   return {
     title: `${lake.name}${where}`,
@@ -70,7 +70,7 @@ export default async function LakePage({ params }: Props) {
     '@type': 'BreadcrumbList',
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Bălți', item: absoluteUrl(routes.lakes()) },
-      { '@type': 'ListItem', position: 2, name: lake.name, item: absoluteUrl(routes.lake(lake.documentId)) },
+      { '@type': 'ListItem', position: 2, name: lake.name, item: absoluteUrl(routes.lake(lakeUrlId(lake))) },
     ],
   };
   return (

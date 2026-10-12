@@ -206,13 +206,14 @@ test('j4: rankings carry an ItemList of the rows the page shows; reviews an Aggr
     expect(lake.aggregateRating.ratingValue).toBeLessThanOrEqual(5);
   }
   // A lake without reviews: its Recenzii page is not in the sitemap and carries no AggregateRating.
-  const index = (await (await request.get(`${CMS}/feed/lakes/index`)).json()) as { data: { documentId: string }[] };
+  // Lake URLs carry the slug once the CMS has one (proxy.ts, lib/lake-slug-route.ts).
+  const index = (await (await request.get(`${CMS}/feed/lakes/index`)).json()) as { data: { documentId: string; slug?: string | null }[] };
   const listedReviews = new Set(paths.filter(p => p.endsWith('/recenzii')).map(p => p.split('/')[2]));
-  const bare = index.data.find(l => !listedReviews.has(l.documentId));
+  const bare = index.data.find(l => !listedReviews.has(l.slug || l.documentId));
   if (bare) {
     const lake = (await (await request.get(`${CMS}/feed/lakes/${bare.documentId}`)).json()) as { data: { reviewsMeta: { count: number } | null } };
     if (!lake.data.reviewsMeta?.count) {
-      const s = await readSeo(request, `/balti/${bare.documentId}/recenzii`);
+      const s = await readSeo(request, `/balti/${bare.slug || bare.documentId}/recenzii`);
       expect(s.jsonLd.some(d => 'aggregateRating' in d)).toBe(false);
     }
   }
@@ -270,13 +271,13 @@ test('m5, s3: pages without content of their own are noindex and left out of the
   // Extra Cântare: a utility list read in the browser — noindex, follow at every stage, never listed.
   expect((await readSeo(request, `${competition}/extra-cantare`)).robots).toMatch(/noindex.*follow|follow.*noindex/);
   // A lake subpage the sitemap leaves out (nothing to show) is noindex, follow; one it lists is not.
-  const index = (await (await request.get(`${CMS}/feed/lakes/index`)).json()) as { data: { documentId: string }[] };
+  const index = (await (await request.get(`${CMS}/feed/lakes/index`)).json()) as { data: { documentId: string; slug?: string | null }[] };
   const lakeSubs = ['statistici', 'clasament', 'standuri', 'recenzii', 'harta', 'partide', 'galerie', 'capturi', 'concursuri'];
   const sampled = new Set<string>();
   for (const lake of index.data.slice(0, 40)) {
     for (const sub of lakeSubs) {
       if (sampled.has(sub)) continue;
-      const path = `/balti/${lake.documentId}/${sub}`;
+      const path = `/balti/${lake.slug || lake.documentId}/${sub}`;
       if (paths.includes(path)) continue;
       sampled.add(sub);
       const s = await readSeo(request, path);
@@ -353,14 +354,14 @@ test('m5, s3: a started competition with nothing weighed — Cântare / Toți pe
 
 test('m5, s2: a stats page is judged by its widest period — a quiet month with a year of partide stays listed and indexable', async ({ request }) => {
   const { paths } = await listed(request);
-  const index = (await (await request.get(`${CMS}/feed/lakes/index`)).json()) as { data: { documentId: string }[] };
+  const index = (await (await request.get(`${CMS}/feed/lakes/index`)).json()) as { data: { documentId: string; slug?: string | null }[] };
   const stats = async (period: string, id: string) =>
     ((await (await request.get(`${CMS}/feed/community/stats?period=${period}&venue=lake:${id}`)).json()) as { data: { totals: { partide: number } } }).data;
   let found: string | null = null;
   for (const lake of index.data.slice(0, 60)) {
     const [month, year] = await Promise.all([stats('month', lake.documentId), stats('year', lake.documentId)]);
     if (month.totals.partide === 0 && year.totals.partide > 0) {
-      found = lake.documentId;
+      found = lake.slug || lake.documentId;
       break;
     }
   }

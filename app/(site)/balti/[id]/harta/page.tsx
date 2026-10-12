@@ -4,9 +4,9 @@ import { Suspense } from 'react';
 import { HydrationBoundary } from '@tanstack/react-query';
 import { standStatsByLakeIdQuery } from '@/core/competitions';
 import { parseLakeCoordinates, type LakeDetail } from '@/core/lakes';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
-import { lakeIdsToPrerender, loadLake } from '../_components/load';
+import { lakeSubpageParams, loadLake } from '../_components/load';
 import { jsonLdHtml, mapJsonLd } from '@/lib/json-ld';
 import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { LakeMapLoading } from './LakeMapLoading';
@@ -23,9 +23,8 @@ type Props = { params: Promise<{ id: string }> };
 
 export const instant = false;
 
-export async function generateStaticParams() {
-  const ids = await lakeIdsToPrerender();
-  return (ids.length ? ids : ['_']).map(id => ({ id }));
+export function generateStaticParams() {
+  return lakeSubpageParams();
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -35,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return subMetadata(load.lake, {
     title: 'Hartă',
     description: `Harta din satelit a bălții ${load.lake.name}: standurile cu cea mai mare captură, calitatea și numărul de capturi, plus navigarea până la baltă sau la un stand.`,
-    path: routes.lakeMap(load.lake.documentId),
+    path: routes.lakeMap(lakeUrlId(load.lake)),
     empty: await lakeSubpageEmpty(load.lake, 'harta'),
   });
 }
@@ -48,7 +47,7 @@ export default async function LakeMapPage({ params }: Props) {
   return (
     <>
       <SetBreadcrumb trail={subTrail(lake, 'Hartă')} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(breadcrumbJsonLd(lake, 'Hartă', routes.lakeMap(lake.documentId)))} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(breadcrumbJsonLd(lake, 'Hartă', routes.lakeMap(lakeUrlId(lake))))} />
       {/* The stands' read behind the map's frame with the lake's title (loading.tsx is only for the
           lake read itself). */}
       <Suspense fallback={<LakeMapLoading lakeName={lake.name} lakeId={lake.documentId} />}>
@@ -69,7 +68,7 @@ async function LakeMap({ lake }: { lake: LakeDetail }) {
       {coords ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={jsonLdHtml(mapJsonLd({ name: `Hartă · ${lake.name}`, path: routes.lakeMap(lake.documentId), place: { type: 'TouristAttraction', name: lake.name, path: routes.lake(lake.documentId), lat: coords.lat, lng: coords.lng } }))}
+          dangerouslySetInnerHTML={jsonLdHtml(mapJsonLd({ name: `Hartă · ${lake.name}`, path: routes.lakeMap(lakeUrlId(lake)), place: { type: 'TouristAttraction', name: lake.name, path: routes.lake(lakeUrlId(lake)), lat: coords.lat, lng: coords.lng } }))}
         />
       ) : null}
       <LakeMapScreen lakeId={lake.documentId} lakeName={lake.name} coords={coords} />

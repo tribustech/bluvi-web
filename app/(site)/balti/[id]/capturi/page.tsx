@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { HydrationBoundary } from '@tanstack/react-query';
 import { communityVenueCatchesInfiniteQuery, type LakeCatchesPage } from '@/core/partide';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
-import { lakeIdsToPrerender, loadLake } from '../_components/load';
+import { lakeSubpageParams, loadLake } from '../_components/load';
 import { jsonLdHtml } from '@/lib/json-ld';
 import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { CatchesScreen } from './CatchesScreen';
@@ -20,9 +20,8 @@ type Props = { params: Promise<{ id: string }> };
 
 export const instant = false;
 
-export async function generateStaticParams() {
-  const ids = await lakeIdsToPrerender();
-  return (ids.length ? ids : ['_']).map(id => ({ id }));
+export function generateStaticParams() {
+  return lakeSubpageParams();
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -32,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return subMetadata(load.lake, {
     title: 'Capturi',
     description: `Toate capturile fotografiate la ${load.lake.name} de pescarii din comunitatea Bluvi: specia, greutatea și pescarul.`,
-    path: routes.lakeCatches(load.lake.documentId),
+    path: routes.lakeCatches(lakeUrlId(load.lake)),
     empty: await lakeSubpageEmpty(load.lake, 'capturi'),
   });
 }
@@ -43,7 +42,7 @@ export default async function LakeCatchesPage({ params }: Props) {
   if (load.kind === 'missing') notFound();
   const lake = load.lake;
   const { state } = await prefetchSub(lake.documentId, 'catches-page', t => [communityVenueCatchesInfiniteQuery(t, { kind: 'lake', id: lake.documentId })]);
-  const path = routes.lakeCatches(lake.documentId);
+  const path = routes.lakeCatches(lakeUrlId(lake));
   const first = (state.queries[0]?.state.data as { pages?: LakeCatchesPage[] } | undefined)?.pages?.[0]?.data ?? [];
   const gallery = {
     '@context': 'https://schema.org',

@@ -93,11 +93,30 @@ export const COMPETITION_TAB_SLUG = { notStarted: 'viitoare', started: 'live', c
   string
 >;
 
+/**
+ * The URL segment of a lake: its slug (`/balti/aladdin-lakes`, owner 2026-10-12 — readable URLs for
+ * search) once the CMS has one, else its documentId. proxy.ts serves either (lib/lake-slug-route.ts).
+ * Pass it to the `routes.lake*` helpers wherever a URL is shown or published (links, canonical,
+ * JSON-LD, sitemap); data reads keep the documentId.
+ */
+export function lakeUrlId(lake: { documentId: string; slug?: string | null }): string {
+  return lake.slug || lake.documentId;
+}
+
 export const routes = {
   home: () => '/',
   lakes: () => '/balti',
   /** The lakes results map (lakes.results-map); search and filters ride in the query (balti/_list/url.ts). */
   lakesMap: (query = '') => (query ? `/balti/harta?${query}` : '/balti/harta'),
+  // The lakes' SEO landing pages (lib/lake-landing.ts): by county, by species, by feature.
+  lakesCounties: () => '/balti/judete',
+  /** `slug`: the county's ascii slug (lib/lake-landing.ts landingSlug), e.g. `ilfov`. */
+  lakesCounty: (slug: string) => `/balti/judet/${encodeURIComponent(slug)}`,
+  lakesSpeciesHub: () => '/balti/specii',
+  /** `slug`: the species' ascii slug, e.g. `crap`, `stiuca`. */
+  lakesSpecies: (slug: string) => `/balti/specie/${encodeURIComponent(slug)}`,
+  /** A curated feature page (lib/lake-landing.ts FEATURES), e.g. `cu-rezervare-online`. */
+  lakesFeature: (slug: string) => `/balti/${encodeURIComponent(slug)}`,
   /** Public waters map (area public-waters); the Bălți / Ape publice toggle links here. */
   publicWaters: () => '/ape-publice',
   lake: (documentId: string) => `/balti/${encodeURIComponent(documentId)}`,

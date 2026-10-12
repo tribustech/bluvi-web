@@ -63,6 +63,9 @@ const OWN_BAND_ROUTES: readonly RegExp[] = [
   // switch) and sits at the same y as /balti's — no crumb strip that moves it on list ↔ map. The
   // BreadcrumbList stays in the page's JSON-LD.
   /^\/balti\/harta\/?$/,
+  // The lakes' SEO landing pages (balti/_seo/LandingPage.tsx: their own band + BreadcrumbList); the
+  // feature slugs are lib/lake-landing.ts FEATURES.
+  /^\/balti\/(?:judete|specii|judet\/[^/]+|specie\/[^/]+|cu-rezervare-online|cu-cazare|cu-iluminat-nocturn|catch-and-release|cu-retinere|pentru-familii)\/?$/,
   /^\/dev\/templates\/t2\/?$/,
   // «Setări» (account.settings.c2): its header's back control owns the way back.
   /^\/setari\/?$/,

@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { routes } from '@/lib/routes';
 import { safeNext } from '@/app/(site)/intra/logic';
+import { lakeRouteAction } from '@/lib/lake-slug-route';
+import { getLakeSlugMap } from '@/lib/server/lake-slug-map';
 
 /**
  * The signed-out gate's fast path (parity account.b.signed-out-gate). Pages that need an account
@@ -14,8 +16,9 @@ import { safeNext } from '@/app/(site)/intra/logic';
  * Signed-in-only pages add their path pattern to `matcher` (a static list: Next reads it at build).
  * /intra is the one `has` entry: there the cookie's presence sends the visitor away from the sign-in.
  */
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, search, searchParams } = request.nextUrl;
+  if (pathname.startsWith('/balti/')) return lakePath(request);
   // A visitor with a session cookie never sees the sign-in again (owner 2026-10-11): /intra goes
   // to its safe `next`, else home. A dead cookie lands on that page, whose dead-session handling
   // signs out and sends the visitor back here without it.
@@ -23,6 +26,26 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(safeNext(searchParams.get('next')) ?? routes.home(), request.url), 307);
   }
   return NextResponse.redirect(new URL(routes.signIn(`${pathname}${search}`), request.url), 307);
+}
+
+/** The lake pages that need an account (booking flow, review form) — the gate's other entries' rule. */
+const SIGNED_IN_LAKE_PAGE = /^\/balti\/[^/]+\/(?:rezerva(?:\/.*)?|recenzie)$/;
+
+/**
+ * Every /balti/<x>/… request (lib/lake-slug-route.ts): an old documentId URL goes to its slug URL
+ * (308), a slug URL is served from the lake's page (rewrite), the site's own /balti pages pass. The
+ * signed-out gate for the booking flow and the review form runs here too (they used to be matcher
+ * entries of their own; a path matched by several entries still runs the proxy once).
+ */
+async function lakePath(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+  const action = lakeRouteAction(pathname, await getLakeSlugMap());
+  if (action.kind === 'redirect') return NextResponse.redirect(new URL(`${action.path}${search}`, request.url), 308);
+  if (!request.cookies.has('bluvi_session') && SIGNED_IN_LAKE_PAGE.test(pathname)) {
+    return NextResponse.redirect(new URL(routes.signIn(`${pathname}${search}`), request.url), 307);
+  }
+  if (action.kind === 'rewrite') return NextResponse.rewrite(new URL(`${action.path}${search}`, request.url));
+  return NextResponse.next();
 }
 
 export const config = {
@@ -44,8 +67,9 @@ export const config = {
     // M3 booking: my bookings and one booking (/rezervari, /rezervari/[id]), the booking flow
     // (/balti/[id]/rezerva and its steps) and the lake review form — per user, signed in only.
     { source: '/rezervari/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    { source: '/balti/:id/rezerva/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    { source: '/balti/:id/recenzie', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    // Every lake URL: slug ↔ documentId (lakePath), and the signed-out gate of the booking flow
+    // (/balti/[id]/rezerva and its steps) and the lake review form.
+    { source: '/balti/:path+' },
     // M5: registration (participant.register, team disclaimer, guests) — per user, signed in only.
     { source: '/concursuri/:id/inscriere/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // M5: the competition chat (participant.chat, participant.b.chat-signed-out) — signed in only.

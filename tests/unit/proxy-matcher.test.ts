@@ -39,8 +39,8 @@ describe('proxy matcher: M6 organizer (organizer.b.signed-out-gate)', () => {
     },
   );
 
-  it('redirects to /intra with the page and its query as `next`', () => {
-    const res = proxy(new NextRequest('http://localhost:3000/organizator/concursuri/nou/detalii?ciorna=d1'));
+  it('redirects to /intra with the page and its query as `next`', async () => {
+    const res = await proxy(new NextRequest('http://localhost:3000/organizator/concursuri/nou/detalii?ciorna=d1'));
     expect(res.status).toBe(307);
     expect(res.headers.get('location')).toBe('http://localhost:3000/intra?next=%2Forganizator%2Fconcursuri%2Fnou%2Fdetalii%3Fciorna%3Dd1');
   });

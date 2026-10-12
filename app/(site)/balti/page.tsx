@@ -11,6 +11,7 @@ import { GeoHintScript } from './_list/GeoHintScript';
 import { HOME_PARAMS } from './_list/homeParams';
 import { LakesHome } from './_list/LakesHome';
 import { jsonLdHtml } from '@/lib/json-ld';
+import { LakesBrowseLinks } from './_seo/BrowseLinks';
 
 /*
  * Bălți (parity lakes.home) — fish app/(app)/(tabs)/lakes/index.tsx, home mode. The page is the
@@ -61,6 +62,10 @@ export default function LakesPage() {
         <HydrateQueries queries={(t) => [lakesHomeQuery(t, HOME_PARAMS)]} tags={['lakes-list']}>
           <LakesHome />
         </HydrateQueries>
+      </Suspense>
+      {/* Crawlable links to the SEO landing pages (by county, by species, by feature). */}
+      <Suspense fallback={null}>
+        <LakesBrowseLinks />
       </Suspense>
     </div>
   );

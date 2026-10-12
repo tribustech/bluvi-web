@@ -3,9 +3,9 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { HydrationBoundary } from '@tanstack/react-query';
 import { lakeQuery, lakeReviewsInfiniteQuery, type GetReviewsForLakeResponse, type LakeDetail } from '@/core/lakes';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
-import { lakeIdsToPrerender, loadLake } from '../_components/load';
+import { lakeSubpageParams, loadLake } from '../_components/load';
 import { jsonLdHtml } from '@/lib/json-ld';
 import { reviewScoreSentence, reviewsJsonLd } from '@/lib/seo/reviews';
 import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
@@ -24,9 +24,8 @@ type Props = { params: Promise<{ id: string }> };
 
 export const instant = false;
 
-export async function generateStaticParams() {
-  const ids = await lakeIdsToPrerender();
-  return (ids.length ? ids : ['_']).map(id => ({ id }));
+export function generateStaticParams() {
+  return lakeSubpageParams();
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -37,7 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return subMetadata(load.lake, {
     title: 'Recenzii',
     description: `Recenziile pescarilor despre ${load.lake.name}: pescuit, facilități și atmosferă.${reviewScoreSentence(load.lake.reviewsMeta)}`,
-    path: routes.lakeReviews(load.lake.documentId),
+    path: routes.lakeReviews(lakeUrlId(load.lake)),
     empty: await lakeSubpageEmpty(load.lake, 'recenzii'),
   });
 }
@@ -50,7 +49,7 @@ export default async function LakeReviewsPage({ params }: Props) {
   return (
     <>
       <SetBreadcrumb trail={subTrail(lake, 'Recenzii')} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(breadcrumbJsonLd(lake, 'Recenzii', routes.lakeReviews(lake.documentId)))} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(breadcrumbJsonLd(lake, 'Recenzii', routes.lakeReviews(lakeUrlId(lake))))} />
       {/* The reviews' reads behind the page's own skeleton, under the lake's name (loading.tsx is
           only for the lake read itself). */}
       <Suspense fallback={<ReviewsFallback lakeName={lake.name} lakeId={lake.documentId} />}>
@@ -65,7 +64,7 @@ async function Reviews({ lake }: { lake: LakeDetail }) {
   // The lake with its rating and the first page of reviews as the page shows them — only when the
   // lake has reviews (no AggregateRating of nothing).
   const first = (state.queries[1]?.state.data as { pages?: GetReviewsForLakeResponse[] } | undefined)?.pages?.[0]?.data ?? [];
-  const ld = reviewsJsonLd(lake, routes.lakeReviews(lake.documentId), first);
+  const ld = reviewsJsonLd(lake, routes.lakeReviews(lakeUrlId(lake)), first);
   return (
     <HydrationBoundary state={state}>
       {ld ? <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(ld)} /> : null}
