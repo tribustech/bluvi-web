@@ -19,6 +19,15 @@ const nextConfig: NextConfig = {
   // Public CMS reads go through `'use cache'` + cacheTag/cacheLife (lib/server/public-get.ts),
   // driven by the CMS's own CDN-Cache-Control / X-Cache-Tag headers.
   cacheComponents: true,
+  // The build prerenders every public page from the production CMS, which the app is using at the
+  // same time. On Vercel Pro the build runs 7 workers (3 on Hobby): with Next's default of 8 pages
+  // in flight per worker the CMS slowed down, and the sitemaps' CMS walks (ape-publice ~96 pages)
+  // went past the 60 s page timeout and failed the build (owner 2026-10-12, dpl_2Xusz…). Fewer
+  // pages at once per worker, and a timeout that leaves room for a slow CMS.
+  staticPageGenerationTimeout: 180,
+  experimental: {
+    staticGenerationMaxConcurrency: 3,
+  },
   // The floating dev badge covers the mobile tab bar in screenshots.
   devIndicators: false,
   env: {
