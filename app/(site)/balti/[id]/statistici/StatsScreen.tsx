@@ -46,6 +46,7 @@ import { firstReadFailed, SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_
 import { ChipsSkeleton, PeriodChips, plural, rankKg, RankRow, RowsSkeleton } from '../_sub/stats';
 import { useBack } from '../_sub/useBack';
 import { AnglerAvatar, dayMonth, EmptyIcon } from '../_sub/venue';
+import { useLakeUrlId } from '../_sub/lake-url';
 
 /*
  * Statistici baltă — fish app/(app)/lakes/[lakeId]/statistici.tsx → VenueStatsScreen (parity
@@ -68,11 +69,12 @@ import { AnglerAvatar, dayMonth, EmptyIcon } from '../_sub/venue';
 const CAPTION = 'Statistici';
 
 export function StatsScreen({ lakeId, lakeName, initialPeriod }: { lakeId: string; lakeName: string; initialPeriod: StatsPeriod }) {
+  const urlId = useLakeUrlId(lakeId);
   const t = useMemo(() => createBrowserTransport(), []);
   const [period, setPeriod] = useState<StatsPeriod>(initialPeriod);
   useListUrlState({ perioada: period === 'month' ? null : period });
   const q = useQuery(communityStatsQuery(t, period, { kind: 'lake', id: lakeId }));
-  const back = useBack(routes.lake(lakeId));
+  const back = useBack(routes.lake(urlId));
 
   // The period the figures on screen belong to: a switch keeps the previous one's figures (the
   // placeholder) — every link keeps naming THAT period until the new figures land.
@@ -200,6 +202,7 @@ const noSubscribe = () => () => {};
 const useToday = () => useSyncExternalStore(noSubscribe, () => new Date().toDateString(), () => null);
 
 function StatsMain({ data, period, lakeId }: { data: CommunityStatsDTO; period: StatsPeriod; lakeId: string }) {
+  const urlId = useLakeUrlId(lakeId);
   const today = useToday();
   const series = data.weeklySeries;
   const detail = useMemo(() => (today ? seriesDetailLabels(period, series.length, new Date(today)) : series.map(s => s.label)), [period, series, today]);
@@ -228,7 +231,7 @@ function StatsMain({ data, period, lakeId }: { data: CommunityStatsDTO; period: 
             title="Top pescari"
             flush
             action={
-              <Link href={routes.lakeRanking(lakeId, period)} className={cn(LINK_ACTION, '-my-3 inline-flex items-center gap-0.5')} data-testid="top-anglers-ranking">
+              <Link href={routes.lakeRanking(urlId, period)} className={cn(LINK_ACTION, '-my-3 inline-flex items-center gap-0.5')} data-testid="top-anglers-ranking">
                 Clasament
                 <ChevronRightIcon aria-hidden className="size-4" />
               </Link>
@@ -417,6 +420,7 @@ function RecordHero({ period, record }: { period: StatsPeriod; record: StatsReco
 const TOP_STANDS = 5;
 
 function TopStands({ stands, lakeId, period }: { stands: StandStat[]; lakeId: string; period: StatsPeriod }) {
+  const urlId = useLakeUrlId(lakeId);
   const [sort, setSort] = useState<StandSort>('kg');
   const name = useId();
   const ranked = useMemo(() => sortStands(stands, sort), [stands, sort]);
@@ -428,7 +432,7 @@ function TopStands({ stands, lakeId, period }: { stands: StandStat[]; lakeId: st
       flush
       action={
         <Link
-          href={routes.lakeStands(lakeId, { perioada: period, sortare: sort })}
+          href={routes.lakeStands(urlId, { perioada: period, sortare: sort })}
           className={cn(LINK_ACTION, '-my-3 inline-flex items-center gap-0.5')}
           data-testid="top-stands-ranking"
         >

@@ -9,6 +9,7 @@ import { lakeSubpageParams, loadLake } from '../_components/load';
 import { jsonLdHtml } from '@/lib/json-ld';
 import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { GalleryScreen } from './GalleryScreen';
+import { LakeUrlProvider } from '../_sub/lake-url';
 
 /*
  * Galerie — fish app/(app)/lakes/[lakeId]/gallery.tsx (parity lakes.gallery, template none: fish's
@@ -46,13 +47,13 @@ export default async function LakeGalleryPage({ params }: Props) {
   const { state } = await prefetchSub(lake.documentId, 'catches-page', t => [communityVenueCatchesInfiniteQuery(t, venue)]);
   const path = routes.lakeGallery(lakeUrlId(lake));
   return (
-    <>
+    <LakeUrlProvider urlId={lakeUrlId(lake)}>
       <SetBreadcrumb trail={subTrail(lake, 'Galerie')} />
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml([galleryJsonLd(lake.name, path, lake.images, state), breadcrumbJsonLd(lake, 'Galerie', path)])} />
       <HydrationBoundary state={state}>
         <GalleryScreen lakeId={lake.documentId} lakeName={lake.name} images={lake.images} />
       </HydrationBoundary>
-    </>
+    </LakeUrlProvider>
   );
 }
 

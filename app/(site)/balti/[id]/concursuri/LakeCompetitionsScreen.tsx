@@ -15,6 +15,7 @@ import { firstReadFailed, SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_
 import { useBack } from '../_sub/useBack';
 import { lakeCompetitionCardsQuery, withoutLake } from './query';
 import { LAKE_COMPETITION_TABS, LAKE_COMPETITIONS_CAPTION, NO_COMPETITIONS, tabOf, type LakeCompetitionTab } from './tabs';
+import { useLakeUrlId } from '../_sub/lake-url';
 
 /*
  * Concursuri la baltă — fish app/(app)/lakes/[lakeId]/concursuri.tsx (CompetitionTabs +
@@ -71,10 +72,11 @@ export function LakeCompetitionsScreen({
   /** The tab the bare URL opens (page.tsx): that tab keeps the URL bare. */
   bareTab?: LakeCompetitionTab;
 }) {
+  const urlId = useLakeUrlId(lakeId);
   const t = useMemo(() => createBrowserTransport(), []);
   const [tab, setTab] = useState<LakeCompetitionTab>(initialTab);
   useListUrlState({ tab: tab === bareTab ? null : tab });
-  const back = useBack(routes.lake(lakeId));
+  const back = useBack(routes.lake(urlId));
 
   const q = useInfiniteQuery(lakeCompetitionCardsQuery(t, lakeId, tabOf(tab).status));
   // Every tab's size rides on each tab's read: kept across a switch so the LIVE dot never flickers.

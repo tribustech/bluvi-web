@@ -8,6 +8,7 @@ import { lakeSubpageParams, loadLake } from '../_components/load';
 import { jsonLdHtml } from '@/lib/json-ld';
 import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { CatchesScreen } from './CatchesScreen';
+import { LakeUrlProvider } from '../_sub/lake-url';
 
 /*
  * Capturi — fish app/(app)/lakes/[lakeId]/capturi.tsx (parity lakes.catches; reached from the
@@ -59,12 +60,12 @@ export default async function LakeCatchesPage({ params }: Props) {
       })),
   };
   return (
-    <>
+    <LakeUrlProvider urlId={lakeUrlId(lake)}>
       <SetBreadcrumb trail={subTrail(lake, 'Capturi')} />
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml([gallery, breadcrumbJsonLd(lake, 'Capturi', path)])} />
       <HydrationBoundary state={state}>
         <CatchesScreen lakeId={lake.documentId} lakeName={lake.name} />
       </HydrationBoundary>
-    </>
+    </LakeUrlProvider>
   );
 }

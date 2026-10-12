@@ -25,6 +25,7 @@ import { Lightbox, type LightboxItem } from '@/components/surfaces/Lightbox';
 import { BrokenPhoto, DEFAULT_RATIO, failedBeforeHydration, MasonryGrid, MasonrySkeleton, tileRatio } from '../_sub/Masonry';
 import { firstReadFailed, SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_sub/states';
 import { useBack } from '../_sub/useBack';
+import { useLakeUrlId } from '../_sub/lake-url';
 
 /*
  * Galerie — fish app/(app)/lakes/[lakeId]/gallery.tsx (parity lakes.gallery): the lake's own photos
@@ -50,12 +51,13 @@ const PHOTO_TILE =
   'group relative block w-full cursor-pointer overflow-hidden rounded-card bg-soft-fill focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 export function GalleryScreen({ lakeId, lakeName, images }: { lakeId: string; lakeName: string; images: FeedLakeImage[] }) {
+  const urlId = useLakeUrlId(lakeId);
   const t = useMemo(() => createBrowserTransport(), []);
   const q = useInfiniteQuery(communityVenueCatchesInfiniteQuery(t, { kind: 'lake', id: lakeId }));
   const [filter, setFilter] = useState<GalleryFilter>('toate');
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [broken, setBroken] = useState<ReadonlySet<string>>(() => new Set());
-  const back = useBack(routes.lake(lakeId));
+  const back = useBack(routes.lake(urlId));
   const markBroken = (key: string) => setBroken(prev => (prev.has(key) ? prev : new Set(prev).add(key)));
 
   const photos = useMemo(() => buildGalleryPhotoItems(images), [images]);
@@ -154,7 +156,7 @@ export function GalleryScreen({ lakeId, lakeName, images }: { lakeId: string; la
                     Vezi fotografiile bălții
                   </Button>
                 ) : (
-                  <Link href={routes.lake(lakeId)} className={buttonClass({ variant: 'secondary' })}>
+                  <Link href={routes.lake(urlId)} className={buttonClass({ variant: 'secondary' })}>
                     Înapoi la baltă
                   </Link>
                 )

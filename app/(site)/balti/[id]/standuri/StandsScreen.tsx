@@ -23,6 +23,7 @@ import { PERIOD_TITLE } from '@/lib/stats-period';
 import { ChipStrip, firstReadFailed, SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_sub/states';
 import { PeriodAside, plural, rankKg, RankRow, ROWS_CARD, StandsSkeletonBody } from '../_sub/stats';
 import { useBack } from '../_sub/useBack';
+import { useLakeUrlId } from '../_sub/lake-url';
 
 /*
  * Clasament standuri — fish app/(app)/lakes/[lakeId]/standuri.tsx → StandsLeaderboardScreen +
@@ -61,11 +62,12 @@ export function StandsScreen({
   period: StatsPeriod;
   initialSort: StandSort;
 }) {
+  const urlId = useLakeUrlId(lakeId);
   const t = useMemo(() => createBrowserTransport(), []);
   const [sort, setSort] = useState<StandSort>(initialSort);
   useListUrlState({ sortare: sort === 'kg' ? null : sort });
   const q = useQuery(communityStatsQuery(t, period, { kind: 'lake', id: lakeId }));
-  const back = useBack(routes.lake(lakeId));
+  const back = useBack(routes.lake(urlId));
 
   // The period the numbers on screen belong to (as clasament): a period switch keeps the previous
   // period's stands on screen (placeholder) — dimmed and busy, and every label keeps naming THAT
@@ -105,7 +107,7 @@ export function StandsScreen({
       period={shownPeriod}
       totals={ready ? ready.totals : null}
       quiet={failed ? 'Numerele perioadei nu s-au putut încărca.' : 'Nicio partidă în această perioadă.'}
-      action={{ href: routes.lakeRanking(lakeId, shownPeriod), label: 'Clasament pescari' }}
+      action={{ href: routes.lakeRanking(urlId, shownPeriod), label: 'Clasament pescari' }}
       note="Standurile sunt clasate după partidele comunității din această perioadă."
       dimmed={switching}
     />
@@ -162,7 +164,7 @@ export function StandsScreen({
               title="Nicio activitate la standuri în perioada asta."
               action={
                 period !== 'year' ? (
-                  <Link href={routes.lakeStands(lakeId, { perioada: 'year', sortare: sort === 'kg' ? undefined : sort })} className={buttonClass({ variant: 'secondary' })}>
+                  <Link href={routes.lakeStands(urlId, { perioada: 'year', sortare: sort === 'kg' ? undefined : sort })} className={buttonClass({ variant: 'secondary' })}>
                     Vezi anul curent
                   </Link>
                 ) : undefined

@@ -14,6 +14,7 @@ import { LakeCompetitionsFallback } from './LakeCompetitionsFallback';
 import { LakeCompetitionsScreen } from './LakeCompetitionsScreen';
 import { lakeCompetitionCardsQuery } from './query';
 import { bareLakeCompetitionTab, parseLakeCompetitionTab, tabOf, type LakeCompetitionTab } from './tabs';
+import { LakeUrlProvider } from '../_sub/lake-url';
 
 /*
  * Concursuri la baltă — fish app/(app)/lakes/[lakeId]/concursuri.tsx (parity lakes.competitions,
@@ -50,12 +51,12 @@ export default async function LakeCompetitionsPage({ params, searchParams }: Pro
   if (load.kind === 'missing') notFound();
   const lake = load.lake;
   return (
-    <>
+    <LakeUrlProvider urlId={lakeUrlId(lake)}>
       <SetBreadcrumb trail={subTrail(lake, 'Concursuri')} />
       <Suspense fallback={<LakeCompetitionsFallback lakeName={lake.name} lakeId={lake.documentId} />}>
         <Competitions lake={lake} searchParams={searchParams} />
       </Suspense>
-    </>
+    </LakeUrlProvider>
   );
 }
 

@@ -23,6 +23,7 @@ import { FocusAfterRetry } from '../_components/RetryFocus';
 import { firstReadFailed, SubListError } from '../_sub/states';
 import { rankKg } from '../_sub/stats';
 import { useBack } from '../_sub/useBack';
+import { useLakeUrlId } from '../_sub/lake-url';
 
 /*
  * Hartă baltă — fish app/(app)/lakes/[lakeId]/map.tsx → LakeMap + useLakeMap + LakeStandPins /
@@ -129,7 +130,8 @@ const hasCoords = (s: StandStats): s is StandStats & { coordinates: { latitude: 
   s.coordinates.latitude != null && s.coordinates.longitude != null && !!s.coordinates.latitude && !!s.coordinates.longitude;
 
 export function LakeMapScreen({ lakeId, lakeName, coords }: { lakeId: string; lakeName: string; coords: Coords | null }) {
-  const back = useBack(routes.lake(lakeId));
+  const urlId = useLakeUrlId(lakeId);
+  const back = useBack(routes.lake(urlId));
   const title = `Hartă ${lakeName}`;
   if (!coords) {
     return (
@@ -172,6 +174,7 @@ export function MapFrame({
   children: ReactNode;
   overlay?: ReactNode;
 }) {
+  const urlId = useLakeUrlId(lakeId ?? '');
   const onClickCapture = (e: MouseEvent) => {
     if (!onBack || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
@@ -187,7 +190,7 @@ export function MapFrame({
         <div className={cn('pointer-events-none absolute inset-x-0 top-[calc(var(--spacing)*4+env(safe-area-inset-top))] z-overlay flex items-center gap-2 pr-20 pl-4', T2_ALIGN_LEFT)} data-testid="map-head">
           <div ref={headRef} className="pointer-events-auto flex min-w-0 items-center gap-2">
             <div className="shrink-0" onClickCapture={onClickCapture} data-testid="map-back">
-              <T2BackLink href={lakeId ? routes.lake(lakeId) : routes.lakes()} label="Înapoi" />
+              <T2BackLink href={lakeId ? routes.lake(urlId) : routes.lakes()} label="Înapoi" />
             </div>
             {lakeName ? (
               // Visual: the h1 above names the page for assistive tech.

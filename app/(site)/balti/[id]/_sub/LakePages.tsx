@@ -1,9 +1,12 @@
+'use client';
+
 import Link from 'next/link';
 import { ChevronRightIcon } from '@heroicons/react/20/solid';
 import { FOCUS_RING } from '@/components/templates/T1';
 import { cn } from '@/components/ui/cn';
 import type { StatsPeriod } from '@/core/partide';
 import { routes } from '@/lib/routes';
+import { useLakeUrlId } from './lake-url';
 
 /*
  * «Pe această baltă» — the lake's pages, the same list in the left column of Partide, Statistici,
@@ -16,19 +19,20 @@ import { routes } from '@/lib/routes';
 export type LakePage = 'partide' | 'statistici' | 'clasament' | 'standuri' | 'capturi' | 'recenzii' | 'galerie' | 'harta' | 'concursuri';
 
 export function LakePages({ lakeId, current, period }: { lakeId: string; current: LakePage; period?: StatsPeriod }) {
+  const urlId = useLakeUrlId(lakeId);
   const groups: { key: LakePage; label: string; href: string }[][] = [
     [
-      { key: 'partide', label: 'Partide', href: routes.lakePartide(lakeId) },
-      { key: 'statistici', label: 'Statistici', href: routes.lakeStats(lakeId, period) },
-      { key: 'clasament', label: 'Clasament pescari', href: routes.lakeRanking(lakeId, period) },
-      { key: 'standuri', label: 'Clasament standuri', href: routes.lakeStands(lakeId, { perioada: period }) },
-      { key: 'capturi', label: 'Capturi', href: routes.lakeCatches(lakeId) },
+      { key: 'partide', label: 'Partide', href: routes.lakePartide(urlId) },
+      { key: 'statistici', label: 'Statistici', href: routes.lakeStats(urlId, period) },
+      { key: 'clasament', label: 'Clasament pescari', href: routes.lakeRanking(urlId, period) },
+      { key: 'standuri', label: 'Clasament standuri', href: routes.lakeStands(urlId, { perioada: period }) },
+      { key: 'capturi', label: 'Capturi', href: routes.lakeCatches(urlId) },
     ],
     [
-      { key: 'recenzii', label: 'Recenzii', href: routes.lakeReviews(lakeId) },
-      { key: 'galerie', label: 'Galerie', href: routes.lakeGallery(lakeId) },
-      { key: 'harta', label: 'Hartă', href: routes.lakeMap(lakeId) },
-      { key: 'concursuri', label: 'Concursuri', href: routes.lakeCompetitions(lakeId) },
+      { key: 'recenzii', label: 'Recenzii', href: routes.lakeReviews(urlId) },
+      { key: 'galerie', label: 'Galerie', href: routes.lakeGallery(urlId) },
+      { key: 'harta', label: 'Hartă', href: routes.lakeMap(urlId) },
+      { key: 'concursuri', label: 'Concursuri', href: routes.lakeCompetitions(urlId) },
     ],
   ];
   return (

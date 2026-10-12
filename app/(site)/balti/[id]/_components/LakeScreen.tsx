@@ -78,6 +78,7 @@ import { QuickActionBadge, QuickActions } from './QuickActions';
 import { ReviewCard } from './ReviewCard';
 import { FocusAfterRetry, SectionRetry } from './RetryFocus';
 import { SectionAction } from './SectionLink';
+import { LakeUrlProvider } from '../_sub/lake-url';
 
 /*
  * Baltă — fish app/(app)/lakes/[lakeId].tsx on T3 (parity lakes.detail), one long scroll:
@@ -178,6 +179,7 @@ export function LakeScreen({ lake, sections, priceFrom }: { lake: LakeDetail; se
   const hasPhoto = photos.length > 0;
   const info: LakeInfo = {
     documentId: id,
+    slug: lake.slug,
     name: lake.name,
     coordinates: lake.coordinates,
     bookingState: lakeBookingState(lake),
@@ -195,6 +197,7 @@ export function LakeScreen({ lake, sections, priceFrom }: { lake: LakeDetail; se
   const ctaVariant = info.bookingState === 'none' && lakePhone(lake) ? 'secondary' : 'primary';
 
   return (
+    <LakeUrlProvider urlId={lakeUrlId(lake)}>
     <LakeActionsProvider lake={info}>
       <SetBreadcrumb trail={[{ label: 'Bălți', href: routes.lakes() }, { label: lake.name }]} />
       <DetailSectionsProvider sections={initial} refined={refined}>
@@ -412,10 +415,10 @@ export function LakeScreen({ lake, sections, priceFrom }: { lake: LakeDetail; se
             ) : null}
 
             <Suspense fallback={<CompetitionBones />}>
-              <Competitions lakeId={id} competitions={sections.competitions} />
+              <Competitions lakeId={lakeUrlId(lake)} competitions={sections.competitions} />
             </Suspense>
 
-            <DetailSection id="recenzii" title="Recenzii" action={<ReviewsMoreAction lakeId={id} count={reviewCount} />}>
+            <DetailSection id="recenzii" title="Recenzii" action={<ReviewsMoreAction lakeId={lakeUrlId(lake)} count={reviewCount} />}>
               {/* From 768 the score summary in a fixed 288px column and the latest review(s) beside it
                   (an auto-fill grid: two side by side when there is room); where the row has no room
                   for both (the 1280 centre) the reviews wrap under the summary. */}
@@ -450,6 +453,7 @@ export function LakeScreen({ lake, sections, priceFrom }: { lake: LakeDetail; se
         </DetailPage>
       </DetailSectionsProvider>
     </LakeActionsProvider>
+    </LakeUrlProvider>
   );
 }
 

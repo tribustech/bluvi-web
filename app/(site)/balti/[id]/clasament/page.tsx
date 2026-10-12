@@ -13,6 +13,7 @@ import { breadcrumbJsonLd, lakeAbout, lakeSubpageEmpty, prefetchSub, subMetadata
 import { anglersRankingJsonLd, statsFromState } from '@/lib/seo/community';
 import { RankingFallback } from './RankingFallback';
 import { RankingScreen } from './RankingScreen';
+import { LakeUrlProvider } from '../_sub/lake-url';
 
 /*
  * Clasament pescari la baltă — fish app/(app)/lakes/[lakeId]/clasament.tsx (parity
@@ -55,13 +56,13 @@ export default async function LakeRankingPage({ params, searchParams }: Props) {
   const lake = load.lake;
   const path = routes.lakeRanking(lakeUrlId(lake));
   return (
-    <>
+    <LakeUrlProvider urlId={lakeUrlId(lake)}>
       <SetBreadcrumb trail={subTrail(lake, LABEL)} />
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(breadcrumbJsonLd(lake, LABEL, path))} />
       <Suspense fallback={<RankingFallback lakeName={lake.name} lakeId={lake.documentId} />}>
         <Ranking lake={lake} searchParams={searchParams} />
       </Suspense>
-    </>
+    </LakeUrlProvider>
   );
 }
 

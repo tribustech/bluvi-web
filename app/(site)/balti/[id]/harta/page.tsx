@@ -11,6 +11,7 @@ import { jsonLdHtml, mapJsonLd } from '@/lib/json-ld';
 import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { LakeMapLoading } from './LakeMapLoading';
 import { LakeMapScreen } from './LakeMapScreen';
+import { LakeUrlProvider } from '../_sub/lake-url';
 
 /*
  * Hartă baltă — fish app/(app)/lakes/[lakeId]/map.tsx (parity lakes.map, T2). The lake read is
@@ -45,7 +46,7 @@ export default async function LakeMapPage({ params }: Props) {
   if (load.kind === 'missing') notFound();
   const lake = load.lake;
   return (
-    <>
+    <LakeUrlProvider urlId={lakeUrlId(lake)}>
       <SetBreadcrumb trail={subTrail(lake, 'Hartă')} />
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(breadcrumbJsonLd(lake, 'Hartă', routes.lakeMap(lakeUrlId(lake))))} />
       {/* The stands' read behind the map's frame with the lake's title (loading.tsx is only for the
@@ -53,7 +54,7 @@ export default async function LakeMapPage({ params }: Props) {
       <Suspense fallback={<LakeMapLoading lakeName={lake.name} lakeId={lake.documentId} />}>
         <LakeMap lake={lake} />
       </Suspense>
-    </>
+    </LakeUrlProvider>
   );
 }
 

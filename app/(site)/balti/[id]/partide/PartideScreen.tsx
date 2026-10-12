@@ -41,6 +41,7 @@ import { useBack } from '../_sub/useBack';
 import { rankKg, StatCell } from '../_sub/stats';
 import { AnglerAvatar, dateRange, EmptyIcon, FaceRow, SafePhoto } from '../_sub/venue';
 import { formatCount } from '@/core/realtime/chat/format';
+import { useLakeUrlId } from '../_sub/lake-url';
 
 /*
  * Partide la baltă — fish app/(app)/lakes/[lakeId]/partide.tsx → VenueSessionsScreen (parity
@@ -65,11 +66,12 @@ const CAPTION = 'Partide la baltă';
 const EMPTY_TITLE = 'Nicio partidă înregistrată la această baltă încă.';
 
 export function PartideScreen({ lakeId, lakeName }: { lakeId: string; lakeName: string }) {
+  const urlId = useLakeUrlId(lakeId);
   const t = useMemo(() => createBrowserTransport(), []);
   const venue = useMemo<CommunityVenueRef>(() => ({ kind: 'lake', id: lakeId }), [lakeId]);
   const live = useQuery(communityVenueSectionQuery(t, venue));
   const history = useInfiniteQuery(communityHistoryInfiniteQuery(t, [communityVenueKey(venue)]));
-  const back = useBack(routes.lake(lakeId));
+  const back = useBack(routes.lake(urlId));
 
   const sessions = useMemo(() => live.data?.activeSessions ?? [], [live.data]);
   const liveIds = useMemo(() => sessions.map(s => s.documentId), [sessions]);
@@ -109,7 +111,7 @@ export function PartideScreen({ lakeId, lakeName }: { lakeId: string; lakeName: 
   const hasLive = sessions.length > 0;
   const hasHistory = rows.length > 0;
 
-  const statsCta = <StatsCta href={routes.lakeStats(lakeId)} />;
+  const statsCta = <StatsCta href={routes.lakeStats(urlId)} />;
   // From 1280 the three tracks stay in every state (the centre never jumps sideways between the
   // skeleton, the data, the empty and the error views): the statistics card keeps the right one.
   const quietAside = { aside: statsCta, asideLabel: 'Statistici', asideInline: false as const };
@@ -305,6 +307,7 @@ function CtaSkeleton() {
 /* The lake's latest catches — fish VenueLatestCatchesRail (c6). */
 
 function LatestCatchesRail({ venue, liveIds, lakeId }: { venue: CommunityVenueRef; liveIds: string[]; lakeId: string }) {
+  const urlId = useLakeUrlId(lakeId);
   const t = useMemo(() => createBrowserTransport(), []);
   const { data } = useInfiniteQuery(communityVenueCatchesInfiniteQuery(t, venue));
   const now = useNow();
@@ -317,7 +320,7 @@ function LatestCatchesRail({ venue, liveIds, lakeId }: { venue: CommunityVenueRe
         <ul className="grid grid-cols-3 gap-2">
           {rows.map(c => (
             <li key={`${c.sessionDocumentId}:${c.clientId}`}>
-              <RailTile c={c} now={now} href={routes.lakeCatches(lakeId, c.clientId)} />
+              <RailTile c={c} now={now} href={routes.lakeCatches(urlId, c.clientId)} />
             </li>
           ))}
         </ul>

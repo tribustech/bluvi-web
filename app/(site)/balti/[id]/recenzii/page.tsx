@@ -10,6 +10,7 @@ import { jsonLdHtml } from '@/lib/json-ld';
 import { reviewScoreSentence, reviewsJsonLd } from '@/lib/seo/reviews';
 import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { ReviewsFallback, ReviewsScreen } from './ReviewsScreen';
+import { LakeUrlProvider } from '../_sub/lake-url';
 
 /*
  * Recenzii — fish app/(app)/lakes/[lakeId]/reviews.tsx (parity lakes.reviews, T1). Public and
@@ -47,7 +48,7 @@ export default async function LakeReviewsPage({ params }: Props) {
   if (load.kind === 'missing') notFound();
   const lake = load.lake;
   return (
-    <>
+    <LakeUrlProvider urlId={lakeUrlId(lake)}>
       <SetBreadcrumb trail={subTrail(lake, 'Recenzii')} />
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(breadcrumbJsonLd(lake, 'Recenzii', routes.lakeReviews(lakeUrlId(lake))))} />
       {/* The reviews' reads behind the page's own skeleton, under the lake's name (loading.tsx is
@@ -55,7 +56,7 @@ export default async function LakeReviewsPage({ params }: Props) {
       <Suspense fallback={<ReviewsFallback lakeName={lake.name} lakeId={lake.documentId} />}>
         <Reviews lake={lake} />
       </Suspense>
-    </>
+    </LakeUrlProvider>
   );
 }
 

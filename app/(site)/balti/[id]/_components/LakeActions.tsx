@@ -57,6 +57,8 @@ import { onSectionJump } from './SectionLink';
 
 export type LakeInfo = {
   documentId: string;
+  /** The web URL segment (`/balti/<slug>`, lakeUrlId) for the links. */
+  slug?: string | null;
   name: string;
   coordinates: { lat: string; long: string } | null;
   bookingState: LakeBookingState;

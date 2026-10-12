@@ -38,6 +38,7 @@ import { TitleShimmer } from '../_sub/FallbackHeader';
 import { LakePages } from '../_sub/LakePages';
 import { firstReadFailed, SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_sub/states';
 import { useBack } from '../_sub/useBack';
+import { useLakeUrlId } from '../_sub/lake-url';
 
 /*
  * Recenzii — fish app/(app)/lakes/[lakeId]/reviews.tsx → ReviewList + ReviewCard +
@@ -87,8 +88,9 @@ const SCORE_GRID = 'max-md:grid-cols-3 max-md:gap-2 max-md:auto-rows-[auto_auto_
 const SCORES_RETRY = 'reviews-scores';
 
 export function ReviewsScreen({ lakeId, lakeName }: { lakeId: string; lakeName: string }) {
+  const urlId = useLakeUrlId(lakeId);
   const t = useMemo(() => createBrowserTransport(), []);
-  const back = useBack(routes.lake(lakeId));
+  const back = useBack(routes.lake(urlId));
   const reviews = useInfiniteQuery(lakeReviewsInfiniteQuery(t, lakeId, 10));
   const lake = useQuery(lakeQuery(t, lakeId));
   const [info, setInfo] = useState(false);
@@ -394,6 +396,7 @@ function ReviewRows({ rows, lakeId, me }: { rows: Review[]; lakeId: string; me: 
 }
 
 function OwnActions({ review, lakeId }: { review: Review; lakeId: string }) {
+  const urlId = useLakeUrlId(lakeId);
   const t = useMemo(() => createBrowserTransport(), []);
   const qc = useQueryClient();
   const toast = useSiteToast();
@@ -439,7 +442,7 @@ function OwnActions({ review, lakeId }: { review: Review; lakeId: string }) {
   return (
     <>
       <span className="mr-auto t-micro-strong text-accent-ink">Recenzia ta</span>
-      <Link href={routes.lakeReview(lakeId, { editare: true })} className={buttonClass({ variant: 'outline', size: 'compact' })} data-testid="review-edit">
+      <Link href={routes.lakeReview(urlId, { editare: true })} className={buttonClass({ variant: 'outline', size: 'compact' })} data-testid="review-edit">
         <PencilSquareIcon aria-hidden className="size-4" />
         Editează
       </Link>
@@ -496,6 +499,7 @@ function AddBar({ lakeId, placement }: { lakeId: string; placement: AddBarPlacem
 }
 
 function AddBarFor({ viewer, lakeId, placement }: { viewer: ViewerState; lakeId: string; placement: AddBarPlacement }) {
+  const urlId = useLakeUrlId(lakeId);
   const t = useMemo(() => createBrowserTransport(), []);
   const user = userOf(viewer);
   const mine = useQuery(myLakeReviewQuery(t, lakeId, user?.documentId));
@@ -521,13 +525,13 @@ function AddBarFor({ viewer, lakeId, placement }: { viewer: ViewerState; lakeId:
   if (!user) {
     // c9: back to this list after signing in (fish pushes /sign-in over it), where the bar flips.
     return wrap(
-      <Link href={signInPath(routes.lakeReviews(lakeId))} className={buttonClass({ variant: 'outline', block: placement === 'sticky', className: inline })} data-testid="review-sign-in">
+      <Link href={signInPath(routes.lakeReviews(urlId))} className={buttonClass({ variant: 'outline', block: placement === 'sticky', className: inline })} data-testid="review-sign-in">
         Autentifică-te pentru a putea adăuga o recenzie
       </Link>,
     );
   }
   return wrap(
-    <Link href={routes.lakeReview(lakeId)} className={buttonClass({ block: placement === 'sticky' })} data-testid="review-add">
+    <Link href={routes.lakeReview(urlId)} className={buttonClass({ block: placement === 'sticky' })} data-testid="review-add">
       Adaugă o recenzie
     </Link>,
   );

@@ -33,6 +33,7 @@ import { firstReadFailed, SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_
 import { PeriodAside, PeriodChips, plural, QuietNote, rankKg, RankRow, ROWS_CARD, RowsSkeleton } from '../_sub/stats';
 import { useBack } from '../_sub/useBack';
 import { RANKING_CAPTION } from './caption';
+import { useLakeUrlId } from '../_sub/lake-url';
 
 /*
  * Clasament pescari la baltă — fish app/(app)/lakes/[lakeId]/clasament.tsx →
@@ -66,12 +67,13 @@ const SEGMENTS: { value: Segment; label: string }[] = [
 
 
 export function RankingScreen({ lakeId, lakeName, initialPeriod }: { lakeId: string; lakeName: string; initialPeriod: StatsPeriod }) {
+  const urlId = useLakeUrlId(lakeId);
   const t = useMemo(() => createBrowserTransport(), []);
   const [period, setPeriod] = useState<StatsPeriod>(initialPeriod);
   const [segment, setSegment] = useState<Segment>('pescari');
   useListUrlState({ perioada: period === 'month' ? null : period });
   const q = useQuery(communityStatsQuery(t, period, { kind: 'lake', id: lakeId }));
-  const back = useBack(routes.lake(lakeId));
+  const back = useBack(routes.lake(urlId));
 
   // The period the numbers on screen belong to: while the next period loads the previous one's
   // numbers stay (placeholder), so every label keeps the previous period's name until they change.
@@ -133,7 +135,7 @@ export function RankingScreen({ lakeId, lakeName, initialPeriod }: { lakeId: str
         // Failed: no second sentence beside the centre's error card (rule 4) — the title and the
         // stand ranking's link only.
         quiet={failed ? undefined : 'Nicio partidă în această perioadă.'}
-        action={{ href: routes.lakeStands(lakeId, { perioada: shownPeriod }), label: 'Clasament standuri' }}
+        action={{ href: routes.lakeStands(urlId, { perioada: shownPeriod }), label: 'Clasament standuri' }}
         note={ready?.stands?.length ? `${plural(ready.stands.length, 'stand cu activitate', 'standuri cu activitate')} în perioada aleasă.` : undefined}
         dimmed={switching}
       />

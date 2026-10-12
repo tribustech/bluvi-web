@@ -88,6 +88,7 @@ export const competitionListItemSchema = z.object({
     .object({
       ...idDoc,
       name: z.string(),
+      slug: z.string().nullish(),
       coordinates: latLongSchema.nullable(),
       images: z.array(feedCardMediaSchema),
     })
@@ -181,6 +182,7 @@ export const competitionDetailSchema = z.object({
     .object({
       ...idDoc,
       name: z.string(),
+      slug: z.string().nullish(),
       contact: z.array(
         z.object({ id: z.number(), header: z.string().nullish(), name: z.string().nullish(), phone: z.string().nullish() })
       ),
@@ -262,6 +264,7 @@ export const legacyCompetitionSchema = z.object({
     .object({
       ...idDoc,
       name: z.string(),
+      slug: z.string().nullish(),
       coordinates: latLongSchema.nullish(),
       images: z.array(strapiImageSchema).nullish(),
     })
@@ -361,6 +364,7 @@ export const competitionCardSchema = z.object({
     .object({
       documentId: z.string(),
       name: z.string(),
+      slug: z.string().nullish(),
       county: z.object({ documentId: z.string(), name: z.string() }).nullable(),
       image: cardMediaSchema.nullable(),
     })

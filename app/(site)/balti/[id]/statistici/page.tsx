@@ -12,6 +12,7 @@ import { jsonLdHtml } from '@/lib/json-ld';
 import { breadcrumbJsonLd, lakeAbout, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { statsFromState, statsPageJsonLd } from '@/lib/seo/community';
 import { StatsFallback, StatsScreen } from './StatsScreen';
+import { LakeUrlProvider } from '../_sub/lake-url';
 
 /*
  * Statistici baltă — fish app/(app)/lakes/[lakeId]/statistici.tsx (parity lakes.stats, T5). The
@@ -50,13 +51,13 @@ export default async function LakeStatsPage({ params, searchParams }: Props) {
   if (load.kind === 'missing') notFound();
   const lake = load.lake;
   return (
-    <>
+    <LakeUrlProvider urlId={lakeUrlId(lake)}>
       <SetBreadcrumb trail={subTrail(lake, LABEL)} />
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(breadcrumbJsonLd(lake, LABEL, routes.lakeStats(lakeUrlId(lake))))} />
       <Suspense fallback={<StatsFallback lakeName={lake.name} lakeId={lake.documentId} />}>
         <Stats lake={lake} searchParams={searchParams} />
       </Suspense>
-    </>
+    </LakeUrlProvider>
   );
 }
 

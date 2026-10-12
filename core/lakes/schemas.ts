@@ -208,6 +208,7 @@ export const legacyLakeSchema = z.object({
   id: z.number().optional(),
   documentId: z.string(),
   name: z.string(),
+  slug: z.string().nullish(),
   description: richTextSchema.nullish(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
@@ -264,6 +265,7 @@ export type LakePinImage = z.infer<typeof lakePinImageSchema>;
 export const lakeMapLeafSchema = z.object({
   documentId: z.string(),
   name: z.string(),
+  slug: z.string().nullish(),
   county: z.string().nullable(),
   regime: z.string().nullable(),
   address: z.string().nullish(),

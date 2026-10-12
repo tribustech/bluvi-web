@@ -11,6 +11,7 @@ import { jsonLdHtml } from '@/lib/json-ld';
 import { breadcrumbJsonLd, lakeAbout, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { collectionPageJsonLd } from '@/lib/json-ld';
 import { PartideFallback, PartideScreen } from './PartideScreen';
+import { LakeUrlProvider } from '../_sub/lake-url';
 
 /*
  * Partide la baltă — fish app/(app)/lakes/[lakeId]/partide.tsx (parity lakes.partide, T1). Public:
@@ -46,7 +47,7 @@ export default async function LakePartidePage({ params }: Props) {
   if (load.kind === 'missing') notFound();
   const lake = load.lake;
   return (
-    <>
+    <LakeUrlProvider urlId={lakeUrlId(lake)}>
       <SetBreadcrumb trail={subTrail(lake, 'Partide')} />
       <script
         type="application/ld+json"
@@ -60,7 +61,7 @@ export default async function LakePartidePage({ params }: Props) {
       <Suspense fallback={<PartideFallback lakeName={lake.name} lakeId={lake.documentId} />}>
         <Partide lake={lake} />
       </Suspense>
-    </>
+    </LakeUrlProvider>
   );
 }
 

@@ -33,6 +33,7 @@ import { userOf } from '../../../_shell/viewer-state';
 import { lakeHref } from './availability';
 import { QuickActionBadge } from './QuickActions';
 import { SectionAction } from './SectionLink';
+import { useLakeUrlId } from '../_sub/lake-url';
 
 /*
  * «Partide la această baltă» — fish VenuePartideSection + LivePartideCard (parity lakes.detail.c20
@@ -64,16 +65,17 @@ export function useNow(): number | null {
 }
 
 export function PartideSection({ lakeId }: { lakeId: string }) {
+  const urlId = useLakeUrlId(lakeId);
   const t = useMemo(() => createBrowserTransport(), []);
   const { data } = useQuery(communityVenueSectionQuery(t, { kind: 'lake', id: lakeId }));
   const shown = data ? hasPartideActivity(data) : undefined;
   useRegisterSection('partide', shown);
   if (!data || !shown) return null;
-  const all = lakeHref('partide', routes.lakePartide(lakeId));
+  const all = lakeHref('partide', routes.lakePartide(urlId));
   // Until /partide and /statistici are on the web (fish reaches the rankings and the catches from
   // there), this section is their way in: «Clasament» in the header, «Vezi capturile» under the card.
-  const ranking = all ? undefined : lakeHref('ranking', routes.lakeRanking(lakeId));
-  const catchesHref = all ? undefined : lakeHref('catches', routes.lakeCatches(lakeId));
+  const ranking = all ? undefined : lakeHref('ranking', routes.lakeRanking(urlId));
+  const catchesHref = all ? undefined : lakeHref('catches', routes.lakeCatches(urlId));
   return (
     <DetailSection
       id="partide"

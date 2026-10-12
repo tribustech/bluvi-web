@@ -21,6 +21,7 @@ import { lakeHref } from './availability';
 import { bookingReachable } from './bookingReach';
 import { BookingTile, DialogTrigger, useLake, WebsiteCta } from './LakeActions';
 import { onSectionJump } from './SectionLink';
+import { useLakeUrlId } from '../_sub/lake-url';
 
 /*
  * «Acțiuni rapide» — fish quickActions + VenueQuickActions (lakes.detail.c14, c15) in the T3 tile
@@ -87,6 +88,7 @@ export function QuickActions({
   badges?: Partial<Record<'partide' | 'concursuri', ReactNode>>;
   className?: string;
 }) {
+  const urlId = useLakeUrlId(lakeId);
   const { lake } = useLake();
   const routeTile = (key: string, label: string, icon: ReactNode, href: string | undefined): Tile => ({
     key,
@@ -105,13 +107,13 @@ export function QuickActions({
   const tiles: Tile[] = [
     ...booking,
     ...(hasPrices ? [routeTile('preturi', 'Prețuri', <TagIcon />, '#preturi')] : []),
-    routeTile('partide', 'Partide', <UsersIcon />, lakeHref('partide', routes.lakePartide(lakeId))),
-    routeTile('statistici', 'Statistici', <ChartBarIcon />, lakeHref('stats', routes.lakeStats(lakeId))),
-    routeTile('concursuri', 'Concursuri', <TrophyIcon />, lakeHref('competitions', routes.lakeCompetitions(lakeId))),
+    routeTile('partide', 'Partide', <UsersIcon />, lakeHref('partide', routes.lakePartide(urlId))),
+    routeTile('statistici', 'Statistici', <ChartBarIcon />, lakeHref('stats', routes.lakeStats(urlId))),
+    routeTile('concursuri', 'Concursuri', <TrophyIcon />, lakeHref('competitions', routes.lakeCompetitions(urlId))),
     ...(hasCoordinates
       ? [
           { key: 'directii', label: 'Direcții', icon: <PaperAirplaneIcon />, kind: 'directions' as const },
-          routeTile('harta', 'Hartă', <MapIcon />, lakeHref('map', routes.lakeMap(lakeId))),
+          routeTile('harta', 'Hartă', <MapIcon />, lakeHref('map', routes.lakeMap(urlId))),
         ]
       : []),
     routeTile('recenzii', 'Recenzii', <StarIcon />, '#recenzii'),

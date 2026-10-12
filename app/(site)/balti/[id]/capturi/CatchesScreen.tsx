@@ -14,6 +14,7 @@ import { CatchTile } from '../_sub/CatchTile';
 import { DEFAULT_RATIO, MasonryGrid, MasonrySkeleton, tileRatio } from '../_sub/Masonry';
 import { firstReadFailed, SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_sub/states';
 import { useBack } from '../_sub/useBack';
+import { useLakeUrlId } from '../_sub/lake-url';
 
 /*
  * Capturi — fish app/(app)/lakes/[lakeId]/capturi.tsx → VenueCatchesGalleryScreen (parity
@@ -54,12 +55,13 @@ export function catchesCountLabel(total: number): string {
 }
 
 export function CatchesScreen({ lakeId, lakeName }: { lakeId: string; lakeName: string }) {
+  const urlId = useLakeUrlId(lakeId);
   const t = useMemo(() => createBrowserTransport(), []);
   const q = useInfiniteQuery(communityVenueCatchesInfiniteQuery(t, { kind: 'lake', id: lakeId }));
   const catches = useMemo(() => (q.data?.pages ?? []).flatMap(p => p.data).filter(c => gridSrc(c)), [q.data]);
   const total = q.data?.pages[0]?.meta.pagination.total ?? catches.length;
   const failed = firstReadFailed(q);
-  const back = useBack(routes.lake(lakeId));
+  const back = useBack(routes.lake(urlId));
   const [broken, setBroken] = useState<ReadonlySet<string>>(() => new Set());
 
   // The open photo by id (it stays the same photo when the next page lands). Until the user opens
@@ -144,7 +146,7 @@ export function CatchesScreen({ lakeId, lakeName }: { lakeId: string; lakeName: 
               title="Nicio captură cu fotografie încă."
               description="Capturile fotografiate de pescari la această baltă apar aici."
               action={
-                <Link href={routes.lake(lakeId)} className={buttonClass({ variant: 'secondary' })}>
+                <Link href={routes.lake(urlId)} className={buttonClass({ variant: 'secondary' })}>
                   Înapoi la baltă
                 </Link>
               }
