@@ -180,16 +180,22 @@ const anySurface = (page: Page) => page.locator('dialog[open], aside[aria-labell
 async function goTo(page: Page, d: number) {
   if (!(await page.getByTestId('period-nav').count())) return;
   const want = `${pill(d)}, selectează toată ziua`;
-  for (let i = 0; i < 10; i++) {
-    const labels = await grid(page).locator('button[data-day]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
-    if (labels.includes(want)) return;
-    const first = labels[0] ?? '';
-    let at = 0;
-    for (let k = -14; k < 60; k++) if (`${pill(k)}, selectează toată ziua` === first) at = k;
-    const dir = d < at ? 'anterioară' : 'următoare';
-    await page.getByRole('button', { name: new RegExp(`^(Săptămâna|Perioada) ${dir}$`) }).click();
-    await expect(grid(page).locator('button[data-day]').first()).not.toHaveAttribute('aria-label', first);
-  }
+  // Retried as a whole: a page turn that lands while the screen is still settling (its first read
+  // re-rendering) is redone rather than trusted.
+  await expect(async () => {
+    for (let i = 0; i < 10; i++) {
+      const labels = await grid(page).locator('button[data-day]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+      if (labels.includes(want)) break;
+      const first = labels[0] ?? '';
+      let at = 0;
+      for (let k = -14; k < 60; k++) if (`${pill(k)}, selectează toată ziua` === first) at = k;
+      const dir = d < at ? 'anterioară' : 'următoare';
+      await page.getByRole('button', { name: new RegExp(`^(Săptămâna|Perioada) ${dir}$`) }).click();
+      await expect(grid(page).locator('button[data-day]').first()).not.toHaveAttribute('aria-label', first);
+    }
+    await page.waitForTimeout(150);
+    expect(await grid(page).locator('button[data-day]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).toContain(want);
+  }).toPass({ timeout: 20_000 });
 }
 async function shot(page: Page, name: string) {
   await page.waitForTimeout(300);

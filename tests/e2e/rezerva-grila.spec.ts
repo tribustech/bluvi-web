@@ -193,16 +193,22 @@ const prevPeriod = (page: Page) => page.getByRole('button', { name: /^(Săptăm�
 async function goTo(page: Page, d: number) {
   if (!(await page.getByTestId('period-nav').count())) return;
   const want = `${pill(d)}, selectează toată ziua`;
-  for (let i = 0; i < 10; i++) {
-    const labels = await grid(page).locator('button[data-day]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
-    if (labels.includes(want)) return;
-    const first = labels[0] ?? '';
-    let at = 0;
-    for (let k = -14; k < 60; k++) if (`${pill(k)}, selectează toată ziua` === first) at = k;
-    if (d < at) await prevPeriod(page).click();
-    else await nextPeriod(page);
-    await expect(grid(page).locator('button[data-day]').first()).not.toHaveAttribute('aria-label', first);
-  }
+  // Retried as a whole: a page turn that lands while the screen is still settling (its first read
+  // re-rendering) is redone rather than trusted.
+  await expect(async () => {
+    for (let i = 0; i < 10; i++) {
+      const labels = await grid(page).locator('button[data-day]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+      if (labels.includes(want)) break;
+      const first = labels[0] ?? '';
+      let at = 0;
+      for (let k = -14; k < 60; k++) if (`${pill(k)}, selectează toată ziua` === first) at = k;
+      if (d < at) await prevPeriod(page).click();
+      else await nextPeriod(page);
+      await expect(grid(page).locator('button[data-day]').first()).not.toHaveAttribute('aria-label', first);
+    }
+    await page.waitForTimeout(150);
+    expect(await grid(page).locator('button[data-day]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).toContain(want);
+  }).toPass({ timeout: 20_000 });
 }
 
 async function scrollGridTo(page: Page, x?: number, y?: number) {
@@ -216,6 +222,40 @@ async function scrollGridTo(page: Page, x?: number, y?: number) {
   );
 }
 
+/**
+ * Every band of a stand sits under the header that names it: the day pill above its left edge is the
+ * day in its accessible name, and (a single slot) the chip above its centre is its interval. One
+ * origin for header, cells and hit-testing — a +1-slot drift fails here.
+ */
+async function expectAligned(page: Page, stand: number) {
+  const r = await grid(page).evaluate((root, standId) => {
+    const pills = [...root.querySelectorAll<HTMLElement>('button[data-day]')].map((p) => {
+      const b = p.getBoundingClientRect();
+      return { l: b.left - 3, r: b.right + 3, label: (p.getAttribute('aria-label') ?? '').replace(/, selectează toată ziua$/, '') };
+    });
+    const chips = [...root.querySelectorAll<HTMLElement>('[data-chip]')].map((c) => {
+      const b = c.getBoundingClientRect();
+      return { l: b.left, r: b.right, text: c.textContent ?? '' };
+    });
+    return [...root.querySelectorAll<HTMLElement>(`button[data-band][data-stand="${standId}"]`)].map((b) => {
+      const box = b.getBoundingClientRect();
+      const mid = (box.left + box.right) / 2;
+      const left = box.left + 2;
+      return {
+        name: b.getAttribute('aria-label') ?? '',
+        single: b.dataset.first === b.dataset.last,
+        pill: pills.find((p) => p.l <= left && left < p.r)?.label ?? null,
+        chip: chips.find((c) => c.l <= mid && mid < c.r)?.text ?? null,
+      };
+    });
+  }, standId(stand));
+  expect(r.length).toBeGreaterThan(0);
+  for (const b of r) {
+    expect(b.pill, b.name).not.toBeNull();
+    expect(b.name.startsWith(`${stand}, ${b.pill} `), `${b.name} under «${b.pill}»`).toBe(true);
+    if (b.single && !b.name.includes('selectat')) expect(b.name, `${b.name} under chip «${b.chip}»`).toContain(` ${b.chip}`);
+  }
+}
 async function shot(page: Page, name: string) {
   await page.waitForTimeout(250);
   await page.screenshot({ path: `${SHOTS}/${name}-${page.viewportSize()?.width}.png` });
@@ -971,6 +1011,35 @@ test.describe('signed in', () => {
     await goTo(page, sun);
     await expect(selected).toHaveAttribute('aria-label', new RegExp(`^1, ${esc(pill(sun))} `));
     await expectNoA11yViolations(page);
+  });
+
+  test('desktop pages: cells, header and hit-testing share one origin — on the first page, a later one and one reached by ‹', async ({ page }) => {
+    await mockAvailability(page);
+    await mockQuote(page);
+    await open(page);
+    // First page: the lead-time (yellow), past and free cells of stand 1, the bookings / blocks of stands 3–6.
+    for (const st of [1, 3, 4, 5, 6]) await expectAligned(page, st);
+    // The known cells are where their day and interval say (the fixture's AP booking, the labelled block, the competition).
+    await goTo(page, 3);
+    for (const st of [1, 3, 4, 5, 6]) await expectAligned(page, st);
+    await expect(band(page, 3, 3, '06–18')).toHaveText('AP');
+    await goTo(page, 5);
+    await expect(runOn(page, 1, 5)).toHaveAttribute('data-status', 'blocked');
+    await expectAligned(page, 1);
+    // A later page, then back with ‹.
+    await nextPeriod(page);
+    for (const st of [1, 3]) await expectAligned(page, st);
+    await goTo(page, 8);
+    await expect(band(page, 3, 8, '06–18')).toHaveText('MC');
+    await prevPeriod(page).click();
+    for (const st of [1, 3, 6]) await expectAligned(page, st);
+    // A click selects the slot named by the header over it: the bar says that day and hour.
+    await goTo(page, 4);
+    const target = band(page, 2, 4, '18–06');
+    await target.click();
+    await expect(panel(page).getByTestId('selection-start')).toHaveText(point(dayAt(4, 18)));
+    await expect(panel(page).getByTestId('selection-end')).toHaveText(point(new Date(dayAt(5, 6).getTime() - 30 * 60_000)));
+    await expectAligned(page, 2);
   });
 
   test('c3 «Azi» + keyboard path: Tab into the grid, arrows move, Enter selects, focus stays on the selection', async ({ page }) => {

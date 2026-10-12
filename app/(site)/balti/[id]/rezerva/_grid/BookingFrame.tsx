@@ -73,7 +73,16 @@ export function BookingFrame({ title, eyebrow = 'Rezervă un stand', back, trail
         )}
       >
         <div className="min-h-0 overflow-y-clip">
-          <T4Header title={title ?? <TitleSkeleton />} titleId={BOOKING_TITLE_ID} eyebrow={eyebrow} back={back} trailing={trailing} />
+          {/* From 768 the page scrolls: the header scrolls away UNDER the site bar (z auto, not T4's
+              z-sticky — at the bar's own z and later in the DOM it painted over the bar's lower half). */}
+          <T4Header
+            title={title ?? <TitleSkeleton />}
+            titleId={BOOKING_TITLE_ID}
+            eyebrow={eyebrow}
+            back={back}
+            trailing={trailing}
+            className="md:z-auto"
+          />
           {legend ? <div className={cn('mx-auto w-full pt-3', SHELL_MAX, SHELL_GUTTERS)}>{legend}</div> : null}
         </div>
       </div>
