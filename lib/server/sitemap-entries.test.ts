@@ -6,7 +6,6 @@ import {
   anglerEntries,
   MAX_URLS,
   WATERS_PER_CHUNK,
-  competitionViewHas,
   hasCompetitions,
   lakeUrls,
   publicWaterEntries,
@@ -253,13 +252,14 @@ describe('sitemapEntries', () => {
     const { urls } = await urlsOf();
     // Upcoming, nobody registered, detail read failed: the page and Informații only.
     expect(urls.filter(u => u.includes('/concursuri/cv1'))).toEqual([`${S}/concursuri/cv1`, `${S}/concursuri/cv1/informatii`]);
-    // Live, registered entrants, no regulation, nothing weighed yet: + Participanți — no empty
-    // Cântare / Toți peștii (rule 4, the views' noindex predicate competitionViewHas).
+    // Live, registered entrants, no regulation: + Participanți.
     expect(urls.filter(u => u.includes('/concursuri/cl1')).sort()).toEqual(
       ['', '/informatii', '/participanti'].map(s => `${S}/concursuri/cl1${s}`).sort(),
     );
-    // Completed with a regulation and weighings with catches: + Regulament, Cântare, Toți peștii.
-    for (const sub of ['/regulament', '/cantare', '/capturi']) expect(urls).toContain(`${S}/concursuri/cr1${sub}`);
+    // Completed with a regulation: + Regulament. Cântare / Toți peștii are never listed: whether they
+    // have rows needs the weighing statistics, a signed-in (paid) read (owner 2026-10-12).
+    expect(urls).toContain(`${S}/concursuri/cr1/regulament`);
+    expect(urls.filter(u => /\/concursuri\/c[^/]*\/(cantare|capturi)$/.test(u))).toEqual([]);
     expect(urls.some(u => /\/(statistici|clasament|extra-cantare)$|\/imagine|cronologie/.test(u) && u.includes('/concursuri/c'))).toBe(false);
   });
 
@@ -408,24 +408,15 @@ describe('hasCompetitions (shared with /balti/<id>/concursuri noindex)', () => {
   });
 });
 
-describe('competitionViewHas (shared with /cantare, /capturi noindex)', () => {
-  it('Cântare needs a weighing, Toți peștii a catch; a failed read is unknown', () => {
-    expect(competitionViewHas('cantare', { weighings: 0, catches: 0 })).toBe(false);
-    expect(competitionViewHas('capturi', { weighings: 0, catches: 0 })).toBe(false);
-    // A weighing without fish: Cântare shows it, Toți peștii has nothing.
-    expect(competitionViewHas('cantare', { weighings: 1, catches: 0 })).toBe(true);
-    expect(competitionViewHas('capturi', { weighings: 1, catches: 0 })).toBe(false);
-    expect(competitionViewHas('capturi', { weighings: 2, catches: 3 })).toBe(true);
-    expect(competitionViewHas('cantare', { weighings: null, catches: null })).toBe(null);
-  });
-  it('a started competition whose weighing read fails lists neither view (never guessed in)', async () => {
+describe('the sitemap never reads the weighing statistics (signed-in, paid data)', () => {
+  it('no request to /weighing-statistics while building any competition chunk', async () => {
+    const seen: string[] = [];
     const { transport } = createFakeTransport(req => {
-      if (req.path.endsWith('/weighing-statistics')) throw new Error('down');
+      seen.push(req.path);
       return cms(req);
     });
-    const urls = (await sitemapChunk(transport, 'concursuri-rezultate')).map(e => e.url);
-    expect(urls).toContain(`${S}/concursuri/cr1`);
-    expect(urls.filter(u => /\/(cantare|capturi)$/.test(u))).toEqual([]);
+    for (const id of ['concursuri-live', 'concursuri-rezultate', 'concursuri-viitoare']) await sitemapChunk(transport, id);
+    expect(seen.filter(p => p.endsWith('/weighing-statistics'))).toEqual([]);
   });
 });
 

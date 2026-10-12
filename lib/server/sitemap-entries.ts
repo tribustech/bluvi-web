@@ -1,6 +1,6 @@
 import 'server-only';
 import type { MetadataRoute } from 'next';
-import { getCompetition, getCompetitionsByStatus, getCompetitionWeighingStatistics, getSponsors, type CompetitionDetail, type CompetitionListItem } from '@/core/competitions';
+import { getCompetition, getCompetitionsByStatus, getSponsors, type CompetitionDetail, type CompetitionListItem } from '@/core/competitions';
 import { getClaimedPublicWaters, getLake, getLakesIndex, parseLakeCoordinates, toClaimedPublicWatersMap, type LakeDetail } from '@/core/lakes';
 import { getNews } from '@/core/news';
 import { buildLanding, readLandingLakes } from '@/lib/lake-landing';
@@ -115,39 +115,12 @@ const plain = (blocks: unknown): string => {
   return Array.isArray(blocks) ? (blocks as RichNode[]).map(walk).join('').trim() : '';
 };
 
-/** The Clasament views of a competition that are pages of their own once it has started. */
-export type CompetitionContentView = 'cantare' | 'capturi';
-
-/**
- * What a started competition's Cântare / Toți peștii show, from its weighing statistics (the public
- * read the page's stat row uses; one row per weighing, each with its catch count): the number of
- * weighings and of catches, or null when the read failed (unknown).
- */
-export type CompetitionFacts = { weighings: number | null; catches: number | null };
-
-/**
- * Whether a competition view has what it shows — shared with the views' metadata (empty →
- * `noindex, follow`) so the sitemap and the robots meta cannot disagree: Cântare needs a weighing,
- * Toți peștii a catch. null: the read failed (the sitemap leaves it out, the metadata keeps it
- * indexable — a CMS hiccup must not noindex a page).
- */
-export function competitionViewHas(view: CompetitionContentView, f: CompetitionFacts): boolean | null {
-  const n = view === 'cantare' ? f.weighings : f.catches;
-  return n === null ? null : n > 0;
-}
-
-/** A competition's weighing facts (a failed read → nulls). Cached public GET. */
-export async function competitionFacts(t: Transport, id: string): Promise<CompetitionFacts> {
-  const res = await maybe(getCompetitionWeighingStatistics(t, id));
-  return res ? { weighings: res.data.length, catches: res.data.reduce((n, w) => n + w.catchCount, 0) } : { weighings: null, catches: null };
-}
-
 /**
  * One competition's URLs: the page; Informații (always: dates, place, fee, organiser); Participanți
  * with at least one registered entrant; Regulament with a regulation (the detail read decides —
- * unread, it is left out); once it has started, Cântare with a weighing and Toți peștii with a catch
- * (competitionViewHas; before the start they show the preview, canonicalised to the page).
- * `detail`: the competition's detail when the caller already read it.
+ * unread, it is left out). Cântare and Toți peștii are not listed: knowing whether they have rows
+ * needs the weighing statistics, a signed-in (paid) read the public site never makes (owner
+ * 2026-10-12). `detail`: the competition's detail when the caller already read it.
  */
 export async function competitionUrls(
   t: Transport,
@@ -163,11 +136,6 @@ export async function competitionUrls(
   if (c.registrations.some(r => r.registrationStatus === 'registered')) out.push(at(routes.competitionParticipants(id), 0.4));
   const d = detail === undefined ? await maybe(getCompetition(t, id)) : detail;
   if (d && plain(d.regulation)) out.push(at(routes.competitionRules(id), 0.3));
-  if (status !== 'notStarted') {
-    const facts = await competitionFacts(t, id);
-    if (competitionViewHas('cantare', facts) === true) out.push(at(routes.competitionWeighings(id), 0.4));
-    if (competitionViewHas('capturi', facts) === true) out.push(at(routes.competitionCatches(id), 0.4));
-  }
   return out;
 }
 

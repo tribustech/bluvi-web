@@ -127,10 +127,11 @@ test('s1–s4: /sitemap.xml is an index of sitemaps that list unique, parameter-
   for (const p of ['/', '/balti', '/balti/harta', '/ape-publice', '/concursuri', '/concursuri/live', '/concursuri/viitoare', '/concursuri/rezultate', '/stiri']) {
     expect(paths).toContain(p);
   }
-  // s3: views that are not their own page, or not indexed, are never listed.
-  expect(paths.filter(p => /^\/concursuri\/[^/]+\/(clasament|statistici|extra-cantare)(\/|$)/.test(p))).toEqual([]);
+  // s3: views that are not their own page, or not indexed, are never listed — nor Cântare / Toți
+  // peștii, whose rows are signed-in, paid data (owner 2026-10-12).
+  expect(paths.filter(p => /^\/concursuri\/[^/]+\/(clasament|statistici|extra-cantare|cantare|capturi)(\/|$)/.test(p))).toEqual([]);
   // s2: the lake / competition / public-water subpages are there (the local CMS has some of each).
-  for (const k of ['lake gallery', 'lake map', 'competition info', 'competition weighings', 'water partide']) {
+  for (const k of ['lake gallery', 'lake map', 'competition info', 'water partide']) {
     const re = KINDS.find(x => x.kind === k)!.re;
     expect(paths.some(p => re.test(p)), k).toBe(true);
   }
@@ -236,14 +237,16 @@ test('m3: view parameters never change the canonical (period, sort, tab, photo)'
 });
 
 test('j2: the competition views\' breadcrumb ends on the view (Cântare, Toți peștii), as the visible band', async ({ request }) => {
-  const { paths } = await listed(request);
-  for (const [re, label] of [[/^\/concursuri\/[^/]+\/cantare$/, 'Cântare'], [/^\/concursuri\/[^/]+\/capturi$/, 'Toți peștii']] as const) {
-    const path = paths.find(p => re.test(p));
-    expect(path, label).toBeTruthy();
-    const s = await readSeo(request, path!);
+  // Cântare / Toți peștii are not in the sitemap (their rows are signed-in, paid data): a started
+  // competition of the local CMS gives the paths.
+  const started = (await startedCompetitions(request))[0];
+  expect(started, 'the local CMS has a started or completed competition').toBeTruthy();
+  for (const [view, label] of [['cantare', 'Cântare'], ['capturi', 'Toți peștii']] as const) {
+    const path = `/concursuri/${started.documentId}/${view}`;
+    const s = await readSeo(request, path);
     const crumbs = s.jsonLd.find(d => d['@type'] === 'BreadcrumbList') as { itemListElement: { name: string; item?: string }[] };
     expect(crumbs.itemListElement.map(c => c.name)).toEqual([expect.any(String), expect.any(String), label]);
-    expect(pathOf(crumbs.itemListElement[1].item ?? null)).toBe(path!.replace(/\/[^/]+$/, ''));
+    expect(pathOf(crumbs.itemListElement[1].item ?? null)).toBe(path.replace(/\/[^/]+$/, ''));
     expect(pathOf(crumbs.itemListElement[2].item ?? null)).toBe(path);
     expect(s.html).toMatch(new RegExp(`aria-current="page"[^>]*>${label}<`));
   }
@@ -264,7 +267,7 @@ test('j2: a lake subpage\'s BreadcrumbList uses the band\'s label and the title 
 test('m5, s3: pages without content of their own are noindex and left out of the sitemap', async ({ request }) => {
   const { paths } = await listed(request);
   // The competition's Statistici: signed-in only → noindex, follow (any listed competition).
-  const competition = paths.find(p => /^\/concursuri\/[^/]+\/cantare$/.test(p))?.replace(/\/cantare$/, '');
+  const competition = paths.find(p => /^\/concursuri\/[^/]+\/informatii$/.test(p))?.replace(/\/informatii$/, '');
   expect(competition).toBeTruthy();
   const stats = await readSeo(request, `${competition}/statistici`);
   expect(stats.robots).toContain('noindex');
@@ -327,29 +330,17 @@ async function startedCompetitions(request: APIRequestContext): Promise<CmsCompe
   return out;
 }
 
-test('m5, s3: a started competition with nothing weighed — Cântare / Toți peștii noindex, unlisted, no promised rows', async ({ request }) => {
+test('m5, s3: Cântare / Toți peștii are never listed and never guessed noindex (their rows are signed-in, paid data)', async ({ request }) => {
   const { paths } = await listed(request);
-  let checked = 0;
-  for (const c of await startedCompetitions(request)) {
-    const stats = (await (await request.get(`${CMS}/competitions/${c.documentId}/weighing-statistics`)).json()) as { data: { catchCount: number }[] };
-    const weighings = stats.data.length;
-    const catches = stats.data.reduce((n, w) => n + w.catchCount, 0);
-    for (const [view, has] of [['cantare', weighings > 0], ['capturi', catches > 0]] as const) {
-      const path = `/concursuri/${c.documentId}/${view}`;
-      if (has) {
-        expect(paths, path).toContain(path);
-        continue;
-      }
-      checked++;
-      expect(paths, path).not.toContain(path);
-      const s = await readSeo(request, path);
-      expect(s.robots ?? '', path).toMatch(/noindex.*follow|follow.*noindex/);
-      expect(s.robots ?? '', path).not.toContain('nofollow');
-      expect(s.description ?? '', path).not.toMatch(/stand cu stand|specia, greutatea/);
-    }
-    if (checked >= 2) break;
+  expect(paths.filter(p => /^\/concursuri\/[^/]+\/(cantare|capturi)$/.test(p))).toEqual([]);
+  const started = (await startedCompetitions(request))[0];
+  if (!started) return;
+  for (const view of ['cantare', 'capturi']) {
+    const path = `/concursuri/${started.documentId}/${view}`;
+    const s = await readSeo(request, path);
+    expect(s.status, path).toBe(200);
+    expect(s.robots ?? '', path).not.toContain('noindex');
   }
-  expect(checked, 'the local CMS has a started competition without weighings or catches').toBeGreaterThan(0);
 });
 
 test('m5, s2: a stats page is judged by its widest period — a quiet month with a year of partide stays listed and indexable', async ({ request }) => {

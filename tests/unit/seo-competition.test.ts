@@ -4,7 +4,6 @@ import {
   catchItems,
   competitionJsonLd,
   competitionSummary,
-  weighingItems,
   type LooseCompetitionDetail,
 } from '@/app/(site)/concursuri/[id]/_components/load';
 
@@ -76,24 +75,6 @@ describe('competitionJsonLd', () => {
 });
 
 describe('the views\' ItemList rows', () => {
-  it('Cântare: in weighing order, kilograms and fish — «fără captură», never «capot»', () => {
-    const w = (i: number, startDate: string, catchCount: number, totalWeightKg: number) => ({
-      weighingDocumentId: `w${i}`,
-      startDate,
-      endDate: null,
-      weighingType: 'normal',
-      sequenceIndex: i,
-      totalWeightKg,
-      catchCount,
-      standName: String(i),
-    });
-    const items = weighingItems([w(2, '2026-09-27T12:00:00Z', 0, 0), w(1, '2026-09-27T10:00:00Z', 3, 7.25)]);
-    expect(items).toEqual([
-      { name: 'Standul 1', description: '7,25 kg, 3 pești' },
-      { name: 'Standul 2', description: '0 kg, fără captură' },
-    ]);
-    expect(JSON.stringify(items)).not.toMatch(/capot/i);
-  });
   it('Toți peștii: species, kilograms, stand and angler', () => {
     const items = catchItems([
       { id: 1, weight: 4.2, standId: null, standName: 'A1', sectorId: null, sectorName: null, teamName: null, guestName: null, participantUsername: 'ion', fishName: 'Crap' },

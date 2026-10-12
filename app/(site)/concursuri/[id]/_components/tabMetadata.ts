@@ -4,9 +4,7 @@ import { registrationCounts } from '@/core/competitions';
 import { richTextToPlain } from '@/components/templates/T3/prose';
 import { absoluteUrl, routes } from '@/lib/routes';
 import { registeredLine } from '@/lib/seo/describe';
-import { competitionFacts, competitionViewHas } from '@/lib/server/sitemap-entries';
-import { createServerTransport } from '@/lib/server/transport';
-import { bounded, competitionSummary, loadCompetition, type LooseCompetitionDetail } from './load';
+import { competitionSummary, loadCompetition, type LooseCompetitionDetail } from './load';
 import { COMPETITION_TABS, type CompetitionTab } from './tabs';
 
 /*
@@ -99,9 +97,7 @@ const VIEW: Record<CompetitionView, { label: string; href: (id: string) => strin
  * A Clasament view's metadata. Before the start the views show the competition's preview — the
  * page's own content —, so they canonicalise to /concursuri/<id>. Statistici is for signed-in
  * users (a guest sees the sign-in prompt): `noindex, follow` at every stage. Once started, Cântare
- * without a weighing and Toți peștii without a catch have nothing of their own to show: `noindex,
- * follow` — the sitemap's predicate (competitionViewHas over the same cached weighing statistics),
- * so the two cannot disagree. A failed / slow read is unknown: never noindexed.
+ * and Toți peștii are indexable (their emptiness is not read: see below).
  */
 export async function competitionViewMetadata(id: string, view: CompetitionView): Promise<Metadata> {
   const load = await loadCompetition(id);
@@ -112,17 +108,9 @@ export async function competitionViewMetadata(id: string, view: CompetitionView)
   const where = c.lake?.name ? ` de pe ${c.lake.name}` : '';
   const started = c.competitionStatus === 'started' || c.competitionStatus === 'completed';
   const canonical = started ? v.href(c.documentId) : routes.competition(c.documentId);
-  let empty = view === 'statistici';
-  if (started && view !== 'statistici') {
-    const facts = await bounded(competitionFacts(createServerTransport(), c.documentId), `weighing-statistics ${c.documentId}`).catch(() => null);
-    empty = facts !== null && competitionViewHas(view, facts) === false;
-  }
-  // Nothing weighed / caught yet: a plain line that promises no rows (rule 4).
-  const description =
-    empty && view === 'cantare'
-      ? `Cântările concursului de pescuit ${c.name}${where}.`
-      : empty && view === 'capturi'
-        ? `Peștii prinși la concursul de pescuit ${c.name}${where}.`
-        : v.describe(c, where);
-  return pageMetadata(`${v.label} · ${c.name}`, clip(description), canonical, empty);
+  // Whether Cântare / Toți peștii have rows needs the weighing statistics, a signed-in (paid) read
+  // the public site never makes (owner 2026-10-12): unknown, so they stay indexable (never guessed
+  // noindex) and out of the sitemap.
+  const empty = view === 'statistici';
+  return pageMetadata(`${v.label} · ${c.name}`, clip(v.describe(c, where)), canonical, empty);
 }

@@ -10,14 +10,11 @@ import {
   getCompetition,
   getCompetitionCards,
   getCompetitionCatches,
-  getCompetitionWeighingStatistics,
   rankingTypeSchema,
   type CompetitionCatch,
   type CompetitionDetail,
-  type WeighingStatisticsItem,
 } from '@/core/competitions';
 import { getLake } from '@/core/lakes';
-import { formatCount } from '@/core/realtime/chat/format';
 import { ApiError, call, isApiError, type Transport } from '@/core/transport';
 import { richTextToPlain } from '@/components/templates/T3/prose';
 import { collectionPageJsonLd } from '@/lib/json-ld';
@@ -242,16 +239,6 @@ export async function competitionPlace(c: LooseCompetitionDetail, t: Transport =
 const kg = (n: number) => `${formatKg(n)} kg`;
 const who = (x: CompetitionCatch) => x.teamName ?? x.participantUsername ?? x.guestName ?? null;
 
-/** Cântare rows (weighing statistics, in weighing order — ascending by time): the stand, the kilograms and the fish — «fără captură», never «capot». */
-export function weighingItems(rows: readonly WeighingStatisticsItem[]) {
-  return [...rows]
-    .sort((a, b) => Date.parse(a.startDate) - Date.parse(b.startDate) || a.sequenceIndex - b.sequenceIndex)
-    .map(w => ({
-      name: w.standName ? `Standul ${w.standName}` : 'Cântar',
-      description: `${kg(w.totalWeightKg)}, ${w.catchCount > 0 ? formatCount(w.catchCount, 'pește', 'pești') : 'fără captură'}`,
-    }));
-}
-
 /** Toți peștii rows (the first page, heaviest first — the view's default sort): the species, the kilograms, the stand and the angler. */
 export function catchItems(rows: readonly CompetitionCatch[]) {
   return rows.map(x => ({
@@ -259,9 +246,6 @@ export function catchItems(rows: readonly CompetitionCatch[]) {
     description: [kg(x.weight), x.standName ? `standul ${x.standName}` : null, who(x)].filter(Boolean).join(', '),
   }));
 }
-
-/** At most this many rows go into a view's ItemList. */
-const MAX_LIST_ITEMS = 100;
 
 /**
  * The page's JSON-LD: the SportsEvent on the competition page and its route tabs; on /cantare and
@@ -276,14 +260,9 @@ export async function competitionPageJsonLd(c: LooseCompetitionDetail, view: Ran
   if ((view !== 'cantare' && view !== 'allFish') || !started) return competitionJsonLd(c, await competitionPlace(c, t));
   const about = { type: 'SportsEvent', name: c.name, path: routes.competition(c.documentId) };
   if (view === 'cantare') {
-    const res = await optional(getCompetitionWeighingStatistics(t, c.documentId));
-    const name = `Cântare · ${c.name}`;
-    return collectionPageJsonLd({
-      name,
-      path: routes.competitionWeighings(c.documentId),
-      about,
-      list: res ? { name, items: weighingItems(res.data).slice(0, MAX_LIST_ITEMS), order: 'ascending' } : undefined,
-    });
+    // No ItemList of the weighings: they come from the weighing statistics, a signed-in (paid)
+    // read the public site never makes (owner 2026-10-12).
+    return collectionPageJsonLd({ name: `Cântare · ${c.name}`, path: routes.competitionWeighings(c.documentId), about });
   }
   const res = await optional(getCompetitionCatches(t, c.documentId, 'weight_desc', 1, COMPETITION_CATCHES_PAGE_SIZE));
   const name = `Toți peștii · ${c.name}`;
