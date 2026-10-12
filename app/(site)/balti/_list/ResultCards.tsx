@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { PhoneIcon } from '@heroicons/react/24/outline';
 import { useMemo, useState } from 'react';
 import { formatDecimal, Pill } from '@/components/cards';
+import { PhotoCarousel } from '@/components/cards/PhotoCarousel';
 import { Dialog } from '@/components/surfaces/Dialog';
 import { T2MapCard } from '@/components/templates/T2';
 import { buttonClass } from '@/components/ui/Button';
@@ -262,12 +263,18 @@ export function PinLakeCard({
   distanceLabel,
   onClose,
   returnFocusTo,
+  variant = 'dock',
 }: {
   lake: LakeMapLeaf;
   photos: LakeImageSrc[];
   distanceLabel: string | null;
   onClose: () => void;
   returnFocusTo: () => HTMLElement | null;
+  /**
+   * `dock`: the phone's card over the bottom of the map (fish). `popup`: from 768, Airbnb web's card
+   * on the pin itself (T2Map selectedPopup) — the photos as a carousel (owner 2026-10-12).
+   */
+  variant?: 'dock' | 'popup';
 }) {
   const [directions, setDirections] = useState(false);
   const reviews = lake.reviewsMeta && lake.reviewsMeta.count > 0 ? lake.reviewsMeta : null;
@@ -291,19 +298,45 @@ export function PinLakeCard({
         }}
         returnFocusTo={returnFocusTo}
         media={
-          <PhotoMosaic
-            photos={photos}
-            heightClass="h-33 xl:h-36"
-            sizes="(min-width: 1280px) 380px, 92vw"
-            mosaicSizes="(min-width: 1280px) 255px, 62vw"
-          >
-            {distanceLabel ? (
-              <Pill tone="light" className="absolute top-2.5 left-2.5 shadow-e1">
-                <span className="sr-only">La </span>
-                {distanceLabel}
-              </Pill>
-            ) : null}
-          </PhotoMosaic>
+          variant === 'popup' ? (
+            <PhotoCarousel
+              slides={photos.map((p, i) => (
+                <Image
+                  key={i}
+                  src={p.src}
+                  alt=""
+                  fill
+                  sizes="328px"
+                  className="object-cover"
+                  {...(p.blurhash ? { placeholder: 'blur' as const, blurDataURL: blurDataUrl(p.blurhash) } : {})}
+                />
+              ))}
+              href={routes.lake(lake.documentId)}
+              label={lake.name}
+              className="aspect-3/2"
+            >
+              {distanceLabel ? (
+                <Pill tone="light" className="pointer-events-none absolute top-2.5 left-2.5 shadow-e1">
+                  <span className="sr-only">La </span>
+                  {distanceLabel}
+                </Pill>
+              ) : null}
+            </PhotoCarousel>
+          ) : (
+            <PhotoMosaic
+              photos={photos.slice(0, 3)}
+              heightClass="h-33 xl:h-36"
+              sizes="(min-width: 1280px) 380px, 92vw"
+              mosaicSizes="(min-width: 1280px) 255px, 62vw"
+            >
+              {distanceLabel ? (
+                <Pill tone="light" className="absolute top-2.5 left-2.5 shadow-e1">
+                  <span className="sr-only">La </span>
+                  {distanceLabel}
+                </Pill>
+              ) : null}
+            </PhotoMosaic>
+          )
         }
         titleAside={reviews ? <Rating overall={reviews.overall ?? 0} count={reviews.count} withCount /> : null}
         meta={location ? <span className="truncate">{location}</span> : null}

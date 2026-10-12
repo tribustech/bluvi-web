@@ -15,7 +15,7 @@ import { Pillars } from './_home/Pillars';
 import { PrivacySettingsCard } from './_home/PrivacySettingsCard';
 import { HomeErrorGate } from './_home/HomeErrorGate';
 import { HomeFocusRefresh } from './_home/HomeRefresh';
-import { LAKE_CARD_HEIGHT } from './_home/HomeLakeCard';
+import { LAKE_CARD_HEIGHT, LAKE_GRID_CARD_BOX } from './_home/HomeLakeCard';
 import { HomeHeader, HomeHeaderSkeleton, ProfileCard, ProfileCardSkeleton } from './_home/ProfileCard';
 import {
   CompetitionsPrerendered,
@@ -40,7 +40,7 @@ import {
   SignedOutOnly,
   SuggestedAnglersSlot,
 } from './_home/slots';
-import { HomeShortcutStrip, HomeShortcutStripSkeleton, HomeShortcuts, HomeShortcutsSkeleton } from './_home/Shortcuts';
+import { HomeShortcutCards, HomeShortcutCardsSkeleton } from './_home/Shortcuts';
 import { SponsorsSection } from './_home/SponsorsSection';
 import { SPONSOR_CHIP, SPONSOR_STRIP } from './_home/sponsorStrip';
 import { HomeGridSkeleton } from './_home/HomeGrid';
@@ -83,16 +83,13 @@ export const metadata: Metadata = {
  *   competitions, poll (below 1280), suggested anglers, lakes, the lake request, sponsors, news,
  *   (from 1024 the partidă hero leaves the top and sits beside the lake request — BannerPair),
  *   feedback (beside the web-only app promo from 1280, the page's last block);
+ * - from 768 the main column opens with «Scurtături» (web only, _home/Shortcuts.tsx): one row of
+ *   large coloured cards (owner 2026-10-12, replacing the 1440 left column and the 1280 chip row);
  * - from 1280 the sticky right column «Ce mă așteaptă» (my partidă or live competition, organiser
  *   panel, my lake, tools — fish's blocks above the hero, which below 1280 open the main column
- *   instead); from 1440 (ROADMAP §4 width rule, three columns) also the sticky left column
- *   «Scurtături» (quick links — web only, _home/Shortcuts.tsx). The poll is in the right column
- *   from 1280 too (owner 2026-10-11), under the tools; below 1280 it keeps fish's place. At 1280 there is no left column
- *   (`contextFrom="2xl"`, so the centre is 872 wide — three rail cards, as at 1440 — not 608):
- *   the same shortcuts open the main column as one row of chips (HomeShortcutStrip), never the
- *   right column, which must stay short enough to stick under the top bar. Those few small blocks
- *   are the only ones written twice (one copy display:none at any width); DashboardLayout
- *   `sidesBelowXl="hidden"`.
+ *   instead). The poll is in the right column from 1280 too (owner 2026-10-11), under the tools;
+ *   below 1280 it keeps fish's place. Those few small blocks are the only ones written twice (one
+ *   copy display:none at any width); DashboardLayout `sidesBelowXl="hidden"`.
  *
  * Owner rule 5 (ROADMAP §4b, at most two rails per page): from 1280 only Concursuri and Pescari de
  * urmărit are rails; Bălți and Noutăți are dense grids capped to whole rows (_home/HomeGrid.tsx) and
@@ -151,7 +148,6 @@ export default function Home() {
           </a>
           <DashboardLayout
             sidesBelowXl="hidden"
-            contextFrom="2xl"
             main={
               // Phone: fish's 10px between blocks (the column keeps its own rhythm from 768).
               <div className="flex flex-col gap-2.5 md:contents">
@@ -161,13 +157,6 @@ export default function Home() {
                   </AfterSession>
                 </Suspense>
               </div>
-            }
-            context={
-              <Suspense fallback={<HomeShortcutsSkeleton />}>
-                <AfterSession>
-                  <HomeShortcuts />
-                </AfterSession>
-              </Suspense>
             }
             aside={
               <>
@@ -230,7 +219,7 @@ const PAIR_CELL = '@container flex min-w-0';
 function MainColumn() {
   return (
     <>
-      <ShortcutsAt1280 />
+      <HomeShortcutCards />
       {/* account.onboarding web replacement: what Bluvi is, under the guest's header card; from
           1280 it heads the right column, above Instrumente. */}
       {/* Not on the phone: fish's Acasă has no such block (ROADMAP §4b rule 25). */}
@@ -316,7 +305,7 @@ function MainColumn() {
 function UnknownSessionColumn() {
   return (
     <>
-      <ShortcutsAt1280 />
+      <HomeShortcutCards />
       {/* The tools do not depend on the session: the phone keeps them, as the aside does from 1280
           (UnknownSessionAside) — no Rezervări count without a known viewer. */}
       <div className={BELOW_XL}>
@@ -359,7 +348,7 @@ function MainColumnSkeleton() {
       <span role="status" className="sr-only">
         Se încarcă pagina
       </span>
-      <HomeShortcutStripSkeleton className={AT_1280} />
+      <HomeShortcutCardsSkeleton />
       <div aria-hidden className={BELOW_XL}>
         <SkeletonSection>
           {/* Instrumente: the tiles card (Widgets), its thirds and the pill band. */}
@@ -382,7 +371,7 @@ function MainColumnSkeleton() {
         <div className="xl:hidden">
           <RailSkeleton label="Se încarcă bălțile" width={200} heightClass={LAKE_CARD_HEIGHT} />
         </div>
-        <HomeGridSkeleton kind="lakes" heightClass={LAKE_CARD_HEIGHT} className="max-xl:hidden" />
+        <HomeGridSkeleton kind="lakes" heightClass={LAKE_GRID_CARD_BOX} className="max-xl:hidden" />
       </SkeletonSection>
       <span aria-hidden className="h-64 rounded-bento bg-soft-fill @2xl:h-40 lg:hidden" />
       {/* From 1024 the two banners as one row (BannerPair), at its height. */}
@@ -458,19 +447,6 @@ function AsideColumn() {
  */
 function UnknownSessionAside() {
   return <Widgets layout="desktop" />;
-}
-
-/** 1280–1439 only: Acasă is centre · right there (DashboardLayout `contextFrom="2xl"`). */
-const AT_1280 = 'hidden xl:max-2xl:flex';
-
-/**
- * At 1280 there is no left column, so its shortcuts open the main column as one row of chips
- * (~44px) — not a 7-row card prepended to the right column, which then outgrew the viewport and
- * stuck with its top cut off under the top bar. display:none below 1280 (the phone has the top
- * bar's menu and the rails' «Vezi toate») and from 1440 (the left column carries them).
- */
-function ShortcutsAt1280() {
-  return <HomeShortcutStrip className={AT_1280} />;
 }
 
 /** The aside while the session is read: the tools card's footprint, nothing readable. */

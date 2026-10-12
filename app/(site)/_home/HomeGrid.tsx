@@ -13,10 +13,10 @@ import { cn } from '@/components/ui/cn';
  * Literal class strings (Tailwind reads them): `@min-[a]:@max-[b]` is a ≤ column < b.
  */
 const CAPS = {
-  /** Lakes: 200px tracks, two rows. */
+  /** Lakes: 260px tracks (owner 2026-10-12: bigger cards, Airbnb's photo carousel), two rows. */
   lakes:
-    '@max-[414px]:[&>li:nth-child(n+3)]:hidden @min-[414px]:@max-[628px]:[&>li:nth-child(n+5)]:hidden @min-[628px]:@max-[842px]:[&>li:nth-child(n+7)]:hidden ' +
-    '@min-[842px]:@max-[1056px]:[&>li:nth-child(n+9)]:hidden @min-[1056px]:@max-[1270px]:[&>li:nth-child(n+11)]:hidden @min-[1270px]:[&>li:nth-child(n+13)]:hidden',
+    '@max-[534px]:[&>li:nth-child(n+3)]:hidden @min-[534px]:@max-[808px]:[&>li:nth-child(n+5)]:hidden @min-[808px]:@max-[1082px]:[&>li:nth-child(n+7)]:hidden ' +
+    '@min-[1082px]:@max-[1356px]:[&>li:nth-child(n+9)]:hidden @min-[1356px]:[&>li:nth-child(n+11)]:hidden',
   /** News: 224px tracks, one row (each card is a 330px banner card). */
   news:
     '@max-[462px]:[&>li:nth-child(n+2)]:hidden @min-[462px]:@max-[700px]:[&>li:nth-child(n+3)]:hidden @min-[700px]:@max-[938px]:[&>li:nth-child(n+4)]:hidden ' +
@@ -24,7 +24,7 @@ const CAPS = {
 } as const;
 
 const TRACKS = {
-  lakes: 'grid-cols-[repeat(auto-fill,minmax(--spacing(50),1fr))]',
+  lakes: 'grid-cols-[repeat(auto-fill,minmax(--spacing(65),1fr))] gap-y-6',
   news: 'grid-cols-[repeat(auto-fill,minmax(--spacing(56),1fr))]',
 } as const;
 

@@ -1,18 +1,19 @@
 import Image, { getImageProps } from 'next/image';
 import { preload } from 'react-dom';
 import { CardTitle, Pill } from '@/components/cards';
+import { MAX_PHOTOS, PhotoCarousel } from '@/components/cards/PhotoCarousel';
 import { cn } from '@/components/ui/cn';
 import { getLakeLocationSubtitle, type LakeHomeSectionLake } from '@/core/lakes';
 import { routes } from '@/lib/routes';
 import { blurDataUrl } from '@/lib/blurhash';
-import { lakeImage } from './lakeImage';
+import { imageSrc, lakeImage } from './lakeImage';
 import { FacilityIcons, MAX_FACILITIES } from './LakeTile';
 import { RatingInline } from './RatingInline';
 
 /*
  * The Bălți grid card (owner rule 5, ROADMAP §4b, 2026-10-06): Airbnb's listing card — a 4:3
  * photo with rounded corners, the text right under it, no card box and no empty footer band. The
- * whole card is one link (the name's stretched link). Line 1: the name and, when the lake has
+ * whole card is one link (the name's stretched link; the photos, a carousel above it, link there too). Line 1: the name and, when the lake has
  * reviews, «★ 4,8 (2)» on the right (RatingInline, shared with LakeRowCard); line 2: county / city;
  * line 3: up to 4 facility glyphs and «+N» (fish MiniatureLakeCard, lakes.home.c14 — LakeTile's
  * row); line 4: the regime and, when the lake books in the app, «Rezervare online» in the accent —
@@ -81,10 +82,35 @@ export function LakeGridCard({
       fill
       {...(priority ? { loading: 'eager' as const, fetchPriority: 'high' as const } : {})}
       sizes={sizes}
-      className="object-cover transition-transform duration-(--duration-medium) ease-slow group-hover:scale-[1.03] motion-reduce:transition-none"
+      className="object-cover"
       {...(image.blurhash ? { placeholder: 'blur' as const, blurDataURL: blurDataUrl(image.blurhash) } : {})}
     />
   ) : null;
+  // The other photos (owner 2026-10-12: Airbnb's carousel): lazy, they load as the track nears them.
+  // The rail stays one photo: a carousel inside a sideways-scrolling rail would fight its swipe.
+  const others = layout === 'grid' ? ((lake.images ?? []) as Parameters<typeof imageSrc>[0][]).slice(1, MAX_PHOTOS) : [];
+  const more = others.map((img, i) => {
+    const s = imageSrc(img);
+    return (
+      <Image
+        key={i}
+        src={s.src}
+        alt=""
+        fill
+        sizes={sizes}
+        className="object-cover"
+        {...(s.blurhash ? { placeholder: 'blur' as const, blurDataURL: blurDataUrl(s.blurhash) } : {})}
+      />
+    );
+  });
+  const first = photo && hiddenMedia ? (
+    <picture>
+      <source media={hiddenMedia} srcSet={BLANK_GIF} />
+      {photo}
+    </picture>
+  ) : (
+    photo
+  );
   const location = getLakeLocationSubtitle(
     { county: lake.county ?? null, countyRef: lake.countyRef ?? null, cityRef: lake.cityRef ?? null },
     { includeAddress: false },
@@ -96,22 +122,14 @@ export function LakeGridCard({
 
   return (
     <article className="group relative flex min-w-0 flex-col gap-2.5">
-      <div className="relative aspect-4/3 overflow-hidden rounded-card bg-soft-fill">
-        {photo && hiddenMedia ? (
-          <picture>
-            <source media={hiddenMedia} srcSet={BLANK_GIF} />
-            {photo}
-          </picture>
-        ) : (
-          photo
-        )}
+      <PhotoCarousel slides={first ? [first, ...more] : []} href={routes.lake(lake.documentId)} label={lake.name} className="aspect-4/3 rounded-card">
         {distanceLabel ? (
-          <Pill tone="scrim" className="absolute top-2.5 left-2.5">
+          <Pill tone="scrim" className="pointer-events-none absolute top-2.5 left-2.5">
             <span className="sr-only">La </span>
             {distanceLabel}
           </Pill>
         ) : null}
-      </div>
+      </PhotoCarousel>
       <div className="flex min-w-0 flex-col gap-0.5">
         <div className="flex min-w-0 items-start gap-2">
           <CardTitle href={routes.lake(lake.documentId)} className="line-clamp-1 min-w-0 flex-1 t-body-strong text-ink">

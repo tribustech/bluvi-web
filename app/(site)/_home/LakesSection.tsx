@@ -6,7 +6,7 @@ import type { LakeCard, LakeCardListResponse } from '@/core/lakes';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { routes } from '@/lib/routes';
 import { cn } from '@/components/ui/cn';
-import { HomeLakeCard, LAKE_CARD_HEIGHT } from './HomeLakeCard';
+import { HomeLakeCard, LAKE_CARD_HEIGHT, LAKE_GRID_CARD_BOX } from './HomeLakeCard';
 import { CardSkeleton, HorizontalRail, RailItem, RailRetryItem, useRailRead, HOME_RAIL_BLEED } from './HorizontalRail';
 import { HomeGrid, HomeGridSkeleton } from './HomeGrid';
 import { RailEmpty, RailSection, RailSkeleton } from './RailSection';
@@ -88,7 +88,7 @@ export function LakesView({
           <div className="xl:hidden">
             <RailSkeleton label="Se încarcă bălțile" width={200} heightClass={LAKE_CARD_HEIGHT} />
           </div>
-          <HomeGridSkeleton kind="lakes" heightClass={LAKE_CARD_HEIGHT} className="max-xl:hidden" />
+          <HomeGridSkeleton kind="lakes" heightClass={LAKE_GRID_CARD_BOX} className="max-xl:hidden" />
         </>
       ) : lakes.length === 0 ? (
         <RailEmpty>Momentan nu este disponibilă nicio baltă.</RailEmpty>
@@ -119,9 +119,9 @@ export function LakesView({
             </HorizontalRail>
           </div>
           <HomeGrid kind="lakes" label="Bălți" className="max-xl:hidden">
-            {lakes.map((lake) => (
+            {lakes.map((lake, i) => (
               <li key={lake.documentId} className="flex">
-                <HomeLakeCard lake={lake} />
+                <HomeLakeCard lake={lake} variant="grid" eager={i < 4} />
               </li>
             ))}
           </HomeGrid>

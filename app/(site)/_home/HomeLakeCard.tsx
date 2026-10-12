@@ -5,6 +5,8 @@ import { getLakeLocationSubtitle, type LakeCard } from '@/core/lakes';
 import { CardShell, CardTitle, formatDecimal, Pill } from '@/components/cards';
 import { routes } from '@/lib/routes';
 import { cn } from '@/components/ui/cn';
+import { MAX_PHOTOS, PhotoCarousel } from '@/components/cards/PhotoCarousel';
+import { RatingInline } from '../balti/_list/RatingInline';
 import { facilityIcon } from './facilityIcon';
 
 /** fish constants/lakeIconColors FACILITY_ICON_COLORS (blue, cyan, green, amber, red, violet) as the nearest tokens. */
@@ -18,6 +20,9 @@ const MAX_NAMED = 2;
  * grow from 1280). The card itself sizes to its content — every card carries the same three lines.
  */
 export const LAKE_CARD_HEIGHT = 'h-44 md:h-47 xl:h-48.5';
+
+/** The grid card's bone from 1280: a 4:3 photo over three short lines is about as tall as wide. */
+export const LAKE_GRID_CARD_BOX = 'aspect-[260/268]';
 
 /** «Pontoane · Toaletă +2»: the first names, then how many more. */
 function named(names: string[]) {
@@ -38,9 +43,10 @@ function named(names: string[]) {
  * first one's glyph («Pontoane · Toaletă +2»), else the species («Crap · Caras +2»), else the regime.
  * A lake with none of them ends on its place (the card is sized to its content, never padded).
  */
-export function HomeLakeCard({ lake }: { lake: LakeCard }) {
+export function HomeLakeCard({ lake, variant = 'rail', eager = false }: { lake: LakeCard; variant?: 'rail' | 'grid'; eager?: boolean }) {
   const image = lake.images[0];
   const src = image ? (image.mediumUrl ?? image.url) : null;
+  if (variant === 'grid') return <HomeLakeGridCard lake={lake} eager={eager} />;
   const location = getLakeLocationSubtitle(
     { county: lake.county, countyRef: lake.countyRef ?? null, cityRef: lake.cityRef ?? null },
     { includeAddress: false }
@@ -105,5 +111,48 @@ export function HomeLakeCard({ lake }: { lake: LakeCard }) {
         ) : null}
       </div>
     </CardShell>
+  );
+}
+
+/**
+ * From 1280 (the Acasă grid; owner 2026-10-12: «mai mari», Airbnb's carousel): the /balti grid card's
+ * look — the photos as a 4:3 carousel with rounded corners, the text right under them, no card box.
+ * Line 1: the name and «★ 4,8 (2)» when the lake has reviews; line 2: the place; line 3: the same
+ * labelled fact as the rail card. The whole card is one link (the name's), the photos link there too.
+ */
+/** `eager`: the grid's first row, above the fold on a tall window (its first photo only). */
+function HomeLakeGridCard({ lake, eager }: { lake: LakeCard; eager: boolean }) {
+  const href = routes.lake(lake.documentId);
+  const location = getLakeLocationSubtitle(
+    { county: lake.county, countyRef: lake.countyRef ?? null, cityRef: lake.cityRef ?? null },
+    { includeAddress: false }
+  );
+  const reviews = lake.reviewsMeta && lake.reviewsMeta.count > 0 ? lake.reviewsMeta : null;
+  const facilities = lake.facility.map((f) => f.name);
+  const species = lake.fishSpecies.map((s) => s.fish.Name);
+  const fact = facilities.length > 0 ? named(facilities) : species.length > 0 ? named(species) : lake.regime || null;
+  const slides = lake.images.slice(0, MAX_PHOTOS).map((img, i) => (
+    <Image key={i} src={img.mediumUrl ?? img.url} alt="" fill sizes="(min-width: 1440px) 340px, 300px" loading={eager && i === 0 ? 'eager' : undefined} className="object-cover" />
+  ));
+
+  return (
+    <article className="group relative flex w-full min-w-0 flex-col gap-2.5">
+      <PhotoCarousel slides={slides} href={href} label={lake.name} className="aspect-4/3 rounded-card" />
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex min-w-0 items-start gap-2">
+          <CardTitle href={href} className="line-clamp-1 min-w-0 flex-1 t-body-strong text-ink">
+            {lake.name}
+          </CardTitle>
+          {reviews ? <RatingInline overall={reviews.overall ?? 0} count={reviews.count} className="t-body" /> : null}
+        </div>
+        {location ? <p className="line-clamp-1 t-body text-ink-2">{location}</p> : null}
+        {fact ? (
+          <p className="flex min-w-0 items-center gap-1.5 t-caption text-muted">
+            {facilities[0] ? createElement(facilityIcon(facilities[0]), { 'aria-hidden': true, className: 'size-4 shrink-0 text-accent-ink' }) : null}
+            <span className="truncate">{fact}</span>
+          </p>
+        ) : null}
+      </div>
+    </article>
   );
 }

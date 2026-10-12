@@ -76,6 +76,7 @@ import { requestUserPosition, useLakesLocation, useLocationDialog, watchAutoDial
 import { LocationDialog } from './LocationDialog';
 import { LAKES_MAP_SPLIT } from './LakeRowCard';
 import { PinLakeCard, ResultCardsSkeleton, ResultLakeCard } from './ResultCards';
+import { MAX_PHOTOS } from '@/components/cards/PhotoCarousel';
 import { KitSheetCloseButton } from './PhoneSheet';
 import { SearchLayer } from './SearchLayer';
 import { LakesSearchRow } from './HomeHeader';
@@ -418,8 +419,8 @@ export function LakesMap() {
   const selectedFull = useQuery(lakeQuery(t, selectedId ?? '', { enabled: needsImages }));
   const selectedPhotos = selectedNode
     ? selectedNode.images.length
-      ? selectedNode.images.slice(0, 3).map(imageSrc)
-      : (selectedFull.data?.images ?? []).slice(0, 3).map(imageSrc)
+      ? selectedNode.images.slice(0, MAX_PHOTOS).map(imageSrc)
+      : (selectedFull.data?.images ?? []).slice(0, MAX_PHOTOS).map(imageSrc)
     : [];
   // A selection that leaves the results (filters changed) has no node any more: no card, no pin.
   const shownSelectedId = selectedNode ? selectedId : null;
@@ -748,6 +749,19 @@ export function LakesMap() {
   );
 
   // Keyed: T2Map never turns a placeholder into a live map in place (it builds MapLibre once).
+  // The phone docks the pin's card over the bottom of the map (fish); from 768 it opens on the pin
+  // itself, as Airbnb's web map does (owner 2026-10-12).
+  const pinCard = (variant: 'dock' | 'popup') =>
+    selectedNode ? (
+      <PinLakeCard
+        lake={selectedNode}
+        photos={selectedPhotos}
+        distanceLabel={distanceTo(user, selectedNode.coordinate)}
+        onClose={() => setSelectedId(null)}
+        returnFocusTo={() => t2FocusTarget(selectedNode.documentId)}
+        variant={variant}
+      />
+    ) : null;
   const map = initialRegion ? (
     // fish lakes_map_results_cluster_tap: T2Map zooms a cluster itself, so the tap is read here.
     // TODO(kit): an onClusterPress on T2Map with the cluster id and the zoom it lands on.
@@ -773,6 +787,7 @@ export function LakesMap() {
         pointBadge={pinBadge}
         clusterLabel={(n) => `${plural(n, 'baltă', 'bălți')} — mărește harta aici`}
         selectedId={shownSelectedId}
+        selectedPopup={phone ? null : pinCard('popup')}
         highlightedId={highlightedId}
         onPointHover={setPinHoverId}
         onSelect={(p) => {
@@ -821,15 +836,7 @@ export function LakesMap() {
     />
   );
 
-  const detail = selectedNode ? (
-    <PinLakeCard
-      lake={selectedNode}
-      photos={selectedPhotos}
-      distanceLabel={distanceTo(user, selectedNode.coordinate)}
-      onClose={() => setSelectedId(null)}
-      returnFocusTo={() => t2FocusTarget(selectedNode.documentId)}
-    />
-  ) : null;
+  const detail = phone ? pinCard('dock') : null;
 
   const filterSection = panel ?? 'all';
 

@@ -47,27 +47,30 @@ async function expectShell(page: Page, width: number) {
 }
 
 for (const width of WIDTHS) {
-  test(`full width · Acasă · ${width}px — three columns: Scurtături · feed · Ce mă așteaptă`, async ({ page }) => {
+  test(`full width · Acasă · ${width}px — feed · Ce mă așteaptă, the shortcut cards open the feed (owner 2026-10-12)`, async ({ page }) => {
     await open(page, '/', width, true);
     await expectShell(page, width);
-    const left = page.getByRole('complementary', { name: 'Scurtături' });
     const right = page.getByRole('complementary', { name: 'Ce mă așteaptă' });
-    await expect(left).toBeVisible();
     await expect(right).toBeVisible();
+    // No left column any more: the shortcuts are one row of cards at the top of the feed.
+    await expect(page.getByRole('complementary', { name: 'Scurtături' })).toHaveCount(0);
+    const nav = page.getByRole('navigation', { name: 'Scurtături' });
     const feed = page.getByRole('region', { name: /^Concursuri (live|viitoare)|^Bălți/ }).locator('visible=true').first();
-    const [l, f, r] = await Promise.all([left.boundingBox(), feed.boundingBox(), right.boundingBox()]);
-    expect(l && f && r).toBeTruthy();
-    // Left, centre, right in that order, the centre the widest; the outer edges sit on the gutters.
-    expect(l!.x + l!.width).toBeLessThan(f!.x);
+    const [n, f, r] = await Promise.all([nav.boundingBox(), feed.boundingBox(), right.boundingBox()]);
+    expect(n && f && r).toBeTruthy();
+    // The row sits above the feed, as wide as it, left of the right column: two rows of three at
+    // most (one row once the column has 1024px).
+    expect(n!.y + n!.height).toBeLessThan(f!.y);
+    expect(Math.round(n!.x)).toBe(Math.round(f!.x));
     expect(f!.x + f!.width).toBeLessThan(r!.x);
-    expect(f!.width).toBeGreaterThan(Math.max(l!.width, r!.width));
+    expect(n!.height).toBeLessThan(300);
     const colLeft = Math.max(0, (width - SHELL) / 2) + GUTTER;
-    expect(Math.round(l!.x)).toBe(colLeft);
+    expect(Math.round(f!.x)).toBe(colLeft);
     expect(Math.round(r!.x + r!.width)).toBe(Math.min(width, SHELL) + Math.max(0, (width - SHELL) / 2) - GUTTER);
-    // Signed in: the viewer's own areas first.
-    const nav = left.getByRole('navigation', { name: 'Scurtături' });
-    await expect(nav.getByRole('link', { name: 'Profilul meu' })).toHaveAttribute('href', '/profil');
-    await expect(nav.getByRole('link', { name: 'Concursuri live' })).toHaveAttribute('href', '/concursuri/live');
+    // Signed in: six cards, the viewer's own areas among them.
+    await expect(nav.getByRole('link')).toHaveCount(6);
+    await expect(nav.getByRole('link', { name: /^Profilul meu/ })).toHaveAttribute('href', '/profil');
+    await expect(nav.getByRole('link', { name: /^Concursuri live/ })).toHaveAttribute('href', '/concursuri/live');
   });
 
   test(`full width · Concurs (live) · ${width}px — the ranking table takes the whole column`, async ({ page }) => {
@@ -91,13 +94,13 @@ for (const width of WIDTHS) {
   });
 }
 
-test('full width · Acasă signed out · 1920px — public shortcuts and the account invitation', async ({ page }) => {
+test('full width · Acasă signed out · 1920px — public shortcut cards and the account invitation', async ({ page }) => {
   await open(page, '/', 1920);
-  const left = page.getByRole('complementary', { name: 'Scurtături' });
-  const nav = left.getByRole('navigation', { name: 'Scurtături' });
-  await expect(nav.getByRole('link', { name: 'Bălți' })).toHaveAttribute('href', '/balti');
-  await expect(nav.getByRole('link', { name: 'Profilul meu' })).toHaveCount(0);
-  await expect(left.getByRole('link', { name: 'Intră în cont' })).toHaveAttribute('href', '/intra');
+  const nav = page.getByRole('navigation', { name: 'Scurtături' });
+  await expect(nav.getByRole('link')).toHaveCount(6);
+  await expect(nav.getByRole('link', { name: /^Bălți/ })).toHaveAttribute('href', '/balti');
+  await expect(nav.getByRole('link', { name: /^Profilul meu/ })).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: /^Intră în cont/ })).toHaveAttribute('href', '/intra');
 });
 
 /*

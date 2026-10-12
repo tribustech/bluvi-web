@@ -1,137 +1,116 @@
-import {
-  CalendarDaysIcon,
-  MapIcon,
-  NewspaperIcon,
-  SignalIcon,
-  TrophyIcon,
-  UserCircleIcon,
-  UserGroupIcon,
-} from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, MapIcon, NewspaperIcon, SignalIcon, TrophyIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { FishOutlineIcon } from '@/components/nav/brand';
 import { PATHS } from '@/components/nav/items';
-import { DashboardAction, DashboardActions } from '@/components/templates/T5';
-import { ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { routes } from '@/lib/routes';
 import { getHomeSession } from './data';
 import { homeLinks } from './links';
 
 /**
- * Acasă from 1280: the left column of the T5 three-column body (ROADMAP §4 width rule, owner
- * decision 2026-10-04: left = quick links / context, centre = the feed, right = «ce mă așteaptă»).
- * Not a fish block — the phone has the tab bar and the rails' «Vezi toate» for this; on a wide
- * screen the column puts the places a visitor goes next one click away, beside the feed.
- *
- * Signed in: their own areas first (profile, partide, bookings, anglers to follow), then the
- * public sections. Signed out: the public sections and what an account unlocks. Rendered after the
- * session (inside the column's AfterSession reveal), so it never flips from one list to the other.
- * The administration links stay in the top bar's «Administrare» (and the right column's cards).
+ * Acasă from 768: «Scurtături» as one row of large coloured cards at the top of the main column
+ * (owner 2026-10-12: the left-column list and the 1280 chip row «n-au niciun dumnezeu» — bigger
+ * cards, coloured, with distinctive icons, at the top). Not a fish block — the phone has the tab bar
+ * and the rails' «Vezi toate». Three per row, or one row of six on a wide column — whole rows for every known session:
+ * signed in, their own areas next to the public sections; signed out, the public sections and
+ * «Intră în cont». Rendered after the session (inside the column's AfterSession reveal), so it
+ * never flips from one set to the other.
  */
-type Shortcut = { href: string; label: string; icon: ReactNode };
+type Tone = 'indigo' | 'lavender' | 'sky' | 'peach' | 'lime' | 'violet' | 'accent';
+type Shortcut = { href: string; label: string; caption: string; icon: ReactNode; tone: Tone };
+
+/** cn() does not merge: each tone owns its background, ink and icon disc. */
+const TONE: Record<Tone, { card: string; disc: string }> = {
+  indigo: { card: 'bg-bento-indigo text-on-bento-indigo', disc: 'bg-on-bento-indigo/15' },
+  lavender: { card: 'bg-bento-lavender text-on-bento-lavender', disc: 'bg-surface/70' },
+  sky: { card: 'bg-bento-sky text-on-bento-sky', disc: 'bg-surface/70' },
+  peach: { card: 'bg-bento-peach text-on-bento-peach', disc: 'bg-surface/70' },
+  lime: { card: 'bg-bento-lime text-on-bento-lime', disc: 'bg-surface/70' },
+  violet: { card: 'bg-bento-violet text-on-bento-violet', disc: 'bg-surface/70' },
+  accent: { card: 'bg-accent text-on-accent', disc: 'bg-on-accent/15' },
+};
+
+const PUBLIC = {
+  live: { href: homeLinks.competitions('started'), label: 'Concursuri live', caption: 'Clasamente în timp real', icon: <SignalIcon />, tone: 'indigo' },
+  upcoming: { href: homeLinks.competitions('notStarted'), label: 'Concursuri viitoare', caption: 'Înscrie-te din timp', icon: <TrophyIcon />, tone: 'lavender' },
+  lakes: { href: routes.lakes(), label: 'Bălți', caption: 'Găsește și rezervă', icon: <MapIcon />, tone: 'sky' },
+  partide: { href: PATHS.partide, label: 'Partide', caption: 'Comunitatea la pescuit', icon: <FishOutlineIcon />, tone: 'lime' },
+  news: { href: routes.news(), label: 'Noutăți', caption: 'Ce e nou pe Bluvi', icon: <NewspaperIcon />, tone: 'peach' },
+} satisfies Record<string, Shortcut>;
 
 /**
- * The shortcuts for this session. Unknown (the session read failed): the public links only — no
- * account links that may not apply, and no «Intră în cont» to someone who may be signed in.
+ * The cards for this session. Unknown (the session read failed): the public cards only — no
+ * account cards that may not apply, and no «Intră în cont» to someone who may be signed in.
  */
-async function shortcuts(): Promise<{ items: Shortcut[]; signedOut: boolean }> {
+async function shortcuts(): Promise<Shortcut[]> {
   const session = await getHomeSession();
-  const viewer = session === 'unknown' ? null : session;
-  const items: Shortcut[] = [
-    ...(viewer
-      ? [
-          { href: homeLinks.profile, label: 'Profilul meu', icon: <UserCircleIcon /> },
-          { href: PATHS.partide, label: 'Partidele mele', icon: <FishOutlineIcon /> },
-          { href: homeLinks.myBookings, label: 'Rezervările mele', icon: <CalendarDaysIcon /> },
-          { href: homeLinks.suggestedAnglers, label: 'Pescari de urmărit', icon: <UserGroupIcon /> },
-        ]
-      : []),
-    { href: homeLinks.competitions('started'), label: 'Concursuri live', icon: <SignalIcon /> },
-    { href: homeLinks.competitions('notStarted'), label: 'Concursuri viitoare', icon: <TrophyIcon /> },
-    ...(viewer ? [] : [{ href: routes.lakes(), label: 'Bălți', icon: <MapIcon /> }]),
-    { href: routes.news(), label: 'Noutăți', icon: <NewspaperIcon /> },
+  if (session === 'unknown') return [PUBLIC.live, PUBLIC.upcoming, PUBLIC.lakes, PUBLIC.partide, PUBLIC.news];
+  if (session === null) {
+    return [
+      PUBLIC.live,
+      PUBLIC.upcoming,
+      PUBLIC.lakes,
+      PUBLIC.partide,
+      PUBLIC.news,
+      { href: homeLinks.signIn, label: 'Intră în cont', caption: 'Partide, rezervări, pescari', icon: <UserCircleIcon />, tone: 'accent' },
+    ];
+  }
+  return [
+    PUBLIC.live,
+    PUBLIC.upcoming,
+    PUBLIC.lakes,
+    { href: PATHS.partide, label: 'Partidele mele', caption: 'Capturi și statistici', icon: <FishOutlineIcon />, tone: 'lime' },
+    { href: homeLinks.myBookings, label: 'Rezervările mele', caption: 'Standurile tale', icon: <CalendarDaysIcon />, tone: 'peach' },
+    { href: homeLinks.profile, label: 'Profilul meu', caption: 'Cum te văd ceilalți', icon: <UserCircleIcon />, tone: 'violet' },
   ];
-  return { items, signedOut: session === null };
 }
 
-export async function HomeShortcuts() {
-  const { items, signedOut } = await shortcuts();
-  return (
-    <>
-      <DashboardActions label="Scurtături" layout="list" title="Scurtături">
-        {items.map((s) => (
-          <DashboardAction key={s.href} href={s.href} label={s.label} icon={s.icon} />
-        ))}
-      </DashboardActions>
-      {!signedOut ? null : (
-        <div className="flex flex-col gap-3 rounded-card bg-surface p-4.5 shadow-e0">
-          <p className="t-body text-ink-2">Cu un cont îți ții partidele, rezervările și pescarii urmăriți într-un singur loc.</p>
-          <ButtonLink href={homeLinks.signIn} variant="secondary" block>
-            Intră în cont
-          </ButtonLink>
-        </div>
-      )}
-    </>
-  );
-}
+/** Three per row; one row once the main column (a size container) has 1024px for all of them. */
+const GRID = 'hidden md:grid md:grid-cols-3 md:gap-3 xl:gap-4 @5xl:flex';
 
-/** cn() does not merge: the base and each tone own disjoint utilities. */
-const CHIP =
-  'flex h-10 shrink-0 items-center gap-2 rounded-full px-3.5 t-label transition-[background-color,opacity] duration-(--duration-fast) ease-fast outline-none active:opacity-70 focus-visible:outline-2 focus-visible:outline-accent [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:text-accent-ink';
-const CHIP_PLAIN = 'bg-surface text-ink shadow-e0 hover:bg-soft-fill';
-/** The guest's «Intră în cont»: the secondary button's pair (the old card's button). */
-const CHIP_ACCENT = 'bg-accent-tint-2 text-accent-ink hover:brightness-95';
-
-/**
- * 1280–1439 (page.tsx ShortcutsAt1280): the same shortcuts as one row of chips at the top of the
- * main column — at that width there is no left column, and the right column must stay short
- * enough to stick under the top bar. A known guest gets «Intră în cont» as the last chip (the
- * card's pitch has no room in a row; the top bar's «Intră» says the same).
- */
-export async function HomeShortcutStrip({ className }: { className?: string }) {
-  const { items, signedOut } = await shortcuts();
+export async function HomeShortcutCards() {
+  const items = await shortcuts();
   return (
-    <nav aria-label="Scurtături" className={cn('flex-col', className)}>
-      <ul className="flex flex-wrap gap-2">
-        {items.map((s) => (
-          <li key={s.href}>
-            <Link href={s.href} className={cn(CHIP, CHIP_PLAIN)}>
-              <span aria-hidden>{s.icon}</span>
-              {s.label}
-            </Link>
-          </li>
-        ))}
-        {signedOut ? (
-          <li>
-            <Link href={homeLinks.signIn} className={cn(CHIP, CHIP_ACCENT)}>
-              Intră în cont
-            </Link>
-          </li>
-        ) : null}
-      </ul>
+    <nav aria-label="Scurtături" className={GRID}>
+      {items.map((s) => {
+        const tone = TONE[s.tone];
+        return (
+          <Link
+            key={s.href}
+            href={s.href}
+            className={cn(
+              'group relative isolate flex min-h-30 min-w-0 flex-col justify-between gap-4 overflow-hidden rounded-card p-4 shadow-e0 @5xl:flex-1',
+              'transition-[box-shadow,transform] duration-(--duration-fast) ease-fast hover:-translate-y-0.5 hover:shadow-e2 active:translate-y-0 active:opacity-90 motion-reduce:hover:translate-y-0',
+              'outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+              tone.card
+            )}
+          >
+            {/* The same glyph, large and faint in the corner: the card's own mark. */}
+            <span aria-hidden className="pointer-events-none absolute -right-4 -bottom-5 z-behind opacity-15 [&_svg]:size-24">
+              {s.icon}
+            </span>
+            <span aria-hidden className={cn('flex size-11 items-center justify-center rounded-full [&_svg]:size-6', tone.disc)}>
+              {s.icon}
+            </span>
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="line-clamp-2 t-body-strong">{s.label}</span>
+              <span className="truncate t-caption">{s.caption}</span>
+            </span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }
 
-/** The chip row's footprint while the session is read (one row of 40px pills). */
-export function HomeShortcutStripSkeleton({ className }: { className?: string }) {
+/** The row's footprint while the session is read (the cards' height, nothing readable). */
+export function HomeShortcutCardsSkeleton() {
   return (
-    <span aria-hidden className={cn('flex-wrap gap-2', className)}>
-      {['w-32', 'w-36', 'w-40', 'w-36', 'w-32', 'w-28'].map((w, i) => (
-        <span key={i} className={cn('h-10 rounded-full bg-soft-fill animate-shimmer', w)} />
+    <span aria-hidden className={GRID}>
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <span key={i} className="min-h-30 rounded-card bg-soft-fill animate-shimmer @5xl:flex-1" />
       ))}
     </span>
-  );
-}
-
-/** The column while the session is read: the shortcuts card's footprint, nothing readable. */
-export function HomeShortcutsSkeleton() {
-  return (
-    <div aria-busy="true" className="h-80 rounded-card bg-surface shadow-e0">
-      <span role="status" className="sr-only">
-        Se încarcă scurtăturile
-      </span>
-    </div>
   );
 }

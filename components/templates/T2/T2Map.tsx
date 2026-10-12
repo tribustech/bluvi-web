@@ -136,6 +136,11 @@ export type T2MapProps<P extends T2MapPoint> = {
   listAvailable?: boolean;
   /** Dev/demo: behave as if the style host failed (the «map unavailable» state). */
   forceUnavailable?: boolean;
+  /**
+   * Airbnb web's pin card (owner 2026-10-12): drawn on the map, anchored to the selected pin —
+   * above it when there is room, else below — and following it while the map moves.
+   */
+  selectedPopup?: ReactNode;
   className?: string;
 };
 
@@ -169,6 +174,7 @@ export function T2Map<P extends T2MapPoint>({
   veil,
   listAvailable = true,
   forceUnavailable = false,
+  selectedPopup,
   className,
 }: T2MapProps<P>) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -544,6 +550,12 @@ export function T2Map<P extends T2MapPoint>({
         </>
       )}
 
+      {state.status === 'ready' && selected && selectedPopup ? (
+        <PinPopup map={state.map} at={selected}>
+          {selectedPopup}
+        </PinPopup>
+      ) : null}
+
       {/*
         Zoom (+ page controls): top right, below whatever floats over the map on a phone. Placed by
         T2Layout's CSS variables (--t2-top / --t2-bottom), so the server render is already right.
@@ -785,4 +797,55 @@ function MapMarker({
   }, [element, raised, overClusters]);
 
   return createPortal(children, element);
+}
+
+/** The popup's distance from the map's edges, and from the top of the pin it points at. */
+const POPUP_MARGIN = 12;
+const POPUP_GAP = 10;
+/** The pin's height above its anchor point (T2MapPin is anchored by its bottom). */
+const PIN_HEIGHT = 36;
+
+/**
+ * Keeps `children` next to the pin at `at`: above it when the card fits there, else below, centred
+ * on it and kept inside the map. Re-placed on every map move (one frame at a time) and when the
+ * card changes size (photos loading).
+ */
+function PinPopup({ map, at, children }: { map: MlMap; at: T2LatLng; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    let frameId = 0;
+    const place = () => {
+      frameId = 0;
+      const el = box.current;
+      if (!el) return;
+      const p = map.project([at.lng, at.lat]);
+      const canvas = map.getCanvas();
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      const aboveTop = p.y - PIN_HEIGHT - POPUP_GAP - h;
+      const top = aboveTop >= POPUP_MARGIN ? aboveTop : Math.max(POPUP_MARGIN, Math.min(p.y + POPUP_GAP, height - h - POPUP_MARGIN));
+      const left = Math.min(Math.max(p.x - w / 2, POPUP_MARGIN), width - w - POPUP_MARGIN);
+      setPos((prev) => (prev && prev.left === left && prev.top === top ? prev : { left, top }));
+    };
+    const schedule = () => {
+      if (!frameId) frameId = requestAnimationFrame(place);
+    };
+    place();
+    map.on('move', schedule);
+    const ro = new ResizeObserver(schedule);
+    if (box.current) ro.observe(box.current);
+    return () => {
+      map.off('move', schedule);
+      ro.disconnect();
+      if (frameId) cancelAnimationFrame(frameId);
+    };
+  }, [map, at.lat, at.lng]);
+  return (
+    <div ref={box} className={cn('absolute z-overlay w-82', !pos && 'invisible')} style={pos ? { left: pos.left, top: pos.top } : undefined}>
+      {children}
+    </div>
+  );
 }
