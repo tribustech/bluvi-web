@@ -196,6 +196,32 @@
   --bluvi-on-bento-peach: #9a3412;
   --bluvi-bento-lime: #d9f0a3;
   --bluvi-on-bento-lime: #3f6212;
+  /*
+   * Acasă «Scurtături» cards (2026-10-12): one family on Radix Colors' step ladder — the card a soft
+   * tint between steps 3 and 4 at one perceived lightness, the label step 12 (10.3–10.9:1), the
+   * caption a step-11 ink tuned to 5.1–5.5:1, the icon disc a step-9/10 solid under a white glyph
+   * (5.1–5.4:1). Hues stay in the indigo neighbourhood: violet, blue, cyan (water), teal, plum.
+   */
+  --bluvi-shortcut-violet: #ebe4ff;
+  --bluvi-shortcut-violet-solid: #6e56cf;
+  --bluvi-on-shortcut-violet: #2f265f;
+  --bluvi-on-shortcut-violet-2: #5f4bb4;
+  --bluvi-shortcut-blue: #deeffe;
+  --bluvi-shortcut-blue-solid: #1a6fc4;
+  --bluvi-on-shortcut-blue: #113264;
+  --bluvi-on-shortcut-blue-2: #0a64b2;
+  --bluvi-shortcut-cyan: #d7f4f8;
+  --bluvi-shortcut-cyan-solid: #0a7894;
+  --bluvi-on-shortcut-cyan: #0d3c48;
+  --bluvi-on-shortcut-cyan-2: #0b6a82;
+  --bluvi-shortcut-teal: #d8f5ee;
+  --bluvi-shortcut-teal-solid: #077b6b;
+  --bluvi-on-shortcut-teal: #0d3d38;
+  --bluvi-on-shortcut-teal-2: #006c5d;
+  --bluvi-shortcut-plum: #f9e6fa;
+  --bluvi-shortcut-plum-solid: #a144af;
+  --bluvi-on-shortcut-plum: #53195d;
+  --bluvi-on-shortcut-plum-2: #8e3a9c;
   --bluvi-font: var(--font-nunito), ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light;
 }
@@ -293,6 +319,22 @@
   --bluvi-on-bento-peach: #fdba74;
   --bluvi-bento-lime: #26380f;
   --bluvi-on-bento-lime: #bef264;
+  /* Scurtături (proposal): Radix dark step 4 / 12 / 11; the solids stay (white glyph 5.0–5.4:1). */
+  --bluvi-shortcut-violet: #33255b;
+  --bluvi-on-shortcut-violet: #e2ddfe;
+  --bluvi-on-shortcut-violet-2: #baa7ff;
+  --bluvi-shortcut-blue: #003362;
+  --bluvi-on-shortcut-blue: #c2e6ff;
+  --bluvi-on-shortcut-blue-2: #70b8ff;
+  --bluvi-shortcut-cyan: #003848;
+  --bluvi-on-shortcut-cyan: #b6ecf7;
+  --bluvi-on-shortcut-cyan-2: #4ccce6;
+  --bluvi-shortcut-teal: #023b37;
+  --bluvi-on-shortcut-teal: #adf0dd;
+  --bluvi-on-shortcut-teal-2: #0bd8b6;
+  --bluvi-shortcut-plum: #451d47;
+  --bluvi-on-shortcut-plum: #f4d4f4;
+  --bluvi-on-shortcut-plum-2: #e796f3;
   --bluvi-scrim: rgb(0 0 0 / 0.55);
   color-scheme: dark;
 }
@@ -387,6 +429,26 @@
   --color-on-bento-peach: var(--bluvi-on-bento-peach);
   --color-bento-lime: var(--bluvi-bento-lime);
   --color-on-bento-lime: var(--bluvi-on-bento-lime);
+  --color-shortcut-violet: var(--bluvi-shortcut-violet);
+  --color-shortcut-violet-solid: var(--bluvi-shortcut-violet-solid);
+  --color-on-shortcut-violet: var(--bluvi-on-shortcut-violet);
+  --color-on-shortcut-violet-2: var(--bluvi-on-shortcut-violet-2);
+  --color-shortcut-blue: var(--bluvi-shortcut-blue);
+  --color-shortcut-blue-solid: var(--bluvi-shortcut-blue-solid);
+  --color-on-shortcut-blue: var(--bluvi-on-shortcut-blue);
+  --color-on-shortcut-blue-2: var(--bluvi-on-shortcut-blue-2);
+  --color-shortcut-cyan: var(--bluvi-shortcut-cyan);
+  --color-shortcut-cyan-solid: var(--bluvi-shortcut-cyan-solid);
+  --color-on-shortcut-cyan: var(--bluvi-on-shortcut-cyan);
+  --color-on-shortcut-cyan-2: var(--bluvi-on-shortcut-cyan-2);
+  --color-shortcut-teal: var(--bluvi-shortcut-teal);
+  --color-shortcut-teal-solid: var(--bluvi-shortcut-teal-solid);
+  --color-on-shortcut-teal: var(--bluvi-on-shortcut-teal);
+  --color-on-shortcut-teal-2: var(--bluvi-on-shortcut-teal-2);
+  --color-shortcut-plum: var(--bluvi-shortcut-plum);
+  --color-shortcut-plum-solid: var(--bluvi-shortcut-plum-solid);
+  --color-on-shortcut-plum: var(--bluvi-on-shortcut-plum);
+  --color-on-shortcut-plum-2: var(--bluvi-on-shortcut-plum-2);
 
   --font-sans: var(--bluvi-font);
 }
