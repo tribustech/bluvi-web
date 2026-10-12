@@ -1,7 +1,8 @@
 import Image, { getImageProps } from 'next/image';
 import { preload } from 'react-dom';
 import { CardTitle, Pill } from '@/components/cards';
-import { MAX_PHOTOS, PhotoCarousel } from '@/components/cards/PhotoCarousel';
+import { PhotoCarousel } from '@/components/cards/PhotoCarousel';
+import { MAX_PHOTOS } from '@/components/cards/photos';
 import { cn } from '@/components/ui/cn';
 import { getLakeLocationSubtitle, type LakeHomeSectionLake } from '@/core/lakes';
 import { routes } from '@/lib/routes';
@@ -78,7 +79,7 @@ export function LakeGridCard({
   const photo = image ? (
     <Image
       src={image.src}
-      alt=""
+      alt={`${lake.name} — fotografia 1`}
       fill
       {...(priority ? { loading: 'eager' as const, fetchPriority: 'high' as const } : {})}
       sizes={sizes}
@@ -95,7 +96,7 @@ export function LakeGridCard({
       <Image
         key={i}
         src={s.src}
-        alt=""
+        alt={`${lake.name} — fotografia ${i + 2}`}
         fill
         sizes={sizes}
         className="object-cover"

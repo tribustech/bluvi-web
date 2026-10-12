@@ -5,7 +5,8 @@ import { getLakeLocationSubtitle, type LakeCard } from '@/core/lakes';
 import { CardShell, CardTitle, formatDecimal, Pill } from '@/components/cards';
 import { routes } from '@/lib/routes';
 import { cn } from '@/components/ui/cn';
-import { MAX_PHOTOS, PhotoCarousel } from '@/components/cards/PhotoCarousel';
+import { PhotoCarousel } from '@/components/cards/PhotoCarousel';
+import { MAX_PHOTOS } from '@/components/cards/photos';
 import { RatingInline } from '../balti/_list/RatingInline';
 import { facilityIcon } from './facilityIcon';
 
@@ -132,7 +133,7 @@ function HomeLakeGridCard({ lake, eager }: { lake: LakeCard; eager: boolean }) {
   const species = lake.fishSpecies.map((s) => s.fish.Name);
   const fact = facilities.length > 0 ? named(facilities) : species.length > 0 ? named(species) : lake.regime || null;
   const slides = lake.images.slice(0, MAX_PHOTOS).map((img, i) => (
-    <Image key={i} src={img.mediumUrl ?? img.url} alt="" fill sizes="(min-width: 1440px) 340px, 300px" loading={eager && i === 0 ? 'eager' : undefined} className="object-cover" />
+    <Image key={i} src={img.mediumUrl ?? img.url} alt={`${lake.name} — fotografia ${i + 1}`} fill sizes="(min-width: 1440px) 340px, 300px" loading={eager && i === 0 ? 'eager' : undefined} className="object-cover" />
   ));
 
   return (

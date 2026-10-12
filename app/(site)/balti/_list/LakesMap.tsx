@@ -76,7 +76,7 @@ import { requestUserPosition, useLakesLocation, useLocationDialog, watchAutoDial
 import { LocationDialog } from './LocationDialog';
 import { LAKES_MAP_SPLIT } from './LakeRowCard';
 import { PinLakeCard, ResultCardsSkeleton, ResultLakeCard } from './ResultCards';
-import { MAX_PHOTOS } from '@/components/cards/PhotoCarousel';
+import { MAX_PHOTOS } from '@/components/cards/photos';
 import { KitSheetCloseButton } from './PhoneSheet';
 import { SearchLayer } from './SearchLayer';
 import { LakesSearchRow } from './HomeHeader';

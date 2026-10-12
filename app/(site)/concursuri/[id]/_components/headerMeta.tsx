@@ -26,12 +26,13 @@ export function competitionThumb(c: Pick<HeaderCore, 'banner'>): string {
  * CMS banner at thumbnail size: the image optimizer buys nothing here. 768–1279 it is 64px, so the
  * title keeps its measure beside it and the labelled actions.
  */
-export function CompetitionThumb({ competition }: { competition: Pick<HeaderCore, 'banner'> }) {
+export function CompetitionThumb({ competition }: { competition: Pick<HeaderCore, 'banner' | 'name'> }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={competitionThumb(competition)}
-      alt=""
+      // Image search reads it (owner 2026-10-12: SEO); the placeholder says nothing.
+      alt={competition.banner ? `Afiș ${competition.name}` : ''}
       className="size-16 rounded-card bg-soft-fill object-cover xl:size-24"
       loading="lazy"
       decoding="async"

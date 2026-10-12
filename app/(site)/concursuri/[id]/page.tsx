@@ -52,8 +52,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const c = load.competition;
   const description = competitionSummary(c);
   const canonical = routes.competition(c.documentId);
+  // Once it runs the page is the ranking (Clasament is the default view): the title says so, for
+  // «clasament <concurs>» searches (owner 2026-10-12: SEO). Before the start it is the event.
+  const ranked = c.competitionStatus === 'started' || c.competitionStatus === 'completed';
+  const named = ranked ? `${c.name} — clasament` : c.name;
   return {
-    title: c.lake?.name ? `${c.name} · ${c.lake.name}` : c.name,
+    title: c.lake?.name ? `${named} · ${c.lake.name}` : named,
     description,
     alternates: { canonical },
     openGraph: {

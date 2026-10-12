@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { PHONE_BELOW, PHONE_PAGE, PHONE_TITLE } from './phoneFrame';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
@@ -1340,7 +1341,3 @@ export function CompetitionsFallbackBody({ tab }: { tab?: CompetitionCardStatus 
   );
 }
 
-/** The phone frame's class lists, shared with the server fallbacks (./CompetitionsRoute). */
-export const PHONE_PAGE = 'max-md:pt-0 max-md:[&>div>aside]:hidden';
-export const PHONE_TITLE = 'max-md:t-title1 max-md:tracking-normal';
-export const PHONE_BELOW = 'max-md:mt-0';

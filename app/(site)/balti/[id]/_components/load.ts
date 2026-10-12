@@ -155,11 +155,18 @@ export function lakeImage(lake: LakeDetail): string | null {
   return img ? img.url || img.mediumUrl || img.smallUrl || null : null;
 }
 
-/** schema.org: a fishing lake as a TouristAttraction (geo, address, rating). */
+/**
+ * schema.org: a fishing lake as a TouristAttraction (a Place): geo, address, rating, its photos, the
+ * phone, the facilities as amenity features and the species it holds as keywords (owner 2026-10-12:
+ * SEO). Only facts the CMS has.
+ */
 export function lakeJsonLd(lake: LakeDetail): Record<string, unknown> {
   const coords = parseLakeCoordinates(lake.coordinates);
-  const image = lakeImage(lake);
+  const images = lake.images.map(img => img.url || img.mediumUrl || img.smallUrl || '').filter(Boolean).slice(0, 10);
   const meta = lake.reviewsMeta;
+  const phone = lake.contact.find(c => c.phone?.trim())?.phone?.trim();
+  const facilities = lake.facility.map(f => f.name).filter(Boolean);
+  const species = lake.fishSpecies.map(s => s.fish.Name).filter(Boolean);
   return {
     '@context': 'https://schema.org',
     '@type': 'TouristAttraction',
@@ -167,7 +174,12 @@ export function lakeJsonLd(lake: LakeDetail): Record<string, unknown> {
     description: lakeSummary(lake),
     url: absoluteUrl(routes.lake(lake.documentId)),
     touristType: 'Pescari',
-    ...(image ? { image: [image] } : {}),
+    ...(images.length ? { image: images } : {}),
+    ...(phone ? { telephone: phone } : {}),
+    ...(facilities.length
+      ? { amenityFeature: facilities.map(name => ({ '@type': 'LocationFeatureSpecification', name, value: true })) }
+      : {}),
+    ...(species.length ? { keywords: ['pescuit', ...species.map(n => `pescuit ${n.toLowerCase()}`)].join(', ') } : {}),
     ...(coords ? { geo: { '@type': 'GeoCoordinates', latitude: coords.lat, longitude: coords.lng } } : {}),
     ...(lake.address || lake.countyRef?.name
       ? {

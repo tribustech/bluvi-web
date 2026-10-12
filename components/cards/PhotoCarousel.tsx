@@ -4,6 +4,7 @@ import { useCallback, useRef, useState, type MouseEvent, type ReactNode } from '
 import Link from 'next/link';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/20/solid';
 import { cn } from '@/components/ui/cn';
+import { MAX_PHOTOS } from './photos';
 
 /**
  * Airbnb's listing photos (owner 2026-10-12): the card's photos side by side in one scroll-snap
@@ -14,7 +15,6 @@ import { cn } from '@/components/ui/cn';
  * `slides` are the photos themselves (each an <Image fill>), built by the card so it keeps its own
  * `sizes` and LCP rules for the first one; the rest load lazily as the track brings them near.
  */
-export const MAX_PHOTOS = 5;
 
 export function PhotoCarousel({
   slides,

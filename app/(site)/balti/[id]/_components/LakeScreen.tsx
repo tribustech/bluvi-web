@@ -169,7 +169,12 @@ export function LakeScreen({ lake, sections, priceFrom }: { lake: LakeDetail; se
   const described = hasDescription(lake);
   // fish LakeHero: medium → small → original; the web takes the original for the 1280 mosaic
   // (next/image's `sizes` brings it down on the phone).
-  const photos = lake.images.map(img => ({ src: img.url || img.mediumUrl || img.smallUrl || '' })).filter(p => p.src);
+  // Described for image search (owner 2026-10-12: SEO): «Aladdin Lakes, Ilfov — fotografia 2».
+  const photoPlace = lake.countyRef?.name ? `${lake.name}, ${lake.countyRef.name}` : lake.name;
+  const photos = lake.images
+    .map(img => img.url || img.mediumUrl || img.smallUrl || '')
+    .filter(Boolean)
+    .map((src, i) => ({ src, alt: `${photoPlace} — fotografia ${i + 1}` }));
   const hasPhoto = photos.length > 0;
   const info: LakeInfo = {
     documentId: id,
