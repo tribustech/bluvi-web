@@ -20,9 +20,9 @@ describe('consent categories follow the configured services (owner rule 4)', () 
     expect(acceptAll(BOTH)).toEqual(BOTH);
   });
   it('the banner sentence names only the active uses, without service names', () => {
-    expect(bannerText(BOTH)).toBe('Folosim cookie-uri necesare ca site-ul să funcționeze și, doar cu acordul tău, pentru statistici de utilizare și raportarea erorilor.');
-    expect(bannerText({ analytics: true, errors: false })).toMatch(/pentru statistici de utilizare\.$/);
-    expect(bannerText({ analytics: false, errors: true })).toMatch(/pentru raportarea erorilor\.$/);
+    expect(bannerText(BOTH)).toBe('Unele cookie-uri sunt necesare ca Bluvi să funcționeze. Altele ne ajută, doar dacă ești de acord, cu statistici de utilizare și raportarea erorilor.');
+    expect(bannerText({ analytics: true, errors: false })).toMatch(/acord, cu statistici de utilizare\.$/);
+    expect(bannerText({ analytics: false, errors: true })).toMatch(/acord, cu raportarea erorilor\.$/);
     for (const a of [BOTH, { analytics: true, errors: false }]) expect(bannerText(a)).not.toMatch(/Google|Sentry/);
   });
 });

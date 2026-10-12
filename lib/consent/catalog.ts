@@ -16,7 +16,7 @@ export const LAST_UPDATED = '9 octombrie 2026';
 
 export const COPY = {
   title: 'Setări de confidențialitate',
-  bannerTitle: 'Cookie-uri pe Bluvi',
+  bannerTitle: 'Ne iei un cookie?',
   intro:
     'Acest instrument te ajută să gestionezi consimțământul pentru tehnologiile terțe care colectează și prelucrează date cu caracter personal. Categoriile opționale sunt oprite până când alegi să le pornești.',
   acceptAll: 'Accept toate',
@@ -30,12 +30,13 @@ export const COPY = {
 } as const;
 
 /**
- * The banner's one sentence, for the active categories (lib/consent/active.ts). Short on purpose:
- * the services and their cookies are in the dialog and on /cookie-uri.
+ * The banner's sentence, for the active categories (lib/consent/active.ts): the necessary cookies,
+ * then the optional uses, only with consent. Warm but exact (owner 2026-10-12, «Ne iei un cookie?»).
+ * Short on purpose: the services and their cookies are in the dialog and on /cookie-uri.
  */
 export function bannerText(active: ConsentChoice): string {
   const uses = [active.analytics ? 'statistici de utilizare' : null, active.errors ? 'raportarea erorilor' : null].filter(Boolean).join(' și ');
-  return `Folosim cookie-uri necesare ca site-ul să funcționeze și, doar cu acordul tău, pentru ${uses}.`;
+  return `Unele cookie-uri sunt necesare ca Bluvi să funcționeze. Altele ne ajută, doar dacă ești de acord, cu ${uses}.`;
 }
 
 export type ServiceDetails = {

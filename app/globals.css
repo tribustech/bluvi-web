@@ -222,6 +222,22 @@
   --bluvi-shortcut-plum-solid: #a144af;
   --bluvi-on-shortcut-plum: #53195d;
   --bluvi-on-shortcut-plum-2: #8e3a9c;
+  /*
+   * Cookie-consent illustration (components/consent/CookieArt, owner 2026-10-12 «fă-l frumos»):
+   * a baked cookie (warm browns) and the Bluvi fish (indigo / violet). Decorative only, never under
+   * text, theme-invariant (cookies and the brand fish look the same on any surface).
+   */
+  --bluvi-cookie: #e9b26c;
+  --bluvi-cookie-light: #f6d49b;
+  --bluvi-cookie-edge: #c27a37;
+  --bluvi-cookie-chip: #5b3523;
+  --bluvi-cookie-crumb: #d4944d;
+  --bluvi-cookie-fish: #6265f1;
+  --bluvi-cookie-fish-fin: #4f46e5;
+  --bluvi-cookie-fish-belly: #c7d2fe;
+  --bluvi-cookie-fish-eye: #ffffff;
+  --bluvi-cookie-fish-pupil: #20263d;
+  --bluvi-cookie-fish-cheek: #f9a8d4;
   --bluvi-font: var(--font-nunito), ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light;
 }
@@ -449,6 +465,17 @@
   --color-shortcut-plum-solid: var(--bluvi-shortcut-plum-solid);
   --color-on-shortcut-plum: var(--bluvi-on-shortcut-plum);
   --color-on-shortcut-plum-2: var(--bluvi-on-shortcut-plum-2);
+  --color-cookie: var(--bluvi-cookie);
+  --color-cookie-light: var(--bluvi-cookie-light);
+  --color-cookie-edge: var(--bluvi-cookie-edge);
+  --color-cookie-chip: var(--bluvi-cookie-chip);
+  --color-cookie-crumb: var(--bluvi-cookie-crumb);
+  --color-cookie-fish: var(--bluvi-cookie-fish);
+  --color-cookie-fish-fin: var(--bluvi-cookie-fish-fin);
+  --color-cookie-fish-belly: var(--bluvi-cookie-fish-belly);
+  --color-cookie-fish-eye: var(--bluvi-cookie-fish-eye);
+  --color-cookie-fish-pupil: var(--bluvi-cookie-fish-pupil);
+  --color-cookie-fish-cheek: var(--bluvi-cookie-fish-cheek);
 
   --font-sans: var(--bluvi-font);
 }

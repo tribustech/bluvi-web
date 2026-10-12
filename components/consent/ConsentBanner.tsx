@@ -1,9 +1,10 @@
 'use client';
 
-import { type RefObject, useEffect, useId, useRef } from 'react';
+import { type RefObject, useEffect, useId, useRef, useState } from 'react';
 import { bannerText, COPY } from '@/lib/consent/catalog';
 import type { ConsentChoice } from '@/lib/consent/model';
 import { ConsentActions } from './ConsentActions';
+import { CookieArt, type CookieArtVariant } from './CookieArt';
 import { PrivacyPolicyLink } from './PrivacyPolicyLink';
 
 /**
@@ -18,6 +19,7 @@ import { PrivacyPolicyLink } from './PrivacyPolicyLink';
  *    StickyActions, «Arată harta») add to their `bottom`, so they sit above the sheet;
  *  - from 768: a card of at most 440 in the bottom-left corner, clear of the bottom-centre CTAs
  *    («Arată harta», «Deschide în aplicația Bluvi»).
+ * The illustration (CookieArt, decorative) sits beside the title and the sentence at every width.
  */
 export function ConsentBanner({
   active,
@@ -36,6 +38,7 @@ export function ConsentBanner({
 }) {
   const ref = useRef<HTMLElement>(null);
   const titleId = useId();
+  const [art] = useState(artVariant);
   usePhonePadding(ref);
   return (
     <section
@@ -45,20 +48,35 @@ export function ConsentBanner({
       data-testid="consent-banner"
       className={
         (covered ? 'invisible ' : '') +
-        'fixed inset-x-0 bottom-0 z-overlay flex flex-col gap-2 rounded-t-card border-t border-hairline bg-surface px-4 pt-4 text-ink shadow-e2 ' +
+        'fixed inset-x-0 bottom-0 z-overlay flex flex-col gap-3 rounded-t-card border-t border-hairline bg-surface px-4 pt-4 text-ink shadow-e2 ' +
         'pb-[max(--spacing(4),env(safe-area-inset-bottom))] ' +
         'md:inset-x-auto md:bottom-6 md:left-6 md:w-[calc(100%-(--spacing(12)))] md:max-w-110 md:rounded-card md:border-t-0 md:p-5 xl:bottom-8 xl:left-8'
       }
     >
-      <h2 id={titleId} className="t-heading">
-        {COPY.bannerTitle}
-      </h2>
-      <p className="t-body text-ink-2">
-        {bannerText(active)} <PrivacyPolicyLink />
-      </p>
+      <div className="flex items-start gap-3 md:gap-4">
+        <CookieArt variant={art} className="size-16 shrink-0 md:size-22" />
+        <div className="flex min-w-0 flex-col gap-1">
+          <h2 id={titleId} className="t-heading">
+            {COPY.bannerTitle}
+          </h2>
+          <p className="t-body text-ink-2">
+            {bannerText(active)} <PrivacyPolicyLink />
+          </p>
+        </div>
+      </div>
       <ConsentActions layout="banner" onReject={onReject} onAccept={onAccept} onCustomize={onCustomize} />
     </section>
   );
+}
+
+/** The shipped illustration. */
+const DEFAULT_ART: CookieArtVariant = 'fish';
+
+/** Dev only: `?cookieArt=fish|cookie` shows the other variant, for the owner's pick. */
+function artVariant(): CookieArtVariant {
+  if (process.env.NODE_ENV === 'production') return DEFAULT_ART;
+  const q = new URLSearchParams(window.location.search).get('cookieArt');
+  return q === 'fish' || q === 'cookie' ? q : DEFAULT_ART;
 }
 
 /**

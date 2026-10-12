@@ -55,7 +55,7 @@ test('s1 — a first visit shows the banner at 375 and 1280, client-only, and lo
     await page.goto('/');
     const b = banner(page);
     await expect(b).toBeVisible();
-    await expect(b.getByRole('heading', { name: 'Cookie-uri pe Bluvi' })).toBeVisible();
+    await expect(b.getByRole('heading', { name: 'Ne iei un cookie?' })).toBeVisible();
     await expect(b.getByRole('link', { name: /Politica de confidențialitate/ })).toHaveAttribute('href', /termly\.io.*958c9787/);
     const buttons = ['Refuz toate', 'Accept toate', 'Personalizează'].map((name) => b.getByRole('button', { name }));
     for (const btn of buttons) await expect(btn).toBeVisible();

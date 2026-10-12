@@ -60,9 +60,19 @@ async function gaState(page: Page) {
   }));
 }
 
+/** documentId → slug, from the CMS's URL map (lakes without a slug keep their documentId URL). */
+let slugs: Record<string, string> = {};
+test.beforeAll(async ({ request }) => {
+  const res = await request.get(`${CMS}/feed/lakes/slugs`);
+  if (res.ok()) slugs = Object.fromEntries(((await res.json()) as { data: { documentId: string; slug: string }[] }).data.map((e) => [e.documentId, e.slug]));
+});
+const slugPath = (href: string) => href.replace(/^\/balti\/([^/]+)/, (m, id: string) => (slugs[id] ? `/balti/${slugs[id]}` : m));
+
 async function push(page: Page, href: string) {
   await page.evaluate((h) => (window as unknown as { next: { router: { push: (x: string) => void } } }).next.router.push(h), href);
-  await page.waitForURL((u) => u.pathname === href, { timeout: 30_000 });
+  // A lake's documentId URL lands on its slug URL (proxy.ts): wait for either.
+  const target = slugPath(href);
+  await page.waitForURL((u) => u.pathname === href || u.pathname === target, { timeout: 30_000 });
 }
 
 const banner = (page: Page) => page.getByRole('region', { name: 'Consimțământ cookie-uri' });

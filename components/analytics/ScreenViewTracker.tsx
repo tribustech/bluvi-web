@@ -13,6 +13,8 @@ import { resolveRoute, screenInstanceKey, screenViewParams, type RouteParams } f
  */
 let lastLoggedRouteKey: string | null = null;
 
+const LAKE_ROUTE = '/balti/[id]';
+
 /** Tests only. */
 export function resetLastLoggedRouteKey(): void {
   lastLoggedRouteKey = null;
@@ -20,7 +22,15 @@ export function resetLastLoggedRouteKey(): void {
 
 /** Logs the active route once (exported for unit tests). `fallbackParams` only for pages outside the table. */
 export function logScreenView(pathname: string, fallbackParams: RouteParams = {}): void {
-  const { pattern, params } = resolveRoute(pathname, fallbackParams);
+  const resolved = resolveRoute(pathname, fallbackParams);
+  const { pattern } = resolved;
+  let { params } = resolved;
+  // Lake URLs carry the slug (proxy.ts serves /balti/<slug> from /balti/<documentId>); the page's
+  // route params carry the documentId, which is what fish logs as lake_id and in page_path — so the
+  // app's and the web's lake reports keep one key (owner 2026-10-12).
+  if ((pattern === LAKE_ROUTE || pattern.startsWith(`${LAKE_ROUTE}/`)) && typeof fallbackParams.id === 'string') {
+    params = { ...params, id: fallbackParams.id };
+  }
   const key = screenInstanceKey(pathname, pattern, params);
   if (lastLoggedRouteKey === key) return;
   lastLoggedRouteKey = key;
