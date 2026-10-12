@@ -10,7 +10,7 @@ import { cn } from '@/components/ui/cn';
 import { SignatureNumber } from '@/components/ui/SignatureNumber';
 import { formatLei, type BookingDTO } from '@/core/booking';
 import { track } from '@/lib/analytics';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { formatPhone, type BookingDetailModel } from './model';
 import { RebookCard } from './RebookCard';
 
@@ -127,7 +127,7 @@ export function ActionsCard({ booking, model, quiet, canReview, onCancel }: { bo
       )}
       {lake ? (
         <p className="t-body text-ink-2">
-          <Link href={routes.lake(lake.documentId)} className="t-body-strong text-ink underline-offset-2 hover:underline">
+          <Link href={routes.lake(lakeUrlId(lake))} className="t-body-strong text-ink underline-offset-2 hover:underline">
             {lake.name}
           </Link>
           {booking.stand?.name ? ` · Standul ${booking.stand.name}` : null}

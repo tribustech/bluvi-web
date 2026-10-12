@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { lakesInfiniteQuery, sendLakeSuggestionMutation } from '@/core/lakes';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { TextInput } from '@/components/forms/TextInput';
 import { ResponsiveSurface } from '@/components/surfaces/ResponsiveSurface';
 import { FilterSwitch } from '@/components/templates/T1/Filters';
@@ -196,7 +196,7 @@ function LakeRequestDialog({ onClose }: { onClose: () => void }) {
               <ul className="flex flex-wrap gap-2">
                 {matches.map((l) => (
                   <li key={l.documentId}>
-                    <Link href={routes.lake(l.documentId)} onClick={close} className="block rounded-control bg-soft-fill px-3 py-2 t-body-strong text-ink hover:bg-accent-tint">
+                    <Link href={routes.lake(lakeUrlId(l))} onClick={close} className="block rounded-control bg-soft-fill px-3 py-2 t-body-strong text-ink hover:bg-accent-tint">
                       {l.name}
                     </Link>
                   </li>

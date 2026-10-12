@@ -20,7 +20,7 @@ import {
   type CompetitionCardStatus,
 } from '@/core/competitions';
 import { prefetchState } from '@/lib/client/hydration';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { getSessionToken } from '@/lib/server/session';
 import { createServerTransport } from '@/lib/server/transport';
 import { getShellSession } from '../../_shell/session';
@@ -315,7 +315,7 @@ function itemListJsonLd(cards: CompetitionCard[], tab?: CompetitionCardStatus) {
           eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
           ...(c.startDate ? { startDate: c.startDate } : {}),
           ...(c.endDate ? { endDate: c.endDate } : {}),
-          ...(c.lake ? { location: { '@type': 'Place', name: c.lake.name, url: absoluteUrl(routes.lake(c.lake.documentId)) } } : {}),
+          ...(c.lake ? { location: { '@type': 'Place', name: c.lake.name, url: absoluteUrl(routes.lake(lakeUrlId(c.lake))) } } : {}),
           ...(c.organizer ? { organizer: { '@type': 'Person', name: c.organizer.username } } : {}),
           ...((c.banner ?? c.lake?.image) ? { image: (c.banner ?? c.lake?.image)?.url } : {}),
         },

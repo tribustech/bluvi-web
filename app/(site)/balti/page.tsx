@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { getLakesHome, lakesHomeQuery, splitLakesHomeSections } from '@/core/lakes';
 import { HydrateQueries } from '@/lib/client/hydration';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { createServerTransport } from '@/lib/server/transport';
 import { HomeHeader } from './_list/HomeHeader';
 import { HomeSkeleton } from './_list/HomeRow';
@@ -101,7 +101,7 @@ async function LakesJsonLd() {
       itemListElement: lakes.map((l, i) => ({
         '@type': 'ListItem',
         position: i + 1,
-        url: absoluteUrl(routes.lake(l.documentId)),
+        url: absoluteUrl(routes.lake(lakeUrlId(l))),
         name: l.name,
       })),
     },

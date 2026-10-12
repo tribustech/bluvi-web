@@ -30,7 +30,7 @@ import {
   type LakeBookingState,
 } from '@/core/lakes';
 import type { RichTextNode } from '@/core/shared';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { useViewerState, type ViewerState } from '../../../_shell/viewer-context';
 import { userOf } from '../../../_shell/viewer-state';
 import { track } from './analytics';
@@ -254,8 +254,8 @@ function useNavGuard(whenSession: () => Promise<Session>): NavGuard {
 export function useBookingTarget(source: LakeBookingInterestSource) {
   const { lake, session, open } = useLake();
   const kind = lakeBookingAction(lake.bookingState, true);
-  const grid = lakeHref('booking', routes.lakeBooking(lake.documentId));
-  const guest = routes.signIn(routes.lake(lake.documentId));
+  const grid = lakeHref('booking', routes.lakeBooking(lakeUrlId(lake)));
+  const guest = routes.signIn(routes.lake(lakeUrlId(lake)));
   /** Where the link leads for a given session (only a known guest is sent to sign-in). */
   const target = useCallback((s: Session) => (s === null || !grid ? guest : grid), [grid, guest]);
   const href = kind === 'book' ? target(session) : undefined;

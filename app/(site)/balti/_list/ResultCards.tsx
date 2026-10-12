@@ -13,7 +13,7 @@ import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { buildMapUrls, getLakeLocationSubtitle, lakeQuery, type LakeMapLeaf, type LegacyLake } from '@/core/lakes';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { blurDataUrl } from '@/lib/blurhash';
 import { SplitIcon } from './icons';
 import { LakeRowCard, LakeRowCardSkeleton } from './LakeRowCard';
@@ -153,7 +153,7 @@ export function ResultLakeCard({
   return (
     <>
       <LakeRowCard
-        href={routes.lake(lake.documentId)}
+        href={routes.lake(lakeUrlId(lake))}
         name={lake.name}
         rating={reviews ? { overall: reviews.overall ?? 0, count: reviews.count } : null}
         location={location}
@@ -172,7 +172,7 @@ export function ResultLakeCard({
         species={species}
         tags={tags}
         facilities={lake.facility ?? []}
-        bookHref={lake.bookingEnabled ? routes.lakeBooking(lake.documentId) : null}
+        bookHref={lake.bookingEnabled ? routes.lakeBooking(lakeUrlId(lake)) : null}
         onCall={phones.length ? () => setCall(true) : null}
         onDirections={coordinate ? () => setDirections(true) : null}
         photoPriority={photoPriority}
@@ -284,14 +284,14 @@ export function PinLakeCard({
     <div
       className="contents"
       onClick={(e) => {
-        if ((e.target as Element).closest(`a[href="${routes.lake(lake.documentId)}"]`)) {
+        if ((e.target as Element).closest(`a[href="${routes.lake(lakeUrlId(lake))}"]`)) {
           track('lakes_map_results_pin_card_view_page', { lake_id: lake.documentId });
         }
       }}
     >
       <T2MapCard
         title={lake.name}
-        href={routes.lake(lake.documentId)}
+        href={routes.lake(lakeUrlId(lake))}
         onClose={() => {
           track('lakes_map_results_pin_card_dismiss', { lake_id: lake.documentId });
           onClose();
@@ -311,7 +311,7 @@ export function PinLakeCard({
                   {...(p.blurhash ? { placeholder: 'blur' as const, blurDataURL: blurDataUrl(p.blurhash) } : {})}
                 />
               ))}
-              href={routes.lake(lake.documentId)}
+              href={routes.lake(lakeUrlId(lake))}
               label={lake.name}
               className="aspect-3/2"
             >

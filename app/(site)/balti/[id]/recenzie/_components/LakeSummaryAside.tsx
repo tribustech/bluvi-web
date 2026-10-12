@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { MapPinIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import { formatReviewsCount } from '@/core/lakes';
 import { cn } from '@/components/ui/cn';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { RatingStars, ratingText } from '../../_components/RatingStars';
 
 /** What the form shows of the lake it reviews (page.tsx reads it from the cached public lake). */
@@ -37,7 +37,7 @@ export function LakeSummaryAside({ lake }: { lake: LakeSummary }) {
       <div className="flex flex-col gap-1.5 p-5 xl:p-6">
         <p className="t-eyebrow text-muted uppercase">Recenzia ta pentru</p>
         <h2 className="t-title2 text-ink">
-          <Link href={routes.lake(lake.documentId)} className={cn('rounded-control hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent')}>
+          <Link href={routes.lake(lakeUrlId(lake))} className={cn('rounded-control hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent')}>
             {lake.name}
           </Link>
         </h2>

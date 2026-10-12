@@ -46,7 +46,7 @@ import {
 import { communityVenueSectionQuery, hasPartideActivity, type CommunityLakeSectionDTO } from '@/core/partide';
 import { formatCount } from '@/core/realtime/chat/format';
 import { HydrateQueries } from '@/lib/client/hydration';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
 import { lakeHref } from './availability';
 import { hasBookingControl } from './bookingReach';
@@ -291,7 +291,7 @@ export function LakeScreen({ lake, sections, priceFrom }: { lake: LakeDetail; se
                 viewer
                 // «Vezi toate fotografiile (N)» is the gallery link in PhotoPill (photos + catches).
                 showAll={false}
-                phoneHref={routes.lakeGallery(id)}
+                phoneHref={routes.lakeGallery(lakeUrlId(lake))}
                 fill={
                   photos.length > 0 && photos.length < HERO_TILES ? (
                     <Suspense
@@ -484,7 +484,7 @@ async function PhotoPill({
   const mapTile = heroFillPlan(lake.images.length, catches, hasCoordinates).map;
   if (count <= 0) return null;
   const pill = onPhoto ? PHOTO_PILL : SURFACE_PILL;
-  const href = lakeHref('gallery', routes.lakeGallery(lake.documentId));
+  const href = lakeHref('gallery', routes.lakeGallery(lakeUrlId(lake)));
   const label = formatCount(count, 'fotografie', 'fotografii');
   return href ? (
     <>
@@ -540,11 +540,11 @@ async function HeroFill({
   coords: { lat: number; lng: number } | null;
 }) {
   const plan = heroFillPlan(lake.images.length, await dynamicOnFailure(read), !!coords);
-  const gallery = lakeHref('gallery', routes.lakeGallery(lake.documentId));
+  const gallery = lakeHref('gallery', routes.lakeGallery(lakeUrlId(lake)));
   if (plan.map && coords) {
     return (
       <DetailPhotoFillTile>
-        <MiniMap tile lat={coords.lat} lng={coords.lng} href={lakeHref('map', routes.lakeMap(lake.documentId))} name={lake.name} />
+        <MiniMap tile lat={coords.lat} lng={coords.lng} href={lakeHref('map', routes.lakeMap(lakeUrlId(lake)))} name={lake.name} />
       </DetailPhotoFillTile>
     );
   }
@@ -606,7 +606,7 @@ function ContactBody({
         <div className={cn('flex flex-col gap-3.5', !mapFromMd && 'min-[1024px]:hidden')}>
           {map ? (
             <div className={cn(!mapFromMd && 'md:hidden', !mapOnPhone && 'max-md:hidden')}>
-              <MiniMap lat={coords.lat} lng={coords.lng} href={lakeHref('map', routes.lakeMap(lake.documentId))} name={lake.name} className="xl:h-72" />
+              <MiniMap lat={coords.lat} lng={coords.lng} href={lakeHref('map', routes.lakeMap(lakeUrlId(lake)))} name={lake.name} className="xl:h-72" />
             </div>
           ) : null}
           {/* fish shows Direcții whenever there are coordinates (c31). Below 1024 only: from there the
@@ -640,7 +640,7 @@ function MapHero({ lake, coords, cta, pill }: { lake: LakeDetail; coords: { lat:
   return (
     <div data-t3="photo" data-hero="map" className="relative max-md:-order-1 md:mx-6 md:mb-6 xl:mx-8">
       <div className={cn('overflow-hidden md:rounded-card', photoHeroHeight(1))}>
-        <MiniMap tile lat={coords.lat} lng={coords.lng} href={lakeHref('map', routes.lakeMap(lake.documentId))} name={lake.name} />
+        <MiniMap tile lat={coords.lat} lng={coords.lng} href={lakeHref('map', routes.lakeMap(lakeUrlId(lake)))} name={lake.name} />
       </div>
       <div className="pointer-events-none absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 *:pointer-events-auto">
         {cta ? (
@@ -658,7 +658,7 @@ function MapHero({ lake, coords, cta, pill }: { lake: LakeDetail; coords: { lat:
 async function GalleryAction({ lake, catches: read }: { lake: LakeDetail; catches: Promise<Settled<LakeCatchPhotos>> }) {
   const catches = await dynamicOnFailure(read);
   const count = lake.images.length + (catches.ok ? catches.value.total : 0);
-  const href = lakeHref('gallery', routes.lakeGallery(lake.documentId));
+  const href = lakeHref('gallery', routes.lakeGallery(lakeUrlId(lake)));
   if (count <= 0 || !href) return null;
   return (
     <Link href={href} className={buttonClass({ variant: 'secondary', className: '[&>svg]:size-5' })}>
@@ -793,11 +793,11 @@ function SummaryCard({
   // their section (with its own «Vezi tot») is not on the page — a lake with no live or upcoming
   // competition keeps the way to its past results (Trecute, c14).
   const more = [
-    ...(partideSection ? [] : [{ key: 'partide', label: 'Partide', icon: <UsersIcon aria-hidden />, href: lakeHref('partide', routes.lakePartide(lake.documentId)) }]),
-    { key: 'statistici', label: 'Statistici', icon: <ChartBarIcon aria-hidden />, href: lakeHref('stats', routes.lakeStats(lake.documentId)) },
+    ...(partideSection ? [] : [{ key: 'partide', label: 'Partide', icon: <UsersIcon aria-hidden />, href: lakeHref('partide', routes.lakePartide(lakeUrlId(lake))) }]),
+    { key: 'statistici', label: 'Statistici', icon: <ChartBarIcon aria-hidden />, href: lakeHref('stats', routes.lakeStats(lakeUrlId(lake))) },
     ...(competitionsSection
       ? []
-      : [{ key: 'concursuri', label: 'Concursuri', icon: <TrophyIcon aria-hidden />, href: lakeHref('competitions', routes.lakeCompetitions(lake.documentId, 'trecute')) }]),
+      : [{ key: 'concursuri', label: 'Concursuri', icon: <TrophyIcon aria-hidden />, href: lakeHref('competitions', routes.lakeCompetitions(lakeUrlId(lake), 'trecute')) }]),
   ].filter((l): l is typeof l & { href: string } => !!l.href);
   const call = phone ? (
     <PhoneLink phone={phone} className={buttonClass({ variant: online ? 'secondary' : 'primary', block: true, className: '[&>svg]:size-5' })}>

@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { StarIcon } from '@heroicons/react/20/solid';
 import { getLakeLocationSubtitle, type LakeCard } from '@/core/lakes';
 import { CardShell, CardTitle, formatDecimal, Pill } from '@/components/cards';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { cn } from '@/components/ui/cn';
 import { PhotoCarousel } from '@/components/cards/PhotoCarousel';
 import { MAX_PHOTOS } from '@/components/cards/photos';
@@ -85,7 +85,7 @@ export function HomeLakeCard({ lake, variant = 'rail', eager = false }: { lake: 
       </div>
       <div className="flex flex-col gap-1 px-px pt-2 md:p-2.5">
         <div>
-          <CardTitle href={routes.lake(lake.documentId)} className="line-clamp-1 t-body-strong text-ink max-md:line-clamp-4 max-md:t-heading">
+          <CardTitle href={routes.lake(lakeUrlId(lake))} className="line-clamp-1 t-body-strong text-ink max-md:line-clamp-4 max-md:t-heading">
             {lake.name}
           </CardTitle>
           {location ? <p className="line-clamp-1 t-body text-muted md:text-ink-2">{location}</p> : null}
@@ -123,7 +123,7 @@ export function HomeLakeCard({ lake, variant = 'rail', eager = false }: { lake: 
  */
 /** `eager`: the grid's first row, above the fold on a tall window (its first photo only). */
 function HomeLakeGridCard({ lake, eager }: { lake: LakeCard; eager: boolean }) {
-  const href = routes.lake(lake.documentId);
+  const href = routes.lake(lakeUrlId(lake));
   const location = getLakeLocationSubtitle(
     { county: lake.county, countyRef: lake.countyRef ?? null, cityRef: lake.cityRef ?? null },
     { includeAddress: false }

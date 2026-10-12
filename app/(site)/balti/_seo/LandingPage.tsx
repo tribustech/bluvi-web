@@ -9,7 +9,7 @@ import { ListHeader, ListPage, filterChipClass } from '@/components/templates/T1
 import { cn } from '@/components/ui/cn';
 import { blurDataUrl } from '@/lib/blurhash';
 import { lakesCount, type Landing, type LandingGroup, type LandingLake } from '@/lib/lake-landing';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { LAKE_GRID, LakeGridCard } from '../_list/LakeGridCard';
 import { lakeImage } from '../_list/lakeImage';
 
@@ -117,7 +117,7 @@ export function LakeCollectionPage({
   return (
     <>
       <BreadcrumbBand trail={trail} jsonLd />
-      <CollectionJsonLd name={title} description={description} path={path} items={lakes.map((l) => ({ name: l.name, path: routes.lake(l.documentId) }))} />
+      <CollectionJsonLd name={title} description={description} path={path} items={lakes.map((l) => ({ name: l.name, path: routes.lake(lakeUrlId(l)) }))} />
       <ListPage header={<ListHeader title={title} description={lakesCount(lakes.length)} back={back} />}>
         <p className={cn('t-body text-ink-2 text-pretty', PROSE_MAX)}>{intro}</p>
         <ul className={cn(LAKE_GRID, 'mt-6 md:mt-8')} aria-label={title}>

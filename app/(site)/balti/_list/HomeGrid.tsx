@@ -9,7 +9,7 @@ import { LINK_ACTION } from '@/components/templates/T5';
 import { cn } from '@/components/ui/cn';
 import { getLakeLocationSubtitle, type LakeHomeSectionLake } from '@/core/lakes';
 import { blurDataUrl } from '@/lib/blurhash';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { track } from './analytics';
 import type { HomeCategory } from './categories';
 import { LAKE_GRID, LakeGridCard, LakeGridCardSkeleton, type PhotoPriority } from './LakeGridCard';
@@ -271,7 +271,7 @@ export function RecentStrip({ lakes, className }: { lakes: LakeHomeSectionLake[]
           return (
             <li key={lake.documentId} className="min-w-0">
               <Link
-                href={routes.lake(lake.documentId)}
+                href={routes.lake(lakeUrlId(lake))}
                 className={cn(
                   'flex items-center gap-3 rounded-card bg-surface p-2 pr-3 shadow-e0',
                   'transition-shadow duration-(--duration-fast) ease-fast hover:shadow-[var(--shadow-e2),var(--shadow-e0)]',

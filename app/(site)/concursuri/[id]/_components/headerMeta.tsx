@@ -3,7 +3,7 @@ import { MapPinIcon } from '@heroicons/react/20/solid';
 import type { CompetitionDetail } from '@/core/competitions';
 import { PRESENCE_ICON } from '@/components/templates/T3';
 import { cn } from '@/components/ui/cn';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 
 /*
  * The header's server-known parts — thumbnail, organiser, lake, dates — written once for the loaded
@@ -66,7 +66,7 @@ function LakeLink({ competition }: { competition: Pick<HeaderCore, 'lake'> }) {
     );
   }
   return (
-    <Link href={routes.lake(competition.lake.documentId)} className={cn(cls, 'text-accent-ink hover:underline')}>
+    <Link href={routes.lake(lakeUrlId(competition.lake))} className={cn(cls, 'text-accent-ink hover:underline')}>
       {pin}
       {competition.lake.name}
     </Link>

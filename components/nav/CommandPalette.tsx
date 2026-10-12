@@ -13,7 +13,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { IconButton } from './IconButton';
 import { SECTIONS, type AdminLink } from './items';
 
@@ -406,7 +406,7 @@ function usePaletteGroups(
           id: `l-${l.documentId}`,
           title: l.name,
           subtitle: [l.countyRef?.name ?? l.county, l.regime].filter(Boolean).join(' · ') || undefined,
-          href: routes.lake(l.documentId),
+          href: routes.lake(lakeUrlId(l)),
           visual: (
             <Avatar name={l.name} src={image?.thumbnailUrl ?? image?.smallUrl ?? image?.url} size={40} shape="square" />
           ),

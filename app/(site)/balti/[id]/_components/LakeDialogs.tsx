@@ -27,7 +27,7 @@ import type { RichTextNode } from '@/core/shared';
 import { profileQuery } from '@/core/social';
 import { isApiError } from '@/core/transport';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { useSiteToast } from '../../../_shell/Toast';
 import type { ViewerState } from '../../../_shell/viewer-context';
 import { userOf } from '../../../_shell/viewer-state';
@@ -166,7 +166,7 @@ function ShareDialog({ lake, open, onClose }: { lake: DialogLake; open: boolean;
   const [preview, setPreview] = useState(LAKE_SHARE_DEFAULT_MESSAGE);
   // The link this page is served from (fish WEB_DOMAIN/lakes/:id; the web: absolute /balti/:id).
   const origin = useSyncExternalStore(noSubscribe, () => window.location.origin, () => '');
-  const url = `${origin}${routes.lake(lake.documentId)}`;
+  const url = `${origin}${routes.lake(lakeUrlId(lake))}`;
   const params = { lake_id: lake.documentId, lake_name: lake.name };
 
   const copy = async () => {
@@ -384,7 +384,7 @@ function InterestDialog({
     }
     if (!signedIn(s)) {
       onClose();
-      router.push(routes.signIn(routes.lake(lake.documentId)));
+      router.push(routes.signIn(routes.lake(lakeUrlId(lake))));
       return;
     }
     mutation.mutate(

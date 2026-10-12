@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { CardShell, CardTitle, formatDecimal, Pill } from '@/components/cards';
 import { cn } from '@/components/ui/cn';
 import { getLakeLocationSubtitle, type LakeHomeSectionLake } from '@/core/lakes';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { facilityIcon } from '@/app/(site)/_home/facilityIcon';
 import { blurDataUrl } from '@/lib/blurhash';
 import { FishOutlineIcon } from '@/components/nav/brand';
@@ -83,7 +83,7 @@ export function LakeTile({
         ) : null}
       </div>
       <div className="flex flex-col gap-1 p-2.5">
-        <CardTitle href={routes.lake(lake.documentId)} className="line-clamp-2 shrink-0 t-body-strong text-ink">
+        <CardTitle href={routes.lake(lakeUrlId(lake))} className="line-clamp-2 shrink-0 t-body-strong text-ink">
           {lake.name}
         </CardTitle>
         <p className="line-clamp-1 min-h-[1lh] shrink-0 t-body text-ink-2">{location}</p>
@@ -143,7 +143,7 @@ export function LakeTileRow({
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex min-w-0 items-start gap-2">
-          <CardTitle href={routes.lake(lake.documentId)} className="line-clamp-1 min-w-0 flex-1 t-body-strong text-ink">
+          <CardTitle href={routes.lake(lakeUrlId(lake))} className="line-clamp-1 min-w-0 flex-1 t-body-strong text-ink">
             {lake.name}
           </CardTitle>
           {reviews ? (

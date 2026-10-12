@@ -13,7 +13,7 @@ import { bookingQuery, type BookingDTO } from '@/core/booking';
 import { myLakeReviewQuery } from '@/core/lakes';
 import { isApiError } from '@/core/transport';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { ActionsCard, bookingActionButtons } from './ActionsCard';
 import { ASIDE, BODY, BookingDetailSkeleton, BookingFrame, MAIN, MAIN_COL } from './frame';
 import { MessageCard } from './MessageCard';
@@ -100,7 +100,7 @@ function Loaded({ booking, nowMs, viewerId }: { booking: BookingDTO; nowMs: numb
       meta={
         lake
           ? [
-              <Link key="lake" href={routes.lake(lake.documentId)} className="text-ink-2 underline-offset-2 hover:underline">
+              <Link key="lake" href={routes.lake(lakeUrlId(lake))} className="text-ink-2 underline-offset-2 hover:underline">
                 {lake.name}
               </Link>,
               lake.locality ? <span key="loc">{lake.locality}</span> : null,

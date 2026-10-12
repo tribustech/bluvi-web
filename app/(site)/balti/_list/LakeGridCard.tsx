@@ -5,7 +5,7 @@ import { PhotoCarousel } from '@/components/cards/PhotoCarousel';
 import { MAX_PHOTOS } from '@/components/cards/photos';
 import { cn } from '@/components/ui/cn';
 import { getLakeLocationSubtitle, type LakeHomeSectionLake } from '@/core/lakes';
-import { routes } from '@/lib/routes';
+import { routes, lakeUrlId } from '@/lib/routes';
 import { blurDataUrl } from '@/lib/blurhash';
 import { imageSrc, lakeImage } from './lakeImage';
 import { FacilityIcons, MAX_FACILITIES } from './LakeTile';
@@ -123,7 +123,7 @@ export function LakeGridCard({
 
   return (
     <article className="group relative flex min-w-0 flex-col gap-2.5">
-      <PhotoCarousel slides={first ? [first, ...more] : []} href={routes.lake(lake.documentId)} label={lake.name} className="aspect-4/3 rounded-card">
+      <PhotoCarousel slides={first ? [first, ...more] : []} href={routes.lake(lakeUrlId(lake))} label={lake.name} className="aspect-4/3 rounded-card">
         {distanceLabel ? (
           <Pill tone="scrim" className="pointer-events-none absolute top-2.5 left-2.5">
             <span className="sr-only">La </span>
@@ -133,7 +133,7 @@ export function LakeGridCard({
       </PhotoCarousel>
       <div className="flex min-w-0 flex-col gap-0.5">
         <div className="flex min-w-0 items-start gap-2">
-          <CardTitle href={routes.lake(lake.documentId)} className="line-clamp-1 min-w-0 flex-1 t-body-strong text-ink">
+          <CardTitle href={routes.lake(lakeUrlId(lake))} className="line-clamp-1 min-w-0 flex-1 t-body-strong text-ink">
             {lake.name}
           </CardTitle>
           {reviews ? <RatingInline overall={reviews.overall ?? 0} count={reviews.count} className="t-body" /> : null}

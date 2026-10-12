@@ -18,7 +18,7 @@ import { getLake } from '@/core/lakes';
 import { ApiError, call, isApiError, type Transport } from '@/core/transport';
 import { richTextToPlain } from '@/components/templates/T3/prose';
 import { collectionPageJsonLd } from '@/lib/json-ld';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { createServerTransport } from '@/lib/server/transport';
 import { competitionDateProse, displayEnd } from './dates';
 import type { RankingViewKey } from './views';
@@ -205,7 +205,7 @@ export function competitionJsonLd(c: LooseCompetitionDetail, place: CompetitionP
           location: {
             '@type': 'Place',
             name: c.lake.name,
-            url: absoluteUrl(routes.lake(c.lake.documentId)),
+            url: absoluteUrl(routes.lake(lakeUrlId(c.lake))),
             ...(address ? { address } : {}),
           },
         }
