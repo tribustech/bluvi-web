@@ -17,7 +17,7 @@ export const TABLE_CARD = 'overflow-hidden rounded-card bg-surface shadow-e0';
 /** A header cell: the coloured band, the column label. `num`: a right-aligned, content-sized figure column. */
 export function Th({ children, num, className }: { children: ReactNode; num?: boolean; className?: string }) {
   return (
-    <th scope="col" className={cn(RANKING_HEAD, 'h-10 px-3 t-label whitespace-nowrap first:pl-4 last:pr-4', num ? 'w-px text-right' : 'text-left', className)}>
+    <th scope="col" className={cn(RANKING_HEAD, 'h-10 px-3 t-label whitespace-nowrap first:pl-4 last:pr-4 md:h-11 md:first:pl-6 md:last:pr-6', num ? 'w-px text-right' : 'text-left', className)}>
       {children}
     </th>
   );
@@ -26,7 +26,7 @@ export function Th({ children, num, className }: { children: ReactNode; num?: bo
 /** A body cell: the row's height, a hairline on top. */
 export function Td({ children, num, className }: { children?: ReactNode; num?: boolean; className?: string }) {
   return (
-    <td className={cn('h-14 border-t border-hairline px-3 first:pl-4 last:pr-4', num ? 'w-px text-right whitespace-nowrap tabular-nums' : '', className)}>
+    <td className={cn('h-14 border-t border-hairline px-3 first:pl-4 last:pr-4 md:h-16 md:last:pr-6', num ? 'w-px text-right whitespace-nowrap tabular-nums' : '', className)}>
       {children}
     </td>
   );
@@ -36,7 +36,7 @@ export function Td({ children, num, className }: { children?: ReactNode; num?: b
 export function PlaceCell({ rank }: { rank: number }) {
   const medal = isMedalPlace(rank);
   return (
-    <td className="h-14 w-px border-t border-hairline pr-1 pl-4 text-center">
+    <td className="h-14 w-px border-t border-hairline pr-1 pl-4 text-center md:h-16 md:pr-2 md:pl-6">
       <span
         className={cn('inline-flex size-7 items-center justify-center rounded-full tabular-nums', medal ? cn('t-label', MEDAL[rank]) : 't-body-strong text-muted')}
         data-testid="rank"

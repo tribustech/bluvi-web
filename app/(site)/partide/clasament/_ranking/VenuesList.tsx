@@ -28,6 +28,7 @@ function deOf(count: number): string {
 
 export function VenuesList({ venues }: { venues: TopVenue[] }) {
   if (!venues.length) return <TableNote testId="venues-empty">Nicio baltă cu partide în această perioadă.</TableNote>;
+  const topPartide = Math.max(1, ...venues.map((v) => v.partide));
   return (
     <div className={TABLE_CARD}>
       <table className="w-full border-separate border-spacing-0 t-table" data-testid="venue-rows">
@@ -37,7 +38,8 @@ export function VenuesList({ venues }: { venues: TopVenue[] }) {
             <Th className="text-center">Loc</Th>
             <Th>Baltă</Th>
             <Th className="max-md:hidden">Localitate</Th>
-            <Th num className="max-md:hidden">
+            <Th className="max-lg:hidden">Activitate</Th>
+            <Th num className="max-md:hidden lg:px-6">
               Partide
             </Th>
             <Th num>Capturi</Th>
@@ -67,7 +69,13 @@ export function VenuesList({ venues }: { venues: TopVenue[] }) {
                   </span>
                 </Td>
                 <Td className="t-body whitespace-nowrap text-ink-2 max-md:hidden">{v.locality ?? '—'}</Td>
-                <Td num className="t-body text-ink-2 max-md:hidden">
+                {/* From 1024: the venue's partide as a bar of the busiest venue's (a reading aid on a full-width table). */}
+                <Td className="w-px max-lg:hidden">
+                  <span aria-hidden className="block h-1.5 w-36 overflow-hidden rounded-full bg-accent-tint xl:w-56 2xl:w-72">
+                    <span className="block h-full rounded-full bg-accent" style={{ width: `${Math.max(2, (v.partide / topPartide) * 100)}%` }} />
+                  </span>
+                </Td>
+                <Td num className="t-body text-ink-2 max-md:hidden lg:px-6">
                   {v.partide.toLocaleString('ro-RO')}
                 </Td>
                 <Td num>

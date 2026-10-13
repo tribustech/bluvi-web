@@ -1,23 +1,18 @@
 'use client';
 
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Suspense, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { ChevronRightIcon } from '@heroicons/react/20/solid';
 import { TrophyIcon } from '@heroicons/react/24/outline';
-import { AsideSection, AsideSkeleton, FOCUS_RING, ListEmpty, ListError, ListPage, ListTabs, TabsSkeleton, useListUrlState } from '@/components/templates/T1';
+import { ListEmpty, ListError, ListPage, ListTabs, TabsSkeleton, useListUrlState } from '@/components/templates/T1';
 import { cn } from '@/components/ui/cn';
 import { communityStatsQuery, type CommunityStatsDTO, type StatsPeriod } from '@/core/partide';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { partideHrefs } from '@/lib/partide-pages';
 import { routes } from '@/lib/routes';
-import { PERIOD_TITLE } from '@/lib/stats-period';
 import {
   ChipsSkeleton,
   EmptyIcon,
   PeriodChips,
-  PeriodNumbers,
   SWITCHING_DIM,
   SwitchingBar,
   useShownPeriod,
@@ -45,14 +40,13 @@ import { VenuesList } from './VenuesList';
  *    Home End, a strong selected state, the counts as badges), the tab in `?tab=`;
  *  - c4–c6 the three rankings as compact tables (owner rules 12, 13, 16) or fish's empty lines;
  *  - c7 the «EU» pill for the signed-in, ranked viewer (computed here from the shell session; rule
- *    4: nothing while it is unknown) — after the table below 1280 (fish order), in the right column
- *    from 1280;
+ *    4: nothing while it is unknown) — after the table on a phone (fish order), in the hero from 768;
  *  - c8 the skeleton, the error, the empty period, and the period switch over the previous figures
  *    (the venue family's treatment: SwitchingBar, the content inert, the photos dimmed — the kit
  *    never dims text).
- * From 1280 (ROADMAP §4, three columns): the community's pages on the left (navigation only), the
- * ranking in the centre — capped, so the table's figures never drift across a wide screen (rule
- * 16) — and the viewer's place and the period in numbers on the right.
+ * From 768 (owner 2026-10-13, «ia-le de la capăt»): one full-width column — the period as a centred
+ * segmented control, a hero band (the period in numbers, the viewer's place, the podium as cards),
+ * then the tabs and the full-width tables. Below 768 the page is fish's, unchanged.
  * Rule 17: from 1024 a ranked angler opens in a popover with «Vezi profilul»; a phone goes to the
  * profile.
  */
@@ -161,36 +155,16 @@ function RankingScreen({ initial, syncUrl }: { initial: RankingPlace; syncUrl: b
   };
   const pill = me && ready ? <MePill rank={me.rank} total={ready.totals.anglers} period={shownPeriod} kg={me.kg} /> : null;
 
-  const aside = loading ? (
-    <AsideSkeleton rows={2} />
-  ) : ready ? (
-    <div inert={switching} aria-busy={switching || undefined} className="relative flex flex-col gap-4" data-testid="ranking-aside">
-      <SwitchingBar on={switching} />
-      {tab === 'pescari' && pill ? <div className="max-xl:hidden">{pill}</div> : null}
-      <AsideSection title={PERIOD_TITLE[shownPeriod]} bare>
-        <PeriodNumbers totals={ready.totals} />
-      </AsideSection>
-    </div>
-  ) : (
-    <span aria-hidden data-testid="ranking-aside-bare" />
-  );
-
   return (
     <>
       <Suspense fallback={null}>
         <ViewerProbe onUid={onUid} />
       </Suspense>
-      <ListPage
-        header={<VenueHeader title={TITLE} backHref={routes.partide()} />}
-        context={<CommunityPages period={period} />}
-        contextLabel="Comunitate"
-        aside={aside}
-        asideLabel="Poziția ta și perioada"
-        asideInline={false}
-        asideBusy={loading}
-      >
+      <ListPage header={<VenueHeader title={TITLE} backHref={routes.partide()} />}>
         <div className={COLUMN}>
-          <PeriodChips value={period} onChange={setPeriod} busy={switching} />
+          <div className={SEGMENTED}>
+            <PeriodChips value={period} onChange={setPeriod} busy={switching} />
+          </div>
           <p role="status" className="sr-only">
             {switching ? 'Se încarcă perioada aleasă…' : ''}
           </p>
@@ -228,7 +202,15 @@ function RankingScreen({ initial, syncUrl }: { initial: RankingPlace; syncUrl: b
               </div>
             ) : (
               <>
-                <Podium top3={anglers.slice(0, 3)} onOpen={pop.open} popover={popover} meUid={meUid} />
+                <Podium
+                  top3={anglers.slice(0, 3)}
+                  onOpen={pop.open}
+                  popover={popover}
+                  meUid={meUid}
+                  period={shownPeriod}
+                  totals={ready.totals}
+                  pill={pill}
+                />
                 <ListTabs
                   label="Clasament"
                   tabs={TABS.map((x) => ({ ...x, count: counts[x.key] }))}
@@ -245,8 +227,9 @@ function RankingScreen({ initial, syncUrl }: { initial: RankingPlace; syncUrl: b
                     <SpeciesList species={ready.species} />
                   )}
                   {/* fish order: the pill AFTER the rows — the viewer resolves in the browser, so its
-                      arrival never pushes the list down. From 1280 it is in the right column. */}
-                  {tab === 'pescari' && pill ? <div className="xl:hidden">{pill}</div> : null}
+                      arrival never pushes the list down. From 768 it is in the hero, under the
+                      period's figures. */}
+                  {tab === 'pescari' && pill ? <div className="md:hidden">{pill}</div> : null}
                 </div>
               </>
             )}
@@ -259,64 +242,29 @@ function RankingScreen({ initial, syncUrl }: { initial: RankingPlace; syncUrl: b
 }
 
 /**
- * The centre column's cap (owner rule 16): the podium, the tabs and the tables keep a reading width,
- * and what a wide screen has left over stays as margin before the right column.
+ * The page's one column (owner 2026-10-13: pages are full width, only Acasă is centred): no
+ * community-pages column on the left (the Partide tabs already carry them) and no right column — the
+ * period in numbers and the viewer's place live in the hero (Podium) from 768.
  */
-const COLUMN = 'mx-auto flex w-full max-w-200 flex-col gap-4';
+const COLUMN = 'flex w-full flex-col gap-4 md:gap-6';
 
-/**
- * «Comunitate» — the community pages, the left column from 1280 (navigation only: ListPage
- * `context`): Comunitate, Explorează, Statistici and Clasamente (current), each only once it is on
- * the web (lib/partide-pages). Statistici carries the period in view.
+/*
+ * The period switch from 768: PeriodChips (the same radio group, the same labels, the same test id)
+ * drawn as a centred segmented control — the competitions' StatusTabs look: one surface track, the
+ * selected option on the accent tint with the accent underline, a hover wash on the others. The
+ * spinner slot hangs past the track's right edge so the track stays centred. Below 768 nothing
+ * applies: fish's chips. (Selectors carry [role][aria-label] so they outrank the chips' own rest
+ * styles in bits.tsx PAGE_CHIPS.)
  */
-function CommunityPages({ period }: { period: StatsPeriod }) {
-  const pages = [
-    { key: 'comunitate', label: 'Comunitate', href: routes.partide() },
-    { key: 'exploreaza', label: 'Explorează', href: partideHrefs.explore() },
-    { key: 'statistici', label: 'Statistici', href: partideHrefs.stats(period) },
-    { key: 'clasament', label: 'Clasamente', href: routes.partideRanking(period) },
-  ].flatMap((p) => (p.href ? [{ ...p, href: p.href }] : []));
-  return (
-    <nav aria-label="Paginile comunității" className="flex min-w-0 flex-col" data-testid="community-pages">
-      <p aria-hidden className="mb-2.5 t-eyebrow text-muted uppercase">
-        Comunitate
-      </p>
-      <ul className="-mx-2 flex flex-col gap-0.5">
-        {pages.map((p) => {
-          const on = p.key === 'clasament';
-          return (
-            <li key={p.key}>
-              <Link
-                href={p.href}
-                aria-current={on ? 'page' : undefined}
-                className={cn(
-                  'flex min-h-10 items-center justify-between gap-2 rounded-control px-2 py-2 t-body transition-colors duration-(--duration-fast)',
-                  on ? 'bg-accent-tint text-accent-ink' : 'text-ink-2 hover:bg-soft-fill hover:text-ink',
-                  FOCUS_RING,
-                )}
-              >
-                {p.label}
-                {on ? null : <ChevronRightIcon aria-hidden className="size-5 text-muted" />}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
-  );
-}
-
-/** The community pages' place while the route loads (same height: nothing moves). */
-function CommunityPagesSkeleton() {
-  return (
-    <div aria-hidden className="flex flex-col">
-      <span className="mb-2.5 h-3 w-24 animate-shimmer rounded-full" />
-      {[0, 1, 2].map((i) => (
-        <span key={i} className="my-2.75 h-4.5 w-32 animate-shimmer rounded-full" />
-      ))}
-    </div>
-  );
-}
+const SEGMENTED = cn(
+  'md:flex md:justify-center',
+  'md:[&>[data-testid=period-chips]]:relative md:[&>[data-testid=period-chips]>span]:absolute md:[&>[data-testid=period-chips]>span]:left-full md:[&>[data-testid=period-chips]>span]:ml-2',
+  `md:[&_[role=radiogroup][aria-label]]:gap-1 md:[&_[role=radiogroup][aria-label]]:rounded-control md:[&_[role=radiogroup][aria-label]]:bg-surface md:[&_[role=radiogroup][aria-label]]:p-1 md:[&_[role=radiogroup][aria-label]]:shadow-e0`,
+  `md:[&_[role=radiogroup][aria-label]_label]:relative md:[&_[role=radiogroup][aria-label]_label]:h-10 xl:[&_[role=radiogroup][aria-label]_label]:h-9 md:[&_[role=radiogroup][aria-label]_label]:rounded-[calc(var(--radius-control)-4px)] md:[&_[role=radiogroup][aria-label]_label]:px-5 md:[&_[role=radiogroup][aria-label]_label]:t-body-strong md:[&_[role=radiogroup][aria-label]_label]:shadow-none`,
+  `md:[&_[role=radiogroup][aria-label]_label]:after:absolute md:[&_[role=radiogroup][aria-label]_label]:after:inset-x-3 md:[&_[role=radiogroup][aria-label]_label]:after:bottom-1 md:[&_[role=radiogroup][aria-label]_label]:after:h-0.5 md:[&_[role=radiogroup][aria-label]_label]:after:rounded-full md:[&_[role=radiogroup][aria-label]_label]:after:content-['']`,
+  `md:[&_[role=radiogroup][aria-label]_label:not(:has(:checked))]:bg-transparent md:[&_[role=radiogroup][aria-label]_label:not(:has(:checked))]:text-muted md:[&_[role=radiogroup][aria-label]_label:not(:has(:checked))]:shadow-none md:[&_[role=radiogroup][aria-label]_label:not(:has(:checked)):hover]:bg-soft-fill md:[&_[role=radiogroup][aria-label]_label:not(:has(:checked)):hover]:text-ink`,
+  `md:[&_[role=radiogroup][aria-label]_label:has(:checked)]:bg-accent-tint md:[&_[role=radiogroup][aria-label]_label:has(:checked)]:text-accent-ink md:[&_[role=radiogroup][aria-label]_label:has(:checked)]:after:bg-accent`,
+);
 
 /** The ranking's grey shape while the first period loads (fish ClasamentSkeleton). */
 export function RankingSkeletonBody() {
@@ -334,15 +282,12 @@ export function RankingSkeletonBody() {
 export function RankingFallback() {
   return (
     <div aria-busy>
-      <ListPage
-        header={<VenueHeader title={TITLE} backHref={routes.partide()} />}
-        context={<CommunityPagesSkeleton />}
-        aside={<AsideSkeleton rows={2} />}
-        asideInline={false}
-        asideBusy
-      >
+      <ListPage header={<VenueHeader title={TITLE} backHref={routes.partide()} />}>
         <div className={COLUMN}>
-          <ChipsSkeleton />
+          <ChipsSkeleton className="md:hidden" />
+          <div aria-hidden className="flex justify-center max-md:hidden">
+            <span className="h-12 w-80 animate-shimmer rounded-control xl:h-11" />
+          </div>
           <RankingSkeletonBody />
         </div>
       </ListPage>

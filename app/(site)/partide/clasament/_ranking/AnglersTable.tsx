@@ -18,6 +18,7 @@ import { PlaceCell, ROW_LINK, rowClick, TABLE_CARD, TableNote, Td, Th } from './
 
 export function AnglersTable({ anglers, onOpen, popover, meUid }: { anglers: TopAngler[]; onOpen: OpenAngler; popover: boolean; meUid: string | null }) {
   if (anglers.length <= 3) return <TableNote testId="podium-only">Doar podiumul are date pentru perioada asta.</TableNote>;
+  const leaderKg = anglers[0].totalKg;
   return (
     <div className={TABLE_CARD}>
       <table className="w-full border-separate border-spacing-0 t-table" data-testid="angler-rows">
@@ -26,10 +27,11 @@ export function AnglersTable({ anglers, onOpen, popover, meUid }: { anglers: Top
           <tr>
             <Th className="text-center">Loc</Th>
             <Th>Pescar</Th>
-            <Th num className="max-md:hidden">
+            <Th className="max-lg:hidden">Față de lider</Th>
+            <Th num className="max-md:hidden lg:px-6">
               Partide
             </Th>
-            <Th num className="max-md:hidden">
+            <Th num className="max-md:hidden lg:px-6">
               Capturi
             </Th>
             <Th num>Total</Th>
@@ -37,6 +39,7 @@ export function AnglersTable({ anglers, onOpen, popover, meUid }: { anglers: Top
         </thead>
         <tbody>
           {anglers.slice(3).map((a, i) => {
+            const behind = isWeighed(leaderKg) && isWeighed(a.totalKg) ? leaderKg - a.totalKg : null;
             const rank = i + 4;
             const name = a.name ?? 'Pescar';
             const me = a.uid === meUid;
@@ -63,10 +66,25 @@ export function AnglersTable({ anglers, onOpen, popover, meUid }: { anglers: Top
                     </span>
                   </span>
                 </Td>
-                <Td num className="t-body text-ink-2 max-md:hidden">
+                {/* From 1024 the room a full-width table leaves becomes a reading aid: the kg as a bar
+                    of the leader's, and how far behind the leader the row is. Nothing weighed: empty. */}
+                <Td className="w-px max-lg:hidden">
+                  {behind !== null ? (
+                    <span className="flex items-center gap-3">
+                      <span aria-hidden className="h-1.5 w-36 overflow-hidden rounded-full bg-accent-tint xl:w-56 2xl:w-72">
+                        <span className="block h-full rounded-full bg-accent" style={{ width: `${Math.max(2, Math.min(100, (a.totalKg / leaderKg) * 100))}%` }} />
+                      </span>
+                      <span className="w-20 shrink-0 text-right t-caption whitespace-nowrap text-muted tabular-nums">
+                        −{fmtKg(behind)}
+                        <span className="ml-0.5 t-micro">kg</span>
+                      </span>
+                    </span>
+                  ) : null}
+                </Td>
+                <Td num className="t-body text-ink-2 max-md:hidden lg:px-6">
                   {a.partide.toLocaleString('ro-RO')}
                 </Td>
-                <Td num className="t-body text-ink-2 max-md:hidden">
+                <Td num className="t-body text-ink-2 max-md:hidden lg:px-6">
                   {a.catches.toLocaleString('ro-RO')}
                 </Td>
                 <Td num>

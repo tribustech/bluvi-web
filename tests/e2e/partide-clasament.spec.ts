@@ -200,10 +200,11 @@ test('c7 — a ranked viewer sees «Ești pe locul 5 din 12 pescari luna asta �
   await page.getByRole('tab', { name: /Bălți/ }).click();
   await expect(page.getByTestId('me-pill').locator('visible=true')).toHaveCount(0);
 
-  // Desktop: in the right column.
+  // Desktop (owner 2026-10-13: one full-width page, no side columns): in the hero, under the period's numbers.
   await page.setViewportSize(DESKTOP);
   await page.getByRole('tab', { name: /Pescari/ }).click();
-  await expect(page.getByRole('complementary', { name: 'Poziția ta și perioada' }).getByTestId('me-pill')).toBeVisible();
+  await expect(page.getByTestId('me-pill').locator('visible=true')).toBeVisible();
+  await expect(page.getByRole('complementary')).toHaveCount(0);
 });
 
 test('c2 c4 c7 — kg ties (nothing weighed) rank by catches, then partide: podium, rows and the pill agree', async ({ page, context }) => {
@@ -373,7 +374,8 @@ test('a11y — phone and desktop, signed out', async ({ page }) => {
   await expect(page.getByTestId('angler-rows')).toBeVisible();
   await expectNoA11yViolations(page);
   await page.setViewportSize(DESKTOP);
-  await expect(page.getByTestId('community-pages')).toBeVisible();
-  await expect(page.getByTestId('community-pages').getByRole('link', { name: 'Clasamente' })).toHaveAttribute('aria-current', 'page');
+  // The left «community pages» nav is gone (owner 2026-10-13): the Partide tabs and the back link lead on.
+  await expect(page.getByTestId('community-pages')).toHaveCount(0);
+  await expect(page.getByTestId('angler-rows')).toBeVisible();
   await expectNoA11yViolations(page);
 });
