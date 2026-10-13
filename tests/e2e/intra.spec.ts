@@ -212,6 +212,9 @@ test('account.sign-in.c1 c2 c3 c19 — idle: copy, providers in order with marks
     await expect(alertSlot(page)).toHaveText('');
     // No horizontal scroll at any width.
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // axe once the ≥1024 entrance (intra-rise, opacity) has played: mid-fade, the white buttons
+    // sample as grey over the deep water.
+    await expect(page.locator('[data-intra-sheet]')).toHaveCSS('opacity', '1');
     await expectNoA11yViolations(page);
   }
   expect(errors).toEqual([]);
@@ -224,36 +227,70 @@ async function visualFit(page: Page) {
   return img.evaluate((i: HTMLImageElement) => ({ natural: i.naturalWidth, rendered: i.getBoundingClientRect().width }));
 }
 
-test('account.sign-in web layout (owner 2026-10-08, 2026-10-12) — the shell stays; ≥1024 two columns (a tall photo panel + the sign-in card centred on it), 768 one centred card under a band, the phone keeps fish; the photo is never upscaled', async ({ page }) => {
+test('account.sign-in web layout (owner 2026-10-08, 2026-10-12) — the shell stays; ≥1024 one deep-water screen (the photo full height on the left, dissolving into the ground; the sign-in centred on the right), 768 one centred card under a band, the phone keeps fish', async ({ page }) => {
   const errors = collectConsoleErrors(page);
-  for (const width of [1280, 1440, 1920]) {
-    await page.setViewportSize({ width, height: 900 });
+  for (const [width, height] of [
+    [1024, 768],
+    [1280, 800],
+    [1440, 900],
+    [1920, 1080],
+  ]) {
+    await page.setViewportSize({ width, height });
     await page.goto(PATH);
+    // Measured once the entrance (intra-rise: a 16px rise on the intro and the sign-in) has played.
+    const AT_REST = /^(none|matrix\(1, 0, 0, 1, 0, 0\))$/;
+    await expect(page.getByRole('heading', { level: 1 }).locator('..')).toHaveCSS('transform', AT_REST);
+    await expect(page.locator('[data-intra-sheet]')).toHaveCSS('transform', AT_REST);
     // The site's own top bar, as on every page.
-    await expect(page.getByRole('banner')).toBeVisible();
+    const bar = (await page.getByRole('banner').boundingBox())!;
     const visual = (await page.locator('[data-intra-visual]').boundingBox())!;
     const cardTitle = screen(page).getByRole('heading', { level: 2, name: 'Intră în contul tău' });
     await expect(cardTitle).toBeVisible();
-    const title = (await cardTitle.boundingBox())!;
     const google = (await providerButton(page, 'Google').boundingBox())!;
-    // Two columns: the card sits to the right of the photo panel, inside its height (centred on it).
-    expect(google.x, `${width}: card right of the photo`).toBeGreaterThanOrEqual(visual.x + visual.width + 16);
-    expect(title.x).toBeGreaterThanOrEqual(visual.x + visual.width + 16);
-    expect(title.y, `${width}: the card starts below the panel's top`).toBeGreaterThan(visual.y);
-    expect(google.y + google.height, `${width}: the card ends above the panel's foot`).toBeLessThan(visual.y + visual.height);
-    // A tall panel (owner 2026-10-12: the photo bigger): at least 520px, never taller than wide;
-    // the page is a centred column, not full bleed.
-    expect(visual.height).toBeGreaterThanOrEqual(520);
-    expect(visual.width).toBeGreaterThan(visual.height);
-    expect(google.x + google.width - visual.x).toBeLessThanOrEqual(1360);
-    // The value line + the three reasons sit on the photo panel.
+    // The whole screen is the deep-water ground (no sheet, no card): the photo sits on it.
+    expect(await page.locator('section[aria-labelledby="intra-titlu"]').evaluate((s) => getComputedStyle(s).backgroundColor)).toBe('rgb(7, 29, 41)');
+    // The photo: flush left, from under the bar to the window's foot, 72% of the width, and
+    // masked — it dissolves into the ground instead of ending on an edge.
+    expect(visual.x, `${width}: photo flush left`).toBe(0);
+    expect(Math.abs(visual.y - (bar.y + bar.height)), `${width}: photo starts under the bar`).toBeLessThan(1);
+    expect(Math.abs(visual.y + visual.height - height), `${width}: photo reaches the foot`).toBeLessThan(1);
+    expect(Math.abs(visual.width - width * 0.72), `${width}: photo 72% wide`).toBeLessThan(1);
+    expect(await page.locator('[data-intra-visual]').evaluate((v) => getComputedStyle(v).maskImage)).toMatch(/linear-gradient/);
+    // The sign-in: the right column (from 1.3/2.3 of the width), a 400px column centred in it
+    // both ways, whole without any scroll (the page's or its own).
+    const colStart = (width * 1.3) / 2.3;
+    expect(google.x, `${width}: sign-in right of the intro column`).toBeGreaterThan(colStart);
+    // 400 wide, or the column minus its 40px gutters where there is less room (1024: 365).
+    expect(Math.abs(google.width - Math.min(400, width - colStart - 80)), `${width}: 400px column`).toBeLessThan(1);
+    expect(Math.abs(google.x + google.width / 2 - (colStart + (width - colStart) / 2)), `${width}: centred horizontally`).toBeLessThan(2);
+    const sheet = await page.locator('[data-intra-sheet]').evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return {
+        overflow: el.scrollHeight - el.clientHeight,
+        topGap: el.firstElementChild!.getBoundingClientRect().top - r.top,
+        bottomGap: r.bottom - el.lastElementChild!.getBoundingClientRect().bottom,
+      };
+    });
+    expect(sheet.overflow, `${width}: the sign-in fits without scrolling`).toBe(0);
+    expect(Math.abs(sheet.topGap - sheet.bottomGap), `${width}: centred vertically`).toBeLessThan(2);
+    // The value line + the three reasons: at the foot of the intro column, --inset (7vw, 64–128)
+    // from the window's edge and never hugging the foot (owner 2026-10-12), left of the sign-in.
     const reasons = screen(page).getByRole('list', { name: 'De ce să intri în cont' });
     await expect(reasons.getByRole('listitem')).toHaveText([/^Concursuri live/, /^Rezervări la bălți/, /^Profilul tău de pescar/]);
     const h1 = (await page.getByRole('heading', { level: 1 }).boundingBox())!;
-    expect(h1.x + h1.width).toBeLessThanOrEqual(visual.x + visual.width);
-    // Never upscaled: the decoded photo is at least as wide as it is drawn.
-    const fit = await visualFit(page);
-    expect(fit.natural, `${width}: ${fit.natural}px photo drawn ${fit.rendered}px wide`).toBeGreaterThanOrEqual(fit.rendered);
+    const list = (await reasons.boundingBox())!;
+    expect(h1.x, `${width}: intro inset from the edge`).toBeGreaterThanOrEqual(Math.min(128, Math.max(64, width * 0.07)) - 1);
+    expect(height - (list.y + list.height), `${width}: intro clear of the foot`).toBeGreaterThanOrEqual(48);
+    expect(h1.x + h1.width, `${width}: intro left of the sign-in`).toBeLessThan(google.x - 32);
+    // Up to 1280 the 941px source is drawn at its size, the camera push's 8% at most (past it the
+    // dissolve hides the upscale).
+    if (width <= 1280) {
+      const fit = await visualFit(page);
+      expect(fit.natural * 1.08, `${width}: ${fit.natural}px photo drawn ${fit.rendered}px wide`).toBeGreaterThanOrEqual(fit.rendered);
+    }
+    // No page scroll either way: the screen fills the window exactly.
+    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(height);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
 
   // 768: one centred card, the photo a band across its top, the providers under the heading.

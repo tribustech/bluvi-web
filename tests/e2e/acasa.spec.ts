@@ -436,6 +436,8 @@ for (const vp of [PHONE, TABLET_900, DESKTOP]) {
     await expect(dialog.getByRole('button', { name: 'Anunță-mă când e disponibil' })).toHaveCount(0);
     // fish: the read is enabled only signed in.
     expect(requests).toEqual([]);
+    // axe once the dialog's entrance has played: mid-fade its button samples against the page.
+    await expect.poll(() => dialog.evaluate((d) => d.getAnimations({ subtree: true }).every((a) => a.playState === 'finished'))).toBe(true);
     await expectNoA11yViolations(page);
   });
 
@@ -833,7 +835,8 @@ test('owner rule 5 — at most two rails from 1280; Bălți and Noutăți are fu
       await expect(sponsors.getByRole('button')).toHaveCount(0);
       const heights = await sponsors.getByRole('link').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
       expect(new Set(heights).size, JSON.stringify(heights)).toBe(1);
-      expect(heights[0]).toBeLessThanOrEqual(64);
+      // 96 from 768 (owner 2026-10-12: the logos were too small) — still one strip, never a rail.
+      expect(heights[0]).toBeLessThanOrEqual(96);
     }
   }
 });

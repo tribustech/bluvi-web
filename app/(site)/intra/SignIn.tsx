@@ -44,9 +44,11 @@ export type { SignInConfig } from './logic';
  *  - <768 fish's screen itself (full bleed under the top bar, photo behind the top half);
  *  - 768–1023 one centred 520px card on the page: the photo as a band, then the intro and the
  *    providers on the page surface;
- *  - ≥1024 two columns capped at 1280 (1360 from 1280): a tall crop of the photo with the value line
- *    and three reasons to sign in on the left, a clean sign-in card (title, providers, legal)
- *    centred on it on the right (owner 2026-10-12).
+ *  - ≥1024 one deep-water screen under the bar (owner 2026-10-12, after a hard split and a white
+ *    sheet over the photo were both turned down): the photo fills the left of it top to bottom and
+ *    dissolves into the ground towards the right and at its foot, the value line and three
+ *    reasons on that foot, the sign-in (fish's white buttons) centred on the water to the right.
+ *    No edge between the two sides, and the photo never has to be sharp where it fades.
  *
  * After the session cookie is set (POST /api/auth/{provider}): GET /user/profile decides where to go
  * (c15/c16), then the Firebase bridge runs (c13) — never for a sign-in that failed — and sign_in
@@ -339,44 +341,54 @@ export function SignIn({ config }: { config: SignInConfig }) {
         W.bg,
         // 768–1023: one centred card on the page, the photo as a band across its top.
         'md:mx-auto md:my-10 md:min-h-0 md:w-[calc(100%-64px)] md:max-w-[520px] md:rounded-bento md:border md:border-hairline md:bg-surface md:text-ink md:shadow-e2',
-        // ≥1024: two columns — a tall photo panel with the value line, the sign-in card centred beside
-        // it (owner 2026-10-12: the photo bigger, the composition filling the window, not a short band
-        // in the top half).
-        'lg:my-10 lg:grid lg:w-auto lg:max-w-[1280px] lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center lg:gap-8 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:px-8 lg:shadow-none xl:max-w-[1360px] xl:grid-cols-[minmax(0,1fr)_440px] xl:gap-10'
+        // ≥1024: one deep-water screen, edge to edge under the 64px bar: the intro column on the left
+        // (the photo behind it, absolutely placed), the sign-in column on the right. `w-screen` + the
+        // negative margin break out of <main>'s column; the shell's overflow-x-clip absorbs the
+        // scrollbar's width. --inset: the intro's distance from the window's edge and foot (owner
+        // 2026-10-12: «too on the margin» at 48px) — 7vw, 72 at 1024, 128 past 1830.
+        'lg:my-0 lg:ml-[calc(50%-50vw)] lg:grid lg:h-[calc(100dvh-64px)] lg:min-h-[640px] lg:w-screen lg:max-w-none lg:grid-cols-[minmax(0,1.3fr)_minmax(440px,1fr)] lg:rounded-none lg:border-0 lg:bg-welcome lg:text-on-welcome lg:shadow-none',
+        'lg:[--inset:clamp(64px,7vw,128px)] lg:[--inset-b:clamp(48px,7vh,104px)]'
       )}
     >
+      {/* ≥1024 a dawn glow over the sign-in side: the photo's warmth carried across the water, so the
+          right of the screen is lit by the same morning. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-behind hidden lg:block lg:bg-[radial-gradient(70%_55%_at_78%_12%,rgb(214_150_104_/_0.2),transparent_70%),radial-gradient(50%_60%_at_100%_100%,rgb(98_101_241_/_0.14),transparent_70%)]"
+      />
       {/* <1024 a pass-through (the photo and the intro are the section's own children); ≥1024 the
-          photo panel, as tall as the window allows (520–720px), the intro over its foot. */}
-      <div data-intra-panel className="contents lg:relative lg:col-start-1 lg:row-start-1 lg:grid lg:h-[clamp(520px,calc(100dvh-200px),720px)] lg:min-w-0">
+          left column, the intro at its foot; the photo is placed against the section itself, so it
+          can run on under the right column's start and dissolve there. */}
+      <div data-intra-panel className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col">
         <Backdrop animate={!reduceMotion && !busyNow} />
 
-        {/* The intro: under the sky <768, under the band in the card 768–1023, over the foot of the
-          photo panel ≥1024 (same grid cell as the photo), with the three reasons to sign in. */}
-        <div className="relative flex flex-1 flex-col px-6 pt-2 md:flex-none md:px-10 md:pt-7 lg:col-start-1 lg:row-start-1 lg:justify-end lg:px-12 lg:pt-12 lg:pb-12 lg:text-on-welcome">
+        {/* The intro: under the sky <768, under the band in the card 768–1023, at the foot of the
+          left column ≥1024, --inset from the edge and the foot, with the three reasons to sign in. */}
+        <div className="relative flex flex-1 flex-col px-6 pt-2 md:flex-none md:px-10 md:pt-7 lg:flex-1 lg:justify-end lg:pl-(--inset) lg:pr-10 lg:pt-12 lg:pb-(--inset-b) lg:text-on-welcome">
           <div aria-hidden className="min-h-32 flex-1 md:hidden" />
           {/* <768 the intro can land on the photo's bright dawn band (its height follows the screen's):
               a scrim of its own, fading in above the eyebrow, keeps welcome-2 on it at AA (≥ 4.5:1,
               M8 a11y audit; fish's gradient alone left 2.1:1 over the sun). */}
-          <div className="relative flex flex-col gap-3 pb-7 before:pointer-events-none before:absolute before:-inset-x-6 before:-top-20 before:-bottom-40 before:z-behind before:bg-[linear-gradient(180deg,transparent_0%,color-mix(in_srgb,var(--color-welcome)_92%,transparent)_80px)] before:content-[''] md:gap-2 md:pb-5 md:before:hidden lg:max-w-[520px] lg:gap-3 lg:pb-0">
-            <p className={cn('t-label tracking-[2px]', W.secondary, 'md:text-accent-ink lg:text-welcome-2')}>MAI APROAPE DE CE IUBEȘTI</p>
-            <h1 id="intra-titlu" className="t-hero text-on-welcome md:t-display md:text-ink lg:t-hero lg:text-on-welcome">
+          <div className="relative flex flex-col gap-3 pb-7 motion-safe:lg:animate-[intra-rise_1100ms_cubic-bezier(0.16,1,0.3,1)_200ms_both] before:pointer-events-none before:absolute before:-inset-x-6 before:-top-20 before:-bottom-40 before:z-behind before:bg-[linear-gradient(180deg,transparent_0%,color-mix(in_srgb,var(--color-welcome)_92%,transparent)_80px)] before:content-[''] md:gap-2 md:pb-5 md:before:hidden lg:max-w-[30rem] lg:gap-4 lg:pb-0">
+            <p className={cn('t-label tracking-[2px]', W.secondary, 'md:text-accent-ink lg:text-on-welcome')}>MAI APROAPE DE CE IUBEȘTI</p>
+            {/* ≥1024 the hero line is the screen's one loud element: 4.4vw (56 at 1280, 72 from 1640),
+                set tight, over the dissolving dawn. */}
+            <h1
+              id="intra-titlu"
+              className="t-hero text-on-welcome md:t-display md:text-ink lg:[font:800_clamp(48px,4.4vw,72px)/1.02_var(--bluvi-font)] lg:tracking-[-0.02em] lg:text-on-welcome"
+            >
               Hai la pescuit.
             </h1>
             <p className={cn('t-title2 font-semibold', W.secondary, 'md:t-body md:text-muted lg:t-title2 lg:text-welcome-2')}>
               Locurile tale. Capturile tale. Comunitatea ta.
             </p>
-            <ul aria-label="De ce să intri în cont" className="mt-5 hidden flex-col gap-4 lg:flex">
+            <ul aria-label="De ce să intri în cont" className="mt-6 hidden flex-col gap-4 lg:flex">
               {REASONS.map((r) => (
-                <li key={r.title} className="flex items-center gap-3.5 xl:items-start">
-                  <span
-                    aria-hidden
-                    className="flex size-10 shrink-0 items-center justify-center rounded-full bg-welcome-field text-on-welcome ring-1 ring-welcome-line"
-                  >
-                    <r.Icon className="size-5" />
-                  </span>
-                  <span className="flex min-w-0 flex-col gap-0.5 xl:pt-0.5">
+                <li key={r.title} className="flex items-start gap-3.5">
+                  <r.Icon aria-hidden className="mt-0.5 size-5 shrink-0 text-welcome-2" />
+                  <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="t-body-strong text-on-welcome">{r.title}</span>
-                    <span className="hidden t-label text-welcome-2 xl:inline">{r.body}</span>
+                    <span className="t-body text-welcome-2">{r.body}</span>
                   </span>
                 </li>
               ))}
@@ -385,11 +397,21 @@ export function SignIn({ config }: { config: SignInConfig }) {
         </div>
       </div>
 
-      {/* The sign-in: the foot of the screen <768, the card's body 768–1023, its own card ≥1024. */}
-      <div className="relative flex flex-col px-6 pb-4 md:px-10 md:pb-8 lg:col-start-2 lg:row-start-1 lg:rounded-bento lg:border lg:border-hairline lg:bg-surface lg:px-10 lg:pt-10 lg:pb-8 lg:text-ink lg:shadow-e2">
+      {/* The sign-in: the foot of the screen <768, the card's body 768–1023, ≥1024 the right column —
+          a 400px column centred both ways on the water (nothing drawn around it: the ground is the
+          sheet), fish's white buttons on it. It rises with the intro on load (motion-safe only); the
+          column scrolls on its own if a short window cannot hold it (the QA form). */}
+      <div
+        data-intra-sheet
+        className={cn(
+          'relative flex flex-col px-6 pb-4 md:px-10 md:pb-8',
+          'lg:col-start-2 lg:row-start-1 lg:justify-center-safe lg:overflow-y-auto lg:px-[max(40px,calc((100%-400px)/2))] lg:py-6 lg:text-on-welcome',
+          'motion-safe:lg:animate-[intra-rise_900ms_cubic-bezier(0.16,1,0.3,1)_300ms_both]'
+        )}
+      >
         <div className="mb-6 hidden flex-col gap-1.5 lg:flex">
-          <h2 className="t-title1 text-ink">Intră în contul tău</h2>
-          <p className="t-body text-muted">Același cont ca în aplicația Bluvi.</p>
+          <h2 className="t-title1 text-on-welcome">Intră în contul tău</h2>
+          <p className="t-body text-welcome-2">Același cont ca în aplicația Bluvi.</p>
         </div>
         <div className="flex flex-col gap-3">
           {providers.map((p) => (
@@ -404,12 +426,12 @@ export function SignIn({ config }: { config: SignInConfig }) {
           ))}
 
           {providers.length === 0 && !config.localAuth ? (
-            <p className={cn('t-body', W.secondary, 'md:text-muted')}>Autentificarea nu este disponibilă momentan. Încearcă mai târziu.</p>
+            <p className={cn('t-body', W.secondary, 'md:text-muted lg:text-welcome-2')}>Autentificarea nu este disponibilă momentan. Încearcă mai târziu.</p>
           ) : null}
 
           {/* c9 / c20: one alert slot under the buttons, emptied when a new attempt starts. ≥1024 the
-              card is centred on the photo panel, so an error lifts it by half its own height. */}
-          <p role="alert" aria-live="assertive" className={cn('t-body text-on-welcome md:text-status-danger-fg', !error && 'sr-only')}>
+              column is centred vertically, so an error lifts it by half its own height. */}
+          <p role="alert" aria-live="assertive" className={cn('t-body text-on-welcome md:text-status-danger-fg lg:text-on-welcome', !error && 'sr-only')}>
             {error}
           </p>
 
@@ -422,16 +444,16 @@ export function SignIn({ config }: { config: SignInConfig }) {
             onClick={continueAsGuest}
             disabled={busyNow}
             className={cn(
-              't-body-strong flex min-h-11 w-full items-center justify-center rounded-control px-3 py-3 text-on-welcome md:text-accent-ink',
-              busyNow ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-welcome-field active:opacity-80 md:hover:bg-soft-fill'
+              't-body-strong flex min-h-11 w-full items-center justify-center rounded-control px-3 py-3 text-on-welcome md:text-accent-ink lg:text-on-welcome',
+              busyNow ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-welcome-field active:opacity-80 md:hover:bg-soft-fill lg:hover:bg-welcome-field'
             )}
           >
             Explorează fără cont
           </button>
         </div>
 
-        <div className={cn('border-t pt-3 md:border-hairline', W.border)}>
-          <p className={cn('t-caption text-center', W.secondary, 'md:text-muted')}>
+        <div className={cn('border-t pt-3 md:border-hairline lg:border-welcome-line', W.border)}>
+          <p className={cn('t-caption text-center', W.secondary, 'md:text-muted lg:text-welcome-2')}>
             Continuând, accepți Termenii și condițiile. Află cum îți prelucrăm datele în Politica de confidențialitate.
           </p>
           <div className="flex flex-wrap justify-center gap-x-4">
@@ -444,9 +466,19 @@ export function SignIn({ config }: { config: SignInConfig }) {
           </div>
         </div>
       </div>
+      <style>{INTRA_KEYFRAMES}</style>
     </section>
   );
 }
+
+/**
+ * ≥1024 entrance, one moment (motion-safe only): the dawn comes up (the photo fades in under its
+ * camera push), then the value line rises on it, then the sign-in — the same rise, later.
+ */
+const INTRA_KEYFRAMES = `
+@keyframes intra-dawn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes intra-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+`;
 
 /** ≥1024, under the value line: what an account gets you on Bluvi (the web's own copy). */
 const REASONS = [
@@ -473,8 +505,10 @@ const REASONS = [
  * pauses while a sign-in is pending (fish `animate && !pending`), resuming from where it stopped.
  *
  * The photo is a 941×1672 portrait: <768 it fills the screen as in fish; 768–1023 it is a 176px
- * band across the card; ≥1024 a crop filling the left panel (≤ 824px wide at the 1360 cap, 720px
- * high, so the 941px source is always downscaled, never stretched).
+ * band across the card; ≥1024 a crop of the left 72% of the window, full height, masked so it
+ * dissolves into the deep-water ground from 52% of its width and from 22% of its height, deep water by 85% (the two
+ * masks intersect, eased) — the right column and the intro sit on the ground, not on a cut edge. Past
+ * ~1470px wide the 941px source is upscaled (fish ships no larger original); the dissolve hides it.
  */
 function Backdrop({ animate }: { animate: boolean }) {
   const camera = useRef<HTMLDivElement>(null);
@@ -513,7 +547,11 @@ function Backdrop({ animate }: { animate: boolean }) {
       className={cn(
         'pointer-events-none absolute inset-x-0 top-0 z-behind h-dvh overflow-hidden',
         'md:relative md:inset-auto md:z-auto md:h-44 md:shrink-0',
-        'lg:col-start-1 lg:row-start-1 lg:h-auto lg:rounded-bento lg:shadow-e2'
+        // The two dissolves (right edge from 52% of the width, foot from 22% of the height), each a
+        // smoothstep: a straight ramp showed its end as a seam in the flat sky at 1920 (Mach band).
+        'lg:absolute lg:inset-y-0 lg:left-0 lg:z-behind lg:h-auto lg:w-[72%] lg:[mask-composite:intersect]',
+        'lg:[mask-image:linear-gradient(to_right,#000_52%,rgb(0_0_0/0.95)_58%,rgb(0_0_0/0.83)_65%,rgb(0_0_0/0.65)_72%,rgb(0_0_0/0.4)_79%,rgb(0_0_0/0.26)_85%,rgb(0_0_0/0.1)_91%,rgb(0_0_0/0.02)_96%,transparent),linear-gradient(to_bottom,#000_22%,rgb(0_0_0/0.96)_30%,rgb(0_0_0/0.8)_40%,rgb(0_0_0/0.58)_50%,rgb(0_0_0/0.31)_60%,rgb(0_0_0/0.13)_70%,rgb(0_0_0/0.03)_78%,transparent_85%)]',
+        'motion-safe:lg:animate-[intra-dawn_1400ms_ease-out_both]'
       )}
     >
       <div ref={camera} data-backdrop className="absolute inset-0 scale-[1.025]">
@@ -524,14 +562,14 @@ function Backdrop({ animate }: { animate: boolean }) {
           placeholder="blur"
           fetchPriority="high"
           loading="eager"
-          sizes="(min-width: 1024px) 840px, (min-width: 768px) 520px, 100vw"
-          className="object-cover object-[50%_30%] md:object-[50%_27%] lg:object-[50%_32%]"
+          sizes="(min-width: 1024px) 72vw, (min-width: 768px) 520px, 100vw"
+          className="object-cover object-[50%_30%] md:object-[50%_27%] lg:object-[50%_30%]"
         />
       </div>
       {/* <768 fish's login gradient: 0.10 → 0.32 at 20% → solid from 53%. 768–1023 the band is the
-          bare photo. ≥1024 a scrim rising from the panel's foot under the value line (higher 1024–1279,
-          where the intro takes more of the panel). */}
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-welcome)_10%,transparent)_0%,color-mix(in_srgb,var(--color-welcome)_32%,transparent)_20%,var(--color-welcome)_53%,var(--color-welcome)_100%)] md:bg-none lg:bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-welcome)_0%,transparent)_8%,color-mix(in_srgb,var(--color-welcome)_55%,transparent)_34%,color-mix(in_srgb,var(--color-welcome)_88%,transparent)_70%,var(--color-welcome)_100%)] xl:bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-welcome)_0%,transparent)_25%,color-mix(in_srgb,var(--color-welcome)_55%,transparent)_52%,color-mix(in_srgb,var(--color-welcome)_88%,transparent)_78%,var(--color-welcome)_100%)]" />
+          bare photo. ≥1024 the masks above do the fading; only a light veil stays on the photo, so
+          the dawn reads as the morning behind the page rather than a poster. */}
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-welcome)_10%,transparent)_0%,color-mix(in_srgb,var(--color-welcome)_32%,transparent)_20%,var(--color-welcome)_53%,var(--color-welcome)_100%)] md:bg-none lg:bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-welcome)_8%,transparent),color-mix(in_srgb,var(--color-welcome)_8%,transparent))]" />
     </div>
   );
 }
@@ -576,9 +614,9 @@ function ProviderButton({
       data-provider={provider}
       className={cn(
         'flex min-h-14 w-full items-center justify-center rounded-2xl bg-welcome-button px-4 py-3.5 transition-[opacity,transform] duration-(--duration-fast) ease-fast',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-welcome md:focus-visible:outline-accent',
-        // On the page surface (≥768) the white button needs its edge.
-        'md:min-h-13 md:rounded-control md:shadow-[inset_0_0_0_1px_var(--color-hairline)]',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-welcome md:focus-visible:outline-accent lg:focus-visible:outline-on-welcome',
+        // On the page surface (768–1023) the white button needs its edge; ≥1024 it is fish's again.
+        'md:min-h-13 md:rounded-control md:shadow-[inset_0_0_0_1px_var(--color-hairline)] lg:min-h-14 lg:rounded-2xl lg:shadow-none',
         disabled
           ? cn('cursor-not-allowed', !pending && 'opacity-50')
           : 'cursor-pointer hover:bg-welcome-button-hover active:scale-[0.98] active:opacity-80 motion-reduce:active:scale-100'
@@ -625,7 +663,7 @@ function LegalLink({ href, onClick, children }: { href: string; onClick: (e: Mou
       target="_blank"
       rel="noopener noreferrer"
       onClick={onClick}
-      className="t-caption inline-flex min-h-11 items-center rounded-control px-1 py-2.5 text-on-welcome underline underline-offset-2 hover:text-welcome-2 md:text-ink-2 md:hover:text-ink"
+      className="t-caption inline-flex min-h-11 items-center rounded-control px-1 py-2.5 text-on-welcome underline underline-offset-2 hover:text-welcome-2 md:text-ink-2 md:hover:text-ink lg:text-on-welcome lg:hover:text-welcome-2"
     >
       {children}
     </a>
@@ -645,14 +683,14 @@ function LocalForm({
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <form onSubmit={onSubmit} className={cn('flex flex-col gap-3', spaced && cn('mt-2 border-t pt-4 md:border-hairline', W.border))}>
-      <p className={cn('t-label', W.secondary, 'md:text-muted')}>Cont de test (doar QA)</p>
+    <form onSubmit={onSubmit} className={cn('flex flex-col gap-3', spaced && cn('mt-2 border-t pt-4 md:border-hairline lg:border-welcome-line', W.border))}>
+      <p className={cn('t-label', W.secondary, 'md:text-muted lg:text-welcome-2')}>Cont de test (doar QA)</p>
       <label className="flex flex-col gap-1.5">
-        <span className={cn('t-label', W.secondary, 'md:text-muted')}>Email</span>
+        <span className={cn('t-label', W.secondary, 'md:text-muted lg:text-welcome-2')}>Email</span>
         <input name="identifier" type="email" autoComplete="username" required className={INPUT} />
       </label>
       <label className="flex flex-col gap-1.5">
-        <span className={cn('t-label', W.secondary, 'md:text-muted')}>Parolă</span>
+        <span className={cn('t-label', W.secondary, 'md:text-muted lg:text-welcome-2')}>Parolă</span>
         <input name="password" type="password" autoComplete="current-password" required className={INPUT} />
       </label>
       <button
@@ -661,8 +699,8 @@ function LocalForm({
         aria-disabled={disabled || undefined}
         aria-busy={pending || undefined}
         className={cn(
-          't-body-strong flex h-12 items-center justify-center gap-2 rounded-2xl bg-welcome-accent px-4 text-on-welcome md:rounded-control',
-          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-welcome md:focus-visible:outline-accent',
+          't-body-strong flex h-12 items-center justify-center gap-2 rounded-2xl bg-welcome-accent px-4 text-on-welcome md:rounded-control lg:rounded-2xl',
+          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-welcome md:focus-visible:outline-accent lg:focus-visible:outline-on-welcome',
           disabled ? cn('cursor-not-allowed', !pending && 'opacity-50') : 'cursor-pointer hover:opacity-90 active:opacity-80'
         )}
       >
@@ -674,7 +712,8 @@ function LocalForm({
 
 const INPUT = cn(
   't-body h-12 rounded-control bg-welcome-field px-3.5 text-on-welcome outline-none shadow-[inset_0_0_0_1px_var(--color-welcome-line)] focus-visible:shadow-[inset_0_0_0_2px_var(--color-on-welcome)]',
-  'md:bg-surface md:text-ink md:shadow-[inset_0_0_0_1px_var(--color-hairline)] md:focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)]'
+  'md:bg-surface md:text-ink md:shadow-[inset_0_0_0_1px_var(--color-hairline)] md:focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)]',
+  'lg:bg-welcome-field lg:text-on-welcome lg:shadow-[inset_0_0_0_1px_var(--color-welcome-line)] lg:focus-visible:shadow-[inset_0_0_0_2px_var(--color-on-welcome)]'
 );
 
 /* Provider marks: brand colours are fixed by the providers, so raw hex here is deliberate. */

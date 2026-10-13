@@ -52,7 +52,8 @@ export function SponsorsView({ sponsors }: { sponsors: Sponsor[] }) {
 /**
  * One chip, the CardShell interaction (e2 lift on hover, .7 pressed), on the surface with the e0
  * hairline. Every logo is contained with the same inset — banner artwork and square marks alike —
- * so no chip is a full-bleed slab beside white ones.
+ * so no chip is a full-bleed slab beside white ones. From 768 the logo has 72px of height (the
+ * chip's 96 less the inset), and the chip lifts 2px on hover like the page's cards.
  */
 function SponsorChip({ sponsor: s }: { sponsor: Sponsor }) {
   const src = s.image?.smallUrl ?? s.image?.url ?? null;
@@ -61,12 +62,13 @@ function SponsorChip({ sponsor: s }: { sponsor: Sponsor }) {
       href={homeLinks.sponsor(s.documentId)}
       {...analyticsAttrs('sponsor_dashboard', { sponsor_id: s.documentId, sponsor_name: s.name, sponsor_url: s.url })}
       className={cn(
-        'relative flex items-center justify-center overflow-hidden rounded-card bg-surface px-3 shadow-e0 transition-[box-shadow,opacity] duration-(--duration-fast) ease-fast hover:shadow-[var(--shadow-e2),var(--shadow-e0)] active:opacity-70',
+        'relative flex items-center justify-center overflow-hidden rounded-card bg-surface px-3 shadow-e0 transition-[box-shadow,opacity,transform] duration-(--duration-fast) ease-fast hover:shadow-[var(--shadow-e2),var(--shadow-e0)] active:opacity-70',
+        'md:hover:-translate-y-0.5 md:active:translate-y-0 motion-reduce:hover:translate-y-0',
         SPONSOR_CHIP
       )}
     >
       {src ? (
-        <Image src={src} alt={s.name} fill sizes="(min-width: 768px) 160px, 245px" className="object-cover md:object-contain md:p-2.5" />
+        <Image src={src} alt={s.name} fill sizes="(min-width: 768px) 320px, 245px" className="object-cover md:object-contain md:p-3" />
       ) : (
         <span className="line-clamp-2 text-center t-caption text-ink">{s.name}</span>
       )}
