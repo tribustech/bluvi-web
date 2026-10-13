@@ -15,12 +15,15 @@ import { CommunityHistoryCard } from '@/components/partide/community/CommunityHi
 import { ExploreCta } from '@/components/partide/community/ExploreCta';
 import { LatestCatchesRail } from '@/components/partide/community/LatestCatchesRail';
 import { NoActiveCta, NoActiveCtaSkeleton } from '@/components/partide/community/NoActiveCta';
+import { PartideShowcase } from '@/components/partide/community/PartideShowcase';
 import { PopularVenues } from '@/components/partide/community/PopularVenues';
 import { hasQuickNav, QuickNavRow, type QuickNavTargets } from '@/components/partide/community/QuickNavRow';
 import { RecordsGrid } from '@/components/partide/community/RecordsGrid';
 import { useNowTick } from '@/components/partide/community/useNowTick';
 import { VenueGroup } from '@/components/partide/community/VenueGroup';
-import { DashboardLayout, DashboardSection } from '@/components/templates/T5';
+import Link from 'next/link';
+import { DashboardLayout, DashboardSection, LINK_ACTION } from '@/components/templates/T5';
+import { cn } from '@/components/ui/cn';
 import { createBrowserTransport } from '@/lib/client/transport';
 import { partideHrefs, signedInHref } from '@/lib/partide-pages';
 import { partideServerClock, usePartideViewer } from '../_hub/activePartida';
@@ -38,10 +41,13 @@ import { partideServerClock, usePartideViewer } from '../_hub/activePartida';
  * Per-user blocks (the hero or the live dock, the «self» rows) render only once the session and the
  * live probe have answered (owner rule 4) — the public dashboard never waits for them.
  *
- * Layout: fish's single column at every width (owner 2026-10-13: the three desktop columns were «greu
- * de urmărit»; one column, centred, as Acasă) — hero, quick nav, Ultimele capturi, the live /
- * finished section, Recorduri, Locuri populare. While a partidă runs: the dock pinned at the bottom
- * below 1280, its card heading the column from 1280. The page's own content box (page.tsx) centres it.
+ * Layout (owner 2026-10-13: the three desktop columns were «greu de urmărit»; the page stays full
+ * width like the other sections — only Acasă is centred): rows down the page. On the phone fish's
+ * column — hero, quick nav, Ultimele capturi, the live / finished section, Recorduri, Locuri
+ * populare. From 768 the hero is the Partide showcase (what a partidă does: rod timers, the catch
+ * log, partide with friends, offline; the stores; Statistici and Clasamente) for a viewer with no
+ * live partidă; with one, its card (from 1280; the dock below) and the quick nav. Then the community
+ * dashboard in full-width rows.
  */
 
 export function ComunitateScreen() {
@@ -62,8 +68,19 @@ export function ComunitateScreen() {
 
   const rail =
     data.latestCatches.length > 0 ? (
-      <DashboardSection variant="plain" title="Ultimele capturi">
-        <LatestCatchesRail catches={data.latestCatches} now={now} />
+      <DashboardSection
+        variant="plain"
+        title="Ultimele capturi"
+        // From 768 the way on (the phone keeps fish's Explorează banner under the partide).
+        action={
+          explore ? (
+            <Link href={explore} aria-label="Vezi toate capturile în Explorează" className={cn(LINK_ACTION, 'max-md:hidden')}>
+              Vezi toate
+            </Link>
+          ) : undefined
+        }
+      >
+        <LatestCatchesRail catches={data.latestCatches} now={now} variant="gallery" />
       </DashboardSection>
     ) : null;
 
@@ -84,21 +101,23 @@ export function ComunitateScreen() {
       <DashboardLayout
         main={
           <>
-            <div className="contents xl:hidden">
+            <div className="contents md:hidden">
               <Suspense fallback={<HeroSkeleton layout="mobile" />}>
                 <HeroOrActive layout="mobile" />
               </Suspense>
+              <QuickNav layout="row" />
             </div>
-            {/* From 1280 the live partidă's card (the dock is phone / tablet only), else the hero. */}
-            <div className="hidden xl:contents">
-              <Suspense fallback={<HeroSkeleton layout="mobile" />}>
-                <HeroOrActive layout="wide" />
+            <div className="hidden md:contents">
+              <Suspense fallback={<span aria-hidden className="block h-96 rounded-bento bg-soft-fill animate-shimmer" />}>
+                <ShowcaseOrActive />
               </Suspense>
             </div>
-            <QuickNav layout="row" />
             {rail}
-            <MiddleSection section={section} explore={explore} />
-            {records}
+            {/* From 1280 a dashboard row: the partide (two thirds) beside the records bento. */}
+            <div className="flex flex-col gap-4 md:gap-5 xl:grid xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] xl:items-start xl:gap-8">
+              <MiddleSection section={section} explore={explore} />
+              {records}
+            </div>
             {popular}
           </>
         }
@@ -146,16 +165,21 @@ function MiddleSection({ section, explore }: { section: DashboardPartideSection;
             <p className="t-caption text-muted">Nicio partidă publică activă acum.</p>
           </div>
         )}
-        {explore ? <ExploreCta href={explore} /> : null}
+        {/* fish's banner on the phone; from 768 «Vezi toate» on Ultimele capturi carries it. */}
+        {explore ? (
+          <div className="md:hidden">
+            <ExploreCta href={explore} />
+          </div>
+        ) : null}
       </div>
     </DashboardSection>
   );
 }
 
-/** One column of cards; two once the column has 768, three from 1152 (Acasă's column at 1280+). */
+/** One column of cards on the phone; from 768 the row fills with cards of at least 384 (never wider ones). */
 function CardGrid({ children, testId }: { children: ReactNode; testId: string }) {
   return (
-    <div className="grid items-start gap-3 @3xl:grid-cols-2 @6xl:grid-cols-3 @6xl:gap-5" data-testid={testId}>
+    <div className="grid items-start gap-3 md:grid-cols-[repeat(auto-fill,minmax(--spacing(96),1fr))] md:gap-5" data-testid={testId}>
       {children}
     </div>
   );
@@ -173,25 +197,42 @@ function LiveVenuesForViewer({ venues }: { venues: Extract<DashboardPartideSecti
  * one, nothing here below 1280 (the dock takes over) and its card in the left column from 1280.
  * Unknown (session or probe unanswered, or the probe failed) → the hero's skeleton / nothing.
  */
-function HeroOrActive({ layout }: { layout: 'mobile' | 'wide' }) {
+function HeroOrActive({ layout }: { layout: 'mobile' }) {
   const viewer = usePartideViewer();
-  if (viewer.kind === 'pending') return <HeroSkeleton layout="mobile" />;
+  if (viewer.kind === 'pending') return <HeroSkeleton layout={layout} />;
   if (viewer.kind === 'viewer') {
-    if (viewer.active === 'pending') return <HeroSkeleton layout="mobile" />;
+    if (viewer.active === 'pending') return <HeroSkeleton layout={layout} />;
     if (viewer.active === 'failed') return null;
-    if (viewer.active) {
-      const id = viewer.active.documentId;
-      return layout === 'wide' ? (
-        <ActivePartidaCard
-          session={viewer.active}
-          clock={partideServerClock}
-          href={partideHrefs.partida(id)}
-          headingId="partide-partida-activa"
-        />
-      ) : null;
-    }
+    // A live partidă: the dock at the bottom takes over (Dock).
+    if (viewer.active) return null;
   }
-  return <NoActiveCta layout="mobile" />;
+  return <NoActiveCta layout={layout} />;
+}
+
+/**
+ * From 768: the Partide showcase for a viewer with no live partidă (a guest included); with one, its
+ * card (from 1280 — below it the dock) and the quick nav. Unknown: the showcase's box, nothing
+ * readable (owner rule 4).
+ */
+function ShowcaseOrActive() {
+  const viewer = usePartideViewer();
+  const stats = QUICK_NAV_BASE.stats;
+  const ranking = QUICK_NAV_BASE.ranking;
+  if (viewer.kind === 'pending' || (viewer.kind === 'viewer' && viewer.active === 'pending')) {
+    return <span aria-hidden className="block h-96 rounded-bento bg-soft-fill animate-shimmer" />;
+  }
+  if (viewer.kind === 'viewer' && viewer.active && viewer.active !== 'failed' && viewer.active !== 'pending') {
+    const id = viewer.active.documentId;
+    return (
+      <>
+        <div className="hidden xl:block">
+          <ActivePartidaCard session={viewer.active} clock={partideServerClock} href={partideHrefs.partida(id)} headingId="partide-partida-activa" />
+        </div>
+        <QuickNav layout="row" />
+      </>
+    );
+  }
+  return <PartideShowcase stats={stats} ranking={ranking} />;
 }
 
 /** c6 — the quick nav's targets as the flags stand (the guest sign-in detour keeps a non-null target non-null). */

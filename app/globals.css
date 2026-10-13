@@ -1029,6 +1029,82 @@
 @utility animate-caret {
   animation: bluvi-caret 1s linear infinite;
 }
+/* The Partide showcase's phone demo (components/partide/community/PartideDemo): one-shot entrances
+   restarted per scene (the scene remounts), a rod «bite» shake, the band's slow water. Every one is
+   off under prefers-reduced-motion (the demo shows each scene's end state, still). */
+@keyframes bluvi-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes bluvi-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes bluvi-bite {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  20% {
+    transform: rotate(-4deg);
+  }
+  40% {
+    transform: rotate(4deg);
+  }
+  60% {
+    transform: rotate(-3deg);
+  }
+  80% {
+    transform: rotate(2deg);
+  }
+}
+@keyframes bluvi-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes bluvi-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@utility animate-rise {
+  animation: bluvi-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@utility animate-pop {
+  animation: bluvi-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@utility animate-bite {
+  animation: bluvi-bite 0.5s ease-in-out 3;
+}
+@utility animate-drift {
+  animation: bluvi-drift 18s linear infinite;
+}
+@utility animate-fill {
+  animation: bluvi-fill linear both;
+  transform-origin: left;
+}
 
 /* The chat's empty-room greeting (fish ChatEmptyRoom WavingHand: 18° / -12° / 14° / 0, then a rest). */
 @keyframes bluvi-wave {

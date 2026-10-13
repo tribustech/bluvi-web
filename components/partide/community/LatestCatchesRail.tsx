@@ -19,14 +19,31 @@ import { AnglerAvatars, FOCUS, Photo } from './parts';
  * the column's row — three to a row, wider when there are fewer (the row is always filled, never a
  * near-empty rail); with more than a row's worth the rest scrolls on, still a rail that fills a row.
  */
-export function LatestCatchesRail({ catches, now }: { catches: CommunityCatchDTO[]; now: number | null }) {
+export function LatestCatchesRail({
+  catches,
+  now,
+  variant = 'rail',
+}: {
+  catches: CommunityCatchDTO[];
+  now: number | null;
+  /**
+   * `gallery` (Partide › Comunitate from 768, owner 2026-10-13: «pozele n-au nicio treabă» — wide
+   * crops of tall catch photos): one row of portrait cards, 4 from 768 and 6 from 1280, the rest
+   * behind «Vezi toate». `rail`: the lake pages' row of thirds.
+   */
+  variant?: 'rail' | 'gallery';
+}) {
+  const gallery = variant === 'gallery';
   return (
     <ul
       className={cn(
         // Phone: fixed 250 cards, bleeding to the screen edges (the gutter returned as padding).
         '-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none]',
-        // From 768: a row of thirds that grows to fill, the overflow scrolling on.
-        'md:mx-0 md:grid md:snap-none md:auto-cols-[minmax(calc((100%_-_2*--spacing(3))/3),1fr)] md:grid-flow-col md:px-0',
+        gallery
+          ? 'md:mx-0 md:grid md:snap-none md:grid-cols-4 md:gap-4 md:overflow-visible md:px-0 md:[&>li:nth-child(n+5)]:hidden xl:grid-cols-6 xl:gap-5 xl:[&>li:nth-child(n+5)]:block xl:[&>li:nth-child(n+7)]:hidden'
+          : // From 768: a row of thirds that grows to fill, the overflow scrolling on.
+            'md:mx-0 md:grid md:snap-none md:auto-cols-[minmax(calc((100%_-_2*--spacing(3))/3),1fr)] md:grid-flow-col md:px-0',
+        gallery && '[&_[data-catch-card]]:md:aspect-[4/5] [&_[data-catch-card]]:md:h-auto',
       )}
       aria-label="Ultimele capturi"
       data-testid="catches-rail"
@@ -77,11 +94,11 @@ function CatchCard({ item, now }: { item: CommunityCatchDTO; now: number | null 
   );
   const cls = 'group relative block h-47 overflow-hidden rounded-card bg-soft-fill shadow-e1 md:h-52';
   return href ? (
-    <Link href={href} aria-label={`Deschide partida: ${label}`} className={cn(cls, FOCUS)}>
+    <Link href={href} aria-label={`Deschide partida: ${label}`} className={cn(cls, FOCUS)} data-catch-card>
       {body}
     </Link>
   ) : (
-    <div className={cls} role="group" aria-label={label}>
+    <div className={cls} role="group" aria-label={label} data-catch-card>
       {body}
     </div>
   );
