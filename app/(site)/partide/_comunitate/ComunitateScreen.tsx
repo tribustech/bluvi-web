@@ -38,10 +38,10 @@ import { partideServerClock, usePartideViewer } from '../_hub/activePartida';
  * Per-user blocks (the hero or the live dock, the «self» rows) render only once the session and the
  * live probe have answered (owner rule 4) — the public dashboard never waits for them.
  *
- * Layout: below 1280 fish's single column — hero, quick nav, Ultimele capturi, the live / finished
- * section, Recorduri, Locuri populare — with the dock pinned at the bottom while a partidă runs. From
- * 1280 three columns: the hero (or the live partidă's card) and the quick nav on the left, the
- * catches and the partide in the centre, the records bento and the popular venues on the right.
+ * Layout: fish's single column at every width (owner 2026-10-13: the three desktop columns were «greu
+ * de urmărit»; one column, centred, as Acasă) — hero, quick nav, Ultimele capturi, the live /
+ * finished section, Recorduri, Locuri populare. While a partidă runs: the dock pinned at the bottom
+ * below 1280, its card heading the column from 1280. The page's own content box (page.tsx) centres it.
  */
 
 export function ComunitateScreen() {
@@ -82,36 +82,22 @@ export function ComunitateScreen() {
   return (
     <>
       <DashboardLayout
-        sidesBelowXl="hidden"
-        contextLabel="Partida mea și scurtături"
-        asideLabel="Recorduri și locuri populare"
-        context={
-          <>
-            <Suspense fallback={<HeroSkeleton layout="desktop" />}>
-              <HeroOrActive layout="desktop" />
-            </Suspense>
-            <QuickNav layout="list" />
-          </>
-        }
         main={
           <>
-            {/* Below 1280 the left column's blocks open the single column, in fish's order. */}
             <div className="contents xl:hidden">
               <Suspense fallback={<HeroSkeleton layout="mobile" />}>
                 <HeroOrActive layout="mobile" />
               </Suspense>
-              <QuickNav layout="row" />
             </div>
+            {/* From 1280 the live partidă's card (the dock is phone / tablet only), else the hero. */}
+            <div className="hidden xl:contents">
+              <Suspense fallback={<HeroSkeleton layout="mobile" />}>
+                <HeroOrActive layout="wide" />
+              </Suspense>
+            </div>
+            <QuickNav layout="row" />
             {rail}
             <MiddleSection section={section} explore={explore} />
-            <div className="contents xl:hidden">
-              {records}
-              {popular}
-            </div>
-          </>
-        }
-        aside={
-          <>
             {records}
             {popular}
           </>
@@ -166,10 +152,10 @@ function MiddleSection({ section, explore }: { section: DashboardPartideSection;
   );
 }
 
-/** One column of cards; two once the centre column is wide enough for two (≥768 of column). */
+/** One column of cards; two once the column has 768, three from 1152 (Acasă's column at 1280+). */
 function CardGrid({ children, testId }: { children: ReactNode; testId: string }) {
   return (
-    <div className="grid items-start gap-3 @3xl:grid-cols-2" data-testid={testId}>
+    <div className="grid items-start gap-3 @3xl:grid-cols-2 @6xl:grid-cols-3 @6xl:gap-5" data-testid={testId}>
       {children}
     </div>
   );
@@ -187,15 +173,15 @@ function LiveVenuesForViewer({ venues }: { venues: Extract<DashboardPartideSecti
  * one, nothing here below 1280 (the dock takes over) and its card in the left column from 1280.
  * Unknown (session or probe unanswered, or the probe failed) → the hero's skeleton / nothing.
  */
-function HeroOrActive({ layout }: { layout: 'mobile' | 'desktop' }) {
+function HeroOrActive({ layout }: { layout: 'mobile' | 'wide' }) {
   const viewer = usePartideViewer();
-  if (viewer.kind === 'pending') return <HeroSkeleton layout={layout} />;
+  if (viewer.kind === 'pending') return <HeroSkeleton layout="mobile" />;
   if (viewer.kind === 'viewer') {
-    if (viewer.active === 'pending') return <HeroSkeleton layout={layout} />;
+    if (viewer.active === 'pending') return <HeroSkeleton layout="mobile" />;
     if (viewer.active === 'failed') return null;
     if (viewer.active) {
       const id = viewer.active.documentId;
-      return layout === 'desktop' ? (
+      return layout === 'wide' ? (
         <ActivePartidaCard
           session={viewer.active}
           clock={partideServerClock}
@@ -205,7 +191,7 @@ function HeroOrActive({ layout }: { layout: 'mobile' | 'desktop' }) {
       ) : null;
     }
   }
-  return <NoActiveCta layout={layout} />;
+  return <NoActiveCta layout="mobile" />;
 }
 
 /** c6 — the quick nav's targets as the flags stand (the guest sign-in detour keeps a non-null target non-null). */

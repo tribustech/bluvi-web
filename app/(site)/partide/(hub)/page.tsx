@@ -3,6 +3,8 @@ import { Suspense } from 'react';
 import { HydrationBoundary } from '@tanstack/react-query';
 import { AcasaSceneSkeleton } from '@/components/partide/community/AcasaSceneSkeleton';
 import { DashboardPage } from '@/components/templates/T5';
+import { SHELL_CONTENT } from '@/components/nav/shell';
+import { cn } from '@/components/ui/cn';
 import { collectionPageJsonLd, jsonLdHtml } from '@/lib/json-ld';
 import { absoluteUrl, routes } from '@/lib/routes';
 import { ComunitateScreen } from '../_comunitate/ComunitateScreen';
@@ -46,7 +48,8 @@ export default function PartidePage() {
       <Suspense fallback={null}>
         <PartideJsonLd />
       </Suspense>
-      <DashboardPage header={<PartideHeader />} toolbar={<PartideTabs current="comunitate" />}>
+      {/* One column in the centred content box, as Acasă (owner 2026-10-13). */}
+      <DashboardPage className={cn('md:mx-auto md:w-full', SHELL_CONTENT)} header={<PartideHeader />} toolbar={<PartideTabs current="comunitate" />}>
         <Suspense fallback={<AcasaSceneSkeleton />}>
           <Comunitate />
         </Suspense>

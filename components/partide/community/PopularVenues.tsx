@@ -19,7 +19,8 @@ export function PopularVenues({ venues }: { venues: CommunityPopularVenueDTO[] }
   const top = venues.slice(0, 2);
   if (top.length === 0) return null;
   return (
-    <ul className="grid grid-cols-2 gap-3" data-testid="popular-venues">
+    // Two per row on the phone; from 768 they fill the row (owner 2026-10-13, one-column Partide).
+    <ul className="grid grid-cols-2 gap-3 md:grid-cols-[repeat(auto-fill,minmax(--spacing(56),1fr))] md:gap-5" data-testid="popular-venues">
       {top.map(v => (
         <li key={v.key} className="flex">
           <VenueCard venue={v} />

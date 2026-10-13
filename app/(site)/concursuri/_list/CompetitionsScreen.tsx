@@ -680,7 +680,7 @@ export function CompetitionsScreen({
         titleId={TITLE_ID}
         // Phone: fish's title1 in a 48 row, the tab row right under it.
         titleClassName={PHONE_TITLE}
-        belowClassName={PHONE_BELOW}
+        belowClassName={cn(PHONE_BELOW, 'md:mt-0')}
         title="Concursuri"
         actions={
           <>
@@ -717,7 +717,22 @@ export function CompetitionsScreen({
                 <EyeIcon aria-hidden />
               </button>
             </span>
-            <span className="contents max-md:hidden">
+          </>
+        }
+        // From 768 one row (owner 2026-10-13): the status tabs centred, Airbnb's switch, and the page
+        // tools («Concursuri urmărite», the tucked search / «Filtre») on its right edge — the h1 is
+        // visually hidden there (PHONE_TITLE), so the title row collapses.
+        className="md:[&>div:first-child]:min-h-0"
+        below={
+          <div className="md:relative md:flex md:min-h-12 md:items-center md:justify-center">
+            <StatusTabs
+              label="Stare concursuri"
+              tabs={tabs}
+              active={activeTab}
+              controls={REGION_ID}
+              onSelect={(k) => (k === 'mine' ? toggleScope('registered') : changeStatus(k))}
+            />
+            <span className="flex items-center gap-2 max-md:hidden md:absolute md:top-1/2 md:right-0 md:-translate-y-1/2">
             <span
               inert={!tucked || undefined}
               // Out of the layout until the row is tucked (the phone's title row holds three tools, as
@@ -753,16 +768,7 @@ export function CompetitionsScreen({
               onToggle={() => toggleScope('followed')}
             />
             </span>
-          </>
-        }
-        below={
-          <StatusTabs
-            label="Stare concursuri"
-            tabs={tabs}
-            active={activeTab}
-            controls={REGION_ID}
-            onSelect={(k) => (k === 'mine' ? toggleScope('registered') : changeStatus(k))}
-          />
+          </div>
         }
       />
     </div>

@@ -151,7 +151,8 @@ function Slot({ slot }: { slot: RecordSlot }) {
 export function RecordsGrid({ records }: { records: CommunityRecordDTO[] }) {
   const slots = buildRecordSlots(records);
   return (
-    <ul className="grid grid-cols-2 gap-3" data-testid="records-grid">
+    // Owner 2026-10-13: in the one-column Partide page the four tiles are one row from 768.
+    <ul className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5" data-testid="records-grid">
       {slots.map(slot => (
         <li key={slot.kind === 'stats' ? 'stats' : slot.kind === 'record' ? slot.record.window : slot.window} className="flex flex-col *:flex-1">
           <Slot slot={slot} />

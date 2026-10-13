@@ -36,6 +36,10 @@ const TABS: { value: PartideTab; label: string; href: () => string | null }[] = 
 export function PartideHeader() {
   return (
     <DashboardHeader
+      // From 768 the top bar's active «Partide» already names the page (owner 2026-10-13: «de ce
+      // duplicăm titlul?»): the h1 stays for assistive tech and SEO, visually hidden. The phone keeps
+      // fish's header (no top bar there).
+      className="md:sr-only"
       title="Partide"
       actions={
         // Per-user: nothing until the session and the live probe have answered (owner rule 4).
@@ -77,12 +81,13 @@ export function PartideTabs({ current }: { current: PartideTab }) {
   });
   if (tabs.length < 2) return null;
   return (
-    <nav aria-label="Partide" className="max-md:-mt-1">
-      <ul className="flex gap-1 border-b border-hairline md:gap-2">
+    // From 768 centred under the top bar, Airbnb's category tabs (owner 2026-10-13), on the hairline.
+    <nav aria-label="Partide" className="max-md:-mt-1 md:pt-4">
+      <ul className="flex gap-1 border-b border-hairline md:justify-center md:gap-8">
         {tabs.map(({ href, ...tab }) => {
           const active = tab.value === current;
           const cls = cn(
-            'relative -mb-px flex min-h-11 items-center rounded-t-control px-2.5 t-body-strong transition-colors duration-(--duration-fast)',
+            'relative -mb-px flex min-h-11 items-center rounded-t-control px-2.5 t-body-strong transition-colors duration-(--duration-fast) md:min-h-13 md:t-heading',
             'after:absolute after:inset-x-2.5 after:bottom-0 after:h-0.75 after:rounded-full',
             active ? 'text-accent-ink after:bg-accent' : 'text-muted',
           );

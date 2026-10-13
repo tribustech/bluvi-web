@@ -69,7 +69,8 @@ export function StatusTabs<K extends string>({
   const focusIndex = Math.max(0, tabs.findIndex((t) => t.key === active));
 
   return (
-    <div className={cn('flex pb-1 max-md:pb-0', className)}>
+    // From 768 centred (owner 2026-10-13, Airbnb's centred switch).
+    <div className={cn('flex pb-1 max-md:pb-0 md:justify-center', className)}>
       <div
         role="tablist"
         aria-label={label}
