@@ -11,6 +11,7 @@ import { reviewScoreSentence, reviewsJsonLd } from '@/lib/seo/reviews';
 import { breadcrumbJsonLd, lakeSubpageEmpty, prefetchSub, subMetadata, subTrail } from '../_sub/server';
 import { ReviewsFallback, ReviewsScreen } from './ReviewsScreen';
 import { LakeUrlProvider } from '../_sub/lake-url';
+import { lakePriceFrom } from '../_components/priceFrom';
 
 /*
  * Recenzii — fish app/(app)/lakes/[lakeId]/reviews.tsx (parity lakes.reviews, T1). Public and
@@ -61,11 +62,14 @@ export default async function LakeReviewsPage({ params }: Props) {
 }
 
 async function Reviews({ lake }: { lake: LakeDetail }) {
-  const { state } = await prefetchSub(lake.documentId, 'reviews-page', t => [lakeQuery(t, lake.documentId), lakeReviewsInfiniteQuery(t, lake.documentId, 10)]);
+  const [{ state }, priceFrom] = await Promise.all([
+    prefetchSub(lake.documentId, 'reviews-page', t => [lakeQuery(t, lake.documentId), lakeReviewsInfiniteQuery(t, lake.documentId, 10)]),
+    lakePriceFrom(lake),
+  ]);
   // The lake with its rating and the first page of reviews as the page shows them — only when the
   // lake has reviews (no AggregateRating of nothing).
   const first = (state.queries[1]?.state.data as { pages?: GetReviewsForLakeResponse[] } | undefined)?.pages?.[0]?.data ?? [];
-  const ld = reviewsJsonLd(lake, routes.lakeReviews(lakeUrlId(lake)), first);
+  const ld = reviewsJsonLd(lake, routes.lakeReviews(lakeUrlId(lake)), first, priceFrom);
   return (
     <HydrationBoundary state={state}>
       {ld ? <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(ld)} /> : null}

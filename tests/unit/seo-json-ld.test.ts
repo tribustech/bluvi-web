@@ -165,6 +165,13 @@ describe('lakePlaceJsonLd (review stars need a LocalBusiness type and an address
     expect(ld.url).toMatch(/\/balti\/lk2$/);
   });
 
+  it('the lead photo, and the price the lake page shows as priceRange (never a zero price)', () => {
+    const lake = { documentId: 'lk3', name: 'Foto', images: [{ url: 'https://cdn/a.jpg' }, { url: 'https://cdn/b.jpg' }] } as never;
+    expect(lakePlaceJsonLd(lake, { price: 100 })).toMatchObject({ image: 'https://cdn/a.jpg', priceRange: 'de la 100 RON' });
+    expect(lakePlaceJsonLd(lake, { price: 0 })).not.toHaveProperty('priceRange');
+    expect(lakePlaceJsonLd(lake, null)).not.toHaveProperty('priceRange');
+  });
+
   it('the Recenzii page uses the same place', () => {
     const ld = reviewsJsonLd({ documentId: 'lk1', name: 'B', reviewsMeta: { quality: 5, facilities: 5, atmosphere: 5, count: 2 } }, '/balti/lk1/recenzii', []);
     expect(ld).toHaveProperty(['@type'], ['TouristAttraction', 'SportsActivityLocation']);

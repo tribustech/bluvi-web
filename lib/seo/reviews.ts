@@ -36,14 +36,19 @@ export function reviewScoreSentence(meta: LakeDetail['reviewsMeta']): string {
   return score === null || !meta ? '' : ` Nota medie ${formatLakeScore(score)} din 5 (${formatReviewsCount(meta.count)}).`;
 }
 
-export function reviewsJsonLd(lake: Parameters<typeof lakePlaceJsonLd>[0] & Pick<LakeDetail, 'reviewsMeta'>, path: string, reviews: Review[]) {
+export function reviewsJsonLd(
+  lake: Parameters<typeof lakePlaceJsonLd>[0] & Pick<LakeDetail, 'reviewsMeta'>,
+  path: string,
+  reviews: Review[],
+  priceFrom?: { price: number } | null
+) {
   const meta = lake.reviewsMeta;
   if (!meta || meta.count <= 0) return null;
   const rating = aggregateRatingJsonLd(lakeReviewScore(meta), meta.count, 2);
   if (!rating) return null;
   return {
     '@context': 'https://schema.org',
-    ...lakePlaceJsonLd(lake),
+    ...lakePlaceJsonLd(lake, priceFrom),
     subjectOf: { '@type': 'WebPage', url: absoluteUrl(path), name: `Recenzii · ${lake.name}` },
     aggregateRating: rating,
     review: reviews.map(r => ({

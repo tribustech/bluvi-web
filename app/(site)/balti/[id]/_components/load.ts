@@ -174,14 +174,14 @@ export function lakeImage(lake: LakeDetail): string | null {
  * facilities as amenity features and the species it holds as keywords (owner 2026-10-12: SEO).
  * Only facts the CMS has.
  */
-export function lakeJsonLd(lake: LakeDetail): Record<string, unknown> {
+export function lakeJsonLd(lake: LakeDetail, priceFrom?: { price: number } | null): Record<string, unknown> {
   const images = lake.images.map(img => img.url || img.mediumUrl || img.smallUrl || '').filter(Boolean).slice(0, 10);
   const rating = aggregateRatingJsonLd(lakeReviewScore(lake.reviewsMeta), lake.reviewsMeta?.count, 2);
   const facilities = lake.facility.map(f => f.name).filter(Boolean);
   const species = lake.fishSpecies.map(s => s.fish.Name).filter(Boolean);
   return {
     '@context': 'https://schema.org',
-    ...lakePlaceJsonLd(lake),
+    ...lakePlaceJsonLd(lake, priceFrom),
     description: lakeSummary(lake),
     touristType: 'Pescari',
     ...(images.length ? { image: images } : {}),

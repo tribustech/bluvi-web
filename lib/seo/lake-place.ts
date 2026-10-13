@@ -16,13 +16,19 @@ import { absoluteUrl, lakeUrlId, routes } from '@/lib/routes';
 export const LAKE_PLACE_TYPES = ['TouristAttraction', 'SportsActivityLocation'] as const;
 
 type PlaceLake = Pick<LakeDetail, 'documentId' | 'name'> &
-  Partial<Pick<LakeDetail, 'slug' | 'address' | 'county' | 'countyRef' | 'cityRef' | 'coordinates' | 'contact'>>;
+  Partial<Pick<LakeDetail, 'slug' | 'address' | 'county' | 'countyRef' | 'cityRef' | 'coordinates' | 'contact' | 'images'>>;
 
-/** `@type`, name, url, address, geo and telephone of a lake — only facts the CMS has. */
-export function lakePlaceJsonLd(lake: PlaceLake): Record<string, unknown> {
+/**
+ * `@type`, name, url, address, geo, telephone, the lead photo and the price range of a lake — only
+ * facts the CMS has. `priceFrom`: the «de la X RON» the lake page shows (its priceFrom.ts — the
+ * server's quote for the shortest tour, else the cheapest legacy price row), as `priceRange`.
+ */
+export function lakePlaceJsonLd(lake: PlaceLake, priceFrom?: { price: number } | null): Record<string, unknown> {
   const coords = lake.coordinates ? parseLakeCoordinates(lake.coordinates) : null;
   const phone = lake.contact?.find(c => c.phone?.trim())?.phone?.trim();
   const region = lake.countyRef?.name || lake.county || null;
+  const lead = lake.images?.[0];
+  const image = lead ? lead.url || lead.mediumUrl || lead.smallUrl || null : null;
   return {
     '@type': [...LAKE_PLACE_TYPES],
     name: lake.name,
@@ -36,5 +42,7 @@ export function lakePlaceJsonLd(lake: PlaceLake): Record<string, unknown> {
     },
     ...(coords ? { geo: { '@type': 'GeoCoordinates', latitude: coords.lat, longitude: coords.lng } } : {}),
     ...(phone ? { telephone: phone } : {}),
+    ...(image ? { image } : {}),
+    ...(priceFrom && priceFrom.price > 0 ? { priceRange: `de la ${priceFrom.price} RON` } : {}),
   };
 }

@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
+import type { LakeDetail } from '@/core/lakes';
 import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { LakeScreen } from './_components/LakeScreen';
 import { lakeIdsToPrerender, lakeJsonLd, lakeSummary, loadLake, loadLakeSections } from './_components/load';
-import { lakePriceFrom } from './_components/priceFrom';
+import { lakePriceFrom, type PriceFrom } from './_components/priceFrom';
 import { jsonLdHtml } from '@/lib/json-ld';
 
 /*
@@ -73,14 +75,24 @@ export default async function LakePage({ params }: Props) {
       { '@type': 'ListItem', position: 2, name: lake.name, item: absoluteUrl(routes.lake(lakeUrlId(lake))) },
     ],
   };
+  const priceFrom = lakePriceFrom(lake);
   return (
     <>
-      <script
-        type="application/ld+json"
-        // JSON-LD: `<` escaped so a lake name can never close the script element.
-        dangerouslySetInnerHTML={jsonLdHtml([lakeJsonLd(lake), breadcrumb])}
-      />
-      <LakeScreen lake={lake} sections={sections} priceFrom={lakePriceFrom(lake)} />
+      {/* Behind Suspense: the price range waits for the lake's (cached) quote, never the page. */}
+      <Suspense fallback={null}>
+        <LakeJsonLd lake={lake} breadcrumb={breadcrumb} priceFrom={priceFrom} />
+      </Suspense>
+      <LakeScreen lake={lake} sections={sections} priceFrom={priceFrom} />
     </>
+  );
+}
+
+async function LakeJsonLd({ lake, breadcrumb, priceFrom }: { lake: LakeDetail; breadcrumb: Record<string, unknown>; priceFrom: Promise<PriceFrom | null> }) {
+  return (
+    <script
+      type="application/ld+json"
+      // JSON-LD: `<` escaped so a lake name can never close the script element.
+      dangerouslySetInnerHTML={jsonLdHtml([lakeJsonLd(lake, await priceFrom), breadcrumb])}
+    />
   );
 }
