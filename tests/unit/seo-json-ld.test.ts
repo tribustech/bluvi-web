@@ -167,7 +167,7 @@ describe('lakePlaceJsonLd (review stars need a LocalBusiness type and an address
 
   it('the Recenzii page uses the same place', () => {
     const ld = reviewsJsonLd({ documentId: 'lk1', name: 'B', reviewsMeta: { quality: 5, facilities: 5, atmosphere: 5, count: 2 } }, '/balti/lk1/recenzii', []);
-    expect(ld?.['@type']).toEqual(['TouristAttraction', 'SportsActivityLocation']);
+    expect(ld).toHaveProperty(['@type'], ['TouristAttraction', 'SportsActivityLocation']);
     expect(ld).toHaveProperty('address.addressCountry', 'RO');
   });
 });
