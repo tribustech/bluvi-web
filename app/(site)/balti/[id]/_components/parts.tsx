@@ -11,7 +11,7 @@ import {
   UserCircleIcon,
 } from '@heroicons/react/24/outline';
 import { CheckBadgeIcon, StarIcon } from '@heroicons/react/20/solid';
-import { CompetitionCard } from '@/components/cards/CompetitionCard';
+import { CompetitionRailCard } from '../../../_home/CompetitionRailCard';
 import { formatInt } from '@/components/cards/format';
 import { FishOutlineIcon } from '@/components/nav/brand';
 import { ErrorState } from '@/components/surfaces/StateCard';
@@ -19,10 +19,9 @@ import { H3_CLASS, PRESENCE_ICON, type DetailFact } from '@/components/templates
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/components/ui/cn';
-import { getRankingTypeLabel, type CompetitionListItem } from '@/core/competitions';
+import type { CompetitionCard } from '@/core/competitions';
 import { buildLakeStats, formatReviewsCount, getLakeRatingDisplay, type LakeDetail, type LakeStatKey, type ReviewMeta } from '@/core/lakes';
-import { competitionUrlId, routes } from '@/lib/routes';
-import { competitionDateLabel } from '../../../concursuri/[id]/_components/dates';
+import { routes } from '@/lib/routes';
 import { facilityIcon } from '../../../_home/facilityIcon';
 import { lakeHref } from './availability';
 import { bookableStandsLabel, lakeStandCount } from './standCount';
@@ -169,7 +168,7 @@ export function CompetitionsBlock({ live, upcoming }: LakeCompetitions) {
   );
 }
 
-function CompetitionRailRead({ title, read, live = false }: { title: string; read: Settled<CompetitionListItem[]>; live?: boolean }) {
+function CompetitionRailRead({ title, read, live = false }: { title: string; read: Settled<CompetitionCard[]>; live?: boolean }) {
   if (!read.ok) {
     return (
       <div className="flex flex-col gap-2.5" data-testid={`competitions-error-${live ? 'live' : 'upcoming'}`}>
@@ -185,33 +184,16 @@ function CompetitionRailRead({ title, read, live = false }: { title: string; rea
  * fish HorizontalCompetitionsList, without its own «Vezi tot»: the section header holds the one link
  * to the lake's competitions (owner: one «Vezi tot» per section, never one per rail beside it).
  */
-function CompetitionRail({ title, items, live = false }: { title: string; items: CompetitionListItem[]; live?: boolean }) {
+function CompetitionRail({ title, items }: { title: string; items: CompetitionCard[]; live?: boolean }) {
   return (
     <div className="flex flex-col gap-2.5">
       <h3 className={H3_CLASS}>{title}</h3>
-      {/* Phone: a sideways rail (fish horizontal list); from 768 an auto-fill grid of cards. */}
-      <ul className="-mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 py-1 [scrollbar-width:none] md:mx-0 md:grid md:scroll-px-0 md:grid-cols-[repeat(auto-fill,minmax(--spacing(64),1fr))] md:overflow-visible md:px-0">
+      {/* Acasă's card (owner 2026-10-13: «la fel ca pe home»): a sideways rail on the phone (fish's
+          horizontal list), from 768 a grid of equal cards that grow with the column, never wider. */}
+      <ul className="-mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 py-1 [scrollbar-width:none] md:mx-0 md:grid md:scroll-px-0 md:grid-cols-[repeat(auto-fill,minmax(--spacing(64),1fr))] md:gap-5 md:overflow-visible md:px-0">
         {items.map(c => (
-          <li
-            key={c.documentId}
-            className="w-64 shrink-0 snap-start rounded-card has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-accent md:w-auto"
-          >
-            <CompetitionCard
-              title={c.name}
-              dateLabel={competitionDateLabel(c.startDate, c.endDate)}
-              lakeName={c.lake?.name ?? 'Nedefinit'}
-              imageSrc={c.banner?.smallUrl ?? c.banner?.url ?? '/images/competition-placeholder.jpg'}
-              href={routes.competition(competitionUrlId(c))}
-              live={live}
-              status={live ? undefined : { label: 'Viitor', tone: 'info' }}
-              followersCount={c.viewers}
-              registeredCount={c.registrations.filter(r => r.registrationStatus === 'registered').length}
-              capacity={c.participantsLimit || 21}
-              badges={[
-                { label: c.competitionType === 'team' ? 'Echipe' : 'Individual', tone: 'indigo' },
-                ...(getRankingTypeLabel(c) ? [{ label: getRankingTypeLabel(c), tone: 'yellow' as const }] : []),
-              ]}
-            />
+          <li key={c.documentId} className="flex w-56 shrink-0 snap-start md:w-auto [&>*]:flex-1">
+            <CompetitionRailCard competition={c} />
           </li>
         ))}
       </ul>

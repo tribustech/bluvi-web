@@ -137,7 +137,7 @@ test.describe('signed out', () => {
   test('account.b.profile-entry signed out: the top bar offers «Intră» from 768; the phone\'s tab bar has no Profil (fish); the Home card says «Conectează-te» → /intra (c8)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/');
-    await expect(chrome(page, 1440).getByRole('link', { name: 'Intră', exact: true }).filter({ visible: true })).toHaveAttribute('href', /^\/intra/);
+    await expect(chrome(page, 1440).getByRole('link', { name: 'Intră în cont', exact: true }).filter({ visible: true })).toHaveAttribute('href', /^\/intra/);
     await expect(account(page)).toHaveCount(0);
     await page.setViewportSize({ width: 375, height: 900 });
     await expect(tabBar(page)).toBeVisible();

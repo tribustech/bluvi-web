@@ -1016,7 +1016,7 @@ test('account.onboarding.c1 c2 c3 c4 replaced — a first visit to / never redir
       expect(pillarsBox!.y).toBeLessThan(bandBox!.y);
       expect(Math.abs(pillarsBox!.x - bandBox!.x)).toBeLessThan(2);
     }
-    const intra = visible(page.getByRole('banner').getByRole('link', { name: 'Intră', exact: true }));
+    const intra = visible(page.getByRole('banner').getByRole('link', { name: 'Intră în cont', exact: true }));
     await expect(intra).toHaveAttribute('href', '/intra');
     await intra.click();
     await expect(page).toHaveURL(/\/intra$/);

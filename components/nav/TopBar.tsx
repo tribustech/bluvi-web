@@ -21,7 +21,7 @@ import { LogoHorizontal } from './brand';
 import { iconButtonClass } from './IconButton';
 import { PATHS, SECTIONS, type AdminLink } from './items';
 import { MenuButton, type MenuEntry } from './MenuButton';
-import { BAR, BAR_SHADOW, SHELL_CONTENT } from './shell';
+import { BAR, BAR_SHADOW, SHELL_MAX } from './shell';
 
 /**
  * Who is looking: still resolving (neutral placeholder, never «Intră»), signed out, signed in, or
@@ -187,13 +187,14 @@ export function TopBar({
         className,
       )}
     >
-      {/* From 768 three tracks (owner 2026-10-13): the logo on the content box's left edge, the menu
-          in the exact centre, the account on the right. The side tracks never shrink below their
-          content (a tablet with Administrare): the menu then gives up exact centring, never overlaps. */}
+      {/* From 768 three tracks (owner 2026-10-13, Airbnb's bar): the logo, bigger, on the shell's left
+          edge (the full-width column, not Acasă's content box), the menu in the exact centre, the
+          account on the right edge. The side tracks never shrink below their content (a tablet with
+          Administrare): the menu then gives up exact centring, never overlaps. */}
       <div
         className={cn(
           'mx-auto flex h-full items-center',
-          SHELL_CONTENT,
+          SHELL_MAX,
           r('gap-0', 'md:grid md:grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)] md:gap-4'),
           r('px-4', 'md:px-6', 'xl:px-8'),
         )}
@@ -203,7 +204,7 @@ export function TopBar({
           aria-label="Bluvi, acasă"
           className={cn('-ml-1 shrink-0 justify-self-start rounded-control px-1 py-1 text-accent-ink', r('mr-auto', 'md:mr-0'))}
         >
-          <LogoHorizontal className={cn('w-auto', r('h-6', 'md:h-7'))} />
+          <LogoHorizontal className={cn('w-auto', r('h-6', 'md:h-8', 'xl:h-9'))} />
         </Link>
 
         <nav aria-label="Navigare principală" className={cn('min-w-0', r('hidden', 'md:block'))}>
@@ -433,10 +434,10 @@ function AccountSlot({
     if (!viewer.signInHref) return null;
     // The visitor's main action: the kit outline Button (48 / 40), filling the cluster's width. Not
     // a filled pill next to the soft-fill search field (they read as two inputs), and not primary:
-    // white on accent is 4.46:1 at 14px, under AA.
+    // white on accent is 4.46:1 at 14px, under AA. «Intră în cont» (owner 2026-10-13): what it opens.
     return (
-      <ButtonLink href={viewer.signInHref} variant="outline" className="w-full" data-sign-in>
-        Intră
+      <ButtonLink href={viewer.signInHref} variant="outline" className="w-full whitespace-nowrap" data-sign-in>
+        Intră în cont
       </ButtonLink>
     );
   }

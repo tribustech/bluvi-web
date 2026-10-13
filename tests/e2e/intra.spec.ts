@@ -482,7 +482,7 @@ test('account.sign-in.c17 c21 account.b.sign-in-redirect — real local sign-in 
   const events = await page.evaluate(() => (window as unknown as { __events: { name: string; params: unknown }[] }).__events);
   expect(events).toContainEqual({ name: 'sign_in', params: { sign_in_method: 'local' } });
   // Signed in: the top bar no longer offers «Intră».
-  await expect(page.getByRole('banner').getByRole('link', { name: 'Intră', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('banner').getByRole('link', { name: 'Intră în cont', exact: true })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -514,7 +514,7 @@ test('account.sign-in (owner 2026-10-11) — after a soft-navigated sign-in the 
   await page.setViewportSize({ width: 1280, height: 800 });
   await mockLocalAuth(page);
   await page.goto('/stiri');
-  await page.getByRole('banner').getByRole('link', { name: 'Intră', exact: true }).click();
+  await page.getByRole('banner').getByRole('link', { name: 'Intră în cont', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${PATH}(\\?|$)`));
   await expect(page.locator('html')).toHaveAttribute('data-welcome', '');
   await signInLocal(page);
@@ -615,7 +615,7 @@ test('account.sign-in.c18 c17 — without the Navigation API: landed from a sear
   await withoutNavigationApi(page);
   await mockLocalAuth(page);
   await page.setViewportSize({ width: 1280, height: 900 });
-  const intra = () => page.getByRole('banner').getByRole('link', { name: 'Intră', exact: true });
+  const intra = () => page.getByRole('banner').getByRole('link', { name: 'Intră în cont', exact: true });
 
   // c18: the referrer is Google's (set once, at the hard load); the history before /intra is ours.
   await page.goto('/stiri', { referer: 'https://www.google.com/' });
@@ -783,7 +783,7 @@ test('account.sign-in.c23 — leaving /intra while a provider is pending never n
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/stiri');
   // A client-side navigation, so Back stays in the same document (the attempt keeps running).
-  await page.getByRole('banner').getByRole('link', { name: 'Intră', exact: true }).click();
+  await page.getByRole('banner').getByRole('link', { name: 'Intră în cont', exact: true }).click();
   await expect(page).toHaveURL(/\/intra\?next=%2Fstiri$/);
   await page.evaluate(() => ((window as unknown as { __gsi: string }).__gsi = 'hold'));
   await providerButton(page, 'Google').click();
@@ -797,7 +797,7 @@ test('account.sign-in.c23 — leaving /intra while a provider is pending never n
   await page.waitForTimeout(1500);
   await expect(page).toHaveURL(/\/stiri$/);
   // Re-rendered signed in where the user is: the top bar no longer offers «Intră».
-  await expect(page.getByRole('banner').getByRole('link', { name: 'Intră', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('banner').getByRole('link', { name: 'Intră în cont', exact: true })).toHaveCount(0);
 });
 
 const SESSION_EXPIRED = 'Sesiunea ta a expirat. Te rugăm să te autentifici din nou.';

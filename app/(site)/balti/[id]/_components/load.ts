@@ -1,7 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { connection } from 'next/server';
-import { getCompetitionsByStatus, type CompetitionListItem } from '@/core/competitions';
+import { DEFAULT_COMPETITION_FILTERS, getCompetitionCards, type CompetitionCard, type CompetitionCardStatus } from '@/core/competitions';
 import { buildGalleryCatchItems, getLake, getLakesIndex, getReviewsForLake, type LakeDetail, type Review } from '@/core/lakes';
 import { getCommunityVenueCatches, getCommunityVenueSection, type CommunityLakeSectionDTO } from '@/core/partide';
 import { ApiError, isApiError } from '@/core/transport';
@@ -86,7 +86,7 @@ export async function dynamicOnFailure<T>(read: Promise<Settled<T>>): Promise<Se
 
 /** fish LakeCompetitionsSection: the live and upcoming competitions of the lake, five each — two
  * reads that load and fail on their own (fish: one query, one error + retry per list, c24). */
-export type LakeCompetitions = { live: Settled<CompetitionListItem[]>; upcoming: Settled<CompetitionListItem[]> };
+export type LakeCompetitions = { live: Settled<CompetitionCard[]>; upcoming: Settled<CompetitionCard[]> };
 
 /** fish LakeReviewsPreview: `useGetReviewsForLakeQuery(lakeId, 2)`. */
 export const LATEST_REVIEWS = 2;
@@ -108,6 +108,23 @@ const HERO_CATCHES = 6;
 
 export type LakeCatchPhotos = { total: number; photos: { src: string; alt: string }[] };
 
+/**
+ * The lake's competitions as Acasă's cards (owner 2026-10-13: «să fie la fel ca pe home»): the public
+ * competition-cards feed filtered by the lake (documentId — the slug URL is rewritten to it), five per
+ * status, so the section draws the same CompetitionRailCard with the same facts (live totals, places).
+ */
+function lakeCompetitionCards(t: ReturnType<typeof createServerTransport>, lakeId: string, status: CompetitionCardStatus) {
+  return getCompetitionCards(t, {
+    scope: 'all',
+    status,
+    search: { type: 'lake', value: lakeId, label: '' },
+    filters: DEFAULT_COMPETITION_FILTERS,
+    sort: 'date',
+    page: 1,
+    pageSize: 5,
+  }).then(r => r.data);
+}
+
 export function loadLakeSections(id: string): LakeSections {
   const t = createServerTransport();
   const venue = { kind: 'lake', id } as const;
@@ -126,8 +143,8 @@ export function loadLakeSections(id: string): LakeSections {
       'catches',
     ),
     competitions: Promise.all([
-      settle(id, () => getCompetitionsByStatus(t, 'started', { page: 1, pageSize: 5 }, id).then(r => r.data), 'competitions-live'),
-      settle(id, () => getCompetitionsByStatus(t, 'notStarted', { page: 1, pageSize: 5 }, id).then(r => r.data), 'competitions-upcoming'),
+      settle(id, () => lakeCompetitionCards(t, id, 'started'), 'competitions-live'),
+      settle(id, () => lakeCompetitionCards(t, id, 'notStarted'), 'competitions-upcoming'),
     ]).then(([live, upcoming]) => ({ live, upcoming })),
     reviews: settle(id, () => getReviewsForLake(t, id, { page: 1, pageSize: LATEST_REVIEWS }).then(r => r.data.slice(0, LATEST_REVIEWS)), 'reviews'),
   };
