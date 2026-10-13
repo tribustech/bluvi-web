@@ -1015,6 +1015,20 @@
 @utility animate-live {
   animation: bluvi-live 1.4s ease-in-out infinite;
 }
+/* The typing caret of Acasă's hero (HeroHeadline): on, then off, no fade. */
+@keyframes bluvi-caret {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+@utility animate-caret {
+  animation: bluvi-caret 1s linear infinite;
+}
 
 /* The chat's empty-room greeting (fish ChatEmptyRoom WavingHand: 18° / -12° / 14° / 0, then a rest). */
 @keyframes bluvi-wave {
