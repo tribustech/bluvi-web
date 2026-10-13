@@ -11,7 +11,7 @@ import { T4Gate } from '@/components/templates/T4';
 import { FlowHeader, FlowHeaderSkeleton, FlowLayout, FlowSkeleton } from '@/components/templates/T6';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
 import { COMPETITIONS_CRUMB } from '../_components/crumbs';
 import { deniedCopy, managementAccess, type CompetitionRole, type ManagementRequirement } from './access';
@@ -184,7 +184,7 @@ function Frame({
     <SetBreadcrumb
       trail={[
         COMPETITIONS_CRUMB,
-        ...(competition ? [{ label: competition.name, href: routes.competition(competitionId) }] : []),
+        ...(competition ? [{ label: competition.name, href: routes.competition(competitionUrlId(competition)) }] : []),
         { label: title },
       ]}
     />

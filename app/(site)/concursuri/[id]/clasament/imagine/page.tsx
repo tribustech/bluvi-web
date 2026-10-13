@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, competitionUrlId, routes } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../../_shell/SiteHeader';
 import { COMPETITIONS_CRUMB } from '../../_components/crumbs';
 import { loadCompetition } from '../../_components/load';
@@ -47,7 +47,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   // The plan's reads are the page's own cached reads: free here. A failure only drops the image.
   const plan = await planRankingImage(id, requested).catch(() => null);
   const query = imageQueryString(plan && plan.kind !== 'missing' ? plan.query : effectiveImageQuery(c, requested));
-  const canonical = routes.competitionRankingImage(c.documentId, query);
+  const canonical = routes.competitionRankingImage(competitionUrlId(c), query);
   const title = `${TITLE} · ${c.name}`;
   const description = `Clasamentul concursului ${c.name}${c.lake?.name ? ` de pe ${c.lake.name}` : ''}, ca imagine de descărcat și distribuit.`;
   return {
@@ -77,20 +77,22 @@ export default async function RankingImagePage({ params, searchParams }: Props) 
   const requested = parseImageQuery(await searchParams);
   const query = load.kind === 'invalid' ? requested : effectiveImageQuery(load.competition, requested);
   const label = viewLabel(rankingType, query);
+  // The links (and the file) go straight to the competition's slug URL; the plan's reads keep `id`.
+  const urlId = load.kind === 'invalid' ? id : competitionUrlId(load.competition);
   const screen: RankingImageScreenProps = {
     id,
     name,
     subtitle: label.full,
     phoneSubtitle: label.short,
-    fileUrl: routes.competitionRankingImageFile(id, imageQueryString(query)),
-    backHref: routes.competition(id),
-    defaultHref: routes.competitionRankingImage(id),
+    fileUrl: routes.competitionRankingImageFile(urlId, imageQueryString(query)),
+    backHref: routes.competition(urlId),
+    defaultHref: routes.competitionRankingImage(urlId),
     sheet: null,
   };
   return (
     <>
       <SetBreadcrumb
-        trail={[COMPETITIONS_CRUMB, { label: name, href: routes.competition(id) }, { label: 'Clasament', href: routes.competitionRanking(id) }, { label: TITLE }]}
+        trail={[COMPETITIONS_CRUMB, { label: name, href: routes.competition(urlId) }, { label: 'Clasament', href: routes.competitionRanking(urlId) }, { label: TITLE }]}
       />
       <Suspense fallback={<RankingImageScreen {...screen} planning />}>
         <PlannedScreen screen={screen} query={query} view={label.full} />

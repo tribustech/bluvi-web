@@ -22,7 +22,7 @@ import {
   type HeroPick,
   type Moment,
 } from '@/core/competitions';
-import { anglerHref, routes } from '@/lib/routes';
+import { competitionUrlId, anglerHref, routes } from '@/lib/routes';
 import type { PulseTracker } from '../analytics';
 import type { Pulse } from './usePulse';
 
@@ -302,7 +302,7 @@ function HeroCard({ pick, tracker }: { pick: HeroCardPick; tracker: PulseTracker
         ) : null}
         <h3 className="line-clamp-2 t-hero-title">
           <Link
-            href={routes.competition(c.documentId)}
+            href={routes.competition(competitionUrlId(c))}
             aria-label={`${c.name}. ${copy.cta}`}
             onClick={() => tracker.heroPress({ competitionId: c.documentId, kind })}
             className="outline-none after:absolute after:inset-0 after:rounded-[18px] after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-on-photo-scrim"

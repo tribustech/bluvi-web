@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, competitionUrlId, routes } from '@/lib/routes';
 import { CompetitionRoute } from './_components/CompetitionRoute';
 import { competitionSummary, completedCompetitionIds, loadCompetition } from './_components/load';
 
@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (load.kind === 'invalid') return { title: 'Concurs', robots: { index: false } };
   const c = load.competition;
   const description = competitionSummary(c);
-  const canonical = routes.competition(c.documentId);
+  const canonical = routes.competition(competitionUrlId(c));
   // Once it runs the page is the ranking (Clasament is the default view): the title says so, for
   // «clasament <concurs>» searches (owner 2026-10-12: SEO). Before the start it is the event.
   const ranked = c.competitionStatus === 'started' || c.competitionStatus === 'completed';

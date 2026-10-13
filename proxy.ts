@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { routes } from '@/lib/routes';
 import { safeNext } from '@/app/(site)/intra/logic';
+import { competitionRouteAction } from '@/lib/competition-slug-route';
 import { lakeRouteAction } from '@/lib/lake-slug-route';
+import type { SlugRouteAction } from '@/lib/slug-route';
+import { getCompetitionSlugMap } from '@/lib/server/competition-slug-map';
 import { getLakeSlugMap } from '@/lib/server/lake-slug-map';
 
 /**
@@ -18,7 +21,10 @@ import { getLakeSlugMap } from '@/lib/server/lake-slug-map';
  */
 export async function proxy(request: NextRequest) {
   const { pathname, search, searchParams } = request.nextUrl;
-  if (pathname.startsWith('/balti/')) return lakePath(request);
+  if (pathname.startsWith('/balti/')) return slugPath(request, lakeRouteAction(pathname, await getLakeSlugMap()), SIGNED_IN_LAKE_PAGE);
+  if (pathname.startsWith('/concursuri/')) {
+    return slugPath(request, competitionRouteAction(pathname, await getCompetitionSlugMap()), SIGNED_IN_COMPETITION_PAGE);
+  }
   // A visitor with a session cookie never sees the sign-in again (owner 2026-10-11): /intra goes
   // to its safe `next`, else home. A dead cookie lands on that page, whose dead-session handling
   // signs out and sends the visitor back here without it.
@@ -32,16 +38,23 @@ export async function proxy(request: NextRequest) {
 const SIGNED_IN_LAKE_PAGE = /^\/balti\/[^/]+\/(?:rezerva(?:\/.*)?|recenzie)$/;
 
 /**
- * Every /balti/<x>/… request (lib/lake-slug-route.ts): an old documentId URL goes to its slug URL
- * (308), a slug URL is served from the lake's page (rewrite), the site's own /balti pages pass. The
- * signed-out gate for the booking flow and the review form runs here too (they used to be matcher
- * entries of their own; a path matched by several entries still runs the proxy once).
+ * The competition pages that need an account: registration (participant.register), the chat
+ * (participant.chat) and the organizer's pages (organizer.b.signed-out-gate: edit wizard, sectors,
+ * allocation, scale, penalties). They used to be matcher entries of their own.
  */
-async function lakePath(request: NextRequest) {
+const SIGNED_IN_COMPETITION_PAGE = /^\/concursuri\/[^/]+\/(?:(?:inscriere|chat|editeaza|cantar|penalizari)(?:\/.*)?|sectoare|alocare)$/;
+
+/**
+ * Every /balti/<x>/… and /concursuri/<x>/… request (lib/slug-route.ts): an old documentId URL (or a
+ * competition's earlier slug) goes to its slug URL (308), a slug URL is served from the entity's
+ * page (rewrite), the site's own pages pass. The signed-out gate of the entity's signed-in-only
+ * pages runs here too, on the URL as requested (a slug or a documentId: same shape); a path matched
+ * by several matcher entries still runs the proxy once.
+ */
+function slugPath(request: NextRequest, action: SlugRouteAction, signedInPage: RegExp) {
   const { pathname, search } = request.nextUrl;
-  const action = lakeRouteAction(pathname, await getLakeSlugMap());
   if (action.kind === 'redirect') return NextResponse.redirect(new URL(`${action.path}${search}`, request.url), 308);
-  if (!request.cookies.has('bluvi_session') && SIGNED_IN_LAKE_PAGE.test(pathname)) {
+  if (!request.cookies.has('bluvi_session') && signedInPage.test(pathname)) {
     return NextResponse.redirect(new URL(routes.signIn(`${pathname}${search}`), request.url), 307);
   }
   if (action.kind === 'rewrite') return NextResponse.rewrite(new URL(`${action.path}${search}`, request.url));
@@ -67,28 +80,24 @@ export const config = {
     // M3 booking: my bookings and one booking (/rezervari, /rezervari/[id]), the booking flow
     // (/balti/[id]/rezerva and its steps) and the lake review form — per user, signed in only.
     { source: '/rezervari/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    // Every lake URL: slug ↔ documentId (lakePath), and the signed-out gate of the booking flow
+    // Every lake URL: slug ↔ documentId (slugPath), and the signed-out gate of the booking flow
     // (/balti/[id]/rezerva and its steps) and the lake review form.
     { source: '/balti/:path+' },
-    // M5: registration (participant.register, team disclaimer, guests) — per user, signed in only.
-    { source: '/concursuri/:id/inscriere/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    // M5: the competition chat (participant.chat, participant.b.chat-signed-out) — signed in only.
-    { source: '/concursuri/:id/chat/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
+    // Every competition URL: slug ↔ documentId (slugPath), and the signed-out gate of registration
+    // (participant.register, team disclaimer, guests), the chat (participant.chat,
+    // participant.b.chat-signed-out) and the organizer's pages (below) — SIGNED_IN_COMPETITION_PAGE.
+    { source: '/concursuri/:path+' },
     // M4: the viewer's own history (partide.istoric) — /feed/sessions/mine, signed in only.
     { source: '/partide/istoric', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // M4: the viewer's own catch gallery (partide.capturile-mele) — /feed/sessions/mine/catches.
     { source: '/partide/capturile-mele', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // M4: a partidă by its client id (PARTIDA_FINISHED / AUTO_CLOSE_WARN) — resolved per user.
     { source: '/partide/sesiune/:clientId', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    // M6 organizer (organizer.b.signed-out-gate): the panel and the create wizard, the edit wizard of
-    // a published competition, and the competition's management pages (sectors, allocation, scale,
-    // penalties). The role / author check is the page's (lib/server/require-organizer.ts).
+    // M6 organizer (organizer.b.signed-out-gate): the panel and the create wizard. The edit wizard of a
+    // published competition and its management pages (sectors, allocation, scale, penalties) are
+    // gated with every competition URL above. The role / author check is the page's
+    // (lib/server/require-organizer.ts).
     { source: '/organizator/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    { source: '/concursuri/:id/editeaza/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    { source: '/concursuri/:id/sectoare', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    { source: '/concursuri/:id/alocare', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    { source: '/concursuri/:id/cantar/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
-    { source: '/concursuri/:id/penalizari/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },
     // M7 lake operator (operator.b.role-gating): the picker /operator and everything under it (panel,
     // inbox, blocks, walk-in, rate angler). Per owner; the CMS owner-gates every read.
     { source: '/operator/:path*', missing: [{ type: 'cookie', key: 'bluvi_session' }] },

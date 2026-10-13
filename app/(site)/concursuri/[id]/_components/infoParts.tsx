@@ -16,7 +16,7 @@ import { analyticsAttrs } from '@/components/analytics/attrs';
 import { DetailAsideCard, type DetailFact } from '@/components/templates/T3';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { cn } from '@/components/ui/cn';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 import { speciesImage } from './species';
 
 /*
@@ -69,7 +69,7 @@ export function competitionFacts(c: CompetitionWithMyStatus, layout: 'grid' | 's
   // fish: the pending count only before the start.
   const waiting = c.competitionStatus === 'notStarted' && pending > 0 ? pending : 0;
   const count = (
-    <Link href={routes.competitionParticipants(c.documentId)} className={cn('tabular-nums hover:underline', LINK_FOCUS)}>
+    <Link href={routes.competitionParticipants(competitionUrlId(c))} className={cn('tabular-nums hover:underline', LINK_FOCUS)}>
       {approved} / {limit}
       <span className="sr-only">, vezi participanții</span>
       <ChevronRightIcon aria-hidden className="ml-1 inline size-4 align-middle text-muted" />

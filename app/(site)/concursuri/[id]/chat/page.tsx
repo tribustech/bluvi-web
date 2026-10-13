@@ -3,8 +3,9 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { SessionUnknownError } from '@/lib/server/require-viewer';
 import { param, type SearchParams } from '@/lib/search-params';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 import { getViewerState } from '../../../_shell/session';
+import { CompetitionUrlProvider } from '../_components/competition-url';
 import { loadCompetition } from '../_components/load';
 import { ChatScreen } from './_chat/ChatScreen';
 import { ChatSignedOut, ChatSkeleton } from './_chat/ChatStates';
@@ -50,13 +51,18 @@ async function Gated({ params, searchParams }: Props) {
   // An unknown (or deleted) id: the competition's 404, never a chat with Firestore listeners for
   // nothing under bars that would never resolve (owner rule 4).
   if (load?.kind === 'missing') notFound();
-  if (!state) return <ChatSignedOut next={routes.competitionChat(id, room ? tabParamOf(room) : undefined)} />;
-  const facts = load && (load.kind === 'ok' || load.kind === 'unsupported') ? chatFactsOf(load.competition) : null;
+  const loaded = load && (load.kind === 'ok' || load.kind === 'unsupported') ? load.competition : null;
+  // The chat's links and URLs keep the competition's slug URL (competition-url.tsx); reads keep `id`.
+  const urlId = loaded ? competitionUrlId(loaded) : id;
+  if (!state) return <ChatSignedOut next={routes.competitionChat(urlId, room ? tabParamOf(room) : undefined)} />;
+  const facts = loaded ? chatFactsOf(loaded) : null;
   return (
-    <ChatScreen
-      competitionId={id}
-      viewer={{ documentId: state.documentId, username: state.username, avatarUrl: state.avatarUrl }}
-      facts={facts}
-    />
+    <CompetitionUrlProvider documentId={id} urlId={urlId}>
+      <ChatScreen
+        competitionId={id}
+        viewer={{ documentId: state.documentId, username: state.username, avatarUrl: state.avatarUrl }}
+        facts={facts}
+      />
+    </CompetitionUrlProvider>
   );
 }

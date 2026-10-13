@@ -17,9 +17,10 @@ import {
 } from '@/components/templates/T3';
 import { SignInGate } from '@/components/templates/SignInGate';
 import { ErrorState } from '@/components/surfaces/StateCard';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 import { signInHref } from '../../../../_shell/SiteHeader';
 import { isUnknownViewer, useViewerState } from '../../../../_shell/viewer-context';
+import { useCompetitionUrlId } from '../../_components/competition-url';
 import { isOfflineEmpty, OfflineState } from '../../_components/offline';
 import { QueryRetry } from '../../_components/QueryRetry';
 import { PAGE_RETRY } from '../../_components/retry-policy';
@@ -38,12 +39,13 @@ import { RefreshRetry } from '../../_components/RefreshRetry';
 const TITLE = 'Cronologia standurilor';
 
 function Band({ id }: { id?: string }) {
+  const urlId = useCompetitionUrlId(id ?? '');
   return (
     <DetailBand>
       <DetailHeader
         title={TITLE}
         phoneStart={
-          <DetailBackButton fallbackHref={id ? routes.competitionStatistics(id) : routes.competitions()} ground="surface" label="Înapoi la statistici" />
+          <DetailBackButton fallbackHref={id ? routes.competitionStatistics(urlId) : routes.competitions()} ground="surface" label="Înapoi la statistici" />
         }
       />
     </DetailBand>
@@ -182,7 +184,7 @@ function Content({ id }: { id: string }) {
         <DetailSection title="Concursul" as="h2">
           <p className="t-body-strong text-ink">{competition.name}</p>
           {competition.lake?.name ? <p className="t-caption text-muted">{competition.lake.name}</p> : null}
-          <Link href={routes.competitionStatistics(id)} className="mt-3 inline-block rounded-control t-label text-accent-ink hover:underline">
+          <Link href={routes.competitionStatistics(competitionUrlId(competition))} className="mt-3 inline-block rounded-control t-label text-accent-ink hover:underline">
             Toate statisticile →
           </Link>
         </DetailSection>

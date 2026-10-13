@@ -39,6 +39,7 @@ import { LakePages } from '../_sub/LakePages';
 import { firstReadFailed, SUB_TITLE_ID, SubListError, SubRetryFocus } from '../_sub/states';
 import { useBack } from '../_sub/useBack';
 import { useLakeUrlId } from '../_sub/lake-url';
+import { formatLakeScore, lakeReviewScore } from '@/lib/seo/reviews';
 
 /*
  * Recenzii — fish app/(app)/lakes/[lakeId]/reviews.tsx → ReviewList + ReviewCard +
@@ -223,6 +224,23 @@ export function ReviewsScreen({ lakeId, lakeName }: { lakeId: string; lakeName: 
 
 /* c2 — the three scores, the count and the explainer link (fish ListHeaderComponent). */
 
+/**
+ * The lake's overall score above the three («4,67 din 5»), the number its page shows (lakeReviewScore)
+ * — owner 2026-10-13: the rating the page marks up for Google must be visible on the page (fish's
+ * reviews screen has only the three).
+ */
+function OverallScore({ meta, className }: { meta: ReviewMeta; className?: string }) {
+  const score = lakeReviewScore(meta);
+  if (score === null) return null;
+  return (
+    <p className={cn('flex items-center gap-2.5', className)} data-testid="score-overall">
+      <span className="t-stat text-ink tabular-nums">{formatLakeScore(score)}</span>
+      <RatingStars value={score} />
+      <span className="t-label text-muted">din 5 · nota generală</span>
+    </p>
+  );
+}
+
 function Summary({ meta, variant }: { meta: ReviewMeta; variant: 'tiles' | 'card' }) {
   if (variant === 'card') {
     // The docked column: the aside's one titled block, the card of rows inside it.
@@ -230,6 +248,7 @@ function Summary({ meta, variant }: { meta: ReviewMeta; variant: 'tiles' | 'card
       <AsideSection title="Scorurile bălții" bare>
         <div id="scorurile-baltii" tabIndex={-1} className="outline-none" data-testid="reviews-summary">
           <FocusAfterRetry retry={SCORES_RETRY} target="scorurile-baltii" />
+          <OverallScore meta={meta} className="mb-3" />
           <dl className="flex flex-col divide-y divide-hairline rounded-card bg-surface px-4 shadow-e0">
             {SCORES.map(s => (
               <div key={s.key} className="flex items-center justify-between gap-3 py-3.5">
@@ -254,6 +273,7 @@ function Summary({ meta, variant }: { meta: ReviewMeta; variant: 'tiles' | 'card
   return (
     <section id="scorurile-baltii-sus" tabIndex={-1} aria-label="Scorurile bălții" className="outline-none" data-testid="reviews-summary">
       <FocusAfterRetry retry={SCORES_RETRY} target="scorurile-baltii-sus" />
+      <OverallScore meta={meta} className="mb-3" />
       <KpiGrid label="Scorurile bălții" columns="quad" compact className={SCORE_GRID}>
         {SCORES.map(s => (
           <KpiTile

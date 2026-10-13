@@ -15,6 +15,7 @@ import { Composer } from './Composer';
 import { FollowPrompt } from './FollowPrompt';
 import { MessageList } from './MessageList';
 import { RoomTabs } from './RoomTabs';
+import { useCompetitionUrlId } from '../../_components/competition-url';
 
 /*
  * The chat's layout (participant.chat). The page never scrolls: the frame is the viewport under the
@@ -68,6 +69,7 @@ const STATUS: Partial<Record<string, { tone: StatusTone; label: string }>> = {
 /** ≥1280 left column: the competition (its banner opens the viewer, like the header's disc). */
 function CompetitionCard() {
   const c = useChat();
+  const urlId = useCompetitionUrlId(c.competitionId);
   const f = c.facts;
   const name = c.competition?.name ?? f?.name;
   const banner = c.competition?.banner ? (c.competition.banner.formats.medium?.url ?? c.competition.banner.url) : (f?.bannerLarge ?? null);
@@ -111,8 +113,8 @@ function CompetitionCard() {
         </ul>
       </div>
       <nav aria-label="Concursul" className="border-t border-hairline">
-        <CardLink href={routes.competitionRanking(c.competitionId)} Icon={TrophyIcon} label="Clasament" />
-        <CardLink href={routes.competitionParticipants(c.competitionId)} Icon={UserGroupIcon} label="Participanți" />
+        <CardLink href={routes.competitionRanking(urlId)} Icon={TrophyIcon} label="Clasament" />
+        <CardLink href={routes.competitionParticipants(urlId)} Icon={UserGroupIcon} label="Participanți" />
       </nav>
     </article>
   );
@@ -179,6 +181,7 @@ function RoomPhotos() {
 /** ≥1280 right column: who the room reaches and whether it is open. */
 function QuickFacts() {
   const c = useChat();
+  const urlId = useCompetitionUrlId(c.competitionId);
   const viewers = c.competition?.viewers ?? c.facts?.viewers;
   const registered = c.competition ? c.competition.registrations.filter(r => r.registrationStatus === 'registered').length : c.facts?.registered;
   const rows: { Icon: typeof UsersIcon; text: string; key: string }[] = [];
@@ -204,7 +207,7 @@ function QuickFacts() {
         </ul>
       ) : null}
       <Link
-        href={routes.competition(c.competitionId)}
+        href={routes.competition(urlId)}
         className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-sm t-label text-accent-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent"
       >
         Pagina concursului

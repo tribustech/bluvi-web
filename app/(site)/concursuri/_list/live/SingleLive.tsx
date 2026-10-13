@@ -10,7 +10,7 @@ import { cn } from '@/components/ui/cn';
 import { InlineNumber, SignatureNumber } from '@/components/ui/SignatureNumber';
 import { entrantsCount, formatKg, formatTotalKg, rankingsQuery, type CompetitionCard, type RecentWeighing } from '@/core/competitions';
 import type { Transport } from '@/core/transport';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 import { posterOf } from '../cards/parts';
 import { LIVE_POLL_MS } from '../desktop/data';
 import { gapOf, miniRanking, valueText, type MiniRanking } from '../desktop/model';
@@ -94,7 +94,7 @@ export function SingleLive({
             {thumb ? (
               // The poster opens the competition (owner 2026-10-08, no photo viewer); the name is the
               // link's accessible twin, so this one stays out of the tab order and the a11y tree.
-              <Link href={routes.competition(c.documentId)} tabIndex={-1} aria-hidden className="shrink-0 rounded-card">
+              <Link href={routes.competition(competitionUrlId(c))} tabIndex={-1} aria-hidden className="shrink-0 rounded-card">
                 <PosterThumb src={thumb} priority={priority} />
               </Link>
             ) : (
@@ -107,7 +107,7 @@ export function SingleLive({
                 {mine ? <span className="text-accent-ink">· Concursul tău</span> : null}
               </span>
               <h2 id="live-unic" className="t-title1 text-ink">
-                <Link href={routes.competition(c.documentId)} className="rounded-control hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+                <Link href={routes.competition(competitionUrlId(c))} className="rounded-control hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
                   {c.name}
                 </Link>
               </h2>
@@ -134,10 +134,10 @@ export function SingleLive({
           )}
 
           <div className="flex flex-wrap gap-2">
-            <Link href={routes.competitionRanking(c.documentId)} className={buttonClass({ variant: 'primary', size: 'compact' })}>
+            <Link href={routes.competitionRanking(competitionUrlId(c))} className={buttonClass({ variant: 'primary', size: 'compact' })}>
               Vezi clasamentul
             </Link>
-            <Link href={routes.competitionWeighings(c.documentId)} className={buttonClass({ variant: 'secondary', size: 'compact' })}>
+            <Link href={routes.competitionWeighings(competitionUrlId(c))} className={buttonClass({ variant: 'secondary', size: 'compact' })}>
               Toate cântarele
             </Link>
           </div>

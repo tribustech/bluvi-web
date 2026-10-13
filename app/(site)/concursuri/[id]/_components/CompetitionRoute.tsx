@@ -1,13 +1,14 @@
 import { Suspense } from 'react';
 import { competitionQuery, competitionWeighingStatisticsQuery, rankingsQuery } from '@/core/competitions';
 import { HydrateQueries, type Prefetchable } from '@/lib/client/hydration';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 import { DetailBackButton, DetailError } from '@/components/templates/T3';
 import { ButtonLink } from '@/components/ui/Button';
 import { notFound } from 'next/navigation';
 import { BreadcrumbBand } from '@/components/nav/Breadcrumbs';
 import { COMPETITIONS_CRUMB } from './crumbs';
 import { CompetitionScreen } from './CompetitionScreen';
+import { CompetitionUrlProvider } from './competition-url';
 import { CompetitionSkeleton } from './CompetitionSkeleton';
 import { HEADER_ERROR_COPY, skeletonVariantOf } from './screen-state';
 import { competitionDateLabel, competitionDateProse, competitionDateTime, competitionStartShort, competitionDateTimeCompact, displayEnd } from './dates';
@@ -21,7 +22,7 @@ import { jsonLdHtml } from '@/lib/json-ld';
  * The band's trail and BreadcrumbList: Concursuri › {concurs} on Clasament, › {tab} on a route tab,
  * › {view} on a Clasament view with its own path (/cantare «Cântare», /capturi «Toți peștii»,
  * /statistici). The last step carries the page's own path (the visible crumb is never a link), so the
- * JSON-LD's last item is the page (global.b.seo-json-ld j2).
+ * JSON-LD's last item is the page (global.b.seo-json-ld j2). `id`: the URL segment (competitionUrlId).
  */
 function competitionTrail(name: string, id: string, tab: CompetitionTab, view: RankingViewKey) {
   const page = routes.competition(id);
@@ -118,7 +119,8 @@ export async function CompetitionRoute({
   };
 
   return (
-    <>
+    // The page's links go straight to the competition's slug URL (competition-url.tsx); its reads keep `id`.
+    <CompetitionUrlProvider documentId={id} urlId={competitionUrlId(c)}>
       <script
         type="application/ld+json"
         // JSON-LD: `<` escaped so CMS text can never close the script tag.
@@ -126,7 +128,7 @@ export async function CompetitionRoute({
       />
       {/* The breadcrumb band, server-rendered with the real title and its BreadcrumbList JSON-LD
           (the layout's band skips this route: SiteHeader ownsBreadcrumbBand), as the T3 demo. */}
-      <BreadcrumbBand trail={competitionTrail(c.name, id, tab, initialView)} jsonLd />
+      <BreadcrumbBand trail={competitionTrail(c.name, competitionUrlId(c), tab, initialView)} jsonLd />
       {load.kind === 'ok' ? (
         // The fallback is what the static shell carries (the screen is a TanStack client tree, which
         // suspends while prerendering): the header's real title and meta, so the first paint has
@@ -166,6 +168,6 @@ export async function CompetitionRoute({
         // either, so it is handed down.
         <CompetitionScreen id={id} dates={dates} unsupported={c} statusHint={c.competitionStatus} initialView={initialView} tab={tab} />
       )}
-    </>
+    </CompetitionUrlProvider>
   );
 }

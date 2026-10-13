@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { track } from "@/lib/analytics";
+import { useCompetitionUrlId } from "./competition-url";
 import { COMPETITION_TABS, type CompetitionTab } from "./tabs";
 
 /*
@@ -35,6 +36,8 @@ export function useCompetitionAnalytics(
   name: string | undefined,
   current: CompetitionTab,
 ) {
+  // The tab links carry the URL segment (the slug, competition-url.tsx); the events keep the documentId.
+  const urlId = useCompetitionUrlId(documentId);
   useEffect(() => {
     // fish logs both only once the competition is loaded (its documentId / name).
     if (!name) return;
@@ -45,7 +48,7 @@ export function useCompetitionAnalytics(
       if (link) {
         const path = new URL(link.href, window.location.href).pathname;
         const tab = COMPETITION_TABS.find(
-          (t) => t.href(documentId) === path,
+          (t) => t.href(urlId) === path,
         )?.key;
         if (tab && tab !== current) {
           track("competition_page_tab_pressed", {
@@ -65,5 +68,5 @@ export function useCompetitionAnalytics(
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [documentId, name, current]);
+  }, [documentId, urlId, name, current]);
 }

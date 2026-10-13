@@ -71,6 +71,7 @@ const feedCardMediaSchema = z.object({
 export const competitionListItemSchema = z.object({
   ...idDoc,
   name: z.string(),
+  slug: z.string().nullish(),
   startDate: z.string(),
   endDate: z.string(),
   competitionStatus: competitionStatusSchema,
@@ -145,6 +146,7 @@ const bannerFormatUrl = z.object({ url: z.string() }).nullable();
 export const competitionDetailSchema = z.object({
   ...idDoc,
   name: z.string(),
+  slug: z.string().nullish(),
   startDate: z.string(),
   endDate: z.string(),
   competitionStatus: competitionStatusSchema,
@@ -249,6 +251,7 @@ export type Registration = z.infer<typeof registrationSchema>;
 export const legacyCompetitionSchema = z.object({
   ...idDoc,
   name: z.string(),
+  slug: z.string().nullish(),
   startDate: z.string().nullable(),
   endDate: z.string().nullable(),
   competitionType: competitionTypeSchema,
@@ -346,6 +349,7 @@ export type CardFormat = z.infer<typeof cardFormatSchema>;
 export const competitionCardSchema = z.object({
   ...idDoc,
   name: z.string(),
+  slug: z.string().nullish(),
   startDate: z.string().nullable(),
   endDate: z.string().nullable(),
   /** Rendered on the server, in Bucharest. Never format this in the app. */

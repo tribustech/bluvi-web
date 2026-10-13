@@ -15,7 +15,7 @@ import {
 import { DetailAsideCard, DetailBody, DetailFacts, DetailSection } from '@/components/templates/T3';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/components/ui/cn';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 import { competitionDuration, timeBadge } from './dates';
 import { CompetitionBanner, competitionFacts, ContactSection, FactsAside, Meter, normalizeRichLinks, SpeciesList } from './infoParts';
 import { ClampedRichText } from './tabParts';
@@ -116,7 +116,7 @@ function FishFacts({ competition: c }: { competition: CompetitionWithMyStatus })
       <div className="flex flex-col items-start gap-2">
         <dt className={label}>{c.competitionType === 'team' ? 'Echipe înscrise' : 'Participanți înscriși'}</dt>
         <dd className="t-body">
-          <Link href={routes.competitionParticipants(c.documentId)} className="text-ink-2 tabular-nums hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent">
+          <Link href={routes.competitionParticipants(competitionUrlId(c))} className="text-ink-2 tabular-nums hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent">
             {approved} / {limit}
             <span className="sr-only">, vezi participanții</span>
           </Link>

@@ -6,6 +6,7 @@ import {
   anglerEntries,
   MAX_URLS,
   WATERS_PER_CHUNK,
+  competitionUrls,
   hasCompetitions,
   lakeUrls,
   publicWaterEntries,
@@ -261,6 +262,15 @@ describe('sitemapEntries', () => {
     expect(urls).toContain(`${S}/concursuri/cr1/regulament`);
     expect(urls.filter(u => /\/concursuri\/c[^/]*\/(cantare|capturi)$/.test(u))).toEqual([]);
     expect(urls.some(u => /\/(statistici|clasament|extra-cantare)$|\/imagine|cronologie/.test(u) && u.includes('/concursuri/c'))).toBe(false);
+  });
+
+  it('lists a competition under its slug URL once it has one (what its canonical says)', async () => {
+    const { transport } = createFakeTransport(() => {
+      throw new Error('down');
+    });
+    const item = listItem('cs1', 'started', { slug: 'cupa-test-balta-test-2026' }) as unknown as Parameters<typeof competitionUrls>[1];
+    const urls = (await competitionUrls(transport, item, 'started', { regulation: [{ type: 'paragraph', children: [{ type: 'text', text: 'Reguli' }] }] } as unknown as Parameters<typeof competitionUrls>[3])).map(e => e.url);
+    expect(urls).toEqual(['', '/informatii', '/participanti', '/regulament'].map(sub => `${S}/concursuri/cupa-test-balta-test-2026${sub}`));
   });
 
   const w = (k: string | number, sub = '') => `${S}/ape-publice/${encodeURIComponent(k)}${sub}`;

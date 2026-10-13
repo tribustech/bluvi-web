@@ -6,6 +6,7 @@ import { formatTime24 } from '@/core/realtime/chat/format';
 import { podiumInfoOf, systemBodyFor } from '@/core/realtime/chat/systemMessages';
 import { systemTarget } from './model';
 import { StandChip, SystemCard, SystemLink, SystemMessageRow } from './SystemMessageRow';
+import { useCompetitionUrlId } from '../../../_components/competition-url';
 
 /*
  * fish SystemMessageRow `leader` (participant.chat c38): the room's newest move to 1st place
@@ -13,9 +14,10 @@ import { StandChip, SystemCard, SystemLink, SystemMessageRow } from './SystemMes
  * name, «A urcat pe locul 1» and a «Clasament» chip when the event links to the ranking.
  */
 export function LeaderCard({ message, competitionId }: { message: chat.ChatListMessage; competitionId: string }) {
+  const urlId = useCompetitionUrlId(competitionId);
   const podium = podiumInfoOf(message);
   if (!podium) return <SystemMessageRow message={message} competitionId={competitionId} />;
-  const target = systemTarget(message.link, competitionId);
+  const target = systemTarget(message.link, urlId);
   const linked = target?.kind === 'href';
   return (
     <div className="mx-auto w-full max-w-180 px-4 py-1.5" data-leader="">

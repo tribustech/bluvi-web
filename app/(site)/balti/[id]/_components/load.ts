@@ -10,6 +10,8 @@ import { createServerTransport } from '@/lib/server/transport';
 import { e2eFault, e2eLakeStub } from './e2e-faults';
 import { lakeLocationLine } from './location';
 import { lakePlaceJsonLd } from '@/lib/seo/lake-place';
+import { lakeReviewScore } from '@/lib/seo/reviews';
+import { aggregateRatingJsonLd } from '@/lib/json-ld';
 
 /*
  * The lake page's reads — fish app/(app)/lakes/[lakeId].tsx: useLake (the page), plus the sections
@@ -168,13 +170,13 @@ export function lakeImage(lake: LakeDetail): string | null {
 
 /**
  * schema.org: a fishing lake as a place (lakePlaceJsonLd: TouristAttraction + SportsActivityLocation,
- * address, geo, phone), its rating (the overall score the page shows), its photos, the
+ * address, geo, phone), its rating (lakeReviewScore: the overall score the page shows), its photos, the
  * facilities as amenity features and the species it holds as keywords (owner 2026-10-12: SEO).
  * Only facts the CMS has.
  */
 export function lakeJsonLd(lake: LakeDetail): Record<string, unknown> {
   const images = lake.images.map(img => img.url || img.mediumUrl || img.smallUrl || '').filter(Boolean).slice(0, 10);
-  const meta = lake.reviewsMeta;
+  const rating = aggregateRatingJsonLd(lakeReviewScore(lake.reviewsMeta), lake.reviewsMeta?.count, 2);
   const facilities = lake.facility.map(f => f.name).filter(Boolean);
   const species = lake.fishSpecies.map(s => s.fish.Name).filter(Boolean);
   return {
@@ -187,9 +189,7 @@ export function lakeJsonLd(lake: LakeDetail): Record<string, unknown> {
       ? { amenityFeature: facilities.map(name => ({ '@type': 'LocationFeatureSpecification', name, value: true })) }
       : {}),
     ...(species.length ? { keywords: ['pescuit', ...species.map(n => `pescuit ${n.toLowerCase()}`)].join(', ') } : {}),
-    ...(meta && meta.count > 0 && meta.overall
-      ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: meta.overall, ratingCount: meta.count, bestRating: 5, worstRating: 1 } }
-      : {}),
+    ...(rating ? { aggregateRating: rating } : {}),
     ...(lake.website ? { sameAs: [lake.website] } : {}),
   };
 }

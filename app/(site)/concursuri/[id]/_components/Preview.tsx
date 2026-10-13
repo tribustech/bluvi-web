@@ -18,7 +18,7 @@ import { BentoTile, StatTile } from '@/components/ui/BentoTile';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { PROSE_MAX } from '@/components/nav/shell';
 import { cn } from '@/components/ui/cn';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 import type { CompetitionDates } from './CompetitionScreen';
 import { TAB_ON_WEB } from './tabs';
 import { competitionDuration } from './dates';
@@ -74,7 +74,7 @@ export function CompetitionPreview({ competition, dates }: { competition: Compet
             </span>
             {registered === 0 && pending === 0 ? <span className="t-caption text-ink-2">Fii primul care se înscrie la această competiție!</span> : null}
             {TAB_ON_WEB.participanti ? (
-              <MoreLink href={routes.competitionParticipants(competition.documentId)} event="ranking_viewRegister">Vezi toate înscrierile</MoreLink>
+              <MoreLink href={routes.competitionParticipants(competitionUrlId(competition))} event="ranking_viewRegister">Vezi toate înscrierile</MoreLink>
             ) : null}
           </span>
         }
@@ -100,7 +100,7 @@ export function CompetitionPreview({ competition, dates }: { competition: Compet
       />
       {TAB_ON_WEB.informatii ? (
         <div className="mt-3">
-          <MoreLink href={routes.competitionInfo(competition.documentId)} event="ranking_viewInfo">Vezi toate informațiile</MoreLink>
+          <MoreLink href={routes.competitionInfo(competitionUrlId(competition))} event="ranking_viewInfo">Vezi toate informațiile</MoreLink>
         </div>
       ) : null}
     </DetailSection>

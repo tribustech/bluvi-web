@@ -10,6 +10,7 @@ import { ButtonLink } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import { CountBadge } from '@/components/templates/T5';
 import { routes } from '@/lib/routes';
+import { useCompetitionUrlId } from './competition-url';
 import type { Viewer } from '@/lib/server/viewer';
 import { useChatBadge as useLiveChatBadge } from '../chat/_live/hooks';
 import { CHAT_FROM_KEY, getLastChatTab, tabParamOf } from '../chat/_live/lastTab';
@@ -36,13 +37,14 @@ const noSubscribe = () => () => {};
  * hydration — the server HTML links the plain chat, which picks the room itself).
  */
 export function useChatHref(competitionId: string): string {
+  const urlId = useCompetitionUrlId(competitionId);
   return useSyncExternalStore(
     noSubscribe,
     () => {
       const last = getLastChatTab(competitionId);
-      return routes.competitionChat(competitionId, last ? tabParamOf(last) : undefined);
+      return routes.competitionChat(urlId, last ? tabParamOf(last) : undefined);
     },
-    () => routes.competitionChat(competitionId),
+    () => routes.competitionChat(urlId),
   );
 }
 

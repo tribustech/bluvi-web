@@ -103,6 +103,15 @@ export function lakeUrlId(lake: { documentId: string; slug?: string | null }): s
   return lake.slug || lake.documentId;
 }
 
+/**
+ * The URL segment of a competition: its slug (`/concursuri/cupa-chita-lake-2026`, owner 2026-10-13)
+ * once the CMS has one, else its documentId (proxy.ts serves either, lib/competition-slug-route.ts).
+ * Same rule as lakeUrlId: URLs shown or published use it, data reads keep the documentId.
+ */
+export function competitionUrlId(competition: { documentId: string; slug?: string | null }): string {
+  return competition.slug || competition.documentId;
+}
+
 export const routes = {
   home: () => '/',
   lakes: () => '/balti',

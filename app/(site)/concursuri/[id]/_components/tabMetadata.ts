@@ -2,7 +2,7 @@ import 'server-only';
 import type { Metadata } from 'next';
 import { registrationCounts } from '@/core/competitions';
 import { richTextToPlain } from '@/components/templates/T3/prose';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, competitionUrlId, routes } from '@/lib/routes';
 import { registeredLine } from '@/lib/seo/describe';
 import { competitionSummary, loadCompetition, type LooseCompetitionDetail } from './load';
 import { COMPETITION_TABS, type CompetitionTab } from './tabs';
@@ -69,7 +69,7 @@ export async function competitionTabMetadata(id: string, tab: Exclude<Competitio
     tab === 'extraCantare' ||
     (tab === 'regulament' && !richTextToPlain(c.regulation)) ||
     (tab === 'participanti' && registrationCounts(c.registrations).approved === 0);
-  return pageMetadata(`${label.label} · ${c.name}`, describe(c, tab), label.href(c.documentId), empty);
+  return pageMetadata(`${label.label} · ${c.name}`, describe(c, tab), label.href(competitionUrlId(c)), empty);
 }
 
 /** The Clasament's views that are pages of their own (their own path, canonical and content). */
@@ -107,7 +107,7 @@ export async function competitionViewMetadata(id: string, view: CompetitionView)
   const c = load.competition;
   const where = c.lake?.name ? ` de pe ${c.lake.name}` : '';
   const started = c.competitionStatus === 'started' || c.competitionStatus === 'completed';
-  const canonical = started ? v.href(c.documentId) : routes.competition(c.documentId);
+  const canonical = started ? v.href(competitionUrlId(c)) : routes.competition(competitionUrlId(c));
   // Whether Cântare / Toți peștii have rows needs the weighing statistics, a signed-in (paid) read
   // the public site never makes (owner 2026-10-12): unknown, so they stay indexable (never guessed
   // noindex) and out of the sitemap.

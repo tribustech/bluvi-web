@@ -77,9 +77,10 @@ export function itemListJsonLd(name: string, items: { name: string; description?
 }
 
 /** schema.org AggregateRating on the 1–5 scale (one decimal, as the pages show a score), or null when nothing was rated (never a 0 score). */
-export function aggregateRatingJsonLd(value: number | null | undefined, count: number | null | undefined) {
+export function aggregateRatingJsonLd(value: number | null | undefined, count: number | null | undefined, decimals = 1) {
   if (!count || count <= 0 || !value || !Number.isFinite(value)) return null;
-  return { '@type': 'AggregateRating', ratingValue: Math.round(value * 10) / 10, ratingCount: count, bestRating: 5, worstRating: 1 };
+  const f = 10 ** decimals;
+  return { '@type': 'AggregateRating', ratingValue: Math.round(value * f) / f, ratingCount: count, bestRating: 5, worstRating: 1 };
 }
 
 /** A map page: schema.org Map `about` the place it shows, with its coordinates when the page has them. */

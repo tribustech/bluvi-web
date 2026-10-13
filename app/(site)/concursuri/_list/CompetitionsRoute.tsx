@@ -20,7 +20,7 @@ import {
   type CompetitionCardStatus,
 } from '@/core/competitions';
 import { prefetchState } from '@/lib/client/hydration';
-import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
+import { competitionUrlId, absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { getSessionToken } from '@/lib/server/session';
 import { createServerTransport } from '@/lib/server/transport';
 import { getShellSession } from '../../_shell/session';
@@ -309,7 +309,7 @@ function itemListJsonLd(cards: CompetitionCard[], tab?: CompetitionCardStatus) {
         item: {
           '@type': 'SportsEvent',
           name: c.name,
-          url: absoluteUrl(routes.competition(c.documentId)),
+          url: absoluteUrl(routes.competition(competitionUrlId(c))),
           sport: 'Pescuit sportiv',
           eventStatus: 'https://schema.org/EventScheduled',
           eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',

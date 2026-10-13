@@ -31,7 +31,7 @@ import { echoes } from './names';
 import { formatKg } from './ranking';
 import { isNationalType, nationalStandLabel } from './stand';
 import { PAGE_RETRY } from './retry-policy';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 
 /*
  * fish CompetitionRanking `rankingView === 'cantare'`: every sector, every stand as a
@@ -252,7 +252,7 @@ export function WeighingsView({
             right edge like the header and the bento above, never a dead strip after it. */}
         <div className="mr-auto flex max-w-256 min-w-0 flex-1 flex-col gap-3">
           {scaleStandHref ? (
-            <ScaleLink href={routes.competitionScale(id)} label="Deschide în cântar" description="Alege standul pe care cântărești." />
+            <ScaleLink href={routes.competitionScale(competitionUrlId(competition))} label="Deschide în cântar" description="Alege standul pe care cântărești." />
           ) : null}
           {allocationLoading ? (
             <TableBones />

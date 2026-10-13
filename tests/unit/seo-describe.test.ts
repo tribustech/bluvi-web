@@ -62,14 +62,17 @@ describe('waterDetailDescription', () => {
   });
 });
 
-describe('the lake reviews score (description = AggregateRating)', () => {
+describe('the lake reviews score (description = AggregateRating = the score the pages show)', () => {
   const meta = { quality: 4, facilities: 4, atmosphere: 5, count: 1, overall: 4.666 };
-  it('one score: the mean of the three shown scores, one decimal, «din 5 (N recenzii)»', () => {
-    expect(lakeReviewScore(meta)).toBe(4.3);
-    expect(reviewScoreSentence(meta)).toBe(' Nota medie 4,3 din 5 (1 recenzie).');
-    expect(reviewScoreSentence({ ...meta, count: 25 })).toBe(' Nota medie 4,3 din 5 (25 de recenzii).');
+  it('one score: the overall score, two decimals, «din 5 (N recenzii)»', () => {
+    expect(lakeReviewScore(meta)).toBe(4.67);
+    expect(reviewScoreSentence(meta)).toBe(' Nota medie 4,67 din 5 (1 recenzie).');
+    expect(reviewScoreSentence({ ...meta, count: 25 })).toBe(' Nota medie 4,67 din 5 (25 de recenzii).');
     const ld = reviewsJsonLd({ documentId: 'lk1', name: 'Balta', reviewsMeta: meta }, '/balti/lk1/recenzii', []);
     expect(ld?.aggregateRating.ratingValue).toBe(lakeReviewScore(meta));
+  });
+  it('a meta without `overall` (written before it was computed): the mean of the three', () => {
+    expect(lakeReviewScore({ quality: 4, facilities: 4, atmosphere: 5, count: 3 })).toBe(4.33);
   });
   it('no score → no sentence (never «0,00»)', () => {
     expect(reviewScoreSentence(null)).toBe('');

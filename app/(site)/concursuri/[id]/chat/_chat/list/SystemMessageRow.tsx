@@ -9,6 +9,7 @@ import { systemBodyFor, systemIconFor, systemLinkLabel, systemPartsFor } from '@
 import { cn } from '@/components/ui/cn';
 import { systemTarget, type OpenWeighingTarget, type SystemTarget } from './model';
 import { SystemEventIcon } from './SystemEventIcon';
+import { useCompetitionUrlId } from '../../../_components/competition-url';
 
 /*
  * fish SystemMessageRow (participant.chat c36–c37): a competition event is a card, never a bubble —
@@ -67,7 +68,8 @@ export function SystemLink({
 
 /** One event as a line: icon, stand chip + name, the detail under it, time (+ chevron when linked). */
 export function SystemEventLine({ message, competitionId, onWeighing }: { message: chat.ChatListMessage; competitionId: string; onWeighing?: OpenWeighing }) {
-  const target = systemTarget(message.link, competitionId);
+  const urlId = useCompetitionUrlId(competitionId);
+  const target = systemTarget(message.link, urlId);
   const linked = target !== null && (target.kind === 'href' || !!onWeighing);
   const { stand, name, detail } = systemPartsFor(message);
   const cta = linked ? systemLinkLabel(message.link) : null;

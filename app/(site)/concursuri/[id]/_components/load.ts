@@ -18,7 +18,7 @@ import { getLake } from '@/core/lakes';
 import { ApiError, call, isApiError, type Transport } from '@/core/transport';
 import { richTextToPlain } from '@/components/templates/T3/prose';
 import { collectionPageJsonLd } from '@/lib/json-ld';
-import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
+import { absoluteUrl, routes, lakeUrlId, competitionUrlId } from '@/lib/routes';
 import { createServerTransport } from '@/lib/server/transport';
 import { competitionDateProse, displayEnd } from './dates';
 import type { RankingViewKey } from './views';
@@ -195,7 +195,7 @@ export function competitionJsonLd(c: LooseCompetitionDetail, place: CompetitionP
     sport: 'Pescuit',
     startDate: c.startDate,
     endDate: displayEnd(c),
-    url: absoluteUrl(routes.competition(c.documentId)),
+    url: absoluteUrl(routes.competition(competitionUrlId(c))),
     eventStatus:
       c.competitionStatus === 'cancelled' ? 'https://schema.org/EventCancelled' : 'https://schema.org/EventScheduled',
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
@@ -258,17 +258,17 @@ export async function competitionPageJsonLd(c: LooseCompetitionDetail, view: Ran
   const started = c.competitionStatus === 'started' || c.competitionStatus === 'completed';
   // Before the start the views show the preview (canonicalised to the page): the event itself.
   if ((view !== 'cantare' && view !== 'allFish') || !started) return competitionJsonLd(c, await competitionPlace(c, t));
-  const about = { type: 'SportsEvent', name: c.name, path: routes.competition(c.documentId) };
+  const about = { type: 'SportsEvent', name: c.name, path: routes.competition(competitionUrlId(c)) };
   if (view === 'cantare') {
     // No ItemList of the weighings: they come from the weighing statistics, a signed-in (paid)
     // read the public site never makes (owner 2026-10-12).
-    return collectionPageJsonLd({ name: `Cântare · ${c.name}`, path: routes.competitionWeighings(c.documentId), about });
+    return collectionPageJsonLd({ name: `Cântare · ${c.name}`, path: routes.competitionWeighings(competitionUrlId(c)), about });
   }
   const res = await optional(getCompetitionCatches(t, c.documentId, 'weight_desc', 1, COMPETITION_CATCHES_PAGE_SIZE));
   const name = `Toți peștii · ${c.name}`;
   return collectionPageJsonLd({
     name,
-    path: routes.competitionCatches(c.documentId),
+    path: routes.competitionCatches(competitionUrlId(c)),
     about,
     list: res ? { name, items: catchItems(res.data) } : undefined,
   });

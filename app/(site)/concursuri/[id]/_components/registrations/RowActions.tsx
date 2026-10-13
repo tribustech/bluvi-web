@@ -7,6 +7,7 @@ import type { Registration } from '@/core/competitions';
 import { cn } from '@/components/ui/cn';
 import { track } from '@/lib/analytics';
 import { useSiteToast } from '../../../../_shell/Toast';
+import { useCompetitionUrlId } from '../competition-url';
 import { confirmOf, editHref, phoneHref, phoneText, rowActions, type StatusAction } from './model';
 
 /*
@@ -66,6 +67,7 @@ type Props = {
 
 export function RowActions({ competitionId, competitionName, competitionStatus, registration: r, subject, variant, onStatus, onLeave }: Props) {
   const toast = useSiteToast();
+  const urlId = useCompetitionUrlId(competitionId);
   const actions = rowActions(competitionStatus, r.registrationStatus);
   const tel = phoneHref(r);
   const onCall = () =>
@@ -77,7 +79,7 @@ export function RowActions({ competitionId, competitionName, competitionStatus, 
     return (
       <div role="group" aria-label={`Acțiuni — ${subject}`} className={cn('ml-auto grid w-max items-center justify-end gap-1.5', statusSlots ? INLINE_SLOTS : INLINE_SLOTS_NO_STATUS)}>
         {actions.edit ? (
-          <Action variant={variant} tone="info" Icon={PencilSquareIcon} label="Editează" ariaLabel={named('Editează')} iconOnly href={editHref(competitionId, r)} onClick={onLeave} />
+          <Action variant={variant} tone="info" Icon={PencilSquareIcon} label="Editează" ariaLabel={named('Editează')} iconOnly href={editHref(urlId, r)} onClick={onLeave} />
         ) : (
           <span aria-hidden />
         )}
@@ -100,7 +102,7 @@ export function RowActions({ competitionId, competitionName, competitionStatus, 
 
   const items: ReactNode[] = [];
   if (actions.edit) {
-    items.push(<Action key="edit" variant={variant} tone="info" Icon={PencilSquareIcon} label="Editează" href={editHref(competitionId, r)} onClick={onLeave} />);
+    items.push(<Action key="edit" variant={variant} tone="info" Icon={PencilSquareIcon} label="Editează" href={editHref(urlId, r)} onClick={onLeave} />);
   }
   items.push(
     tel ? (

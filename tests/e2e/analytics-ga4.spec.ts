@@ -60,17 +60,20 @@ async function gaState(page: Page) {
   }));
 }
 
-/** documentId → slug, from the CMS's URL map (lakes without a slug keep their documentId URL). */
-let slugs: Record<string, string> = {};
+/** documentId → slug, from the CMS's URL maps (lakes and competitions without a slug keep their documentId URL). */
+const slugs: Record<'balti' | 'concursuri', Record<string, string>> = { balti: {}, concursuri: {} };
 test.beforeAll(async ({ request }) => {
-  const res = await request.get(`${CMS}/feed/lakes/slugs`);
-  if (res.ok()) slugs = Object.fromEntries(((await res.json()) as { data: { documentId: string; slug: string }[] }).data.map((e) => [e.documentId, e.slug]));
+  for (const [base, path] of [['balti', '/feed/lakes/slugs'], ['concursuri', '/feed/competitions/slugs']] as const) {
+    const res = await request.get(`${CMS}${path}`);
+    if (res.ok()) slugs[base] = Object.fromEntries(((await res.json()) as { data: { documentId: string; slug: string }[] }).data.map((e) => [e.documentId, e.slug]));
+  }
 });
-const slugPath = (href: string) => href.replace(/^\/balti\/([^/]+)/, (m, id: string) => (slugs[id] ? `/balti/${slugs[id]}` : m));
+const slugPath = (href: string) =>
+  href.replace(/^\/(balti|concursuri)\/([^/]+)/, (m, base: 'balti' | 'concursuri', id: string) => (slugs[base][id] ? `/${base}/${slugs[base][id]}` : m));
 
 async function push(page: Page, href: string) {
   await page.evaluate((h) => (window as unknown as { next: { router: { push: (x: string) => void } } }).next.router.push(h), href);
-  // A lake's documentId URL lands on its slug URL (proxy.ts): wait for either.
+  // A lake's or competition's documentId URL lands on its slug URL (proxy.ts): wait for either.
   const target = slugPath(href);
   await page.waitForURL((u) => u.pathname === href || u.pathname === target, { timeout: 30_000 });
 }
@@ -207,7 +210,7 @@ test.describe('page_view follows the URL, one per fish screen (global.b.screen-v
     await expect.poll(async () => (await views(page)).length).toBe(1);
     expect((await views(page))[0].params).toMatchObject({ screen_name: 'Competition Page', competition_id: LIVE });
     await page.getByRole('tablist', { name: 'Vederi clasament' }).locator('visible=true').getByRole('tab', { name: /^Cântare/ }).click();
-    await page.waitForURL((u) => u.pathname === `/concursuri/${LIVE}/cantare`);
+    await page.waitForURL((u) => u.pathname === slugPath(`/concursuri/${LIVE}/cantare`));
     await push(page, `/concursuri/${LIVE}/informatii`);
     await page.waitForTimeout(500);
     expect(await views(page)).toHaveLength(1);

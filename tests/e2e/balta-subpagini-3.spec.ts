@@ -843,7 +843,12 @@ test('lakes.reviews.c1 lakes.reviews.c2 lakes.reviews.c4 lakes.reviews.s4 lakes.
   await expect(summary.getByTestId('score-atmosphere')).toHaveText(meta.atmosphere.toFixed(1).replace('.', ','));
   // Below 1280 the T5 KPI tiles (Statistici's figures): the label over the value, the stars under it.
   for (const label of ['Pescuit', 'Facilități', 'Atmosferă']) await expect(summary.getByText(label, { exact: true })).toBeVisible();
-  await expect(summary.getByRole('img', { name: /din 5$/ })).toHaveCount(3);
+  // The overall score above the three («4,67 din 5 · nota generală», the lake page's number — the
+  // AggregateRating the page marks up), then one set of stars per score: four in all.
+  const given = (meta as { overall?: number }).overall;
+  const overall = (given && given > 0 ? given : (meta.quality + meta.facilities + meta.atmosphere) / 3).toFixed(2).replace('.', ',');
+  await expect(summary.getByTestId('score-overall')).toContainText(`${overall}din 5 · nota generală`);
+  await expect(summary.getByRole('img', { name: /din 5$/ })).toHaveCount(4);
   // «N recenzii» + the explainer: the centre column's header (once), right above the list.
   const count = page.getByTestId('reviews-count');
   await expect(count).toHaveCount(1);

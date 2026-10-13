@@ -15,6 +15,7 @@ import { DetailAsideCard, DetailBody, DetailSection, DetailSectionState } from '
 import { STATE_CARD_FRAME } from '@/components/templates/stateCard';
 import { cn } from '@/components/ui/cn';
 import { routes } from '@/lib/routes';
+import { useCompetitionUrlId } from './competition-url';
 import { useSiteToast } from '../../../_shell/Toast';
 import { dayMonthTime, timeAgo } from './dates';
 import { isOfflineEmpty, OfflineState } from './offline';
@@ -254,6 +255,7 @@ function RequestItem({
   now: Date | null;
 }) {
   const toast = useSiteToast();
+  const urlId = useCompetitionUrlId(competitionId);
   const { completed, disabled } = extraScaleState(scale, status);
   const stand = extraScaleStand(scale);
   const sectorName = scale.stand?.sectors[0]?.name;
@@ -303,7 +305,7 @@ function RequestItem({
           {content}
         </button>
       ) : (
-        <Link href={routes.competitionScaleStand(competitionId, stand.standId)} aria-label={`${name}: vezi cântarele standului`} className={className}>
+        <Link href={routes.competitionScaleStand(urlId, stand.standId)} aria-label={`${name}: vezi cântarele standului`} className={className}>
           {content}
         </Link>
       )}

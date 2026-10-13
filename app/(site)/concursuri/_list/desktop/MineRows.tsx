@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { cn } from '@/components/ui/cn';
 import { StatusPill, type StatusTone } from '@/components/ui/StatusPill';
 import { dateWithHours, type CompetitionCard } from '@/core/competitions';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 import type { MineState } from './data';
 import { Cta, DateBlock, LakeLine, ROW_LIST, STRETCHED_LINK, Thumb, ValueBone } from './parts';
 
@@ -56,8 +56,8 @@ export function MineRows({ cards, states }: { cards: CompetitionCard[]; states: 
         const step = nextStep(c, m);
         // A finished row waits for my place before it says anything about it.
         const stepKnown = c.status === 'completed' ? m.place !== undefined : m.known || c.status !== 'notStarted';
-        const rowHref = routes.competition(c.documentId);
-        const href = c.status === 'started' || c.status === 'completed' ? routes.competitionRanking(c.documentId) : rowHref;
+        const rowHref = routes.competition(competitionUrlId(c));
+        const href = c.status === 'started' || c.status === 'completed' ? routes.competitionRanking(competitionUrlId(c)) : rowHref;
         return (
           <li
             key={c.documentId}

@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/components/ui/cn';
 import { cardRankingLabel, type CardMedia, type CompetitionCard } from '@/core/competitions';
 import { blurDataUrl } from '@/lib/blurhash';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 
 /*
  * The pieces both competition cards share (the poster card ./PosterCard and the compact
@@ -27,7 +27,7 @@ export function blur(media: CardMedia | null) {
 /** The name, carrying the card's one link (c1, c7). */
 export function CardName({ c, className }: { c: CompetitionCard; className: string }) {
   return (
-    <CardTitle href={routes.competition(c.documentId)} className={cn('line-clamp-2 text-ink', className)}>
+    <CardTitle href={routes.competition(competitionUrlId(c))} className={cn('line-clamp-2 text-ink', className)}>
       {c.name}
     </CardTitle>
   );

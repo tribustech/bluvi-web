@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import { HydrationBoundary, type DehydratedState } from '@tanstack/react-query';
 import type { CompetitionCardsPage } from '@/core/competitions';
 import type { LakeDetail } from '@/core/lakes';
-import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
+import { competitionUrlId, absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../_shell/SiteHeader';
 import { lakeSubpageParams, loadLake } from '../_components/load';
 import { param } from '@/lib/search-params';
@@ -89,7 +89,7 @@ async function Competitions({ lake, searchParams }: { lake: LakeDetail; searchPa
       item: {
         '@type': 'SportsEvent',
         name: c.name,
-        url: absoluteUrl(routes.competition(c.documentId)),
+        url: absoluteUrl(routes.competition(competitionUrlId(c))),
         sport: 'Pescuit sportiv',
         ...(c.startDate ? { startDate: c.startDate } : {}),
         ...(c.endDate ? { endDate: c.endDate } : {}),

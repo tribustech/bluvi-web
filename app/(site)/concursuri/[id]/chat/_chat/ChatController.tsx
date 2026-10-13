@@ -40,6 +40,7 @@ import {
 import { CHAT_FROM_KEY, setLastChatTab, tabParamOf } from '../_live/lastTab';
 import type { ChatSource, RoomId } from '../_live/source';
 import type { ChatCompetitionFacts } from './facts';
+import { useCompetitionUrlId } from '../../_components/competition-url';
 
 /*
  * The chat page's brain (fish ChatScreen minus its views): one context every part of the frame
@@ -178,6 +179,8 @@ export function ChatController({
   children: ReactNode;
 }) {
   const router = useRouter();
+  // The chat's URLs keep the competition's slug URL (competition-url.tsx); every read keeps the documentId.
+  const urlId = useCompetitionUrlId(competitionId);
   const toast = useSiteToast();
   const qc = useQueryClient();
   const t = useMemo(() => pageTransport(), []);
@@ -233,7 +236,7 @@ export function ChatController({
       // sync without a server round trip; `seenLink` moves with it so the change does not echo back.
       setSeenLink(room);
       try {
-        window.history.replaceState(null, '', routes.competitionChat(competitionId, tabParamOf(room)));
+        window.history.replaceState(null, '', routes.competitionChat(urlId, tabParamOf(room)));
       } catch {
         // A sandboxed history: the room still switches.
       }
@@ -242,7 +245,7 @@ export function ChatController({
       setAttachments([]);
       (document.activeElement as HTMLElement | null)?.blur?.();
     },
-    [activeRoom, competitionId],
+    [activeRoom, urlId],
   );
 
   // c6: remember the room per competition, only once it is readable.
@@ -298,10 +301,10 @@ export function ChatController({
 
   // ── back (c41) ────────────────────────────────────────────────────
   const back = useCallback(() => {
-    const competitionPath = routes.competition(competitionId);
+    const competitionPath = routes.competition(urlId);
     if (competitionUnderneath(competitionPath, competitionId)) router.back();
     else router.replace(competitionPath);
-  }, [competitionId, router]);
+  }, [competitionId, urlId, router]);
   const decline = useCallback(() => {
     // fish: declining records nothing; a plain back, or home when the chat is the first page.
     if (canGoBackInApp()) router.back();

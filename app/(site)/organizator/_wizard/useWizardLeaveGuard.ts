@@ -45,7 +45,11 @@ export function useWizardLeaveGuard({
 
   useEffect(() => {
     if (!active) return;
-    const inWizard = (url: URL) => url.origin === location.origin && url.pathname.startsWith(basePath);
+    // The steps' folder as the address bar shows it too: a published competition's edit wizard is
+    // served under its slug URL (proxy.ts), `basePath` names the documentId one.
+    const shownBase = location.pathname.replace(/[^/]*$/, '');
+    const inWizard = (url: URL) =>
+      url.origin === location.origin && (url.pathname.startsWith(basePath) || url.pathname.startsWith(shownBase));
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = '';

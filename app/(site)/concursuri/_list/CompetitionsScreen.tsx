@@ -65,7 +65,7 @@ import {
 } from '@/core/competitions';
 import type { Transport } from '@/core/transport';
 import { createBrowserTransport } from '@/lib/client/transport';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 import { logFiltersApplied, logScopeChanged, logSearchCommitted, logStatusChanged } from './analytics';
 import { PosterGrid, PosterGridSkeleton } from './cards/PosterCard';
 import { FiltersDialog, periodChoices, PickerRow, type FiltersView } from './FiltersDialog';
@@ -1303,7 +1303,7 @@ function AsideList({ items, showLive = true }: { items: CompetitionCard[]; showL
         const img = c.banner?.smallUrl ?? c.banner?.url ?? c.lake?.image?.smallUrl ?? c.lake?.image?.url;
         return (
           <li key={c.documentId}>
-            <Link href={routes.competition(c.documentId)} className="flex items-center gap-3 rounded-control px-2 py-2 hover:bg-soft-fill">
+            <Link href={routes.competition(competitionUrlId(c))} className="flex items-center gap-3 rounded-control px-2 py-2 hover:bg-soft-fill">
               <span className="relative size-10 shrink-0 overflow-hidden rounded-avatar bg-soft-fill">
                 {img ? <Image src={img} alt="" fill sizes="40px" className="object-cover" /> : null}
               </span>

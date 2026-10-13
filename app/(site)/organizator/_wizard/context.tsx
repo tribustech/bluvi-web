@@ -425,7 +425,11 @@ export function WizardProvider({ initialValues, initialDraftId, competitionId, r
       q.delete('editor');
       q.delete('explicatie');
       const s = q.toString();
-      return `${wizardStepPath(pas, competitionId)}${s ? `?${s}` : ''}`;
+      // Only the step changes: the URL keeps the competition segment it was opened at (a published
+      // competition's edit wizard is served under its slug URL, proxy.ts).
+      const here = window.location.pathname;
+      const path = stepFromPath(here) ? here.replace(/[^/]+\/?$/, pas) : wizardStepPath(pas, competitionId);
+      return `${path}${s ? `?${s}` : ''}`;
     },
     [competitionId],
   );

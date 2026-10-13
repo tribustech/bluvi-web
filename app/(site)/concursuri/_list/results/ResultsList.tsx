@@ -22,7 +22,7 @@ import { InlineNumber } from '@/components/ui/SignatureNumber';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { type CompetitionCard } from '@/core/competitions';
 import type { Transport } from '@/core/transport';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 import { blur, Chips, posterOf } from '../cards/parts';
 import type { DesktopViewer } from '../desktop/data';
 import { dayParts } from '../desktop/dates';
@@ -349,11 +349,11 @@ function Expanded({ card: c, read, view }: { card: CompetitionCard; read: Result
 
   const actions = (
     <div className="flex w-full flex-col-reverse gap-2 md:w-auto md:flex-row md:items-center">
-      <Link href={routes.competition(c.documentId)} className={buttonClass({ variant: 'ghost', className: 'w-full md:w-auto' })}>
+      <Link href={routes.competition(competitionUrlId(c))} className={buttonClass({ variant: 'ghost', className: 'w-full md:w-auto' })}>
         Vezi concursul
       </Link>
       {c.results?.hasCatches !== false ? (
-        <Link href={routes.competitionRanking(c.documentId)} className={buttonClass({ variant: 'primary', className: 'w-full md:w-auto' })}>
+        <Link href={routes.competitionRanking(competitionUrlId(c))} className={buttonClass({ variant: 'primary', className: 'w-full md:w-auto' })}>
           Vezi clasamentul complet <ArrowRightIcon className="size-4" aria-hidden />
         </Link>
       ) : null}

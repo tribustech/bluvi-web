@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/components/ui/cn';
 import { getRankingTypeLabel, type CompetitionListItem } from '@/core/competitions';
 import { buildLakeStats, formatReviewsCount, getLakeRatingDisplay, type LakeDetail, type LakeStatKey, type ReviewMeta } from '@/core/lakes';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 import { competitionDateLabel } from '../../../concursuri/[id]/_components/dates';
 import { facilityIcon } from '../../../_home/facilityIcon';
 import { lakeHref } from './availability';
@@ -30,6 +30,7 @@ import type { LakeCompetitions, Settled } from './load';
 import { ClaimTrigger, DialogTrigger, OwnerLink, PhoneLink } from './LakeActions';
 import { SectionRetry } from './RetryFocus';
 import { JumpLink, SectionAction } from './SectionLink';
+import { formatLakeScore, lakeReviewScore } from '@/lib/seo/reviews';
 
 /*
  * The lake page's section contents — fish features/lakes/detail/* (LakeCharacteristics,
@@ -200,7 +201,7 @@ function CompetitionRail({ title, items, live = false }: { title: string; items:
               dateLabel={competitionDateLabel(c.startDate, c.endDate)}
               lakeName={c.lake?.name ?? 'Nedefinit'}
               imageSrc={c.banner?.smallUrl ?? c.banner?.url ?? '/images/competition-placeholder.jpg'}
-              href={routes.competition(c.documentId)}
+              href={routes.competition(competitionUrlId(c))}
               live={live}
               status={live ? undefined : { label: 'Viitor', tone: 'info' }}
               followersCount={c.viewers}
@@ -238,7 +239,7 @@ export function ReviewsSummary({ meta, className }: { meta: ReviewMeta | null; c
       {meta && count > 0 ? (
         <div className="flex items-center gap-4.5">
           <div className="flex shrink-0 flex-col items-center">
-            <span className="t-display">{comma(meta.overall ?? 0, 2)}</span>
+            <span className="t-display">{formatLakeScore(lakeReviewScore(meta) ?? 0)}</span>
             <span className="mt-0.5 flex items-center gap-1 t-label text-muted">
               <StarIcon aria-hidden className={cn(PRESENCE_ICON.meta, 'text-rating')} />
               {formatReviewsCount(count)}

@@ -40,7 +40,7 @@ import { ChoiceChips } from '@/components/templates/T1';
 import { DetailSection } from '@/components/templates/T3';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 import { isOfflineEmpty, OfflineState } from './offline';
 import { QueryRetry } from './QueryRetry';
 import { formatKg } from './ranking';
@@ -118,7 +118,7 @@ export function StandTimeline({
   emptyClassName,
 }: {
   t: Transport;
-  competition: Pick<CompetitionWithMyStatus, 'documentId' | 'competitionStatus' | 'registrations'>;
+  competition: Pick<CompetitionWithMyStatus, 'documentId' | 'slug' | 'competitionStatus' | 'registrations'>;
   variant: Variant;
   /** The card's classes when there is no snapshot (the Statistici grid gives it the whole row). */
   emptyClassName?: string;
@@ -127,7 +127,7 @@ export function StandTimeline({
   const hidden = timelineHidden(status);
   const q = useTimelineSnapshot(t, competition);
   if (hidden || !status) return null;
-  const href = routes.competitionStandTimeline(competition.documentId);
+  const href = routes.competitionStandTimeline(competitionUrlId(competition));
 
   // Offline with nothing cached: TanStack pauses the read and leaves it pending (offline.tsx).
   if (isOfflineEmpty(q)) {

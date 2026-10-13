@@ -5,6 +5,7 @@ import { ArrowRightIcon } from '@heroicons/react/24/outline';
 import type { CompetitionActiveWeighing } from '@/core/organizer';
 import { LiveDot } from '@/components/templates/LiveDot';
 import { routes } from '@/lib/routes';
+import { useCompetitionUrlId } from '../competition-url';
 import { nationalStandLabel, standLabel } from '../stand';
 
 /*
@@ -24,7 +25,7 @@ import { nationalStandLabel, standLabel } from '../stand';
  *    «Cântar în curs pe standul A3 · Deschide în cântar». Static in the flow (owner rule 3).
  */
 
-/** The scale page of a weighing in progress; null when its stand has no sector (fish does nothing then). */
+/** The scale page of a weighing in progress (`competitionId`: the URL segment); null when its stand has no sector (fish does nothing then). */
 export function scaleHrefOf(
   competitionId: string,
   w: CompetitionActiveWeighing,
@@ -55,8 +56,9 @@ export function ManagerWeighingNotice({
   weighings: CompetitionActiveWeighing[] | undefined;
   isNc: boolean;
 }) {
+  const urlId = useCompetitionUrlId(competitionId);
   const open = (weighings ?? []).filter(
-    (w) => w.stand && scaleHrefOf(competitionId, w),
+    (w) => w.stand && scaleHrefOf(urlId, w),
   );
   if (open.length === 0) return null;
   return (
@@ -74,7 +76,7 @@ export function ManagerWeighingNotice({
               ·
             </span>
             <Link
-              href={scaleHrefOf(competitionId, w)!}
+              href={scaleHrefOf(urlId, w)!}
               className="inline-flex min-h-10 items-center gap-1 rounded-control t-body-strong text-accent-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent"
             >
               Deschide în cântar

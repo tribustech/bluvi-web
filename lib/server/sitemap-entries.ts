@@ -8,7 +8,7 @@ import { getCommunityHistory, getCommunityStats, getCommunityVenueCatches, VENUE
 import { getAnglerPublicProfile } from '@/core/social';
 import type { Transport } from '@/core/transport';
 import { partideHrefs } from '@/lib/partide-pages';
-import { absoluteUrl, routes, type CompetitionTabStatus, lakeUrlId } from '@/lib/routes';
+import { absoluteUrl, routes, type CompetitionTabStatus, competitionUrlId, lakeUrlId } from '@/lib/routes';
 
 /*
  * The sitemap's entries (global.b.seo-sitemap). Every URL is a self-canonical page with its own
@@ -131,11 +131,13 @@ export async function competitionUrls(
   const done = status === 'completed';
   const freq: Entry['changeFrequency'] = done ? 'monthly' : 'hourly';
   const id = c.documentId;
+  // The slug URL once the competition has one (competitionUrlId): the sitemap lists what the canonical says.
+  const u = competitionUrlId(c);
   const at = (path: string, priority: number): Entry => ({ url: absoluteUrl(path), changeFrequency: freq, priority });
-  const out: Entry[] = [at(routes.competition(id), done ? 0.5 : 0.8), at(routes.competitionInfo(id), 0.4)];
-  if (c.registrations.some(r => r.registrationStatus === 'registered')) out.push(at(routes.competitionParticipants(id), 0.4));
+  const out: Entry[] = [at(routes.competition(u), done ? 0.5 : 0.8), at(routes.competitionInfo(u), 0.4)];
+  if (c.registrations.some(r => r.registrationStatus === 'registered')) out.push(at(routes.competitionParticipants(u), 0.4));
   const d = detail === undefined ? await maybe(getCompetition(t, id)) : detail;
-  if (d && plain(d.regulation)) out.push(at(routes.competitionRules(id), 0.3));
+  if (d && plain(d.regulation)) out.push(at(routes.competitionRules(u), 0.3));
   return out;
 }
 

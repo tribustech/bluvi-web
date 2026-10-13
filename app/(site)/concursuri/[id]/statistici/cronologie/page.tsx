@@ -3,8 +3,9 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { competitionQuery } from '@/core/competitions';
 import { HydrateQueries } from '@/lib/client/hydration';
-import { absoluteUrl, routes } from '@/lib/routes';
+import { absoluteUrl, competitionUrlId, routes } from '@/lib/routes';
 import { SetBreadcrumb } from '../../../../_shell/SiteHeader';
+import { CompetitionUrlProvider } from '../../_components/competition-url';
 import { COMPETITIONS_CRUMB } from '../../_components/crumbs';
 import { loadCompetition } from '../../_components/load';
 import { TimelineScreen, TimelineScreenSkeleton } from './TimelineScreen';
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (load.kind === 'missing') return { title: 'Concursul nu a fost găsit' };
   if (load.kind === 'invalid') return { title: TITLE, robots: { index: false } };
   const c = load.competition;
-  const canonical = routes.competitionStandTimeline(c.documentId);
+  const canonical = routes.competitionStandTimeline(competitionUrlId(c));
   const title = `${TITLE} · ${c.name}`;
   const description = `Evoluția scorului fiecărui stand pe parcursul concursului ${c.name}${c.lake?.name ? `, ${c.lake.name}` : ''}.`;
   return {
@@ -50,13 +51,15 @@ export default async function StandTimelinePage({ params }: Props) {
   const load = await loadCompetition(id);
   if (load.kind === 'missing') notFound();
   const name = load.kind === 'invalid' ? 'Concurs' : load.competition.name;
+  // The links go straight to the competition's slug URL (competition-url.tsx); the reads keep `id`.
+  const urlId = load.kind === 'invalid' ? id : competitionUrlId(load.competition);
   return (
-    <>
+    <CompetitionUrlProvider documentId={id} urlId={urlId}>
       <SetBreadcrumb
         trail={[
           COMPETITIONS_CRUMB,
-          { label: name, href: routes.competition(id) },
-          { label: 'Statistici', href: routes.competitionStatistics(id) },
+          { label: name, href: routes.competition(urlId) },
+          { label: 'Statistici', href: routes.competitionStatistics(urlId) },
           { label: TITLE },
         ]}
       />
@@ -65,6 +68,6 @@ export default async function StandTimelinePage({ params }: Props) {
           <TimelineScreen id={id} />
         </HydrateQueries>
       </Suspense>
-    </>
+    </CompetitionUrlProvider>
   );
 }

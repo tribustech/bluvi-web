@@ -215,7 +215,7 @@ export type OpenWeighingTarget = Extract<SystemTarget, { kind: 'weighing' }>;
 /**
  * Where a linked event leads on the web: ranking → Clasament; allocation / registrations →
  * Participanți; penalties → the penalties hub (fish systemMessages.ts:96-97, since M6-B6); a weighing
- * (id + standId + standName) → its detail over the chat.
+ * (id + standId + standName) → its detail over the chat. `competitionId`: the URL segment of the links.
  */
 export function systemTarget(link: chat.ChatSystemLink | undefined, competitionId: string): SystemTarget {
   if (!link || !hasSystemLink(link)) return null;

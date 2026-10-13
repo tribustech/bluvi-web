@@ -7,7 +7,7 @@ import { FishIcon, ScaleIcon } from '@/components/icons/brand';
 import { FaceStack } from '@/components/ui/Avatar';
 import { cn } from '@/components/ui/cn';
 import { ButtonLink } from '@/components/ui/Button';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 
 /**
  * fish features/competitions/components/cards/preview/CompetitionRailCard.tsx — the card of the
@@ -43,7 +43,7 @@ export function CompetitionRailCard({
   /** The first card of an above-the-fold rail: the poster is the LCP candidate. */
   eager?: boolean;
 }) {
-  const href = routes.competition(c.documentId);
+  const href = routes.competition(competitionUrlId(c));
   const media = c.banner ?? c.lake?.image ?? null;
   const poster = media?.smallUrl ?? media?.url ?? null;
   const isLive = c.status === 'started';
@@ -136,7 +136,7 @@ export function CompetitionRailCard({
  * ranking (live) or the competition (upcoming). Below 768 the rail card stays (fish).
  */
 export function CompetitionFeatureCard({ competition: c }: { competition: CompetitionCard }) {
-  const href = routes.competition(c.documentId);
+  const href = routes.competition(competitionUrlId(c));
   const media = c.banner ?? c.lake?.image ?? null;
   const poster = media?.url ?? media?.smallUrl ?? null;
   const isLive = c.status === 'started';
@@ -183,7 +183,7 @@ export function CompetitionFeatureCard({ competition: c }: { competition: Compet
           {isLive ? <LiveFooter c={c} /> : <UpcomingFooter c={c} />}
           {/* Above the card's stretched link (CardTitle), so it is a link of its own. */}
           <ButtonLink
-            href={isLive ? routes.competitionRanking(c.documentId) : href}
+            href={isLive ? routes.competitionRanking(competitionUrlId(c)) : href}
             variant="secondary"
             size="compact"
             className="relative z-above ml-auto"

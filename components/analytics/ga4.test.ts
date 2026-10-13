@@ -219,6 +219,17 @@ describe('GA4 behind consent (NEXT_PUBLIC_GA4_ID set)', () => {
     expect(names).toEqual(['Competition Page', 'Competition Page', 'Competitions List']);
   });
 
+  it('a competition\'s slug URL logs its documentId (the route param) as competition_id and in page_path, as the app does', async () => {
+    const { consent, Ga4, tracker } = await load();
+    consent.setConsent({ analytics: true });
+    await render(createElement(Ga4));
+    const before = events('page_view').length;
+    tracker.logScreenView('/concursuri/cupa-chita-2026/clasament', { id: 'docC' });
+    const p = events('page_view').slice(before).at(-1)![2] as Record<string, string>;
+    expect(p.competition_id).toBe('docC');
+    expect(p.page_path).toBe('/concursuri/docC/clasament');
+  });
+
   it('a data-analytics link click is tracked (news_link_clicked) — page channel and gtag', async () => {
     const { analytics, consent, Ga4, links } = await load();
     consent.setConsent({ analytics: true });

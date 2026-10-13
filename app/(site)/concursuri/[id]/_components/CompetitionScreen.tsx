@@ -68,6 +68,7 @@ import { NcSectorPills, NcSortControl, ncSortFor, type NcSort, type NcView } fro
 import { useSiteToast } from '../../../_shell/Toast';
 import { AllFishView } from './AllFishView';
 import { ChatHeaderButton, markChatFromCompetition, useChatBadge, useChatHref } from './ChatPanel';
+import { useCompetitionUrlId } from './competition-url';
 import { CompetitionSkeleton } from './CompetitionSkeleton';
 import { isOfflineEmpty, OFFLINE_TITLE } from './offline';
 import { cn } from '@/components/ui/cn';
@@ -210,6 +211,8 @@ function Screen({
   const qc = useQueryClient();
   const pathname = usePathname() ?? '';
   const router = useRouter();
+  // The URL segment for links (the slug once the CMS has one, competition-url.tsx); reads keep `id`.
+  const urlId = useCompetitionUrlId(id);
   const breakpoint = useBreakpoint();
   const isAuthenticated = !!viewer;
   const session = { isAuthenticated };
@@ -300,12 +303,12 @@ function Screen({
       // An old link: navigate (replace) to the view's segment, which the server renders open.
       const url = new URL(window.location.href);
       url.searchParams.delete(VIEW_PARAM);
-      router.replace(`${viewPath(routes.competition(id), viewFromSegment(legacy))}${url.search}${url.hash}`, { scroll: false });
+      router.replace(`${viewPath(routes.competition(urlId), viewFromSegment(legacy))}${url.search}${url.hash}`, { scroll: false });
     }
     const read = () => setView(viewFromPath(window.location.pathname));
     window.addEventListener('popstate', read);
     return () => window.removeEventListener('popstate', read);
-  }, [id, router]);
+  }, [urlId, router]);
   const [sortBy, setSortBy] = useState<RankingSort>('stand');
   // Bumped by every Sortare pick, the same value too: the phone table starts over in the order the
   // bar names even after a header sort (fish's Sortare always leaves the rows in that order).
@@ -410,12 +413,12 @@ function Screen({
   const selectView = (next: RankingViewKey) => {
     // From another route tab (the action bar, the weighing banner): open Clasament on that view.
     if (!onClasament) {
-      router.push(viewPath(routes.competition(id), next));
+      router.push(viewPath(routes.competition(urlId), next));
       return;
     }
     if (next !== view) {
       const url = new URL(window.location.href);
-      url.pathname = viewPath(routes.competition(id), next);
+      url.pathname = viewPath(routes.competition(urlId), next);
       // A view's open detail (a weighing, an angler) belongs to that view: it never rides along into
       // another view's URL (nor reopens by itself when the reader comes back).
       for (const param of ['cantar', 'stand', 'pescar']) url.searchParams.delete(param);
@@ -453,7 +456,7 @@ function Screen({
    */
   const [weighingsMount, setWeighingsMount] = useState(0);
   const openActiveWeighing = (w: CompetitionActiveWeighing) => {
-    const href = routes.competitionWeighing(id, w.weighingDocumentId, w.stand.documentId);
+    const href = routes.competitionWeighing(urlId, w.weighingDocumentId, w.stand.documentId);
     if (!onClasament) {
       router.push(href);
       return;
@@ -657,7 +660,7 @@ function Screen({
   // fish handleInscrieTe (competition-page.bara-actiuni.c4): the form, or the team disclaimer first
   // for a NEW team registration (core registrationAction.target).
   const registrationHref =
-    registration.target === 'teamDisclaimer' ? routes.competitionTeamDisclaimer(id) : routes.competitionRegister(id);
+    registration.target === 'teamDisclaimer' ? routes.competitionTeamDisclaimer(urlId) : routes.competitionRegister(urlId);
   const me = myEntry(competition, viewer ?? null);
   const metadata = rankingData?.metadata;
   // Owner rule 20: each view's count is a badge on its tab (only when it is known — rule 4).
@@ -709,8 +712,8 @@ function Screen({
   // fish RankingActionBar «Organizare»: the author, before the start and while it runs (organizare c1).
   const organizerMenu = org.menu.length > 0 ? { options: org.menu, onChoose: (o: (typeof org.menu)[number]) => org.choose(o, 'bar') } : undefined;
   // A referee's «Adaugă cântar» (organizare c11) and everyone else's «Penalizări» (bara-actiuni c10).
-  const refereeScaleHref = roleKnown && refereeScaleTile(role, status) ? routes.competitionScale(id) : undefined;
-  const penaltiesHref = roleKnown && penaltiesTile(role, competition.rankingType, status) ? routes.competitionPenalties(id) : undefined;
+  const refereeScaleHref = roleKnown && refereeScaleTile(role, status) ? routes.competitionScale(urlId) : undefined;
+  const penaltiesHref = roleKnown && penaltiesTile(role, competition.rankingType, status) ? routes.competitionPenalties(urlId) : undefined;
   // The «Acțiuni» rows of the author / a referee wait for the seating (fish isLoading).
   const seatingKnown = allocatedQ.data !== undefined || allocatedQ.isError;
   const managerItems =
@@ -730,7 +733,7 @@ function Screen({
   const organizerSlotPossible = status === 'notStarted' || status === 'started' || status === 'completed';
   const followable = status === 'started' || status === 'notStarted';
   const onBannerWeighing = (w: CompetitionActiveWeighing) => {
-    const href = managesWeighings ? scaleHrefOf(id, w) : null;
+    const href = managesWeighings ? scaleHrefOf(urlId, w) : null;
     if (href) router.push(href);
     else openActiveWeighing(w);
   };
@@ -821,7 +824,7 @@ function Screen({
             label="Secțiunile concursului"
             tabs={COMPETITION_TABS.map(t => ({
               label: t.label,
-              href: t.href(id),
+              href: t.href(urlId),
               current: t.key === tab,
               count: t.key === 'participanti' ? registered : undefined,
             }))}
@@ -883,7 +886,7 @@ function Screen({
                   onRetryWeighings={() => void weighingStatsQ.refetch()}
                   allocated={allocatedQ.data}
                   onAllWeighings={() => selectView('cantare')}
-                  scaleHrefOf={managesWeighings ? w => scaleHrefOf(id, w) : undefined}
+                  scaleHrefOf={managesWeighings ? w => scaleHrefOf(urlId, w) : undefined}
                 />
               </div>
               <DetailSection tone="plain" className="flex flex-col gap-4 max-md:pt-2">
@@ -1055,7 +1058,7 @@ function Screen({
                           // (its note) nor draws cards without their counts line.
                           session={viewer ? 'in' : viewer === null || sessionUnknown ? 'out' : 'pending'}
                           decimals={decimals}
-                          scaleStandHref={managesWeighings ? standId => routes.competitionScaleStand(id, standId) : undefined}
+                          scaleStandHref={managesWeighings ? standId => routes.competitionScaleStand(urlId, standId) : undefined}
                         />
                       )}
                       {view === 'allFish' && <AllFishView t={t} competition={competition} decimals={decimals} />}
@@ -1148,7 +1151,7 @@ function Screen({
           registration={registration}
           registrationHref={registrationHref}
           signIn={signIn}
-          weighingsHref={routes.competitionScale(id)}
+          weighingsHref={routes.competitionScale(urlId)}
           managerItems={managerItems}
           onManagerAction={item => org.choose(item, 'sheet')}
           extraScale={
@@ -1174,7 +1177,7 @@ function Screen({
           fullViewDisabled
             ? undefined
             : routes.competitionRankingImage(
-                id,
+                urlId,
                 imageQueryString(
                   imageQueryFor({ rankingType: metadata?.rankingType, sortBy, feederTab, ncSectorName, ncSort }),
                 ),

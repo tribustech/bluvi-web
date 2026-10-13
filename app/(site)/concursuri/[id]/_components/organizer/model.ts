@@ -1,6 +1,6 @@
 import { feederRoundActions, type CompetitionWithMyStatus } from '@/core/competitions';
 import { supportsPenalties, type AllocatedParticipantsResponse } from '@/core/organizer';
-import { routes } from '@/lib/routes';
+import { competitionUrlId, routes } from '@/lib/routes';
 
 /*
  * The organizer side of the competition page (parity competition-page.organizare, organizer.b.*),
@@ -26,6 +26,7 @@ export const roleOf = (userRole: string | null | undefined): CompetitionRole =>
 export type OrganizerCompetition = Pick<
   CompetitionWithMyStatus,
   | 'documentId'
+  | 'slug'
   | 'competitionStatus'
   | 'rankingType'
   | 'sectors'
@@ -104,7 +105,8 @@ export function organizerMenuOptions({ competition: c, role, allocated, returnTo
   if (role !== 'author') return [];
   const status = c.competitionStatus;
   if (status !== 'notStarted' && status !== 'started') return [];
-  const id = c.documentId;
+  // The menu's links: the competition's URL segment (its slug once it has one).
+  const id = competitionUrlId(c);
   const opts: OrganizerOption[] = [
     {
       key: 'modifica-competitia',
@@ -164,7 +166,7 @@ export function endOptions(c: OrganizerCompetition): OrganizerOption[] {
   }
   return legItems.map(a =>
     a.kind === 'allocateNext'
-      ? { key: `leg-${a.kind}`, label: a.label, icon: 'participants', action: { type: 'link', href: routes.competitionAllocation(c.documentId, a.round) } }
+      ? { key: `leg-${a.kind}`, label: a.label, icon: 'participants', action: { type: 'link', href: routes.competitionAllocation(competitionUrlId(c), a.round) } }
       : {
           key: `leg-${a.kind}`,
           label: a.label,
@@ -185,7 +187,7 @@ export function addScaleItem(c: OrganizerCompetition, allocated: AllocatedPartic
     key: 'adauga-cantar',
     label: status === 'started' ? 'Adaugă cântar' : 'Vezi cântarele din concurs',
     icon: 'scale',
-    action: { type: 'link', href: routes.competitionScale(c.documentId) },
+    action: { type: 'link', href: routes.competitionScale(competitionUrlId(c)) },
     disabled,
     reason: disabled ? (status !== 'started' ? 'Competiția încă nu a început' : 'Te rugăm să aloci mai întâi participanții pe standuri') : undefined,
   };
@@ -232,7 +234,8 @@ export function organizerSheetItems({
   registrationHref: string;
   now: Date;
 }): SheetItem[] {
-  const id = c.documentId;
+  // The menu's links: the competition's URL segment (its slug once it has one).
+  const id = competitionUrlId(c);
   const status = c.competitionStatus;
   if (status === 'completed') {
     return [{ key: 'vezi-cantare', label: 'Vezi cântarele din concurs', icon: 'weighings', action: { type: 'link', href: routes.competitionScale(id) } }];
