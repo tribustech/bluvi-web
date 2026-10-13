@@ -15,11 +15,10 @@ import { WaterKindSwitch } from './WaterKindSwitch';
 /*
  * The Bălți home's search header — one designed unit (owner rule 6, ROADMAP §4b, 2026-10-06): the
  * Bălți / Ape publice switch (fish's SegmentedToggle; the h1 is for screen readers), the search pill
- * (fish LakesSearchBubble, lakes.home.c4) taking the rest of the row, «Filtre» (c5), and from 768
- * the map as the row's primary action — «Arată harta», filled accent, icon and label (never a small
- * tool lost at the end). The group spans the content width, so no dead band opens after it. On a
- * phone the floating «Arată harta» carries the map (c23); fish hides the map entry at
- * totalLakesCount 0 (lakes.home.s10), so does the web.
+ * (fish LakesSearchBubble, lakes.home.c4) taking the rest of the row, «Filtre» (c5). The map is the
+ * floating «Arată harta» pill at every width (c23; owner 2026-10-13, from 768 too — Airbnb's map
+ * pill — so the search takes the whole row); fish hides the map entry at totalLakesCount 0
+ * (lakes.home.s10), so does the web. The group spans the content width, so no dead band opens.
  *
  * Right under it, attached, the icon categories (rule 5: Airbnb's row; each one filters the grid
  * below in place — HomeGrid CategoryBar). The map page shows the same search row (LakesSearchRow) in
@@ -96,87 +95,110 @@ export function LakesSearchRow({
 }) {
   const select = (key: 'fish' | 'regime', label: string, icon: ReactNode) => {
     const value = sectionValues?.[key] ?? null;
+    const open = sectionExpanded === key;
     return (
       <>
-        <span aria-hidden className="my-2 w-px shrink-0 bg-hairline max-lg:hidden" />
+        <span aria-hidden className="my-3 w-px shrink-0 bg-hairline max-lg:hidden" />
         <button
           type="button"
+          data-pill-segment={key}
           onClick={() => onSection?.(key)}
           aria-haspopup="dialog"
-          aria-expanded={sectionExpanded === key}
-          aria-label={value ? `${label}: ${value}` : undefined}
-          className={cn(SEGMENT, 'gap-2 px-3 max-lg:hidden xl:min-w-40', value && 'bg-accent-tint hover:bg-accent-tint')}
+          aria-expanded={open}
+          aria-label={value ? `${label}: ${value}` : label}
+          className={cn(SEGMENT, 'min-w-36 gap-2.5 px-5 max-lg:hidden xl:min-w-44', open && 'bg-surface shadow-e2 hover:bg-surface')}
         >
-          <span aria-hidden className="flex shrink-0 text-accent-ink [&>svg]:size-5">
+          <span aria-hidden className={cn('flex shrink-0 [&>svg]:size-5', value ? 'text-accent-ink' : 'text-muted')}>
             {icon}
           </span>
-          <span className={cn('max-w-36 flex-1 truncate t-body-strong', value ? 'text-accent-ink' : 'text-ink')}>{value ?? label}</span>
-          <ChevronDownIcon aria-hidden className="size-4 shrink-0 stroke-2 text-muted" />
+          {/* Airbnb's two-line segment: what it is, then the choice (or «Oricare»). */}
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="t-label text-ink">{label}</span>
+            <span className={cn('max-w-36 truncate t-body', value ? 'text-accent-ink' : 'text-muted')}>{value ?? 'Oricare'}</span>
+          </span>
+          <ChevronDownIcon aria-hidden className={cn('size-4 shrink-0 stroke-2 text-muted transition-transform duration-(--duration-fast)', open && 'rotate-180')} />
         </button>
       </>
     );
   };
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-center">
+    // From 768 three tracks, as the top bar (owner 2026-10-13): the Bălți / Ape publice switch on the
+    // left, the search pill centred (at most 860 — never a bar across the whole page), «Filtre» on the
+    // right. On a phone the switch above, the pill and «Filtre» in one row (fish).
+    <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(max-content,1fr)_minmax(0,860px)_minmax(max-content,1fr)] md:items-center md:gap-4">
       <div className={cn('flex justify-center md:justify-start', !phoneSwitch && 'max-md:hidden')}>
         <WaterKindSwitch current="balti" hrefs={switcherHrefs} />
       </div>
-      <div inert={!ready} className="flex min-w-0 items-center gap-3 md:flex-1">
-        {/* The search pill (owner rule 6 — imobiliare.ro's bar): one shell holding «where»
-            (fish LakesSearchBubble, lakes.home.c4 — the search layer) and, from 1024, «what»:
-            the species and the regime, each opening its own filter section. No price select: no
-            endpoint filters by price (rule 4). It takes the rest of the row. */}
+      <div inert={!ready} className="flex min-w-0 items-center gap-3 md:contents">
+        {/* The search pill (owner rule 6): one shell holding «where» (fish LakesSearchBubble,
+            lakes.home.c4 — the search layer) and, from 1024, «what»: the species and the regime,
+            each opening its own panel under its segment. No price select: no endpoint filters by
+            price (rule 4). From 768 the segments are two lines high (label over value). */}
         <div
           className={cn(
             CONTROL_H,
-            'flex min-w-0 flex-1 items-stretch rounded-control md:min-w-72 bg-surface p-0.75 shadow-e1 outline-1 -outline-offset-1 outline-hairline',
-            // Phone: fish LakesSearchBubble — a full pill.
-            'max-md:rounded-full max-md:[&>button]:rounded-full',
+            'flex min-w-0 flex-1 items-stretch rounded-full bg-surface p-0.75 shadow-e1 outline-1 -outline-offset-1 outline-hairline md:h-16 md:p-1.5 md:shadow-e2 xl:h-16',
+            '[&>button]:rounded-full',
           )}
         >
           <button
             ref={searchRef}
             type="button"
+            data-pill-segment="where"
             onClick={() => onSearch?.()}
             aria-label={searchLabel}
             aria-haspopup="dialog"
-            className={cn(SEGMENT, 'min-w-0 flex-1 gap-2.5 pl-3')}
+            className={cn(SEGMENT, 'min-w-0 flex-1 gap-2.5 pl-3 md:pl-5')}
           >
-            <MagnifyingGlassIcon aria-hidden className="size-5 shrink-0 text-muted" />
-            <span className={cn('min-w-0 flex-1 truncate t-body', summary ? 'text-ink' : 'text-muted')}>
+            <MagnifyingGlassIcon aria-hidden className="size-5 shrink-0 text-muted md:hidden" />
+            <span className={cn('min-w-0 flex-1 truncate t-body md:hidden', summary ? 'text-ink' : 'text-muted')}>
               {summary ?? 'Caută bălți, lacuri...'}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col max-md:hidden">
+              <span className="t-label text-ink">Unde?</span>
+              <span className={cn('truncate t-body', summary ? 'text-ink' : 'text-muted')}>{summary ?? 'Baltă, localitate sau județ'}</span>
             </span>
           </button>
           {/* Rendered on the first paint too (inert until hydrated): the pill keeps its shape. */}
           {select('fish', 'Specie', <FishOutlineIcon />)}
           {select('regime', 'Regim', <ArrowPathRoundedSquareIcon />)}
+          {/* From 768 the pill ends on the round accent search (the «where» segment's twin for the
+              pointer — the segment itself is the control for keyboard and screen readers). */}
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-hidden
+            onClick={() => onSearch?.()}
+            className="ml-1 flex aspect-square shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent text-on-accent transition-colors duration-(--duration-fast) hover:bg-accent-ink max-md:hidden"
+          >
+            <MagnifyingGlassIcon className="size-5 stroke-2" />
+          </button>
         </div>
-        {/* «Filtre» after the selects (imobiliare.ro): everything else. */}
-        <FilterButton
-          count={filterCount}
-          desktopHidden={false}
-          expanded={filtersExpanded}
-          onClick={() => onFilters?.()}
-          // Phone: fish's round white filter button with the indigo glyph (the filled «on» stays
-          // while filters are active).
-          className={cn(T2_EXPANDED, 'max-md:rounded-full! max-md:shadow-e1!', filterCount === 0 && 'max-md:text-accent-ink!')}
-        />
-        {showToggle ? (
-          view === 'list' ? (
-            // The map is the row's primary action (rule 6): filled accent, icon and label.
-            <Link href={routes.lakesMap()} title="Arată harta" className={buttonClass({ variant: 'primary', className: TOGGLE })}>
-              <MapIcon aria-hidden className="size-5 stroke-2" />
-              <span className="max-lg:sr-only">Arată harta</span>
-            </Link>
-          ) : (
-            // The way back to the grid, in the same slot (secondary: the map is the destination
-            // the list promotes, the list is the way home). Drops the map's query (c2).
-            <Link href={routes.lakes()} title="Arată lista" className={buttonClass({ variant: 'secondary', className: TOGGLE })}>
-              <ListBulletIcon aria-hidden className="size-5 stroke-2" />
-              <span className="max-lg:sr-only">Arată lista</span>
-            </Link>
-          )
-        ) : null}
+        <div className="flex items-center gap-3 md:justify-self-end">
+          {/* «Filtre»: everything else, in the side panel from 768. */}
+          <FilterButton
+            count={filterCount}
+            desktopHidden={false}
+            expanded={filtersExpanded}
+            onClick={() => onFilters?.()}
+            // Phone: fish's round white filter button with the indigo glyph (the filled «on» stays
+            // while filters are active).
+            className={cn(T2_EXPANDED, 'rounded-full! max-md:shadow-e1! md:h-12! xl:h-12!', filterCount === 0 && 'max-md:text-accent-ink!')}
+          />
+          {showToggle ? (
+            view === 'list' ? (
+              <Link href={routes.lakesMap()} title="Arată harta" className={buttonClass({ variant: 'primary', className: TOGGLE })}>
+                <MapIcon aria-hidden className="size-5 stroke-2" />
+                <span className="max-lg:sr-only">Arată harta</span>
+              </Link>
+            ) : (
+              <Link href={routes.lakes()} title="Arată lista" className={buttonClass({ variant: 'secondary', className: TOGGLE })}>
+                <ListBulletIcon aria-hidden className="size-5 stroke-2" />
+                <span className="max-lg:sr-only">Arată lista</span>
+              </Link>
+            )
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -188,7 +210,6 @@ export function HomeHeader({
   sectionExpanded = null,
   onFilters,
   filtersExpanded = false,
-  showMap = false,
   searchRef,
   categories = null,
 }: {
@@ -198,8 +219,6 @@ export function HomeHeader({
   onSection?: (section: 'fish' | 'regime') => void;
   sectionExpanded?: 'fish' | 'regime' | null;
   filtersExpanded?: boolean;
-  /** «Arată harta» (from 768): only when the page has lakes. Off on the first paint without data. */
-  showMap?: boolean;
   /** The search pill: the search dialog opens over it (SearchLayer `anchorRef`). */
   searchRef?: RefObject<HTMLButtonElement | null>;
   /** The icon category row under the header (HomeGrid CategoryBar). */
@@ -266,7 +285,8 @@ export function HomeHeader({
           sectionExpanded={sectionExpanded}
           onFilters={onFilters}
           filtersExpanded={filtersExpanded}
-          showToggle={showMap}
+          // The map is the floating «Arată harta» at every width (LakesHome, owner 2026-10-13).
+          showToggle={false}
         />
       </div>
       {categories ? <div className="pt-1">{categories}</div> : null}

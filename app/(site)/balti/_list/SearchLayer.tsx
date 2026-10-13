@@ -13,12 +13,11 @@ import {
   type ComponentType,
   type KeyboardEvent,
   type ReactNode,
-  type RefObject,
   type SVGProps,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { IconButton } from '@/components/nav/IconButton';
-import { Dialog } from '@/components/surfaces/Dialog';
+import { useModalDialog } from '@/components/surfaces/useModalDialog';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { plural } from '@/components/cards/format';
 import { SEARCH_SHELL, TextAction } from '@/components/templates/T1';
@@ -100,7 +99,6 @@ export function SearchLayer({
   onClose,
   onCommit,
   onLocationBlocked,
-  anchorRef,
 }: {
   open: boolean;
   onClose: () => void;
@@ -108,8 +106,6 @@ export function SearchLayer({
   onCommit: (search: LakesCommittedSearch) => void;
   /** «În jurul meu» could not get a position: the page closes this layer and opens its location dialog. */
   onLocationBlocked: (mode: LocationDialogMode) => void;
-  /** The page's search pill (from 768 the dialog opens over it). Without it: anchored at 12dvh. */
-  anchorRef?: RefObject<HTMLElement | null>;
 }) {
   const phone = useBreakpoint() === 'mobile';
   // The phone sheet's pinned slot (under its title row): the input row is portalled there, so it
@@ -121,7 +117,6 @@ export function SearchLayer({
     <SearchContent
       phone={phone}
       pinTarget={phone ? pinned : null}
-      anchorRef={anchorRef}
       onClose={onClose}
       onCommit={onCommit}
       onLocationBlocked={onLocationBlocked}
@@ -132,16 +127,59 @@ export function SearchLayer({
       {content}
     </PhoneSheet>
   ) : (
-    // Not centred: over the page's search pill (or at 12dvh without one), so the input stays put
-    // while the list grows, shrinks or says «no results». Wider than the kit's 480 so subtitles hold
-    // one line (cn does not merge: the ! beats the kit's max-w-[480px]).
-    <Dialog open={open} onClose={onClose} title={TITLE} closeButton className="mt-[12dvh] mb-auto max-w-160!">
+    // From 768 (owner 2026-10-13, Airbnb's «Where»): the search pill itself turns into the field —
+    // the layer lays its input capsule exactly over the pill, the suggestions in a card hanging under
+    // it, the page behind a light veil. Without a pill on screen: at 12dvh, centred.
+    <SearchPopover open={open} onClose={onClose}>
       {content}
-    </Dialog>
+    </SearchPopover>
   );
 }
 
 const TITLE = 'Caută în Bălți';
+
+/** The pill the layer lays itself over: the first visible «where» segment's shell. */
+const PILL_SEGMENT = '[data-pill-segment="where"]';
+
+/**
+ * From 768: a modal <dialog> (useModalDialog — focus inside, Escape, focus return, scroll lock),
+ * transparent itself — its children draw the field capsule and the suggestions card. Placed on the
+ * page's search pill (top and left on the pill, its width), else at 12dvh, centred.
+ */
+function SearchPopover({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
+  const dialog = useModalDialog(open, onClose);
+  const titleId = useId();
+  const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const segment = [...document.querySelectorAll<HTMLElement>(PILL_SEGMENT)].find((el) => el.getClientRects().length > 0);
+      const pill = segment?.parentElement?.getBoundingClientRect();
+      setBox(pill && pill.height ? { top: Math.round(pill.top), left: Math.round(pill.left), width: Math.round(pill.width) } : null);
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [open]);
+  return (
+    <dialog
+      {...dialog}
+      aria-labelledby={titleId}
+      style={box ? { top: box.top, left: box.left, width: box.width } : undefined}
+      className={cn(
+        'fixed m-0 max-h-none max-w-[calc(100vw-32px)] overflow-visible bg-transparent p-0 text-left text-ink',
+        'backdrop:bg-ink/10 open:flex open:flex-col',
+        box ? null : 'inset-x-0 top-[12dvh] mx-auto w-160',
+        'opacity-100 transition-opacity duration-(--duration-fast) ease-fast starting:opacity-0',
+      )}
+    >
+      <h2 id={titleId} tabIndex={-1} className="sr-only">
+        {TITLE}
+      </h2>
+      {children}
+    </dialog>
+  );
+}
 
 /** Rank of an exact-title row when the term names several («Giurgiu»: the county before the city, then a lake). */
 const EXACT_RANK: Record<LakesSearchSuggestion['type'], number> = { county: 0, city: 1, lake: 2, nearby: 3 };
@@ -149,14 +187,12 @@ const EXACT_RANK: Record<LakesSearchSuggestion['type'], number> = { county: 0, c
 function SearchContent({
   phone,
   pinTarget,
-  anchorRef,
   onClose,
   onCommit,
   onLocationBlocked,
 }: {
   phone: boolean;
   pinTarget: HTMLElement | null;
-  anchorRef?: RefObject<HTMLElement | null>;
   onClose: () => void;
   onCommit: (search: LakesCommittedSearch) => void;
   onLocationBlocked: (mode: LocationDialogMode) => void;
@@ -189,46 +225,6 @@ function SearchContent({
     const id = requestAnimationFrame(() => inputRef.current?.focus());
     return () => cancelAnimationFrame(id);
   }, []);
-
-  // From 768 the dialog opens over the page's search pill: its input lands where the pill is (from
-  // 1280 also at the pill's left edge), so the pill reads as opening — the dialog's top never cuts
-  // through the toolbar. Offsets, not rects: the dialog is still scaling in (transforms ignored).
-  useLayoutEffect(() => {
-    if (phone) return;
-    const anchor = anchorRef?.current;
-    const input = inputRef.current;
-    const dialog = input?.closest('dialog');
-    if (!anchor || !input || !dialog) return;
-    const place = () => {
-      const pill = anchor.getBoundingClientRect();
-      if (!pill.height) return;
-      let top = 0;
-      let left = 0;
-      // The input's shell (the field), from the dialog's border box.
-      const shell = (input.parentElement ?? input) as HTMLElement;
-      for (let el: HTMLElement | null = shell; el && el !== dialog; el = el.offsetParent as HTMLElement | null) {
-        top += el.offsetTop;
-        left += el.offsetLeft;
-      }
-      dialog.style.marginTop = `${Math.max(16, Math.round(pill.top - top))}px`;
-      if (window.innerWidth >= 1280) {
-        const width = dialog.offsetWidth;
-        dialog.style.marginLeft = `${Math.max(16, Math.min(Math.round(pill.left - left), window.innerWidth - width - 16))}px`;
-        dialog.style.marginRight = 'auto';
-      } else {
-        dialog.style.marginLeft = '';
-        dialog.style.marginRight = '';
-      }
-    };
-    place();
-    window.addEventListener('resize', place);
-    return () => {
-      window.removeEventListener('resize', place);
-      dialog.style.marginTop = '';
-      dialog.style.marginLeft = '';
-      dialog.style.marginRight = '';
-    };
-  }, [phone, anchorRef]);
 
   const trimmed = term.trim();
   const settled = useDebounced(trimmed, LAKES_EXPLORE_SUGGESTIONS_DEBOUNCE_MS);
@@ -560,16 +556,33 @@ function SearchContent({
     );
   }
   return (
-    <div className="flex flex-col gap-3 pt-2">
-      {inputRow}
+    <div className="flex flex-col gap-3">
+      {/* The pill turned field: «Unde?» over the input, the size and shape of the page's pill. */}
+      <div className="flex h-16 items-center rounded-full bg-surface pr-2 pl-6 shadow-[0_24px_64px_-16px_rgb(16_24_40/0.32)] outline-2 -outline-offset-2 outline-accent">
+        <label htmlFor={inputId} className="sr-only">
+          Unde?
+        </label>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span aria-hidden className="t-label text-ink">
+            Unde?
+          </span>
+          <div className="[&>div]:h-6! [&>div]:border-0! [&>div]:bg-transparent! [&>div]:p-0! [&>div]:shadow-none! [&>div>svg:first-child]:hidden">{inputRow}</div>
+        </div>
+        {/* A mouse user's way out (every dialog from 768 has its «Închide» X); Escape and the veil too. */}
+        <IconButton aria-label="Închide" onClick={onClose} className="ml-1 shrink-0">
+          <XMarkIcon aria-hidden />
+        </IconButton>
+      </div>
       {status}
-      {/* The list scrolls inside the dialog; its bottom fades out (on the dialog's bottom padding, so
-          with nothing more to scroll the last row is whole) — there is more below. */}
-      <div
-        ref={scrollRef}
-        className="-mx-5 -mb-5 max-h-[60dvh] overflow-y-auto overscroll-contain px-5 pb-5 [mask-image:linear-gradient(to_bottom,black_calc(100%-var(--spacing)*5),transparent)]"
-      >
-        {list}
+      {/* The suggestions: a card under the field, as wide as a two-line row needs (not the pill's
+          860), its list scrolling inside with the bottom fading out (there is more below). */}
+      <div className="w-full max-w-140 overflow-hidden rounded-[28px] bg-surface shadow-[0_24px_64px_-16px_rgb(16_24_40/0.32)]">
+        <div
+          ref={scrollRef}
+          className="max-h-[min(60dvh,520px)] overflow-y-auto overscroll-contain px-4 pt-2 pb-4 [mask-image:linear-gradient(to_bottom,black_calc(100%-var(--spacing)*4),transparent)]"
+        >
+          {list}
+        </div>
       </div>
     </div>
   );

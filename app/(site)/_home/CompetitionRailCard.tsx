@@ -133,9 +133,10 @@ export function CompetitionRailCard({
  * The rail's only competition, from 768 (owner 2026-10-12: one live competition read as a lone card
  * beside an empty «Vezi toate» tile). The same facts as the rail card, laid out across the column:
  * the poster on the left, the details and the live totals on the right, and a direct way to the
- * ranking (live) or the competition (upcoming). Below 768 the rail card stays (fish).
+ * ranking (live) or the competition (upcoming). Below 768 the rail card stays (fish). `compact`:
+ * one of two side by side (owner 2026-10-13), half the column — the smaller title and padding.
  */
-export function CompetitionFeatureCard({ competition: c }: { competition: CompetitionCard }) {
+export function CompetitionFeatureCard({ competition: c, compact = false }: { competition: CompetitionCard; compact?: boolean }) {
   const href = routes.competition(competitionUrlId(c));
   const media = c.banner ?? c.lake?.image ?? null;
   const poster = media?.url ?? media?.smallUrl ?? null;
@@ -143,7 +144,7 @@ export function CompetitionFeatureCard({ competition: c }: { competition: Compet
   const isTeam = c.format.kind === 'team';
 
   return (
-    <CardShell elevated interactive className="min-h-64 md:flex-row xl:min-h-72">
+    <CardShell elevated interactive className={cn('min-h-64 md:flex-row', !compact && 'xl:min-h-72')}>
       <div className="relative w-[44%] max-w-[480px] shrink-0 overflow-hidden bg-soft-fill">
         {poster ? (
           <>
@@ -161,9 +162,9 @@ export function CompetitionFeatureCard({ competition: c }: { competition: Compet
         </div>
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-6 xl:p-7">
+      <div className={cn('flex min-w-0 flex-1 flex-col gap-1.5', compact ? 'p-5' : 'p-6 xl:p-7')}>
         <p className={cn('truncate t-eyebrow uppercase', isLive ? 'text-live' : 'text-accent-ink')}>{withHours(c)}</p>
-        <CardTitle href={href} className="line-clamp-2 t-title1 text-ink">
+        <CardTitle href={href} className={cn('line-clamp-2 text-ink', compact ? 't-title2' : 't-title1')}>
           {c.name}
         </CardTitle>
         {c.lake ? (

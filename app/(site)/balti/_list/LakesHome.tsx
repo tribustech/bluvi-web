@@ -1,17 +1,11 @@
 'use client';
 
-import { MapIcon } from '@heroicons/react/24/outline';
 import { keepPreviousData, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Dialog } from '@/components/surfaces/Dialog';
 import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { ListEmpty, ListError } from '@/components/templates/T1';
-import { T2_FLOATING_BUTTON } from '@/components/templates/T2';
 import { plural } from '@/components/cards/format';
-import { buttonClass } from '@/components/ui/Button';
-import { cn } from '@/components/ui/cn';
 import {
   buildLakesHomeSections,
   DEFAULT_NEARBY_RADIUS_KM,
@@ -49,7 +43,9 @@ import { distanceLabel } from './distance';
 import { CategoryBar, HomeGrid, HomeGridSkeleton, RecentStrip } from './HomeGrid';
 import { markAutoDialogShown, requestUserPosition, useLakesLocation, useLocationDialog, watchAutoDialog } from './location';
 import { LocationDialog } from './LocationDialog';
+import { FilterDrawer, FilterPopover } from '@/components/surfaces/FilterSurfaces';
 import { PhoneSheet } from './PhoneSheet';
+import { ViewToggleFab } from './ViewToggleFab';
 import { SearchLayer } from './SearchLayer';
 import { useRecentViewedLakeIds } from './storage';
 import { countLakeFilters, lakesMapQuery } from './url';
@@ -471,7 +467,6 @@ export function LakesHome() {
         filtersExpanded={panel === 'all'}
         onSection={openPanel}
         sectionExpanded={panel === 'fish' || panel === 'regime' ? panel : null}
-        showMap={totalLakes > 0}
         onFilters={() => openPanel('all')}
         categories={<CategoryBar categories={categories} current={category?.key ?? categoryKey} onPick={pickCategory} />}
       />
@@ -485,25 +480,13 @@ export function LakesHome() {
         </div>
       </div>
 
-      {totalLakes > 0 ? (
-        // fish: the floating map button (c23) — the all-lakes map, filters cleared; «Arată harta»
-        // (owner rule 6). A phone pattern: from 768 it is the header's primary action.
-        // Above the shell's bottom tab bar (--tabbar-h, owner 2026-10-10), else above the safe area.
-        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(max(var(--tabbar-h,0px),env(safe-area-inset-bottom))+var(--spacing)*4+var(--consent-inset,0px))] z-sticky flex justify-center px-4 md:hidden">
-          <Link
-            href={routes.lakesMap()}
-            className={buttonClass({ variant: 'primary', className: cn('pointer-events-auto gap-2 rounded-full! px-5.5', T2_FLOATING_BUTTON) })}
-          >
-            <MapIcon aria-hidden className="size-5 stroke-2" />
-            Arată harta
-          </Link>
-        </div>
-      ) : null}
+      {/* fish: the floating map button (c23) — the all-lakes map, filters cleared (owner rule 6),
+          at every width (owner 2026-10-13); hidden while there are no lakes (lakes.home.s10). */}
+      {totalLakes > 0 ? <ViewToggleFab to="map" /> : null}
 
       <SearchLayer
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
-        anchorRef={searchPillRef}
         onCommit={(search) => {
           setSearchOpen(false);
           openMap(search);
@@ -515,17 +498,23 @@ export function LakesHome() {
           fixed footer, gap-5; the sheet's gap-6), plus what it cannot take yet: the live
           «Aplică · N bălți» footer with «Șterge», and the phone sheet's «Închide» X (PhoneSheet).
           TODO(kit): a `footer` slot on T1 FiltersSurface; then this renders FiltersSurface. */}
+      {/* From 768 (owner 2026-10-13): «Specie» / «Regim» hang under their segment of the pill, the
+          full «Filtre» slides in from the right (FilterSurfaces). The phone keeps its sheet. */}
       {surface === 'dialog' ? (
-        <Dialog
-          open={filtersOpen}
-          onClose={() => setPanel(null)}
-          title={filterPanelTitle(filterSection)}
-          closeButton
-          actions={filterFooter}
-          className="max-h-[85dvh]"
-        >
-          <div className="-mx-5 mt-2 flex max-h-[60dvh] flex-col overflow-y-auto px-5 pb-1">{filterBody('gap-5')}</div>
-        </Dialog>
+        <>
+          <FilterPopover
+            open={panel === 'fish' || panel === 'regime'}
+            onClose={() => setPanel(null)}
+            title={filterPanelTitle(filterSection)}
+            anchorSelector={`[data-pill-segment="${panel === 'regime' ? 'regime' : 'fish'}"]`}
+            footer={filterFooter}
+          >
+            {filterBody('gap-5')}
+          </FilterPopover>
+          <FilterDrawer open={panel === 'all'} onClose={() => setPanel(null)} title={filterPanelTitle(filterSection)} footer={filterFooter}>
+            {filterBody('gap-6')}
+          </FilterDrawer>
+        </>
       ) : surface === 'sheet' ? (
         <PhoneSheet open={filtersOpen} onClose={() => setPanel(null)} title={filterPanelTitle(filterSection)} footer={filterFooter}>
           <div className="pt-2">{filterBody('gap-6')}</div>

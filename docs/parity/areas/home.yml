@@ -398,7 +398,7 @@ screens:
         text: "Section order: profile card, organizer banner, operator card, Instrumente, partidă hero, competition rail, poll, raffle, suggested anglers, Bălți, lake-request banner, Sponsori, Noutăți, feedback, Contact (guest), confidentiality (guest)."
         fish_ref: app/(app)/(tabs)/index.tsx:343-650
         status: passing
-        note: "e2e tests/e2e/acasa.spec.ts (phone order). From 1024 the partidă hero leaves the top and shares a row with the lake-request banner (owner 2026-10-11, page.tsx BannerPair)."
+        note: "e2e tests/e2e/acasa.spec.ts (phone order). From 1024 the partidă hero leaves (the app band says the same) and the lake request is one slim row under the lakes (owner 2026-10-13, «Acasă într-o coloană», LakeRequestBanner layout inline)."
     mobile_only: false
     # proposed: built on T5 (2026-10-05), every criterion has a check (status per criterion);
     # c18, c34, c53 still fail — see their notes.

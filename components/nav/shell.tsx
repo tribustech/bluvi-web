@@ -16,6 +16,15 @@ import { cn } from '@/components/ui/cn';
 export const SHELL_MAX = 'max-w-436';
 
 /**
+ * The centred content box (owner 2026-10-13, «Acasă într-o coloană»: one column, centred, like
+ * Airbnb / Booking / Tripadvisor): 1280 of content + 2×32 gutters = 1344 (336 × 4). The top bar's
+ * row uses it on every page, so the logo, the centred menu and the account sit in one constant
+ * frame; Acasă's body uses it too. Pages that need the room (Bălți and its map, rankings, booking
+ * grids, operator panels) stay on SHELL_MAX under it.
+ */
+export const SHELL_CONTENT = 'max-w-336';
+
+/**
  * The two widths of the full-width rule (ROADMAP §4), in one place: the shell column above, and the
  * reading measure — 720 (180 × 4), the cap for running text and for the templates' page-state
  * cards (templates/stateCard.ts). Card grids are never capped: they auto-fill the column.
@@ -90,8 +99,6 @@ export const SHELL_GUTTERS = 'px-4 md:px-6 xl:px-8';
  * TODO(globals.css): --container-search / -menu-min / -menu-max / -panel tokens.
  */
 export const BAR = {
-  /** ≥1280 search field: 300. */
-  searchField: 'w-75',
   /**
    * Account cluster = bell + gap + avatar: 48 + 0 + 48 below 768, 48 + 8 + 48 from 768,
    * 40 + 8 + 40 from 1280 (controls are 48 below 1280, 40 from 1280; Fundații §07).

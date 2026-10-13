@@ -94,7 +94,9 @@ export function PollCard({ layout, signedIn }: { layout: 'mobile' | 'desktop'; s
       <div className="flex flex-col gap-3">
       {poll.description ? <p className="t-body text-ink">{poll.description}</p> : null}
 
-      <ul id={listId} className="flex flex-col gap-2">
+      {/* A wide column (Acasă from 1024, owner 2026-10-13): the options side by side, not bars
+          across 1200px. */}
+      <ul id={listId} className="flex flex-col gap-2 @4xl:grid @4xl:grid-cols-[repeat(auto-fit,minmax(--spacing(64),1fr))] @4xl:gap-3">
         {visible.map((option, i) => {
           const faded = i === visible.length - 1 && canCollapse && !expanded;
           return (

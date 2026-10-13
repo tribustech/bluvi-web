@@ -80,7 +80,10 @@ of every milestone. A milestone closes only when it reports zero unexplained gap
   signs in). Screens fish pushes above the tabs have no tab bar. The ☰ panel is retired: Setări is behind Profil's gear, notifications behind Acasă's bell,
   Administrare in Acasă's organiser / operator cards.
 - **From 768:** logo, the main links (Acasă, Bălți, Competiții, Partide), ⌘K search, notifications,
-  avatar, and an Administrare menu for organizers and operators.
+  avatar, and an Administrare menu for organizers and operators. Owner 2026-10-13: the row sits in
+  the centred content box (1280 + gutters, `SHELL_CONTENT`) on every page — logo on its left edge,
+  the main links in the exact centre, search (an icon; ⌘K still opens it), notifications and avatar
+  on the right. The active link is an accent-tint pill.
 
 The rail and the side menu are retired.
 
@@ -95,6 +98,26 @@ Facebook does:
   - centre: content;
   - right: "ce mă așteaptă" or details.
 - Maps and tables (ranking, bookings) take all the available width.
+
+**Acasă in one column (owner decision 2026-10-13, after Airbnb / Booking / Tripadvisor; overrides the
+three-column rule above for Acasă):** no side panel. From 768 the page is one column centred in the
+content box (1280 + gutters): a hero (greeting, slogan, one big search that opens the ⌘K palette)
+over a depth-chart backdrop, the shortcuts as a category row, then the sections in fish's order.
+From 1280 the old right column's cards (my partidă / live competition, organiser panel, my lake) are
+a «Pentru tine» row under the shortcuts, shown only when it has a card. The guest's Contact /
+privacy cards and «Sugestii» are links in a page footer from 768; the app is promoted once, in a
+light band above it. Only the Bluvi light palette — no dark navy blocks. The phone (<768) is
+unchanged. Pages that need the room — Bălți and its map, Ape publice, rankings, booking grids,
+operator panels, the competition page — stay full width (Airbnb keeps search and map wide, its
+listing page centred).
+
+**Bălți search (owner 2026-10-13, after Airbnb):** from 768 the row is three tracks — the Bălți /
+Ape publice switch, a centred search pill (at most 860; «Unde?», «Specie», «Regim» as two-line
+segments, the round search button at its end), «Filtre». «Unde?» turns the pill into the field with
+the suggestions in a card under it; «Specie» / «Regim» open a panel hanging under their segment;
+«Filtre» slides in from the right. «Arată harta» / «Arată lista» are the same floating pill in the
+same place on the list and the map (bottom centre, 56 high from 768), so list ↔ map moves nothing.
+The phone keeps its sheets.
 
 **Templates.** Each one ships with all its states and is approved by the owner in M0:
 

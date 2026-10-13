@@ -12,6 +12,7 @@ import { RailEmpty, RailError, RailSection, RailSkeleton } from './RailSection';
 import { homeLinks } from './links';
 import { liveCardsQuery, SIGNED_OUT, upcomingCardsQuery } from './queries';
 import { LiveDot } from '@/components/templates/LiveDot';
+import { cn } from '@/components/ui/cn';
 
 /**
  * fish (tabs)/index.tsx competitions block + CompetitionCardsRail.tsx: the live rail while
@@ -55,6 +56,26 @@ export function CompetitionsSection() {
       nextError={(isLive ? liveRead : upcomingRead).nextError}
       onRetryNext={() => void q.fetchNextPage()}
     />
+  );
+}
+
+/** The phone's rail of a short, fully loaded list (fish: the rail at every count). */
+function CompetitionsRail({ label, competitions, isLive, total }: { label: string; competitions: CompetitionCard[]; isLive: boolean; total: number }) {
+  return (
+    <HorizontalRail className={HOME_RAIL_BLEED} label={label} width={224}>
+      {competitions.map((c, i) => (
+        <RailItem key={c.documentId} width={224}>
+          <CompetitionRailCard competition={c} eager={i === 0} />
+        </RailItem>
+      ))}
+      <RailEndCard
+        href={homeLinks.competitions(isLive ? 'started' : 'notStarted')}
+        label={isLive ? 'Vezi toate concursurile live' : 'Vezi toate concursurile'}
+        caption={total ? plural(total, 'concurs', 'concursuri') : undefined}
+        icon={<TrophyIcon />}
+        heightClass={COMPETITION_CARD_HEIGHT}
+      />
+    </HorizontalRail>
   );
 }
 
@@ -107,6 +128,11 @@ export function CompetitionsView({
   // One competition in all: from 768 it is shown across the column (CompetitionFeatureCard), not as
   // a lone rail card beside «Vezi toate». The phone keeps fish's rail.
   const single = status === 'ready' && competitions.length === 1 && (total || 1) === 1 && !fetchingNext && !nextError;
+  // Two to four in all, every one loaded: from 768 they share the column as equal cards (owner
+  // 2026-10-13, «Acasă într-o coloană»: no «Vezi toate» tile left alone in an empty track; the
+  // header's link is the way on). Two side by side are the wide feature card; three or four the
+  // rail card. More, or a next page to read: the rail.
+  const few = status === 'ready' && competitions.length >= 2 && competitions.length <= 4 && (total || competitions.length) === competitions.length && !fetchingNext && !nextError;
 
   return (
     <RailSection
@@ -132,6 +158,25 @@ export function CompetitionsView({
           <div className="max-md:hidden">
             <CompetitionFeatureCard competition={competitions[0]} />
           </div>
+        </>
+      ) : few ? (
+        <>
+          <div className="md:hidden">
+            <CompetitionsRail label={label} competitions={competitions} isLive={isLive} total={total} />
+          </div>
+          <ul
+            aria-label={label}
+            className={cn(
+              'grid gap-5 max-md:hidden xl:gap-6',
+              competitions.length === 2 ? 'grid-cols-2' : competitions.length === 3 ? 'grid-cols-3' : 'grid-cols-2 xl:grid-cols-4',
+            )}
+          >
+            {competitions.map((c, i) => (
+              <li key={c.documentId} className="flex min-w-0 [&>*]:flex-1">
+                {competitions.length === 2 ? <CompetitionFeatureCard competition={c} compact /> : <CompetitionRailCard competition={c} eager={i === 0} />}
+              </li>
+            ))}
+          </ul>
         </>
       ) : (
         <HorizontalRail

@@ -4,8 +4,9 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 /*
  * The full-width rule (docs/ROADMAP.md §4, owner decision 2026-10-04) on the shell and the built
  * screens: the top bar is full width; pages are full width with 24–32px gutters up to 1680 of
- * content and centred beyond; reading text is capped at ~720; from 1280 dashboards (Acasă, T5) and
- * detail pages (Concurs, T3) use their side columns; tables take all the width there is.
+ * content and centred beyond; reading text is capped at ~720; from 1280 dashboards (T5) and detail
+ * pages (Concurs, T3) use their side columns; tables take all the width there is. Acasă is the
+ * exception (owner 2026-10-13): one column centred in the content box.
  * Checked at 1280, 1440, 1920 and 2560 (the phone and tablet layouts are covered by acasa.spec.ts
  * and concurs.spec.ts). Local CMS on :1337; competition ids as in concurs.spec.ts.
  */
@@ -14,6 +15,8 @@ const WIDTHS = [1280, 1440, 1920, 2560];
 /** SHELL_MAX (components/nav/shell.tsx): 1680 of content + 2 × 32 gutters. */
 const SHELL = 1744;
 const GUTTER = 32;
+/** SHELL_CONTENT (components/nav/shell.tsx): the centred box of Acasă and the top bar's row, 1280 + 2 × 32. */
+const CONTENT = 1344;
 
 const LIVE = process.env.E2E_COMPETITION_LIVE ?? 'kee49a3e64b3f636b4b60daa';
 const UPCOMING = process.env.E2E_COMPETITION_UPCOMING_OWN ?? 'a6xjl65ooe9eadrtvvqj9hn1';
@@ -47,46 +50,64 @@ async function expectShell(page: Page, width: number) {
 }
 
 for (const width of WIDTHS) {
-  test(`full width · Acasă · ${width}px — feed · Ce mă așteaptă, the shortcut cards open the feed (owner 2026-10-12)`, async ({ page }) => {
+  test(`full width · Acasă · ${width}px — one centred column, no side panel (owner 2026-10-13)`, async ({ page }) => {
     await open(page, '/', width, true);
     await expectShell(page, width);
-    const right = page.getByRole('complementary', { name: 'Ce mă așteaptă' });
-    await expect(right).toBeVisible();
-    // No left column any more: the shortcuts are one row of cards at the top of the feed.
-    await expect(page.getByRole('complementary', { name: 'Scurtături' })).toHaveCount(0);
-    const nav = page.getByRole('navigation', { name: 'Scurtături' });
+    // «Acasă într-o coloană»: no side column; the page and the top bar's row share the content box
+    // (SHELL_CONTENT: 1280 + 2 × 32), centred.
+    await expect(page.getByRole('complementary')).toHaveCount(0);
+    const nav = page.getByRole('navigation', { name: 'Scurtături' }).locator('visible=true');
     const feed = page.getByRole('region', { name: /^Concursuri (live|viitoare)|^Bălți/ }).locator('visible=true').first();
-    const [n, f, r] = await Promise.all([nav.boundingBox(), feed.boundingBox(), right.boundingBox()]);
-    expect(n && f && r).toBeTruthy();
-    // The row sits above the feed, as wide as it, left of the right column: two rows of three at
-    // most (one row once the column has 1024px).
+    const [n, f] = await Promise.all([nav.boundingBox(), feed.boundingBox()]);
+    expect(n && f).toBeTruthy();
+    const colLeft = Math.max(0, (width - CONTENT) / 2) + GUTTER;
+    const column = Math.min(width, CONTENT) - 2 * GUTTER;
     expect(n!.y + n!.height).toBeLessThan(f!.y);
-    expect(Math.round(n!.x)).toBe(Math.round(f!.x));
-    expect(f!.x + f!.width).toBeLessThan(r!.x);
-    expect(n!.height).toBeLessThan(300);
-    const colLeft = Math.max(0, (width - SHELL) / 2) + GUTTER;
     expect(Math.round(f!.x)).toBe(colLeft);
-    expect(Math.round(r!.x + r!.width)).toBe(Math.min(width, SHELL) + Math.max(0, (width - SHELL) / 2) - GUTTER);
-    // Signed in: six cards, the viewer's own areas among them.
+    expect(Math.round(f!.width)).toBe(column);
+    // The bar's logo sits on the same left edge (its ink 4px in: the link's padding).
+    const logo = (await page.getByRole('banner').getByRole('link', { name: 'Bluvi, acasă' }).boundingBox())!;
+    expect(Math.abs(Math.round(logo.x) - (colLeft - 4))).toBeLessThanOrEqual(1);
+    // Signed in: six shortcuts, the viewer's own areas among them.
     await expect(nav.getByRole('link')).toHaveCount(6);
     await expect(nav.getByRole('link', { name: /^Profilul meu/ })).toHaveAttribute('href', '/profil');
     await expect(nav.getByRole('link', { name: /^Concursuri live/ })).toHaveAttribute('href', '/concursuri/live');
   });
 
-  test(`full width · Concurs (live) · ${width}px — the ranking table takes the whole column`, async ({ page }) => {
+  test(`full width · Concurs (live) · ${width}px — the ranking table and its side column take the whole column`, async ({ page }) => {
     await open(page, `/concursuri/${LIVE}`, width);
     await expectShell(page, width);
+    const column = Math.min(width, SHELL) - 2 * GUTTER;
+    const colLeft = Math.max(0, (width - SHELL) / 2) + GUTTER;
+    const section = page.getByRole('region', { name: 'Clasament', exact: true });
     const table = page.getByRole('region', { name: 'Clasament general' });
     await expect(table).toBeVisible();
-    const box = await table.boundingBox();
-    expect(Math.round(box!.width)).toBe(Math.min(width, SHELL) - 2 * GUTTER);
+    expect(Math.round((await section.boundingBox())!.width)).toBe(column);
+    // From 1280 a side column («Lideri pe sectoare», «Pe sectoare»: RankingView SideColumnLayout,
+    // 288–400px, 24px gap) sits beside the table when the table leaves it room; the two fill the
+    // column, the table taking the rest. Without the side column the table is the whole column.
+    const rail = page.locator('[data-ranking-side-column]');
+    const box = (await table.boundingBox())!;
+    expect(Math.round(box.x)).toBe(colLeft);
+    if (await rail.count()) {
+      const r = (await rail.boundingBox())!;
+      expect(r.width).toBeGreaterThanOrEqual(288);
+      expect(r.width).toBeLessThanOrEqual(400);
+      expect(Math.round(r.x - (box.x + box.width))).toBe(24);
+      expect(Math.round(r.x + r.width)).toBe(colLeft + column);
+      expect(Math.round(box.width + 24 + r.width)).toBe(column);
+    } else {
+      expect(Math.round(box.width)).toBe(column);
+    }
   });
 
   test(`full width · Concurs (preview) · ${width}px — Ce mă așteaptă column, reading text ≤ 720`, async ({ page }) => {
     await open(page, `/concursuri/${UPCOMING}`, width, true);
     await expectShell(page, width);
     const right = page.getByRole('complementary', { name: 'Ce mă așteaptă' });
-    await expect(right.getByRole('region', { name: /Competiția începe în|Startul competiției/ })).toBeVisible();
+    // The start tile: the countdown, or «Start întârziat» once the pinned fixture is past its start
+    // while still notStarted (Preview.tsx) — the column is the same either way.
+    await expect(right.getByRole('region', { name: /Competiția începe în|Startul competiției|Start întârziat/ })).toBeVisible();
     await expect(right.getByRole('region', { name: 'Înscrieri' })).toBeVisible();
     const notice = page.getByText(/^Această competiție încă nu a început/);
     await expect(notice).toBeVisible();

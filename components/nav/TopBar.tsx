@@ -21,7 +21,7 @@ import { LogoHorizontal } from './brand';
 import { iconButtonClass } from './IconButton';
 import { PATHS, SECTIONS, type AdminLink } from './items';
 import { MenuButton, type MenuEntry } from './MenuButton';
-import { BAR, BAR_SHADOW, SHELL_MAX } from './shell';
+import { BAR, BAR_SHADOW, SHELL_CONTENT } from './shell';
 
 /**
  * Who is looking: still resolving (neutral placeholder, never «Intră»), signed out, signed in, or
@@ -119,11 +119,11 @@ const NAV_ITEM = cn(
 );
 const NAV_IDLE = 'text-ink-2 hover:bg-soft-fill hover:text-ink';
 /**
- * Active: accent-ink text and a 2px accent bar flush with the bar's bottom edge (the 40px pill sits
- * 12px above the 64px bar's edge), so hover (a soft-fill pill) never looks selected.
+ * Active: the accent-tint pill with accent-ink text (owner 2026-10-13, the centred menu — Airbnb's
+ * selected tab reads as a filled pill, not a rule on the bar's edge). Hover on an idle link is the
+ * neutral soft-fill, so it never looks selected.
  */
-const NAV_ACTIVE =
-  'text-accent-ink hover:bg-soft-fill after:absolute after:inset-x-3 after:-bottom-3 after:h-0.5 after:rounded-full after:bg-accent';
+const NAV_ACTIVE = 'bg-accent-tint text-accent-ink hover:bg-accent-tint';
 
 /** Dropdown and phone-menu rows share one icon size: outline 24 (Fundații §05). */
 const MENU_ICON = 'size-6 shrink-0 text-ink-2';
@@ -187,16 +187,26 @@ export function TopBar({
         className,
       )}
     >
-      <div className={cn('mx-auto flex h-full items-center', SHELL_MAX, r('gap-0', 'md:gap-2'), r('px-4', 'md:px-6', 'xl:px-8'))}>
+      {/* From 768 three tracks (owner 2026-10-13): the logo on the content box's left edge, the menu
+          in the exact centre, the account on the right. The side tracks never shrink below their
+          content (a tablet with Administrare): the menu then gives up exact centring, never overlaps. */}
+      <div
+        className={cn(
+          'mx-auto flex h-full items-center',
+          SHELL_CONTENT,
+          r('gap-0', 'md:grid md:grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)] md:gap-4'),
+          r('px-4', 'md:px-6', 'xl:px-8'),
+        )}
+      >
         <Link
           href="/"
           aria-label="Bluvi, acasă"
-          className={cn('-ml-1 shrink-0 rounded-control px-1 py-1 text-accent-ink', r('mr-auto', 'md:mr-0'))}
+          className={cn('-ml-1 shrink-0 justify-self-start rounded-control px-1 py-1 text-accent-ink', r('mr-auto', 'md:mr-0'))}
         >
           <LogoHorizontal className={cn('w-auto', r('h-6', 'md:h-7'))} />
         </Link>
 
-        <nav aria-label="Navigare principală" className={cn('min-w-0', r('hidden', 'md:block'), r('', 'md:ml-3', 'xl:ml-6'))}>
+        <nav aria-label="Navigare principală" className={cn('min-w-0', r('hidden', 'md:block'))}>
           <ul className={cn('flex items-center', r('gap-0.5', undefined, 'xl:gap-1'))}>
             {SECTIONS.map(({ key, label, href }) => {
               const isActive = key === active;
@@ -263,72 +273,70 @@ export function TopBar({
           </ul>
         </nav>
 
-        <div className={cn('flex-1', r('hidden', 'md:block'))} />
+        {/* The right track: search, the account cluster, ☰ (phone). */}
+        <div className={cn('flex items-center justify-end', r('ml-auto gap-0', 'md:ml-0 md:gap-2'))}>
+          <SearchTrigger onSearch={onSearch} iconSize={iconSize} />
 
-        <SearchTrigger onSearch={onSearch} r={r} iconSize={iconSize} />
+          {/* On /intra the signed-out slot is empty for good: no cluster at all (no reserved width, no
+              extra gap), so the search ends on the gutter and nothing sits before ☰. */}
+          {viewer.status === 'out' && !viewer.signInHref ? null : (
+            <div
+              className={cn(
+                'flex shrink-0 items-center justify-end',
+                r(BAR.accountMin, BAR.accountMinMd, BAR.accountMinXl),
+                r('gap-0', 'md:gap-2'),
+              )}
+            >
+              {viewer.status === 'in' ? (
+                <Link
+                  href={PATHS.notifications}
+                  aria-label={hasUnread ? 'Notificări, ai notificări noi' : 'Notificări'}
+                  aria-current={active === 'notificari' ? activeCurrent : undefined}
+                  className={iconButtonClass({
+                    size: iconSize,
+                    className: active === 'notificari' ? 'bg-accent-tint text-accent-ink' : undefined,
+                  })}
+                >
+                  <BellIcon aria-hidden />
+                  {hasUnread ? (
+                    // On the glyph's top-right corner: the 24px glyph is centred in the 48 / 40 button.
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'absolute size-2.5 rounded-full border-2 border-surface bg-live',
+                        r('top-3', undefined, 'xl:top-2'),
+                        r('right-3', undefined, 'xl:right-2'),
+                      )}
+                    />
+                  ) : null}
+                </Link>
+              ) : null}
+              <AccountSlot
+                viewer={viewer}
+                active={active}
+                activeCurrent={activeCurrent}
+                admin={admin}
+                onSignOut={onSignOut}
+                signingOut={signingOut}
+                resetKey={resetKey}
+                defaultOpen={openMenu === 'account'}
+                r={r}
+                slotSize={iconSize}
+              />
+            </div>
+          )}
 
-        {/* On /intra the signed-out slot is empty for good: no cluster at all (no reserved width, no
-            extra gap), so the search ends on the gutter and nothing sits before ☰. */}
-        {viewer.status === 'out' && !viewer.signInHref ? null : (
-          // xl:ml-1: 12px between the search field and the account cluster, so the field and «Intră»
-          // (or the bell) read as two groups.
-          <div
-            className={cn(
-              'flex shrink-0 items-center justify-end',
-              r(BAR.accountMin, BAR.accountMinMd, BAR.accountMinXl),
-              r('gap-0', 'md:gap-2'),
-              r('', undefined, 'xl:ml-1'),
-            )}
+          <button
+            type="button"
+            onClick={onMenu}
+            aria-label="Meniu"
+            aria-haspopup="dialog"
+            aria-expanded={menuOpen}
+            className={iconButtonClass({ size: iconSize, className: cn('text-ink', r('flex', 'md:hidden')) })}
           >
-            {viewer.status === 'in' ? (
-              <Link
-                href={PATHS.notifications}
-                aria-label={hasUnread ? 'Notificări, ai notificări noi' : 'Notificări'}
-                aria-current={active === 'notificari' ? activeCurrent : undefined}
-                className={iconButtonClass({
-                  size: iconSize,
-                  className: active === 'notificari' ? 'bg-accent-tint text-accent-ink' : undefined,
-                })}
-              >
-                <BellIcon aria-hidden />
-                {hasUnread ? (
-                  // On the glyph's top-right corner: the 24px glyph is centred in the 48 / 40 button.
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'absolute size-2.5 rounded-full border-2 border-surface bg-live',
-                      r('top-3', undefined, 'xl:top-2'),
-                      r('right-3', undefined, 'xl:right-2'),
-                    )}
-                  />
-                ) : null}
-              </Link>
-            ) : null}
-            <AccountSlot
-              viewer={viewer}
-              active={active}
-              activeCurrent={activeCurrent}
-              admin={admin}
-              onSignOut={onSignOut}
-              signingOut={signingOut}
-              resetKey={resetKey}
-              defaultOpen={openMenu === 'account'}
-              r={r}
-              slotSize={iconSize}
-            />
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={onMenu}
-          aria-label="Meniu"
-          aria-haspopup="dialog"
-          aria-expanded={menuOpen}
-          className={iconButtonClass({ size: iconSize, className: cn('text-ink', r('flex', 'md:hidden')) })}
-        >
-          <Bars3Icon aria-hidden />
-        </button>
+            <Bars3Icon aria-hidden />
+          </button>
+        </div>
       </div>
     </header>
   );
@@ -354,48 +362,24 @@ export function useSearchShortcut(): string | null {
   );
 }
 
-/** <1280: a magnifier button. ≥1280: a field-like button with the ⌘K / Ctrl K hint. */
-function SearchTrigger({ onSearch, r, iconSize }: { onSearch?: () => void; r: Pick3; iconSize: string }) {
+/**
+ * The search: a magnifier button at every width (owner 2026-10-13 — Acasă and Bălți carry the big
+ * search, the bar stays quiet). ⌘K / Ctrl K still opens the palette; the tooltip names the shortcut.
+ */
+function SearchTrigger({ onSearch, iconSize }: { onSearch?: () => void; iconSize: string }) {
   const shortcut = useSearchShortcut();
   return (
-    <>
-      <button
-        type="button"
-        onClick={onSearch}
-        aria-label="Caută"
-        aria-haspopup="dialog"
-        aria-keyshortcuts="Meta+K Control+K"
-        className={iconButtonClass({ size: iconSize, className: r('flex', undefined, 'xl:hidden') })}
-      >
-        <MagnifyingGlassIcon aria-hidden />
-      </button>
-      <button
-        type="button"
-        onClick={onSearch}
-        aria-haspopup="dialog"
-        aria-keyshortcuts="Meta+K Control+K"
-        className={cn(
-          // The kit field's look, state for state (components/forms/Field.tsx controlShell): soft-fill
-          // at rest with a transparent 2px border, no hover change, muted placeholder; focus turns it
-          // surface with the accent border + tint ring. 40 tall: it only shows from 1280, where
-          // controls are 40. TODO(kit): a shared `fieldLook({ size })` export from Field.tsx and a
-          // `--shadow-focus-field` token, so this and controlShell come from one definition.
-          't-field h-10 shrink-0 cursor-pointer items-center gap-2 rounded-control border-2 border-transparent bg-soft-fill pr-1.5 pl-2.5 text-left text-muted',
-          'transition-[background-color,border-color,box-shadow,opacity] duration-(--duration-fast) ease-fast active:opacity-80',
-          'focus-visible:border-accent focus-visible:bg-surface focus-visible:shadow-[0_0_0_4px_var(--color-accent-tint-2)] focus-visible:outline-none',
-          BAR.searchField,
-          r('hidden', undefined, 'xl:flex'),
-        )}
-      >
-        <MagnifyingGlassIcon className="size-6 shrink-0" aria-hidden />
-        <span className="flex-1 truncate">Caută bălți, concursuri, pescari</span>
-        {shortcut ? (
-          <kbd aria-hidden className="t-nano rounded-badge bg-surface px-1 py-0.5 text-muted">
-            {shortcut}
-          </kbd>
-        ) : null}
-      </button>
-    </>
+    <button
+      type="button"
+      onClick={onSearch}
+      aria-label="Caută"
+      title={shortcut ? `Caută (${shortcut})` : 'Caută'}
+      aria-haspopup="dialog"
+      aria-keyshortcuts="Meta+K Control+K"
+      className={iconButtonClass({ size: iconSize })}
+    >
+      <MagnifyingGlassIcon aria-hidden />
+    </button>
   );
 }
 

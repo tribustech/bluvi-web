@@ -918,21 +918,21 @@ test.describe('lakes.filters', () => {
   });
 
   for (const vp of [LAPTOP, DESKTOP])
-  test(`lakes.filters.c1 c9 lakes.filters.s1 · ${vp.width}px: «Filtre» opens the filters dialog (no column beside the rows); Escape keeps nothing, focus back on «Filtre»`, async ({ page }) => {
+  test(`lakes.filters.c1 c9 lakes.filters.s1 · ${vp.width}px: «Filtre» opens the filters drawer (no column beside the rows); Escape keeps nothing, focus back on «Filtre»`, async ({ page }) => {
     await openHome(page, vp);
     const button = visible(page.getByRole('button', { name: 'Filtre' }));
+    // Owner 2026-10-13: «Filtre» is the row's right track, on the content edge.
     const before = (await button.boundingBox())!;
-    // «Filtre» and «Arată harta» follow the search pill (no dead band before them) — the whole
-    // pill: «where», then «Specie» and «Regim» (owner rule 6).
-    const search = (await visible(page.getByRole('button', { name: 'Deschide căutarea pentru bălți' })).locator('..').boundingBox())!;
-    expect(before.x - (search.x + search.width)).toBeLessThanOrEqual(13);
+    const gutter = vp.width >= 1280 ? 32 : 24;
+    expect(Math.abs(before.x + before.width - (vp.width - gutter))).toBeLessThanOrEqual(2);
     await button.click();
-    // Owner rule 2 (ROADMAP §4b): a centred dialog, never a vertical panel taking a column.
+    // A modal drawer from the right edge, full height (never a column that takes the rows' room).
     const panel = page.getByRole('dialog', { name: 'Filtre' });
     await expect(panel).toBeVisible();
     await expect(page.getByRole('complementary', { name: 'Filtre' })).toHaveCount(0);
+    await expect.poll(async () => Math.round((await panel.boundingBox())!.x + (await panel.boundingBox())!.width)).toBe(vp.width);
     const box = (await panel.boundingBox())!;
-    expect(Math.abs(box.x + box.width / 2 - vp.width / 2)).toBeLessThanOrEqual(2);
+    expect(box.height).toBeGreaterThanOrEqual(vp.height - 2);
     // The select-all shares the legend's row; its box ends before the pills.
     const regime = panel.getByRole('group', { name: /^Regim/ });
     const action = (await regime.getByRole('button', { name: 'Selectează tot: Regim' }).boundingBox())!;
@@ -2213,18 +2213,20 @@ test.describe('lakes.results-map', () => {
   });
 
   for (const vp of [LAPTOP, DESKTOP, { width: 1920, height: 1080 }])
-  test(`lakes.results-map.c1 · ${vp.width}px: owner rules 6 + 7 — the map's header is the list's (same switch and pill start, same y), «Arată lista» at its end, on the shell column`, async ({ page }) => {
+  test(`lakes.results-map.c1 · ${vp.width}px: owner rules 6 + 7 — the map's header is the list's (same switch and pill, same y), «Arată lista» floating where «Arată harta» is, on the shell column`, async ({ page }) => {
     await openHome(page, vp);
     const boxes = async () => ({
       switcher: (await page.getByRole('navigation', { name: 'Tip de apă' }).boundingBox())!,
       pill: (await visible(page.getByRole('button', { name: /^(Deschide căutarea|Caută)/ }).first()).boundingBox())!,
     });
     const list = await boxes();
-    // Owner 2026-10-13: on the list «Arată harta» is the floating pill; the map's header keeps
-    // «Arată lista» at the row's end (the pill gives it the room).
+    // Owner 2026-10-13: «Arată harta» / «Arată lista» are one floating pill, not header controls.
     await visible(page.getByRole('link', { name: 'Arată harta', exact: true })).click();
     await expect(listHeading(page)).toHaveText(/în această zonă/, { timeout: 25_000 });
     const map = { ...(await boxes()), toggle: (await visible(page.getByRole('link', { name: 'Arată lista', exact: true })).boundingBox())! };
+    // «Arată lista» is the same floating pill, in the same place as «Arată harta» on the list.
+    expect(Math.abs(map.toggle.x + map.toggle.width / 2 - vp.width / 2)).toBeLessThanOrEqual(2);
+    expect(map.toggle.y + map.toggle.height).toBeGreaterThan(vp.height - 120);
     for (const k of ['switcher'] as const) {
       expect(Math.abs(map[k].x - list[k].x)).toBeLessThanOrEqual(2);
       expect(Math.abs(map[k].width - list[k].width)).toBeLessThanOrEqual(2);
@@ -2241,10 +2243,9 @@ test.describe('lakes.results-map', () => {
     // (SHELL_MAX 1744 = 1680 + 2 × 32: past it the column is centred.)
     const edge = Math.max(vp.width >= 1280 ? 32 : 24, (vp.width - 1744) / 2 + 32);
     expect(Math.abs(map.switcher.x - edge)).toBeLessThanOrEqual(2);
-    expect(Math.abs(map.toggle.x + map.toggle.width - (vp.width - edge))).toBeLessThanOrEqual(2);
     const canvas = (await page.locator('.maplibregl-canvas').boundingBox())!;
     expect(canvas.x).toBeLessThanOrEqual(1);
-    // The list's cards end on the shell column too (under «Arată lista»), not on the window's edge.
+    // The list's cards end on the shell column too, not on the window's edge.
     const card = (await page.locator('[data-lake-row-card]').first().boundingBox())!;
     expect(Math.abs(card.x + card.width - (vp.width - edge))).toBeLessThanOrEqual(2);
     // From 1600 the list column is capped (dense cards, LAKES_MAP_SPLIT); the map takes the rest.

@@ -18,9 +18,13 @@ import { homeLinks } from './links';
  * sections; signed out, the public sections and «Intră în cont». Rendered after the session
  * (inside the column's AfterSession reveal), so it never flips from one set to the other.
  *
- * The look (owner pick 2026-10-13, over app icons and a pill bar): stories — round icons in a thin
- * gradient ring, the live one with a pulsing red dot. The label first in the link's name, a 44px+
- * target, hover, press, focus ring.
+ * The look below 768 (owner pick 2026-10-13, over app icons and a pill bar): stories — round icons
+ * in a thin gradient ring, the live one with a pulsing red dot. From 768 (owner 2026-10-13, «Acasă
+ * într-o coloană»): Airbnb's category row under the hero search — a line icon over its label,
+ * centred, on a hairline, the live one with the same red dot. Hover (owner 2026-10-13: «să colorăm
+ * frumos animat iconul»): a disc of the item's own hue blooms behind the icon, the icon takes the
+ * hue and lifts with a small spring, and the ink rule is drawn under it. The label first in the
+ * link's name, a 44px+ target, press, focus ring.
  */
 type Tone = 'live' | 'violet' | 'blue' | 'cyan' | 'teal' | 'plum';
 type Shortcut = { href: string; label: string; icon: ReactNode; tone: Tone };
@@ -64,18 +68,14 @@ async function shortcuts(): Promise<Shortcut[]> {
 }
 
 /**
- * The row: below 768 one line that scrolls sideways, bleeding to the screen edge (the page's 20px
- * gutter, as the rails); from 768 six equal columns across the main column.
+ * The phone row: one line that scrolls sideways, bleeding to the screen edge (the page's 20px
+ * gutter, as the rails).
  */
-const ROW = cn(
-  'flex items-start gap-1 max-md:-mx-5 max-md:overflow-x-auto max-md:px-4 max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden',
-  'md:grid md:grid-cols-6 md:gap-2'
-);
+const ROW =
+  'flex items-start gap-1 -mx-5 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:hidden';
 /** One item: the icon over its label, a 44px+ target, the page's focus ring. */
-const ITEM = cn(
-  'group flex shrink-0 flex-col items-center gap-2 rounded-control py-1.5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-  'max-md:w-21 md:w-full'
-);
+const ITEM =
+  'group flex w-21 shrink-0 flex-col items-center gap-2 rounded-control py-1.5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 const LABEL = 'line-clamp-2 w-full text-center t-caption text-ink-2 transition-colors duration-(--duration-fast) group-hover:text-ink';
 /** The icon's motion: a lift on hover, a press, nothing under reduced motion. */
 const ICON_MOTION =
@@ -116,12 +116,62 @@ function Stories({ items }: { items: Shortcut[] }) {
   );
 }
 
-export async function HomeShortcutCards() {
-  const items = await shortcuts();
-  return <Stories items={items} />;
+/**
+ * From 768: the category row. Each link is a column (icon, label) with a 2px rule on the row's
+ * hairline that turns ink on hover; the row is centred and scrolls sideways if a narrow tablet
+ * cannot hold it.
+ */
+function Categories({ items }: { items: Shortcut[] }) {
+  return (
+    <nav aria-label="Scurtături" className="-mt-1 border-b border-hairline max-md:hidden">
+      <ul className="flex justify-center gap-2 overflow-x-auto [scrollbar-width:none] lg:gap-6 xl:gap-10 [&::-webkit-scrollbar]:hidden">
+        {items.map((s) => (
+          <li key={s.href} className="shrink-0">
+            <Link
+              href={s.href}
+              style={hue(s.tone)}
+              className={cn(
+                'group relative flex min-w-22 flex-col items-center gap-1 px-2 pt-2 pb-3 text-ink-2 outline-none',
+                'transition-colors duration-(--duration-fast) ease-fast hover:text-ink active:opacity-80',
+                "after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-ink after:opacity-0 after:transition-opacity after:duration-(--duration-fast) after:content-[''] hover:after:opacity-100",
+                'focus-visible:rounded-control focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
+              )}
+            >
+              <span aria-hidden className="relative flex size-11 items-center justify-center">
+                {/* The hue's disc: scaled up from nothing on hover. */}
+                <span className="absolute inset-0 scale-50 rounded-full bg-[color-mix(in_oklab,var(--tile)_14%,transparent)] opacity-0 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-100 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:opacity-100 motion-reduce:transition-none" />
+                <span className="relative flex transition-[color,transform] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:-translate-y-0.5 group-hover:scale-110 group-hover:text-(--tile) group-focus-visible:text-(--tile) group-active:scale-95 motion-reduce:transition-colors motion-reduce:group-hover:translate-y-0 motion-reduce:group-hover:scale-100 [&_svg]:size-7 [&_svg]:stroke-[1.5]">
+                  {s.icon}
+                </span>
+                {s.tone === 'live' ? (
+                  <span className="absolute top-0.5 right-0.5 size-2.5 rounded-full bg-live ring-2 ring-page motion-safe:animate-live" />
+                ) : null}
+              </span>
+              <span className="t-label whitespace-nowrap">{s.label}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
 }
 
-/** The row's footprint while the session is read (the stories' height, nothing readable). */
+export async function HomeShortcutCards() {
+  const items = await shortcuts();
+  return (
+    <>
+      <Stories items={items} />
+      <Categories items={items} />
+    </>
+  );
+}
+
+/** The row's footprint while the session is read (the stories' / categories' height, nothing readable). */
 export function HomeShortcutCardsSkeleton() {
-  return <span aria-hidden className="block h-24 rounded-card bg-soft-fill animate-shimmer" />;
+  return (
+    <>
+      <span aria-hidden className="block h-24 rounded-card bg-soft-fill animate-shimmer md:hidden" />
+      <span aria-hidden className="-mt-1 block h-21 border-b border-hairline max-md:hidden" />
+    </>
+  );
 }

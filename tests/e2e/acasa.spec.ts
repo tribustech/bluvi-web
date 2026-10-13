@@ -10,9 +10,10 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
  * test names the criterion ids it covers. QA user (local CMS on :1337): operator of the local lake
  * Chita, no active partidă, no live competition of their own.
  *
- * Below 1280 the single fish-order column renders, from 1280 the main column + «Ce mă așteaptă»;
- * below 768 the profile card is the header, from 768 the T5 header. Only one composition is
- * displayed, so every locator is narrowed to its visible match.
+ * One fish-order column at every width (owner 2026-10-13, «Acasă într-o coloană»: no side panel);
+ * from 1280 «Pentru tine» carries the old right column's cards, and from 768 the page ends on its
+ * footer. Below 768 the profile card is the header, from 768 the hero. Small blocks exist twice
+ * (one copy display:none), so every locator is narrowed to its visible match.
  *
  * Blocks that depend on local data (organiser banner, poll, a live competition) are asserted
  * when present and skipped with a note when the local CMS has nothing for them.
@@ -32,6 +33,10 @@ const visible = (l: Locator) => l.locator('visible=true').first();
 const h2 = (page: Page, name: string | RegExp) => visible(page.getByRole('heading', { level: 2, name }));
 /** The visible <section> named by its heading. */
 const section = (page: Page, name: string | RegExp) => visible(page.getByRole('region', { name }));
+/** A visible button in the page's column — never the footer's link of the same name (from 768). */
+const columnButton = (page: Page, name: string) => visible(page.getByRole('main').getByRole('button', { name }).and(page.locator(':not([data-home-footer] *)')));
+/** The same for a link. */
+const columnLink = (page: Page, name: string | RegExp) => visible(page.getByRole('main').getByRole('link', { name }).and(page.locator(':not([data-home-footer] *)')));
 
 async function open(page: Page, viewport: { width: number; height: number }, signedIn: boolean) {
   await page.setViewportSize(viewport);
@@ -55,24 +60,44 @@ for (const signedIn of [false, true]) {
       // One h1 per width: the greeting (fish profile card title). Signed out the same welcome at
       // every width (account.onboarding web replacement; the phone card's «Conectează-te» is the
       // sign-in, ProfileCard.tsx).
-      const greeting = signedIn ? /^(Salut, .+!|Bine ai venit!)$/ : 'Bine ai venit pe Bluvi';
+      const greeting = signedIn ? /^(Salut, .+!|Bine ai venit!)$/ : 'Aplicația pentru concursuri live, rezervări, partide, cronometre, clasamente și bălți';
       await expect(visible(page.getByRole('heading', { level: 1, name: greeting }))).toBeVisible();
 
-      for (const name of [/^Concursuri (live|viitoare)/, /^Bălți/, 'Noutăți', 'Sponsori', 'Instrumente', 'Ești la pescuit?', 'Nu găsești balta preferată?']) {
+      for (const name of [/^Concursuri (live|viitoare)/, /^Bălți/, 'Noutăți', 'Sponsori', 'Nu găsești balta preferată?']) {
         await expect(h2(page, name)).toBeVisible();
       }
-      if (vp.width >= 1280) await expect(page.getByRole('complementary', { name: 'Ce mă așteaptă' })).toBeVisible();
+      // Owner 2026-10-13: the tools card is phone / tablet only, the partidă hero below 1024 (the
+      // app band says the same from 768), and there is no side column at any width.
+      if (vp.width < 1280) await expect(h2(page, 'Instrumente')).toBeVisible();
+      else await expect(h2(page, 'Instrumente')).toHaveCount(0);
+      if (vp.width < 1024) await expect(h2(page, 'Ești la pescuit?')).toBeVisible();
+      else await expect(h2(page, 'Ești la pescuit?')).toHaveCount(0);
+      if (vp.width >= 768) await expect(h2(page, 'La baltă, partida se ține în aplicație')).toBeVisible();
+      await expect(page.getByRole('complementary')).toHaveCount(0);
+      // The footer from 768: Contact, privacy settings and the feedback form for everyone.
+      const footer = page.locator('[data-home-footer]').locator('visible=true');
+      await expect(footer).toHaveCount(vp.width >= 768 ? 1 : 0);
+      if (vp.width >= 768) for (const name of ['Contactează-ne', 'Trimite o sugestie']) await expect(footer.getByRole('button', { name })).toBeVisible();
 
       if (signedIn) {
         await expect(h2(page, /^Balta mea/)).toBeVisible();
-        await expect(visible(page.getByRole('button', { name: 'Contactează-ne' }))).toHaveCount(0);
+        // The QA user runs a lake: from 1280 «Balta mea» is a «Pentru tine» card.
+        if (vp.width >= 1280) await expect(section(page, 'Pentru tine').getByRole('heading', { name: /^Balta mea/ })).toBeVisible();
+        await expect(columnButton(page, 'Contactează-ne')).toHaveCount(0);
         await expect(h2(page, 'Ce găsești pe Bluvi')).toHaveCount(0);
       } else {
         // §4b rule 25: fish's Acasă has no pillars block; the phone shows none (from 768 it stays).
         if (vp.width < 768) await expect(h2(page, 'Ce găsești pe Bluvi')).toHaveCount(0);
         else await expect(h2(page, 'Ce găsești pe Bluvi')).toBeVisible();
-        await expect(visible(page.getByRole('button', { name: 'Contactează-ne' }))).toBeVisible();
-        await expect(visible(page.getByRole('link', { name: /Setări de confidențialitate/ }))).toBeVisible();
+        await expect(section(page, 'Pentru tine')).toHaveCount(0);
+        // Phone: fish's cards at the column's end; from 768 the same two in the footer.
+        if (vp.width < 768) {
+          await expect(columnButton(page, 'Contactează-ne')).toBeVisible();
+          await expect(columnLink(page, /Setări de confidențialitate/)).toBeVisible();
+        } else {
+          await expect(columnButton(page, 'Contactează-ne')).toHaveCount(0);
+          await expect(footer.getByRole('link', { name: /Setări de confidențialitate/ })).toBeVisible();
+        }
         await expect(h2(page, /^Balta mea/)).toHaveCount(0);
         await expect(h2(page, 'Pescari pe care îi poți urmări')).toHaveCount(0);
       }
@@ -123,9 +148,9 @@ test('home.acasa.c1 c4 c5 — signed-in profile card: greeting, profile link, be
 
 test('home.acasa.c2 c4 — signed-out profile card opens sign-in', async ({ page }) => {
   await open(page, PHONE, false);
-  // The card's title line (not a heading: the guest's h1 is «Bine ai venit pe Bluvi», above it).
+  // The card's title line (not a heading: the guest's h1 is GUEST_TITLE, visually hidden, above it).
   await expect(visible(page.getByRole('main').getByRole('link', { name: 'Conectează-te', exact: true }))).toHaveAttribute('href', '/intra');
-  await expect(visible(page.getByRole('heading', { level: 1 }))).toHaveText('Bine ai venit pe Bluvi');
+  await expect(visible(page.getByRole('heading', { level: 1 }))).toHaveText('Aplicația pentru concursuri live, rezervări, partide, cronometre, clasamente și bălți');
   await expect(visible(page.getByRole('main').getByRole('link', { name: /^Notificări/ }))).toHaveCount(0);
   const slogans = [
     'Creează-ți cont pentru a te alătura comunității',
@@ -221,7 +246,7 @@ async function openWith(page: Page, viewport: { width: number; height: number },
   await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
 }
 
-for (const vp of [PHONE, { width: 1280, height: 800 }]) {
+for (const vp of [PHONE, { width: 1024, height: 800 }]) {
   test(`owner rule 4 — session unknown · ${vp.width}px: no greeting, no guest prompts, tools kept`, async ({ page }) => {
     // Loads Acasă (two widths for some) and waits out the browser takeover's retries.
     test.slow();
@@ -231,10 +256,10 @@ for (const vp of [PHONE, { width: 1280, height: 800 }]) {
     await expect(visible(page.getByRole('heading', { level: 1 }))).toHaveText('Acasă');
     await expect(page.getByRole('heading', { level: 1, name: /^(Salut|Bine ai venit|Conectează-te)/ })).toHaveCount(0);
     await expect(visible(main.getByText(/Conectează-te|Intră în cont|Intră ca să/))).toHaveCount(0);
-    await expect(visible(main.getByRole('button', { name: 'Contactează-ne' }))).toHaveCount(0);
-    await expect(visible(main.getByRole('link', { name: /Setări de confidențialitate/ }))).toHaveCount(0);
-    for (const name of ['Ești la pescuit?', /^Balta mea/, 'Panou organizator', 'Pescari pe care îi poți urmări', 'Ce găsești pe Bluvi']) await expect(h2(page, name)).toHaveCount(0);
-    // Session-independent: the tools (phone: main column; 1280: the aside) and the public sections.
+    await expect(columnButton(page, 'Contactează-ne')).toHaveCount(0);
+    await expect(columnLink(page, /Setări de confidențialitate/)).toHaveCount(0);
+    for (const name of ['Ești la pescuit?', /^Balta mea/, 'Panou organizator', 'Pescari pe care îi poți urmări', 'Ce găsești pe Bluvi', 'Pentru tine']) await expect(h2(page, name)).toHaveCount(0);
+    // Session-independent: the tools (below 1280) and the public sections.
     await expect(h2(page, 'Instrumente')).toBeVisible();
     for (const name of [/^Bălți/, 'Noutăți']) await expect(h2(page, name)).toBeVisible();
     // No bone that never resolves: the phone card is a slim row with the retry, not a shimmer.
@@ -284,13 +309,13 @@ test('owner rule 4 — live competition read with no answer: the browser read br
     const block = page.locator('section[aria-labelledby^="acasa-concursul-meu"]').locator('visible=true');
     await expect(block).toHaveCount(1, { timeout: 20_000 });
     await expect(block).toContainText('Cupa E2E live');
-    // Phone: the dock sticks to the bottom edge; 1280: the right column's last block.
+    // Phone: the dock sticks to the bottom edge; 1280: the last card of «Pentru tine».
     if (vp.width < 1280) {
       const box = await block.boundingBox();
       expect(Math.round((box?.y ?? 0) + (box?.height ?? 0))).toBeLessThanOrEqual(vp.height);
     } else {
-      const aside = page.getByRole('complementary', { name: 'Ce mă așteaptă' });
-      const last = await aside.locator('section').locator('visible=true').last().getAttribute('aria-labelledby');
+      const forYou = section(page, 'Pentru tine');
+      const last = await forYou.locator('section').locator('visible=true').last().getAttribute('aria-labelledby');
       expect(last).toMatch(/^acasa-concursul-meu/);
     }
   }
@@ -420,7 +445,10 @@ async function expectCloseX(page: Page, dialog: Locator) {
 
 const TABLET_900 = { width: 900, height: 1000 };
 
-for (const vp of [PHONE, TABLET_900, DESKTOP]) {
+// The tools card is phone / tablet only (owner 2026-10-13): its widest layout is just under 1280.
+const TOOLS_WIDE = { width: 1200, height: 900 };
+
+for (const vp of [PHONE, TABLET_900, TOOLS_WIDE]) {
   test(`home.acasa.c18 — signed out (${vp.width}px): image, title, description and «Intră în cont»; no read`, async ({ page }) => {
     const requests = await mockWidgetNotifications(page, { registered: false });
     await open(page, vp, false);
@@ -566,7 +594,7 @@ test('home.acasa.c18 — unknown session (a cookie whose read fails): no «Intr�
   expect(requests.filter((r) => r.method === 'GET')).toHaveLength(1);
 });
 
-for (const vp of [PHONE, DESKTOP]) {
+for (const vp of [PHONE, TOOLS_WIDE]) {
   test(`home.acasa.c18 — keyboard (${vp.width}px): Enter opens with focus inside, Esc closes, focus returns to the tile`, async ({ page }) => {
     await mockWidgetNotifications(page, { registered: true });
     await open(page, vp, true);
@@ -627,8 +655,9 @@ test.fixme('home.acasa.c18 — phone sheet: focus starts on the CTA and the fitt
   expect(Math.abs((await dialog.boundingBox())!.height - before)).toBeLessThan(2);
 });
 
+// The partidă hero is below 1024 only (owner 2026-10-13: from 768 the app band says the same).
 for (const signedIn of [false, true]) {
-  for (const vp of [PHONE, DESKTOP]) {
+  for (const vp of [PHONE, TABLET]) {
     test(`home.acasa.c19 — partidă hero hands over to the app (owner 2026-10-08) · ${signedIn ? 'signed in' : 'guest'} · ${vp.width}px`, async ({ page }) => {
       await open(page, vp, signedIn);
       const hero = await expectPartidaHero(page);
@@ -709,20 +738,17 @@ for (const signedIn of [false, true]) test(`home.acasa.c30 c31 c32 c35 — poll 
   expect(shared.url).toMatch(/\/sondaje$/);
 });
 
-// Owner 2026-10-11: from 1280 the poll is in the right column «Ce mă așteaptă» (under the tools);
-// below 1280 it stays in the main column, in fish's place (after Concursuri).
+// Owner 2026-10-13 («Acasă într-o coloană»): the poll keeps fish's place at every width — after
+// Concursuri, in the one column; exactly one poll on the page.
 for (const vp of [PHONE, { width: 1280, height: 800 }, DESKTOP]) test(`home.acasa.c30 — poll column · ${vp.width}px`, async ({ page }) => {
   await open(page, vp, true);
   const share = visible(page.getByRole('button', { name: 'Distribuie sondajul' }));
   if ((await share.count()) === 0) test.skip(true, 'no current poll in the local CMS');
-  const aside = page.getByRole('complementary', { name: 'Ce mă așteaptă' });
-  const inAside = await share.evaluate((el) => !!el.closest('aside'));
-  expect(inAside).toBe(vp.width >= 1280);
-  if (vp.width >= 1280) {
-    // Below the tools, and exactly one poll on the page.
-    const tools = visible(aside.getByRole('heading', { name: 'Instrumente' }));
-    const order = await tools.evaluate((t, s) => t.compareDocumentPosition(s as Node) & Node.DOCUMENT_POSITION_FOLLOWING, await share.elementHandle());
-    expect(order).toBeTruthy();
+  expect(await share.evaluate((el) => !!el.closest('aside'))).toBe(false);
+  const competitions = h2(page, /^Concursuri (live|viitoare)/);
+  if (await competitions.count()) {
+    const after = await competitions.evaluate((t, s) => t.compareDocumentPosition(s as Node) & Node.DOCUMENT_POSITION_FOLLOWING, await share.elementHandle());
+    expect(after).toBeTruthy();
   }
   await expect(page.getByRole('button', { name: 'Distribuie sondajul' }).locator('visible=true')).toHaveCount(1);
 });
@@ -959,7 +985,7 @@ test('account.onboarding.c1 c2 c3 c4 replaced — a first visit to / never redir
     expect(new URL(page.url()).pathname).toBe('/');
     // No onboarding pager («Sari peste», «Continuă»): the home itself is the landing.
     await expect(page.getByRole('button', { name: 'Sari peste' })).toHaveCount(0);
-    await expect(visible(page.getByRole('heading', { level: 1, name: 'Bine ai venit pe Bluvi' }))).toBeVisible();
+    await expect(visible(page.getByRole('heading', { level: 1, name: 'Aplicația pentru concursuri live, rezervări, partide, cronometre, clasamente și bălți' }))).toBeVisible();
     if (vp.width < 768) {
       // §4b rule 25: the phone is fish's Acasă — no pillars, no top bar; the card's «Conectează-te» signs in.
       await expect(page.getByRole('region', { name: 'Ce găsești pe Bluvi' }).locator('visible=true')).toHaveCount(0);
@@ -971,7 +997,7 @@ test('account.onboarding.c1 c2 c3 c4 replaced — a first visit to / never redir
       continue;
     }
     // c4 — the landing says what Bluvi is: fish's four onboarding pillars (app/onboarding.tsx
-    // STORIES, kicker + headline), heading the right column from 1280.
+    // STORIES, kicker + headline), right above the app band from 768 (owner 2026-10-13).
     const pillars = visible(page.getByRole('region', { name: 'Ce găsești pe Bluvi' }));
     await expect(pillars).toBeVisible();
     for (const [kicker, headline] of [
@@ -984,11 +1010,11 @@ test('account.onboarding.c1 c2 c3 c4 replaced — a first visit to / never redir
       await expect(pillars.getByText(headline, { exact: true })).toBeVisible();
     }
     {
-      // In «Ce mă așteaptă», above Instrumente: what Bluvi is before its coming-soon tools.
-      const tools = section(page, 'Instrumente');
-      const [toolsBox, pillarsBox] = [await tools.boundingBox(), await pillars.boundingBox()];
-      expect(pillarsBox!.y).toBeLessThan(toolsBox!.y);
-      expect(Math.abs(pillarsBox!.x - toolsBox!.x)).toBeLessThan(2);
+      // Above the app band, on the column's left edge.
+      const band = section(page, 'La baltă, partida se ține în aplicație');
+      const [bandBox, pillarsBox] = [await band.boundingBox(), await pillars.boundingBox()];
+      expect(pillarsBox!.y).toBeLessThan(bandBox!.y);
+      expect(Math.abs(pillarsBox!.x - bandBox!.x)).toBeLessThan(2);
     }
     const intra = visible(page.getByRole('banner').getByRole('link', { name: 'Intră', exact: true }));
     await expect(intra).toHaveAttribute('href', '/intra');

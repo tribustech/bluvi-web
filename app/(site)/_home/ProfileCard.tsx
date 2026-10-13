@@ -1,8 +1,12 @@
+import type { ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { DashboardHeader } from '@/components/templates/T5';
 import { cn } from '@/components/ui/cn';
 import { getHomeSession } from './data';
+import { HeroBackdrop } from './HeroBackdrop';
+import { HeroHeadline } from './HeroHeadline';
+import { HeroSearch } from './HeroSearch';
 import { HomeBell } from './HomeBell';
 import { HomeRetry } from './HomeRefresh';
 import { homeLinks } from './links';
@@ -10,8 +14,12 @@ import { Slogan } from './Slogan';
 import logo from './assets/logo_bluvi.png';
 
 /** fish: «Salut, {username}!», or «Bine ai venit!» without a username; «Conectează-te» signed out. */
-/** A guest's page title, the same at every width (the phone card's «Conectează-te» is the sign-in). */
-const GUEST_TITLE = 'Bine ai venit pe Bluvi';
+/**
+ * A guest's page title, the same at every width (the phone card's «Conectează-te» is the sign-in).
+ * From 768 it is drawn as «Aplicația pentru» + the rotating word (HeroHeadline, owner 2026-10-13);
+ * this sentence is its accessible name, and the phone's visually hidden h1.
+ */
+export const GUEST_TITLE = 'Aplicația pentru concursuri live, rezervări, partide, cronometre, clasamente și bălți';
 
 function greeting(viewer: { username: string | null } | null): string {
   if (!viewer) return 'Conectează-te';
@@ -125,10 +133,11 @@ function ProfileCardBones() {
 }
 
 /**
- * From 768 — the T5 header: the greeting as the page title and the slogan as its caption (no
- * refresh control: owner 2026-10-11). Signed out the title welcomes rather than asks («Conectează-te»
- * is the phone card's, where the whole card is the sign-in link): the top bar's «Intră» is the one
- * sign-in control here, and the signed-out slogan is the prompt.
+ * From 768 — the hero (owner 2026-10-13, «Acasă într-o coloană»): centred over the depth-chart
+ * backdrop, the greeting as the page title, the slogan under it, then the big search (HeroSearch).
+ * No refresh control (owner 2026-10-11). Signed out the title welcomes rather than asks
+ * («Conectează-te» is the phone card's, where the whole card is the sign-in link): the top bar's
+ * «Intră» is the one sign-in control here, and the signed-out slogan is the prompt.
  */
 export async function HomeHeader() {
   const session = await getHomeSession();
@@ -144,24 +153,34 @@ export async function HomeHeader() {
           card (which carries the slogan), from 768 the T5 header. */}
       {/* Visually hidden on the phone: fish opens on the sign-in card, no title above it. */}
       {viewer ? null : <h1 className="sr-only md:hidden">{GUEST_TITLE}</h1>}
-      <DashboardHeader
-        className="max-md:hidden"
-        title={viewer ? greeting(viewer) : GUEST_TITLE}
+      <HomeHero
+        title={viewer ? greeting(viewer) : <HeroHeadline label={GUEST_TITLE} />}
         caption={<Slogan signedIn={!!viewer} as="span" className="" />}
       />
     </>
   );
 }
 
+/** The hero's frame (also its skeleton's): the backdrop, the centred h1 and caption, the search. */
+function HomeHero({ title, caption }: { title: ReactNode; caption: ReactNode }) {
+  return (
+    <header className="relative isolate flex flex-col items-center gap-2 pt-12 pb-3 text-center max-md:hidden xl:pt-16">
+      <HeroBackdrop />
+      <h1 className="max-w-200 t-hero text-balance text-ink">{title}</h1>
+      <p className="max-w-160 t-heading text-ink-2">{caption}</p>
+      <HeroSearch className="mt-6" />
+    </header>
+  );
+}
+
 /** The header while the session is read: bones for the words. */
 export function HomeHeaderSkeleton() {
   return (
-    <DashboardHeader
-      className="max-md:hidden"
+    <HomeHero
       title={
         <>
           <span className="sr-only">Acasă</span>
-          <span aria-hidden className="inline-block h-8 w-72 max-w-full rounded-full bg-soft-fill align-middle animate-shimmer" />
+          <span aria-hidden className="inline-block h-10 w-96 max-w-full rounded-full bg-soft-fill align-middle animate-shimmer" />
         </>
       }
       caption={<span aria-hidden className="inline-block h-3.5 w-96 max-w-full rounded-full bg-soft-fill align-middle animate-shimmer" />}

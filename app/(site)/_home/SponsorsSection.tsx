@@ -38,7 +38,7 @@ export function SponsorsView({ sponsors }: { sponsors: Sponsor[] }) {
   return (
     <DashboardSection variant="plain" title="Sponsori">
       {/* pb-4 is the chips' shadow room; -mb-3 gives it back (the column's own rhythm). */}
-      <ul aria-label="Sponsori" className={cn(SPONSOR_STRIP, '-mb-3')}>
+      <ul aria-label="Sponsori" className={cn(SPONSOR_STRIP, '-mb-3 md:mb-0')}>
         {sponsors.map((s) => (
           <li key={s.documentId} className="shrink-0">
             <SponsorChip sponsor={s} />
@@ -64,11 +64,13 @@ function SponsorChip({ sponsor: s }: { sponsor: Sponsor }) {
       className={cn(
         'relative flex items-center justify-center overflow-hidden rounded-card bg-surface px-3 shadow-e0 transition-[box-shadow,opacity,transform] duration-(--duration-fast) ease-fast hover:shadow-[var(--shadow-e2),var(--shadow-e0)] active:opacity-70',
         'md:hover:-translate-y-0.5 md:active:translate-y-0 motion-reduce:hover:translate-y-0',
+        // From 768 a bare logo on the page (no card): hover lifts it, nothing else.
+        'md:bg-transparent md:shadow-none md:hover:shadow-none',
         SPONSOR_CHIP
       )}
     >
       {src ? (
-        <Image src={src} alt={s.name} fill sizes="(min-width: 768px) 320px, 245px" className="object-cover md:object-contain md:p-3" />
+        <Image src={src} alt={s.name} fill sizes="(min-width: 768px) 320px, 245px" className="object-cover md:object-contain md:p-2" />
       ) : (
         <span className="line-clamp-2 text-center t-caption text-ink">{s.name}</span>
       )}

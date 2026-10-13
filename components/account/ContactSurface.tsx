@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { EnvelopeIcon, PhoneArrowUpRightIcon, PhoneIcon } from '@heroicons/react/24/outline';
 import { ResponsiveSurface } from '@/components/surfaces/ResponsiveSurface';
 import { cn } from '@/components/ui/cn';
@@ -38,6 +38,19 @@ export function ContactSurface({ open, onClose }: { open: boolean; onClose: () =
         </li>
       </ul>
     </ResponsiveSurface>
+  );
+}
+
+/** The same panel from a plain link-styled button (Acasă's footer from 768); `className` is its look. */
+export function ContactLink({ className, children }: { className?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className={className} onClick={() => setOpen(true)} aria-haspopup="dialog">
+        {children}
+      </button>
+      <ContactSurface open={open} onClose={() => setOpen(false)} />
+    </>
   );
 }
 

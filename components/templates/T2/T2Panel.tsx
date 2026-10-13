@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Dialog } from '@/components/surfaces/Dialog';
+import { FilterDrawer, FilterPopover } from '@/components/surfaces/FilterSurfaces';
 import { Sheet } from '@/components/surfaces/Sheet';
 import { cn } from '@/components/ui/cn';
 
@@ -19,6 +20,12 @@ export type T2PanelProps = {
    * page that loads with the panel open): the «Filtre» button.
    */
   returnFocusTo?: () => HTMLElement | null;
+  /**
+   * From 768, how the docked panel presents (owner 2026-10-13, the Bălți filters): `dialog` (default)
+   * the centred kit Dialog; `popover` hanging under the control that opened it (`anchorSelector`);
+   * `drawer` sliding in from the right edge (components/surfaces/FilterSurfaces).
+   */
+  desktop?: { kind: 'dialog' } | { kind: 'popover'; anchorSelector: string } | { kind: 'drawer' };
 };
 
 /**
@@ -82,7 +89,21 @@ export function T2Panel({ docked = false, ...props }: T2PanelProps & { docked?: 
   return props.open ? <DockedPanel {...props} /> : null;
 }
 
-function DockedPanel({ onClose, title, subtitle, children, footer }: T2PanelProps) {
+function DockedPanel({ onClose, title, subtitle, children, footer, desktop }: T2PanelProps) {
+  if (desktop?.kind === 'popover') {
+    return (
+      <FilterPopover open onClose={onClose} title={title} anchorSelector={desktop.anchorSelector} footer={footer}>
+        {children}
+      </FilterPopover>
+    );
+  }
+  if (desktop?.kind === 'drawer') {
+    return (
+      <FilterDrawer open onClose={onClose} title={title} footer={footer}>
+        {children}
+      </FilterDrawer>
+    );
+  }
   // `docked` (from 768): the kit Dialog — its body scrolls between the fixed header and footer, the
   // metrics of T1 FiltersSurface's dialog. The Sheet's «Închide» X in `children` hides itself there.
   return (

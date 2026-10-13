@@ -32,8 +32,36 @@ import lakePhoto from './assets/lake-request.jpeg';
  * `layout="desktop"`: half of a row beside the partidă hero (page.tsx BannerPair, owner
  * 2026-10-11), laid out by its own cell; one paragraph: «Îți vom trimite un mesaj…» moves into the
  * form's intro, and signed out the button's label says what the sign-in line said.
+ *
+ * From 1024 on Acasă `layout="inline"` (owner 2026-10-13, «Acasă într-o coloană»): one slim row
+ * under the lakes grid it completes — no photo, a dashed edge (something that is missing), the
+ * question, one line, the action on the right.
  */
-export function LakeRequestBanner({ layout = 'mobile', className }: { layout?: 'mobile' | 'desktop'; className?: string }) {
+export function LakeRequestBanner({ layout = 'mobile', className }: { layout?: 'mobile' | 'desktop' | 'inline'; className?: string }) {
+  if (layout === 'inline') {
+    return (
+      <section
+        aria-labelledby="acasa-sugereaza-inline"
+        className={cn('flex items-center justify-between gap-6 rounded-card border border-dashed border-accent-tint-3 bg-surface/60 px-6 py-4.5', className)}
+      >
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h2 id="acasa-sugereaza-inline" className="t-heading text-ink">
+            Nu găsești balta preferată?
+          </h2>
+          <p className="t-body text-ink-2">Spune-ne care lipsește și o adăugăm, cu datele de la administratorul bălții.</p>
+        </div>
+        <Suspense
+          fallback={
+            <span aria-hidden className={buttonClass({ variant: 'secondary' })}>
+              Sugerează baltă
+            </span>
+          }
+        >
+          <BannerAction light />
+        </Suspense>
+      </section>
+    );
+  }
   return (
     <section aria-labelledby={`acasa-sugereaza-${layout}`} className={cn(BANNER, BANNER_ROW, 'text-on-photo-scrim shadow-e1', className)}>
       <Image src={lakePhoto} alt="" fill sizes={layout === 'desktop' ? '(min-width: 1280px) 30vw, 50vw' : '100vw'} className="z-backdrop object-cover" placeholder="blur" />
@@ -79,15 +107,19 @@ function SignInLine() {
   return useViewerState() === null ? <p className={BANNER_COPY}>Pentru a putea sugera o baltă intră în contul tău.</p> : null;
 }
 
-function BannerAction() {
+/** The banner's action; `light`: on the page ground (the inline row), not over the photo. */
+function BannerAction({ light = false }: { light?: boolean }) {
   // Only a known signed-out visitor gets the sign-in action; an unknown session (a cookie whose read
   // failed) keeps the real one — the request carries the cookie.
   const signedOut = useViewerState() === null;
   const [open, setOpen] = useState(false);
+  const wrap = light ? 'shrink-0' : cn(BANNER_ACTIONS, PHONE_ACTIONS);
+  const variant = light ? 'secondary' : 'outline';
+  const look = light ? undefined : cn(ON_DARK_FOCUS, PHONE_BUTTON);
   if (signedOut) {
     return (
-      <div className={cn(BANNER_ACTIONS, PHONE_ACTIONS)}>
-        <ButtonLink href={homeLinks.signIn} variant="outline" className={cn(ON_DARK_FOCUS, PHONE_BUTTON)}>
+      <div className={wrap}>
+        <ButtonLink href={homeLinks.signIn} variant={variant} className={look}>
           Intră ca să sugerezi
         </ButtonLink>
       </div>
@@ -95,8 +127,8 @@ function BannerAction() {
   }
   return (
     <>
-      <div className={cn(BANNER_ACTIONS, PHONE_ACTIONS)}>
-        <Button variant="outline" onClick={() => setOpen(true)} aria-haspopup="dialog" className={cn(ON_DARK_FOCUS, PHONE_BUTTON)}>
+      <div className={wrap}>
+        <Button variant={variant} onClick={() => setOpen(true)} aria-haspopup="dialog" className={look}>
           Sugerează baltă
         </Button>
       </div>

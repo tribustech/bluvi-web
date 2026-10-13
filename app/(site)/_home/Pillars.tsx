@@ -15,9 +15,10 @@ const PILLARS: Pillar[] = [
 
 /**
  * account.onboarding web replacement: the signed-out home says what Bluvi is with fish's four
- * onboarding pillars. Below 1280 a plain section under the header card (main column): a 2×2 bento
- * on the phone, one row of four from 768. From 1280 a card in the right column under Instrumente,
- * one row per pillar (the column is 320–360px: a 2×2 there wraps every headline to four lines). Guests only (SignedOutOnly).
+ * onboarding pillars: from 768 a plain section of one row of four, right above the app band (owner
+ * 2026-10-13, «Acasă într-o coloană»; the phone has no such block). `desktop` (one row per pillar,
+ * on a card) is the narrow-column layout, unused on Acasă since the right column left. Guests only
+ * (SignedOutOnly).
  */
 export function Pillars({ layout }: { layout: 'mobile' | 'desktop' }) {
   const desktop = layout === 'desktop';

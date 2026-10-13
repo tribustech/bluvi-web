@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useMemo, useState, type FormEvent } from 'react';
+import { Suspense, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { sendFeedbackMutation, type FeedbackCategory } from '@/core/social';
 import { createBrowserTransport } from '@/lib/client/transport';
@@ -39,6 +39,26 @@ export function FeedbackSection({ className }: { className?: string }) {
           </div>
         </div>
       </DashboardSection>
+      {open ? (
+        <Suspense fallback={null}>
+          <FeedbackDialog onClose={() => setOpen(false)} />
+        </Suspense>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * From 768 the same form from Acasă's footer (HomeFooter, owner 2026-10-13): a footer link that
+ * opens the feedback dialog; `className` is the footer's link look.
+ */
+export function FeedbackLink({ className, children }: { className?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className={className} onClick={() => setOpen(true)} aria-haspopup="dialog">
+        {children}
+      </button>
       {open ? (
         <Suspense fallback={null}>
           <FeedbackDialog onClose={() => setOpen(false)} />

@@ -80,6 +80,7 @@ import { MAX_PHOTOS } from '@/components/cards/photos';
 import { KitSheetCloseButton } from './PhoneSheet';
 import { SearchLayer } from './SearchLayer';
 import { LakesSearchRow } from './HomeHeader';
+import { ViewToggleFab } from './ViewToggleFab';
 import { countLakeFilters, lakesMapQuery, lakesSearchSummary, parseLakesMapParams, withCatalogNames } from './url';
 
 /*
@@ -679,7 +680,6 @@ export function LakesMap() {
             onFilters={() => openPanel('all')}
             filtersExpanded={panel === 'all'}
             filterCount={countLakeFilters(railFilters)}
-            showToggle
             switcherHrefs={{ balti: routes.lakesMap() }}
           />
           <FilterBar label="Filtre" onReset={clearAll} canReset={hasAnyFilter && panel === null}>
@@ -866,6 +866,11 @@ export function LakesMap() {
               (b) => b.getClientRects().length > 0,
             ) ?? null,
           title: filterPanelTitle(filterSection),
+          // From 768 (owner 2026-10-13): «Specie» / «Regim» under their pill segment, «Filtre» from the right.
+          desktop:
+            panel === 'fish' || panel === 'regime'
+              ? { kind: 'popover', anchorSelector: `[data-pill-segment="${panel}"]` }
+              : { kind: 'drawer' },
           children: (
             <>
               {/* The phone sheet's «Închide» X (lakes.filters.c9); hidden from 768 (the Dialog has its own). */}
@@ -887,6 +892,10 @@ export function LakesMap() {
           ),
         }}
       />
+
+      {/* From 768 «Arată lista», where the list shows «Arată harta» (owner 2026-10-13). The phone
+          keeps T2's own «Vezi lista» / «Hartă» sheet controls. */}
+      <ViewToggleFab to="list" className="max-md:hidden" />
 
       <SearchLayer
         open={searchOpen}
