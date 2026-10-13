@@ -4,6 +4,7 @@ import type { Review } from '@/core/lakes';
 import { aggregateRatingJsonLd, breadcrumbListJsonLd, collectionPageJsonLd, jsonLdHtml, mapJsonLd } from '@/lib/json-ld';
 import { anglersRankingJsonLd, anglerItems, standItems, standsRankingJsonLd, statsFromState, statsPageJsonLd, totalsLine } from '@/lib/seo/community';
 import { reviewsJsonLd } from '@/lib/seo/reviews';
+import { lakePlaceJsonLd } from '@/lib/seo/lake-place';
 
 /* global.b.seo-json-ld — the JSON-LD builders: escaping, only what the page shows, Romanian counts. */
 
@@ -133,5 +134,40 @@ describe('mapJsonLd', () => {
       geo: { '@type': 'GeoCoordinates', latitude: 44, longitude: 26 },
     });
     expect(mapJsonLd({ name: 'x', path: '/x', place: { type: 'Place', name: 'x', path: '/y' } }).about).not.toHaveProperty('geo');
+  });
+});
+
+describe('lakePlaceJsonLd (review stars need a LocalBusiness type and an address)', () => {
+  it('is a TouristAttraction and a SportsActivityLocation, with the slug URL, address, geo and phone', () => {
+    const ld = lakePlaceJsonLd({
+      documentId: 'lk1',
+      slug: 'chita-lake',
+      name: 'Chita Lake',
+      address: ' DN1 km 30 ',
+      county: 'Ilfov',
+      countyRef: { documentId: 'c1', name: 'Ilfov' },
+      cityRef: { documentId: 't1', name: 'Snagov' },
+      coordinates: { lat: '44.7', long: '26.1' },
+      contact: [{ id: 1, phone: ' ' }, { id: 2, phone: '0722 000 000' }],
+    } as never);
+    expect(ld['@type']).toEqual(['TouristAttraction', 'SportsActivityLocation']);
+    expect(ld.url).toMatch(/\/balti\/chita-lake$/);
+    expect(ld.address).toEqual({ '@type': 'PostalAddress', streetAddress: 'DN1 km 30', addressLocality: 'Snagov', addressRegion: 'Ilfov', addressCountry: 'RO' });
+    expect(ld.geo).toEqual({ '@type': 'GeoCoordinates', latitude: 44.7, longitude: 26.1 });
+    expect(ld.telephone).toBe('0722 000 000');
+  });
+
+  it('always has an address (the country at least), never an empty phone or geo', () => {
+    const ld = lakePlaceJsonLd({ documentId: 'lk2', name: 'Fără date' });
+    expect(ld.address).toEqual({ '@type': 'PostalAddress', addressCountry: 'RO' });
+    expect(ld).not.toHaveProperty('geo');
+    expect(ld).not.toHaveProperty('telephone');
+    expect(ld.url).toMatch(/\/balti\/lk2$/);
+  });
+
+  it('the Recenzii page uses the same place', () => {
+    const ld = reviewsJsonLd({ documentId: 'lk1', name: 'B', reviewsMeta: { quality: 5, facilities: 5, atmosphere: 5, count: 2 } }, '/balti/lk1/recenzii', []);
+    expect(ld?.['@type']).toEqual(['TouristAttraction', 'SportsActivityLocation']);
+    expect(ld).toHaveProperty('address.addressCountry', 'RO');
   });
 });

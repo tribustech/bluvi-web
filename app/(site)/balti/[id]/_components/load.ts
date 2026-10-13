@@ -2,14 +2,14 @@ import 'server-only';
 import { cache } from 'react';
 import { connection } from 'next/server';
 import { getCompetitionsByStatus, type CompetitionListItem } from '@/core/competitions';
-import { buildGalleryCatchItems, getLake, getLakesIndex, getReviewsForLake, parseLakeCoordinates, type LakeDetail, type Review } from '@/core/lakes';
+import { buildGalleryCatchItems, getLake, getLakesIndex, getReviewsForLake, type LakeDetail, type Review } from '@/core/lakes';
 import { getCommunityVenueCatches, getCommunityVenueSection, type CommunityLakeSectionDTO } from '@/core/partide';
 import { ApiError, isApiError } from '@/core/transport';
 import { richTextToPlain } from '@/components/templates/T3';
-import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
 import { createServerTransport } from '@/lib/server/transport';
 import { e2eFault, e2eLakeStub } from './e2e-faults';
 import { lakeLocationLine } from './location';
+import { lakePlaceJsonLd } from '@/lib/seo/lake-place';
 
 /*
  * The lake page's reads — fish app/(app)/lakes/[lakeId].tsx: useLake (the page), plus the sections
@@ -167,42 +167,26 @@ export function lakeImage(lake: LakeDetail): string | null {
 }
 
 /**
- * schema.org: a fishing lake as a TouristAttraction (a Place): geo, address, rating, its photos, the
- * phone, the facilities as amenity features and the species it holds as keywords (owner 2026-10-12:
- * SEO). Only facts the CMS has.
+ * schema.org: a fishing lake as a place (lakePlaceJsonLd: TouristAttraction + SportsActivityLocation,
+ * address, geo, phone), its rating (the overall score the page shows), its photos, the
+ * facilities as amenity features and the species it holds as keywords (owner 2026-10-12: SEO).
+ * Only facts the CMS has.
  */
 export function lakeJsonLd(lake: LakeDetail): Record<string, unknown> {
-  const coords = parseLakeCoordinates(lake.coordinates);
   const images = lake.images.map(img => img.url || img.mediumUrl || img.smallUrl || '').filter(Boolean).slice(0, 10);
   const meta = lake.reviewsMeta;
-  const phone = lake.contact.find(c => c.phone?.trim())?.phone?.trim();
   const facilities = lake.facility.map(f => f.name).filter(Boolean);
   const species = lake.fishSpecies.map(s => s.fish.Name).filter(Boolean);
   return {
     '@context': 'https://schema.org',
-    '@type': 'TouristAttraction',
-    name: lake.name,
+    ...lakePlaceJsonLd(lake),
     description: lakeSummary(lake),
-    url: absoluteUrl(routes.lake(lakeUrlId(lake))),
     touristType: 'Pescari',
     ...(images.length ? { image: images } : {}),
-    ...(phone ? { telephone: phone } : {}),
     ...(facilities.length
       ? { amenityFeature: facilities.map(name => ({ '@type': 'LocationFeatureSpecification', name, value: true })) }
       : {}),
     ...(species.length ? { keywords: ['pescuit', ...species.map(n => `pescuit ${n.toLowerCase()}`)].join(', ') } : {}),
-    ...(coords ? { geo: { '@type': 'GeoCoordinates', latitude: coords.lat, longitude: coords.lng } } : {}),
-    ...(lake.address || lake.countyRef?.name
-      ? {
-          address: {
-            '@type': 'PostalAddress',
-            ...(lake.address ? { streetAddress: lake.address } : {}),
-            ...(lake.cityRef?.name ? { addressLocality: lake.cityRef.name } : {}),
-            ...(lake.countyRef?.name ? { addressRegion: lake.countyRef.name } : {}),
-            addressCountry: 'RO',
-          },
-        }
-      : {}),
     ...(meta && meta.count > 0 && meta.overall
       ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: meta.overall, ratingCount: meta.count, bestRating: 5, worstRating: 1 } }
       : {}),

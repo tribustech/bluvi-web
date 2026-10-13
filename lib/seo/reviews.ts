@@ -1,12 +1,14 @@
 import { formatReviewsCount, type LakeDetail, type Review } from '@/core/lakes';
 import { aggregateRatingJsonLd } from '@/lib/json-ld';
-import { absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
+import { absoluteUrl } from '@/lib/routes';
+import { lakePlaceJsonLd } from './lake-place';
 
 /*
- * The lake's Recenzii page as JSON-LD: the lake (TouristAttraction, as on its own page) with an
+ * The lake's Recenzii page as JSON-LD: the lake (lakePlaceJsonLd, as on its own page) with an
  * AggregateRating and the reviews the page lists. The page shows three scores per lake and per
  * review (calitate, facilități, atmosferă), not one: a rating here is their mean, rounded as the
- * page rounds a score. Nothing is emitted for a lake without reviews (rule 4).
+ * page rounds a score (the lake page's own AggregateRating is the overall score it shows). Nothing
+ * is emitted for a lake without reviews (rule 4).
  */
 
 const mean = (a: number, b: number, c: number) => (a + b + c) / 3;
@@ -28,16 +30,14 @@ export function reviewScoreSentence(meta: LakeDetail['reviewsMeta']): string {
   return score === null || !meta ? '' : ` Nota medie ${score.toFixed(1).replace('.', ',')} din 5 (${formatReviewsCount(meta.count)}).`;
 }
 
-export function reviewsJsonLd(lake: Pick<LakeDetail, 'documentId' | 'name' | 'reviewsMeta'>, path: string, reviews: Review[]) {
+export function reviewsJsonLd(lake: Parameters<typeof lakePlaceJsonLd>[0] & Pick<LakeDetail, 'reviewsMeta'>, path: string, reviews: Review[]) {
   const meta = lake.reviewsMeta;
   if (!meta || meta.count <= 0) return null;
   const rating = aggregateRatingJsonLd(lakeReviewScore(meta), meta.count);
   if (!rating) return null;
   return {
     '@context': 'https://schema.org',
-    '@type': 'TouristAttraction',
-    name: lake.name,
-    url: absoluteUrl(routes.lake(lakeUrlId(lake))),
+    ...lakePlaceJsonLd(lake),
     subjectOf: { '@type': 'WebPage', url: absoluteUrl(path), name: `Recenzii · ${lake.name}` },
     aggregateRating: rating,
     review: reviews.map(r => ({
