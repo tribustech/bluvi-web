@@ -851,8 +851,10 @@ function SummaryCard({
           ) : (
             <StatusPill tone="neutral">Fără rezervări online</StatusPill>
           )}
-          {state === 'enabled' && lake.confirmationMode === 'instant' ? <Badge color="indigo">Confirmare instant</Badge> : null}
-          {state === 'enabled' && lake.paymentMode === 'offline' ? <Badge color="gray">Plata la baltă</Badge> : null}
+          {/* One shape for the whole row (owner 2026-10-13: a 26px pill beside 20px square badges read
+              as two systems): the booking terms are pills too, at the pill's height. */}
+          {state === 'enabled' && lake.confirmationMode === 'instant' ? <StatusPill tone="info">Confirmare instant</StatusPill> : null}
+          {state === 'enabled' && lake.paymentMode === 'offline' ? <StatusPill tone="neutral">Plata la baltă</StatusPill> : null}
         </>
       }
       actions={
