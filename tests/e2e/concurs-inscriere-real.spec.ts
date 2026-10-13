@@ -18,6 +18,7 @@ import {
   type AdminUser,
 } from './helpers/real-registration';
 import { qaJwt, signIn } from './helpers/session';
+import { competitionPath, freshCompetitionSegment, reloadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * Înscriere — REAL writes on the local CMS (parity participant.register c14 / c17 / c18 / c19,
@@ -68,6 +69,7 @@ test.afterEach(async () => {
 async function competition(over: Parameters<typeof createTestCompetition>[0]) {
   const id = await createTestCompetition(over);
   madeHere.push(id);
+  await reloadSlugs(); // the new competition's slug: its links use it at once
   return id;
 }
 
@@ -92,7 +94,7 @@ async function leave(page: Page, id: string) {
   await visible(page.getByTestId('registration-leave')).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Părăsește concursul' }).click();
   await expect(status(page)).toContainText('Ai părăsit competiția.', { timeout: 30_000 });
-  await page.waitForURL(`${BASE}/concursuri/${id}`, { timeout: 15_000 });
+  await page.waitForURL(new RegExp(`^${BASE}/concursuri/${freshCompetitionSegment(id)}$`), { timeout: 15_000 });
 }
 
 async function pickTeammate(page: Page, username: string) {
@@ -121,14 +123,14 @@ test('participant.register.c14 c17 c18 c19 — REAL team entry: teammates, POST,
   await expect(page.getByTestId('teammates').getByRole('listitem')).toHaveText([mate1.username, mate2.username]);
   await submit(page).click();
   await expect(status(page)).toHaveAttribute('data-phase', 'success', { timeout: 30_000 });
-  await page.waitForURL(`${BASE}/concursuri/${id}`, { timeout: 15_000 });
+  await page.waitForURL(new RegExp(`^${BASE}/concursuri/${freshCompetitionSegment(id)}$`), { timeout: 15_000 });
 
   let regs = await registrationsOf(id);
   expect(regs).toHaveLength(1);
   expect(regs[0]).toMatchObject({ registrationStatus: 'pending', teamName: 'Crapii E2E', author: { documentId: qa.documentId } });
   expect(ids(regs[0])).toEqual([qa.documentId, mate1.documentId, mate2.documentId].sort());
   // The competition page offers the edit now.
-  await expect(page.getByRole('link', { name: 'Modifică înscrierea' }).locator('visible=true').first()).toHaveAttribute('href', formPath(id), {
+  await expect(page.getByRole('link', { name: 'Modifică înscrierea' }).locator('visible=true').first()).toHaveAttribute('href', slugPath(formPath(id)), {
     timeout: 60_000,
   });
 
@@ -141,7 +143,7 @@ test('participant.register.c14 c17 c18 c19 — REAL team entry: teammates, POST,
   await page.getByLabel('Numele echipei').fill('Crapii E2E 2');
   await submit(page).click();
   await expect(status(page)).toContainText('Înregistrarea ta a fost modificată cu succes.', { timeout: 30_000 });
-  await page.waitForURL(`${BASE}/concursuri/${id}`, { timeout: 15_000 });
+  await page.waitForURL(new RegExp(`^${BASE}/concursuri/${freshCompetitionSegment(id)}$`), { timeout: 15_000 });
   regs = await registrationsOf(id);
   expect(regs).toHaveLength(1);
   expect(regs[0]).toMatchObject({ registrationStatus: 'pending', teamName: 'Crapii E2E 2' });
@@ -207,7 +209,7 @@ test('participant.b.register-entry-disabled — REAL waiting list on a full comp
   await page.getByLabel('Număr de telefon*').fill('0712000111');
   await submit(page).click();
   await expect(status(page)).toHaveAttribute('data-phase', 'success', { timeout: 30_000 });
-  await page.waitForURL(`${BASE}/concursuri/${id}`, { timeout: 15_000 });
+  await page.waitForURL(new RegExp(`^${BASE}/concursuri/${freshCompetitionSegment(id)}$`), { timeout: 15_000 });
   let regs = await registrationsOf(id);
   expect(regs).toHaveLength(1);
   expect(regs[0]).toMatchObject({ registrationStatus: 'pending', author: { documentId: mate1.documentId } });
@@ -219,7 +221,7 @@ test('participant.b.register-entry-disabled — REAL waiting list on a full comp
   expect(regs.map(r => r.registrationStatus).sort()).toEqual(['pending', 'registered']);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.getByText('Numărul maxim de participanți a fost atins').locator('visible=true').first()).toBeVisible({ timeout: 60_000 });
-  await expect(page.locator(`a[href^="/concursuri/${id}/inscriere"]`)).toHaveCount(0);
+  await expect(page.locator(`a[href^="${competitionPath(id)}/inscriere"]`)).toHaveCount(0);
 
   // fish never opens the form for a disabled entry: the angler's own request stays readable, locked
   // with the reason — no save, no leave (fish shows «Părăsește concursul» only inside that form).
@@ -233,7 +235,7 @@ test('participant.b.register-entry-disabled — REAL waiting list on a full comp
   await deleteRegistration(regs.find(r => r.registrationStatus === 'pending')!.documentId);
   await page.goto(`/concursuri/${id}`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   await expect(page.getByText('Numărul maxim de participanți a fost atins').locator('visible=true').first()).toBeVisible({ timeout: 60_000 });
-  await expect(page.locator(`a[href^="/concursuri/${id}/inscriere"]`)).toHaveCount(0);
+  await expect(page.locator(`a[href^="${competitionPath(id)}/inscriere"]`)).toHaveCount(0);
   await openForm(page, id);
   const gate = page.getByTestId('registration-unavailable');
   await expect(gate).toContainText('Numărul maxim de participanți a fost atins');

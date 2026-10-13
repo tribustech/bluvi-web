@@ -30,6 +30,7 @@ import { readFlowParams, stepHref } from '../_flow/params';
 import { lei } from '../_grid/model';
 import { ExtrasSkeleton } from './ExtrasSkeleton';
 import { continueHeld, extraLine, extrasRedirect, keepOffered, quoteView, toggleExtra, tourNights, type QuoteView } from './model';
+import { useLakeUrlId } from '../../_sub/lake-url';
 
 /*
  * Step 2 of the angler's booking flow — fish app/(app)/book-lake/[lakeId]/extras.tsx + ExtrasStep
@@ -60,7 +61,8 @@ const SUBTITLE = 'Poți adăuga la rezervare, dacă vrei.';
 
 export function ExtrasScreen({ lake, config: given }: { lake: ExtrasLake; config?: FlowConfig }) {
   const lakeId = lake.documentId;
-  const config = useMemo(() => given ?? anglerFlow(lakeId), [given, lakeId]);
+  const urlId = useLakeUrlId(lakeId);
+  const config = useMemo(() => given ?? anglerFlow(lakeId, urlId), [given, lakeId, urlId]);
   const router = useRouter();
   const { stepBack } = useFlowNav(lakeId, config);
   const search = useSearchParams();

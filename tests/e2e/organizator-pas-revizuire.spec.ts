@@ -6,6 +6,7 @@ import { expectNoA11yViolations as scan } from './helpers/a11y';
 import { collectConsoleErrors } from './helpers/console';
 import { CMS } from './helpers/session';
 import { competitionFixture, draftFixture, expect, mockRead, S3_IMAGE, signInOrganizer, test } from './helpers/fake-organizer';
+import { competitionPath, loadSlugs } from './helpers/slugs';
 
 /*
  * organizer.step-review (c1–c12) — step 6 of the create-competition wizard,
@@ -21,6 +22,7 @@ import { competitionFixture, draftFixture, expect, mockRead, S3_IMAGE, signInOrg
  * only where the test mocks it.
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000 });
 
 const PHONE = { width: 375, height: 812 };
@@ -531,7 +533,7 @@ test('organizer.step-review.c11 — publish: disabled + loading while it runs, m
   await expect(edit(page, 'basics')).toBeDisabled();
 
   publish.release();
-  await page.waitForURL((u) => u.pathname === `/concursuri/${TEMPLATE}`, { timeout: 60_000 });
+  await page.waitForURL((u) => u.pathname === competitionPath(TEMPLATE), { timeout: 60_000 });
   await expect.poll(() => urls.some((u) => u.includes(`/concursuri/${TEMPLATE}?fromPublish=1`)) || page.url().includes('fromPublish=1')).toBe(true);
   await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 60_000 });
 
@@ -557,7 +559,7 @@ test('organizer.step-review.c11 — a saved draft: mocked update + publish, then
   await expect(publishBtn(page)).toBeEnabled();
   await shots(page, 'ciorna-valida', [375]);
   await publishBtn(page).click();
-  await page.waitForURL((u) => u.pathname === `/concursuri/${TEMPLATE}`, { timeout: 60_000 });
+  await page.waitForURL((u) => u.pathname === competitionPath(TEMPLATE), { timeout: 60_000 });
   expect(organizer.writes.map((w) => `${w.method} ${w.path}`)).toEqual([`PUT ${DRAFT_PATH}/fx-rev-d`, `PUT ${DRAFT_PATH}/fx-rev-d/publish`]);
   expect(bodyData(organizer.writes[0])).toMatchObject({ name: 'Cupa Revizuire', registerFee: '150', participantsLimit: '2' });
 });

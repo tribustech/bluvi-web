@@ -4,6 +4,7 @@ import { findCompetition, registrationOpen, startOf } from './helpers/fixtures';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import { type BrowserContext, type Locator, type Page, type Route } from '@playwright/test';
 import { expect, test } from './helpers/fake-chat';
+import { competitionPath, loadSlugs } from './helpers/slugs';
 
 /*
  * Concurs before the start (competition-page.previzualizare) and the action bar for a guest, an
@@ -33,6 +34,7 @@ const ID = {
 const PHONE = { width: 375, height: 812 };
 const DESKTOP = { width: 1440, height: 900 };
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 120_000 });
 
 let jwt = '';
@@ -248,10 +250,10 @@ test('competition-page.previzualizare.c13 competition-page.previzualizare.s5 —
 test('competition-page.previzualizare.c10 competition-page.previzualizare.c12 — «Vezi toate informațiile» / «Vezi toate înscrierile» open the tabs', async ({ page }) => {
   await open(page, ID.full);
   const info = page.getByRole('link', { name: 'Vezi toate informațiile' }).locator('visible=true').first();
-  await expect(info).toHaveAttribute('href', `/concursuri/${ID.full}/informatii`);
-  await expect(page.getByRole('link', { name: 'Vezi toate înscrierile' }).locator('visible=true').first()).toHaveAttribute('href', `/concursuri/${ID.full}/participanti`);
+  await expect(info).toHaveAttribute('href', `${competitionPath(ID.full)}/informatii`);
+  await expect(page.getByRole('link', { name: 'Vezi toate înscrierile' }).locator('visible=true').first()).toHaveAttribute('href', `${competitionPath(ID.full)}/participanti`);
   await info.click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.full}/informatii$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.full)}/informatii$`));
   await expect(page.getByRole('navigation', { name: 'Secțiunile concursului' }).locator('[aria-current="page"]')).toHaveText(/^Informații/);
 });
 
@@ -352,7 +354,7 @@ test('competition-page.bara-actiuni.c4 competition-page.bara-actiuni.c5 competit
   await settle(page);
   const offered = bar(page).getByRole('link', { name: 'Înscrie-te' });
   // participant.register owns the form (M5): no app hand-off copy any more.
-  await expect(offered).toHaveAttribute('href', new RegExp(`^/concursuri/${ID.empty}/inscriere(/echipa)?$`));
+  await expect(offered).toHaveAttribute('href', new RegExp(`^${competitionPath(ID.empty)}/inscriere(/echipa)?$`));
   await expect(page.getByText('Înscrierea continuă în aplicația Bluvi.')).toHaveCount(0);
 });
 
@@ -418,7 +420,7 @@ test('competition-page.bara-actiuni.c2 competition-page.bara-actiuni.c3 competit
   await expect(tiles).toHaveCount(7);
   await expect(tiles.nth(0)).toHaveAccessibleName('Vezi clasamentul pe tot ecranul');
   await expect(tiles.nth(1)).toHaveAccessibleName(/^Chat competiție/);
-  await expect(tiles.nth(1)).toHaveAttribute('href', new RegExp(`^/concursuri/${ID.live}/chat(\\?tab=(general|participanti))?$`));
+  await expect(tiles.nth(1)).toHaveAttribute('href', new RegExp(`^${competitionPath(ID.live)}/chat(\\?tab=(general|participanti))?$`));
   await expect(tiles.nth(2)).toHaveAccessibleName('Vezi cântarele din concurs');
   await expect(tiles.nth(3)).toHaveAccessibleName('Sortare clasament');
   await expect(tiles.nth(4)).toHaveAccessibleName('Statistici');
@@ -439,7 +441,7 @@ test('competition-page.bara-actiuni.c7 competition-page.bara-actiuni.s5 competit
   await menu.getByRole('button', { name: 'Stand' }).click();
   const message = page.getByRole('button', { name: 'Sortarea clasamentului după stand a fost efectuată.' });
   await expect(message).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.live}$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.live)}$`));
   await message.click();
   await expect(message).toBeHidden();
 });

@@ -52,16 +52,21 @@ export type FlowConfig = GridRules & {
 /** The angler's flow: today's behaviour (booking.rezerva-grila). */
 export const ANGLER_RULES: GridRules = { enforceLeadTime: true, allowInProgress: false };
 
-export function anglerFlow(lakeId: string): FlowConfig {
+/**
+ * `urlId`: the lake's URL segment (its slug, ../../_sub/lake-url.tsx) the steps live at — the page is
+ * served at /balti/<slug>/rezerva, and the flow's history walk compares paths. `lakeId` (the
+ * documentId) stays the reads' key.
+ */
+export function anglerFlow(lakeId: string, urlId: string = lakeId): FlowConfig {
   return {
     mode: 'angler',
     lakeId,
     ...ANGLER_RULES,
     paths: {
-      grid: routes.lakeBooking(lakeId),
-      extras: (sel) => routes.lakeBookingExtras(lakeId, sel),
-      review: (sel) => routes.lakeBookingReview(lakeId, sel),
-      exit: routes.lake(lakeId),
+      grid: routes.lakeBooking(urlId),
+      extras: (sel) => routes.lakeBookingExtras(urlId, sel),
+      review: (sel) => routes.lakeBookingReview(urlId, sel),
+      exit: routes.lake(urlId),
     },
     eyebrow: 'Rezervă un stand',
     titleFallback: 'Rezervare',

@@ -4,6 +4,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { competitionPath as competitionPage, loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * «Alocare participanți» / «Standuri manșa N» (parity organizer.participants c1–c9 +
@@ -24,6 +25,7 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  * one of the mocked ones (onlyWrites).
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000, retries: 1 });
 
 const TEAM = process.env.E2E_ALLOCATION_TEAM ?? 'a6xjl65ooe9eadrtvvqj9hn1';
@@ -172,7 +174,7 @@ const count = (watch: Watch, p: string) => watch.reads.filter((r) => r === p).le
 const regById = (c: Competition, id: string) => c.registrations.find((r) => r.documentId === id)!;
 
 test('signed out → sign-in with the return path (?mansa kept)', async ({ request }) => {
-  for (const at of [`/concursuri/${TEAM}/alocare`, `/concursuri/${FEEDER}/alocare?mansa=2`]) {
+  for (const at of [`/concursuri/${TEAM}/alocare`, `/concursuri/${FEEDER}/alocare?mansa=2`].map(slugPath)) {
     const res = await request.get(`${BASE_URL}${at}`, { maxRedirects: 0 });
     expect(res.status()).toBe(307);
     expect(decodeURIComponent(res.headers().location)).toContain(`/intra?next=${at}`);
@@ -451,7 +453,7 @@ test('organizer.participants.c8 — «Finalizează alocarea» POSTs { allocation
   const before = { c: count(watch, competitionPath(TEAM)), a: count(watch, allocationsPath(TEAM)), r: count(watch, registrationsPath(TEAM)) };
   release();
   await expect(page.getByText('Alocarea participanților a fost realizată cu succes')).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${TEAM}$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(TEAM)}$`));
   const expected: Record<string, string> = {};
   for (const [standId, a] of Object.entries(teamAllocated)) if (a) expected[a.registrationId] = standId;
   delete expected[dropped];
@@ -484,7 +486,7 @@ test('organizer.participants.c8 — an error toasts the server message, keeps th
   const before = { a: count(watch, allocationsPath(TEAM)), r: count(watch, registrationsPath(TEAM)) };
   await page.getByRole('button', { name: 'Finalizează alocarea' }).click();
   await expect(page.getByText('Standul este deja ocupat.')).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${TEAM}/alocare$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(TEAM)}/alocare$`));
   await expect(row(page, s0.name, s0.stands[0].name)).toContainText(`Stand ${s0.stands[0].name}-`);
   await expect(page.getByRole('button', { name: 'Finalizează alocarea' })).toBeEnabled();
   await expect.poll(() => count(watch, allocationsPath(TEAM))).toBeGreaterThan(before.a);
@@ -549,7 +551,7 @@ test('organizer.participants.c2 c3 c5 c7 c9 + b.feeder-allocate-next — ?mansa=
   await expect(ready).toBeEnabled();
   await ready.click();
   await expect(page.getByText('Standurile pentru manșa 2 au fost salvate')).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${FEEDER}$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(FEEDER)}$`));
   expect(sent).toEqual([{ method: 'PUT', body: { allocations: expected } }]);
   onlyWrites(watch, [`PUT ${legPath(FEEDER, 2)}`]);
   expect(errors).toEqual([]);
@@ -565,10 +567,10 @@ test('organizer.participants — leaving with unsaved changes asks «Renunți la
   const guard = page.getByRole('alertdialog', { name: 'Renunți la modificări?' });
   await expect(guard).toBeVisible();
   await guard.getByRole('button', { name: 'Continuă editarea' }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${TEAM}/alocare$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(TEAM)}/alocare$`));
   await page.getByRole('link', { name: 'Înapoi la concurs' }).click();
   await page.getByRole('alertdialog', { name: 'Renunți la modificări?' }).getByRole('button', { name: 'Renunță' }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${TEAM}$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(TEAM)}$`));
   onlyWrites(watch, []);
 });
 
@@ -611,7 +613,7 @@ test('organizer.participants.c8 — nothing changed: the save is off («Nicio mo
   await expect(save).toBeDisabled();
   await save.click({ force: true });
   await page.waitForTimeout(800);
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${TEAM}/alocare$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(TEAM)}/alocare$`));
   expect(sent).toEqual([]);
   onlyWrites(watch, []);
   expect(errors).toEqual([]);

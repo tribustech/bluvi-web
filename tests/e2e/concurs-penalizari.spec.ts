@@ -6,6 +6,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { qaJwt, signIn } from './helpers/session';
+import { loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * «Penalizări» — the competition's penalties hub (parity organizer.penalties c1–c6; fish
@@ -19,6 +20,7 @@ import { qaJwt, signIn } from './helpers/session';
  * editing or replacing a read — the replaced rankings are the real payloads of tests/fixtures/rankings.
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000, retries: 1 });
 
 const STARTED = process.env.E2E_PENALTY_STARTED ?? 'kee49a3e64b3f636b4b60daa'; // [CHAT25] quantity, started
@@ -141,9 +143,9 @@ const visibleApply = (page: Page) => page.locator('[data-testid="apply-penalty"]
 const noWrites = (watch: Watch) => expect(watch.writes, 'no real organizer writes').toEqual([]);
 
 test('signed out → sign-in with the return path (organizer.b.signed-out-gate)', async ({ request }) => {
-  const res = await request.get(`${BASE_URL}${pagePath(STARTED)}`, { maxRedirects: 0 });
+  const res = await request.get(`${BASE_URL}${slugPath(pagePath(STARTED))}`, { maxRedirects: 0 });
   expect(res.status()).toBe(307);
-  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(pagePath(STARTED))}`);
+  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(slugPath(pagePath(STARTED)))}`);
 });
 
 test('organizer.penalties.c1 — «Penalizări», loading until the ranking lands; noindex', async ({ page }) => {
@@ -265,7 +267,7 @@ test('organizer.penalties.c3 — none, author on a started Cantitate: «Aplică 
   await expectNoA11yViolations(page);
   await shoot(page, 'gol-autor');
   await cta.click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${STARTED}/penalizari/stand$`), { timeout: 30_000 });
+  await expect(page).toHaveURL(new RegExp(`${slugPath(`/concursuri/${STARTED}/penalizari/stand`)}$`), { timeout: 30_000 });
   noWrites(watch);
   expect(errors).toEqual([]);
 });
@@ -322,7 +324,7 @@ test('organizer.penalties.c5 — author or referee + started + Cantitate: the ac
   await expect(page.getByTestId('penalties-summary')).toBeVisible();
   await shoot(page, 'lista-autor');
   await visibleApply(page).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${STARTED}/penalizari/stand$`), { timeout: 30_000 });
+  await expect(page).toHaveURL(new RegExp(`${slugPath(`/concursuri/${STARTED}/penalizari/stand`)}$`), { timeout: 30_000 });
   noWrites(watch);
 });
 

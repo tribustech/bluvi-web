@@ -3,6 +3,7 @@ import { expect, test, type APIRequestContext, type Page, type Route } from '@pl
 import { PIXEL } from './competitions-list.fixtures';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { competitionPath, loadSlugs } from './helpers/slugs';
 
 /*
  * Concursuri › Live (/concursuri/live) — the owner-approved prototype app/dev/hub Live.tsx
@@ -32,6 +33,7 @@ type Weighing = Record<string, unknown> & { weighingDocumentId: string; competit
 let jwt = '';
 let live: Card[] = [];
 let me = { id: 0, documentId: '', username: '' };
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 90_000 });
 test.use({ trace: 'off' });
 test.beforeAll(async ({ request }) => {
@@ -145,7 +147,7 @@ test.describe('signed out', () => {
     // c19: by start time (mine first only when signed in), fish's poster cards, whole-card links.
     await expect.poll(() => cardIds(page)).toEqual(byStart(live).map((c) => c.documentId));
     const first = list(page).locator('[data-live-card]').first();
-    await expect(first.getByRole('link', { name: byStart(live)[0].name, exact: true })).toHaveAttribute('href', `/concursuri/${byStart(live)[0].documentId}`);
+    await expect(first.getByRole('link', { name: byStart(live)[0].name, exact: true })).toHaveAttribute('href', `${competitionPath(byStart(live)[0].documentId)}`);
     await expect(first.getByText('LIVE', { exact: true })).toBeVisible();
     // c19: 3 columns from 1280, 2 from 768, 1 on the phone, 4 from 1800.
     expect(await columns(page)).toBe(3);
@@ -179,9 +181,9 @@ test.describe('signed out', () => {
     const only = byStart(live)[0];
     await narrowLive(page, (c) => c.documentId === only.documentId);
     const view = page.getByRole('region', { name: only.name });
-    await expect(view.getByRole('heading', { level: 2 }).getByRole('link', { name: only.name })).toHaveAttribute('href', `/concursuri/${only.documentId}`);
+    await expect(view.getByRole('heading', { level: 2 }).getByRole('link', { name: only.name })).toHaveAttribute('href', competitionPath(only.documentId));
     await expect(view.getByRole('link', { name: 'Intră în cont ca să vezi clasamentul live' })).toBeVisible();
-    await expect(view.getByRole('link', { name: 'Vezi clasamentul', exact: true })).toHaveAttribute('href', `/concursuri/${only.documentId}/clasament`);
+    await expect(view.getByRole('link', { name: 'Vezi clasamentul', exact: true })).toHaveAttribute('href', `${competitionPath(only.documentId)}/clasament`);
     await expect(list(page).locator('[data-live-card]')).toHaveCount(0);
     await settled(page);
     await expectNoA11yViolations(page);
@@ -449,7 +451,7 @@ test.describe('signed in', () => {
     await expect(view.locator('img[fetchpriority="high"]').first()).toBeAttached();
     // Owner 2026-10-08 (§4b.24): the poster links to the competition — no viewer button.
     await expect(view.getByRole('button', { name: /afiș|imaginea/i })).toHaveCount(0);
-    await expect(view.locator('img[fetchpriority="high"]').first().locator('xpath=ancestor::a[1]')).toHaveAttribute('href', `/concursuri/${only.documentId}`);
+    await expect(view.locator('img[fetchpriority="high"]').first().locator('xpath=ancestor::a[1]')).toHaveAttribute('href', competitionPath(only.documentId));
     await settled(page);
     await expectNoA11yViolations(page);
     await page.setViewportSize(PHONE);

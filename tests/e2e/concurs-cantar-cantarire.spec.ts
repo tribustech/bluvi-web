@@ -5,6 +5,7 @@ import { BASE_URL } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { S3_IMAGE, expect, test, type OrganizerHarness, type RecordedWrite } from './helpers/fake-organizer';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * Cântar — one weighing (parity organizer.scale-weighing c1–c21; fish app/(app)/scale/[competitionId]/add.tsx,
@@ -20,6 +21,7 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  * route-mocked and its method, path and body asserted.
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000, retries: 1 });
 
 const C = process.env.E2E_WEIGHING_COMPETITION ?? 'i8kzbi5k51vmbyq75dmyez3d';
@@ -254,9 +256,9 @@ async function sign(page: Page) {
 /* ------------------------------------------------------------------ */
 
 test('signed out → sign-in with the return path (organizer.b.signed-out-gate)', async ({ request }) => {
-  const res = await request.get(`${BASE_URL}${PAGE}`, { maxRedirects: 0 });
+  const res = await request.get(`${BASE_URL}${slugPath(PAGE)}`, { maxRedirects: 0 });
   expect(res.status()).toBe(307);
-  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(PAGE)}`);
+  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(slugPath(PAGE))}`);
 });
 
 test('organizer.scale-weighing.c1/c2/c4 — loading, then «Cântar N», «Total», the stand card, the catches newest first; noindex', async ({ page }) => {
@@ -694,7 +696,7 @@ test('organizer.scale-weighing.c15/c16 — referee then witness signature, both 
   await witness.getByRole('button', { name: 'Mai departe' }).click();
   // 1st try: the close fails → its message, still here.
   await expect(toast(page, 'Semnăturile lipsesc.')).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`${PAGE}$`));
+  await expect(page).toHaveURL(new RegExp(`${slugPath(PAGE)}$`));
   const [up1, up2, end] = organizer.writes;
   for (const w of [up1, up2]) expect(`${w.method} ${w.path}`).toBe('POST /upload');
   const forms = [String(up1.body), String(up2.body)];
@@ -717,7 +719,7 @@ test('organizer.scale-weighing.c15/c16 — referee then witness signature, both 
   await sign(page);
   await page.getByRole('dialog', { name: 'Semnătură martor ✍🏻' }).getByRole('button', { name: 'Mai departe' }).click();
   await expect(toast(page, 'Cântarul a fost finalizat cu succes!')).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`${HISTORY}$`));
+  await expect(page).toHaveURL(new RegExp(`${slugPath(HISTORY)}$`));
   expect(organizer.writes.map((w) => `${w.method} ${w.path}`)).toEqual([
     'POST /upload',
     'POST /upload',
@@ -988,7 +990,7 @@ test('organizer.scale-weighing.c15/c16 — a double click on the witness «Mai d
   await sign(page);
   await witness.getByRole('button', { name: 'Mai departe' }).dblclick();
   await expect(toast(page, 'Cântarul a fost finalizat cu succes!')).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`${HISTORY}$`));
+  await expect(page).toHaveURL(new RegExp(`${slugPath(HISTORY)}$`));
   await page.waitForTimeout(500);
   expect(organizer.writes.map((w) => `${w.method} ${w.path}`)).toEqual(['POST /upload', 'POST /upload', `POST /weighings/${W}/end`]);
   const forms = organizer.writes.slice(0, 2).map((w) => String(w.body));

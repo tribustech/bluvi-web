@@ -5,6 +5,7 @@ import { type Locator, type Page, type Request } from '@playwright/test';
 import { expect, test } from './helpers/fake-chat';
 import { approvedRegistrationsByStand, extraScaleStand, registrationDisplayName } from '@/core/competitions/domain/competitionTabs';
 import { formatCount } from '@/core/realtime/chat/format';
+import { competitionPath, loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * Concurs · the route tabs (template T3) — parity docs/parity/areas/competition-page.yml, screens
@@ -208,6 +209,7 @@ const CARDS = { width: 1024, height: 900 };
 const core = new Map<string, Core>();
 let jwt = '';
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000 });
 
 test.beforeAll(async ({ request }) => {
@@ -355,7 +357,7 @@ for (const [segment, label] of TABS) {
         await expect(nav.locator('[aria-current="page"]')).toHaveText(new RegExp(`^${label}`));
         // Every tab is a link now (no «curând»).
         await expect(nav.getByRole('link')).toHaveCount(5);
-        await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`/concursuri/${id}/${segment}$`));
+        await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`${competitionPath(id)}/${segment}$`));
         await expect(page).toHaveTitle(new RegExp(`^${label} · `));
         await settle(page);
         await expectNoA11yViolations(page);
@@ -370,11 +372,11 @@ test('competition-page.b.tab-deep-links — the tab strip navigates between the 
   const nav = page.getByRole('navigation', { name: 'Secțiunile concursului' });
   for (const [segment, label] of TABS) {
     await nav.getByRole('link', { name: new RegExp(`^${label}`) }).click();
-    await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.rich}/${segment}$`));
+    await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.rich)}/${segment}$`));
     await expect(nav.locator('[aria-current="page"]')).toHaveText(new RegExp(`^${label}`));
   }
   await nav.getByRole('link', { name: /^Clasament/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.rich}$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.rich)}$`));
 });
 
 /* ------------------------------------------------------------------ */
@@ -433,7 +435,7 @@ test(`competition-page.informatii.c4 competition-page.informatii.c5 competition-
   const row = visible(page.getByRole('link', { name: /1 \/ 10/ }));
   await expect(row).toBeVisible();
   await row.click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.contacts}/participanti$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.contacts)}/participanti$`));
 });
 
 test(`competition-page.informatii.c6 competition-page.informatii.s4 — «(N în așteptare)» only before the start; limit 21 when none`, async ({ page, context }) => {
@@ -613,7 +615,7 @@ test('competition-page.informatii.c4 c5 c6 §4b.25 — phone: fish\'s four facts
   expect(box[0].x).toBe(box[2].x);
   expect(box[2].y).toBeGreaterThan(box[0].y);
   await expect(tiles.nth(1).locator('dd')).toHaveText('Campionat Mondial FIPSed');
-  await expect(tiles.nth(3).getByRole('link', { name: /99 \/ 99/ })).toHaveAttribute('href', `/concursuri/${ID.sponsors}/participanti`);
+  await expect(tiles.nth(3).getByRole('link', { name: /99 \/ 99/ })).toHaveAttribute('href', `${competitionPath(ID.sponsors)}/participanti`);
 });
 
 for (const vp of [TABLET]) {
@@ -647,7 +649,7 @@ for (const vp of [TABLET]) {
     expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(1);
     // The ranking type in the accent ink, the registrations a link to Participanți.
     await expect(tiles.nth(1).locator('dd .text-accent-ink')).toHaveText('Campionat Mondial FIPSed');
-    await expect(tiles.nth(3).getByRole('link', { name: /99 \/ 99/ })).toHaveAttribute('href', `/concursuri/${ID.sponsors}/participanti`);
+    await expect(tiles.nth(3).getByRole('link', { name: /99 \/ 99/ })).toHaveAttribute('href', `${competitionPath(ID.sponsors)}/participanti`);
   });
 }
 
@@ -816,7 +818,7 @@ test(`competition-page.participanti.c3 c5 c7 c8 competition-page.participanti.s5
   await expect(roster(page).getByRole('button')).toHaveCount(0);
   await expect(roster(page).getByText(/^CMMC/)).toHaveCount(0);
   await expect(page.getByText(SIGN_IN_HINT)).toHaveCount(1);
-  await expect(page.getByRole('link', { name: 'intri în cont' })).toHaveAttribute('href', `/intra?next=${encodeURIComponent(participants(ID.guests))}`);
+  await expect(page.getByRole('link', { name: 'intri în cont' })).toHaveAttribute('href', `/intra?next=${encodeURIComponent(slugPath(participants(ID.guests)))}`);
   // The entries of a row share its height.
   const boxes = await sectorOf(page, sectors[0]).getByRole('listitem').evaluateAll(els => els.map(e => ({ top: Math.round(e.getBoundingClientRect().top), h: Math.round(e.getBoundingClientRect().height) })));
   const rows = new Map<number, Set<number>>();
@@ -918,7 +920,7 @@ test(`competition-page.participanti.c6 competition-page.participanti.c7 competit
   await toggle.click();
   await expect(card.getByRole('button', { name: /Restrânge detaliile/ })).toHaveAttribute('aria-expanded', 'true');
   await expect(card.getByText('Trebuie să fii autentificat pentru a vedea statisticile pescarilor.')).toBeVisible();
-  await expect(card.getByRole('link', { name: 'Intră în cont' })).toHaveAttribute('href', `/intra?next=${encodeURIComponent(participants(ID.individuals))}`);
+  await expect(card.getByRole('link', { name: 'Intră în cont' })).toHaveAttribute('href', `/intra?next=${encodeURIComponent(slugPath(participants(ID.individuals)))}`);
   // c9: signed out the batch is never asked for.
   expect(batch).toHaveLength(0);
   // Keyboard: Enter folds it again.
@@ -939,7 +941,7 @@ test(`competition-page.participanti.c6 — the phone card header of a one-user r
   // The chevron is its own control: it toggles, it does not navigate.
   await card.getByRole('button', { name: /Arată detaliile/ }).click();
   await expect(card.getByRole('button', { name: /Restrânge detaliile/ })).toHaveAttribute('aria-expanded', 'true');
-  await expect(page).toHaveURL(new RegExp(`${participants(ID.individuals)}$`));
+  await expect(page).toHaveURL(new RegExp(`${slugPath(participants(ID.individuals))}$`));
   await header(card).click();
   await page.waitForURL(`**/intra?next=${encodeURIComponent(profile)}`);
 
@@ -1363,7 +1365,7 @@ test(`competition-page.extra-cantare.c4 competition-page.extra-cantare.c5 compet
   // The scale icon, the check by «Finalizat la», the chevron.
   await expect(first.locator('svg')).toHaveCount(3);
   // The stand's weighing history in the scale area (organizer.scale-history, as fish ScaleItem).
-  const href = `/concursuri/${ID.guests}/cantar/${stand}`;
+  const href = `${competitionPath(ID.guests)}/cantar/${stand}`;
   await expect(first).toHaveAttribute('href', href);
   await first.click();
   // Signed out: sign in first, then back to the stand.

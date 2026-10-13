@@ -248,8 +248,8 @@ function Summary({ meta, variant }: { meta: ReviewMeta; variant: 'tiles' | 'card
       <AsideSection title="Scorurile bălții" bare>
         <div id="scorurile-baltii" tabIndex={-1} className="outline-none" data-testid="reviews-summary">
           <FocusAfterRetry retry={SCORES_RETRY} target="scorurile-baltii" />
-          <OverallScore meta={meta} className="mb-3" />
           <dl className="flex flex-col divide-y divide-hairline rounded-card bg-surface px-4 shadow-e0">
+            <OverallRow meta={meta} />
             {SCORES.map(s => (
               <div key={s.key} className="flex items-center justify-between gap-3 py-3.5">
                 <dt className="flex min-w-0 items-center gap-2.5 t-body-strong text-ink">
@@ -286,6 +286,23 @@ function Summary({ meta, variant }: { meta: ReviewMeta; variant: 'tiles' | 'card
         ))}
       </KpiGrid>
     </section>
+  );
+}
+
+/** The docked card's first row: the overall score, as a row like the three under it (the card's top stays level with the list's). */
+function OverallRow({ meta }: { meta: ReviewMeta }) {
+  const score = lakeReviewScore(meta);
+  if (score === null) return null;
+  return (
+    <div className="flex items-center justify-between gap-3 py-3.5">
+      <dt className="t-body-strong text-ink">Nota generală</dt>
+      <dd className="flex shrink-0 flex-col items-end gap-1" data-testid="score-overall">
+        <span className="t-stat text-ink tabular-nums">
+          {formatLakeScore(score)} <span className="t-label text-muted">din 5</span>
+        </span>
+        <RatingStars value={score} />
+      </dd>
+    </div>
   );
 }
 

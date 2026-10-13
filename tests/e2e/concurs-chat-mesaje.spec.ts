@@ -6,6 +6,7 @@ import { collectConsoleErrors } from './helpers/console';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import { BASE_URL } from './helpers/base-url';
 import { chatMessage, expect, minutesAgo, systemMessage, test, type FakeChatHandle, type FakeChatMessage } from './helpers/fake-chat';
+import { competitionPath, loadSlugs } from './helpers/slugs';
 
 /*
  * Chat concurs — the message list (docs/parity/areas/participant.yml, participant.chat slice 2
@@ -33,6 +34,7 @@ let jwt = '';
 let core: { name: string };
 let me = { documentId: '', username: '' };
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 120_000 });
 
 test.beforeAll(async ({ request }) => {
@@ -804,15 +806,15 @@ test('participant.chat.c36 participant.chat.c37 participant.chat.c38 participant
   await expect(pen).toContainText('Ana Crap');
   await expect(pen).toContainText('Avertisment · zgomot');
   // c37: penalties → the penalties hub (organizer.b.chat-penalties-link, M6-B6).
-  await expect(pen.getByRole('link', { name: /Vezi penalizările/ })).toHaveAttribute('href', `/concursuri/${ID}/penalizari`);
-  await expect(row(page, 'e-alloc').getByRole('link', { name: /Vezi alocarea/ })).toHaveAttribute('href', `/concursuri/${ID}/participanti`);
-  await expect(row(page, 'e-reg').getByRole('link', { name: /Vezi participanții/ })).toHaveAttribute('href', `/concursuri/${ID}/participanti`);
+  await expect(pen.getByRole('link', { name: /Vezi penalizările/ })).toHaveAttribute('href', `${competitionPath(ID)}/penalizari`);
+  await expect(row(page, 'e-alloc').getByRole('link', { name: /Vezi alocarea/ })).toHaveAttribute('href', `${competitionPath(ID)}/participanti`);
+  await expect(row(page, 'e-reg').getByRole('link', { name: /Vezi participanții/ })).toHaveAttribute('href', `${competitionPath(ID)}/participanti`);
 
   // c38: the newest leader.
   const leader = row(page, 'e-lead');
   await expect(leader).toContainText('LIDER NOU');
   await expect(leader).toContainText('A urcat pe locul 1');
-  await expect(leader.getByRole('link', { name: /Lider nou: .*Vezi clasamentul/ })).toHaveAttribute('href', `/concursuri/${ID}/clasament`);
+  await expect(leader.getByRole('link', { name: /Lider nou: .*Vezi clasamentul/ })).toHaveAttribute('href', `${competitionPath(ID)}/clasament`);
 
   // c39: the two weighings + the podium move fold into one card.
   const group = page.getByRole('button', { name: /^3 evenimente: 2 cântăriri · 1 schimbare pe podium$/ });
@@ -823,7 +825,7 @@ test('participant.chat.c36 participant.chat.c37 participant.chat.c38 participant
   await expect(group).toHaveAttribute('aria-expanded', 'true');
   await expect(group).toContainText('Ascunde');
   await expect(page.getByText('Cântar · 2 pești, 12,450 kg')).toBeVisible();
-  await expect(page.getByRole('link', { name: /urcă pe locul 2, Vezi clasamentul/ })).toHaveAttribute('href', `/concursuri/${ID}/clasament`);
+  await expect(page.getByRole('link', { name: /urcă pe locul 2, Vezi clasamentul/ })).toHaveAttribute('href', `${competitionPath(ID)}/clasament`);
   await expectNoA11yViolations(page);
   for (const size of [PHONE, TABLET, LAPTOP, DESKTOP, WIDE]) {
     await page.setViewportSize(size);

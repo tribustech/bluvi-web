@@ -3,6 +3,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { lakePath, loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * booking.rezerva-confirmare (/balti/[id]/rezerva/confirmare, T4) — fish app/(app)/book-lake/[lakeId]/
@@ -19,6 +20,7 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  */
 
 process.env.TZ = 'Europe/Bucharest';
+test.beforeAll(loadSlugs);
 test.use({ timezoneId: 'Europe/Bucharest', locale: 'ro-RO' });
 
 const LAKE = 's84u55lo4n9z0emngozttt6e';
@@ -225,14 +227,14 @@ async function shot(page: Page, name: string) {
 
 test.describe('signed out', () => {
   test('booking.b.sign-in-gate: a real 307 to /intra, returning to this step with its selection', async ({ request }) => {
-    const res = await request.get(`${BASE_URL}${PATH}?${query()}`, {
+    const res = await request.get(`${BASE_URL}${slugPath(PATH)}?${query()}`, {
       maxRedirects: 0,
     });
     expect(res.status()).toBe(307);
     const loc = new URL(res.headers().location, BASE_URL);
     expect(loc.pathname).toBe('/intra');
     const next = new URL(loc.searchParams.get('next')!, BASE_URL);
-    expect(next.pathname).toBe(PATH);
+    expect(next.pathname).toBe(slugPath(PATH));
     expect(next.searchParams.get('stand')).toBe(STAND);
   });
 });
@@ -248,12 +250,12 @@ test.describe('signed in', () => {
     let reviewSeen = false;
     page.on('framenavigated', () => undefined);
     await page.goto(PATH);
-    await expect(page).toHaveURL(new RegExp(`${GRID}$`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(GRID)}$`));
     reviewSeen = await page.getByTestId('review-summary').isVisible();
     expect(reviewSeen).toBe(false);
 
     await page.goto(`${PATH}?${query(sel(3, 'nosuchstand'))}`);
-    await expect(page).toHaveURL(new RegExp(`${GRID}$`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(GRID)}$`));
     await expect(page.getByTestId('review-summary')).toHaveCount(0);
 
     // Booking turned off since: the grid too.
@@ -263,7 +265,7 @@ test.describe('signed in', () => {
       return json(route, { data: { ...body.data, bookingEnabled: false } });
     });
     await page.goto(`${PATH}?${query()}`);
-    await expect(page).toHaveURL(new RegExp(`${GRID}$`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(GRID)}$`));
   });
 
   test('c1: an unknown lake is a 404', async ({ page }) => {
@@ -346,7 +348,7 @@ test.describe('signed in', () => {
     mode = 'refused';
     await page.reload();
     await page.getByTestId('quote-unavailable-back').click();
-    await expect(page).toHaveURL(new RegExp(`${GRID}$`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(GRID)}$`));
     expect(errors).toEqual([]);
   });
 
@@ -704,7 +706,7 @@ test.describe('signed in', () => {
     await clickHeaderLink(page);
     await page.evaluate(() => history.back());
     await page.waitForTimeout(500);
-    await expect(page).toHaveURL(new RegExp(`${PATH}\\?`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}\\?`));
     await expect(surface(page)).toBeVisible();
     expect(bodies).toHaveLength(1);
     expect(bodies[0]).toEqual({
@@ -721,12 +723,12 @@ test.describe('signed in', () => {
     expect(writes).toEqual([]); // phone unchanged → no profile write
     release();
     await expect(toast(page, 'Cererea a fost trimisă! Cod: BK7Q2. Vei fi notificat când este confirmată.')).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(`/balti/${LAKE}$`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(LAKE)}$`));
     expect(bodies).toHaveLength(1);
     // The review's entry was sealed on the way out: Forward lands on the bare grid, never on a
     // priced review with a live CTA (fish dismisses the flow).
     await page.goForward();
-    await expect(page).toHaveURL(`${BASE_URL}${GRID}`);
+    await expect(page).toHaveURL(`${BASE_URL}${slugPath(GRID)}`);
     await expect(page.getByTestId('booking-submit')).toHaveCount(0);
     await expect(h1(page)).toHaveCount(0);
     expect(bodies).toHaveLength(1);
@@ -756,14 +758,14 @@ test.describe('signed in', () => {
     await expect(confirmBtn(page)).toHaveAttribute('aria-busy', 'true');
     await page.evaluate(() => history.back());
     await page.waitForTimeout(500);
-    await expect(page).toHaveURL(new RegExp(`${PATH}\\?`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}\\?`));
     await expect(surface(page)).toBeVisible();
     await clickHeaderLink(page);
     await page.waitForTimeout(300);
-    await expect(page).toHaveURL(new RegExp(`${PATH}\\?`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}\\?`));
     release();
     await expect(toast(page, 'Cererea a fost trimisă! Cod: BKNONAV. Vei fi notificat când este confirmată.')).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(`/balti/${LAKE}$`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(LAKE)}$`));
     expect(bodies).toHaveLength(1);
   });
 
@@ -781,7 +783,7 @@ test.describe('signed in', () => {
     });
     await open(page, query(s));
     await expect(toast(page, 'Intervalul ales nu mai e liber.')).toBeVisible();
-    await expect(page).toHaveURL(`${BASE_URL}${GRID}`);
+    await expect(page).toHaveURL(`${BASE_URL}${slugPath(GRID)}`);
     await expect(page.getByTestId('booking-submit')).toHaveCount(0);
   });
 
@@ -802,7 +804,7 @@ test.describe('signed in', () => {
     await cta(page).click();
     await confirmBtn(page).click();
     await expect(toast(page, /^Rezervare confirmată!$/)).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(`/balti/${LAKE}$`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(LAKE)}$`));
     expect(writes).toEqual([{ phone: '0799888777' }]);
     expect(bodies[0].contactPhone).toBe('0799888777');
     // c25: no payment UI anywhere.
@@ -843,7 +845,7 @@ test.describe('signed in', () => {
         hasText: 'Prețul s-a actualizat la 360 lei. Verifică și confirmă din nou.',
       })
     ).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(`${PATH}\\?`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}\\?`));
     await expect.poll(quotes).toBeGreaterThan(before);
     await expect(page.getByTestId('review-aside')).toContainText('360 lei');
     expect(bodies[0].expectedTotal).toBe(300);
@@ -883,7 +885,7 @@ test.describe('signed in', () => {
       const reads = availReads;
       await confirmBtn(page).click();
       await expect(page.getByRole('alert').filter({ hasText: text })).toBeVisible();
-      await expect(page).toHaveURL(new RegExp(`${GRID}$`));
+      await expect(page).toHaveURL(new RegExp(`${slugPath(GRID)}$`));
       await expect.poll(() => availReads).toBeGreaterThan(reads);
     });
   }
@@ -930,7 +932,7 @@ test.describe('signed in', () => {
       await confirmBtn(page).click();
       await expect(surface(page)).toHaveCount(0);
       await expect(page.getByRole('alert').filter({ hasText: cases[i][1] })).toBeVisible();
-      await expect(page).toHaveURL(new RegExp(`${PATH}\\?`));
+      await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}\\?`));
     }
     expect(errors).toEqual([]);
   });
@@ -942,7 +944,7 @@ test.describe('signed in', () => {
     await page.goto(`${PATH}?${query()}`);
     await ready(page);
     await page.getByRole('button', { name: 'Înapoi', exact: true }).first().click();
-    await expect(page).toHaveURL(`${BASE_URL}${GRID}?${query()}`);
+    await expect(page).toHaveURL(`${BASE_URL}${slugPath(GRID)}?${query()}`);
     // A night tour on a cabin stand (stand 7 adds «cabana150» to a night): the extras step.
     const night = {
       stand: 'f7fvts8a4rei4mgquzgg6o6b',
@@ -952,11 +954,11 @@ test.describe('signed in', () => {
     await page.goto(`${PATH}?${query(night, ['cabana150'])}`);
     await ready(page);
     await page.getByRole('button', { name: 'Înapoi', exact: true }).first().click();
-    await expect(page).toHaveURL(new RegExp(`${GRID}/extra\\?`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(GRID)}/extra\\?`));
     // Through the grid (one document): Back is a pop of the pushed step, never a pushed copy.
     await page.goto(`${GRID}?${query()}`);
     await page.getByTestId('selection-continue').click();
-    await expect(page).toHaveURL(new RegExp(`${PATH}\\?`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}\\?`));
     await ready(page);
     const index = () =>
       page.evaluate(
@@ -969,7 +971,7 @@ test.describe('signed in', () => {
       );
     const at0 = await index();
     await page.getByRole('button', { name: 'Înapoi', exact: true }).first().click();
-    await expect(page).toHaveURL(`${BASE_URL}${GRID}?${query()}`);
+    await expect(page).toHaveURL(`${BASE_URL}${slugPath(GRID)}?${query()}`);
     expect(await index()).toBe(at0 - 1);
   });
 

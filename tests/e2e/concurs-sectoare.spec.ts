@@ -4,6 +4,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { qaJwt, signIn } from './helpers/session';
+import { competitionPath as competitionPage, loadSlugs } from './helpers/slugs';
 
 /*
  * «Alocarea standurilor pe sectoare» (parity organizer.sectors c1–c8; fish
@@ -18,6 +19,7 @@ import { qaJwt, signIn } from './helpers/session';
  * the mocked ones.
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000, retries: 1 });
 
 const ID = process.env.E2E_SECTORS ?? 'a6xjl65ooe9eadrtvvqj9hn1';
@@ -133,18 +135,18 @@ async function viaOrganizerMenu(page: Page) {
   const link = phone
     ? page.getByRole('navigation', { name: 'Acțiuni organizator' }).getByRole('link', { name: 'Alocă standuri pe sectoare' })
     : page.getByRole('menu', { name: 'Organizare' }).getByRole('menuitem', { name: 'Alocă standuri pe sectoare' });
-  await expect(link).toHaveAttribute('href', `/concursuri/${ID}/sectoare`);
+  await expect(link).toHaveAttribute('href', `${competitionPage(ID)}/sectoare`);
   await link.click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID}/sectoare$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(ID)}/sectoare$`));
 }
 
 const slot = (page: Page, sector: string, n: number) => page.getByTestId(`slot-${sector}-${n}`);
 const onlyWrites = (watch: Watch, allowed: string[]) => expect(watch.writes, 'only the mocked allocation POST').toEqual(allowed);
 
 test('signed out → sign-in with the return path', async ({ request }) => {
-  const res = await request.get(`${BASE_URL}/concursuri/${ID}/sectoare`, { maxRedirects: 0 });
+  const res = await request.get(`${BASE_URL}${competitionPage(ID)}/sectoare`, { maxRedirects: 0 });
   expect(res.status()).toBe(307);
-  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(`/concursuri/${ID}/sectoare`)}`);
+  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(`${competitionPage(ID)}/sectoare`)}`);
 });
 
 test('organizer.sectors.c1/c2/c4 — loading, then the title and the info lines; noindex', async ({ page }) => {
@@ -337,7 +339,7 @@ test('organizer.sectors.c8 — reached from the competition page; «Salvează» 
   const readsBefore = watch.reads.filter((r) => r === competitionPath).length;
   release();
   await expect(page.getByText('Standurile au fost alocate cu succes!')).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID}$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(ID)}$`));
   const expected: Record<string, string[]> = Object.fromEntries(real.sectors.map((s) => [s.documentId, s.stands.map((x) => x.documentId)]));
   expected[s0.documentId] = s0.stands.slice(1).map((x) => x.documentId);
   // The picked stand is appended to s1's array: the slot order is kept.
@@ -381,7 +383,7 @@ test('organizer.sectors.c8 — an error toasts the server message and keeps the 
   await slot(page, s0.name, 1).click();
   await page.getByRole('button', { name: 'Salvează' }).click();
   await expect(page.getByText('Standul 3 este deja alocat.')).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID}/sectoare$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(ID)}/sectoare$`));
   await expect(slot(page, s0.name, 1)).toHaveText('-');
   await expect(page.getByRole('button', { name: 'Salvează' })).toBeEnabled();
   await page.getByRole('button', { name: 'Salvează' }).click();
@@ -396,7 +398,7 @@ test('organizer.sectors.c2 — leaving with unsaved changes asks «Renunți la m
   await loaded(page);
   // Untouched: back leaves at once.
   await page.getByRole('link', { name: 'Înapoi la concurs' }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID}$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(ID)}$`));
   await page.goto(`/concursuri/${ID}/sectoare`);
   await loaded(page);
   await slot(page, real.sectors[0].name, 1).click();
@@ -405,11 +407,11 @@ test('organizer.sectors.c2 — leaving with unsaved changes asks «Renunți la m
   await expect(guard).toBeVisible();
   await guard.getByRole('button', { name: 'Continuă editarea' }).click();
   await expect(guard).toBeHidden();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID}/sectoare$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(ID)}/sectoare$`));
   await expect(slot(page, real.sectors[0].name, 1)).toHaveText('-');
   await page.getByRole('link', { name: 'Înapoi la concurs' }).click();
   await page.getByRole('alertdialog', { name: 'Renunți la modificări?' }).getByRole('button', { name: 'Renunță' }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID}$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(ID)}$`));
   onlyWrites(watch, []);
 });
 

@@ -6,6 +6,7 @@ import { expect, test } from './helpers/fake-chat';
 import { SESSIONS_COLLAPSED_MAX } from '@/core/competitions/domain/weighingSessions';
 import { COMPETITION_CATCHES_PAGE_SIZE } from '@/core/competitions/queries';
 import type { WeighingStatisticsItem } from '@/core/competitions/schemas';
+import { competitionPath, loadSlugs } from './helpers/slugs';
 
 /*
  * Concurs · the Clasament views and their surfaces — parity docs/parity/areas/competition-page.yml:
@@ -48,6 +49,7 @@ const DESKTOP = { width: 1440, height: 900 };
 const LAPTOP = { width: 1280, height: 900 };
 const WIDE = { width: 1920, height: 1080 };
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 120_000 });
 
 async function open(page: Page, path: string, viewport = DESKTOP) {
@@ -563,7 +565,7 @@ test('competition-page.cantar-detaliu.c10 — switching view with the detail ope
   await press(page, item, () => expect(panel).toBeVisible({ timeout: 3000 }));
   await expect(page).toHaveURL(/cantar=/);
   await page.getByRole('tab', { name: /^Statistici/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.nc}/statistici$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.nc)}/statistici$`));
   await page.getByRole('tab', { name: /^Cântare/ }).click();
   await expect(page.getByRole('table', { name: /Cântarele concursului/ }).getByRole('columnheader', { name: /^Sector A/ })).toBeVisible();
   await page.waitForTimeout(500);
@@ -681,7 +683,7 @@ test('competition-page.cantare.c8 — the phone action bar «Cântare» tile ope
   await signedIn(page);
   await open(page, `/concursuri/${ID.live}`, PHONE);
   await press(page, page.getByRole('region', { name: 'Bara de acțiuni' }).getByRole('button', { name: 'Vezi cântarele din concurs' }), () =>
-    expect(page).toHaveURL(new RegExp(`/concursuri/${ID.live}/cantare`), { timeout: 3000 }),
+    expect(page).toHaveURL(new RegExp(`${competitionPath(ID.live)}/cantare`), { timeout: 3000 }),
   );
   await expect(page.getByRole('heading', { name: 'Sector A', level: 2 })).toBeVisible();
 });
@@ -882,7 +884,7 @@ test('competition-page.statistici.c9 competition-page.cronologie.c3 c6 competiti
   await expect(card.getByText('Trage timpul de mai jos pentru a vedea evoluția scorurilor.')).toBeVisible();
   // StandTimeline CARD_MAX_STANDS: the card's top 6, fewer when the snapshot has fewer.
   await expect(card.getByRole('list').last().getByRole('button')).toHaveCount(Math.min(6, stands));
-  await expect(card.getByRole('link', { name: `Vezi toate (${roCount(stands, 'standuri')}) →` })).toHaveAttribute('href', `/concursuri/${ID.live}/statistici/cronologie`);
+  await expect(card.getByRole('link', { name: `Vezi toate (${roCount(stands, 'standuri')}) →` })).toHaveAttribute('href', `${competitionPath(ID.live)}/statistici/cronologie`);
   await card.getByRole('link', { name: 'Deschide cronologia standurilor pe toată pagina' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Cronologia standurilor' })).toBeVisible();
 });

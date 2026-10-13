@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
 import { anglerFlow, pathOf, type FlowConfig } from './config';
 import { stepHref, type FlowParams, type FlowStep } from './params';
+import { useLakeUrlId } from '../../_sub/lake-url';
 
 /*
  * Leaving a step of the booking flow — fish BookingFlowProvider.exitFlow / useBookingGridFlow
@@ -128,7 +129,8 @@ export const SEALED_STATE = { _N: true, bluviFlowSealed: true } as const;
 export function useFlowNav(lakeId: string, config?: FlowConfig) {
   const router = useRouter();
   // Pass a stable config (built once per mount): a new object every render re-creates the callbacks.
-  const cfg = useMemo(() => config ?? anglerFlow(lakeId), [config, lakeId]);
+  const urlId = useLakeUrlId(lakeId);
+  const cfg = useMemo(() => config ?? anglerFlow(lakeId, urlId), [config, lakeId, urlId]);
   const travel = useCallback(
     (to: { target: (u: URL) => boolean; through: (u: URL) => boolean }, fallback: string, seal = false) => {
       const found = find(to.target, to.through);

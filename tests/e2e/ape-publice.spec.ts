@@ -3,6 +3,7 @@ import { BASE_URL } from './helpers/base-url';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { lakePath, loadSlugs } from './helpers/slugs';
 
 /*
  * Ape publice (parity docs/parity/areas/public-waters.yml): public-waters.detaliu (/ape-publice/<id>),
@@ -100,6 +101,7 @@ function watchConsole(page: Page, allow: RegExp[] = []) {
  * public-waters.detaliu
  * ========================================================================================== */
 
+test.beforeAll(loadSlugs);
 test.describe('public-waters.detaliu', () => {
   test('public-waters.detaliu.c1 c6 c16 c29 — id and linkCode resolve the same water; header, facts, attribution', async ({ page }) => {
     const errors = watchConsole(page);
@@ -769,7 +771,7 @@ test.describe('public-waters.detaliu', () => {
         await page.goto('/ape-publice');
         const before = await page.evaluate(() => history.length);
         await page.evaluate((href) => (window as unknown as { next: { router: { push: (h: string) => void } } }).next.router.push(href), path);
-        await expect(page).toHaveURL(new RegExp(`/balti/${CHITA}$`));
+        await expect(page).toHaveURL(new RegExp(`${lakePath(CHITA)}$`));
         // Replaced: the water's URL is not in the history (back returns to the map, not the water).
         expect(await page.evaluate(() => history.length)).toBeLessThanOrEqual(before + 1);
         await page.goBack();
@@ -785,7 +787,7 @@ test.describe('public-waters.detaliu', () => {
     await page.goto('/ape-publice');
     const before = await page.evaluate(() => history.length);
     await page.evaluate((href) => (window as unknown as { next: { router: { push: (h: string) => void } } }).next.router.push(href), `/ape-publice/${WATER.snagov.id}`);
-    await expect(page).toHaveURL(new RegExp(`/balti/${CHITA}$`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(CHITA)}$`));
     expect(await page.evaluate(() => history.length)).toBeLessThanOrEqual(before + 1);
     await page.goBack();
     await expect(page).toHaveURL(/\/ape-publice$/);

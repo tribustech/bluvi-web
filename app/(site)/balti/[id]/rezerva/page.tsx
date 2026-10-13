@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { routes } from '@/lib/routes';
+import { lakeUrlId, routes } from '@/lib/routes';
 import { requireViewer } from '@/lib/server/require-viewer';
 import type { SearchParams } from '@/lib/search-params';
 import { e2eFaultsEnabled, e2eFaultStore } from '../_components/e2e-faults';
@@ -9,6 +9,7 @@ import { loadLake } from '../_components/load';
 import { flowQuery, readFlowParams } from './_flow/params';
 import { BookingGridScreen, type GridLake } from './_grid/BookingGridScreen';
 import { BookingGridFallback } from './_grid/BookingGridFallback';
+import { LakeUrlProvider } from '../_sub/lake-url';
 
 /*
  * /balti/[id]/rezerva — step 1 of booking a lake (parity booking.rezerva-grila, T4): pick a stand
@@ -57,5 +58,9 @@ async function Gated({ params, searchParams }: Props) {
     ...(e2eFaultsEnabled() && e2eFaultStore().get(id)?.has('deposit-30') ? { paymentMode: 'deposit', depositPercent: 30 } : {}),
     checkoutBufferMinutes: lake.checkoutBufferMinutes,
   };
-  return <BookingGridScreen lake={facts} />;
+  return (
+    <LakeUrlProvider urlId={lakeUrlId(lake)}>
+      <BookingGridScreen lake={facts} />
+    </LakeUrlProvider>
+  );
 }

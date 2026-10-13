@@ -4,6 +4,7 @@ import { CMS, qaJwt, signIn } from './helpers/session';
 import { type Locator, type Page, type Request } from '@playwright/test';
 import { expect, test } from './helpers/fake-chat';
 import { ON_WEB } from '@/lib/routes';
+import { competitionPath, lakePath, loadSlugs } from './helpers/slugs';
 
 /*
  * Concurs · Clasament (/concursuri/[id], template T3) — parity inventory
@@ -52,6 +53,7 @@ type Core = {
 const core = new Map<string, Core>();
 let jwt = '';
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 120_000 });
 
 test.beforeAll(async ({ request }) => {
@@ -134,7 +136,7 @@ test('shell.c1 c2 — lake link opens the lake page', async ({ page }) => {
   await open(page, ID.live, DESKTOP);
   const lake = core.get(ID.live)!.lake!;
   const link = visible(page.getByRole('link', { name: lake.name }));
-  await expect(link).toHaveAttribute('href', `/balti/${lake.documentId}`);
+  await expect(link).toHaveAttribute('href', lakePath(lake.documentId));
 });
 
 test('shell.c3 c5 — started: Live, the followers pill with the count, the follow button', async ({ page }) => {
@@ -326,7 +328,7 @@ test('shell.c21 — share: the header chip, the phone bar\'s «Share» tile and 
   expect(shared).toHaveLength(3);
   for (const s of shared) {
     expect(s.text).toBe(`Intră în Bluvi să vezi competiția de pescuit ${c.name} de pe balta ${c.lake!.name}`);
-    expect(s.url).toMatch(new RegExp(`/concursuri/${ID.live}$`));
+    expect(s.url).toMatch(new RegExp(`${competitionPath(ID.live)}$`));
   }
   // fish handleShareCompetition: share_competition { competition_id, competition_name } per share.
   const shares = (await events()).filter(e => e.name === 'share_competition');
@@ -345,11 +347,11 @@ test('shell.c18 — changing tab logs competition_page_tab_pressed with fish\'s 
   const tabs = page.getByRole('navigation', { name: 'Secțiunile concursului' });
   await tabs.getByRole('link', { name: /^Clasament/ }).click(); // the current tab
   await tabs.getByRole('link', { name: /^Extra Cântare/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.completed}/extra-cantare$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.completed)}/extra-cantare$`));
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await settle(page);
   await page.getByRole('navigation', { name: 'Secțiunile concursului' }).getByRole('link', { name: /^Informații/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.completed}/informatii$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.completed)}/informatii$`));
   await expect
     .poll(async () => (await events()).filter(e => e.name === 'competition_page_tab_pressed').map(e => e.params))
     .toEqual([
@@ -364,7 +366,7 @@ test('shell.c27 b.publish-redirect — ?fromPublish=1 plays a one-shot confetti 
   expect(res?.status()).toBe(200);
   const confetti = page.locator('[data-publish-confetti]');
   await expect(confetti).toBeAttached({ timeout: 45_000 });
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.live}$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.live)}$`));
   // Over the page, click-through and hidden from assistive tech.
   expect(await confetti.evaluate(e => getComputedStyle(e).pointerEvents)).toBe('none');
   await expect(confetti).toHaveAttribute('aria-hidden', 'true');
@@ -379,7 +381,7 @@ test('shell.c27 — reduced motion: no confetti, the param still dropped; withou
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize(PHONE);
   await page.goto(`${path(ID.live)}?fromPublish=1`, { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.live}$`), { timeout: 45_000 });
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.live)}$`), { timeout: 45_000 });
   await expect(page.locator('[data-publish-confetti]')).toHaveCount(0);
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await open(page, ID.live);

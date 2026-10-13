@@ -3,6 +3,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { qaJwt, signIn } from './helpers/session';
+import { competitionPath, lakePath, loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * booking.rezerva-grila (/balti/[id]/rezerva, T4) — fish app/(app)/book-lake/[lakeId]/index.tsx +
@@ -18,6 +19,7 @@ import { qaJwt, signIn } from './helpers/session';
  */
 
 process.env.TZ = 'Europe/Bucharest';
+test.beforeAll(loadSlugs);
 test.use({ timezoneId: 'Europe/Bucharest', locale: 'ro-RO' });
 
 const LAKE = 's84u55lo4n9z0emngozttt6e';
@@ -268,12 +270,12 @@ async function shot(page: Page, name: string) {
 test.describe('signed out', () => {
   test('c1 / booking.b.sign-in-gate: a real 307 to /intra, returning here with the selection', async ({ request }) => {
     const q = `?stand=s1&start=${encodeURIComponent(at(3, 6))}&end=${encodeURIComponent(at(3, 18))}`;
-    const res = await request.get(`${BASE_URL}${PATH}${q}`, { maxRedirects: 0 });
+    const res = await request.get(`${BASE_URL}${slugPath(PATH)}${q}`, { maxRedirects: 0 });
     expect(res.status()).toBe(307);
     const loc = new URL(res.headers().location, BASE_URL);
     expect(loc.pathname).toBe('/intra');
     const next = loc.searchParams.get('next')!;
-    expect(next.startsWith(PATH)).toBe(true);
+    expect(next.startsWith(slugPath(PATH))).toBe(true);
     expect(new URL(next, BASE_URL).searchParams.get('stand')).toBe('s1');
   });
 });
@@ -528,7 +530,7 @@ test.describe('signed in', () => {
     await shot(page, 'competition-block');
     await expectNoA11yViolations(page);
     await dialog.getByRole('link', { name: 'Vezi concursul' }).click();
-    await expect(page).toHaveURL(new RegExp(`/concursuri/${COMPETITION}$`));
+    await expect(page).toHaveURL(new RegExp(`${competitionPath(COMPETITION)}$`));
   });
 
   test('c19 c21 c36: one stand, one contiguous run — extend, collapse, toggle off, restart; the run is one indigo pill', async ({ page }) => {
@@ -684,7 +686,7 @@ test.describe('signed in', () => {
     await expect(p.getByTestId('selection-continue')).toHaveAttribute('aria-disabled', 'true');
     // Held: a click does nothing (aria-disabled — it stays focusable).
     await p.getByTestId('selection-continue').click({ force: true });
-    await expect(page).toHaveURL(new RegExp(`${PATH}\\?`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}\\?`));
     await shot(page, 'selection-refused');
     await expectNoA11yViolations(page);
     await goTo(page, 3);
@@ -711,14 +713,14 @@ test.describe('signed in', () => {
     await panel(page).getByRole('button', { name: 'Anulează' }).click();
     await expect(panel(page)).toHaveCount(0);
     await expect(grid(page).locator('button[data-status="selected"]')).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`${PATH}$`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}$`));
     // A day tour on a plain stand → straight to the review.
     await goTo(page, 3);
     await band(page, 1, 3, '06–18').click();
     await expect(panel(page).getByTestId('selection-price')).toBeVisible();
     await panel(page).getByTestId('selection-continue').click();
     await expect(page).toHaveURL(
-      `${BASE_URL}${PATH}/confirmare?${new URLSearchParams([['stand', standId(1)], ['start', at(3, 6)], ['end', at(3, 18)]])}`
+      `${BASE_URL}${slugPath(PATH)}/confirmare?${new URLSearchParams([['stand', standId(1)], ['start', at(3, 6)], ['end', at(3, 18)]])}`
     );
     // Back re-seeds the grid on its day (c24), extras reset.
     await page.goBack();
@@ -729,7 +731,7 @@ test.describe('signed in', () => {
     await expect(panel(page).getByTestId('selection-price')).toBeVisible();
     await panel(page).getByTestId('selection-continue').click();
     await expect(page).toHaveURL(
-      `${BASE_URL}${PATH}/extra?${new URLSearchParams([['stand', standId(2)], ['start', at(3, 18)], ['end', at(4, 6)]])}`
+      `${BASE_URL}${slugPath(PATH)}/extra?${new URLSearchParams([['stand', standId(2)], ['start', at(3, 18)], ['end', at(4, 6)]])}`
     );
   });
 
@@ -751,7 +753,7 @@ test.describe('signed in', () => {
     await page.goto(`${PATH}?${new URLSearchParams([['stand', standId(3)], ['start', at(3, 6)], ['end', at(3, 18)]])}`);
     await expect(grid(page)).toBeVisible();
     await expect(panel(page)).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`${PATH}$`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}$`));
   });
 
   test('c37: Back first clears the selection, the next Back leaves the flow (header back and browser back)', async ({ page }) => {
@@ -765,16 +767,16 @@ test.describe('signed in', () => {
     await expect(panel(page)).toBeVisible();
     await page.getByRole('button', { name: 'Anulează selecția' }).click();
     await expect(panel(page)).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`${PATH}$`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}$`));
     // Browser Back after a selection: the selection goes first.
     await goTo(page, 4);
     await band(page, 1, 4, '06–18').click();
     await expect(panel(page)).toBeVisible();
     await page.goBack();
     await expect(panel(page)).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`${PATH}$`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}$`));
     await page.getByRole('button', { name: 'Înapoi' }).click();
-    await expect(page).toHaveURL(new RegExp(`/balti/${LAKE}$`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(LAKE)}$`));
   });
 
   test('c37 after a later step: Back from /confirmare lands on the selection; Anulează then «Înapoi» leaves in one press each', async ({ page }) => {
@@ -787,29 +789,29 @@ test.describe('signed in', () => {
     await band(page, 1, 3, '06–18').click();
     await expect(panel(page).getByTestId('selection-price')).toBeVisible();
     await panel(page).getByTestId('selection-continue').click();
-    await expect(page).toHaveURL(new RegExp(`${PATH}/confirmare\\?`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}/confirmare\\?`));
     // Back: a new mount on the entry the first selection pushed.
     await page.goBack();
     await expect(panel(page).getByRole('heading', { name: 'Stand 1' })).toBeVisible();
     await panel(page).getByRole('button', { name: 'Anulează' }).click();
     await expect(panel(page)).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`${PATH}$`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}$`));
     await page.getByRole('button', { name: 'Înapoi' }).click();
-    await expect(page).toHaveURL(new RegExp(`/balti/${LAKE}$`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(LAKE)}$`));
     // The same with the header's «Anulează selecția» and the browser's Back.
     await page.goto(PATH);
     await goTo(page, 4);
     await band(page, 1, 4, '06–18').click();
     await expect(panel(page).getByTestId('selection-price')).toBeVisible();
     await panel(page).getByTestId('selection-continue').click();
-    await expect(page).toHaveURL(new RegExp(`${PATH}/confirmare\\?`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}/confirmare\\?`));
     await page.goBack();
     await expect(panel(page)).toBeVisible();
     await page.getByRole('button', { name: 'Anulează selecția' }).click();
     await expect(panel(page)).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`${PATH}$`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}$`));
     await page.goBack();
-    await expect(page).toHaveURL(new RegExp(`/balti/${LAKE}$`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(LAKE)}$`));
   });
 
   test('booking.b.live-availability: a re-read that finds the selection taken clears it and says so', async ({ page }) => {
@@ -838,7 +840,7 @@ test.describe('signed in', () => {
     await expect(alertToast(page, 'Intervalul ales nu mai e liber.')).toBeVisible();
     await expect(panel(page)).toHaveCount(0);
     await expect(grid(page).locator('button[data-status="selected"]')).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`${PATH}$`));
+    await expect(page).toHaveURL(new RegExp(`${slugPath(PATH)}$`));
     await goTo(page, 7);
     await expect(runOn(page, 1, 7)).toHaveAttribute('data-status', 'booked');
   });

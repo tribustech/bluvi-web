@@ -6,6 +6,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL } from './helpers/base-url';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import { chatMessage, expect, minutesAgo, mockPreferences, systemMessage, test, type FakeChatHandle } from './helpers/fake-chat';
+import { competitionPath, loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * Chat concurs — /concursuri/[id]/chat?tab=general|participanti (parity docs/parity/areas/participant.yml,
@@ -32,6 +33,7 @@ let core: Core;
 let jwt = '';
 let me = { documentId: '', username: '' };
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 120_000 });
 
 test.beforeAll(async ({ request }) => {
@@ -83,9 +85,9 @@ async function shot(page: Page, name: string) {
 /* ------------------------------------------------------------------ */
 
 test('participant.b.chat-signed-out — no session: 307 to /intra?next=<the chat with its room>', async ({ request }) => {
-  const res = await request.get(`${CHAT}?tab=participanti`, { maxRedirects: 0 });
+  const res = await request.get(`${slugPath(CHAT)}?tab=participanti`, { maxRedirects: 0 });
   expect(res.status()).toBe(307);
-  expect(res.headers().location).toBe(`/intra?next=${encodeURIComponent(`${CHAT}?tab=participanti`)}`);
+  expect(res.headers().location).toBe(`/intra?next=${encodeURIComponent(`${slugPath(CHAT)}?tab=participanti`)}`);
 });
 
 test('participant.b.chat-signed-out — a dead cookie: the sign-in gate in the chat frame, back to the chat', async ({ page, context }) => {
@@ -93,7 +95,7 @@ test('participant.b.chat-signed-out — a dead cookie: the sign-in gate in the c
   await page.setViewportSize(PHONE);
   await page.goto(`${CHAT}?tab=general`);
   await expect(page.getByRole('heading', { name: 'Intră în cont ca să vezi chatul' })).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByRole('link', { name: 'Intră în cont' })).toHaveAttribute('href', `/intra?next=${encodeURIComponent(`${CHAT}?tab=general`)}`);
+  await expect(page.getByRole('link', { name: 'Intră în cont' })).toHaveAttribute('href', `/intra?next=${encodeURIComponent(`${slugPath(CHAT)}?tab=general`)}`);
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
   await expectNoA11yViolations(page);
 });
@@ -370,7 +372,7 @@ test('participant.chat.c11 — «Nu accept» leaves the chat and records nothing
   await expect(rules).toBeVisible();
   const before = (await fakeChat.writes()).length;
   await rules.getByRole('button', { name: 'Nu accept' }).click();
-  await page.waitForURL(`${BASE_URL}/concursuri/${ID}/informatii`);
+  await page.waitForURL(`${BASE_URL}${competitionPath(ID)}/informatii`);
   expect(before).toBe(1);
   // Unreadable consent doc: no dialog.
   await fakeChat.seed({ consent: 'unreadable' });
@@ -450,13 +452,13 @@ test('participant.chat.c41 participant.b.chat-entry — from the competition pag
   await page.addInitScript(id => localStorage.setItem(`chat:lastTab:${id}`, 'general'), ID);
   await page.goto(`/concursuri/${ID}`);
   const link = page.getByRole('link', { name: /^Chat concurs/ });
-  await expect(link).toHaveAttribute('href', `${CHAT}?tab=general`);
+  await expect(link).toHaveAttribute('href', `${slugPath(CHAT)}?tab=general`);
   await link.click();
-  await page.waitForURL(`${BASE_URL}${CHAT}?tab=general`);
+  await page.waitForURL(`${BASE_URL}${slugPath(CHAT)}?tab=general`);
   await expect(tab(page, 'General')).toHaveAttribute('aria-selected', 'true');
   const historyLength = await page.evaluate(() => history.length);
   await page.getByRole('button', { name: 'Înapoi la concurs' }).click();
-  await page.waitForURL(`${BASE_URL}/concursuri/${ID}`);
+  await page.waitForURL(`${BASE_URL}${competitionPath(ID)}`);
   // A plain back: no new history entry was pushed.
   expect(await page.evaluate(() => history.length)).toBe(historyLength);
 });
@@ -465,7 +467,7 @@ test('participant.chat.c41 — opened from a link (nothing underneath): Back rep
   await mockViewer(context, { role: null });
   await openChat(page, context);
   await page.getByRole('button', { name: 'Înapoi la concurs' }).click();
-  await page.waitForURL(`${BASE_URL}/concursuri/${ID}`);
+  await page.waitForURL(`${BASE_URL}${competitionPath(ID)}`);
   await page.goBack().catch(() => {});
   // Replaced: Back from the competition does not return to the chat.
   expect(page.url()).not.toContain('/chat');
@@ -483,7 +485,7 @@ test('participant.b.chat-entry participant.b.chat-badge — the phone bar’s Ch
   await page.goto(`/concursuri/${ID}`);
   const tile = page.getByRole('navigation', { name: 'Acțiuni concurs' }).getByRole('link', { name: /^Chat competiție/ });
   await expect(tile).toHaveAccessibleName('Chat competiție, 3 mesaje necitite', { timeout: 30_000 });
-  await expect(tile).toHaveAttribute('href', new RegExp(`^${CHAT}`));
+  await expect(tile).toHaveAttribute('href', new RegExp(`^${slugPath(CHAT)}`));
   await expect(tile.getByText('3')).toBeVisible();
   // Never opened (no receipt in any readable room) and messages waiting → «Nou».
   await fakeChat.seed({ rooms: { general: { unread: 4, seen: false }, participants: { unread: 0, seen: false } } });
@@ -495,7 +497,7 @@ test('participant.b.chat-entry participant.b.chat-badge — the phone bar’s Ch
   await page.reload();
   await expect(tile).toHaveAccessibleName('Chat competiție', { timeout: 30_000 });
   await tile.click();
-  await page.waitForURL(new RegExp(`${CHAT}`));
+  await page.waitForURL(new RegExp(`${slugPath(CHAT)}`));
   await expect(page.getByRole('heading', { level: 1, name: core.name })).toBeVisible();
   // Signed out: no chat entry on the competition page.
   await context.clearCookies();
@@ -650,8 +652,8 @@ for (const size of [TABLET, { width: 1280, height: 800 }, DESKTOP, { width: 1920
     await expect(page.getByText('A7, lângă stuf.')).toBeVisible();
     if (size.width >= 1280) {
       await expect(page.getByRole('complementary', { name: 'Concursul' })).toBeVisible();
-      await expect(page.getByRole('link', { name: 'Clasament' })).toHaveAttribute('href', `/concursuri/${ID}/clasament`);
-      await expect(page.getByRole('link', { name: 'Participanți' })).toHaveAttribute('href', `/concursuri/${ID}/participanti`);
+      await expect(page.getByRole('link', { name: 'Clasament' })).toHaveAttribute('href', `${competitionPath(ID)}/clasament`);
+      await expect(page.getByRole('link', { name: 'Participanți' })).toHaveAttribute('href', `${competitionPath(ID)}/participanti`);
       await expect(page.getByRole('heading', { name: 'Poze din cameră' })).toBeVisible();
       await expect(page.getByRole('complementary', { name: 'Despre cameră' }).getByRole('button', { name: 'Imagine 1 din 1' })).toBeVisible();
       await expect(visibleTablist(page)).toHaveAttribute('aria-orientation', 'vertical');

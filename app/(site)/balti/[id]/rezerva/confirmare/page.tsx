@@ -10,6 +10,8 @@ import { readFlowParams, stepHref } from '../_flow/params';
 import type { ReviewLake } from './model';
 import { ReviewSkeleton } from './ReviewSkeleton';
 import { ReviewStep } from './ReviewStep';
+import { LakeUrlProvider } from '../../_sub/lake-url';
+import { lakeUrlId } from '@/lib/routes';
 
 /*
  * /balti/[id]/rezerva/confirmare — step 3 of booking a lake (parity booking.rezerva-confirmare, T4):
@@ -64,7 +66,11 @@ async function Gated({ params, searchParams }: Props) {
     cancellationPolicy: lake.cancellationPolicy,
     ...(e2eFaultsEnabled() ? e2eReshape((await cookies()).get(E2E_COOKIE)?.value) : {}),
   };
-  return <ReviewStep lake={facts} />;
+  return (
+    <LakeUrlProvider urlId={lakeUrlId(lake)}>
+      <ReviewStep lake={facts} />
+    </LakeUrlProvider>
+  );
 }
 
 /**

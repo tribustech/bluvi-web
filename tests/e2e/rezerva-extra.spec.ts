@@ -3,6 +3,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * booking.rezerva-extra (/balti/[id]/rezerva/extra, T4) — fish app/(app)/book-lake/[lakeId]/extras.tsx
@@ -17,6 +18,7 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  */
 
 process.env.TZ = 'Europe/Bucharest';
+test.beforeAll(loadSlugs);
 test.use({ timezoneId: 'Europe/Bucharest', locale: 'ro-RO' });
 
 const LAKE = 's84u55lo4n9z0emngozttt6e';
@@ -179,12 +181,12 @@ async function shots(page: Page, name: string) {
 
 test.describe('signed out', () => {
   test('booking.b.sign-in-gate: a real 307 to /intra, returning here with the selection and the extras', async ({ request }) => {
-    const res = await request.get(`${BASE_URL}${PATH}${q(tour.sel, [tour.extra.key])}`, { maxRedirects: 0 });
+    const res = await request.get(`${BASE_URL}${slugPath(PATH)}${q(tour.sel, [tour.extra.key])}`, { maxRedirects: 0 });
     expect(res.status()).toBe(307);
     const loc = new URL(res.headers().location, BASE_URL);
     expect(loc.pathname).toBe('/intra');
     const next = new URL(loc.searchParams.get('next')!, BASE_URL);
-    expect(next.pathname).toBe(PATH);
+    expect(next.pathname).toBe(slugPath(PATH));
     expect(next.searchParams.get('stand')).toBe(tour.sel.stand);
     expect(next.searchParams.getAll('extra')).toEqual([tour.extra.key]);
   });
@@ -202,24 +204,24 @@ test.describe('signed in', () => {
   test('c1: without a valid selection, or with a stand the lake does not have, the step goes to the bare grid', async ({ page }) => {
     await signIn(page.context(), jwt);
     await page.goto(PATH);
-    await page.waitForURL((u) => u.pathname === GRID && !u.search);
+    await page.waitForURL((u) => u.pathname === slugPath(GRID) && !u.search);
     await page.goto(`${PATH}?stand=${tour.sel.stand}&start=nope&end=${encodeURIComponent(tour.sel.end)}`);
-    await page.waitForURL((u) => u.pathname === GRID && !u.searchParams.get('stand'));
+    await page.waitForURL((u) => u.pathname === slugPath(GRID) && !u.searchParams.get('stand'));
     await page.goto(`${PATH}${q({ ...tour.sel, stand: 'e2e-gone-stand' }, [tour.extra.key])}`);
-    await page.waitForURL((u) => u.pathname === GRID && !u.searchParams.get('stand'));
+    await page.waitForURL((u) => u.pathname === slugPath(GRID) && !u.searchParams.get('stand'));
   });
 
   test('c2: a tour the stand has nothing to add to goes back to the grid with the selection kept', async ({ page }) => {
     // A stand without extras.
     await open(page, q(tour.plain, [tour.extra.key]));
-    await page.waitForURL((u) => u.pathname === GRID && u.searchParams.get('stand') === tour.plain.stand);
+    await page.waitForURL((u) => u.pathname === slugPath(GRID) && u.searchParams.get('stand') === tour.plain.stand);
     const u1 = new URL(page.url());
     expect(Date.parse(u1.searchParams.get('start')!)).toBe(Date.parse(tour.plain.start));
     expect(u1.searchParams.getAll('extra')).toEqual([]);
     // A day tour (no night) on a stand that only sells a per-night extra (Chita: cabins).
     expect(tour.extra.unit).toBe('perNight');
     await page.goto(`${PATH}${q(tour.day)}`);
-    await page.waitForURL((u) => u.pathname === GRID && u.searchParams.get('stand') === tour.day.stand);
+    await page.waitForURL((u) => u.pathname === slugPath(GRID) && u.searchParams.get('stand') === tour.day.stand);
     expect(Date.parse(new URL(page.url()).searchParams.get('end')!)).toBe(Date.parse(tour.day.end));
   });
 
@@ -267,7 +269,7 @@ test.describe('signed in', () => {
     // c7: Continuă (keyboard) → the review with the selection and the extras.
     await cont(page).focus();
     await page.keyboard.press('Enter');
-    await page.waitForURL((u) => u.pathname === REVIEW);
+    await page.waitForURL((u) => u.pathname === slugPath(REVIEW));
     const u = new URL(page.url());
     expect(u.searchParams.get('stand')).toBe(tour.sel.stand);
     expect(u.searchParams.getAll('extra')).toEqual([tour.extra.key]);
@@ -309,7 +311,7 @@ test.describe('signed in', () => {
     await expect(cont(page)).toHaveAttribute('aria-disabled', 'true');
     await cont(page).dispatchEvent('click');
     await page.waitForTimeout(200);
-    expect(new URL(page.url()).pathname).toBe(PATH);
+    expect(new URL(page.url()).pathname).toBe(slugPath(PATH));
     release();
     await expect(cont(page)).not.toHaveAttribute('aria-disabled', 'true');
     expect(bodies.map((b) => b.extras.join(','))).toEqual(['', tour.extra.key, '']);
@@ -408,7 +410,7 @@ test.describe('signed in', () => {
     await cardBox(page).click();
     await expect.poll(() => new URL(page.url()).searchParams.getAll('extra')).toEqual([tour.extra.key]);
     await page.getByRole('button', { name: 'Înapoi la selecție' }).click();
-    await page.waitForURL((u) => u.pathname === GRID);
+    await page.waitForURL((u) => u.pathname === slugPath(GRID));
     let u = new URL(page.url());
     expect(u.searchParams.get('stand')).toBe(tour.sel.stand);
     expect(u.searchParams.getAll('extra')).toEqual([]);
@@ -416,7 +418,7 @@ test.describe('signed in', () => {
     await page.goto(`${PATH}${q(tour.sel, [tour.extra.key])}`);
     await expect(card(page)).toBeChecked();
     await page.getByRole('button', { name: 'Înapoi', exact: true }).click();
-    await page.waitForURL((u2) => u2.pathname === GRID);
+    await page.waitForURL((u2) => u2.pathname === slugPath(GRID));
     u = new URL(page.url());
     expect(u.searchParams.get('stand')).toBe(tour.sel.stand);
     expect(u.searchParams.getAll('extra')).toEqual([]);

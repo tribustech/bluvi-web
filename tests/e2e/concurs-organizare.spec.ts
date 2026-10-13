@@ -4,6 +4,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { collectConsoleErrors } from './helpers/console';
 import { expect, test, type OrganizerHarness, type RecordedWrite } from './helpers/fake-organizer';
 import { qaJwt, signIn } from './helpers/session';
+import { competitionPath, loadSlugs } from './helpers/slugs';
 
 /*
  * Concurs · Organizare — parity docs/parity/areas/competition-page.yml competition-page.organizare
@@ -27,6 +28,7 @@ const NC = process.env.E2E_COMPETITION_NC ?? 'z7rvhm55ziyr0tbblqwjp39q'; // comp
 const PHONE = { width: 375, height: 812 };
 const DESKTOP = { width: 1440, height: 900 };
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 120_000 });
 
 let jwt = '';
@@ -161,11 +163,11 @@ test('competition-page.organizare.c1 c2 participant.register-guests.c15 — phon
   const nav = submenu(page);
   await expect(nav.getByRole('link', { name: 'Modifică competiția' })).toHaveAttribute(
     'href',
-    `/concursuri/${OWN}/editeaza/detalii?inapoi=${encodeURIComponent(`/concursuri/${OWN}`)}`,
+    `${competitionPath(OWN)}/editeaza/detalii?inapoi=${encodeURIComponent(competitionPath(OWN))}`,
   );
-  await expect(nav.getByRole('link', { name: 'Alocă standuri pe sectoare' })).toHaveAttribute('href', `/concursuri/${OWN}/sectoare`);
-  await expect(nav.getByRole('link', { name: 'Alocă participanții pe standuri' })).toHaveAttribute('href', `/concursuri/${OWN}/alocare`);
-  await expect(nav.getByRole('link', { name: 'Adaugă participanți fără cont' })).toHaveAttribute('href', `/concursuri/${OWN}/inscriere/fara-cont`);
+  await expect(nav.getByRole('link', { name: 'Alocă standuri pe sectoare' })).toHaveAttribute('href', `${competitionPath(OWN)}/sectoare`);
+  await expect(nav.getByRole('link', { name: 'Alocă participanții pe standuri' })).toHaveAttribute('href', `${competitionPath(OWN)}/alocare`);
+  await expect(nav.getByRole('link', { name: 'Adaugă participanți fără cont' })).toHaveAttribute('href', `${competitionPath(OWN)}/inscriere/fara-cont`);
   // Focus moved into the submenu; «Înapoi» (and Escape) bring the tile back, focused.
   await expect(nav.getByRole('button', { name: 'Înapoi' })).toBeFocused();
   await shot(page, 'phone-submenu-notstarted');
@@ -229,7 +231,7 @@ test('competition-page.organizare.c1 c2 — from 768 the header «Organizare» i
     'Șterge arbitru',
   ]);
   await expect(menu.getByRole('menuitem', { name: 'Modifică competiția' })).toBeFocused();
-  await expect(menu.getByRole('menuitem', { name: 'Adaugă participanți fără cont' })).toHaveAttribute('href', `/concursuri/${OWN}/inscriere/fara-cont`);
+  await expect(menu.getByRole('menuitem', { name: 'Adaugă participanți fără cont' })).toHaveAttribute('href', `${competitionPath(OWN)}/inscriere/fara-cont`);
   await shot(page, 'desktop-menu-notstarted');
   await settled(page);
   await expectNoA11yViolations(page);
@@ -309,8 +311,8 @@ test('competition-page.organizare.c4 c5 organizer.b.cannot-edit-started — star
   const errors = await open(page, `/concursuri/${LIVE}`);
   await openSubmenu(page);
   await expect.poll(() => items(submenu(page))).toEqual(['Înapoi', 'Modifică competiția', 'Adaugă cântar', 'Adaugă arbitru', 'Șterge arbitru', 'Penalizări', 'Încheie concurs']);
-  await expect(submenu(page).getByRole('link', { name: 'Adaugă cântar' })).toHaveAttribute('href', `/concursuri/${LIVE}/cantar`);
-  await expect(submenu(page).getByRole('link', { name: 'Penalizări' })).toHaveAttribute('href', `/concursuri/${LIVE}/penalizari`);
+  await expect(submenu(page).getByRole('link', { name: 'Adaugă cântar' })).toHaveAttribute('href', `${competitionPath(LIVE)}/cantar`);
+  await expect(submenu(page).getByRole('link', { name: 'Penalizări' })).toHaveAttribute('href', `${competitionPath(LIVE)}/penalizari`);
   await shot(page, 'phone-submenu-started');
   await submenu(page).getByRole('button', { name: 'Modifică competiția' }).click();
   const sheet = page.getByRole('dialog', { name: 'Nu poți modifica competiția' });
@@ -400,7 +402,7 @@ test('competition-page.organizare.c7 organizer.b.feeder-allocate-next — a clos
     'Reașază pentru manșa 2',
     'Pornește manșa 2',
   ]);
-  await expect(menu.getByRole('menuitem', { name: 'Reașază pentru manșa 2' })).toHaveAttribute('href', `/concursuri/${FEEDER}/alocare?mansa=2`);
+  await expect(menu.getByRole('menuitem', { name: 'Reașază pentru manșa 2' })).toHaveAttribute('href', `${competitionPath(FEEDER)}/alocare?mansa=2`);
   await menu.getByRole('menuitem', { name: 'Pornește manșa 2' }).click();
   const dialog = page.getByRole('alertdialog', { name: 'Pornești manșa 2? Standurile trase sunt salvate?' });
   await dialog.getByRole('button', { name: 'Confirmă' }).click();
@@ -597,13 +599,13 @@ test('competition-page.organizare.c11 — a referee: «Adaugă cântar» tile af
   await setup(page, LIVE, { role: 'referee' });
   await open(page, `/concursuri/${LIVE}`);
   const tile = bar(page).getByRole('link', { name: 'Adaugă cântar' });
-  await expect(tile).toHaveAttribute('href', `/concursuri/${LIVE}/cantar`, { timeout: 30_000 });
+  await expect(tile).toHaveAttribute('href', `${competitionPath(LIVE)}/cantar`, { timeout: 30_000 });
   const ids = await bar(page).locator('[data-tile]').evaluateAll(els => els.map(e => e.getAttribute('data-tile')));
   expect(ids.indexOf('adauga-cantar')).toBe(ids.indexOf('cantare') + 1);
   await expect(orgTile(page)).toHaveCount(0);
   await shot(page, 'phone-referee-bar');
   await page.setViewportSize(DESKTOP);
-  await expect(page.getByRole('link', { name: 'Adaugă cântar' }).first()).toHaveAttribute('href', `/concursuri/${LIVE}/cantar`);
+  await expect(page.getByRole('link', { name: 'Adaugă cântar' }).first()).toHaveAttribute('href', `${competitionPath(LIVE)}/cantar`);
 });
 
 test('competition-page.organizare.c13 organizer.b.scale-entries — the referee’s «Acțiuni»: «Adaugă cântar», closed until someone is seated', async ({ page }) => {
@@ -639,7 +641,7 @@ test('competition-page.organizare.c12 c13 — started: the author’s «Acțiuni
     'Alocă participanții pe standuri Competiția a început deja, nu se mai pot face modificări',
     'Adaugă cântar',
   ]);
-  await expect(sheet.getByRole('link', { name: 'Adaugă cântar' })).toHaveAttribute('href', `/concursuri/${LIVE}/cantar`);
+  await expect(sheet.getByRole('link', { name: 'Adaugă cântar' })).toHaveAttribute('href', `${competitionPath(LIVE)}/cantar`);
   await shot(page, 'phone-actions-author-started');
   await settled(page);
   await expectNoA11yViolations(page);
@@ -657,7 +659,7 @@ test('competition-page.organizare.c12 — completed: the author’s sheet is onl
   await open(page, `/concursuri/${NC}/informatii`);
   await bar(page).getByRole('button', { name: 'Acțiuni concurs' }).click();
   const sheet = page.getByRole('dialog', { name: 'Acțiuni' });
-  await expect(sheet.getByRole('link', { name: 'Vezi cântarele din concurs' })).toHaveAttribute('href', `/concursuri/${NC}/cantar`, { timeout: 30_000 });
+  await expect(sheet.getByRole('link', { name: 'Vezi cântarele din concurs' })).toHaveAttribute('href', `${competitionPath(NC)}/cantar`, { timeout: 30_000 });
   await expect(sheet.getByTestId('actions-sheet').locator('> li')).toHaveCount(1);
 });
 
@@ -669,7 +671,7 @@ test('competition-page.bara-actiuni.c10 — not the author: «Penalizări» afte
   await setup(page, LIVE, { role: 'participant' });
   await open(page, `/concursuri/${LIVE}`);
   const tile = penaltiesLink(bar(page));
-  await expect(tile).toHaveAttribute('href', `/concursuri/${LIVE}/penalizari`, { timeout: 30_000 });
+  await expect(tile).toHaveAttribute('href', `${competitionPath(LIVE)}/penalizari`, { timeout: 30_000 });
   const ids = await bar(page).locator('[data-tile]').evaluateAll(els => els.map(e => e.getAttribute('data-tile')));
   expect(ids.indexOf('penalizari')).toBe(ids.indexOf('statistici') + 1);
   await shot(page, 'phone-participant-penalties');
@@ -694,7 +696,7 @@ test('competition-page.bara-actiuni.c13 — an angler’s «Vezi cântarele din 
   await bar(page).getByRole('button', { name: 'Acțiuni concurs' }).click();
   await expect(page.getByRole('dialog', { name: 'Acțiuni' }).getByRole('link', { name: 'Vezi cântarele din concurs' })).toHaveAttribute(
     'href',
-    `/concursuri/${LIVE}/cantar`,
+    `${competitionPath(LIVE)}/cantar`,
     { timeout: 30_000 },
   );
 });
@@ -710,10 +712,10 @@ test('competition-page.organizare.c14 — Cântare: the author / a referee while
   await stand.getByRole('button').first().click();
   const link = page.getByTestId('scale-link').first();
   await expect(link).toBeVisible({ timeout: 30_000 });
-  await expect(link).toHaveAttribute('href', new RegExp(`/concursuri/${LIVE}/cantar/[^/]+$`));
+  await expect(link).toHaveAttribute('href', new RegExp(`${competitionPath(LIVE)}/cantar/[^/]+$`));
   await shot(page, 'phone-cantare-scale-link');
   await page.setViewportSize(DESKTOP);
-  await expect(page.getByTestId('scale-link').first()).toHaveAttribute('href', `/concursuri/${LIVE}/cantar`);
+  await expect(page.getByTestId('scale-link').first()).toHaveAttribute('href', `${competitionPath(LIVE)}/cantar`);
 
   const ctx = await browser.newContext();
   const angler = await ctx.newPage();
@@ -743,7 +745,7 @@ test('organizer.b.active-weighing-banner — the author of a running competition
   // Clasament: the bento's «Cântar în curs» tile carries the link; no band repeating it.
   const bento = page.getByRole('group', { name: 'Concursul pe scurt' });
   const tileLink = bento.getByRole('link', { name: 'Deschide în cântar', exact: true });
-  await expect(tileLink).toHaveAttribute('href', `/concursuri/${LIVE}/cantar/stand-x/w-live`, { timeout: 30_000 });
+  await expect(tileLink).toHaveAttribute('href', `${competitionPath(LIVE)}/cantar/stand-x/w-live`, { timeout: 30_000 });
   await expect(bento).toContainText('Cântar în curs');
   await expect(page.getByTestId('manager-weighing-notice')).toHaveCount(0);
   await shot(page, 'desktop-weighing-notice');
@@ -751,11 +753,11 @@ test('organizer.b.active-weighing-banner — the author of a running competition
   await open(page, `/concursuri/${LIVE}/informatii`, DESKTOP);
   const notice = page.getByTestId('manager-weighing-notice');
   await expect(notice).toContainText('Cântar în curs pe standul A7', { timeout: 30_000 });
-  await expect(notice.getByRole('link', { name: 'Deschide în cântar' })).toHaveAttribute('href', `/concursuri/${LIVE}/cantar/stand-x/w-live`);
+  await expect(notice.getByRole('link', { name: 'Deschide în cântar' })).toHaveAttribute('href', `${competitionPath(LIVE)}/cantar/stand-x/w-live`);
   await shot(page, 'desktop-weighing-notice-tab');
   await open(page, `/concursuri/${LIVE}`, PHONE);
   await bar(page).getByRole('button', { name: /Cântar în curs pe standul A7/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${LIVE}/cantar/stand-x/w-live$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(LIVE)}/cantar/stand-x/w-live$`));
 });
 
 /* ------------------------------------------------------------------ */

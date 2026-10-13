@@ -4,6 +4,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { qaJwt, signIn } from './helpers/session';
+import { loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * Penalizare — «Alege standul» (parity organizer.penalties-select-stand c1–c6; fish
@@ -16,6 +17,7 @@ import { qaJwt, signIn } from './helpers/session';
  * watched: a single non-GET fails the spec (organizer writes push to real devices).
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000, retries: 1 });
 
 const STARTED = process.env.E2E_PENALTY_STARTED ?? 'kee49a3e64b3f636b4b60daa'; // [CHAT25] quantity, started, 24 stands
@@ -126,9 +128,9 @@ const noWrites = (watch: Watch) => expect(watch.writes, 'no organizer writes fro
 const tiles = (page: Page) => page.locator('main [data-testid^="stand-"][data-allocated]');
 
 test('signed out → sign-in with the return path', async ({ request }) => {
-  const res = await request.get(`${BASE_URL}${pagePath(STARTED)}`, { maxRedirects: 0 });
+  const res = await request.get(`${BASE_URL}${slugPath(pagePath(STARTED))}`, { maxRedirects: 0 });
   expect(res.status()).toBe(307);
-  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(pagePath(STARTED))}`);
+  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(slugPath(pagePath(STARTED)))}`);
 });
 
 test('c1/c4 — «Alege standul» + hint; the loader holds until both reads are in; noindex; back to the hub', async ({ page }) => {
@@ -372,7 +374,7 @@ test('c3/c6 — «Nealocat» is dimmed and inert; allocated opens the apply form
   await expect(free).toHaveClass(/outline-dashed/);
   await free.click();
   await page.waitForTimeout(400);
-  expect(path(page.url())).toBe(pagePath(STARTED));
+  expect(path(page.url())).toBe(slugPath(pagePath(STARTED)));
   // An allocation without a registration id: its occupant is shown, but drawn inert (dashed,
   // aria-disabled) with «Înscriere indisponibilă» — not a target, clicking does nothing.
   const noReg = page.getByTestId(`stand-${ids.noReg}`);
@@ -385,7 +387,7 @@ test('c3/c6 — «Nealocat» is dimmed and inert; allocated opens the apply form
   await expect(noReg.getByTestId('penalty-stand-unavailable')).toHaveText('Înscriere indisponibilă');
   await noReg.click();
   await page.waitForTimeout(400);
-  expect(path(page.url())).toBe(pagePath(STARTED));
+  expect(path(page.url())).toBe(slugPath(pagePath(STARTED)));
   await shoot(page, 'unallocated');
   // Allocated: a link to the apply form for its registration.
   const target = page.getByTestId(`stand-${ids.target}`);
@@ -402,7 +404,7 @@ test('c3/c6 — «Nealocat» is dimmed and inert; allocated opens the apply form
     };
   });
   await target.dblclick();
-  await page.waitForURL((u) => u.pathname === `/concursuri/${STARTED}/penalizari/aplica` && u.searchParams.get('inscriere') === ids.reg);
+  await page.waitForURL((u) => u.pathname === slugPath(`/concursuri/${STARTED}/penalizari/aplica`) && u.searchParams.get('inscriere') === ids.reg);
   // The real apply form (organizer.penalties-apply), not a not-found page on the right URL.
   await expect(page.getByRole('heading', { level: 1, name: 'Aplică penalizare' })).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(1500);
@@ -422,7 +424,7 @@ for (const [label, change] of [
     const { watch } = await open(page, STARTED, {
       setup: (p) => editCompetition(p, STARTED, (doc) => Object.assign(doc, change)),
     });
-    await settle(page, (timeout) => page.waitForURL((u) => u.pathname === `/concursuri/${STARTED}/penalizari`, { timeout }));
+    await settle(page, (timeout) => page.waitForURL((u) => u.pathname === slugPath(`/concursuri/${STARTED}/penalizari`), { timeout }));
     // Replaced, not pushed: going back does not land on the picker again.
     expect(await page.evaluate(() => history.length)).toBeLessThanOrEqual(2);
     noWrites(watch);

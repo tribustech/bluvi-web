@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
+import { lakePath, loadSlugs } from './helpers/slugs';
 
 /*
  * Owner design rules 1 and 3 (ROADMAP §4b, 2026-10-06) on the T3 detail pages with photos / a map:
@@ -85,12 +86,13 @@ for (const width of [1024, 1440]) {
   });
 }
 
+test.beforeAll(loadSlugs);
 test('owner rule 1 — one «Vezi toate fotografiile (N)» to the gallery; every grid tile opens the lightbox; Escape closes it', async ({ page }) => {
   await open(page, `/balti/${LAKE}`, { width: 1280, height: 900 });
   const dialog = page.locator('dialog[open]');
   // One control from 768 (the phone's count pill is gone), the photos + catches, the gallery page.
   const all = page.getByRole('link', { name: /^Vezi toate fotografiile \(\d+\)$/ });
-  await expect(all).toHaveAttribute('href', `/balti/${LAKE}/galerie`);
+  await expect(all).toHaveAttribute('href', `${lakePath(LAKE)}/galerie`);
   await expect(page.getByRole('link', { name: /^Galerie:/ })).toBeHidden();
   await page.getByRole('button', { name: 'Deschide fotografia 1 din 2' }).click();
   await expect(dialog).toBeVisible();
@@ -122,7 +124,7 @@ for (const width of [768, 1280, 1440]) {
     // The same height as the 5-photo grid: 320 (768); from 1024 min(the step, 100dvh − 532) = 368 at 900 tall.
     expect(Math.round(box!.height)).toBe(width >= 1024 ? 368 : 320);
     // The pill says 3 (1 photo + 2 catches): so does the one control, to the gallery.
-    await expect(page.getByRole('link', { name: /^Vezi toate fotografiile \(\d+\)$/ })).toHaveAttribute('href', `/balti/${ONE_PHOTO}/galerie`);
+    await expect(page.getByRole('link', { name: /^Vezi toate fotografiile \(\d+\)$/ })).toHaveAttribute('href', `${lakePath(ONE_PHOTO)}/galerie`);
   });
 }
 

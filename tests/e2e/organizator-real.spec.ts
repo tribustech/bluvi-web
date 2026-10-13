@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { collectConsoleErrors } from './helpers/console';
 import { ADMIN_TOKEN, chitaStands, CHITA, cmsCompetition, farDates, realName, sweepLeftovers, tracker, type ChitaStand } from './helpers/real-organizer';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { freshCompetitionSegment, reloadSlugs } from './helpers/slugs';
 
 /*
  * organizer.wizard + organizer.panel with REAL writes against the local CMS (safe since 2026-10-08:
@@ -114,7 +115,10 @@ test('organizer.wizard REAL — create through the wizard, publish, then edit: t
   const noPhoto = page.getByRole('dialog', { name: 'Publicare fără fotografie' });
   await expect(noPhoto).toBeVisible();
   await noPhoto.getByRole('button', { name: 'Continuă' }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${id}(\\?fromPublish=1)?$`), { timeout: 60_000 });
+  // A competition made just now: its documentId URL may not redirect to the slug yet (the dev
+  // server's map refreshes every 5 minutes), so either segment.
+  await reloadSlugs();
+  await expect(page).toHaveURL(new RegExp(`/concursuri/${freshCompetitionSegment(id)}(\\?fromPublish=1)?$`), { timeout: 60_000 });
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible({ timeout: 30_000 });
 
   // The CMS: published (notStarted), its sector «A» on the two Chita stands, the species connected.
@@ -136,7 +140,9 @@ test('organizer.wizard REAL — create through the wizard, publish, then edit: t
   const put = page.waitForResponse(r => r.request().method() === 'PUT' && new URL(r.url()).pathname === `/api/cms/competitions/organizer/${id}`, { timeout: 30_000 });
   await page.getByTestId('wizard-save').click();
   expect((await put).status()).toBe(200);
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${id}$`), { timeout: 30_000 });
+  // The wizard returns to the segment it opened at (the slug before the rename) or the documentId.
+  const opened = freshCompetitionSegment(id);
+  await expect(page).toHaveURL(new RegExp(`/concursuri/${opened}$`), { timeout: 30_000 });
   await expect(page.getByRole('heading', { level: 1, name: renamed })).toBeVisible({ timeout: 30_000 });
   const edited = await cmsCompetition(page.request, id);
   expect(edited?.name).toBe(renamed);

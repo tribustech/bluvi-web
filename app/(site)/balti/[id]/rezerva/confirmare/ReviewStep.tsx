@@ -47,6 +47,8 @@ import {
 import { QuoteUnavailable } from './QuoteUnavailable';
 import { ReviewSkeleton } from './ReviewSkeleton';
 import { PriceAside, SummaryCard } from './SummaryCard';
+import { useLakeUrlId } from '../../_sub/lake-url';
+import { anglerFlow } from '../_flow/config';
 
 /*
  * Step 3 of the angler's booking flow — fish app/(app)/book-lake/[lakeId]/review.tsx (parity
@@ -92,7 +94,9 @@ export function ReviewStep({ lake }: { lake: ReviewLake }) {
   const search = useSearchParams();
   const params = useMemo(() => readFlowParams(new URLSearchParams(search.toString())), [search]);
   const sel = params.selection;
-  const nav = useFlowNav(lakeId);
+  const urlId = useLakeUrlId(lakeId);
+  const config = useMemo(() => anglerFlow(lakeId, urlId), [lakeId, urlId]);
+  const nav = useFlowNav(lakeId, config);
   const toast = useSiteToast();
   const { query: avail, merged, checkoutBufferMinutes } = useLiveAvailability(lakeId);
   /**
@@ -106,8 +110,8 @@ export function ReviewStep({ lake }: { lake: ReviewLake }) {
   const nowMs = Math.max(mountMs, avail.dataUpdatedAt);
 
   const redirect = useMemo(
-    () => (leaving || holding ? null : guardStep(lakeId, 'review', params, merged, nowMs)),
-    [leaving, holding, lakeId, params, merged, nowMs]
+    () => (leaving || holding ? null : guardStep(lakeId, 'review', params, merged, nowMs, config)),
+    [leaving, holding, lakeId, params, merged, nowMs, config]
   );
   /** The redirect is the tour itself (taken, started, lead time), not a missing stand or URL. */
   const taken = !!redirect && !!merged?.bookingEnabled && !!selectionStand(merged, sel);

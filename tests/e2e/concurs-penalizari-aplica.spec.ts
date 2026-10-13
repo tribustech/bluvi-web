@@ -5,6 +5,7 @@ import { BASE_URL } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { expect, test, type OrganizerHarness } from './helpers/fake-organizer';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { competitionPath, loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * «Aplică penalizare» (parity organizer.penalties-apply c1–c7; fish app/(app)/penalties/[competitionId]/apply.tsx).
@@ -19,6 +20,7 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  * every POST here is route-mocked and its method, path and body asserted.
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000, retries: 1 });
 
 const TEAM = process.env.E2E_PENALTY_TEAM_COMPETITION ?? 'g5l98otx5ypg6wttowra9yww';
@@ -27,8 +29,8 @@ const SINGLE = process.env.E2E_PENALTY_SINGLE_COMPETITION ?? 'i8kzbi5k51vmbyq75d
 
 const WIDTHS = [375, 1280, 1440, 1920];
 const apply = (c: string, r?: string) => `/concursuri/${c}/penalizari/aplica${r ? `?inscriere=${r}` : ''}`;
-const hub = (c: string) => new RegExp(`/concursuri/${c}/penalizari$`);
-const stands = (c: string) => new RegExp(`/concursuri/${c}/penalizari/stand$`);
+const hub = (c: string) => new RegExp(`${competitionPath(c)}/penalizari$`);
+const stands = (c: string) => new RegExp(`${competitionPath(c)}/penalizari/stand$`);
 const penaltyPath = (c: string, r: string) => `/competitions/${c}/registrations/${r}/penalties`;
 
 type Reg = { documentId: string; teamName: string | null; guestName?: string | null; participants?: { username: string }[]; stand?: { id?: number; documentId: string; name: string } | null };
@@ -465,10 +467,10 @@ test.describe('states', () => {
   });
 
   test('signed out: sent to sign-in with the return path', async ({ request }) => {
-    const res = await request.get(`${BASE_URL}${apply(TEAM, TEAM_REG)}`, { maxRedirects: 0 });
+    const res = await request.get(`${BASE_URL}${slugPath(apply(TEAM, TEAM_REG))}`, { maxRedirects: 0 });
     expect(res.status()).toBe(307);
     const loc = res.headers().location ?? '';
-    expect(decodeURIComponent(loc)).toContain(`/intra?next=${apply(TEAM, TEAM_REG)}`);
+    expect(decodeURIComponent(loc)).toContain(`/intra?next=${slugPath(apply(TEAM, TEAM_REG))}`);
   });
 
 });

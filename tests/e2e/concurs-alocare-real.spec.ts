@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { collectConsoleErrors } from './helpers/console';
 import { ADMIN_TOKEN, cmsCompetition, realName, seedCompetition, sweepLeftovers, tracker } from './helpers/real-organizer';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { freshCompetitionSegment, reloadSlugs } from './helpers/slugs';
 
 /*
  * «Alocă standuri pe sectoare» (organizer.sectors c8) and «Alocare participanți» (organizer.participants
@@ -42,6 +43,7 @@ async function loaded(page: Page) {
 test('organizer.sectors.c8 REAL — «Salvează» re-allocates the sector’s stands in the CMS', async ({ page, request }) => {
   const seeded = await seedCompetition(request, jwt, { name: realName('Sectoare'), stands: 3, participantsLimit: 4, weeks: 3 });
   created.add(seeded.documentId);
+  await reloadSlugs(); // the new competition's slug
   const [s1, s2, s3] = seeded.sectorStands;
   const all = (await (await request.get(`${CMS}/feed/lakes/s84u55lo4n9z0emngozttt6e`)).json()).data.stands as { documentId: string; name: string }[];
   const s4 = all[3];
@@ -62,7 +64,7 @@ test('organizer.sectors.c8 REAL — «Salvează» re-allocates the sector’s st
   await page.getByRole('button', { name: 'Salvează' }).click();
   expect((await post).ok()).toBe(true);
   await expect(page.getByText('Standurile au fost alocate cu succes!')).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${seeded.documentId}$`));
+  await expect(page).toHaveURL(new RegExp(`/concursuri/${freshCompetitionSegment(seeded.documentId)}$`));
   const c = await cmsCompetition(request, seeded.documentId);
   expect(c?.sectors[0].stands.map(s => s.documentId).sort()).toEqual([s2, s3, s4].map(s => s.documentId).sort());
   // Reopened, the editor shows what the CMS holds.
@@ -76,6 +78,7 @@ test('organizer.sectors.c8 REAL — «Salvează» re-allocates the sector’s st
 test('organizer.participants.c8 REAL — «Finalizează alocarea» seats the guests on their stands in the CMS', async ({ page, request }) => {
   const seeded = await seedCompetition(request, jwt, { name: realName('Alocare'), stands: 2, guests: ['Ana Real', 'Barbu Real'], weeks: 4 });
   created.add(seeded.documentId);
+  await reloadSlugs(); // the new competition's slug
   const [s1, s2] = seeded.sectorStands;
   const errors = collectConsoleErrors(page);
   await signIn(page.context(), jwt);
@@ -95,7 +98,7 @@ test('organizer.participants.c8 REAL — «Finalizează alocarea» seats the gue
   await page.getByRole('button', { name: 'Finalizează alocarea' }).click();
   expect((await post).ok()).toBe(true);
   await expect(page.getByText('Alocarea participanților a fost realizată cu succes')).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${seeded.documentId}$`));
+  await expect(page).toHaveURL(new RegExp(`/concursuri/${freshCompetitionSegment(seeded.documentId)}$`));
   const c = await cmsCompetition(request, seeded.documentId);
   const standOf = (guest: string) => c?.registrations.find(r => r.guestName === guest)?.stand?.documentId;
   expect(standOf('Ana Real')).toBe(s2.documentId);

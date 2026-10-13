@@ -49,6 +49,7 @@ import {
 import { PeriodNav } from './PeriodNav';
 import { SelectionPanel } from './SelectionPanel';
 import { TooSoonDialog } from './TooSoonDialog';
+import { useLakeUrlId } from '../../_sub/lake-url';
 
 /*
  * Step 1 of the angler's booking flow — fish app/(app)/book-lake/[lakeId]/index.tsx +
@@ -145,7 +146,8 @@ type Props = {
 
 export function BookingGridScreen({ lake, config: configProp, onBookedCell, detail, mark = null, children }: Props) {
   const lakeId = lake.documentId;
-  const config = useMemo(() => configProp ?? anglerFlow(lakeId), [configProp, lakeId]);
+  const urlId = useLakeUrlId(lakeId);
+  const config = useMemo(() => configProp ?? anglerFlow(lakeId, urlId), [configProp, lakeId, urlId]);
   const router = useRouter();
   const toast = useSiteToast();
   const leave = useBack(config.paths.exit);

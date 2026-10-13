@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { routes } from '@/lib/routes';
+import { lakeUrlId, routes } from '@/lib/routes';
 import { requireViewer } from '@/lib/server/require-viewer';
 import type { SearchParams } from '@/lib/search-params';
 import { loadLake } from '../../_components/load';
 import { readFlowParams } from '../_flow/params';
 import { ExtrasScreen } from './ExtrasScreen';
 import { ExtrasSkeleton } from './ExtrasSkeleton';
+import { LakeUrlProvider } from '../../_sub/lake-url';
 
 /*
  * /balti/[id]/rezerva/extra — step 2 of booking a lake (parity booking.rezerva-extra, T4): what to
@@ -42,5 +43,9 @@ async function Gated({ params, searchParams }: Props) {
   const load = await loadLake(id);
   if (load.kind === 'missing') notFound();
   const { lake } = load;
-  return <ExtrasScreen lake={{ documentId: lake.documentId, name: lake.name, checkoutBufferMinutes: lake.checkoutBufferMinutes }} />;
+  return (
+    <LakeUrlProvider urlId={lakeUrlId(lake)}>
+      <ExtrasScreen lake={{ documentId: lake.documentId, name: lake.name, checkoutBufferMinutes: lake.checkoutBufferMinutes }} />
+    </LakeUrlProvider>
+  );
 }

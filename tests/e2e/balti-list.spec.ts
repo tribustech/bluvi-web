@@ -3,6 +3,7 @@ import { BASE_URL } from './helpers/base-url';
 import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { isLakePath, lakePath, loadSlugs } from './helpers/slugs';
 
 /*
  * Bălți list + map — parity docs/parity/areas/lakes.yml: lakes.home (/balti), lakes.search (the
@@ -32,6 +33,7 @@ const GIURGIU = 'njf092b2ffdq6b8w3inqbjr5';
 const BUCHAREST = { latitude: 44.4268, longitude: 26.1025 };
 
 let jwt = '';
+test.beforeAll(loadSlugs);
 test.beforeAll(async ({ request }) => {
   jwt = await qaJwt(request);
 });
@@ -217,16 +219,17 @@ test.describe('lakes.home', () => {
       await expect(visible(page.getByRole('button', { name: 'Filtre' }))).toBeVisible();
       // c9: each row has its badge + title (from 768: the grid's heading).
       await expect(visible(page.getByRole('heading', { name: ALL_LAKES, level: 2 }))).toBeVisible();
-      // c23 + owner rule 6: «Arată harta» — floating on a phone; from 768 the header's primary action.
+      // c23 + owner rule 6: «Arată harta» — the floating pill at every width (owner 2026-10-13: from
+      // 768 too, so the search takes the whole header row): one map link, centred near the bottom
+      // edge, filled accent (not a surface tool).
       const mapLink = visible(page.getByRole('link', { name: 'Arată harta', exact: true }));
       await expect(mapLink).toHaveAttribute('href', '/balti/harta');
       await expect(mapLink).toBeInViewport();
+      await expect(page.getByRole('link', { name: 'Arată harta', exact: true }).locator('visible=true')).toHaveCount(1);
       if (vp.width >= 768) {
-        // One designed unit spanning the content width: the map button ends on the content edge,
-        // filled accent (not a surface tool), right after «Filtre».
         const map = (await mapLink.boundingBox())!;
-        const gutter = vp.width >= 1280 ? 32 : 24;
-        expect(Math.abs(map.x + map.width - (vp.width - gutter))).toBeLessThanOrEqual(2);
+        expect(Math.abs(map.x + map.width / 2 - vp.width / 2)).toBeLessThanOrEqual(2);
+        expect(map.y + map.height).toBeGreaterThan(vp.height - 120);
         expect(await mapLink.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(
           await visible(page.getByRole('button', { name: 'Filtre' })).evaluate((el) => getComputedStyle(el).backgroundColor),
         );
@@ -386,7 +389,7 @@ test.describe('lakes.home', () => {
     // c14: rating pill only with reviews; the name, the place; c16: the card opens /balti/[id].
     const card = all.locator('article').first();
     const href = await card.locator('h3 a').getAttribute('href');
-    expect(href).toMatch(/^\/balti\/[a-z0-9]+$/);
+    expect(isLakePath(href!), `${href} is a lake page`).toBe(true);
     for (const art of await all.locator('article').all()) {
       const text = (await art.textContent()) ?? '';
       if (text.includes('Rating')) expect(text).toMatch(/Rating \d,\d/);
@@ -437,7 +440,7 @@ test.describe('lakes.home', () => {
     expect((await sectionTitles(page))[0]).toBe('Vizualizate recent');
     const hrefs = await recent.locator('article h3 a').locator('visible=true').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
     // Stored newest LAST → shown newest first.
-    expect(hrefs).toEqual([`/balti/${CHITA}`, '/balti/mvjlgripabbi23rb2pa6n6uy']);
+    expect(hrefs).toEqual([lakePath(CHITA), lakePath('mvjlgripabbi23rb2pa6n6uy')]);
     // c15: compact — no facilities, no regime.
     await expect(recent.getByRole('list', { name: 'Facilități' })).toHaveCount(0);
     await expect(recent.getByText('Regim:')).toHaveCount(0);
@@ -650,12 +653,14 @@ test.describe('lakes.home', () => {
     expect(new Set(impressions.map((e) => e.params.section_key)).size).toBe(impressions.length);
     const all = visible(page.getByRole('region', { name: ALL_LAKES }));
     const second = all.locator('article h3 a').nth(1);
-    const id = (await second.getAttribute('href'))!.split('/').pop();
+    const href = (await second.getAttribute('href'))!;
     // Keep the page (and its recorded events): the click is cancelled before the link navigates.
     await page.evaluate(() => window.addEventListener('click', (e) => e.preventDefault(), { capture: true, once: true }));
     await second.click();
     const click = (await events()).find((e) => e.name === 'lake_home_section_click');
-    expect(click?.params).toEqual({ section_key: 'all_lakes', section_position: 2, item_position: 2, lake_id: id });
+    // GA keeps the documentId; the card links to the lake's slug URL.
+    expect(click?.params).toEqual({ section_key: 'all_lakes', section_position: 2, item_position: 2, lake_id: expect.any(String) });
+    expect(lakePath(String(click!.params.lake_id))).toBe(href);
   });
 
   test('lakes.home.c10 c28 · 1440px: the grid ends on the map tile; one impression per shown grid, clicks with its 1-based position', async ({ page }) => {
@@ -701,7 +706,7 @@ test.describe('lakes.home', () => {
   test('lakes.home.c24 · no patch: the server HTML lists the lakes (needs the Public grant)', async ({ request }) => {
     test.skip(!(await publicGrant(request)), 'local CMS: Public has no grant on lake.home yet');
     const html = await (await request.get('/balti')).text();
-    expect(html).toMatch(/href="\/balti\/[a-z0-9]{20,}"/);
+    expect([...html.matchAll(/href="(\/balti\/[^"]+)"/g)].some((m) => isLakePath(m[1]))).toBe(true);
     expect(html).toContain('Toate bălțile');
   });
 
@@ -1237,7 +1242,7 @@ test.describe('lakes.search', () => {
     const layer = page.getByRole('dialog', { name: 'Caută în Bălți' });
     await layer.getByRole('combobox').fill('chita');
     await layer.getByRole('option', { name: /^Chita Lake/ }).click();
-    await expect(page).toHaveURL(new RegExp(`/balti/${CHITA}$`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(CHITA)}$`));
     // c9: the pick is saved to the recents (newest first).
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('recentLakeSearches') ?? '[]') as { id: string; type: string }[]);
     expect(saved[0]).toMatchObject({ id: `lake-${CHITA}`, type: 'lake' });
@@ -1456,7 +1461,7 @@ test.describe('lakes.search', () => {
     for (let i = 0; i < lakeIndex; i++) await input.press('ArrowDown');
     await expect(input).toHaveAttribute('aria-activedescendant', ids[lakeIndex]);
     await input.press('Enter');
-    await expect(page).toHaveURL(new RegExp(`/balti/${CHITA}$`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(CHITA)}$`));
   });
 
   test('lakes.search.c9 lakes.search.s4 · Enter with nothing highlighted picks the first place or lake', async ({ page }) => {
@@ -1467,7 +1472,7 @@ test.describe('lakes.search', () => {
     await expect(layer.getByRole('option', { name: /^Chita Lake/ })).toBeVisible({ timeout: 15_000 });
     await expect(layer.getByRole('status')).toHaveText('1 sugestie');
     await layer.getByRole('combobox').press('Enter');
-    await expect(page).toHaveURL(new RegExp(`/balti/${CHITA}$`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(CHITA)}$`));
   });
 
   test('lakes.search.c1 c13 lakes.search.s4 · Escape closes at once, even with text in the field', async ({ page }) => {
@@ -1696,7 +1701,7 @@ test.describe('lakes.search', () => {
     const layer = page.getByRole('dialog', { name: 'Caută în Bălți' });
     await layer.getByRole('combobox').fill('chita');
     await layer.getByRole('combobox').press('Enter');
-    await expect(page).toHaveURL(new RegExp(`/balti/${CHITA}$`), { timeout: 15_000 });
+    await expect(page).toHaveURL(new RegExp(`${lakePath(CHITA)}$`), { timeout: 15_000 });
   });
 
   test('lakes.search.c10 lakes.search.s4 · Enter on a county name opens the county, not the first lake ranked above it', async ({ page }) => {
@@ -1801,7 +1806,7 @@ test.describe('lakes.results-map', () => {
       const region = page.getByRole('region', { name: 'Rezultate' });
       await expect(region.locator('article').first()).toBeVisible();
       expect(await region.locator('article').count()).toBeLessThanOrEqual(7);
-      await expect(region.locator('article h3 a').first()).toHaveAttribute('href', /^\/balti\/[a-z0-9]+$/);
+      await expect(region.locator('article h3 a').first()).toHaveAttribute('href', /^\/balti\/[a-z0-9-]+$/);
       // c16: one rating format with the /balti grid (RatingInline) — «★ 4,8 (N)».
       for (const text of await region.locator('article').allTextContents()) {
         if (text.includes('Rating')) expect(text).toMatch(/Rating \d,\d \(\d+ (de )?recenzi[ei]\)/);
@@ -1951,7 +1956,7 @@ test.describe('lakes.results-map', () => {
     await expect(card).toBeVisible();
     await expect(page.getByRole('button', { name: /^Vezi lista/ })).toHaveCount(0);
     // c12: the name links to the lake; the place.
-    await expect(card.getByRole('link', { name: name! })).toHaveAttribute('href', /^\/balti\/[a-z0-9]+$/);
+    await expect(card.getByRole('link', { name: name! })).toHaveAttribute('href', /^\/balti\/[a-z0-9-]+$/);
     await expect(card).toContainText('Giurgiu');
     // c13: Google Maps, Waze, Apple Maps.
     await card.getByRole('button', { name: 'Direcții' }).click();
@@ -2208,23 +2213,27 @@ test.describe('lakes.results-map', () => {
   });
 
   for (const vp of [LAPTOP, DESKTOP, { width: 1920, height: 1080 }])
-  test(`lakes.results-map.c1 · ${vp.width}px: owner rules 6 + 7 — the map's header is the list's (same controls, same x), «Arată lista» in the «Arată harta» slot, on the shell column`, async ({ page }) => {
+  test(`lakes.results-map.c1 · ${vp.width}px: owner rules 6 + 7 — the map's header is the list's (same switch and pill start, same y), «Arată lista» at its end, on the shell column`, async ({ page }) => {
     await openHome(page, vp);
-    const boxes = async (toggle: string) => ({
+    const boxes = async () => ({
       switcher: (await page.getByRole('navigation', { name: 'Tip de apă' }).boundingBox())!,
-      filtre: (await visible(page.getByRole('button', { name: 'Filtre' })).boundingBox())!,
-      toggle: (await visible(page.getByRole('link', { name: toggle, exact: true })).boundingBox())!,
+      pill: (await visible(page.getByRole('button', { name: /^(Deschide căutarea|Caută)/ }).first()).boundingBox())!,
     });
-    const list = await boxes('Arată harta');
+    const list = await boxes();
+    // Owner 2026-10-13: on the list «Arată harta» is the floating pill; the map's header keeps
+    // «Arată lista» at the row's end (the pill gives it the room).
     await visible(page.getByRole('link', { name: 'Arată harta', exact: true })).click();
     await expect(listHeading(page)).toHaveText(/în această zonă/, { timeout: 25_000 });
-    const map = await boxes('Arată lista');
-    for (const k of ['switcher', 'filtre', 'toggle'] as const) {
+    const map = { ...(await boxes()), toggle: (await visible(page.getByRole('link', { name: 'Arată lista', exact: true })).boundingBox())! };
+    for (const k of ['switcher'] as const) {
       expect(Math.abs(map[k].x - list[k].x)).toBeLessThanOrEqual(2);
       expect(Math.abs(map[k].width - list[k].width)).toBeLessThanOrEqual(2);
       // …and the same y: list ↔ map never moves the search row (no crumb strip on the map only).
       expect(Math.abs(map[k].y - list[k].y), k).toBeLessThanOrEqual(2);
     }
+    // The pill starts where it starts on the list, on the same line.
+    expect(Math.abs(map.pill.x - list.pill.x)).toBeLessThanOrEqual(2);
+    expect(Math.abs(map.pill.y - list.pill.y)).toBeLessThanOrEqual(2);
     await expect(page.getByRole('navigation', { name: 'Cale de navigare' })).toHaveCount(0);
     // The BreadcrumbList stays in the page's JSON-LD.
     expect((await page.locator('script[type="application/ld+json"]').allTextContents()).join('')).toContain('BreadcrumbList');
@@ -2285,6 +2294,8 @@ async function stubLocatedHome(page: Page) {
       ...base[i % base.length],
       id: 900_000 + i,
       documentId: `e2elake${i}`,
+      // A made-up lake has no slug of its own (the real one's would point its link elsewhere).
+      slug: null,
       name: `Baltă de test ${i}`,
       ...extra,
     });
@@ -2347,7 +2358,7 @@ test.describe('lakes.home (B1 close-out)', () => {
     await openHome(page, DESKTOP);
     const link = page.locator('[data-balti-grid="all"] article h3 a').first();
     const href = (await link.getAttribute('href'))!;
-    expect(href).toMatch(/^\/balti\/[a-z0-9]+$/);
+    expect(isLakePath(href), `${href} is a lake page`).toBe(true);
     await link.click();
     await expect(page).toHaveURL(new RegExp(`${href}$`));
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20_000 });
@@ -2380,14 +2391,14 @@ test.describe('lakes.home (B1 close-out)', () => {
     });
     await openHome(page, PHONE);
     const recent = visible(page.getByRole('region', { name: 'Vizualizate recent' }));
-    await expect(recent.locator('article h3 a').locator('visible=true')).toHaveAttribute('href', `/balti/${CHITA}`);
+    await expect(recent.locator('article h3 a').locator('visible=true')).toHaveAttribute('href', lakePath(CHITA));
     // Another lake was viewed meanwhile (another tab): the reload shows it.
     await page.evaluate(() => window.localStorage.setItem('recentViewedLakeIds', JSON.stringify(['mvjlgripabbi23rb2pa6n6uy'])));
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(visible(page.getByRole('region', { name: ALL_LAKES }))).toBeVisible({ timeout: 20_000 });
     await expect(visible(page.getByRole('region', { name: 'Vizualizate recent' })).locator('article h3 a').locator('visible=true')).toHaveAttribute(
       'href',
-      '/balti/mvjlgripabbi23rb2pa6n6uy',
+      lakePath('mvjlgripabbi23rb2pa6n6uy'),
       { timeout: 15_000 },
     );
     expect(byIds[0]).toBe(CHITA);
@@ -2497,19 +2508,19 @@ test.describe('lakes.results-map (B1 close-out)', () => {
 });
 
 test.describe('lakes M1 close-out (header, cards, map list)', () => {
-  test('lakes.home.c4 · 768px: the search pill takes most of the row (owner rule 6) — «Arată harta» is its icon until 1024, a 3-column grid', async ({ page }) => {
+  test('lakes.home.c4 · 768px: the search pill takes the row (owner rule 6, 2026-10-13) — «Arată harta» floats, a 3-column grid', async ({ page }) => {
     await openHome(page, TABLET);
     const pill = (await visible(page.getByRole('button', { name: 'Deschide căutarea pentru bălți' })).locator('..').boundingBox())!;
     const switcher = (await visible(page.getByRole('navigation', { name: 'Tip de apă' })).boundingBox())!;
     const filtre = (await visible(page.getByRole('button', { name: 'Filtre' })).boundingBox())!;
-    const map = visible(page.getByRole('link', { name: 'Arată harta', exact: true }));
-    const mapBox = (await map.boundingBox())!;
-    // One row; the pill is its widest control (≥ 18rem), the map button a square icon.
-    for (const b of [switcher, filtre, mapBox]) expect(Math.abs(b.y + b.height / 2 - (pill.y + pill.height / 2))).toBeLessThanOrEqual(2);
+    // One row: switch, pill, «Filtre»; the pill is its widest control and runs up to «Filtre».
+    for (const b of [switcher, filtre]) expect(Math.abs(b.y + b.height / 2 - (pill.y + pill.height / 2))).toBeLessThanOrEqual(2);
     expect(pill.width).toBeGreaterThanOrEqual(288);
     expect(pill.width).toBeGreaterThan(switcher.width);
-    expect(mapBox.width).toBeLessThanOrEqual(mapBox.height + 1);
-    await expect(map).toHaveAttribute('title', 'Arată harta');
+    expect(filtre.x - (pill.x + pill.width)).toBeLessThanOrEqual(16);
+    // The map link is the floating pill, not a header control.
+    const mapBox = (await visible(page.getByRole('link', { name: 'Arată harta', exact: true })).boundingBox())!;
+    expect(mapBox.y).toBeGreaterThan(pill.y + pill.height + 100);
     // The placeholder is not cut.
     const span = page.getByRole('button', { name: 'Deschide căutarea pentru bălți' }).locator('span').filter({ hasText: 'Caută bălți' });
     expect(await span.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -2520,10 +2531,12 @@ test.describe('lakes M1 close-out (header, cards, map list)', () => {
     expect(cols).toBe(3);
   });
 
-  test('lakes.home.c4 · 1280px: «Arată harta» has its label again', async ({ page }) => {
+  test('lakes.home.c4 · 1280px: «Arată harta» is the labelled floating pill', async ({ page }) => {
     await openHome(page, LAPTOP);
-    const map = (await visible(page.getByRole('link', { name: 'Arată harta', exact: true })).boundingBox())!;
-    expect(map.width).toBeGreaterThanOrEqual(158);
+    const link = visible(page.getByRole('link', { name: 'Arată harta', exact: true }));
+    await expect(link).toContainText('Arată harta');
+    const map = (await link.boundingBox())!;
+    expect(map.width).toBeGreaterThanOrEqual(140);
   });
 
   test('lakes.home.c27 · phone: only the search row sticks — the switch scrolls away, a fade under the stuck edge', async ({ page }) => {

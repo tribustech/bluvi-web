@@ -5,6 +5,7 @@ import { CMS, qaJwt, signIn } from './helpers/session';
 import { createTestTransport } from '../transport';
 import { deleteReview, getReviewForLakeByAuthorId } from '../../core/lakes/api';
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { lakePath, loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * The review form — /balti/[id]/recenzie (parity docs/parity/areas/lakes.yml lakes.review-form,
@@ -25,6 +26,7 @@ import { expect, test, type Page, type Route } from '@playwright/test';
  * the review that lives for a few seconds never shows up in another spec's counts.
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000 });
 
 const LAKE = process.env.E2E_LAKE_REVIEW ?? 'orrlgum9fec73ghsxl9mj11i';
@@ -88,7 +90,7 @@ const ownReview = (over: Partial<Record<string, unknown>> = {}) => ({
 test('lakes.review-form.c10 — signed out: /intra?next= keeps the form and its mode', async ({ page }) => {
   for (const path of [form, `${form}?editare=1`, `${form}?rezervare=bk-e2e`]) {
     await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-    await expect(page).toHaveURL(`${BASE}/intra?next=${encodeURIComponent(path)}`, { timeout: 60_000 });
+    await expect(page).toHaveURL(`${BASE}/intra?next=${encodeURIComponent(slugPath(path))}`, { timeout: 60_000 });
   }
 });
 
@@ -105,9 +107,9 @@ test('lakes.review-form.c1 lakes.review-form.c2 lakes.review-form.c3 lakes.revie
     await go(page, `/balti/${LAKE}/recenzii`);
     const add = page.getByTestId('review-add').locator('visible=true');
     await expect(add).toHaveText('Adaugă o recenzie', { timeout: 30_000 });
-    await expect(add).toHaveAttribute('href', form);
+    await expect(add).toHaveAttribute('href', slugPath(form));
     await add.click();
-    await expect(page).toHaveURL(`${BASE}${form}`);
+    await expect(page).toHaveURL(`${BASE}${slugPath(form)}`);
 
     // c1 — title, the lake as the eyebrow, the back control.
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Adaugă o recenzie');
@@ -174,7 +176,7 @@ test('lakes.review-form.c1 lakes.review-form.c2 lakes.review-form.c3 lakes.revie
     await expect(submit).toHaveAttribute('aria-busy', 'true');
     await expect(page.getByText('Recenzia a fost adăugată cu succes!')).toBeVisible({ timeout: 30_000 });
     // Back to /recenzii (the page it came from) — c9: the list, my review and the lake re-read.
-    await expect(page).toHaveURL(`${BASE}/balti/${LAKE}/recenzii`);
+    await expect(page).toHaveURL(`${BASE}${lakePath(LAKE)}/recenzii`);
     const mine = page.getByTestId('reviews-list').getByTestId('lake-review').filter({ hasText: comment });
     await expect(mine).toHaveCount(1, { timeout: 30_000 });
     await expect(page.getByTestId('review-add')).toHaveCount(0);
@@ -192,9 +194,9 @@ test('lakes.review-form.c1 lakes.review-form.c2 lakes.review-form.c3 lakes.revie
 
     // lakes.reviews.c6 — «Editează» on the own card is the form in edit mode.
     const editLink = mine.getByTestId('review-edit');
-    await expect(editLink).toHaveAttribute('href', `${form}?editare=1`);
+    await expect(editLink).toHaveAttribute('href', `${slugPath(form)}?editare=1`);
     await editLink.click();
-    await expect(page).toHaveURL(`${BASE}${form}?editare=1`);
+    await expect(page).toHaveURL(`${BASE}${slugPath(form)}?editare=1`);
     // c1 + c7 — the edit title and every field prefilled.
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Editează recenzia');
     await expect(star(page, 'Pescuit', 3)).toBeChecked();
@@ -218,7 +220,7 @@ test('lakes.review-form.c1 lakes.review-form.c2 lakes.review-form.c3 lakes.revie
       comment: edited,
     });
     await expect(page.getByText('Recenzia a fost editată cu succes!')).toBeVisible({ timeout: 30_000 });
-    await expect(page).toHaveURL(`${BASE}/balti/${LAKE}/recenzii`);
+    await expect(page).toHaveURL(`${BASE}${lakePath(LAKE)}/recenzii`);
     await expect(page.getByTestId('reviews-list').getByTestId('lake-review').filter({ hasText: edited })).toHaveCount(1, { timeout: 30_000 });
 
     // The CMS has it as edited.
@@ -267,7 +269,7 @@ test('lakes.review-form.c6 — from a completed booking (?rezervare=): the POST 
   // Failure → the error toast with the message; the form stays.
   await page.getByTestId('review-submit').click();
   await expect(page.getByRole('alert').filter({ hasText: 'Ai lăsat deja o recenzie pentru această baltă.' })).toBeVisible({ timeout: 30_000 });
-  await expect(page).toHaveURL(`${BASE}${form}?rezervare=bk-e2e`);
+  await expect(page).toHaveURL(`${BASE}${slugPath(form)}?rezervare=bk-e2e`);
   await expect(page.getByTestId('review-submit')).toBeEnabled();
   // Success → the booking id rides in the body; the toast; the form closes (no history here: the reviews).
   refuse = false;
@@ -275,7 +277,7 @@ test('lakes.review-form.c6 — from a completed booking (?rezervare=): the POST 
   await expect(page.getByText('Recenzia a fost adăugată cu succes!')).toBeVisible({ timeout: 30_000 });
   expect(bodies).toHaveLength(2);
   expect(bodies[1]).toEqual({ quality: 5, facilities: 5, atmosphere: 5, recommendToOthers: true, comment: 'O tură foarte reușită la stand.', booking: 'bk-e2e' });
-  await expect(page).toHaveURL(`${BASE}/balti/${LAKE}/recenzii`, { timeout: 30_000 });
+  await expect(page).toHaveURL(`${BASE}${lakePath(LAKE)}/recenzii`, { timeout: 30_000 });
 });
 
 test('lakes.review-form.c8 — a failed edit rolls the optimistic change back (my review, the list) and shows the error', async ({ page, context }) => {
@@ -315,11 +317,11 @@ test('lakes.review-form.c8 — a failed edit rolls the optimistic change back (m
   await page.getByTestId('review-submit').click();
   await expect(page.getByRole('alert').filter({ hasText: 'Serverul a refuzat modificarea.' })).toBeVisible({ timeout: 30_000 });
   // The form stays (fish keeps it open), enabled again.
-  await expect(page).toHaveURL(`${BASE}${form}?editare=1`);
+  await expect(page).toHaveURL(`${BASE}${slugPath(form)}?editare=1`);
   await expect(page.getByTestId('review-submit')).toBeEnabled();
   // Back on the list: the cached card is the original again (rolled back), not the optimistic text.
   await page.getByRole('button', { name: 'Înapoi' }).click();
-  await expect(page).toHaveURL(`${BASE}/balti/${LAKE}/recenzii`);
+  await expect(page).toHaveURL(`${BASE}${lakePath(LAKE)}/recenzii`);
   await expect(page.getByTestId('reviews-list').getByTestId('lake-review').filter({ hasText: own.comment })).toHaveCount(1);
   await expect(page.getByTestId('reviews-list').getByText('Text care nu ajunge niciodată în CMS.')).toHaveCount(0);
 });
@@ -360,12 +362,12 @@ test('lakes.review-form — web divergences: add with an own review → the edit
   let own: unknown = ownReview();
   await page.route(cms('/feed/reviews/mine'), route => json(route, { data: own }));
   await go(page, `${form}?rezervare=bk-e2e`);
-  await expect(page).toHaveURL(`${BASE}${form}?editare=1&rezervare=bk-e2e`, { timeout: 30_000 });
+  await expect(page).toHaveURL(`${BASE}${slugPath(form)}?editare=1&rezervare=bk-e2e`, { timeout: 30_000 });
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Editează recenzia');
   await expect(page.getByPlaceholder('Împărtășiți cu noi experiența dvs.')).toHaveValue(ownReview().comment);
   own = null;
   await go(page, `${form}?editare=1`);
-  await expect(page).toHaveURL(`${BASE}${form}`, { timeout: 30_000 });
+  await expect(page).toHaveURL(`${BASE}${slugPath(form)}`, { timeout: 30_000 });
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Adaugă o recenzie');
   await expect(page.getByPlaceholder('Împărtășiți cu noi experiența dvs.')).toHaveValue('');
 
@@ -378,7 +380,7 @@ test('lakes.review-form — web divergences: add with an own review → the edit
     return json(route, { data: { documentId: 'rev-mocked' } });
   });
   await go(page, `${form}?editare=1&rezervare=bk-e2e`);
-  await expect(page).toHaveURL(`${BASE}${form}?rezervare=bk-e2e`, { timeout: 30_000 });
+  await expect(page).toHaveURL(`${BASE}${slugPath(form)}?rezervare=bk-e2e`, { timeout: 30_000 });
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Adaugă o recenzie');
   await page.getByPlaceholder('Împărtășiți cu noi experiența dvs.').fill('Am venit de la rezervare, totul a fost bine.');
   await page.getByTestId('review-submit').click();

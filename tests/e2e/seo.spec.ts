@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
+import { competitionPath, lakePath, loadSlugs } from './helpers/slugs';
 
 /*
  * SEO of the public M1 pages — parity docs/parity/areas/global.yml, behaviours
@@ -15,6 +16,7 @@ import { expect, test, type APIRequestContext } from '@playwright/test';
 const CMS = (process.env.CMS_URL ?? 'http://localhost:1337/api').replace(/\/$/, '');
 
 test.describe.configure({ timeout: 240_000 });
+test.beforeAll(loadSlugs);
 
 /** The URLs of every sitemap the index lists, as paths (the site URL may differ from the server's). */
 async function sitemapPaths(request: APIRequestContext): Promise<{ sitemaps: string[]; paths: string[] }> {
@@ -85,7 +87,8 @@ function generatedStrings(v: unknown, key = ''): string[] {
 }
 
 const pathOf = (url: string | null) => (url ? new URL(url).pathname : null);
-const types = (s: Seo) => s.jsonLd.map(d => d['@type']);
+/** Every `@type` on the page — an array type (a lake: TouristAttraction + SportsActivityLocation) counts each. */
+const types = (s: Seo) => s.jsonLd.flatMap(d => (Array.isArray(d['@type']) ? d['@type'] : [d['@type']]));
 
 /** The kinds of page the sitemap lists, and the JSON-LD type each must carry besides its BreadcrumbList. */
 const KINDS: { kind: string; re: RegExp; type?: string; breadcrumb?: boolean }[] = [
@@ -202,7 +205,8 @@ test('j4: rankings carry an ItemList of the rows the page shows; reviews an Aggr
   const reviews = paths.find(p => /^\/balti\/[^/]+\/recenzii$/.test(p));
   if (reviews) {
     const s = await readSeo(request, reviews);
-    const lake = s.jsonLd.find(d => d['@type'] === 'TouristAttraction') as { aggregateRating: { ratingValue: number; ratingCount: number }; review: unknown[] };
+    const isLake = (t: unknown) => (Array.isArray(t) ? t : [t]).includes('TouristAttraction');
+    const lake = s.jsonLd.find(d => isLake(d['@type'])) as { aggregateRating: { ratingValue: number; ratingCount: number }; review: unknown[] };
     expect(lake.aggregateRating.ratingCount).toBeGreaterThan(0);
     expect(lake.aggregateRating.ratingValue).toBeGreaterThanOrEqual(1);
     expect(lake.aggregateRating.ratingValue).toBeLessThanOrEqual(5);
@@ -210,12 +214,11 @@ test('j4: rankings carry an ItemList of the rows the page shows; reviews an Aggr
   // A lake without reviews: its Recenzii page is not in the sitemap and carries no AggregateRating.
   // Lake URLs carry the slug once the CMS has one (proxy.ts, lib/lake-slug-route.ts).
   const index = (await (await request.get(`${CMS}/feed/lakes/index`)).json()) as { data: { documentId: string; slug?: string | null }[] };
-  const listedReviews = new Set(paths.filter(p => p.endsWith('/recenzii')).map(p => p.split('/')[2]));
-  const bare = index.data.find(l => !listedReviews.has(l.slug || l.documentId));
+  const bare = index.data.find(l => !paths.includes(lakePath(l.documentId, 'recenzii')));
   if (bare) {
     const lake = (await (await request.get(`${CMS}/feed/lakes/${bare.documentId}`)).json()) as { data: { reviewsMeta: { count: number } | null } };
     if (!lake.data.reviewsMeta?.count) {
-      const s = await readSeo(request, `/balti/${bare.slug || bare.documentId}/recenzii`);
+      const s = await readSeo(request, lakePath(bare.documentId, 'recenzii'));
       expect(s.jsonLd.some(d => 'aggregateRating' in d)).toBe(false);
     }
   }
@@ -243,7 +246,7 @@ test('j2: the competition views\' breadcrumb ends on the view (Cântare, Toți p
   const started = (await startedCompetitions(request))[0];
   expect(started, 'the local CMS has a started or completed competition').toBeTruthy();
   for (const [view, label] of [['cantare', 'Cântare'], ['capturi', 'Toți peștii']] as const) {
-    const path = `/concursuri/${urlOf(started)}/${view}`;
+    const path = competitionPath(started.documentId, view);
     const s = await readSeo(request, path);
     const crumbs = s.jsonLd.find(d => d['@type'] === 'BreadcrumbList') as { itemListElement: { name: string; item?: string }[] };
     expect(crumbs.itemListElement.map(c => c.name)).toEqual([expect.any(String), expect.any(String), label]);
@@ -281,7 +284,7 @@ test('m5, s3: pages without content of their own are noindex and left out of the
   for (const lake of index.data.slice(0, 40)) {
     for (const sub of lakeSubs) {
       if (sampled.has(sub)) continue;
-      const path = `/balti/${lake.slug || lake.documentId}/${sub}`;
+      const path = lakePath(lake.documentId, sub);
       if (paths.includes(path)) continue;
       sampled.add(sub);
       const s = await readSeo(request, path);
@@ -310,19 +313,16 @@ test('m5, s3: pages without content of their own are noindex and left out of the
   for (const c of upcoming.data.slice(0, 10)) {
     const detail = (await (await request.get(`${CMS}/feed/competitions/${c.documentId}`)).json()) as { data?: { regulation: unknown[] | null } };
     if (!detail.data || (detail.data.regulation?.length ?? 0) > 0) continue;
-    expect(paths).not.toContain(`/concursuri/${urlOf(c)}/regulament`);
-    expect((await readSeo(request, `/concursuri/${urlOf(c)}/regulament`)).robots).toContain('noindex');
+    expect(paths).not.toContain(competitionPath(c.documentId, 'regulament'));
+    expect((await readSeo(request, competitionPath(c.documentId, 'regulament'))).robots).toContain('noindex');
     // Before the start the Clasament's views show the preview: they canonicalise to the page.
-    expect(pathOf((await readSeo(request, `/concursuri/${urlOf(c)}/cantare`)).canonical)).toBe(`/concursuri/${urlOf(c)}`);
-    expect(paths).not.toContain(`/concursuri/${urlOf(c)}/cantare`);
+    expect(pathOf((await readSeo(request, competitionPath(c.documentId, 'cantare'))).canonical)).toBe(competitionPath(c.documentId));
+    expect(paths).not.toContain(competitionPath(c.documentId, 'cantare'));
     break;
   }
 });
 
 type CmsCompetition = { documentId: string; slug?: string | null; lake?: { documentId: string } | null; registrations?: { registrationStatus: string }[] };
-
-/** A competition's URL segment: its slug once the CMS has one (proxy.ts 308s the documentId URL, lib/competition-slug-route.ts). */
-const urlOf = (c: { documentId: string; slug?: string | null }) => c.slug || c.documentId;
 
 /** Started and completed competitions of the local CMS (first page of each). */
 async function startedCompetitions(request: APIRequestContext): Promise<CmsCompetition[]> {
@@ -340,7 +340,7 @@ test('m5, s3: Cântare / Toți peștii are never listed and never guessed noinde
   const started = (await startedCompetitions(request))[0];
   if (!started) return;
   for (const view of ['cantare', 'capturi']) {
-    const path = `/concursuri/${urlOf(started)}/${view}`;
+    const path = competitionPath(started.documentId, view);
     const s = await readSeo(request, path);
     expect(s.status, path).toBe(200);
     expect(s.robots ?? '', path).not.toContain('noindex');
@@ -356,17 +356,17 @@ test('m5, s2: a stats page is judged by its widest period — a quiet month with
   for (const lake of index.data.slice(0, 60)) {
     const [month, year] = await Promise.all([stats('month', lake.documentId), stats('year', lake.documentId)]);
     if (month.totals.partide === 0 && year.totals.partide > 0) {
-      found = lake.slug || lake.documentId;
+      found = lake.documentId;
       break;
     }
   }
   test.skip(!found, 'no lake with a quiet month and partide this year in the local CMS');
-  const path = `/balti/${found}/statistici`;
+  const path = lakePath(found!, 'statistici');
   expect(paths).toContain(path);
   const s = await readSeo(request, path);
   expect(s.robots ?? '', path).not.toContain('noindex');
   for (const sub of ['clasament']) {
-    const p = `/balti/${found}/${sub}`;
+    const p = lakePath(found!, sub);
     if (paths.includes(p)) expect((await readSeo(request, p)).robots ?? '', p).not.toContain('noindex');
   }
 });
@@ -398,7 +398,7 @@ test('m1: Participanți with nobody registered never says «0 participanți»', 
   const upcoming = (await (await request.get(`${CMS}/feed/competitions?status=notStarted&page=1&pageSize=50`)).json()) as { data: CmsCompetition[] };
   const empty = upcoming.data.find(c => !(c.registrations ?? []).some(r => r.registrationStatus === 'registered'));
   test.skip(!empty, 'no upcoming competition without entrants in the local CMS');
-  const s = await readSeo(request, `/concursuri/${urlOf(empty!)}/participanti`);
+  const s = await readSeo(request, competitionPath(empty!.documentId, 'participanti'));
   for (const text of [s.description ?? '', s.og.description ?? '']) {
     expect(text).not.toMatch(/^0 /);
     expect(text).toMatch(/^Lista participanților/);

@@ -3,6 +3,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { CMS } from './helpers/session';
+import { loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * m8.ga4 — GA4 behind the cookie consent, the page_view tracker and the data-analytics-* listener
@@ -60,16 +61,7 @@ async function gaState(page: Page) {
   }));
 }
 
-/** documentId → slug, from the CMS's URL maps (lakes and competitions without a slug keep their documentId URL). */
-const slugs: Record<'balti' | 'concursuri', Record<string, string>> = { balti: {}, concursuri: {} };
-test.beforeAll(async ({ request }) => {
-  for (const [base, path] of [['balti', '/feed/lakes/slugs'], ['concursuri', '/feed/competitions/slugs']] as const) {
-    const res = await request.get(`${CMS}${path}`);
-    if (res.ok()) slugs[base] = Object.fromEntries(((await res.json()) as { data: { documentId: string; slug: string }[] }).data.map((e) => [e.documentId, e.slug]));
-  }
-});
-const slugPath = (href: string) =>
-  href.replace(/^\/(balti|concursuri)\/([^/]+)/, (m, base: 'balti' | 'concursuri', id: string) => (slugs[base][id] ? `/${base}/${slugs[base][id]}` : m));
+test.beforeAll(loadSlugs);
 
 async function push(page: Page, href: string) {
   await page.evaluate((h) => (window as unknown as { next: { router: { push: (x: string) => void } } }).next.router.push(h), href);

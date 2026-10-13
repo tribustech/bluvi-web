@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { BASE_URL } from './helpers/base-url';
 import { CMS } from './helpers/session';
 import { LEGACY_CASES, NOT_REDIRECTED } from './legacy-redirects.cases';
+import { competitionPath, lakePath, loadSlugs } from './helpers/slugs';
 
 /*
  * m8.redirects (M8-B1): fish's legacy paths on the running server (next.config.ts redirects()).
@@ -21,6 +22,7 @@ mkdirSync(SHOTS, { recursive: true });
 const COMPETITION = process.env.E2E_COMPETITION_LIVE ?? 'kee49a3e64b3f636b4b60daa';
 const LAKE = process.env.E2E_LAKE_CHITA ?? 's84u55lo4n9z0emngozttt6e';
 
+test.beforeAll(loadSlugs);
 test.describe('global.b.legacy-path-redirects', () => {
   for (const c of LEGACY_CASES) {
     test(`global.b.legacy-path-redirects — ${c.from} → ${c.status} ${c.path} (${c.why})`, async ({ request }) => {
@@ -55,7 +57,7 @@ test.describe('legacy links land on real pages', () => {
     test.skip(!res.ok(), 'the local competition is missing');
     const name = (await res.json()).data.name as string;
     await page.goto(`/competitions/${COMPETITION}?timestamp=1760000000000`);
-    await expect(page).toHaveURL(new RegExp(`/concursuri/${COMPETITION}\\?`));
+    await expect(page).toHaveURL(new RegExp(`${competitionPath(COMPETITION)}\\?`));
     await expect(page.getByRole('heading', { level: 1 })).toContainText(name);
     await shoot(page, 'competition');
   });
@@ -65,11 +67,11 @@ test.describe('legacy links land on real pages', () => {
     test.skip(!res.ok(), 'the local lake is missing');
     const name = (await res.json()).data.name as string;
     await page.goto(`/lakes/${LAKE}`);
-    await expect(page).toHaveURL(new RegExp(`/balti/${LAKE}$`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(LAKE)}$`));
     await expect(page.getByRole('heading', { level: 1 })).toContainText(name);
     await shoot(page, 'lake');
     await page.goto(`/lakes/${LAKE}/reviews?timestamp=1760000000000`);
-    await expect(page).toHaveURL(new RegExp(`/balti/${LAKE}/recenzii`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(LAKE)}/recenzii`));
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   });
 

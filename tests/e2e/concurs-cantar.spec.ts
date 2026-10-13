@@ -4,6 +4,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { qaJwt, signIn } from './helpers/session';
+import { loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * Cântar — «Alege standul» (parity organizer.scale c1–c5; fish app/(app)/scale/[competitionId]/index.tsx).
@@ -16,6 +17,7 @@ import { qaJwt, signIn } from './helpers/session';
  */
 
 // One retry: the shared dev server's Fast Refresh (other agents' edits) can strand a load (see loaded()).
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000, retries: 1 });
 
 const STARTED = process.env.E2E_SCALE_STARTED ?? 'kee49a3e64b3f636b4b60daa'; // [CHAT25] individual, started, 24 stands
@@ -106,9 +108,9 @@ async function shoot(page: Page, name: string) {
 const noWrites = (watch: Watch) => expect(watch.writes, 'no organizer writes from the scale').toEqual([]);
 
 test('signed out → sign-in with the return path (organizer.b.signed-out-gate)', async ({ request }) => {
-  const res = await request.get(`${BASE_URL}/concursuri/${STARTED}/cantar`, { maxRedirects: 0 });
+  const res = await request.get(`${BASE_URL}${slugPath(`/concursuri/${STARTED}/cantar`)}`, { maxRedirects: 0 });
   expect(res.status()).toBe(307);
-  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(`/concursuri/${STARTED}/cantar`)}`);
+  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(slugPath(`/concursuri/${STARTED}/cantar`))}`);
 });
 
 test('organizer.scale.c1 — «Alege standul», loading, then the stands; noindex', async ({ page }) => {
@@ -364,7 +366,7 @@ test('organizer.scale.c5 — an allocated stand opens its weighing history, once
     };
   });
   await tile.dblclick();
-  await page.waitForURL(`**/concursuri/${NC}/cantar/${standId}`);
+  await page.waitForURL(`**${slugPath(`/concursuri/${NC}/cantar/${standId}`)}`);
   // The real stand page, not a not-found page on the right URL.
   await expect(page.getByRole('heading', { level: 1, name: /^Istoric cânt/ })).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(1500);

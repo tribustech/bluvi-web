@@ -4,6 +4,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { lakeCompetitionCounts, lakeHasPartide } from './helpers/fixtures';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { competitionPath, lakePath, loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * Baltă (/balti/[id], template T3) — parity inventory docs/parity/areas/lakes.yml, screens
@@ -25,6 +26,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
  * recenzii — tests/e2e/balta-subpagini*.spec.ts) are on the web and asserted as links.
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 120_000 });
 
 const ID = {
@@ -201,7 +203,7 @@ test('lakes.detail.c4 lakes.detail.c5 lakes.detail.c6 lakes.detail.c7 — hero p
   // is the one named gallery link (no N unnamed links in the Tab order / AT tree).
   await expect(strip.getByRole('listitem')).toHaveCount(l.images.length);
   await expect(strip.getByRole('link')).toHaveCount(0);
-  const taps = strip.locator(`a[tabindex="-1"][href="/balti/${ID.chita}/galerie"]`);
+  const taps = strip.locator(`a[tabindex="-1"][href="${lakePath(ID.chita)}/galerie"]`);
   await expect(taps).toHaveCount(l.images.length);
   // c5: the share chip over the photo.
   await expect(visible(page.getByRole('button', { name: 'Distribuie balta' }))).toBeVisible();
@@ -209,16 +211,16 @@ test('lakes.detail.c4 lakes.detail.c5 lakes.detail.c6 lakes.detail.c7 — hero p
   // guest's goes through sign-in, back to this lake (c16).
   const cta = visible(page.getByRole('link', { name: 'Rezervă acum' }));
   await expect(cta).toBeVisible();
-  await expect(cta).toHaveAttribute('href', `/intra?next=${encodeURIComponent(`/balti/${ID.chita}`)}`);
+  await expect(cta).toHaveAttribute('href', `/intra?next=${encodeURIComponent(lakePath(ID.chita))}`);
   await expect(cta).toHaveClass(/bg-accent/);
   await expect(cta).not.toHaveClass(/status-live/);
   // c7: images + community catches; the pill opens the gallery (/balti/[id]/galerie).
   const n = l.images.length + catchesTotal;
   const pill = page.getByRole('link', { name: `Galerie: ${plural(n, 'fotografie', 'fotografii')}` });
   await expect(pill).toBeVisible();
-  await expect(pill).toHaveAttribute('href', `/balti/${ID.chita}/galerie`);
+  await expect(pill).toHaveAttribute('href', `${lakePath(ID.chita)}/galerie`);
   await strip.getByRole('listitem').first().click();
-  await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}/galerie$`));
+  await expect(page).toHaveURL(new RegExp(`${lakePath(ID.chita)}/galerie$`));
 });
 
 test('lakes.detail.s4 lakes.detail.c4 lakes.detail.c7 — no photos, coordinates: the map is the hero at every width (no grey placeholder), the catches still open the gallery', async ({ page }) => {
@@ -227,7 +229,7 @@ test('lakes.detail.s4 lakes.detail.c4 lakes.detail.c7 — no photos, coordinates
   const hero = page.locator('[data-t3="photo"]');
   await expect(page.getByText('Nicio fotografie încă')).toHaveCount(0);
   await expect(hero).toHaveAttribute('data-hero', 'map');
-  await expect(hero.getByTestId('lake-hero-map')).toHaveAttribute('href', `/balti/${ID.chita}/harta`);
+  await expect(hero.getByTestId('lake-hero-map')).toHaveAttribute('href', `${lakePath(ID.chita)}/harta`);
   // As tall as a one-photo hero (the skeleton's), so nothing jumps when the page lands.
   expect(Math.round((await hero.boundingBox())!.height)).toBe(300);
   await expect(visible(page.getByRole('button', { name: 'Distribuie balta' }))).not.toHaveClass(/photo-scrim/);
@@ -236,7 +238,7 @@ test('lakes.detail.s4 lakes.detail.c4 lakes.detail.c7 — no photos, coordinates
   if (catchesTotal > 0) {
     const pill = page.getByRole('link', { name: /^Galerie/ });
     await expect(pill).toHaveClass(/bg-surface/);
-    await expect(pill).toHaveAttribute('href', `/balti/${ID.chita}/galerie`);
+    await expect(pill).toHaveAttribute('href', `${lakePath(ID.chita)}/galerie`);
   } else await expect(page.getByRole('link', { name: /^Galerie/ })).toHaveCount(0);
   // c7 from 768: the gallery stays reachable (0 lake images + N catches) — «Vezi fotografiile (N)».
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -244,7 +246,7 @@ test('lakes.detail.s4 lakes.detail.c4 lakes.detail.c7 — no photos, coordinates
   const showAll = page.getByRole('link', { name: `Vezi fotografiile (${catchesTotal})` });
   if (catchesTotal > 0) {
     await expect(showAll).toBeVisible();
-    await expect(showAll).toHaveAttribute('href', `/balti/${ID.chita}/galerie`);
+    await expect(showAll).toHaveAttribute('href', `${lakePath(ID.chita)}/galerie`);
   } else await expect(showAll).toHaveCount(0);
 });
 
@@ -258,12 +260,12 @@ test('lakes.detail.s4 lakes.detail.c4 lakes.detail.c7 — no photos, no coordina
   await expect(visible(header.getByRole('button', { name: 'Distribuie balta' }))).toBeVisible();
   // The main action right under the title (as from 768), never over a grey block.
   await expect(visible(page.getByRole('link', { name: 'Rezervă acum' }))).toBeVisible();
-  if (catchesTotal > 0) await expect(page.getByRole('link', { name: /^Galerie/ })).toHaveAttribute('href', `/balti/${ID.chita}/galerie`);
+  if (catchesTotal > 0) await expect(page.getByRole('link', { name: /^Galerie/ })).toHaveAttribute('href', `${lakePath(ID.chita)}/galerie`);
   await page.setViewportSize({ width: 1280, height: 800 });
   const showAll = header.getByRole('link', { name: `Vezi fotografiile (${catchesTotal})` });
   if (catchesTotal > 0) {
     await expect(showAll).toBeVisible();
-    await expect(showAll).toHaveAttribute('href', `/balti/${ID.chita}/galerie`);
+    await expect(showAll).toHaveAttribute('href', `${lakePath(ID.chita)}/galerie`);
   } else await expect(showAll).toHaveCount(0);
 });
 
@@ -345,11 +347,11 @@ test('lakes.detail.c14 lakes.detail.c15 — quick actions in fish order, every s
     'Recenzii',
   ]);
   await expect(page.getByTestId('quick-actions-later')).toHaveCount(0);
-  if (partideSection) await expect(page.locator('#partide').getByRole('link', { name: 'Vezi tot' })).toHaveAttribute('href', `/balti/${ID.chita}/partide`);
-  else await expect(list.getByRole('link', { name: 'Partide' })).toHaveAttribute('href', `/balti/${ID.chita}/partide`);
-  await expect(list.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `/balti/${ID.chita}/statistici`);
-  if (l.coordinates) await expect(list.getByRole('link', { name: 'Hartă' })).toHaveAttribute('href', `/balti/${ID.chita}/harta`);
-  await expect(list.getByRole('link', { name: 'Concursuri' })).toHaveAttribute('href', `/balti/${ID.chita}/concursuri`);
+  if (partideSection) await expect(page.locator('#partide').getByRole('link', { name: 'Vezi tot' })).toHaveAttribute('href', `${lakePath(ID.chita)}/partide`);
+  else await expect(list.getByRole('link', { name: 'Partide' })).toHaveAttribute('href', `${lakePath(ID.chita)}/partide`);
+  await expect(list.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `${lakePath(ID.chita)}/statistici`);
+  if (l.coordinates) await expect(list.getByRole('link', { name: 'Hartă' })).toHaveAttribute('href', `${lakePath(ID.chita)}/harta`);
+  await expect(list.getByRole('link', { name: 'Concursuri' })).toHaveAttribute('href', `${lakePath(ID.chita)}/concursuri`);
   await expect(list.getByRole('link', { name: 'Recenzii' })).toHaveAttribute('href', '#recenzii');
   await expect(list.getByText('NOU')).toHaveCount(0);
   // c11 for a tile: «Recenzii» jumps like its chip — the chip is active at once, focus on the section.
@@ -364,7 +366,7 @@ test('lakes.detail.c14 lakes.detail.c15 — quick actions in fish order, every s
   const more = page.getByRole('complementary', { name: 'Pe scurt' }).getByRole('list', { name: 'Mai multe despre baltă' });
   await expect(page.locator('#partide')).toBeVisible();
   await expect(more.getByRole('link', { name: 'Partide' })).toHaveCount(0);
-  await expect(more.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `/balti/${ID.chita}/statistici`);
+  await expect(more.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `${lakePath(ID.chita)}/statistici`);
   await page.setViewportSize(PHONE);
   // Prețuri scrolls to its section (Belin has prices).
   await open(page, ID.belin);
@@ -434,17 +436,17 @@ test('lakes.detail.c17 lakes.detail.c18 lakes.detail.c19 — characteristics, fa
 /* Booking affordance                                                   */
 /* ------------------------------------------------------------------ */
 
-const lakeUrl = (id: string) => new RegExp(`/balti/${id}$`);
-const gridUrl = (id: string) => new RegExp(`/balti/${id}/rezerva$`);
+const lakeUrl = (id: string) => new RegExp(`${lakePath(id)}$`);
+const gridUrl = (id: string) => new RegExp(`${lakePath(id)}/rezerva$`);
 /** fish pushes /sign-in plainly: the guest comes back to the lake, never into the grid. */
-const signInToLake = (id: string) => `/intra?next=${encodeURIComponent(`/balti/${id}`)}`;
+const signInToLake = (id: string) => `/intra?next=${encodeURIComponent(lakePath(id))}`;
 const summaryCard = (page: Page) => page.getByRole('complementary', { name: 'Pe scurt' });
 
 test('lakes.detail.c16 lakes.detail.c6 lakes.detail.c14 booking.b.entry-points booking.b.analytics — signed in: every booking control leads to /balti/[id]/rezerva (hero 375, header 768, card 1440, tile, phone bar)', async ({ page, context }) => {
   await signIn(context, jwt, base());
   const events = await recordAnalytics(page);
   const l = lakes.get(ID.chita)!;
-  const grid = `/balti/${ID.chita}/rezerva`;
+  const grid = `${lakePath(ID.chita)}/rezerva`;
   const pressed = (source: string) => ({ name: 'lake_booking_cta_pressed', params: { lake_id: ID.chita, lake_name: l.name, source, booking_state: 'enabled' } });
   // 375: the hero's «Rezervă acum», the Rezervă tile and the phone bar — the same link.
   await open(page, ID.chita, PHONE);
@@ -488,18 +490,18 @@ test('lakes.detail.c16 lakes.b.signin-gating booking.b.sign-in-gate — a guest:
   await expect(tiles(page).getByRole('link', { name: 'Rezervă', exact: true })).toHaveAttribute('href', next);
   await expect(page.getByRole('region', { name: 'Rezervare' }).getByRole('link', { name: 'Rezervă acum' })).toHaveAttribute('href', next);
   await hero.click();
-  await expect(page).toHaveURL(new RegExp(`/intra\\?next=%2Fbalti%2F${ID.chita}$`));
+  await expect(page).toHaveURL(new RegExp(`/intra\\?next=${encodeURIComponent(lakePath(ID.chita))}$`));
   // Back from sign-in lands on the lake (fish: a plain push).
   await page.goBack();
   await expect(page).toHaveURL(lakeUrl(ID.chita));
   await open(page, ID.chita, DESKTOP);
   await expect(summaryCard(page).getByRole('link', { name: 'Rezervă acum' })).toHaveAttribute('href', next);
   // A direct guest visit to the grid is the page's own redirect, back to the grid after sign-in.
-  const res = await page.request.get(`/balti/${ID.chita}/rezerva`, { maxRedirects: 0 });
+  const res = await page.request.get(`${lakePath(ID.chita)}/rezerva`, { maxRedirects: 0 });
   expect(res.status()).toBe(307);
   const loc = new URL(res.headers().location, BASE);
   expect(loc.pathname).toBe('/intra');
-  expect(loc.searchParams.get('next')).toBe(`/balti/${ID.chita}/rezerva`);
+  expect(loc.searchParams.get('next')).toBe(`${lakePath(ID.chita)}/rezerva`);
 });
 
 test('lakes.detail.c16 lakes.detail.c14 lakes.detail.s6 lakes.b.signin-gating — the booking controls are in the server HTML, whatever the session: the grid, never sign-in (/intra is for guests only), no shift when it answers', async ({ page, context }) => {
@@ -511,7 +513,7 @@ test('lakes.detail.c16 lakes.detail.c14 lakes.detail.s6 lakes.b.signin-gating �
     // The page is static: until the session answers, the link is the grid (its own gate turns a
     // guest away) — a signed-in angler is never sent to /intra.
     // hero, header, card, tile, phone bar
-    expect(html.split(`href="/balti/${ID.chita}/rezerva"`).length - 1).toBeGreaterThanOrEqual(5);
+    expect(html.split(`href="${lakePath(ID.chita)}/rezerva"`).length - 1).toBeGreaterThanOrEqual(5);
     // The only sign-in link is the shell's own «Intră» (data-sign-in), shown to a guest at first paint.
     const signInLinks = html.match(/<a [^>]*href="\/intra[^"]*"[^>]*>/g) ?? [];
     expect(signInLinks.filter(a => !a.includes('data-sign-in'))).toEqual([]);
@@ -533,14 +535,14 @@ test('lakes.detail.c16 lakes.b.signin-gating booking.b.sign-in-gate — a click 
     });
     await page.goto(`/balti/${ID.chita}`, { waitUntil: 'commit' });
     const hero = visible(page.getByRole('link', { name: 'Rezervă acum' }));
-    await expect(hero).toHaveAttribute('href', `/balti/${ID.chita}/rezerva`, { timeout: 30_000 });
-    await Promise.all([page.waitForURL(url => !url.pathname.endsWith(`/balti/${ID.chita}`), { timeout: 30_000, waitUntil: 'commit' }), hero.click()]);
+    await expect(hero).toHaveAttribute('href', `${lakePath(ID.chita)}/rezerva`, { timeout: 30_000 });
+    await Promise.all([page.waitForURL(url => !url.pathname.endsWith(lakePath(ID.chita)), { timeout: 30_000, waitUntil: 'commit' }), hero.click()]);
     release();
     if (signed) await expect(page).toHaveURL(gridUrl(ID.chita));
     else {
       const url = new URL(page.url());
       expect(url.pathname).toBe('/intra');
-      expect(url.searchParams.get('next')).toBe(`/balti/${ID.chita}/rezerva`);
+      expect(url.searchParams.get('next')).toBe(`${lakePath(ID.chita)}/rezerva`);
     }
     await ctx.close();
   }
@@ -548,7 +550,7 @@ test('lakes.detail.c16 lakes.b.signin-gating booking.b.sign-in-gate — a click 
 
 test('lakes.b.nav-guard booking.b.double-submit-guard — «Rezervă acum» pushes one history entry: a double click, and a second click while the grid is still loading', async ({ page, context }) => {
   await signIn(context, jwt, base());
-  const grid = `/balti/${ID.chita}/rezerva`;
+  const grid = `${lakePath(ID.chita)}/rezerva`;
   const index = () => page.evaluate(() => (window as unknown as { navigation: { currentEntry: { index: number } } }).navigation.currentEntry.index);
   await open(page, ID.chita, DESKTOP);
   const book = () => summaryCard(page).getByRole('link', { name: 'Rezervă acum' });
@@ -718,12 +720,12 @@ test.describe('happy path (mocked create)', () => {
     const panel = page.locator('[data-testid="selection-panel"], [data-testid="selection-card"]').filter({ has: page.getByTestId('selection-start') });
     await expect(panel.getByTestId('selection-price')).toBeVisible();
     await panel.getByTestId('selection-continue').click();
-    await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}/rezerva/extra\\?`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(ID.chita)}/rezerva/extra\\?`));
     await page.locator('label').filter({ has: page.getByRole('checkbox', { name: /Cabană/ }) }).click();
     await expect(page.getByRole('checkbox', { name: /Cabană/ })).toBeChecked();
     await expect(page.getByTestId('extras-continue')).not.toHaveAttribute('aria-disabled', 'true');
     await page.getByTestId('extras-continue').click();
-    await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}/rezerva/confirmare\\?`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(ID.chita)}/rezerva/confirmare\\?`));
     await expect(page.getByRole('heading', { level: 1, name: 'Confirmă rezervarea' })).toBeVisible();
     await expect(page.getByLabel('Nume și prenume')).not.toHaveValue('');
     await expect(page.getByLabel('Număr telefon')).not.toHaveValue('');
@@ -772,7 +774,7 @@ test('lakes.detail.c16 lakes.detail.s6 lakes.booking-interest.c1 lakes.booking-i
   await tiles(page).getByRole('button', { name: 'Vreau online' }).click();
   await expect.poll(events).toContainEqual({ name: 'lake_booking_interest_sheet_viewed', params: { lake_id: ID.belin, source: 'quick_action' } });
   await dialog.getByRole('button', { name: 'Aș vrea să pot rezerva aici' }).click();
-  await expect(page).toHaveURL(new RegExp(`/intra\\?next=%2Fbalti%2F${ID.belin}$`));
+  await expect(page).toHaveURL(new RegExp(`/intra\\?next=${encodeURIComponent(lakePath(ID.belin))}$`));
 });
 
 test('lakes.detail.c6 lakes.detail.c16 — no online booking: one label for the booking control at every width (never «Rezervă acum» on the phone and «Fără rezervări online» on the desktop)', async ({ page }) => {
@@ -838,7 +840,7 @@ test('lakes.detail.c14 — no live or upcoming competition: the summary card lin
   await open(page, id!, DESKTOP);
   await expect(page.locator('#concursuri')).toHaveCount(0);
   const more = page.getByRole('complementary', { name: 'Pe scurt' }).getByRole('list', { name: 'Mai multe despre baltă' });
-  await expect(more.getByRole('link', { name: 'Concursuri' })).toHaveAttribute('href', `/balti/${id}/concursuri?tab=trecute`);
+  await expect(more.getByRole('link', { name: 'Concursuri' })).toHaveAttribute('href', `${lakePath(id!)}/concursuri?tab=trecute`);
 });
 
 test('lakes.booking-interest.c2 lakes.claim.c7 — a guest\'s «Contactează-ne» signs in first, never the claim form', async ({ page }) => {
@@ -893,10 +895,10 @@ test('lakes.detail.c20 — the Partide section: idle card, the 7-month activity,
   await open(page, ID.chita, DESKTOP);
   const section = page.locator('#partide');
   await expect(section.getByRole('heading', { name: 'Partide la această baltă' })).toBeVisible();
-  await expect(section.getByRole('link', { name: 'Vezi tot' })).toHaveAttribute('href', `/balti/${ID.chita}/partide`);
+  await expect(section.getByRole('link', { name: 'Vezi tot' })).toHaveAttribute('href', `${lakePath(ID.chita)}/partide`);
   // One way in (owner): the header link — no «Vezi toate partidele» button, no summary-card link.
   await expect(section.getByRole('link', { name: 'Vezi toate partidele' })).toHaveCount(0);
-  await expect(page.locator(`a[href="/balti/${ID.chita}/partide"]`).locator('visible=true')).toHaveCount(1);
+  await expect(page.locator(`a[href="${lakePath(ID.chita)}/partide"]`).locator('visible=true')).toHaveCount(1);
   await expect(section.getByText(/în curând/)).toHaveCount(0);
   await expect(section.getByTestId('live-partide-card')).toContainText('luna aceasta');
   await expect(section.getByText('Activitate')).toBeVisible();
@@ -1050,8 +1052,8 @@ test('lakes.detail.c24 lakes.detail.s11 — Concursuri: Viitoare cards to /concu
   const both = competitionCounts.get(ID.chita)!.live > 0;
   await expect(section.getByRole('link', { name: 'Vezi tot' })).toHaveCount(1);
   await expect(section.getByRole('link', { name: /^Toate (live|viitoarele)$/ })).toHaveCount(0);
-  await expect(section.getByRole('link', { name: 'Vezi tot' })).toHaveAttribute('href', both ? `/balti/${ID.chita}/concursuri` : `/balti/${ID.chita}/concursuri?tab=viitoare`);
-  await expect(section.locator(`a[href="/concursuri/${upcoming[0].documentId}"]`).first()).toBeVisible();
+  await expect(section.getByRole('link', { name: 'Vezi tot' })).toHaveAttribute('href', both ? `${lakePath(ID.chita)}/concursuri` : `${lakePath(ID.chita)}/concursuri?tab=viitoare`);
+  await expect(section.locator(`a[href="${competitionPath(upcoming[0].documentId)}"]`).first()).toBeVisible();
   // s11: Belin has none — once the counts are known, no section and no chip.
   const belin = competitionCounts.get(ID.belin)!;
   test.skip(belin.live + belin.upcoming > 0, 's11 needs a lake without competitions: the local Belin has some now');
@@ -1095,7 +1097,7 @@ test('lakes.detail.c25 lakes.detail.c26 lakes.detail.c27 lakes.detail.s5 — the
   await expect(section.getByTestId('lake-review')).toHaveCount(Math.min(meta.count, 2));
   // The reviews page: the section's header action.
   const more = meta.count === 1 ? 'Vezi recenzia' : `Vezi toate cele ${reviewsCount(meta.count)}`;
-  await expect(section.getByRole('link', { name: more })).toHaveAttribute('href', `/balti/${ID.chita}/recenzii`);
+  await expect(section.getByRole('link', { name: more })).toHaveAttribute('href', `${lakePath(ID.chita)}/recenzii`);
   await expect(section.getByText(/în curând/)).toHaveCount(0);
   // The verdict is a state: the round StatusPill.
   const verdict = section.getByTestId('lake-review').getByText(/^(Recomandă|Nu recomandă)$/);
@@ -1109,7 +1111,7 @@ test('lakes.detail.c25 lakes.detail.c26 lakes.detail.c27 lakes.detail.s5 — the
   // s5: no reviews.
   await open(page, ID.belin);
   await expect(page.locator('#recenzii')).toContainText('Această baltă nu are încă recenzii.');
-  await expect(page.locator('#recenzii').getByRole('link', { name: 'Scrie prima recenzie' })).toHaveAttribute('href', `/balti/${ID.belin}/recenzii`);
+  await expect(page.locator('#recenzii').getByRole('link', { name: 'Scrie prima recenzie' })).toHaveAttribute('href', `${lakePath(ID.belin)}/recenzii`);
   await expect(page.locator('#recenzii [aria-hidden="true"].grid')).toHaveCount(0);
   await expect(visible(page.getByRole('link', { name: 'Recenzii: fără recenzii' }))).toContainText('Fără recenzii');
 });
@@ -1133,7 +1135,7 @@ test('lakes.detail.c28 — mini map (a link to the map page), address, phones (t
   const section = page.locator('#contact');
   await expect(section.getByRole('heading', { name: 'Locație & contact' })).toBeVisible();
   await expect(section.getByTestId('lake-mini-map')).toBeVisible();
-  await expect(section.getByRole('link', { name: `Deschide harta: ${l.name}` })).toHaveAttribute('href', `/balti/${ID.belin}/harta`);
+  await expect(section.getByRole('link', { name: `Deschide harta: ${l.name}` })).toHaveAttribute('href', `${lakePath(ID.belin)}/harta`);
   if (l.address) await expect(section.getByText('Adresă')).toBeVisible();
   const phone = l.contact.find(c => c.phone)!;
   await expect(section.getByText(phone.header || 'Telefon', { exact: true })).toBeVisible();
@@ -1183,7 +1185,8 @@ test('lakes.detail.c30 lakes.detail.s8 lakes.claim.c7 — no operator: the take-
   expect(html).not.toContain(`href="/intra?next=${encodeURIComponent(back)}"`);
   await page.goto(back, { waitUntil: 'domcontentloaded' });
   await page.waitForURL(url => url.pathname === '/intra', { timeout: 15_000 });
-  expect(new URL(page.url()).searchParams.get('next')).toBe(back);
+  // The documentId URL 308s to the slug first: sign-in returns there.
+  expect(new URL(page.url()).searchParams.get('next')).toBe(slugPath(back));
 });
 
 test('lakes.detail.c30 lakes.claim.c7 — back from sign-in with ?dialog=revendica: the claim dialog opens and the parameter goes', async ({ page, context }) => {
@@ -1191,7 +1194,7 @@ test('lakes.detail.c30 lakes.claim.c7 — back from sign-in with ?dialog=revendi
   await page.setViewportSize(PHONE);
   await page.goto(`/balti/${ID.belin}?dialog=revendica`, { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('dialog', { name: 'Ești administratorul acestei bălți?' })).toBeVisible({ timeout: 15_000 });
-  await expect(page).toHaveURL(new RegExp(`/balti/${ID.belin}$`));
+  await expect(page).toHaveURL(new RegExp(`${lakePath(ID.belin)}$`));
 });
 
 test('lakes.claim.c1 lakes.claim.c2 lakes.claim.c3 lakes.claim.c4 lakes.claim.c5 lakes.claim.c6 — the claim form: copy, prefill, validation, errors, success', async ({ page, context }) => {
@@ -1404,7 +1407,7 @@ test.describe('dialog states (shots + axe)', () => {
       await axeDialog(page);
       await shot(page, 'interest-default');
       await dialog.getByRole('button', { name: 'Aș vrea să pot rezerva aici' }).click();
-      await expect(page).toHaveURL(new RegExp(`/intra\\?next=%2Fbalti%2F${ID.belin}$`));
+      await expect(page).toHaveURL(new RegExp(`/intra\\?next=${encodeURIComponent(lakePath(ID.belin))}$`));
       await signIn(context, jwt, base());
       let release: () => void = () => undefined;
       const replies: (() => Promise<{ status: number; json: unknown }>)[] = [
@@ -1457,7 +1460,7 @@ test('lakes.share.c1 lakes.share.c2 lakes.share.c3 lakes.share.c4 lakes.share.c5
   const preview = dialog.getByTestId('share-preview');
   await expect(preview).toContainText('Mergem la pescuit aici?');
   await expect(preview).toContainText(`🎣 ${l.name}`);
-  await expect(preview).toContainText(`/balti/${ID.chita}`);
+  await expect(preview).toContainText(lakePath(ID.chita));
   await settleDialog(page);
   await expectNoA11yViolations(page, { include: 'dialog[open]' });
   // c2: the preview follows the field as it is typed (fish handleChangeMessage), without a blur.
@@ -1471,7 +1474,7 @@ test('lakes.share.c1 lakes.share.c2 lakes.share.c3 lakes.share.c4 lakes.share.c5
   await dialog.getByRole('button', { name: 'Copiază' }).click();
   await expect(page.getByText('Mesaj copiat în clipboard')).toBeVisible();
   const origin = new URL(page.url()).origin;
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`Hai sâmbătă?\n\n🎣 ${l.name}\n${origin}/balti/${ID.chita}`);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`Hai sâmbătă?\n\n🎣 ${l.name}\n${origin}${lakePath(ID.chita)}`);
   await expect.poll(events).toContainEqual({ name: 'copy_lake_share_text', params: { lake_id: ID.chita, lake_name: l.name } });
   // c5: the system share with the same text, then the dialog closes.
   await page.evaluate(() => {
@@ -1483,7 +1486,7 @@ test('lakes.share.c1 lakes.share.c2 lakes.share.c3 lakes.share.c4 lakes.share.c5
   await expect(dialog).toBeHidden();
   expect(await page.evaluate(() => (window as unknown as { __shared: unknown }).__shared)).toEqual({
     title: l.name,
-    text: `Hai sâmbătă?\n\n🎣 ${l.name}\n${origin}/balti/${ID.chita}`,
+    text: `Hai sâmbătă?\n\n🎣 ${l.name}\n${origin}${lakePath(ID.chita)}`,
   });
   await expect.poll(events).toContainEqual({ name: 'share_lake', params: { lake_id: ID.chita, lake_name: l.name } });
 });
@@ -1504,7 +1507,7 @@ test('lakes.share.s3 lakes.share.c5 lakes.share.c6 — phone sheet: no Web Share
   await expect(page.getByText('Mesaj copiat în clipboard')).toBeVisible();
   await expect(dialog).toBeHidden();
   const origin = new URL(page.url()).origin;
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`Mergem la pescuit aici?\n\n🎣 ${l.name}\n${origin}/balti/${ID.chita}`);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`Mergem la pescuit aici?\n\n🎣 ${l.name}\n${origin}${lakePath(ID.chita)}`);
   await expect.poll(events).toContainEqual({ name: 'copy_lake_share_text', params: { lake_id: ID.chita, lake_name: l.name } });
   // A system share the user dismisses: the dialog closes, share_lake is not logged.
   await page.evaluate(() => {
@@ -1632,7 +1635,8 @@ test('lakes.detail.c2 SEO — metadata, canonical and JSON-LD (TouristAttraction
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /.{20,}/);
   const scripts = await page.locator('script[type="application/ld+json"]').evaluateAll(els => els.map(e => e.textContent ?? ''));
   const ld = JSON.parse(scripts.find(t => t.includes('TouristAttraction'))!);
-  expect(ld[0]).toMatchObject({ '@type': 'TouristAttraction', name: l.name });
+  // A TouristAttraction and a LocalBusiness subtype (review stars, lib/seo/lake-place.ts), with an address.
+  expect(ld[0]).toMatchObject({ '@type': ['TouristAttraction', 'SportsActivityLocation'], name: l.name, address: { addressCountry: 'RO' } });
   expect(ld[1]).toMatchObject({ '@type': 'BreadcrumbList' });
 });
 

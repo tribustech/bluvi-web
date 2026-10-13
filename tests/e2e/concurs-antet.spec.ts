@@ -3,6 +3,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { qaJwt, signIn } from './helpers/session';
 import { type BrowserContext, type Page, type Route } from '@playwright/test';
 import { expect, test } from './helpers/fake-chat';
+import { competitionPath, loadSlugs } from './helpers/slugs';
 
 /*
  * Concurs · the page frame around the tabs — parity docs/parity/areas/competition-page.yml:
@@ -31,6 +32,7 @@ const ID = {
 const PHONE = { width: 375, height: 812 };
 const DESKTOP = { width: 1440, height: 900 };
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 120_000 });
 
 let jwt = '';
@@ -130,7 +132,7 @@ test('competition-page.shell.c23 competition-page.shell.c25 — signed in, one w
   const banner = bar(page).getByRole('button', { name: 'Cântar în curs pe standul A3(12).' });
   await expect(banner).toBeVisible({ timeout: 30_000 });
   await banner.click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.nc}/cantare\\?cantar=${ID.ncWeighing}&stand=${ID.ncStand}$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.nc)}/cantare\\?cantar=${ID.ncWeighing}&stand=${ID.ncStand}$`));
   const detail = page.getByRole('dialog', { name: 'Detaliu cântar' });
   await expect(detail).toBeVisible();
   await expect(detail.getByText(/Total: /)).toBeVisible({ timeout: 30_000 });
@@ -180,7 +182,7 @@ test('competition-page.shell.c24 competition-page.shell.c25 — several weighing
   // Without a sector: the list closes, nothing opens (fish handlePressActiveWeighing).
   await list.getByRole('button', { name: 'Vezi cântarul live pe standul 9' }).click();
   await expect(list).toBeHidden();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.nc}$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.nc)}$`));
 
   await banner.click();
   await list.getByRole('button', { name: 'Vezi cântarul live pe standul A3(12)' }).click();
@@ -194,7 +196,7 @@ test('competition-page.shell.c25 — from another route tab the banner opens the
   await mockActive(context, ID.nc, [ncWeighing()]);
   await open(page, `/concursuri/${ID.nc}/regulament`);
   await bar(page).getByRole('button', { name: 'Cântar în curs pe standul A3(12).' }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.nc}/cantare\\?cantar=${ID.ncWeighing}&stand=${ID.ncStand}$`), { timeout: 30_000 });
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.nc)}/cantare\\?cantar=${ID.ncWeighing}&stand=${ID.ncStand}$`), { timeout: 30_000 });
   await expect(page.getByRole('dialog', { name: 'Detaliu cântar' })).toBeVisible({ timeout: 30_000 });
 });
 
@@ -227,7 +229,7 @@ test('competition-page.bara-actiuni.c11 competition-page.shell.c28 — a guest o
   const s = sheet(page);
   await expect(s).toBeVisible();
   const signInLink = s.getByRole('link', { name: 'Autentifică-te pentru a putea participa la competiție' });
-  await expect(signInLink).toHaveAttribute('href', `/intra?next=${encodeURIComponent(`/concursuri/${ID.live}/informatii`)}`);
+  await expect(signInLink).toHaveAttribute('href', `/intra?next=${encodeURIComponent(`${competitionPath(ID.live)}/informatii`)}`);
   await expect(s.getByRole('link')).toHaveCount(1);
   await expect(s.getByRole('button', { name: /Înscrie-te|Solicită/ })).toHaveCount(0);
   await page.waitForTimeout(800);
@@ -260,7 +262,7 @@ test('competition-page.bara-actiuni.c12 competition-page.bara-actiuni.c13 — si
   await page.waitForTimeout(800);
   await expectNoA11yViolations(page);
   // M6 (competition-page.organizare): the scale area's weighings (/cantar, fish /scale/[id]), read-only for an angler.
-  await expect(s.getByRole('link', { name: 'Vezi cântarele din concurs' })).toHaveAttribute('href', `/concursuri/${ID.rich}/cantar`);
+  await expect(s.getByRole('link', { name: 'Vezi cântarele din concurs' })).toHaveAttribute('href', `${competitionPath(ID.rich)}/cantar`);
   expect(errors).toEqual([]);
 });
 
@@ -328,7 +330,7 @@ test('competition-page.bara-actiuni.c11 competition-page.organizare.c13 — a re
   await settle(page);
   await actionsTile(page).click();
   const s = sheet(page);
-  await expect(s.getByRole('link', { name: 'Adaugă cântar' })).toHaveAttribute('href', `/concursuri/${ID.live}/cantar`, { timeout: 30_000 });
+  await expect(s.getByRole('link', { name: 'Adaugă cântar' })).toHaveAttribute('href', `${competitionPath(ID.live)}/cantar`, { timeout: 30_000 });
   await expect(s.getByRole('button', { name: /Înscrie-te|Solicită/ })).toHaveCount(0);
 });
 

@@ -2,6 +2,7 @@ import { collectConsoleErrors } from './helpers/console';
 import { BASE_URL as BASE } from './helpers/base-url';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { expect, test, type Page } from '@playwright/test';
+import { competitionPath, loadSlugs } from './helpers/slugs';
 
 /*
  * Concurs · Imagine clasament — parity docs/parity/areas/competition-page.yml
@@ -33,6 +34,7 @@ const DESKTOP = { width: 1440, height: 900 };
 const page$ = (id: string, q = '') => `/concursuri/${id}/clasament/imagine${q}`;
 const png$ = (id: string, q = '') => `/concursuri/${id}/clasament/imagine/png${q}`;
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 120_000 });
 
 /** Collects console errors and the `bluvi:analytics` events the page dispatches. */
@@ -283,7 +285,7 @@ test('competition-page.imagine-clasament.c7 competition-page.imagine-clasament.s
     .poll(() => alert.getByRole('button', { name: 'Înapoi' }).evaluate(el => Object.keys(el).some(k => k.startsWith('__reactProps'))), { timeout: 60_000 })
     .toBe(true);
   await alert.getByRole('button', { name: 'Înapoi' }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.completed}$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.completed)}$`));
 });
 
 test('competition-page.imagine-clasament.c7 — a failed generation retries in place: «Încearcă din nou», the attempt, then the image', async ({ page }) => {
@@ -316,7 +318,7 @@ test('competition-page.imagine-clasament.c6 — a competition that has not start
   // Not the «no weighing in the chosen table» copy: that would be false before the start.
   await expect(page.getByText('Imaginea apare după primul cântar al clasamentului ales.')).toHaveCount(0);
   // The way on, and no dead download / share actions.
-  await expect(page.getByRole('link', { name: 'Înapoi la clasament' })).toHaveAttribute('href', `/concursuri/${ID.upcoming}`);
+  await expect(page.getByRole('link', { name: 'Înapoi la clasament' })).toHaveAttribute('href', competitionPath(ID.upcoming));
   await expect(page.getByRole('button', { name: 'Descarcă clasamentul' })).toHaveCount(0);
   // The phone names the competition (the eyebrow is hidden below 768).
   await expect(page.getByText('SIM3 Cupa C&B Ed 8', { exact: true }).locator('visible=true')).toBeVisible();
@@ -368,7 +370,7 @@ test('competition-page.imagine-clasament.c10 competition-page.imagine-clasament.
   await page.getByRole('button', { name: 'Clasament complet' }).locator('visible=true').first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('link', { name: 'Imagine clasament' }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${ID.feeder}/clasament/imagine\\?mansa=2$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(ID.feeder)}/clasament/imagine\\?mansa=2$`));
   expect((await events(page)).map((e: { name: string }) => e.name)).toContain('ranking_image_pressed');
   await expect(page.getByRole('heading', { level: 1, name: 'Imagine clasament' })).toBeVisible({ timeout: 45_000 });
   await expect(page.getByText('Manșa 2', { exact: true }).locator('visible=true').first()).toBeVisible();
@@ -455,16 +457,16 @@ test('competition-page.imagine-clasament.c10 competition-page.imagine-clasament.
   // The band names what is drawn (the club table), never «Sector Z»; the canonical and the PNG drop the sector.
   await expect(page.getByText('Clasament pe cluburi', { exact: true }).locator('visible=true')).toBeVisible();
   await expect(page.getByText('Sector Z')).toHaveCount(0);
-  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`/concursuri/${ID.nc}/clasament/imagine$`));
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`${competitionPath(ID.nc)}/clasament/imagine$`));
   const png = await request.get(png$(ID.nc, '?sector=Z'), { timeout: 90_000 });
   expect(png.headers()['x-ranking-image']).toBe('cn');
   // A standard ranking ignores the NC order: no duplicate canonical for it.
   await open(page, page$(ID.completed, '?sortare=club&sector=A'));
-  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`/concursuri/${ID.completed}/clasament/imagine$`));
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`${competitionPath(ID.completed)}/clasament/imagine$`));
   await open(page, page$(ID.feeder, '?mansa=9'));
   await expect(page.getByRole('heading', { level: 2, name: 'Clasamentul ales nu există' })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText('Imaginea apare după primul cântar')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Vezi clasamentul general' })).toHaveAttribute('href', `/concursuri/${ID.feeder}/clasament/imagine`);
+  await expect(page.getByRole('link', { name: 'Vezi clasamentul general' })).toHaveAttribute('href', `${competitionPath(ID.feeder)}/clasament/imagine`);
 });
 
 test('competition-page.imagine-clasament.c9 — a shared link previews the image only when there is one (og:image), never a JSON answer', async ({ page }) => {
@@ -485,7 +487,7 @@ test('competition-page.imagine-clasament.c8 competition-page.imagine-clasament.c
   await expect(summary).toContainText('Clasament complet, după stand');
   await expect(summary).toContainText('locul 1:');
   await expect(summary).toContainText('Cantitate totală');
-  await expect(page.getByRole('link', { name: 'Vezi clasamentul ca tabel' })).toHaveAttribute('href', `/concursuri/${ID.completed}`);
+  await expect(page.getByRole('link', { name: 'Vezi clasamentul ca tabel' })).toHaveAttribute('href', competitionPath(ID.completed));
   await expectNoA11yViolations(page);
 });
 

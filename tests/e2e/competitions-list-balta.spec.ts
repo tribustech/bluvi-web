@@ -2,6 +2,7 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS } from './helpers/session';
 import { card, media, page as cardsPage } from './competitions-list.fixtures';
+import { lakePath, loadSlugs } from './helpers/slugs';
 
 /*
  * competitions-list.{viitoare,live,incheiate}-balta — fish /competitions/{status}/[lakeId]. These
@@ -213,6 +214,7 @@ for (const b of BALTA) {
   });
 }
 
+test.beforeAll(loadSlugs);
 test('lakes.competitions.c5 lakes.competitions.s6 — no manual refresh control (removed by the owner 2026-10-11); phone: the title keeps its row', async ({ page }) => {
   test.setTimeout(120_000);
   await setFaults(page, ['competitions-tab']);
@@ -255,7 +257,7 @@ test('lakes.competitions.c2 lakes.competitions.c6 — the bare URL with nothing 
     );
     expect(lists.length).toBe(1);
     expect(lists[0].itemListElement.length).toBeGreaterThan(0);
-    expect(lists[0].url).toMatch(new RegExp(`/balti/${CHITA}/concursuri$`));
+    expect(lists[0].url).toMatch(new RegExp(`${lakePath(CHITA)}/concursuri$`));
   }
   await page.waitForTimeout(300);
   expect(new URL(page.url()).search).toBe('');

@@ -3,6 +3,7 @@ import { expect, test, type Locator, type Page, type Request, type Route } from 
 import { expectNoA11yViolations } from './helpers/a11y';
 import { collectConsoleErrors } from './helpers/console';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { competitionPath as competitionPage, loadSlugs } from './helpers/slugs';
 
 /*
  * Concurs · Participanți for its author (parity competition-page.participanti-organizator c1–c10,
@@ -19,6 +20,7 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  * way to the page.
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000, retries: 1 });
 
 const TEAM = process.env.E2E_REG_TEAM ?? 'a6xjl65ooe9eadrtvvqj9hn1'; // SIM3 Cupa C&B Ed 8 · notStarted · team · QA author
@@ -232,7 +234,7 @@ test('competition-page.participanti-organizator.c2 — Toți · În așteptare �
   await shoot(page, 'pending');
   // Unselected, the pending count keeps its colour; the others are neutral.
   await pick(page, 'all');
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${SINGLE}/participanti$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(SINGLE)}/participanti$`));
   await expect(filter(page, 'Toți')).toBeChecked();
   const bg = (label: string) => filters(page).locator(`[data-filter="${label}"] [data-count]`).evaluate(el => getComputedStyle(el).backgroundColor);
   expect(await bg('pending')).not.toBe(await bg('registered'));
@@ -317,20 +319,20 @@ test('competition-page.participanti-organizator.c6 participant.b.organizer-edit-
   await loaded(page);
   const guest = await expand(page, 'Gigel Așteaptă');
   const guestId = mixedSingle(await realList(page, SINGLE))[2].documentId;
-  await expect(guest.getByRole('link', { name: 'Editează' })).toHaveAttribute('href', `/concursuri/${SINGLE}/inscriere/fara-cont?inscriere=${guestId}`);
+  await expect(guest.getByRole('link', { name: 'Editează' })).toHaveAttribute('href', `${competitionPage(SINGLE)}/inscriere/fara-cont?inscriere=${guestId}`);
   await shoot(page, 'expanded', [375]);
   const account = await expand(page, 'Ion Pescaru');
   const accountId = mixedSingle(await realList(page, SINGLE))[1].documentId;
-  await expect(account.getByRole('link', { name: 'Editează' })).toHaveAttribute('href', `/concursuri/${SINGLE}/inscriere?organizator=1&inscriere=${accountId}`);
+  await expect(account.getByRole('link', { name: 'Editează' })).toHaveAttribute('href', `${competitionPage(SINGLE)}/inscriere?organizator=1&inscriere=${accountId}`);
   const rejected = await expand(page, 'Respins Pe Stand');
   await expect(rejected.getByRole('link', { name: 'Editează' })).toHaveCount(0);
   // Desktop: the same links inline.
   await page.setViewportSize(DESKTOP);
-  await expect(tableRow(page, 'Ion Pescaru').getByRole('link', { name: 'Editează — Ion Pescaru' })).toHaveAttribute('href', `/concursuri/${SINGLE}/inscriere?organizator=1&inscriere=${accountId}`);
+  await expect(tableRow(page, 'Ion Pescaru').getByRole('link', { name: 'Editează — Ion Pescaru' })).toHaveAttribute('href', `${competitionPage(SINGLE)}/inscriere?organizator=1&inscriere=${accountId}`);
   await expect(tableRow(page, 'Respins Nealocat').getByRole('link', { name: /Editează/ })).toHaveCount(0);
   // Following it opens the registration form (the organizer's edit, M5).
   await tableRow(page, 'Gigel Așteaptă').getByRole('link', { name: 'Editează — Gigel Așteaptă' }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${SINGLE}/inscriere/fara-cont\\?inscriere=${guestId}$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(SINGLE)}/inscriere/fara-cont\\?inscriere=${guestId}$`));
   noWrites(watch);
 });
 
@@ -618,7 +620,7 @@ test('competition-page.participanti-organizator.c9 — two changes in flight bot
   await page.getByRole('alertdialog').getByRole('button', { name: 'Acceptă' }).click();
   await expect.poll(() => writes.length).toBe(3);
   await page.getByRole('navigation', { name: 'Secțiunile concursului' }).getByRole('link', { name: /^Clasament/ }).locator('visible=true').first().click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${SINGLE}$`), { timeout: 30_000 });
+  await expect(page).toHaveURL(new RegExp(`${competitionPage(SINGLE)}$`), { timeout: 30_000 });
   await expect(filters(page)).toHaveCount(0, { timeout: 30_000 }); // the organizer list is gone (unmounted)
   release2();
   await expect(page.getByText('Înregistrare acceptată cu succes.')).toBeVisible();

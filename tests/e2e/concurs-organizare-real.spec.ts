@@ -3,6 +3,7 @@ import { collectConsoleErrors } from './helpers/console';
 import { anglerJwt } from './helpers/fake-organizer';
 import { ADMIN_TOKEN, cmsCompetition, realName, seedCompetition, sweepLeftovers, tracker, type Seeded } from './helpers/real-organizer';
 import { qaJwt, signIn } from './helpers/session';
+import { competitionPath, freshCompetitionSegment, reloadSlugs } from './helpers/slugs';
 
 /*
  * The author's «Organizare» menu with REAL writes that are safe to undo (parity
@@ -34,6 +35,7 @@ test.beforeAll(async ({ request }) => {
 test.beforeEach(async ({ request }) => {
   seeded = await seedCompetition(request, jwt, { name: realName('Organizare'), stands: 2, participantsLimit: 4, weeks: 5 });
   created.add(seeded.documentId);
+  await reloadSlugs(); // the new competition's slug
 });
 
 test.afterEach(async ({ request }) => {
@@ -87,14 +89,14 @@ test('participant.register-guests.c11 c12 REAL — «Adaugă participanți făr�
   const errors = collectConsoleErrors(page);
   await openMenu(page);
   await menu(page).getByRole('menuitem', { name: 'Adaugă participanți fără cont' }).click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${seeded.documentId}/inscriere/fara-cont$`));
+  await expect(page).toHaveURL(new RegExp(`${competitionPath(seeded.documentId)}/inscriere/fara-cont$`));
   await expect(page.getByRole('heading', { level: 1, name: 'Adaugă participanți fără cont' })).toBeVisible({ timeout: 60_000 });
   const submit = page.getByTestId('guests-submit').locator('visible=true').first();
   await page.getByRole('textbox', { name: 'Pescar', exact: true }).fill('Dan Real');
   const post = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/cms/registrations/guests');
   await submit.click();
   expect((await post).ok()).toBe(true);
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${seeded.documentId}$`), { timeout: 30_000 });
+  await expect(page).toHaveURL(new RegExp(`/concursuri/${freshCompetitionSegment(seeded.documentId)}$`), { timeout: 30_000 });
   await expect.poll(async () => (await cmsCompetition(request, seeded.documentId))?.registrations.map(r => [r.guestName, r.registrationStatus])).toEqual([['Dan Real', 'registered']]);
 
   // «Editează» from the organizer's list → the same form, prefilled; rename.

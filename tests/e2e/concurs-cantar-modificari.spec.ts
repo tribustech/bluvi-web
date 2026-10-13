@@ -4,6 +4,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { qaJwt, signIn } from './helpers/session';
+import { loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * Cântar — «Istoric modificări» (parity organizer.scale-revisions c1–c5; fish
@@ -15,6 +16,7 @@ import { qaJwt, signIn } from './helpers/session';
  * to the browser's CMS edge is watched: a single non-GET fails the spec.
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000, retries: 1 });
 
 const COMPETITION = process.env.E2E_REVISIONS_COMPETITION ?? 'k5c9427518736c92684018b9'; // [CHAT24] Calitate
@@ -114,9 +116,9 @@ async function shoot(page: Page, name: string) {
 const noWrites = (watch: Watch) => expect(watch.writes, 'no writes from the change log').toEqual([]);
 
 test('signed out → sign-in with the return path', async ({ request }) => {
-  const res = await request.get(`${BASE_URL}${URL_PATH}`, { maxRedirects: 0 });
+  const res = await request.get(`${BASE_URL}${slugPath(URL_PATH)}`, { maxRedirects: 0 });
   expect(res.status()).toBe(307);
-  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(URL_PATH)}`);
+  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(slugPath(URL_PATH))}`);
 });
 
 test('organizer.scale-revisions.c1 — «Istoric modificări», loading, then the log; noindex; back to the weighing', async ({ page }) => {

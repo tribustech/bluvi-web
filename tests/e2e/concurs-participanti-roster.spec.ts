@@ -4,6 +4,7 @@ import { echoes } from '@/app/(site)/concursuri/[id]/_components/names';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { collectConsoleErrors } from './helpers/console';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * Concurs · Participanți as a designed roster (owner rule 18) and the person popover (owner rule 17)
@@ -39,6 +40,7 @@ type Reg = { documentId: string; registrationStatus: string; participants: { doc
 const regs = new Map<string, Reg[]>();
 let jwt = '';
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000 });
 
 test.beforeAll(async ({ request }) => {
@@ -109,7 +111,7 @@ for (const vp of [TABLET, LAPTOP, DESKTOP]) {
     } else await expect(entries).toHaveCount(0);
     await expect(list.getByText(/capturi?$/)).toHaveCount(0);
     await expect(page.getByText('Statisticile pescarilor se văd după ce')).toHaveCount(1);
-    await expect(page.getByRole('link', { name: 'intri în cont' })).toHaveAttribute('href', `/intra?next=${encodeURIComponent(participants(ID.guests))}`);
+    await expect(page.getByRole('link', { name: 'intri în cont' })).toHaveAttribute('href', `/intra?next=${encodeURIComponent(slugPath(participants(ID.guests)))}`);
     await expectNoA11yViolations(page);
     expect(errors).toEqual([]);
   });

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { collectConsoleErrors } from './helpers/console';
+import { lakePath, loadSlugs } from './helpers/slugs';
 
 /*
  * Ape publice — the map's own behaviour (parity public-waters.harta-ape): the zoom bands, the
@@ -14,6 +15,7 @@ import { collectConsoleErrors } from './helpers/console';
  * for the canvas width — the same conversion the screen makes.
  */
 
+test.beforeAll(loadSlugs);
 test.setTimeout(180_000);
 
 const DESKTOP = { width: 1440, height: 900 };
@@ -384,14 +386,14 @@ test.describe('public-waters.harta-ape — the map', () => {
     const row = page.locator('[data-t2-id] button').first();
     await expect(row).toContainText('Razim');
     await row.click();
-    await expect(page).toHaveURL(new RegExp(`/balti/${CHITA}$`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(CHITA)}$`));
 
     await page.goto('/ape-publice');
     await page.getByRole('button', { name: 'Caută un râu sau lac' }).click();
     const dialog = page.getByRole('dialog', { name: 'Caută ape publice' });
     await dialog.getByRole('searchbox', { name: 'Caută un râu sau lac' }).fill('razim');
     await dialog.getByRole('button', { name: /^Razim Lac natural · Tulcea/ }).click();
-    await expect(page).toHaveURL(new RegExp(`/balti/${CHITA}$`));
+    await expect(page).toHaveURL(new RegExp(`${lakePath(CHITA)}$`));
   });
 
   test('public-waters.harta-ape.c6 c19 c22 c23 s4 — Lacuri / Râuri types, «N județe», an empty area', async ({ page }) => {

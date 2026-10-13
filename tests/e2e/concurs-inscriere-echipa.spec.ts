@@ -4,6 +4,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL as BASE } from './helpers/base-url';
 import { collectConsoleErrors as watchConsole } from './helpers/console';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { competitionPath, loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * «Câteva lucruri de menționat» — /concursuri/[id]/inscriere/echipa (parity
@@ -19,6 +20,7 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  * Competition (override with E2E_TEAM_COMPETITION): «Cupa Bluvi — Etapa 3», a team competition.
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 120_000 });
 
 const ID = process.env.E2E_TEAM_COMPETITION ?? 'u9kd3xs4n91j2ktah78ke73q';
@@ -111,7 +113,7 @@ async function shot(page: Page, name: string) {
 
 test('participant.team-disclaimer — signed out: 307 to /intra?next= this page', async ({ page }) => {
   await page.goto(PATH, { waitUntil: 'domcontentloaded', timeout: 90_000 });
-  await expect(page).toHaveURL(`${BASE}/intra?next=${encodeURIComponent(PATH)}`, { timeout: 60_000 });
+  await expect(page).toHaveURL(`${BASE}/intra?next=${encodeURIComponent(slugPath(PATH))}`, { timeout: 60_000 });
 });
 
 test('participant.team-disclaimer — a dead session cookie: the sign-in gate back to this page', async ({ page, context }) => {
@@ -227,10 +229,10 @@ test('participant.team-disclaimer.c5 — «Am înțeles» opens the registration
   await open(page, context, PHONE);
   await expect(continueLink(page)).toHaveAttribute('href', REGISTER, { timeout: 60_000 });
   await continueLink(page).dblclick();
-  await page.waitForURL(`${BASE}${REGISTER}`, { timeout: 60_000 });
+  await page.waitForURL(`${BASE}${slugPath(REGISTER)}`, { timeout: 60_000 });
   // One navigation: Back returns to the disclaimer, not to a second copy of the form.
   await page.goBack();
-  await expect(page).toHaveURL(`${BASE}${PATH}`, { timeout: 30_000 });
+  await expect(page).toHaveURL(`${BASE}${slugPath(PATH)}`, { timeout: 30_000 });
 });
 
 test('participant.team-disclaimer.c5 — keyboard: Tab reaches «Am înțeles», Enter opens the form (1280)', async ({ page, context }) => {
@@ -247,13 +249,13 @@ test('participant.team-disclaimer.c5 — keyboard: Tab reaches «Am înțeles»,
   // The keyboard focus is visible on it.
   expect(await page.evaluate(() => document.activeElement?.matches(':focus-visible'))).toBe(true);
   await page.keyboard.press('Enter');
-  await page.waitForURL(`${BASE}${REGISTER}`, { timeout: 60_000 });
+  await page.waitForURL(`${BASE}${slugPath(REGISTER)}`, { timeout: 60_000 });
 });
 
 test('participant.team-disclaimer.c1 — back with no page before: the competition', async ({ page, context }) => {
   await open(page, context, PHONE);
   await page.getByRole('button', { name: 'Înapoi' }).click({ timeout: 60_000 });
-  await page.waitForURL(`${BASE}/concursuri/${ID}`, { timeout: 60_000 });
+  await page.waitForURL(`${BASE}${competitionPath(ID)}`, { timeout: 60_000 });
 });
 
 for (const [label, scenario] of [
@@ -272,7 +274,7 @@ for (const [label, scenario] of [
       }).observe(document, { subtree: true, childList: true, characterData: true });
     });
     await open(page, context, PHONE, scenario);
-    await page.waitForURL(`${BASE}${REGISTER}`, { timeout: 60_000 });
+    await page.waitForURL(`${BASE}${slugPath(REGISTER)}`, { timeout: 60_000 });
     expect(shown, 'the disclaimer copy never rendered').toBe(false);
   });
 }
@@ -302,7 +304,7 @@ test('participant.team-disclaimer — session unknown (the CMS did not answer /u
   await context.addCookies([{ name: 'bluvi_session', value: UNREADABLE_SESSION, domain: new URL(BASE).hostname, path: '/', httpOnly: true, sameSite: 'Lax' }]);
   await page.setViewportSize(PHONE);
   await page.goto(PATH, { waitUntil: 'domcontentloaded', timeout: 90_000 });
-  await expect(page).toHaveURL(`${BASE}${PATH}`);
+  await expect(page).toHaveURL(`${BASE}${slugPath(PATH)}`);
   const alert = page.getByRole('alert').filter({ has: page.getByRole('heading', { name: 'Serverul nu răspunde' }) });
   await expect(alert).toBeVisible({ timeout: 60_000 });
   await expect(alert.getByRole('button', { name: 'Încearcă din nou' })).toBeVisible();
@@ -337,7 +339,7 @@ for (const [label, scenario, reason, name] of [
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Câteva lucruri de menționat');
     await expect(continueLink(page)).toHaveCount(0);
     await settle(page);
-    await expect(page).toHaveURL(`${BASE}${PATH}`);
+    await expect(page).toHaveURL(`${BASE}${slugPath(PATH)}`);
     expect(shown, 'the disclaimer copy never rendered').toBe(false);
     await expectNoA11yViolations(page);
     await shot(page, `closed-${name}-375`);

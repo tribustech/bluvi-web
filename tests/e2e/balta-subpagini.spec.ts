@@ -6,6 +6,7 @@ import { LAKE_ON_WEB } from '../../app/(site)/balti/[id]/_components/availabilit
 import { expectNoA11yViolations } from './helpers/a11y';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { competitionPath, lakePath, loadSlugs } from './helpers/slugs';
 
 /*
  * The lake's subpages, batch 2 — parity docs/parity/areas/lakes.yml: lakes.gallery (/galerie),
@@ -21,6 +22,7 @@ import { expect, test, type Page, type Route } from '@playwright/test';
  * browser reads after that (next pages, other periods, a retry) is intercepted with page.route.
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000 });
 
 const ID = {
@@ -307,7 +309,7 @@ test('lakes.gallery.s1 lakes.gallery.s5 — loading: the masonry skeleton while 
 test('lakes.gallery.c1 — the close control returns to the lake', async ({ page }) => {
   await go(page, `/balti/${ID.chita}/galerie`);
   await page.getByRole('button', { name: 'Închide galeria' }).click();
-  await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}$`), { timeout: 60_000 });
+  await expect(page).toHaveURL(new RegExp(`${lakePath(ID.chita)}$`), { timeout: 60_000 });
 });
 
 /* ============================================================================================== */
@@ -405,7 +407,7 @@ test('lakes.catches.c3 lakes.catches.s1 lakes.catches.s2 — masonry skeleton wh
   await expect(page.getByTestId('catches-empty')).toContainText('Nicio captură cu fotografie încă.');
   // The empty card says it: no «0 capturi» over it; the card leads back to the lake.
   await expect(page.getByTestId('gallery-subtitle')).not.toContainText('capturi');
-  await expect(page.getByTestId('catches-empty').getByRole('link', { name: 'Înapoi la baltă' })).toHaveAttribute('href', `/balti/${ID.chita}`);
+  await expect(page.getByTestId('catches-empty').getByRole('link', { name: 'Înapoi la baltă' })).toHaveAttribute('href', lakePath(ID.chita));
   await expectNoA11yViolations(page);
 });
 
@@ -474,7 +476,7 @@ test('lakes.anglers-ranking.c1 lakes.anglers-ranking.c4 lakes.anglers-ranking.c5
   // The lake's pages under «Arată», as on Partide, Statistici and Recenzii (the period carried).
   const lakePages = options.getByRole('navigation', { name: 'Pe această baltă' });
   await expect(lakePages.getByRole('link', { name: 'Clasament pescari' })).toHaveAttribute('aria-current', 'page');
-  await expect(lakePages.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `/balti/${ID.big}/statistici?perioada=year`);
+  await expect(lakePages.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `${lakePath(ID.big)}/statistici?perioada=year`);
   await expect(page.getByTestId('period-totals')).toContainText(String(bigYear.totals.partide));
   // The period's total by magnitude (core fmtKgStat: «204 kg», «1,9 t»), never «1906,81kg».
   await expect(page.getByTestId('period-totals')).not.toContainText(/\d{4},\d{2}/);
@@ -699,7 +701,7 @@ test('lakes.competitions.c3 lakes.competitions.c6 lakes.competitions.s4 lakes.co
   await expect(page).toHaveURL(/\?tab=trecute$/);
   expect(await page.evaluate(() => history.length)).toBe(before);
   await expect(cardItems(page)).toHaveCount(10, { timeout: 30_000 });
-  await expect(panel.locator(`a[href="/concursuri/${chitaFinished[0].documentId}"]`).first()).toBeVisible();
+  await expect(panel.locator(`a[href="${competitionPath(chitaFinished[0].documentId)}"]`).first()).toBeVisible();
   // The footer loads the next page as it comes into view.
   await page.mouse.wheel(0, 20_000);
   await expect(cardItems(page)).toHaveCount(Math.min(chitaFinishedTotal, 20), { timeout: 30_000 });
@@ -715,8 +717,8 @@ test('lakes.competitions.c3 lakes.competitions.c6 lakes.competitions.s4 lakes.co
   }
   await expectNoA11yViolations(page);
   // A card opens /concursuri/[id].
-  await panel.locator(`a[href="/concursuri/${chitaUpcoming[0].documentId}"]`).first().click();
-  await expect(page).toHaveURL(new RegExp(`/concursuri/${chitaUpcoming[0].documentId}`), { timeout: 60_000 });
+  await panel.locator(`a[href="${competitionPath(chitaUpcoming[0].documentId)}"]`).first().click();
+  await expect(page).toHaveURL(new RegExp(competitionPath(chitaUpcoming[0].documentId)), { timeout: 60_000 });
 });
 
 test('lakes.competitions.c5 lakes.competitions.s1 lakes.competitions.s2 — a failed tab: its error card, «Încearcă din nou» reads it again', async ({ page }) => {
@@ -745,8 +747,8 @@ test('lakes.competitions.c5 lakes.competitions.s1 lakes.competitions.s2 — a fa
 test('lakes.competitions.c6 — the lake page «Vezi tot» lands on the matching tab', async ({ page }) => {
   test.skip(!chitaUpcoming.length, 'no upcoming competition at Chita');
   await go(page, `/balti/${ID.chita}`, DESKTOP);
-  await page.locator(`#concursuri a[href="/balti/${ID.chita}/concursuri?tab=viitoare"]`).click();
-  await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}/concursuri\\?tab=viitoare$`), { timeout: 60_000 });
+  await page.locator(`#concursuri a[href="${lakePath(ID.chita)}/concursuri?tab=viitoare"]`).click();
+  await expect(page).toHaveURL(new RegExp(`${lakePath(ID.chita)}/concursuri\\?tab=viitoare$`), { timeout: 60_000 });
   await expect(page.getByRole('tab', { name: 'Viitoare' })).toHaveAttribute('aria-selected', 'true');
 });
 
@@ -765,7 +767,7 @@ test('lakes subpages — canonical, title and JSON-LD on every subpage; an unkno
   ] as const) {
     await go(page, `/balti/${ID.chita}/${path}`);
     await expect(page).toHaveTitle(new RegExp(`${title} · ${lake.name}`));
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`/balti/${ID.chita}/${path}$`));
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`${lakePath(ID.chita)}/${path}$`));
     const ld = await page.locator('script[type="application/ld+json"]').allTextContents();
     expect(ld.join(' ')).toContain('BreadcrumbList');
   }
@@ -940,7 +942,7 @@ test('lakes.stands-ranking.c3 lakes.stands-ranking.s3 — no stand activity: the
   // Nothing to sort: the docked sort is disabled; on a phone the chip row is not there.
   await expect(page.getByRole('complementary', { name: 'Ordonare standuri' }).getByRole('radio', { name: 'Capturi' })).toBeDisabled();
   await expect(page.getByTestId('stands-empty')).toContainText('Nicio activitate la standuri în perioada asta.');
-  await expect(page.getByTestId('stands-empty').getByRole('link', { name: 'Vezi anul curent' })).toHaveAttribute('href', `/balti/${ID.chita}/standuri?perioada=year`);
+  await expect(page.getByTestId('stands-empty').getByRole('link', { name: 'Vezi anul curent' })).toHaveAttribute('href', `${lakePath(ID.chita)}/standuri?perioada=year`);
   await expectNoA11yViolations(page);
   await page.setViewportSize(PHONE);
   await expect(page.getByRole('radiogroup', { name: 'Ordonează după' })).toHaveCount(0);
@@ -962,12 +964,12 @@ test('lakes.competitions.c3 — a card names its ranking type (the server label)
 
 test('lakes.gallery.c1 — ✕ after an in-site visit goes BACK (no new history entry), even on a lake page opened directly', async ({ page }) => {
   await go(page, `/balti/${ID.big}`, DESKTOP);
-  await page.locator(`a[href="/balti/${ID.big}/galerie"]`).filter({ visible: true }).first().click();
-  await expect(page).toHaveURL(new RegExp(`/balti/${ID.big}/galerie$`), { timeout: 60_000 });
+  await page.locator(`a[href="${lakePath(ID.big)}/galerie"]`).filter({ visible: true }).first().click();
+  await expect(page).toHaveURL(new RegExp(`${lakePath(ID.big)}/galerie$`), { timeout: 60_000 });
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Galerie', { timeout: 60_000 });
   const length = await page.evaluate(() => history.length);
   await page.getByRole('button', { name: 'Închide galeria' }).click();
-  await expect(page).toHaveURL(new RegExp(`/balti/${ID.big}$`), { timeout: 60_000 });
+  await expect(page).toHaveURL(new RegExp(`${lakePath(ID.big)}$`), { timeout: 60_000 });
   expect(await page.evaluate(() => history.length)).toBe(length);
 });
 

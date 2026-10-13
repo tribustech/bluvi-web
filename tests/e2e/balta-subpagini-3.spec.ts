@@ -5,6 +5,7 @@ import { APP_ORIGIN, expectOpenInApp } from './helpers/app-cta';
 import { CMS, qaJwt, signIn } from './helpers/session';
 import { formatCount } from '../../core/realtime/chat/format';
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { lakePath, loadSlugs } from './helpers/slugs';
 
 /*
  * The lake's subpages, batch 3 — parity docs/parity/areas/lakes.yml: lakes.stats (/statistici),
@@ -28,6 +29,7 @@ import { expect, test, type Page, type Route } from '@playwright/test';
  * landing on the member view is tests/e2e/partide-links.spec.ts.
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000 });
 
 const ID = {
@@ -165,7 +167,7 @@ test('lakes.stats.c1 lakes.stats.c2 lakes.stats.c6 lakes.stats.c7 lakes.stats.c1
     await expect(top.nth(unweighed).getByTestId('rank-value')).toHaveText('—');
     await expect(top.nth(unweighed).getByTestId('rank-value').locator('span').first()).toHaveClass(/text-muted/);
   }
-  await expect(page.getByTestId('top-anglers-ranking')).toHaveAttribute('href', `/balti/${ID.big}/clasament?perioada=year`);
+  await expect(page.getByTestId('top-anglers-ranking')).toHaveAttribute('href', `${lakePath(ID.big)}/clasament?perioada=year`);
   // c11
   if (bigYear.species.length) {
     const species = page.getByTestId('species-card').locator('visible=true').locator('li');
@@ -213,14 +215,14 @@ test('lakes.stats.c10 lakes.stats.s5 — «Top standuri»: sort chips, top 5 wit
   // The leader's bar is full; the others are relative to it (none for a zero).
   await expect(rows.first().getByTestId('stand-bar')).toHaveAttribute('style', /width: ?100%/);
   const link = page.getByTestId('top-stands-ranking');
-  await expect(link).toHaveAttribute('href', `/balti/${ID.chita}/standuri?perioada=year`);
+  await expect(link).toHaveAttribute('href', `${lakePath(ID.chita)}/standuri?perioada=year`);
   await group.getByText('Capturi').click();
-  await expect(link).toHaveAttribute('href', `/balti/${ID.chita}/standuri?perioada=year&sortare=catches`);
+  await expect(link).toHaveAttribute('href', `${lakePath(ID.chita)}/standuri?perioada=year&sortare=catches`);
   const top = [...stands].sort((x, y) => y.catches - x.catches)[0];
   await expect(rows.first().getByTestId('stand-value')).toHaveText(String(top.catches));
   await expect(rows.first().getByTestId('rank-value')).toContainText(top.catches === 1 ? 'captură' : 'capturi');
   await group.getByText('Record').click();
-  await expect(link).toHaveAttribute('href', `/balti/${ID.chita}/standuri?perioada=year&sortare=record`);
+  await expect(link).toHaveAttribute('href', `${lakePath(ID.chita)}/standuri?perioada=year&sortare=record`);
   const noRecord = stands.find(s => s.recordKg == null);
   if (noRecord) await expect(rows.last().getByTestId('stand-value')).toHaveText('—');
   await expectNoA11yViolations(page);
@@ -272,7 +274,7 @@ test('lakes.stats.c2 lakes.stats.c3 lakes.stats.c12 lakes.stats.s4 — a period 
   await expect(content).not.toHaveClass(/opacity-60/);
   // Luna (empty at this lake now or not) is the default: it leaves the URL bare.
   await page.getByTestId('period-chips').getByText('Luna').click();
-  await expect(page).toHaveURL(new RegExp(`/balti/${ID.big}/statistici$`));
+  await expect(page).toHaveURL(new RegExp(`${lakePath(ID.big)}/statistici$`));
   if (bigMonth.totals.partide === 0) await expect(page.getByTestId('stats-empty')).toBeVisible();
 });
 
@@ -382,7 +384,7 @@ test('lakes.stats — from 1280 three columns: the period and the lake\'s pages 
   const nav = page.getByRole('navigation', { name: 'Pe această baltă' });
   await expect(nav).toBeVisible();
   await expect(nav.getByRole('link', { name: 'Statistici' })).toHaveAttribute('aria-current', 'page');
-  await expect(nav.getByRole('link', { name: 'Clasament pescari' })).toHaveAttribute('href', `/balti/${ID.big}/clasament?perioada=year`);
+  await expect(nav.getByRole('link', { name: 'Clasament pescari' })).toHaveAttribute('href', `${lakePath(ID.big)}/clasament?perioada=year`);
   await expect(page.getByRole('complementary', { name: 'Recordul și speciile' })).toBeVisible();
   // The chips row is the phone's; here the period is in the left column.
   await expect(page.getByTestId('period-chips')).toBeHidden();
@@ -439,19 +441,19 @@ test('lakes.partide.c6 lakes.partide.c7 — the latest catches rail (3 tiles →
   await expect(rail.getByRole('heading')).toHaveText('Ultimele capturi');
   const tiles = rail.getByTestId('rail-tile');
   await expect(tiles).toHaveCount(3);
-  await expect(tiles.first()).toHaveAttribute('href', new RegExp(`^/balti/${ID.big}/capturi\\?foto=`));
+  await expect(tiles.first()).toHaveAttribute('href', new RegExp(`^${lakePath(ID.big)}/capturi\\?foto=`));
   const cta = page.getByTestId('stats-cta').locator('visible=true');
   await expect(cta).toContainText('Statisticile bălții');
   await expect(cta).toContainText('Top pescari, standuri și recorduri');
   // The kit card: its title is the stretched link.
   const ctaLink = cta.getByRole('link', { name: 'Statisticile bălții' });
-  await expect(ctaLink).toHaveAttribute('href', `/balti/${ID.big}/statistici`);
+  await expect(ctaLink).toHaveAttribute('href', `${lakePath(ID.big)}/statistici`);
   // The rail and the card are both cards, on every width.
   await expect(rail.locator('section')).toHaveCSS('background-color', await cta.locator('article').evaluate(e => getComputedStyle(e).backgroundColor));
   // A press on the card's «Vezi statisticile» goes through to the stretched link.
   const button = (await cta.getByText('Vezi statisticile').boundingBox())!;
   await page.mouse.click(button.x + button.width / 2, button.y + button.height / 2);
-  await expect(page).toHaveURL(new RegExp(`/balti/${ID.big}/statistici$`));
+  await expect(page).toHaveURL(new RegExp(`${lakePath(ID.big)}/statistici$`));
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(lakes.get(ID.big)!.name);
 });
 
@@ -548,10 +550,10 @@ test('lakes.partide — from 1280 the lake\'s pages on the left, the rail and th
   const nav = page.getByRole('navigation', { name: 'Pe această baltă' });
   await expect(nav.getByRole('link', { name: 'Partide' })).toHaveAttribute('aria-current', 'page');
   // The lake's own pages too (Recenzii, Galerie, Hartă, Concursuri).
-  await expect(nav.getByRole('link', { name: 'Recenzii' })).toHaveAttribute('href', `/balti/${ID.big}/recenzii`);
-  await expect(nav.getByRole('link', { name: 'Hartă' })).toHaveAttribute('href', `/balti/${ID.big}/harta`);
-  await expect(nav.getByRole('link', { name: 'Galerie' })).toHaveAttribute('href', `/balti/${ID.big}/galerie`);
-  await expect(nav.getByRole('link', { name: 'Concursuri' })).toHaveAttribute('href', `/balti/${ID.big}/concursuri`);
+  await expect(nav.getByRole('link', { name: 'Recenzii' })).toHaveAttribute('href', `${lakePath(ID.big)}/recenzii`);
+  await expect(nav.getByRole('link', { name: 'Hartă' })).toHaveAttribute('href', `${lakePath(ID.big)}/harta`);
+  await expect(nav.getByRole('link', { name: 'Galerie' })).toHaveAttribute('href', `${lakePath(ID.big)}/galerie`);
+  await expect(nav.getByRole('link', { name: 'Concursuri' })).toHaveAttribute('href', `${lakePath(ID.big)}/concursuri`);
   // One header height for a solo angler and a group: every card of a row starts its figures on one line.
   const bands = await page.getByTestId('history-card').locator('dl').evaluateAll(els => els.slice(0, 4).map(e => Math.round(e.getBoundingClientRect().top)));
   expect(bands[0]).toBe(bands[1]);
@@ -843,11 +845,13 @@ test('lakes.reviews.c1 lakes.reviews.c2 lakes.reviews.c4 lakes.reviews.s4 lakes.
   await expect(summary.getByTestId('score-atmosphere')).toHaveText(meta.atmosphere.toFixed(1).replace('.', ','));
   // Below 1280 the T5 KPI tiles (Statistici's figures): the label over the value, the stars under it.
   for (const label of ['Pescuit', 'Facilități', 'Atmosferă']) await expect(summary.getByText(label, { exact: true })).toBeVisible();
-  // The overall score above the three («4,67 din 5 · nota generală», the lake page's number — the
-  // AggregateRating the page marks up), then one set of stars per score: four in all.
+  // The overall score with the three («4,67 din 5», the lake page's number — the AggregateRating the
+  // page marks up), then one set of stars per score: four in all.
   const given = (meta as { overall?: number }).overall;
   const overall = (given && given > 0 ? given : (meta.quality + meta.facilities + meta.atmosphere) / 3).toFixed(2).replace('.', ',');
-  await expect(summary.getByTestId('score-overall')).toContainText(`${overall}din 5 · nota generală`);
+  // Below 1280 a line above the tiles; docked from 1280, the card's first row («Nota generală»).
+  await expect(summary.getByTestId('score-overall')).toContainText(overall);
+  await expect(summary.getByTestId('score-overall')).toContainText('din 5');
   await expect(summary.getByRole('img', { name: /din 5$/ })).toHaveCount(4);
   // «N recenzii» + the explainer: the centre column's header (once), right above the list.
   const count = page.getByTestId('reviews-count');
@@ -872,7 +876,7 @@ test('lakes.reviews.c1 lakes.reviews.c2 lakes.reviews.c4 lakes.reviews.s4 lakes.
   // c9 signed out: the outlined sign-in bar → /intra, back to this list afterwards.
   const signIn = page.getByTestId('review-sign-in').locator('visible=true');
   await expect(signIn).toHaveText('Autentifică-te pentru a putea adăuga o recenzie');
-  await expect(signIn).toHaveAttribute('href', `/intra?next=${encodeURIComponent(`/balti/${ID.chita}/recenzii`)}`);
+  await expect(signIn).toHaveAttribute('href', `/intra?next=${encodeURIComponent(`${lakePath(ID.chita)}/recenzii`)}`);
   // c4: the verdict is the status pill in its tone.
   await expect(card.getByTestId('review-verdict')).toHaveAttribute('data-tone', r.recommendToOthers ? 'success' : 'danger');
   await expectNoHorizontalScroll(page);
@@ -1062,10 +1066,10 @@ test('lakes.reviews.c11 — the reviews are cached 5 minutes: leaving and coming
   expect(reads).toBe(1);
   const nav = page.getByRole('navigation').filter({ has: page.getByRole('link', { name: 'Galerie' }) }).locator('visible=true').first();
   await nav.getByRole('link', { name: 'Galerie' }).click();
-  await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}/galerie$`));
+  await expect(page).toHaveURL(new RegExp(`${lakePath(ID.chita)}/galerie$`));
   // The gallery has no page nav (a full-width masonry under its own header): back, a soft navigation.
   await page.goBack();
-  await expect(page).toHaveURL(new RegExp(`/balti/${ID.chita}/recenzii$`));
+  await expect(page).toHaveURL(new RegExp(`${lakePath(ID.chita)}/recenzii$`));
   await expect(cards).toHaveCount(chitaReviews.length);
   await settle(page);
   expect(reads, 'the second visit inside 5 minutes is served from the cache').toBe(1);
@@ -1087,7 +1091,7 @@ test('lakes.reviews.c6 lakes.reviews.c7 lakes.reviews.s5 lakes.reviews.s6 — si
   // server's reads) would bring it back. Answer the action with an error: the page then keeps its
   // own state, which is what this test checks (the action itself: balta-recenzie.spec.ts).
   let actions = 0;
-  await page.route(`**/balti/${ID.chita}/recenzii`, route => {
+  await page.route(`**${lakePath(ID.chita)}/recenzii`, route => {
     if (route.request().method() !== 'POST' || !route.request().headers()['next-action']) return route.continue();
     actions += 1;
     return route.fulfill({ status: 500, body: '' });
@@ -1102,7 +1106,7 @@ test('lakes.reviews.c6 lakes.reviews.c7 lakes.reviews.s5 lakes.reviews.s6 — si
   await expect(page.getByTestId('review-sign-in')).toHaveCount(0);
   // c6: «Editează» is the review form in edit mode (lakes.review-form; the round trip is in
   // balta-recenzie.spec.ts).
-  await expect(card.getByTestId('review-edit')).toHaveAttribute('href', `/balti/${ID.chita}/recenzie?editare=1`);
+  await expect(card.getByTestId('review-edit')).toHaveAttribute('href', `${lakePath(ID.chita)}/recenzie?editare=1`);
   // c7: the confirmation — «Închide» keeps the review.
   await card.getByTestId('review-delete').click();
   const confirm = page.getByRole('alertdialog', { name: 'Ești sigur că vrei să îți ștergi recenzia?' });
@@ -1164,14 +1168,14 @@ test('lakes.reviews.c9 lakes.reviews.s6 — signed in without a review: «Adaug�
   await go(page, `/balti/${ID.chita}/recenzii`);
   const add = page.getByTestId('review-add').locator('visible=true');
   await expect(add).toHaveText('Adaugă o recenzie');
-  await expect(add).toHaveAttribute('href', `/balti/${ID.chita}/recenzie`);
+  await expect(add).toHaveAttribute('href', `${lakePath(ID.chita)}/recenzie`);
   await page.setViewportSize(TABLET);
   await expect(page.getByTestId('review-add').locator('visible=true')).toHaveCount(1);
-  await expect(page.getByTestId('review-add').locator('visible=true')).toHaveAttribute('href', `/balti/${ID.chita}/recenzie`);
+  await expect(page.getByTestId('review-add').locator('visible=true')).toHaveAttribute('href', `${lakePath(ID.chita)}/recenzie`);
   await expectNoA11yViolations(page);
   // The form (lakes.review-form, signed in: no detour through /intra).
   await page.getByTestId('review-add').locator('visible=true').click();
-  await expect(page).toHaveURL(`${BASE}/balti/${ID.chita}/recenzie`);
+  await expect(page).toHaveURL(`${BASE}${lakePath(ID.chita)}/recenzie`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Adaugă o recenzie', { timeout: 60_000 });
 });
 
@@ -1189,7 +1193,7 @@ test('lakes batch 3 — canonical, title and breadcrumb JSON-LD on every subpage
   ] as const) {
     await go(page, `/balti/${ID.big}/${path}`, DESKTOP);
     await expect(page).toHaveTitle(new RegExp(`${label} · ${lake.name}`));
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`/balti/${ID.big}/${path}$`));
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`${lakePath(ID.big)}/${path}$`));
     const ld = await page.locator('script[type="application/ld+json"]').allTextContents();
     expect(ld.some(t => t.includes('BreadcrumbList') && t.includes(label))).toBeTruthy();
   }
@@ -1202,9 +1206,9 @@ test('lakes.b.inbound-links — the lake page opens Partide, Statistici, Hartă 
   await go(page, `/balti/${ID.chita}`, PHONE);
   const tiles = page.getByRole('list', { name: 'Acțiuni rapide' });
   // Partide: the section's «Vezi tot» while the section is on the page (one entry point), else the tile.
-  await expect(page.locator(`a[href="/balti/${ID.chita}/partide"]`).locator('visible=true')).toHaveCount(1, { timeout: 15_000 });
-  await expect(tiles.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `/balti/${ID.chita}/statistici`);
-  await expect(tiles.getByRole('link', { name: 'Hartă' })).toHaveAttribute('href', `/balti/${ID.chita}/harta`);
-  await expect(page.locator('#recenzii').getByRole('link', { name: /Vezi recenzia|Vezi toate/ })).toHaveAttribute('href', `/balti/${ID.chita}/recenzii`);
-  await expect(page.getByTestId('lake-mini-map')).toHaveAttribute('href', `/balti/${ID.chita}/harta`);
+  await expect(page.locator(`a[href="${lakePath(ID.chita)}/partide"]`).locator('visible=true')).toHaveCount(1, { timeout: 15_000 });
+  await expect(tiles.getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', `${lakePath(ID.chita)}/statistici`);
+  await expect(tiles.getByRole('link', { name: 'Hartă' })).toHaveAttribute('href', `${lakePath(ID.chita)}/harta`);
+  await expect(page.locator('#recenzii').getByRole('link', { name: /Vezi recenzia|Vezi toate/ })).toHaveAttribute('href', `${lakePath(ID.chita)}/recenzii`);
+  await expect(page.getByTestId('lake-mini-map')).toHaveAttribute('href', `${lakePath(ID.chita)}/harta`);
 });

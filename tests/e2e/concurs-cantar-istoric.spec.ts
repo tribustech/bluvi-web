@@ -4,6 +4,7 @@ import { expectNoA11yViolations } from './helpers/a11y';
 import { BASE_URL } from './helpers/base-url';
 import { collectConsoleErrors } from './helpers/console';
 import { CMS, qaJwt, signIn } from './helpers/session';
+import { competitionPath as competitionPage, loadSlugs, slugPath } from './helpers/slugs';
 
 /*
  * «Istoric cântăriri» — one stand's weighings (parity organizer.scale-history c1–c11; fish
@@ -17,6 +18,7 @@ import { CMS, qaJwt, signIn } from './helpers/session';
  * an open or empty weighing, a feeder leg, a failure) is made by editing or replacing a read.
  */
 
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 180_000, retries: 1 });
 
 const STARTED = process.env.E2E_SCALE_STARTED ?? 'kee49a3e64b3f636b4b60daa'; // [CHAT25] started, individual
@@ -178,9 +180,9 @@ const visible = (page: Page, testId: string) => page.locator(`[data-testid="${te
 const noWrites = (watch: Watch) => expect(watch.writes, 'no real organizer writes').toEqual([]);
 
 test('signed out → sign-in with the return path (organizer.b.signed-out-gate)', async ({ request }) => {
-  const res = await request.get(`${BASE_URL}${page_(STARTED, STARTED_STAND)}`, { maxRedirects: 0 });
+  const res = await request.get(`${BASE_URL}${slugPath(page_(STARTED, STARTED_STAND))}`, { maxRedirects: 0 });
   expect(res.status()).toBe(307);
-  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(page_(STARTED, STARTED_STAND))}`);
+  expect(res.headers().location).toContain(`/intra?next=${encodeURIComponent(slugPath(page_(STARTED, STARTED_STAND)))}`);
 });
 
 test('organizer.scale-history.c1 — «Istoric cântăriri», loading, then the stand; noindex', async ({ page }) => {
@@ -321,7 +323,7 @@ test('organizer.scale-history.c4 c5 — cards: «Cântar N (Extra)», badge, «T
   const href = `/concursuri/${GUESTS}/cantar/${GUESTS_STAND}/${extra.documentId}`;
   await expect(card.getByRole('link')).toHaveAttribute('href', href);
   await card.getByRole('link').click();
-  await page.waitForURL(`**${href}`);
+  await page.waitForURL(`**${slugPath(href)}`);
   noWrites(watch);
   expect(errors).toEqual([]);
 });
@@ -498,7 +500,7 @@ test('organizer.scale-history.c9 c10 — «Start cântar nou»: the confirmation
   expect(errors).toEqual([]);
   release();
   // The new weighing opens (organizer.scale-weighing; its reads of the mocked id are that page's).
-  await page.waitForURL(`**/concursuri/${STARTED}/cantar/${STARTED_STAND}/w-new`);
+  await page.waitForURL(`**${competitionPage(STARTED)}/cantar/${STARTED_STAND}/w-new`);
   expect(bodies).toEqual([{ data: { stand: STARTED_STAND, competition: STARTED, weighingType: 'extra' } }]);
   expect(watch.writes).toEqual(['POST /api/cms/weighings/start']);
 });
@@ -521,7 +523,7 @@ test('organizer.scale-history.c9 — after a start, Back returns to the history 
   await loaded(page);
   await page.getByRole('button', { name: 'Start cântar nou' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Începe cântarul' }).click();
-  await page.waitForURL(`**/concursuri/${STARTED}/cantar/${STARTED_STAND}/w-new`);
+  await page.waitForURL(`**${competitionPage(STARTED)}/cantar/${STARTED_STAND}/w-new`);
   expect(bodies).toEqual([{ data: { stand: STARTED_STAND, competition: STARTED, weighingType: 'normal' } }]);
   await page.goBack();
   await page.waitForURL(new RegExp(`/cantar/${STARTED_STAND}$`));

@@ -3,6 +3,7 @@ import { expect, test, type BrowserContext, type Page, type Route } from '@playw
 import { expectNoA11yViolations } from './helpers/a11y';
 import { qaJwt, signIn } from './helpers/session';
 import { card, page as cardsPage, PIXEL, STATE_CARDS } from './competitions-list.fixtures';
+import { competitionPath, loadSlugs } from './helpers/slugs';
 
 /*
  * Concursuri (/concursuri, template T1) — parity inventory docs/parity/areas/competitions-list.yml,
@@ -28,6 +29,7 @@ const REGISTERED = /\/feed\/my-competition-cards\?(?!.*status=).*scope=registere
 const PUBLIC = /\/feed\/competition-cards\?/;
 
 let jwt = '';
+test.beforeAll(loadSlugs);
 test.describe.configure({ timeout: 90_000 });
 // Other units run Playwright against the same tree: no trace artifacts to collide over.
 test.use({ trace: 'off' });
@@ -363,7 +365,7 @@ test.describe('signed out', () => {
     await page.setViewportSize(CARDS);
     await open(page);
     const link = cardLink(page, 'SIM3 Cupa C&B Ed 8');
-    await expect(link).toHaveAttribute('href', '/concursuri/a6xjl65ooe9eadrtvvqj9hn1');
+    await expect(link).toHaveAttribute('href', competitionPath('a6xjl65ooe9eadrtvvqj9hn1'));
     const item = list(page).locator('article').filter({ has: page.getByRole('link', { name: 'SIM3 Cupa C&B Ed 8', exact: true }) });
     await expect(item.getByText('Chita Lake')).toBeVisible();
     await expect(item.getByText('Cantitate')).toBeVisible();
@@ -372,7 +374,7 @@ test.describe('signed out', () => {
     await item.scrollIntoViewIfNeeded();
     const box = await item.boundingBox();
     await page.mouse.click(box!.x + box!.width - 20, box!.y + box!.height - 12);
-    await expect(page).toHaveURL(/\/concursuri\/a6xjl65ooe9eadrtvvqj9hn1/);
+    await expect(page).toHaveURL(new RegExp(competitionPath('a6xjl65ooe9eadrtvvqj9hn1')));
   });
 
   test('competitions-list.cards.c2 competitions-list.cards.c4 — the poster (banner), LIVE pill + date line; a click on the poster opens the competition', async ({ page }) => {
@@ -394,7 +396,7 @@ test.describe('signed out', () => {
     await expect(item.getByRole('button', { name: /afiș|imaginea/i })).toHaveCount(0);
     // force: the card's stretched link lies over the poster and takes the click (that is the point).
     await poster.click({ force: true });
-    await expect(page).toHaveURL(new RegExp(`/concursuri/${dto.documentId}$`));
+    await expect(page).toHaveURL(new RegExp(`${competitionPath(dto.documentId)}$`));
     await expect(page.getByRole('dialog')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
