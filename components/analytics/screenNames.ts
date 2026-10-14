@@ -36,6 +36,8 @@ export const WEB_SCREEN_NAMES: Record<string, Name> = {
   '/setari/notificari/concursuri': 'Notification Preferences',
   '/notificari': 'Notifications Page',
   '/cookie-uri': 'CMP Personalize',
+  '/termeni': 'Terms Page',
+  '/confidentialitate': 'Privacy Policy Page',
   '/[...rest]': 'Not Found',
 
   // Anglers
