@@ -918,6 +918,7 @@ export function RankingSheet({
   sponsors,
   width,
   height,
+  fontFamily = 'Nunito',
 }: {
   model: RankingImageModel;
   tokens: ImageTokens;
@@ -926,6 +927,8 @@ export function RankingSheet({
   sponsors: string[];
   width: number;
   height: number;
+  /** Satori's registered «Nunito»; the browser (DownloadRankingButton) passes the page's next/font face. */
+  fontFamily?: string;
 }) {
   const ctx: Ctx = { tokens, sectorColor: letter => tokens.sectors[letter.toUpperCase()] ?? tokens.muted };
   const t = model.table;
@@ -938,7 +941,7 @@ export function RankingSheet({
         height,
         padding: u(PAD),
         backgroundColor: tokens.surface,
-        fontFamily: 'Nunito',
+        fontFamily,
         color: tokens.ink,
       }}
     >

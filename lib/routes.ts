@@ -253,6 +253,9 @@ export const routes = {
   /** The PNG itself (the same `query`): what the image page shows, «Descarcă» saves and «Distribuie» shares. */
   competitionRankingImageFile: (documentId: string, query = '') =>
     `/concursuri/${encodeURIComponent(documentId)}/clasament/imagine/png${query}`,
+  /** What the PNG is drawn from, as JSON (the same `query`): the browser draws the sheet itself (DownloadRankingButton). */
+  competitionRankingImageData: (documentId: string, query = '') =>
+    `/concursuri/${encodeURIComponent(documentId)}/clasament/imagine/data${query}`,
   /** The Clasament's Statistici view (competition-page.statistici). */
   competitionStatistics: (documentId: string) => `/concursuri/${encodeURIComponent(documentId)}/statistici`,
   /** The Clasament's «Toți peștii» view (competition-page.toti-pestii). */

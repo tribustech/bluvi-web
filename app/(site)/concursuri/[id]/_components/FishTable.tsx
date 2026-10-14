@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ME_ROW } from '@/components/ranking/RankingTable';
 import { cn } from '@/components/ui/cn';
 
@@ -47,19 +47,23 @@ const STAND_CELL_PADDING = 16;
 const STAND_MIN_WIDTH = 60;
 const STAND_MAX_WIDTH = 140;
 
-/** `wide`: the desktop widths (see the header). */
+/**
+ * `wide`: the desktop widths (see the header). Owner 2026-10-13: tighter, so a many-column ranking
+ * (manșe, best of, extra scales) fits the page instead of scrolling — number columns 68, the
+ * participant 160–260, the stand and the padding trimmed.
+ */
 const WIDE = {
-  cell: 80,
-  char: 7,
-  dynamicPadding: 48,
+  cell: 68,
+  char: 6.5,
+  dynamicPadding: 32,
   /** The face (32) and its gap (8) beside the name. */
   lead: 40,
-  participantMin: 180,
-  participantMax: 320,
-  standChar: 8,
-  standPadding: 28,
-  standMin: 72,
-  standMax: 150,
+  participantMin: 160,
+  participantMax: 260,
+  standChar: 7.5,
+  standPadding: 20,
+  standMin: 64,
+  standMax: 130,
 };
 
 export type FishColumn = {
@@ -215,122 +219,148 @@ export function FishTable({
   // (never under its measured width), so the numbers keep their 80px and never go sparse.
   const flex = wide ? columns.findIndex(c => c.key === 'participant') : -1;
   const widthOf = (i: number): CSSProperties => (i === flex ? { minWidth: widths[i] } : px(widths[i]));
+  const scroller = useRef<HTMLDivElement>(null);
+  const [moreRight, setMoreRight] = useState(false);
+  const measureMore = () => {
+    const el = scroller.current;
+    if (el) setMoreRight(el.scrollWidth - el.scrollLeft - el.clientWidth > 2);
+  };
+  useEffect(() => {
+    if (!wide) return;
+    const el = scroller.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      setMoreRight(el.scrollWidth - el.scrollLeft - el.clientWidth > 2);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [wide]);
 
   return (
-    <div
-      role="region"
-      aria-label={caption}
-      tabIndex={0}
-      data-fish-colours=""
-      data-natural-width={total}
-      className={cn(
-        // fish ScrollView horizontal: no scrollbar, no bounce. Wide: the mouse needs the scrollbar.
-        'w-full overflow-x-auto overscroll-x-none bg-rank-base',
-        wide ? '[scrollbar-width:thin]' : '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-        'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent',
-        className,
-      )}
-    >
-      <table
-        className="table-fixed border-separate border-spacing-0 text-center"
-        style={flex >= 0 ? { width: '100%', minWidth: total } : { width: total }}
+    // Wide: the right edge fades while columns are hidden past it (owner 2026-10-13: the scroll must
+    // read as one) — a hint over the card's edge, gone once the last column is in view.
+    <div data-more-right={wide && moreRight ? '' : undefined} className="relative after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:z-above after:w-10 after:bg-linear-to-l after:from-ink/12 after:to-transparent after:opacity-0 after:transition-opacity after:content-[''] data-more-right:after:opacity-100">
+      <div
+        ref={scroller}
+        onScroll={wide ? measureMore : undefined}
+        role="region"
+        aria-label={caption}
+        tabIndex={0}
+        data-fish-colours=""
+        data-natural-width={total}
+        className={cn(
+          // fish ScrollView horizontal: no scrollbar, no bounce. Wide: the mouse needs the scrollbar.
+          'w-full overflow-x-auto overscroll-x-none bg-rank-base',
+          // Wide (owner 2026-10-13: «să fie mai vizibil scrollul»): a scrollbar that is always drawn —
+          // macOS hides overlay bars until a scroll starts; a styled bar stays — in the Bluvi tint.
+          wide
+            ? '[scrollbar-color:var(--color-accent-tint-3)_var(--color-soft-fill)] [scrollbar-width:auto] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-soft-fill [&::-webkit-scrollbar-thumb]:bg-accent-tint-3 hover:[&::-webkit-scrollbar-thumb]:bg-accent [&::-webkit-scrollbar-track]:bg-soft-fill'
+            : '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+          'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent',
+          className,
+        )}
       >
-        <caption className="sr-only">{caption}</caption>
-        <colgroup>
-          {widths.map((w, i) => (
-            <col key={columns[i].key} style={i === flex ? undefined : { width: w }} />
-          ))}
-        </colgroup>
-        <thead>
-          <tr className={wide ? 'h-14' : 'h-15'}>
-            {columns.map((col, i) => (
-              <th
-                key={col.key}
-                scope="col"
-                style={widthOf(i)}
-                className={cn(
-                  CELL,
-                  'font-semibold! break-words',
-                  wide ? 'h-14 px-2 t-caption' : 'h-15',
-                  col.isTier ? 'bg-fish-rk-tier-head text-fish-rk-tier-head-ink' : 'bg-fish-rk-head text-fish-rk-head-ink',
-                  // fish: the Stand head in caption (12), the others in micro (10).
-                  i === 0 ? 'sticky left-0 z-above t-caption' : !wide && 't-micro',
-                )}
-              >
-                {col.title}
-              </th>
+        <table
+          className="table-fixed border-separate border-spacing-0 text-center"
+          style={flex >= 0 ? { width: '100%', minWidth: total } : { width: total }}
+        >
+          <caption className="sr-only">{caption}</caption>
+          <colgroup>
+            {widths.map((w, i) => (
+              <col key={columns[i].key} style={i === flex ? undefined : { width: w }} />
             ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(row => {
-            const solid = row.solid ?? row.winner;
-            return (
-              <tr
-                key={row.key}
-                data-stand-id={row.standId}
-                data-registration={row.registrationId}
-                data-winner={row.winner || undefined}
-                data-solid={solid || undefined}
-                data-me={row.me || undefined}
-                {...row.attrs}
-                style={{ '--sector': row.color } as CSSProperties}
-                className={cn(wide ? 'h-12' : 'h-10', row.me && ME_ROW)}
-              >
-                {/* fish FrozenFirstCell: white, caption bold black, the sector's 4px left border. */}
-                <td
-                  style={{ ...px(widths[0]), borderLeftColor: row.color }}
+          </colgroup>
+          <thead>
+            <tr className={wide ? 'h-14' : 'h-15'}>
+              {columns.map((col, i) => (
+                <th
+                  key={col.key}
+                  scope="col"
+                  style={widthOf(i)}
                   className={cn(
                     CELL,
-                    'sticky left-0 z-above border-l-4 bg-rank-base font-bold! text-rank-on-light',
-                    wide ? 'h-12 px-2 t-table' : 'h-10 t-caption',
+                    'font-semibold! break-words',
+                    wide ? 'h-14 px-1.5 t-caption' : 'h-15',
+                    col.isTier ? 'bg-fish-rk-tier-head text-fish-rk-tier-head-ink' : 'bg-fish-rk-head text-fish-rk-head-ink',
+                    // fish: the Stand head in caption (12), the others in micro (10).
+                    i === 0 ? 'sticky left-0 z-above t-caption' : !wide && 't-micro',
                   )}
                 >
-                  {row.standSr ? <span className="sr-only">{row.standSr}</span> : null}
-                  <span aria-hidden={row.standSr ? true : undefined} className="block truncate">
-                    {row.stand}
-                  </span>
-                </td>
-                {row.cells.map((cell, ci) => {
-                  const Tag = cell.rowHeader ? 'th' : 'td';
-                  const fill = cell.fill ?? 'sector';
-                  return (
-                    <Tag
-                      key={columns[ci + 1]?.key ?? ci}
-                      scope={cell.rowHeader ? 'row' : undefined}
-                      data-fill=""
-                      {...cell.attrs}
-                      style={widthOf(ci + 1)}
-                      className={cn(
-                        CELL,
-                        'relative',
-                        wide ? 'h-12 px-2 t-table' : 'h-10 t-caption',
-                        // fish: 500, bold on the gold and the won-at cell (fillClass).
-                        fill !== 'biggest' && fill !== 'tierWin' && 'font-medium!',
-                        fillClass(fill, solid, solid),
-                      )}
-                    >
-                      {fill === 'grey' ? (
-                        cell.content
-                      ) : (
-                        <span className={cn('flex min-w-0 items-center gap-1', cell.lead ? 'justify-start gap-2 text-left' : 'justify-center')}>
-                          {cell.lead}
-                          <span className="min-w-0 truncate">{cell.content}</span>
-                          {cell.after}
-                        </span>
-                      )}
-                      {cell.split ? (
-                        // fish: micro «SPLIT» at bottom -4, right 0 (white on a winner row).
-                        <sup className="absolute right-0 -bottom-1 t-micro leading-none">SPLIT</sup>
-                      ) : null}
-                    </Tag>
-                  );
-                })}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  {col.title}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(row => {
+              const solid = row.solid ?? row.winner;
+              return (
+                <tr
+                  key={row.key}
+                  data-stand-id={row.standId}
+                  data-registration={row.registrationId}
+                  data-winner={row.winner || undefined}
+                  data-solid={solid || undefined}
+                  data-me={row.me || undefined}
+                  {...row.attrs}
+                  style={{ '--sector': row.color } as CSSProperties}
+                  className={cn(wide ? 'h-12' : 'h-10', row.me && ME_ROW)}
+                >
+                  {/* fish FrozenFirstCell: white, caption bold black, the sector's 4px left border. */}
+                  <td
+                    style={{ ...px(widths[0]), borderLeftColor: row.color }}
+                    className={cn(
+                      CELL,
+                      'sticky left-0 z-above border-l-4 bg-rank-base font-bold! text-rank-on-light',
+                      wide ? 'h-12 px-1.5 t-table' : 'h-10 t-caption',
+                    )}
+                  >
+                    {row.standSr ? <span className="sr-only">{row.standSr}</span> : null}
+                    <span aria-hidden={row.standSr ? true : undefined} className="block truncate">
+                      {row.stand}
+                    </span>
+                  </td>
+                  {row.cells.map((cell, ci) => {
+                    const Tag = cell.rowHeader ? 'th' : 'td';
+                    const fill = cell.fill ?? 'sector';
+                    return (
+                      <Tag
+                        key={columns[ci + 1]?.key ?? ci}
+                        scope={cell.rowHeader ? 'row' : undefined}
+                        data-fill=""
+                        {...cell.attrs}
+                        style={widthOf(ci + 1)}
+                        className={cn(
+                          CELL,
+                          'relative',
+                          wide ? 'h-12 px-1.5 t-table' : 'h-10 t-caption',
+                          // fish: 500, bold on the gold and the won-at cell (fillClass).
+                          fill !== 'biggest' && fill !== 'tierWin' && 'font-medium!',
+                          fillClass(fill, solid, solid),
+                        )}
+                      >
+                        {fill === 'grey' ? (
+                          cell.content
+                        ) : (
+                          <span className={cn('flex min-w-0 items-center gap-1', cell.lead ? 'justify-start gap-2 text-left' : 'justify-center')}>
+                            {cell.lead}
+                            <span className="min-w-0 truncate">{cell.content}</span>
+                            {cell.after}
+                          </span>
+                        )}
+                        {cell.split ? (
+                          // fish: micro «SPLIT» at bottom -4, right 0 (white on a winner row).
+                          <sup className="absolute right-0 -bottom-1 t-micro leading-none">SPLIT</sup>
+                        ) : null}
+                      </Tag>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

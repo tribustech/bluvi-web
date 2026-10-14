@@ -21,7 +21,7 @@ import { cn } from '@/components/ui/cn';
 import { FishTable } from './FishTable';
 import { MobileRanking, standardFishRows } from './MobileRanking';
 import { PRESSABLE_ROWS } from './rowPress';
-import { FullViewButtons, RANKING_TOOLBAR, useRankingPerson, useRankingRowPress } from './rankingShell';
+import { RANKING_TOOLBAR, useRankingPerson, useRankingRowPress } from './rankingShell';
 import { useRankingFaces } from './rankingFaces';
 import { isOfflineEmpty, OfflineState } from './offline';
 import { isTableRankingType, matchesRankingSearch, rowSector, sectorLetters, sectorsOf, type RankingSort, type RankingTableData } from './ranking';
@@ -49,7 +49,7 @@ export function RankingView({
   onSort,
   currentUserStandId = null,
   custom,
-  onFullView,
+  fullView,
   rankingType,
   onRowPress,
   sortNonce = 0,
@@ -61,8 +61,8 @@ export function RankingView({
   query: UseQueryResult<RankingResponse>;
   /** The competition core's ranking type (known before the ranking lands): the skeleton's shape. */
   rankingType?: string | null;
-  /** From 768: «Clasament complet» (every column on the whole screen), in the table's toolbar. */
-  onFullView: () => void;
+  /** From 768: «Descarcă clasament» (rankingShell RankingDownloadButtons), in the table's toolbar. */
+  fullView?: ReactNode;
   /** A ranking type with its own table (feeder legs, the club rankings): drawn by the screen. */
   custom: ReactNode;
   table: RankingTableData | null;
@@ -102,7 +102,7 @@ export function RankingView({
         {/* Every Sortare pick (the bar) starts the table over, scrolled back to its left edge. */}
         <MobileRanking key={sortNonce} columns={table.columns} rows={table.rows} onRowPress={onRowPress} />
       </div>
-      <DesktopRanking table={table} placeTable={placeTable} sort={sort} onSort={onSort} currentUserStandId={currentUserStandId} onFullView={onFullView} onRowPress={onRowPress} />
+      <DesktopRanking table={table} placeTable={placeTable} sort={sort} onSort={onSort} currentUserStandId={currentUserStandId} fullView={fullView} onRowPress={onRowPress} />
     </>
   );
 }
@@ -161,7 +161,7 @@ function DesktopRanking({
   sort,
   onSort,
   currentUserStandId,
-  onFullView,
+  fullView,
   onRowPress,
 }: {
   currentUserStandId: string | null;
@@ -171,7 +171,7 @@ function DesktopRanking({
   placeTable: RankingTableData;
   sort: RankingSort;
   onSort: (sort: RankingSort) => void;
-  onFullView: () => void;
+  fullView?: ReactNode;
   onRowPress?: (standId: string) => void;
 }) {
   const section = useRef<HTMLElement>(null);
@@ -239,7 +239,7 @@ function DesktopRanking({
   // card is as wide as the table; when the table is narrower, the second group wraps under the first.
   const toolbar = (
     <div className={cn(RANKING_TOOLBAR, 'flex-wrap [contain:inline-size]')}>
-      <div className="flex max-w-full min-w-0 flex-[1_1_auto] flex-wrap items-center gap-3">
+      <div className="flex max-w-full flex-[0_1_auto] flex-wrap items-center gap-3">
         <SegmentedControl<Mode>
           label="Afișare"
           name="ranking-mode"
@@ -261,12 +261,15 @@ function DesktopRanking({
         />
         {sectorSelect(cn('w-44', !selectSectors && 'xl:hidden', selectSectors && 'xl:w-50'))}
         {!selectSectors ? (
-          <div className="min-w-0 flex-1 max-xl:hidden">
+          // Never squeezed (a cut «Toate» read as broken): short of room the search group wraps under.
+          <div className="w-max max-w-full shrink-0 max-xl:hidden">
             <ChoiceChips name="ranking-sector" label="Filtru sector" options={sectorChoices} value={sector} onChange={setSector} />
           </div>
         ) : null}
       </div>
-      <div className="flex min-w-0 flex-[1_1_--spacing(80)] items-center justify-end gap-3">
+      {/* Never narrower than its content (owner 2026-10-13: the search slid over the sector chips):
+          short of room the group wraps under the first, on its own line. */}
+      <div className="flex min-w-max flex-[1_1_auto] items-center justify-end gap-3">
         <TextInput
           type="search"
           label="Caută pescar sau stand"
@@ -278,7 +281,7 @@ function DesktopRanking({
           // Never squeezed under its placeholder: short of room the group wraps under the first.
           className="min-w-60 flex-1 [&>label]:sr-only"
         />
-        <FullViewButtons onPress={onFullView} />
+        {fullView}
       </div>
     </div>
   );

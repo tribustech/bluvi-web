@@ -3,10 +3,9 @@
 import { Suspense, useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import { useParams } from 'next/navigation';
 import { notifyManager, useQueryClient } from '@tanstack/react-query';
-import { ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { competitionsKeys, getRegistrationByStandId, type CompetitionWithMyStatus } from '@/core/competitions';
-import { IconButton } from '@/components/nav/IconButton';
-import { Button } from '@/components/ui/Button';
+import { DownloadRankingButton } from '../clasament/imagine/DownloadRankingButton';
 import { cn } from '@/components/ui/cn';
 import { isUnknownViewer, useViewerState, type ViewerState } from '../../../_shell/viewer-context';
 import { PersonPopover, usePersonPopover, usePersonPopoverEnabled } from './PersonPopover';
@@ -55,26 +54,30 @@ export function RankingCard({
 }
 
 /**
- * «Clasament complet» in the band (RankingView's pattern): the labelled button from 1280, the
- * full-screen icon 768–1279; none on the phone (the action bar has it).
+ * «Descarcă clasament» in the band (owner 2026-10-13: the full-screen «Clasament complet» repeated the
+ * table on the page — the table now fits the page — so the band's action is the image itself, drawn
+ * in the browser in about a second: clasament/imagine/DownloadRankingButton). Labelled from 1280,
+ * the icon alone 768–1279; none on the phone (fish's bar keeps «Vezi full»). `query` names the table
+ * shown (clasament/imagine/model imageQueryString), so the file is the table on screen.
  */
-export function FullViewButtons({ onPress, disabled = false }: { onPress: () => void; disabled?: boolean }) {
+export function RankingDownloadButtons({ id, query, disabled = false, onPress }: { id: string; query: string; disabled?: boolean; onPress?: () => void }) {
   return (
-    <>
-      <Button variant="secondary" icon={<ArrowsPointingOutIcon />} onClick={onPress} disabled={disabled} className="shrink-0 max-xl:hidden">
-        Clasament complet
-      </Button>
-      <IconButton
-        aria-label="Clasament complet"
-        title="Clasament complet"
-        onClick={onPress}
+    <span className="contents" onClickCapture={onPress}>
+      <DownloadRankingButton id={id} query={query} disabled={disabled} variant="secondary" icon={<ArrowDownTrayIcon />} className="shrink-0 max-xl:hidden">
+        Descarcă clasament
+      </DownloadRankingButton>
+      <DownloadRankingButton
+        id={id}
+        query={query}
         disabled={disabled}
-        size="size-11"
+        variant="secondary"
+        icon={<ArrowDownTrayIcon />}
+        title="Descarcă clasament"
         className="shrink-0 max-md:hidden xl:hidden"
       >
-        <ArrowsPointingOutIcon aria-hidden />
-      </IconButton>
-    </>
+        <span className="sr-only">Descarcă clasament</span>
+      </DownloadRankingButton>
+    </span>
   );
 }
 

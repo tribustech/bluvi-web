@@ -85,7 +85,7 @@ import type { PageViewer } from './Follow';
 import { FullFishTables, FullRankingDialog } from './FullRankingDialog';
 import { imageQueryFor, imageQueryString } from '../clasament/imagine/model';
 import { trackRankingImage } from '../clasament/imagine/analytics';
-import { FullViewButtons, RankingCard } from './rankingShell';
+import { RankingCard, RankingDownloadButtons } from './rankingShell';
 import { CompetitionPreview } from './Preview';
 import { buildRankingTable, rawWeightDecimals, weightDecimals, type RankingSort } from './ranking';
 import { RankingView } from './RankingView';
@@ -696,6 +696,17 @@ function Screen({
         : [SORT_OPTION.stand, SORT_OPTION.position]
       : [SORT_OPTION.stand, SORT_OPTION.position];
   const ncSectorName = ncView === 'general' ? null : (competition.sectors.find(s => s.documentId === ncView)?.name ?? null);
+  // From 768 the band's action (owner 2026-10-13): the image of the table on screen, drawn in the
+  // browser (rankingShell RankingDownloadButtons). The phone keeps fish's «Vezi full» (the bar).
+  const imageQuery = imageQueryString(imageQueryFor({ rankingType: metadata?.rankingType, sortBy, feederTab, ncSectorName, ncSort }));
+  const downloadButtons = (
+    <RankingDownloadButtons
+      id={urlId}
+      query={imageQuery}
+      disabled={fullViewDisabled}
+      onPress={() => trackRankingImage('ranking_image_pressed', { id, name: competition.name })}
+    />
+  );
   const fullSubtitle = feeder
     ? feederTab === 'general'
       ? 'Clasament general'
@@ -922,11 +933,11 @@ function Screen({
                                   className="min-w-0 flex-1 max-md:hidden"
                                   toolbar={
                                     <>
-                                      {/* The chips and their «?» together at the left; «Clasament complet» at the far end. */}
+                                      {/* The chips and their «?» together at the left; «Descarcă clasament» at the far end. */}
                                       <div className="min-w-0 flex-1">
                                         <FeederLegTabs data={feeder} value={feederTab} onChange={setChosenFeederTab} onHelp={() => setFeederHelpOpen(true)} />
                                       </div>
-                                      <FullViewButtons onPress={() => setFullOpen(true)} disabled={fullViewDisabled} />
+                                      {downloadButtons}
                                     </>
                                   }
                                 >
@@ -973,7 +984,7 @@ function Screen({
                                       <div className="shrink-0">
                                         <NcSortControl view={ncView} value={ncSort} onChange={setNcSort} />
                                       </div>
-                                      <FullViewButtons onPress={() => setFullOpen(true)} disabled={fullViewDisabled} />
+                                      {downloadButtons}
                                     </>
                                   }
                                 >
@@ -1000,7 +1011,7 @@ function Screen({
                           onSort={setSortBy}
                           currentUserStandId={me.standId}
                           rankingType={competition.rankingType}
-                          onFullView={() => setFullOpen(true)}
+                          fullView={downloadButtons}
                           onRowPress={standId => openAngler(`s:${standId}`)}
                         />
                       )}
@@ -1176,12 +1187,7 @@ function Screen({
         imageHref={
           fullViewDisabled
             ? undefined
-            : routes.competitionRankingImage(
-                urlId,
-                imageQueryString(
-                  imageQueryFor({ rankingType: metadata?.rankingType, sortBy, feederTab, ncSectorName, ncSort }),
-                ),
-              )
+            : routes.competitionRankingImage(urlId, imageQuery)
         }
         onImage={() => trackRankingImage('ranking_image_pressed', { id, name: competition.name })}
       >

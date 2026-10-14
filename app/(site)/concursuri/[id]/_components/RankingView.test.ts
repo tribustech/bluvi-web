@@ -16,7 +16,7 @@ const query = (q: Partial<Query>): Query => ({ isPending: false, isError: false,
 
 const render = (q: Query, rankingType: string | null = 'quantity') =>
   renderToStaticMarkup(
-    createElement(RankingView, { query: q, rankingType, table: null, placeTable: null, sort: 'stand', onSort: () => {}, custom: null, onFullView: () => {} }),
+    createElement(RankingView, { query: q, rankingType, table: null, placeTable: null, sort: 'stand', onSort: () => {}, custom: null }),
   );
 
 describe('RankingView states', () => {
