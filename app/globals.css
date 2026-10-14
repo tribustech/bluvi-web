@@ -50,7 +50,8 @@
  *
  * Semantic colors are CSS variables so the proposed dark palette can swap them under
  * [data-theme="dark"]. Dark is PREPARED ONLY (2026-10-03): nothing sets the attribute yet and
- * prefers-color-scheme is deliberately not wired.
+ * prefers-color-scheme is deliberately not wired. `only light` (2026-10-14): Samsung Internet's and
+ * Chrome's forced dark mode darkened every page on phones set to dark; the keyword opts the site out.
  */
 
 :root {
@@ -239,7 +240,7 @@
   --bluvi-cookie-fish-pupil: #20263d;
   --bluvi-cookie-fish-cheek: #f9a8d4;
   --bluvi-font: var(--font-nunito), ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
-  color-scheme: light;
+  color-scheme: only light;
 }
 
 :root[data-theme="dark"] {
