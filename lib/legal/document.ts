@@ -25,5 +25,5 @@ export const OPERATOR = {
   cui: 'RO42291622',
   regCom: 'J2020002414403',
   address: 'Calea Vitan nr. 199, bl. 52, sc. 2, et. 3, ap. 37, cam. 1, Sector 3, București, România',
-  email: 'andrew.radulescu@wearetribus.com',
+  email: 'contact@bluvi.ro',
 } as const;
