@@ -440,16 +440,11 @@ test('competition-page.clasament.c32 competition-page.bara-actiuni.c2 competitio
   await expect(bar.getByRole('button', { name: 'Sortare clasament' })).toHaveCount(0);
 });
 
-test('competition-page.bara-actiuni.c6 competition-page.clasament.s10 — feeder: «Tot ecranul» opens the open tab full screen (Manșa 2)', async ({ page }) => {
+test('competition-page.bara-actiuni.c6 competition-page.clasament.s10 — feeder: «Vezi full» opens the ranking image of the open tab (Manșa 2), as fish', async ({ page }) => {
   await open(page, ID.feeder, PHONE);
   await pick(legChips(page), 'Manșa 2');
   await page.getByRole('button', { name: 'Vezi clasamentul pe tot ecranul' }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog.getByText('Manșa 2', { exact: true })).toBeVisible();
-  await expect(dialog.getByRole('region', { name: 'Manșa 2 complet' })).toBeVisible();
-  await axeAtRest(page);
-  await dialog.getByRole('button', { name: 'Închide' }).click();
-  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/clasament\/imagine\?mansa=2$/);
 });
 
 test('competition-page.clasament.c28 competition-page.clasament-nc.c1 — keyboard: the scrolling ranking regions show their focus ring (outline-style solid)', async ({ page }) => {

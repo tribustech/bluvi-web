@@ -83,7 +83,6 @@ import { CompetitionHeader, shareText } from './CompetitionHeader';
 import { CompetitionStickyTabs } from './CompetitionStickyTabs';
 import { DesktopStats, entrantCounts, weighingTileTone } from './DesktopStats';
 import type { PageViewer } from './Follow';
-import { FullFishTables, FullRankingDialog } from './FullRankingDialog';
 import { imageQueryFor, imageQueryString } from '../clasament/imagine/model';
 import { trackRankingImage } from '../clasament/imagine/analytics';
 import { RankingCard, RankingDownloadButtons } from './rankingShell';
@@ -313,7 +312,6 @@ function Screen({
   // bar names even after a header sort (fish's Sortare always leaves the rows in that order).
   const [sortNonce, setSortNonce] = useState(0);
   const [barMessage, setBarMessage] = useState<string | null>(null);
-  const [fullOpen, setFullOpen] = useState(false);
 
   const live = status === 'started';
   const poll = { refetchInterval: live ? LIVE_POLL_MS : false } as const;
@@ -706,15 +704,6 @@ function Screen({
       onPress={() => trackRankingImage('ranking_image_pressed', { id, name: competition.name })}
     />
   );
-  const fullSubtitle = feeder
-    ? feederTab === 'general'
-      ? 'Clasament general'
-      : `Manșa ${feederTab}`
-    : nc
-      ? ncSectorName
-        ? `Sector ${ncSectorName}`
-        : 'Clasament pe cluburi'
-      : 'Clasament complet';
   // The bar's tiles (ActionBar.tsx): Înscrie-te before the start, the ranking tiles once there is a
   // ranking the web can show, Chat when signed in. Share is always the header's chip.
   // The other route tabs once it has started: fish's «Acțiuni» (a guest's sheet offers sign-in).
@@ -1122,7 +1111,11 @@ function Screen({
             sortOptions={sortOptions}
             onSort={changeSort}
             onView={selectView}
-            onFullView={() => setFullOpen(true)}
+            onFullView={() => {
+              // fish «Vezi full»: the ranking image (what «Descarcă clasamentul» draws from 768), not the table again.
+              trackRankingImage('ranking_image_pressed', { id, name: competition.name });
+              router.push(routes.competitionRankingImage(urlId, imageQuery));
+            }}
             fullViewDisabled={fullViewDisabled}
             registration={registration}
             registrationHref={registrationHref}
@@ -1176,53 +1169,6 @@ function Screen({
         />
       ) : null}
 
-      <FullRankingDialog
-        open={fullOpen}
-        onClose={() => setFullOpen(false)}
-        title={competition.name}
-        subtitle={fullSubtitle}
-        table={table}
-        currentUserStandId={me.standId}
-        imageHref={
-          fullViewDisabled
-            ? undefined
-            : routes.competitionRankingImage(urlId, imageQuery)
-        }
-        onImage={() => trackRankingImage('ranking_image_pressed', { id, name: competition.name })}
-      >
-        {feeder ? (
-          <FullFishTables
-            phone={
-              <FishFeederTable data={feeder} tab={feederTab} isTeam={competition.competitionType === 'team'} caption={`${fullSubtitle} complet`} />
-            }
-            wide={
-              <FishFeederTable
-                wide
-                data={feeder}
-                tab={feederTab}
-                isTeam={competition.competitionType === 'team'}
-                caption={`${fullSubtitle} complet`}
-              />
-            }
-          />
-        ) : nc ? (
-          <FullFishTables
-            phone={
-              <FishNcTable rankings={nc} numberOfSectors={metadata?.numberOfSectors} view={ncView} sort={ncSort} caption={`${fullSubtitle} complet`} />
-            }
-            wide={
-              <FishNcTable
-                wide
-                rankings={nc}
-                numberOfSectors={metadata?.numberOfSectors}
-                view={ncView}
-                sort={ncSort}
-                caption={`${fullSubtitle} complet`}
-              />
-            }
-          />
-        ) : null}
-      </FullRankingDialog>
       {/* From 768 the Extra-Cântar question is a dialog (the phone asks in the bar). */}
       {isDesktop ? (
         <Dialog

@@ -531,17 +531,11 @@ test('competition-page.clasament.c16 §4b.25 — on the phone the rows follow So
   await expect.poll(byPlace).toBe(true);
 });
 
-test('competition-page.clasament.c22 — in «Tot ecranul» on the phone the Stand column stays while the others scroll', async ({ page }) => {
+test('competition-page.clasament.c22 — «Vezi full» on the phone opens the ranking image (fish ranking-image), not the table again', async ({ page }) => {
   await open(page, ID.quality);
   await page.getByRole('button', { name: 'Vezi clasamentul pe tot ecranul' }).click();
-  const table = page.getByRole('region', { name: 'Clasament complet' });
-  await expect(table.locator('tbody tr').first()).toBeVisible();
-  const stand = table.locator('tbody tr').first().locator('td').first();
-  await expect(stand).toHaveCSS('position', 'sticky');
-  const before = (await stand.boundingBox())!.x;
-  await table.evaluate(r => (r.scrollLeft = 300));
-  await expect.poll(() => table.evaluate(r => r.scrollLeft)).toBeGreaterThan(0);
-  expect(Math.abs((await stand.boundingBox())!.x - before)).toBeLessThan(1);
+  await expect(page).toHaveURL(/\/clasament\/imagine(\?.*)?$/);
+  await expect(page.getByRole('button', { name: 'Descarcă clasamentul' }).first()).toBeVisible();
 });
 
 test('competition-page.clasament.c21 — catch cells past the sector minimum are grey and empty', async ({ page }) => {
