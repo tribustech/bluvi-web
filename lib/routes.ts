@@ -334,6 +334,9 @@ export const routes = {
   settings: () => '/setari',
   /** Cookie consent preferences, public (m8.consent; fish /cmp-personalize). Not under /setari: the proxy gates that for guests. */
   cookieSettings: () => '/cookie-uri',
+  /** The legal documents (lib/legal/*), on bluvi.ro since Termly dropped the hosted ones (2026-10-14). */
+  terms: () => '/termeni',
+  privacy: () => '/confidentialitate',
   notifications: () => '/notificari',
   /** Notification settings (account.notification-settings; fish /settings/notifications). */
   notificationSettings: () => '/setari/notificari',

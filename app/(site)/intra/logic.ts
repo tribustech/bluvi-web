@@ -29,9 +29,12 @@ export const SERVER_ERROR = 'Serverul Bluvi nu răspunde acum. Încearcă din no
 export const RATE_LIMIT_ERROR = 'Prea multe încercări. Așteaptă un minut și încearcă din nou.';
 export const LOCAL_ERROR = 'Email sau parolă greșită.';
 
-/** fish common/utils/constants.ts TERMS_AND_CONDITIONS_URL / PRIVACY_POLICY_URL. */
-export const TERMS_URL = 'https://app.termly.io/policy-viewer/policy.html?policyUUID=14bbf816-7403-4ab1-87e9-0d0dcdd4175a';
-export const PRIVACY_URL = 'https://app.termly.io/policy-viewer/policy.html?policyUUID=958c9787-3e75-4040-990d-cb6bf2c8b3e3';
+/**
+ * The legal documents, on bluvi.ro (lib/legal/*; fish common/utils/constants.ts points at the same
+ * pages). Until 2026-10-14 they were Termly-hosted, and Termly dropped them (410).
+ */
+export const TERMS_URL = '/termeni';
+export const PRIVACY_URL = '/confidentialitate';
 
 /**
  * c2 + c3: Apple, Google, Facebook in that order. A provider without its configuration is left

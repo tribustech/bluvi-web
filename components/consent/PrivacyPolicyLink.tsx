@@ -2,7 +2,7 @@ import { cn } from '@/components/ui/cn';
 import { COPY } from '@/lib/consent/catalog';
 import { PRIVACY_URL } from '@/app/(site)/intra/logic';
 
-/** «Politica de confidențialitate» (Termly, the policy /intra and /setari link to), in a new tab. */
+/** «Politica de confidențialitate» (/confidentialitate, the policy /intra and /setari link to), in a new tab. */
 export function PrivacyPolicyLink({ className }: { className?: string }) {
   return (
     <a

@@ -82,6 +82,8 @@ export function staticEntries(): Entry[] {
     { url: absoluteUrl(routes.competitions('notStarted')), changeFrequency: 'hourly', priority: 0.8 },
     { url: absoluteUrl(routes.competitions('completed')), changeFrequency: 'daily', priority: 0.6 },
     { url: absoluteUrl(routes.news()), changeFrequency: 'daily', priority: 0.6 },
+    { url: absoluteUrl(routes.terms()), changeFrequency: 'yearly', priority: 0.2 },
+    { url: absoluteUrl(routes.privacy()), changeFrequency: 'yearly', priority: 0.2 },
     { url: absoluteUrl(routes.partide()), changeFrequency: 'hourly', priority: 0.7 },
     // The community's current poll (participant.poll-current): a public page, its body read in the browser.
     { url: absoluteUrl(routes.polls()), changeFrequency: 'daily', priority: 0.4 },
