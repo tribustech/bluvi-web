@@ -171,6 +171,13 @@ describe('organizer api', () => {
     expect(res.meta.pagination).toEqual({ page: 1, pageSize: 10, pageCount: 1, total: 1 });
   });
 
+  it('accepts the deleted-author placeholder in the extra-scale list (bluvi-strapi#131)', async () => {
+    const placeholder = { ...extraScale, author: { documentId: null, username: 'Cont șters' } };
+    const { transport } = createFakeTransport([[placeholder, { ...extraScale, author: null }]]);
+    const list = await api.getExtraScalesList(transport, C);
+    expect(list.map(e => e.author?.username ?? null)).toEqual(['Cont șters', null]);
+  });
+
   it('strips author PII from the draft', async () => {
     const { transport } = createFakeTransport([{ data: competitionDoc }]);
     const draft = await api.getDraft(transport, 'd1');

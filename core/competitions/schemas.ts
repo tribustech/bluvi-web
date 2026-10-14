@@ -292,8 +292,9 @@ export const extraScaleSchema = z.object({
   ...idDoc,
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
-  // Null when the requesting account is gone.
-  author: z.object({ ...idDoc, username: z.string() }).nullable(),
+  // A deleted account: null on older CMS deploys, `{ documentId: null, username: 'Cont șters' }`
+  // (no id) since bluvi-strapi#131.
+  author: z.object({ id: z.number().optional(), documentId: z.string().nullable(), username: z.string() }).nullable(),
   // CMS enumeration is new | cancelled | done (fish types only new | cancelled).
   extraStatus: z.union([z.enum(['new', 'cancelled', 'done']), z.string()]),
   stand: z.object({
