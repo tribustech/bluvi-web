@@ -55,6 +55,7 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { Dialog } from '@/components/surfaces/Dialog';
 import { EmptyState, ErrorState } from '@/components/surfaces/StateCard';
 import { isApiError } from '@/core/transport';
+import { appLinks } from '@/lib/app-links';
 import { routes } from '@/lib/routes';
 import type { Viewer } from '@/lib/server/viewer';
 import { signInHref } from '../../../_shell/SiteHeader';
@@ -156,8 +157,6 @@ type Props = {
   tab?: CompetitionTab;
 };
 
-/** fish's universal link (AASA /competitions/*): the app on a phone, the stores page elsewhere. */
-const appLink = (id: string) => `https://bluvi-app.wearetribus.com/competitions/${encodeURIComponent(id)}`;
 
 /** A tab that comes back after this long re-reads the live parts (fish pull-to-refresh, parity clasament.c6). */
 const REFRESH_ON_RETURN_MS = 30_000;
@@ -856,7 +855,7 @@ function Screen({
           viewer={viewer}
           statute={statute}
           signIn={signInHref(pathname)}
-          appHref={appLink(id)}
+          appHref={appLinks.competition(id)}
         />
       ) : rankingVisible ? (
         // No side columns: the ranking table takes the whole column at every width (ROADMAP §4,
@@ -1258,7 +1257,7 @@ function AppOnlyState({ id, title }: { id: string; title: string }) {
     <DetailSectionState
       heading={title}
       description="Îl poți urmări în aplicația Bluvi."
-      action={<ButtonLink href={appLink(id)}>Deschide în aplicație</ButtonLink>}
+      action={<ButtonLink href={appLinks.competition(id)}>Deschide în aplicație</ButtonLink>}
     />
   );
 }

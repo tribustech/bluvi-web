@@ -6,7 +6,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
  * two store links from 1280. These assert that hand-over inside `scope`.
  */
 
-export const APP_ORIGIN = 'https://bluvi-app.wearetribus.com';
+export const APP_ORIGIN = 'https://app.bluvi.ro';
 export const APP_STORE = 'https://apps.apple.com/ro/app/bluvi-aplicatia-pescarilor/id6743083184';
 export const PLAY_STORE = 'https://play.google.com/store/apps/details?id=com.tribustech.bluvi';
 

@@ -1,17 +1,15 @@
 /**
  * fish `features/partide/helpers/deepLinks.ts`.
  *
- * Universal link that opens the read-only community spectator screen for a partidă, so a friend
- * can watch the session (live or finished). The https app-link (not the `bluvi://` scheme) opens
- * the app from messages and browsers; keyed by the Strapi `documentId`, not the local clientId.
- * The web answers the same path (parity partide.b.deep-link-spectate: /partide/comunitate/[id] →
- * /partide/[id]), so the link works wherever it is opened.
+ * The link that opens a partidă for a friend (live or finished): the web's partidă page on
+ * bluvi.ro, which opens the app's spectator screen where the app is installed (owner 2026-10-14:
+ * bluvi.ro replaces bluvi-app.wearetribus.com). Keyed by the Strapi `documentId`, not the local
+ * clientId.
  *
- * iOS: the AASA file's `paths` decide which paths open the app — `/partide/*` must be listed there
- * (server-side, bluvi-redirect-stores) for this link to open the app on iOS.
+ * iOS: the AASA's `paths` decide which paths open the app — `/partide/*` is listed
+ * (lib/app-site-association.ts); fish app/+native-intent.tsx maps /partide/{id} to its screen.
  */
-export const partidaSpectateDeepLink = (documentId: string): string =>
-  `https://bluvi-app.wearetribus.com/partide/comunitate/${documentId}`;
+export const partidaSpectateDeepLink = (documentId: string): string => `https://bluvi.ro/partide/${documentId}`;
 
 /**
  * Whether a partidă may be shared as a spectator link.
@@ -28,9 +26,9 @@ export const partidaShareMessage = (documentId: string): string => `Vezi partida
 
 /**
  * fish `components/CoopCard.tsx#partidaJoinDeepLink` — the universal link that opens the auto-join
- * screen for a co-op code (the web answers it at /partide/join/[cod] → /partide/intra/[cod]).
+ * screen for a co-op code (without the app, the web sends /partide/join/[cod] to the Partide hub).
  */
-export const partidaJoinDeepLink = (joinCode: string): string => `https://bluvi-app.wearetribus.com/partide/join/${joinCode}`;
+export const partidaJoinDeepLink = (joinCode: string): string => `https://bluvi.ro/partide/join/${joinCode}`;
 
 /** fish CoopCard onInvite: the message the «Invită» share sheet carries. */
 export const partidaInviteMessage = (joinCode: string): string =>

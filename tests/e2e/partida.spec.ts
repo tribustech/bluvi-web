@@ -372,7 +372,7 @@ test.describe('own vs spectator', () => {
  * The page — read-only (owner 2026-10-08, ROADMAP §4b rule 21): c1 c3 c4, the app hand-over
  * ---------------------------------------------------------------------------------------------- */
 
-const APP_PARTIDA = (documentId: string) => `https://bluvi-app.wearetribus.com/partide/comunitate/${documentId}`;
+const APP_PARTIDA = (documentId: string) => `https://app.bluvi.ro/partide/comunitate/${documentId}`;
 
 for (const width of [375, 1280, 1440, 1920] as const) {
   test(`partide.partida.c1 c4 live partidă at ${width}: header, recap, summary, the app hand-over — no tab, no run control — axe clean`, async ({ page, fakeLive }) => {
@@ -560,7 +560,7 @@ test('partide.partida.c3 share: «Distribuie partida» shares fish\'s message wi
   await page.getByTestId('partida-share').click();
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __shared?: { text: string } }).__shared?.text))
-    .toBe(`Vezi partida mea pe Bluvi 🎣 https://bluvi-app.wearetribus.com/partide/comunitate/${LIVE.documentId}`);
+    .toBe(`Vezi partida mea pe Bluvi 🎣 https://bluvi.ro/partide/${LIVE.documentId}`);
   await fakeLive.push(LIVE.clientId, liveDoc({ visibleOnProfile: false }));
   await expect(page.getByRole('button', { name: /Distribuie/ })).toHaveCount(0);
 });

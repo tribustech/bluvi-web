@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { APP_STORE, PLAY_STORE, SHARE_ORIGIN } from '@/lib/app-links';
 import { routes } from '@/lib/routes';
 import { safeNext } from '@/app/(site)/intra/logic';
 import { competitionRouteAction } from '@/lib/competition-slug-route';
@@ -21,6 +22,7 @@ import { getLakeSlugMap } from '@/lib/server/lake-slug-map';
  */
 export async function proxy(request: NextRequest) {
   const { pathname, search, searchParams } = request.nextUrl;
+  if (request.headers.get('host') === APP_HOST) return appHostRedirect(request);
   if (pathname.startsWith('/balti/')) return slugPath(request, lakeRouteAction(pathname, await getLakeSlugMap()), SIGNED_IN_LAKE_PAGE);
   if (pathname.startsWith('/concursuri/')) {
     return slugPath(request, competitionRouteAction(pathname, await getCompetitionSlugMap()), SIGNED_IN_COMPETITION_PAGE);
@@ -32,6 +34,22 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(safeNext(searchParams.get('next')) ?? routes.home(), request.url), 307);
   }
   return NextResponse.redirect(new URL(routes.signIn(`${pathname}${search}`), request.url), 307);
+}
+
+/** The «Deschide în aplicație» host (lib/app-links.ts APP_ORIGIN). */
+const APP_HOST = 'app.bluvi.ro';
+
+/**
+ * app.bluvi.ro without the app: with the app installed, iOS and Android open it before any request
+ * reaches us (the host's AASA / assetlinks, app/.well-known/*), so whoever lands here has no app —
+ * a phone goes to its store (what bluvi-app.wearetribus.com did), anything else to the same path on
+ * bluvi.ro, whose next.config redirects turn the app's paths into the site's.
+ */
+function appHostRedirect(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+  const ua = request.headers.get('user-agent') ?? '';
+  const target = /iPhone|iPad|iPod/.test(ua) ? APP_STORE : /android/i.test(ua) ? PLAY_STORE : `${SHARE_ORIGIN}${pathname}${search}`;
+  return NextResponse.redirect(target, 307);
 }
 
 /** The lake pages that need an account (booking flow, review form) — the gate's other entries' rule. */
@@ -63,6 +81,8 @@ function slugPath(request: NextRequest, action: SlugRouteAction, signedInPage: R
 
 export const config = {
   matcher: [
+    // app.bluvi.ro: every path but its /.well-known files goes on (appHostRedirect).
+    { source: '/((?!\\.well-known/).*)', has: [{ type: 'host', value: 'app.bluvi.ro' }] },
     // /intra with a session cookie: the signed-in visitor leaves the sign-in (see proxy above).
     { source: '/intra', has: [{ type: 'cookie', key: 'bluvi_session' }] },
     // /setari and below: settings, edit profile (M2).

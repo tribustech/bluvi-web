@@ -3,10 +3,10 @@ import { partidaInviteMessage, partidaJoinDeepLink, partidaShareMessage, partida
 
 describe('partidaSpectateDeepLink (fish helpers/deepLinks.ts)', () => {
   it('is the universal link on the app domain, keyed by documentId', () => {
-    expect(partidaSpectateDeepLink('abc123')).toBe('https://bluvi-app.wearetribus.com/partide/comunitate/abc123');
+    expect(partidaSpectateDeepLink('abc123')).toBe('https://bluvi.ro/partide/abc123');
   });
   it('the share message is fish’s', () => {
-    expect(partidaShareMessage('abc')).toBe('Vezi partida mea pe Bluvi 🎣 https://bluvi-app.wearetribus.com/partide/comunitate/abc');
+    expect(partidaShareMessage('abc')).toBe('Vezi partida mea pe Bluvi 🎣 https://bluvi.ro/partide/abc');
   });
 });
 
@@ -27,11 +27,11 @@ describe('shareVisible', () => {
 
 describe('partidaJoinDeepLink / partidaInviteMessage (fish components/CoopCard.tsx)', () => {
   it('is the join universal link keyed by the code', () => {
-    expect(partidaJoinDeepLink('K7M2QX')).toBe('https://bluvi-app.wearetribus.com/partide/join/K7M2QX');
+    expect(partidaJoinDeepLink('K7M2QX')).toBe('https://bluvi.ro/partide/join/K7M2QX');
   });
   it('the invite message is fish’s', () => {
     expect(partidaInviteMessage('K7M2QX')).toBe(
-      'Hai în partida mea pe Bluvi! Folosește codul K7M2QX sau deschide linkul: https://bluvi-app.wearetribus.com/partide/join/K7M2QX',
+      'Hai în partida mea pe Bluvi! Folosește codul K7M2QX sau deschide linkul: https://bluvi.ro/partide/join/K7M2QX',
     );
   });
 });
