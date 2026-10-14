@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
   title: { default: 'Bluvi', template: '%s · Bluvi' },
   description: 'Concursuri de pescuit, bălți și partide — Bluvi.',
+  // iOS Safari's Smart App Banner (Deschide / Obține), lib/app-links.ts APP_STORE.
+  itunes: { appId: '6743083184' },
 };
 
 /*

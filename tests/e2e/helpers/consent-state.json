@@ -11,5 +11,15 @@
       "sameSite": "Lax"
     }
   ],
-  "origins": []
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "@bluvi/open-in-app/answered-at/v1",
+          "value": "9999999999999"
+        }
+      ]
+    }
+  ]
 }

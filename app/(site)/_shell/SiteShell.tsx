@@ -5,6 +5,7 @@ import { ForcedSession, type ForcedSessionRule } from './ForcedSession';
 import { getShellSession, getViewerState } from './session';
 import { NavigationGuard } from './NavigationGuard';
 import { NetworkBanner } from './NetworkBanner';
+import { OpenInAppSheet } from './OpenInAppSheet';
 import { ScrollLockGuard } from './ScrollLockGuard';
 import { BottomTabBar } from './BottomTabBar';
 import { BreadcrumbProvider, PageBreadcrumbs } from './SiteHeader';
@@ -85,6 +86,11 @@ export function SiteShell({ children, forced }: { children: ReactNode; forced?: 
             </main>
             <BottomTabBar />
           </div>
+          {/* Phones: «Deschide în aplicație / Continuă în browser», quiet 3 days after an answer
+              (usePathname: in its own Suspense, so it never makes a page dynamic). */}
+          <Suspense fallback={null}>
+            <OpenInAppSheet />
+          </Suspense>
         </BreadcrumbProvider>
       </ToastProvider>
     </ViewerProvider>

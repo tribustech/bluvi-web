@@ -17,6 +17,7 @@ export default defineConfig({
     baseURL: BASE_URL,
     trace: 'retain-on-failure',
     // A decided, all-refused cookie consent (m8.consent), so no spec sees the banner; consent.spec.ts clears it.
+    // And the «Deschide în aplicație» sheet answered (lib/open-in-app.ts), so the iPhone projects never see it.
     storageState: 'tests/e2e/helpers/consent-state.json',
   },
   projects: [
