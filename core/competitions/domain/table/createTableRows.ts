@@ -37,6 +37,8 @@ export type CatchCell =
       weight: string;
       isSplit?: boolean;
       isBiggest?: boolean;
+      /** Best-of tables show every fish; true on the ones that count for the ranking. */
+      inTop?: boolean;
       /** True on every bestOfTiers "Best N" cell, so the table can render the block as one band. */
       isTier?: boolean;
       /** True on the single "Best N" cell where this competitor won their place. */
@@ -210,15 +212,43 @@ export const createQualityQuantityRow = (
   sectorMinNumberOfFish: ranking.sectorMinNumberOfFish,
 });
 
+/**
+ * Catch cells for the best-of tables, which show every fish of the stand: the ones that count for
+ * the ranking carry `inTop` so the table colors them apart.
+ */
+const createAllCatchesEntries = (
+  standId: string | number,
+  catches: { weight: number; inTop?: boolean; isSplit?: boolean }[],
+  maxCatchesToShow: number,
+  context: RowContext,
+): Record<string, CatchCell> => {
+  const ownsBiggest = context.biggestStandId != null && String(standId) === String(context.biggestStandId);
+  const entries: Record<string, CatchCell> = {};
+  catches.slice(0, maxCatchesToShow).forEach((catch_, index) => {
+    const weight = catch_.weight.toFixed(3);
+    const isBiggest = ownsBiggest && context.biggestWeight != null && catch_.weight === context.biggestWeight;
+    const flags = {
+      ...(catch_.inTop ? { inTop: true } : {}),
+      ...(catch_.isSplit ? { isSplit: true } : {}),
+      ...(isBiggest ? { isBiggest: true } : {}),
+    };
+    entries[`catch${index + 1}`] = Object.keys(flags).length > 0 ? { weight, ...flags } : weight;
+  });
+  return entries;
+};
+
 export const createBestOfRow = (
   ranking: BestOfStandRanking,
-  bestOfFishCount: number,
+  catchColumnCount: number,
   sectorColors: Record<string, string>,
   context: RowContext,
 ): BestOfRowType => {
   return {
     ...createBaseRow(ranking, sectorColors, context),
-    ...createCatchesEntries(ranking, bestOfFishCount, context),
+    // An older CMS sends only the top-N fish (`catches`); then the table shows just those, as before.
+    ...(ranking.allCatches
+      ? createAllCatchesEntries(ranking.standId, ranking.allCatches, catchColumnCount, context)
+      : createCatchesEntries(ranking, catchColumnCount, context)),
     bestOfCount: ranking.bestOfCount || 0,
     topNCatchesAvarage: kg(ranking.topNCatchesAvarage),
   };
@@ -298,16 +328,7 @@ export const createBestOfTiersRow = (
   context: RowContext,
   tiers: number[] = [],
 ): BestOfTiersRowType => {
-  const ownsBiggest =
-    context.biggestStandId != null && String(ranking.standId) === String(context.biggestStandId);
-  const catchEntries: Record<string, CatchCell> = {};
-  for (let i = 0; i < catchColumnCount; i++) {
-    const c = ranking.catches?.[i];
-    if (c === undefined) continue;
-    const weight = c.weight.toFixed(3);
-    const isBiggest = ownsBiggest && context.biggestWeight != null && c.weight === context.biggestWeight;
-    catchEntries[`catch${i + 1}`] = isBiggest ? { weight, isBiggest: true } : weight;
-  }
+  const catchEntries = createAllCatchesEntries(ranking.standId, ranking.catches ?? [], catchColumnCount, context);
 
   // One cell per tier: the average of the top N catches, or 0.000 when the competitor never
   // reached N catches. Every cell carries isTier so the table renders the block as one band;

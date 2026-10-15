@@ -47,6 +47,9 @@ export type ImageTokens = {
   success: string;
   rating: string;
   indigo4: string;
+  /** --color-rank-top-catch(-ink): the best-of fish that count for the ranking. */
+  topCatch: string;
+  topCatchInk: string;
   /** --color-sector-a … x, by upper-case letter. */
   sectors: Record<string, string>;
   type: Record<TypeStep, TypeToken>;
@@ -54,7 +57,7 @@ export type ImageTokens = {
   radiusBadge: number;
 };
 
-const SEMANTIC: Record<Exclude<keyof ImageTokens, 'sectors' | 'indigo4' | 'type' | 'radiusBadge'>, string> = {
+const SEMANTIC: Record<Exclude<keyof ImageTokens, 'sectors' | 'indigo4' | 'topCatch' | 'topCatchInk' | 'type' | 'radiusBadge'>, string> = {
   surface: 'surface',
   page: 'page',
   softFill: 'soft-fill',
@@ -89,6 +92,11 @@ export function parseTokens(css: string): ImageTokens {
   const indigo4 = value(css, 'color-indigo-4');
   if (!indigo4) throw new Error('globals.css: --color-indigo-4 not found');
   out.indigo4 = indigo4;
+  const topCatch = value(css, 'color-rank-top-catch');
+  const topCatchInk = value(css, 'color-rank-top-catch-ink');
+  if (!topCatch || !topCatchInk) throw new Error('globals.css: --color-rank-top-catch(-ink) not found');
+  out.topCatch = topCatch;
+  out.topCatchInk = topCatchInk;
   out.sectors = {};
   for (const m of css.matchAll(/--color-sector-([a-x]):\s*([^;]+);/g)) out.sectors[m[1].toUpperCase()] = m[2].trim();
   out.type = {} as ImageTokens['type'];

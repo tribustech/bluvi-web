@@ -76,7 +76,7 @@ export type FishColumn = {
 };
 
 /** How fish fills a body cell (RankingTable backgroundColor chain). */
-export type FishFill = 'sector' | 'grey' | 'tier' | 'tierWin' | 'biggest';
+export type FishFill = 'sector' | 'grey' | 'tier' | 'tierWin' | 'biggest' | 'topCatch';
 
 export type FishCell = {
   content: ReactNode;
@@ -180,6 +180,8 @@ function fillClass(fill: FishFill, winner: boolean, tierWinnerRow: boolean): str
       return cn(tierWinnerRow ? 'bg-fish-rk-tier-winner-row' : 'bg-fish-rk-tier', 'text-rank-on-light');
     case 'biggest':
       return 'bg-fish-rk-biggest font-bold! text-rank-on-light';
+    case 'topCatch':
+      return 'bg-rank-top-catch font-bold! text-rank-top-catch-ink';
     default:
       return winner ? 'rank-sector-win text-rank-on-dark' : 'rank-sector-tint text-rank-on-light';
   }
@@ -335,7 +337,7 @@ export function FishTable({
                           'relative',
                           wide ? 'h-12 px-1.5 t-table' : 'h-10 t-caption',
                           // fish: 500, bold on the gold and the won-at cell (fillClass).
-                          fill !== 'biggest' && fill !== 'tierWin' && 'font-medium!',
+                          fill !== 'biggest' && fill !== 'tierWin' && fill !== 'topCatch' && 'font-medium!',
                           fillClass(fill, solid, solid),
                         )}
                       >

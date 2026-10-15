@@ -45,16 +45,29 @@ describe('buildRankingTable — fish column sets per ranking type (clasament c7�
     expect(titles('qualityQuantity')).toEqual(['Stand', 'Participant', '1', '2', '3', '4', '5', '6', ...tail]);
   });
 
-  it('c10 bestOf: Nr buc., catches 1..maxBestOfFishCount, Medie (kg); Poziție sector only with more than one sector', () => {
-    expect(titles('bestOf')).toEqual(['Stand', 'Participant', 'Nr buc.', '1', '2', '3', '4', 'Medie (kg)', 'Poziție generală']);
+  it('c10 bestOf: Nr buc., every fish 1..largest catch list, Medie (kg); Poziție sector only with more than one sector', () => {
+    expect(titles('bestOf')).toEqual(['Stand', 'Participant', 'Nr buc.', '1', '2', '3', '4', '5', '6', '7', 'Medie (kg)', 'Poziție generală']);
     expect(titles('bestOf', f => (f.metadata.numberOfSectors = 2))).toContain('Poziție sector');
-    // No maxBestOfFishCount: 3 catch columns (fish `|| 3`).
-    expect(titles('bestOf', f => (f.metadata.maxBestOfFishCount = 0)).filter(t => /^\d+$/.test(t))).toEqual(['1', '2', '3']);
+    // An older CMS (no allCatches): only the top-N fish, as many columns as the longest list.
+    const oldCms = (f: RankingFixture) => f.rankings.forEach(r => (r.allCatches = undefined));
+    expect(titles('bestOf', oldCms).filter(t => /^\d+$/.test(t))).toEqual(['1', '2', '3', '4']);
+    // No fish at all: 3 catch columns (fish `|| 3`).
+    const noFish = (f: RankingFixture) => f.rankings.forEach(r => ((r.catches = []), (r.allCatches = [])));
+    expect(titles('bestOf', noFish).filter(t => /^\d+$/.test(t))).toEqual(['1', '2', '3']);
   });
 
-  it('c11 bestOfTiers: catch columns = min(largest catchCount, largest tier), one Best N per tier ascending', () => {
+  it('c10b best-of tables flag the fish that count (inTop) and leave the others plain', () => {
+    const top = build('bestOf').rows.find(r => r.position === 'A/D5')!; // 7 fish, 4 in the top
+    expect(top.catch4).toMatchObject({ inTop: true });
+    expect(top.catch5).toBe('20.175');
+    const tiers = build('bestOfTiers').rows[0];
+    expect(tiers.catch1).toMatchObject({ inTop: true });
+  });
+
+  it('c11 bestOfTiers: catch columns = largest catchCount (every fish), one Best N per tier ascending', () => {
     const table = build('bestOfTiers');
-    expect(table.columns.map(c => c.title)).toEqual(['Stand', 'Participant', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'Nr. Buc', 'Best 3', 'Best 5', 'Best 7', 'Best 9', 'Poziție generală']);
+    const fish = Array.from({ length: 18 }, (_, i) => String(i + 1)); // B9 caught 18
+    expect(table.columns.map(c => c.title)).toEqual(['Stand', 'Participant', ...fish, 'Nr. Buc', 'Best 3', 'Best 5', 'Best 7', 'Best 9', 'Poziție generală']);
     expect(table.columns.filter(c => c.isTier).map(c => c.key)).toEqual(['tier3', 'tier5', 'tier7', 'tier9']);
     // Fewer catches than the biggest tier: the catch columns follow the data.
     const few = build('bestOfTiers', f => f.rankings.forEach(r => {

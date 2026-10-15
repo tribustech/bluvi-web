@@ -1,4 +1,5 @@
 /* Ported verbatim from fish `helpers/table/getTableColumns.ts` (synced with the public ranking docs). */
+import type { BestOfStandRanking, BestOfTiersStandRanking } from '../../schemas';
 export type ColumnDefinition = {
   key: string;
   title: string;
@@ -61,8 +62,19 @@ export const getQualityQuantityColumns = (catchesCount: number): ColumnDefinitio
   ];
 };
 
-export const getBestOfColumns = (bestOfFishCount: number, numberOfSectors: number): ColumnDefinition[] => {
-  const catchColumns = Array.from({ length: bestOfFishCount }, (_, index) => ({
+/**
+ * Catch columns of a bestOf table: as many as the stand with the most fish (every fish is shown).
+ * An older CMS sends only the top-N fish (`catches`), so the count falls back to those. At least 3.
+ */
+export const bestOfCatchColumnCount = (rankings: BestOfStandRanking[]): number =>
+  rankings.reduce((max, r) => Math.max(max, (r.allCatches ?? r.catches ?? []).length), 0) || 3;
+
+/** Catch columns of a bestOfTiers table: as many as the stand with the most fish. */
+export const bestOfTiersCatchColumnCount = (rankings: BestOfTiersStandRanking[]): number =>
+  rankings.reduce((max, r) => Math.max(max, r.catchCount ?? 0), 0);
+
+export const getBestOfColumns = (catchColumnCount: number, numberOfSectors: number): ColumnDefinition[] => {
+  const catchColumns = Array.from({ length: catchColumnCount }, (_, index) => ({
     key: `catch${index + 1}`,
     title: `${index + 1}`,
   }));
