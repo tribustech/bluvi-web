@@ -106,7 +106,7 @@ export const getBestOfColumns = (catchColumnCount: number, numberOfSectors: numb
   }));
   return [
     ...baseColumns,
-    { key: 'bestOfCount', title: 'Nr buc.' },
+    { key: 'bestOfCount', title: 'În top' },
     ...catchColumns,
     { key: 'catchCount', title: 'Total capturi' },
     { key: 'topNCatchesAvarage', title: 'Medie (kg)' },
@@ -132,7 +132,7 @@ export const getBestOfTiersColumns = (catchColumnCount: number, tiers: number[] 
   return [
     ...baseColumns,
     ...catchColumns,
-    { key: 'catchCount', title: 'Nr. Buc' },
+    { key: 'catchCount', title: 'Total capturi' },
     ...tierColumns,
     { key: 'generalPosition', title: 'Poziție generală' },
   ];

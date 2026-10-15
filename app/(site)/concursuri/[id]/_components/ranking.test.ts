@@ -45,8 +45,8 @@ describe('buildRankingTable — fish column sets per ranking type (clasament c7�
     expect(titles('qualityQuantity')).toEqual(['Stand', 'Participant', '1', '2', '3', '4', '5', '6', ...tail]);
   });
 
-  it('c10 bestOf: Nr buc., fish 1..largest catch list (capped at 10), Total capturi, Medie (kg); Poziție sector only with more than one sector', () => {
-    expect(titles('bestOf')).toEqual(['Stand', 'Participant', 'Nr buc.', '1', '2', '3', '4', '5', '6', '7', 'Total capturi', 'Medie (kg)', 'Poziție generală']);
+  it('c10 bestOf: În top, fish 1..largest catch list (capped at 10), Total capturi, Medie (kg); Poziție sector only with more than one sector', () => {
+    expect(titles('bestOf')).toEqual(['Stand', 'Participant', 'În top', '1', '2', '3', '4', '5', '6', '7', 'Total capturi', 'Medie (kg)', 'Poziție generală']);
     expect(titles('bestOf', f => (f.metadata.numberOfSectors = 2))).toContain('Poziție sector');
     // An older CMS (no allCatches): only the top-N fish, as many columns as the longest list.
     const oldCms = (f: RankingFixture) => f.rankings.forEach(r => (r.allCatches = undefined));
@@ -76,7 +76,7 @@ describe('buildRankingTable — fish column sets per ranking type (clasament c7�
   it('c11 bestOfTiers: catch columns = largest catchCount capped at 10, one Best N per tier ascending', () => {
     const table = build('bestOfTiers');
     const fish = Array.from({ length: 10 }, (_, i) => String(i + 1)); // B9 caught 18, the cap is 10
-    expect(table.columns.map(c => c.title)).toEqual(['Stand', 'Participant', ...fish, 'Nr. Buc', 'Best 3', 'Best 5', 'Best 7', 'Best 9', 'Poziție generală']);
+    expect(table.columns.map(c => c.title)).toEqual(['Stand', 'Participant', ...fish, 'Total capturi', 'Best 3', 'Best 5', 'Best 7', 'Best 9', 'Poziție generală']);
     expect(table.columns.filter(c => c.isTier).map(c => c.key)).toEqual(['tier3', 'tier5', 'tier7', 'tier9']);
     // Fewer catches than the biggest tier: the catch columns follow the data.
     const few = build('bestOfTiers', f => f.rankings.forEach(r => {
