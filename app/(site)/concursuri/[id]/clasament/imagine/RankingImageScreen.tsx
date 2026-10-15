@@ -89,7 +89,7 @@ function fileNameOf(disposition: string | null, fallback: string): string {
 
 const asReason = (r: unknown): EmptyReason => (EMPTY_REASONS.includes(r as EmptyReason) ? (r as EmptyReason) : 'noWeighing');
 
-function useRankingImage(fileUrl: string, name: string, initial: State | undefined, enabled: boolean) {
+function useRankingImage(dataUrl: string, fileUrl: string, name: string, initial: State | undefined, enabled: boolean) {
   // The settled result, keyed by the URL it is for: another URL (or a retry) is loading until it lands.
   const [settled, setSettled] = useState<{ key: string; state: State } | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -106,8 +106,26 @@ function useRankingImage(fileUrl: string, name: string, initial: State | undefin
     const slow = setTimeout(() => setSlowKey(key), SLOW_MS);
     let objectUrl: string | null = null;
     const setState = (state: State) => setSettled({ key, state });
+    const ready = async (blob: Blob, fileName: string, cn: boolean) => {
+      objectUrl = URL.createObjectURL(blob);
+      const img = new Image();
+      img.src = objectUrl;
+      await img.decode();
+      setState({ kind: 'ready', image: { url: objectUrl, blob, fileName, cn, width: img.naturalWidth, height: img.naturalHeight } });
+    };
     (async () => {
       try {
+        // Drawn in the browser first (renderRankingPng, as «Descarcă clasamentul»): a second or two,
+        // where the server's drawing of a large sheet takes tens of seconds on a cold function.
+        try {
+          const { renderRankingPng } = await import('./renderRankingPng');
+          const drawn = await renderRankingPng(dataUrl, ctrl.signal);
+          return await ready(drawn.blob, drawn.fileName, drawn.cn);
+        } catch (e) {
+          if (ctrl.signal.aborted) throw e;
+          // Nothing to draw, gone, or the browser cannot draw it: the server's answer decides.
+          console.warn('[imagine-clasament] browser drawing failed, asking the server', e);
+        }
         // A retry asks the server again rather than a cached failure.
         const res = await fetch(fileUrl, { signal: ctrl.signal, cache: attempt > 0 ? 'reload' : 'default' });
         // Deleted or unpublished since the page rendered (a stale tab).
@@ -118,22 +136,11 @@ function useRankingImage(fileUrl: string, name: string, initial: State | undefin
           return setState({ kind: 'empty', reason: asReason(body.reason) });
         }
         if (!res.ok || !type.startsWith('image/png')) throw new Error(`ranking image: HTTP ${res.status}`);
-        const blob = await res.blob();
-        objectUrl = URL.createObjectURL(blob);
-        const img = new Image();
-        img.src = objectUrl;
-        await img.decode();
-        setState({
-          kind: 'ready',
-          image: {
-            url: objectUrl,
-            blob,
-            fileName: fileNameOf(res.headers.get('content-disposition'), `Clasament_${name}.png`),
-            cn: res.headers.get('x-ranking-image') === 'cn',
-            width: img.naturalWidth,
-            height: img.naturalHeight,
-          },
-        });
+        await ready(
+          await res.blob(),
+          fileNameOf(res.headers.get('content-disposition'), `Clasament_${name}.png`),
+          res.headers.get('x-ranking-image') === 'cn',
+        );
       } catch (e) {
         if (ctrl.signal.aborted && !timedOut) return;
         // fish ranking-image.tsx:144 reports the capture failure to Sentry (a no-op while it is off).
@@ -153,7 +160,7 @@ function useRankingImage(fileUrl: string, name: string, initial: State | undefin
       ctrl.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [fileUrl, name, key, attempt, initial, enabled]);
+  }, [dataUrl, fileUrl, name, key, attempt, initial, enabled]);
   const state: State = initial ?? (settled?.key === key ? settled.state : { kind: 'loading' });
   return {
     state,
@@ -188,6 +195,8 @@ export type RankingImageScreenProps = {
   subtitle: string;
   /** The same, short enough for the phone's title column («După poziție»). */
   phoneSubtitle: string;
+  /** What the browser draws the PNG from (data/route.ts); the server's PNG (`fileUrl`) is the fallback. */
+  dataUrl: string;
   fileUrl: string;
   backHref: string;
   /** The image of the competition's default table (the way on from «Clasamentul ales nu există»). */
@@ -201,6 +210,7 @@ export function RankingImageScreen({
   name,
   subtitle,
   phoneSubtitle,
+  dataUrl,
   fileUrl,
   backHref,
   defaultHref,
@@ -216,7 +226,7 @@ export function RankingImageScreen({
   /** The plan is still streaming in (page.tsx Suspense fallback): the skeleton, nothing fetched. */
   planning?: boolean;
 }) {
-  const { state, attempt, retrying, slow, retry } = useRankingImage(fileUrl, name, initial, !planning);
+  const { state, attempt, retrying, slow, retry } = useRankingImage(dataUrl, fileUrl, name, initial, !planning);
   const toast = useSiteToast();
   const image = state.kind === 'ready' ? state.image : null;
   const disabled = !image;

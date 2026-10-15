@@ -1,6 +1,6 @@
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { domToBlob } from 'modern-screenshot';
+import { createContext, domToBlob } from 'modern-screenshot';
 import type { RankingImageData } from './data/route';
 import { RankingSheet } from './png/sheet';
 
@@ -58,7 +58,12 @@ async function uprightFontCss(): Promise<string | null> {
   return (await Promise.all(rules)).join('\n');
 }
 
-export type RenderedRanking = { blob: Blob; fileName: string };
+/** Safari and every iOS browser (all WebKit; Chrome and Edge on a computer or Android say «Chrome/»). Loaded only in the browser. */
+const WEBKIT = /AppleWebKit/.test(navigator.userAgent) && !/Chrome\//.test(navigator.userAgent);
+const WEBKIT_REDRAWS = 3;
+
+/** `cn`: the National Championship General sheet (the PNG route's `x-ranking-image: cn`). */
+export type RenderedRanking = { blob: Blob; fileName: string; cn: boolean };
 
 /** `empty`: nothing to draw (the data route's EmptyReason); `failed`: anything else. */
 export class RankingImageError extends Error {
@@ -98,7 +103,7 @@ export async function renderRankingPng(dataUrl: string, signal?: AbortSignal): P
     if (!(sheet instanceof HTMLElement)) throw new RankingImageError('failed');
     const [fontCss] = await Promise.all([uprightFontCss().catch(() => null), document.fonts.ready]);
     await Promise.all(Array.from(sheet.querySelectorAll('img'), img => img.decode().catch(() => undefined)));
-    const blob = await domToBlob(sheet, {
+    const context = await createContext(sheet, {
       width: data.width,
       height: data.height,
       scale: 1,
@@ -106,7 +111,12 @@ export async function renderRankingPng(dataUrl: string, signal?: AbortSignal): P
       backgroundColor: data.tokens.surface,
       font: fontCss ? { cssText: fontCss } : { preferredFormat: 'woff2' },
     });
-    return { blob, fileName: `${data.fileName}.png` };
+    // WebKit decodes the SVG's inlined font only after the first draw, which then comes out in the
+    // serif fallback (seen on iOS Safari): draw again a few times. The library counts these redraws
+    // for the files it inlines itself, never for `font.cssText`; elsewhere they are skipped.
+    if (WEBKIT) context.drawImageCount += WEBKIT_REDRAWS;
+    const blob = await domToBlob(context);
+    return { blob, fileName: `${data.fileName}.png`, cn: data.model.nc };
   } finally {
     root.unmount();
     host.remove();

@@ -84,6 +84,7 @@ export default async function RankingImagePage({ params, searchParams }: Props) 
     name,
     subtitle: label.full,
     phoneSubtitle: label.short,
+    dataUrl: routes.competitionRankingImageData(urlId, imageQueryString(query)),
     fileUrl: routes.competitionRankingImageFile(urlId, imageQueryString(query)),
     backHref: routes.competition(urlId),
     defaultHref: routes.competitionRankingImage(urlId),
