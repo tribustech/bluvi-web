@@ -309,9 +309,9 @@ const TYPE_COLUMNS: [type: string, criterion: string, titles: string[]][] = [
     ['Stand', 'Participant', ...catches(6), 'Calitate', 'Cantitate', 'Nr. Buc', 'Puncte calitate', 'Puncte cantitate', 'Puncte total', 'Poziție sector', 'Poziție generală'],
   ],
   // One sector: no «Poziție sector» (fish getBestOfColumns numberOfSectors > 1).
-  ['bestOf', 'c10', ['Stand', 'Participant', 'Nr buc.', ...catches(4), 'Medie (kg)', 'Poziție generală']],
+  ['bestOf', 'c10', ['Stand', 'Participant', 'În top', ...catches(4), 'Total capturi', 'Medie (kg)', 'Poziție generală']],
   // min(largest catchCount 18, largest tier 9) = 9 catch columns; Best N ascending.
-  ['bestOfTiers', 'c11', ['Stand', 'Participant', ...catches(9), 'Nr. Buc', 'Best 3', 'Best 5', 'Best 7', 'Best 9', 'Poziție generală']],
+  ['bestOfTiers', 'c11', ['Stand', 'Participant', ...catches(9), 'Total capturi', 'Best 3', 'Best 5', 'Best 7', 'Best 9', 'Poziție generală']],
   [
     'calitateCalitate',
     'c12',
@@ -355,7 +355,7 @@ test('competition-page.clasament.c10 — bestOf with more than one sector shows 
       f.rankings[2].sectorId = 'sector-B';
     },
   });
-  await expect(heads(displayed(page))).toHaveText(exact(['Stand', 'Participant', 'Nr buc.', ...catches(4), 'Medie (kg)', 'Poziție sector', 'Poziție generală']));
+  await expect(heads(displayed(page))).toHaveText(exact(['Stand', 'Participant', 'În top', ...catches(4), 'Total capturi', 'Medie (kg)', 'Poziție sector', 'Poziție generală']));
 });
 
 test('competition-page.clasament.c11 — bestOfTiers: catch columns follow the data under the largest tier; the Best-N band (deeper on winner rows), the won cell solid green, bold', async ({ page }) => {
@@ -380,7 +380,7 @@ test('competition-page.clasament.c11 — bestOfTiers with at most 4 catches: 4 c
         r.catches = (r.catches as unknown[]).slice(0, 4);
       }),
   });
-  await expect(heads(displayed(page))).toHaveText(exact(['Stand', 'Participant', ...catches(4), 'Nr. Buc', 'Best 3', 'Best 5', 'Best 7', 'Best 9', 'Poziție generală']));
+  await expect(heads(displayed(page))).toHaveText(exact(['Stand', 'Participant', ...catches(4), 'Total capturi', 'Best 3', 'Best 5', 'Best 7', 'Best 9', 'Poziție generală']));
 });
 
 test('competition-page.clasament.c14 competition-page.clasament.c15 competition-page.clasament.c21 — Stand «sector/stand»; the name team → usernames → guest → «–»; weights with three decimals, «–» for none; grey cells past the sector minimum; never «capot»', async ({

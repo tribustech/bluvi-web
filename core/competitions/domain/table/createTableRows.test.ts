@@ -161,7 +161,7 @@ describe('bestOfTiers tier columns', () => {
     expect(titles).toEqual(['Best 3', 'Best 5', 'Best 7', 'Best 9']);
   });
 
-  it('adds a Best N column per tier, between Nr. Buc and the general position', () => {
+  it('adds a Best N column per tier, between Total capturi and the general position', () => {
     const columns = getBestOfTiersColumns(3, tiers).map(c => c.key);
     expect(columns).toEqual(['position', 'participant', 'catch1', 'catch2', 'catch3', 'catchCount', 'tier3', 'tier5', 'tier7', 'tier9', 'generalPosition']);
     expect(getBestOfTiersColumns(3, tiers).find(c => c.key === 'tier9')?.title).toBe('Best 9');
