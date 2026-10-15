@@ -490,10 +490,20 @@ function GenericTable({ columns, rows, ctx }: { columns: ImageColumn[]; rows: Im
                       : tokens.accentTint2
                     : cell.isBiggest
                       ? withAlpha(tokens.rating, 0.85)
-                      : withAlpha(sector, winner ? 0.9 : 0.4);
+                      : cell.inTop
+                        ? tokens.topCatch
+                        : withAlpha(sector, winner ? 0.9 : 0.4);
               // A winner's 0.9 sector fill: white where it reaches AA, else the ink (orange, green sectors).
               const winnerInk = inkOn(sector, 0.9, tokens.surface, tokens.onAccent, tokens.ink);
-              const color = cell.isTierWin ? tokens.onAccent : cell.isTier || cell.isBiggest ? tokens.ink : winner ? winnerInk : tokens.ink;
+              const color = cell.isTierWin
+                ? tokens.onAccent
+                : cell.isTier || cell.isBiggest
+                  ? tokens.ink
+                  : cell.inTop
+                    ? tokens.topCatchInk
+                    : winner
+                      ? winnerInk
+                      : tokens.ink;
               const isText = TEXT_COLUMNS.has(col.key);
               const raw = col.key === 'position' ? String(cell.raw ?? '').replace('/', '') : cell.raw;
               const text = raw === null || raw === '' ? '-' : String(raw);

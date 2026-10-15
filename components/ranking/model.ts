@@ -27,6 +27,7 @@ export function readCell(value: unknown): {
   isBiggest: boolean;
   isTier: boolean;
   isTierWin: boolean;
+  inTop: boolean;
 } {
   if (value !== null && typeof value === 'object' && 'weight' in value) {
     const c = value as Exclude<CatchCell, string>;
@@ -36,6 +37,7 @@ export function readCell(value: unknown): {
       isBiggest: !!c.isBiggest,
       isTier: !!c.isTier,
       isTierWin: !!c.isTierWin,
+      inTop: !!c.inTop,
     };
   }
   return {
@@ -44,6 +46,7 @@ export function readCell(value: unknown): {
     isBiggest: false,
     isTier: false,
     isTierWin: false,
+    inTop: false,
   };
 }
 

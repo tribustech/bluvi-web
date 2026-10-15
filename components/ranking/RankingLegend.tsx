@@ -17,6 +17,7 @@ type Marks = {
   split: boolean;
   unscored: boolean;
   tierWin: boolean;
+  topCatch: boolean;
   winner: boolean;
   sectorWinner: boolean;
   penalty: boolean;
@@ -37,6 +38,7 @@ export function legendMarks(columns: ReadonlyArray<ColumnDefinition>, rows: Read
     split: anyCell(c => c.isSplit),
     unscored: rows.some(r => typeof r.sectorMinNumberOfFish === 'number' && r.sectorMinNumberOfFish < lastCatch),
     tierWin: anyCell(c => c.isTierWin),
+    topCatch: anyCell(c => c.inTop),
     winner: keys.includes('generalPosition') && rows.some(r => r.isWinner && !isNoCatch(r) && r.participant !== EMPTY_STAND),
     sectorWinner:
       keys.includes('sectorPosition') && winnerMode(columns) === 'sector' && sectors.size > 1 && rows.some(r => r.sectorPosition === 1 && !isNoCatch(r) && r.participant !== EMPTY_STAND),
@@ -84,6 +86,12 @@ export function RankingLegend({
         <li className={ITEM}>
           <span aria-hidden className="size-3.5 rounded-[4px] bg-medal-gold" />
           C.M.M.C a concursului
+        </li>
+      ) : null}
+      {m.topCatch ? (
+        <li className={ITEM}>
+          <span aria-hidden className="size-3.5 rounded-[4px] bg-rank-top-catch" />
+          pește care intră în clasament
         </li>
       ) : null}
       {m.tierWin ? (

@@ -1,4 +1,5 @@
 /* Ported verbatim from fish `helpers/table/getTableColumns.ts` (synced with the public ranking docs). */
+import type { BestOfStandRanking, BestOfTiersStandRanking } from '../../schemas';
 export type ColumnDefinition = {
   key: string;
   title: string;
@@ -61,8 +62,45 @@ export const getQualityQuantityColumns = (catchesCount: number): ColumnDefinitio
   ];
 };
 
-export const getBestOfColumns = (bestOfFishCount: number, numberOfSectors: number): ColumnDefinition[] => {
-  const catchColumns = Array.from({ length: bestOfFishCount }, (_, index) => ({
+/**
+ * fish `getTableColumns.ts`: best-of tables show a stand's fish heaviest first, so the ones that
+ * count are always the first columns. The catch columns stop at 10, or at the most fish one stand
+ * has counting when that is more (Best 60 on 3 sectors: up to 20), so a 100-fish stand cannot blow
+ * the table up (owner 2026-10-15); the total column still shows every catch.
+ */
+export const MIN_CATCH_COLUMN_CAP = 10;
+
+const capCatchColumns = (maxFish: number, maxCounted: number): number =>
+  Math.min(maxFish, Math.max(MIN_CATCH_COLUMN_CAP, maxCounted));
+
+/**
+ * Catch columns of a bestOf table. An older CMS sends only the top-N fish (`catches`), so the
+ * count falls back to those. At least 3.
+ */
+export const bestOfCatchColumnCount = (rankings: BestOfStandRanking[]): number => {
+  let maxFish = 0;
+  let maxCounted = 0;
+  for (const r of rankings) {
+    const fish = r.allCatches ?? r.catches ?? [];
+    maxFish = Math.max(maxFish, fish.length);
+    maxCounted = Math.max(maxCounted, r.allCatches ? r.allCatches.filter(c => c.inTop).length : fish.length);
+  }
+  return capCatchColumns(maxFish, maxCounted) || 3;
+};
+
+/** Catch columns of a bestOfTiers table (`inTop` marks a tier winner's best N). */
+export const bestOfTiersCatchColumnCount = (rankings: BestOfTiersStandRanking[]): number => {
+  let maxFish = 0;
+  let maxCounted = 0;
+  for (const r of rankings) {
+    maxFish = Math.max(maxFish, r.catchCount ?? 0);
+    maxCounted = Math.max(maxCounted, (r.catches ?? []).filter(c => c.inTop).length);
+  }
+  return capCatchColumns(maxFish, maxCounted);
+};
+
+export const getBestOfColumns = (catchColumnCount: number, numberOfSectors: number): ColumnDefinition[] => {
+  const catchColumns = Array.from({ length: catchColumnCount }, (_, index) => ({
     key: `catch${index + 1}`,
     title: `${index + 1}`,
   }));
@@ -70,6 +108,7 @@ export const getBestOfColumns = (bestOfFishCount: number, numberOfSectors: numbe
     ...baseColumns,
     { key: 'bestOfCount', title: 'Nr buc.' },
     ...catchColumns,
+    { key: 'catchCount', title: 'Total capturi' },
     { key: 'topNCatchesAvarage', title: 'Medie (kg)' },
     ...(numberOfSectors > 1 ? [{ key: 'sectorPosition', title: 'Poziție sector' }] : []),
     { key: 'generalPosition', title: 'Poziție generală' },

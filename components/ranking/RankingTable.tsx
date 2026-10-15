@@ -363,6 +363,7 @@ export function RankingTable({
                       data-pin={pin}
                       data-biggest={cell.isBiggest || undefined}
                       data-tier-win={cell.isTierWin || undefined}
+                      data-top={cell.inTop || undefined}
                       className={cn(
                         edge,
                         align,
@@ -378,11 +379,15 @@ export function RankingTable({
                             : // fish: the competition's biggest catch is gold with bold dark text (c19).
                               cell.isBiggest
                               ? 'bg-medal-gold font-extrabold text-on-medal'
-                              : sectorCell,
+                              : // Best-of tables: the fish that count for the ranking, green (fish TOP_CATCH_*).
+                                cell.inTop
+                                ? 'bg-rank-top-catch font-extrabold text-rank-top-catch-ink'
+                                : sectorCell,
                       )}
                     >
                       {cell.isBiggest && <span className="sr-only">Cea mai mare captură: </span>}
                       {cell.isTierWin && <span className="sr-only">Loc câștigat la: </span>}
+                      {cell.inTop && !cell.isBiggest && <span className="sr-only">Intră în clasament: </span>}
                       {text}
                       {cell.isSplit && <sup className="ml-0.5 t-micro">SPLIT</sup>}
                     </td>

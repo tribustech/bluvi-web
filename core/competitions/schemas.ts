@@ -588,13 +588,19 @@ export const bestOfStandRankingSchema = z.object({
   ...baseStandRankingShape,
   bestOfCount: z.number(),
   topNCatchesAvarage: z.number(),
+  // Only the fish in the sector's top N.
   catches: z.array(z.object({ weight: z.number(), isSplit: z.boolean().optional() })),
+  // Every fish of the stand, heaviest first; `inTop` on the ones in the sector's top N. Absent on an older CMS.
+  allCatches: z
+    .array(z.object({ weight: z.number(), inTop: z.boolean().optional(), isSplit: z.boolean().optional() }))
+    .optional(),
 });
 export type BestOfStandRanking = z.infer<typeof bestOfStandRankingSchema>;
 
 export const bestOfTiersStandRankingSchema = z.object({
   ...baseStandRankingShape,
-  catches: z.array(z.object({ weight: z.number() })),
+  // Every fish of the stand, heaviest first; `inTop` on the ones that decided the place.
+  catches: z.array(z.object({ weight: z.number(), inTop: z.boolean().optional() })),
   totalQuantity: z.number(),
   // JSON object keys are strings; fish indexes it with the numeric tier size.
   topNByTier: z.record(z.string(), z.number().nullable()),

@@ -140,7 +140,7 @@ export function standardFishRows(
         !cell.isTierWin &&
         (noCatch || (typeof row.catchCount === 'number' && row.catchCount < tierN && !cellNumber(raw)));
       const weight = col.kind === 'weight' || col.kind === 'catch' || col.kind === 'tier';
-      const fill = cell.isTierWin ? 'tierWin' : cell.isTier ? 'tier' : cell.isBiggest ? 'biggest' : 'sector';
+      const fill = cell.isTierWin ? 'tierWin' : cell.isTier ? 'tier' : cell.isBiggest ? 'biggest' : cell.inTop ? 'topCatch' : 'sector';
       const content = unreached ? (
         <>
           <span aria-hidden>–</span>
@@ -150,6 +150,7 @@ export function standardFishRows(
         <>
           {cell.isBiggest && <span className="sr-only">Cea mai mare captură: </span>}
           {cell.isTierWin && <span className="sr-only">Loc câștigat la: </span>}
+          {cell.inTop && !cell.isBiggest && <span className="sr-only">Intră în clasament: </span>}
           {weight ? (noCatch ? '–' : formatRankingWeight(raw)) : formatRankingPlain(raw)}
         </>
       );

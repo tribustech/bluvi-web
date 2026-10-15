@@ -9,6 +9,8 @@ import {
   createQuantityRow,
   getBestOfColumns,
   getBestOfTiersColumns,
+  bestOfCatchColumnCount,
+  bestOfTiersCatchColumnCount,
   getCalitateCalitateColumns,
   getQualityColumns,
   getQualityQuantityCMMCColumns,
@@ -75,13 +77,6 @@ export function sortStandRankings<T extends Pick<BaseStandRanking, 'sectorName' 
 
 export type RankingTableData = { columns: ColumnDefinition[]; rows: RankingRowData[] };
 
-/** bestOfTiers: catch columns grow with the data, capped at the biggest tier. */
-function tiersCatchColumns(rankings: readonly BaseStandRanking[], tiers: readonly number[]): number {
-  const maxTier = tiers.length > 0 ? Math.max(...tiers) : 0;
-  const maxCatchesInData = rankings.reduce((max, r) => Math.max(max, (r as BestOfTiersStandRanking).catchCount ?? 0), 0);
-  return Math.min(maxCatchesInData, maxTier);
-}
-
 /** fish `tableColumns` + `tableRows`. Null when there is nothing to show («Nu există date de afișat»). */
 export function buildRankingTable(data: RankingResponse | undefined, sortBy: RankingSort): RankingTableData | null {
   const metadata = data?.metadata;
@@ -109,10 +104,11 @@ export function buildRankingTable(data: RankingResponse | undefined, sortBy: Ran
       columns = getQualityQuantityColumns(nrOfCatchesColumns);
       break;
     case 'bestOf':
-      columns = getBestOfColumns(metadata.maxBestOfFishCount || 3, metadata.numberOfSectors);
+      // Best-of tables show every fish (the ones that count are colored apart).
+      columns = getBestOfColumns(bestOfCatchColumnCount(rankings as BestOfStandRanking[]), metadata.numberOfSectors);
       break;
     case 'bestOfTiers':
-      columns = getBestOfTiersColumns(tiersCatchColumns(rankings, metadata.bestOfTierSizes ?? []), metadata.bestOfTierSizes ?? []);
+      columns = getBestOfTiersColumns(bestOfTiersCatchColumnCount(rankings as BestOfTiersStandRanking[]), metadata.bestOfTierSizes ?? []);
       break;
     case 'calitateCalitate':
       columns = getCalitateCalitateColumns(nrOfCatchesColumns);
@@ -150,12 +146,12 @@ export function buildRankingTable(data: RankingResponse | undefined, sortBy: Ran
       case 'qualityQuantity':
         return createQualityQuantityRow(ranking as QualityQuantityStandRanking, nrOfCatchesColumns, sectorColors, context);
       case 'bestOf':
-        return createBestOfRow(ranking as BestOfStandRanking, metadata.bestOfFishCount, sectorColors, context);
+        return createBestOfRow(ranking as BestOfStandRanking, bestOfCatchColumnCount(rankings as BestOfStandRanking[]), sectorColors, context);
       case 'bestOfTiers': {
         const tiers = metadata.bestOfTierSizes ?? [];
         return createBestOfTiersRow(
           ranking as BestOfTiersStandRanking,
-          tiersCatchColumns(rankings, tiers),
+          bestOfTiersCatchColumnCount(rankings as BestOfTiersStandRanking[]),
           sectorColors,
           context,
           tiers,

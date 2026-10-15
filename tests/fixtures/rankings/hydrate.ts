@@ -8,7 +8,9 @@
  *  - every row: sectorId, a numeric standId (9001, 9002, …), penalties [];
  *  - the catch list fish draws as the 1…N columns: `min(catchCount, sectorMinNumberOfFish)` numbers
  *    for the quality types, `bestOfCount` objects for bestOf, `catchCount` objects for bestOfTiers —
- *    the row's biggest fish first, then 0.5 kg less each;
+ *    the row's biggest fish first, then 0.5 kg less each; the best-of types also send every fish
+ *    with `inTop` on the ones that count (bestOf `allCatches`: the first `bestOfCount`; bestOfTiers
+ *    `catches`: only a tier winner's first N, below the podium none);
  *  - metadata: biggestFish and biggestCatch (the heaviest row's stand), bestOf's fish counts and
  *    numberOfWinners, bestOfTiers' tierWinners.
  *
@@ -35,8 +37,15 @@ export function hydrateRanking(fixture: RankingFixture, options: { numberOfWinne
       participant: null,
       ...row,
     };
-    if (type === 'bestOf') out.catches = weights(biggest, Number(row.bestOfCount ?? 0)).map(weight => ({ weight }));
-    else if (type === 'bestOfTiers') out.catches = weights(biggest, catchCount).map(weight => ({ weight }));
+    if (type === 'bestOf') {
+      const inTop = Number(row.bestOfCount ?? 0);
+      out.catches = weights(biggest, inTop).map(weight => ({ weight }));
+      out.allCatches ??= weights(biggest, catchCount).map((weight, k) => (k < inTop ? { weight, inTop: true } : { weight }));
+    } else if (type === 'bestOfTiers') {
+      const tiers = ((fixture.metadata.bestOfTierSizes as number[] | undefined) ?? []).slice();
+      const counted = typeof row.tierWonAt === 'number' ? tiers[row.tierWonAt - 1] : 0;
+      out.catches = weights(biggest, catchCount).map((weight, k) => (k < counted ? { weight, inTop: true } : { weight }));
+    }
     else if ('sectorMinNumberOfFish' in row) out.catches = weights(biggest, Math.min(catchCount, Number(row.sectorMinNumberOfFish)));
     if (type === 'calitateCalitate' && out.hasGrid === undefined) out.hasGrid = true;
     return out;
