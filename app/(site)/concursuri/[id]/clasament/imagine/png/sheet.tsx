@@ -488,7 +488,9 @@ function GenericTable({ columns, rows, ctx }: { columns: ImageColumn[]; rows: Im
                     ? winner
                       ? tokens.accentTint3
                       : tokens.accentTint2
-                    : cell.isBiggest
+                    : cell.isBestOfBiggest
+                      ? tokens.bestOfBiggest
+                      : cell.isBiggest
                       ? withAlpha(tokens.rating, 0.85)
                       : cell.inTop
                         ? tokens.topCatch
@@ -497,6 +499,8 @@ function GenericTable({ columns, rows, ctx }: { columns: ImageColumn[]; rows: Im
               const winnerInk = inkOn(sector, 0.9, tokens.surface, tokens.onAccent, tokens.ink);
               const color = cell.isTierWin
                 ? tokens.onAccent
+                : cell.isBestOfBiggest
+                  ? tokens.bestOfBiggestInk
                 : cell.isTier || cell.isBiggest
                   ? tokens.ink
                   : cell.inTop

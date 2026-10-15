@@ -566,10 +566,14 @@
   --color-rank-podium: #eef5ff;
   --color-rank-line: #e3e6ee;
   --color-rank-no-sector: #90a4ae;
-  /* Best-of tables show every fish; the ones that count for the ranking (fish getTierCellColors
-     TOP_CATCH_*: green-200 fill, green-900 bold ink, 8.9:1). */
-  --color-rank-top-catch: #bbf7d0;
-  --color-rank-top-catch-ink: #14532d;
+  /* Best-of tables: the fish that count for the ranking (fish getTierCellColors TOP_CATCH_*:
+     yellow-200 fill, yellow-900 bold ink, organizer request 2026-10-15), and the C.M.M.C there,
+     solid orange with white bold ink (BEST_OF_BIGGEST_*), since yellow is taken. Other ranking
+     types keep the gold C.M.M.C. */
+  --color-rank-top-catch: #fef08a;
+  --color-rank-top-catch-ink: #713f12;
+  --color-rank-bestof-biggest: #f97316;
+  --color-rank-bestof-biggest-ink: #ffffff;
   /* A catch cell past the sector's minimum, «nu se punctează» (fish RankingTable $gray4, light). */
   --color-rank-unscored: #ededed;
   /* On a dark / a light sector fill (sectorInk). */

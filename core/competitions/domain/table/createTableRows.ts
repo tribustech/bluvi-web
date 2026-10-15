@@ -37,6 +37,8 @@ export type CatchCell =
       weight: string;
       isSplit?: boolean;
       isBiggest?: boolean;
+      /** fish: the C.M.M.C cell of a best-of table, drawn orange (yellow there marks `inTop`). */
+      isBestOfBiggest?: boolean;
       /** Best-of tables show every fish; true on the ones that count for the ranking. */
       inTop?: boolean;
       /** True on every bestOfTiers "Best N" cell, so the table can render the block as one band. */
@@ -232,7 +234,7 @@ const createAllCatchesEntries = (
     const flags = {
       ...(catch_.inTop ? { inTop: true } : {}),
       ...(catch_.isSplit ? { isSplit: true } : {}),
-      ...(isBiggest ? { isBiggest: true } : {}),
+      ...(isBiggest ? { isBiggest: true, isBestOfBiggest: true } : {}),
     };
     entries[`catch${index + 1}`] = Object.keys(flags).length > 0 ? { weight, ...flags } : weight;
   });
