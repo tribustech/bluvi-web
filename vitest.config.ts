@@ -16,6 +16,8 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
+          // Unit tests expect the dev site origin; CI exports the prod one for the build step.
+          env: { NEXT_PUBLIC_SITE_URL: 'http://localhost:3000' },
           include: ['core/**/*.test.ts', 'lib/**/*.test.ts', 'app/**/*.test.ts', 'components/**/*.test.ts', 'tests/unit/**/*.test.ts'],
         },
       },
