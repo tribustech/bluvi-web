@@ -112,6 +112,8 @@ export type QualityQuantityRowType = BaseRowType & {
 
 export type BestOfRowType = BaseRowType & {
   bestOfCount: number;
+  /** Every catch of the stand, also those past the capped catch columns. */
+  catchCount: number;
   topNCatchesAvarage: string;
   [key: `catch${number}`]: CatchCell;
 };
@@ -250,6 +252,7 @@ export const createBestOfRow = (
       ? createAllCatchesEntries(ranking.standId, ranking.allCatches, catchColumnCount, context)
       : createCatchesEntries(ranking, catchColumnCount, context)),
     bestOfCount: ranking.bestOfCount || 0,
+    catchCount: ranking.catchCount ?? ranking.allCatches?.length ?? ranking.catches?.length ?? 0,
     topNCatchesAvarage: kg(ranking.topNCatchesAvarage),
   };
 };
