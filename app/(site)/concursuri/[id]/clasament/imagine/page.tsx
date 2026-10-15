@@ -36,7 +36,13 @@ type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<str
 
 const TITLE = 'Imagine clasament';
 
-export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+// Without the Smart App Banner (app/layout.tsx): over this full-window stage Safari draws it under
+// the status bar and the Dynamic Island (owner 2026-10-15, iOS 26).
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  return { ...(await pageMetadata(props)), itunes: null };
+}
+
+async function pageMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { id } = await params;
   const load = await loadCompetition(id).catch(() => null);
   if (!load) return { title: TITLE, robots: { index: false } };

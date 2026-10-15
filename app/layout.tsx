@@ -11,8 +11,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
   title: { default: 'Bluvi', template: '%s · Bluvi' },
   description: 'Concursuri de pescuit, bălți și partide — Bluvi.',
-  // No iOS Smart App Banner (`itunes`): with viewport-fit=cover Safari draws it under the status bar
-  // and the Dynamic Island (owner 2026-10-15), and OpenInAppSheet already offers the app.
+  // iOS Safari's Smart App Banner (Deschide / Obține), lib/app-links.ts APP_STORE. Not on the
+  // ranking image page (concursuri/[id]/clasament/imagine/page.tsx).
+  itunes: { appId: '6743083184' },
 };
 
 /*
