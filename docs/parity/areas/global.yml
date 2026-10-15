@@ -20,6 +20,7 @@ screens:
       - app/(app)/(tabs)/_layout.tsx
       - app/(app)/_layout.tsx
       - app/_layout.tsx
+      - app/+native-intent.tsx
       - app/(app)/(tabs)/profile.tsx
       - features/partide/domain/viewAtoms.ts
       - features/partide/domain/nouBadge.ts
