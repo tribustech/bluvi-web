@@ -217,10 +217,6 @@ test('competition-page.imagine-clasament.c8 — the image zooms (buttons, keyboa
   await expect.poll(() => img.evaluate(el => getComputedStyle(el).transform)).not.toBe(before);
   await page.getByRole('button', { name: 'Potrivește pe lățime' }).click();
   await expect.poll(scale).toBeCloseTo(fitWidth, 3);
-  // Fitted, nothing is left to the right: the phone's drag hint fades out. Axe reads the colours once
-  // the fade has ended (its easing dips to 0 and back before it settles; mid-fade the text is the page's colour).
-  const hint = stage(page).getByText('Trage pentru a vedea tot clasamentul').locator('..');
-  await expect.poll(() => hint.evaluate(el => el.getAnimations().length === 0 && getComputedStyle(el).opacity === '0')).toBe(true);
   await expectNoA11yViolations(page);
 });
 
@@ -491,37 +487,33 @@ test('competition-page.imagine-clasament.c8 competition-page.imagine-clasament.c
   await expectNoA11yViolations(page);
 });
 
-test('competition-page.imagine-clasament.c8 — the phone opens on the table\'s first columns (Stand, Participant), under the sheet\'s top margin, with the edges that continue faded and a one-time drag hint', async ({ page }) => {
+test('competition-page.imagine-clasament.c8 — the phone opens on the whole sheet (fish fitContainer), centred across, no edge fades', async ({ page }) => {
   await open(page, page$(ID.feeder), PHONE);
   await ready(page);
   await hydrated(page);
   const img = stage(page).locator('img');
   await expect.poll(async () => Number(await stage(page).getAttribute('data-fit'))).toBeGreaterThan(0);
-  const tableX = Number(await stage(page).getAttribute('data-table-x'));
-  expect(tableX, 'the table is centred on a sheet wider than it (its left edge is not the sheet\'s)').toBeGreaterThan(0);
-  const { x, y, scale, boxW } = await img.evaluate(el => {
+  const { x, y, w, h, boxW, boxH, mask } = await img.evaluate(el => {
     const m = /translate\((-?[\d.]+)px, (-?[\d.]+)px\) scale\(([\d.]+)\)/.exec(el.style.transform)!;
-    return { x: Number(m[1]), y: Number(m[2]), scale: Number(m[3]), boxW: el.parentElement!.clientWidth };
+    const scale = Number(m[3]);
+    const box = el.parentElement!;
+    return {
+      x: Number(m[1]),
+      y: Number(m[2]),
+      w: (el as HTMLImageElement).width * scale,
+      h: (el as HTMLImageElement).height * scale,
+      boxW: box.clientWidth,
+      boxH: box.clientHeight,
+      mask: getComputedStyle(box).webkitMaskImage || getComputedStyle(box).maskImage,
+    };
   });
-  // The table's left edge (its Stand column, then Participant) is in view, a few px in from the
-  // stage's: the first view names who is ranked, the drag hint invites panning right to the numbers.
-  const tableLeft = x + tableX * scale;
-  expect(tableLeft).toBeGreaterThanOrEqual(0);
-  expect(tableLeft).toBeLessThan(16);
-  // The participant column starts well inside the stage (stand 80–180 sheet px, ×1.5 ×scale).
-  expect(tableLeft + 180 * 1.5 * scale).toBeLessThan(boxW / 2);
-  // The top margin skipped.
-  expect(y).toBeLessThan(0);
-  await expect(stage(page)).toHaveAttribute('data-more', /right/);
-  await expect(stage(page)).toHaveAttribute('data-more', /left/);
-  // The chip's wrapper fades (opacity), the chip itself stays as drawn.
-  const hint = page.getByText('Trage pentru a vedea tot clasamentul').locator('..');
-  await expect(hint).toHaveCSS('opacity', '1');
-  const box = (await stage(page).boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.up();
-  await expect(hint).toHaveCSS('opacity', '0');
+  // All of it in the stage, at its top, centred across.
+  expect(w).toBeLessThanOrEqual(boxW + 1);
+  expect(h).toBeLessThanOrEqual(boxH + 1);
+  expect(y).toBe(0);
+  expect(Math.abs(x - (boxW - w) / 2)).toBeLessThan(1);
+  await expect(stage(page)).toHaveAttribute('data-more', '');
+  expect(mask === 'none' || mask === '').toBe(true);
   // The toolbar sits at the window's bottom, the same place for every ranking.
   const toolbar = (await page.getByRole('toolbar', { name: 'Zoom' }).boundingBox())!;
   expect(PHONE.height - (toolbar.y + toolbar.height)).toBeLessThan(40);

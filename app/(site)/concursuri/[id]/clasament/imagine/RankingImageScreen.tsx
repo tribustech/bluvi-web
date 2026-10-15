@@ -365,10 +365,7 @@ export function RankingImageScreen({
 /* The stage's frame: the same box for the skeleton and the image       */
 /* ------------------------------------------------------------------ */
 
-/** Phone (window narrower than 768, the frame's own breakpoint): the image opens at this scale of its pixels — table text ≈ 9 css px — not at the 19% fit. */
-const PHONE_SCALE = 0.45;
-/** On the phone the sheet opens with the table's left edge this far in from the stage's (Stand and Participant first). */
-const PHONE_INSET = 8;
+/** Phone (window narrower than 768, the frame's own breakpoint): the whole sheet opens in the stage, as fish's fitContainer. */
 const PHONE_MAX = 768;
 /** Room kept under the phone's toolbar so it never touches the window's edge. */
 const BOTTOM_GUTTER = 16;
@@ -393,7 +390,7 @@ const DEFAULT_SHEET: SheetGeometry = {
  * sticks to the window's bottom while the sheet is taller than the window.
  */
 const FRAME_CLASS =
-  'relative w-full min-h-40 overflow-hidden bg-page h-(--avail) [--avail:calc(100dvh-13rem)] md:h-auto md:min-h-0 md:aspect-(--ratio) md:rounded-card md:bg-surface md:shadow-e1 md:ring-1 md:ring-hairline';
+  'relative w-full min-h-40 overflow-hidden bg-surface h-(--avail) [--avail:calc(100dvh-13rem)] md:h-auto md:min-h-0 md:aspect-(--ratio) md:rounded-card md:bg-surface md:shadow-e1 md:ring-1 md:ring-hairline';
 
 function frameStyle(size: { width: number; height: number }, avail: number | null): CSSProperties {
   return {
@@ -489,9 +486,8 @@ const pct = (n: number, of: number) => `${(n / of) * 100}%`;
  * Generating: the planned sheet's blocks — the logo, the name / organizer / dates lines and the
  * badge, the title band, the table (its width, centred, one bone per row) and the totals — on a
  * sheet of paper at the size and place the image opens at (from 768 the frame itself; on the phone
- * PHONE_SCALE, the table's left edge at the stage's, just under the sheet's top margin, as ZoomStage's
- * opening view). The status
- * sits in a pill over the table.
+ * the whole sheet in the stage, centred across, as ZoomStage's opening view). The status sits in a
+ * pill over the table.
  */
 function ImageSkeleton({ sheet, slow = false }: { sheet: SheetGeometry; slow?: boolean }) {
   const { width: W, height: H } = sheet;
@@ -500,17 +496,13 @@ function ImageSkeleton({ sheet, slow = false }: { sheet: SheetGeometry; slow?: b
   const hx = sheet.header;
   const rows = Math.min(sheet.table.rows, 60);
   const rowH = sheet.table.h / (rows + 1);
-  const paper = {
-    '--paper-w': `${Math.round(W * PHONE_SCALE)}px`,
-    '--paper-h': `${Math.round(H * PHONE_SCALE)}px`,
-    '--paper-top': `${-Math.round(sheet.top * PHONE_SCALE) + 8}px`,
-    '--paper-left': `${Math.min(0, -Math.round(sheet.table.x * PHONE_SCALE) + PHONE_INSET)}px`,
-  } as CSSProperties;
+  // The frame's height (--avail) at the sheet's proportions, never wider than the frame.
+  const paper = { '--paper-w': `min(100%, calc(var(--avail) * ${W / H}))`, '--paper-ratio': `${W} / ${H}` } as CSSProperties;
   return (
     <div aria-hidden className="absolute inset-0">
       <div
         style={paper}
-        className="absolute top-(--paper-top) left-(--paper-left) h-(--paper-h) w-(--paper-w) bg-surface md:inset-0 md:h-full md:w-full"
+        className="absolute top-0 left-1/2 aspect-(--paper-ratio) w-(--paper-w) -translate-x-1/2 bg-surface md:inset-0 md:h-full md:w-full md:translate-x-0"
       >
         {/* Header: logo + tagline, the three centred lines, the badge and the export date. */}
         <span className={bone} style={box(24, hx.y + hx.h * 0.28, 390, hx.h * 0.3)} />
@@ -587,9 +579,6 @@ type View = { scale: number; x: number; y: number };
 /** In the PNG's pixels (SCALE× the sheet): 2 = 300% of the sheet's own size. */
 const MAX_SCALE = 2;
 const STEP = 1.25;
-/** How far the edge fades reach (the «more this way» cue). */
-const FADE = 48;
-const HINT_KEY = 'bluvi:ranking-image-pan-hint';
 
 function ZoomToolbar({
   percent,
@@ -635,29 +624,14 @@ function ZoomToolbar({
   );
 }
 
-/** «More this way» as a mask on the stage itself, so the sheet fades into whatever ground is behind it. */
-function edgeMask(more: { top: boolean; bottom: boolean; left: boolean; right: boolean }): CSSProperties {
-  const layers = [
-    more.bottom && `linear-gradient(to bottom, black calc(100% - ${FADE}px), transparent)`,
-    more.top && `linear-gradient(to top, black calc(100% - ${FADE / 2}px), transparent)`,
-    more.right && `linear-gradient(to right, black calc(100% - ${FADE}px), transparent)`,
-    more.left && `linear-gradient(to left, black calc(100% - ${FADE / 2}px), transparent)`,
-  ].filter(Boolean) as string[];
-  if (!layers.length) return {};
-  const image = layers.join(', ');
-  return { maskImage: image, WebkitMaskImage: image, maskComposite: 'intersect', WebkitMaskComposite: 'source-in' };
-}
-
 /**
- * The image in the frame. From 768 fitted to the width (the page scrolls it); on the phone at a
- * readable PHONE_SCALE, the table's left edge PHONE_INSET in from the stage's and just under the
- * sheet's top margin, so the title and the table's Stand and Participant columns are the first view
- * and the drag hint invites panning right to the numbers (fish fits the whole sheet instead; at 375
- * that is 19% — unreadable). Then zoomed with the buttons, Ctrl / ⌘ + wheel, a pinch or a double click,
- * and panned by dragging, the wheel or the arrow keys (+ / − / 0 zoom from the keyboard too). Never
- * smaller than the whole image in the stage, never more than MAX_SCALE. The wheel pans the image
- * only while it can move; at its edge it scrolls the page. Edge fades say where more of it is, and
- * the phone's first visit says it can be dragged.
+ * The image in the frame. From 768 fitted to the width (the page scrolls it); on the phone the whole
+ * sheet in the stage, centred across (fish ranking-image.tsx fitContainer: owner 2026-10-15, the
+ * whole ranking at a glance, then a pinch). Then zoomed with the buttons, Ctrl / ⌘ + wheel, a pinch
+ * or a double click, and panned by dragging, the wheel or the arrow keys (+ / − / 0 zoom from the
+ * keyboard too). Never smaller than the whole image in the stage, never more than MAX_SCALE. The
+ * wheel pans the image only while it can move; at its edge it scrolls the page. No edge fades: the
+ * sheet is drawn as it is (owner 2026-10-15).
  */
 function ZoomStage({
   image,
@@ -699,25 +673,6 @@ function ZoomStage({
   }, [autoFocus]);
 
   const phone = !!box?.phone;
-  // The phone's one-time «drag to see it all» chip (per viewer: once dismissed, never again). The
-  // stage only mounts in the browser (the image is a fetched blob), so storage is readable here.
-  const [hintSeen, setHintSeen] = useState(() => {
-    try {
-      return window.localStorage.getItem(HINT_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
-  const hint = phone && !hintSeen;
-  const dismissHint = () => {
-    if (hintSeen) return;
-    setHintSeen(true);
-    try {
-      window.localStorage.setItem(HINT_KEY, '1');
-    } catch {
-      // Storage blocked: it comes back next visit.
-    }
-  };
 
   const fitWidth = box ? box.w / image.width : 1;
   const contain = box ? Math.min(box.w / image.width, box.h / image.height) : 1;
@@ -737,14 +692,12 @@ function ZoomStage({
     [box, minScale, image.width, image.height],
   );
 
-  const openingScale = phone ? Math.max(fitWidth, PHONE_SCALE) : fitWidth;
-  const opening: View = phone
-    ? { scale: openingScale, x: -(sheet.table.x * openingScale) + PHONE_INSET, y: -(sheet.top * openingScale) + 8 }
-    : { scale: openingScale, x: 0, y: 0 };
+  const openingScale = phone ? contain : fitWidth;
+  const opening: View = { scale: openingScale, x: 0, y: 0 };
   const view: View | null = box ? clamp(wanted ?? opening) : null;
   const setView = (next: (v: View | null) => View | null) => setWanted(next(view));
 
-  const fit = () => setWanted({ scale: fitWidth, x: 0, y: 0 });
+  const fit = () => setWanted({ scale: openingScale, x: 0, y: 0 });
 
   const zoomAt = (factor: number, cx?: number, cy?: number) =>
     setView(v => {
@@ -792,7 +745,6 @@ function ZoomStage({
   }, []);
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    dismissHint();
     e.currentTarget.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, local(e));
     if (pointers.current.size === 2 && view) {
@@ -831,7 +783,6 @@ function ZoomStage({
     const run = keys[e.key];
     if (run) {
       e.preventDefault();
-      dismissHint();
       run();
     }
   };
@@ -864,7 +815,7 @@ function ZoomStage({
         onPointerCancel={onPointerUp}
         onDoubleClick={e => {
           const p = local(e);
-          if (view && view.scale > openingScale * 1.05) setWanted(phone ? null : { scale: fitWidth, x: 0, y: 0 });
+          if (view && view.scale > openingScale * 1.05) setWanted(null);
           else zoomAt(Math.max(1, openingScale * 2) / (view?.scale ?? 1), p.x, p.y);
         }}
         onKeyDown={onKeyDown}
@@ -876,7 +827,7 @@ function ZoomStage({
           .filter(([, v]) => v)
           .map(([k]) => k)
           .join(' ')}
-        style={{ ...style, ...edgeMask(more) }}
+        style={style}
         className={cn(
           FRAME_CLASS,
           'cursor-grab touch-none outline-none select-none active:cursor-grabbing',
@@ -904,15 +855,6 @@ function ZoomStage({
             {summary}
           </span>
         ) : null}
-        <span
-          aria-hidden
-          className={cn(
-            'pointer-events-none absolute inset-x-0 bottom-4 flex justify-center transition-opacity duration-(--duration-medium) ease-medium md:hidden',
-            hint && more.right ? 'opacity-100' : 'opacity-0',
-          )}
-        >
-          <span className="rounded-full bg-surface px-3 py-1.5 t-label text-ink-2 shadow-e2">Trage pentru a vedea tot clasamentul</span>
-        </span>
       </div>
       <ToolbarRow tableLink={tableLink}>
         <ZoomToolbar
