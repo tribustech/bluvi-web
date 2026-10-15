@@ -376,10 +376,13 @@ export function RankingTable({
                             ? win
                               ? 'bg-accent-tint-3'
                               : 'bg-accent-tint-2'
-                            : // fish: the competition's biggest catch is gold with bold dark text (c19).
+                            : // fish: the C.M.M.C of a best-of table is orange (yellow there marks inTop).
+                              cell.isBestOfBiggest
+                              ? 'bg-rank-bestof-biggest font-extrabold text-rank-bestof-biggest-ink'
+                              : // fish: the competition's biggest catch is gold with bold dark text (c19).
                               cell.isBiggest
                               ? 'bg-medal-gold font-extrabold text-on-medal'
-                              : // Best-of tables: the fish that count for the ranking, green (fish TOP_CATCH_*).
+                              : // Best-of tables: the fish that count for the ranking, yellow (fish TOP_CATCH_*).
                                 cell.inTop
                                 ? 'bg-rank-top-catch font-extrabold text-rank-top-catch-ink'
                                 : sectorCell,

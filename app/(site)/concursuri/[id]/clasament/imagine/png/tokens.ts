@@ -50,6 +50,9 @@ export type ImageTokens = {
   /** --color-rank-top-catch(-ink): the best-of fish that count for the ranking. */
   topCatch: string;
   topCatchInk: string;
+  /** --color-rank-bestof-biggest(-ink): the C.M.M.C of a best-of table. */
+  bestOfBiggest: string;
+  bestOfBiggestInk: string;
   /** --color-sector-a … x, by upper-case letter. */
   sectors: Record<string, string>;
   type: Record<TypeStep, TypeToken>;
@@ -57,7 +60,7 @@ export type ImageTokens = {
   radiusBadge: number;
 };
 
-const SEMANTIC: Record<Exclude<keyof ImageTokens, 'sectors' | 'indigo4' | 'topCatch' | 'topCatchInk' | 'type' | 'radiusBadge'>, string> = {
+const SEMANTIC: Record<Exclude<keyof ImageTokens, 'sectors' | 'indigo4' | 'topCatch' | 'topCatchInk' | 'bestOfBiggest' | 'bestOfBiggestInk' | 'type' | 'radiusBadge'>, string> = {
   surface: 'surface',
   page: 'page',
   softFill: 'soft-fill',
@@ -96,6 +99,11 @@ export function parseTokens(css: string): ImageTokens {
   const topCatchInk = value(css, 'color-rank-top-catch-ink');
   if (!topCatch || !topCatchInk) throw new Error('globals.css: --color-rank-top-catch(-ink) not found');
   out.topCatch = topCatch;
+  const bestOfBiggest = value(css, 'color-rank-bestof-biggest');
+  const bestOfBiggestInk = value(css, 'color-rank-bestof-biggest-ink');
+  if (!bestOfBiggest || !bestOfBiggestInk) throw new Error('globals.css: --color-rank-bestof-biggest(-ink) not found');
+  out.bestOfBiggest = bestOfBiggest;
+  out.bestOfBiggestInk = bestOfBiggestInk;
   out.topCatchInk = topCatchInk;
   out.sectors = {};
   for (const m of css.matchAll(/--color-sector-([a-x]):\s*([^;]+);/g)) out.sectors[m[1].toUpperCase()] = m[2].trim();

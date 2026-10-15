@@ -14,6 +14,7 @@ import { PenaltyMarker, WinnerTrophy } from './shell';
 
 type Marks = {
   biggest: boolean;
+  bestOfBiggest: boolean;
   split: boolean;
   unscored: boolean;
   tierWin: boolean;
@@ -34,7 +35,8 @@ export function legendMarks(columns: ReadonlyArray<ColumnDefinition>, rows: Read
   const sectors = new Set(rows.map(r => parseStand(r.position).sector));
   return {
     // Quantity rankings never flag a cell (fish createQuantityRow): no gold cell, no entry.
-    biggest: anyCell(c => c.isBiggest),
+    biggest: anyCell(c => c.isBiggest && !c.isBestOfBiggest),
+    bestOfBiggest: anyCell(c => c.isBestOfBiggest),
     split: anyCell(c => c.isSplit),
     unscored: rows.some(r => typeof r.sectorMinNumberOfFish === 'number' && r.sectorMinNumberOfFish < lastCatch),
     tierWin: anyCell(c => c.isTierWin),
@@ -85,6 +87,12 @@ export function RankingLegend({
       {m.biggest ? (
         <li className={ITEM}>
           <span aria-hidden className="size-3.5 rounded-[4px] bg-medal-gold" />
+          C.M.M.C a concursului
+        </li>
+      ) : null}
+      {m.bestOfBiggest ? (
+        <li className={ITEM}>
+          <span aria-hidden className="size-3.5 rounded-[4px] bg-rank-bestof-biggest" />
           C.M.M.C a concursului
         </li>
       ) : null}

@@ -140,7 +140,7 @@ export function standardFishRows(
         !cell.isTierWin &&
         (noCatch || (typeof row.catchCount === 'number' && row.catchCount < tierN && !cellNumber(raw)));
       const weight = col.kind === 'weight' || col.kind === 'catch' || col.kind === 'tier';
-      const fill = cell.isTierWin ? 'tierWin' : cell.isTier ? 'tier' : cell.isBiggest ? 'biggest' : cell.inTop ? 'topCatch' : 'sector';
+      const fill = cell.isTierWin ? 'tierWin' : cell.isTier ? 'tier' : cell.isBestOfBiggest ? 'bestOfBiggest' : cell.isBiggest ? 'biggest' : cell.inTop ? 'topCatch' : 'sector';
       const content = unreached ? (
         <>
           <span aria-hidden>–</span>

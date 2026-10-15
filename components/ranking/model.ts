@@ -25,6 +25,7 @@ export function readCell(value: unknown): {
   raw: string | number | null;
   isSplit: boolean;
   isBiggest: boolean;
+  isBestOfBiggest: boolean;
   isTier: boolean;
   isTierWin: boolean;
   inTop: boolean;
@@ -35,6 +36,7 @@ export function readCell(value: unknown): {
       raw: c.weight,
       isSplit: !!c.isSplit,
       isBiggest: !!c.isBiggest,
+      isBestOfBiggest: !!c.isBestOfBiggest,
       isTier: !!c.isTier,
       isTierWin: !!c.isTierWin,
       inTop: !!c.inTop,
@@ -44,6 +46,7 @@ export function readCell(value: unknown): {
     raw: typeof value === 'string' || typeof value === 'number' ? value : null,
     isSplit: false,
     isBiggest: false,
+    isBestOfBiggest: false,
     isTier: false,
     isTierWin: false,
     inTop: false,
