@@ -25,6 +25,8 @@ jobs:
       NEXT_PUBLIC_CMS_URL: https://api-staging.bluvi.ro/api
       NEXT_PUBLIC_SITE_URL: https://bluvi.ro
       NEXT_TELEMETRY_DISABLED: '1'
+      # Dates render in the users' zone; the runner is UTC (operator blocaje tests c6–c8).
+      TZ: Europe/Bucharest
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +36,11 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # next-env.d.ts and .next/types (RouteContext, image module declarations) are generated, not
+      # committed: tsc needs them before the build step creates them.
+      - name: Generate Next types
+        run: npx next typegen
 
       - name: Typecheck
         run: npx tsc --noEmit
@@ -46,8 +53,12 @@ jobs:
 
       - name: Parity
         run: |
-          if [ -f scripts/parity.mjs ]; then
+          # The inventory is checked against the fish repo (../fish or FISH_DIR), which CI does not
+          # check out; run `npm run parity` locally next to fish.
+          if [ -f scripts/parity.mjs ] && [ -d "${FISH_DIR:-../fish}/app" ]; then
             npm run parity
+          elif [ -f scripts/parity.mjs ]; then
+            echo "fish checkout not present — parity skipped"
           else
             echo "scripts/parity.mjs not present yet — skipped"
           fi
