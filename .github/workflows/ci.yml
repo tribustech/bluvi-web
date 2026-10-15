@@ -25,6 +25,8 @@ jobs:
       NEXT_PUBLIC_CMS_URL: https://api-staging.bluvi.ro/api
       NEXT_PUBLIC_SITE_URL: https://bluvi.ro
       NEXT_TELEMETRY_DISABLED: '1'
+      # Dates render in the users' zone; the runner is UTC (operator blocaje tests c6–c8).
+      TZ: Europe/Bucharest
     steps:
       - uses: actions/checkout@v4
 
