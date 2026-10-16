@@ -19,7 +19,7 @@ import { useCompetitionUrlId } from '../../_components/competition-url';
 
 /*
  * The chat's layout (participant.chat). The page never scrolls: the frame is the viewport under the
- * site bar (56 / 64, minus the offline banner), so the phone bar never conceals and nothing floats
+ * site bar (none below 768, 64 from 768; minus the offline banner, FRAME_H), so nothing floats
  * (owner rule 3); each column scrolls on its own.
  *
  *  - Phone (fish full-screen chat): header attached to the top, the room switcher and the follow

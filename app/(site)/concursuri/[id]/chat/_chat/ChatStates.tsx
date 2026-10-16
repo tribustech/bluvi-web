@@ -10,9 +10,12 @@ import { cn } from '@/components/ui/cn';
  *    back to this chat (with its room) after sign-in.
  */
 
-/** The viewport under the site bar (56 / 64 from 768) and the offline banner while it shows. */
+/**
+ * The viewport under the site bar and the offline banner while it shows: below 768 there is no site
+ * bar (SiteShell, ROADMAP §4b rule 25), so the whole viewport; from 768 under the 64px bar.
+ */
 export const FRAME_H =
-  'h-[calc(100dvh-var(--spacing)*14-var(--shell-banner-h,0px))] md:h-[calc(100dvh-var(--spacing)*16-var(--shell-banner-h,0px))]';
+  'h-[calc(100dvh-var(--shell-banner-h,0px))] md:h-[calc(100dvh-var(--spacing)*16-var(--shell-banner-h,0px))]';
 
 const BUBBLES = [
   { w: 'w-3/5', side: 'self-start' },

@@ -572,7 +572,9 @@ function Bar({ label, tiles, onEscape }: { label: string; tiles: Tile[]; onEscap
         }
         className={cn(
           'flex',
-          scroll && 'snap-x overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+          // A scroller clips vertically too: pt-2 is room for the Chat tile's count badge (-top-2),
+          // -mt-2 gives it back to the bar's own top padding, so the bar keeps its height.
+          scroll && '-mt-2 snap-x overflow-x-auto overscroll-x-contain pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
           scroll && !atEnd && '[mask-image:linear-gradient(to_left,transparent,black_--spacing(8))]',
         )}
       >

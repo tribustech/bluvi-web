@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import Link from 'next/link';
 import { ArrowRightIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { iconButtonClass } from '@/components/nav/IconButton';
@@ -126,6 +126,18 @@ export function HorizontalRail({
     return () => {
       io.disconnect();
       mo.disconnect();
+    };
+  }, []);
+
+  // A navigation away hides the page (cacheComponents keeps it under React <Activity>, display:none)
+  // and a hidden scroller loses its scrollLeft: on Back the rail was at its first card again. The
+  // cleanup runs while the page is still shown (it keeps the offset), the effect when it is shown again.
+  const savedLeft = useRef(0);
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (el && savedLeft.current) el.scrollLeft = savedLeft.current;
+    return () => {
+      if (el) savedLeft.current = el.scrollLeft;
     };
   }, []);
 
