@@ -28,8 +28,8 @@ export function LatestCatchesRail({
   now: number | null;
   /**
    * `gallery` (Partide › Comunitate from 768, owner 2026-10-13: «pozele n-au nicio treabă» — wide
-   * crops of tall catch photos): one row of portrait cards, 4 from 768 and 6 from 1280, the rest
-   * behind «Vezi toate». `rail`: the lake pages' row of thirds.
+   * crops of tall catch photos): one row of four portrait cards from 768 (owner 2026-10-18: six
+   * were too small), each photo shown whole (Photo `whole`), the rest behind «Vezi toate». `rail`: the lake pages' row of thirds.
    */
   variant?: 'rail' | 'gallery';
 }) {
@@ -40,7 +40,7 @@ export function LatestCatchesRail({
         // Phone: fixed 250 cards, bleeding to the screen edges (the gutter returned as padding).
         '-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none]',
         gallery
-          ? 'md:mx-0 md:grid md:snap-none md:grid-cols-4 md:gap-4 md:overflow-visible md:px-0 md:[&>li:nth-child(n+5)]:hidden xl:grid-cols-6 xl:gap-5 xl:[&>li:nth-child(n+5)]:block xl:[&>li:nth-child(n+7)]:hidden'
+          ? 'md:mx-0 md:grid md:snap-none md:grid-cols-4 md:gap-4 md:overflow-visible md:px-0 md:[&>li:nth-child(n+5)]:hidden xl:gap-5'
           : // From 768: a row of thirds that grows to fill, the overflow scrolling on.
             'md:mx-0 md:grid md:snap-none md:auto-cols-[minmax(calc((100%_-_2*--spacing(3))/3),1fr)] md:grid-flow-col md:px-0',
         gallery && '[&_[data-catch-card]]:md:aspect-[4/5] [&_[data-catch-card]]:md:h-auto',
@@ -50,21 +50,21 @@ export function LatestCatchesRail({
     >
       {catches.map(item => (
         <li key={`${item.sessionDocumentId}:${item.clientId}`} className="w-62.5 shrink-0 snap-start md:w-auto" data-testid="catch-card">
-          <CatchCard item={item} now={now} />
+          <CatchCard item={item} now={now} whole={gallery} />
         </li>
       ))}
     </ul>
   );
 }
 
-function CatchCard({ item, now }: { item: CommunityCatchDTO; now: number | null }) {
+function CatchCard({ item, now, whole }: { item: CommunityCatchDTO; now: number | null; whole: boolean }) {
   const href = partideHrefs.partida(item.sessionDocumentId);
   const species = item.species ?? 'Captură';
   const label = [item.weightKg != null ? `${fmtKg(item.weightKg)} kg` : null, species, item.venueName, item.angler.name].filter(Boolean).join(', ');
   const body = (
     <>
       <span className="absolute inset-0">
-        <Photo src={gridSource(item)} className="transition-transform duration-(--duration-slow) group-hover:scale-[1.03]" />
+        <Photo src={gridSource(item)} whole={whole} className="transition-transform duration-(--duration-slow) group-hover:scale-[1.03]" />
       </span>
       {now != null ? (
         <span className="absolute top-2.25 left-2.25 rounded-badge bg-photo-chip px-1.75 py-1 t-micro-strong text-ink" data-visual-mask>

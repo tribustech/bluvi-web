@@ -24,7 +24,22 @@ export const FOCUS = 'outline-none focus-visible:outline-2 focus-visible:outline
  * and the records never show a grey hole or the broken-image glyph); an error that fired before
  * hydration is caught by the ref.
  */
-export function Photo({ src, className, eager = false }: { src: string | null | undefined; className?: string; eager?: boolean }) {
+export function Photo({
+  src,
+  className,
+  eager = false,
+  whole = false,
+}: {
+  src: string | null | undefined;
+  className?: string;
+  eager?: boolean;
+  /**
+   * From 768 the whole photo, never cropped (owner 2026-10-18: «nu se văd pozele complet»): fitted
+   * inside the box over a blurred, cropped copy of itself that fills the rest. The phone keeps fish's
+   * cover crop. The parent must be positioned.
+   */
+  whole?: boolean;
+}) {
   const [failed, setFailed] = useState<string | null>(null);
   const check = useCallback(
     (img: HTMLImageElement | null) => {
@@ -33,7 +48,7 @@ export function Photo({ src, className, eager = false }: { src: string | null | 
     [src],
   );
   const url = src && failed !== src ? src : PLACEHOLDER_LAKE;
-  return (
+  const img = (
     // eslint-disable-next-line @next/next/no-img-element -- CMS rendition (grid / thumb), already sized.
     <img
       ref={url === src ? check : undefined}
@@ -42,8 +57,16 @@ export function Photo({ src, className, eager = false }: { src: string | null | 
       loading={eager ? 'eager' : 'lazy'}
       decoding="async"
       onError={() => src && setFailed(src)}
-      className={cn('size-full object-cover', className)}
+      className={cn('size-full object-cover', whole && 'relative md:object-contain', className)}
     />
+  );
+  if (!whole || url !== src) return img;
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element -- the same rendition, blurred behind. */}
+      <img aria-hidden src={url} alt="" loading={eager ? 'eager' : 'lazy'} decoding="async" className="absolute inset-0 hidden size-full scale-110 object-cover blur-xl md:block" />
+      {img}
+    </>
   );
 }
 

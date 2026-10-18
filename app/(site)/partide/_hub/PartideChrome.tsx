@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { PlusIcon } from '@heroicons/react/20/solid';
+import { usePinned } from '@/components/nav/stickyStack';
 import { DashboardHeader } from '@/components/templates/T5';
 import { buttonClass } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
@@ -21,8 +22,10 @@ import { usePartideViewer } from './activePartida';
  *    a hairline, the active tab in the accent ink on a 2.5px underline, hover and focus states.
  *    Re-selecting the active tab scrolls back to the top (fish handleSubTabChange). A tab whose page
  *    is not on the web yet is left out (an inert tab reads as broken on touch — fish never has a dead
- *    tap), and while «Comunitate» would be alone there is no tab bar at all. Owner rule 3: the bar is
- *    part of the page — it scrolls with it, it never floats.
+ *    tap), and while «Comunitate» would be alone there is no tab bar at all. The bar pins under the
+ *    top bar on scroll (owner 2026-10-18, §4b rule 26: «păstrăm meniul sus la scroll»; on the phone,
+ *    which has no top bar, at the top edge), on the page's own background, bleeding to the gutters;
+ *    its height is PARTIDE_TABS_H_VAR so a row pinned under it (Explorează's filters) sits below.
  */
 
 export type PartideTab = 'comunitate' | 'exploreaza' | 'ale-mele';
@@ -73,8 +76,31 @@ function StartPill() {
   );
 }
 
+/** The pinned tab bar's height, for a row that pins under it (PARTIDE_UNDER_TABS_TOP). */
+export const PARTIDE_TABS_H_VAR = '--partide-tabs-h';
+
+/** Under the shell's top bar from 768 (h-16), at the top edge on the phone; below the offline banner. */
+const TABS_TOP = 'top-[var(--shell-banner-h,0px)] md:top-[calc(--spacing(16)_+_var(--shell-banner-h,0px))]';
+
+/** `top` of a row pinned under the tab bar. */
+export const PARTIDE_UNDER_TABS_TOP =
+  'top-[calc(var(--shell-banner-h,0px)_+_var(--partide-tabs-h,0px))] md:top-[calc(--spacing(16)_+_var(--shell-banner-h,0px)_+_var(--partide-tabs-h,0px))]';
+
 /** c2 — the hub's tabs. `current` is the page's own tab. */
 export function PartideTabs({ current }: { current: PartideTab }) {
+  const ref = useRef<HTMLElement>(null);
+  usePinned(ref);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const ro = new ResizeObserver(() => root.style.setProperty(PARTIDE_TABS_H_VAR, `${Math.round(el.offsetHeight)}px`));
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty(PARTIDE_TABS_H_VAR);
+    };
+  }, []);
   const tabs = TABS.flatMap(tab => {
     const href = tab.href();
     return href ? [{ ...tab, href }] : [];
@@ -82,7 +108,11 @@ export function PartideTabs({ current }: { current: PartideTab }) {
   if (tabs.length < 2) return null;
   return (
     // From 768 centred under the top bar, Airbnb's category tabs (owner 2026-10-13), on the hairline.
-    <nav aria-label="Partide" className="max-md:-mt-1 md:pt-4">
+    <nav
+      ref={ref}
+      aria-label="Partide"
+      className={cn('sticky z-sticky -mx-4 bg-page px-4 max-md:-mt-1 md:-mx-6 md:px-6 md:pt-2 xl:-mx-8 xl:px-8', TABS_TOP)}
+    >
       <ul className="flex gap-1 border-b border-hairline md:justify-center md:gap-8">
         {tabs.map(({ href, ...tab }) => {
           const active = tab.value === current;

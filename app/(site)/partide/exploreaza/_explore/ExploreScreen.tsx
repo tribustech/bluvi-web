@@ -20,7 +20,9 @@ import { browserPublicWaters } from '@/app/(site)/ape-publice/_components/client
 import { FilterBar, FilterChipToggle, useListUrlState } from '@/components/templates/T1';
 import { VenueFilterDialog, type VenueFilterOption } from '@/components/partide/venue/VenueFilterDialog';
 import { readRecentVenueSearches } from '@/components/partide/venue/recentVenueSearches';
+import { cn } from '@/components/ui/cn';
 import { createBrowserTransport } from '@/lib/client/transport';
+import { PARTIDE_UNDER_TABS_TOP } from '../../_hub/PartideChrome';
 import { ExploreList, type ExploreData } from './ExploreList';
 import { LiveChip, VenueChip } from './parts';
 import { DEFAULT_PLACE, EMPTY_FETCH_LIMIT, isDefaultPlace, placeFromParams, placeToParams, type ExploreChip, type ExplorePlace } from './place';
@@ -149,12 +151,15 @@ function ExploreScreen({ initial, syncUrl }: { initial: ExplorePlace; syncUrl: b
 
   return (
     <div className="flex flex-col gap-4 md:gap-5" data-testid="explore-screen">
-      <FilterBar label="Filtre partide" onReset={reset} canReset={!isDefaultPlace(place)} resetLabel="Șterge filtrele">
-        <LiveChip pressed={liveOnly} onChange={setLiveOnly} />
-        <FilterChipToggle label="Cu notificări" pressed={chip === 'urmarite'} onChange={() => toggleChip('urmarite')} />
-        <FilterChipToggle label="Prieteni" pressed={chip === 'prieteni'} onChange={() => toggleChip('prieteni')} />
-        <VenueChip venueKey={venueKey} name={venueName} expanded={pickerOpen} onClick={() => setPickerOpen(true)} />
-      </FilterBar>
+      {/* Pinned under the hub's tabs on scroll (owner 2026-10-18, §4b rule 26). */}
+      <div className={cn('sticky z-sticky -mx-4 -my-2 bg-page px-4 py-2 md:-mx-6 md:px-6 xl:-mx-8 xl:px-8', PARTIDE_UNDER_TABS_TOP)}>
+        <FilterBar label="Filtre partide" onReset={reset} canReset={!isDefaultPlace(place)} resetLabel="Șterge filtrele">
+          <LiveChip pressed={liveOnly} onChange={setLiveOnly} />
+          <FilterChipToggle label="Cu notificări" pressed={chip === 'urmarite'} onChange={() => toggleChip('urmarite')} />
+          <FilterChipToggle label="Prieteni" pressed={chip === 'prieteni'} onChange={() => toggleChip('prieteni')} />
+          <VenueChip venueKey={venueKey} name={venueName} expanded={pickerOpen} onClick={() => setPickerOpen(true)} />
+        </FilterBar>
+      </div>
 
       <ExploreList {...data} />
 

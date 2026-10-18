@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { ChevronDownIcon, MapPinIcon } from '@heroicons/react/20/solid';
 import { PartidaCardSkeleton } from '@/components/partide/community/AcasaSceneSkeleton';
+import { PARTIDA_CARD_GRID } from '@/components/partide/community/grid';
 import { LiveDot } from '@/components/templates/LiveDot';
 import { filterChipClass, PILL_H, FOCUS_RING } from '@/components/templates/T1';
 import { cn } from '@/components/ui/cn';
@@ -108,10 +109,11 @@ export function ExploreSection({
 }
 
 /**
- * The cards of a section: one column on a phone, then as many ≥340px columns as fit (owner rule 5:
- * dense, auto-fill — more columns on a wider screen, never wider cards). Cards keep their own height.
+ * The cards of a section: one column on a phone, then as many 320–420px columns as fit (owner rule 5:
+ * dense, auto-fill — more columns on a wider screen, never wider cards; PARTIDA_CARD_GRID). Cards
+ * keep their own height.
  */
-export const EXPLORE_GRID = 'grid grid-cols-1 items-start gap-4 md:grid-cols-[repeat(auto-fill,minmax(--spacing(85),1fr))]';
+export const EXPLORE_GRID = cn('grid grid-cols-1 items-start gap-4', PARTIDA_CARD_GRID);
 
 export function ExploreGrid({ children, label, testId }: { children: ReactNode; label: string; testId?: string }) {
   return (

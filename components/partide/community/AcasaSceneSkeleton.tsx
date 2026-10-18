@@ -1,5 +1,6 @@
 import { DashboardLayout } from '@/components/templates/T5';
 import { cn } from '@/components/ui/cn';
+import { PARTIDA_CARD_GRID } from './grid';
 
 /*
  * fish features/partide/components/PartideSkeletons.tsx `AcasaSceneSkeleton` — the Comunitate
@@ -85,9 +86,9 @@ function RailBones() {
   return (
     <div aria-hidden>
       <SectionTitleBone width="w-32" />
-      <div className="-mx-4 flex gap-3 overflow-hidden px-4 md:mx-0 md:grid md:grid-cols-3 md:px-0">
-        {[0, 1, 2].map(i => (
-          <span key={i} className={cn('h-47 w-62.5 shrink-0 animate-shimmer rounded-card md:h-52 md:w-auto', i === 2 && 'max-md:hidden')} />
+      <div className="-mx-4 flex gap-3 overflow-hidden px-4 md:mx-0 md:grid md:grid-cols-4 md:gap-4 md:px-0 xl:gap-5">
+        {[0, 1, 2, 3].map(i => (
+          <span key={i} className={cn('h-47 w-62.5 shrink-0 animate-shimmer rounded-card md:aspect-4/5 md:h-auto md:w-auto', i >= 2 && 'max-md:hidden')} />
         ))}
       </div>
     </div>
@@ -98,7 +99,7 @@ function MiddleBones() {
   return (
     <div aria-hidden>
       <SectionTitleBone width="w-24" />
-      <div className="grid gap-3 @3xl:grid-cols-2">
+      <div className={cn('grid gap-3 md:gap-5', PARTIDA_CARD_GRID)}>
         <PartidaCardSkeleton />
         <PartidaCardSkeleton photos={false} />
       </div>
@@ -110,9 +111,9 @@ function RecordsBones() {
   return (
     <div aria-hidden>
       <SectionTitleBone width="w-24" />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 xl:gap-5">
         {[0, 1, 2, 3].map(i => (
-          <span key={i} className="h-42.5 animate-shimmer rounded-bento" />
+          <span key={i} className="h-42.5 animate-shimmer rounded-bento md:aspect-4/5 md:h-auto" />
         ))}
       </div>
     </div>
@@ -125,18 +126,14 @@ export function AcasaSceneSkeleton() {
     <div role="status" aria-busy className="contents" data-testid="comunitate-skeleton">
       <span className="sr-only">Se încarcă partidele comunității…</span>
       <DashboardLayout
-        sidesBelowXl="hidden"
-        context={<QuickNavBones layout="list" />}
         main={
           <>
-            <div className="contents xl:hidden">
-              <QuickNavBones layout="row" />
-            </div>
+            <QuickNavBones layout="row" />
             <RailBones />
             <MiddleBones />
+            <RecordsBones />
           </>
         }
-        aside={<RecordsBones />}
       />
     </div>
   );

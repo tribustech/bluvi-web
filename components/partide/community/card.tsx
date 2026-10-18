@@ -83,15 +83,16 @@ export function CardHeader({
 export type CardStat = { value: string; label: string; accent?: boolean };
 
 /**
- * fish StatStrip — three equal columns under a hairline, separated by hairlines; the middle one
+ * fish StatStrip — three equal columns (phone) under a hairline, separated by hairlines; the middle one
  * (always the kg) in the accent ink. The label carries the unit («kg total»), its own smaller
  * muted element under the figure (owner rule 10).
  */
 export function StatStrip({ stats }: { stats: CardStat[] }) {
   return (
-    <dl className="grid grid-cols-3 border-t border-hairline pt-3" data-testid="stat-strip">
+    // From 768 the figures sit together at the start (owner 2026-10-18), not spread over equal thirds.
+    <dl className="grid grid-cols-3 border-t border-hairline pt-3 md:flex" data-testid="stat-strip">
       {stats.map((s, i) => (
-        <div key={s.label} className={cn('flex min-w-0 flex-col-reverse gap-0.5', i > 0 && 'border-l border-hairline pl-3.5')}>
+        <div key={s.label} className={cn('flex min-w-0 flex-col-reverse gap-0.5 md:pr-6', i > 0 && 'border-l border-hairline pl-3.5 md:pl-5')}>
           <dt className="truncate t-micro text-muted">{s.label}</dt>
           <dd className={cn('truncate t-title2 tabular-nums', s.accent ? 'text-accent-ink' : 'text-ink')}>{s.value}</dd>
         </div>

@@ -1,13 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ChevronRightIcon, MapPinIcon, TrophyIcon } from '@heroicons/react/20/solid';
 import { CalendarDaysIcon, ChartBarIcon, SunIcon } from '@heroicons/react/24/outline';
-import { buildRecordSlots, fmtKg, gridSource, type CommunityRecordDTO, type RecordSlot } from '@/core/partide';
+import { buildRecordSlots, communityStatsQuery, fmtKg, fmtKgStat, gridSource, type CommunityRecordDTO, type CommunityStatsDTO, type RecordSlot } from '@/core/partide';
+import { useBreakpoint } from '@/components/surfaces/useBreakpoint';
 import { BentoArt, bentoSurface, type BentoTone } from '@/components/ui/BentoTile';
 import { cn } from '@/components/ui/cn';
 import { appLinks } from '@/lib/app-links';
+import { createBrowserTransport } from '@/lib/client/transport';
+import { PERIOD_TITLE } from '@/lib/stats-period';
 import { partideHrefs } from '@/lib/partide-pages';
 import { AnglerAvatars, FOCUS, Photo } from './parts';
 
@@ -70,9 +74,10 @@ function RecordTile({ record }: { record: CommunityRecordDTO }) {
   const species = record.species ?? 'Captură';
   const label = `Record ${BADGE[record.window].label.toLowerCase()}: ${fmtKg(record.weightKg)} kg, ${species}, ${record.venueName}`;
   return (
-    <TileFrame href={href} label={label} className={cn(TILE, 'bg-soft-fill shadow-e1')} testId={`record-${record.window}`}>
+    // From 768 the catch cards' portrait shape (owner 2026-10-18: the wide strips cropped the catch).
+    <TileFrame href={href} label={label} className={cn(TILE, 'bg-soft-fill shadow-e1 md:aspect-4/5 md:h-auto')} testId={`record-${record.window}`}>
       <span className="absolute inset-0 z-behind">
-        <Photo src={gridSource(record)} className="transition-transform duration-(--duration-slow) group-hover:scale-[1.03]" />
+        <Photo src={gridSource(record)} whole className="transition-transform duration-(--duration-slow) group-hover:scale-[1.03]" />
       </span>
       <span aria-hidden className="absolute inset-x-0 bottom-0 z-behind h-[55%] bg-linear-to-t from-photo-scrim to-transparent" />
       <span className="p-2.25">
@@ -81,7 +86,7 @@ function RecordTile({ record }: { record: CommunityRecordDTO }) {
       <span className="mt-auto flex items-end justify-between gap-1.5 px-2.5 pb-2.25 text-on-photo-scrim">
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="flex min-w-0 items-baseline gap-1">
-            <span className="shrink-0 t-heading">{fmtKg(record.weightKg)}</span>
+            <span className="shrink-0 t-heading md:t-title1">{fmtKg(record.weightKg)}</span>
             <span className="shrink-0 t-micro-strong">kg</span>
             <span className="ml-0.5 min-w-0 truncate t-micro">{species}</span>
           </span>
@@ -116,19 +121,80 @@ function InviteTile({ window: w }: { window: Window }) {
   );
 }
 
-function StatsTile() {
+/**
+ * «Statistici comunitate». `tall` (from 768, beside three record photos, so as tall as they are —
+ * owner 2026-10-18: the empty navy block «nu-mi place»): this month's community figures read from
+ * the public stats (communityStatsQuery 'month', the Statistici page's read) — capturi as the
+ * headline, kg · partide · pescari under it, the catches per day as small bars. Until they answer,
+ * or when the read fails or the month is empty, the short tile's content (owner rule 4).
+ */
+function StatsTile({ tall = false }: { tall?: boolean }) {
   const href = partideHrefs.stats();
+  const wide = useBreakpoint() !== 'mobile';
+  const t = useMemo(() => createBrowserTransport(), []);
+  const q = useQuery({ ...communityStatsQuery(t, 'month'), enabled: tall && wide });
+  const stats = tall && wide && q.data && q.data.totals.partide > 0 ? q.data : null;
   return (
-    <TileFrame href={href} label="Statistici comunitate" className={cn(TILE, bentoSurface('signature'), 'justify-between gap-2 p-3.5')} testId="record-stats">
-      <BentoArt>
-        <ChartBarIcon />
-      </BentoArt>
-      <span aria-hidden className="flex size-9.5 items-center justify-center rounded-control bg-lavender/15 text-lavender [&>svg]:size-5">
-        <ChartBarIcon />
-      </span>
-      <span className="t-body-strong text-lavender">Statistici comunitate</span>
+    <TileFrame href={href} label="Statistici comunitate" className={cn(TILE, bentoSurface('signature'), 'justify-between gap-2 p-3.5', stats && 'md:p-5')} testId="record-stats">
+      {stats ? (
+        <MonthFigures stats={stats} />
+      ) : (
+        <>
+          <BentoArt>
+            <ChartBarIcon />
+          </BentoArt>
+          <span aria-hidden className="flex size-9.5 items-center justify-center rounded-control bg-lavender/15 text-lavender [&>svg]:size-5">
+            <ChartBarIcon />
+          </span>
+          <span className="t-body-strong text-lavender">Statistici comunitate</span>
+        </>
+      )}
       {href ? <TileAction>Vezi cifrele</TileAction> : <span aria-hidden className="h-4" />}
     </TileFrame>
+  );
+}
+
+function MonthFigures({ stats }: { stats: CommunityStatsDTO }) {
+  const { totals } = stats;
+  const kg = fmtKgStat(totals.totalKg);
+  const n = (v: number) => v.toLocaleString('ro-RO');
+  const series = stats.weeklySeries;
+  const peak = Math.max(1, ...series.map(s => s.count));
+  return (
+    <span className="flex min-h-0 flex-1 flex-col gap-4" data-testid="record-stats-figures">
+      <span className="flex flex-col gap-0.5">
+        <span className="t-body-strong text-lavender">Statistici comunitate</span>
+        <span className="t-micro text-lavender-2">{PERIOD_TITLE.month}</span>
+      </span>
+      <span className="flex flex-col">
+        <span className="t-num-40 leading-none text-lavender tabular-nums xl:t-num-64">{n(totals.catches)}</span>
+        <span className="mt-1 t-label text-lavender-2">{totals.catches === 1 ? 'captură' : 'capturi'}</span>
+      </span>
+      <dl className="grid grid-cols-3 gap-2 border-t border-lavender/15 pt-3">
+        {[
+          { label: kg.unit === 't' ? 'tone' : 'kg', value: kg.value },
+          { label: 'partide', value: n(totals.partide) },
+          { label: 'pescari', value: n(totals.anglers) },
+        ].map(f => (
+          <span key={f.label} className="flex min-w-0 flex-col-reverse gap-0.5">
+            <dt className="truncate t-micro text-lavender-2">{f.label}</dt>
+            <dd className="truncate t-heading text-lavender tabular-nums">{f.value}</dd>
+          </span>
+        ))}
+      </dl>
+      {series.length > 1 ? (
+        // Catches per day, the month's shape at a glance; the numbers above say it for assistive tech.
+        <span aria-hidden className="flex max-h-28 min-h-10 flex-1 items-end gap-px">
+          {series.map((s, i) => (
+            <span
+              key={i}
+              className={cn('min-w-0 flex-1 rounded-t-[2px]', s.count > 0 ? 'bg-lavender/70' : 'bg-lavender/15')}
+              style={{ height: `${s.count > 0 ? Math.max(12, Math.round((s.count / peak) * 100)) : 6}%` }}
+            />
+          ))}
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -141,21 +207,40 @@ function TileAction({ children }: { children: ReactNode }) {
   );
 }
 
-function Slot({ slot }: { slot: RecordSlot }) {
+function Slot({ slot, tall = false }: { slot: RecordSlot; tall?: boolean }) {
   if (slot.kind === 'record') return <RecordTile record={slot.record} />;
   if (slot.kind === 'invite') return <InviteTile window={slot.window} />;
-  return <StatsTile />;
+  return <StatsTile tall={tall} />;
 }
 
-/** The 2×2 — four equal tiles by construction (fish buildRecordSlots: empty windows never collapse it). */
+/** md: classes by count (Tailwind needs them written out). */
+const ROWS = ['md:grid-rows-1', 'md:grid-rows-1', 'md:grid-rows-2', 'md:grid-rows-3'] as const;
+const ROW_SPAN = ['md:row-span-1', 'md:row-span-1', 'md:row-span-2', 'md:row-span-3'] as const;
+
+/**
+ * Phone: fish's 2×2 — four equal tiles by construction (buildRecordSlots: empty windows never
+ * collapse it). From 768 one row of four columns (owner 2026-10-18, «când nu avem recorduri sunt
+ * horror cardurile»): only a record is a portrait photo tile, first, one column each; the empty
+ * windows' invitations and the statistics tile stack, short, in the next column, sharing the
+ * photos' height (any column left stays empty at the row's end — rule 27, never a stretched band).
+ * With no record at all the four are one short row (the phone's tile height).
+ */
 export function RecordsGrid({ records }: { records: CommunityRecordDTO[] }) {
   const slots = buildRecordSlots(records);
+  const photos = slots.filter(s => s.kind === 'record').length;
+  const rest = slots.length - photos;
+  const stacked = photos > 0;
   return (
-    // Owner 2026-10-13: one row of four from 768; from 1280 a 2×2 bento beside «Ultimele partide».
-    <ul className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 xl:grid-cols-2" data-testid="records-grid">
+    <ul className={cn('grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 xl:gap-5', stacked && cn('md:grid-flow-col', ROWS[rest]))} data-testid="records-grid">
       {slots.map(slot => (
-        <li key={slot.kind === 'stats' ? 'stats' : slot.kind === 'record' ? slot.record.window : slot.window} className="flex flex-col *:flex-1">
-          <Slot slot={slot} />
+        <li
+          key={slot.kind === 'stats' ? 'stats' : slot.kind === 'record' ? slot.record.window : slot.window}
+          className={cn(
+            'flex flex-col *:flex-1',
+            stacked && (slot.kind === 'record' ? cn('md:order-first', ROW_SPAN[rest]) : 'md:*:h-auto md:*:min-h-28'),
+          )}
+        >
+          <Slot slot={slot} tall={rest === 1} />
         </li>
       ))}
     </ul>

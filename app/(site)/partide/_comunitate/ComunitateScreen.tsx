@@ -11,6 +11,7 @@ import {
 } from '@/core/partide';
 import { ActivePartidaCard, ActivePartidaDock } from '@/components/partide/ActivePartidaDock';
 import { AcasaSceneSkeleton } from '@/components/partide/community/AcasaSceneSkeleton';
+import { PARTIDA_CARD_GRID } from '@/components/partide/community/grid';
 import { CommunityHistoryCard } from '@/components/partide/community/CommunityHistoryCard';
 import { ExploreCta } from '@/components/partide/community/ExploreCta';
 import { LatestCatchesRail } from '@/components/partide/community/LatestCatchesRail';
@@ -113,11 +114,8 @@ export function ComunitateScreen() {
               </Suspense>
             </div>
             {rail}
-            {/* From 1280 a dashboard row: the partide (two thirds) beside the records bento. */}
-            <div className="flex flex-col gap-4 md:gap-5 xl:grid xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] xl:items-start xl:gap-8">
-              <MiddleSection section={section} explore={explore} />
-              {records}
-            </div>
+            <MiddleSection section={section} explore={explore} />
+            {records}
             {popular}
           </>
         }
@@ -176,10 +174,13 @@ function MiddleSection({ section, explore }: { section: DashboardPartideSection;
   );
 }
 
-/** One column of cards on the phone; from 768 the row fills with cards of at least 384 (never wider ones). */
+/**
+ * One column of cards on the phone; from 768 a row of cards 320–420 wide (PARTIDA_CARD_GRID — owner
+ * 2026-10-18: cards stretched over half a wide screen read as «lăbărțate»).
+ */
 function CardGrid({ children, testId }: { children: ReactNode; testId: string }) {
   return (
-    <div className="grid items-start gap-3 md:grid-cols-[repeat(auto-fill,minmax(--spacing(96),1fr))] md:gap-5" data-testid={testId}>
+    <div className={cn('grid items-start gap-3 md:gap-5', PARTIDA_CARD_GRID)} data-testid={testId}>
       {children}
     </div>
   );

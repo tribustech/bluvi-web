@@ -290,6 +290,27 @@ Add each new piece of feedback here, dated.
     - Differences from fish are allowed only where the web cannot do the same, and are written down
       next to the code.
 
+**2026-10-18, Partide**
+26. **Section tabs pin on scroll; a list's filter row pins under them (owner 2026-10-18).** «Nu vreau
+    butoane, mai bine păstrăm meniul sus la scroll și filtrarea când suntem pe Explorează.» The Partide
+    tabs stay the underline tabs (rule 20) and pin under the top bar (at the top edge on the phone),
+    on the page background; Explorează's filter row pins right under them. Attached, never floating
+    (rule 3).
+27. **Photos are shown whole; cards don't stretch (owner 2026-10-18).** «Nu se văd pozele complet…
+    cardurile de partide sunt lăbărțate… locurile populare nu arată ca bălțile noastre frumoase.»
+    - Catch and record photos from 768: portrait 4:5 tiles, the photo fitted whole over a blurred
+      copy of itself (never a wide crop of a tall photo); four catches to a row; Recorduri its own
+      row of four.
+    - Only a real record is a portrait tile. An empty window's invitation and the statistics tile
+      stay short (the phone's tile height), stacked in the column after the photos; with no record
+      the four are one short row. «Când nu avem recorduri sunt horror cardurile.»
+    - A tile as tall as the photos is never an empty colour block: «Statistici comunitate» beside
+      three records shows this month's real figures (capturi, kg, partide, pescari, catches per day).
+    - Partidă cards are 320–420 wide from 768, the spare width left at the row's end; the figures
+      sit together at the start of the card.
+    - A venue / lake tile anywhere uses the Bălți grid card's look (rounded 4:3 photo, text under
+      it, no box).
+
 
 
 A screen reaches review only after it passes all of these:
