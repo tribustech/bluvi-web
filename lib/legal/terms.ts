@@ -1,21 +1,36 @@
 import { OPERATOR, type LegalDocument } from './document';
 
-/* Termeni și condiții — written 2026-10-14 for what Bluvi offers today (no payments through Bluvi). */
+/*
+ * Termeni și condiții — written 2026-10-14 for what Bluvi offers today (no payments through Bluvi);
+ * 2026-10-20 extended for app 3.8.0: user content (feed, povești, video), its rules, reporting and
+ * moderation under Regulation (EU) 2022/2065 (DSA arts. 11–17, 20) and Live Activities — a draft for
+ * the lawyer's review.
+ */
 export const TERMS: LegalDocument = {
   title: 'Termeni și condiții',
-  description: 'Regulile de folosire a aplicației Bluvi și a site-ului bluvi.ro: contul, conținutul tău, concursuri, rezervări și răspunderea.',
-  updated: '14 octombrie 2026',
-  updatedIso: '2026-10-14',
+  description: 'Regulile de folosire a aplicației Bluvi și a site-ului bluvi.ro: contul, conținutul tău, raportarea și moderarea, concursuri, rezervări și răspunderea.',
+  updated: '20 octombrie 2026',
+  updatedIso: '2026-10-20',
   intro: [
     `Acești termeni se aplică aplicației mobile Bluvi și site-ului bluvi.ro („Bluvi”), operate de ${OPERATOR.name}, CUI ${OPERATOR.cui}, nr. Registrul Comerțului ${OPERATOR.regCom}, cu sediul în ${OPERATOR.address} („noi”).`,
     'Când îți creezi cont sau folosești Bluvi accepți acești termeni. Dacă nu ești de acord cu ei, te rugăm să nu folosești Bluvi. Felul în care prelucrăm datele tale este descris în Politica de confidențialitate.',
+    '**Ce s-a schimbat (20 octombrie 2026).** Am adăugat:',
+    {
+      list: [
+        'regulile pentru conținutul publicat de utilizatori (postări, comentarii, povești, videoclipuri) și licența pe care ne-o acorzi (secțiunile 3 și 4);',
+        'cum poți raporta un conținut, inclusiv fără cont, și ce trebuie să cuprindă o sesizare (secțiunea 5);',
+        'cum moderăm, cum te anunțăm și cum poți contesta o decizie (secțiunile 6 și 7);',
+        'punctul de contact pentru utilizatori și autorități (secțiunea 8);',
+        'Live Activities și notificarea de concurs, cu caracter orientativ (secțiunea 9).',
+      ],
+    },
   ],
   sections: [
     {
       id: 'serviciul',
       heading: '1. Ce este Bluvi',
       blocks: [
-        'Bluvi este o platformă pentru pescari: descoperi bălți și ape publice, ții evidența partidelor și a capturilor, participi la concursuri sau le organizezi, rezervi standuri la bălțile care primesc rezervări, lași recenzii și urmărești alți pescari.',
+        'Bluvi este o platformă pentru pescari: descoperi bălți și ape publice, ții evidența partidelor și a capturilor, publici postări și povești cu fotografii și videoclipuri, comentezi și apreciezi, participi la concursuri sau le organizezi și le urmărești live, rezervi standuri la bălțile care primesc rezervări, lași recenzii și urmărești alți pescari. Poți bloca utilizatori și raporta conținut.',
         'Folosirea Bluvi este gratuită. În prezent nu încasăm plăți prin Bluvi: prețul unei rezervări se plătește direct bălții, iar taxa de participare la un concurs, direct organizatorului.',
       ],
     },
@@ -37,20 +52,94 @@ export const TERMS: LegalDocument = {
       id: 'continut',
       heading: '3. Conținutul tău',
       blocks: [
-        'Rămâi proprietarul fotografiilor, textelor și celorlalte conținuturi pe care le publici. Ne acorzi o licență neexclusivă, gratuită, valabilă în toată lumea, să le găzduim, să le afișăm și să le distribuim în Bluvi (inclusiv pe site și în materialele de prezentare a Bluvi), cât timp sunt publicate și, pentru rezultatele concursurilor și istoricul bălților, și după aceea.',
-        'Publici doar conținut pe care ai dreptul să-l publici. Nu publici conținut ilegal, ofensator, discriminatoriu, înșelător, spam sau date personale ale altora fără acordul lor.',
-        'Putem ascunde sau șterge conținut care încalcă acești termeni sau legea și putem suspenda contul celui care îl publică.',
+        '**Ce înseamnă „conținutul utilizatorului”.** Tot ce publici în Bluvi: postări, povești, fotografii, videoclipuri (cu sunetul lor), texte, comentarii și răspunsuri, reacții și aprecieri, mențiuni, partide și capturi, recenzii, mesaje în chatul concursurilor, voturi și descrierea profilului.',
+        '**Rămâi proprietarul lui.** Ne acorzi o licență neexclusivă, gratuită (fără redevențe), valabilă în toată lumea, să găzduim, să stocăm, să reproducem, să adaptăm tehnic (de exemplu redimensionare, conversie video, miniaturi), să afișăm și să distribuim conținutul tău în aplicația Bluvi și pe bluvi.ro, inclusiv prin linkurile de distribuire, pentru a opera, afișa și promova serviciul în interiorul Bluvi. Putem sublicenția aceste drepturi doar furnizorilor care ne ajută să găzduim și să procesăm conținutul (de exemplu Mux pentru videoclipuri, Amazon Web Services pentru fotografii, Cloudflare pentru livrare), strict pentru acest scop.',
+        '**Nu folosim conținutul tău în reclame plătite** (de exemplu reclame pe rețele sociale sau în alte aplicații) fără acordul tău separat.',
+        '**Cât durează licența.** Cât timp conținutul este publicat. Când îl ștergi sau îți ștergi contul, încetăm să-l afișăm, cu excepția rezultatelor concursurilor, a cântăririlor, a rezervărilor, a recenziilor și a mesajelor din chatul concursurilor, care rămân, fără numele tău, ca parte din istoricul concursurilor și al bălților. Copii pot rămâne o perioadă limitată în copiile de siguranță și, ca dovadă, în evidența moderării, cum e descris în Politica de confidențialitate.',
+        '**Răspunzi de ce publici.** Publici doar conținut pe care ai dreptul să-l publici (inclusiv muzica din videoclipuri și imaginile altor persoane). Datele capturilor (specie, greutate, lungime) trebuie să fie reale. Locul pe care îl asociezi unei postări sau povești (balta, apa publică, punctele de pe hartă) devine vizibil celorlalți: alege-l tu și nu publica locul altcuiva fără acordul lui.',
+      ],
+    },
+    {
+      id: 'reguli-continut',
+      heading: '4. Ce conținut nu este permis',
+      blocks: [
+        'Avem **toleranță zero** față de conținutul ilegal și abuziv și față de utilizatorii care îl publică. Nu este permis:',
+        {
+          list: [
+            'conținut ilegal sau care încurajează fapte ilegale;',
+            'hărțuire, insulte, amenințări, intimidare sau urmărirea insistentă a altui utilizator, inclusiv prin mențiuni sau comentarii repetate;',
+            'discurs de ură sau discriminare pe criterii de rasă, etnie, religie, sex, orientare sexuală, dizabilitate sau altele asemenea;',
+            'nuditate, conținut sexual sau violență gratuită, inclusiv cruzime față de animale dincolo de manipularea obișnuită a capturii;',
+            'imagini sau videoclipuri cu minori fără acordul părintelui sau al tutorelui lor; orice conținut care sexualizează sau pune în pericol minori este raportat autorităților;',
+            'publicarea datelor personale ale altora fără acordul lor (de exemplu telefon, adresă, locul unde se află cineva) — „doxxing”;',
+            'spam, reclame nesolicitate, conturi false sau imitarea altei persoane ori organizații;',
+            'capturi, cântăriri sau recenzii false ori exagerate, menite să inducă în eroare;',
+            'promovarea pescuitului ilegal: braconaj, pescuit în perioadă sau zonă de prohibiție, fără permis, cu unelte sau metode interzise, ori păstrarea exemplarelor sub dimensiunea legală;',
+            'conținut care încalcă drepturile de autor, mărcile sau alte drepturi ale altora;',
+            'viruși, coduri sau linkuri înșelătoare ori periculoase.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'raportare',
+      heading: '5. Raportarea conținutului',
+      blocks: [
+        '**Din aplicație.** Poți raporta postări, comentarii, povești și recenzii din meniul lor, alegând motivul. Poți bloca un utilizator din meniul conținutului sau din profilul lui; nu-i mai vezi conținutul, iar el nu-l mai vede pe al tău.',
+        `**Pe email, pentru oricine.** Orice persoană, inclusiv fără cont Bluvi, ne poate sesiza un conținut pe care îl consideră ilegal sau contrar acestor termeni (inclusiv un mesaj din chatul unui concurs) la ${OPERATOR.email}, conform art. 16 din Regulamentul (UE) 2022/2065 privind serviciile digitale („DSA”). Sesizarea trebuie să cuprindă:`,
+        {
+          list: [
+            'explicația motivelor pentru care consideri conținutul ilegal sau contrar termenilor;',
+            'locul exact al conținutului (linkul, de exemplu bluvi.ro/postari/…, sau o descriere suficientă ca să-l găsim în aplicație);',
+            'numele și adresa ta de email (cu excepția sesizărilor privind abuzul sexual asupra copiilor, care pot fi anonime);',
+            'o declarație că informațiile din sesizare sunt, după știința ta, exacte și complete.',
+          ],
+        },
+        'Confirmăm primirea sesizării trimise pe email și îți comunicăm decizia luată și căile de contestare. Persoana raportată nu află cine a raportat-o, cu excepția cazurilor în care legea ne obligă.',
+      ],
+    },
+    {
+      id: 'moderare',
+      heading: '6. Moderare și măsuri',
+      blocks: [
+        'Conținutul raportat este analizat manual de administratorii Bluvi; nu folosim filtrare sau decizii automate. Pentru conținutul vădit ilegal acționăm în cel mult 24 de ore de la primirea raportării; celelalte raportări le analizăm cât mai repede posibil, cu atenție și imparțialitate.',
+        'În funcție de gravitate, putem lua una sau mai multe dintre măsurile următoare:',
+        {
+          list: [
+            'ascunderea conținutului (postare, comentariu, poveste) pentru ceilalți utilizatori;',
+            'suspendarea contului, temporar sau definitiv; un cont suspendat nu se mai poate autentifica;',
+            'păstrarea conținutului ca dovadă și sesizarea autorităților, când legea o cere.',
+          ],
+        },
+        '**Motivarea deciziei (art. 17 DSA).** Când îți ascundem conținutul sau îți suspendăm contul, te informăm pe adresa de email a contului despre măsura luată, faptele și motivul (regula din acești termeni sau temeiul legal încălcat) și despre cum poți contesta decizia, cu excepția cazurilor în care legea ne interzice să te informăm.',
+        'Suspendăm, după un avertisment, și conturile care trimit în mod repetat sesizări vădit nefondate.',
+      ],
+    },
+    {
+      id: 'contestatii',
+      heading: '7. Contestarea deciziilor',
+      blocks: [
+        `Dacă nu ești de acord cu o decizie de moderare (inclusiv cu decizia de a nu lua măsuri la o sesizare făcută de tine), ne poți scrie la ${OPERATOR.email}, în cel mult 6 luni de la comunicarea deciziei, explicând de ce o consideri greșită (art. 20 DSA). Contestația este analizată de un alt administrator decât cel care a luat decizia, iar răspunsul îl primești pe email. Dacă îți dăm dreptate, anulăm măsura.`,
+        'Poți apela și la un organism de soluționare extrajudiciară a litigiilor certificat conform art. 21 DSA, la Autoritatea Națională pentru Administrare și Reglementare în Comunicații (ANCOM), coordonatorul serviciilor digitale în România, sau la instanțele competente.',
+      ],
+    },
+    {
+      id: 'punct-contact',
+      heading: '8. Punct de contact',
+      blocks: [
+        `Punctul unic de contact pentru utilizatori și pentru autoritățile statelor membre, Comisia Europeană și Comitetul european pentru servicii digitale (art. 11 și 12 DSA) este ${OPERATOR.email}. Ne poți scrie în limba română sau în limba engleză.`,
       ],
     },
     {
       id: 'concursuri',
-      heading: '4. Concursuri',
+      heading: '9. Concursuri',
       blocks: [
         {
           list: [
             'Organizatorul fiecărui concurs stabilește regulamentul, taxa, premiile, alocarea standurilor și penalizările și răspunde de desfășurarea concursului și de respectarea legii (inclusiv a regulilor privind premiile).',
             'Bluvi pune la dispoziție instrumentele de înscriere, cântărire, clasament și comunicare. Clasamentul este calculat din cântăririle și penalizările introduse de organizator și arbitri; contestațiile se adresează organizatorului.',
             'Cântăririle sunt confirmate prin semnăturile arbitrului și ale martorului, care rămân atașate cântăririi.',
+            'Informațiile afișate pe ecranul de blocare (Live Activities pe iPhone, notificarea permanentă pe Android) și în notificări sunt orientative și pot întârzia; clasamentul oficial este cel din pagina concursului, stabilit de organizator.',
             'Ca organizator, garantezi că ai dreptul să organizezi concursul la acea baltă și că informațiile publicate sunt corecte.',
           ],
         },
@@ -58,7 +147,7 @@ export const TERMS: LegalDocument = {
     },
     {
       id: 'rezervari',
-      heading: '5. Rezervări la bălți',
+      heading: '10. Rezervări la bălți',
       blocks: [
         {
           list: [
@@ -72,19 +161,21 @@ export const TERMS: LegalDocument = {
     },
     {
       id: 'balti',
-      heading: '6. Informațiile despre bălți și ape',
+      heading: '11. Informațiile despre bălți și ape',
       blocks: [
         'Informațiile despre bălți (prețuri, program, specii, facilități) provin de la administratorii lor, de la utilizatori și din surse publice. Ne străduim să fie corecte, dar nu le putem garanta; verifică-le cu balta înainte de deplasare. Pentru ape publice respectă legislația privind pescuitul, inclusiv permisul de pescuit și perioadele de prohibiție.',
       ],
     },
     {
       id: 'reguli',
-      heading: '7. Ce nu ai voie să faci',
+      heading: '12. Ce nu ai voie să faci',
       blocks: [
         {
           list: [
             'să folosești Bluvi în scopuri ilegale sau ca să hărțuiești, ameninți ori induci în eroare alți utilizatori;',
+            'să publici conținutul interzis la secțiunea 4;',
             'să introduci cântăriri, capturi sau recenzii false ori să manipulezi clasamentele;',
+            'să ocolești blocarea de către alt utilizator, o suspendare sau limitele de încărcare (de exemplu prin conturi noi);',
             'să accesezi Bluvi automat (roboți, extragere de date) fără acordul nostru, să ocolești măsurile de securitate sau să suprasoliciți serviciul;',
             'să copiezi sau să revinzi conținutul altora ori al Bluvi.',
           ],
@@ -93,43 +184,43 @@ export const TERMS: LegalDocument = {
     },
     {
       id: 'proprietate',
-      heading: '8. Proprietate intelectuală',
+      heading: '13. Proprietate intelectuală',
       blocks: [
         'Numele și sigla Bluvi, aplicația, site-ul și conținutul create de noi ne aparțin. Îți acordăm dreptul de a le folosi pentru uz personal, conform acestor termeni.',
       ],
     },
     {
       id: 'raspundere',
-      heading: '9. Disponibilitate și răspundere',
+      heading: '14. Disponibilitate și răspundere',
       blocks: [
-        'Oferim Bluvi „ca atare”. Ne străduim să funcționeze fără întreruperi și fără erori, dar nu putem garanta acest lucru și putem modifica, suspenda sau opri funcții.',
+        'Oferim Bluvi „ca atare”. Ne străduim să funcționeze fără întreruperi și fără erori, dar nu putem garanta acest lucru și putem modifica, suspenda sau opri funcții. Funcțiile au limite tehnice afișate în aplicație (de exemplu durata videoclipurilor sau numărul de încărcări pe zi).',
         'În limitele permise de lege, nu răspundem pentru acțiunile altor utilizatori, ale bălților sau ale organizatorilor de concursuri, pentru conținutul publicat de aceștia sau pentru pierderi indirecte. Nimic din acești termeni nu limitează drepturile tale de consumator prevăzute de lege și nici răspunderea noastră pentru culpă gravă sau intenție.',
       ],
     },
     {
       id: 'suspendare',
-      heading: '10. Suspendarea și închiderea contului',
+      heading: '15. Suspendarea și închiderea contului',
       blocks: [
-        'Putem suspenda sau închide un cont care încalcă acești termeni sau legea, de regulă după ce te anunțăm. Tu poți închide oricând contul din Setări.',
+        `Putem suspenda sau închide un cont care încalcă acești termeni sau legea, cum e descris la secțiunea 6, și te informăm despre motiv. Tu poți închide oricând contul din Setări; dacă îți este suspendat contul și vrei să-l ștergi, scrie-ne la ${OPERATOR.email}.`,
       ],
     },
     {
       id: 'modificari',
-      heading: '11. Modificarea termenilor',
+      heading: '16. Modificarea termenilor',
       blocks: [
         'Putem modifica acești termeni. Despre schimbările importante te anunțăm în aplicație sau pe email înainte să intre în vigoare; dacă folosești Bluvi în continuare, accepți termenii modificați.',
       ],
     },
     {
       id: 'lege',
-      heading: '12. Legea aplicabilă și litigii',
+      heading: '17. Legea aplicabilă și litigii',
       blocks: [
         'Acești termeni sunt guvernați de legea română. Încercăm să rezolvăm orice nemulțumire pe cale amiabilă — scrie-ne mai întâi. Dacă nu reușim, litigiul se soluționează de instanțele competente din România. Ca și consumator, te poți adresa și Autorității Naționale pentru Protecția Consumatorilor (ANPC), anpc.ro.',
       ],
     },
     {
       id: 'contact',
-      heading: '13. Contact',
+      heading: '18. Contact',
       blocks: [`${OPERATOR.name}, ${OPERATOR.address}. Email: ${OPERATOR.email}.`],
     },
   ],
