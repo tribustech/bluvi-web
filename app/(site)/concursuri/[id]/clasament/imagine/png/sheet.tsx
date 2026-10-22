@@ -8,6 +8,7 @@ export { statLines };
 import { SCALE } from './scale';
 import { contrastOn, inkOn, withAlpha, type ImageTokens, type TypeToken } from './tokens';
 import { LOGO_PATHS, LOGO_VIEWBOX, TROPHY_PATH } from './marks';
+import { chunkByRows, sponsorGridLayout } from './sponsorGrid';
 
 /*
  * The ranking image, drawn for Satori (next/og): fish RankingTableForScreenshot.tsx (header, sector
@@ -32,8 +33,12 @@ const TITLE_H = 80;
 /** The totals: a hairline over them, STATS_GAP under the table (the header's rhythm), then the row. */
 const STATS_GAP = 32;
 const STATS_H = 96;
-const SPONSOR = 150;
-const SPONSORS_H = 16 + SPONSOR + 16;
+/** Sponsors: an 8:5 logo grid inside the minimum width (up to 50 sponsors, ./sponsorGrid.ts), 16 above and below. */
+const SPONSOR_GAP = 16;
+const SPONSORS_PAD_X = 24;
+const SPONSORS_MAX_W = MIN_WIDTH - 2 * PAD - 2 * SPONSORS_PAD_X;
+const sponsorGrid = (count: number) => sponsorGridLayout(count, { maxWidth: SPONSORS_MAX_W, gap: SPONSOR_GAP });
+const sponsorsHeight = (count: number) => (count > 0 ? 16 + sponsorGrid(count).height + 16 : 0);
 
 // Generic table (RankingTableForScreenshot).
 const CELL_W = 80;
@@ -159,7 +164,7 @@ export function sheetSize(model: RankingImageModel, sponsorCount: number): { wid
     table.height +
     STATS_GAP +
     STATS_H +
-    (sponsorCount > 0 ? SPONSORS_H : 0) +
+    sponsorsHeight(sponsorCount) +
     PAD;
   return { width: Math.ceil(u(width)), height: Math.ceil(u(height)) };
 }
@@ -925,6 +930,23 @@ function Stats({ model, ctx }: { model: RankingImageModel; ctx: Ctx }) {
   );
 }
 
+/** Balanced rows of 8:5 tiles, logos whole (`contain`) on the sheet's white. */
+function SponsorRows({ sponsors, background }: { sponsors: string[]; background: string }) {
+  const grid = sponsorGrid(sponsors.length);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: u(SPONSOR_GAP), marginTop: u(16), paddingLeft: u(SPONSORS_PAD_X), paddingRight: u(SPONSORS_PAD_X) }}>
+      {chunkByRows(sponsors, grid.rows).map((row, r) => (
+        <div key={r} style={{ display: 'flex', justifyContent: 'center', gap: u(SPONSOR_GAP), height: u(grid.tileHeight) }}>
+          {row.map((src, i) => (
+            // eslint-disable-next-line @next/next/no-img-element -- Satori draws <img>, not next/image.
+            <img key={i} src={src} width={u(grid.tileWidth)} height={u(grid.tileHeight)} alt="" style={{ objectFit: 'contain', backgroundColor: background }} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function RankingSheet({
   model,
   tokens,
@@ -974,12 +996,7 @@ export function RankingSheet({
       </div>
       <Stats model={model} ctx={ctx} />
       {sponsors.length > 0 ? (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: u(16), marginTop: u(16), height: u(SPONSOR), paddingLeft: u(24), paddingRight: u(24) }}>
-          {sponsors.map((src, i) => (
-            // eslint-disable-next-line @next/next/no-img-element -- Satori draws <img>, not next/image.
-            <img key={i} src={src} width={u(SPONSOR)} height={u(SPONSOR)} alt="" style={{ objectFit: 'contain' }} />
-          ))}
-        </div>
+        <SponsorRows sponsors={sponsors} background={tokens.surface} />
       ) : null}
     </div>
   );

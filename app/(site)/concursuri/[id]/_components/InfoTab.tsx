@@ -192,7 +192,8 @@ function TimeMark({ label, time, date, dateLong, align = 'start' }: { label: str
 
 function SponsorsSection({ sponsors }: { sponsors: CompetitionWithMyStatus['sponsors'] }) {
   return (
-    <DetailAsideCard title="Sponsori">
+    // Up to 50 sponsors since CMS 3.9.0 follow-ups: the count (fish «Sponsori (24)») says how long the grid runs.
+    <DetailAsideCard title={sponsors.length > 3 ? `Sponsori (${sponsors.length})` : 'Sponsori'}>
       {/* Auto-fill: more logos per row as the column grows, never wider tiles (fixed 128px tiles). */}
       <ul className="grid grid-cols-[repeat(auto-fill,--spacing(32))] gap-3">
         {sponsors.map(s => (
