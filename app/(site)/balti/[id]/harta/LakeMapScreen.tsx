@@ -129,6 +129,9 @@ const standsCount = (n: number) => (n === 1 ? '1 stand' : n % 100 >= 20 || (n > 
 const hasCoords = (s: StandStats): s is StandStats & { coordinates: { latitude: number; longitude: number } } =>
   s.coordinates.latitude != null && s.coordinates.longitude != null && !!s.coordinates.latitude && !!s.coordinates.longitude;
 
+/** Any figure to show (a catch, a quality, a biggest fish). */
+const hasStats = (s: StandStats) => !!s.biggestFish || !!s.quality || !!s.totalCatchesCount;
+
 export function LakeMapScreen({ lakeId, lakeName, coords }: { lakeId: string; lakeName: string; coords: Coords | null }) {
   const urlId = useLakeUrlId(lakeId);
   const back = useBack(routes.lake(urlId));
@@ -228,6 +231,10 @@ function StandsMap({ lakeId, lakeName, coords, title, onBack }: { lakeId: string
   const standsPending = !answered && !standsFailed;
   const stands = useMemo(() => (answered ? standsQ.data : []), [answered, standsQ.data]);
   const placed = useMemo(() => stands.filter(hasCoords), [stands]);
+  // A stand with neither a pin nor a figure would be one more «—» card: those fold into one summary
+  // card (their names), and the cards, the pager and the selection run over the rest.
+  const active = useMemo(() => stands.filter(s => hasCoords(s) || hasStats(s)), [stands]);
+  const quiet = useMemo(() => stands.filter(s => !hasCoords(s) && !hasStats(s)), [stands]);
 
   const container = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -241,8 +248,11 @@ function StandsMap({ lakeId, lakeName, coords, title, onBack }: { lakeId: string
   const retried = useRef(false);
   // c4: the first stand is selected at first (fish useState(stands[0]?.standId)).
   const [picked, setPicked] = useState<string | null>(null);
-  const selectedId = picked ?? stands[0]?.standId ?? null;
-  const [callout, setCallout] = useState<Callout>(null);
+  const selectedId = picked ?? active[0]?.standId ?? null;
+  /** undefined = untouched: with no stand on the map the lake's own callout opens at first. */
+  const [calloutState, setCallout] = useState<Callout | undefined>(undefined);
+  const nonePlaced = placed.length === 0;
+  const callout = calloutState === undefined ? (answered && nonePlaced ? 'lake' : null) : calloutState;
   const [directions, setDirections] = useState<{ name: string; lat: number; lng: number } | null>(null);
   const cards = useRef<HTMLUListElement>(null);
   /** A selection made by the cards' own scrolling must not scroll them again. */
@@ -400,7 +410,7 @@ function StandsMap({ lakeId, lakeName, coords, title, onBack }: { lakeId: string
   // its scrolling settles is the selected stand. The docked column (1280+) selects by press only.
   useEffect(() => {
     const strip = cards.current;
-    if (!strip || !stands.length) return;
+    if (!strip || !active.length) return;
     let timer = 0;
     const settle = () => {
       if (fromScroll.current) {
@@ -420,7 +430,7 @@ function StandsMap({ lakeId, lakeName, coords, title, onBack }: { lakeId: string
           best = el;
         }
       }
-      const s = best ? stands.find(x => x.standId === best.dataset.stand) : undefined;
+      const s = best ? active.find(x => x.standId === best.dataset.stand) : undefined;
       if (s && s.standId !== selectedId) selectFromCards(s);
     };
     const onScroll = () => {
@@ -432,20 +442,18 @@ function StandsMap({ lakeId, lakeName, coords, title, onBack }: { lakeId: string
       window.clearTimeout(timer);
       strip.removeEventListener('scroll', onScroll);
     };
-  }, [stands, selectedId, selectFromCards]);
+  }, [active, selectedId, selectFromCards]);
 
   const step = (dir: -1 | 1) => {
-    const i = stands.findIndex(s => s.standId === selectedId);
-    const next = stands[Math.min(stands.length - 1, Math.max(0, i + dir))];
+    const i = active.findIndex(s => s.standId === selectedId);
+    const next = active[Math.min(active.length - 1, Math.max(0, i + dir))];
     if (!next) return;
     selectFromCards(next);
     reveal(next.standId);
   };
-  const selectedIndex = stands.findIndex(s => s.standId === selectedId);
-  const counter = selectedIndex >= 0 ? `${selectedIndex + 1} din ${stands.length}` : `${stands.length} standuri`;
+  const selectedIndex = active.findIndex(s => s.standId === selectedId);
+  const counter = selectedIndex >= 0 ? `${selectedIndex + 1} din ${active.length}` : standsCount(active.length);
 
-  /** No stand has a pin: the pager and the per-card badge would move nothing on the map. */
-  const nonePlaced = placed.length === 0;
   const counterId = useId();
   const standsSlot = standsFailed ? (
     <StandsSlot ref={slotRef}>
@@ -477,8 +485,9 @@ function StandsMap({ lakeId, lakeName, coords, title, onBack }: { lakeId: string
   ) : stands.length ? (
     <StandsSlot ref={slotRef} label="Standuri" testId="stand-cards" id={STANDS_ID}>
       <FocusAfterRetry retry={STANDS_RETRY} target={STANDS_ID} />
-      {nonePlaced ? (
-        // No pin to step through: one quiet note instead of the pager and a badge on every card.
+      {!active.length ? null : nonePlaced ? (
+        // No pin to step through: one quiet note instead of the pager and a badge on every card
+        // (with no card at all, the summary card says it itself).
         <p className="mx-4 self-start rounded-control bg-surface px-3 py-2 t-caption text-ink-2 shadow-e2 xl:mx-0" data-testid="stands-unplaced">
           Standurile nu sunt încă marcate pe hartă
         </p>
@@ -486,7 +495,7 @@ function StandsMap({ lakeId, lakeName, coords, title, onBack }: { lakeId: string
         // «‹ N din M ›»: one segmented control (the counter between the arrows, one height).
         <div className="flex px-4 xl:px-0">
           <p aria-live="polite" className="sr-only">
-            {selectedIndex >= 0 ? `Standul ${stands[selectedIndex].name}, ${counter}` : counter}
+            {selectedIndex >= 0 ? `Standul ${active[selectedIndex].name}, ${counter}` : counter}
           </p>
           <div role="group" aria-labelledby={counterId} className="flex items-stretch overflow-hidden rounded-control bg-surface shadow-e2">
             <MapControlButton label="Standul anterior" onClick={() => step(-1)} disabled={selectedIndex <= 0}>
@@ -497,7 +506,7 @@ function StandsMap({ lakeId, lakeName, coords, title, onBack }: { lakeId: string
               {counter}
             </span>
             <span aria-hidden className="my-2 w-px bg-hairline" />
-            <MapControlButton label="Standul următor" onClick={() => step(1)} disabled={selectedIndex >= stands.length - 1}>
+            <MapControlButton label="Standul următor" onClick={() => step(1)} disabled={selectedIndex >= active.length - 1}>
               <ChevronRightIcon aria-hidden />
             </MapControlButton>
           </div>
@@ -515,7 +524,7 @@ function StandsMap({ lakeId, lakeName, coords, title, onBack }: { lakeId: string
           'xl:[mask-image:linear-gradient(to_bottom,var(--color-ink)_calc(100%-var(--spacing)*8),transparent)]',
         )}
       >
-        {stands.map(s => (
+        {active.map(s => (
           <li
             key={s.standId}
             data-stand={s.standId}
@@ -524,6 +533,11 @@ function StandsMap({ lakeId, lakeName, coords, title, onBack }: { lakeId: string
             <StandCard stand={s} selected={s.standId === selectedId} unplacedBadge={!nonePlaced} onSelect={() => selectFromCards(s)} />
           </li>
         ))}
+        {quiet.length ? (
+          <li className="w-[min(--spacing(80),calc(100vw-(--spacing(16))))] shrink-0 snap-center md:snap-start xl:w-full">
+            <QuietStands stands={quiet} alone={!active.length} />
+          </li>
+        ) : null}
       </ul>
     </StandsSlot>
   ) : null;
@@ -615,7 +629,7 @@ function StandsMap({ lakeId, lakeName, coords, title, onBack }: { lakeId: string
               callout={callout === 'lake'}
               onNavigate={() => setDirections({ name: lakeName, ...coords })}
             >
-              <LakePin label={`${lakeName}: adresa bălții`} selected={callout === 'lake'} onClick={() => setCallout(c => (c === 'lake' ? null : 'lake'))} />
+              <LakePin label={`${lakeName}: adresa bălții`} selected={callout === 'lake'} onClick={() => setCallout(callout === 'lake' ? null : 'lake')} />
             </PinWithCallout>
           </MapMarker>
           {placed.map(s => (
@@ -784,11 +798,12 @@ function LakePin({ label, selected, onClick }: { label: string; selected: boolea
 }
 
 /*
- * A stand's card — fish LakeStandCard (c5) on the kit card (CardShell, elevated over the map): «N/A»
- * when a figure is missing; every kg with the rankings' two decimals («12,00», «3,70»).
+ * A stand's card — fish LakeStandCard (c5) on the kit card (CardShell, elevated over the map), its
+ * three figures as tiles: «—» when a figure is missing; every kg with the rankings' two decimals
+ * («12,00», «3,70»).
  */
 
-const kgOrNa = (kg: number | null | undefined) => (kg ? `${rankKg(kg)} kg` : 'N/A');
+const kgOrDash = (kg: number | null | undefined) => (kg ? `${rankKg(kg)} kg` : '—');
 
 function StandCard({ stand, selected, unplacedBadge, onSelect }: { stand: StandStats; selected: boolean; unplacedBadge: boolean; onSelect: () => void }) {
   return (
@@ -797,7 +812,7 @@ function StandCard({ stand, selected, unplacedBadge, onSelect }: { stand: StandS
       data-testid="stand-card"
       data-selected={selected || undefined}
     >
-      <CardShell elevated className="gap-2 px-4 py-3">
+      <CardShell elevated className="gap-3 px-4 py-3">
         <div className="flex items-center justify-between gap-2">
           <CardTitle as="h2" className="t-heading text-ink">
             {/* The whole card selects the stand (the button's hit area covers it). */}
@@ -813,24 +828,50 @@ function StandCard({ stand, selected, unplacedBadge, onSelect }: { stand: StandS
           {/* Only when some stands have pins and this one has not (none placed: one note above). */}
           {unplacedBadge && !hasCoords(stand) ? <span className="t-micro text-muted">fără pin pe hartă</span> : null}
         </div>
-        <dl className="flex flex-col gap-1 t-body text-ink-2">
-          <Row icon={<FishIcon aria-hidden size={16} />} label="Cea mai mare captură" value={kgOrNa(stand.biggestFish)} />
-          <Row icon={<ScaleIcon aria-hidden size={16} />} label="Calitate" value={kgOrNa(stand.quality)} />
-          <Row icon={<CatchIcon aria-hidden size={16} />} label="Capturi" value={stand.totalCatchesCount != null ? String(stand.totalCatchesCount) : 'N/A'} />
+        <dl className="grid grid-cols-3 gap-2">
+          <Stat icon={<FishIcon aria-hidden size={14} />} label="Record" value={kgOrDash(stand.biggestFish)} />
+          <Stat icon={<ScaleIcon aria-hidden size={14} />} label="Calitate" value={kgOrDash(stand.quality)} />
+          <Stat icon={<CatchIcon aria-hidden size={14} />} label="Capturi" value={stand.totalCatchesCount ? String(stand.totalCatchesCount) : '—'} />
         </dl>
       </CardShell>
     </div>
   );
 }
 
-function Row({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-1">
-      <dt className="flex items-center gap-1">
-        <span className="mr-0.5 text-accent-ink">{icon}</span>
-        {label}:
+    <div className="flex min-w-0 flex-col gap-0.5 rounded-control bg-soft-fill px-2.5 py-2">
+      <dt className="flex min-w-0 items-center gap-1 t-micro text-muted">
+        <span className="shrink-0 text-accent-ink">{icon}</span>
+        <span className="truncate">{label}</span>
       </dt>
-      <dd className="t-body-strong text-ink tabular-nums">{value}</dd>
+      <dd className={cn('truncate t-body-strong tabular-nums', value === '—' ? 'text-faint' : 'text-ink')}>{value}</dd>
+    </div>
+  );
+}
+
+/**
+ * The stands with neither a pin nor a figure, folded into one card: how many, why there is nothing
+ * to show, and their names. `alone`: no other card (the lake has no catch and no stand on the map yet).
+ */
+function QuietStands({ stands, alone }: { stands: StandStats[]; alone: boolean }) {
+  return (
+    <div data-testid="stands-quiet">
+      <CardShell elevated className="gap-3 px-4 py-3">
+        <div className="flex flex-col gap-0.5">
+          <h2 className="t-heading text-ink">{alone ? standsCount(stands.length) : `Încă ${standsCount(stands.length)}`}</h2>
+          <p className="t-caption text-muted">
+            {alone ? 'Nicio captură înregistrată încă, iar standurile nu sunt marcate pe hartă.' : 'Fără capturi înregistrate încă'}
+          </p>
+        </div>
+        <ul aria-label="Standuri fără capturi" className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto [scrollbar-width:thin] xl:max-h-none">
+          {stands.map(s => (
+            <li key={s.standId} className="max-w-full truncate rounded-badge bg-soft-fill px-2 py-0.5 t-label text-ink-2 tabular-nums">
+              {s.name}
+            </li>
+          ))}
+        </ul>
+      </CardShell>
     </div>
   );
 }

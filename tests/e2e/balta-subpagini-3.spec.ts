@@ -657,9 +657,9 @@ test('lakes.map.c1 lakes.map.c4 lakes.map.c5 lakes.map.s3 — the satellite map 
   await expect(cards.first()).toHaveAttribute('data-selected', 'true');
   await expect(cards.first()).toContainText(`Stand ${first.name}`);
   // One kg rule on the card: the rankings' two decimals («12,00», «3,70»).
-  await expect(cards.first()).toContainText(`Cea mai mare captură:${first.biggestFish ? `${kg2(first.biggestFish)} kg` : 'N/A'}`);
-  await expect(cards.first()).toContainText(`Calitate:${first.quality ? `${kg2(first.quality)} kg` : 'N/A'}`);
-  await expect(cards.first()).toContainText(`Capturi:${first.totalCatchesCount}`);
+  await expect(cards.first()).toContainText(`Record${first.biggestFish ? `${kg2(first.biggestFish)} kg` : '—'}`);
+  await expect(cards.first()).toContainText(`Calitate${first.quality ? `${kg2(first.quality)} kg` : '—'}`);
+  await expect(cards.first()).toContainText(`Capturi${first.totalCatchesCount || '—'}`);
   await expectNoHorizontalScroll(page);
   // T2's controls only: no MapLibre stock zoom; phones pinch (no zoom buttons below 768).
   await expect(page.locator('.maplibregl-ctrl-zoom-in')).toHaveCount(0);
@@ -700,15 +700,23 @@ test('lakes.map — layout: the carousel from the left edge at 768 with «‹ N 
   await expectNoHorizontalScroll(page);
 });
 
-test('lakes.map.c5 — a lake whose stands have no pin: one note instead of the pager and a badge on every card', async ({ page, request }) => {
+test('lakes.map.c5 — a lake whose stands have no pin: one note instead of the pager; the stands without a catch fold into one summary card; the lake\'s callout is open', async ({ page, request }) => {
   const stands: StandStats[] = await (await request.get(`${CMS}/lakes/${ID.big}/statistics`)).json();
   test.skip(!stands.length || stands.some(s => s.coordinates.latitude && s.coordinates.longitude), 'needs stands, none placed');
+  const withFigures = stands.filter(s => s.biggestFish || s.quality || s.totalCatchesCount);
   await go(page, `/balti/${ID.big}/harta`, TABLET);
-  await expect(page.getByTestId('stand-card')).toHaveCount(stands.length, { timeout: 30_000 });
-  await expect(page.getByTestId('stands-unplaced')).toHaveText('Standurile nu sunt încă marcate pe hartă');
+  await expect(page.getByTestId('stand-cards')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('stand-card')).toHaveCount(withFigures.length);
+  const quiet = page.getByTestId('stands-quiet');
+  if (withFigures.length === stands.length) await expect(quiet).toHaveCount(0);
+  else await expect(quiet.getByRole('listitem')).toHaveCount(stands.length - withFigures.length);
+  if (withFigures.length) await expect(page.getByTestId('stands-unplaced')).toHaveText('Standurile nu sunt încă marcate pe hartă');
+  else await expect(quiet).toContainText('standurile nu sunt marcate pe hartă');
   await expect(page.getByText('fără pin pe hartă')).toHaveCount(0);
   await expect(page.getByTestId('stands-counter')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Standul următor' })).toHaveCount(0);
+  await expect(page.getByTestId('lake-map')).toHaveAttribute('data-map-status', 'ready', { timeout: 30_000 });
+  await expect(page.getByTestId('lake-pin').getByTestId('pin-callout')).toBeVisible();
 });
 
 test('lakes.map.s3 — the stands read failed: an error card with «Încearcă din nou» in the cards\' slot; the lake pin stays', async ({ page }) => {
