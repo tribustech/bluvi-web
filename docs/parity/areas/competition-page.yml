@@ -1082,7 +1082,7 @@ screens:
         text: "„Sponsori”: horizontal list of sponsor logo + name; pressing one opens the sponsor page (web /sponsori/[id]); hidden when there are none."
         fish_ref: components/competition/CompetitionInfo.tsx:221-227; components/SponsorsList.tsx:20-58
         status: passing
-        web_note: "Fixed 128px logo tiles on an auto-fill grid (fish: sideways rail); sponsor_competition_screen waits for GA4 (M8)."
+        web_note: "Fixed 128px logo tiles on an auto-fill grid (fish: sideways rail); «Sponsori (n)» above 3, as fish; sponsor_competition_screen waits for GA4 (M8)."
       - id: competition-page.informatii.c12
         text: "Refresh invalidates the competition, the viewer's statute and allocated participants."
         fish_ref: components/competition/CompetitionInfo.tsx:39-47
@@ -1625,10 +1625,10 @@ screens:
         status: passing
         web_note: "Feeder: image-variant table (×1.45 sizes, 15/13 text, legs in the sector tokens of fish's hues); NC General: the merged-cell club table (core ncGeneralModel). e2e + visual check."
       - id: competition-page.imagine-clasament.c5
-        text: "Under the table: Cantitate totală „{totalQuantity|0} Kg”, Număr de pești „{totalCatchesCount|0}”, Medie pești „{total/count, 2 decimals | 0} Kg”, Cea mai mare captură „{biggestFish|-} Kg”, then the sponsor logos (150×150)."
+        text: "Under the table: Cantitate totală „{totalQuantity|0} Kg”, Număr de pești „{totalCatchesCount|0}”, Medie pești „{total/count, 2 decimals | 0} Kg”, Cea mai mare captură „{biggestFish|-} Kg”, then the sponsor logos (balanced rows of 8:5 tiles inside the image width, up to 50 sponsors — fish helpers/sponsorGrid.ts)."
         fish_ref: app/(app)/competitions/ranking-image.tsx:270-312
         status: passing
-        web_note: "Totals as fish (NC sector: core ncSectorTotals); sponsor logos fetched server-side as data URLs (150×150), an unreadable logo is left out."
+        web_note: "Totals as fish (NC sector: core ncSectorTotals); sponsor logos fetched server-side as data URLs, drawn as fish's grid (png/sponsorGrid.ts, same numbers), an unreadable logo is left out."
       - id: competition-page.imagine-clasament.c6
         text: "A loading state is shown while the competition loads and while the image is generated; a competition error shows the error screen."
         fish_ref: app/(app)/competitions/ranking-image.tsx:175-181,226
