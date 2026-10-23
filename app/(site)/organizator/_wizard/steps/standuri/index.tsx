@@ -11,6 +11,10 @@ import { useWizard } from '../../context';
 import { emptyReason, EMPTY_COPY, refusedMessage, sortStands, toggleStand } from './model';
 import { PerformanceExplanation } from './PerformanceExplanation';
 import { StandAllocator } from './StandAllocator';
+import { StandGridEditor } from './StandGridEditor';
+import { requiresMinFishNumber } from '@/core/organizer/domain/rankingConfig';
+import { pruneStandGrids } from '@/core/organizer/domain/standFishNumbers';
+import type { SectorConfig } from '../lac-si-sectoare/model';
 
 /**
  * Step «Alocă standuri» (parity organizer.step-stand-allocation; fish
@@ -41,8 +45,23 @@ export function StepStanduri() {
   const toggle = (standId: string) => {
     const r = toggleStand(allocations, selectedSector, standId);
     if (r.kind === 'refused') toast(refusedMessage(r.sector), 'danger');
-    else if (r.kind === 'changed') w.setValue('standAllocations', r.allocations);
+    else if (r.kind === 'changed') {
+      w.setValue('standAllocations', r.allocations);
+      // A stand that leaves the sector takes its own grid with it.
+      w.setValue('sectors', pruneStandGrids(values.sectors ?? [], r.allocations));
+    }
   };
+
+  const sectorConfig = (values.sectors ?? []).find((s) => s.name === selectedSector);
+  const sectorStands = useMemo(() => {
+    const ids = new Set(selectedSector ? allocations[selectedSector] ?? [] : []);
+    return stands.filter((stand) => ids.has(stand.documentId));
+  }, [stands, selectedSector, allocations]);
+  const updateSector = (updated: SectorConfig) =>
+    w.setValue(
+      'sectors',
+      (values.sectors ?? []).map((s) => (s.name === updated.name ? updated : s)),
+    );
 
   const reason = pending ? null : emptyReason(hasLake, sectorNames.length, stands.length);
 
@@ -95,6 +114,9 @@ export function StepStanduri() {
           />
         )}
       </T4Section>
+      {requiresMinFishNumber(values.rankingType) && sectorConfig && !reason && !pending ? (
+        <StandGridEditor key={sectorConfig.name} sector={sectorConfig} stands={sectorStands} onChange={updateSector} disabled={w.busy} />
+      ) : null}
       <PerformanceExplanation open={explainOpen} onClose={() => setExplainOpen(false)} />
     </div>
   );

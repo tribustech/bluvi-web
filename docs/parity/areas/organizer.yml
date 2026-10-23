@@ -840,6 +840,11 @@ screens:
         fish_ref: app/(app)/create-competition/step-stand-allocation.tsx:63-72
         status: passing
         web_note: "The frame's T4ActionBar: «Următorul pas» → revizuire; in edit mode «Salvează modificările» beside it. The web frame also shows «Salvează și ieși» outside edit mode (organizer.wizard decision, as on every step). No auto-save from this step (fish neither). e2e «c9 …» (new + edit: the fixture competition's own sectors[].stands hydrate A1/A2/B3 with no seam; a new stand A4 then «Salvează modificările» → the route-mocked PUT /competitions/organizer/:id asserted: method, path, confirmRiskChanges false, draftMeta.standAllocations A:[1,2,4] B:[3])."
+      - id: organizer.step-stand-allocation.c10
+        text: "Quality-based ranking types show a „Standuri valorice” card under the allocator for the selected sector: a switch (off by default; on when the sector already has stand grids), then every allocated stand with a − / „N pești” / + stepper starting at the sector's grid; only stands that differ are kept, a stand that leaves the sector drops its grid, turning the switch off with values asks „Renunți la standurile valorice?”."
+        fish_ref: components/StandGridEditor.tsx
+        status: passing
+        web_note: "steps/standuri/StandGridEditor.tsx + core/organizer/domain/standFishNumbers.ts (twin of fish helpers/standFishNumbers.ts); payload draftMeta.sectors[].standFishNumbers (null when none). e2e organizator-standuri-valorice-real.spec.ts (REAL writes on the local CMS: publish, edit +/−, switch off → null)."
     mobile_only: false
     status: passing
     e2e: tests/e2e/organizator-pas-standuri.spec.ts

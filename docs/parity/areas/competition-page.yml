@@ -1088,6 +1088,11 @@ screens:
         fish_ref: components/competition/CompetitionInfo.tsx:39-47
         status: passing
         web_note: "Web refresh = coming back to the tab / window after 30 s (CompetitionScreen, as clasament.c6): competition, statute, allocated participants re-read."
+      - id: competition-page.informatii.c13
+        text: "„Standuri valorice” (only when a sector gives stands their own grid): the caption „La calitate contează cei mai mari N pești ai fiecărui stand.”, then per sector its badge and every stand grouped by grid, highest first («8 pești A5, A9»)."
+        fish_ref: components/competition/StandGridInfo.tsx
+        status: passing
+        web_note: "InfoTab StandGridSection (standGridGroups, core/organizer/domain/standFishNumbers.ts). e2e organizator-standuri-valorice-real.spec.ts (Informații after the edit)."
     mobile_only: false
     status: passing
     e2e: tests/e2e/concurs-tabs.spec.ts

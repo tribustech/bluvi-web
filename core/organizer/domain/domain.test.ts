@@ -123,13 +123,61 @@ describe('create-competition wizard', () => {
       registrationDeadline: '2026-05-08T14:00:00.000Z',
       description: [{ type: 'paragraph', children: [{ type: 'text', text: 'Hi' }] }],
       draftMeta: {
-        sectors: [{ name: 'A', minFishNumber: 1 }],
+        sectors: [{ name: 'A', minFishNumber: 1, standFishNumbers: null }],
         standAllocations: { A: ['s1', 's2'] },
         sponsorIds: [],
         fishSpeciesIds: ['f1'],
         completedSteps: [1, 2, 3, 4, 5],
       },
     });
+  });
+
+  it('sends the stand grids of allocated stands only, null where a sector has none', () => {
+    const payload = buildCompetitionPayload({
+      name: 'Cupa',
+      competitionType: 'team',
+      rankingType: 'quantityQuality',
+      sectors: [
+        { name: 'A', minFishNumber: 4, standFishNumbers: { s1: 8, s2: 2, gone: 6 } },
+        { name: 'B', minFishNumber: 3 },
+      ],
+      standAllocations: { A: ['s1', 's2'], B: ['s3'] },
+      sponsorIds: [],
+      fishSpeciesIds: [],
+    });
+    expect((payload.draftMeta as { sectors: unknown }).sectors).toEqual([
+      { name: 'A', minFishNumber: 4, standFishNumbers: { s1: 8, s2: 2 } },
+      { name: 'B', minFishNumber: 3, standFishNumbers: null },
+    ]);
+  });
+
+  it('round-trips stand grids through a published competition and a draft', () => {
+    const edit = mapCompetitionToFormData({
+      sectors: [
+        { name: 'A', minFishNumber: 4, standFishNumbers: { s1: 8 }, stands: [{ documentId: 's1' }] },
+        { name: 'B', minFishNumber: 3, standFishNumbers: null, stands: [] },
+      ],
+    } as never);
+    expect(edit.sectors).toEqual([
+      { name: 'A', minFishNumber: 4, standFishNumbers: { s1: 8 } },
+      { name: 'B', minFishNumber: 3 },
+    ]);
+    const draft = mapDraftToFormData({
+      draftMeta: {
+        sectors: [
+          { name: 'A', minFishNumber: 4, standFishNumbers: { s1: 8 } },
+          { name: 'B', minFishNumber: 3, standFishNumbers: null },
+        ],
+        standAllocations: { A: ['s1'] },
+        sponsorIds: [],
+        fishSpeciesIds: [],
+        completedSteps: [],
+      },
+    } as never);
+    expect(draft.sectors).toEqual([
+      { name: 'A', minFishNumber: 4, standFishNumbers: { s1: 8 } },
+      { name: 'B', minFishNumber: 3 },
+    ]);
   });
 
   it('hydrates a draft from draftMeta and a competition from its relations', () => {

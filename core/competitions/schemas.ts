@@ -116,6 +116,8 @@ export const sectorSchema = z.object({
   ...idDoc,
   name: z.string(),
   minFishNumber: z.number().nullable(),
+  // «Standuri valorice»: { [stand documentId]: N }; absent on an older CMS.
+  standFishNumbers: z.record(z.string(), z.number()).nullish(),
   stands: z.array(standRefSchema),
 });
 export type Sector = z.infer<typeof sectorSchema>;

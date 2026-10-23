@@ -19,6 +19,7 @@ import {
 } from '../../model';
 import { legLabel } from '../clasament/model';
 import { formatDay, formatTime } from '../detalii/format';
+import { pruneStandGrids, valuedStandCount } from '@/core/organizer/domain/standFishNumbers';
 
 /*
  * Step «Revizuire» as data (parity organizer.step-review c1–c10; fish
@@ -307,7 +308,9 @@ export function buildReview({ values, lakeName }: ReviewInput): ReviewModel {
     const stands = formatCount(values.standAllocations?.[s.name]?.length ?? 0, 'stand', 'standuri');
     const base = { key: `sector-${s.name}`, label: `Sector ${s.name}`, sector: s.name };
     if (minFish && s.minFishNumber < 1) return { ...base, value: null, error: `Min pești invalid (${s.minFishNumber})` };
-    return { ...base, value: minFish ? `${stands}, min ${formatCount(s.minFishNumber, 'pește', 'pești')}` : stands };
+    const valued = valuedStandCount(pruneStandGrids([s], values.standAllocations ?? {})[0]);
+    const valuedTail = valued > 0 ? `, ${formatCount(valued, 'stand valoric', 'standuri valorice')}` : '';
+    return { ...base, value: minFish ? `${stands}, min ${formatCount(s.minFishNumber, 'pește', 'pești')}${valuedTail}` : stands };
   });
 
   // A schema error no row shows (teamParticipants «11» on an individual competition, bestOfFishCount
