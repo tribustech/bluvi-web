@@ -19,6 +19,8 @@ import { competitionUrlId, routes } from '@/lib/routes';
 import { competitionDuration, timeBadge } from './dates';
 import { CompetitionBanner, competitionFacts, ContactSection, FactsAside, Meter, normalizeRichLinks, SpeciesList } from './infoParts';
 import { ClampedRichText } from './tabParts';
+import { standGridGroups } from '@/core/organizer/domain/standFishNumbers';
+import { SectorBadge } from '@/app/(site)/organizator/_wizard/steps/lac-si-sectoare/SectorBuilder';
 
 /*
  * Concurs · Informații — fish components/competition/CompetitionInfo.tsx + CompetitionContact.tsx
@@ -73,6 +75,8 @@ export function InfoTab({ competition }: { competition: CompetitionWithMyStatus 
           <SpeciesList label="Pești de prins" species={c.fishType.map(f => ({ id: f.documentId, name: f.Name }))} />
         </DetailSection>
       ) : null}
+
+      <StandGridSection competition={c} />
 
       {c.reward?.length ? (
         <DetailSection id="premii" title="Premii" className={PHONE_SECTION}>
@@ -218,5 +222,44 @@ function SponsorsSection({ sponsors }: { sponsors: CompetitionWithMyStatus['spon
         ))}
       </ul>
     </DetailAsideCard>
+  );
+}
+
+/**
+ * «Standuri valorice» (fish components/competition/StandGridInfo.tsx): for sectors that give stands
+ * their own grid, every stand grouped by how many of its heaviest fish count for quality.
+ */
+function StandGridSection({ competition: c }: { competition: CompetitionWithMyStatus }) {
+  const rows = c.sectors
+    .map(sector => ({
+      sector,
+      groups: standGridGroups({ ...sector, minFishNumber: sector.minFishNumber ?? 1 }),
+    }))
+    .filter(row => row.groups.length > 0)
+    .sort((a, b) => a.sector.name.localeCompare(b.sector.name));
+  if (rows.length === 0) return null;
+  return (
+    <DetailSection id="standuri-valorice" title="Standuri valorice" className={PHONE_SECTION}>
+      <div className="flex flex-col gap-3" data-testid="stand-grid-info">
+        <p className="t-caption text-muted">La calitate contează cei mai mari N pești ai fiecărui stand.</p>
+        <ul className="flex flex-col gap-3">
+          {rows.map(({ sector, groups }) => (
+            <li key={sector.name} className="flex items-start gap-3">
+              <SectorBadge name={sector.name} size="sm" />
+              <dl className="grid flex-1 grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                {groups.map(group => (
+                  <div key={group.fishNumber} className="contents">
+                    <dt className="t-body-strong whitespace-nowrap text-accent-ink tabular-nums">
+                      {group.fishNumber} {group.fishNumber === 1 ? 'pește' : 'pești'}
+                    </dt>
+                    <dd className="t-body text-ink">{group.standNames.map(name => `${sector.name}${name}`).join(', ')}</dd>
+                  </div>
+                ))}
+              </dl>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </DetailSection>
   );
 }

@@ -841,3 +841,13 @@ describe('web-only feed reads: recent weighings, pulse people', () => {
     expect(pulsePeopleQuery(transport, 6, false).enabled).toBe(false);
   });
 });
+
+describe('sector schema — standuri valorice', () => {
+  it('keeps standFishNumbers and still parses a sector from an older CMS without it', async () => {
+    const { sectorSchema } = await import('./schemas');
+    const base = { id: 1, documentId: 'secA', name: 'A', minFishNumber: 4, stands: [] };
+    expect(sectorSchema.parse({ ...base, standFishNumbers: { st5: 8 } }).standFishNumbers).toEqual({ st5: 8 });
+    expect(sectorSchema.parse({ ...base, standFishNumbers: null }).standFishNumbers).toBeNull();
+    expect(sectorSchema.parse(base).standFishNumbers).toBeUndefined();
+  });
+});
