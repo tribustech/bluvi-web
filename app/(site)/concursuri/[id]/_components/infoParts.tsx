@@ -197,6 +197,17 @@ export function bannerSource(banner: Banner): string {
   return banner.formats.large?.url ?? banner.formats.medium?.url ?? banner.formats.small?.url ?? banner.url;
 }
 
+/** Tallest a large banner gets from 768 (Tailwind max-h-120). */
+const BANNER_MAX_HEIGHT_MD = 480;
+
+/**
+ * A known large banner's width caps as CSS vars (--banner-w everywhere, --banner-md from 768):
+ * never past its own width, and from 768 no wider than 480px of height allows at its ratio.
+ */
+export function bannerMaxWidths(w: number, h: number): CSSProperties {
+  return { '--banner-w': `${w}px`, '--banner-md': `${Math.min(w, Math.round((BANNER_MAX_HEIGHT_MD * w) / h))}px` } as CSSProperties;
+}
+
 export function bannerShape(banner: Pick<Banner, 'width' | 'height'>): { w: number; h: number; known: boolean; small: boolean } {
   const w = banner.width || 0;
   const h = banner.height || 0;
@@ -208,8 +219,8 @@ export function bannerShape(banner: Pick<Banner, 'width' | 'height'>): { w: numb
  * The competition's banner (fish: first, at its own aspect ratio). Never upscaled past its own size,
  * and its box never depends on the image decoding (width / height known → the ratio is reserved):
  *  - a large banner: at its own ratio at every width (fish), edge to edge on the phone like the T3
- *    blocks around it; from 768 a card (radius, e0), capped at 480px tall — a very tall poster is
- *    cropped there (object-cover), never letterboxed on a grey stage;
+ *    blocks around it; from 768 a card (radius, e0), at most 480px tall — a tall poster narrows
+ *    (bannerMaxWidths) instead of being cropped: the whole poster is always visible;
  *  - a small one (a logo-sized upload): at its own size, centred on a white card at every width —
  *    a crisp logo, not a 100px picture blown up to the column;
  *  - unknown size: a 16:9 card, cropped (as before the CMS knew sizes).
@@ -241,8 +252,8 @@ export function CompetitionBanner({ banner, name }: { banner: Banner; name: stri
     return <div className="relative aspect-video overflow-hidden bg-soft-fill max-md:mx-4 max-md:mt-4 max-md:rounded-xl md:rounded-card md:shadow-e0">{image('size-full object-cover')}</div>;
   }
   return (
-    // At most the upload's own width (CSS px), centred when the column is wider.
-    <div className="flex justify-center max-md:px-4 max-md:pt-4">{image('h-auto w-full object-cover max-md:rounded-xl md:max-h-120 md:rounded-card md:shadow-e0', { maxWidth: `${w}px` })}</div>
+    // At most the upload's own width (CSS px), centred when the column is wider; uncropped.
+    <div className="flex justify-center max-md:px-4 max-md:pt-4">{image('h-auto w-full max-w-(--banner-w) max-md:rounded-xl md:max-w-(--banner-md) md:rounded-card md:shadow-e0', bannerMaxWidths(w, h))}</div>
   );
 }
 

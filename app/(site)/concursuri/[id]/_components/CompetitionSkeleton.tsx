@@ -20,7 +20,7 @@ import type { SkeletonVariant } from './screen-state';
 import type { CompetitionTab } from './tabs';
 import { FLOATING_ACTIONS_BAR, FLOATING_ACTIONS_BUTTON } from './ActionBar';
 import { ExtraScaleBones, HowItWorks, LIST_TITLE, NotStartedState } from './ExtraScalesTab';
-import { bannerShape } from './infoParts';
+import { bannerMaxWidths, bannerShape } from './infoParts';
 import { ParticipantsBones } from './ParticipantsTab';
 
 /*
@@ -366,8 +366,8 @@ function BannerBone({ banner }: { banner: NonNullable<HeaderCore['banner']> }) {
   return (
     <span aria-hidden className="flex justify-center">
       <span
-        className="block aspect-(--banner-ratio) w-full animate-shimmer md:max-h-120 md:rounded-card"
-        style={{ '--banner-ratio': `${w} / ${h}`, maxWidth: `${w}px` } as CSSProperties}
+        className="block aspect-(--banner-ratio) w-full max-w-(--banner-w) animate-shimmer md:max-w-(--banner-md) md:rounded-card"
+        style={{ '--banner-ratio': `${w} / ${h}`, ...bannerMaxWidths(w, h) } as CSSProperties}
       />
     </span>
   );
