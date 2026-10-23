@@ -20,7 +20,7 @@ import { LakeUrlProvider } from '../_sub/lake-url';
  * Concursuri la baltă — fish app/(app)/lakes/[lakeId]/concursuri.tsx (parity lakes.competitions,
  * T1). Static lake read; `?tab=` is read behind a Suspense with the page's frame as fallback and that
  * tab's first page (a cached public read, /feed/competitions?status=&lakeId=) comes with the HTML,
- * with an ItemList of SportsEvent as JSON-LD. The other tabs load in the browser. Canonical: the
+ * with an ItemList of links to the competitions as JSON-LD. The other tabs load in the browser. Canonical: the
  * bare page, which opens Live while something is live, else the first tab that has competitions
  * (bareLakeCompetitionTab; the URL stays bare).
  */
@@ -83,21 +83,11 @@ async function Competitions({ lake, searchParams }: { lake: LakeDetail; searchPa
     name: `${tabOf(tab).title} · ${lake.name}`,
     // The canonical page's URL (m3: ?tab= views canonicalise to it), whichever tab is listed.
     url: absoluteUrl(path),
+    // Summary-page carousel: links to the competition pages, which carry the complete SportsEvent.
     itemListElement: first.map((c, i) => ({
       '@type': 'ListItem',
       position: i + 1,
-      item: {
-        '@type': 'SportsEvent',
-        name: c.name,
-        url: absoluteUrl(routes.competition(competitionUrlId(c))),
-        sport: 'Pescuit sportiv',
-        ...(c.startDate ? { startDate: c.startDate } : {}),
-        ...(c.endDate ? { endDate: c.endDate } : {}),
-        eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-        location: { '@type': 'Place', name: lake.name, url: absoluteUrl(routes.lake(lakeUrlId(lake))) },
-        ...(c.banner?.url ? { image: c.banner.url } : {}),
-        ...(c.organizer ? { organizer: { '@type': 'Person', name: c.organizer.username } } : {}),
-      },
+      url: absoluteUrl(routes.competition(competitionUrlId(c))),
     })),
   };
   return (

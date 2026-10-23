@@ -24,6 +24,10 @@ const competition = (over: Partial<LooseCompetitionDetail> = {}) =>
     banner: { url: 'https://cdn/x.jpg', formats: { large: { url: 'https://cdn/x-large.jpg' } } },
     lake: { id: 1, documentId: 'lk1', name: 'Balta Test', contact: [], stands: [] },
     author: { id: 1, documentId: 'u1', username: 'Club Crap', phone: null },
+    registerFee: null,
+    participantsLimit: null,
+    registrationDeadline: null,
+    registrations: [],
     ...over,
   }) as unknown as LooseCompetitionDetail;
 
@@ -58,14 +62,51 @@ describe('competitionSummary — what the stage offers (rule 4)', () => {
   });
 });
 
-type Ld = { location: { address?: unknown }; image?: unknown; organizer?: unknown };
+type Ld = { location: { address?: unknown }; image?: unknown; organizer?: unknown; performer?: unknown; offers: { price: number; priceCurrency: string; availability: string } };
 
 describe('competitionJsonLd', () => {
   it('j1: location.address (PostalAddress, RO) when the lake\'s place is known, the poster as image, an Organization organiser', () => {
     const ld = competitionJsonLd(competition(), { locality: 'Ciolpani', region: 'Ilfov' }) as unknown as Ld;
     expect(ld.location.address).toEqual({ '@type': 'PostalAddress', addressLocality: 'Ciolpani', addressRegion: 'Ilfov', addressCountry: 'RO' });
     expect(ld.image).toEqual(['https://cdn/x-large.jpg']);
-    expect(ld.organizer).toEqual({ '@type': 'Organization', name: 'Club Crap' });
+    expect(ld.organizer).toEqual({ '@type': 'Organization', name: 'Club Crap', url: 'http://localhost:3000/pescari/u1' });
+  });
+  it('Search Console: no poster → the share card as image; nobody registered → the organiser performs', () => {
+    const ld = competitionJsonLd(competition({ banner: null }), null) as unknown as Ld;
+    expect(ld.image).toEqual(['http://localhost:3000/concursuri/c1/opengraph-image/card']);
+    expect(ld.performer).toEqual(ld.organizer);
+  });
+  it('Search Console: the approved entries perform — a team by its name, an angler with their profile, a guest by name', () => {
+    const reg = (registrationStatus: string, over: object) => ({ registrationStatus, teamName: null, guestName: null, participants: [], ...over });
+    const ld = competitionJsonLd(
+      competition({
+        registrations: [
+          reg('registered', { teamName: 'Crapii' }),
+          reg('registered', { participants: [{ documentId: 'p1', username: 'ion' }] }),
+          reg('registered', { guestName: 'Gigel' }),
+          reg('pending', { guestName: 'Nu încă' }),
+        ],
+      } as never),
+      null
+    ) as unknown as Ld;
+    expect(ld.performer).toEqual([
+      { '@type': 'SportsTeam', name: 'Crapii' },
+      { '@type': 'Person', name: 'ion', url: 'http://localhost:3000/pescari/p1' },
+      { '@type': 'Person', name: 'Gigel' },
+    ]);
+  });
+  it('Search Console: offers = the fee in lei (none = free), in stock only while registration is open and places are left', () => {
+    const future = '2099-01-01T06:00:00.000Z';
+    const open = competitionJsonLd(competition({ competitionStatus: 'notStarted', startDate: future, endDate: future, registerFee: '150' }), null) as unknown as Ld;
+    expect(open.offers).toMatchObject({ price: 150, priceCurrency: 'RON', availability: 'https://schema.org/InStock' });
+    const free = competitionJsonLd(competition({ competitionStatus: 'notStarted', startDate: future, endDate: future }), null) as unknown as Ld;
+    expect(free.offers.price).toBe(0);
+    const full = competitionJsonLd(
+      competition({ competitionStatus: 'notStarted', startDate: future, endDate: future, participantsLimit: 1, registrations: [{ registrationStatus: 'registered', teamName: 'X', guestName: null, participants: [] }] } as never),
+      null
+    ) as unknown as Ld;
+    expect(full.offers.availability).toBe('https://schema.org/SoldOut');
+    expect((competitionJsonLd(competition(), null) as unknown as Ld).offers.availability).toBe('https://schema.org/SoldOut');
   });
   it('rule 4: no address when the place is unknown', () => {
     const ld = competitionJsonLd(competition(), null) as unknown as Ld;

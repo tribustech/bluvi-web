@@ -20,7 +20,7 @@ import {
   type CompetitionCardStatus,
 } from '@/core/competitions';
 import { prefetchState } from '@/lib/client/hydration';
-import { competitionUrlId, absoluteUrl, routes, lakeUrlId } from '@/lib/routes';
+import { competitionUrlId, absoluteUrl, routes } from '@/lib/routes';
 import { getSessionToken } from '@/lib/server/session';
 import { createServerTransport } from '@/lib/server/transport';
 import { getShellSession } from '../../_shell/session';
@@ -289,7 +289,7 @@ async function Data({ place, indexTab }: { place: ListPlace; indexTab: Competiti
   return screen;
 }
 
-/** schema.org: the page's competitions (its tab's first page), as SportsEvents. */
+/** schema.org: the page's competitions (its tab's first page), as links to their pages. */
 function itemListJsonLd(cards: CompetitionCard[], tab?: CompetitionCardStatus) {
   const url = absoluteUrl(routes.competitions(tab));
   const { title, description } = META[tab ?? 'index'];
@@ -303,22 +303,13 @@ function itemListJsonLd(cards: CompetitionCard[], tab?: CompetitionCardStatus) {
     inLanguage: 'ro-RO',
     mainEntity: {
       '@type': 'ItemList',
+      // Google's summary-page carousel: each item only points at its competition page, whose
+      // SportsEvent is the complete one (a card has no fee or entries — Search Console flagged the
+      // nested events' missing offers / performer, 2026-10-23).
       itemListElement: cards.slice(0, 30).map((c, i) => ({
         '@type': 'ListItem',
         position: i + 1,
-        item: {
-          '@type': 'SportsEvent',
-          name: c.name,
-          url: absoluteUrl(routes.competition(competitionUrlId(c))),
-          sport: 'Pescuit sportiv',
-          eventStatus: 'https://schema.org/EventScheduled',
-          eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-          ...(c.startDate ? { startDate: c.startDate } : {}),
-          ...(c.endDate ? { endDate: c.endDate } : {}),
-          ...(c.lake ? { location: { '@type': 'Place', name: c.lake.name, url: absoluteUrl(routes.lake(lakeUrlId(c.lake))) } } : {}),
-          ...(c.organizer ? { organizer: { '@type': 'Person', name: c.organizer.username } } : {}),
-          ...((c.banner ?? c.lake?.image) ? { image: (c.banner ?? c.lake?.image)?.url } : {}),
-        },
+        url: absoluteUrl(routes.competition(competitionUrlId(c))),
       })),
     },
   };

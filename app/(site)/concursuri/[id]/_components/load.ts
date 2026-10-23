@@ -174,10 +174,19 @@ export type CompetitionPlace = { locality: string | null; region: string | null 
 /**
  * schema.org SportsEvent for the competition page. `place`: the lake's locality / county
  * (competitionPlace) — the address Google requires for an Event is set only when known (rule 4).
- * The organiser is the account that organises it, a club as often as a person: an Organization.
+ * The organiser is the account that organises it, a club as often as a person: an Organization,
+ * with its Bluvi profile as `url`. Google's recommended fields (Search Console, 2026-10-23) come
+ * from what the page shows: `offers` the registration fee (none = 0 lei), `performer` the
+ * registered entries (the organiser until someone registers), `image` the poster, else the
+ * competition's share card.
  */
 export function competitionJsonLd(c: LooseCompetitionDetail, place: CompetitionPlace = null): Record<string, unknown> {
-  const image = c.banner?.formats.large?.url ?? c.banner?.url;
+  const path = routes.competition(competitionUrlId(c));
+  const image = c.banner?.formats.large?.url ?? c.banner?.url ?? absoluteUrl(`${path}/opengraph-image/card`);
+  const organizer = c.author
+    ? { '@type': 'Organization', name: c.author.username, url: absoluteUrl(routes.angler(c.author.documentId)) }
+    : null;
+  const entries = competitionPerformers(c);
   const address =
     place && (place.locality || place.region)
       ? {
@@ -195,11 +204,12 @@ export function competitionJsonLd(c: LooseCompetitionDetail, place: CompetitionP
     sport: 'Pescuit',
     startDate: c.startDate,
     endDate: displayEnd(c),
-    url: absoluteUrl(routes.competition(competitionUrlId(c))),
+    url: absoluteUrl(path),
     eventStatus:
       c.competitionStatus === 'cancelled' ? 'https://schema.org/EventCancelled' : 'https://schema.org/EventScheduled',
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-    ...(image ? { image: [image] } : {}),
+    image: [image],
+    offers: competitionOffers(c, absoluteUrl(path)),
     ...(c.lake
       ? {
           location: {
@@ -210,8 +220,38 @@ export function competitionJsonLd(c: LooseCompetitionDetail, place: CompetitionP
           },
         }
       : {}),
-    ...(c.author ? { organizer: { '@type': 'Organization', name: c.author.username } } : {}),
+    ...(organizer ? { organizer } : {}),
+    ...(entries.length ? { performer: entries } : organizer ? { performer: organizer } : {}),
   };
+}
+
+/** The registration as an Offer: the fee in lei (none = free), on sale while registration is open and places are left. */
+function competitionOffers(c: LooseCompetitionDetail, url: string): Record<string, unknown> {
+  const fee = Number(c.registerFee);
+  const before = c.competitionStatus === 'draft' || c.competitionStatus === 'notStarted';
+  const deadline = Date.parse(c.registrationDeadline ?? c.startDate);
+  const taken = c.registrations.filter(r => r.registrationStatus === 'registered').length;
+  const full = c.participantsLimit != null && taken >= c.participantsLimit;
+  const open = before && !(deadline <= Date.now()) && !full;
+  return {
+    '@type': 'Offer',
+    url,
+    price: Number.isFinite(fee) && fee > 0 ? fee : 0,
+    priceCurrency: 'RON',
+    availability: open ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
+  };
+}
+
+/** The approved entries, named as Participanți names them (registrationName): a team by its name, an angler with their profile, a guest by the typed name. */
+function competitionPerformers(c: LooseCompetitionDetail): Record<string, unknown>[] {
+  return c.registrations
+    .filter(r => r.registrationStatus === 'registered')
+    .flatMap(r => {
+      if (r.teamName?.trim()) return [{ '@type': 'SportsTeam', name: r.teamName.trim() }];
+      const p = r.participants[0];
+      if (p?.username.trim()) return [{ '@type': 'Person', name: p.username.trim(), url: absoluteUrl(routes.angler(p.documentId)) }];
+      return r.guestName?.trim() ? [{ '@type': 'Person', name: r.guestName.trim() }] : [];
+    });
 }
 
 /** How long a JSON-LD-only read may take before the block is emitted without it. */

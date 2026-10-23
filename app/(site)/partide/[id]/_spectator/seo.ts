@@ -66,12 +66,14 @@ export function partidaMetadata(id: string, load: SessionLoad): Metadata {
 /**
  * A partidă as a schema.org SportsEvent (a fishing session at a place, with a start and — once
  * ended — an end), the venue as its Place (with the venue page's URL when the web has one), the
- * anglers as its competitors (names only), the top photo as its image; plus the breadcrumb.
+ * anglers as its competitors and performers (names only), the top photo as its image (else the
+ * share card); plus the breadcrumb. No organizer / offers: a partidă is nobody's event and has no tickets.
  */
 export function partidaJsonLd(d: CommunitySessionDetailDTO) {
   const path = routes.partida(d.documentId);
   const venuePath = venueWebHref(d);
   const photo = partidaPhoto(d);
+  const anglers = d.members.map(m => ({ '@type': 'Person', name: m.name?.trim() || 'Pescar' }));
   const event = {
     '@context': 'https://schema.org',
     '@type': 'SportsEvent',
@@ -90,10 +92,9 @@ export function partidaJsonLd(d: CommunitySessionDetailDTO) {
       ...(d.locality ? { address: { '@type': 'PostalAddress', addressLocality: d.locality, addressCountry: 'RO' } } : {}),
       ...(venuePath ? { url: absoluteUrl(venuePath) } : {}),
     },
-    ...(d.members.length
-      ? { competitor: d.members.map(m => ({ '@type': 'Person', name: m.name?.trim() || 'Pescar' })) }
-      : {}),
-    ...(photo ? { image: [photo] } : {}),
+    ...(anglers.length ? { competitor: anglers, performer: anglers } : {}),
+    // No photo: the partidă's share card (Google recommends an image on every Event).
+    image: [photo ?? absoluteUrl(`${path}/opengraph-image/card`)],
   };
   const breadcrumb = breadcrumbListJsonLd([{ label: 'Partide', href: routes.partide() }, { label: d.venueName }], path);
   return [event, breadcrumb];
