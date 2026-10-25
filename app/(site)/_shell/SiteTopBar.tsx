@@ -323,7 +323,9 @@ function Bar({
       resetKey={pathname}
       scrolled={scrolled}
       // Below 768 the phone has no top bar (fish: each screen's own header, §4b rule 25).
-      className="sticky top-0 z-sticky max-md:hidden"
+      // A page's sticky rows (T3 tab band) are z-sticky too and come later in the DOM, so they would
+      // paint over an open account / Administrare menu: the bar is lifted while one is open.
+      className="sticky top-0 z-sticky has-[[aria-expanded=true]]:z-overlay max-md:hidden"
     />
   );
 }
