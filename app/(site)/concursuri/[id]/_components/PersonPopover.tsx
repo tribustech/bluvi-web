@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
@@ -68,6 +68,8 @@ export type PersonTarget = {
   anchor: HTMLElement;
   /** The stand as the opening view names it (NC «A3(12)»); default «Sector A · Stand 12» from the registration. */
   standLabel?: string | null;
+  /** Shown under the stats (the ranking's «Handicap pe stand» breakdown). */
+  extra?: ReactNode;
 };
 
 /** ≥1024 (false on the server and until hydrated: the phone's behaviour). */
@@ -86,8 +88,8 @@ export function usePersonPopoverEnabled(): boolean {
 /** The popover's open state: `open(registrationId, row)`, `close()`; pressing the open row again closes it. */
 export function usePersonPopover() {
   const [target, setTarget] = useState<PersonTarget | null>(null);
-  const open = useCallback((registrationId: string, anchor: HTMLElement, standLabel?: string | null) => {
-    setTarget(cur => (cur && cur.registrationId === registrationId && cur.anchor === anchor ? null : { registrationId, anchor, standLabel }));
+  const open = useCallback((registrationId: string, anchor: HTMLElement, standLabel?: string | null, extra?: ReactNode) => {
+    setTarget(cur => (cur && cur.registrationId === registrationId && cur.anchor === anchor ? null : { registrationId, anchor, standLabel, extra }));
   }, []);
   const close = useCallback(() => setTarget(null), []);
   return { target, open, close };
@@ -416,6 +418,8 @@ function Popover({
             ca să vezi statisticile.
           </p>
         ) : null}
+
+        {target.extra}
 
         {soloProfile ? (
           <ButtonLink href={soloProfile} variant="primary" size="compact" block data-autofocus="" iconRight={<ArrowRightIcon aria-hidden />}>

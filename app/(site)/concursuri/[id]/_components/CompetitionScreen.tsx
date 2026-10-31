@@ -95,6 +95,7 @@ import { ViewChips, ViewPanel, ViewTabs, type ViewBadge } from './ViewSwitch';
 import { viewFromPath, viewFromSegment, viewPath, VIEW_PARAM, type RankingViewKey } from './views';
 import { WeighingsView } from './WeighingsView';
 import { AnglerStats } from './AnglerStats';
+import { standHandicapOf } from '@/core/organizer/domain/standHandicaps';
 import { PRESSABLE_ROWS, useRowPress } from './rowPress';
 import { COMPETITION_TABS, type CompetitionTab } from './tabs';
 import { TABS_MARK, useCompetitionAnalytics } from './analytics';
@@ -1072,6 +1073,7 @@ function Screen({
                     signIn={signIn}
                     decimals={decimals}
                     fromLink={anglerFromLink}
+                    handicap={standHandicapOf(rankingData?.rankings, anglerRegistration?.stand?.id)}
                     onClose={() => writeAngler(null)}
                   />
                 </div>

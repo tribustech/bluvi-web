@@ -23,6 +23,8 @@ import { ContextSurface } from './ContextSurface';
 import { isOfflineEmpty, OfflineState } from './offline';
 import { QueryRetry } from './QueryRetry';
 import { formatKg } from './ranking';
+import type { StandHandicapSummary } from '@/core/organizer/domain/standHandicaps';
+import { HandicapCard } from './HandicapCard';
 import { PAGE_RETRY } from './retry-policy';
 
 /*
@@ -48,6 +50,7 @@ export function AnglerStats({
   decimals,
   onClose,
   fromLink = false,
+  handicap,
 }: {
   t: Transport;
   competition: CompetitionWithMyStatus;
@@ -59,6 +62,8 @@ export function AnglerStats({
   onClose: () => void;
   /** Opened by `?pescar=` on arrival: an overlay from 1280, so the ranking never narrows by itself. */
   fromLink?: boolean;
+  /** «Handicap pe stand»: set when the angler's stand counts only a percent of its kg. */
+  handicap?: StandHandicapSummary;
 }) {
   return (
     <ContextSurface open={!!registration} onClose={onClose} title="Statistici pescar" overlay={fromLink}>
@@ -73,6 +78,7 @@ export function AnglerStats({
           onClose={onClose}
         />
       ) : null}
+      {registration && handicap ? <HandicapCard handicap={handicap} decimals={decimals} className="mt-5" /> : null}
     </ContextSurface>
   );
 }

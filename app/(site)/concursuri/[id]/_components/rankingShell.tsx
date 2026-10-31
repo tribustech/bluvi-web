@@ -130,7 +130,7 @@ function usePageViewer(): { viewer: ViewerState | undefined; probe: ReactNode } 
  */
 export function useRankingPerson(): {
   enabled: boolean;
-  open: (anchor: HTMLElement, ids: { registrationId?: string | null; standId?: string | null }) => boolean;
+  open: (anchor: HTMLElement, ids: { registrationId?: string | null; standId?: string | null }, extra?: ReactNode) => boolean;
   popover: ReactNode;
 } {
   const enabled = usePersonPopoverEnabled();
@@ -140,14 +140,14 @@ export function useRankingPerson(): {
   const t = useMemo(() => pageTransport(), []);
   const { open: openPerson } = person;
   const open = useCallback(
-    (anchor: HTMLElement, { registrationId, standId }: { registrationId?: string | null; standId?: string | null }) => {
+    (anchor: HTMLElement, { registrationId, standId }: { registrationId?: string | null; standId?: string | null }, extra?: ReactNode) => {
       if (!enabled || !competition) return false;
       const regs = competition.registrations;
       const byId = registrationId ? regs.find(r => r.documentId === registrationId) : undefined;
       const byStand = !byId && standId ? (getRegistrationByStandId(regs.filter(r => r.registrationStatus === 'registered'), standId) ?? getRegistrationByStandId(regs, standId)) : null;
       const registration = byId ?? byStand;
       if (!registration) return false;
-      openPerson(registration.documentId, anchor);
+      openPerson(registration.documentId, anchor, undefined, extra);
       return true;
     },
     [enabled, competition, openPerson],

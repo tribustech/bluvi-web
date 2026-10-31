@@ -154,7 +154,8 @@ export function standardFishRows(
           {cell.inTop && !cell.isBiggest && <span className="sr-only">Intră în clasament: </span>}
           {weight ? (noCatch ? '–' : formatRankingWeight(raw)) : formatRankingPlain(raw)}
           {cell.handicap && !noCatch ? (
-            <span className="block t-micro font-normal whitespace-nowrap opacity-80" data-testid="handicap-line">
+            // A small pill under the counted kg, readable on every sector fill (winner rows too).
+            <span className="mx-auto mt-0.5 block w-fit rounded-full bg-surface/85 px-1.5 t-micro font-bold whitespace-nowrap text-accent-ink" data-testid="handicap-line">
               <span className="sr-only">Handicap: </span>
               {formatHandicapLine(cell.handicap)}
             </span>

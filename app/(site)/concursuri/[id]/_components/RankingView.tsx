@@ -21,6 +21,7 @@ import { cn } from '@/components/ui/cn';
 import { FishTable } from './FishTable';
 import { MobileRanking, standardFishRows } from './MobileRanking';
 import { PRESSABLE_ROWS } from './rowPress';
+import { HandicapCard, handicapOfRow } from './HandicapCard';
 import { RANKING_TOOLBAR, useRankingPerson, useRankingRowPress } from './rankingShell';
 import { useRankingFaces } from './rankingFaces';
 import { isOfflineEmpty, OfflineState } from './offline';
@@ -100,7 +101,7 @@ export function RankingView({
       {table.rows.some(row => readCell(row.quantity).handicap) ? (
         // fish CompetitionRanking: one line over the table when a stand has a handicap.
         <p className="t-caption text-muted" data-testid="stand-handicap-legend">
-          Handicap pe stand: la Cantitate vezi kg luate în calcul, iar dedesubt procentul și kg reale.
+          Handicap pe stand: la Cantitate, sub kg luate în calcul vezi procentul și kg prinse. Apasă pe rând pentru detalii.
         </p>
       ) : null}
       {/* fish: the table 20px under the view chips (marginBottom 12 + the ScrollView's gap 8). */}
@@ -184,7 +185,8 @@ function DesktopRanking({
   // From 1024 the person's popover anchored to the row (ROADMAP §4b.17); 768–1023 the angler sheet.
   const person = useRankingPerson();
   const pressStand = (standId: string, anchor: HTMLElement) => {
-    if (person.open(anchor, { standId })) return true;
+    const handicap = handicapOfRow(table.rows.find(row => row.standId === standId));
+    if (person.open(anchor, { standId }, handicap ? <HandicapCard handicap={handicap} decimals={3} /> : undefined)) return true;
     if (!onRowPress) return false;
     onRowPress(standId);
     return true;
@@ -583,7 +585,12 @@ function SectorTotals({ table, letters }: { table: RankingTableData; letters: Ma
   const hasKg = table.columns.some(c => c.key === 'quantity');
   const totals = sectors.map(s => {
     const rows = table.rows.filter(r => rowSector(r) === s);
-    const kg = hasKg ? rows.reduce((sum, r) => sum + (cellNumber(r.quantity) ?? 0), 0) : null;
+    // Real kg caught: a handicapped stand's cell carries its real kg beside the counted one.
+    const realKg = (r: RankingRowData) => {
+      const h = readCell(r.quantity).handicap;
+      return h ? Number(h.realQuantity) : (cellNumber(r.quantity) ?? 0);
+    };
+    const kg = hasKg ? rows.reduce((sum, r) => sum + realKg(r), 0) : null;
     const counted = rows.filter(r => typeof r.catchCount === 'number');
     const catches = counted.length ? counted.reduce((sum, r) => sum + (r.catchCount ?? 0), 0) : null;
     return { sector: s, kg, catches };

@@ -43,9 +43,9 @@ const PARTICIPANT_CELL_WIDTH = 120;
 const DYNAMIC_WIDTH_PADDING = 40;
 const DYNAMIC_WIDTH_CHAR = 6;
 const STAND_CHAR_WIDTH = 7;
-// A cell's micro second line (FishCell.subLine): ~6px a character at t-micro, plus the cell's padding.
-const SUB_LINE_CHAR = 6;
-const SUB_LINE_PADDING = 20;
+// A cell's micro second line (FishCell.subLine, a bold pill): ~6.5px a character at t-micro, plus the pill and cell padding.
+const SUB_LINE_CHAR = 6.5;
+const SUB_LINE_PADDING = 32;
 const STAND_CELL_PADDING = 16;
 const STAND_MIN_WIDTH = 60;
 const STAND_MAX_WIDTH = 140;

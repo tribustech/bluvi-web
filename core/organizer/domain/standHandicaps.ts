@@ -73,3 +73,31 @@ export const standHandicapGroups = (
       standNames: standNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
     }));
 };
+
+/** What the angler stats show for a handicapped stand (fish helpers/standHandicaps.ts). */
+export type StandHandicapSummary = {
+  percent: number;
+  /** Kg actually caught. */
+  realQuantity: number;
+  /** Kg that count in the ranking (after the handicap and any kg penalty). */
+  quantity: number;
+  /** Kg taken off by penalties after the handicap (0 when none). */
+  penaltyKg: number;
+};
+
+/** The handicap of the ranking row on `standId`, or undefined when that stand has none. */
+export const standHandicapOf = (
+  rankings: readonly unknown[] | undefined,
+  standId: string | number | null | undefined,
+): StandHandicapSummary | undefined => {
+  if (standId == null) return undefined;
+  const row = (rankings as { standId?: string | number; quantity?: number; handicapPercent?: number; realQuantity?: number }[] | undefined)?.find(
+    r => r != null && String(r.standId) === String(standId),
+  );
+  if (!row || typeof row.handicapPercent !== 'number' || typeof row.realQuantity !== 'number' || typeof row.quantity !== 'number') {
+    return undefined;
+  }
+  const afterHandicap = (row.realQuantity * row.handicapPercent) / 100;
+  const penaltyKg = Math.max(0, Number((afterHandicap - row.quantity).toFixed(3)));
+  return { percent: row.handicapPercent, realQuantity: row.realQuantity, quantity: row.quantity, penaltyKg };
+};

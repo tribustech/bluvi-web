@@ -33,6 +33,11 @@ const TITLE_H = 80;
 /** The totals: a hairline over them, STATS_GAP under the table (the header's rhythm), then the row. */
 const STATS_GAP = 32;
 const STATS_H = 96;
+/** «Handicap pe stand»: the line under the table that explains the Cantitate pill, when a stand has one. */
+const HANDICAP_NOTE_H = 36;
+/** The pill «30% · 18.700» (nano, bold, its own padding) the Cantitate column must fit. */
+const HANDICAP_CHAR = 6.5;
+const HANDICAP_PAD = 28;
 /** Sponsors: an 8:5 logo grid inside the minimum width (up to 50 sponsors, ./sponsorGrid.ts), 16 above and below. */
 const SPONSOR_GAP = 16;
 const SPONSORS_PAD_X = 24;
@@ -81,6 +86,17 @@ const F_GROUP = 24;
 const F_SUB = 26;
 const F_BAND = 28;
 
+const handicapLen = (v: unknown): number => {
+  const h = (v as { handicap?: { percent: number; realQuantity: string } } | null)?.handicap;
+  return h ? `${h.percent}% · ${h.realQuantity}`.length : 0;
+};
+
+/** Whether any row of a plain table carries a stand handicap (the pill and the note under the table). */
+export function hasHandicap(model: RankingImageModel): boolean {
+  const t = model.table;
+  return t.kind === 'table' && t.rows.some(r => t.columns.some(c => handicapLen(r[c.key]) > 0));
+}
+
 const textLen = (v: unknown): number => {
   if (v == null) return 0;
   if (typeof v === 'object' && 'weight' in (v as Record<string, unknown>)) return String((v as { weight: unknown }).weight ?? '').length;
@@ -95,7 +111,8 @@ export function columnWidths(columns: readonly ImageColumn[], rows: readonly Ima
     if (c.dynamic) return Math.min(Math.max(longest * DYN_CHAR + DYN_PAD, c.dynamic.min), c.dynamic.max);
     if (i === 0) return FIRST_W;
     if (c.key === 'participant') return PARTICIPANT_W;
-    return CELL_W;
+    const pill = rows.reduce((m, r) => Math.max(m, handicapLen(r[c.key])), 0);
+    return pill > 0 ? Math.max(CELL_W, Math.ceil(pill * HANDICAP_CHAR) + HANDICAP_PAD) : CELL_W;
   });
 }
 
@@ -162,6 +179,7 @@ export function sheetSize(model: RankingImageModel, sponsorCount: number): { wid
     HEADER_BLOCK +
     (model.title ? TITLE_H : 0) +
     table.height +
+    (hasHandicap(model) ? HANDICAP_NOTE_H : 0) +
     STATS_GAP +
     STATS_H +
     sponsorsHeight(sponsorCount) +
@@ -197,7 +215,7 @@ export function sheetGeometry(model: RankingImageModel, sponsorCount: number): S
   const headerY = PAD + HEADER_MARGIN;
   const titleY = headerY + HEADER_BLOCK + HEADER_MARGIN;
   const tableY = titleY + (model.title ? TITLE_H : 0);
-  const statsY = tableY + table.height + STATS_GAP;
+  const statsY = tableY + table.height + (hasHandicap(model) ? HANDICAP_NOTE_H : 0) + STATS_GAP;
   return {
     width,
     height,
@@ -526,6 +544,8 @@ function GenericTable({ columns, rows, ctx }: { columns: ImageColumn[]; rows: Im
                     backgroundColor: bg,
                     ...(isText ? { justifyContent: 'flex-start' } : {}),
                     ...(ci === 0 ? { borderLeft: `${u(4)}px solid ${sector}` } : {}),
+                    // The kg moves up to leave the handicap pill its own line.
+                    ...(cell.handicap ? { paddingBottom: u(14) } : {}),
                   }}
                 >
                   {greyed ? null : (
@@ -543,9 +563,21 @@ function GenericTable({ columns, rows, ctx }: { columns: ImageColumn[]; rows: Im
                     </Txt>
                   )}
                   {cell.handicap ? (
-                    // «Handicap pe stand»: percent · real kg under the counted kg, like the SPLIT tag.
-                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: u(1), display: 'flex', justifyContent: 'center', ...font(type.nano), color }}>
-                      {`${cell.handicap.percent}% · ${cell.handicap.realQuantity}`}
+                    // «Handicap pe stand»: a white pill «percent · real kg» under the counted kg (the app's look).
+                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: u(3), display: 'flex', justifyContent: 'center' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          padding: `0 ${u(6)}px`,
+                          borderRadius: u(999),
+                          backgroundColor: withAlpha(tokens.surface, 0.85),
+                          ...font(type.nano),
+                          fontWeight: 700,
+                          color: tokens.accentInk,
+                        }}
+                      >
+                        {`${cell.handicap.percent}% · ${cell.handicap.realQuantity}`}
+                      </div>
                     </div>
                   ) : null}
                   {cell.isSplit ? (
@@ -1000,6 +1032,11 @@ export function RankingSheet({
           <FeederLeg sections={t.sections} nameTitle={t.nameTitle} ctx={ctx} />
         )}
       </div>
+      {hasHandicap(model) ? (
+        <div style={{ display: 'flex', justifyContent: 'center', height: u(HANDICAP_NOTE_H), alignItems: 'flex-end', ...font(tokens.type.caption), color: tokens.muted }}>
+          Handicap pe stand: la Cantitate contează doar procentul arătat din kg prinse («30% · 18.700» = 30% din 18,7 kg).
+        </div>
+      ) : null}
       <Stats model={model} ctx={ctx} />
       {sponsors.length > 0 ? (
         <SponsorRows sponsors={sponsors} background={tokens.surface} />

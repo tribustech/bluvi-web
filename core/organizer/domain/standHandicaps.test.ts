@@ -7,6 +7,7 @@ import {
   setStandHandicap,
   standHandicap,
   standHandicapGroups,
+  standHandicapOf,
   supportsStandHandicap,
 } from './standHandicaps';
 
@@ -54,5 +55,15 @@ describe('standHandicaps', () => {
     for (const t of ['quality', 'calitateCalitate', 'bestOf', 'bestOfTiers', 'nationalChampionship', 'fipsed', 'feederRounds', null]) {
       expect(supportsStandHandicap(t)).toBe(false);
     }
+  });
+
+  it('standHandicapOf reads the pressed row and splits out a kg penalty', () => {
+    const rankings = [
+      { standId: 16, quantity: 4.61, realQuantity: 18.7, handicapPercent: 30 },
+      { standId: 14, quantity: 6.4 },
+    ];
+    expect(standHandicapOf(rankings, '16')).toEqual({ percent: 30, realQuantity: 18.7, quantity: 4.61, penaltyKg: 1 });
+    expect(standHandicapOf(rankings, 14)).toBeUndefined();
+    expect(standHandicapOf(undefined, 14)).toBeUndefined();
   });
 });

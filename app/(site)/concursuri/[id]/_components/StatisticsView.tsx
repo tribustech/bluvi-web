@@ -902,9 +902,11 @@ function sectorTotals(rankings: RankingResponse | undefined): { name: string; va
   for (const r of rankings.rankings as {
     sectorName: string;
     quantity: number;
+    realQuantity?: number;
   }[]) {
     if (typeof r.quantity !== 'number') return [];
-    bySector.set(r.sectorName, (bySector.get(r.sectorName) ?? 0) + r.quantity);
+    // Real kg caught (fish CompetitionSectorChart): a stand handicap only changes what counts for the ranking.
+    bySector.set(r.sectorName, (bySector.get(r.sectorName) ?? 0) + (r.realQuantity ?? r.quantity));
   }
   return [...bySector.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => a.name.localeCompare(b.name));
 }
