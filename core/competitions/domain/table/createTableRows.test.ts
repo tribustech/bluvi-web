@@ -6,6 +6,7 @@ import {
   createBestOfRow,
   createBestNRow,
   createBestOfTiersRow,
+  quantityCell,
 } from './createTableRows';
 import type {
   BaseStandRanking,
@@ -189,5 +190,17 @@ describe('biggest catch flag on the catch cell', () => {
   it('another stand is not flagged', () => {
     const row = createQualityRow(ranking(7), 3, sectorColors, { isWinner: false, biggestStandId: '42', biggestWeight: 2.5 });
     expect(row.catch1).toBe('2.500');
+  });
+});
+
+describe('quantityCell («handicap pe stand»)', () => {
+  it('stays a plain string without a handicap', () => {
+    expect(quantityCell({ quantity: 4 })).toBe('4.000');
+  });
+  it('carries the percent and the real kg on a handicapped stand', () => {
+    expect(quantityCell({ quantity: 3, handicapPercent: 30, realQuantity: 10 })).toEqual({
+      weight: '3.000',
+      handicap: { percent: 30, realQuantity: '10.000' },
+    });
   });
 });

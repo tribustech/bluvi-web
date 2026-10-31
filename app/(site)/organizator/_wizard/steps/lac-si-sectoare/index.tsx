@@ -16,6 +16,7 @@ import { exceedsStands, keepAllocations, lakePhoto, type SectorConfig } from './
 import { SectorBuilder } from './SectorBuilder';
 import { SelectedLakeCard } from './SelectedLakeCard';
 import { clearStandGrids } from '@/core/organizer/domain/standFishNumbers';
+import { clearStandHandicaps } from '@/core/organizer/domain/standHandicaps';
 
 /**
  * Step «Lac și sectoare» (parity organizer.step-lake-sectors; fish
@@ -47,10 +48,10 @@ export function StepLacSiSectoare() {
 
   const pick = (lake: LakeCard) => {
     setPicked(lake);
-    // Old allocations (and stand grids) name the previous lake's stands.
+    // Old allocations (and stand grids, handicaps) name the previous lake's stands.
     if (values.lake && values.lake !== lake.documentId) {
       w.setValue('standAllocations', {});
-      w.setValue('sectors', (values.sectors ?? []).map(clearStandGrids));
+      w.setValue('sectors', (values.sectors ?? []).map(s => clearStandHandicaps(clearStandGrids(s))));
     }
     w.setValue('lake', lake.documentId, { autoSave: 'debounced' });
   };

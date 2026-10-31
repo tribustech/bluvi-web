@@ -423,6 +423,11 @@ screens:
         fish_ref: components/competition/CompetitionRanking.tsx:1841-1856
         status: passing
         web_note: "Feeder rows carry their registration (data-registration) and open the angler stats for that entrant (rowPress.ts); e2e concurs-clasamente.spec.ts."
+      - id: competition-page.clasament.c34
+        text: "„Handicap pe stand” (quantity, quantityQuality, qualityQuantity, calitateCantitateCMMC): a handicapped stand's Cantitate cell shows the counted kg with „30% · 18,700” (percent · real kg) under it, and one line over the table explains it."
+        fish_ref: helpers/table/createTableRows.ts quantityCell; components/ranking-table/RankingTable.tsx; components/competition/CompetitionRanking.tsx (stand-handicap-legend)
+        status: passing
+        web_note: "core quantityCell → readCell().handicap; MobileRanking content + FishCell.subLine (the column widens to fit), RankingView caption, PNG sheet. Checked against the local CMS (B16 at 30%)."
     mobile_only: false
     status: proposed
     e2e: tests/e2e/concurs.spec.ts tests/e2e/concurs-clasament-tabel.spec.ts tests/e2e/concurs-clasamente.spec.ts
@@ -1093,6 +1098,11 @@ screens:
         fish_ref: components/competition/StandGridInfo.tsx
         status: passing
         web_note: "InfoTab StandGridSection (standGridGroups, core/organizer/domain/standFishNumbers.ts). e2e organizator-standuri-valorice-real.spec.ts (Informații after the edit)."
+      - id: competition-page.informatii.c14
+        text: "„Handicap pe stand” (only when a sector sets one): the caption „Din cantitatea acestor standuri intră în clasament doar procentul arătat. Restul standurilor contează 100%.”, then per sector its badge and the handicapped stands grouped by percent, lowest first («30% A5, A9»)."
+        fish_ref: components/competition/StandHandicapInfo.tsx
+        status: passing
+        web_note: "InfoTab StandHandicapSection (standHandicapGroups, core/organizer/domain/standHandicaps.ts). e2e organizator-handicap-pe-stand-real.spec.ts (Informații after the edit)."
     mobile_only: false
     status: passing
     e2e: tests/e2e/concurs-tabs.spec.ts

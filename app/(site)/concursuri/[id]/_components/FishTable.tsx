@@ -43,6 +43,9 @@ const PARTICIPANT_CELL_WIDTH = 120;
 const DYNAMIC_WIDTH_PADDING = 40;
 const DYNAMIC_WIDTH_CHAR = 6;
 const STAND_CHAR_WIDTH = 7;
+// A cell's micro second line (FishCell.subLine): ~6px a character at t-micro, plus the cell's padding.
+const SUB_LINE_CHAR = 6;
+const SUB_LINE_PADDING = 20;
 const STAND_CELL_PADDING = 16;
 const STAND_MIN_WIDTH = 60;
 const STAND_MAX_WIDTH = 140;
@@ -91,6 +94,8 @@ export type FishCell = {
   lead?: ReactNode;
   /** The participant cell: a row header for the table's semantics. */
   rowHeader?: boolean;
+  /** «Handicap pe stand»: the micro second line under the kg («30% · 18,700»), which the column must fit. */
+  subLine?: string;
   attrs?: Record<string, string | undefined>;
 };
 
@@ -213,8 +218,11 @@ export function FishTable({
         const measured = sizeRows ?? rows;
         const values = measured.map(r => (i === 0 ? r.stand : (r.cells[i - 1]?.measure ?? '')));
         if (i === 0 && col.key === 'position' && col.width == null) return wide ? wideStandWidth(col, values) : standWidth(col, values);
-        if (wide) return wideColumnWidth(col, values, i > 0 && measured.some(r => r.cells[i - 1]?.lead != null));
-        return columnWidth(col, values);
+        const base = wide
+          ? wideColumnWidth(col, values, i > 0 && measured.some(r => r.cells[i - 1]?.lead != null))
+          : columnWidth(col, values);
+        const subLine = Math.max(0, ...measured.map(r => (i === 0 ? 0 : (r.cells[i - 1]?.subLine?.length ?? 0))));
+        return subLine === 0 ? base : Math.max(base, Math.ceil(subLine * SUB_LINE_CHAR) + SUB_LINE_PADDING);
       }),
     [columns, rows, sizeRows, wide],
   );

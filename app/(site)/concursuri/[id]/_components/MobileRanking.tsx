@@ -5,6 +5,7 @@ import {
   cellNumber,
   formatRankingPlain,
   formatRankingWeight,
+  formatHandicapLine,
   isNoCatch,
   mainValueKey,
   parseStand,
@@ -152,6 +153,12 @@ export function standardFishRows(
           {cell.isTierWin && <span className="sr-only">Loc câștigat la: </span>}
           {cell.inTop && !cell.isBiggest && <span className="sr-only">Intră în clasament: </span>}
           {weight ? (noCatch ? '–' : formatRankingWeight(raw)) : formatRankingPlain(raw)}
+          {cell.handicap && !noCatch ? (
+            <span className="block t-micro font-normal whitespace-nowrap opacity-80" data-testid="handicap-line">
+              <span className="sr-only">Handicap: </span>
+              {formatHandicapLine(cell.handicap)}
+            </span>
+          ) : null}
         </>
       );
       return {
@@ -159,6 +166,7 @@ export function standardFishRows(
         fill,
         content,
         split: cell.isSplit,
+        subLine: cell.handicap && !noCatch ? formatHandicapLine(cell.handicap) : undefined,
         attrs: {
           'data-biggest': cell.isBiggest ? '' : undefined,
           'data-tier-win': cell.isTierWin ? '' : undefined,

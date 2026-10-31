@@ -845,6 +845,11 @@ screens:
         fish_ref: components/StandGridEditor.tsx
         status: passing
         web_note: "steps/standuri/StandGridEditor.tsx + core/organizer/domain/standFishNumbers.ts (twin of fish helpers/standFishNumbers.ts); payload draftMeta.sectors[].standFishNumbers (null when none). e2e organizator-standuri-valorice-real.spec.ts (REAL writes on the local CMS: publish, edit +/−, switch off → null)."
+      - id: organizer.step-stand-allocation.c11
+        text: "Kg-based ranking types (quantity, quantityQuality, qualityQuantity, calitateCantitateCMMC) show a „Handicap pe stand” card under the allocator for the selected sector: a switch (off by default; on when the sector already has handicaps), then every allocated stand with a − / „N%” / + stepper in 10% steps from 100%; only handicapped stands are kept, a stand that leaves the sector drops its handicap, turning the switch off with values asks „Renunți la handicap?”; another ranking type sends none."
+        fish_ref: components/StandHandicapEditor.tsx
+        status: passing
+        web_note: "steps/standuri/StandHandicapEditor.tsx + core/organizer/domain/standHandicaps.ts (twin of fish helpers/standHandicaps.ts); payload draftMeta.sectors[].standHandicaps (null when none). e2e organizator-handicap-pe-stand-real.spec.ts (REAL writes on the local CMS: publish, edit −/+, back to 100% removes)."
     mobile_only: false
     status: passing
     e2e: tests/e2e/organizator-pas-standuri.spec.ts

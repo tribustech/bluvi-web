@@ -97,6 +97,12 @@ export function RankingView({
 
   return (
     <>
+      {table.rows.some(row => readCell(row.quantity).handicap) ? (
+        // fish CompetitionRanking: one line over the table when a stand has a handicap.
+        <p className="t-caption text-muted" data-testid="stand-handicap-legend">
+          Handicap pe stand: la Cantitate vezi kg luate în calcul, iar dedesubt procentul și kg reale.
+        </p>
+      ) : null}
       {/* fish: the table 20px under the view chips (marginBottom 12 + the ScrollView's gap 8). */}
       <div className="mt-1 md:hidden">
         {/* Every Sortare pick (the bar) starts the table over, scrolled back to its left edge. */}

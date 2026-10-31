@@ -22,8 +22,16 @@ export type WeighingStatus = z.infer<typeof weighingStatusSchema>;
 
 /** fish `DraftMeta` — the wizard state the CMS keeps on a draft. */
 export const draftMetaSchema = z.object({
-  // standFishNumbers («standuri valorice»): { [stand documentId]: N }; an older CMS / draft has none.
-  sectors: z.array(z.object({ name: z.string(), minFishNumber: z.number(), standFishNumbers: z.record(z.string(), z.number()).nullish() })),
+  // standFishNumbers («standuri valorice»): { [stand documentId]: N }; standHandicaps («handicap pe stand»):
+  // { [stand documentId]: percent }. An older CMS / draft has neither.
+  sectors: z.array(
+    z.object({
+      name: z.string(),
+      minFishNumber: z.number(),
+      standFishNumbers: z.record(z.string(), z.number()).nullish(),
+      standHandicaps: z.record(z.string(), z.number()).nullish(),
+    })
+  ),
   standAllocations: z.record(z.string(), z.array(z.string())),
   sponsorIds: z.array(z.string()),
   fishSpeciesIds: z.array(z.string()),
@@ -128,6 +136,7 @@ export const organizerCompetitionSchema = z.object({
         name: z.string(),
         minFishNumber: z.number().nullish(),
         standFishNumbers: z.record(z.string(), z.number()).nullish(),
+        standHandicaps: z.record(z.string(), z.number()).nullish(),
         stands: z.array(standSchema).optional(),
       })
     )

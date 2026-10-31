@@ -20,6 +20,7 @@ import { competitionDuration, timeBadge } from './dates';
 import { CompetitionBanner, competitionFacts, ContactSection, FactsAside, Meter, normalizeRichLinks, SpeciesList } from './infoParts';
 import { ClampedRichText } from './tabParts';
 import { standGridGroups } from '@/core/organizer/domain/standFishNumbers';
+import { standHandicapGroups } from '@/core/organizer/domain/standHandicaps';
 import { SectorBadge } from '@/app/(site)/organizator/_wizard/steps/lac-si-sectoare/SectorBuilder';
 
 /*
@@ -77,6 +78,8 @@ export function InfoTab({ competition }: { competition: CompetitionWithMyStatus 
       ) : null}
 
       <StandGridSection competition={c} />
+
+      <StandHandicapSection competition={c} />
 
       {c.reward?.length ? (
         <DetailSection id="premii" title="Premii" className={PHONE_SECTION}>
@@ -252,6 +255,42 @@ function StandGridSection({ competition: c }: { competition: CompetitionWithMySt
                     <dt className="t-body-strong whitespace-nowrap text-accent-ink tabular-nums">
                       {group.fishNumber} {group.fishNumber === 1 ? 'pește' : 'pești'}
                     </dt>
+                    <dd className="t-body text-ink">{group.standNames.map(name => `${sector.name}${name}`).join(', ')}</dd>
+                  </div>
+                ))}
+              </dl>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </DetailSection>
+  );
+}
+
+/**
+ * «Handicap pe stand» (fish components/competition/StandHandicapInfo.tsx): the stands whose kg count
+ * only in part, grouped by percent, for sectors that set any.
+ */
+function StandHandicapSection({ competition: c }: { competition: CompetitionWithMyStatus }) {
+  const rows = c.sectors
+    .map(sector => ({ sector, groups: standHandicapGroups(sector) }))
+    .filter(row => row.groups.length > 0)
+    .sort((a, b) => a.sector.name.localeCompare(b.sector.name));
+  if (rows.length === 0) return null;
+  return (
+    <DetailSection id="handicap-pe-stand" title="Handicap pe stand" className={PHONE_SECTION}>
+      <div className="flex flex-col gap-3" data-testid="stand-handicap-info">
+        <p className="t-caption text-muted">
+          Din cantitatea acestor standuri intră în clasament doar procentul arătat. Restul standurilor contează 100%.
+        </p>
+        <ul className="flex flex-col gap-3">
+          {rows.map(({ sector, groups }) => (
+            <li key={sector.name} className="flex items-start gap-3">
+              <SectorBadge name={sector.name} size="sm" />
+              <dl className="grid flex-1 grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                {groups.map(group => (
+                  <div key={group.percent} className="contents">
+                    <dt className="t-body-strong whitespace-nowrap text-accent-ink tabular-nums">{group.percent}%</dt>
                     <dd className="t-body text-ink">{group.standNames.map(name => `${sector.name}${name}`).join(', ')}</dd>
                   </div>
                 ))}

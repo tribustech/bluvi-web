@@ -64,6 +64,11 @@ export function formatRankingWeight(value: unknown): string {
   return n === null ? '–' : formatDecimal(n, 3, 3);
 }
 
+/** «Handicap pe stand»: the Cantitate cell's second line, «30% · 18,700» (percent · real kg). */
+export function formatHandicapLine(handicap: { percent: number; realQuantity: string }): string {
+  return `${handicap.percent}% · ${formatRankingWeight(handicap.realQuantity)}`;
+}
+
 /** Points and places: as the builders give them (points at most one decimal), decimal comma. */
 export function formatRankingPlain(value: unknown): string {
   const n = cellNumber(value);

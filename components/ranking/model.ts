@@ -29,6 +29,7 @@ export function readCell(value: unknown): {
   isTier: boolean;
   isTierWin: boolean;
   inTop: boolean;
+  handicap: { percent: number; realQuantity: string } | null;
 } {
   if (value !== null && typeof value === 'object' && 'weight' in value) {
     const c = value as Exclude<CatchCell, string>;
@@ -40,6 +41,7 @@ export function readCell(value: unknown): {
       isTier: !!c.isTier,
       isTierWin: !!c.isTierWin,
       inTop: !!c.inTop,
+      handicap: c.handicap ?? null,
     };
   }
   return {
@@ -50,6 +52,7 @@ export function readCell(value: unknown): {
     isTier: false,
     isTierWin: false,
     inTop: false,
+    handicap: null,
   };
 }
 

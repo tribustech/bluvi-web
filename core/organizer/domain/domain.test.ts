@@ -123,7 +123,7 @@ describe('create-competition wizard', () => {
       registrationDeadline: '2026-05-08T14:00:00.000Z',
       description: [{ type: 'paragraph', children: [{ type: 'text', text: 'Hi' }] }],
       draftMeta: {
-        sectors: [{ name: 'A', minFishNumber: 1, standFishNumbers: null }],
+        sectors: [{ name: 'A', minFishNumber: 1, standFishNumbers: null, standHandicaps: null }],
         standAllocations: { A: ['s1', 's2'] },
         sponsorIds: [],
         fishSpeciesIds: ['f1'],
@@ -146,9 +146,32 @@ describe('create-competition wizard', () => {
       fishSpeciesIds: [],
     });
     expect((payload.draftMeta as { sectors: unknown }).sectors).toEqual([
-      { name: 'A', minFishNumber: 4, standFishNumbers: { s1: 8, s2: 2 } },
-      { name: 'B', minFishNumber: 3, standFishNumbers: null },
+      { name: 'A', minFishNumber: 4, standFishNumbers: { s1: 8, s2: 2 }, standHandicaps: null },
+      { name: 'B', minFishNumber: 3, standFishNumbers: null, standHandicaps: null },
     ]);
+  });
+
+  it('sends stand handicaps of allocated stands only, and none for a type without kg totals', () => {
+    const values = {
+      name: 'Cupa',
+      competitionType: 'single',
+      rankingType: 'quantity',
+      sectors: [{ name: 'A', minFishNumber: 1, standHandicaps: { s1: 30, gone: 50 } }],
+      standAllocations: { A: ['s1', 's2'] },
+      sponsorIds: [],
+      fishSpeciesIds: [],
+    } as const;
+    expect((buildCompetitionPayload(values as never).draftMeta as { sectors: unknown }).sectors).toEqual([
+      { name: 'A', minFishNumber: 1, standFishNumbers: null, standHandicaps: { s1: 30 } },
+    ]);
+    expect(
+      (buildCompetitionPayload({ ...values, rankingType: 'quality' } as never).draftMeta as { sectors: unknown }).sectors
+    ).toEqual([{ name: 'A', minFishNumber: 1, standFishNumbers: null, standHandicaps: null }]);
+    expect(
+      mapCompetitionToFormData({
+        sectors: [{ name: 'A', minFishNumber: 1, standHandicaps: { s1: 30 }, stands: [{ documentId: 's1' }] }],
+      } as never).sectors
+    ).toEqual([{ name: 'A', minFishNumber: 1, standHandicaps: { s1: 30 } }]);
   });
 
   it('round-trips stand grids through a published competition and a draft', () => {

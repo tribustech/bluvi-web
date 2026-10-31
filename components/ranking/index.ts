@@ -30,6 +30,7 @@ export {
   compareByStand,
   formatRankingPlain,
   formatRankingWeight,
+  formatHandicapLine,
   isPodium,
   mainValueKey,
   penaltyMarker,

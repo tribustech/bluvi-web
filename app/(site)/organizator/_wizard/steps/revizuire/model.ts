@@ -20,6 +20,7 @@ import {
 import { legLabel } from '../clasament/model';
 import { formatDay, formatTime } from '../detalii/format';
 import { pruneStandGrids, valuedStandCount } from '@/core/organizer/domain/standFishNumbers';
+import { handicappedStandCount, pruneStandHandicaps, supportsStandHandicap } from '@/core/organizer/domain/standHandicaps';
 
 /*
  * Step «Revizuire» as data (parity organizer.step-review c1–c10; fish
@@ -310,7 +311,14 @@ export function buildReview({ values, lakeName }: ReviewInput): ReviewModel {
     if (minFish && s.minFishNumber < 1) return { ...base, value: null, error: `Min pești invalid (${s.minFishNumber})` };
     const valued = valuedStandCount(pruneStandGrids([s], values.standAllocations ?? {})[0]);
     const valuedTail = valued > 0 ? `, ${formatCount(valued, 'stand valoric', 'standuri valorice')}` : '';
-    return { ...base, value: minFish ? `${stands}, min ${formatCount(s.minFishNumber, 'pește', 'pești')}${valuedTail}` : stands };
+    const handicapped = supportsStandHandicap(values.rankingType)
+      ? handicappedStandCount(pruneStandHandicaps([s], values.standAllocations ?? {})[0])
+      : 0;
+    const handicapTail = handicapped > 0 ? `, ${formatCount(handicapped, 'stand cu handicap', 'standuri cu handicap')}` : '';
+    return {
+      ...base,
+      value: minFish ? `${stands}, min ${formatCount(s.minFishNumber, 'pește', 'pești')}${valuedTail}${handicapTail}` : `${stands}${handicapTail}`,
+    };
   });
 
   // A schema error no row shows (teamParticipants «11» on an individual competition, bestOfFishCount

@@ -45,6 +45,8 @@ export type CatchCell =
       isTier?: boolean;
       /** True on the single "Best N" cell where this competitor won their place. */
       isTierWin?: boolean;
+      /** «Handicap pe stand» on the Cantitate cell: the percent that counts and the real kg ("18.700"). */
+      handicap?: { percent: number; realQuantity: string };
     };
 
 /**
@@ -54,6 +56,16 @@ export type CatchCell =
  */
 const kg = (n: number | null | undefined): string =>
   typeof n === 'number' && !Number.isNaN(n) ? n.toFixed(3) : '-';
+
+/**
+ * Cantitate cell (fish quantityCell). A handicapped stand («handicap pe stand») carries the percent
+ * and the real kg next to the counted kg; every other stand gets the plain string as before.
+ */
+export const quantityCell = (ranking: { quantity: number; handicapPercent?: number; realQuantity?: number }): CatchCell => {
+  const weight = kg(ranking.quantity);
+  if (typeof ranking.handicapPercent !== 'number' || typeof ranking.realQuantity !== 'number') return weight;
+  return { weight, handicap: { percent: ranking.handicapPercent, realQuantity: kg(ranking.realQuantity) } };
+};
 
 /**
  * Build the C.M.M.C / biggestFish cell. Emits the object form with `isBiggest: true`
@@ -86,7 +98,7 @@ export type BaseRowType = {
 
 export type QuantityRowType = BaseRowType & {
   biggestFish: number | string;
-  quantity: string;
+  quantity: CatchCell;
   catchCount: number;
   quantityPoints: number;
   totalPoints: number;
@@ -103,7 +115,7 @@ export type QualityRowType = BaseRowType & {
 
 export type QualityQuantityRowType = BaseRowType & {
   quality: string;
-  quantity: string;
+  quantity: CatchCell;
   catchCount: number;
   qualityPoints: number;
   quantityPoints: number;
@@ -176,7 +188,7 @@ export const createQuantityRow = (
 ): QuantityRowType => ({
   ...createBaseRow(ranking, sectorColors, context),
   biggestFish: ranking.biggestFish.toFixed(3) || '-',
-  quantity: ranking.quantity.toFixed(3),
+  quantity: quantityCell(ranking),
   catchCount: ranking.catchCount || 0,
   quantityPoints: parseFloat(ranking.quantityPoints.toFixed(3)),
   totalPoints: parseFloat(ranking.quantityPoints.toFixed(3)),
@@ -208,7 +220,7 @@ export const createQualityQuantityRow = (
   ...createBaseRow(ranking, sectorColors, context),
   ...createCatchesEntries(ranking, nrOfCatchesColumns, context),
   quality: kg(ranking.quality),
-  quantity: ranking.quantity.toFixed(3),
+  quantity: quantityCell(ranking),
   catchCount: ranking.catchCount || 0,
   qualityPoints: parseFloat(ranking.qualityPoints.toFixed(3)),
   quantityPoints: parseFloat(ranking.quantityPoints.toFixed(3)),
@@ -290,7 +302,7 @@ export const createCalitateCalitateRow = (
 export type QualityQuantityCMMCRowType = BaseRowType & {
   quality1: string;
   biggestFish: CatchCell;
-  quantity: string;
+  quantity: CatchCell;
   catchCount: number;
   calitatePoints: number;
   cmmcPoints: number;
@@ -310,7 +322,7 @@ export const createQualityQuantityCMMCRow = (
   ...createCatchesEntries(ranking, nrOfCatchesColumns, context),
   quality1: kg(ranking.quality1),
   biggestFish: biggestFishCell(ranking, context),
-  quantity: kg(ranking.quantity),
+  quantity: quantityCell(ranking),
   catchCount: ranking.catchCount || 0,
   calitatePoints: ranking.calitatePoints,
   cmmcPoints: ranking.cmmcPoints,

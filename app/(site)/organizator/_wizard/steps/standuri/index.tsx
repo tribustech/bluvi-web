@@ -12,6 +12,8 @@ import { emptyReason, EMPTY_COPY, refusedMessage, sortStands, toggleStand } from
 import { PerformanceExplanation } from './PerformanceExplanation';
 import { StandAllocator } from './StandAllocator';
 import { StandGridEditor } from './StandGridEditor';
+import { StandHandicapEditor } from './StandHandicapEditor';
+import { pruneStandHandicaps, supportsStandHandicap } from '@/core/organizer/domain/standHandicaps';
 import { requiresMinFishNumber } from '@/core/organizer/domain/rankingConfig';
 import { pruneStandGrids } from '@/core/organizer/domain/standFishNumbers';
 import type { SectorConfig } from '../lac-si-sectoare/model';
@@ -47,8 +49,8 @@ export function StepStanduri() {
     if (r.kind === 'refused') toast(refusedMessage(r.sector), 'danger');
     else if (r.kind === 'changed') {
       w.setValue('standAllocations', r.allocations);
-      // A stand that leaves the sector takes its own grid with it.
-      w.setValue('sectors', pruneStandGrids(values.sectors ?? [], r.allocations));
+      // A stand that leaves the sector takes its own grid and handicap with it.
+      w.setValue('sectors', pruneStandHandicaps(pruneStandGrids(values.sectors ?? [], r.allocations), r.allocations));
     }
   };
 
@@ -116,6 +118,15 @@ export function StepStanduri() {
       </T4Section>
       {requiresMinFishNumber(values.rankingType) && sectorConfig && !reason && !pending ? (
         <StandGridEditor key={sectorConfig.name} sector={sectorConfig} stands={sectorStands} onChange={updateSector} disabled={w.busy} />
+      ) : null}
+      {supportsStandHandicap(values.rankingType) && sectorConfig && !reason && !pending ? (
+        <StandHandicapEditor
+          key={`handicap-${sectorConfig.name}`}
+          sector={sectorConfig}
+          stands={sectorStands}
+          onChange={updateSector}
+          disabled={w.busy}
+        />
       ) : null}
       <PerformanceExplanation open={explainOpen} onClose={() => setExplainOpen(false)} />
     </div>

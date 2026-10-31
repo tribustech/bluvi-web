@@ -542,6 +542,12 @@ function GenericTable({ columns, rows, ctx }: { columns: ImageColumn[]; rows: Im
                       {text}
                     </Txt>
                   )}
+                  {cell.handicap ? (
+                    // «Handicap pe stand»: percent · real kg under the counted kg, like the SPLIT tag.
+                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: u(1), display: 'flex', justifyContent: 'center', ...font(type.nano), color }}>
+                      {`${cell.handicap.percent}% · ${cell.handicap.realQuantity}`}
+                    </div>
+                  ) : null}
                   {cell.isSplit ? (
                     <div style={{ position: 'absolute', right: u(2), bottom: u(1), display: 'flex', ...font(type.nano), color }}>SPLIT</div>
                   ) : null}

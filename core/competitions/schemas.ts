@@ -118,6 +118,8 @@ export const sectorSchema = z.object({
   minFishNumber: z.number().nullable(),
   // «Standuri valorice»: { [stand documentId]: N }; absent on an older CMS.
   standFishNumbers: z.record(z.string(), z.number()).nullish(),
+  // «Handicap pe stand»: { [stand documentId]: percent 1..99 }; absent on an older CMS.
+  standHandicaps: z.record(z.string(), z.number()).nullish(),
   stands: z.array(standRefSchema),
 });
 export type Sector = z.infer<typeof sectorSchema>;
@@ -560,6 +562,9 @@ export type BaseStandRanking = z.infer<typeof baseStandRankingSchema>;
 export const quantityStandRankingSchema = z.object({
   ...baseStandRankingShape,
   quantity: z.number(),
+  // «Handicap pe stand»: only on handicapped stands; `quantity` is already the counted kg.
+  handicapPercent: z.number().optional(),
+  realQuantity: z.number().optional(),
   quantityPoints: z.number(),
 });
 export type QuantityStandRanking = z.infer<typeof quantityStandRankingSchema>;
@@ -579,6 +584,9 @@ export const qualityQuantityStandRankingSchema = z.object({
   sectorMinNumberOfFish: z.number(),
   quality: z.number(),
   quantity: z.number(),
+  // «Handicap pe stand»: only on handicapped stands; `quantity` is already the counted kg.
+  handicapPercent: z.number().optional(),
+  realQuantity: z.number().optional(),
   qualityPoints: z.number(),
   quantityPoints: z.number(),
   catches: z.array(z.number()),
@@ -630,6 +638,9 @@ export const qualityQuantityCMMCStandRankingSchema = z.object({
   calitatePoints: z.number(),
   cmmcPoints: z.number(),
   quantity: z.number(),
+  // «Handicap pe stand»: only on handicapped stands; `quantity` is already the counted kg.
+  handicapPercent: z.number().optional(),
+  realQuantity: z.number().optional(),
   cantitatePoints: z.number(),
   totalPoints: z.number(),
   catches: z.array(z.number()),

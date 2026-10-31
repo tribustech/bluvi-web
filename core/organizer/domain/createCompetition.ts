@@ -2,6 +2,7 @@ import * as z from 'zod';
 import type { DraftCompetition, DraftMeta, OrganizerEditRiskCode } from '../schemas';
 import { htmlToStrapiBlocks, strapiBlocksToHtml } from './richText';
 import { pruneStandGrids } from './standFishNumbers';
+import { pruneStandHandicaps, supportsStandHandicap } from './standHandicaps';
 
 /* ------------------------------------------------------------------ */
 /* Wizard form — fish contexts/CreateCompetitionContext.tsx            */
@@ -60,6 +61,8 @@ export const createCompetitionSchema = z.object({
         minFishNumber: z.number(),
         // «Standuri valorice»: { [stand documentId]: N }, only stands that differ from the sector.
         standFishNumbers: z.record(z.string(), z.number()).optional(),
+        // «Handicap pe stand»: { [stand documentId]: percent 1..99 }, only handicapped stands.
+        standHandicaps: z.record(z.string(), z.number()).optional(),
       })
     )
     .optional(),
@@ -106,6 +109,7 @@ export type EditableCompetition = {
         name: string;
         minFishNumber?: number | null;
         standFishNumbers?: Record<string, number> | null;
+        standHandicaps?: Record<string, number> | null;
         stands?: { documentId?: string | null }[] | null;
       }[]
     | null;
@@ -119,6 +123,9 @@ export function mapCompetitionToFormData(competition: EditableCompetition | null
     minFishNumber: sector.minFishNumber ?? 1,
     ...(sector.standFishNumbers && Object.keys(sector.standFishNumbers).length > 0
       ? { standFishNumbers: sector.standFishNumbers }
+      : {}),
+    ...(sector.standHandicaps && Object.keys(sector.standHandicaps).length > 0
+      ? { standHandicaps: sector.standHandicaps }
       : {}),
   }));
 
@@ -183,9 +190,11 @@ export function mapDraftToFormData(draft: DraftCompetition): CreateCompetitionFo
     lake: draft.lake?.documentId || undefined,
     fishSpeciesIds: meta?.fishSpeciesIds || [],
     // A saved draft says null for a sector without stand grids; the form keeps the key only when set.
-    sectors: (meta?.sectors || []).map(({ standFishNumbers, ...sector }) =>
-      standFishNumbers ? { ...sector, standFishNumbers } : sector
-    ),
+    sectors: (meta?.sectors || []).map(({ standFishNumbers, standHandicaps, ...sector }) => ({
+      ...sector,
+      ...(standFishNumbers ? { standFishNumbers } : {}),
+      ...(standHandicaps ? { standHandicaps } : {}),
+    })),
     standAllocations: meta?.standAllocations || {},
     sponsorIds: meta?.sponsorIds || [],
   };
@@ -250,9 +259,11 @@ export function buildCompetitionPayload(values: CreateCompetitionFormData): Reco
   );
   const draftMeta: DraftMeta = {
     // Every sector says what its stand grids are (null = none), so an edit clears removed ones.
-    sectors: pruneStandGrids(sectors || [], cleanAllocations).map((sector) => ({
+    sectors: pruneStandHandicaps(pruneStandGrids(sectors || [], cleanAllocations), cleanAllocations).map((sector) => ({
       ...sector,
       standFishNumbers: sector.standFishNumbers ?? null,
+      // A ranking type without kg totals ignores handicaps; don't keep stale ones from a type switch.
+      standHandicaps: supportsStandHandicap(values.rankingType) ? sector.standHandicaps ?? null : null,
     })),
     standAllocations: cleanAllocations,
     sponsorIds: sponsorIds || [],

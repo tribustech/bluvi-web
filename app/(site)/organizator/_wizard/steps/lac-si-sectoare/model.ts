@@ -8,7 +8,12 @@ import { SECTOR_LETTERS } from '@/components/ranking/sector';
  * in model.test.ts.
  */
 
-export type SectorConfig = { name: string; minFishNumber: number; standFishNumbers?: Record<string, number> };
+export type SectorConfig = {
+  name: string;
+  minFishNumber: number;
+  standFishNumbers?: Record<string, number>;
+  standHandicaps?: Record<string, number>;
+};
 
 /* ------------------------------------------------------------------ */
 /* Lake picker — fish step-lake-sectors.tsx:63-98                      */
