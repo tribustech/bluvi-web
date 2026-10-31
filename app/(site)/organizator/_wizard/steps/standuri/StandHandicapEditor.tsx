@@ -61,6 +61,15 @@ export function StandHandicapEditor({ sector, stands, onChange, disabled = false
         <SettingsSwitch checked={enabled} onChange={toggle} disabled={disabled} labelledBy={titleId} describedBy={helperId} />
       </div>
 
+      {/* A worked example, so organizers see what the option does before turning it on. */}
+      <div className="flex flex-col gap-0.5 rounded-control bg-accent-tint px-3 py-2.5" data-testid="stand-handicap-example">
+        <p className="t-caption font-bold text-accent-ink">Exemplu</p>
+        <p className="t-caption text-ink-2">
+          Standul A3 are handicap 50% și prinde 20 kg. În clasament intră 10 kg, iar pescarul vede și kg prinse. Calitatea și peștele cel mai mare
+          nu se schimbă.
+        </p>
+      </div>
+
       {enabled ? (
         stands.length === 0 ? (
           <p className="t-caption text-muted">Alocă standuri sectorului {sector.name} ca să le setezi handicapul.</p>
